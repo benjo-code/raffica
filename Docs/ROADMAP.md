@@ -42,7 +42,7 @@ Goal: An empty but fully set up repo on which all further milestones build.
 
 **Tasks**
 - [ ] Create the spec (brainstorming): goal, scope, stack, subprojects; link it here and enter the first milestones
-- [ ] Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`
+- [x] Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`
 - [x] Fill in the project header of `CLAUDE.md` and `README.md`, remove the template section from the README
 - [ ] Stack-specific `.gitignore` (incl. `.env`) and `.gitattributes` additions
 - [ ] Project skeleton incl. test project
