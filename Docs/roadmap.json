@@ -15,7 +15,7 @@
           "goal": "An empty but fully set up repo on which all further milestones build.",
           "tasks": [
             { "text": "Create the spec (brainstorming): goal, scope, stack, subprojects; link it here and enter the first milestones", "done": false },
-            { "text": "Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`", "done": false },
+            { "text": "Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`", "done": true },
             { "text": "Fill in the project header of `CLAUDE.md` and `README.md`, remove the template section from the README", "done": true },
             { "text": "Stack-specific `.gitignore` (incl. `.env`) and `.gitattributes` additions", "done": false },
             { "text": "Project skeleton incl. test project", "done": false },
