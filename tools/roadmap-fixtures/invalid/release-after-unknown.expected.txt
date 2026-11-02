@@ -1,1 +1,0 @@
-releases[0].afterMilestone: Einen Milestone „9“ gibt es nicht

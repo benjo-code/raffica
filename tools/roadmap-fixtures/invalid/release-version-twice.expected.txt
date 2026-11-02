@@ -1,1 +1,0 @@
-releases[1].version: Die Version „0.1.0“ kommt mehrfach vor
