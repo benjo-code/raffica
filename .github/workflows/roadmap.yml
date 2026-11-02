@@ -30,10 +30,5 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # The fixtures belong to the template; a repository created from it may leave them out.
-      - name: Self-test of the generator
-        if: ${{ hashFiles('tools/roadmap-fixtures/**') != '' }}
-        run: dotnet run tools/roadmap.cs -- selftest
-
       - name: Check the roadmap
         run: dotnet run tools/roadmap.cs -- check

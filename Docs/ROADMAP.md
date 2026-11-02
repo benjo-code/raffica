@@ -1,63 +1,63 @@
-<!-- Generiert aus Docs/roadmap.json mit `dotnet run tools/roadmap.cs -- generate` – nicht von Hand ändern. -->
-# <Projektname> – Roadmap
+<!-- Generated from Docs/roadmap.json with `dotnet run tools/roadmap.cs -- generate` – do not edit by hand. -->
+# Raffica – Roadmap
 
-Gesamtfahrplan für das Projekt. Jeder Milestone ist so geschnitten, dass er in **einem** Plan und einer Umsetzungsrunde abgearbeitet werden kann.
+Overall roadmap of the project. Every milestone is sized so that it can be handled in **one** plan and one round of implementation.
 
-> **Diese Datei ist generiert.** Quelle ist [roadmap.json](roadmap.json) (Schema: [roadmap.schema.json](roadmap.schema.json)). Änderungen nur dort, danach `dotnet run tools/roadmap.cs -- generate`.
+> **This file is generated.** The source is [roadmap.json](roadmap.json) (schema: [roadmap.schema.json](roadmap.schema.json)). Change it only there, then run `dotnet run tools/roadmap.cs -- generate`.
 
-## Arbeitsweise
+## How we work
 
-1. **„Plane Milestone N“:** Claude Code liest diese Roadmap, die verlinkte Spec und den aktuellen Code-Stand und schreibt einen Plan nach `Docs/superpowers/plans/YYYY-MM-DD-milestone-NN-<thema>.md`. Der Plan wird beim Milestone verlinkt, Status → `🟡 geplant`.
-2. **Umsetzung:** Plan abarbeiten. Jede erledigte Aufgabe wird sofort abgehakt (`done: true` in `Docs/roadmap.json`).
-3. **Abschluss:** Alle Abnahmekriterien geprüft und abgehakt → Status `✅ fertig`, Datum eintragen.
-4. Scope-Änderungen während der Umsetzung werden unter „Scope-Änderungen“ festgehalten, nicht stillschweigend im Code.
+1. **"Plan milestone N":** Claude Code reads this roadmap, the linked spec and the current state of the code and writes a plan to `Docs/superpowers/plans/YYYY-MM-DD-milestone-NN-<topic>.md`. The plan is linked at the milestone, status → `🟡 planned`.
+2. **Implementation:** Work through the plan. Every finished task is ticked right away (`done: true` in `Docs/roadmap.json`).
+3. **Completion:** All acceptance criteria checked and ticked → status `✅ done`, enter the date.
+4. Scope changes during implementation are recorded under "Scope changes", not silently in the code.
 
-**Status-Legende:** `⬜ offen` · `🟡 geplant` · `🔵 in Arbeit` · `✅ fertig`
+**Status legend:** `⬜ open` · `🟡 planned` · `🔵 in progress` · `✅ done`
 
-**Regeln:**
-- Milestones grundsätzlich in Reihenfolge abarbeiten. Maßgeblich sind die Voraussetzungen beim jeweiligen Milestone.
-- Ein Milestone beginnt mit `Spec erstellen`, wenn für sein Teilprojekt noch keine Spec existiert. Die Spec entsteht per Brainstorming und wird unter `Docs/superpowers/specs/` abgelegt.
-- Aufgaben späterer Teilprojekte sind absichtlich grob gehalten und werden beim Schreiben der jeweiligen Spec präzisiert.
+**Rules:**
+- Work through the milestones in order as a rule. The prerequisites of the respective milestone are what counts.
+- A milestone starts with `Create spec` if its subproject has no spec yet. The spec is worked out by brainstorming and put under `Docs/superpowers/specs/`.
+- Tasks of later subprojects are deliberately kept rough and are made precise when the respective spec is written.
 
-## Übersicht
+## Overview
 
-| # | Milestone | Teilprojekt | Status | Plan | Fertig am |
+| # | Milestone | Subproject | Status | Plan | Done on |
 |---|---|---|---|---|---|
-| 0 | Repo-Grundgerüst & CI | 1 – <Name> | ⬜ offen | – | – |
+| 0 | Repo skeleton & CI | 1 – Foundation | ⬜ open | – | – |
 
-## Scope-Änderungen
+## Scope changes
 
-_Noch keine._
+_None yet._
 
 ---
 
-# Teilprojekt 1 – <Name>
+# Subproject 1 – Foundation
 
-**Spec:** noch nicht erstellt (wird in M0 erstellt)
+**Spec:** not written yet (created in M0)
 
-## Milestone 0 – Repo-Grundgerüst & CI
-**Status:** ⬜ offen · **Plan:** – · **Voraussetzungen:** keine
+## Milestone 0 – Repo skeleton & CI
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** none
 
-Ziel: Leeres, aber vollständig aufgesetztes Repo, auf dem alle weiteren Milestones aufbauen.
+Goal: An empty but fully set up repo on which all further milestones build.
 
-**Aufgaben**
-- [ ] Spec erstellen (Brainstorming): Ziel, Umfang, Stack, Teilprojekte; hier verlinken und die ersten Milestones eintragen
-- [ ] Repo-Einrichtung laut README erledigt: `dev` als Default-Branch, Merge-Optionen, Branch Protection für `main` und `dev`
-- [ ] Projekt-Kopf in `CLAUDE.md` und `README.md` ausfüllen, Template-Abschnitt aus der README entfernen
-- [ ] Stackspezifische `.gitignore` (inkl. `.env`) und `.gitattributes`-Ergänzungen (z. B. Unity: Git LFS für große Assets)
-- [ ] Projektgerüst inkl. Testprojekt
-- [ ] `.env.example` mit Platzhaltern, falls Secrets benötigt werden
-- [ ] CI (GitHub Actions): Build, Test und Format/Lint auf PRs nach `dev` und `main`; der Job `roadmap` aus `.github/workflows/roadmap.yml` bleibt
-- [ ] CI-Jobs (`roadmap` und der Job für Build, Test, Lint) als Pflicht-Status-Checks in der Branch Protection von `main` und `dev` eintragen
-- [ ] Dependabot für das Paket-Ökosystem und GitHub Actions
+**Tasks**
+- [ ] Create the spec (brainstorming): goal, scope, stack, subprojects; link it here and enter the first milestones
+- [ ] Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`
+- [x] Fill in the project header of `CLAUDE.md` and `README.md`, remove the template section from the README
+- [ ] Stack-specific `.gitignore` (incl. `.env`) and `.gitattributes` additions
+- [ ] Project skeleton incl. test project
+- [ ] `.env.example` with placeholders, if secrets are needed
+- [ ] CI (GitHub Actions): build, test and format/lint on PRs to `dev` and `main`; the job `roadmap` from `.github/workflows/roadmap.yml` stays
+- [ ] Enter the CI jobs (`roadmap` and the job for build, test, lint) as required status checks in the branch protection of `main` and `dev`
+- [ ] Dependabot for the package ecosystem and GitHub Actions
 
-**Abnahmekriterien**
-- [ ] Build, Test und Format/Lint laufen lokal grün (Befehle in `CLAUDE.md`)
-- [ ] CI ist auf einem PR nach `dev` grün
-- [ ] Branch Protection für `main` und `dev` ist aktiv: PR Pflicht, CI-Check Pflicht, kein Force-Push, kein Löschen – `gh api repos/benjo-code/<name>/branches/<branch>/protection`
+**Acceptance criteria**
+- [ ] Build, test and format/lint run green locally (commands in `CLAUDE.md`)
+- [ ] CI is green on a PR to `dev`
+- [ ] Branch protection for `main` and `dev` is active: PR required, CI check required, no force push, no deletion – `gh api repos/benjo-code/raffica/branches/<branch>/protection`
 
 ## Backlog
 
-Bewusst nicht eingeplant. Ideen, die `/ideen` hier ablegt, stehen als Liste; bei Bedarf wird daraus ein Milestone.
+Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, one becomes a milestone.
 
-_Noch nichts._
+_Nothing yet._

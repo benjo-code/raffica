@@ -1,2 +1,0 @@
-subprojects[0].milestones[0].status
-!completedOn
