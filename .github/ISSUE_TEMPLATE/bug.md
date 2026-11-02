@@ -1,17 +1,17 @@
 ---
 name: Bug
-about: Etwas funktioniert nicht wie erwartet
+about: Something does not work as expected
 labels: bug
 ---
 
-## Erwartetes Verhalten
+## Expected behavior
 
-## Tatsächliches Verhalten
+## Actual behavior
 
-## Schritte zum Nachstellen
+## Steps to reproduce
 
 1.
 
-## Version / Umgebung
+## Version / environment
 
-<!-- Version oder Commit, Betriebssystem, ggf. Gerät -->
+<!-- Version or commit, operating system, device if relevant -->
