@@ -26,7 +26,11 @@ public static class UpdateTrust
             Convert.FromBase64String("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfEyCOMU4IJ14osOpBY3eFP4/fxK726BrpSdQoUOGeMJ+2DsQaDm4maWvFaZ22iI1oti6dIVOk7thJ8J5Lkp59Q==")),
     ];
 
-    /// <summary>The address of the newest stable release (GitHub lists no pre-releases or drafts there).</summary>
+    /// <summary>
+    /// The address of the newest stable release (GitHub lists no pre-releases or drafts there). The three addresses point at
+    /// the releases of this repository, which has none yet; a separate releases repository is possible and is decided at the
+    /// first release milestone (Docs/DECISIONS.md, entry "Updater: key and addresses until the first release").
+    /// </summary>
     public static string ReleasesLatestUrl => "https://api.github.com/repos/benjo-code/raffica/releases/latest";
 
     /// <summary>

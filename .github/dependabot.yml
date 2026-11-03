@@ -6,6 +6,15 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    # No update-types filter: every PDFium release is formally a major update (version = Chromium build number).
+    # The Windows and Linux packages must always move together, so they share one pull request.
+    groups:
+      pdfium:
+        patterns:
+          - "bblanchon.PDFium*"
+      testing:
+        patterns:
+          - "xunit*"
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -39,3 +39,7 @@ So no JavaScript runs in PDFs, and XFA forms are not supported.
 ## Shipping
 
 Shipping the licenses in the installation package and showing them in the About dialog come with the packaging and UI milestones.
+
+## Updating
+
+The Windows and Linux packages must always move to the same version together (Dependabot groups them in one pull request). A PDFium bump also needs a refresh of the licenses in this folder from the new archives, of the version numbers above, and of the headers the native bindings are checked against (`NativeBindingsTests`).

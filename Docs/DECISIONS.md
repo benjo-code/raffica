@@ -15,6 +15,18 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-03 – PDF markers: no compatibility with files written by Pagewing
+**Context:** The scripted rename also changed three markers that the code writes into saved PDFs and reads back to recognise its own objects: `RafficaSignature` (image signatures), `RafficaOcr` (OCR text layer) and `%RafficaTextBox` (text boxes). Pagewing wrote `PagewingSignature`, `PagewingOcr` and `%PagewingTextBox`.
+**Decision:** Raffica writes and reads only its own markers. A PDF edited with Pagewing is treated as foreign: its text boxes and signatures cannot be edited, and redoing OCR adds a second text layer. No code to read the old markers.
+**Rationale:** Matches the decision of 2026-11-02 (no user migration): only the owner used Pagewing. Changing the markers after Raffica has written documents would be a migration, so it is settled now.
+**Rejected alternatives:** Also reading the Pagewing markers (extra code and tests for files nobody else has); keeping the Pagewing names (the files would carry the old name for good).
+
+## 2026-11-03 – Updater: key and addresses until the first release
+**Context:** The imported updater trusted Pagewing's release key and released from the Pagewing repository.
+**Decision:** The trusted key is the design-time placeholder whose private half was discarded, so no manifest verifies and no update is accepted. The three addresses point at `benjo-code/raffica` releases, which do not exist yet. The real key and the choice of a releases repository are made on the owner's instruction at the first release milestone.
+**Rationale:** Nothing can be installed through the updater before a real key exists, and no address leads to Pagewing's releases. The addresses are not documented placeholders (an `.invalid` host) because the repository that will hold the releases is likely this one.
+**Rejected alternatives:** `.invalid` placeholder addresses (the update tests expect GitHub hosts); keeping Pagewing's key (would trust a key whose owner is another product).
+
 ## 2026-11-03 – CI: one required check, GitHub-hosted runners
 **Context:** M0 adds the first CI for build, test and format on Windows and Linux. Matrix jobs get renamed when platforms are added (macOS comes later), and a renamed required check silently stops protecting a branch.
 **Decision:** The workflow `ci.yml` builds, tests (with `RAFFICA_REQUIRE_OCR=1`), format-checks and publishes the CLI with Native AOT on a GitHub-hosted Windows and Linux runner, and smoke-tests the published binary. The aggregate job `ci` (`needs: [build]`, `if: always()`, fails unless the matrix succeeded) is the required status check together with `roadmap`. Native AOT cannot cross-compile between operating systems, so each OS builds on its own runner.

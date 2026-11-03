@@ -13,6 +13,9 @@ public sealed class NoPagewingLeftoverTests
 {
     private static readonly string[] Roots = ["src", "tests", "tools", "testdata", "third-party", ".github"];
 
+    /// <summary>Top-level documentation that tells the origin of the code and may name Pagewing.</summary>
+    private static readonly string[] RootDocuments = ["README.md", "CLAUDE.md", "CHANGELOG.md"];
+
     private static readonly string[] SkippedFolders = ["bin", "obj", "artifacts", ".superpowers"];
 
     private static readonly string[] BinaryExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".zip", ".7z", ".gz", ".ttf", ".otf", ".woff", ".woff2", ".dll", ".exe", ".so", ".dylib", ".bin", ".sig"];
@@ -20,6 +23,7 @@ public sealed class NoPagewingLeftoverTests
     /// <summary>Files that may still contain the old name. Keep this list as short as the fixtures allow.</summary>
     private static readonly string[] Allowed =
     [
+        "testdata/pdfs/LICENSES.md",
         "testdata/pdfs/ocr-words.tsv",
         "testdata/pdfs/text-edit-runs.tsv",
         "testdata/updates/update-manifest.json",
@@ -64,6 +68,8 @@ public sealed class NoPagewingLeftoverTests
             .Select(root => Path.Combine(TestData.Root, root))
             .Where(Directory.Exists)
             .SelectMany(root => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+            .Concat(Directory.EnumerateFiles(TestData.Root, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => !RootDocuments.Contains(Path.GetFileName(path))))
             .Select(path => Path.GetRelativePath(TestData.Root, path).Replace('\\', '/'))
             .Where(relative => !relative.Split('/').Any(part => SkippedFolders.Contains(part)))
             .Where(relative => !BinaryExtensions.Contains(Path.GetExtension(relative).ToLowerInvariant()))
