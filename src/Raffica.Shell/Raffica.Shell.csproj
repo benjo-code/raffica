@@ -7,4 +7,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+  </ItemGroup>
 </Project>

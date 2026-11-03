@@ -1,0 +1,64 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Text styles of appendix A section 4.1 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md as classes
+    on TextBlock. LineHeight is in pixels: 14 x 1.3 = 18.2 for ui (4.1); single-line 12 and 13 px text takes 1.25
+    (appendix B: 15 and 16.25); "multiline" is the 1.4 of appendix B (19.6, 18.2, 16.8). "tnum" switches on tabular
+    figures where numbers align (status bar, counts); it combines with every class.
+  -->
+  <Style Selector="TextBlock.ui">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="LineHeight" Value="18.2" />
+  </Style>
+  <Style Selector="TextBlock.ui.multiline">
+    <Setter Property="LineHeight" Value="19.6" />
+  </Style>
+  <Style Selector="TextBlock.ui-medium">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="500" />
+    <Setter Property="LineHeight" Value="18.2" />
+  </Style>
+  <Style Selector="TextBlock.ui-emphasis">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="600" />
+    <Setter Property="LineHeight" Value="18.2" />
+  </Style>
+  <Style Selector="TextBlock.secondary">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="LineHeight" Value="16.25" />
+  </Style>
+  <Style Selector="TextBlock.secondary.multiline">
+    <Setter Property="LineHeight" Value="18.2" />
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="LineHeight" Value="15" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+  <Style Selector="TextBlock.small">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="LineHeight" Value="15" />
+  </Style>
+  <Style Selector="TextBlock.label.multiline, TextBlock.small.multiline">
+    <Setter Property="LineHeight" Value="16.8" />
+  </Style>
+  <Style Selector="TextBlock.heading-dialog">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="600" />
+    <Setter Property="LineHeight" Value="19.5" />
+  </Style>
+  <Style Selector="TextBlock.tnum">
+    <Setter Property="FontFeatures" Value="tnum" />
+  </Style>
+</Styles>

@@ -1,13 +1,20 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Raffica.Shell.Controls"
         x:Class="Raffica.Shell.RafficaStyles">
   <Styles.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Tokens.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Metrics.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Fonts.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Icons.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Styles.Resources>
   <FluentTheme />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Typography.axaml" />
+  <Style Selector="controls|StrokeIcon">
+    <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
 </Styles>
