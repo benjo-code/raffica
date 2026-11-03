@@ -37,8 +37,8 @@
   </ItemGroup>
   <Target Name="CheckRafficaUpdateTestBuild" BeforeTargets="BeforeBuild" Condition="'$(RafficaUpdateTestBuild)' == 'true'">
     <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(RafficaUpdateTestPort)', '^[1-9][0-9]{0,4}$')) Or '$(RafficaUpdateTestPort)' &gt; '65535'"
-           Text="Der Testaufbau braucht -p:RafficaUpdateTestPort=&lt;1..65535&gt; (packaging/README.md, Abschnitt &quot;Update prüfen&quot;)." />
+           Text="The test build needs -p:RafficaUpdateTestPort=&lt;1..65535&gt; (see the comment above)." />
     <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(RafficaUpdateTestKey)', '^[A-Za-z0-9+/]{80,}={0,2}$'))"
-           Text="Der Testaufbau braucht -p:RafficaUpdateTestKey=&lt;öffentlicher Testschlüssel, Base64 aus update-keygen&gt; (packaging/README.md, Abschnitt &quot;Update prüfen&quot;)." />
+           Text="The test build needs -p:RafficaUpdateTestKey=&lt;public test key, Base64 from update-keygen&gt; (see the comment above)." />
   </Target>
 </Project>
