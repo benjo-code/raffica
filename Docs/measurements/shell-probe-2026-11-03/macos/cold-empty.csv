@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+macos-macbook,empty,cold,1,1926.6,ms
+macos-macbook,empty,cold,2,555.54,ms
+macos-macbook,empty,cold,3,502.11,ms
+macos-macbook,empty,cold,4,506.11,ms
+macos-macbook,empty,cold,5,506.33,ms
+macos-macbook,empty,cold,6,513.02,ms
+macos-macbook,empty,cold,7,503.58,ms
+macos-macbook,empty,cold,8,496.59,ms
+macos-macbook,empty,cold,9,508.1,ms
+macos-macbook,empty,cold,10,504.09,ms

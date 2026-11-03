@@ -24,7 +24,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | # | Milestone | Subproject | Status | Plan | Done on |
 |---|---|---|---|---|---|
 | 0 | Repo skeleton & CI | 1 – Foundation | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | 2026-11-03 |
-| 1 | Design directions & spec | 2 – Design system and shell | 🟡 planned | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | – |
+| 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ⬜ open | – | – |
 | 1.2 | App frame | 2 – Design system and shell | ⬜ open | – | – |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
@@ -76,17 +76,17 @@ Goal: A set-up repo with the renamed Pagewing core, tests and CI on which all fu
 **Spec:** [2026-11-03-design-system-shell-design.md](superpowers/specs/2026-11-03-design-system-shell-design.md) Design system and shell, approved 2026-11-03
 
 ## Milestone 1 – Design directions & spec
-**Status:** 🟡 planned · **Plan:** [2026-11-03-milestone-01-design-directions.md](superpowers/plans/2026-11-03-milestone-01-design-directions.md) · **Prerequisites:** M0
+**Status:** ✅ done (2026-11-03) · **Plan:** [2026-11-03-milestone-01-design-directions.md](superpowers/plans/2026-11-03-milestone-01-design-directions.md) · **Prerequisites:** M0
 
 Goal: One design direction for all four apps is chosen and the spec for the design system and shell is written.
 
 **Tasks**
-- [ ] Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)
+- [x] Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)
 - [x] Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one
 - [x] Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent
 
 **Acceptance criteria**
-- [ ] The measured values are recorded and the speed targets are set from them
+- [x] The measured values are recorded and the speed targets are set from them – `measure.yml` runs on the three machines (`dev` at 0480960): Linux 41682565866, Windows 41683058597, macOS 41687457617 (indicative), cold after a reboot Windows 41689113140 and Linux 41689118537; raw CSVs and budget table in `Docs/measurements/shell-probe-2026-11-03/`; budgets and limits for Windows and Linux in `Docs/DECISIONS.md`, entry "Speed targets of the frame (M1)". Not yet measured, with the command: cold start after a reboot on macOS (`gh workflow run measure.yml --ref dev -f platform=macos -f note="<note>" -f cases=cold-reboot`)
 - [x] A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md` – Directions A, B (Shelf, then Wayfinding), C and D built as Claude Design canvases; the owner chose D "Formular Neutral" after two refinement rounds (canvas version 9, sources in `Docs/design/direction-d/`); `Docs/DECISIONS.md`, entry "Design direction: D "Formular Neutral"" (2026-11-03)
 
 ## Milestone 1.1 – Tokens and base controls

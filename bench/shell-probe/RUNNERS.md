@@ -21,20 +21,23 @@ can never land on these machines.
 - **CachyOS:** `clang`, `zlib` (headers and library), `git`, and an X11 or XWayland session. Avalonia starts through
   XWayland or its default backend; under Wayland without XWayland the probe ends with an `error:` line instead of
   hanging.
-- **macOS:** the Xcode command line tools (`xcode-select --install`).
+- **macOS:** the Xcode command line tools (`xcode-select --install`; without them the Native AOT publish fails with "No developer tools were found").
 
 The .NET SDK itself is installed by the workflow (`actions/setup-dotnet`) into the user's folder; no root rights are
 needed.
 
 ## Register the runner
 
-1. In the repository, open Settings → Actions → Runners → New self-hosted runner and choose the operating system.
+The runners of the project owner are organisation runners in the runner group `main-pc`, which is limited to this
+repository and to `measure.yml` on `dev`. A runner of the repository itself works the same way with the repository URL.
+
+1. In the organisation, open Settings → Actions → Runners → New runner and choose the operating system.
 2. Follow the download steps shown there, into a folder of your own (not inside a checkout of this repository).
-3. Configure it with the labels `raffica-measure,<platform>` (`windows`, `linux` or `macos`) and the one-time token that
-   the page shows:
+3. Configure it with the label `raffica-measure` (GitHub adds `Windows`, `Linux` or `macOS` itself), the runner group
+   and the one-time token that the page shows:
 
    ```
-   ./config.sh --url https://github.com/benjo-code/raffica --token <one-time token> --labels raffica-measure,<platform> --unattended
+   ./config.sh --url https://github.com/benjo-code --token <one-time token> --runnergroup main-pc --labels raffica-measure
    ```
 
    On Windows use `config.cmd` with the same arguments. The token is valid for about an hour and is used once. Never put
