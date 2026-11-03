@@ -23,7 +23,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 
 | # | Milestone | Subproject | Status | Plan | Done on |
 |---|---|---|---|---|---|
-| 0 | Repo skeleton & CI | 1 – Foundation | 🟡 planned | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | – |
+| 0 | Repo skeleton & CI | 1 – Foundation | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | 2026-11-03 |
 | 1 | Design directions & spec | 2 – Design system and shell | ⬜ open | – | – |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
@@ -42,7 +42,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 **Spec:** [2026-11-03-raffica-suite-design.md](superpowers/specs/2026-11-03-raffica-suite-design.md) Suite design, approved 2026-11-03
 
 ## Milestone 0 – Repo skeleton & CI
-**Status:** 🟡 planned · **Plan:** [2026-11-03-milestone-00-repo-skeleton.md](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) · **Spec:** [2026-11-03-raffica-suite-design.md](superpowers/specs/2026-11-03-raffica-suite-design.md) · **Prerequisites:** none
+**Status:** ✅ done (2026-11-03) · **Plan:** [2026-11-03-milestone-00-repo-skeleton.md](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) · **Spec:** [2026-11-03-raffica-suite-design.md](superpowers/specs/2026-11-03-raffica-suite-design.md) · **Prerequisites:** none
 
 Goal: A set-up repo with the renamed Pagewing core, tests and CI on which all further milestones build.
 
@@ -50,22 +50,22 @@ Goal: A set-up repo with the renamed Pagewing core, tests and CI on which all fu
 - [x] Create the spec (brainstorming): goal, scope, stack, subprojects; link it here and enter the first milestones
 - [x] Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`
 - [x] Fill in the project header of `CLAUDE.md` and `README.md`, remove the template section from the README
-- [ ] Import commit 1: the Pagewing core (`Core`, `Pdfium`, `Ocr`, `Cli`), its tests, test data and licence files from the `v1.0.0` tag, unchanged, with a stack-specific `.gitignore`
-- [ ] Import commit 2: scripted rename (dry run first), updater keys and URLs replaced by documented placeholders
-- [ ] Make the subset self-contained and green: solution file, removal of App-coupled tests, OCR library fetch script, `.editorconfig`; project skeleton incl. test projects
-- [ ] Translate the imported German comments, strings and test names to English
-- [ ] `.env.example` with placeholders, if secrets are needed (not needed, see scope change)
-- [ ] CI (GitHub Actions): build, test and format/lint on PRs to `dev` and `main`; the job `roadmap` from `.github/workflows/roadmap.yml` stays; aggregate check `ci`
-- [ ] Record the build, test and format/lint commands in `CLAUDE.md` and write the README setup section
-- [ ] Enter the CI jobs (`roadmap` and `ci`) as required status checks in the branch protection of `main` and `dev` (only on the owner's explicit instruction)
-- [ ] Dependabot for the package ecosystem and GitHub Actions
+- [x] Import commit 1: the Pagewing core (`Core`, `Pdfium`, `Ocr`, `Cli`), its tests, test data and licence files from the `v1.0.0` tag, unchanged, with a stack-specific `.gitignore`
+- [x] Import commit 2: scripted rename (dry run first), updater keys and URLs replaced by documented placeholders
+- [x] Make the subset self-contained and green: solution file, removal of App-coupled tests, OCR library fetch script, `.editorconfig`; project skeleton incl. test projects
+- [x] Translate the imported German comments, strings and test names to English
+- [x] `.env.example` with placeholders, if secrets are needed (not needed, see scope change)
+- [x] CI (GitHub Actions): build, test and format/lint on PRs to `dev` and `main`; the job `roadmap` from `.github/workflows/roadmap.yml` stays; aggregate check `ci`
+- [x] Record the build, test and format/lint commands in `CLAUDE.md` and write the README setup section
+- [x] Enter the CI jobs (`roadmap` and `ci`) as required status checks in the branch protection of `main` and `dev` (only on the owner's explicit instruction)
+- [x] Dependabot for the package ecosystem and GitHub Actions
 
 **Acceptance criteria**
-- [ ] Before the rename, every imported file is byte-identical to the `v1.0.0` tag (`diff -r` against a `git archive` of the same paths)
-- [ ] No reference to Pagewing remains outside the allowlist (test `NoPagewingLeftoverTests`), and the updater trusts no Pagewing key or URL
-- [ ] Build, test and format/lint run green locally (commands in `CLAUDE.md`), with no skipped OCR tests
-- [ ] CI is green on a PR to `dev`
-- [ ] Branch protection for `main` and `dev` is active: PR required, CI check required, no force push, no deletion
+- [x] Before the rename, every imported file is byte-identical to the `v1.0.0` tag (`diff -r` against a `git archive` of the same paths) – `diff -r` of a fresh `git archive` against every imported path before commit 1: no differences; the final review compared all 628 blobs of commit b128acd with the tag: none differ; 80 binary fixtures compared after the rename: none changed
+- [x] No reference to Pagewing remains outside the allowlist (test `NoPagewingLeftoverTests`), and the updater trusts no Pagewing key or URL – `NoPagewingLeftoverTests.TextFilesMentionPagewingOnlyWhereTheFixturesDo` fails with a planted mention in `NuGet.config` and passes without it; `UpdateTrustTests.TheReleaseBuildDoesNotTrustThePagewingReleaseKeyOrReleases` failed first (RED) and passes
+- [x] Build, test and format/lint run green locally (commands in `CLAUDE.md`), with no skipped OCR tests – `dotnet build Raffica.slnx -c Release`: 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`: 3,409 run, 0 failed, 21 skipped (OS-specific or opt-in measurement tests, none for OCR); `dotnet format Raffica.slnx --verify-no-changes`: exit 0 (Windows)
+- [x] CI is green on a PR to `dev` – PR 5, run 41604111774: `build-linux` (3,409 run, 0 failed), `build-windows` (3,409 run, 0 failed), `ci` and `roadmap` green
+- [x] Branch protection for `main` and `dev` is active: PR required, CI check required, no force push, no deletion – `gh api repos/benjo-code/raffica/branches/dev/protection` and `.../main/protection` (2026-11-03): required checks `roadmap` and `ci` (strict), PR required, force pushes false, deletions false
 
 ---
 
@@ -181,5 +181,7 @@ Goal: The scope of Slides, reusing the text layout of Write, is written down.
 Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, one becomes a milestone.
 
 - **ODF and legacy Microsoft formats:** Support for ODF (.odt, .ods, .odp) and the old .doc, .xls and .ppt formats, after the main apps are built.
+- **Clean up references to Pagewing documents and translate the fixture catalogue:** About 68 imported files cite Pagewing's German decision-log entries or `packaging/README.md` in comments; the references point at documents that are not in this repo. `testdata/pdfs/LICENSES.md` is still German and describes fixtures generated by `tools/make-testpdfs.cs`, which was not imported. Replace the references with Raffica entries or drop them, translate the catalogue, and decide whether to import or rebuild the test PDF generator.
+- **Build the OCR library in this repository:** `tools/native-fetch.cs` fetches the Tesseract library from a pinned prerelease of the Pagewing repository. Build it here (workflow and build scripts) before the suite ships OCR, and put the CodeQL, release and hardware-measure workflows back where they are needed.
 - **Macros and extensions:** A macro and extension system (a VBA replacement), someday, not for the beginning.
 - **Real-time collaboration:** Several people editing one document at the same time, someday, not for the beginning.

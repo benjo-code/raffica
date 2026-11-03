@@ -75,6 +75,10 @@ jobs:
       - name: Format
         run: dotnet format Raffica.slnx --verify-no-changes --no-restore
 
+      # Staging and rejection of the OCR library fetch (a wrong hash lays nothing down), which the normal fetch above does not hit.
+      - name: Self-test of the OCR library fetch
+        run: dotnet run tools/native-fetch.cs -- selftest
+
       - name: Publish the CLI (Native AOT)
         run: dotnet publish src/Raffica.Cli -c Release -r ${{ matrix.rid }} -o out/cli
 
