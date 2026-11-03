@@ -26,7 +26,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 0 | Repo skeleton & CI | 1 – Foundation | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | 2026-11-03 |
 | 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
-| 1.2 | App frame | 2 – Design system and shell | 🟡 planned | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | – |
+| 1.2 | App frame | 2 – Design system and shell | 🔵 in progress | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | – |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
@@ -108,7 +108,7 @@ Goal: The shared shell project has the tokens, fonts, icons and base controls in
 - [x] The published gallery app runs under Native AOT on Windows and Linux and shows German strings with `--lang de` – CI run 41717652867: `build-windows` and `build-linux` publish the gallery with Native AOT and the smoke step passes (`--print-string Cancel --lang de` gives Abbrechen, `--lang en` gives Cancel); local win-x64 publish without warnings. Proven locally: the win-x64 Native AOT binary rendered all sections to screenshots with exit 0 (`--screenshot`); on Linux CI only the publish and `--print-string` run (no window). Still open (needs the owner's machines): the visual look on the ProBook (CachyOS, Wayland) with `dotnet publish src/Raffica.Gallery -c Release -r linux-x64 -o out/gallery` and then `out/gallery/RafficaGallery --lang de`, and the real Windows high-contrast setting: turn on a Windows contrast theme, start `RafficaGallery` without `--high-contrast` and toggle the contrast theme while the app runs (`--high-contrast` forces the palette and skips the OS detection; use it to look at the palette on any OS)
 
 ## Milestone 1.2 – App frame
-**Status:** 🟡 planned · **Plan:** [2026-11-03-milestone-01-2-app-frame.md](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) · **Prerequisites:** M1.1
+**Status:** 🔵 in progress · **Plan:** [2026-11-03-milestone-01-2-app-frame.md](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) · **Prerequisites:** M1.1
 
 Goal: The shared app frame works in the gallery app with every behaviour of the spec, within the measured speed limits.
 
