@@ -106,7 +106,7 @@
           "tasks": [
             { "text": "Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar", "done": true },
             { "text": "Field codes (Office-style sequence) and F6 pane focus", "done": true },
-            { "text": "Start view and settings dialog (theme, language after restart, compact command bar, autosave)", "done": false },
+            { "text": "Start view and settings dialog (theme, language after restart, compact command bar, autosave)", "done": true },
             { "text": "Size check in CI and a German layout test at 1440 px and at the compact width", "done": false }
           ],
           "acceptance": [

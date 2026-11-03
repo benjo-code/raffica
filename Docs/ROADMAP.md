@@ -115,7 +115,7 @@ Goal: The shared app frame works in the gallery app with every behaviour of the 
 **Tasks**
 - [x] Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar
 - [x] Field codes (Office-style sequence) and F6 pane focus
-- [ ] Start view and settings dialog (theme, language after restart, compact command bar, autosave)
+- [x] Start view and settings dialog (theme, language after restart, compact command bar, autosave)
 - [ ] Size check in CI and a German layout test at 1440 px and at the compact width
 
 **Acceptance criteria**
