@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Raffica.Gallery.Sections.MenusSection">
+  <StackPanel Spacing="16">
+    <TextBlock x:Name="Title" Classes="heading-dialog" />
+    <!-- The button whose menu opens sits on the right, so the open popup does not cover the other samples. -->
+    <Grid ColumnDefinitions="Auto,*">
+      <Grid x:Name="Rows" ColumnDefinitions="170,*" />
+      <StackPanel x:Name="FlyoutRow" Grid.Column="1" Margin="48,0,0,0" Spacing="8" />
+    </Grid>
+  </StackPanel>
+</UserControl>

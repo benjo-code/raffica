@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Raffica Galerie</value>
+  </data>
+  <data name="SectionButtons" xml:space="preserve">
+    <value>Schaltflächen und Auswahl</value>
+  </data>
+  <data name="StateRest" xml:space="preserve">
+    <value>Ruhe</value>
+  </data>
+  <data name="StateHover" xml:space="preserve">
+    <value>Zeiger darüber</value>
+  </data>
+  <data name="StatePressedOn" xml:space="preserve">
+    <value>Gedrückt / an</value>
+  </data>
+  <data name="StateFocus" xml:space="preserve">
+    <value>Tastaturfokus</value>
+  </data>
+  <data name="StateDisabled" xml:space="preserve">
+    <value>Deaktiviert</value>
+  </data>
+  <data name="RowButton" xml:space="preserve">
+    <value>Schaltfläche</value>
+  </data>
+  <data name="RowBoxed" xml:space="preserve">
+    <value>Umrandete Schaltfläche</value>
+  </data>
+  <data name="RowPrimary" xml:space="preserve">
+    <value>Hauptschaltfläche</value>
+  </data>
+  <data name="RowDestructive" xml:space="preserve">
+    <value>Endgültige Aktion</value>
+  </data>
+  <data name="RowIcon" xml:space="preserve">
+    <value>Symbolschaltfläche</value>
+  </data>
+  <data name="RowToggle" xml:space="preserve">
+    <value>Umschalter</value>
+  </data>
+  <data name="RowCheckBox" xml:space="preserve">
+    <value>Kontrollkästchen</value>
+  </data>
+  <data name="RowRadio" xml:space="preserve">
+    <value>Optionsfeld</value>
+  </data>
+  <data name="RowSegmented" xml:space="preserve">
+    <value>Segmentierte Auswahl</value>
+  </data>
+  <data name="SampleInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="SampleBrowse" xml:space="preserve">
+    <value>Durchsuchen …</value>
+  </data>
+  <data name="SampleApply" xml:space="preserve">
+    <value>Endgültig anwenden</value>
+  </data>
+  <data name="SampleTrackChanges" xml:space="preserve">
+    <value>Änderungen verfolgen</value>
+  </data>
+  <data name="SamplePortrait" xml:space="preserve">
+    <value>Hochformat</value>
+  </data>
+  <data name="SampleMarks" xml:space="preserve">
+    <value>Marken</value>
+  </data>
+  <data name="SamplePages" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="SampleResults" xml:space="preserve">
+    <value>Treffer</value>
+  </data>
+  <data name="IconBold" xml:space="preserve">
+    <value>Fett</value>
+  </data>
+  <data name="SectionInputs" xml:space="preserve">
+    <value>Eingabe und Auswahl</value>
+  </data>
+  <data name="SectionMenus" xml:space="preserve">
+    <value>Menüs und Kurzinfos</value>
+  </data>
+  <data name="StateTypingOpen" xml:space="preserve">
+    <value>Eingabe / geöffnet</value>
+  </data>
+  <data name="RowTextField" xml:space="preserve">
+    <value>Textfeld</value>
+  </data>
+  <data name="RowTextWithValue" xml:space="preserve">
+    <value>Textfeld mit Text</value>
+  </data>
+  <data name="RowSelect" xml:space="preserve">
+    <value>Auswahlliste</value>
+  </data>
+  <data name="RowSelectPlaceholder" xml:space="preserve">
+    <value>Auswahlliste ohne Wahl</value>
+  </data>
+  <data name="RowFlyout" xml:space="preserve">
+    <value>Schaltfläche mit Menü</value>
+  </data>
+  <data name="RowMenuBar" xml:space="preserve">
+    <value>Menüleiste</value>
+  </data>
+  <data name="RowContextMenu" xml:space="preserve">
+    <value>Kontextmenü</value>
+  </data>
+  <data name="RowMenuInline" xml:space="preserve">
+    <value>Menüzeilen</value>
+  </data>
+  <data name="RowTooltip" xml:space="preserve">
+    <value>Kurzinfo</value>
+  </data>
+  <data name="SamplePlaceholder" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="SampleReport" xml:space="preserve">
+    <value>Quartalsbericht</value>
+  </data>
+  <data name="SampleSelectHint" xml:space="preserve">
+    <value>Stil wählen</value>
+  </data>
+  <data name="SampleParagraph" xml:space="preserve">
+    <value>Absatz</value>
+  </data>
+  <data name="SampleHeading1" xml:space="preserve">
+    <value>Überschrift 1</value>
+  </data>
+  <data name="SampleHeading2" xml:space="preserve">
+    <value>Überschrift 2</value>
+  </data>
+  <data name="SampleQuote" xml:space="preserve">
+    <value>Zitat</value>
+  </data>
+  <data name="MenuInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="MenuFile" xml:space="preserve">
+    <value>Datei</value>
+  </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="ItemOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="ItemClose" xml:space="preserve">
+    <value>Schließen</value>
+  </data>
+  <data name="ItemCut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="ItemCopy" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="ItemPaste" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="ItemPasteSpecial" xml:space="preserve">
+    <value>Inhalte einfügen</value>
+  </data>
+  <data name="ItemTextOnly" xml:space="preserve">
+    <value>Nur Text</value>
+  </data>
+  <data name="ItemValuesOnly" xml:space="preserve">
+    <value>Nur Werte</value>
+  </data>
+  <data name="ItemInsertRows" xml:space="preserve">
+    <value>Zeilen einfügen</value>
+  </data>
+  <data name="ItemInsertColumns" xml:space="preserve">
+    <value>Spalten einfügen</value>
+  </data>
+  <data name="ItemInsertComment" xml:space="preserve">
+    <value>Kommentar einfügen</value>
+  </data>
+  <data name="ItemFormatCells" xml:space="preserve">
+    <value>Zellen formatieren</value>
+  </data>
+  <data name="ItemPrint" xml:space="preserve">
+    <value>Drucken</value>
+  </data>
+  <data name="ItemDeleteRows" xml:space="preserve">
+    <value>Zeilen löschen</value>
+  </data>
+  <data name="ContextHint" xml:space="preserve">
+    <value>Hier mit der rechten Maustaste klicken</value>
+  </data>
+  <data name="TipTitle" xml:space="preserve">
+    <value>Änderungen nachverfolgen</value>
+  </data>
+  <data name="TipDescription" xml:space="preserve">
+    <value>Markiert Einfügungen und Löschungen, bis sie angenommen werden.</value>
+  </data>
+  <data name="SectionDialogs" xml:space="preserve">
+    <value>Dialog und Hinweisleisten</value>
+  </data>
+  <data name="DialogOpen" xml:space="preserve">
+    <value>Dialog öffnen</value>
+  </data>
+  <data name="SampleDialogTitle" xml:space="preserve">
+    <value>Felder aktualisieren</value>
+  </data>
+  <data name="SampleDialogText" xml:space="preserve">
+    <value>Alle Felder im Dokument werden aktualisiert. Das kann einen Moment dauern.</value>
+  </data>
+  <data name="NoteCrash" xml:space="preserve">
+    <value>Dokument wurde nach einem Absturz wiederhergestellt.</value>
+  </data>
+  <data name="NoteCompare" xml:space="preserve">
+    <value>Vergleichen</value>
+  </data>
+  <data name="NoteFontLead" xml:space="preserve">
+    <value>Schriftart fehlt.</value>
+  </data>
+  <data name="NoteFontText" xml:space="preserve">
+    <value>„Calibri“ ist nicht installiert und wird mit Carlito angezeigt, gleiche Laufweite.</value>
+  </data>
+  <data name="NoteShowFonts" xml:space="preserve">
+    <value>Schriftarten anzeigen</value>
+  </data>
+  <data name="NoteSaveLead" xml:space="preserve">
+    <value>Speichern fehlgeschlagen.</value>
+  </data>
+  <data name="NoteSaveText" xml:space="preserve">
+    <value>Der Ordner „Downloads“ ist schreibgeschützt. Ihre Änderungen sind lokal gesichert.</value>
+  </data>
+  <data name="NoteSaveAs" xml:space="preserve">
+    <value>Speichern unter …</value>
+  </data>
+  <data name="SectionFoundations" xml:space="preserve">
+    <value>Grundlagen</value>
+  </data>
+  <data name="NavigationName" xml:space="preserve">
+    <value>Bereiche</value>
+  </data>
+  <data name="ToolbarName" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="ThemeLabel" xml:space="preserve">
+    <value>Design</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Hell</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Dunkel</value>
+  </data>
+  <data name="ThemeSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>Hoher Kontrast</value>
+  </data>
+  <data name="InkLabel" xml:space="preserve">
+    <value>Akzent</value>
+  </data>
+  <data name="InkWrite" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="InkSheets" xml:space="preserve">
+    <value>Sheets</value>
+  </data>
+  <data name="InkSlides" xml:space="preserve">
+    <value>Slides</value>
+  </data>
+  <data name="InkPdf" xml:space="preserve">
+    <value>PDF</value>
+  </data>
+  <data name="FoundType" xml:space="preserve">
+    <value>Schrift</value>
+  </data>
+  <data name="FoundColours" xml:space="preserve">
+    <value>Farb-Tokens</value>
+  </data>
+  <data name="FoundIcons" xml:space="preserve">
+    <value>Icons in 16 und 20 px</value>
+  </data>
+  <data name="FoundInks" xml:space="preserve">
+    <value>App-Akzente (Tinten)</value>
+  </data>
+  <data name="TypeSpecimen" xml:space="preserve">
+    <value>Zwölf Boxkämpfer jagen Viktor quer über den großen Sylter Deich 0123456789</value>
+  </data>
+  <data name="TypeUi" xml:space="preserve">
+    <value>Fließtext 14 px, 400</value>
+  </data>
+  <data name="TypeMedium" xml:space="preserve">
+    <value>Mittel 14 px, 500</value>
+  </data>
+  <data name="TypeEmphasis" xml:space="preserve">
+    <value>Betont 14 px, 600</value>
+  </data>
+  <data name="TypeSecondary" xml:space="preserve">
+    <value>Sekundär 13 px, 400</value>
+  </data>
+  <data name="TypeLabel" xml:space="preserve">
+    <value>Beschriftung 12 px, 400</value>
+  </data>
+  <data name="TypeHeading" xml:space="preserve">
+    <value>Dialogüberschrift 15 px, 600</value>
+  </data>
+  <data name="TypeProportional" xml:space="preserve">
+    <value>Proportionale Ziffern</value>
+  </data>
+  <data name="TypeTabular" xml:space="preserve">
+    <value>Tabellenziffern</value>
+  </data>
+  <data name="InkSample" xml:space="preserve">
+    <value>Text auf Tinte</value>
+  </data>
+</root>

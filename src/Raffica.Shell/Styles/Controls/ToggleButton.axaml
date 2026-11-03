@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Toggle, row "Toggle" of the state table: as the button, and on (checked) = fill ink with text.onInk, also under the
+    pointer. It has no switch form; a ToggleButton is the toggle. The button theme is merged here because a StaticResource
+    cannot see the dictionary of a sibling include.
+  -->
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/Button.axaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <ControlTheme x:Key="{x:Type ToggleButton}" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type Button}}">
+    <Style Selector="^:checked /template/ ContentPresenter#PART_ContentPresenter, ^:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+    <Style Selector="^:checked:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>
