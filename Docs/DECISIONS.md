@@ -15,6 +15,18 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-03 – CI: one required check, GitHub-hosted runners
+**Context:** M0 adds the first CI for build, test and format on Windows and Linux. Matrix jobs get renamed when platforms are added (macOS comes later), and a renamed required check silently stops protecting a branch.
+**Decision:** The workflow `ci.yml` builds, tests (with `RAFFICA_REQUIRE_OCR=1`), format-checks and publishes the CLI with Native AOT on a GitHub-hosted Windows and Linux runner, and smoke-tests the published binary. The aggregate job `ci` (`needs: [build]`, `if: always()`, fails unless the matrix succeeded) is the required status check together with `roadmap`. Native AOT cannot cross-compile between operating systems, so each OS builds on its own runner.
+**Rationale:** The required check keeps its name when the matrix changes. Hosted runners need no assumptions about the owner's self-hosted runners.
+**Rejected alternatives:** Requiring each matrix job by name; self-hosted runners for Windows (not known to exist for this repo).
+
+## 2026-11-03 – OCR library: fetched from Pagewing's pinned release
+**Context:** The OCR tests need the Tesseract library. Pagewing builds it in its own workflow and publishes it as the prerelease `native-tesseract-5.5.4-1`; Raffica has no build for it yet.
+**Decision:** `tools/native-fetch.cs` downloads the pinned files (size and SHA-256 are checked, nothing is laid down if one fails) from that release and from `tessdata_fast` 4.1.0. Raffica builds the library itself later, when the suite ships OCR.
+**Rationale:** Reuses a built and verified binary; the pinned hash is trusted, not the place it comes from.
+**Rejected alternatives:** Skipping the OCR tests (weakens the checks); importing the Tesseract build workflow in M0 (out of scope).
+
 ## 2026-11-03 – Dependency and license guardrails
 **Context:** Raffica is GPL-3.0-or-later. Research on document libraries showed several popular .NET libraries with licenses that do not fit.
 **Decision:** Not allowed: EPPlus 5 and later (Polyform Noncommercial), DocX/Xceed (non-commercial), NPOI binaries from 2.8.0 on (EULA with a maintenance fee; building from source needs a separate legal check), Avalonia Pro controls such as the RichTextEditor, and proprietary document libraries (Aspose, Syncfusion, Spire, GemBox, FlexCel). MuPDF (AGPL) is avoided. Preferred licenses: MIT, Apache-2.0, BSD. Every new dependency gets a license check before it is added.

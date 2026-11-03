@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+# Stale runs of the same ref are cancelled so the runners are not blocked.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build-${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, runner: ubuntu-24.04, rid: linux-x64, binary: raffica }
+          - { name: windows, runner: windows-2025, rid: win-x64, binary: raffica.exe }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The Native AOT linker needs vswhere.exe on PATH; it takes effect from the next step on.
+      - name: Put vswhere on PATH
+        if: runner.os == 'Windows'
+        run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
+      - name: Install the Native AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore Raffica.slnx
+
+      - name: Build
+        run: dotnet build Raffica.slnx -c Release --no-restore
+
+      # The OCR tests need the real library (SHA-256 pinned in tools/native-fetch.cs); without it they would only report
+      # themselves as skipped, which RAFFICA_REQUIRE_OCR below turns into a failure.
+      - name: Fetch the OCR library and the language data
+        run: dotnet run tools/native-fetch.cs -- --rid ${{ matrix.rid }} --out artifacts/native/${{ matrix.rid }}
+
+      # One test module at a time: the PDFium-heavy Core tests starve each other's timing on the two cores of a hosted runner.
+      - name: Test
+        env:
+          RAFFICA_REQUIRE_OCR: '1'
+        run: dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1
+
+      # Renderings and diff images of failed render regression tests (see tests/Raffica.Render.Tests).
+      - name: Upload the render diffs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: render-diff-${{ matrix.name }}
+          path: tests/Raffica.Render.Tests/**/render-diff/**
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Format
+        run: dotnet format Raffica.slnx --verify-no-changes --no-restore
+
+      - name: Publish the CLI (Native AOT)
+        run: dotnet publish src/Raffica.Cli -c Release -r ${{ matrix.rid }} -o out/cli
+
+      # The published binary must start, load PDFium and extract text from a test PDF ("Hello, ..." is drawn into the fixture).
+      - name: Smoke test of the CLI binary
+        shell: bash
+        run: |
+          ./out/cli/${{ matrix.binary }} --help > /dev/null
+          text=$(./out/cli/${{ matrix.binary }} text testdata/pdfs/text-basic.pdf)
+          case "$text" in *"Hello,"*) echo "text extraction works" ;; *) echo "unexpected output: $text" >&2; exit 1 ;; esac
+
+  # The one required status check: it fails unless every build job passed, so the matrix can change without touching
+  # the branch protection.
+  ci:
+    name: ci
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: All build jobs passed
+        run: |
+          result="${{ needs.build.result }}"
+          echo "build: $result"
+          test "$result" = "success"
