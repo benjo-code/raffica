@@ -51,4 +51,28 @@
   <data name="RibbonGroupMore" xml:space="preserve">
     <value>Weitere Befehle in {0}</value>
   </data>
+  <data name="SearchTooltip" xml:space="preserve">
+    <value>Suchen ({0})</value>
+  </data>
+  <data name="SearchShortcut" xml:space="preserve">
+    <value>Strg+K</value>
+  </data>
+  <data name="SearchNoResults" xml:space="preserve">
+    <value>Keine Befehle gefunden</value>
+  </data>
+  <data name="NewDocument" xml:space="preserve">
+    <value>Neues Dokument</value>
+  </data>
+  <data name="CloseDocument" xml:space="preserve">
+    <value>Dokument schließen</value>
+  </data>
+  <data name="Minimize" xml:space="preserve">
+    <value>Minimieren</value>
+  </data>
+  <data name="Maximize" xml:space="preserve">
+    <value>Maximieren</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>Wiederherstellen</value>
+  </data>
 </root>

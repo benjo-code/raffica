@@ -1,0 +1,48 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:frame="clr-namespace:Raffica.Shell.Frame">
+  <!--
+    The search field of the title bar (section 6 of the design spec): the text field of the shell theme at 28 px with a magnifier,
+    3 px radius, no keycap. The results are a popup of the page fill with a 1 px control edge, 3 px radius and no shadow; a row is
+    32 px high, the active row takes the hover fill, the shortcut is text.secondary.
+  -->
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type frame:SearchField}" TargetType="frame:SearchField">
+      <Setter Property="Height" Value="{DynamicResource Raffica.Size.SearchField}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Panel>
+            <TextBox x:Name="PART_Input" Height="{DynamicResource Raffica.Size.SearchField}" MinHeight="{DynamicResource Raffica.Size.SearchField}" Padding="6,0,8,0" />
+            <Popup x:Name="PART_Popup" Placement="BottomEdgeAlignedLeft" IsLightDismissEnabled="False" WindowManagerAddShadowHint="False" />
+          </Panel>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <Style Selector="Border.search-results">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Overlay}" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="TextElement.FontSize" Value="13" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="Border.search-row">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.RowList}" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.search-row:active">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+  </Style>
+  <Style Selector="TextBlock.search-shortcut">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+  <Style Selector="TextBlock.search-empty">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.RowList}" />
+    <Setter Property="Margin" Value="12,0" />
+    <Setter Property="LineHeight" Value="32" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+</Styles>

@@ -29,6 +29,16 @@ public static class ShellStrings
     public static string ZoomIn => Table.Get("ZoomIn");
     public static string ZoomLevel => Table.Get("ZoomLevel");
     public static string RibbonMore => Table.Get("RibbonMore");
+    public static string SearchShortcut => Table.Get("SearchShortcut");
+    public static string SearchNoResults => Table.Get("SearchNoResults");
+    public static string NewDocument => Table.Get("NewDocument");
+    public static string CloseDocument => Table.Get("CloseDocument");
+    public static string Minimize => Table.Get("Minimize");
+    public static string Maximize => Table.Get("Maximize");
+    public static string Restore => Table.Get("Restore");
+
+    /// <summary>"Search (Ctrl+K)": the tooltip of the search field; a plain formatted string until the key-name helper of the keyboard task replaces the shortcut text.</summary>
+    public static string SearchTooltip(string shortcut) => string.Format(Culture, Table.Get("SearchTooltip"), shortcut);
 
     /// <summary>"More commands in {0}": the name of the overflow button of a compact ribbon group.</summary>
     public static string RibbonGroupMore(string group) => string.Format(Culture, Table.Get("RibbonGroupMore"), group);
