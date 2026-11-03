@@ -74,8 +74,13 @@ Spec section 9.4. For each binding machine and case, from the **frame** mode onl
 - the **limit** is the budget × 1.25.
 
 ```
+gh run download <run id> -n measure-<platform>-<run id> -D artifacts/measure/<platform>
 dotnet run bench/shell-probe/measure.cs -- budgets --in "artifacts/measure/*/*.csv" --out artifacts/measure/budgets.md
 ```
+
+(with `-n`, the CSVs land directly in the target folder, which the pattern needs; the artifacts of the repository are
+kept for 7 days only). The first measurement is kept in
+[`Docs/measurements/shell-probe-2026-11-03/`](../../Docs/measurements/shell-probe-2026-11-03).
 
 writes one Markdown table per machine: the medians of both modes, the cost of the frame (frame minus empty), the budget
 and the limit. The results, the machines and the budgets are recorded in [`Docs/DECISIONS.md`](../../Docs/DECISIONS.md).

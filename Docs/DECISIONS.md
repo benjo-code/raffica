@@ -15,6 +15,55 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-03 – Speed targets of the frame (M1)
+**Context:** Spec section 9 asks milestone 1 to measure a Native AOT Avalonia 12 app on the owner's machines and to set speed targets from it. The probe (`bench/shell-probe`, commit of this entry) has an `empty` mode (one window) and a `frame` mode (static mock of the Write frame of direction D: about 60 controls, three embedded font families, German resources). `measure.yml` ran it on three hand-started self-hosted runners; the raw CSVs, the machine notes and the budget table are in `Docs/measurements/shell-probe-2026-11-03/` (machine names replaced by `windows-main-pc`, `linux-probook`, `macos-macbook`). Cases: cold (no warm-up, 5 s pause), warm (3 warm-ups, 500 ms pause), 10 runs each; input: 100 synthetic key presses in one run; memory: 2 s after first frame; size: the published folder without debug symbols. All figures are medians. Runs (all `dev` at 0480960): Linux 41682565866, Windows 41683058597, macOS 41687457617, cold after reboot Windows 41689113140 and Linux 41689118537.
+
+**Machines:**
+- Windows (binding): Ryzen 7 7800X3D, 30.9 GiB, NVIDIA RTX 4070 SUPER, 1920 × 1080 at 60 Hz, scaling 100 %, Windows 11 build 26300, balanced power plan, mains power.
+- Linux (binding): HP ProBook, Core i5-8265U, 15.4 GiB, Intel UHD Graphics 620, 1920 × 1080, Wayland session with XWayland, CachyOS (kernel 7.3.0-4-cachyos), balanced profile, mains power.
+- macOS (indicative only): MacBook Pro 2016, Core i5-6360U, 8 GiB, Intel Iris Graphics 540, 2560 × 1600 Retina, macOS 15.8.2 via OpenCore Legacy Patcher, mains power. Unsupported hardware; Apple-silicon numbers come later in the macOS subproject.
+
+**Measured (empty / frame):**
+
+| Case | Windows | Linux | macOS (indicative) |
+|---|---|---|---|
+| Cold start (ms) | 303 / 426 | 134 / 198 | 506 / 623 |
+| Warm start (ms) | 310 / 416 | 131 / 200 | 493 / 685 |
+| Cold start after a reboot, frame (ms, one run) | 558 | 159 | not measured |
+| Input latency, frame, median (ms) | 4.3 | 16.6 | 16.7 |
+| Input latency, frame, p99 / max (ms) | 9.7 / 13.4 | 33.5 / 47.3 | 128 / 213 |
+| Idle memory (MiB) | 87 / 124 | 100 / 125 | 57 / 83 |
+| Published size, frame (MiB) / zip | 38.1 / 15.7 | 34.9 / 15.3 | 36.8 / 16.5 |
+
+**Cost of the frame (frame minus empty):** cold 124 ms (Windows), 65 ms (Linux), 117 ms (macOS); warm 105, 70 and 192 ms; memory 36, 25 and 26 MiB.
+
+**Size shares (frame):** fonts 2.81 MiB (7 % Windows, 8 % Linux, 8 % macOS); native libraries 18.0 MiB (47 %), 13.3 MiB (38 %) and 18.8 MiB (51 %). The probe's own code and the framework make up the rest.
+
+**Decision:** The budget of each binding machine and case is its frame median rounded up (time to 10 ms, memory to 5 MiB, size to 1 MiB); the limit is the budget × 1.25 (spec 9.4).
+
+| Case | Windows budget / limit | Linux budget / limit |
+|---|---|---|
+| Cold start | 430 / 537.5 ms | 200 / 250 ms |
+| Warm start | 420 / 525 ms | 210 / 262.5 ms |
+| Input latency (median) | 10 / 12.5 ms | 20 / 25 ms |
+| Idle memory | 125 / 156.25 MiB | 125 / 156.25 MiB |
+| Published size | 39 / 48.75 MiB | 35 / 43.75 MiB |
+| Zip | 16 / 20 MiB | 16 / 20 MiB |
+
+The macOS values (cold 630, warm 690 ms, memory 85 MiB, size 37 MiB as rounded medians) are indicative and set no limit. Milestone 1.2 measures the gallery app's published frame the same way and must stay within these limits; if it cannot, that is a finding for the owner, not a new budget (spec 9.4). Budgets are never loosened to make a check pass.
+
+**Rationale:** The numbers come from the real machines with a real GPU and an active display; no compositor warning was raised (the check exists on Windows only, see below).
+
+**Caveats (read before comparing):**
+- The input latency is measured inside the app, from the key events to the second animation frame. On Windows it is far below one 60 Hz frame (4.3 ms): the frame callbacks there are not paced by the display, so the value is the time to the app's frame, not to the pixel. On Linux and macOS the value is one to two display frames. Compare it across systems with care; against its own baseline it is valid.
+- The first scripted Windows run had a 12 s outlier at the first launch of the empty window; the median is unaffected, the repeat run had none.
+- The cold start is not a cold disk: the probe is published minutes before the run. Only the single run after a reboot comes closer, and on Windows it is about 130 ms slower than the scripted cold case.
+- The frame-rate check of the script runs on Windows only; on Linux and macOS the rule "logged-in desktop session, display on" applies. The input latency of the ProBook (one display frame at 60 Hz) shows an active display.
+- Self-hosted runners and the Actions retention limit of the repository (7 days): the CSVs are kept in `Docs/measurements/` for that reason.
+
+**Not measured:** a start after a reboot on macOS (command: `gh workflow run measure.yml --ref dev -f platform=macos -f note="<note>" -f cases=cold-reboot`); the macOS Apple-silicon figures (later); a compositor-rate check on Linux and macOS; scrolling, typing in a large document and opening a large file (these belong to the app specs, spec 9.4).
+**Rejected alternatives:** Budgets from the median of all machines (the machines differ by a factor of two, and the limit must hold on the slower binding one); taking the probe's budgets from its `empty` mode (it is only the baseline).
+
 ## 2026-11-03 – CI on self-hosted runners, as few runs as possible
 **Context:** The CI ran on GitHub-hosted runners (Windows minutes count double) on every pull request and again on every push to `dev`. The owner has self-hosted org runners (group `raffica-ci`: one Windows, one Linux; the `Default` group has more).
 **Decision:**

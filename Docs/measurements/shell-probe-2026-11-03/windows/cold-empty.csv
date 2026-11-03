@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+windows-main-pc,empty,cold,1,423.32,ms
+windows-main-pc,empty,cold,2,299.37,ms
+windows-main-pc,empty,cold,3,297.17,ms
+windows-main-pc,empty,cold,4,349.19,ms
+windows-main-pc,empty,cold,5,302.3,ms
+windows-main-pc,empty,cold,6,301.23,ms
+windows-main-pc,empty,cold,7,303.06,ms
+windows-main-pc,empty,cold,8,319.63,ms
+windows-main-pc,empty,cold,9,298.36,ms
+windows-main-pc,empty,cold,10,315.32,ms

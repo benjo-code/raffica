@@ -1,0 +1,7 @@
+Note: MacBook Pro 2016 (Intel, OpenCore Legacy Patcher, macOS 15), Intel Iris Graphics 540, 2560x1600 Retina, Netzstrom; nur Richtwerte
+Platform: macos
+Date (UTC): 2026-11-03 17:48:07
+Commit: 0480960bdb5aaa36f7d35f2f9076dfe466550aa2 (refs/heads/dev)
+OS: macOS 15.8.2 (build 24H232), x86_64
+Processor: Intel(R) Core(TM) i5-6360U CPU @ 2.00GHz, 4 logical processors
+RAM: 8,0 GiB
