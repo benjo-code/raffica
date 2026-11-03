@@ -56,6 +56,7 @@ public sealed class RibbonViewTests
         Assert.Equal(new Thickness(1, 1, 1, 0), active.BorderThickness);
         ControlHarness.AssertToken("Raffica.Brush.Ink", active.Foreground, "active tab text");
         ControlHarness.AssertToken("Raffica.Brush.Ink", active.BorderBrush, "active tab border");
+        Assert.Equal(Colors.Transparent, ControlHarness.ColorOf(active.Background));
         Assert.NotEqual(FontWeight.SemiBold, other.FontWeight);
         Assert.Equal(Colors.Transparent, ControlHarness.ColorOf(other.BorderBrush));
 
@@ -191,5 +192,45 @@ public sealed class RibbonViewTests
         var item = Assert.IsType<MenuFlyout>(ButtonFor(ribbon, "paste").Flyout).Items.OfType<MenuItem>().First();
         item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         Assert.Equal(["paste.keep"], raised.Select(c => c.Id));
+    }
+
+    [AvaloniaFact]
+    public void KeyboardFocusStaysOnTheTabAfterSwitching()
+    {
+        var (window, _, ribbon) = Show();
+        var insert = TabButton(ribbon, "Insert");
+        ControlHarness.KeyboardFocus(window, insert);
+        Assert.True(insert.IsFocused);
+
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        ControlHarness.Settle(window);
+
+        Assert.Same(ribbon.Definition!.Tabs[1], ribbon.ActiveTab);
+        Assert.Same(insert, TabButton(ribbon, "Insert"));
+        Assert.True(insert.IsFocused);
+        Assert.True(insert.IsEffectivelyVisible);
+        Assert.Contains("active", insert.Classes);
+
+        ribbon.IsCompact = true;
+        ControlHarness.Settle(window);
+        Assert.Same(insert, TabButton(ribbon, "Insert"));
+        Assert.True(insert.IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void ReplacingTheDefinitionRebuildsOnceAndResetsTheActiveTab()
+    {
+        var (window, _, ribbon) = Show();
+        ribbon.ActiveTab = ribbon.Definition!.Tabs[2];
+        ControlHarness.Settle(window);
+
+        var fresh = SampleRibbon.Create();
+        ribbon.Definition = fresh;
+        ControlHarness.Settle(window);
+
+        Assert.Same(fresh.Tabs[0], ribbon.ActiveTab);
+        Assert.Contains(Buttons(ribbon), b => b.Definition.Id == "bold");
+        Assert.Equal(1, ribbon.TabRow.GetVisualDescendants().OfType<Button>().Count(b => b.Classes.Contains("active")));
     }
 }

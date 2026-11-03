@@ -32,17 +32,13 @@ public class RibbonView : TemplatedControl
     private readonly StackPanel _tabStrip = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Border _band = new() { ClipToBounds = true };
     private readonly StackPanel _groups = new() { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left };
+    private bool _settingDefinition;
 
     static RibbonView()
     {
-        DefinitionProperty.Changed.AddClassHandler<RibbonView>((view, e) =>
-        {
-            var tabs = (e.NewValue as RibbonDefinition)?.Tabs;
-            view.SetCurrentValue(ActiveTabProperty, tabs is { Count: > 0 } ? tabs[0] : null);
-            view.Rebuild();
-        });
-        ActiveTabProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.Rebuild());
-        IsCompactProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.Rebuild());
+        DefinitionProperty.Changed.AddClassHandler<RibbonView>((view, e) => view.OnDefinitionChanged(e.NewValue as RibbonDefinition));
+        ActiveTabProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.OnActiveTabChanged());
+        IsCompactProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RebuildBand());
     }
 
     public RibbonView()
@@ -73,9 +69,40 @@ public class RibbonView : TemplatedControl
     /// <summary>The band with the groups of the active tab, for <see cref="AppFrame.Band"/>.</summary>
     public Control Band => _band;
 
-    private void Rebuild()
+    private void OnDefinitionChanged(RibbonDefinition? definition)
     {
+        // One rebuild: the tab strip is built here, the band once after the active tab is settled.
+        _settingDefinition = true;
+        try
+        {
+            var tabs = definition?.Tabs;
+            if (ActiveTab is null || tabs is null || !tabs.Contains(ActiveTab))
+            {
+                SetCurrentValue(ActiveTabProperty, tabs is { Count: > 0 } ? tabs[0] : null);
+            }
+        }
+        finally
+        {
+            _settingDefinition = false;
+        }
+
         RebuildTabs();
+        RebuildBand();
+    }
+
+    private void OnActiveTabChanged()
+    {
+        if (_settingDefinition)
+        {
+            return;
+        }
+
+        // The tab buttons stay (and keep their keyboard focus); only the active mark moves.
+        for (var i = 0; i < _tabStrip.Children.Count && Definition is not null; i++)
+        {
+            ((Button)_tabStrip.Children[i]).Classes.Set("active", ReferenceEquals(Definition.Tabs[i], ActiveTab));
+        }
+
         RebuildBand();
     }
 
