@@ -8,6 +8,9 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Shell.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
   <ItemGroup>

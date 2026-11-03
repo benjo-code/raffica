@@ -51,6 +51,9 @@ public sealed class StrokeIcon : Control
         set => SetValue(StrokeProperty, value);
     }
 
+    /// <summary>The brush the icon is drawn with: its own <see cref="Stroke"/>, else the inherited text colour.</summary>
+    internal IBrush? EffectiveStroke => Stroke ?? TextElement.GetForeground(this);
+
     /// <summary>The stroke thickness in the 24-unit space that comes out as 1.5 px on screen at <paramref name="size"/>.</summary>
     public static double StrokeThicknessFor(int size) => ScreenThickness * GridUnits / size;
 
@@ -61,7 +64,7 @@ public sealed class StrokeIcon : Control
         base.Render(context);
 
         // Without a stroke of its own the icon takes the text colour it sits in (an icon inside a button follows the button states).
-        if (Data is not { } data || (Stroke ?? TextElement.GetForeground(this)) is not { } stroke)
+        if (Data is not { } data || EffectiveStroke is not { } stroke)
         {
             return;
         }
