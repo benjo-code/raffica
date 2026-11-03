@@ -4,14 +4,17 @@
     The shared keyboard focus ring (appendix A sections 4 and 5 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md):
     2 px, offset 2 px, in the active app ink (Raffica.Brush.Focus.Ring, set by ShellTheme). The adorner is arranged over the
     bounds of the control, so the negative margin of the ring (2 px offset + 2 px width) puts it outside the control. The corner
-    radius of the ring is the 3 px control radius plus those 4 px. Avalonia shows the adorner only for keyboard focus
+    radius of the ring is the 3 px control radius plus those 4 px. The adorner turns the layer's clip off (AdornerLayer.IsClipEnabled):
+    the clip is set in the coordinates of the adorner, which starts 4 px outside the control, so a real keyboard ring would be cut off
+    on its right and bottom edge. Avalonia shows the adorner only for keyboard focus
     (Tab or arrow keys), not for a click. Controls whose ring must sit elsewhere (check box, radio button) or in another
     colour (destructive button, Raffica.Brush.Danger) set their own FocusAdorner.
   -->
   <ControlTheme x:Key="{x:Type AdornerLayer}" TargetType="AdornerLayer">
     <Setter Property="DefaultFocusAdorner">
       <FocusAdornerTemplate>
-        <Border BorderThickness="2"
+        <Border AdornerLayer.IsClipEnabled="False"
+                BorderThickness="2"
                 Margin="-4"
                 CornerRadius="7"
                 BorderBrush="{DynamicResource Raffica.Brush.Focus.Ring}" />

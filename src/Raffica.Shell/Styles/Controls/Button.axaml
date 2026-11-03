@@ -62,7 +62,8 @@
       <Setter Property="Padding" Value="8,0" />
       <Setter Property="FocusAdorner">
         <FocusAdornerTemplate>
-          <Border BorderThickness="2"
+          <Border AdornerLayer.IsClipEnabled="False"
+                  BorderThickness="2"
                   Margin="-4"
                   CornerRadius="7"
                   BorderBrush="{DynamicResource Raffica.Brush.Danger}" />

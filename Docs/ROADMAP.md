@@ -97,7 +97,7 @@ Goal: The shared shell project has the tokens, fonts, icons and base controls in
 **Tasks**
 - [x] Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec
 - [x] Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid
-- [ ] Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar
+- [x] Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar
 - [x] Localization mechanism (resx under Native AOT) with the missing-translation test
 - [ ] Gallery app that shows every control in both themes and languages
 

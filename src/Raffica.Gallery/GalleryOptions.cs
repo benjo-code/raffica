@@ -28,6 +28,12 @@ public sealed class GalleryOptions
     /// </summary>
     public bool OpenMenu { get; private init; }
 
+    /// <summary>
+    /// Opens the sample dialog of the dialogs section when the window is shown, so a <c>--screenshot</c> can capture the scrim and the
+    /// dialog. Without the dialogs section on screen the switch does nothing.
+    /// </summary>
+    public bool OpenDialog { get; private init; }
+
     /// <summary>Prints the value of this string key and exits before any window exists.</summary>
     public string? PrintString { get; private init; }
 
@@ -41,6 +47,7 @@ public sealed class GalleryOptions
         string? printString = null;
         string? section = null;
         var openMenu = false;
+        var openDialog = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -90,6 +97,9 @@ public sealed class GalleryOptions
                 case "--open-menu":
                     openMenu = true;
                     break;
+                case "--open-dialog":
+                    openDialog = true;
+                    break;
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
@@ -108,6 +118,7 @@ public sealed class GalleryOptions
             PrintString = printString,
             Section = section,
             OpenMenu = openMenu,
+            OpenDialog = openDialog,
         };
     }
 

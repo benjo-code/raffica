@@ -79,4 +79,16 @@ public static class GalleryStrings
     public static string ContextHint => Table.Get("ContextHint");
     public static string TipTitle => Table.Get("TipTitle");
     public static string TipDescription => Table.Get("TipDescription");
+    public static string SectionDialogs => Table.Get("SectionDialogs");
+    public static string DialogOpen => Table.Get("DialogOpen");
+    public static string SampleDialogTitle => Table.Get("SampleDialogTitle");
+    public static string SampleDialogText => Table.Get("SampleDialogText");
+    public static string NoteCrash => Table.Get("NoteCrash");
+    public static string NoteCompare => Table.Get("NoteCompare");
+    public static string NoteFontLead => Table.Get("NoteFontLead");
+    public static string NoteFontText => Table.Get("NoteFontText");
+    public static string NoteShowFonts => Table.Get("NoteShowFonts");
+    public static string NoteSaveLead => Table.Get("NoteSaveLead");
+    public static string NoteSaveText => Table.Get("NoteSaveText");
+    public static string NoteSaveAs => Table.Get("NoteSaveAs");
 }

@@ -8,6 +8,7 @@ namespace Raffica.Gallery;
 internal sealed partial class GalleryWindow : Window
 {
     private readonly MenusSection? _menus;
+    private readonly DialogsSection? _dialogs;
 
     public GalleryWindow(GalleryOptions options)
     {
@@ -18,13 +19,22 @@ internal sealed partial class GalleryWindow : Window
             var section = GallerySections.Create(name);
             Sections.Children.Add(section);
             _menus ??= section as MenusSection;
+            _dialogs ??= section as DialogsSection;
         }
 
         if (options.OpenMenu && _menus is { } menus)
         {
             Opened += (_, _) => Dispatcher.UIThread.Post(menus.OpenMenu);
         }
+
+        if (options.OpenDialog && _dialogs is { } dialogs)
+        {
+            Opened += (_, _) => Dispatcher.UIThread.Post(dialogs.OpenDialog);
+        }
     }
+
+    /// <summary>True while the sample dialog opened by <c>--open-dialog</c> is open.</summary>
+    internal bool IsDialogOpen => _dialogs?.IsDialogOpen == true;
 
     /// <summary>True while the menu opened by <c>--open-menu</c> is open.</summary>
     internal bool IsMenuOpen => _menus?.IsMenuOpen == true;

@@ -22,7 +22,8 @@
     <Setter Property="FontWeight" Value="400" />
     <Setter Property="FocusAdorner">
       <FocusAdornerTemplate>
-        <Border Width="24"
+        <Border AdornerLayer.IsClipEnabled="False"
+                Width="24"
                 Height="24"
                 Margin="-4,0,0,0"
                 HorizontalAlignment="Left"

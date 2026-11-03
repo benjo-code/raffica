@@ -21,6 +21,8 @@ public sealed class GallerySectionTests
     [InlineData("de", "inputs", "Eingabe und Auswahl", "Textfeld mit Text")]
     [InlineData("en", "menus", "Menus and tooltips", "Button with menu")]
     [InlineData("de", "menus", "Menüs und Kurzinfos", "Schaltfläche mit Menü")]
+    [InlineData("en", "dialogs", "Dialog and notification bars", "Open dialog")]
+    [InlineData("de", "dialogs", "Dialog und Hinweisleisten", "Dialog öffnen")]
     public void EverySectionBuildsInTheChosenLanguage(string lang, string section, string title, string probe)
     {
         var previous = GalleryStrings.Culture;
@@ -49,7 +51,7 @@ public sealed class GallerySectionTests
     public void EveryInteractiveControlOfTheNewSectionsHasAnAutomationName()
     {
         ShellTheme.Apply(Avalonia.Application.Current!, ThemeMode.Light, AppInk.Write, forceHighContrast: false);
-        foreach (var section in new[] { "buttons", "inputs", "menus" })
+        foreach (var section in new[] { "buttons", "inputs", "menus", "dialogs" })
         {
             var window = new GalleryWindow(GalleryOptions.Parse(["--lang", "en", "--section", section]));
             window.Show();
@@ -58,7 +60,7 @@ public sealed class GallerySectionTests
 
             var controls = window.GetVisualDescendants()
                 .OfType<Control>()
-                .Where(c => c is TextBox or ComboBox or Menu or SegmentedControl);
+                .Where(c => c is TextBox or ComboBox or Menu or SegmentedControl or NotificationBar);
             foreach (var control in controls)
             {
                 Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(control)), $"{section}: {control.GetType().Name} has no automation name");
@@ -88,5 +90,54 @@ public sealed class GallerySectionTests
         Assert.False(plain.IsMenuOpen);
         plain.Close();
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public void OpenDialogOpensTheSampleDialogOverTheScrim()
+    {
+        ShellTheme.Apply(Avalonia.Application.Current!, ThemeMode.Light, AppInk.Write, forceHighContrast: false);
+        var window = new GalleryWindow(GalleryOptions.Parse(["--lang", "en", "--section", "dialogs", "--open-dialog"]));
+        Assert.False(window.IsDialogOpen);
+
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+
+        Assert.True(window.IsDialogOpen);
+        Assert.Single(window.GetVisualDescendants().OfType<Dialog>());
+
+        var plain = new GalleryWindow(GalleryOptions.Parse(["--lang", "en", "--section", "dialogs"]));
+        plain.Show();
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(plain.IsDialogOpen);
+        plain.Close();
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void TheInfoBarOfTheDialogsSectionHasTheCrashRecoveryActions()
+    {
+        var previous = (GalleryStrings.Culture, ShellStrings.Culture);
+        try
+        {
+            GalleryStrings.Culture = ShellStrings.Culture = CultureInfo.GetCultureInfo("en");
+            ShellTheme.Apply(Avalonia.Application.Current!, ThemeMode.Light, AppInk.Write, forceHighContrast: false);
+            var window = new GalleryWindow(GalleryOptions.Parse(["--lang", "en", "--section", "dialogs"]));
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            var bars = window.GetVisualDescendants().OfType<NotificationBar>().ToList();
+            Assert.Equal(
+                [NotificationSeverity.Info, NotificationSeverity.Warning, NotificationSeverity.Error],
+                bars.Select(b => b.Severity));
+            Assert.Equal(["Compare", "Close"], bars[0].Actions.Select(a => (string?)a.Content));
+            Assert.All(bars, b => Assert.True(b.Actions.Count <= 2));
+            window.Close();
+        }
+        finally
+        {
+            (GalleryStrings.Culture, ShellStrings.Culture) = previous;
+        }
     }
 }

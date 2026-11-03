@@ -204,4 +204,40 @@
   <data name="TipDescription" xml:space="preserve">
     <value>Marks insertions and deletions until they are accepted.</value>
   </data>
+  <data name="SectionDialogs" xml:space="preserve">
+    <value>Dialog and notification bars</value>
+  </data>
+  <data name="DialogOpen" xml:space="preserve">
+    <value>Open dialog</value>
+  </data>
+  <data name="SampleDialogTitle" xml:space="preserve">
+    <value>Update fields</value>
+  </data>
+  <data name="SampleDialogText" xml:space="preserve">
+    <value>All fields in the document are updated. This can take a moment.</value>
+  </data>
+  <data name="NoteCrash" xml:space="preserve">
+    <value>Document was restored after a crash.</value>
+  </data>
+  <data name="NoteCompare" xml:space="preserve">
+    <value>Compare</value>
+  </data>
+  <data name="NoteFontLead" xml:space="preserve">
+    <value>Font missing.</value>
+  </data>
+  <data name="NoteFontText" xml:space="preserve">
+    <value>“Calibri” is not installed and is shown with Carlito, same metrics.</value>
+  </data>
+  <data name="NoteShowFonts" xml:space="preserve">
+    <value>Show fonts</value>
+  </data>
+  <data name="NoteSaveLead" xml:space="preserve">
+    <value>Saving failed.</value>
+  </data>
+  <data name="NoteSaveText" xml:space="preserve">
+    <value>The folder “Downloads” is read-only. Your changes are saved locally.</value>
+  </data>
+  <data name="NoteSaveAs" xml:space="preserve">
+    <value>Save as…</value>
+  </data>
 </root>

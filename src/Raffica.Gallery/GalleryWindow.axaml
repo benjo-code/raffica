@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Raffica.Shell.Controls;assembly=Raffica.Shell"
         x:Class="Raffica.Gallery.GalleryWindow"
         Width="1280"
         Height="800"
@@ -7,7 +8,9 @@
         Foreground="{DynamicResource Raffica.Brush.Text.Primary}"
         FontFamily="{DynamicResource Raffica.Font.Ui}"
         FontSize="14">
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel x:Name="Sections" Margin="16" Spacing="32" />
-  </ScrollViewer>
+  <controls:DialogHost>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <StackPanel x:Name="Sections" Margin="16" Spacing="32" />
+    </ScrollViewer>
+  </controls:DialogHost>
 </Window>

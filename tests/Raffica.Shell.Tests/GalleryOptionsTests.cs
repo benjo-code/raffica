@@ -17,6 +17,7 @@ public sealed class GalleryOptionsTests
         Assert.Null(options.PrintString);
         Assert.Null(options.Section);
         Assert.False(options.OpenMenu);
+        Assert.False(options.OpenDialog);
         Assert.True(options.Lang is "en" or "de");
     }
 
@@ -24,7 +25,7 @@ public sealed class GalleryOptionsTests
     public void ParsesEverySwitch()
     {
         var options = GalleryOptions.Parse(
-            ["--lang", "de", "--theme", "dark", "--high-contrast", "--ink", "pdf", "--screenshot", "out.png", "--print-string", "Close", "--section", "menus", "--open-menu"]);
+            ["--lang", "de", "--theme", "dark", "--high-contrast", "--ink", "pdf", "--screenshot", "out.png", "--print-string", "Close", "--section", "dialogs", "--open-menu", "--open-dialog"]);
 
         Assert.Equal("de", options.Lang);
         Assert.Equal(ThemeMode.Dark, options.Theme);
@@ -32,14 +33,16 @@ public sealed class GalleryOptionsTests
         Assert.Equal(AppInk.Pdf, options.Ink);
         Assert.Equal("out.png", options.Screenshot);
         Assert.Equal("Close", options.PrintString);
-        Assert.Equal("menus", options.Section);
+        Assert.Equal("dialogs", options.Section);
         Assert.True(options.OpenMenu);
+        Assert.True(options.OpenDialog);
     }
 
     [Theory]
     [InlineData("buttons")]
     [InlineData("inputs")]
     [InlineData("menus")]
+    [InlineData("dialogs")]
     public void EverySectionNameIsAccepted(string name) =>
         Assert.Equal(name, GalleryOptions.Parse(["--section", name]).Section);
 

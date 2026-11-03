@@ -204,4 +204,40 @@
   <data name="TipDescription" xml:space="preserve">
     <value>Markiert Einfügungen und Löschungen, bis sie angenommen werden.</value>
   </data>
+  <data name="SectionDialogs" xml:space="preserve">
+    <value>Dialog und Hinweisleisten</value>
+  </data>
+  <data name="DialogOpen" xml:space="preserve">
+    <value>Dialog öffnen</value>
+  </data>
+  <data name="SampleDialogTitle" xml:space="preserve">
+    <value>Felder aktualisieren</value>
+  </data>
+  <data name="SampleDialogText" xml:space="preserve">
+    <value>Alle Felder im Dokument werden aktualisiert. Das kann einen Moment dauern.</value>
+  </data>
+  <data name="NoteCrash" xml:space="preserve">
+    <value>Dokument wurde nach einem Absturz wiederhergestellt.</value>
+  </data>
+  <data name="NoteCompare" xml:space="preserve">
+    <value>Vergleichen</value>
+  </data>
+  <data name="NoteFontLead" xml:space="preserve">
+    <value>Schriftart fehlt.</value>
+  </data>
+  <data name="NoteFontText" xml:space="preserve">
+    <value>„Calibri“ ist nicht installiert und wird mit Carlito angezeigt, gleiche Laufweite.</value>
+  </data>
+  <data name="NoteShowFonts" xml:space="preserve">
+    <value>Schriftarten anzeigen</value>
+  </data>
+  <data name="NoteSaveLead" xml:space="preserve">
+    <value>Speichern fehlgeschlagen.</value>
+  </data>
+  <data name="NoteSaveText" xml:space="preserve">
+    <value>Der Ordner „Downloads“ ist schreibgeschützt. Ihre Änderungen sind lokal gesichert.</value>
+  </data>
+  <data name="NoteSaveAs" xml:space="preserve">
+    <value>Speichern unter …</value>
+  </data>
 </root>
