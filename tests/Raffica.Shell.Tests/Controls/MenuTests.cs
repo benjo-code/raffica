@@ -71,7 +71,6 @@ public sealed class MenuTests
     [InlineData(ThemeMode.Dark)]
     public void RowsAre32PxHighAndShowTheShortcutRightAlignedIn13PxSecondaryText(ThemeMode mode)
     {
-        using var english = new PinnedCulture("en");
         var f = Open(mode);
 
         Assert.Equal(32, f.Cut.Bounds.Height);

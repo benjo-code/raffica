@@ -108,6 +108,25 @@ public sealed class TextBoxContextMenuTests
         Assert.True(readOnly["Copy"].IsEnabled);
     }
 
+    // Fails if the flyout appends instead of rebuilding its items when the same box opens it again.
+    [AvaloniaFact]
+    public void OpeningTheSameBoxTwiceDoesNotDoubleTheItems()
+    {
+        var (first, second) = WithCulture(() =>
+        {
+            var (window, _, flyout) = Open("en");
+            var firstCount = flyout.Items.Count;
+            flyout.Hide();
+            ControlHarness.Settle(window);
+            flyout.ShowAt(window.Content is StackPanel { Children: [TextBox box] } ? box : throw new InvalidOperationException());
+            ControlHarness.Settle(window);
+            return (firstCount, flyout.Items.Count);
+        });
+
+        Assert.Equal(7, first);
+        Assert.Equal(first, second);
+    }
+
     [AvaloniaFact]
     public void SelectAllSelectsTheText()
     {

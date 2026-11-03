@@ -94,12 +94,3 @@ internal static class ControlHarness
     }
 }
 
-/// <summary>Pins the UI language of the shell strings for a test and restores it afterwards.</summary>
-internal sealed class PinnedCulture : IDisposable
-{
-    private readonly System.Globalization.CultureInfo _previous = Raffica.Shell.Localization.ShellStrings.Culture;
-
-    public PinnedCulture(string name) => Raffica.Shell.Localization.ShellStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo(name);
-
-    public void Dispose() => Raffica.Shell.Localization.ShellStrings.Culture = _previous;
-}

@@ -32,7 +32,6 @@ public sealed class TooltipTests
     [InlineData(ThemeMode.Dark)]
     public void TheContentShowsTitleShortcutAndDescription(ThemeMode mode)
     {
-        using var english = new PinnedCulture("en");
         var content = Content();
         Open(mode, content);
 
