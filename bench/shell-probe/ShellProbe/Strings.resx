@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppName" xml:space="preserve"><value>Raffica Write</value></data>
+  <data name="RibbonFile" xml:space="preserve"><value>File</value></data>
+  <data name="RibbonHome" xml:space="preserve"><value>Home</value></data>
+  <data name="RibbonInsert" xml:space="preserve"><value>Insert</value></data>
+  <data name="RibbonLayout" xml:space="preserve"><value>Layout</value></data>
+  <data name="RibbonReferences" xml:space="preserve"><value>References</value></data>
+  <data name="RibbonReview" xml:space="preserve"><value>Review</value></data>
+  <data name="RibbonView" xml:space="preserve"><value>View</value></data>
+  <data name="Search" xml:space="preserve"><value>Search</value></data>
+  <data name="NewDocument" xml:space="preserve"><value>New document</value></data>
+  <data name="Doc1" xml:space="preserve"><value>Community Garden – Annual Report 2026.docx</value></data>
+  <data name="Doc2" xml:space="preserve"><value>Letter to the Parks Department.docx</value></data>
+  <data name="Doc3" xml:space="preserve"><value>Board Meeting Minutes.docx</value></data>
+  <data name="GroupClipboard" xml:space="preserve"><value>Clipboard</value></data>
+  <data name="GroupFont" xml:space="preserve"><value>Font</value></data>
+  <data name="GroupParagraph" xml:space="preserve"><value>Paragraph</value></data>
+  <data name="GroupStyles" xml:space="preserve"><value>Styles</value></data>
+  <data name="GroupEditing" xml:space="preserve"><value>Editing</value></data>
+  <data name="GroupReview" xml:space="preserve"><value>Review</value></data>
+  <data name="GroupInsert" xml:space="preserve"><value>Insert</value></data>
+  <data name="GroupPage" xml:space="preserve"><value>Page setup</value></data>
+  <data name="GroupTables" xml:space="preserve"><value>Tables</value></data>
+  <data name="CmdPaste" xml:space="preserve"><value>Paste</value></data>
+  <data name="CmdCut" xml:space="preserve"><value>Cut</value></data>
+  <data name="CmdCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="CmdFontName" xml:space="preserve"><value>Font: Carlito</value></data>
+  <data name="CmdFontSize" xml:space="preserve"><value>Font size: 11</value></data>
+  <data name="CmdBold" xml:space="preserve"><value>Bold</value></data>
+  <data name="CmdItalic" xml:space="preserve"><value>Italic</value></data>
+  <data name="CmdUnderline" xml:space="preserve"><value>Underline</value></data>
+  <data name="CmdHighlight" xml:space="preserve"><value>Highlight colour</value></data>
+  <data name="CmdFontColor" xml:space="preserve"><value>Font colour</value></data>
+  <data name="CmdClearFormat" xml:space="preserve"><value>Clear formatting</value></data>
+  <data name="CmdStrike" xml:space="preserve"><value>Strikethrough</value></data>
+  <data name="CmdSubscript" xml:space="preserve"><value>Subscript</value></data>
+  <data name="CmdSuperscript" xml:space="preserve"><value>Superscript</value></data>
+  <data name="CmdCase" xml:space="preserve"><value>Change case</value></data>
+  <data name="CmdShading" xml:space="preserve"><value>Shading</value></data>
+  <data name="CmdBorders" xml:space="preserve"><value>Borders</value></data>
+  <data name="CmdBullets" xml:space="preserve"><value>Bullets</value></data>
+  <data name="CmdNumbering" xml:space="preserve"><value>Numbering</value></data>
+  <data name="CmdOutdent" xml:space="preserve"><value>Decrease indent</value></data>
+  <data name="CmdIndent" xml:space="preserve"><value>Increase indent</value></data>
+  <data name="CmdLineSpacing" xml:space="preserve"><value>Line spacing</value></data>
+  <data name="CmdAlignLeft" xml:space="preserve"><value>Align left</value></data>
+  <data name="CmdAlignCenter" xml:space="preserve"><value>Centre</value></data>
+  <data name="CmdAlignRight" xml:space="preserve"><value>Align right</value></data>
+  <data name="CmdJustify" xml:space="preserve"><value>Justify</value></data>
+  <data name="CmdSort" xml:space="preserve"><value>Sort</value></data>
+  <data name="CmdMarks" xml:space="preserve"><value>Show formatting marks</value></data>
+  <data name="StyleNormal" xml:space="preserve"><value>Normal</value></data>
+  <data name="StyleHeading1" xml:space="preserve"><value>Heading 1</value></data>
+  <data name="StyleHeading2" xml:space="preserve"><value>Heading 2</value></data>
+  <data name="StyleQuote" xml:space="preserve"><value>Quote</value></data>
+  <data name="StyleMore" xml:space="preserve"><value>All styles</value></data>
+  <data name="CmdFind" xml:space="preserve"><value>Find</value></data>
+  <data name="CmdReplace" xml:space="preserve"><value>Replace</value></data>
+  <data name="CmdTrack" xml:space="preserve"><value>Track changes</value></data>
+  <data name="CmdNewComment" xml:space="preserve"><value>New comment</value></data>
+  <data name="CmdTable" xml:space="preserve"><value>Table</value></data>
+  <data name="CmdPicture" xml:space="preserve"><value>Picture</value></data>
+  <data name="CmdShape" xml:space="preserve"><value>Shape</value></data>
+  <data name="CmdChart" xml:space="preserve"><value>Chart</value></data>
+  <data name="CmdLink" xml:space="preserve"><value>Link</value></data>
+  <data name="CmdBookmark" xml:space="preserve"><value>Bookmark</value></data>
+  <data name="CmdHeader" xml:space="preserve"><value>Header</value></data>
+  <data name="CmdFooter" xml:space="preserve"><value>Footer</value></data>
+  <data name="CmdPageNumber" xml:space="preserve"><value>Page number</value></data>
+  <data name="CmdMargins" xml:space="preserve"><value>Margins</value></data>
+  <data name="CmdOrientation" xml:space="preserve"><value>Orientation</value></data>
+  <data name="CmdPageSize" xml:space="preserve"><value>Size</value></data>
+  <data name="CmdColumns" xml:space="preserve"><value>Columns</value></data>
+  <data name="CmdBreaks" xml:space="preserve"><value>Breaks</value></data>
+  <data name="CmdTableRow" xml:space="preserve"><value>Insert row</value></data>
+  <data name="CmdTableColumn" xml:space="preserve"><value>Insert column</value></data>
+  <data name="CmdMerge" xml:space="preserve"><value>Merge cells</value></data>
+  <data name="CmdSplit" xml:space="preserve"><value>Split cells</value></data>
+  <data name="MoreCommands" xml:space="preserve"><value>More commands: {0}</value></data>
+  <data name="Navigation" xml:space="preserve"><value>Navigation</value></data>
+  <data name="NavHeadings" xml:space="preserve"><value>Headings</value></data>
+  <data name="NavPages" xml:space="preserve"><value>Pages</value></data>
+  <data name="NavResults" xml:space="preserve"><value>Results</value></data>
+  <data name="Outline1" xml:space="preserve"><value>Summary</value></data>
+  <data name="Outline2" xml:space="preserve"><value>Members and plots</value></data>
+  <data name="Outline3" xml:space="preserve"><value>Budget and expenses</value></data>
+  <data name="Outline31" xml:space="preserve"><value>Water</value></data>
+  <data name="Outline32" xml:space="preserve"><value>Tool shed</value></data>
+  <data name="Outline33" xml:space="preserve"><value>Seeds and plants</value></data>
+  <data name="Outline4" xml:space="preserve"><value>Events</value></data>
+  <data name="Outline5" xml:space="preserve"><value>Outlook 2027</value></data>
+  <data name="ThisDocument" xml:space="preserve"><value>This document</value></data>
+  <data name="Comments" xml:space="preserve"><value>Comments</value></data>
+  <data name="TrackedChanges" xml:space="preserve"><value>Tracked changes</value></data>
+  <data name="Footnotes" xml:space="preserve"><value>Footnotes</value></data>
+  <data name="PageHeading" xml:space="preserve"><value>3 Budget and expenses</value></data>
+  <data name="PageBody" xml:space="preserve"><value>Plot fees covered most of the running costs. 38 of 40 plots were let all season, and the waiting list grew to eleven households. The board kept the fee at €45 per plot so that nobody had to give up a plot for cost reasons. Water was the clearest overrun: because of the dry spell in July and August the main tap ran almost every evening, and the water bill came to €1,385 instead of the planned €1,240.</value></data>
+  <data name="CommentAuthor" xml:space="preserve"><value>M. Keller</value></data>
+  <data name="CommentTime" xml:space="preserve"><value>Yesterday, 18:42</value></data>
+  <data name="CommentText" xml:space="preserve"><value>Can we split the water costs per plot?</value></data>
+  <data name="CommentReply" xml:space="preserve"><value>Reply</value></data>
+  <data name="CommentResolve" xml:space="preserve"><value>Resolve</value></data>
+  <data name="StatusSaved" xml:space="preserve"><value>Saved</value></data>
+  <data name="StatusPage" xml:space="preserve"><value>Page 2 of 7</value></data>
+  <data name="StatusWords" xml:space="preserve"><value>1,284 words</value></data>
+  <data name="ZoomOut" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="ZoomIn" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="ZoomValue" xml:space="preserve"><value>110 %</value></data>
+</root>
