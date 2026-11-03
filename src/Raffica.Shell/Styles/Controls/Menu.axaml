@@ -10,7 +10,7 @@
     is shared across the items of a menu, so the right edges line up 12 px inside the row. Hover and keyboard highlight is
     state.hover (the framework's :selected), pressed fills with the ink, disabled is text.disabled including the shortcut and the
     icon. Class destructive: danger text, icon and shortcut, weight 600 (use it for the last item, after a Separator with class
-    wide). A 2 px inset ring marks keyboard focus (ink, danger on a destructive item). Sub-menu popups have the same 1 px
+    wide). A 2 px inset ring marks the item the keyboard has reached (focused and not under the pointer, because menus do not raise :focus-visible and hover focuses an item too; ink, danger on a destructive item). Sub-menu popups have the same 1 px
     border.control edge, 3 px radius and no shadow as the menu itself; popups never ask the system for a shadow. The text colour is set on the row
     border (TextElement.Foreground) so label, icon and arrow follow every state. The menu bar items are 26 px high with 8 px
     side padding and the same hover; their popup is the menu.
@@ -154,7 +154,7 @@
     <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
       <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
     </Style>
-    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+    <Style Selector="^:focus:not(:pointerover) /template/ Border#PART_FocusRing">
       <Setter Property="IsVisible" Value="True" />
     </Style>
 
@@ -252,7 +252,7 @@
       <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
       <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
     </Style>
-    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+    <Style Selector="^:focus:not(:pointerover) /template/ Border#PART_FocusRing">
       <Setter Property="IsVisible" Value="True" />
     </Style>
     <Style Selector="^:disabled /template/ Border#PART_LayoutRoot">

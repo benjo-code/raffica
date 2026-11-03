@@ -96,6 +96,25 @@ public sealed class ComboBoxTests
     }
 
     [AvaloniaTheory]
+    [InlineData(ThemeMode.Light, false)]
+    [InlineData(ThemeMode.Dark, false)]
+    [InlineData(ThemeMode.Light, true)]
+    [InlineData(ThemeMode.Dark, true)]
+    public void KeyboardFocusShowsTheInkRingOutsideTheEdge(ThemeMode mode, bool selectBox)
+    {
+        var (window, combo) = Host(mode, selectBox: selectBox);
+
+        ControlHarness.KeyboardFocus(window, combo);
+
+        var layer = AdornerLayer.GetAdornerLayer(combo);
+        Assert.NotNull(layer);
+        var ring = Assert.Single(layer.Children.OfType<Border>());
+        Assert.Equal(new Thickness(2), ring.BorderThickness);
+        Assert.Equal(new Thickness(-4), ring.Margin);
+        ControlHarness.AssertToken("Raffica.Brush.Ink", ring.BorderBrush, "ring");
+    }
+
+    [AvaloniaTheory]
     [InlineData(ThemeMode.Light)]
     [InlineData(ThemeMode.Dark)]
     public void EscapeClosesAndKeepsTheSelection(ThemeMode mode)

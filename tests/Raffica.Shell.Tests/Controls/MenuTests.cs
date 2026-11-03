@@ -260,6 +260,47 @@ public sealed class MenuTests
         Assert.False(f.Flyout.IsOpen);
     }
 
+    private static Border Ring(MenuItem item) => ControlHarness.Part<Border>(item, "PART_FocusRing");
+
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light)]
+    [InlineData(ThemeMode.Dark)]
+    public void KeyboardNavigationShowsTheInkRingAndTheDestructiveItemTheDangerRing(ThemeMode mode)
+    {
+        var f = Open(mode);
+
+        Press(f.Window, PhysicalKey.ArrowDown);
+        Assert.True(Ring(f.Save).IsVisible, "ring on the item reached with the keyboard");
+        Assert.Equal(new Thickness(2), Ring(f.Save).BorderThickness);
+        ControlHarness.AssertToken("Raffica.Brush.Focus.Ring", Ring(f.Save).BorderBrush, "ring");
+        ControlHarness.AssertToken("Raffica.Brush.Ink", Ring(f.Save).BorderBrush, "ring is the ink");
+        Assert.False(Ring(f.Cut).IsVisible, "no ring on the item left behind");
+
+        // Save -> Special -> Rename -> Delete rows (the disabled item is skipped).
+        Press(f.Window, PhysicalKey.ArrowDown);
+        Press(f.Window, PhysicalKey.ArrowDown);
+        Press(f.Window, PhysicalKey.ArrowDown);
+        Assert.True(Ring(f.Delete).IsVisible, "ring on the destructive item");
+        Assert.Equal(new Thickness(2), Ring(f.Delete).BorderThickness);
+        ControlHarness.AssertToken("Raffica.Brush.Danger", Ring(f.Delete).BorderBrush, "danger ring");
+        Assert.False(Ring(f.Save).IsVisible);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light)]
+    [InlineData(ThemeMode.Dark)]
+    public void MouseHoverHighlightsWithoutTheRing(ThemeMode mode)
+    {
+        var f = Open(mode);
+        var center = f.Save.TranslatePoint(new Point(f.Save.Bounds.Width / 2, 16), f.Window)!.Value;
+
+        f.Window.MouseMove(center);
+        ControlHarness.Settle(f.Window);
+
+        ControlHarness.AssertToken("Raffica.Brush.State.Hover", Row(f.Save).Background, "hover fill");
+        Assert.False(Ring(f.Save).IsVisible, "hover is not keyboard focus");
+    }
+
     [AvaloniaTheory]
     [InlineData(ThemeMode.Light)]
     [InlineData(ThemeMode.Dark)]
