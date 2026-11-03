@@ -15,6 +15,55 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-03 – Shell project and token conventions (M1.1)
+**Context:** Milestone 1.1 creates the shared shell with tokens, fonts, icons and the base controls.
+**Decision:**
+- Projects: `Raffica.Shell` (tokens, styles, controls, strings), `Raffica.Gallery` (the gallery app) and `Raffica.Shell.Tests`.
+- Resource keys are `Raffica.Color.<Group>.<Name>` and `Raffica.Brush.*`. `ShellTheme.Apply` sets the theme mode, the app ink and high contrast, and re-resolves the brushes when the theme variant changes.
+- The shell is layered over `FluentTheme`, which stays for what is not restyled (scroll bars and similar). Component styles use semantic tokens only, no hex literals (`NoHexInComponentStylesTests`).
+- Focus ring: 2 px thick with a 2 px offset, as literals in AXAML (a `Thickness` cannot be derived from `Metrics` doubles). `AdornerLayer.IsClipEnabled=false` is needed so the ring is not clipped.
+- `StrokeIcon` takes the inherited text colour when `Stroke` is unset. Milestone 1.2: the shell `Window` style must set `TextElement.Foreground` to `Text.Primary`.
+- Tabular figures are an opt-in `tnum` class. Spec 4.1 says all UI text, the plan said where numbers align; revisit with the status bar in 1.2.
+**Rationale:** One place for every value, so contrast and the no-literal rule can be tested.
+**Rejected alternatives:** Replacing `FluentTheme` (would mean restyling every framework control at once).
+
+## 2026-11-03 – Avalonia.Headless.XUnit with xunit.v3 3.2.2 in the shell tests only
+**Context:** The shell tests need a headless Avalonia host. `Avalonia.Headless.XUnit` 12.1.4 fails test discovery with xunit.v3 4.0.x, the version the other test projects use.
+**Decision:** `Raffica.Shell.Tests` pins xunit.v3 3.2.2 through a `VersionOverride`. The tests run real Skia headless (`UseSkia`), so the font and weight tests measure real text.
+**Rationale:** The headless host is the only way to test controls without a display.
+**Removal condition:** When `Avalonia.Headless.XUnit` supports xunit.v3 4.x, drop the `VersionOverride`.
+**Rejected alternatives:** Downgrading xunit.v3 in every test project (no reason to hold the others back).
+
+## 2026-11-03 – Dark scrim value
+**Context:** The dialog scrim in the dark theme needs a value; the spec gives only the light one.
+**Decision:** Light is the spec value `#521A1D21`. Dark is `#80000000` (black at 50 %), so the frame behind the dialog stays visible in the gallery screenshot.
+**Rationale:** A darker scrim on a dark frame would hide it.
+
+## 2026-11-03 – Public Sans as static instances
+**Context:** The variable font did not apply weights under Skia: the weights test showed a single advance width for all weights.
+**Decision:** Static instances 400, 500 and 600, generated with the fontTools instancer (command in `src/Raffica.Shell/Assets/Fonts/SOURCES.md`). It costs 3.03 MB.
+**Rejected alternatives:** The variable font (weights do not apply).
+
+## 2026-11-03 – High-contrast palette
+**Context:** The spec has no high-contrast values; it only says (section 6) that the frame switches to "a token set built from the system colours, as the predecessor did".
+**Decision:** A fixed palette in every app: black ground, white text and edges, yellow ink (the same mechanism as the predecessor's fixed palette). The contrast tests verify it. Fluent controls use the Dark palette under high contrast.
+**Deviation from the spec:** The spec asks for a token set built from the system colours; the implementation is a fixed palette. The task report records the values as the shell's own and gives no reason for not using system colours. Owner to confirm, or to ask for a system-colour mapping.
+**Not verified:** Behaviour with a real Windows high-contrast setting. Check it on a Windows machine: turn on a Windows contrast theme, start `RafficaGallery` without `--high-contrast`, and toggle the contrast theme while the app runs. `--high-contrast` forces the palette (`ShellTheme.Apply` with `forceHighContrast: true`) and skips the OS detection and the `ColorValuesChanged` subscription, so it only shows the palette; use it for that on any OS.
+
+## 2026-11-03 – SelectBox instead of plain ComboBox for the select
+**Context:** The framework `ComboBox` changes the selection on Down and Up instead of opening the list.
+**Decision:** `SelectBox : ComboBox` (same theme through `StyleKeyOverride`) opens on Enter and Down. The gallery uses `SelectBox`.
+**Rationale:** Keyboard behaviour matches the menus and what users expect from a select.
+
+## 2026-11-03 – Menu and board calls
+**Context:** Details the spec and board left open or that differ between them.
+**Decision:** Field height 26 (the board's 28 is the title-bar search field). Menu labels 14 px, shortcuts 13 px, tooltip shortcuts 12 px. The shortcut of a destructive menu item is Danger (board), a pressed destructive item has a Danger fill. Menu minimum width 240. The keyboard ring on menu items is `:focus:not(:pointerover)`, because menus never raise `:focus-visible`.
+
+## 2026-11-03 – Localization mechanism and its limits
+**Context:** English and German must work under Native AOT without reflection-based lookups.
+**Decision:** Two `ResourceManager`s, one per language with the invariant culture; both `.resx` files are embedded in the main assembly through `LogicalName`. A missing key throws; there is no fallback across languages. Proven under Native AOT on Windows and Linux in CI. The gallery sets `InvariantGlobalization=false` (as the M1 probe does) because German formats are needed; on Linux that requires libicu on the machine.
+**Limits (milestone 1.2):** Key names in menu shortcuts come from Avalonia's converter (`Ctrl+X` in German, not `Strg+X`), and the TextBox context menu keeps Fluent's English Cut, Copy and Paste.
+
 ## 2026-11-03 – Speed targets of the frame (M1)
 **Context:** Spec section 9 asks milestone 1 to measure a Native AOT Avalonia 12 app on the owner's machines and to set speed targets from it. The probe (`bench/shell-probe`, commit of this entry) has an `empty` mode (one window) and a `frame` mode (static mock of the Write frame of direction D: about 60 controls, three embedded font families, German resources). `measure.yml` ran it on three hand-started self-hosted runners; the raw CSVs, the machine notes and the budget table are in `Docs/measurements/shell-probe-2026-11-03/` (machine names replaced by `windows-main-pc`, `linux-probook`, `macos-macbook`). Cases: cold (no warm-up, 5 s pause), warm (3 warm-ups, 500 ms pause), 10 runs each; input: 100 synthetic key presses in one run; memory: 2 s after first frame; size: the published folder without debug symbols. All figures are medians. Runs (all `dev` at 0480960): Linux 41682565866, Windows 41683058597, macOS 41687457617, cold after reboot Windows 41689113140 and Linux 41689118537.
 

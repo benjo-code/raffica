@@ -183,6 +183,38 @@ jobs:
           if ($text -notlike '*Hello,*') { throw "unexpected output: $text" }
           Write-Host 'text extraction works'
 
+      # The gallery of the design system. The publish proves that the gallery builds as Native AOT without warnings; --print-string
+      # proves that the resource lookup works in the published binary. It runs before any window exists, so no display is needed and
+      # CI does not show that the AXAML, fonts and styles render (the local --screenshot run does).
+      - name: Publish the gallery (Native AOT)
+        run: dotnet publish src/Raffica.Gallery -c Release -r ${{ matrix.rid }} -o out/gallery
+
+      - name: Smoke test of the gallery binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          de=$(./out/gallery/RafficaGallery --print-string Cancel --lang de)
+          [ "$de" = "Abbrechen" ] || { echo "expected 'Abbrechen' with --lang de, got: $de" >&2; exit 1; }
+          en=$(./out/gallery/RafficaGallery --print-string Cancel --lang en)
+          [ "$en" = "Cancel" ] || { echo "expected 'Cancel' with --lang en, got: $en" >&2; exit 1; }
+          echo "the published gallery prints German and English strings"
+
+      # RafficaGallery.exe is a GUI-subsystem program: PowerShell does not wait for it and does not capture its output when it is
+      # simply called. Start-Process -Wait with redirected output files waits and gives a reliable exit code.
+      - name: Smoke test of the gallery binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Resolve-Path ./out/gallery/RafficaGallery.exe).Path
+          foreach ($case in @(@('de', 'Abbrechen'), @('en', 'Cancel'))) {
+            $lang = $case[0]; $expected = $case[1]
+            $out = Join-Path $env:RUNNER_TEMP "gallery-$lang.out"
+            $err = Join-Path $env:RUNNER_TEMP "gallery-$lang.err"
+            $p = Start-Process -FilePath $exe -ArgumentList '--print-string', 'Cancel', '--lang', $lang -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($p.ExitCode -ne 0) { throw "--lang $lang exited with $($p.ExitCode): $(Get-Content $err -Raw)" }
+            $text = (Get-Content $out -Raw).Trim()
+            if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
+          }
+          Write-Host 'the published gallery prints German and English strings'
+
   # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
   # draft), so the matrix can change without touching the branch protection.
   ci:
