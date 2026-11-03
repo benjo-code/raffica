@@ -1,6 +1,6 @@
 # PDFium – Drittlizenzen
 
-Pagewing nutzt die vorkompilierten PDFium-Binaries von [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) über die NuGet-Pakete `bblanchon.PDFium.Win32` und `bblanchon.PDFium.Linux` (ohne V8, ohne XFA).
+Raffica nutzt die vorkompilierten PDFium-Binaries von [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) über die NuGet-Pakete `bblanchon.PDFium.Win32` und `bblanchon.PDFium.Linux` (ohne V8, ohne XFA).
 
 ## Version
 
@@ -27,7 +27,7 @@ Die nuspec der NuGet-Pakete gibt als Lizenz `Apache-2.0` an; die `LICENSE` der A
 
 ## Build-Argumente
 
-Aus `args.gn` beider Archive (relevant für Pagewing):
+Aus `args.gn` beider Archive (relevant für Raffica):
 
 ```
 pdf_enable_v8 = false

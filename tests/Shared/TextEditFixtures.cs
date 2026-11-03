@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Pagewing.TestSupport;
+namespace Raffica.TestSupport;
 
 /// <summary>A line of a text edit fixture: its origin (start of the baseline) in points from the top left of the displayed page (page is 0-based).</summary>
 internal sealed record KnownRun(string File, int Page, string Text, string FontKind, double Left, double Baseline, double Size);

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Pagewing.TestSupport;
+namespace Raffica.TestSupport;
 
 /// <summary>A word of a scan fixture and its ink box in points from the top left of the displayed page (page is 0-based).</summary>
 internal sealed record KnownWord(string File, int Page, string Text, double Left, double Top, double Right, double Bottom);

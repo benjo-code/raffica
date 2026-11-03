@@ -1,6 +1,6 @@
 # Tesseract, Leptonica und tessdata_fast – Drittlizenzen
 
-Pagewing liefert die OCR-Bibliothek (`tesseract.dll` bzw. `libtesseract.so`, Tesseract 5.5.4 mit statisch eingebundenem Leptonica 1.87.0) und die Sprachdaten `eng` und `deu` neben der Anwendung aus (Milestone 15; `packaging/native/`, `tools/package.cs`, Konstante `NativeTesseract`; Einträge „OCR: …“ in `Docs/DECISIONS.md`). Die Bibliothek entsteht im Workflow `.github/workflows/native-tesseract.yml` aus den unveränderten Quellen der unten genannten Tags (ohne OpenMP, ohne libcurl, ohne libarchive, ohne Bilddecoder).
+Raffica liefert die OCR-Bibliothek (`tesseract.dll` bzw. `libtesseract.so`, Tesseract 5.5.4 mit statisch eingebundenem Leptonica 1.87.0) und die Sprachdaten `eng` und `deu` neben der Anwendung aus (Milestone 15; `packaging/native/`, `tools/package.cs`, Konstante `NativeTesseract`; Einträge „OCR: …“ in `Docs/DECISIONS.md`). Die Bibliothek entsteht im Workflow `.github/workflows/native-tesseract.yml` aus den unveränderten Quellen der unten genannten Tags (ohne OpenMP, ohne libcurl, ohne libarchive, ohne Bilddecoder).
 
 | Datei | Komponente (Version) | Quelle | SHA-256 der Datei |
 | --- | --- | --- | --- |
