@@ -79,7 +79,7 @@ public sealed partial class MarkupRoundTripTests
         await using (var document = await OpenFixtureAsync("text-basic.pdf"))
         {
             var hello = await WordRectsAsync(document, 0, "Hello");
-            var raffica = await WordRectsAsync(document, 0, "Raffica");
+            var raffica = await WordRectsAsync(document, 0, "Pagewing");
             await document.CreateMarkupAsync(0, AnnotationKind.Underline, hello, Blue, null, null, TestContext.Current.CancellationToken);
             await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, raffica, new AnnotationColor(230, 40, 120), "gone", null, TestContext.Current.CancellationToken);
             saved = await SaveAsync(document, folder);
@@ -139,7 +139,7 @@ public sealed partial class MarkupRoundTripTests
         await using (var document = await OpenFixtureAsync("text-basic.pdf"))
         {
             var hello = await WordRectsAsync(document, 0, "Hello");
-            var raffica = await WordRectsAsync(document, 0, "Raffica");
+            var raffica = await WordRectsAsync(document, 0, "Pagewing");
             await document.CreateMarkupAsync(0, AnnotationKind.Highlight, hello, Yellow, unicode, "Zoë 😀", TestContext.Current.CancellationToken);
             await document.CreateMarkupAsync(0, AnnotationKind.Highlight, raffica, Yellow, longComment, null, TestContext.Current.CancellationToken);
             saved = await SaveAsync(document, folder);

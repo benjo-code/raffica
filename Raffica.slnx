@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Raffica.Cli/Raffica.Cli.csproj" />
+    <Project Path="src/Raffica.Core/Raffica.Core.csproj" />
+    <Project Path="src/Raffica.Ocr/Raffica.Ocr.csproj" />
+    <Project Path="src/Raffica.Pdfium/Raffica.Pdfium.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Raffica.Core.Tests/Raffica.Core.Tests.csproj" />
+    <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
+  </Folder>
+</Solution>

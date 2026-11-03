@@ -262,19 +262,19 @@ public sealed class PdfDocumentTextEditTests
     {
         using var folder = new TempFolder();
         await using var document = await engine.OpenAsync(Copy(folder, "text-edit-styles.pdf"), cancellationToken: Ct);
-        var run = await RunAsync(document, 0, "Raffica");
+        var run = await RunAsync(document, 0, "Pagewing");
 
         var result = await document.ReplaceTextRunAsync(run, string.Empty, TextEditMode.KeepFont, Ct);
 
         Assert.Equal(TextEditOutcome.Remove, result.Decision!.Outcome);
         Assert.Null(result.After);
-        Assert.DoesNotContain("Raffica", await TextOfAsync(document, 0), StringComparison.Ordinal);
+        Assert.DoesNotContain("Pagewing", await TextOfAsync(document, 0), StringComparison.Ordinal);
         Assert.Contains("Total:", await TextOfAsync(document, 0), StringComparison.Ordinal);
 
         // Undo brings the same run back, exactly as it was.
         var restored = await document.RestoreTextRunAsync(0, run.ObjectIndex, null, result.Stash, Ct);
         Assert.Equal(run.Fingerprint, restored.After!.Fingerprint);
-        Assert.Contains("Raffica", await TextOfAsync(document, 0), StringComparison.Ordinal);
+        Assert.Contains("Pagewing", await TextOfAsync(document, 0), StringComparison.Ordinal);
     }
 
     [Fact]

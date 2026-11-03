@@ -17,8 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Raffica.Core.Tests" />
-    <!-- The UI tests drive a ViewerSession with its test constructor (failing or delayed opens). -->
-    <InternalsVisibleTo Include="Raffica.App.Tests" />
   </ItemGroup>
   <!--
     Test build of the updater (Milestone 8.1, packaging/README.md, section "Update prüfen"). A normal build, and so every

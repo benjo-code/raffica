@@ -47,8 +47,8 @@ public sealed class OcrEngineTests
         var result = engine.Recognize(gray, width, height, Dpi, Ct);
 
         Assert.Contains(result.Words, static w => w.Text.StartsWith("Hello", StringComparison.Ordinal));
-        var page = Assert.Single(result.Words, static w => w.Text == "Raffica");
-        var known = await OcrTestImages.WordBoxAsync(pdf, 0, "Raffica", Ct);
+        var page = Assert.Single(result.Words, static w => w.Text == "Pagewing");
+        var known = await OcrTestImages.WordBoxAsync(pdf, 0, "Pagewing", Ct);
         const double Tolerance = 8; // pixels at 300 dpi; PDFium's character boxes include the side bearings, the engine's boxes are the ink
         Assert.InRange(page.Left, (known.Left * scale) - Tolerance, (known.Left * scale) + Tolerance);
         Assert.InRange(page.Right, (known.Right * scale) - Tolerance, (known.Right * scale) + Tolerance);
@@ -191,7 +191,7 @@ public sealed class OcrEngineTests
 
         using var engine = OcrEngine.Create(tessdata, "eng");
 
-        Assert.Contains(engine.Recognize(gray, width, height, Dpi, Ct).Words, static w => w.Text == "Raffica");
+        Assert.Contains(engine.Recognize(gray, width, height, Dpi, Ct).Words, static w => w.Text == "Pagewing");
     }
 
     [Fact]

@@ -31,7 +31,7 @@ public sealed class OcrLayerTests
         await using var document = await engine.OpenAsync(Copy(folder, "text-basic.pdf"), cancellationToken: Ct);
 
         var plain = await document.GetOcrPageInfoAsync(0, Ct);
-        Assert.Equal(14, plain.TextCharacters); // "Hello," and "Raffica"
+        Assert.Equal(14, plain.TextCharacters); // "Hello," and "Pagewing"
         Assert.False(plain.HasOwnLayer);
 
         var written = await document.AddOcrLayerAsync(0, [new OcrPageWord("Extra", 20, 100, 80, 120, 90), new OcrPageWord("Words", 90, 100, 150, 120, 90)], Ct);

@@ -60,23 +60,9 @@ public sealed class DesktopEntryTests
     }
 
     [Fact]
-    public void RenderIsTheSameForTheTemplateInPackaging()
-    {
-        var template = File.ReadAllText(Path.Combine(TestData.Root, "packaging", "linux", "raffica.desktop")).Replace("\r\n", "\n", StringComparison.Ordinal);
-        var rendered = DesktopEntry.Render("/usr/lib/raffica/Raffica", "raffica");
-
-        Assert.Equal("Exec=/usr/lib/raffica/Raffica %F", template.Split('\n').Single(line => line.StartsWith("Exec=", StringComparison.Ordinal)));
-        Assert.Equal(WithoutExec(rendered), WithoutExec(template));
-        Assert.Equal(template, rendered);
-    }
-
-    [Fact]
     public void WindowClassIsTheOneAvaloniaSetsOnX11()
     {
         // Verified with xprop on the Native AOT build under Xvfb: WM_CLASS(STRING) = "Raffica", "Raffica".
         Assert.Contains("StartupWMClass=Raffica", DesktopEntry.Render("/opt/Raffica", "raffica").Split('\n'));
     }
-
-    private static string WithoutExec(string text) =>
-        string.Join('\n', text.Split('\n').Where(line => !line.StartsWith("Exec=", StringComparison.Ordinal)));
 }

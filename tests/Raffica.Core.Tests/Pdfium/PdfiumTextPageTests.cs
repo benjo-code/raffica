@@ -27,7 +27,7 @@ public sealed class PdfiumTextPageTests
             Assert.Throws<PdfiumThreadViolationException>(() => textPage.GetText());
 
             var text = await thread.InvokeAsync(textPage.GetText, cancellationToken: ct);
-            Assert.Equal("Hello, Raffica", text);
+            Assert.Equal("Hello, Pagewing", text);
         }
         finally
         {

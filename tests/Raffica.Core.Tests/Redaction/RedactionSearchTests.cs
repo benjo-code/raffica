@@ -129,12 +129,12 @@ public sealed class RedactionSearchTests
 
         foreach (var (query, options) in new (string, SearchOptions)[]
         {
-            ("raffica", default),
-            ("raffica", new SearchOptions(MatchCase: true)),
-            ("Raffica", new SearchOptions(MatchCase: true)),
+            ("pagewing", default),
+            ("pagewing", new SearchOptions(MatchCase: true)),
+            ("Pagewing", new SearchOptions(MatchCase: true)),
             ("Pagewi", default),
             ("Pagewi", new SearchOptions(WholeWord: true)),
-            ("Raffica", new SearchOptions(MatchCase: true, WholeWord: true)),
+            ("Pagewing", new SearchOptions(MatchCase: true, WholeWord: true)),
             ("ist", new SearchOptions(WholeWord: true)),
         })
         {
@@ -148,8 +148,8 @@ public sealed class RedactionSearchTests
             Assert.Equal(expected, hits.Count);
         }
 
-        Assert.Equal(4, (await FindAsync(document, "raffica")).Count(static h => h.Source == RedactionHitSource.PageText));
-        Assert.Equal(3, (await FindAsync(document, "Raffica", new SearchOptions(MatchCase: true))).Count(static h => h.Source == RedactionHitSource.PageText));
+        Assert.Equal(4, (await FindAsync(document, "pagewing")).Count(static h => h.Source == RedactionHitSource.PageText));
+        Assert.Equal(3, (await FindAsync(document, "Pagewing", new SearchOptions(MatchCase: true))).Count(static h => h.Source == RedactionHitSource.PageText));
         Assert.Empty(await FindAsync(document, "Pagewi", new SearchOptions(WholeWord: true)));
     }
 
@@ -413,7 +413,7 @@ public sealed class RedactionSearchTests
         await using var document = await OpenAsync("text-rich.pdf");
         var report = new RedactionSearchReport();
 
-        _ = await FindAsync(document, "Raffica", report: report);
+        _ = await FindAsync(document, "Pagewing", report: report);
 
         Assert.True(report.IsComplete);
         Assert.False(report.LimitReached);

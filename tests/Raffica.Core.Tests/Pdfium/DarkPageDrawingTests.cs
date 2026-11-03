@@ -131,7 +131,7 @@ public sealed class DarkPageDrawingTests : IDisposable
     [Fact]
     public async Task StrokeOverTextRecoloursOnlyThePixelsUnderIt()
     {
-        // A line of 2 pt straight through "Hello, Raffica" (text-basic.pdf, baseline at y 80): the text under the stroke is
+        // A line of 2 pt straight through "Hello, Pagewing" (text-basic.pdf, baseline at y 80): the text under the stroke is
         // hidden by it on the light page too, so its pixels take the colour; every pixel of the text away from the stroke
         // keeps exactly its light colour.
         const double Scale = 4;

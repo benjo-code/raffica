@@ -42,29 +42,4 @@ public sealed class TextBoxFontTests
         Assert.Equal(file, embedded);
         Assert.StartsWith("src/Raffica.Core/", Path.GetRelativePath(TestData.Root, TestData.GeistRegular).Replace('\\', '/'), StringComparison.Ordinal);
     }
-
-    [Fact]
-    public void NoSecondCopyOfGeistInTheApp()
-    {
-        // The app uses the very file of Core for its own text (an Avalonia resource that links to it); no copy of Geist Regular lies in
-        // the project of the app, and the font is embedded in Core once.
-        var app = Path.Combine(TestData.Root, "src", "Raffica.App");
-        var copies = Directory.EnumerateFiles(app, "*", SearchOption.AllDirectories)
-            .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Where(static path => Path.GetFileName(path).StartsWith("Geist-Regular", StringComparison.OrdinalIgnoreCase)
-                && Path.GetExtension(path) is ".ttf" or ".otf" or ".woff" or ".woff2")
-            .ToList();
-        Assert.Empty(copies);
-
-        var coreFonts = Directory.EnumerateFiles(Path.Combine(TestData.Root, "src", "Raffica.Core"), "Geist-Regular.*", SearchOption.AllDirectories)
-            .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .ToList();
-        Assert.Single(coreFonts);
-
-        var project = File.ReadAllText(Path.Combine(app, "Raffica.App.csproj"));
-        Assert.Contains(@"..\Raffica.Core\Assets\Fonts\Geist-Regular.ttf", project, StringComparison.Ordinal);
-        Assert.False(File.Exists(Path.Combine(app, "Services", "TextBoxFontSource.cs")), "the app has no source of the font of its own any more");
-    }
 }

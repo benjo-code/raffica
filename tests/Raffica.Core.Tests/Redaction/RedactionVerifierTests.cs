@@ -487,7 +487,7 @@ public sealed class RedactionVerifierTests
         using var folder = new TempFolder();
         var path = Copy(folder, "text-basic.pdf");
 
-        // "Hello, Raffica" is at 20,120 on a page 200 high, 24 pt: the area covers part of it.
+        // "Hello, Pagewing" is at 20,120 on a page 200 high, 24 pt: the area covers part of it.
         var check = await VerifyAsync(path, Expect(PlanOf(0, new PageRect(30, 50, 120, 90))));
 
         var finding = Assert.Single(check.Findings);

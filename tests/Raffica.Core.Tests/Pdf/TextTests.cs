@@ -17,7 +17,7 @@ public sealed class TextTests
         var ct = TestContext.Current.CancellationToken;
         await using var document = await engine.OpenAsync(TestData.Pdf("text-basic.pdf"), cancellationToken: ct);
 
-        Assert.Equal("Hello, Raffica", await document.GetTextAsync(0, ct));
+        Assert.Equal("Hello, Pagewing", await document.GetTextAsync(0, ct));
         Assert.Equal("Größe äöü", await document.GetTextAsync(1, ct));
     }
 

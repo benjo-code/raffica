@@ -112,7 +112,7 @@ public sealed partial class InteropSampleTests
             new Mark(0, "schneller PDF-Viewer für Win-dows und Linux.", AnnotationKind.Highlight, MarkupColor.Orange, "Interop: orange highlight over two lines",
                 Shown: "two lines, from \"schneller\" to \"Win-\" (line 1) and on from \"dows\" to \"Linux.\" (line 2), one markup with two quadrilaterals",
                 Lines: 2),
-            new Mark(0, "https://example.org/raffica", AnnotationKind.Underline, MarkupColor.Blue, null),
+            new Mark(0, "https://example.org/pagewing", AnnotationKind.Underline, MarkupColor.Blue, null),
             new Mark(0, "kursiv", AnnotationKind.StrikeOut, MarkupColor.Pink, null),
             new Mark(1, "Seite zwei", AnnotationKind.Highlight, MarkupColor.Yellow, "Interop: highlight on page 2"),
         ]),

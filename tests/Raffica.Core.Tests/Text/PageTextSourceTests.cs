@@ -33,7 +33,7 @@ public sealed class PageTextSourceTests
         var texts = await Task.WhenAll(first, second).WaitAsync(Due, ct);
 
         Assert.Same(texts[0], texts[1]);
-        Assert.Equal("Raffica Handbuch", texts[0].GetText(0, 17));
+        Assert.Equal("Pagewing Handbuch", texts[0].GetText(0, 17));
         Assert.True(source.TryGet(0, out var cached));
         Assert.Same(texts[0], cached);
 

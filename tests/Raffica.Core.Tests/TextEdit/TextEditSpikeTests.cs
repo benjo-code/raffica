@@ -91,7 +91,7 @@ public sealed class TextEditSpikeTests
         // inside a text object makes PDFium cut it, so each part is a run of its own.
         var texts = await OnPageAsync("text-edit-styles.pdf", 0, static (_, page, textPage) => TextEditProbe.ReadTexts(page, textPage).Select(static t => t.Text).ToArray());
 
-        Assert.Equal(["Total: ", "1,250.00 ", " EUR", "Raffica", "Mixed ", "fonts here"], texts);
+        Assert.Equal(["Total: ", "1,250.00 ", " EUR", "Pagewing", "Mixed ", "fonts here"], texts);
     }
 
     [Fact]
