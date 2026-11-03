@@ -45,4 +45,10 @@
   <data name="ZoomLevel" xml:space="preserve">
     <value>Zoom</value>
   </data>
+  <data name="RibbonMore" xml:space="preserve">
+    <value>Weitere Befehle</value>
+  </data>
+  <data name="RibbonGroupMore" xml:space="preserve">
+    <value>Weitere Befehle in {0}</value>
+  </data>
 </root>

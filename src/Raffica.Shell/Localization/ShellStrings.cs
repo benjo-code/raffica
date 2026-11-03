@@ -28,4 +28,8 @@ public static class ShellStrings
     public static string ZoomOut => Table.Get("ZoomOut");
     public static string ZoomIn => Table.Get("ZoomIn");
     public static string ZoomLevel => Table.Get("ZoomLevel");
+    public static string RibbonMore => Table.Get("RibbonMore");
+
+    /// <summary>"More commands in {0}": the name of the overflow button of a compact ribbon group.</summary>
+    public static string RibbonGroupMore(string group) => string.Format(Culture, Table.Get("RibbonGroupMore"), group);
 }
