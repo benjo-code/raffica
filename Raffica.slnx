@@ -9,4 +9,7 @@
     <Project Path="tests/Raffica.Core.Tests/Raffica.Core.Tests.csproj" />
     <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
   </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/shell-probe/ShellProbe/ShellProbe.csproj" />
+  </Folder>
 </Solution>

@@ -50,22 +50,60 @@
     {
       "number": 2,
       "name": "Design system and shell",
-      "spec": { "text": "not written yet (created in its first milestone)" },
+      "spec": { "text": "Design system and shell, approved 2026-11-03", "link": "superpowers/specs/2026-11-03-design-system-shell-design.md" },
       "milestones": [
         {
           "id": "1",
           "title": "Design directions & spec",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-03-milestone-01-design-directions.md",
           "prerequisites": ["0"],
           "goal": "One design direction for all four apps is chosen and the spec for the design system and shell is written.",
           "tasks": [
             { "text": "Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)", "done": false },
-            { "text": "Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one", "done": false },
-            { "text": "Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent", "done": false }
+            { "text": "Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one", "done": true },
+            { "text": "Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent", "done": true }
           ],
           "acceptance": [
             { "text": "The measured values are recorded and the speed targets are set from them", "done": false },
-            { "text": "A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md`", "done": false }
+            { "text": "A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md`", "done": true, "evidence": "Directions A, B (Shelf, then Wayfinding), C and D built as Claude Design canvases; the owner chose D \"Formular Neutral\" after two refinement rounds (canvas version 9, sources in `Docs/design/direction-d/`); `Docs/DECISIONS.md`, entry \"Design direction: D \"Formular Neutral\"\" (2026-11-03)" }
+          ]
+        },
+        {
+          "id": "1.1",
+          "title": "Tokens and base controls",
+          "status": "open",
+          "prerequisites": ["1"],
+          "goal": "The shared shell project has the tokens, fonts, icons and base controls in light, dark and high contrast, shown in a gallery app in English and German.",
+          "tasks": [
+            { "text": "Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec", "done": false },
+            { "text": "Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid", "done": false },
+            { "text": "Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar", "done": false },
+            { "text": "Localization mechanism (resx under Native AOT) with the missing-translation test", "done": false },
+            { "text": "Gallery app that shows every control in both themes and languages", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The contrast test checks every pairing of appendix A in light and dark and passes", "done": false },
+            { "text": "The missing-translation test fails on a removed German string and passes without it", "done": false },
+            { "text": "The published gallery app runs under Native AOT on Windows and Linux and shows German strings with `--lang de`", "done": false }
+          ]
+        },
+        {
+          "id": "1.2",
+          "title": "App frame",
+          "status": "open",
+          "prerequisites": ["1.1"],
+          "goal": "The shared app frame works in the gallery app with every behaviour of the spec, within the measured speed limits.",
+          "tasks": [
+            { "text": "Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar", "done": false },
+            { "text": "Field codes (Office-style sequence) and F6 pane focus", "done": false },
+            { "text": "Start view and settings dialog (theme, language after restart, compact command bar, autosave)", "done": false },
+            { "text": "Size check in CI and a German layout test at 1440 px and at the compact width", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Tests cover every field-code step, the AltGr case, duplicate codes and F6 navigation", "done": false },
+            { "text": "The German layout test finds no clipped ribbon label", "done": false },
+            { "text": "A `measure.yml` run on the Windows and Linux machines stays within the limits recorded in milestone 1", "done": false }
           ]
         }
       ]

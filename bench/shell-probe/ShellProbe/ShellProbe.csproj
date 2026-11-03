@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ShellProbe</AssemblyName>
+    <RootNamespace>ShellProbe</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- German number and date formats are needed by the texts of the probe. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SatelliteResourceLanguages>en;de</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Both languages live in the main assembly (no satellite assemblies, which need runtime assembly loading under Native AOT). -->
+    <EmbeddedResource Update="Strings.resx" WithCulture="false" LogicalName="ShellProbe.Strings.en.resources" />
+    <EmbeddedResource Update="Strings.de.resx" WithCulture="false" LogicalName="ShellProbe.Strings.de.resources" />
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+</Project>

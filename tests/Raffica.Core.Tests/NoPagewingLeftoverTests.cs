@@ -14,7 +14,7 @@ public sealed class NoPagewingLeftoverTests
     private static readonly string[] Roots = ["src", "tests", "tools", "testdata", "third-party", ".github"];
 
     /// <summary>Top-level documentation that tells the origin of the code and may name Pagewing.</summary>
-    private static readonly string[] RootDocuments = ["README.md", "CLAUDE.md", "CHANGELOG.md"];
+    private static readonly string[] RootDocuments = ["README.md", "CLAUDE.md", "CHANGELOG.md", "PRODUCT.md"];
 
     private static readonly string[] SkippedFolders = ["bin", "obj", "artifacts", ".superpowers"];
 

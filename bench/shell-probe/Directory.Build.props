@@ -1,0 +1,3 @@
+<Project>
+  <!-- Isolates the single-file script (measure.cs) from the solution-wide settings in the repository root. The probe project in ShellProbe/ imports the root file again. -->
+</Project>
