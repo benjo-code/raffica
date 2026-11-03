@@ -25,7 +25,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 |---|---|---|---|---|---|
 | 0 | Repo skeleton & CI | 1 – Foundation | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | 2026-11-03 |
 | 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
-| 1.1 | Tokens and base controls | 2 – Design system and shell | 🔵 in progress | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | – |
+| 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
 | 1.2 | App frame | 2 – Design system and shell | ⬜ open | – | – |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
@@ -36,6 +36,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 ## Scope changes
 
 - **2026-11-03 (Milestone 0):** M0 includes the import of the Pagewing core (no UI) from the `v1.0.0` tag as the project skeleton: unchanged import, scripted rename, a commit that makes the subset self-contained, and the translation of German text. The listed tasks for the skeleton, `.gitignore` and CI are carried out on top of the imported solution. `.env.example` is not needed because the imported code uses no secrets. Decided in the suite spec and in `Docs/DECISIONS.md` (entry "Core-only import, fresh UI, new order of work").
+- **2026-11-03 (Milestone 1.1):** Localized key names in menu shortcuts (`Strg+X` instead of `Ctrl+X`) and the TextBox context menu strings (Fluent's English Cut, Copy and Paste) move to milestone 1.2 with the German layout work. The gallery window is 1520 x 900. Decisions in `Docs/DECISIONS.md`, entries "Shell project and token conventions (M1.1)" and "Localization mechanism and its limits".
 
 ---
 
@@ -90,7 +91,7 @@ Goal: One design direction for all four apps is chosen and the spec for the desi
 - [x] A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md` – Directions A, B (Shelf, then Wayfinding), C and D built as Claude Design canvases; the owner chose D "Formular Neutral" after two refinement rounds (canvas version 9, sources in `Docs/design/direction-d/`); `Docs/DECISIONS.md`, entry "Design direction: D "Formular Neutral"" (2026-11-03)
 
 ## Milestone 1.1 – Tokens and base controls
-**Status:** 🔵 in progress · **Plan:** [2026-11-03-milestone-01-1-tokens-and-base-controls.md](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) · **Prerequisites:** M1
+**Status:** ✅ done (2026-11-03) · **Plan:** [2026-11-03-milestone-01-1-tokens-and-base-controls.md](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) · **Prerequisites:** M1
 
 Goal: The shared shell project has the tokens, fonts, icons and base controls in light, dark and high contrast, shown in a gallery app in English and German.
 
@@ -102,9 +103,9 @@ Goal: The shared shell project has the tokens, fonts, icons and base controls in
 - [x] Gallery app that shows every control in both themes and languages
 
 **Acceptance criteria**
-- [ ] The contrast test checks every pairing of appendix A in light and dark and passes
-- [ ] The missing-translation test fails on a removed German string and passes without it
-- [ ] The published gallery app runs under Native AOT on Windows and Linux and shows German strings with `--lang de`
+- [x] The contrast test checks every pairing of appendix A in light and dark and passes – `ContrastTests.EveryTokenIsClassified`, `PairingsMeetTheirThreshold`, `FilledPairingsMeetTheirThreshold`, `ForbiddenPairingsReallyFail` and `TokenValuesMatchAppendixA` pass (CI run 41717652867, `build-linux` and `build-windows`; also green in the local full run)
+- [x] The missing-translation test fails on a removed German string and passes without it – `TranslationTests.TheCheckFailsOnARemovedGermanString` fails the check on a removed, empty or extra German key in an in-memory copy of the real file; `TranslationTests.EveryEnglishKeyHasAGermanValue` passes on the real files (CI run 41717652867)
+- [x] The published gallery app runs under Native AOT on Windows and Linux and shows German strings with `--lang de` – CI run 41717652867: `build-windows` and `build-linux` publish the gallery with Native AOT and the smoke step passes (`--print-string Cancel --lang de` gives Abbrechen, `--lang en` gives Cancel); local win-x64 publish without warnings. Still open (needs the owner's machines): the visual look on the ProBook (CachyOS, Wayland) with `RafficaGallery --lang de` from the Linux CI artifact, and a real Windows high-contrast setting with `RafficaGallery --high-contrast`
 
 ## Milestone 1.2 – App frame
 **Status:** ⬜ open · **Plan:** – · **Prerequisites:** M1.1
