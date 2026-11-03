@@ -41,6 +41,24 @@ public static class ShellStrings
     public static string PaneFormat => Table.Get("PaneFormat");
     public static string PaneDocument => Table.Get("PaneDocument");
     public static string FieldCodeHint => Table.Get("FieldCodeHint");
+    public static string StartNew => Table.Get("StartNew");
+    public static string StartOpen => Table.Get("StartOpen");
+    public static string StartRecent => Table.Get("StartRecent");
+    public static string StartBrowse => Table.Get("StartBrowse");
+    public static string StartRecentEmpty => Table.Get("StartRecentEmpty");
+    public static string StartBlankDocument => Table.Get("StartBlankDocument");
+    public static string StartBlankSpreadsheet => Table.Get("StartBlankSpreadsheet");
+    public static string StartBlankPresentation => Table.Get("StartBlankPresentation");
+    public static string StartOpenPdf => Table.Get("StartOpenPdf");
+    public static string SettingsTitle => Table.Get("SettingsTitle");
+    public static string SettingsTheme => Table.Get("SettingsTheme");
+    public static string SettingsThemeLight => Table.Get("SettingsThemeLight");
+    public static string SettingsThemeDark => Table.Get("SettingsThemeDark");
+    public static string SettingsThemeSystem => Table.Get("SettingsThemeSystem");
+    public static string SettingsLanguage => Table.Get("SettingsLanguage");
+    public static string SettingsRestartNote => Table.Get("SettingsRestartNote");
+    public static string SettingsCompact => Table.Get("SettingsCompact");
+    public static string SettingsAutosave => Table.Get("SettingsAutosave");
 
     /// <summary>"Focus: {0}": the status bar text during F6 pane navigation.</summary>
     public static string FocusPane(string pane) => string.Format(Culture, Table.Get("FocusPane"), pane);

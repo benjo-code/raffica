@@ -93,4 +93,58 @@
   <data name="FieldCodeHint" xml:space="preserve">
     <value>Feldcode eingeben · Esc geht zurück</value>
   </data>
+  <data name="StartNew" xml:space="preserve">
+    <value>Neu</value>
+  </data>
+  <data name="StartOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="StartRecent" xml:space="preserve">
+    <value>Zuletzt verwendet</value>
+  </data>
+  <data name="StartBrowse" xml:space="preserve">
+    <value>Durchsuchen …</value>
+  </data>
+  <data name="StartRecentEmpty" xml:space="preserve">
+    <value>Noch keine zuletzt verwendeten Dateien.</value>
+  </data>
+  <data name="StartBlankDocument" xml:space="preserve">
+    <value>Leeres Dokument</value>
+  </data>
+  <data name="StartBlankSpreadsheet" xml:space="preserve">
+    <value>Leere Tabelle</value>
+  </data>
+  <data name="StartBlankPresentation" xml:space="preserve">
+    <value>Leere Präsentation</value>
+  </data>
+  <data name="StartOpenPdf" xml:space="preserve">
+    <value>PDF öffnen</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="SettingsTheme" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="SettingsThemeLight" xml:space="preserve">
+    <value>Hell</value>
+  </data>
+  <data name="SettingsThemeDark" xml:space="preserve">
+    <value>Dunkel</value>
+  </data>
+  <data name="SettingsThemeSystem" xml:space="preserve">
+    <value>Wie System</value>
+  </data>
+  <data name="SettingsLanguage" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="SettingsRestartNote" xml:space="preserve">
+    <value>Wird nach einem Neustart wirksam</value>
+  </data>
+  <data name="SettingsCompact" xml:space="preserve">
+    <value>Kompakte Befehlsleiste</value>
+  </data>
+  <data name="SettingsAutosave" xml:space="preserve">
+    <value>Automatisch speichern</value>
+  </data>
 </root>
