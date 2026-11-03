@@ -15,6 +15,16 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-03 – CI on self-hosted runners, as few runs as possible
+**Context:** The CI ran on GitHub-hosted runners (Windows minutes count double) on every pull request and again on every push to `dev`. The owner has self-hosted org runners (group `raffica-ci`: one Windows, one Linux; the `Default` group has more).
+**Decision:**
+- `ci.yml` and `roadmap.yml` run on the self-hosted runners (`[self-hosted, dotnet-linux]`, `[self-hosted, dotnet-windows]`), except for a pull request from a fork, which goes to GitHub-hosted runners so that no foreign code reaches the owner's machines.
+- A run happens for pull requests that are not drafts, and for pushes to `main`. There is no run for the squash merge on `dev`: the pull request run checked the same tree.
+- A pull request into `dev` that changes only `Docs/`, Markdown in the root or in `bench/`, or `LICENSE` skips the build; the roadmap check runs only when a roadmap file changes. Pull requests into `main` and pushes to `main` always run everything. The required checks `ci` and `roadmap` always report (success when there was nothing to do).
+- The runner group `raffica-ci` has no workflow restriction (a pull request run has the ref `refs/pull/N/merge`, which the setting cannot name) but is limited to this repository.
+**Rationale:** No hosted minutes, and no check is lost: every change that can break the build or tests still runs the full matrix.
+**Rejected alternatives:** Keeping pull requests on hosted runners as in Pagewing (costs minutes, and the repository is private for now); a `paths` filter on the workflow (the required checks would stay pending).
+
 ## 2026-11-03 – Design direction: D "Formular Neutral"
 **Context:** Milestone 1 asks the owner to choose one design direction for Write, Sheets, Slides and PDF. Several directions were built with Impeccable as Claude Design canvases, each showing all four apps in light and dark with a measured contrast table: A "Formular" (https://claude.ai/artifact/VxVWMN5vGJcDvY8UfB14Nm), B "Shelf" (https://claude.ai/artifact/8dGi9yQJYdESDKXnwFkikH), B "Wayfinding" (https://claude.ai/artifact/BfUsTE8SwkahWxGXHzNLnr), C "Graphite" (https://claude.ai/artifact/Lx5wjMHpbfcsdYThkcX4ua) and D "Formular Neutral" (https://claude.ai/artifact/RGyDq2FZQYBttjkJp6MQbQ).
 **Decision:** Direction D "Formular Neutral", in the refined version on its canvas, is the design direction for all four apps:

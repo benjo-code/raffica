@@ -1,10 +1,19 @@
 name: CI
 
+# As few runs as possible, without losing a check:
+# - Pull requests (not drafts) are checked. There is no second run when the squash merge lands on dev: the pull request
+#   run already checked the same tree. Pushes to main (releases) run in full.
+# - A pull request that changes only documentation (Docs/, Markdown in the root and in bench/, LICENSE) skips the build;
+#   the required status check "ci" still reports, so the branch protection never waits.
+# - Stale runs of the same ref are cancelled.
+# Everything runs on the owner's self-hosted runners, except pull requests from a fork: those go to GitHub-hosted
+# runners, so that no foreign code reaches the owner's machines.
 on:
   pull_request:
     branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [dev, main]
+    branches: [main]
 
 permissions:
   contents: read
@@ -14,21 +23,86 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Avalonia.BuildServices would send anonymous usage data while compiling; the app itself never connects anywhere.
+env:
+  AVALONIA_TELEMETRY_OPTOUT: '1'
+
 jobs:
+  # Decides whether the build runs and where. A pull request from a fork is the only case for the hosted runners.
+  changes:
+    name: changes
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      hosted: ${{ steps.diff.outputs.hosted }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Decide
+        id: diff
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BASE: ${{ github.base_ref }}
+          FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          echo "hosted=$FORK" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = pull_request ] && [ "$DRAFT" = true ]; then
+            echo "A draft pull request is not built."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Pushes to main and pull requests into main (releases) are always built in full.
+          if [ "$EVENT" != pull_request ] || [ "$BASE" = main ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The checkout of a pull request is the merge commit; its first parent is the tip of the base branch.
+          code=false
+          files=$(git diff --name-only HEAD^1 HEAD)
+          [ -n "$files" ] || code=true
+          while IFS= read -r f; do
+            case "$f" in
+              '') ;;
+              Docs/*|LICENSE|bench/*.md|bench/*/*.md) ;;
+              */*) code=true ;;
+              *.md) ;;
+              *) code=true ;;
+            esac
+          done <<< "$files"
+          echo "Changed files:"; echo "$files"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   build:
     name: build-${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ fromJSON(needs.changes.outputs.hosted == 'true' && format('["{0}"]', matrix.hosted) || format('["self-hosted","{0}"]', matrix.label)) }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: linux, runner: ubuntu-24.04, rid: linux-x64, binary: raffica }
-          - { name: windows, runner: windows-2025, rid: win-x64, binary: raffica.exe }
+          - { name: linux, label: dotnet-linux, hosted: ubuntu-24.04, rid: linux-x64, binary: raffica }
+          - { name: windows, label: dotnet-windows, hosted: windows-2025, rid: win-x64, binary: raffica.exe }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # No root on the owner's runners: the SDK goes into the user's folder.
+      - name: Set DOTNET_INSTALL_DIR (Linux)
+        if: runner.os == 'Linux'
+        run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
+
+      - name: Set DOTNET_INSTALL_DIR (Windows)
+        if: runner.os == 'Windows'
+        run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:USERPROFILE\.dotnet"
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -39,11 +113,19 @@ jobs:
         if: runner.os == 'Windows'
         run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
-      - name: Install the Native AOT prerequisites (Linux)
-        if: runner.os == 'Linux'
+      # Only on a GitHub-hosted runner (a pull request from a fork): the image has most of this, but it is not guaranteed.
+      - name: Install the Native AOT prerequisites (Linux, hosted runner)
+        if: runner.os == 'Linux' && needs.changes.outputs.hosted == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y clang zlib1g-dev
+
+      # The self-hosted runner is set up by hand and has no root: check that it has what the AOT publish needs.
+      - name: Check the Native AOT prerequisites (Linux, self-hosted runner)
+        if: runner.os == 'Linux' && needs.changes.outputs.hosted != 'true'
+        run: |
+          command -v clang >/dev/null || { echo 'clang not found: install the clang package' >&2; exit 1; }
+          test -f /usr/include/zlib.h || { echo 'zlib.h not found: install zlib1g-dev' >&2; exit 1; }
 
       - name: Restore
         run: dotnet restore Raffica.slnx
@@ -56,7 +138,7 @@ jobs:
       - name: Fetch the OCR library and the language data
         run: dotnet run tools/native-fetch.cs -- --rid ${{ matrix.rid }} --out artifacts/native/${{ matrix.rid }}
 
-      # One test module at a time: the PDFium-heavy Core tests starve each other's timing on the two cores of a hosted runner.
+      # One test module at a time: the PDFium-heavy Core tests starve each other's timing on a machine with few cores.
       - name: Test
         env:
           RAFFICA_REQUIRE_OCR: '1'
@@ -90,17 +172,21 @@ jobs:
           text=$(./out/cli/${{ matrix.binary }} text testdata/pdfs/text-basic.pdf)
           case "$text" in *"Hello,"*) echo "text extraction works" ;; *) echo "unexpected output: $text" >&2; exit 1 ;; esac
 
-  # The one required status check: it fails unless every build job passed, so the matrix can change without touching
-  # the branch protection.
+  # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
+  # draft), so the matrix can change without touching the branch protection.
   ci:
     name: ci
     if: always()
-    needs: [build]
-    runs-on: ubuntu-24.04
+    needs: [changes, build]
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
     timeout-minutes: 5
     steps:
       - name: All build jobs passed
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          CODE: ${{ needs.changes.outputs.code }}
+          BUILD: ${{ needs.build.result }}
         run: |
-          result="${{ needs.build.result }}"
-          echo "build: $result"
-          test "$result" = "success"
+          echo "changes: $CHANGES, code: $CODE, build: $BUILD"
+          test "$CHANGES" = success
+          if [ "$CODE" = true ]; then test "$BUILD" = success; else echo "nothing to build"; fi
