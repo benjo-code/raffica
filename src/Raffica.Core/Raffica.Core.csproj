@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Only for the code the LibraryImport generator emits (Saving\WindowsFileRename.cs); Core itself has no unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Raffica.Pdfium\Raffica.Pdfium.csproj" />
+    <ProjectReference Include="..\Raffica.Ocr\Raffica.Ocr.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      Geist Regular (subset, licence in third-party/geist), the font of the text boxes and of the overlay text of a redaction. The file lives
+      here once and is embedded in this assembly, so the command line has it too; the app links it as an Avalonia resource for its own text.
+    -->
+    <EmbeddedResource Include="Assets\Fonts\Geist-Regular.ttf" LogicalName="Raffica.Core.Assets.Fonts.Geist-Regular.ttf" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Core.Tests" />
+  </ItemGroup>
+  <!--
+    Test build of the updater (Milestone 8.1, packaging/README.md, section "Update prüfen"). A normal build, and so every
+    release, compiles Updates\UpdateTrust.cs: the real keys and GitHub, with no way to override them. Only
+    -p:RafficaUpdateTestBuild=true swaps it for Updates\UpdateTrust.TestBuild.cs, which trusts the one test key
+    RafficaUpdateTestKey and the test server on 127.0.0.1:RafficaUpdateTestPort (tools/update-testserver.cs); the two
+    values reach the program only in that build, as assembly metadata. The release workflow never sets the property
+    (package.cs selftest), and Directory.Build.props puts a test build into bin\update-test-build and obj\update-test-build.
+  -->
+  <ItemGroup>
+    <Compile Remove="Updates\UpdateTrust.TestBuild.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RafficaUpdateTestBuild)' == 'true'">
+    <Compile Remove="Updates\UpdateTrust.cs" />
+    <Compile Include="Updates\UpdateTrust.TestBuild.cs" />
+    <AssemblyMetadata Include="RafficaUpdateTestPort" Value="$(RafficaUpdateTestPort)" />
+    <AssemblyMetadata Include="RafficaUpdateTestKey" Value="$(RafficaUpdateTestKey)" />
+  </ItemGroup>
+  <Target Name="CheckRafficaUpdateTestBuild" BeforeTargets="BeforeBuild" Condition="'$(RafficaUpdateTestBuild)' == 'true'">
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(RafficaUpdateTestPort)', '^[1-9][0-9]{0,4}$')) Or '$(RafficaUpdateTestPort)' &gt; '65535'"
+           Text="The test build needs -p:RafficaUpdateTestPort=&lt;1..65535&gt; (see the comment above)." />
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(RafficaUpdateTestKey)', '^[A-Za-z0-9+/]{80,}={0,2}$'))"
+           Text="The test build needs -p:RafficaUpdateTestKey=&lt;public test key, Base64 from update-keygen&gt; (see the comment above)." />
+  </Target>
+</Project>
