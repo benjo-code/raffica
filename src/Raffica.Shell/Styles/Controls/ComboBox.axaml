@@ -8,7 +8,8 @@
     menu-style list: surface.page, 1 px border.control, 3 px radius, 4 px above and below, 32 px rows, no shadow (the popup
     window asks for no system shadow either). The selected row is a list row: selection.tint with the 3 px ink edge on the left
     and weight 600; hover is state.hover. An editable select is not part of this milestone, so the template has no text box.
-    Enter, Space, F4 and Alt+Down open the list in the framework; Down and Up open it too (SelectOpenBehavior in the select control).
+    Enter, Space, F4 and Alt+Down open the list in the framework; the framework's Down and Up change the selection, so the
+    SelectBox control (same theme) opens the list on them instead.
   -->
   <ControlTheme x:Key="{x:Type ComboBox}" TargetType="ComboBox">
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
