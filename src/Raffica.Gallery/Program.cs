@@ -25,9 +25,7 @@ internal static class Program
 
         if (options.PrintString is not null)
         {
-            // The shell string table arrives with the localization mechanism of this milestone.
-            Console.Error.WriteLine("error: the string table is not available yet");
-            return UsageError;
+            return PrintStringCommand.Run(options, Console.Out, Console.Error);
         }
 
         try

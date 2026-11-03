@@ -10,4 +10,9 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Both languages are embedded in this assembly (no satellite assemblies, which need runtime assembly loading under Native AOT). -->
+    <EmbeddedResource Update="Resources\Strings.en.resx" WithCulture="false" LogicalName="Raffica.Shell.Strings.en.resources" />
+    <EmbeddedResource Update="Resources\Strings.de.resx" WithCulture="false" LogicalName="Raffica.Shell.Strings.de.resources" />
+  </ItemGroup>
 </Project>

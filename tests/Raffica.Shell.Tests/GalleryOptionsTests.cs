@@ -41,3 +41,34 @@ public sealed class GalleryOptionsTests
     public void InvalidSwitchesThrow(params string[] args) =>
         Assert.Throws<ArgumentException>(() => GalleryOptions.Parse(args));
 }
+
+public sealed class PrintStringCommandTests
+{
+    [Theory]
+    [InlineData("de", "Abbrechen")]
+    [InlineData("en", "Cancel")]
+    public void PrintsTheStringInTheChosenLanguage(string lang, string expected)
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+
+        var code = PrintStringCommand.Run(GalleryOptions.Parse(["--print-string", "Cancel", "--lang", lang]), output, error);
+
+        Assert.Equal(0, code);
+        Assert.Equal(expected + Environment.NewLine, output.ToString());
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public void AnUnknownKeyIsAnErrorOnStderr()
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+
+        var code = PrintStringCommand.Run(GalleryOptions.Parse(["--print-string", "Nope", "--lang", "en"]), output, error);
+
+        Assert.Equal(1, code);
+        Assert.Equal(string.Empty, output.ToString());
+        Assert.Equal("error: Missing string: Nope" + Environment.NewLine, error.ToString());
+    }
+}

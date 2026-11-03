@@ -13,4 +13,10 @@
     <ProjectReference Include="..\..\src\Raffica.Shell\Raffica.Shell.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Gallery\Raffica.Gallery.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- A test-only string table with a format string, to test StringTable.Get(key, args). -->
+    <EmbeddedResource Update="Localization\TestStrings.en.resx" WithCulture="false" LogicalName="Raffica.Shell.Tests.TestStrings.en.resources" />
+    <EmbeddedResource Update="Localization\TestStrings.de.resx" WithCulture="false" LogicalName="Raffica.Shell.Tests.TestStrings.de.resources" />
+  </ItemGroup>
 </Project>
