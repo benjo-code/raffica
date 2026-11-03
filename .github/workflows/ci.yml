@@ -165,12 +165,23 @@ jobs:
         run: dotnet publish src/Raffica.Cli -c Release -r ${{ matrix.rid }} -o out/cli
 
       # The published binary must start, load PDFium and extract text from a test PDF ("Hello, ..." is drawn into the fixture).
-      - name: Smoke test of the CLI binary
-        shell: bash
+      - name: Smoke test of the CLI binary (Linux)
+        if: runner.os == 'Linux'
         run: |
           ./out/cli/${{ matrix.binary }} --help > /dev/null
           text=$(./out/cli/${{ matrix.binary }} text testdata/pdfs/text-basic.pdf)
           case "$text" in *"Hello,"*) echo "text extraction works" ;; *) echo "unexpected output: $text" >&2; exit 1 ;; esac
+
+      # PowerShell, not bash: the self-hosted Windows runner does not have bash on PATH.
+      - name: Smoke test of the CLI binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          & ./out/cli/${{ matrix.binary }} --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "--help exited with $LASTEXITCODE" }
+          $text = (& ./out/cli/${{ matrix.binary }} text testdata/pdfs/text-basic.pdf) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw "text exited with $LASTEXITCODE" }
+          if ($text -notlike '*Hello,*') { throw "unexpected output: $text" }
+          Write-Host 'text extraction works'
 
   # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
   # draft), so the matrix can change without touching the branch protection.
