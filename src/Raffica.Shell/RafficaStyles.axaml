@@ -22,11 +22,14 @@
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/ToolTip.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/Dialog.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/NotificationBar.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/AppFrame.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/StatusBar.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Styles.Resources>
   <FluentTheme />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Typography.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/Window.axaml" />
   <!--
     Buttons in the footer of a dialog: 28 px high, at least 96 px wide (appendix A section 4 of the design spec). This is a style
     of the bundle, not a rule inside the dialog theme: a rule inside a control theme loses against the setters of the Button theme.

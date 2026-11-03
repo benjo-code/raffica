@@ -1,0 +1,11 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The window sets the text colour and the UI font for everything inside it, so that a control that is not restyled (and a bare
+    TextBlock) reads in text.primary and Public Sans rather than the Fluent defaults (the decision note of milestone 1.1).
+  -->
+  <Style Selector="Window">
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="TextElement.FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+  </Style>
+</Styles>

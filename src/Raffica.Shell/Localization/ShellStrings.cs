@@ -25,4 +25,7 @@ public static class ShellStrings
     public static string NotificationError => Table.Get("NotificationError");
     public static string Search => Table.Get("Search");
     public static string More => Table.Get("More");
+    public static string ZoomOut => Table.Get("ZoomOut");
+    public static string ZoomIn => Table.Get("ZoomIn");
+    public static string ZoomLevel => Table.Get("ZoomLevel");
 }

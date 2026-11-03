@@ -1,0 +1,68 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:frame="clr-namespace:Raffica.Shell.Frame"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    The status bar (sections 4.4 and 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): 30 px, surface.band,
+    cells 20 px high in 13 px text with tabular figures, 16 px between cells. The cell columns have a fixed width (112 save state,
+    128 position, 144 count, 220 focus or hint, 96 language) so that nothing moves when a text changes; a text that is too long
+    ends in an ellipsis. The zoom cluster on the right: 24 px buttons, a 96 px slider and the value in a 48 px cell.
+  -->
+  <ControlTheme x:Key="{x:Type frame:StatusBar}" TargetType="frame:StatusBar">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.StatusBar}" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Band}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{DynamicResource Raffica.Brush.Rule}"
+                BorderThickness="0,1,0,0">
+        <Grid
+              Margin="12,0"
+              ColumnDefinitions="112,128,144,220,96,*,Auto"
+              ColumnSpacing="{DynamicResource Raffica.Size.StatusCellGap}">
+          <TextBlock x:Name="PART_SaveState" Grid.Column="0" Classes="secondary tnum" Text="{TemplateBinding SaveState}"
+                     Height="{DynamicResource Raffica.Size.StatusCell}" LineHeight="20" VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          <TextBlock x:Name="PART_Position" Grid.Column="1" Classes="secondary tnum" Text="{TemplateBinding Position}"
+                     Height="{DynamicResource Raffica.Size.StatusCell}" LineHeight="20" VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          <TextBlock x:Name="PART_Count" Grid.Column="2" Classes="secondary tnum" Text="{TemplateBinding Count}"
+                     Height="{DynamicResource Raffica.Size.StatusCell}" LineHeight="20" VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          <Panel x:Name="PART_Focus" Grid.Column="3" Height="{DynamicResource Raffica.Size.StatusCell}" VerticalAlignment="Center">
+            <TextBlock x:Name="PART_FocusText" Classes="secondary tnum" Text="{TemplateBinding FocusPane}"
+                       LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                       IsVisible="{TemplateBinding FocusPane, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock x:Name="PART_HintText" Classes="secondary tnum" Text="{TemplateBinding Hint}"
+                       LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                       IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </Panel>
+          <Panel x:Name="PART_Language" Grid.Column="4" Height="{DynamicResource Raffica.Size.StatusCell}" VerticalAlignment="Center">
+            <TextBlock x:Name="PART_LanguageText" Classes="secondary tnum" Text="{TemplateBinding Language}"
+                       LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                       IsVisible="{TemplateBinding Language, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </Panel>
+          <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="PART_ZoomOut" Classes="icon"
+                    Width="{DynamicResource Raffica.Size.ZoomButton}" Height="{DynamicResource Raffica.Size.ZoomButton}"
+                    MinWidth="{DynamicResource Raffica.Size.ZoomButton}" MinHeight="{DynamicResource Raffica.Size.ZoomButton}">
+              <controls:StrokeIcon Size="16" Data="{DynamicResource Raffica.Icon.Minus}" />
+            </Button>
+            <Slider x:Name="PART_ZoomSlider" Width="{DynamicResource Raffica.Size.ZoomSlider}"
+                    Height="{DynamicResource Raffica.Size.ZoomButton}" MinHeight="0" VerticalAlignment="Center" />
+            <Button x:Name="PART_ZoomIn" Classes="icon"
+                    Width="{DynamicResource Raffica.Size.ZoomButton}" Height="{DynamicResource Raffica.Size.ZoomButton}"
+                    MinWidth="{DynamicResource Raffica.Size.ZoomButton}" MinHeight="{DynamicResource Raffica.Size.ZoomButton}">
+              <controls:StrokeIcon Size="16" Data="{DynamicResource Raffica.Icon.Plus}" />
+            </Button>
+            <TextBlock x:Name="PART_Zoom" Classes="secondary tnum" Text="{TemplateBinding ZoomText}" Width="48" Margin="8,0,0,0"
+                       Height="{DynamicResource Raffica.Size.StatusCell}" LineHeight="20" VerticalAlignment="Center"
+                       TextAlignment="Right" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          </StackPanel>
+        </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

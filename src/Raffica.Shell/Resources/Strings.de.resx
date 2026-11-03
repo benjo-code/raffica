@@ -36,4 +36,13 @@
   <data name="More" xml:space="preserve">
     <value>Mehr</value>
   </data>
+  <data name="ZoomOut" xml:space="preserve">
+    <value>Verkleinern</value>
+  </data>
+  <data name="ZoomIn" xml:space="preserve">
+    <value>Vergrößern</value>
+  </data>
+  <data name="ZoomLevel" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
 </root>
