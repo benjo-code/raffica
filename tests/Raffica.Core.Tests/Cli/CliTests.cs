@@ -26,8 +26,8 @@ public sealed class CliTests : IDisposable
         Assert.Contains($"File: {TestData.Pdf("text-basic.pdf")}", lines);
         Assert.Contains("Pages: 2", lines);
         Assert.Contains("PDF version: 1.7", lines);
-        Assert.Contains("Title: Raffica Textprobe: Größe", lines);
-        Assert.Contains("Producer: Raffica test generator", lines);
+        Assert.Contains("Title: Pagewing Textprobe: Größe", lines);
+        Assert.Contains("Producer: Pagewing test generator", lines);
         Assert.DoesNotContain(lines, line => line.StartsWith("Author:", StringComparison.Ordinal));
         Assert.Equal(["Page sizes:", "  1-2: 300.00 x 200.00 pt"], lines[Array.IndexOf(lines, "Page sizes:")..]);
     }
@@ -151,7 +151,7 @@ public sealed class CliTests : IDisposable
         var result = await RunAsync("text", TestData.Pdf("text-basic.pdf"));
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Equal("Hello, Raffica\fGröße äöü\f", result.Output);
+        Assert.Equal("Hello, Pagewing\fGröße äöü\f", result.Output);
     }
 
     [Fact]

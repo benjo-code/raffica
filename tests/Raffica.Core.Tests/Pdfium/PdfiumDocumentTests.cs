@@ -158,8 +158,8 @@ public sealed class PdfiumDocumentTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(17, version);
-        Assert.Equal("Raffica Textprobe: Größe", title);
-        Assert.Equal("Raffica test generator", producer);
+        Assert.Equal("Pagewing Textprobe: Größe", title);
+        Assert.Equal("Pagewing test generator", producer);
         Assert.Null(author);
         Assert.Null(helloTitle);
     }

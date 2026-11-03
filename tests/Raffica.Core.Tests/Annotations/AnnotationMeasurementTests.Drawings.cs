@@ -15,8 +15,7 @@ namespace Raffica.Core.Tests.Annotations;
 /// thinning and smoothing of a stroke, the growth of the file, the save with 1,000 strokes, the render of a page with 1,000
 /// strokes (light and dark) and the files for the scroll measurement. Runs only with <c>RAFFICA_MEASURE_OUT=&lt;folder&gt;</c>
 /// (best in Release: <c>dotnet test tests/Raffica.Core.Tests -c Release --filter-class "*AnnotationMeasurementTests"</c>);
-/// writes <c>drawing-measurements.txt</c> and the scroll files into that folder. Measures, never asserts a time. The cost of the
-/// preview while dragging is measured in <c>Raffica.App.Tests</c> (<c>DrawingPreviewMeasurementTests</c>).
+/// writes <c>drawing-measurements.txt</c> and the scroll files into that folder. Measures, never asserts a time.
 /// </summary>
 public sealed partial class AnnotationMeasurementTests
 {

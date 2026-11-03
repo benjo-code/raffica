@@ -35,9 +35,9 @@ public sealed class PageLinksTests
         AssertCovers(text, jumpRect, all, "Weiter zu Seite zwei");
 
         // The two addresses PDFium finds in the text cover their characters, and nothing else.
-        var raffica = Assert.Single(text.Links, l => l.Target is UriTarget { Url: "https://example.org/raffica" });
+        var raffica = Assert.Single(text.Links, l => l.Target is UriTarget { Url: "https://example.org/pagewing" });
         var www = Assert.Single(text.Links, l => l.Target is UriTarget { Url: "http://www.example.org" });
-        foreach (var (link, written) in new[] { (raffica, "https://example.org/raffica"), (www, "www.example.org") })
+        foreach (var (link, written) in new[] { (raffica, "https://example.org/pagewing"), (www, "www.example.org") })
         {
             var start = all.IndexOf(written, StringComparison.Ordinal);
             Assert.True(start >= 0, written);
@@ -47,7 +47,7 @@ public sealed class PageLinksTests
         }
 
         // No link elsewhere: the heading, the words before the address, the sentence period, a corner.
-        foreach (var plain in new[] { "Raffica Handbuch", "Mehr unter", "Zweite Zeile" })
+        foreach (var plain in new[] { "Pagewing Handbuch", "Mehr unter", "Zweite Zeile" })
         {
             var start = all.IndexOf(plain, StringComparison.Ordinal);
             var rect = text.RectsOf(start, start + plain.Length)[0];
@@ -71,7 +71,7 @@ public sealed class PageLinksTests
         // covered by LaunchScriptAndFileActionsNeverBecomeClickable.
         var link = Assert.Single(text.Links);
         var uri = Assert.IsType<UriTarget>(link.Target);
-        Assert.Equal("https://example.com/raffica", uri.Url);
+        Assert.Equal("https://example.com/pagewing", uri.Url);
         Assert.True(ExternalLink.TryParse(uri.Url, out _));
         Assert.All(text.Links, l => Assert.True(l.Target is PageTarget or UriTarget));
         var rect = Assert.Single(link.Rects);

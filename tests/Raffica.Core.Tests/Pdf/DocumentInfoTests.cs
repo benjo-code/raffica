@@ -48,7 +48,7 @@ public sealed class DocumentInfoTests
 
         var info = await DocumentInfoReader.ReadAsync(document, path, ct);
 
-        Assert.Equal("Raffica Textprobe: Größe", info.Title);
+        Assert.Equal("Pagewing Textprobe: Größe", info.Title);
         Assert.Null(info.Author);
     }
 

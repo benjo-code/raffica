@@ -22,7 +22,7 @@ public sealed class PageTextTests
         Assert.Equal(400, text.Width, 0.5);
         Assert.Equal(400, text.Height, 0.5);
         Assert.True(text.HasText);
-        Assert.Equal("Raffica Handbuch", text.GetText(0, 17));
+        Assert.Equal("Pagewing Handbuch", text.GetText(0, 17));
         Assert.Equal(12f, text.BodyFontSize);
         Assert.Single(text.Links, l => l.Target is UriTarget { Url: "https://example.org/docs" });
         var jump = Assert.Single(text.Links, l => l.Target is PageTarget);
@@ -33,7 +33,7 @@ public sealed class PageTextTests
         // PDFium 157.0.8100 finds two web addresses in the text besides the two link annotations; it reports
         // "www.example.org." as "http://www.example.org".
         Assert.Equal(4, text.Links.Count);
-        Assert.Contains(text.Links, l => l.Target is UriTarget { Url: "https://example.org/raffica" });
+        Assert.Contains(text.Links, l => l.Target is UriTarget { Url: "https://example.org/pagewing" });
         Assert.Contains(text.Links, l => l.Target is UriTarget { Url: "http://www.example.org" });
         Assert.All(text.Links, l => Assert.NotEmpty(l.Rects));
     }

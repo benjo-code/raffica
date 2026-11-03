@@ -15,17 +15,17 @@ public sealed class SearchCliTests
     [Fact]
     public async Task SearchPrintsOneTabSeparatedLinePerHit()
     {
-        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Raffica", "--match-case");
+        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Pagewing", "--match-case");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(string.Empty, result.Error);
         var lines = result.OutputLines;
         Assert.Equal(3, lines.Length);
-        Assert.Equal("1\t0\t[Raffica] Handbuch", lines[0]);
+        Assert.Equal("1\t0\t[Pagewing] Handbuch", lines[0]);
         Assert.StartsWith("1\t", lines[1], StringComparison.Ordinal);
-        Assert.EndsWith("\t[Raffica] ist ein schneller PDF-Viewer ", lines[1], StringComparison.Ordinal);
+        Assert.EndsWith("\t[Pagewing] ist ein schneller PDF-Viewer ", lines[1], StringComparison.Ordinal);
         Assert.StartsWith("2\t", lines[2], StringComparison.Ordinal);
-        Assert.EndsWith("\tZiel: [Raffica] am Ende.", lines[2], StringComparison.Ordinal);
+        Assert.EndsWith("\tZiel: [Pagewing] am Ende.", lines[2], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -41,9 +41,9 @@ public sealed class SearchCliTests
     [Fact]
     public async Task SearchHonoursPagesAndCaseOptions()
     {
-        var all = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "raffica");
-        var secondPage = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "raffica", "--pages", "2");
-        var matchCase = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "raffica", "--match-case");
+        var all = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "pagewing");
+        var secondPage = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "pagewing", "--pages", "2");
+        var matchCase = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "pagewing", "--match-case");
 
         Assert.Equal(0, all.ExitCode);
         Assert.Equal(4, all.OutputLines.Length);
@@ -54,7 +54,7 @@ public sealed class SearchCliTests
         Assert.Equal(0, matchCase.ExitCode);
         var lowercase = Assert.Single(matchCase.OutputLines);
         Assert.StartsWith("1\t", lowercase, StringComparison.Ordinal);
-        Assert.Contains("https://example.org/[raffica]", lowercase, StringComparison.Ordinal);
+        Assert.Contains("https://example.org/[pagewing]", lowercase, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class SearchCliTests
     [Fact]
     public async Task SearchPagesAreSearchedInAscendingOrderWhateverTheRangeSaysFirst()
     {
-        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Raffica", "--match-case", "--pages", "2,1");
+        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Pagewing", "--match-case", "--pages", "2,1");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(["1", "1", "2"], result.OutputLines.Select(static line => line.Split('\t')[0]));
@@ -95,7 +95,7 @@ public sealed class SearchCliTests
     [Fact]
     public async Task SearchWithAThirdPositionalArgumentIsAUsageError()
     {
-        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Raffica", "extra");
+        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Pagewing", "extra");
 
         AssertUsageError(result, "extra");
     }
@@ -124,7 +124,7 @@ public sealed class SearchCliTests
     [Fact]
     public async Task SearchPageOutOfRangeExitsWithOne()
     {
-        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Raffica", "--pages", "9");
+        var result = await RunAsync("search", TestData.Pdf("text-rich.pdf"), "Pagewing", "--pages", "9");
 
         Assert.Equal(1, result.ExitCode);
         Assert.StartsWith("raffica: Page 9 is out of range", result.Error, StringComparison.Ordinal);

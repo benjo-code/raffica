@@ -199,7 +199,7 @@ public sealed class DarkPageRenderTests
         await using var plainDocument = await OpenFixtureAsync("text-basic.pdf");
         await using var document = await OpenFixtureAsync("text-basic.pdf");
         var hello = await document.CreateMarkupAsync(0, AnnotationKind.Underline, await WordRectsAsync(document, 0, "Hello"), blue, null, null, ct);
-        var raffica = await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, await WordRectsAsync(document, 0, "Raffica"), pink, null, null, ct);
+        var raffica = await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, await WordRectsAsync(document, 0, "Pagewing"), pink, null, null, ct);
         var plain = await plainDocument.RenderPageAsync(0, scale, Dark, ct);
         var marked = await document.RenderPageAsync(0, scale, Dark, ct);
 
@@ -264,7 +264,7 @@ public sealed class DarkPageRenderTests
         var ct = TestContext.Current.CancellationToken;
         await using var document = await OpenFixtureAsync("text-basic.pdf");
         await document.CreateMarkupAsync(0, AnnotationKind.Highlight, await WordRectsAsync(document, 0, "Hello"), Yellow, null, null, ct);
-        await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, await WordRectsAsync(document, 0, "Raffica"), Blue, null, null, ct);
+        await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, await WordRectsAsync(document, 0, "Pagewing"), Blue, null, null, ct);
         var full = await document.RenderPageAsync(0, Scale, Dark, ct);
 
         // Tiles that cut through both markups: each paints its part, and together they are the page.
@@ -532,7 +532,7 @@ public sealed class DarkPageRenderTests
         var ct = TestContext.Current.CancellationToken;
         await using var plainDocument = await OpenFixtureAsync("text-basic.pdf");
         await using var document = await OpenFixtureAsync("text-basic.pdf");
-        var rects = await WordRectsAsync(document, 0, "Raffica");
+        var rects = await WordRectsAsync(document, 0, "Pagewing");
         var lightBefore = await document.RenderTileAsync(0, scale, TileOf(rects[0], kind, scale), cancellationToken: ct);
         await document.CreateMarkupAsync(0, kind, rects, Blue, null, null, ct);
         var tile = TileOf(rects[0], kind, scale);

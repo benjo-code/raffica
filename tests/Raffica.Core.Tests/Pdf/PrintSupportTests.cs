@@ -149,7 +149,7 @@ public sealed class PrintSupportTests : IDisposable
         var ct = TestContext.Current.CancellationToken;
         await using var document = await OpenFixtureAsync("text-basic.pdf");
         var hello = await document.CreateMarkupAsync(0, AnnotationKind.Highlight, await WordRectsAsync(document, 0, "Hello"), Yellow, null, null, ct);
-        var raffica = await document.CreateMarkupAsync(0, AnnotationKind.Underline, await WordRectsAsync(document, 0, "Raffica"), Blue, null, null, ct);
+        var raffica = await document.CreateMarkupAsync(0, AnnotationKind.Underline, await WordRectsAsync(document, 0, "Pagewing"), Blue, null, null, ct);
         await document.RenderPageAsync(0, 2, new RenderOptions { PageTheme = PageTheme.Dark }, ct);
 
         const int Width = 600, Height = 400;
@@ -321,7 +321,7 @@ public sealed class PrintSupportTests : IDisposable
         var copy = Path.Combine(work, "copy.pdf");
         await using (var document = await OpenFixtureAsync("text-basic.pdf"))
         {
-            await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, await WordRectsAsync(document, 0, "Raffica"), Blue, "unsaved", null, ct);
+            await document.CreateMarkupAsync(0, AnnotationKind.StrikeOut, await WordRectsAsync(document, 0, "Pagewing"), Blue, "unsaved", null, ct);
             await document.SaveDecryptedCopyAsync(copy, ct);
         }
 

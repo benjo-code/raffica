@@ -11,11 +11,11 @@ public sealed class PdfiumPageTextTests
     [Fact]
     public async Task CharsOfTheHeadingHaveBoxesAndBold()
     {
-        // text-rich.pdf page 1: "Raffica Handbuch" in Helvetica-Bold 24 at x = 40, baseline y = 350 (from the bottom).
+        // text-rich.pdf page 1: "Pagewing Handbuch" in Helvetica-Bold 24 at x = 40, baseline y = 350 (from the bottom).
         var chars = await ReadPage("text-rich.pdf", 0, geometry: true, style: true);
         var heading = chars.Where(c => !c.Generated).Take(17).ToArray();
 
-        Assert.Equal("Raffica Handbuch", Text(heading));
+        Assert.Equal("Pagewing Handbuch", Text(heading));
         Assert.All(heading, c =>
         {
             Assert.True(c.Bold);
@@ -185,7 +185,7 @@ public sealed class PdfiumPageTextTests
         // Web addresses PDFium detects in the text, after the link annotations. PDFium 157.0.8100 reports
         // "www.example.org." as "http://www.example.org" (scheme added, sentence period dropped).
         var web = links.Skip(2).ToArray();
-        Assert.Equal(["https://example.org/raffica", "http://www.example.org"], web.Select(l => l.Uri));
+        Assert.Equal(["https://example.org/pagewing", "http://www.example.org"], web.Select(l => l.Uri));
         Assert.All(web, l =>
         {
             Assert.Equal(PdfiumLinkKind.Uri, l.Kind);

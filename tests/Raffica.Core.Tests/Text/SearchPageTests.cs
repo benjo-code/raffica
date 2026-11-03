@@ -16,7 +16,7 @@ public sealed class SearchPageTests
         await using var document = await engine.OpenAsync(TestData.Pdf("text-rich.pdf"), cancellationToken: ct);
 
         // Heading, first sentence and the address in the URL line.
-        var hits = await document.SearchPageAsync(0, "raffica", default, ct);
+        var hits = await document.SearchPageAsync(0, "pagewing", default, ct);
 
         Assert.Equal(3, hits.Count);
         Assert.All(hits, h => Assert.Equal(0, h.PageIndex));
@@ -26,9 +26,9 @@ public sealed class SearchPageTests
         Assert.InRange(rect.Left, 38, 42);
         Assert.InRange(rect.Top, 20, 60);
         Assert.True(rect.Width > 50 && rect.Height > 10);
-        Assert.Equal(new SearchSnippet("", "Raffica", " Handbuch"), hits[0].Snippet);
-        Assert.Equal(new SearchSnippet("", "Raffica", " ist ein schneller PDF-Viewer "), hits[1].Snippet);
-        Assert.Equal("raffica", hits[2].Snippet.Match);
+        Assert.Equal(new SearchSnippet("", "Pagewing", " Handbuch"), hits[0].Snippet);
+        Assert.Equal(new SearchSnippet("", "Pagewing", " ist ein schneller PDF-Viewer "), hits[1].Snippet);
+        Assert.Equal("pagewing", hits[2].Snippet.Match);
         Assert.EndsWith("https://example.org/", hits[2].Snippet.Before, StringComparison.Ordinal);
         Assert.True(hits[0].LastChar < hits[1].FirstChar && hits[1].LastChar < hits[2].FirstChar);
 
@@ -42,13 +42,13 @@ public sealed class SearchPageTests
         var ct = TestContext.Current.CancellationToken;
         await using var document = await engine.OpenAsync(TestData.Pdf("text-rich.pdf"), cancellationToken: ct);
 
-        var hits = await document.SearchPageAsync(0, "Raffica", new SearchOptions(MatchCase: true), ct);
-        var second = await document.SearchPageAsync(1, "Raffica", new SearchOptions(MatchCase: true), ct);
+        var hits = await document.SearchPageAsync(0, "Pagewing", new SearchOptions(MatchCase: true), ct);
+        var second = await document.SearchPageAsync(1, "Pagewing", new SearchOptions(MatchCase: true), ct);
 
         Assert.Equal(2, hits.Count);
         var hit = Assert.Single(second);
         Assert.Equal(1, hit.PageIndex);
-        Assert.Equal(new SearchSnippet("Ziel: ", "Raffica", " am Ende."), hit.Snippet);
+        Assert.Equal(new SearchSnippet("Ziel: ", "Pagewing", " am Ende."), hit.Snippet);
     }
 
     [Fact]
@@ -144,6 +144,6 @@ public sealed class SearchPageTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => document.SearchPageAsync(0, "Raffica", default, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => document.SearchPageAsync(0, "Pagewing", default, cancelled.Token));
     }
 }

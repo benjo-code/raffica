@@ -56,7 +56,7 @@ public sealed class OcrInteractionTests : CliTestBase
         var text = await document.GetPageTextAsync(0, Ct);
         var all = text.GetText(0, text.Chars.Count);
         Assert.DoesNotContain("Invoice", all, StringComparison.Ordinal);
-        Assert.Contains("Raffica", all, StringComparison.Ordinal);
+        Assert.Contains("Pagewing", all, StringComparison.Ordinal);
         Assert.Contains("lazy", all, StringComparison.Ordinal);
 
         // The pixels under the mark are the fill, not the word.
@@ -157,10 +157,10 @@ public sealed class OcrInteractionTests : CliTestBase
         Assert.NotNull(applied);
         var text = await session.Document!.GetPageTextAsync(0, Ct);
         var all = text.GetText(0, text.Chars.Count);
-        var known = OcrFixtures.WordsOf("ocr-scan-rotated.pdf", 0).Single(static w => w.Text == "Raffica");
-        var start = all.IndexOf("Raffica", StringComparison.Ordinal);
+        var known = OcrFixtures.WordsOf("ocr-scan-rotated.pdf", 0).Single(static w => w.Text == "Pagewing");
+        var start = all.IndexOf("Pagewing", StringComparison.Ordinal);
         Assert.True(start >= 0, "the recognized layer does not hold 'Raffica'");
-        var rects = text.RectsOf(start, start + "Raffica".Length);
+        var rects = text.RectsOf(start, start + "Pagewing".Length);
         var tolerance = (known.Bottom - known.Top) / 2;
         Assert.InRange(rects.Min(static r => r.Left), known.Left - tolerance, known.Left + tolerance);
         Assert.InRange(rects.Max(static r => r.Right), known.Right - tolerance, known.Right + tolerance);

@@ -201,7 +201,7 @@ public sealed class AnnotationEditorTests : IDisposable
         using var session = await OpenSessionAsync("text-basic.pdf");
         var editor = new AnnotationEditor(session);
         var hello = await WordRectsAsync(session.Document!, 0, "Hello");
-        var raffica = await WordRectsAsync(session.Document!, 0, "Raffica");
+        var raffica = await WordRectsAsync(session.Document!, 0, "Pagewing");
         var first = (await editor.ApplyMarkupAsync(0, AnnotationKind.Highlight, hello, Yellow, null, null))!;
         var second = (await editor.ApplyMarkupAsync(0, AnnotationKind.Underline, raffica, Blue, null, null))!;
 
@@ -292,7 +292,7 @@ public sealed class AnnotationEditorTests : IDisposable
         Assert.NotEqual(before, session.OpenedStamp);
 
         // With a stale stamp this second save to the same path would report OriginalChanged.
-        var raffica = await WordRectsAsync(session.Document!, 0, "Raffica");
+        var raffica = await WordRectsAsync(session.Document!, 0, "Pagewing");
         await editor.ApplyMarkupAsync(0, AnnotationKind.StrikeOut, raffica, Blue, null, null);
         await editor.SaveAsync(engine, path, overwriteChangedOriginal: false, progress: null, Ct);
 

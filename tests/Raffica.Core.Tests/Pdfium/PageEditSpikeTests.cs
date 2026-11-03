@@ -258,7 +258,7 @@ public sealed class PageEditSpikeTests
 
         // An import, also from the document itself, sets the producer of the information dictionary to PDFium; the title stays.
         Assert.Equal("PDFium", facts.Producer);
-        Assert.Equal("Raffica Seiten markiert", facts.Title);
+        Assert.Equal("Pagewing Seiten markiert", facts.Title);
     }
 
     [Fact]
@@ -448,7 +448,7 @@ public sealed class PageEditSpikeTests
         Assert.Equal("300x200", facts.Sizes[7]);
         Assert.Equal([0, 0, 0, 0, 0, 90, 0, 0], facts.Rotations);
         Assert.Equal(["Kapitel 1->1", ">Abschnitt 1.1->2", "Kapitel 2->3", "Kapitel 3->5"], facts.Outline);
-        Assert.Equal("Raffica test generator", facts.Producer);
+        Assert.Equal("Pagewing test generator", facts.Producer);
     }
 
     [Fact]
