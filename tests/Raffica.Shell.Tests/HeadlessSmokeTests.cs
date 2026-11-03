@@ -13,8 +13,14 @@ public sealed class HeadlessSmokeTests
         var window = new Window { Width = 300, Height = 200, Content = button };
 
         window.Show();
-
-        Assert.True(window.IsVisible);
-        Assert.True(button.Bounds.Width > 0 && button.Bounds.Height > 0);
+        try
+        {
+            Assert.True(window.IsVisible);
+            Assert.True(button.Bounds.Width > 0 && button.Bounds.Height > 0);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 }

@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Headless;
-using Raffica.Shell;
 using Raffica.Shell.Tests;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]

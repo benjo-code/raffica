@@ -6,6 +6,8 @@ public sealed class ContrastTests
 {
     public static readonly TheoryData<string> Themes = ["Light", "Dark"];
 
+    public static readonly TheoryData<string> ThemesWithHighContrast = ["Light", "Dark", "HighContrast"];
+
     [Theory]
     [MemberData(nameof(Themes))]
     public void EveryTokenIsClassified(string theme)
@@ -50,7 +52,7 @@ public sealed class ContrastTests
     }
 
     [Theory]
-    [MemberData(nameof(Themes))]
+    [MemberData(nameof(ThemesWithHighContrast))]
     public void FilledPairingsMeetTheirThreshold(string theme)
     {
         var c = TokenFile.Load(theme);

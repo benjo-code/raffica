@@ -32,11 +32,21 @@ public sealed partial class NoHexInComponentStylesTests
             File.WriteAllText(hex, "<Style xmlns=\"https://github.com/avaloniaui\"><Setter Property=\"Background\" Value=\"#FF0000\" /></Style>");
             var named = Path.Combine(folder, "Named.axaml");
             File.WriteAllText(named, "<Border xmlns=\"https://github.com/avaloniaui\" Background=\"Red\" />");
+            var setter = Path.Combine(folder, "Setter.axaml");
+            File.WriteAllText(setter, "<Style xmlns=\"https://github.com/avaloniaui\"><Setter Property=\"Background\" Value=\"Red\" /></Style>");
+            var qualifiedSetter = Path.Combine(folder, "QualifiedSetter.axaml");
+            File.WriteAllText(qualifiedSetter, "<Style xmlns=\"https://github.com/avaloniaui\"><Setter Property=\"TextBlock.Foreground\" Value=\"White\" /></Style>");
             var token = Path.Combine(folder, "Token.axaml");
-            File.WriteAllText(token, "<Border xmlns=\"https://github.com/avaloniaui\" Background=\"{DynamicResource Raffica.Brush.Surface.Page}\" BorderBrush=\"Transparent\" />");
+            File.WriteAllText(
+                token,
+                "<Style xmlns=\"https://github.com/avaloniaui\"><Setter Property=\"Background\" Value=\"{DynamicResource Raffica.Brush.Surface.Page}\" />" +
+                "<Setter Property=\"BorderBrush\" Value=\"Transparent\" /><Setter Property=\"Width\" Value=\"Red\" />" +
+                "<Border Background=\"{DynamicResource Raffica.Brush.Surface.Page}\" BorderBrush=\"Transparent\" /></Style>");
 
             Assert.Single(Literals(hex));
             Assert.Single(Literals(named));
+            Assert.Single(Literals(setter));
+            Assert.Single(Literals(qualifiedSetter));
             Assert.Empty(Literals(token));
         }
         finally
@@ -68,17 +78,22 @@ public sealed partial class NoHexInComponentStylesTests
 
     private static IEnumerable<string> Literals(string file)
     {
-        foreach (var attribute in XDocument.Load(file).Descendants().SelectMany(e => e.Attributes()))
+        foreach (var element in XDocument.Load(file).Descendants())
         {
-            var value = attribute.Value.Trim();
-            if (HexLiteral().IsMatch(value))
+            var setterProperty = element.Name.LocalName == "Setter" ? (string?)element.Attribute("Property") : null;
+            var setsColour = setterProperty is not null && ColorAttributes.Contains(setterProperty[(setterProperty.LastIndexOf('.') + 1)..].TrimEnd(')'));
+
+            foreach (var attribute in element.Attributes())
             {
-                yield return $"{Path.GetFileName(file)}: {attribute.Name.LocalName}=\"{value}\"";
-            }
-            else if (ColorAttributes.Contains(attribute.Name.LocalName) &&
-                     value.Length > 0 && !value.StartsWith('{') && !value.Equals("Transparent", StringComparison.Ordinal))
-            {
-                yield return $"{Path.GetFileName(file)}: {attribute.Name.LocalName}=\"{value}\"";
+                var name = attribute.Name.LocalName;
+                var value = attribute.Value.Trim();
+                var isColourSlot = ColorAttributes.Contains(name) || (setsColour && name == "Value");
+
+                if (HexLiteral().IsMatch(value) ||
+                    (isColourSlot && value.Length > 0 && !value.StartsWith('{') && !value.Equals("Transparent", StringComparison.Ordinal)))
+                {
+                    yield return $"{Path.GetFileName(file)}: {name}=\"{value}\"";
+                }
             }
         }
     }
