@@ -2,35 +2,190 @@
   "$schema": "./roadmap.schema.json",
   "schemaVersion": 1,
   "title": "Raffica",
+  "scopeChanges": [
+    {
+      "date": "2026-11-03",
+      "context": "Milestone 0",
+      "text": "M0 includes the import of the Pagewing core (no UI) from the `v1.0.0` tag as the project skeleton: unchanged import, scripted rename, a commit that makes the subset self-contained, and the translation of German text. The listed tasks for the skeleton, `.gitignore` and CI are carried out on top of the imported solution. `.env.example` is not needed because the imported code uses no secrets. Decided in the suite spec and in `Docs/DECISIONS.md` (entry \"Core-only import, fresh UI, new order of work\")."
+    }
+  ],
   "subprojects": [
     {
       "number": 1,
       "name": "Foundation",
-      "spec": { "text": "not written yet (created in M0)" },
+      "spec": { "text": "Suite design, approved 2026-11-03", "link": "superpowers/specs/2026-11-03-raffica-suite-design.md" },
       "milestones": [
         {
           "id": "0",
           "title": "Repo skeleton & CI",
-          "status": "open",
-          "goal": "An empty but fully set up repo on which all further milestones build.",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md",
+          "spec": "superpowers/specs/2026-11-03-raffica-suite-design.md",
+          "goal": "A set-up repo with the renamed Pagewing core, tests and CI on which all further milestones build.",
           "tasks": [
-            { "text": "Create the spec (brainstorming): goal, scope, stack, subprojects; link it here and enter the first milestones", "done": false },
+            { "text": "Create the spec (brainstorming): goal, scope, stack, subprojects; link it here and enter the first milestones", "done": true },
             { "text": "Repo setup done: `dev` as default branch, merge options, branch protection for `main` and `dev`", "done": true },
             { "text": "Fill in the project header of `CLAUDE.md` and `README.md`, remove the template section from the README", "done": true },
-            { "text": "Stack-specific `.gitignore` (incl. `.env`) and `.gitattributes` additions", "done": false },
-            { "text": "Project skeleton incl. test project", "done": false },
-            { "text": "`.env.example` with placeholders, if secrets are needed", "done": false },
-            { "text": "CI (GitHub Actions): build, test and format/lint on PRs to `dev` and `main`; the job `roadmap` from `.github/workflows/roadmap.yml` stays", "done": false },
-            { "text": "Enter the CI jobs (`roadmap` and the job for build, test, lint) as required status checks in the branch protection of `main` and `dev`", "done": false },
+            { "text": "Import commit 1: the Pagewing core (`Core`, `Pdfium`, `Ocr`, `Cli`), its tests, test data and licence files from the `v1.0.0` tag, unchanged, with a stack-specific `.gitignore`", "done": false },
+            { "text": "Import commit 2: scripted rename (dry run first), updater keys and URLs replaced by documented placeholders", "done": false },
+            { "text": "Make the subset self-contained and green: solution file, removal of App-coupled tests, OCR library fetch script, `.editorconfig`; project skeleton incl. test projects", "done": false },
+            { "text": "Translate the imported German comments, strings and test names to English", "done": false },
+            { "text": "`.env.example` with placeholders, if secrets are needed (not needed, see scope change)", "done": false },
+            { "text": "CI (GitHub Actions): build, test and format/lint on PRs to `dev` and `main`; the job `roadmap` from `.github/workflows/roadmap.yml` stays; aggregate check `ci`", "done": false },
+            { "text": "Record the build, test and format/lint commands in `CLAUDE.md` and write the README setup section", "done": false },
+            { "text": "Enter the CI jobs (`roadmap` and `ci`) as required status checks in the branch protection of `main` and `dev` (only on the owner's explicit instruction)", "done": false },
             { "text": "Dependabot for the package ecosystem and GitHub Actions", "done": false }
           ],
           "acceptance": [
-            { "text": "Build, test and format/lint run green locally (commands in `CLAUDE.md`)", "done": false },
+            { "text": "Before the rename, every imported file is byte-identical to the `v1.0.0` tag (`diff -r` against a `git archive` of the same paths)", "done": false },
+            { "text": "No reference to Pagewing remains outside the allowlist (test `NoPagewingLeftoverTests`), and the updater trusts no Pagewing key or URL", "done": false },
+            { "text": "Build, test and format/lint run green locally (commands in `CLAUDE.md`), with no skipped OCR tests", "done": false },
             { "text": "CI is green on a PR to `dev`", "done": false },
-            { "text": "Branch protection for `main` and `dev` is active: PR required, CI check required, no force push, no deletion", "done": false, "evidence": "`gh api repos/benjo-code/raffica/branches/<branch>/protection`" }
+            { "text": "Branch protection for `main` and `dev` is active: PR required, CI check required, no force push, no deletion", "done": false }
           ]
         }
       ]
+    },
+    {
+      "number": 2,
+      "name": "Design system and shell",
+      "spec": { "text": "not written yet (created in its first milestone)" },
+      "milestones": [
+        {
+          "id": "1",
+          "title": "Design directions & spec",
+          "status": "open",
+          "prerequisites": ["0"],
+          "goal": "One design direction for all four apps is chosen and the spec for the design system and shell is written.",
+          "tasks": [
+            { "text": "Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)", "done": false },
+            { "text": "Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one", "done": false },
+            { "text": "Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The measured values are recorded and the speed targets are set from them", "done": false },
+            { "text": "A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md`", "done": false }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "name": "Raffica PDF",
+      "spec": { "text": "not written yet (created in its first milestone)" },
+      "milestones": [
+        {
+          "id": "2",
+          "title": "Create spec for Raffica PDF",
+          "status": "open",
+          "prerequisites": ["1"],
+          "goal": "The scope and the milestones of the PDF app on the new UI and the imported core are written down.",
+          "tasks": [
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The spec is approved and linked here", "done": false }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "name": "macOS",
+      "spec": { "text": "not written yet (created in its first milestone)" },
+      "milestones": [
+        {
+          "id": "3",
+          "title": "Create spec for macOS",
+          "status": "open",
+          "prerequisites": ["2"],
+          "goal": "The build, ad-hoc signing and `.dmg` packaging for macOS are specified.",
+          "tasks": [
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The spec is approved and linked here", "done": false }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "name": "Raffica Write",
+      "spec": { "text": "not written yet (created in its first milestone)" },
+      "milestones": [
+        {
+          "id": "4",
+          "title": "Spikes & spec for Raffica Write",
+          "status": "open",
+          "prerequisites": ["3"],
+          "goal": "The layout engine decision for Write rests on measurements and the spec is written.",
+          "tasks": [
+            { "text": "Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)", "done": false },
+            { "text": "Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)", "done": false },
+            { "text": "Spike: printing per operating system and IME behaviour on Windows and Linux", "done": false },
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md`", "done": false },
+            { "text": "The spec is approved and linked here", "done": false }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "name": "Raffica Sheets",
+      "spec": { "text": "not written yet (created in its first milestone)" },
+      "milestones": [
+        {
+          "id": "5",
+          "title": "Create spec for Raffica Sheets",
+          "status": "open",
+          "prerequisites": ["4"],
+          "goal": "The scope of Sheets and the choice of the formula engine (IronCalc or an own one) are decided.",
+          "tasks": [
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The spec is approved and linked here", "done": false }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "name": "Raffica Slides",
+      "spec": { "text": "not written yet (created in its first milestone)" },
+      "milestones": [
+        {
+          "id": "6",
+          "title": "Create spec for Raffica Slides",
+          "status": "open",
+          "prerequisites": ["4"],
+          "goal": "The scope of Slides, reusing the text layout of Write, is written down.",
+          "tasks": [
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The spec is approved and linked here", "done": false }
+          ]
+        }
+      ]
+    }
+  ],
+  "backlog": [
+    {
+      "title": "ODF and legacy Microsoft formats",
+      "text": "Support for ODF (.odt, .ods, .odp) and the old .doc, .xls and .ppt formats, after the main apps are built."
+    },
+    {
+      "title": "Macros and extensions",
+      "text": "A macro and extension system (a VBA replacement), someday, not for the beginning."
+    },
+    {
+      "title": "Real-time collaboration",
+      "text": "Several people editing one document at the same time, someday, not for the beginning."
     }
   ]
 }
