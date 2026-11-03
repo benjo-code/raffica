@@ -33,7 +33,7 @@
           <Panel x:Name="PART_Focus" Grid.Column="3" Height="{DynamicResource Raffica.Size.StatusCell}" VerticalAlignment="Center">
             <TextBlock x:Name="PART_FocusText" Classes="secondary tnum" Text="{TemplateBinding FocusPane}"
                        LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                       IsVisible="{TemplateBinding FocusPane, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                       IsVisible="{TemplateBinding IsFocusTextShown}" />
             <TextBlock x:Name="PART_HintText" Classes="secondary tnum" Text="{TemplateBinding Hint}"
                        LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                        IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

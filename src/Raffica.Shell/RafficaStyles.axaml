@@ -24,6 +24,7 @@
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/NotificationBar.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/AppFrame.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/StatusBar.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/Pane.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Styles.Resources>

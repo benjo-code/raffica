@@ -8,7 +8,7 @@ namespace Raffica.Shell.Frame;
 
 /// <summary>
 /// The cells of the status bar (section 4.4 of the design spec), left to right: save state, position, count, the focus cell (F6
-/// pane navigation; the Alt hint takes the same slot, the two never coexist), the language and, on the right, the zoom cluster
+/// pane navigation; the Alt hint takes the same slot and wins when both are set), the language and, on the right, the zoom cluster
 /// (minus, slider, plus, value). Cells have a fixed width and change in place. The texts come from the app, the bar only lays
 /// them out. <see cref="Zoom"/> is a percentage.
 /// </summary>
@@ -38,12 +38,22 @@ public class StatusBar : TemplatedControl
     public static readonly StyledProperty<double> ZoomProperty =
         AvaloniaProperty.Register<StatusBar, double>(nameof(Zoom), 100, coerce: (_, v) => Math.Clamp(v, ZoomMinimum, ZoomMaximum));
 
+    /// <summary>
+    /// Whether the focus text is on show: <see cref="FocusPane"/> is set and <see cref="Hint"/> is not. Both share one cell, and
+    /// when F6 navigation and the field-code hint coexist briefly the hint wins (it is the more transient and more urgent one).
+    /// </summary>
+    public static readonly DirectProperty<StatusBar, bool> IsFocusTextShownProperty =
+        AvaloniaProperty.RegisterDirect<StatusBar, bool>(nameof(IsFocusTextShown), b => b._isFocusTextShown);
+
     private Slider? _slider;
     private bool _syncing;
+    private bool _isFocusTextShown;
 
     static StatusBar()
     {
         ZoomProperty.Changed.AddClassHandler<StatusBar>((bar, _) => bar.SyncSlider());
+        FocusPaneProperty.Changed.AddClassHandler<StatusBar>((bar, _) => bar.UpdateFocusText());
+        HintProperty.Changed.AddClassHandler<StatusBar>((bar, _) => bar.UpdateFocusText());
     }
 
     /// <summary>Raised when the user changes the zoom with the slider or the buttons (not when the app sets <see cref="Zoom"/>).</summary>
@@ -58,6 +68,8 @@ public class StatusBar : TemplatedControl
     public string? FocusPane { get => GetValue(FocusPaneProperty); set => SetValue(FocusPaneProperty, value); }
 
     public string? Hint { get => GetValue(HintProperty); set => SetValue(HintProperty, value); }
+
+    public bool IsFocusTextShown => _isFocusTextShown;
 
     public string? Language { get => GetValue(LanguageProperty); set => SetValue(LanguageProperty, value); }
 
@@ -113,6 +125,9 @@ public class StatusBar : TemplatedControl
         SetCurrentValue(ZoomProperty, clamped);
         ZoomChanged?.Invoke(this, clamped);
     }
+
+    private void UpdateFocusText() =>
+        SetAndRaise(IsFocusTextShownProperty, ref _isFocusTextShown, !string.IsNullOrEmpty(FocusPane) && string.IsNullOrEmpty(Hint));
 
     private void SyncSlider()
     {

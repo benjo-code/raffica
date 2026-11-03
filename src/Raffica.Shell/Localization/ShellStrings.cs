@@ -36,6 +36,13 @@ public static class ShellStrings
     public static string Minimize => Table.Get("Minimize");
     public static string Maximize => Table.Get("Maximize");
     public static string Restore => Table.Get("Restore");
+    public static string PaneNavigation => Table.Get("PaneNavigation");
+    public static string PaneComments => Table.Get("PaneComments");
+    public static string PaneFormat => Table.Get("PaneFormat");
+    public static string PaneDocument => Table.Get("PaneDocument");
+
+    /// <summary>"Focus: {0}": the status bar text during F6 pane navigation.</summary>
+    public static string FocusPane(string pane) => string.Format(Culture, Table.Get("FocusPane"), pane);
 
     /// <summary>"Search (Ctrl+K)": the tooltip of the search field; a plain formatted string until the key-name helper of the keyboard task replaces the shortcut text.</summary>
     public static string SearchTooltip(string shortcut) => string.Format(Culture, Table.Get("SearchTooltip"), shortcut);

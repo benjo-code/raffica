@@ -68,6 +68,22 @@ public sealed class StatusBarTests
     }
 
     [AvaloniaFact]
+    public void TheHintWinsWhenFocusAndHintAreBothSet()
+    {
+        var (window, bar) = Show();
+        bar.FocusPane = "Focus: Comments";
+        bar.Hint = "Type a field code";
+        ControlHarness.Settle(window);
+        Assert.True(Part(bar, "PART_HintText").IsVisible);
+        Assert.False(Part(bar, "PART_FocusText").IsVisible);
+
+        bar.Hint = null;
+        ControlHarness.Settle(window);
+        Assert.True(Part(bar, "PART_FocusText").IsVisible);
+        Assert.False(Part(bar, "PART_HintText").IsVisible);
+    }
+
+    [AvaloniaFact]
     public void ZoomChangedRaisesWhenTheSliderMoves()
     {
         var (_, bar) = Show();

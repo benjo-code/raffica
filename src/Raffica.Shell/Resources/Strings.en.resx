@@ -75,4 +75,19 @@
   <data name="Restore" xml:space="preserve">
     <value>Restore</value>
   </data>
+  <data name="PaneNavigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="PaneComments" xml:space="preserve">
+    <value>Comments</value>
+  </data>
+  <data name="PaneFormat" xml:space="preserve">
+    <value>Format</value>
+  </data>
+  <data name="PaneDocument" xml:space="preserve">
+    <value>Document</value>
+  </data>
+  <data name="FocusPane" xml:space="preserve">
+    <value>Focus: {0}</value>
+  </data>
 </root>
