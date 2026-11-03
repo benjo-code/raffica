@@ -15,6 +15,27 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-03 – Design direction: D "Formular Neutral"
+**Context:** Milestone 1 asks the owner to choose one design direction for Write, Sheets, Slides and PDF. Several directions were built with Impeccable as Claude Design canvases, each showing all four apps in light and dark with a measured contrast table: A "Formular" (https://claude.ai/artifact/VxVWMN5vGJcDvY8UfB14Nm), B "Shelf" (https://claude.ai/artifact/8dGi9yQJYdESDKXnwFkikH), B "Wayfinding" (https://claude.ai/artifact/BfUsTE8SwkahWxGXHzNLnr), C "Graphite" (https://claude.ai/artifact/Lx5wjMHpbfcsdYThkcX4ua) and D "Formular Neutral" (https://claude.ai/artifact/RGyDq2FZQYBttjkJp6MQbQ).
+**Decision:** Direction D "Formular Neutral", in the refined version on its canvas, is the design direction for all four apps:
+- Ribbon with tabs and named command groups (82 px, compact one-row mode 40 px). Frequent commands stay visible and one click away, and search (Ctrl+K) is only an accelerator.
+- Neutral chrome. The app ink appears only for active and focused states: active tab, pressed buttons, active navigation item (neutral tint with a 3 px ink edge), focus ring, app mark and field codes.
+- App inks: Write blue, Sheets green, Slides orange, and PDF plum instead of red. Red is reserved for destructive, irreversible actions (red outline, set apart, red focus ring); warnings and errors never use it.
+- One review violet for insertions and comments in all apps.
+- Public Sans for the UI (14 px base, sentence-case labels); Barlow Semi Condensed only for field codes; Carlito for document content; tabular figures.
+- Radius 0 for surfaces (bars, panels, page, grid) and 2 to 3 px for controls and overlays; 1 px rules.
+- Keyboard: Alt shows field codes, F6 moves between panes with a 1 px ink border.
+- German UI ships from the first release.
+
+Exact tokens and measured contrast values go into the design system spec.
+**Rationale:** The owner wanted frequent commands in sight and one click away, a screen that is easy to take in, and nothing dated, cluttered, playful or trendy. D keeps A's familiar ribbon structure but moves colour out of the chrome, so the four apps read as one calm suite. Two refinement rounds reduced the ribbon height, simplified the status bar and softened the technical look: sentence case instead of uppercase labels, slightly rounded controls, more air, and a plain search field.
+**Rejected alternatives:**
+- A "Formular": colour-tinted chrome and desk; the base D was refined from.
+- B "Shelf": hid frequent commands behind a slim toolbar and panels, and was too slow to click.
+- B "Wayfinding": the saturated full-width sign band risked feeling loud over a workday.
+- C "Graphite": a darker, more technical world with a command palette and inspector; even after its revision the owner preferred D's ribbon.
+- Red as the PDF accent: it would collide with the destructive red, so PDF gets plum.
+
 ## 2026-11-03 – PDF markers: no compatibility with files written by Pagewing
 **Context:** The scripted rename also changed three markers that the code writes into saved PDFs and reads back to recognise its own objects: `RafficaSignature` (image signatures), `RafficaOcr` (OCR text layer) and `%RafficaTextBox` (text boxes). Pagewing wrote `PagewingSignature`, `PagewingOcr` and `%PagewingTextBox`.
 **Decision:** Raffica writes and reads only its own markers. A PDF edited with Pagewing is treated as foreign: its text boxes and signatures cannot be edited, and redoing OCR adds a second text layer. No code to read the old markers.
