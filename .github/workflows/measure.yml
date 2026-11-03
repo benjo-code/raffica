@@ -1,0 +1,198 @@
+# Speed measurement of the shell probe on the project owner's own machines (real GPU, active display).
+#
+# SECURITY: This workflow executes repository code on personal machines, with the owner's user rights.
+# - It runs only on an explicit manual trigger: `workflow_dispatch` (needs write access to the repository). There is
+#   deliberately no `push`, `pull_request` (not even a label), `pull_request_target`, `issue_comment` or `schedule`
+#   trigger, so no pull request, fork or comment can ever start it.
+# - The runners are registered with the labels `raffica-measure` plus `windows`, `linux` or `macos`, never with the
+#   labels of ci.yml, so the CI jobs can never land on them and this job never lands on the CI runners.
+# - The owner starts each runner by hand (`run.cmd` / `run.sh` in the logged-in desktop session) when a measurement
+#   should run and stops it afterwards; it is not a service. Do not rely on it being online. No secrets are used or
+#   needed, and the token is read-only (`contents: read`).
+# Procedure: bench/shell-probe/RUNNERS.md and bench/shell-probe/README.md; spec section 9.3.
+name: Measure
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Machine to measure on (the runner with the label raffica-measure and this platform)
+        type: choice
+        required: true
+        options: [windows, linux, macos]
+      note:
+        description: 'Machine note: GPU, resolution, scaling, power mode'
+        type: string
+        required: true
+      cases:
+        description: all, or cold-reboot (one cold run in frame mode, right after a reboot)
+        type: choice
+        default: all
+        options: [all, cold-reboot]
+
+permissions:
+  contents: read
+
+# Avalonia.BuildServices would send anonymous usage data while compiling; the probe itself never connects anywhere.
+env:
+  AVALONIA_TELEMETRY_OPTOUT: '1'
+  RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64"}')[inputs.platform] }}
+  PROBE: out/probe/ShellProbe${{ inputs.platform == 'windows' && '.exe' || '' }}
+  OUT: out/measure-${{ github.run_id }}
+  FONTS: bench/shell-probe/ShellProbe/Assets/Fonts
+
+jobs:
+  measure:
+    name: measure-${{ inputs.platform }}
+    runs-on: [self-hosted, raffica-measure, '${{ inputs.platform }}']
+    timeout-minutes: 60
+    # On the job (not the workflow) so that a skipped run never takes the group. Two runs must never overlap on one
+    # machine; a running measurement is never cancelled.
+    concurrency:
+      group: measure-${{ inputs.platform }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No root on the runner: the SDK goes into the user's folder.
+      - name: Set DOTNET_INSTALL_DIR (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:USERPROFILE\.dotnet"
+
+      - name: Set DOTNET_INSTALL_DIR (Linux, macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The Native AOT linker needs vswhere.exe on PATH; it takes effect from the next step on.
+      - name: Put vswhere on PATH
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
+      - name: Publish the probe (Native AOT)
+        run: dotnet publish bench/shell-probe/ShellProbe -c Release -r ${{ env.RID }} -o out/probe
+
+      # The machine note: what the owner typed, the OS, the processor and the memory. The note travels in an
+      # environment variable, never inside the script text.
+      - name: Machine notes (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          NOTE: ${{ inputs.note }}
+        run: |
+          New-Item -ItemType Directory -Force "$env:OUT" | Out-Null
+          $os = Get-CimInstance Win32_OperatingSystem
+          $cpu = @(Get-CimInstance Win32_Processor)
+          $lines = @(
+            "Note: $env:NOTE",
+            "Platform: windows",
+            "Date (UTC): $([DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm:ss'))",
+            "Commit: $env:GITHUB_SHA ($env:GITHUB_REF)",
+            "OS: $($os.Caption), version $($os.Version), build $($os.BuildNumber)",
+            "Processor: $($cpu[0].Name.Trim()), $((($cpu | Measure-Object NumberOfLogicalProcessors -Sum).Sum)) logical processors",
+            "RAM: $([math]::Round($os.TotalVisibleMemorySize / 1MB, 1)) GiB"
+          )
+          foreach ($gpu in @(Get-CimInstance Win32_VideoController)) {
+            $lines += "GPU: $($gpu.Name), driver $($gpu.DriverVersion), $($gpu.CurrentHorizontalResolution) x $($gpu.CurrentVerticalResolution) at $($gpu.CurrentRefreshRate) Hz"
+          }
+          $lines += "Power plan: " + ((powercfg /getactivescheme) -join ' ')
+          if (-not [Environment]::UserInteractive) {
+            Write-Host '::warning title=Measure::The runner does not run in an interactive session (is it a service?). The probe gets no desktop and the numbers are invalid. Start run.cmd in the logged-in session.'
+          }
+          $lines | ForEach-Object { Write-Host $_ }
+          Set-Content -Path "$env:OUT/machine.txt" -Value $lines -Encoding utf8
+
+      - name: Machine notes (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          NOTE: ${{ inputs.note }}
+        run: |
+          mkdir -p "$OUT"
+          {
+            echo "Note: $NOTE"
+            echo "Platform: linux"
+            echo "Date (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
+            echo "Commit: $GITHUB_SHA ($GITHUB_REF)"
+            echo "OS: $(. /etc/os-release && echo "$PRETTY_NAME"), kernel $(uname -r)"
+            echo "Processor: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs), $(nproc) logical processors"
+            echo "RAM: $(awk '/MemTotal/ { printf "%.1f", $2 / 1048576 }' /proc/meminfo) GiB"
+            echo "Session: ${XDG_SESSION_TYPE:-unknown} (DISPLAY='${DISPLAY:-}', WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-}')"
+          } | tee "$OUT/machine.txt"
+          if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+            echo "::warning title=Measure::No DISPLAY and no WAYLAND_DISPLAY: the runner was not started in the logged-in desktop session (SSH or a service?). The probe cannot open a window."
+          fi
+
+      - name: Machine notes (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          NOTE: ${{ inputs.note }}
+        run: |
+          mkdir -p "$OUT"
+          {
+            echo "Note: $NOTE"
+            echo "Platform: macos"
+            echo "Date (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
+            echo "Commit: $GITHUB_SHA ($GITHUB_REF)"
+            echo "OS: $(sw_vers -productName) $(sw_vers -productVersion) (build $(sw_vers -buildVersion)), $(uname -m)"
+            echo "Processor: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.logicalcpu) logical processors"
+            echo "RAM: $(sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }') GiB"
+          } | tee "$OUT/machine.txt"
+
+      # One cold run right after a reboot (spec 9.1). Written as the case cold-reboot, apart from the scripted cold case.
+      - name: Cold start after a reboot (frame)
+        if: inputs.cases == 'cold-reboot'
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
+
+      # The cases of spec 9.1, both modes. A failing case does not stop the others, so that every CSV exists; the job
+      # fails afterwards. The script warns before the runs and next to the result when the machine has no usable
+      # compositor rate.
+      - name: Cold start (empty)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode empty --case cold --out ${{ env.OUT }}/cold-empty.csv
+
+      - name: Cold start (frame)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case cold --out ${{ env.OUT }}/cold-frame.csv
+
+      - name: Warm start (empty)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode empty --case warm --out ${{ env.OUT }}/warm-empty.csv
+
+      - name: Warm start (frame)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case warm --out ${{ env.OUT }}/warm-frame.csv
+
+      # The input case needs the frame mode (the probe's text box); the empty mode has no such control.
+      - name: Input latency (frame)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case input --out ${{ env.OUT }}/input-frame.csv
+
+      - name: Idle memory (empty)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode empty --case memory --out ${{ env.OUT }}/memory-empty.csv
+
+      - name: Idle memory (frame)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case memory --out ${{ env.OUT }}/memory-frame.csv
+
+      - name: Size (frame)
+        if: ${{ !cancelled() && inputs.cases == 'all' }}
+        run: dotnet run bench/shell-probe/measure.cs -- size --publish-dir out/probe --fonts-dir ${{ env.FONTS }} --mode frame --out ${{ env.OUT }}/size.csv
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: measure-${{ inputs.platform }}-${{ github.run_id }}
+          path: ${{ env.OUT }}
+          retention-days: 30
+          if-no-files-found: error

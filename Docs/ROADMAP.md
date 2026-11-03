@@ -24,7 +24,9 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | # | Milestone | Subproject | Status | Plan | Done on |
 |---|---|---|---|---|---|
 | 0 | Repo skeleton & CI | 1 – Foundation | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | 2026-11-03 |
-| 1 | Design directions & spec | 2 – Design system and shell | ⬜ open | – | – |
+| 1 | Design directions & spec | 2 – Design system and shell | 🟡 planned | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | – |
+| 1.1 | Tokens and base controls | 2 – Design system and shell | ⬜ open | – | – |
+| 1.2 | App frame | 2 – Design system and shell | ⬜ open | – | – |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
@@ -71,21 +73,54 @@ Goal: A set-up repo with the renamed Pagewing core, tests and CI on which all fu
 
 # Subproject 2 – Design system and shell
 
-**Spec:** not written yet (created in its first milestone)
+**Spec:** [2026-11-03-design-system-shell-design.md](superpowers/specs/2026-11-03-design-system-shell-design.md) Design system and shell, approved 2026-11-03
 
 ## Milestone 1 – Design directions & spec
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M0
+**Status:** 🟡 planned · **Plan:** [2026-11-03-milestone-01-design-directions.md](superpowers/plans/2026-11-03-milestone-01-design-directions.md) · **Prerequisites:** M0
 
 Goal: One design direction for all four apps is chosen and the spec for the design system and shell is written.
 
 **Tasks**
 - [ ] Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)
-- [ ] Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one
-- [ ] Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent
+- [x] Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one
+- [x] Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent
 
 **Acceptance criteria**
 - [ ] The measured values are recorded and the speed targets are set from them
-- [ ] A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md`
+- [x] A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md` – Directions A, B (Shelf, then Wayfinding), C and D built as Claude Design canvases; the owner chose D "Formular Neutral" after two refinement rounds (canvas version 9, sources in `Docs/design/direction-d/`); `Docs/DECISIONS.md`, entry "Design direction: D "Formular Neutral"" (2026-11-03)
+
+## Milestone 1.1 – Tokens and base controls
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M1
+
+Goal: The shared shell project has the tokens, fonts, icons and base controls in light, dark and high contrast, shown in a gallery app in English and German.
+
+**Tasks**
+- [ ] Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec
+- [ ] Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid
+- [ ] Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar
+- [ ] Localization mechanism (resx under Native AOT) with the missing-translation test
+- [ ] Gallery app that shows every control in both themes and languages
+
+**Acceptance criteria**
+- [ ] The contrast test checks every pairing of appendix A in light and dark and passes
+- [ ] The missing-translation test fails on a removed German string and passes without it
+- [ ] The published gallery app runs under Native AOT on Windows and Linux and shows German strings with `--lang de`
+
+## Milestone 1.2 – App frame
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M1.1
+
+Goal: The shared app frame works in the gallery app with every behaviour of the spec, within the measured speed limits.
+
+**Tasks**
+- [ ] Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar
+- [ ] Field codes (Office-style sequence) and F6 pane focus
+- [ ] Start view and settings dialog (theme, language after restart, compact command bar, autosave)
+- [ ] Size check in CI and a German layout test at 1440 px and at the compact width
+
+**Acceptance criteria**
+- [ ] Tests cover every field-code step, the AltGr case, duplicate codes and F6 navigation
+- [ ] The German layout test finds no clipped ribbon label
+- [ ] A `measure.yml` run on the Windows and Linux machines stays within the limits recorded in milestone 1
 
 ---
 

@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Formular Neutral – Komponenten</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&amp;family=Carlito:ital,wght@0,400;0,700;1,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF}
+.ks{font-family:'Public Sans',system-ui,sans-serif;font-size:14px;line-height:1.35;color:#1A1D21;background:#FFFFFF;font-variant-numeric:tabular-nums}
+.ks *{box-sizing:border-box}
+.ks ::selection{background:#D6DAE0}
+.ks h2{font-size:15px;font-weight:600;margin:0}
+.lt{--ink:#1D4F91;--on:#FFFFFF;--page:#FFFFFF;--band:#F5F6F8;--desk:#E9EBEE;--hov:#E6E8EC;--sel:#DCDFE4;--tx:#1A1D21;--tx2:#4A5059;--ctl:#7A818B;--rule:#D3D7DD;--dis:#9AA0A8;--red:#B21F2D;--warn:#8A6A00;--rev:#7B2FBE;color:var(--tx)}
+.dk{--ink:#8DB4EE;--on:#1B1D21;--page:#1B1D21;--band:#222429;--desk:#131417;--hov:#2C2F35;--sel:#3A3E45;--tx:#E8EAED;--tx2:#A9AFB8;--ctl:#7D848E;--rule:#373B42;--dis:#5E646D;--red:#FF6F66;--warn:#D9A93A;--rev:#B48CF0;color-scheme:dark;color:var(--tx)}
+.lt .as{--ink:#1E6B47}.lt .asl{--ink:#A3420F}.lt .ap{--ink:#5E1A3E}
+.dk .as{--ink:#7CCBA2}.dk .asl{--ink:#F0A374}.dk .ap{--ink:#E5A4C5}
+.ks svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ks svg.i *{vector-effect:non-scaling-stroke}
+.lbl{font-family:inherit;font-weight:400;font-size:12px;letter-spacing:normal;text-transform:none;line-height:1.2;color:var(--tx2,#4A5059)}
+.cap-t{font-size:12px;color:#4A5059;margin:0;line-height:1.45}
+.frame{border:1px solid #D3D7DD}
+.desk{background:var(--desk);padding:16px}
+.kz{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border:1px solid var(--rule);font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;font-size:12px;letter-spacing:.02em;line-height:1;color:var(--tx2);white-space:nowrap}
+.btn{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:26px;min-width:26px;padding:0 8px;border-radius:0;cursor:pointer;white-space:nowrap}
+.btn:hover,.btn.hov{background:var(--hov)}
+.btn.on{background:var(--ink);color:var(--on)}
+.btn:focus-visible,.btn.foc{outline:2px solid var(--ink);outline-offset:2px}
+.btn.box{border-color:var(--ctl);background:var(--page)}
+.btn.box:hover,.btn.box.hov{background:var(--hov)}
+.btn.bp{background:var(--tx);border-color:var(--tx);color:var(--on);font-weight:600;min-width:96px}
+.tbar{height:36px;display:flex;align-items:flex-end;gap:12px;padding-left:12px;background:var(--page);border-bottom:1px solid var(--rule)}
+.mark{min-width:20px;height:20px;padding:0 3px;flex:none;background:var(--ink);color:var(--on);display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;line-height:1}
+.dt{height:28px;max-width:320px;min-width:0;display:inline-flex;align-items:center;gap:6px;padding:0 2px 0 10px;border:1px solid var(--rule);border-bottom:0;background:var(--band);color:var(--tx);font-weight:500;box-shadow:inset 0 3px 0 var(--ink)}
+.dt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtb{appearance:none;border:0;padding:0;height:26px;background:transparent;color:inherit;font:inherit;min-width:0;display:flex;align-items:center;cursor:pointer}
+.dtx{appearance:none;width:24px;height:24px;flex:none;border:0;background:transparent;color:var(--tx2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.dtx:hover{background:var(--hov);color:var(--tx)}
+.srch{height:36px;flex:0 1 300px;min-width:200px;display:flex;align-items:center}
+.srch label{flex:1;display:flex;align-items:center;gap:8px;height:26px;border:1px solid var(--ctl);background:var(--page);padding:0 4px 0 8px}
+.srch input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:var(--tx)}
+.srch input::placeholder{color:var(--tx2)}
+.cap{appearance:none;width:46px;height:36px;border:0;background:transparent;color:var(--tx);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.cap:hover{background:var(--hov)}
+.cap.x:hover{background:var(--tx);color:var(--on)}
+.cm{width:268px;background:var(--page);border:1px solid var(--ctl);padding:4px 0;display:flex;flex-direction:column}
+.mi{appearance:none;display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:center;column-gap:10px;height:32px;width:100%;padding:0 12px 0 10px;border:0;background:transparent;color:var(--tx);font:inherit;text-align:left;cursor:pointer;white-space:nowrap}
+.mi:hover,.mi.hv{background:var(--hov)}
+.mi:focus-visible,.mi.foc{outline:2px solid var(--ink);outline-offset:-2px}
+.mi .k{color:var(--tx2);font-size:13px}
+.mi:disabled{color:var(--dis);cursor:default;background:transparent}
+.mi:disabled .k{color:var(--dis)}
+.mi.dzm{color:var(--red);font-weight:600}
+.mi.dzm .k{color:var(--red)}
+.ms{height:1px;background:var(--rule);margin:4px 0}
+.ms.dzs{margin:8px 0 4px}
+.tip{display:flex;flex-direction:column;gap:3px;width:240px;padding:7px 9px 8px;background:var(--page);border:1px solid var(--ctl);color:var(--tx);font-size:12px;line-height:1.35}
+.tip b{font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tip .d{color:var(--tx2)}
+.nb{height:42px;display:flex;align-items:center;gap:10px;margin:0 8px;padding:0 8px 0 12px;background:var(--page);border:1px solid var(--rule);color:var(--tx)}
+.nb > svg.i{color:var(--tx2)}
+.nb .x{margin-left:auto}
+.dlg{width:100%;max-width:520px;background:var(--page);border:1px solid var(--ctl);display:flex;flex-direction:column}
+.dlg h3{margin:0;font-size:15px;font-weight:600}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld input{height:28px;border:1px solid var(--ctl);border-radius:0;background:var(--page);color:var(--tx);font:inherit;padding:0 8px;width:260px}
+.fld input:focus-visible,.fld input.foc{outline:2px solid var(--ink);outline-offset:2px}
+.ck{display:flex;align-items:center;gap:10px;min-height:26px;cursor:pointer;position:relative}
+.ck input{position:absolute;opacity:0;margin:0;width:1px;height:1px}
+.cb{width:16px;height:16px;flex:none;border:1px solid var(--ctl);background:var(--page);display:inline-flex;align-items:center;justify-content:center;color:var(--on)}
+.cb svg.i{width:14px;height:14px;display:none}
+.ck input:checked + .cb{background:var(--ink);border-color:var(--ink)}
+.ck input:checked + .cb svg.i{display:block}
+.ck input:focus-visible + .cb{outline:2px solid var(--ink);outline-offset:2px}
+.am{min-width:20px;height:20px;padding:0 3px;flex:none;display:inline-flex;align-items:center;justify-content:center;background:var(--ink);color:var(--on);font-weight:600;font-size:12px;line-height:1}
+.fr{appearance:none;display:grid;grid-template-columns:28px minmax(0,1fr) 150px 84px;align-items:center;column-gap:10px;height:40px;width:100%;padding:0 10px;border:0;background:transparent;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fr:hover,.fr.hv{background:var(--hov)}
+.fr.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink)}
+.fr.on .fn{font-weight:600}
+.fr:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.fn,.fp{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp,.fd{font-size:12px;color:var(--tx2)}
+.fd{text-align:right}
+.sf{display:grid;grid-template-columns:140px repeat(5,minmax(0,1fr));align-items:center;background:var(--band);color:var(--tx);padding:0 16px 8px}
+.sf > *{min-height:58px;display:flex;align-items:center;border-bottom:1px solid var(--rule)}
+.sf > .hd{min-height:30px;border-bottom:1px solid var(--tx)}
+.sf > .rl{font-weight:600}
+.li{appearance:none;width:132px;height:32px;padding:0 10px;border:0;background:transparent;color:var(--tx);font:inherit;text-align:left;display:flex;align-items:center;cursor:pointer;white-space:nowrap}
+.li.hov{background:var(--hov)}
+.li.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink);font-weight:600}
+.li.foc{outline:2px solid var(--ink);outline-offset:-2px}
+.cel{width:86px;height:24px;display:flex;align-items:center;justify-content:flex-end;padding:0 6px;background:var(--page);border:1px solid var(--rule);font-family:'Carlito',Calibri,sans-serif;font-size:14px;color:var(--tx)}
+.cel.on{outline:2px solid var(--ink);outline-offset:-2px;border-color:transparent}
+.cel.rs{background:var(--sel)}
+.tab{appearance:none;height:30px;padding:0 12px;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--tx);font:inherit;font-weight:500;display:inline-flex;align-items:center;box-shadow:inset 0 -1px 0 var(--ink);cursor:pointer}
+.tab.hov{background:var(--hov)}
+.tab.on{background:var(--page);border-color:var(--ink);color:var(--ink);font-weight:600;box-shadow:none}
+.tab.foc{outline:2px solid var(--ink);outline-offset:-3px}
+.thm{appearance:none;display:flex;align-items:flex-start;width:124px;padding:5px 8px 5px 0;border:0;background:transparent;color:var(--tx2);font:inherit;font-size:12px;cursor:pointer}
+.thm .n{width:24px;text-align:center;padding-top:2px}
+.thm .pv{flex:1;height:44px;background:#FFFFFF;border:1px solid var(--rule)}
+.thm.hov{background:var(--hov)}
+.thm.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink);color:var(--tx);font-weight:600}
+.thm.foc{outline:2px solid var(--ink);outline-offset:-2px}
+.pane{border:1px solid var(--rule);padding:4px;background:var(--band)}
+.pane.pf{border-color:var(--ink)}
+.na{font-size:12px;color:var(--tx2)}
+
+.btn,.btn.tall,.dd,.fld,.sty,.dz,.dtx,.b,.f,.swt,.tog,.db,.nt,.cm,.tip,.dlg,.nb,.kz,.mx .mi,.slw select,.fld input,.srch label,.sbx{border-radius:3px}
+.cb{border-radius:2px}
+.seg{border-radius:0}.seg:first-child{border-radius:3px 0 0 3px}.seg:last-child{border-radius:0 3px 3px 0}
+.sg span{border-radius:0}.sg:first-child span{border-radius:3px 0 0 3px}.sg:last-child span{border-radius:0 3px 3px 0}
+input::placeholder,textarea::placeholder{color:var(--tx2,#4A5059);opacity:1}
+.sk{color:var(--tx2,#4A5059);font-size:12px;font-weight:400;white-space:nowrap}
+</style>
+</helmet>
+<div class="ks lt" style="width: 1440px; height: 2840px; padding: 44px 48px; display: flex; flex-direction: column; gap: 32px; overflow: hidden;">
+  <header style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #1A1D21; padding-bottom: 14px;">
+    <h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.01em;">Komponenten</h1>
+    <p style="margin: 0; font-size: 14px; color: #4A5059; max-width: 900px;">Ein Satz Bausteine für Write, Sheets, Slides und PDF, hell und dunkel aus denselben Tokens. Ecken: Bedienelemente und Überlagerungen 3 px, Kontrollkästchen 2 px, Flächen 0. Die Apps teilen alles außer App-Zeichen und Druckfarbe.</p>
+  </header>
+
+    <section aria-labelledby="k-tb" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-tb">Titelleisten: gleicher Aufbau, nur Zeichen und Druckfarbe wechseln</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px;"><div class="lt" style="border: 1px solid #D3D7DD; border-bottom: 0;"><div class="tbar aw">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">W</span><span class="lbl">Raffica Write</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Gemeinschaftsgarten – Jahresbericht 2026.docx</span></button><button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Jahresbericht 2026.docx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div>
+        <div class="tbar as">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">S</span><span class="lbl">Raffica Sheets</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Gemeinschaftsgarten – Budget 2026.xlsx</span></button><button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Budget 2026.xlsx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div>
+        <div class="tbar asl">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">SL</span><span class="lbl">Raffica Slides</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Gemeinschaftsgarten – Jahresversammlung.pptx</span></button><button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Jahresversammlung.pptx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div>
+        <div class="tbar ap">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">PDF</span><span class="lbl">Raffica PDF</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Schadenmeldung Geräteschuppen.pdf</span></button><button class="dtx" aria-label="Schließen: Schadenmeldung Geräteschuppen.pdf"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div></div>
+        <div class="dk" style="border: 1px solid #D3D7DD; border-bottom: 0;"><div class="tbar aw">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">W</span><span class="lbl">Raffica Write</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Gemeinschaftsgarten – Jahresbericht 2026.docx</span></button><button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Jahresbericht 2026.docx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div>
+        <div class="tbar as">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">S</span><span class="lbl">Raffica Sheets</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Gemeinschaftsgarten – Budget 2026.xlsx</span></button><button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Budget 2026.xlsx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div>
+        <div class="tbar asl">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">SL</span><span class="lbl">Raffica Slides</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Gemeinschaftsgarten – Jahresversammlung.pptx</span></button><button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Jahresversammlung.pptx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div>
+        <div class="tbar ap">
+          <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;"><span class="mark" aria-hidden="true">PDF</span><span class="lbl">Raffica PDF</span></div>
+          <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px;">
+            <div class="dt" role="presentation"><button class="dtb" role="tab" aria-selected="true"><span>Schadenmeldung Geräteschuppen.pdf</span></button><button class="dtx" aria-label="Schließen: Schadenmeldung Geräteschuppen.pdf"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+            <button class="dtx" aria-label="Neu" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+          </div>
+          <div class="srch"><label title="Suchen (Strg+K)"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--tx2);"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input aria-label="Suchen" placeholder="Suchen"></label></div>
+          <div style="height: 36px; flex: none; display: flex;"><button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button><button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button><button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div>
+        </div></div></div>
+      <p class="cap-t">App-Zeichen, Dokumentregister mit 3-px-Kante oben, ruhiges Suchfeld (Strg+K steht im Tooltipp „Suchen (Strg+K)“), Fensterknöpfe. Alle Symbole 16 px, Strich 1,5 px.</p>
+    </section>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 520px; gap: 40px;">
+      
+    <section aria-labelledby="k-cm" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-cm">Kontextmenü</h2>
+      <div style="display: flex; gap: 12px;"><div class="lt desk" style="flex: 1; display: flex; justify-content: center;">
+          <div class="cm" role="menu" aria-label="Kontextmenü, hell">
+            <button class="mi" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="11.5" r="2"></circle><circle cx="11.5" cy="11.5" r="2"></circle><path d="M6 10 12 2.5M10 10 4 2.5"></path></svg><span>Ausschneiden</span><span class="k">Strg+X</span></button>
+            <button class="mi hv" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8.5"></rect><path d="M3.5 10.5V2.5H10"></path></svg><span>Kopieren</span><span class="k">Strg+C</span></button>
+            <button class="mi" role="menuitem" disabled><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg><span>Einfügen</span><span class="k">Strg+V</span></button>
+            <button class="mi" role="menuitem" aria-haspopup="menu"><span></span><span>Inhalte einfügen</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m6.5 4 4 4-4 4"></path></svg></button>
+            <div class="ms" role="separator"></div>
+            <button class="mi" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"></path></svg><span>Kommentar einfügen</span><span class="k">Umschalt+F2</span></button>
+            <button class="mi" role="menuitem"><span></span><span>Formatieren …</span><span class="k">Strg+1</span></button>
+            <div class="ms dzs" role="separator"></div>
+            <button class="mi dzm" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9"></path></svg><span>Löschen</span><span class="k">Entf</span></button>
+          </div>
+        </div><div class="dk desk" style="flex: 1; display: flex; justify-content: center;">
+          <div class="cm" role="menu" aria-label="Kontextmenü, dunkel">
+            <button class="mi" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="11.5" r="2"></circle><circle cx="11.5" cy="11.5" r="2"></circle><path d="M6 10 12 2.5M10 10 4 2.5"></path></svg><span>Ausschneiden</span><span class="k">Strg+X</span></button>
+            <button class="mi hv" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8.5"></rect><path d="M3.5 10.5V2.5H10"></path></svg><span>Kopieren</span><span class="k">Strg+C</span></button>
+            <button class="mi" role="menuitem" disabled><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg><span>Einfügen</span><span class="k">Strg+V</span></button>
+            <button class="mi" role="menuitem" aria-haspopup="menu"><span></span><span>Inhalte einfügen</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m6.5 4 4 4-4 4"></path></svg></button>
+            <div class="ms" role="separator"></div>
+            <button class="mi foc" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"></path></svg><span>Kommentar einfügen</span><span class="k">Umschalt+F2</span></button>
+            <button class="mi" role="menuitem"><span></span><span>Formatieren …</span><span class="k">Strg+1</span></button>
+            <div class="ms dzs" role="separator"></div>
+            <button class="mi dzm" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9"></path></svg><span>Löschen</span><span class="k">Entf</span></button>
+          </div>
+        </div></div>
+      <p class="cap-t">Tastenkürzel rechtsbündig, Untermenü mit Pfeil, Trennlinien zwischen Aufgaben, deaktivierter Eintrag in #9AA0A8 / #5E646D. Die endgültige Aktion steht am Ende, mit größerem Abstand, in Rot. Hell: Hover. Dunkel: Tastaturfokus.</p>
+    </section>
+      
+    <section aria-labelledby="k-tt" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-tt">Tooltipp</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px;"><div class="lt desk" style="display: flex; align-items: center; justify-content: center; height: 120px;">
+            <div class="tip" role="tooltip"><b>Änderungen nachverfolgen <span class="sk">Strg+Umschalt+E</span></b><span class="d">Markiert Einfügungen und Löschungen, bis sie angenommen werden.</span></div>
+          </div><div class="dk desk" style="display: flex; align-items: center; justify-content: center; height: 120px;">
+            <div class="tip" role="tooltip"><b>Änderungen nachverfolgen <span class="sk">Strg+Umschalt+E</span></b><span class="d">Markiert Einfügungen und Löschungen, bis sie angenommen werden.</span></div>
+          </div></div>
+      <p class="cap-t">Name, Tastenkürzel, ein Satz. Kein Pfeil, kein Schatten, 1-px-Kante #7A818B (3,93:1), Ecken 3 px.</p>
+    </section>
+    </div>
+    <section aria-labelledby="k-nb" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-nb">Benachrichtigungen: Leiste unter der Befehlsleiste</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px;"><div class="lt" style="display: flex; flex-direction: column; gap: 6px; background: var(--band); padding: 8px 0;">
+          <div class="nb" role="status"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.1"></path></svg><span>Dokument wurde nach einem Absturz wiederhergestellt.</span><button class="btn box" style="margin-left: 6px;">Vergleichen</button><button class="btn">Schließen</button></div>
+          <div class="nb" role="status"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--warn);"><path d="M8 2.5 14 13.5H2z"></path><path d="M8 6.5v3.5M8 12v.1"></path></svg><span><b style="font-weight: 600;">Schriftart fehlt.</b> „Calibri“ ist nicht installiert und wird mit Carlito angezeigt, gleiche Laufweite.</span><button class="btn box" style="margin-left: 6px;">Schriftarten anzeigen</button><button class="btn x" aria-label="Hinweis schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+          <div class="nb" role="alert"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2h5L14 5.5v5L10.5 14h-5L2 10.5v-5z"></path><path d="M8 5v4M8 11v.1"></path></svg><span><b style="font-weight: 600;">Speichern fehlgeschlagen.</b> Der Ordner „Downloads“ ist schreibgeschützt. Ihre Änderungen sind lokal gesichert.</span><button class="btn box" style="margin-left: 6px;">Speichern unter …</button><button class="btn x" aria-label="Hinweis schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+        </div>
+        <div class="dk" style="display: flex; flex-direction: column; gap: 6px; background: var(--band); padding: 8px 0;">
+          <div class="nb" role="status"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.1"></path></svg><span>Dokument wurde nach einem Absturz wiederhergestellt.</span><button class="btn box" style="margin-left: 6px;">Vergleichen</button><button class="btn">Schließen</button></div>
+          <div class="nb" role="status"><svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: var(--warn);"><path d="M8 2.5 14 13.5H2z"></path><path d="M8 6.5v3.5M8 12v.1"></path></svg><span><b style="font-weight: 600;">Schriftart fehlt.</b> „Calibri“ ist nicht installiert und wird mit Carlito angezeigt, gleiche Laufweite.</span><button class="btn box" style="margin-left: 6px;">Schriftarten anzeigen</button><button class="btn x" aria-label="Hinweis schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+          <div class="nb" role="alert"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2h5L14 5.5v5L10.5 14h-5L2 10.5v-5z"></path><path d="M8 5v4M8 11v.1"></path></svg><span><b style="font-weight: 600;">Speichern fehlgeschlagen.</b> Der Ordner „Downloads“ ist schreibgeschützt. Ihre Änderungen sind lokal gesichert.</span><button class="btn box" style="margin-left: 6px;">Speichern unter …</button><button class="btn x" aria-label="Hinweis schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button></div>
+        </div></div>
+      <p class="cap-t">Immer neutral, eine Aktion, schließbar. Hinweis: Kreis mit i. Warnung: Dreieck in Bernstein #8A6A00 (5,07:1) / #D9A93A (7,16:1 auf der Leiste), nur das Symbol. Fehler: Achteck und fetter Anfang, ohne Farbe. Rot bleibt endgültigen Aktionen vorbehalten. Keine Toasts, keine Werbung.</p>
+    </section>
+    <section aria-labelledby="k-dl" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-dl">Dialog</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;"><div class="lt desk" style="display: flex; justify-content: center;">
+          <div class="dlg" role="dialog" aria-labelledby="pw-lt">
+            <div style="height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 16px; border-bottom: 1px solid var(--rule);">
+              <h3 id="pw-lt">Kennwort festlegen</h3><button class="btn" aria-label="Schließen" style="padding: 0;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+            </div>
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+              <label class="fld"><span class="lbl">Kennwort</span><input type="password" value="gartenschuppen" class="foc" aria-label="Kennwort (hell)"></label>
+              <label class="fld"><span class="lbl">Kennwort wiederholen</span><input type="password" value="" aria-label="Kennwort wiederholen (hell)"></label>
+              <label class="ck"><input type="checkbox" checked><span class="cb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-6.5"></path></svg></span>Auch zum Drucken und Kopieren verlangen</label>
+              <p style="margin: 0; font-size: 12px; color: var(--tx2); line-height: 1.45;">Ein vergessenes Kennwort lässt sich nicht wiederherstellen.</p>
+            </div>
+            <div style="height: 52px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 16px; background: var(--band); border-top: 1px solid var(--rule);">
+              <button class="btn box" style="min-width: 96px; height: 28px;">Abbrechen</button><button class="btn bp" style="height: 28px;">Festlegen</button>
+            </div>
+          </div>
+        </div><div class="dk desk" style="display: flex; justify-content: center;">
+          <div class="dlg" role="dialog" aria-labelledby="pw-dk">
+            <div style="height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 16px; border-bottom: 1px solid var(--rule);">
+              <h3 id="pw-dk">Kennwort festlegen</h3><button class="btn" aria-label="Schließen" style="padding: 0;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+            </div>
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+              <label class="fld"><span class="lbl">Kennwort</span><input type="password" value="gartenschuppen" class="" aria-label="Kennwort (dunkel)"></label>
+              <label class="fld"><span class="lbl">Kennwort wiederholen</span><input type="password" value="" aria-label="Kennwort wiederholen (dunkel)"></label>
+              <label class="ck"><input type="checkbox" checked><span class="cb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-6.5"></path></svg></span>Auch zum Drucken und Kopieren verlangen</label>
+              <p style="margin: 0; font-size: 12px; color: var(--tx2); line-height: 1.45;">Ein vergessenes Kennwort lässt sich nicht wiederherstellen.</p>
+            </div>
+            <div style="height: 52px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 16px; background: var(--band); border-top: 1px solid var(--rule);">
+              <button class="btn box" style="min-width: 96px; height: 28px;">Abbrechen</button><button class="btn bp" style="height: 28px;">Festlegen</button>
+            </div>
+          </div>
+        </div></div>
+      <p class="cap-t">Kopf mit Titel und Schließen, Inhalt, Fußleiste mit Abbrechen und der Hauptaktion rechts (dunkle neutrale Fläche, nicht die Druckfarbe). Einstellungen: siehe Board „Dialog – Einstellungen“. Hell: Fokus im ersten Feld.</p>
+    </section>
+    <section aria-labelledby="k-of" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-of">Dateien öffnen</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;"><div class="lt" style="background: var(--page); border: 1px solid #D3D7DD; padding: 12px 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 10px;"><span class="lbl">Zuletzt verwendet</span><button class="btn box" style="gap: 8px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4.5L8 6h6v7.5H2z"></path></svg>Durchsuchen …</button></div>
+          <div style="display: flex; flex-direction: column;">
+            <button class="fr"><span class="aw" style="display: contents;"><span class="am" aria-hidden="true">W</span></span><span class="fn">Gemeinschaftsgarten – Jahresbericht 2026.docx</span><span class="fp">Gemeinschaftsgarten</span><span class="fd">02.11.2026</span></button>
+            <button class="fr hv"><span class="as" style="display: contents;"><span class="am" aria-hidden="true">S</span></span><span class="fn">Gemeinschaftsgarten – Budget 2026.xlsx</span><span class="fp">Gemeinschaftsgarten</span><span class="fd">02.11.2026</span></button>
+            <button class="fr on" aria-current="true"><span class="ap" style="display: contents;"><span class="am" aria-hidden="true">PDF</span></span><span class="fn">Schadenmeldung Geräteschuppen.pdf</span><span class="fp">Downloads</span><span class="fd">30.10.2026</span></button>
+            <button class="fr"><span class="asl" style="display: contents;"><span class="am" aria-hidden="true">SL</span></span><span class="fn">Gemeinschaftsgarten – Jahresversammlung.pptx</span><span class="fp">Gemeinschaftsgarten</span><span class="fd">01.11.2026</span></button>
+          </div>
+        </div><div class="dk" style="background: var(--page); border: 1px solid #D3D7DD; padding: 12px 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 10px;"><span class="lbl">Zuletzt verwendet</span><button class="btn box" style="gap: 8px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4.5L8 6h6v7.5H2z"></path></svg>Durchsuchen …</button></div>
+          <div style="display: flex; flex-direction: column;">
+            <button class="fr"><span class="aw" style="display: contents;"><span class="am" aria-hidden="true">W</span></span><span class="fn">Gemeinschaftsgarten – Jahresbericht 2026.docx</span><span class="fp">Gemeinschaftsgarten</span><span class="fd">02.11.2026</span></button>
+            <button class="fr hv"><span class="as" style="display: contents;"><span class="am" aria-hidden="true">S</span></span><span class="fn">Gemeinschaftsgarten – Budget 2026.xlsx</span><span class="fp">Gemeinschaftsgarten</span><span class="fd">02.11.2026</span></button>
+            <button class="fr on" aria-current="true"><span class="ap" style="display: contents;"><span class="am" aria-hidden="true">PDF</span></span><span class="fn">Schadenmeldung Geräteschuppen.pdf</span><span class="fp">Downloads</span><span class="fd">30.10.2026</span></button>
+            <button class="fr"><span class="asl" style="display: contents;"><span class="am" aria-hidden="true">SL</span></span><span class="fn">Gemeinschaftsgarten – Jahresversammlung.pptx</span><span class="fp">Gemeinschaftsgarten</span><span class="fd">01.11.2026</span></button>
+          </div>
+        </div></div>
+      <p class="cap-t">Raffica zeichnet keinen eigenen Dateibrowser. „Durchsuchen …“ öffnet den Dialog des Systems; die Liste zeigt zuletzt verwendete Dateien mit App-Zeichen, Ordner und Datum. Zweite Zeile: Hover, dritte: ausgewählt.</p>
+    </section>
+    <section aria-labelledby="k-sf" style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 id="k-sf">Auswahl und Fokus</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px;"><div class="lt sf"><span class="hd"></span><span class="hd lbl">Ruhe</span><span class="hd lbl">Hover</span><span class="hd lbl">Ausgewählt</span><span class="hd lbl">Tastaturfokus</span><span class="hd lbl">F6-Bereichsfokus</span>
+          <span class="rl">Listeneintrag</span><span><button class="li">3.1 Wasser</button></span><span><button class="li hov">3.1 Wasser</button></span><span><button class="li on" aria-current="true">3.1 Wasser</button></span><span><button class="li foc">3.1 Wasser</button></span><span><span class="pane pf"><button class="li on" aria-current="true">3.1 Wasser</button></span></span>
+          <span class="rl">Zelle</span><span><span class="cel">1.385 €</span></span><span class="na">kein Hover</span><span style="gap: 0;"><span class="cel on">1.385 €</span><span class="cel rs" style="margin-left: -1px;">2.650 €</span></span><span><span class="cel on">1.385 €</span></span><span><span class="pane pf"><span class="cel on">1.385 €</span></span></span>
+          <span class="rl">Schaltfläche</span><span><button class="btn box">Antworten</button></span><span><button class="btn box hov">Antworten</button></span><span><button class="btn on" aria-pressed="true">Fett</button></span><span><button class="btn box foc">Antworten</button></span><span class="na">nur Bereiche</span>
+          <span class="rl">Registerkarte</span><span><button class="tab">Einfügen</button></span><span><button class="tab hov">Einfügen</button></span><span><button class="tab on" aria-selected="true">Start</button></span><span><button class="tab foc">Einfügen</button></span><span class="na">nur Bereiche</span>
+          <span class="rl">Miniatur</span><span><button class="thm"><span class="n">5</span><span class="pv"></span></button></span><span><button class="thm hov"><span class="n">5</span><span class="pv"></span></button></span><span><button class="thm on" aria-current="true"><span class="n">4</span><span class="pv"></span></button></span><span><button class="thm foc"><span class="n">5</span><span class="pv"></span></button></span><span><span class="pane pf"><button class="thm on" aria-current="true"><span class="n">4</span><span class="pv"></span></button></span></span></div>
+        <div class="dk sf"><span class="hd"></span><span class="hd lbl">Ruhe</span><span class="hd lbl">Hover</span><span class="hd lbl">Ausgewählt</span><span class="hd lbl">Tastaturfokus</span><span class="hd lbl">F6-Bereichsfokus</span>
+          <span class="rl">Listeneintrag</span><span><button class="li">3.1 Wasser</button></span><span><button class="li hov">3.1 Wasser</button></span><span><button class="li on" aria-current="true">3.1 Wasser</button></span><span><button class="li foc">3.1 Wasser</button></span><span><span class="pane pf"><button class="li on" aria-current="true">3.1 Wasser</button></span></span>
+          <span class="rl">Zelle</span><span><span class="cel">1.385 €</span></span><span class="na">kein Hover</span><span style="gap: 0;"><span class="cel on">1.385 €</span><span class="cel rs" style="margin-left: -1px;">2.650 €</span></span><span><span class="cel on">1.385 €</span></span><span><span class="pane pf"><span class="cel on">1.385 €</span></span></span>
+          <span class="rl">Schaltfläche</span><span><button class="btn box">Antworten</button></span><span><button class="btn box hov">Antworten</button></span><span><button class="btn on" aria-pressed="true">Fett</button></span><span><button class="btn box foc">Antworten</button></span><span class="na">nur Bereiche</span>
+          <span class="rl">Registerkarte</span><span><button class="tab">Einfügen</button></span><span><button class="tab hov">Einfügen</button></span><span><button class="tab on" aria-selected="true">Start</button></span><span><button class="tab foc">Einfügen</button></span><span class="na">nur Bereiche</span>
+          <span class="rl">Miniatur</span><span><button class="thm"><span class="n">5</span><span class="pv"></span></button></span><span><button class="thm hov"><span class="n">5</span><span class="pv"></span></button></span><span><button class="thm on" aria-current="true"><span class="n">4</span><span class="pv"></span></button></span><span><button class="thm foc"><span class="n">5</span><span class="pv"></span></button></span><span><span class="pane pf"><button class="thm on" aria-current="true"><span class="n">4</span><span class="pv"></span></button></span></span></div></div>
+      <p class="cap-t">Ausgewählt: neutrale Tönung (#DCDFE4 / #3A3E45) plus 3-px-Kante in der Druckfarbe; bei Zellen 2-px-Rahmen, Bereich getönt. Tastaturfokus: 2-px-Ring. F6: 1-px-Kante um den ganzen Bereich. Schaltflächen und Register haben keinen eigenen Bereichsfokus.</p>
+    </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2840}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

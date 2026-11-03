@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Raffica Sheets – Kontextmenü</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&amp;family=Carlito:ital,wght@0,400;0,700;1,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF}
+.fa{--ink:#1E6B47;--on:#FFFFFF;--page:#FFFFFF;--band:#F5F6F8;--desk:#E9EBEE;--hov:#E6E8EC;--sel:#DCDFE4;--hdrsel:#DCDFE4;--tx:#1A1D21;--tx2:#4A5059;--ctl:#7A818B;--rule:#D3D7DD;--grid:#DADDE2;--dis:#9AA0A8;--red:#B21F2D;--c1:#2E3440;--c2:#7A8494;--c3:#C9CED6;font-family:'Public Sans',system-ui,sans-serif;font-size:14px;line-height:1.3;color:var(--tx);background:var(--page);font-variant-numeric:tabular-nums;caret-color:var(--tx)}
+.fa ::selection{background:#D6DAE0;color:var(--tx)}
+.fa *{box-sizing:border-box}
+.fa svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.fa svg.i20{width:20px;height:20px}
+.fa svg.i *{vector-effect:non-scaling-stroke}
+.lbl{font-family:inherit;font-weight:400;font-size:12px;letter-spacing:normal;text-transform:none;line-height:1.2;color:var(--tx2,#4A5059)}
+.btn{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:5px;height:26px;min-width:26px;padding:0 5px;border-radius:0;cursor:pointer;position:relative;white-space:nowrap}
+.btn:hover{background:var(--hov)}
+.btn:active,.btn.on{background:var(--ink);color:var(--on)}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn.tall{flex-direction:column;height:54px;min-width:48px;gap:4px;font-size:12px}
+.btn.box{border-color:var(--ctl);background:var(--page)}
+.btn.box:hover{background:var(--hov)}
+.dd{appearance:none;display:inline-flex;align-items:center;justify-content:space-between;gap:6px;height:26px;padding:0 4px 0 7px;border:1px solid var(--ctl);background:var(--page);color:var(--tx);font:inherit;border-radius:0;cursor:pointer;position:relative;white-space:nowrap}
+.dd:hover{background:var(--hov)}
+.dd:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.kz{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border:1px solid var(--rule);font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;font-size:12px;letter-spacing:.02em;line-height:1;color:var(--tx2);background:transparent;white-space:nowrap}
+.kz.on{background:var(--ink);color:var(--on);border-color:var(--ink)}
+.cc{display:none}
+.cc.on{display:inline-flex;position:absolute;right:-4px;bottom:-6px;z-index:3}
+.gl{display:flex;align-items:center;gap:6px;height:14px}
+.dt{height:28px;max-width:260px;min-width:0;display:inline-flex;align-items:center;gap:6px;padding:0 2px 0 10px;border:1px solid transparent;border-bottom:0;color:var(--tx2);flex:0 1 auto}
+.dt:hover{background:var(--hov)}
+.dt.cur{background:var(--band);border-color:var(--rule);color:var(--tx);font-weight:500;box-shadow:inset 0 3px 0 var(--ink)}
+.dtb{appearance:none;border:0;padding:0;height:26px;background:transparent;color:inherit;font:inherit;min-width:0;display:flex;align-items:center;cursor:pointer}
+.dtb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtx{appearance:none;width:24px;height:24px;flex:none;border:0;background:transparent;color:var(--tx2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.dtx:hover{background:var(--hov);color:var(--tx)}
+.dtx:focus-visible,.dtb:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.tab{appearance:none;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--tx);font:inherit;font-weight:500;height:32px;padding:0 12px;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.tab:hover{background:var(--hov)}
+.tab.cur{background:var(--band);border-color:var(--ink);color:var(--ink);font-weight:600;margin-bottom:-1px;height:33px}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+.band{height:82px;column-gap:8px;padding-left:2px;flex:none;display:flex;flex-wrap:wrap;overflow:hidden;background:var(--band);border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)}
+.grp{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:6px 8px 4px;flex:none}
+.grp-row{display:flex;align-items:center;gap:2px}
+.stk{display:flex;flex-direction:column;gap:2px}
+.stk.tight{gap:2px;align-items:flex-start}
+.xs{display:none}
+.cmp .band{height:40px}
+.cmp .grp{flex-direction:row;align-items:center;gap:2px;padding:6px 8px}
+.cmp .grp > .gl,.cmp .btn.tall{display:none}
+.cmp .stk{flex-direction:row;align-items:center;gap:2px}
+.cmp .xs{display:inline-flex}
+.cmp .btn.lb{font-size:0;gap:0}
+.ovf{display:none}
+.cmp .ovf{display:inline-flex;width:24px;min-width:24px;padding:0;color:var(--tx2)}
+.cap{appearance:none;width:46px;height:36px;border:0;background:transparent;color:var(--tx);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.cap:hover{background:var(--hov)}
+.cap.x:hover{background:var(--tx);color:var(--on)}
+.stat{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 7px;border:1px solid var(--rule);background:var(--page);white-space:nowrap}
+.pf{outline:1px solid var(--ink);outline-offset:-1px}
+.fld{height:24px;border:1px solid var(--ctl);padding:0 6px;font:inherit;color:var(--tx);background:var(--page)}
+.fld:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.grid{font-family:'Carlito',Calibri,sans-serif;font-size:14px;color:var(--tx)}
+.row{display:grid;grid-template-columns:44px 190px 70px 86px repeat(4,78px) 86px 96px repeat(7,78px) minmax(78px,1fr);height:22px}
+.cell{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);padding:0 6px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;position:relative;background:var(--page)}
+.cell.n{justify-content:flex-end}
+.cell.b{font-weight:700}
+.cell.tt{font-size:17px;font-weight:700;overflow:visible;z-index:1}
+.cell.hdr{font-weight:700;box-shadow:inset 0 -1.5px 0 var(--tx)}
+.cell.tot{font-weight:700;box-shadow:inset 0 1.5px 0 var(--tx)}
+.cell.h{background:var(--band);color:var(--tx2);font-weight:600;font-size:12px;justify-content:center;padding:0;border-color:var(--rule)}
+.cell.h.on{background:var(--hdrsel);color:var(--tx)}
+.cell.sel{outline:2px solid var(--ink);outline-offset:-2px;z-index:2}
+.cell.tx::before{content:"";position:absolute;left:0;top:0;border-top:6px solid var(--tx2);border-right:6px solid transparent}
+.cell.ov{overflow:visible;z-index:1;color:var(--tx2);font-style:italic}
+.cell.nb{border-right-color:transparent}
+.stab{appearance:none;height:26px;padding:0 14px;border:1px solid var(--rule);margin-left:-1px;background:var(--band);color:var(--tx);font:inherit;cursor:pointer}
+.stab:hover{background:var(--hov)}
+.stab.on{background:var(--page);color:var(--tx);font-weight:600;box-shadow:inset 0 -3px 0 var(--ink);position:relative}
+.stab:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.cgrid{scrollbar-color:var(--ctl) var(--band);scrollbar-width:thin}
+.kz.off{display:none}
+.sb{height:30px;flex:none;display:flex;align-items:center;gap:20px;padding:0 8px 0 12px;background:var(--band);border-top:1px solid var(--rule);overflow:hidden}
+.sc{display:inline-flex;align-items:center;height:20px;color:var(--tx2);font-size:13px;white-space:nowrap}
+.sc.zl{min-width:40px;justify-content:flex-end}
+.sb .btn{height:24px;min-width:24px;color:var(--tx2)}
+.phd{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px}
+.phd .sv{margin-left:auto}
+.sv{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.pf .ph{color:var(--tx)}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cm{width:268px;background:var(--page);border:1px solid var(--ctl);padding:4px 0;display:flex;flex-direction:column;font-family:'Public Sans',system-ui,sans-serif;font-size:13px}
+.mi{appearance:none;display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:center;column-gap:10px;height:32px;width:100%;padding:0 12px 0 10px;border:0;background:transparent;color:var(--tx);font:inherit;text-align:left;cursor:pointer;white-space:nowrap}
+.mi:hover,.mi.hv{background:var(--hov)}
+.mi:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.mi .k{color:var(--tx2);font-size:13px}
+.mi:disabled{color:var(--dis);cursor:default;background:transparent}
+.mi:disabled .k{color:var(--dis)}
+.mi.dzm{color:var(--red);font-weight:600}
+.mi.dzm:focus-visible{outline-color:var(--red)}
+.ms{height:1px;background:var(--rule);margin:4px 0}
+.ms.dzs{margin:8px 0 4px}
+.cell.rs{background:var(--sel)}
+
+.btn,.btn.tall,.dd,.fld,.sty,.dz,.dtx,.b,.f,.swt,.tog,.db,.nt,.cm,.tip,.dlg,.nb,.kz,.mx .mi,.slw select,.fld input,.srch label,.sbx{border-radius:3px}
+.cb{border-radius:2px}
+.seg{border-radius:0}.seg:first-child{border-radius:3px 0 0 3px}.seg:last-child{border-radius:0 3px 3px 0}
+.sg span{border-radius:0}.sg:first-child span{border-radius:3px 0 0 3px}.sg:last-child span{border-radius:0 3px 3px 0}
+input::placeholder,textarea::placeholder{color:var(--tx2,#4A5059);opacity:1}
+.sk{color:var(--tx2,#4A5059);font-size:12px;font-weight:400;white-space:nowrap}
+</style>
+</helmet>
+<div class="{{rootCls}}" style="width: 100%; height: 900px; overflow: hidden; display: flex; flex-direction: column;">
+
+  <div style="height: 36px; flex: none; display: flex; align-items: flex-end; gap: 12px; padding-left: 12px;">
+    <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;">
+      <span aria-hidden="true" style="width: 20px; height: 20px; flex: none; background: #1E6B47; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px;">S</span>
+      <span class="lbl">Raffica Sheets</span>
+    </div>
+    <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px; overflow: hidden;">
+      <div class="dt cur" role="presentation">
+        <button class="dtb" role="tab" aria-selected="true" title="Gemeinschaftsgarten – Budget 2026.xlsx"><span>Gemeinschaftsgarten – Budget 2026.xlsx</span></button>
+        <button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Budget 2026.xlsx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <div class="dt" role="presentation">
+        <button class="dtb" role="tab" aria-selected="false"><span>Mitgliederliste 2026.xlsx</span></button>
+        <button class="dtx" aria-label="Schließen: Mitgliederliste 2026.xlsx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <button class="dtx" aria-label="Neue Arbeitsmappe" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+    </div>
+    <div style="height: 36px; flex: 0 1 300px; min-width: 200px; display: flex; align-items: center;">
+      <label title="Suchen (Strg+K)" style="flex: 1; display: flex; align-items: center; gap: 8px; height: 28px; border: 1px solid #7A818B; border-radius: 3px; background: #FFFFFF; padding: 0 8px; position: relative;">
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: #4A5059;"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg>
+        <input aria-label="Suchen" placeholder="Suchen" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: #1A1D21;">
+        <span class="{{cc}}">Q</span>
+      </label>
+    </div>
+    <div style="height: 36px; flex: none; display: flex;">
+      <button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button>
+      <button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button>
+      <button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button>
+    </div>
+  </div>
+
+  <div role="tablist" aria-label="Befehlsregisterkarten" style="height: 32px; flex: none; display: flex; align-items: flex-end; padding-left: 8px; gap: 2px; position: relative; z-index: 2; border-top: 1px solid #D3D7DD;">
+    <button class="tab" role="tab" aria-selected="false">Datei <span class="{{tk}}">F</span></button>
+    <button class="tab cur" role="tab" aria-selected="true">Start <span class="{{tk}}">H</span></button>
+    <button class="tab" role="tab" aria-selected="false">Einfügen <span class="{{tk}}">N</span></button>
+    <button class="tab" role="tab" aria-selected="false">Formeln <span class="{{tk}}">M</span></button>
+    <button class="tab" role="tab" aria-selected="false">Daten <span class="{{tk}}">A</span></button>
+    <button class="tab" role="tab" aria-selected="false">Überprüfen <span class="{{tk}}">R</span></button>
+    <button class="tab" role="tab" aria-selected="false">Ansicht <span class="{{tk}}">W</span></button>
+  </div>
+
+  <div class="band" role="toolbar" aria-label="Befehle: Start">
+    <div class="grp" role="group" aria-label="Zwischenablage">
+      <div class="grp-row" style="gap: 4px; align-items: flex-start;">
+        <button class="btn tall"><svg class="i i20" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg>Einfügen<span class="{{cc}}">01</span></button>
+        <div class="stk tight">
+          <button class="btn xs" aria-label="Einfügen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg><span class="{{cc}}">01</span></button>
+          <button class="btn" aria-label="Ausschneiden"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="11.5" r="2"></circle><circle cx="11.5" cy="11.5" r="2"></circle><path d="M6 10 12 2.5M10 10 4 2.5"></path></svg><span class="{{cc}}">02</span></button>
+          <button class="btn" aria-label="Kopieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8.5"></rect><path d="M3.5 10.5V2.5H10"></path></svg><span class="{{cc}}">03</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Zwischenablage</span><span class="{{gk}}">0</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Zwischenablage" title="Zwischenablage"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Schriftart">
+      <div class="stk">
+        <div class="grp-row" style="gap: 4px;">
+          <button class="dd" style="width: 130px;" aria-label="Schriftart: Carlito">Carlito<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">11</span></button>
+          <button class="dd" style="width: 50px;" aria-label="Schriftgrad: 11">11<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">12</span></button>
+        </div>
+        <div class="grp-row">
+          <button class="btn on" aria-label="Fett" aria-pressed="true" style="font-weight: 700; font-size: 14px;">F<span class="{{cc}}">13</span></button>
+          <button class="btn" aria-label="Kursiv" style="font-style: italic; font-size: 14px; font-family: Georgia, serif;">K<span class="{{cc}}">14</span></button>
+          <button class="btn" aria-label="Unterstrichen" style="text-decoration: underline; text-underline-offset: 2px; font-size: 14px;">U<span class="{{cc}}">15</span></button>
+          <button class="btn" aria-label="Rahmenlinien"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11"></rect><path d="M2.5 8h11M8 2.5v11" stroke-dasharray="1 2"></path></svg><span class="{{cc}}">16</span></button>
+          <button class="btn" aria-label="Füllfarbe: Hellgrau" style="flex-direction: column; gap: 1px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 8 3.5l5 5-5 5z"></path><path d="M13 11.5c0 1 .6 1.6 0 2"></path></svg><span aria-hidden="true" style="width: 14px; height: 3px; background: #E3E6EA; outline: 1px solid #7A818B;"></span><span class="{{cc}}">17</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Schriftart</span><span class="{{gk}}">1</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Schriftart" title="Schriftart"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Ausrichtung">
+      <div class="stk">
+        <div class="grp-row">
+          <button class="btn" aria-label="Linksbündig"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8"></path></svg><span class="{{cc}}">21</span></button>
+          <button class="btn" aria-label="Zentriert"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8"></path></svg><span class="{{cc}}">22</span></button>
+          <button class="btn on" aria-label="Rechtsbündig" aria-pressed="true"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8"></path></svg><span class="{{cc}}">23</span></button>
+        </div>
+        <div class="grp-row">
+          <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h9a2 2 0 0 1 0 4H8M9.5 10.5 8 12l1.5 1.5M2 12h3"></path></svg>Umbrechen<span class="{{cc}}">24</span></button>
+          <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="4" width="12" height="8"></rect><path d="M5 8h6M6.5 6.5 5 8l1.5 1.5M9.5 6.5 11 8 9.5 9.5"></path></svg>Verbinden<span class="{{cc}}">25</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Ausrichtung</span><span class="{{gk}}">2</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Ausrichtung" title="Ausrichtung"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Zahl">
+      <div class="stk">
+        <button class="dd" style="width: 132px;" aria-label="Zahlenformat: Währung">Währung (€)<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">31</span></button>
+        <div class="grp-row">
+          <button class="btn" aria-label="Prozent" style="font-weight: 600;">%<span class="{{cc}}">32</span></button>
+          <button class="btn" aria-label="Tausendertrennzeichen" style="font-weight: 600; font-size: 12px;">000<span class="{{cc}}">33</span></button>
+          <button class="btn" aria-label="Dezimalstelle entfernen" style="font-size: 11px; font-weight: 600; gap: 1px;">,0<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8H3M6 5 3 8l3 3"></path></svg><span class="{{cc}}">34</span></button>
+          <button class="btn" aria-label="Dezimalstelle hinzufügen" style="font-size: 11px; font-weight: 600; gap: 1px;">,00<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M10 5l3 3-3 3"></path></svg><span class="{{cc}}">35</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Zahl</span><span class="{{gk}}">3</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Zahl" title="Zahl"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Zellen">
+      <div class="stk tight">
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg>Einfügen<span class="{{cc}}">41</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"></path></svg>Löschen<span class="{{cc}}">42</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Zellen</span><span class="{{gk}}">4</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Zellen" title="Zellen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Bearbeiten">
+      <div class="stk tight">
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 3.5h-9L8 8l-4.5 4.5h9"></path></svg>AutoSumme<span class="{{cc}}">51</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11L9 9v4l-2 1V9z"></path></svg>Sortieren und filtern<span class="{{cc}}">52</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Bearbeiten</span><span class="{{gk}}">5</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Bearbeiten" title="Bearbeiten"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+  </div>
+
+  <!-- Formula bar -->
+  <div style="height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #D3D7DD;">
+    <label style="display: flex; align-items: center; gap: 6px;"><span class="lbl">Zelle</span><input class="fld" value="D4" aria-label="Zellbezug" style="width: 66px; font-weight: 600;"></label>
+    <span aria-hidden="true" style="width: 1px; height: 18px; background: #D3D7DD;"></span>
+    <button class="btn" aria-label="Funktion einfügen" style="font-style: italic; font-weight: 600; font-family: Georgia, serif;">fx</button>
+    <input class="fld" value="40" aria-label="Formel" style="flex: 1; padding: 0 8px;">
+  </div>
+
+  <!-- Import notice: neutral, nothing converted silently -->
+  <div role="status" style="height: 40px; flex: none; display: flex; align-items: center; gap: 10px; margin: 6px 8px; padding: 0 8px 0 12px; background: #FFFFFF; border: 1px solid #D3D7DD; border-radius: 3px;">
+    <svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: #4A5059;"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.1"></path></svg>
+    <span>3 Werte in Spalte B wurden als Text behalten, weil sie wie Datumsangaben aussehen (1-2, 3-4, 5-6).</span>
+    <button class="btn box" style="margin-left: 6px;">In Datum umwandeln</button>
+    <button class="btn box">Als Text behalten</button>
+    <button class="btn" aria-label="Hinweis schließen" style="margin-left: auto;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button>
+  </div>
+
+  <!-- Grid: the document pane, focused -->
+  <div class="cgrid" role="grid" aria-label="Tabelle Budget" style="flex: 1; min-height: 0; overflow: auto; position: relative;">
+    <div class="grid" style="min-width: 1508px;">
+      <div class="row" style="position: sticky; top: 0; z-index: 3;">
+        <sc-for list="{{ cols }}" as="c" hint-placeholder-count="18">
+          <div class="{{ c.cls }}">{{ c.v }}</div>
+        </sc-for>
+      </div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="26">
+        <div class="row">
+          <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="18">
+            <div class="{{ c.cls }}">{{ c.v }}</div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <figure role="img" aria-label="Diagramm: Ausgaben je Quartal 2026. Q1 900 Euro, Q2 2.720 Euro, Q3 735 Euro, Q4 220 Euro, aufgeteilt auf Wasser, Geräteschuppen und Saatgut." style="position: absolute; left: 914px; top: 34px; width: 452px; height: 290px; margin: 0; background: #FFFFFF; border: 1px solid #7A818B; padding: 12px 14px 10px; font-family: Carlito, Calibri, sans-serif; color: #1A1D21; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">
+        <span style="font-weight: 700; font-size: 15px;">Ausgaben je Quartal 2026</span>
+        <span style="display: flex; gap: 10px; font-size: 12px;">
+          <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #2E3440;"></span>Wasser</span>
+          <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #7A8494;"></span>Schuppen</span>
+          <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #C9CED6; outline: 1px solid #7A8494; outline-offset: -1px;"></span>Saatgut</span>
+        </span>
+      </div>
+      <div style="flex: 1; display: flex; gap: 8px; min-height: 0;">
+        <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 11px; color: #4A5059; height: 194px; padding-top: 0;">
+          <span>3.000</span><span>2.500</span><span>2.000</span><span>1.500</span><span>1.000</span><span>500</span><span>0</span>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          <div style="height: 180px; margin-top: 7px; position: relative; display: flex; align-items: flex-end; justify-content: space-around; border-bottom: 1px solid #1A1D21;">
+            <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; border-top: 1px solid #E3E6EA;"></span>
+            <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 30px; border-top: 1px solid #E3E6EA;"></span>
+            <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 60px; border-top: 1px solid #E3E6EA;"></span>
+            <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 90px; border-top: 1px solid #E3E6EA;"></span>
+            <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 120px; border-top: 1px solid #E3E6EA;"></span>
+            <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 150px; border-top: 1px solid #E3E6EA;"></span>
+            <div style="width: 48px; display: flex; flex-direction: column; position: relative; z-index: 1;"><span style="font-size: 11px; text-align: center; padding-bottom: 2px;">900</span><span style="height: 23px; background: #C9CED6; box-shadow: inset 0 0 0 1px #7A8494;"></span><span style="height: 24px; background: #7A8494;"></span><span style="height: 7px; background: #2E3440;"></span></div>
+            <div style="width: 48px; display: flex; flex-direction: column; position: relative; z-index: 1;"><span style="font-size: 11px; text-align: center; padding-bottom: 2px;">2.720</span><span style="height: 10px; background: #C9CED6; box-shadow: inset 0 0 0 1px #7A8494;"></span><span style="height: 135px; background: #7A8494;"></span><span style="height: 19px; background: #2E3440;"></span></div>
+            <div style="width: 48px; display: flex; flex-direction: column; position: relative; z-index: 1;"><span style="font-size: 11px; text-align: center; padding-bottom: 2px;">735</span><span style="height: 44px; background: #2E3440;"></span></div>
+            <div style="width: 48px; display: flex; flex-direction: column; position: relative; z-index: 1;"><span style="font-size: 11px; text-align: center; padding-bottom: 2px;">220</span><span style="height: 13px; background: #2E3440;"></span></div>
+          </div>
+          <div style="display: flex; justify-content: space-around; font-size: 12px; padding-top: 4px;">
+            <span>Q1</span><span>Q2</span><span>Q3</span><span>Q4</span>
+          </div>
+        </div>
+      </div>
+    </figure>
+    <div aria-hidden="true" style="position: absolute; left: 390px; top: 88px; width: 312px; height: 66px; border: 2px solid #1E6B47; z-index: 4; pointer-events: none;"></div>
+    <div class="cm" role="menu" aria-label="Kontextmenü: Zellen D4 bis G6" style="position: absolute; left: 706px; top: 156px; z-index: 6;">
+      <button class="mi" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="11.5" r="2"></circle><circle cx="11.5" cy="11.5" r="2"></circle><path d="M6 10 12 2.5M10 10 4 2.5"></path></svg><span>Ausschneiden</span><span class="k">Strg+X</span></button>
+      <button class="mi hv" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8.5"></rect><path d="M3.5 10.5V2.5H10"></path></svg><span>Kopieren</span><span class="k">Strg+C</span></button>
+      <button class="mi" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg><span>Einfügen</span><span class="k">Strg+V</span></button>
+      <button class="mi" role="menuitem" aria-haspopup="menu"><span></span><span>Inhalte einfügen</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m6.5 4 4 4-4 4"></path></svg></button>
+      <div class="ms" role="separator"></div>
+      <button class="mi" role="menuitem"><span></span><span>Zeilen einfügen</span><span class="k"></span></button>
+      <button class="mi" role="menuitem"><span></span><span>Spalten einfügen</span><span class="k"></span></button>
+      <div class="ms" role="separator"></div>
+      <button class="mi" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"></path></svg><span>Kommentar einfügen</span><span class="k">Umschalt+F2</span></button>
+      <button class="mi" role="menuitem"><span></span><span>Zellen formatieren …</span><span class="k">Strg+1</span></button>
+      <div class="ms dzs" role="separator"></div>
+      <button class="mi dzm" role="menuitem"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9"></path></svg><span>Zeilen löschen</span><span class="k" style="color: #B21F2D;">Strg+-</span></button>
+    </div>
+  </div>
+
+  <!-- Sheet tabs -->
+  <div style="height: 34px; flex: none; display: flex; align-items: center; padding: 0 10px 0 11px; border-top: 1px solid #D3D7DD; background: #F5F6F8;">
+    <div role="tablist" aria-label="Tabellenblätter" style="display: flex;">
+      <button class="stab on" role="tab" aria-selected="true">Budget</button>
+      <button class="stab" role="tab" aria-selected="false">Wasserzähler</button>
+      <button class="stab" role="tab" aria-selected="false">Belege</button>
+      <button class="stab" role="tab" aria-selected="false">Importiert</button>
+    </div>
+    <button class="btn" aria-label="Neues Tabellenblatt" style="margin-left: 6px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg></button>
+  </div>
+
+  <footer class="sb">
+    <span class="sc">Gespeichert</span>
+    <span class="sc">Blatt 1 von 4</span><span class="sc">Summe 1.385 €</span>
+    <sc-if value="{{ alt }}" hint-placeholder-val="{{ false }}">
+      <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;"><span class="kz on">Alt</span>Feldcode eingeben · Esc bricht ab</span>
+    </sc-if>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+      <button class="btn" aria-label="Verkleinern" style="height: 24px; min-width: 24px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8"></path></svg></button>
+      <span aria-hidden="true" style="width: 96px; height: 1px; background: #7A818B; position: relative;"><span style="position: absolute; left: 44px; top: -5px; width: 7px; height: 11px; background: #4A5059;"></span></span>
+      <button class="btn" aria-label="Vergrößern" style="height: 24px; min-width: 24px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8M8 4v8"></path></svg></button>
+      <span class="sc zl">100 %</span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"altHeld":{"editor":"boolean","default":false,"section":"Zustand"},"compact":{"editor":"boolean","default":false,"section":"Zustand"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const alt = this.props.altHeld ?? false;
+    const compact = this.props.compact ?? false;
+    const letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q'];
+    const selCols = ['D', 'E', 'F', 'G'];
+    const cols = [{ v: '', cls: 'cell h' }].concat(letters.map(function (l) {
+      return { v: l, cls: selCols.indexOf(l) >= 0 ? 'cell h on' : 'cell h' };
+    }));
+    // One source for every figure (same as the Write report and the Slides chart)
+    const items = [
+      ['Wasser Reihe A–B', '1-2', 420, [40, 105, 250, 75]],
+      ['Wasser Reihe C', '3-4', 410, [45, 100, 240, 70]],
+      ['Wasser Reihe D', '5-6', 410, [35, 105, 245, 75]],
+      ['Geräteschuppen', '', 2800, [400, 2250, 0, 0]],
+      ['Saatgut und Pflanzen', '', 600, [380, 160, 0, 0]]
+    ];
+    const fmt = function (n) {
+      const neg = n < 0;
+      const s = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      return (neg ? '-' : '') + s + ' €';
+    };
+    const blanks = function (k, extra) {
+      const a = [];
+      for (let i = 0; i < k; i++) a.push({ v: '', cls: 'cell' + (extra || '') });
+      return a;
+    };
+    const rowHead = function (n) { return { v: String(n), cls: n >= 4 && n <= 6 ? 'cell h on' : 'cell h' }; };
+    const rows = [];
+    rows.push({ cells: [rowHead(1), { v: 'Gemeinschaftsgarten – Budget 2026', cls: 'cell tt' }].concat(blanks(16)) });
+    rows.push({ cells: [rowHead(2)].concat(blanks(17)) });
+    const head = ['Posten', 'Zähler', 'Plan', 'Q1', 'Q2', 'Q3', 'Q4', 'Ist', 'Abweichung'];
+    rows.push({ cells: [rowHead(3)].concat(head.map(function (h, i) {
+      return { v: h, cls: i >= 2 ? 'cell hdr n' : 'cell hdr' };
+    })).concat(blanks(8)) });
+    const qt = [0, 0, 0, 0];
+    let planT = 0, istT = 0;
+    items.forEach(function (it, idx) {
+      let ist = 0;
+      const cells = [rowHead(idx + 4), { v: it[0], cls: 'cell' }, { v: it[1], cls: it[1] ? 'cell tx' : 'cell' }, { v: fmt(it[2]), cls: 'cell n' }];
+      it[3].forEach(function (v, q) { qt[q] += v; ist += v; cells.push({ v: fmt(v), cls: idx <= 2 && !(idx === 0 && q === 0) ? 'cell n rs' : 'cell n' }); });
+      planT += it[2]; istT += ist;
+      cells.push({ v: fmt(ist), cls: 'cell n b' });
+      cells.push({ v: fmt(ist - it[2]), cls: 'cell n' });
+      rows.push({ cells: cells.concat(blanks(8)) });
+    });
+    const tcells = [rowHead(9), { v: 'Summe', cls: 'cell tot' }, { v: '', cls: 'cell tot' }, { v: fmt(planT), cls: 'cell tot n' }];
+    qt.forEach(function (t) { tcells.push({ v: fmt(t), cls: 'cell tot n' }); });
+    tcells.push({ v: fmt(istT), cls: 'cell tot n' });
+    tcells.push({ v: fmt(istT - planT), cls: 'cell tot n' });
+    rows.push({ cells: tcells.concat(blanks(8)) });
+    rows.push({ cells: [rowHead(10)].concat(blanks(17)) });
+    rows.push({ cells: [rowHead(11), { v: 'Wasser Q3: Trockenperiode im Juli und August.', cls: 'cell ov nb' }].concat(blanks(4, ' nb')).concat(blanks(12)) });
+    for (let r = 12; r <= 30; r++) rows.push({ cells: [rowHead(r)].concat(blanks(17)) });
+    return {
+      alt: alt,
+      rootCls: compact ? 'fa cmp' : 'fa',
+      gk: alt ? 'kz on' : 'kz off',
+      tk: alt ? 'kz on' : 'kz off',
+      cc: alt ? 'kz cc on' : 'kz cc',
+      cols: cols,
+      rows: rows
+    };
+  }
+}
+</script>
+</body>
+</html>
