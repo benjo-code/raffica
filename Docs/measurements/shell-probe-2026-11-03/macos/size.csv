@@ -1,0 +1,5 @@
+machine,mode,case,run,value,unit
+macos-macbook,frame,size,total,38551608,bytes
+macos-macbook,frame,size,zip,17279809,bytes
+macos-macbook,frame,size,fonts,2947332,bytes
+macos-macbook,frame,size,native,19689824,bytes

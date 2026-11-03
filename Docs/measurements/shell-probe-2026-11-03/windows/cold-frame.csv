@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+windows-main-pc,frame,cold,1,453.11,ms
+windows-main-pc,frame,cold,2,437.9,ms
+windows-main-pc,frame,cold,3,440.08,ms
+windows-main-pc,frame,cold,4,434.61,ms
+windows-main-pc,frame,cold,5,419.04,ms
+windows-main-pc,frame,cold,6,425.92,ms
+windows-main-pc,frame,cold,7,426.8,ms
+windows-main-pc,frame,cold,8,416.12,ms
+windows-main-pc,frame,cold,9,408.16,ms
+windows-main-pc,frame,cold,10,409.79,ms

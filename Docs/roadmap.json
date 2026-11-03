@@ -55,17 +55,18 @@
         {
           "id": "1",
           "title": "Design directions & spec",
-          "status": "planned",
+          "status": "done",
+          "completedOn": "2026-11-03",
           "plan": "superpowers/plans/2026-11-03-milestone-01-design-directions.md",
           "prerequisites": ["0"],
           "goal": "One design direction for all four apps is chosen and the spec for the design system and shell is written.",
           "tasks": [
-            { "text": "Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)", "done": false },
+            { "text": "Measure cold start, memory and size of a Native AOT Avalonia app on Windows, Linux and macOS (sets the speed targets)", "done": true },
             { "text": "Create at least three design directions with Impeccable as Claude artifacts that show Write, Sheets, Slides and PDF; the owner chooses one", "done": true },
             { "text": "Create the spec (brainstorming): tokens, components, app frame, localization infrastructure (English/German), WCAG contrast of every accent", "done": true }
           ],
           "acceptance": [
-            { "text": "The measured values are recorded and the speed targets are set from them", "done": false },
+            { "text": "The measured values are recorded and the speed targets are set from them", "done": true, "evidence": "`measure.yml` runs on the three machines (`dev` at 0480960): Linux 41682565866, Windows 41683058597, macOS 41687457617 (indicative), cold after a reboot Windows 41689113140 and Linux 41689118537; raw CSVs and budget table in `Docs/measurements/shell-probe-2026-11-03/`; budgets and limits for Windows and Linux in `Docs/DECISIONS.md`, entry \"Speed targets of the frame (M1)\". Not yet measured, with the command: cold start after a reboot on macOS (`gh workflow run measure.yml --ref dev -f platform=macos -f note=\"<note>\" -f cases=cold-reboot`)" },
             { "text": "A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md`", "done": true, "evidence": "Directions A, B (Shelf, then Wayfinding), C and D built as Claude Design canvases; the owner chose D \"Formular Neutral\" after two refinement rounds (canvas version 9, sources in `Docs/design/direction-d/`); `Docs/DECISIONS.md`, entry \"Design direction: D \"Formular Neutral\"\" (2026-11-03)" }
           ]
         },

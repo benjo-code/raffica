@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+linux-probook,frame,cold,1,293.57,ms
+linux-probook,frame,cold,2,199,ms
+linux-probook,frame,cold,3,189.97,ms
+linux-probook,frame,cold,4,192.55,ms
+linux-probook,frame,cold,5,188.42,ms
+linux-probook,frame,cold,6,197.67,ms
+linux-probook,frame,cold,7,200.78,ms
+linux-probook,frame,cold,8,198.76,ms
+linux-probook,frame,cold,9,202.87,ms
+linux-probook,frame,cold,10,195.8,ms
