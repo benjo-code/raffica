@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Resources;
 using System.Text;
 using Avalonia;
 
@@ -31,7 +32,16 @@ internal static class Program
             return PrintString(key);
         }
 
-        return BuildAvaloniaApp(options).StartWithClassicDesktopLifetime([]);
+        try
+        {
+            return BuildAvaloniaApp(options).StartWithClassicDesktopLifetime([]);
+        }
+        catch (Exception ex)
+        {
+            // No display, no usable backend (for example Wayland without XWayland), a font that fails to load.
+            Console.Error.WriteLine($"error: the window could not be shown: {ex.GetType().Name}: {ex.Message}");
+            return UsageError;
+        }
     }
 
     private static AppBuilder BuildAvaloniaApp(ProbeOptions options) =>
@@ -46,7 +56,7 @@ internal static class Program
             Console.Out.WriteLine(Strings.Get(key));
             return 0;
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or MissingManifestResourceException)
         {
             Console.Error.WriteLine($"error: {ex.Message}");
             return UsageError;

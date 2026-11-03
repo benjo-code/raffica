@@ -151,7 +151,7 @@ jobs:
       # One cold run right after a reboot (spec 9.1). Written as the case cold-reboot, apart from the scripted cold case.
       - name: Cold start after a reboot (frame)
         if: inputs.cases == 'cold-reboot'
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case cold --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
 
       # The cases of spec 9.1, both modes. A failing case does not stop the others, so that every CSV exists; the job
       # fails afterwards. The script warns before the runs and next to the result when the machine has no usable

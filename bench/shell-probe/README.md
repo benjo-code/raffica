@@ -45,6 +45,8 @@ composition (`DwmFlush` on Windows) before the runs and warns when it is missing
 to the result, and as `::warning::` on GitHub Actions. It cannot do this check on Linux and macOS, where the machine
 notes and the rule "logged-in desktop session, display on" apply.
 
+When the check finds an invalid machine, `run` also writes `<csv>.warning.txt` next to the CSV, and `budgets` prints the warning at the top of its table: invalid numbers cannot silently become budgets. `--runs <n>` sets the number of measured runs (the cold run after a reboot uses `--runs 1`).
+
 Every run ends: the probe exits with code 3 after 30 s without a result, and the script kills it after 45 s.
 
 ## Run it locally

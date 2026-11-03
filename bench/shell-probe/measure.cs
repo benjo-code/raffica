@@ -350,6 +350,12 @@ static class RunCommand
     ];
 
     /// <summary>The name of the case in the CSV: <c>--label</c> (for example cold-reboot) or the case itself.</summary>
+    /// <summary>The number of measured runs: <c>--runs</c> (the cold run after a reboot is one) or the default of the case.</summary>
+    public static int RunCount(Options o, int fallback) => int.TryParse(o.Get("--runs"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n > 0 ? n : fallback;
+
+    /// <summary>The file next to a CSV that holds the warning about an invalid machine.</summary>
+    public static string WarningPath(string csv) => csv + ".warning.txt";
+
     public static string Label(Options o) => o.Get("--label") ?? o.Get("--case")!;
 
     public static int Execute(Options o)
@@ -388,7 +394,8 @@ static class RunCommand
         var rows = new List<string>();
         var values = new List<double>();
         string? failure = null;
-        for (var run = -c.Warmup + 1; run <= c.Runs; run++)
+        var runs = RunCount(o, c.Runs);
+        for (var run = -c.Warmup + 1; run <= runs; run++)
         {
             var (output, ms, error) = Runner.RunOnce(exe, arguments, c.Name == "input" ? "input" : c.Name == "memory" ? "memory-bytes" : "first-frame");
             if (error is not null)
@@ -444,13 +451,18 @@ static class RunCommand
                 rows.Add(Lines.Csv(machine, mode, Label(o), run.ToString(CultureInfo.InvariantCulture), value2, unit));
             }
 
-            if (run < c.Runs)
+            if (run < runs)
             {
                 Thread.Sleep(c.PauseMs);
             }
         }
 
         WriteCsv(o.Get("--out")!, rows);
+        if (warning is not null)
+        {
+            File.WriteAllText(WarningPath(Path.GetFullPath(o.Get("--out")!)), warning + Environment.NewLine, new UTF8Encoding(false));
+        }
+
         if (failure is not null)
         {
             Repeat(warning);
@@ -532,7 +544,7 @@ static class SizeCommand
     }
 
     /// <summary>
-    /// The sizes in bytes. Debug symbols (<c>*.pdb</c>, <c>*.dbg</c>) are not shipped and count nowhere; the native
+    /// The sizes in bytes. Debug symbols (<c>*.pdb</c>, <c>*.dbg</c>, <c>*.dSYM</c> bundles) are not shipped and count nowhere; the native
     /// libraries are every other file but the main executable; the zip uses <see cref="CompressionLevel.Optimal"/>.
     /// </summary>
     public static (long Total, long Zip, long Fonts, long Native) Measure(string publishDir, string fontsDir)
@@ -567,7 +579,8 @@ static class SizeCommand
     }
 
     private static bool IsSymbols(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() is ".pdb" or ".dbg";
+        Path.GetExtension(path).ToLowerInvariant() is ".pdb" or ".dbg"
+        || path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(part => part.EndsWith(".dSYM", StringComparison.Ordinal));
 }
 
 /// <summary><c>budgets</c>: the medians, budgets and limits per machine and case as Markdown.</summary>
@@ -584,8 +597,14 @@ static class BudgetsCommand
         }
 
         var rows = new List<Row>();
+        var warnings = new List<string>();
         foreach (var path in o.GetAll("--in").SelectMany(Expand))
         {
+            if (File.Exists(RunCommand.WarningPath(path)))
+            {
+                warnings.Add($"{Path.GetFileName(path)}: {File.ReadAllText(RunCommand.WarningPath(path)).Trim()}");
+            }
+
             foreach (var line in File.ReadLines(path).Skip(1).Where(l => l.Length > 0))
             {
                 var p = line.Split(',');
@@ -605,13 +624,13 @@ static class BudgetsCommand
             return 1;
         }
 
-        File.WriteAllText(Path.GetFullPath(o.Get("--out")!), Render(rows), new UTF8Encoding(false));
+        File.WriteAllText(Path.GetFullPath(o.Get("--out")!), Render(rows, warnings), new UTF8Encoding(false));
         Console.WriteLine($"Markdown: {Path.GetFullPath(o.Get("--out")!)}");
         return 0;
     }
 
     /// <summary>The Markdown of all machines. Budgets and limits come from the frame mode only.</summary>
-    public static string Render(IReadOnlyList<Row> rows)
+    public static string Render(IReadOnlyList<Row> rows, IReadOnlyList<string>? warnings = null)
     {
         // Label, case, run filter (null = the numbered runs), unit divisor, kind of budget.
         (string Label, string Case, string? Run, string Kind)[] metrics =
@@ -631,6 +650,15 @@ static class BudgetsCommand
 
         var text = new StringBuilder("# Shell probe: medians, budgets and limits\n\n");
         text.AppendLine("The budget is the median of the frame mode rounded up (ms to 10, memory to 5 MiB, size to 1 MiB); the limit is the budget × 1.25. Empty is the baseline; frame minus empty is the cost of the frame.");
+        if (warnings is { Count: > 0 })
+        {
+            text.AppendLine().AppendLine("> **Invalid measurement:** these runs reported a machine without a usable compositor rate. Do not derive budgets from them.");
+            foreach (var w in warnings)
+            {
+                text.AppendLine($"> - {w}");
+            }
+        }
+
         foreach (var machine in rows.Select(r => r.Machine).Distinct().Order(StringComparer.Ordinal))
         {
             text.AppendLine().AppendLine($"## {machine}").AppendLine();
@@ -750,6 +778,11 @@ static class SelfTest
         Expect("label defaults to the case", RunCommand.Label(Options.Parse(["--case", "cold"], out _)!), "cold");
         Expect("label overrides the case name in the CSV", RunCommand.Label(Options.Parse(["--case", "cold", "--label", "cold-reboot"], out _)!), "cold-reboot");
 
+        Expect("runs default", RunCommand.RunCount(Options.Parse(["--case", "cold"], out _)!, 10), 10);
+        Expect("--runs 1 for the cold run after a reboot", RunCommand.RunCount(Options.Parse(["--runs", "1"], out _)!, 10), 1);
+        Expect("warning sidecar sits next to the csv", RunCommand.WarningPath("out/cold.csv"), "out/cold.csv.warning.txt");
+        Expect("budgets carry the warning of an invalid machine", BudgetsCommand.Render([new("pc", "frame", "cold", "1", 200, "ms")], ["cold-frame.csv: Warning: slow"]).Contains("cold-frame.csv: Warning: slow", StringComparison.Ordinal), true);
+
         var sizeFolder = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "size");
         var fontFolder = sizeFolder + "-fonts";
         Directory.CreateDirectory(sizeFolder);
@@ -758,6 +791,8 @@ static class SelfTest
         File.WriteAllBytes(Path.Combine(sizeFolder, "ShellProbe.pdb"), new byte[50]);
         File.WriteAllBytes(Path.Combine(sizeFolder, "lib.dll"), new byte[30]);
         File.WriteAllBytes(Path.Combine(sizeFolder, "lib.pdb"), new byte[20]);
+        Directory.CreateDirectory(Path.Combine(sizeFolder, "ShellProbe.dSYM", "Contents"));
+        File.WriteAllBytes(Path.Combine(sizeFolder, "ShellProbe.dSYM", "Contents", "dwarf"), new byte[40]);
         File.WriteAllBytes(Path.Combine(fontFolder, "a.ttf"), new byte[7]);
         var (total, _, fontBytes, native) = SizeCommand.Measure(sizeFolder, fontFolder);
         Expect("size: debug symbols are not shipped", total, 130);
