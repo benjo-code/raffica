@@ -45,9 +45,10 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** The variable font (weights do not apply).
 
 ## 2026-11-03 – High-contrast palette
-**Context:** The spec has no high-contrast values.
+**Context:** The spec has no high-contrast values; it only says (section 6) that the frame switches to "a token set built from the system colours, as the predecessor did".
 **Decision:** A fixed palette in every app: black ground, white text and edges, yellow ink (the same mechanism as the predecessor's fixed palette). The contrast tests verify it. Fluent controls use the Dark palette under high contrast.
-**Not verified:** Behaviour with a real Windows high-contrast setting. Check it on a Windows machine with a high-contrast theme and `RafficaGallery --high-contrast`.
+**Deviation from the spec:** The spec asks for a token set built from the system colours; the implementation is a fixed palette. The task report records the values as the shell's own and gives no reason for not using system colours. Owner to confirm, or to ask for a system-colour mapping.
+**Not verified:** Behaviour with a real Windows high-contrast setting. Check it on a Windows machine: turn on a Windows contrast theme, start `RafficaGallery` without `--high-contrast`, and toggle the contrast theme while the app runs. `--high-contrast` forces the palette (`ShellTheme.Apply` with `forceHighContrast: true`) and skips the OS detection and the `ColorValuesChanged` subscription, so it only shows the palette; use it for that on any OS.
 
 ## 2026-11-03 – SelectBox instead of plain ComboBox for the select
 **Context:** The framework `ComboBox` changes the selection on Down and Up instead of opening the list.
@@ -60,7 +61,7 @@ Log of architecture and technology decisions. Newest entries on top.
 
 ## 2026-11-03 – Localization mechanism and its limits
 **Context:** English and German must work under Native AOT without reflection-based lookups.
-**Decision:** Two `ResourceManager`s, one per language with the invariant culture; both `.resx` files are embedded in the main assembly through `LogicalName`. A missing key throws; there is no fallback across languages. Proven under Native AOT on Windows and Linux in CI.
+**Decision:** Two `ResourceManager`s, one per language with the invariant culture; both `.resx` files are embedded in the main assembly through `LogicalName`. A missing key throws; there is no fallback across languages. Proven under Native AOT on Windows and Linux in CI. The gallery sets `InvariantGlobalization=false` (as the M1 probe does) because German formats are needed; on Linux that requires libicu on the machine.
 **Limits (milestone 1.2):** Key names in menu shortcuts come from Avalonia's converter (`Ctrl+X` in German, not `Strg+X`), and the TextBox context menu keeps Fluent's English Cut, Copy and Paste.
 
 ## 2026-11-03 – Speed targets of the frame (M1)

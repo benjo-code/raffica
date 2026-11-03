@@ -36,10 +36,10 @@ Raffica is a fast, open-source office suite for Windows, Linux and macOS, growin
 ### Shell
 
 - **Where:** `src/Raffica.Shell/Styles` holds `Tokens.axaml` (light and dark), `Tokens.HighContrast.axaml`, `Metrics.axaml`, `Typography.axaml`, `Fonts.axaml`, `Icons.axaml`, `Focus.axaml` and `Controls/*` (one file per control). `src/Raffica.Gallery` is the gallery app, `tests/Raffica.Shell.Tests` the shell tests.
-- **Keys:** colours are `Raffica.Color.<Group>.<Name>`, brushes `Raffica.Brush.*`. Component styles use these semantic tokens only; hex literals in component styles fail `NoHexInComponentStylesTests`. A new colour pairing must be classified in the contrast tests (`EveryTokenIsClassified`).
+- **Keys:** colours are `Raffica.Color.<Group>.<Name>`, brushes `Raffica.Brush.*`. Component styles use these semantic tokens only; hex literals in component styles fail `NoHexInComponentStylesTests`. A new colour token must be classified in the contrast policy (`EveryTokenIsClassified` fails otherwise) and added to `TokenValuesTests`, `Tokens.axaml` (Light and Dark), `Tokens.HighContrast.axaml` and the token list of the gallery's `FoundationsSection`.
 - **Theme:** `ShellTheme.Apply` sets theme mode, app ink and high contrast. Fluent stays underneath for controls that are not restyled.
 - **Strings:** English and German live in `Strings.en.resx` and `Strings.de.resx`, both embedded in the assembly; a missing key throws. `TranslationTests` finds every `Strings.en.resx` under `src/` and requires a German value for each key, so every new string needs both files.
-- **Gallery switches:** `--lang en|de`, `--theme`, `--high-contrast`, `--ink`, `--section`, `--screenshot`, `--open-menu`, `--open-dialog` and `--print-string <key>` (prints one string and exits, used by the CI smoke test). The gallery tests run headless and need no display; screenshots need a real display.
+- **Gallery switches:** `--lang en|de`, `--theme`, `--high-contrast`, `--ink`, `--section`, `--screenshot`, `--open-menu`, `--open-dialog` and `--print-string <key>` (prints one string and exits, used by the CI smoke test). `RafficaGallery.exe` is a GUI-subsystem exe, so the `--print-string` output is only visible when redirected (the CI step uses `Start-Process -RedirectStandardOutput`). The gallery tests run headless and need no display; screenshots need a real display.
 
 ---
 

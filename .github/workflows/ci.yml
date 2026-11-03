@@ -183,8 +183,9 @@ jobs:
           if ($text -notlike '*Hello,*') { throw "unexpected output: $text" }
           Write-Host 'text extraction works'
 
-      # The gallery of the design system. Publishing it as Native AOT is the proof that the shell (AXAML, fonts, resources) and the
-      # German strings survive the trimmer; --print-string runs before any window exists, so no display is needed.
+      # The gallery of the design system. The publish proves that the gallery builds as Native AOT without warnings; --print-string
+      # proves that the resource lookup works in the published binary. It runs before any window exists, so no display is needed and
+      # CI does not show that the AXAML, fonts and styles render (the local --screenshot run does).
       - name: Publish the gallery (Native AOT)
         run: dotnet publish src/Raffica.Gallery -c Release -r ${{ matrix.rid }} -o out/gallery
 
