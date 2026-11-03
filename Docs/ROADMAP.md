@@ -113,7 +113,7 @@ Goal: The shared shell project has the tokens, fonts, icons and base controls in
 Goal: The shared app frame works in the gallery app with every behaviour of the spec, within the measured speed limits.
 
 **Tasks**
-- [ ] Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar
+- [x] Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar
 - [ ] Field codes (Office-style sequence) and F6 pane focus
 - [ ] Start view and settings dialog (theme, language after restart, compact command bar, autosave)
 - [ ] Size check in CI and a German layout test at 1440 px and at the compact width
