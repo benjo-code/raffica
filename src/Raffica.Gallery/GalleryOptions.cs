@@ -22,6 +22,12 @@ public sealed class GalleryOptions
     /// <summary>Shows only this section of the gallery (a screenshot of one section at a time). Null: all sections.</summary>
     public string? Section { get; private init; }
 
+    /// <summary>
+    /// Opens one menu (with its submenu) of the menus section when the window is shown, so a <c>--screenshot</c> can capture a popup.
+    /// Without the menus section on screen the switch does nothing.
+    /// </summary>
+    public bool OpenMenu { get; private init; }
+
     /// <summary>Prints the value of this string key and exits before any window exists.</summary>
     public string? PrintString { get; private init; }
 
@@ -34,6 +40,7 @@ public sealed class GalleryOptions
         string? screenshot = null;
         string? printString = null;
         string? section = null;
+        var openMenu = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -80,6 +87,9 @@ public sealed class GalleryOptions
                     }
 
                     break;
+                case "--open-menu":
+                    openMenu = true;
+                    break;
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
@@ -97,6 +107,7 @@ public sealed class GalleryOptions
             Screenshot = screenshot,
             PrintString = printString,
             Section = section,
+            OpenMenu = openMenu,
         };
     }
 

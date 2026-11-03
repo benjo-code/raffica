@@ -1,0 +1,54 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The surfaces of a menu opened as a context menu or as the flyout of a button: surface.page, a 1 px border.control edge, 3 px
+    radius, 4 px above and below the rows (appendix A section 4 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md:
+    "menus and tooltips have a 1 px edge", no decorative shadows). The window asks for no system shadow either. At least 240 px
+    wide (the context menu board is 268 px) so a short menu does not look cramped; the items share their shortcut column.
+  -->
+  <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
+    <Setter Property="Focusable" Value="True" />
+    <Setter Property="WindowManagerAddShadowHint" Value="False" />
+    <Setter Property="MinWidth" Value="240" />
+    <Setter Property="MaxWidth" Value="400" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="LayoutRoot"
+                Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                BorderBrush="{DynamicResource Raffica.Brush.Border.Control}"
+                BorderThickness="1"
+                Padding="0,4"
+                CornerRadius="{DynamicResource Raffica.Radius.Overlay}">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ItemsPresenter Name="PART_ItemsPresenter"
+                            ItemsPanel="{TemplateBinding ItemsPanel}"
+                            KeyboardNavigation.TabNavigation="Continue"
+                            Grid.IsSharedSizeScope="True" />
+          </ScrollViewer>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type MenuFlyoutPresenter}" TargetType="MenuFlyoutPresenter">
+    <Setter Property="MinWidth" Value="240" />
+    <Setter Property="MaxWidth" Value="400" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="LayoutRoot"
+                Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                BorderBrush="{DynamicResource Raffica.Brush.Border.Control}"
+                BorderThickness="1"
+                Padding="0,4"
+                CornerRadius="{DynamicResource Raffica.Radius.Overlay}">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ItemsPresenter Name="PART_ItemsPresenter"
+                            ItemsPanel="{TemplateBinding ItemsPanel}"
+                            KeyboardNavigation.TabNavigation="Continue"
+                            Grid.IsSharedSizeScope="True" />
+          </ScrollViewer>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

@@ -88,6 +88,7 @@ internal sealed partial class ButtonsSection : UserControl
             }
         };
         control.IsEnabled = current != State.Disabled;
+        AutomationProperties.SetName(control, GalleryStrings.RowSegmented);
         return control;
     }
 

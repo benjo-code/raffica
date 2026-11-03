@@ -1,0 +1,283 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="using:Avalonia.Controls.Converters"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    Menu items, separators and the menu bar (rows "Menu item" and "Destructive menu item" of the state table, appendix A section 5
+    of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md, and the context menu board Docs/design/direction-d/
+    Kontextmenue.dc.html). A row is 32 px: a 16 px icon column (also the check of a toggle item), 10 px, the label, then the
+    shortcut column and the submenu arrow. The shortcut comes from InputGesture, 13 px text.secondary, right-aligned; the column
+    is shared across the items of a menu, so the right edges line up 12 px inside the row. Hover and keyboard highlight is
+    state.hover (the framework's :selected), pressed fills with the ink, disabled is text.disabled including the shortcut and the
+    icon. Class destructive: danger text, icon and shortcut, weight 600 (use it for the last item, after a Separator with class
+    wide). A 2 px inset ring marks keyboard focus (ink, danger on a destructive item). Sub-menu popups have the same 1 px
+    border.control edge, 3 px radius and no shadow as the menu itself; popups never ask the system for a shadow. The text colour is set on the row
+    border (TextElement.Foreground) so label, icon and arrow follow every state. The menu bar items are 26 px high with 8 px
+    side padding and the same hover; their popup is the menu.
+  -->
+  <conv:PlatformKeyGestureConverter x:Key="Raffica.Converter.KeyGesture" />
+
+  <ControlTheme x:Key="{x:Type Separator}" TargetType="Separator">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Rule}" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Height" Value="{DynamicResource Raffica.Rule.Width}" />
+    <Setter Property="Margin" Value="0,4" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Rule" Background="{TemplateBinding Background}" />
+      </ControlTemplate>
+    </Setter>
+    <!-- The wider separator in front of a destructive item -->
+    <Style Selector="^.wide">
+      <Setter Property="Margin" Value="0,8,0,4" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type MenuItem}" TargetType="MenuItem">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.RowList}" />
+    <Setter Property="Padding" Value="10,0,12,0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Name="PART_LayoutRoot"
+                  Padding="{TemplateBinding Padding}"
+                  Background="{TemplateBinding Background}"
+                  TextElement.Foreground="{TemplateBinding Foreground}">
+            <Grid ColumnDefinitions="16,*,Auto">
+              <Panel Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center">
+                <ContentControl x:Name="PART_ToggleIconPresenter" IsVisible="False" />
+                <ContentControl x:Name="PART_IconPresenter"
+                                IsVisible="False"
+                                Content="{TemplateBinding Icon}" />
+              </Panel>
+              <ContentPresenter Name="PART_HeaderPresenter"
+                                Grid.Column="1"
+                                Margin="10,0,0,0"
+                                Content="{TemplateBinding Header}"
+                                ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                RecognizesAccessKey="True"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Left" />
+              <Panel Grid.Column="2" Margin="24,0,0,0" VerticalAlignment="Center">
+                <TextBlock x:Name="PART_InputGestureText"
+                           FontSize="13"
+                           Foreground="{DynamicResource Raffica.Brush.Text.Secondary}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           Text="{TemplateBinding InputGesture, Converter={StaticResource Raffica.Converter.KeyGesture}}" />
+                <controls:StrokeIcon x:Name="PART_Chevron"
+                                     Size="16"
+                                     HorizontalAlignment="Right"
+                                     IsVisible="False"
+                                     Data="{DynamicResource Raffica.Icon.ChevronRight}" />
+              </Panel>
+            </Grid>
+          </Border>
+          <Border Name="PART_FocusRing"
+                  IsVisible="False"
+                  IsHitTestVisible="False"
+                  BorderThickness="2"
+                  BorderBrush="{DynamicResource Raffica.Brush.Focus.Ring}" />
+          <Popup Name="PART_Popup"
+                 WindowManagerAddShadowHint="False"
+                 Placement="RightEdgeAlignedTop"
+                 HorizontalOffset="-2"
+                 IsLightDismissEnabled="False"
+                 IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}">
+            <Border Name="PART_SubmenuBorder"
+                    Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                    BorderBrush="{DynamicResource Raffica.Brush.Border.Control}"
+                    BorderThickness="1"
+                    Padding="0,4"
+                    MinWidth="240"
+                    MaxWidth="400"
+                    HorizontalAlignment="Stretch"
+                    CornerRadius="{DynamicResource Raffica.Radius.Overlay}">
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}"
+                                Grid.IsSharedSizeScope="True" />
+              </ScrollViewer>
+            </Border>
+          </Popup>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- Class destructive: danger label, icon and shortcut, weight 600 -->
+    <Style Selector="^.destructive">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Danger}" />
+      <Setter Property="FontWeight" Value="600" />
+    </Style>
+    <Style Selector="^.destructive /template/ TextBlock#PART_InputGestureText">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Danger}" />
+    </Style>
+    <Style Selector="^.destructive /template/ Border#PART_FocusRing">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Danger}" />
+    </Style>
+
+    <Style Selector="^:icon /template/ ContentControl#PART_IconPresenter">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:checked:toggle /template/ ContentControl#PART_ToggleIconPresenter">
+      <Setter Property="IsVisible" Value="True" />
+      <Setter Property="Content">
+        <Template>
+          <controls:StrokeIcon Size="16" Data="{DynamicResource Raffica.Icon.Check}" />
+        </Template>
+      </Setter>
+    </Style>
+    <Style Selector="^:checked:radio /template/ ContentControl#PART_ToggleIconPresenter">
+      <Setter Property="IsVisible" Value="True" />
+      <Setter Property="Content">
+        <Template>
+          <Ellipse Width="6" Height="6" Fill="{Binding $parent[MenuItem].Foreground}" />
+        </Template>
+      </Setter>
+    </Style>
+
+    <!-- The submenu arrow takes the place of the shortcut -->
+    <Style Selector="^:not(:empty) /template/ controls|StrokeIcon#PART_Chevron">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:not(:empty) /template/ TextBlock#PART_InputGestureText">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <!-- Hover and keyboard highlight -->
+    <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <!-- Pressed: the ink fill (the pointer must be over the row itself, so a pressed sub-item does not fill its parent) -->
+    <Style Selector="^:pressed /template/ Border#PART_LayoutRoot:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_LayoutRoot:pointerover TextBlock#PART_InputGestureText">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+    <Style Selector="^.destructive:pressed /template/ Border#PART_LayoutRoot:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Danger}" />
+    </Style>
+
+    <!-- Disabled: text.disabled including the shortcut and the arrow, no fill -->
+    <Style Selector="^:disabled /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^:disabled /template/ TextBlock#PART_InputGestureText">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+
+    <Style Selector="^:separator">
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Separator />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+  </ControlTheme>
+
+  <!-- A top-level item of the menu bar: 26 px, 8 px side padding, hover state.hover, the popup is the menu -->
+  <ControlTheme x:Key="Raffica.Theme.TopLevelMenuItem" TargetType="MenuItem">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.Button}" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Name="PART_LayoutRoot"
+                  Padding="{TemplateBinding Padding}"
+                  Background="{TemplateBinding Background}"
+                  CornerRadius="{DynamicResource Raffica.Radius.Control}"
+                  TextElement.Foreground="{TemplateBinding Foreground}">
+            <ContentPresenter Name="PART_HeaderPresenter"
+                              Content="{TemplateBinding Header}"
+                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                              RecognizesAccessKey="True"
+                              VerticalAlignment="Center" />
+          </Border>
+          <Border Name="PART_FocusRing"
+                  IsVisible="False"
+                  IsHitTestVisible="False"
+                  BorderThickness="2"
+                  CornerRadius="{DynamicResource Raffica.Radius.Control}"
+                  BorderBrush="{DynamicResource Raffica.Brush.Focus.Ring}" />
+          <Popup Name="PART_Popup"
+                 WindowManagerAddShadowHint="False"
+                 MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"
+                 IsLightDismissEnabled="True"
+                 IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}"
+                 Placement="BottomEdgeAlignedLeft"
+                 OverlayInputPassThroughElement="{Binding $parent[Menu]}">
+            <Border Name="PART_SubmenuBorder"
+                    Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                    BorderBrush="{DynamicResource Raffica.Brush.Border.Control}"
+                    BorderThickness="1"
+                    Padding="0,4"
+                    MinWidth="240"
+                    MaxWidth="400"
+                    HorizontalAlignment="Stretch"
+                    CornerRadius="{DynamicResource Raffica.Radius.Overlay}">
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}"
+                                Grid.IsSharedSizeScope="True" />
+              </ScrollViewer>
+            </Border>
+          </Popup>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_LayoutRoot:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type Menu}" TargetType="Menu">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.Button}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="ItemContainerTheme" Value="{StaticResource Raffica.Theme.TopLevelMenuItem}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ItemsPresenter Name="PART_ItemsPresenter"
+                          ItemsPanel="{TemplateBinding ItemsPanel}"
+                          KeyboardNavigation.TabNavigation="Continue" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

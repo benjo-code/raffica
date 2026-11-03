@@ -34,12 +34,52 @@ internal static class ControlHarness
 
     public static Color ColorOf(IBrush? brush) => brush is ISolidColorBrush solid ? solid.Color : Colors.Transparent;
 
+    /// <summary>
+    /// The colour of a solid brush. Unlike <see cref="ColorOf"/> a missing or non-solid brush fails the test, so an assertion
+    /// cannot pass vacuously (a null brush that happens to equal a transparent token).
+    /// </summary>
+    public static Color Strict(IBrush? brush, string what = "brush")
+    {
+        Assert.NotNull(brush);
+        var solid = Assert.IsAssignableFrom<ISolidColorBrush>(brush);
+        _ = what;
+        return solid.Color;
+    }
+
+    /// <summary>Asserts that <paramref name="brush"/> is a solid brush with the value of the token <paramref name="key"/> in the active theme.</summary>
+    public static void AssertToken(string key, IBrush? brush, string what = "brush")
+    {
+        Assert.True(brush is ISolidColorBrush, $"{what}: expected a solid brush for {key}, got {brush?.GetType().Name ?? "null"}");
+        Assert.Equal(Token(key), Strict(brush, what));
+    }
+
     public static ContentPresenter Presenter(Control control) =>
         control.GetVisualDescendants().OfType<ContentPresenter>().First(p => p.Name == "PART_ContentPresenter");
 
     public static T Part<T>(Control control, string name)
         where T : Control =>
-        control.GetVisualDescendants().OfType<T>().First(p => p.Name == name);
+        Descendants(control).OfType<T>().First(p => p.Name == name);
+
+    /// <summary>The visual descendants of <paramref name="root"/>, including the content of popups below it (an open popup lives in its own host).</summary>
+    public static IEnumerable<Visual> Descendants(Visual root)
+    {
+        foreach (var visual in root.GetVisualDescendants())
+        {
+            yield return visual;
+            if (visual is Popup { Child: { } child })
+            {
+                yield return child;
+                foreach (var inner in Descendants(child))
+                {
+                    yield return inner;
+                }
+            }
+        }
+    }
+
+    /// <summary>Whether a border anywhere below <paramref name="root"/> (popup content included) draws a box shadow.</summary>
+    public static bool HasShadow(Control root) =>
+        Descendants(root).OfType<Border>().Any(b => b.BoxShadow != default);
 
     public static void Settle(Window window)
     {

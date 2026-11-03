@@ -87,4 +87,121 @@
   <data name="IconBold" xml:space="preserve">
     <value>Fett</value>
   </data>
+  <data name="SectionInputs" xml:space="preserve">
+    <value>Eingabe und Auswahl</value>
+  </data>
+  <data name="SectionMenus" xml:space="preserve">
+    <value>Menüs und Kurzinfos</value>
+  </data>
+  <data name="StateTypingOpen" xml:space="preserve">
+    <value>Eingabe / geöffnet</value>
+  </data>
+  <data name="RowTextField" xml:space="preserve">
+    <value>Textfeld</value>
+  </data>
+  <data name="RowTextWithValue" xml:space="preserve">
+    <value>Textfeld mit Text</value>
+  </data>
+  <data name="RowSelect" xml:space="preserve">
+    <value>Auswahlliste</value>
+  </data>
+  <data name="RowSelectPlaceholder" xml:space="preserve">
+    <value>Auswahlliste ohne Wahl</value>
+  </data>
+  <data name="RowFlyout" xml:space="preserve">
+    <value>Schaltfläche mit Menü</value>
+  </data>
+  <data name="RowMenuBar" xml:space="preserve">
+    <value>Menüleiste</value>
+  </data>
+  <data name="RowContextMenu" xml:space="preserve">
+    <value>Kontextmenü</value>
+  </data>
+  <data name="RowMenuInline" xml:space="preserve">
+    <value>Menüzeilen</value>
+  </data>
+  <data name="RowTooltip" xml:space="preserve">
+    <value>Kurzinfo</value>
+  </data>
+  <data name="SamplePlaceholder" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="SampleReport" xml:space="preserve">
+    <value>Quartalsbericht</value>
+  </data>
+  <data name="SampleSelectHint" xml:space="preserve">
+    <value>Stil wählen</value>
+  </data>
+  <data name="SampleParagraph" xml:space="preserve">
+    <value>Absatz</value>
+  </data>
+  <data name="SampleHeading1" xml:space="preserve">
+    <value>Überschrift 1</value>
+  </data>
+  <data name="SampleHeading2" xml:space="preserve">
+    <value>Überschrift 2</value>
+  </data>
+  <data name="SampleQuote" xml:space="preserve">
+    <value>Zitat</value>
+  </data>
+  <data name="MenuInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="MenuFile" xml:space="preserve">
+    <value>Datei</value>
+  </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="ItemOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="ItemClose" xml:space="preserve">
+    <value>Schließen</value>
+  </data>
+  <data name="ItemCut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="ItemCopy" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="ItemPaste" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="ItemPasteSpecial" xml:space="preserve">
+    <value>Inhalte einfügen</value>
+  </data>
+  <data name="ItemTextOnly" xml:space="preserve">
+    <value>Nur Text</value>
+  </data>
+  <data name="ItemValuesOnly" xml:space="preserve">
+    <value>Nur Werte</value>
+  </data>
+  <data name="ItemInsertRows" xml:space="preserve">
+    <value>Zeilen einfügen</value>
+  </data>
+  <data name="ItemInsertColumns" xml:space="preserve">
+    <value>Spalten einfügen</value>
+  </data>
+  <data name="ItemInsertComment" xml:space="preserve">
+    <value>Kommentar einfügen</value>
+  </data>
+  <data name="ItemFormatCells" xml:space="preserve">
+    <value>Zellen formatieren</value>
+  </data>
+  <data name="ItemPrint" xml:space="preserve">
+    <value>Drucken</value>
+  </data>
+  <data name="ItemDeleteRows" xml:space="preserve">
+    <value>Zeilen löschen</value>
+  </data>
+  <data name="ContextHint" xml:space="preserve">
+    <value>Hier mit der rechten Maustaste klicken</value>
+  </data>
+  <data name="TipTitle" xml:space="preserve">
+    <value>Änderungen nachverfolgen</value>
+  </data>
+  <data name="TipDescription" xml:space="preserve">
+    <value>Markiert Einfügungen und Löschungen, bis sie angenommen werden.</value>
+  </data>
 </root>
