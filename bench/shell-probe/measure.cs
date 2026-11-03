@@ -1,5 +1,5 @@
 // Measurement script of the shell probe (bench/shell-probe/README.md, spec section 9).
-//   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>]
+//   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--mode frame] [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- budgets --in <csv>... --out <md>
 //   dotnet run bench/shell-probe/measure.cs -- selftest
@@ -349,6 +349,9 @@ static class RunCommand
         new("memory", 10, 0, 500, "--measure-memory"),
     ];
 
+    /// <summary>The name of the case in the CSV: <c>--label</c> (for example cold-reboot) or the case itself.</summary>
+    public static string Label(Options o) => o.Get("--label") ?? o.Get("--case")!;
+
     public static int Execute(Options o)
     {
         if (o.Require("--exe", "--mode", "--case", "--out") is { } missing)
@@ -405,7 +408,7 @@ static class RunCommand
 
                 foreach (var (stat, value) in new[] { ("median", median), ("p99", p99), ("max", max) })
                 {
-                    rows.Add(Lines.Csv(machine, mode, c.Name, stat, value, "ms"));
+                    rows.Add(Lines.Csv(machine, mode, Label(o), stat, value, "ms"));
                     Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {stat}: {value:0.00} ms"));
                 }
 
@@ -438,7 +441,7 @@ static class RunCommand
             if (run > 0)
             {
                 values.Add(value2);
-                rows.Add(Lines.Csv(machine, mode, c.Name, run.ToString(CultureInfo.InvariantCulture), value2, unit));
+                rows.Add(Lines.Csv(machine, mode, Label(o), run.ToString(CultureInfo.InvariantCulture), value2, unit));
             }
 
             if (run < c.Runs)
@@ -743,6 +746,9 @@ static class SelfTest
         var exit = RunCommand.Execute(Options.Parse(["--exe", hang, "--mode", "frame", "--case", "warm", "--out", csvPath, "--machine", "selftest"], out _)!);
         Expect("the run command exits with 1 for a failed run", exit, 1);
         Runner.Timeout = TimeSpan.FromSeconds(45);
+
+        Expect("label defaults to the case", RunCommand.Label(Options.Parse(["--case", "cold"], out _)!), "cold");
+        Expect("label overrides the case name in the CSV", RunCommand.Label(Options.Parse(["--case", "cold", "--label", "cold-reboot"], out _)!), "cold-reboot");
 
         var sizeFolder = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "size");
         var fontFolder = sizeFolder + "-fonts";
