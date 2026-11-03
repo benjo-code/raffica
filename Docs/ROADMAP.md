@@ -25,7 +25,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 |---|---|---|---|---|---|
 | 0 | Repo skeleton & CI | 1 – Foundation | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-00-repo-skeleton.md) | 2026-11-03 |
 | 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
-| 1.1 | Tokens and base controls | 2 – Design system and shell | 🟡 planned | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | – |
+| 1.1 | Tokens and base controls | 2 – Design system and shell | 🔵 in progress | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | – |
 | 1.2 | App frame | 2 – Design system and shell | ⬜ open | – | – |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
@@ -90,7 +90,7 @@ Goal: One design direction for all four apps is chosen and the spec for the desi
 - [x] A design direction is chosen by the owner and recorded in `Docs/DECISIONS.md` – Directions A, B (Shelf, then Wayfinding), C and D built as Claude Design canvases; the owner chose D "Formular Neutral" after two refinement rounds (canvas version 9, sources in `Docs/design/direction-d/`); `Docs/DECISIONS.md`, entry "Design direction: D "Formular Neutral"" (2026-11-03)
 
 ## Milestone 1.1 – Tokens and base controls
-**Status:** 🟡 planned · **Plan:** [2026-11-03-milestone-01-1-tokens-and-base-controls.md](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) · **Prerequisites:** M1
+**Status:** 🔵 in progress · **Plan:** [2026-11-03-milestone-01-1-tokens-and-base-controls.md](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) · **Prerequisites:** M1
 
 Goal: The shared shell project has the tokens, fonts, icons and base controls in light, dark and high contrast, shown in a gallery app in English and German.
 

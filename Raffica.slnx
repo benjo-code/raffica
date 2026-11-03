@@ -2,12 +2,15 @@
   <Folder Name="/src/">
     <Project Path="src/Raffica.Cli/Raffica.Cli.csproj" />
     <Project Path="src/Raffica.Core/Raffica.Core.csproj" />
+    <Project Path="src/Raffica.Gallery/Raffica.Gallery.csproj" />
     <Project Path="src/Raffica.Ocr/Raffica.Ocr.csproj" />
     <Project Path="src/Raffica.Pdfium/Raffica.Pdfium.csproj" />
+    <Project Path="src/Raffica.Shell/Raffica.Shell.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Raffica.Core.Tests/Raffica.Core.Tests.csproj" />
     <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
+    <Project Path="tests/Raffica.Shell.Tests/Raffica.Shell.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/shell-probe/ShellProbe/ShellProbe.csproj" />
