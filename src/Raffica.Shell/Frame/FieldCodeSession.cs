@@ -45,9 +45,8 @@ public sealed class FieldCodeSession(RibbonDefinition ribbon)
         if (Stage != FieldCodeStage.Off)
         {
             // Alt again ends the mode; the matching release is swallowed.
-            _altAlone = false;
-            _altSwallowed = true;
             Cancel();
+            _altSwallowed = true;
             return true;
         }
 
@@ -59,6 +58,7 @@ public sealed class FieldCodeSession(RibbonDefinition ribbon)
     public bool OtherKey()
     {
         _altAlone = false;
+        _altSwallowed = false;
         return false;
     }
 
@@ -89,6 +89,7 @@ public sealed class FieldCodeSession(RibbonDefinition ribbon)
     public bool F10()
     {
         _altAlone = false;
+        _altSwallowed = false;
         if (Stage == FieldCodeStage.Off)
         {
             Enter();
@@ -151,10 +152,14 @@ public sealed class FieldCodeSession(RibbonDefinition ribbon)
         Changed?.Invoke();
     }
 
-    /// <summary>Ends the mode (click, focus loss, dialog).</summary>
+    /// <summary>
+    /// Ends the mode (click, focus loss, dialog). It also forgets a pending swallowed Alt release: when the window loses the
+    /// focus (Alt+Tab) that release never arrives, and the next bare Alt must enter the mode again.
+    /// </summary>
     public void Cancel()
     {
         _altAlone = false;
+        _altSwallowed = false;
         if (Stage == FieldCodeStage.Off)
         {
             return;

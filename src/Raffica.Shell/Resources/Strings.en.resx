@@ -90,4 +90,7 @@
   <data name="FocusPane" xml:space="preserve">
     <value>Focus: {0}</value>
   </data>
+  <data name="FieldCodeHint" xml:space="preserve">
+    <value>Type a field code · Esc goes back</value>
+  </data>
 </root>

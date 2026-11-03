@@ -198,4 +198,32 @@ public sealed class FieldCodeSessionTests
 
         Assert.Equal(["c"], ran);
     }
+
+    [Fact]
+    public void CancelForgetsASwallowedAltRelease()
+    {
+        // Alt ends the mode and its release is swallowed; if the release never arrives (Alt+Tab, focus loss) and the
+        // window cancels the session, the next bare Alt press and release must enter the mode again.
+        EnterMode();
+        Assert.True(_session.AltDown(false));
+        Assert.Equal(FieldCodeStage.Off, _session.Stage);
+
+        _session.Cancel();
+        _session.AltDown(false);
+        Assert.True(_session.AltUp());
+
+        Assert.Equal(FieldCodeStage.TabLetters, _session.Stage);
+    }
+
+    [Fact]
+    public void AnOtherKeyForgetsASwallowedAltRelease()
+    {
+        EnterMode();
+        _session.AltDown(false);
+        _session.OtherKey();
+
+        _session.AltDown(false);
+        Assert.True(_session.AltUp());
+        Assert.Equal(FieldCodeStage.TabLetters, _session.Stage);
+    }
 }

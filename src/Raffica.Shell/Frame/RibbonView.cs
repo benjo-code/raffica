@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
+using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Localization;
 
@@ -22,16 +23,21 @@ public class RibbonView : TemplatedControl
     public static readonly StyledProperty<RibbonTabDefinition?> ActiveTabProperty = AvaloniaProperty.Register<RibbonView, RibbonTabDefinition?>(nameof(ActiveTab));
     public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<RibbonView, bool>(nameof(IsCompact));
 
-    /// <summary>Whether the field-code badges are shown (wired by the field-code session; the ribbon only holds the state).</summary>
+    /// <summary>
+    /// Whether the field-code badges are shown (set by <see cref="FieldCodeInput"/>): the tab letters on the tab row, and with
+    /// <see cref="FieldCodeTabLetter"/> set the group digits and the command codes of the active tab.
+    /// </summary>
     public static readonly StyledProperty<bool> ShowFieldCodesProperty = AvaloniaProperty.Register<RibbonView, bool>(nameof(ShowFieldCodes));
 
-    /// <summary>The letter typed so far in a field-code session, or null when no tab letter is highlighted.</summary>
+    /// <summary>The letter of the tab chosen in the field-code session, or null while the session still waits for a tab letter.</summary>
     public static readonly StyledProperty<string?> FieldCodeTabLetterProperty = AvaloniaProperty.Register<RibbonView, string?>(nameof(FieldCodeTabLetter));
 
     private readonly Panel _tabRow = new();
     private readonly StackPanel _tabStrip = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Border _band = new() { ClipToBounds = true };
     private readonly StackPanel _groups = new() { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly List<(Control Target, string Digit)> _groupAnchors = [];
+    private readonly List<FieldCodeBadge> _badges = [];
     private bool _settingDefinition;
 
     static RibbonView()
@@ -39,6 +45,8 @@ public class RibbonView : TemplatedControl
         DefinitionProperty.Changed.AddClassHandler<RibbonView>((view, e) => view.OnDefinitionChanged(e.NewValue as RibbonDefinition));
         ActiveTabProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.OnActiveTabChanged());
         IsCompactProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RebuildBand());
+        ShowFieldCodesProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
+        FieldCodeTabLetterProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
     }
 
     public RibbonView()
@@ -106,6 +114,9 @@ public class RibbonView : TemplatedControl
         RebuildBand();
     }
 
+    /// <summary>Raises <see cref="CommandInvoked"/> for a command the field-code session ran (the session calls <c>Run</c> itself).</summary>
+    internal void NotifyInvoked(CommandDefinition command) => CommandInvoked?.Invoke(command);
+
     private void Invoke(CommandDefinition command)
     {
         command.Run?.Invoke();
@@ -122,21 +133,25 @@ public class RibbonView : TemplatedControl
 
         foreach (var tab in Definition.Tabs)
         {
-            var button = new Button { Content = tab.Name };
+            var button = new Button { Content = tab.Name, Tag = tab };
             button.Classes.Add("ribbon-tab");
             button.Classes.Set("active", ReferenceEquals(tab, ActiveTab));
             AutomationProperties.SetName(button, tab.Name);
             button.Click += (_, _) => SetCurrentValue(ActiveTabProperty, tab);
             _tabStrip.Children.Add(button);
         }
+
+        RefreshBadges();
     }
 
     private void RebuildBand()
     {
         _groups.Children.Clear();
+        _groupAnchors.Clear();
         _band.Classes.Set("compact", IsCompact);
         if (ActiveTab is null)
         {
+            RefreshBadges();
             return;
         }
 
@@ -148,6 +163,49 @@ public class RibbonView : TemplatedControl
             }
 
             _groups.Children.Add(IsCompact ? BuildCompactGroup(group) : BuildGroup(group));
+        }
+
+        RefreshBadges();
+    }
+
+    /// <summary>Rebuilds the badges from the state: nothing at rest; tab letters while the mode is on; plus group digits and command codes once a tab is chosen.</summary>
+    private void RefreshBadges()
+    {
+        FieldCodeBadge.RemoveAll(_badges);
+        if (!ShowFieldCodes)
+        {
+            return;
+        }
+
+        foreach (var child in _tabStrip.Children)
+        {
+            if (child is Button { Tag: RibbonTabDefinition tab } button)
+            {
+                Add(button, tab.Letter);
+            }
+        }
+
+        if (FieldCodeTabLetter is null)
+        {
+            return;
+        }
+
+        foreach (var (target, digit) in _groupAnchors)
+        {
+            Add(target, digit);
+        }
+
+        foreach (var button in _groups.GetVisualDescendants().OfType<RibbonButton>())
+        {
+            Add(button, button.Definition.FieldCode);
+        }
+
+        void Add(Control target, string text)
+        {
+            if (FieldCodeBadge.Show(target, text) is { } badge)
+            {
+                _badges.Add(badge);
+            }
         }
     }
 
@@ -174,6 +232,7 @@ public class RibbonView : TemplatedControl
 
         var label = new TextBlock { Text = group.Label, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 3, 0, 0) };
         label.Classes.Add("ribbon-group-label");
+        _groupAnchors.Add((label, group.Digit));
 
         var panel = new StackPanel { Margin = new Thickness(8, 0) };
         panel.Children.Add(commands);

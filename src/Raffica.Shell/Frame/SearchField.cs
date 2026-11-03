@@ -41,6 +41,7 @@ public class SearchField : TemplatedControl
         _results.Classes.Add("search-results");
         ToolTip.SetTip(this, CreateTooltip());
         WindowDecorationProperties.SetElementRole(this, WindowDecorationsElementRole.User);
+        FieldCodeBadge.SetCode(this, "Q");
     }
 
     /// <summary>Raised when the user picks a command from the list; the app runs it.</summary>

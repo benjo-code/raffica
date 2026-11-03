@@ -40,6 +40,7 @@ public static class ShellStrings
     public static string PaneComments => Table.Get("PaneComments");
     public static string PaneFormat => Table.Get("PaneFormat");
     public static string PaneDocument => Table.Get("PaneDocument");
+    public static string FieldCodeHint => Table.Get("FieldCodeHint");
 
     /// <summary>"Focus: {0}": the status bar text during F6 pane navigation.</summary>
     public static string FocusPane(string pane) => string.Format(Culture, Table.Get("FocusPane"), pane);
