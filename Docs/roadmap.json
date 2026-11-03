@@ -78,7 +78,7 @@
           "prerequisites": ["1"],
           "goal": "The shared shell project has the tokens, fonts, icons and base controls in light, dark and high contrast, shown in a gallery app in English and German.",
           "tasks": [
-            { "text": "Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec", "done": false },
+            { "text": "Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec", "done": true },
             { "text": "Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid", "done": false },
             { "text": "Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar", "done": false },
             { "text": "Localization mechanism (resx under Native AOT) with the missing-translation test", "done": false },

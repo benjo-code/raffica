@@ -1,0 +1,38 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Spacing, radii and sizes of appendix A section 4 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md.
+    The same in every theme, so plain resources rather than theme dictionaries. MetricsTests pin every value.
+    Dialog buttons are 28 px high and at least 96 px wide, list and menu rows 32 px, the tooltip at most 240 px wide:
+    these belong to the controls of milestone 1.1 and are set where those are styled.
+  -->
+  <x:Double x:Key="Raffica.Space.2">2</x:Double>
+  <x:Double x:Key="Raffica.Space.4">4</x:Double>
+  <x:Double x:Key="Raffica.Space.6">6</x:Double>
+  <x:Double x:Key="Raffica.Space.8">8</x:Double>
+  <x:Double x:Key="Raffica.Space.10">10</x:Double>
+  <x:Double x:Key="Raffica.Space.12">12</x:Double>
+  <x:Double x:Key="Raffica.Space.16">16</x:Double>
+  <x:Double x:Key="Raffica.Space.24">24</x:Double>
+
+  <CornerRadius x:Key="Raffica.Radius.Surface">0</CornerRadius>
+  <CornerRadius x:Key="Raffica.Radius.Checkbox">2</CornerRadius>
+  <CornerRadius x:Key="Raffica.Radius.Control">3</CornerRadius>
+  <CornerRadius x:Key="Raffica.Radius.Overlay">3</CornerRadius>
+
+  <x:Double x:Key="Raffica.Size.Button">26</x:Double>
+  <x:Double x:Key="Raffica.Size.Dropdown">26</x:Double>
+  <x:Double x:Key="Raffica.Size.HitTargetMin">24</x:Double>
+  <x:Double x:Key="Raffica.Size.RowList">32</x:Double>
+  <x:Double x:Key="Raffica.Size.RowFile">40</x:Double>
+  <x:Double x:Key="Raffica.Size.DialogWidth">520</x:Double>
+  <x:Double x:Key="Raffica.Size.DialogHeader">44</x:Double>
+  <x:Double x:Key="Raffica.Size.DialogFooter">52</x:Double>
+  <x:Double x:Key="Raffica.Size.NotificationBar">40</x:Double>
+  <x:Double x:Key="Raffica.Size.Icon.Small">16</x:Double>
+  <x:Double x:Key="Raffica.Size.Icon.Large">20</x:Double>
+
+  <x:Double x:Key="Raffica.Rule.Width">1</x:Double>
+  <x:Double x:Key="Raffica.Focus.RingWidth">2</x:Double>
+  <x:Double x:Key="Raffica.Focus.RingOffset">2</x:Double>
+</ResourceDictionary>

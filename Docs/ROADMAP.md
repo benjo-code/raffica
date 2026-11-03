@@ -95,7 +95,7 @@ Goal: One design direction for all four apps is chosen and the spec for the desi
 Goal: The shared shell project has the tokens, fonts, icons and base controls in light, dark and high contrast, shown in a gallery app in English and German.
 
 **Tasks**
-- [ ] Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec
+- [x] Shell project with the token dictionaries (light, dark, Windows high contrast) from appendix A of the spec
 - [ ] Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid
 - [ ] Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar
 - [ ] Localization mechanism (resx under Native AOT) with the missing-translation test
