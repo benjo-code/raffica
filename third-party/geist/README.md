@@ -1,21 +1,21 @@
-# Geist und Geist Mono – Drittlizenz
+# Geist and Geist Mono – third-party license
 
-Raffica bettet die Schriften **Geist** (Schnitte 400, 500, 600) und **Geist Mono** (400, 500) als Teilmenge ein (`src/Raffica.App/Assets/Fonts/`; Geist Regular liegt einmal in `src/Raffica.Core/Assets/Fonts/`, ist dort in `Raffica.Core` eingebettet und wird von der App von dort verlinkt). Entscheidung und Vorbehalt (Startkosten) stehen in `Docs/DECISIONS.md`, Eintrag „Schrift: Geist und Geist Mono, als Teilmenge eingebettet“.
+Raffica embeds the fonts **Geist** (weights 400, 500, 600) and **Geist Mono** (400, 500) as a subset. Only Geist Regular is part of this repository so far: it lies in `src/Raffica.Core/Assets/Fonts/` and is embedded in `Raffica.Core`. The other weights belonged to the Pagewing UI, which is not imported; they come back with the new UI.
 
-## Quelle und Lizenz
+## Source and license
 
-- Projekt: https://github.com/vercel/geist-font, Tag `v1.8.1` (Commit `e1f671c727f6de7e97c1e1d26dbb44f349c19459`)
-- Lizenz: SIL Open Font License 1.1, Text in [OFL.txt](OFL.txt) (Copyright 2024 The Geist Project Authors). Die Schrift hat keinen Reserved Font Name, eine Teilmenge darf deshalb den Namen behalten.
-- Ausgangsdateien (statische TTF): `fonts/Geist/ttf/Geist-{Regular,Medium,SemiBold}.ttf` und `fonts/GeistMono/ttf/GeistMono-{Regular,Medium}.ttf`
-- Die Glyphen sind nicht verändert; die Teilmenge entfernt nur Zeichen und Layout-Merkmale, die Raffica nicht braucht.
+- Project: https://github.com/vercel/geist-font, tag `v1.8.1` (commit `e1f671c727f6de7e97c1e1d26dbb44f349c19459`)
+- License: SIL Open Font License 1.1, text in [OFL.txt](OFL.txt) (Copyright 2024 The Geist Project Authors). The font has no Reserved Font Name, so a subset may keep the name.
+- Source files (static TTF): `fonts/Geist/ttf/Geist-{Regular,Medium,SemiBold}.ttf` and `fonts/GeistMono/ttf/GeistMono-{Regular,Medium}.ttf`
+- The glyphs are unchanged; the subset only removes characters and layout features that Raffica does not need.
 
-## Teilmenge
+## Subset
 
-Zeichen: Basis-Latein (U+0020–007E), Latin-1 (U+00A0–00FF), Latin Extended-A (U+0100–017F), die typografischen Satzzeichen – — ‘ ’ ‚ “ ” „ … € (U+2013, 2014, 2018, 2019, 201A, 201C, 201D, 201E, 2026, 20AC) und ẞ (U+1E9E). Gegenüber der Liste der Design-Spec (Abschnitt 5.2) sind zwei Zeichen ergänzt: der Apostroph ’ (U+2019), weil er im Deutschen und Englischen häufig vorkommt, und das schließende Anführungszeichen ” (U+201D), das die englischen UI-Texte verwenden (etwa “Dateiname”).
+Characters: Basic Latin (U+0020–007E), Latin-1 (U+00A0–00FF), Latin Extended-A (U+0100–017F), the typographic punctuation – — ‘ ’ ‚ “ ” „ … € (U+2013, 2014, 2018, 2019, 201A, 201C, 201D, 201E, 2026, 20AC) and ẞ (U+1E9E). Two characters were added to the list of the original design spec (section 5.2): the apostrophe ’ (U+2019), because it is common in German and English, and the closing quotation mark ” (U+201D), which the English UI texts use (for example “File name”).
 
-Layout-Merkmale: `kern,liga,tnum,ccmp,locl,mark,mkmk` (vorhandene davon; Geist Mono hat kein `kern`, `tnum`, `ccmp`).
+Layout features: `kern,liga,tnum,ccmp,locl,mark,mkmk` (those that exist; Geist Mono has no `kern`, `tnum`, `ccmp`).
 
-Befehl (fonttools 4.67.0 und brotli 1.2.0 in einer virtuellen Python-Umgebung; `<in>` ist die Ausgangsdatei, `<out>` die Zieldatei):
+Command (fonttools 4.67.0 and brotli 1.2.0 in a Python virtual environment; `<in>` is the source file, `<out>` the target file):
 
 ```
 pyftsubset <in>.ttf \
@@ -25,11 +25,11 @@ pyftsubset <in>.ttf \
   --output-file=<out>.ttf
 ```
 
-`--name-IDs='*'` behält alle Namenseinträge, darunter Copyright und Lizenzhinweis der Schrift. Die Tabelle `meta` (nur Metadaten zu Skripten) entfällt, `pyftsubset` meldet das als Warnung.
+`--name-IDs='*'` keeps all name entries, including the copyright and license notice of the font. The `meta` table (only metadata about scripts) is dropped; `pyftsubset` reports this as a warning.
 
-## Größen
+## Sizes
 
-| Datei | Original | Teilmenge |
+| File | Original | Subset |
 |---|---|---|
 | Geist-Regular.ttf | 126048 | 52336 |
 | Geist-Medium.ttf | 127660 | 53352 |

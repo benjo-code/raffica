@@ -52,6 +52,8 @@ public sealed class NoPagewingLeftoverTests
         "tests/Raffica.Core.Tests/TextEdit/TextEditSpikeTests.cs",
         "tests/Raffica.Core.Tests/Updates/ReleaseToolTests.cs",
         "tests/Raffica.Core.Tests/Updates/UpdateTrustTests.cs",
+        "third-party/geist/README.md",
+        "third-party/tesseract/README.md",
         "tools/native-fetch.cs",
     ];
 

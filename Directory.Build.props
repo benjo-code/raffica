@@ -28,7 +28,7 @@
   </PropertyGroup>
   <Target Name="CheckRafficaUpdateTestBuildSource" BeforeTargets="BeforeBuild">
     <Error Condition="'$(_RafficaUpdateTestBuildSeen)' != '$(RafficaUpdateTestBuild)' Or '$(_RafficaUpdateTestPortSeen)' != '$(RafficaUpdateTestPort)' Or '$(_RafficaUpdateTestKeySeen)' != '$(RafficaUpdateTestKey)' Or '$([System.Environment]::GetEnvironmentVariable(`RafficaUpdateTestBuild`))' != '' Or '$([System.Environment]::GetEnvironmentVariable(`RafficaUpdateTestPort`))' != '' Or '$([System.Environment]::GetEnvironmentVariable(`RafficaUpdateTestKey`))' != ''"
-           Text="RafficaUpdateTestBuild, RafficaUpdateTestPort oder RafficaUpdateTestKey kommt nicht von der Kommandozeile (etwa als Umgebungsvariable). Der Testaufbau des Updaters gilt nur mit -p: bzw. /p: auf der Kommandozeile; die Umgebungsvariable entfernen (packaging/README.md, Abschnitt &quot;Update prüfen&quot;)." />
+           Text="RafficaUpdateTestBuild, RafficaUpdateTestPort or RafficaUpdateTestKey does not come from the command line (for example as an environment variable). The test build of the updater applies only with -p: or /p: on the command line; remove the environment variable (see the comment above)." />
   </Target>
   <PropertyGroup Condition="'$(RafficaUpdateTestBuild)' == 'true'">
     <BaseOutputPath>bin\update-test-build\</BaseOutputPath>
