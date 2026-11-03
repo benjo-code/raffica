@@ -54,9 +54,6 @@
   <data name="SearchTooltip" xml:space="preserve">
     <value>Search ({0})</value>
   </data>
-  <data name="SearchShortcut" xml:space="preserve">
-    <value>Ctrl+K</value>
-  </data>
   <data name="SearchNoResults" xml:space="preserve">
     <value>No commands found</value>
   </data>
@@ -146,5 +143,47 @@
   </data>
   <data name="SettingsAutosave" xml:space="preserve">
     <value>Autosave</value>
+  </data>
+  <data name="KeyCtrl" xml:space="preserve">
+    <value>Ctrl</value>
+  </data>
+  <data name="KeyShift" xml:space="preserve">
+    <value>Shift</value>
+  </data>
+  <data name="KeyAlt" xml:space="preserve">
+    <value>Alt</value>
+  </data>
+  <data name="KeyCmd" xml:space="preserve">
+    <value>⌘</value>
+  </data>
+  <data name="KeyOption" xml:space="preserve">
+    <value>⌥</value>
+  </data>
+  <data name="KeyEsc" xml:space="preserve">
+    <value>Esc</value>
+  </data>
+  <data name="KeyDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="KeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="ContextCut" xml:space="preserve">
+    <value>Cut</value>
+  </data>
+  <data name="ContextCopy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="ContextPaste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="ContextSelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="ContextUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="ContextRedo" xml:space="preserve">
+    <value>Redo</value>
   </data>
 </root>

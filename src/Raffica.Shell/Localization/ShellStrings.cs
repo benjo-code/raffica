@@ -17,6 +17,9 @@ public static class ShellStrings
     /// <summary>The value of a key by name (for tools such as the gallery's <c>--print-string</c>).</summary>
     public static string Get(string key) => Table.Get(key);
 
+    /// <summary>The value of a key in an explicit language (used by <see cref="KeyNames"/>).</summary>
+    public static string GetIn(string key, CultureInfo culture) => Table.GetIn(key, culture);
+
     public static string Close => Table.Get("Close");
     public static string Cancel => Table.Get("Cancel");
     public static string Ok => Table.Get("Ok");
@@ -29,7 +32,12 @@ public static class ShellStrings
     public static string ZoomIn => Table.Get("ZoomIn");
     public static string ZoomLevel => Table.Get("ZoomLevel");
     public static string RibbonMore => Table.Get("RibbonMore");
-    public static string SearchShortcut => Table.Get("SearchShortcut");
+    public static string ContextCut => Table.Get("ContextCut");
+    public static string ContextCopy => Table.Get("ContextCopy");
+    public static string ContextPaste => Table.Get("ContextPaste");
+    public static string ContextSelectAll => Table.Get("ContextSelectAll");
+    public static string ContextUndo => Table.Get("ContextUndo");
+    public static string ContextRedo => Table.Get("ContextRedo");
     public static string SearchNoResults => Table.Get("SearchNoResults");
     public static string NewDocument => Table.Get("NewDocument");
     public static string CloseDocument => Table.Get("CloseDocument");
@@ -63,7 +71,7 @@ public static class ShellStrings
     /// <summary>"Focus: {0}": the status bar text during F6 pane navigation.</summary>
     public static string FocusPane(string pane) => string.Format(Culture, Table.Get("FocusPane"), pane);
 
-    /// <summary>"Search (Ctrl+K)": the tooltip of the search field; a plain formatted string until the key-name helper of the keyboard task replaces the shortcut text.</summary>
+    /// <summary>"Search (Ctrl+K)": the tooltip of the search field; the shortcut inside is formatted by <see cref="KeyNames"/>.</summary>
     public static string SearchTooltip(string shortcut) => string.Format(Culture, Table.Get("SearchTooltip"), shortcut);
 
     /// <summary>"More commands in {0}": the name of the overflow button of a compact ribbon group.</summary>

@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
   <!--
     Text field, row "Text field / search" of the state table (appendix A section 5 of
     Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): surface.page, 1 px border.control, 26 px high, 3 px radius
@@ -7,8 +8,10 @@
     disabled surface.band with text.disabled text and edge. Text selection is selection.tint (appendix B), the caret text.primary.
     The keyboard ring is the shared adorner, 2 px outside the edge, so Fluent's FocusAdorner override is gone; a click focuses
     the field without the ring, the typing edge shows it is active. A multi-line box (AcceptsReturn) keeps the style and grows.
-    The Cut/Copy/Paste context flyout is the framework's own and picks up the menu theme.
+    The context flyout is the shell's own TextBoxContextFlyout (localized, Cut/Copy/Paste/Select all/Undo/Redo) in the menu theme.
   -->
+  <controls:TextBoxContextFlyout x:Key="Raffica.TextBox.ContextFlyout" />
+
   <ControlTheme x:Key="{x:Type TextBox}" TargetType="TextBox">
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
@@ -27,7 +30,7 @@
     <Setter Property="Padding" Value="8,0" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="ScrollViewer.IsScrollChainingEnabled" Value="True" />
-    <Setter Property="ContextFlyout" Value="{DynamicResource DefaultTextBoxContextFlyout}" />
+    <Setter Property="ContextFlyout" Value="{DynamicResource Raffica.TextBox.ContextFlyout}" />
     <Setter Property="Template">
       <ControlTemplate>
         <DataValidationErrors>

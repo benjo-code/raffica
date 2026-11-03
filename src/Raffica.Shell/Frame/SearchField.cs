@@ -50,8 +50,8 @@ public class SearchField : TemplatedControl
     /// <summary>The ribbon whose commands are searched.</summary>
     public RibbonDefinition? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
 
-    /// <summary>The tooltip: "Search (Ctrl+K)" (until the key-name helper of the keyboard task formats the shortcut per platform).</summary>
-    internal static TooltipContent CreateTooltip() => new() { Title = ShellStrings.SearchTooltip(ShellStrings.SearchShortcut) };
+    /// <summary>The tooltip: "Search (Ctrl+K)" / "Suchen (Strg+K)", the shortcut written by <see cref="KeyNames"/> (Cmd+K on macOS).</summary>
+    internal static TooltipContent CreateTooltip() => new() { Title = ShellStrings.SearchTooltip(KeyNames.Format(OperatingSystem.IsMacOS() ? "Meta+K" : "Ctrl+K", ShellStrings.Culture)) };
 
     /// <summary>Puts the keyboard focus into the field and selects its text.</summary>
     public void FocusAndSelect()
@@ -244,7 +244,7 @@ internal sealed class SearchResultRow : Border
         grid.Children.Add(name);
         if (!string.IsNullOrEmpty(command.Shortcut))
         {
-            var shortcut = new TextBlock { Text = command.Shortcut, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var shortcut = new TextBlock { Text = KeyNames.Format(command.Shortcut, ShellStrings.Culture), Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             shortcut.Classes.Add("search-shortcut");
             Grid.SetColumn(shortcut, 1);
             grid.Children.Add(shortcut);

@@ -32,6 +32,7 @@ public sealed class TooltipTests
     [InlineData(ThemeMode.Dark)]
     public void TheContentShowsTitleShortcutAndDescription(ThemeMode mode)
     {
+        using var english = new PinnedCulture("en");
         var content = Content();
         Open(mode, content);
 
@@ -53,6 +54,24 @@ public sealed class TooltipTests
         Assert.Equal("Marks insertions and deletions until they are accepted.", description.Text);
         Assert.Equal(12, description.FontSize);
         ControlHarness.AssertToken("Raffica.Brush.Text.Secondary", description.Foreground, "description");
+    }
+
+    // Fails if the tooltip prints the raw shortcut string.
+    [AvaloniaFact]
+    public void ShortcutIsLocalized()
+    {
+        var previous = Raffica.Shell.Localization.ShellStrings.Culture;
+        try
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("de");
+            var content = Content();
+            Open(ThemeMode.Light, content);
+            Assert.Equal(OperatingSystem.IsMacOS() ? "⌃⇧E" : "Strg+Umschalt+E", Text(content, "PART_Shortcut").Text);
+        }
+        finally
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = previous;
+        }
     }
 
     [AvaloniaTheory]
