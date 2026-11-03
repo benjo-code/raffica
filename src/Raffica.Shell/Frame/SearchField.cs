@@ -37,7 +37,7 @@ public class SearchField : TemplatedControl
     {
         _noResults = new TextBlock { Text = ShellStrings.SearchNoResults, IsVisible = false, VerticalAlignment = VerticalAlignment.Center };
         _noResults.Classes.Add("search-empty");
-        _results = new Border { Name = "PART_Results", Child = new ScrollViewer { MaxHeight = MaxVisibleRows * 32, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = new StackPanel { Children = { _list, _noResults } } } };
+        _results = new Border { Name = "PART_Results", Child = new ScrollViewer { Name = "PART_ResultsScroll", MaxHeight = MaxVisibleRows * 32, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = new StackPanel { Children = { _list, _noResults } } } };
         _results.Classes.Add("search-results");
         ToolTip.SetTip(this, CreateTooltip());
         WindowDecorationProperties.SetElementRole(this, WindowDecorationsElementRole.User);
@@ -161,6 +161,12 @@ public class SearchField : TemplatedControl
         for (var i = 0; i < _rows.Count; i++)
         {
             _rows[i].IsActive = i == index;
+        }
+
+        // The list scrolls after eight rows: the active row must stay visible while the arrow keys move it.
+        if (index >= 0 && index < _rows.Count)
+        {
+            _rows[index].BringIntoView();
         }
     }
 

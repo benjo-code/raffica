@@ -1,10 +1,12 @@
 using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
@@ -171,6 +173,43 @@ public sealed class SearchFieldTests
 
         Press(window, PhysicalKey.Enter);
         Assert.Empty(chosen);
+    }
+
+    [AvaloniaFact]
+    public void ActiveRowIsScrolledIntoViewWhenNavigatingWithTheArrowKeys()
+    {
+        var commands = Enumerable.Range(1, 15)
+            .Select(i => new CommandDefinition($"item{i}", $"Item {i:00}", "Raffica.Icon.Plus", $"I{i:00}"))
+            .ToList();
+        var ribbon = new RibbonDefinition([new RibbonTabDefinition("Home", "H", [new RibbonGroupDefinition("All", "1", commands)])]);
+        var search = new SearchField { Source = ribbon, Width = 300, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        var window = ControlHarness.Show(search, ThemeMode.Light);
+        Type(window, search, "item");
+        var scroll = ControlHarness.Part<ScrollViewer>(search, "PART_ResultsScroll");
+        Assert.Equal(15, Rows(search).Count);
+
+        void AssertActiveVisible()
+        {
+            var row = Rows(search).Single(r => r.IsActive);
+            var top = row.TranslatePoint(default, scroll)!.Value.Y;
+            Assert.True(top >= -0.5 && top + row.Bounds.Height <= scroll.Viewport.Height + 0.5,
+                $"active row {row.Command.Name} at {top} is outside the viewport of {scroll.Viewport.Height}");
+        }
+
+        for (var i = 0; i < 12; i++)
+        {
+            Press(window, PhysicalKey.ArrowDown);
+            AssertActiveVisible();
+        }
+
+        Assert.True(scroll.Offset.Y > 0);
+        for (var i = 0; i < 12; i++)
+        {
+            Press(window, PhysicalKey.ArrowUp);
+            AssertActiveVisible();
+        }
+
+        Assert.Equal(0, scroll.Offset.Y, 0.5);
     }
 
     [AvaloniaFact]
