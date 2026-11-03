@@ -1,18 +1,18 @@
-namespace Pagewing.TestSupport;
+namespace Raffica.TestSupport;
 
 /// <summary>Locates the shared test data (<c>testdata/pdfs</c>, <c>testdata/references</c>) from the repository root.</summary>
 internal static class TestData
 {
     private static readonly Lazy<string> RootDirectory = new(FindRoot);
 
-    /// <summary>The repository root, found by walking up from the test output directory to <c>Pagewing.slnx</c>.</summary>
+    /// <summary>The repository root, found by walking up from the test output directory to <c>Raffica.slnx</c>.</summary>
     public static string Root => RootDirectory.Value;
 
     /// <summary>Full path of a file in <c>testdata/pdfs</c>.</summary>
     public static string Pdf(string name) => Path.Combine(Root, "testdata", "pdfs", name);
 
-    /// <summary>Full path of the shipped Geist Regular, the font of the text boxes (<c>src/Pagewing.Core/Assets/Fonts</c>).</summary>
-    public static string GeistRegular => Path.Combine(Root, "src", "Pagewing.Core", "Assets", "Fonts", "Geist-Regular.ttf");
+    /// <summary>Full path of the shipped Geist Regular, the font of the text boxes (<c>src/Raffica.Core/Assets/Fonts</c>).</summary>
+    public static string GeistRegular => Path.Combine(Root, "src", "Raffica.Core", "Assets", "Fonts", "Geist-Regular.ttf");
 
     /// <summary>Directory with the reference images of one test PDF (<c>testdata/references/&lt;stem&gt;</c>).</summary>
     public static string ReferenceDir(string pdfStem) => Path.Combine(Root, "testdata", "references", pdfStem);
@@ -21,12 +21,12 @@ internal static class TestData
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Pagewing.slnx")))
+            if (File.Exists(Path.Combine(directory.FullName, "Raffica.slnx")))
             {
                 return directory.FullName;
             }
         }
 
-        throw new DirectoryNotFoundException($"Pagewing.slnx was not found above '{AppContext.BaseDirectory}'.");
+        throw new DirectoryNotFoundException($"Raffica.slnx was not found above '{AppContext.BaseDirectory}'.");
     }
 }

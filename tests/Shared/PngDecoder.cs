@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
 
-namespace Pagewing.TestSupport;
+namespace Raffica.TestSupport;
 
 /// <summary>
 /// Minimal PNG decoder for tests: 8-bit RGB (colour type 2) and RGBA (colour type 6), filters 0 to 4, not interlaced,

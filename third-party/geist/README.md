@@ -1,13 +1,13 @@
 # Geist und Geist Mono – Drittlizenz
 
-Pagewing bettet die Schriften **Geist** (Schnitte 400, 500, 600) und **Geist Mono** (400, 500) als Teilmenge ein (`src/Pagewing.App/Assets/Fonts/`; Geist Regular liegt einmal in `src/Pagewing.Core/Assets/Fonts/`, ist dort in `Pagewing.Core` eingebettet und wird von der App von dort verlinkt). Entscheidung und Vorbehalt (Startkosten) stehen in `Docs/DECISIONS.md`, Eintrag „Schrift: Geist und Geist Mono, als Teilmenge eingebettet“.
+Raffica bettet die Schriften **Geist** (Schnitte 400, 500, 600) und **Geist Mono** (400, 500) als Teilmenge ein (`src/Raffica.App/Assets/Fonts/`; Geist Regular liegt einmal in `src/Raffica.Core/Assets/Fonts/`, ist dort in `Raffica.Core` eingebettet und wird von der App von dort verlinkt). Entscheidung und Vorbehalt (Startkosten) stehen in `Docs/DECISIONS.md`, Eintrag „Schrift: Geist und Geist Mono, als Teilmenge eingebettet“.
 
 ## Quelle und Lizenz
 
 - Projekt: https://github.com/vercel/geist-font, Tag `v1.8.1` (Commit `e1f671c727f6de7e97c1e1d26dbb44f349c19459`)
 - Lizenz: SIL Open Font License 1.1, Text in [OFL.txt](OFL.txt) (Copyright 2024 The Geist Project Authors). Die Schrift hat keinen Reserved Font Name, eine Teilmenge darf deshalb den Namen behalten.
 - Ausgangsdateien (statische TTF): `fonts/Geist/ttf/Geist-{Regular,Medium,SemiBold}.ttf` und `fonts/GeistMono/ttf/GeistMono-{Regular,Medium}.ttf`
-- Die Glyphen sind nicht verändert; die Teilmenge entfernt nur Zeichen und Layout-Merkmale, die Pagewing nicht braucht.
+- Die Glyphen sind nicht verändert; die Teilmenge entfernt nur Zeichen und Layout-Merkmale, die Raffica nicht braucht.
 
 ## Teilmenge
 
