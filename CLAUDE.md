@@ -2,10 +2,10 @@
 
 Raffica is a fast, open-source office suite for Windows, Linux and macOS, growing out of the PDF editor Pagewing: Raffica Office with Raffica Write, Sheets, Slides and PDF. Speed (startup, opening, scrolling) is the core promise; the suite should be as compatible as possible with DOCX/XLSX/PPTX. The suite is built step by step, starting with the PDF app (today's Pagewing core).
 
-- **Stack:** not fixed yet (the spec in M0 decides); inherited from Pagewing: .NET 10 (LTS) with Native AOT · Avalonia 12 · PDFium
-- **License:** GPL-3.0-or-later (as in Pagewing; the `LICENSE` file is added with the import in M0)
-- **Language:** everything in English: docs, README, commits, issues, PRs, code and comments · UI source language English, German localization planned (to be confirmed in the spec)
-- **Build:** `<not defined yet, set in M0>` · **Test:** `<not defined yet, set in M0>` · **Format/Lint:** `<not defined yet, set in M0>`
+- **Stack:** .NET 10 (LTS) with Native AOT · Avalonia 12 for the shell · PDFium; the layout engine of Write is decided in the Write spec (see [Docs/DECISIONS.md](Docs/DECISIONS.md))
+- **License:** GPL-3.0-or-later (as in Pagewing, see `LICENSE`)
+- **Language:** everything in English: docs, README, commits, issues, PRs, code and comments · UI source language English, German localization from the first release
+- **Build:** `dotnet build Raffica.slnx -c Release` · **Test:** once `dotnet run tools/native-fetch.cs -- --rid <win-x64|linux-x64> --out artifacts/native/<rid>` (OCR library), then `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with the environment variable `RAFFICA_REQUIRE_OCR=1` (a missing OCR library then fails the tests instead of skipping them) · **Format/Lint:** `dotnet format Raffica.slnx --verify-no-changes`
 - **Roadmap:** [Docs/ROADMAP.md](Docs/ROADMAP.md) (generated, source [Docs/roadmap.json](Docs/roadmap.json), see "Maintaining the roadmap")
 - **Decisions:** [Docs/DECISIONS.md](Docs/DECISIONS.md)
 - **Specs:** `Docs/superpowers/specs/` · **Plans:** `Docs/superpowers/plans/`
