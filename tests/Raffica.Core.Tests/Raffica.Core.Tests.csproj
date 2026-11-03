@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- FormRoundTripTests draw the widgets with FPDF_FFLDraw on a bitmap of their own. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="..\..\src\Raffica.Core\Raffica.Core.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Cli\Raffica.Cli.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\TestData.cs" Link="Shared\TestData.cs" />
+    <Compile Include="..\Shared\PngDecoder.cs" Link="Shared\PngDecoder.cs" />
+    <Compile Include="..\Shared\OcrFixtures.cs" Link="Shared\OcrFixtures.cs" />
+    <Compile Include="..\Shared\TextEditFixtures.cs" Link="Shared\TextEditFixtures.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Lets NativeBindingsTests find the PDFium headers of the restored package. -->
+    <AssemblyMetadata Include="NuGetPackageRoot" Value="$(NuGetPackageRoot)" />
+  </ItemGroup>
+</Project>
