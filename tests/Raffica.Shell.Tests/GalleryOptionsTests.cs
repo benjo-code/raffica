@@ -39,6 +39,7 @@ public sealed class GalleryOptionsTests
     }
 
     [Theory]
+    [InlineData("foundations")]
     [InlineData("buttons")]
     [InlineData("inputs")]
     [InlineData("menus")]

@@ -82,7 +82,7 @@
             { "text": "Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid", "done": true },
             { "text": "Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar", "done": true },
             { "text": "Localization mechanism (resx under Native AOT) with the missing-translation test", "done": true },
-            { "text": "Gallery app that shows every control in both themes and languages", "done": false }
+            { "text": "Gallery app that shows every control in both themes and languages", "done": true }
           ],
           "acceptance": [
             { "text": "The contrast test checks every pairing of appendix A in light and dark and passes", "done": false },

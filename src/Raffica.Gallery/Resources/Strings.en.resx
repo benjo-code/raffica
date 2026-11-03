@@ -240,4 +240,85 @@
   <data name="NoteSaveAs" xml:space="preserve">
     <value>Save as…</value>
   </data>
+  <data name="SectionFoundations" xml:space="preserve">
+    <value>Foundations</value>
+  </data>
+  <data name="NavigationName" xml:space="preserve">
+    <value>Sections</value>
+  </data>
+  <data name="ToolbarName" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="ThemeLabel" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="ThemeSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>High contrast</value>
+  </data>
+  <data name="InkLabel" xml:space="preserve">
+    <value>Accent</value>
+  </data>
+  <data name="InkWrite" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="InkSheets" xml:space="preserve">
+    <value>Sheets</value>
+  </data>
+  <data name="InkSlides" xml:space="preserve">
+    <value>Slides</value>
+  </data>
+  <data name="InkPdf" xml:space="preserve">
+    <value>PDF</value>
+  </data>
+  <data name="FoundType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="FoundColours" xml:space="preserve">
+    <value>Colour tokens</value>
+  </data>
+  <data name="FoundIcons" xml:space="preserve">
+    <value>Icons at 16 and 20 px</value>
+  </data>
+  <data name="FoundInks" xml:space="preserve">
+    <value>App accents (inks)</value>
+  </data>
+  <data name="TypeSpecimen" xml:space="preserve">
+    <value>Sphinx of black quartz, judge my vow 0123456789</value>
+  </data>
+  <data name="TypeUi" xml:space="preserve">
+    <value>Body 14 px, 400</value>
+  </data>
+  <data name="TypeMedium" xml:space="preserve">
+    <value>Medium 14 px, 500</value>
+  </data>
+  <data name="TypeEmphasis" xml:space="preserve">
+    <value>Emphasis 14 px, 600</value>
+  </data>
+  <data name="TypeSecondary" xml:space="preserve">
+    <value>Secondary 13 px, 400</value>
+  </data>
+  <data name="TypeLabel" xml:space="preserve">
+    <value>Label 12 px, 400</value>
+  </data>
+  <data name="TypeHeading" xml:space="preserve">
+    <value>Dialog heading 15 px, 600</value>
+  </data>
+  <data name="TypeProportional" xml:space="preserve">
+    <value>Proportional figures</value>
+  </data>
+  <data name="TypeTabular" xml:space="preserve">
+    <value>Tabular figures</value>
+  </data>
+  <data name="InkSample" xml:space="preserve">
+    <value>Text on ink</value>
+  </data>
 </root>

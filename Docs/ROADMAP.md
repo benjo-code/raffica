@@ -99,7 +99,7 @@ Goal: The shared shell project has the tokens, fonts, icons and base controls in
 - [x] Embedded fonts (Public Sans, Barlow Semi Condensed, Carlito) and the icon set on the 16/20 px grid
 - [x] Base controls: button, toggle, input, select, checkbox, radio, segmented control, menu, context menu, tooltip, dialog, notification bar
 - [x] Localization mechanism (resx under Native AOT) with the missing-translation test
-- [ ] Gallery app that shows every control in both themes and languages
+- [x] Gallery app that shows every control in both themes and languages
 
 **Acceptance criteria**
 - [ ] The contrast test checks every pairing of appendix A in light and dark and passes

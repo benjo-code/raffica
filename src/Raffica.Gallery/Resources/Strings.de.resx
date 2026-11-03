@@ -240,4 +240,85 @@
   <data name="NoteSaveAs" xml:space="preserve">
     <value>Speichern unter …</value>
   </data>
+  <data name="SectionFoundations" xml:space="preserve">
+    <value>Grundlagen</value>
+  </data>
+  <data name="NavigationName" xml:space="preserve">
+    <value>Bereiche</value>
+  </data>
+  <data name="ToolbarName" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="ThemeLabel" xml:space="preserve">
+    <value>Design</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Hell</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Dunkel</value>
+  </data>
+  <data name="ThemeSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>Hoher Kontrast</value>
+  </data>
+  <data name="InkLabel" xml:space="preserve">
+    <value>Akzent</value>
+  </data>
+  <data name="InkWrite" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="InkSheets" xml:space="preserve">
+    <value>Sheets</value>
+  </data>
+  <data name="InkSlides" xml:space="preserve">
+    <value>Slides</value>
+  </data>
+  <data name="InkPdf" xml:space="preserve">
+    <value>PDF</value>
+  </data>
+  <data name="FoundType" xml:space="preserve">
+    <value>Schrift</value>
+  </data>
+  <data name="FoundColours" xml:space="preserve">
+    <value>Farb-Tokens</value>
+  </data>
+  <data name="FoundIcons" xml:space="preserve">
+    <value>Icons in 16 und 20 px</value>
+  </data>
+  <data name="FoundInks" xml:space="preserve">
+    <value>App-Akzente (Tinten)</value>
+  </data>
+  <data name="TypeSpecimen" xml:space="preserve">
+    <value>Zwölf Boxkämpfer jagen Viktor quer über den großen Sylter Deich 0123456789</value>
+  </data>
+  <data name="TypeUi" xml:space="preserve">
+    <value>Fließtext 14 px, 400</value>
+  </data>
+  <data name="TypeMedium" xml:space="preserve">
+    <value>Mittel 14 px, 500</value>
+  </data>
+  <data name="TypeEmphasis" xml:space="preserve">
+    <value>Betont 14 px, 600</value>
+  </data>
+  <data name="TypeSecondary" xml:space="preserve">
+    <value>Sekundär 13 px, 400</value>
+  </data>
+  <data name="TypeLabel" xml:space="preserve">
+    <value>Beschriftung 12 px, 400</value>
+  </data>
+  <data name="TypeHeading" xml:space="preserve">
+    <value>Dialogüberschrift 15 px, 600</value>
+  </data>
+  <data name="TypeProportional" xml:space="preserve">
+    <value>Proportionale Ziffern</value>
+  </data>
+  <data name="TypeTabular" xml:space="preserve">
+    <value>Tabellenziffern</value>
+  </data>
+  <data name="InkSample" xml:space="preserve">
+    <value>Text auf Tinte</value>
+  </data>
 </root>

@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Raffica.Gallery.Sections.FoundationsSection">
+  <StackPanel Spacing="24" Width="1240" HorizontalAlignment="Left">
+    <TextBlock x:Name="Title" Classes="heading-dialog" />
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="TypeTitle" Classes="ui-emphasis" />
+      <StackPanel x:Name="TypeRows" Spacing="6" />
+      <Grid x:Name="Figures" ColumnDefinitions="220,220" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,8,0,0" />
+    </StackPanel>
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="ColoursTitle" Classes="ui-emphasis" />
+      <WrapPanel x:Name="Colours" />
+    </StackPanel>
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="InksTitle" Classes="ui-emphasis" />
+      <WrapPanel x:Name="Inks" />
+    </StackPanel>
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="IconsTitle" Classes="ui-emphasis" />
+      <WrapPanel x:Name="Icons" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>
