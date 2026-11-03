@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# Tests
+TestResults/
+**/render-diff/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Benchmarks
+BenchmarkDotNet.Artifacts/
+
+# Superpowers Brainstorming (lokale Mockups)
+.superpowers/
+
+# Local native builds (packaging/native)
+artifacts/
