@@ -9,12 +9,15 @@
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Metrics.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Fonts.axaml" />
         <ResourceInclude Source="avares://Raffica.Shell/Styles/Icons.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Focus.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/Button.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/ToggleButton.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/CheckBox.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/RadioButton.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/SegmentedControl.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Styles.Resources>
   <FluentTheme />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Typography.axaml" />
-  <Style Selector="controls|StrokeIcon">
-    <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
-  </Style>
 </Styles>

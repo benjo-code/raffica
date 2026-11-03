@@ -16,4 +16,12 @@
     <TrimmerRootAssembly Include="Raffica.Shell" />
     <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Shell.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Both languages are embedded in this assembly (no satellite assemblies, which need runtime assembly loading under Native AOT). -->
+    <EmbeddedResource Update="Resources\Strings.en.resx" WithCulture="false" LogicalName="Raffica.Gallery.Strings.en.resources" />
+    <EmbeddedResource Update="Resources\Strings.de.resx" WithCulture="false" LogicalName="Raffica.Gallery.Strings.de.resources" />
+  </ItemGroup>
 </Project>

@@ -1,6 +1,13 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Raffica.Gallery.GalleryWindow"
-        Title="Raffica Gallery"
         Width="1280"
-        Height="800" />
+        Height="800"
+        Background="{DynamicResource Raffica.Brush.Surface.Page}"
+        Foreground="{DynamicResource Raffica.Brush.Text.Primary}"
+        FontFamily="{DynamicResource Raffica.Font.Ui}"
+        FontSize="14">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel x:Name="Sections" Margin="16" Spacing="32" />
+  </ScrollViewer>
+</Window>

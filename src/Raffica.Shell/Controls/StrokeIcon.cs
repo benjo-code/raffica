@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Media;
 
 namespace Raffica.Shell.Controls;
@@ -18,7 +19,7 @@ public sealed class StrokeIcon : Control
     public static readonly StyledProperty<int> SizeProperty =
         AvaloniaProperty.Register<StrokeIcon, int>(nameof(Size), 16, coerce: CoerceSize);
 
-    /// <summary>The brush of the stroke.</summary>
+    /// <summary>The brush of the stroke. Unset, the icon takes the inherited text colour.</summary>
     public static readonly StyledProperty<IBrush?> StrokeProperty =
         AvaloniaProperty.Register<StrokeIcon, IBrush?>(nameof(Stroke));
 
@@ -28,7 +29,7 @@ public sealed class StrokeIcon : Control
     static StrokeIcon()
     {
         AffectsMeasure<StrokeIcon>(SizeProperty);
-        AffectsRender<StrokeIcon>(DataProperty, SizeProperty, StrokeProperty);
+        AffectsRender<StrokeIcon>(DataProperty, SizeProperty, StrokeProperty, TextElement.ForegroundProperty);
     }
 
     public Geometry? Data
@@ -59,7 +60,8 @@ public sealed class StrokeIcon : Control
     {
         base.Render(context);
 
-        if (Data is not { } data || Stroke is not { } stroke)
+        // Without a stroke of its own the icon takes the text colour it sits in (an icon inside a button follows the button states).
+        if (Data is not { } data || (Stroke ?? TextElement.GetForeground(this)) is not { } stroke)
         {
             return;
         }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Raffica.Gallery.Sections;
 using Raffica.Shell;
 
 namespace Raffica.Gallery;
@@ -18,6 +19,9 @@ public sealed class GalleryOptions
     /// <summary>Renders the window once into this PNG file and exits.</summary>
     public string? Screenshot { get; private init; }
 
+    /// <summary>Shows only this section of the gallery (a screenshot of one section at a time). Null: all sections.</summary>
+    public string? Section { get; private init; }
+
     /// <summary>Prints the value of this string key and exits before any window exists.</summary>
     public string? PrintString { get; private init; }
 
@@ -29,6 +33,7 @@ public sealed class GalleryOptions
         var ink = AppInk.Write;
         string? screenshot = null;
         string? printString = null;
+        string? section = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -67,6 +72,14 @@ public sealed class GalleryOptions
                 case "--screenshot":
                     screenshot = Value(args, ref i);
                     break;
+                case "--section":
+                    section = Value(args, ref i);
+                    if (!GallerySections.Names.Contains(section))
+                    {
+                        throw new ArgumentException($"unknown section '{section}' (expected {string.Join(", ", GallerySections.Names)})");
+                    }
+
+                    break;
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
@@ -83,6 +96,7 @@ public sealed class GalleryOptions
             Ink = ink,
             Screenshot = screenshot,
             PrintString = printString,
+            Section = section,
         };
     }
 

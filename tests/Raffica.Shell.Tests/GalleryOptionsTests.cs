@@ -15,6 +15,7 @@ public sealed class GalleryOptionsTests
         Assert.False(options.HighContrast);
         Assert.Null(options.Screenshot);
         Assert.Null(options.PrintString);
+        Assert.Null(options.Section);
         Assert.True(options.Lang is "en" or "de");
     }
 
@@ -22,7 +23,7 @@ public sealed class GalleryOptionsTests
     public void ParsesEverySwitch()
     {
         var options = GalleryOptions.Parse(
-            ["--lang", "de", "--theme", "dark", "--high-contrast", "--ink", "pdf", "--screenshot", "out.png", "--print-string", "Close"]);
+            ["--lang", "de", "--theme", "dark", "--high-contrast", "--ink", "pdf", "--screenshot", "out.png", "--print-string", "Close", "--section", "buttons"]);
 
         Assert.Equal("de", options.Lang);
         Assert.Equal(ThemeMode.Dark, options.Theme);
@@ -30,12 +31,14 @@ public sealed class GalleryOptionsTests
         Assert.Equal(AppInk.Pdf, options.Ink);
         Assert.Equal("out.png", options.Screenshot);
         Assert.Equal("Close", options.PrintString);
+        Assert.Equal("buttons", options.Section);
     }
 
     [Theory]
     [InlineData("--lang", "fr")]
     [InlineData("--theme", "blue")]
     [InlineData("--ink", "red")]
+    [InlineData("--section", "nope")]
     [InlineData("--bogus", "x")]
     [InlineData("--lang")]
     public void InvalidSwitchesThrow(params string[] args) =>

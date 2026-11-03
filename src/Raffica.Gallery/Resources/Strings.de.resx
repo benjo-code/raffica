@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Raffica Galerie</value>
+  </data>
+  <data name="SectionButtons" xml:space="preserve">
+    <value>Schaltflächen und Auswahl</value>
+  </data>
+  <data name="StateRest" xml:space="preserve">
+    <value>Ruhe</value>
+  </data>
+  <data name="StateHover" xml:space="preserve">
+    <value>Zeiger darüber</value>
+  </data>
+  <data name="StatePressedOn" xml:space="preserve">
+    <value>Gedrückt / an</value>
+  </data>
+  <data name="StateFocus" xml:space="preserve">
+    <value>Tastaturfokus</value>
+  </data>
+  <data name="StateDisabled" xml:space="preserve">
+    <value>Deaktiviert</value>
+  </data>
+  <data name="RowButton" xml:space="preserve">
+    <value>Schaltfläche</value>
+  </data>
+  <data name="RowBoxed" xml:space="preserve">
+    <value>Umrandete Schaltfläche</value>
+  </data>
+  <data name="RowPrimary" xml:space="preserve">
+    <value>Hauptschaltfläche</value>
+  </data>
+  <data name="RowDestructive" xml:space="preserve">
+    <value>Endgültige Aktion</value>
+  </data>
+  <data name="RowIcon" xml:space="preserve">
+    <value>Symbolschaltfläche</value>
+  </data>
+  <data name="RowToggle" xml:space="preserve">
+    <value>Umschalter</value>
+  </data>
+  <data name="RowCheckBox" xml:space="preserve">
+    <value>Kontrollkästchen</value>
+  </data>
+  <data name="RowRadio" xml:space="preserve">
+    <value>Optionsfeld</value>
+  </data>
+  <data name="RowSegmented" xml:space="preserve">
+    <value>Segmentierte Auswahl</value>
+  </data>
+  <data name="SampleInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="SampleBrowse" xml:space="preserve">
+    <value>Durchsuchen …</value>
+  </data>
+  <data name="SampleApply" xml:space="preserve">
+    <value>Endgültig anwenden</value>
+  </data>
+  <data name="SampleTrackChanges" xml:space="preserve">
+    <value>Änderungen verfolgen</value>
+  </data>
+  <data name="SamplePortrait" xml:space="preserve">
+    <value>Hochformat</value>
+  </data>
+  <data name="SampleMarks" xml:space="preserve">
+    <value>Marken</value>
+  </data>
+  <data name="SamplePages" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="SampleResults" xml:space="preserve">
+    <value>Treffer</value>
+  </data>
+  <data name="IconBold" xml:space="preserve">
+    <value>Fett</value>
+  </data>
+</root>

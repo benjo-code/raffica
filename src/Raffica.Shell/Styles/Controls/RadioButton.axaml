@@ -1,0 +1,78 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Radio button. The state table has no row for it (call 2 of the plan): it takes the checkbox states as a 16 px circle with
+    the page fill and the control edge; checked = ink fill and a 6 px text.onInk dot. The ring surrounds the circle (2 px,
+    offset 2 px) as the control's own focus adorner (a ring in the template is clipped at the edge of the control). Disabled greys out text and edge; a disabled checked circle fills with text.disabled.
+  -->
+  <ControlTheme x:Key="{x:Type RadioButton}" TargetType="RadioButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Padding" Value="10,0,0,0" />
+    <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <Ellipse Width="24"
+                 Height="24"
+                 Margin="-4,0,0,0"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Center"
+                 StrokeThickness="2"
+                 Stroke="{DynamicResource Raffica.Brush.Focus.Ring}" />
+      </FocusAdornerTemplate>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid x:Name="RootGrid" Background="{TemplateBinding Background}" ColumnDefinitions="Auto,*">
+          <Panel Width="16" Height="16" VerticalAlignment="Center">
+            <Ellipse x:Name="Circle"
+                     Width="16"
+                     Height="16"
+                     StrokeThickness="1"
+                     Fill="{DynamicResource Raffica.Brush.Surface.Page}"
+                     Stroke="{DynamicResource Raffica.Brush.Border.Control}" />
+            <Ellipse x:Name="Dot"
+                     IsVisible="False"
+                     IsHitTestVisible="False"
+                     Width="6"
+                     Height="6"
+                     Fill="{DynamicResource Raffica.Brush.Text.OnInk}" />
+          </Panel>
+          <ContentPresenter x:Name="PART_ContentPresenter"
+                            Grid.Column="1"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Margin="{TemplateBinding Padding}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            RecognizesAccessKey="True" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:checked /template/ Ellipse#Circle">
+      <Setter Property="Fill" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="^:checked /template/ Ellipse#Dot">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Ellipse#Circle">
+      <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^:disabled:checked /template/ Ellipse#Circle">
+      <Setter Property="Fill" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

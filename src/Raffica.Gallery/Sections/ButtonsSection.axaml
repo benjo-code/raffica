@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Raffica.Gallery.Sections.ButtonsSection">
+  <StackPanel Spacing="16">
+    <TextBlock x:Name="Title" Classes="heading-dialog" />
+    <Grid x:Name="Matrix" ColumnDefinitions="170,212,212,212,212,212" />
+  </StackPanel>
+</UserControl>
