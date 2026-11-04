@@ -461,17 +461,27 @@ public sealed class ShortcutTests
     }
 
     [AvaloniaFact]
-    public async Task PrintDoesNothingYetAndSettingsOpenTheDialog()
+    public async Task PrintAsksTheServiceAndSettingsOpenTheDialog()
     {
-        using var windows = WindowFixture.Create();
+        // The fake service stands for the system dialog and answers with a cancel, so Print sends nothing.
+        var service = new Raffica.Pdf.Tests.Printing.FakePrintService { DialogResult = null };
+        using var windows = WindowFixture.Create(printService: service);
         await windows.OpenAsync("text-basic.pdf");
         var window = windows.Window;
 
-        // Print is in the catalog but has no action in 2.1.
-        Ctrl(window, Key.P, PhysicalKey.P);
-        Assert.False(window.Host.IsOpen);
+        // Ctrl+P runs Print: it asks the dialog of the service (answered with a cancel), and no job starts.
         var commands = window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
-        Assert.False(commands.Single(c => c.Id == "file.print").IsEnabled);
+        Assert.True(commands.Single(c => c.Id == "file.print").IsEnabled);
+        Ctrl(window, Key.P, PhysicalKey.P);
+        for (var i = 0; i < 100 && service.DialogRequests.Count == 0; i++)
+        {
+            ViewFixture.Pump();
+            await Task.Delay(10);
+        }
+
+        Assert.Single(service.DialogRequests);
+        Assert.Empty(service.Jobs);
+        Assert.False(window.Host.IsOpen);
         Assert.True(commands.Single(c => c.Id == "file.settings").IsEnabled);
 
         // Settings has its action: Ctrl+Comma shows the settings dialog.
@@ -497,7 +507,7 @@ public sealed class ShortcutTests
         Assert.Contains("find.search", enabled);
         Assert.Contains("file.close", enabled);
         Assert.DoesNotContain("tabs.next", enabled);
-        Assert.DoesNotContain("file.print", enabled);
+        Assert.Contains("file.print", enabled);
 
         await windows.OpenAsync("hello_world.pdf");
         Assert.Contains("tabs.next", commands.Where(c => c.IsEnabled).Select(c => c.Id));

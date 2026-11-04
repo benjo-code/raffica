@@ -61,6 +61,28 @@ internal sealed class PdfSettingsController
     /// <summary>The theme a new tab's pages start with: dark only when the setting follows the theme and the theme is dark.</summary>
     public PageTheme PageThemeForNewTab => PageThemeFor(App.PageAppearance);
 
+    /// <summary>
+    /// Remembers the printer a job went to: sets <see cref="AppSettings.LastPrinter"/> in memory and writes the viewer file. The other fields are
+    /// the ones in force; a file that cannot be written leaves the choice for this run only. Never throws.
+    /// </summary>
+    public void RememberPrinter(string? printer)
+    {
+        if (string.IsNullOrWhiteSpace(printer) || printer.Length > AppSettings.MaxPrinterNameLength || string.Equals(App.LastPrinter, printer, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        App = App with { LastPrinter = printer };
+        try
+        {
+            _ = new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(_options.SettingsFile)).TrySave(App);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The printer is remembered until the app ends.
+        }
+    }
+
     /// <summary>Shows the dialog; does nothing while another dialog is open.</summary>
     public void Open()
     {

@@ -410,4 +410,94 @@
   <data name="SettingsDefaultZoom" xml:space="preserve">
     <value>Default zoom</value>
   </data>
+  <data name="PrintCardTitle" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="PrintCardPrinter" xml:space="preserve">
+    <value>Printer</value>
+  </data>
+  <data name="PrintCardPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="PrintPagesAll" xml:space="preserve">
+    <value>All pages</value>
+  </data>
+  <data name="PrintPagesCurrent" xml:space="preserve">
+    <value>Current page</value>
+  </data>
+  <data name="PrintPagesRange" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="PrintRangeLabel" xml:space="preserve">
+    <value>Page range</value>
+  </data>
+  <data name="PrintCardCopies" xml:space="preserve">
+    <value>Copies</value>
+  </data>
+  <data name="PrintCardCollate" xml:space="preserve">
+    <value>Collate</value>
+  </data>
+  <data name="PrintCardScaling" xml:space="preserve">
+    <value>Scaling</value>
+  </data>
+  <data name="PrintScalingFit" xml:space="preserve">
+    <value>Fit to paper</value>
+  </data>
+  <data name="PrintScalingActual" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="PrintCardDuplex" xml:space="preserve">
+    <value>Two-sided</value>
+  </data>
+  <data name="PrintDuplexDefault" xml:space="preserve">
+    <value>Printer default</value>
+  </data>
+  <data name="PrintDuplexOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="PrintDuplexLong" xml:space="preserve">
+    <value>Flip on long edge</value>
+  </data>
+  <data name="PrintDuplexShort" xml:space="preserve">
+    <value>Flip on short edge</value>
+  </data>
+  <data name="PrintCardOrientation" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="PrintOrientationDefault" xml:space="preserve">
+    <value>Printer default</value>
+  </data>
+  <data name="PrintOrientationPortrait" xml:space="preserve">
+    <value>Portrait</value>
+  </data>
+  <data name="PrintOrientationLandscape" xml:space="preserve">
+    <value>Landscape</value>
+  </data>
+  <data name="PrintRangeInvalidFormat" xml:space="preserve">
+    <value>Enter pages from 1 to {0}, for example 1-3, 5.</value>
+  </data>
+  <data name="PrintCopiesInvalid" xml:space="preserve">
+    <value>Enter a number of copies from 1 to 999.</value>
+  </data>
+  <data name="PrintJobTitleFormat" xml:space="preserve">
+    <value>Printing {0}</value>
+  </data>
+  <data name="PrintJobPreparing" xml:space="preserve">
+    <value>Preparing the job</value>
+  </data>
+  <data name="PrintJobProgressFormat" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+  </data>
+  <data name="PrintJobCancelling" xml:space="preserve">
+    <value>Cancelling</value>
+  </data>
+  <data name="PrintBusy" xml:space="preserve">
+    <value>A print job is already running.</value>
+  </data>
+  <data name="PrintFailedPagesFormat" xml:space="preserve">
+    <value>These pages could not be printed: {0}.</value>
+  </data>
+  <data name="PrintFailedMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
 </root>

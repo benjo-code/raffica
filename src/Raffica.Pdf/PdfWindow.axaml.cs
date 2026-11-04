@@ -8,6 +8,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Raffica.Core.Hosting;
 using Raffica.Core.Pdf;
+using Raffica.Core.Printing;
 using Raffica.Core.Settings;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Commands;
@@ -15,6 +16,8 @@ using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Panes;
+using Raffica.Pdf.Platform;
+using Raffica.Pdf.Printing;
 using Raffica.Pdf.Settings;
 using Raffica.Pdf.Text;
 using Raffica.Pdf.Viewing;
@@ -72,7 +75,8 @@ internal sealed partial class PdfWindow : Window
     /// <param name="appSettings">The settings of the viewer, read once at startup by the caller (null: the defaults; the window reads no file).</param>
     /// <param name="launcher">Opens a confirmed address outside the document (tests give their own; null: the system browser or mail program).</param>
     /// <param name="time">The clock of the arming delay of the link card (tests move it; null: the system clock).</param>
-    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null)
+    /// <param name="printService">The print service (tests give a fake; null: the one of the system, made on the first print).</param>
+    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
@@ -116,10 +120,22 @@ internal sealed partial class PdfWindow : Window
         Start = new StartView { Tiles = StartTile.Standard(), Recent = [], OwnApp = StartApp.Pdf };
 
         Frame.TitleBar = titleBar;
-        Host = new DialogHost { Content = Frame };
+        // The card of a running print job sits under the frame: it does not take the notification slot of the search bar.
+        var printSlot = new ContentControl();
+        DockPanel.SetDock(printSlot, Dock.Bottom);
+        Host = new DialogHost { Content = new DockPanel { Children = { printSlot, Frame } } };
         Content = Host;
         Dialogs = new DialogQueue(Host);
         Settings = new PdfSettingsController(options, Host, settings, appDefaults, SetCompact, SetPageThemeOfAllTabs);
+        _printService = printService;
+        _print = new PrintCommand(
+            () => _printService ??= PlatformPrintServices.Create(),
+            () => Workspace.Active,
+            new PrintPresenter(Dialogs, card => printSlot.Content = card),
+            () => Settings.App,
+            Settings.RememberPrinter,
+            () => ActiveView?.CurrentPage ?? 0,
+            () => TryGetPlatformHandle()?.Handle ?? 0);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -146,6 +162,7 @@ internal sealed partial class PdfWindow : Window
         Closing += OnWindowClosing;
         Closed += (_, _) =>
         {
+            _print.Cancel();
             _fieldCodes.Dispose();
             _selectedSubscription.Dispose();
             _firstSharpFallback?.Stop();

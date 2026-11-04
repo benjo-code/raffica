@@ -82,9 +82,7 @@ public sealed class FieldCodeIntegrationTests
         await windows.OpenAsync("text-basic.pdf");
         var window = windows.Window;
 
-        // Print (H12) is not wired yet, so its code does nothing and does not throw; one tab, so next tab (H51) does nothing either.
-        Alt(window);
-        Code(window, "H12");
+        // Next tab (H51) is disabled with one tab, so its code does nothing and does not throw.
         Alt(window);
         Code(window, "H51");
 

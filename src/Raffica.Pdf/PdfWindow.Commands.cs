@@ -4,10 +4,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
+using Raffica.Core.Printing;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Platform;
+using Raffica.Pdf.Printing;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
 
@@ -22,6 +25,8 @@ internal sealed partial class PdfWindow
 {
     private readonly Dictionary<PdfTab, PdfPrintInfo> _printInfo = [];
     private readonly PdfCommandRules _rules;
+    private readonly PrintCommand _print;
+    private IPrintService? _printService;
     private readonly HashSet<Key> _keysDown = [];
     private Dictionary<string, CommandDefinition> _commandsById = [];
 
@@ -32,10 +37,12 @@ internal sealed partial class PdfWindow
     private PdfCommandRules CreateRules() => new(
         () => Workspace.Active is not null,
         () => Workspace.Tabs.Count,
-        () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null);
+        () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
+        () => _print.IsAvailable);
 
     private PdfCommands CreateCommands() => new(
         Open: () => _ = GuardAsync(OpenFromDialogAsync),
+        Print: () => _ = GuardAsync(_print.RunAsync),
         CloseTab: () => _ = GuardAsync(CloseActiveTabAsync),
         Search: ShowSearchBar,
         SearchNext: SearchNext,
