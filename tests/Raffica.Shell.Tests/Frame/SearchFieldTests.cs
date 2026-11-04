@@ -44,6 +44,113 @@ public sealed class SearchFieldTests
 
     private static List<SearchResultRow> Rows(SearchField search) => ControlHarness.Descendants(search).OfType<SearchResultRow>().ToList();
 
+    private static (Window Window, SearchField Search, List<string> Queries) ShowWithEntries(Func<string, IReadOnlyList<SearchEntry>> entries)
+    {
+        var (window, search, _) = Show();
+        var queries = new List<string>();
+        search.ExtraResults = query =>
+        {
+            queries.Add(query);
+            return entries(query);
+        };
+        return (window, search, queries);
+    }
+
+    private static List<TextBlock> Headings(SearchField search) =>
+        ControlHarness.Descendants(search).OfType<TextBlock>().Where(t => t.Classes.Contains("search-group")).ToList();
+
+    [AvaloniaFact]
+    public void ExtraResultsAppearAfterCommandsUnderTheirGroup()
+    {
+        var (window, search, _) = ShowWithEntries(_ =>
+        [
+            new SearchEntry("Pages", "Page 3", () => { }, "Introduction"),
+            new SearchEntry("Pages", "Page 7", () => { }),
+            new SearchEntry("Bookmarks", "Bookmark one", () => { }),
+        ]);
+
+        Type(window, search, "bo");
+
+        var rows = Rows(search);
+        Assert.Equal(["Bold", "Bookmark", "Page 3", "Page 7", "Bookmark one"], rows.Select(r => r.Label));
+        var headings = Headings(search);
+        Assert.Equal(["Pages", "Bookmarks"], headings.Select(h => h.Text));
+        var order = ControlHarness.Descendants(search).Where(c => c is SearchResultRow || c.Classes.Contains("search-group")).ToList();
+        Assert.Same(headings[0], order[2]);
+        Assert.Same(rows[2], order[3]);
+        Assert.Contains(ControlHarness.Descendants(rows[2]).OfType<TextBlock>(), t => t.Text == "Introduction");
+        Assert.True(rows[0].IsActive);
+    }
+
+    [AvaloniaFact]
+    public void ExtraResultsAreCappedAtEightPerGroup()
+    {
+        var (window, search, _) = ShowWithEntries(_ => Enumerable.Range(1, 12).Select(i => new SearchEntry("Pages", $"Page {i}", () => { })).ToList());
+
+        Type(window, search, "bo");
+
+        Assert.Equal(8, Rows(search).Count(r => r.Label.StartsWith("Page ", StringComparison.Ordinal)));
+        Assert.DoesNotContain(Rows(search), r => r.Label == "Page 9");
+    }
+
+    [AvaloniaFact]
+    public void EnterRunsTheChosenEntry()
+    {
+        var ran = new List<string>();
+        var (window, search, _) = ShowWithEntries(_ => [new SearchEntry("Pages", "Page 3", () => ran.Add("p3")), new SearchEntry("Pages", "Page 7", () => ran.Add("p7"))]);
+        Type(window, search, "bo");
+
+        Press(window, PhysicalKey.ArrowDown); // Bookmark
+        Press(window, PhysicalKey.ArrowDown); // Page 3
+        Press(window, PhysicalKey.ArrowDown); // Page 7
+        Assert.Equal("Page 7", Rows(search).Single(r => r.IsActive).Label);
+        Press(window, PhysicalKey.Enter);
+
+        Assert.Equal(["p7"], ran);
+        Assert.False(PopupOf(search).IsOpen);
+    }
+
+    [AvaloniaFact]
+    public void ClickRunsTheEntry()
+    {
+        var ran = new List<string>();
+        var (window, search, _) = ShowWithEntries(_ => [new SearchEntry("Pages", "Page 3", () => ran.Add("p3"))]);
+        Type(window, search, "bo");
+
+        DocumentTabsTests.Click(window, Rows(search).Single(r => r.Label == "Page 3"));
+
+        Assert.Equal(["p3"], ran);
+    }
+
+    [AvaloniaFact]
+    public void NoProviderChangesNothing()
+    {
+        var (window, search, chosen) = Show();
+        Assert.Null(search.ExtraResults);
+
+        Type(window, search, "bo");
+
+        Assert.Equal(["Bold", "Bookmark"], Rows(search).Select(r => r.Label));
+        Assert.Empty(Headings(search));
+        Assert.Empty(chosen);
+    }
+
+    [AvaloniaFact]
+    public void ProviderIsNotCalledForAnEmptyQuery()
+    {
+        var (window, search, queries) = ShowWithEntries(_ => []);
+
+        Type(window, search, "bo");
+        Assert.Contains("bo", queries);
+        queries.Clear();
+        ControlHarness.Part<TextBox>(search, "PART_Input").Text = "  ";
+        ControlHarness.Settle(window);
+        ControlHarness.Part<TextBox>(search, "PART_Input").Text = string.Empty;
+        ControlHarness.Settle(window);
+
+        Assert.Empty(queries);
+    }
+
     [AvaloniaFact]
     public void Is28HighWithPlaceholder()
     {
@@ -67,7 +174,7 @@ public sealed class SearchFieldTests
 
         Assert.True(PopupOf(search).IsOpen);
         var rows = Rows(search);
-        Assert.Equal(["Bold", "Bookmark"], rows.Select(r => r.Command!.Name));
+        Assert.Equal(["Bold", "Bookmark"], rows.Select(r => r.Label));
         Assert.All(rows, r => Assert.Equal(32, r.Bounds.Height, 0.01));
         Assert.Equal("Ctrl+B", rows[0].ShortcutText);
         Assert.True(rows[0].IsActive);
@@ -193,7 +300,7 @@ public sealed class SearchFieldTests
             var row = Rows(search).Single(r => r.IsActive);
             var top = row.TranslatePoint(default, scroll)!.Value.Y;
             Assert.True(top >= -0.5 && top + row.Bounds.Height <= scroll.Viewport.Height + 0.5,
-                $"active row {row.Command.Name} at {top} is outside the viewport of {scroll.Viewport.Height}");
+                $"active row {row.Name} at {top} is outside the viewport of {scroll.Viewport.Height}");
         }
 
         for (var i = 0; i < 12; i++)

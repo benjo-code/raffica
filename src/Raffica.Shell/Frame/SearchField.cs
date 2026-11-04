@@ -21,8 +21,12 @@ namespace Raffica.Shell.Frame;
 public class SearchField : TemplatedControl
 {
     private const int MaxVisibleRows = 8;
+    private const int MaxEntriesPerGroup = 8;
 
     public static readonly StyledProperty<RibbonDefinition?> SourceProperty = AvaloniaProperty.Register<SearchField, RibbonDefinition?>(nameof(Source));
+
+    public static readonly StyledProperty<Func<string, IReadOnlyList<SearchEntry>>?> ExtraResultsProperty =
+        AvaloniaProperty.Register<SearchField, Func<string, IReadOnlyList<SearchEntry>>?>(nameof(ExtraResults));
 
     private readonly StackPanel _list = new();
     private readonly Border _results;
@@ -49,6 +53,12 @@ public class SearchField : TemplatedControl
 
     /// <summary>The ribbon whose commands are searched.</summary>
     public RibbonDefinition? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
+
+    /// <summary>
+    /// Optional provider of more results than the commands (pages, bookmarks, ...), called with the non-empty query. Its entries are
+    /// listed after the commands under their <see cref="SearchEntry.Group"/> heading, at most eight per group.
+    /// </summary>
+    public Func<string, IReadOnlyList<SearchEntry>>? ExtraResults { get => GetValue(ExtraResultsProperty); set => SetValue(ExtraResultsProperty, value); }
 
     /// <summary>The tooltip: "Search (Ctrl+K)" / "Suchen (Strg+K)", the shortcut written by <see cref="KeyNames"/> (Cmd+K on macOS).</summary>
     internal static TooltipContent CreateTooltip() => new() { Title = ShellStrings.SearchTooltip(KeyNames.Format(OperatingSystem.IsMacOS() ? "Meta+K" : "Ctrl+K", ShellStrings.Culture)) };
@@ -134,19 +144,21 @@ public class SearchField : TemplatedControl
 
         foreach (var command in CommandMatcher.Find(Source, query, ShellStrings.Culture))
         {
-            var row = new SearchResultRow(command);
-            var index = _rows.Count;
-            row.PointerEntered += (_, _) => SetActive(index);
-            row.PointerPressed += (_, e) =>
+            AddRow(new SearchResultRow(command));
+        }
+
+        if (ExtraResults is { } provider)
+        {
+            foreach (var group in provider(query).GroupBy(entry => entry.Group))
             {
-                if (e.GetCurrentPoint(row).Properties.IsLeftButtonPressed)
+                var heading = new TextBlock { Text = group.Key };
+                heading.Classes.Add("search-group");
+                _list.Children.Add(heading);
+                foreach (var entry in group.Take(MaxEntriesPerGroup))
                 {
-                    Choose(command);
-                    e.Handled = true;
+                    AddRow(new SearchResultRow(entry));
                 }
-            };
-            _rows.Add(row);
-            _list.Children.Add(row);
+            }
         }
 
         _noResults.IsVisible = _rows.Count == 0;
@@ -154,6 +166,22 @@ public class SearchField : TemplatedControl
         SetActive(0);
         _results.MinWidth = Math.Max(Bounds.Width, 200);
         _popup.IsOpen = true;
+    }
+
+    private void AddRow(SearchResultRow row)
+    {
+        var index = _rows.Count;
+        row.PointerEntered += (_, _) => SetActive(index);
+        row.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(row).Properties.IsLeftButtonPressed)
+            {
+                Choose(row);
+                e.Handled = true;
+            }
+        };
+        _rows.Add(row);
+        _list.Children.Add(row);
     }
 
     private void SetActive(int index)
@@ -171,7 +199,7 @@ public class SearchField : TemplatedControl
         }
     }
 
-    private void Choose(CommandDefinition command)
+    private void Choose(SearchResultRow row)
     {
         if (_popup is not null)
         {
@@ -193,7 +221,14 @@ public class SearchField : TemplatedControl
 
         _rows.Clear();
         _list.Children.Clear();
-        CommandChosen?.Invoke(command);
+        if (row.Command is { } command)
+        {
+            CommandChosen?.Invoke(command);
+        }
+        else
+        {
+            row.Entry?.Run();
+        }
     }
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
@@ -216,7 +251,7 @@ public class SearchField : TemplatedControl
             case Key.Enter:
                 if (_rows.Count > 0)
                 {
-                    Choose(_rows[_active].Command);
+                    Choose(_rows[_active]);
                 }
 
                 e.Handled = true;
@@ -229,31 +264,50 @@ public class SearchField : TemplatedControl
     }
 }
 
-/// <summary>One command in the results of the <see cref="SearchField"/>: 32 px high, the name on the left, the shortcut on the right.</summary>
+/// <summary>One result of the <see cref="SearchField"/>, a command or a <see cref="SearchEntry"/>: 32 px high, the name on the left, the shortcut (or the detail) on the right.</summary>
 internal sealed class SearchResultRow : Border
 {
     public SearchResultRow(CommandDefinition command)
+        : this(command.Name, command.Shortcut is { Length: > 0 } shortcut ? KeyNames.Format(shortcut, ShellStrings.Culture) : null, "search-shortcut")
     {
         Command = command;
         ShortcutText = command.Shortcut;
-        Classes.Add("search-row");
-        AutomationProperties.SetName(this, command.Name);
+    }
 
-        var name = new TextBlock { Text = command.Name, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+    public SearchResultRow(SearchEntry entry)
+        : this(entry.Name, entry.Detail, "search-detail")
+    {
+        Entry = entry;
+    }
+
+    private SearchResultRow(string name, string? right, string rightClass)
+    {
+        Label = name;
+        Classes.Add("search-row");
+        AutomationProperties.SetName(this, name);
+
+        var label = new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(12, 0) };
-        grid.Children.Add(name);
-        if (!string.IsNullOrEmpty(command.Shortcut))
+        grid.Children.Add(label);
+        if (!string.IsNullOrEmpty(right))
         {
-            var shortcut = new TextBlock { Text = KeyNames.Format(command.Shortcut, ShellStrings.Culture), Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            shortcut.Classes.Add("search-shortcut");
-            Grid.SetColumn(shortcut, 1);
-            grid.Children.Add(shortcut);
+            var second = new TextBlock { Text = right, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+            second.Classes.Add(rightClass);
+            Grid.SetColumn(second, 1);
+            grid.Children.Add(second);
         }
 
         Child = grid;
     }
 
-    public CommandDefinition Command { get; }
+    /// <summary>The text of the row.</summary>
+    public string Label { get; }
+
+    /// <summary>The command of this row, or <c>null</c> for an extra <see cref="Entry"/>.</summary>
+    public CommandDefinition? Command { get; }
+
+    /// <summary>The extra entry of this row, or <c>null</c> for a command.</summary>
+    public SearchEntry? Entry { get; }
 
     protected override Type StyleKeyOverride => typeof(Border);
 

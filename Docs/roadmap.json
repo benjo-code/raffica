@@ -470,7 +470,7 @@
     },
     {
       "title": "Accessibility items deferred from the frame",
-      "text": "Not done in milestone 1.2: the selected state of ribbon and document tabs is not exposed to assistive technology (only a style class), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button)."
+      "text": "Not done in milestone 1.2: the selected state of ribbon tabs is not exposed to assistive technology (only a style class; the document tabs expose it since milestone 2.1), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button)."
     },
     {
       "title": "Option key handling on macOS",

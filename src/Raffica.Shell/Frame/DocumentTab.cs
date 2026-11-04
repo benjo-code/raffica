@@ -1,9 +1,13 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -11,9 +15,29 @@ using Raffica.Shell.Localization;
 
 namespace Raffica.Shell.Frame;
 
-/// <summary>An open document in the title bar. Two tabs are the same only if they are the same instance, so two untitled documents stay apart.</summary>
-public sealed record DocumentTab(string Title, string? Path = null)
+/// <summary>
+/// An open document in the title bar. Two tabs are the same only if they are the same instance, so two untitled documents stay apart
+/// (this holds although <see cref="IsDirty"/> can change). <see cref="IsDirty"/> says the document has unsaved changes.
+/// </summary>
+public sealed record DocumentTab(string Title, string? Path = null) : INotifyPropertyChanged
 {
+    /// <summary>Raised when <see cref="IsDirty"/> changes.</summary>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Whether the document has unsaved changes; the tab then shows a mark before its close button.</summary>
+    public bool IsDirty
+    {
+        get;
+        set
+        {
+            if (field != value)
+            {
+                field = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDirty)));
+            }
+        }
+    }
+
     public bool Equals(DocumentTab? other) => ReferenceEquals(this, other);
 
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
@@ -118,16 +142,27 @@ public sealed class DocumentTabItem : Border
 {
     private readonly MiddleTrimTextBlock _title = new() { Name = "PART_Title", VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
     private readonly Border _topEdge = new() { Name = "PART_TopEdge", IsHitTestVisible = false };
+    private readonly Ellipse _dirtyMark = new() { Name = "PART_DirtyMark", Width = 6, Height = 6, Opacity = 0, IsHitTestVisible = false, VerticalAlignment = VerticalAlignment.Center };
     private readonly Button _close;
+    private readonly Action<DocumentTab> _select;
 
     public DocumentTabItem(DocumentTab model, Action<DocumentTab> select, Action<DocumentTab> close)
     {
         Model = model;
+        _select = select;
         Classes.Add("document-tab");
         Focusable = true;
         _title.Text = model.Title;
         ToolTip.SetTip(this, string.IsNullOrEmpty(model.Path) ? model.Title : model.Path);
-        AutomationProperties.SetName(this, model.Title);
+        _dirtyMark.Classes.Add("document-tab-dirty");
+        UpdateDirty();
+        model.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DocumentTab.IsDirty))
+            {
+                UpdateDirty();
+            }
+        };
 
         _close = new Button { Name = "PART_Close", Content = RibbonButton.CreateIcon("Raffica.Icon.X", 16) };
         _close.Classes.Add("document-tab-close");
@@ -139,9 +174,12 @@ public sealed class DocumentTabItem : Border
             e.Handled = true;
         };
 
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(10, 0, 2, 0) };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(10, 0, 2, 0) };
         row.Children.Add(_title);
-        Grid.SetColumn(_close, 1);
+        Grid.SetColumn(_dirtyMark, 1);
+        _dirtyMark.Margin = new Thickness(4, 0, 4, 0);
+        row.Children.Add(_dirtyMark);
+        Grid.SetColumn(_close, 2);
         row.Children.Add(_close);
 
         _topEdge.Classes.Add("document-tab-edge");
@@ -182,6 +220,46 @@ public sealed class DocumentTabItem : Border
     public bool IsSelected
     {
         get => PseudoClasses.Contains(":selected");
-        set => PseudoClasses.Set(":selected", value);
+        set
+        {
+            if (IsSelected == value)
+            {
+                return;
+            }
+
+            PseudoClasses.Set(":selected", value);
+            (ControlAutomationPeer.FromElement(this) as DocumentTabItemAutomationPeer)?.SelectionChanged(!value, value);
+        }
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new DocumentTabItemAutomationPeer(this);
+
+    private void UpdateDirty()
+    {
+        // The mark is always laid out, only its opacity changes, so the tab keeps its width.
+        _dirtyMark.Opacity = Model.IsDirty ? 1 : 0;
+        AutomationProperties.SetName(this, Model.IsDirty ? $"{Model.Title}, {ShellStrings.TabUnsavedChanges}" : Model.Title);
+    }
+
+    /// <summary>The tab as an automation tab item with the selection item pattern, so assistive technology hears which tab is selected.</summary>
+    private sealed class DocumentTabItemAutomationPeer(DocumentTabItem owner) : ControlAutomationPeer(owner), ISelectionItemProvider
+    {
+        public bool IsSelected => owner.IsSelected;
+
+        public ISelectionProvider? SelectionContainer => null;
+
+        public void Select() => owner._select(owner.Model);
+
+        public void AddToSelection() => Select();
+
+        public void RemoveFromSelection()
+        {
+            // A tab strip always has one selected tab: it cannot be deselected.
+        }
+
+        public void SelectionChanged(bool oldValue, bool newValue) =>
+            RaisePropertyChangedEvent(SelectionItemPatternIdentifiers.IsSelectedProperty, oldValue, newValue);
+
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.TabItem;
     }
 }

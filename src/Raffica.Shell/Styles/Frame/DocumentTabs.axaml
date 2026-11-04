@@ -45,6 +45,10 @@
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
   </Style>
 
+  <Style Selector="Ellipse.document-tab-dirty">
+    <Setter Property="Fill" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+
   <Style Selector="Button.document-tab-close">
     <Setter Property="Width" Value="{DynamicResource Raffica.Size.HitTargetMin}" />
     <Setter Property="MinWidth" Value="{DynamicResource Raffica.Size.HitTargetMin}" />

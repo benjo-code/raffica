@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -67,6 +70,93 @@ public sealed class DocumentTabsTests
         Assert.Equal(1, selected.BorderThickness.Right);
         Assert.Equal(Colors.Transparent, ControlHarness.ColorOf(ControlHarness.Part<Border>(other, "PART_TopEdge").Background));
         Assert.Equal(Colors.Transparent, ControlHarness.ColorOf(other.Background));
+    }
+
+    [AvaloniaFact]
+    public void DirtyTabShowsAMarkAndKeepsItsWidth()
+    {
+        var tab = new DocumentTab("Report.docx");
+        var (window, tabs) = Show([tab, new DocumentTab("Notes.docx")]);
+        var view = Views(tabs).First(v => v.Model == tab);
+        var mark = ControlHarness.Part<Shape>(view, "PART_DirtyMark");
+        var title = ControlHarness.Part<MiddleTrimTextBlock>(view, "PART_Title");
+        var widthClean = view.Bounds.Width;
+        var titleWidthClean = title.Bounds.Width;
+        Assert.False(tab.IsDirty);
+        Assert.Equal(0, mark.Opacity);
+
+        tab.IsDirty = true;
+        ControlHarness.Settle(window);
+
+        Assert.Equal(1, mark.Opacity);
+        ControlHarness.AssertToken("Raffica.Brush.Text.Secondary", mark.Fill, "dirty mark");
+        Assert.Equal(widthClean, view.Bounds.Width, 0.01);
+        Assert.Equal(titleWidthClean, title.Bounds.Width, 0.01);
+        var close = ControlHarness.Part<Button>(view, "PART_Close");
+        Assert.True(mark.TranslatePoint(default, window)!.Value.X < close.TranslatePoint(default, window)!.Value.X, "the mark sits before the close button");
+
+        tab.IsDirty = false;
+        ControlHarness.Settle(window);
+        Assert.Equal(0, mark.Opacity);
+    }
+
+    [AvaloniaFact]
+    public void DirtyMarkIsInTheAutomationName()
+    {
+        var tab = new DocumentTab("Report.docx");
+        var (window, tabs) = Show([tab]);
+        var view = Views(tabs).Single();
+        Assert.Equal("Report.docx", AutomationProperties.GetName(view));
+
+        tab.IsDirty = true;
+        ControlHarness.Settle(window);
+
+        var name = AutomationProperties.GetName(view);
+        Assert.StartsWith("Report.docx", name);
+        Assert.Contains(ShellStrings.TabUnsavedChanges, name);
+
+        tab.IsDirty = false;
+        Assert.Equal("Report.docx", AutomationProperties.GetName(view));
+    }
+
+    [AvaloniaFact]
+    public void SelectedTabIsExposedToAutomation()
+    {
+        var first = new DocumentTab("Report.docx");
+        var second = new DocumentTab("Notes.docx");
+        var (window, tabs) = Show([first, second]);
+        tabs.Selected = first;
+        ControlHarness.Settle(window);
+
+        var firstPeer = ControlAutomationPeer.CreatePeerForElement(Views(tabs).First(v => v.Model == first));
+        var secondPeer = ControlAutomationPeer.CreatePeerForElement(Views(tabs).First(v => v.Model == second));
+        Assert.Equal(AutomationControlType.TabItem, firstPeer.GetAutomationControlType());
+        var firstItem = Assert.IsAssignableFrom<ISelectionItemProvider>(firstPeer);
+        var secondItem = Assert.IsAssignableFrom<ISelectionItemProvider>(secondPeer);
+        Assert.True(firstItem.IsSelected);
+        Assert.False(secondItem.IsSelected);
+
+        secondItem.Select();
+        ControlHarness.Settle(window);
+
+        Assert.Same(second, tabs.Selected);
+        Assert.False(firstItem.IsSelected);
+        Assert.True(secondItem.IsSelected);
+    }
+
+    [AvaloniaFact]
+    public void TabsKeepReferenceEqualityEvenWhenDirty()
+    {
+        var a = new DocumentTab("Same.docx") { IsDirty = true };
+        var b = new DocumentTab("Same.docx") { IsDirty = true };
+        Assert.NotEqual(a, b);
+        Assert.Equal(a, a);
+        Assert.NotEqual(a.GetHashCode(), b.GetHashCode());
+        var raised = new List<string?>();
+        a.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        a.IsDirty = false;
+        a.IsDirty = false;
+        Assert.Equal([nameof(DocumentTab.IsDirty)], raised);
     }
 
     [AvaloniaFact]
