@@ -118,7 +118,7 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
 
         _current = controller;
         _pressedBy = controller;
-        controller.Press(point.Position, e.ClickCount);
+        controller.Press(point.Position, e.ClickCount, e.KeyModifiers);
         e.Pointer.Capture(_view);
     }
 
@@ -132,7 +132,7 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         var position = e.GetPosition(_view);
         if (_pressedBy is { } pressed)
         {
-            pressed.Move(position);
+            pressed.Move(position, e.KeyModifiers);
             return;
         }
 
@@ -151,7 +151,7 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         }
 
         _pressedBy = null;
-        pressed.Release(e.GetPosition(_view));
+        pressed.Release(e.GetPosition(_view), e.KeyModifiers);
         e.Pointer.Capture(null);
     }
 
@@ -165,12 +165,38 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         }
     }
 
-    // Esc order: a gesture in progress, then what the tool holds (a selection), then the mode.
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape || e.KeyModifiers != KeyModifiers.None || _tools.Tool == AnnotateTool.None)
+        if (!e.Handled)
         {
-            return;
+            HandleKey(e);
+        }
+    }
+
+    /// <summary>
+    /// Takes a key while the mode is on. The active controller sees it first; Esc then drops what the controller holds (a gesture in
+    /// progress, a drag, a selection) and only when nothing was held ends the mode. The caller has checked that no dialog is open and that
+    /// no text field or the search bar owns the key. Sets <c>Handled</c> when the key was used.
+    /// </summary>
+    /// <param name="e">The key event.</param>
+    /// <returns>Whether the key was used.</returns>
+    public bool HandleKey(KeyEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        if (_tools.Tool == AnnotateTool.None)
+        {
+            return false;
+        }
+
+        if (Find(_tools.Tool) is { } controller && controller.Key(e))
+        {
+            e.Handled = true;
+            return true;
+        }
+
+        if (e.Key != Key.Escape || e.KeyModifiers != KeyModifiers.None)
+        {
+            return false;
         }
 
         _pressedBy = null;
@@ -180,5 +206,6 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         }
 
         e.Handled = true;
+        return true;
     }
 }

@@ -13,14 +13,20 @@ internal interface IToolController : IPageOverlay, IDisposable
     /// <summary>Whether this controller serves the tool.</summary>
     bool Handles(AnnotateTool tool);
 
-    /// <summary>Starts a gesture. The point is in the coordinates of the page view.</summary>
-    void Press(Point point, int clickCount);
+    /// <summary>Starts a gesture. The point is in the coordinates of the page view; <paramref name="modifiers"/> are the keys held (Shift, Alt, Ctrl).</summary>
+    void Press(Point point, int clickCount, KeyModifiers modifiers);
 
     /// <summary>Moves the pointer (while a gesture runs or not).</summary>
-    void Move(Point point);
+    void Move(Point point, KeyModifiers modifiers);
 
     /// <summary>Ends the gesture where the button came up.</summary>
-    void Release(Point point);
+    void Release(Point point, KeyModifiers modifiers);
+
+    /// <summary>
+    /// Offers a key to the controller before the mode handles it itself (Esc). Returns <see langword="true"/> when the controller used the
+    /// key; <see cref="AnnotateInteraction"/> then marks the event as handled. Only called while the mode is on and the focus is not in a text field.
+    /// </summary>
+    bool Key(KeyEventArgs e);
 
     /// <summary>
     /// Drops what the controller holds that Esc may drop: a gesture in progress, then whatever is selected or waiting. Returns whether

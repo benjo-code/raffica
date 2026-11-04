@@ -73,9 +73,11 @@ internal sealed class MarkupController : IToolController
     {
     }
 
+    public bool Key(KeyEventArgs e) => false;
+
     public Cursor? CursorAt(Point point) => _selection.IsOverText(point) ? TextInteraction.IBeamCursor : null;
 
-    public void Press(Point point, int clickCount)
+    public void Press(Point point, int clickCount, KeyModifiers modifiers)
     {
         if (_waitTimer is not null || _waitPending is not null)
         {
@@ -103,7 +105,7 @@ internal sealed class MarkupController : IToolController
         _selection.Press(point, clickCount);
     }
 
-    public void Move(Point point)
+    public void Move(Point point, KeyModifiers modifiers)
     {
         if (!_pressed)
         {
@@ -118,7 +120,7 @@ internal sealed class MarkupController : IToolController
         _selection.Drag(point);
     }
 
-    public void Release(Point point)
+    public void Release(Point point, KeyModifiers modifiers)
     {
         if (!_pressed)
         {

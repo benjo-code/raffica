@@ -212,9 +212,9 @@ public sealed class MarkupToolTests
             tools.Choose(AnnotateTool.Highlight);
             var point = new Point(200, 120);
 
-            interaction.Markup.Press(point, 1);
-            interaction.Markup.Move(new Point(300, 120));
-            interaction.Markup.Release(new Point(300, 120));
+            interaction.Markup.Press(point, 1, KeyModifiers.None);
+            interaction.Markup.Move(new Point(300, 120), KeyModifiers.None);
+            interaction.Markup.Release(new Point(300, 120), KeyModifiers.None);
             text.Selection.SelectAll();
             await interaction.Markup.ApplyAsync(AnnotateTool.Highlight);
             await inner.Tab.Annotations.FlushAsync();

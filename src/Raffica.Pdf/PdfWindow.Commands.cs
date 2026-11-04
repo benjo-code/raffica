@@ -178,6 +178,13 @@ internal sealed partial class PdfWindow
             return;
         }
 
+        // While the annotate mode is on, the active tool gets the key first (Esc ends the mode), unless a text field or the search bar owns it.
+        if (Tools.Tool != AnnotateTool.None && !KeyBelongsToTextOrSearch() && Workspace.Active is { } annotated
+            && _annotates.TryGetValue(annotated, out var interaction) && interaction.HandleKey(e))
+        {
+            return;
+        }
+
         if (PdfCommandCatalog.Find(e.Key, e.KeyModifiers, CommandModifier) is not { } entry || !_commandsById.TryGetValue(entry.Id, out var command))
         {
             return;
@@ -200,6 +207,13 @@ internal sealed partial class PdfWindow
         {
             command.Run?.Invoke();
         }
+    }
+
+    // A text field (the comment, a text box editor, the search field) or anything in the search bar keeps its keys, Esc included.
+    private bool KeyBelongsToTextOrSearch()
+    {
+        var focused = FocusManager?.GetFocusedElement();
+        return focused is TextBox || (focused is Visual visual && ShownSearchBar is { } bar && (ReferenceEquals(bar, visual) || bar.IsVisualAncestorOf(visual)));
     }
 
     /// <summary>Closes the active tab through the close guard (a document with unsaved changes asks first). Does nothing without a tab.</summary>
