@@ -2,10 +2,9 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
-using Pagewing.App.Resources;
-using Pagewing.Core.Printing;
+using Raffica.Core.Printing;
 
-namespace Pagewing.App.Platform.Windows;
+namespace Raffica.Pdf.Platform.Windows;
 
 /// <summary><c>PRINTPAGERANGE</c> from <c>commdlg.h</c>.</summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -132,7 +131,7 @@ internal static unsafe partial class PrintDialogNative
         ArgumentNullException.ThrowIfNull(defaults);
         if (owner == 0)
         {
-            throw new PrintException(Strings.PrintErrorDialog);
+            throw new PrintException(PdfStrings.PrintErrorDialog);
         }
 
         var ranges = (PrintPageRange*)NativeMemory.AllocZeroed((nuint)(MaxRanges * sizeof(PrintPageRange)));
@@ -156,7 +155,7 @@ internal static unsafe partial class PrintDialogNative
             var result = PrintDlgExW(&dialog);
             if (result != 0)
             {
-                throw new PrintException(Strings.PrintErrorDialog, Marshal.GetExceptionForHR(result) ?? new InvalidOperationException("PrintDlgEx failed."));
+                throw new PrintException(PdfStrings.PrintErrorDialog, Marshal.GetExceptionForHR(result) ?? new InvalidOperationException("PrintDlgEx failed."));
             }
 
             if (dialog.ResultAction != ResultPrint || dialog.DeviceContext == 0)
@@ -169,7 +168,16 @@ internal static unsafe partial class PrintDialogNative
                 return null;
             }
 
-            return new PrintDialogResult(dialog.DeviceContext, ReadSettings(in dialog, pageCount));
+            try
+            {
+                return new PrintDialogResult(dialog.DeviceContext, ReadSettings(in dialog, pageCount));
+            }
+            catch
+            {
+                // The caller never gets the device context, so it is deleted here.
+                Gdi.DeleteDC(dialog.DeviceContext);
+                throw;
+            }
         }
         finally
         {

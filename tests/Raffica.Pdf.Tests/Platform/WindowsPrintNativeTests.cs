@@ -1,10 +1,10 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Pagewing.App.Platform.Windows;
-using Pagewing.Core.Printing;
+using Raffica.Core.Printing;
+using Raffica.Pdf.Platform.Windows;
 using Xunit;
 
-namespace Pagewing.App.Tests;
+namespace Raffica.Pdf.Tests.Platform;
 
 public sealed class WindowsPrintNativeTests
 {
@@ -114,14 +114,14 @@ public sealed class WindowsPrintNativeTests
     public void DevNamesGiveThePrinterName()
     {
         // DEVNAMES: four WORDs, then "driver\0printer\0port\0" as UTF-16; the offsets count characters.
-        var text = "winspool\0Mein Drucker\0LPT1\0";
+        var text = "winspool\0My Printer\0LPT1\0";
         var bytes = new byte[8 + (text.Length * 2)];
         BitConverter.TryWriteBytes(bytes.AsSpan(0), (ushort)4);
         BitConverter.TryWriteBytes(bytes.AsSpan(2), (ushort)(4 + "winspool\0".Length));
-        BitConverter.TryWriteBytes(bytes.AsSpan(4), (ushort)(4 + "winspool\0Mein Drucker\0".Length));
+        BitConverter.TryWriteBytes(bytes.AsSpan(4), (ushort)(4 + "winspool\0My Printer\0".Length));
         System.Text.Encoding.Unicode.GetBytes(text, bytes.AsSpan(8));
 
-        Assert.Equal("Mein Drucker", DevMode.ReadPrinterName(bytes));
+        Assert.Equal("My Printer", DevMode.ReadPrinterName(bytes));
         Assert.Null(DevMode.ReadPrinterName(new byte[4]));
     }
 }

@@ -1,24 +1,23 @@
 using System.Runtime.Versioning;
-using Pagewing.App.Platform.Windows;
-using Pagewing.Core.Pdf;
-using Pagewing.Core.Printing;
-using Pagewing.TestSupport;
+using Raffica.Core.Pdf;
+using Raffica.Core.Printing;
+using Raffica.Pdf.Platform.Windows;
+using Raffica.TestSupport;
 using Xunit;
 
-namespace Pagewing.App.Tests;
+namespace Raffica.Pdf.Tests.Platform;
 
 /// <summary>
 /// Prints for real on Windows, into a file through the printer "Microsoft Print to PDF" (no dialog, no paper). The tests
 /// report themselves as skipped where that printer is not installed (Windows Server) and on Linux.
 /// </summary>
-[Collection("Localization")]
 [SupportedOSPlatform("windows")]
 public sealed class WindowsPrintToPdfTests : IDisposable
 {
     private const string PdfPrinter = "Microsoft Print to PDF";
 
     private readonly PdfEngine _engine = new();
-    private readonly string _work = Directory.CreateTempSubdirectory("pagewing-winprint-").FullName;
+    private readonly string _work = Directory.CreateTempSubdirectory("raffica-winprint-").FullName;
 
     public void Dispose() => Directory.Delete(_work, recursive: true);
 

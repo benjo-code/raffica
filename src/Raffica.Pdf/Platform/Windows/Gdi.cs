@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
-namespace Pagewing.App.Platform.Windows;
+namespace Raffica.Pdf.Platform.Windows;
 
 /// <summary><c>DOCINFOW</c> from <c>wingdi.h</c>.</summary>
 [StructLayout(LayoutKind.Sequential)]

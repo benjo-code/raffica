@@ -144,6 +144,10 @@ internal static class PdfStrings
     public static string CmdCopy => Table.Get("CmdCopy");
     public static string CmdHelp => Table.Get("CmdHelp");
     public static string PrintLockedReason => Table.Get("PrintLockedReason");
+    public static string PrintErrorStart => Table.Get("PrintErrorStart");
+    public static string PrintErrorPage => Table.Get("PrintErrorPage");
+    public static string PrintErrorDialog => Table.Get("PrintErrorDialog");
+    public static string PrintForbidden => Table.Get("PrintForbidden");
     public static string HelpTitle => Table.Get("HelpTitle");
     public static string HelpListName => Table.Get("HelpListName");
 

@@ -1,10 +1,10 @@
 using System.Buffers.Binary;
 using System.Text;
-using Pagewing.Core.Printing;
+using Raffica.Core.Printing;
 
-namespace Pagewing.App.Platform.Windows;
+namespace Raffica.Pdf.Platform.Windows;
 
-/// <summary>Reads the parts of <c>DEVMODEW</c> and <c>DEVNAMES</c> that Pagewing records from the print dialog.</summary>
+/// <summary>Reads the parts of <c>DEVMODEW</c> and <c>DEVNAMES</c> that Raffica records from the print dialog.</summary>
 internal static class DevMode
 {
     private const int FieldsOffset = 72;

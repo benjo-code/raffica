@@ -1,10 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Pagewing.App.Resources;
-using Pagewing.Core.Pdf;
-using Pagewing.Core.Printing;
+using Raffica.Core.Pdf;
+using Raffica.Core.Printing;
 
-namespace Pagewing.App.Platform.Windows;
+namespace Raffica.Pdf.Platform.Windows;
 
 /// <summary>What the Windows print dialog returned, plus the printer device context; deleted when the ticket is disposed.</summary>
 [SupportedOSPlatform("windows")]
@@ -64,7 +63,7 @@ internal sealed class WindowsPrintService : IPrintService
         var context = Gdi.CreateDC("WINSPOOL", printerName, null, 0);
         if (context == 0)
         {
-            throw new PrintException(Strings.PrintErrorStart, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+            throw new PrintException(PdfStrings.PrintErrorStart, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
         }
 
         return new WindowsPrintTicket(settings with { Printer = printerName }, context, outputFile);
@@ -122,7 +121,7 @@ internal sealed class WindowsPrintService : IPrintService
         })
         {
             IsBackground = true,
-            Name = "Pagewing.Print",
+            Name = "Raffica.Print",
         };
         thread.Start();
         return completion.Task;
@@ -134,7 +133,7 @@ internal sealed class WindowsPrintService : IPrintService
         var info = document.GetPrintInfoAsync(cancellationToken).WaitAsync(cancellationToken).GetAwaiter().GetResult();
         if (!info.PrintAllowed)
         {
-            throw new PrintException(Strings.PrintForbidden);
+            throw new PrintException(PdfStrings.PrintForbidden);
         }
 
         var settings = ticket.Settings;
@@ -146,7 +145,7 @@ internal sealed class WindowsPrintService : IPrintService
         var areaHeight = Gdi.GetDeviceCaps(context, Gdi.VerticalResolution);
         if (dpiX <= 0 || dpiY <= 0 || areaWidth <= 0 || areaHeight <= 0)
         {
-            throw new PrintException(Strings.PrintErrorStart);
+            throw new PrintException(PdfStrings.PrintErrorStart);
         }
 
         var area = new PaperArea(areaWidth * PointsPerInch / dpiX, areaHeight * PointsPerInch / dpiY);
@@ -177,7 +176,7 @@ internal sealed class WindowsPrintService : IPrintService
 
             if (Gdi.EndDoc(context) <= 0)
             {
-                throw new PrintException(Strings.PrintErrorPage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+                throw new PrintException(PdfStrings.PrintErrorPage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
             }
 
             finished = true;
@@ -205,7 +204,7 @@ internal sealed class WindowsPrintService : IPrintService
             };
             if (Gdi.StartDoc(context, &info) <= 0)
             {
-                throw new PrintException(Strings.PrintErrorStart, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+                throw new PrintException(PdfStrings.PrintErrorStart, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
             }
         }
     }
@@ -224,7 +223,7 @@ internal sealed class WindowsPrintService : IPrintService
     {
         if (Gdi.StartPage(context) <= 0)
         {
-            throw new PrintException(Strings.PrintErrorPage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+            throw new PrintException(PdfStrings.PrintErrorPage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
         }
 
         var drawn = true;
@@ -247,7 +246,7 @@ internal sealed class WindowsPrintService : IPrintService
         // A page that was started is always ended, so the spooler never gets a half page.
         if (Gdi.EndPage(context) <= 0)
         {
-            throw new PrintException(Strings.PrintErrorPage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+            throw new PrintException(PdfStrings.PrintErrorPage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
         }
 
         return drawn;
