@@ -1,0 +1,187 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Raffica.Shell.Localization;
+
+namespace Raffica.Shell.Frame;
+
+/// <summary>An open document in the title bar. Two tabs are the same only if they are the same instance, so two untitled documents stay apart.</summary>
+public sealed record DocumentTab(string Title, string? Path = null)
+{
+    public bool Equals(DocumentTab? other) => ReferenceEquals(this, other);
+
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
+}
+
+/// <summary>Shortens a text in the middle ("Quarterly-plan...v12.docx") so that both the start and the end of a file name stay readable.</summary>
+public static class MiddleEllipsis
+{
+    private const string Ellipsis = "…";
+
+    /// <summary>The text itself if <paramref name="measure"/> says it fits in <paramref name="maxWidth"/>, otherwise the longest start + ellipsis + end that does (just the ellipsis when nothing else fits).</summary>
+    public static string Fit(string text, double maxWidth, Func<string, double> measure)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(measure);
+        if (text.Length == 0 || measure(text) <= maxWidth)
+        {
+            return text;
+        }
+
+        // The number of kept characters: the start takes the extra one of an odd count.
+        string Candidate(int kept) => text[..((kept + 1) / 2)] + Ellipsis + text[^(kept / 2)..];
+
+        var low = 0;
+        var high = text.Length - 1;
+        while (low < high)
+        {
+            var mid = (low + high + 1) / 2;
+            if (measure(Candidate(mid)) <= maxWidth)
+            {
+                low = mid;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        return Candidate(low);
+    }
+}
+
+/// <summary>A single-line text that is shortened in the middle when it does not fit. <see cref="DisplayText"/> is what is drawn.</summary>
+public sealed class MiddleTrimTextBlock : Control
+{
+    public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<MiddleTrimTextBlock, string?>(nameof(Text));
+
+    private string _display = string.Empty;
+
+    static MiddleTrimTextBlock()
+    {
+        AffectsMeasure<MiddleTrimTextBlock>(TextProperty, TextElement.FontSizeProperty, TextElement.FontFamilyProperty, TextElement.FontWeightProperty);
+        AffectsRender<MiddleTrimTextBlock>(TextProperty, TextElement.ForegroundProperty);
+    }
+
+    public string? Text { get => GetValue(TextProperty); set => SetValue(TextProperty, value); }
+
+    /// <summary>The text as drawn: <see cref="Text"/>, or its middle-shortened form after layout.</summary>
+    public string DisplayText => _display;
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var text = Text ?? string.Empty;
+        var full = Format(text);
+        _display = text;
+        return new Size(Math.Min(full.WidthIncludingTrailingWhitespace, availableSize.Width), full.Height);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        var display = MiddleEllipsis.Fit(Text ?? string.Empty, finalSize.Width, s => Format(s).WidthIncludingTrailingWhitespace);
+        if (display != _display)
+        {
+            _display = display;
+            InvalidateVisual();
+        }
+
+        return finalSize;
+    }
+
+    public override void Render(DrawingContext context)
+    {
+        var formatted = Format(_display);
+        context.DrawText(formatted, new Point(0, Math.Max(0, (Bounds.Height - formatted.Height) / 2)));
+    }
+
+    private FormattedText Format(string text) => new(
+        text,
+        CultureInfo.CurrentUICulture,
+        FlowDirection.LeftToRight,
+        new Typeface(TextElement.GetFontFamily(this), FontStyle.Normal, TextElement.GetFontWeight(this)),
+        TextElement.GetFontSize(this),
+        TextElement.GetForeground(this));
+}
+
+/// <summary>
+/// The view of one <see cref="DocumentTab"/> in <see cref="DocumentTabs"/>: 28 px high, square, at least 96 and at most 240 px wide
+/// (the cap comes from the strip). The title is shortened in the middle, the close button is 24 x 24 and always there. The selected
+/// tab is <c>surface.band</c> with a 3 px ink top edge and a 1 px rule on both sides; the others are transparent.
+/// </summary>
+public sealed class DocumentTabItem : Border
+{
+    private readonly MiddleTrimTextBlock _title = new() { Name = "PART_Title", VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
+    private readonly Border _topEdge = new() { Name = "PART_TopEdge", IsHitTestVisible = false };
+    private readonly Button _close;
+
+    public DocumentTabItem(DocumentTab model, Action<DocumentTab> select, Action<DocumentTab> close)
+    {
+        Model = model;
+        Classes.Add("document-tab");
+        Focusable = true;
+        _title.Text = model.Title;
+        ToolTip.SetTip(this, string.IsNullOrEmpty(model.Path) ? model.Title : model.Path);
+        AutomationProperties.SetName(this, model.Title);
+
+        _close = new Button { Name = "PART_Close", Content = RibbonButton.CreateIcon("Raffica.Icon.X", 16) };
+        _close.Classes.Add("document-tab-close");
+        AutomationProperties.SetName(_close, ShellStrings.CloseDocument);
+        ToolTip.SetTip(_close, ShellStrings.CloseDocument);
+        _close.Click += (_, e) =>
+        {
+            close(model);
+            e.Handled = true;
+        };
+
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(10, 0, 2, 0) };
+        row.Children.Add(_title);
+        Grid.SetColumn(_close, 1);
+        row.Children.Add(_close);
+
+        _topEdge.Classes.Add("document-tab-edge");
+        var stack = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        stack.Children.Add(_topEdge);
+        Grid.SetRow(row, 1);
+        stack.Children.Add(row);
+        Child = stack;
+
+        PointerPressed += (_, e) =>
+        {
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsMiddleButtonPressed)
+            {
+                close(model);
+                e.Handled = true;
+            }
+            else if (point.Properties.IsLeftButtonPressed)
+            {
+                select(model);
+            }
+        };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Enter or Key.Space && ReferenceEquals(e.Source, this))
+            {
+                select(model);
+                e.Handled = true;
+            }
+        };
+    }
+
+    public DocumentTab Model { get; }
+
+    protected override Type StyleKeyOverride => typeof(Border);
+
+    /// <summary>Whether this is the selected tab (the pseudo class <c>:selected</c>).</summary>
+    public bool IsSelected
+    {
+        get => PseudoClasses.Contains(":selected");
+        set => PseudoClasses.Set(":selected", value);
+    }
+}

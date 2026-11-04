@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Raffica.Gallery;
 using Raffica.Gallery.Sections;
 using Raffica.Shell.Controls;
@@ -16,7 +17,7 @@ namespace Raffica.Shell.Tests.Gallery;
 public sealed class AutomationNameTests
 {
     /// <summary>The interactive controls below <paramref name="root"/> (visual tree, open popups and the logical tree of menus) whose automation peer has no name.</summary>
-    private static List<string> Unnamed(Control root)
+    internal static List<string> Unnamed(Control root)
     {
         var controls = ControlHarness.Descendants(root).OfType<Control>()
             .Concat(root.GetLogicalDescendants().OfType<Control>())
@@ -63,8 +64,10 @@ public sealed class AutomationNameTests
         return content is null || content is string || name != content.ToString();
     }
 
+    // The line buttons inside a slider or a scroll bar are parts of that control (the slider or the bar carries the name), not controls of their own.
     private static bool IsInteractive(Control c) =>
-        c is Button or ToggleButton or CheckBox or RadioButton or TextBox or ComboBox or MenuItem or ListBoxItem or TabItem;
+        c is Button or ToggleButton or CheckBox or RadioButton or TextBox or ComboBox or MenuItem or ListBoxItem or TabItem
+        && !(c is RepeatButton && c.FindAncestorOfType<RangeBase>() is not null);
 
     [AvaloniaFact]
     public void EveryInteractiveControlInTheGalleryHasAName()

@@ -1,0 +1,12 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The settings dialog (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): the frame is the dialog
+    theme (520 px, 3 px radius, no shadow); the only rule of its own is the quiet note that a language choice applies after a restart.
+  -->
+  <Style Selector="TextBlock.settings-note">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="LineHeight" Value="16.25" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+</Styles>

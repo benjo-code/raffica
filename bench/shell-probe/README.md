@@ -85,3 +85,34 @@ kept for 7 days only). The first measurement is kept in
 writes one Markdown table per machine: the medians of both modes, the cost of the frame (frame minus empty), the budget
 and the limit. The results, the machines and the budgets are recorded in [`Docs/DECISIONS.md`](../../Docs/DECISIONS.md).
 Budgets are never loosened to make a check pass; a change is a new decisions entry.
+
+## Measuring the gallery app (milestone 1.2)
+
+The same script measures the frame of the gallery app (`src/Raffica.Gallery`, `--view frame`) against the limits of the
+decisions entry "Speed targets of the frame (M1)". With `--target gallery`, `run` starts the exe with `--view frame`, the
+case switch and a `--settings-file` in a temporary folder (a measurement never reads or writes the settings of the user);
+there is no `--mode` and no `empty` baseline, and the CSV column `mode` is `gallery`. `size --target gallery` names the
+gallery exe as the main file.
+
+```
+dotnet publish src/Raffica.Gallery -c Release -r win-x64 -o artifacts/gallery/win-x64
+dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe artifacts/gallery/win-x64/RafficaGallery.exe --case warm --out artifacts/gallery/warm.csv
+dotnet run bench/shell-probe/measure.cs -- size --target gallery --publish-dir artifacts/gallery/win-x64 --fonts-dir src/Raffica.Shell/Assets/Fonts --out artifacts/gallery/size.csv
+dotnet run bench/shell-probe/measure.cs -- check --platform windows --in "artifacts/gallery/*.csv" --summary artifacts/gallery/summary.md
+```
+
+`check` compares the medians of the gallery CSVs with the limits (the budget x 1.25; the table is in the script, its source
+is the decisions entry) and prints case, measured, budget, limit and verdict. It exits with 1 when a value is above its
+limit or a required CSV is missing. macOS has no limits: the verdict is `indicative` and the exit code 0.
+
+| | Windows | Linux |
+|---|---|---|
+| cold / warm (ms) | 537.5 / 525 | 250 / 262.5 |
+| input median (ms) | 12.5 | 25 |
+| memory (MiB) | 156.25 | 156.25 |
+| published size / zip (MiB) | 48.75 / 20 | 43.75 / 20 |
+
+`size --check <win-x64|linux-x64|osx-x64> --publish-dir <dir> --fonts-dir <dir>` checks only size and zip, writes no CSV
+and exits with 1 above the limit; CI runs it after publishing the gallery (job step "Size of the published gallery").
+The workflow `measure.yml` takes the input `target` (`gallery` by default, or `probe`) and ends with `check`, whose table
+goes to the job summary. A gallery that is over a limit is a finding for the owner, not a new budget.

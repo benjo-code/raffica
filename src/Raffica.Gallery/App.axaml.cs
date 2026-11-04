@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Raffica.Gallery.FrameDemo;
 using Raffica.Shell;
 using Raffica.Shell.Localization;
 
@@ -11,27 +12,47 @@ namespace Raffica.Gallery;
 internal sealed partial class App : Application
 {
     private readonly GalleryOptions _options;
+    private readonly FrameDemoStartup? _startup;
 
     public App(GalleryOptions options)
     {
         _options = options;
+
+        // The frame view starts from its settings: --lang, then the stored language, then the language of the system.
+        _startup = options.View == GalleryView.Frame ? FrameDemoSettings.Open(options) : null;
     }
 
     public override void Initialize()
     {
-        var culture = Languages.Resolve(_options.Lang, System.Globalization.CultureInfo.CurrentUICulture);
+        var lang = _startup is null ? _options.Lang : FrameDemoSettings.ResolveLanguage(_options, _startup.Settings);
+        var theme = _startup is null ? _options.Theme : FrameDemoSettings.ResolveTheme(_options, _startup.Settings);
+        var culture = Languages.Resolve(lang, System.Globalization.CultureInfo.CurrentUICulture);
         ShellStrings.Culture = culture;
         GalleryStrings.Culture = culture;
 
         AvaloniaXamlLoader.Load(this);
-        ShellTheme.Apply(this, _options.Theme, _options.Ink, _options.HighContrast ? true : null);
+        ShellTheme.Apply(this, theme, _options.Ink, _options.HighContrast ? true : null);
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new GalleryWindow(_options);
+            Window window;
+            if (_startup is not null)
+            {
+                var frame = new FrameDemoWindow(_options, _startup);
+                window = frame;
+                if (_options.IsMeasuring)
+                {
+                    new Measurement(_options, frame, frame.InputTarget).Start();
+                }
+            }
+            else
+            {
+                window = new GalleryWindow(_options);
+            }
+
             desktop.MainWindow = window;
             if (_options.Screenshot is { } path)
             {

@@ -61,6 +61,10 @@ Then start the measurement, for example:
 gh workflow run measure.yml -f platform=windows -f note="<GPU, resolution, scaling, power mode>"
 ```
 
+By default the workflow measures the gallery app's frame (`-f target=gallery`) and ends with a check against the limits
+of the decisions entry "Speed targets of the frame (M1)", shown in the job summary; `-f target=probe` measures the
+throwaway shell probe as before.
+
 The run waits until the runner of that platform is online. For the cold start after a reboot (spec 9.1) reboot the
 machine, start the runner, and run `-f platform=<platform> -f note="…" -f cases=cold-reboot`.
 

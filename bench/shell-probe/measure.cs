@@ -1,10 +1,14 @@
 // Measurement script of the shell probe (bench/shell-probe/README.md, spec section 9).
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
-//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--mode frame] [--machine <name>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
+//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery] [--mode frame] [--machine <name>]
+//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64> --publish-dir <dir> --fonts-dir <dir> [--target gallery]
+//   dotnet run bench/shell-probe/measure.cs -- check --platform windows|linux|macos --in "<csv glob>" [--summary <md>]
 //   dotnet run bench/shell-probe/measure.cs -- budgets --in <csv>... --out <md>
 //   dotnet run bench/shell-probe/measure.cs -- selftest
 // CSV columns: machine,mode,case,run,value,unit. unit is ms or bytes. Rows of the case input carry the statistic
-// (median, p99, max) in the column run; rows of the case size carry total, zip, fonts or native.
+// (median, p99, max) in the column run; rows of the case size carry total, zip, fonts or native. The gallery
+// (--target gallery) writes the mode gallery.
 //
 // Exit codes: 0 ok, 1 a failed run (or a failed selftest), 2 usage error.
 
@@ -41,6 +45,7 @@ return args[0] switch
     "run" => RunCommand.Execute(options),
     "size" => SizeCommand.Execute(options),
     "budgets" => BudgetsCommand.Execute(options),
+    "check" => CheckCommand.Execute(options),
     _ => Fail(Usage),
 };
 
@@ -358,27 +363,53 @@ static class RunCommand
 
     public static string Label(Options o) => o.Get("--label") ?? o.Get("--case")!;
 
+    /// <summary>The arguments of one run. The gallery shows the frame view and gets a settings file of its own, so that a measurement never reads or writes the settings of the user; it has no <c>--mode</c>.</summary>
+    public static string[] Arguments(string target, string? mode, string caseName, string settingsFile)
+    {
+        var caseSwitch = Cases.First(x => x.Name == caseName).Switch;
+        return target == "gallery"
+            ? ["--view", "frame", caseSwitch, "--settings-file", settingsFile]
+            : ["--mode", mode!, caseSwitch];
+    }
+
+    /// <summary>The value of the CSV column <c>mode</c>: <c>gallery</c> for the gallery, else the probe's mode.</summary>
+    public static string CsvMode(string target, string? mode) => target == "gallery" ? "gallery" : mode!;
+
     public static int Execute(Options o)
     {
-        if (o.Require("--exe", "--mode", "--case", "--out") is { } missing)
+        var target = o.Get("--target") ?? "probe";
+        if (target is not ("probe" or "gallery"))
+        {
+            Console.Error.WriteLine("--target must be probe or gallery.");
+            return 2;
+        }
+
+        string[] required = target == "probe" ? ["--exe", "--mode", "--case", "--out"] : ["--exe", "--case", "--out"];
+        if (o.Require(required) is { } missing)
         {
             Console.Error.WriteLine($"{missing} is required.");
             return 2;
         }
 
-        var exe = Path.GetFullPath(o.Get("--exe")!);
-        var mode = o.Get("--mode")!;
-        var c = Cases.FirstOrDefault(x => x.Name == o.Get("--case"));
-        if (c is null || mode is not ("empty" or "frame") || !File.Exists(exe))
+        if (target == "gallery" && o.Get("--mode") is not null)
         {
-            Console.Error.WriteLine(!File.Exists(exe) ? $"file not found: {exe}" : "--mode must be empty or frame and --case cold, warm, input or memory.");
+            Console.Error.WriteLine("--mode belongs to the probe; the gallery runs the frame view (--target gallery).");
+            return 2;
+        }
+
+        var exe = Path.GetFullPath(o.Get("--exe")!);
+        var mode = o.Get("--mode");
+        var c = Cases.FirstOrDefault(x => x.Name == o.Get("--case"));
+        if (c is null || (target == "probe" && mode is not ("empty" or "frame")) || !File.Exists(exe))
+        {
+            Console.Error.WriteLine(!File.Exists(exe) ? $"file not found: {exe}" : "--mode must be empty or frame (probe only) and --case cold, warm, input or memory.");
             return 2;
         }
 
         var machine = o.Get("--machine") ?? Environment.MachineName;
-        string[] arguments = ["--mode", mode, c.Switch];
-        var name = $"{mode}/{c.Name}";
-        Console.WriteLine($"{name}: {exe} {string.Join(' ', arguments)}");
+        var csvMode = CsvMode(target, mode);
+        var name = $"{csvMode}/{c.Name}";
+        Console.WriteLine($"{name}: {exe} {string.Join(' ', Arguments(target, mode, c.Name, "<settings file>"))}");
         if (c.Name == "cold")
         {
             Console.WriteLine("note: \"cold\" does not empty the file cache of the operating system; a real cold start is a manual measurement right after a reboot (cold-reboot).");
@@ -397,7 +428,20 @@ static class RunCommand
         var runs = RunCount(o, c.Runs);
         for (var run = -c.Warmup + 1; run <= runs; run++)
         {
-            var (output, ms, error) = Runner.RunOnce(exe, arguments, c.Name == "input" ? "input" : c.Name == "memory" ? "memory-bytes" : "first-frame");
+            // A fresh settings file per run (the gallery); it is never created by the script and removed afterwards.
+            var settingsFile = Path.Combine(Path.GetTempPath(), $"raffica-measure-{Environment.ProcessId}-{Guid.NewGuid():N}.json");
+            string? output;
+            double? ms;
+            string? error;
+            try
+            {
+                (output, ms, error) = Runner.RunOnce(exe, Arguments(target, mode, c.Name, settingsFile), c.Name == "input" ? "input" : c.Name == "memory" ? "memory-bytes" : "first-frame");
+            }
+            finally
+            {
+                File.Delete(settingsFile);
+            }
+
             if (error is not null)
             {
                 failure = $"{name}: run {(run <= 0 ? "warm-up" : run.ToString(CultureInfo.InvariantCulture))} failed: {error}";
@@ -415,7 +459,7 @@ static class RunCommand
 
                 foreach (var (stat, value) in new[] { ("median", median), ("p99", p99), ("max", max) })
                 {
-                    rows.Add(Lines.Csv(machine, mode, Label(o), stat, value, "ms"));
+                    rows.Add(Lines.Csv(machine, csvMode, Label(o), stat, value, "ms"));
                     Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {stat}: {value:0.00} ms"));
                 }
 
@@ -448,7 +492,7 @@ static class RunCommand
             if (run > 0)
             {
                 values.Add(value2);
-                rows.Add(Lines.Csv(machine, mode, Label(o), run.ToString(CultureInfo.InvariantCulture), value2, unit));
+                rows.Add(Lines.Csv(machine, csvMode, Label(o), run.ToString(CultureInfo.InvariantCulture), value2, unit));
             }
 
             if (run < runs)
@@ -513,9 +557,25 @@ static class SizeCommand
 {
     public static int Execute(Options o)
     {
-        if (o.Require("--publish-dir", "--fonts-dir", "--out") is { } missing)
+        var check = o.Get("--check");
+        string[] required = check is null ? ["--publish-dir", "--fonts-dir", "--out"] : ["--publish-dir", "--fonts-dir"];
+        if (o.Require(required) is { } missing)
         {
             Console.Error.WriteLine($"{missing} is required.");
+            return 2;
+        }
+
+        var target = o.Get("--target") ?? (check is null ? "probe" : "gallery");
+        if (target is not ("probe" or "gallery"))
+        {
+            Console.Error.WriteLine("--target must be probe or gallery.");
+            return 2;
+        }
+
+        var platform = check is null ? null : CheckCommand.PlatformOfRid(check);
+        if (check is not null && platform is null)
+        {
+            Console.Error.WriteLine("--check needs a runtime identifier: win-x64, linux-x64 or osx-x64.");
             return 2;
         }
 
@@ -527,9 +587,29 @@ static class SizeCommand
             return 2;
         }
 
+        var mainExe = target == "gallery" ? "RafficaGallery" : "ShellProbe";
+        if (check is not null && !File.Exists(Path.Combine(publish, mainExe + ".exe")) && !File.Exists(Path.Combine(publish, mainExe)))
+        {
+            // A failed publish leaves an empty folder; zero bytes would pass every limit.
+            Console.Error.WriteLine($"--publish-dir has no {mainExe} executable ({mainExe}.exe or {mainExe}); nothing to check.");
+            return 2;
+        }
+
+        var (total, zip, fontBytes, native) = Measure(publish, fonts, mainExe);
+
+        if (platform is not null)
+        {
+            // The CI check: the size and zip limits of the check command, exit 1 above them, no CSV.
+            var measured = new Dictionary<string, double?> { ["size"] = total / (double)Stats.MiB, ["zip"] = zip / (double)Stats.MiB };
+            var results = CheckCommand.Judge(platform, measured, "size", "zip");
+            Console.WriteLine($"Published {target} ({check}):");
+            Console.Write(CheckCommand.Render(results));
+            Console.WriteLine(CheckCommand.ExitCode(results) == 1 ? "size check: FAILED (above the limit)" : "size check: ok");
+            return CheckCommand.ExitCode(results);
+        }
+
         var machine = o.Get("--machine") ?? Environment.MachineName;
-        var mode = o.Get("--mode") ?? "frame";
-        var (total, zip, fontBytes, native) = Measure(publish, fonts);
+        var mode = o.Get("--mode") ?? (target == "gallery" ? "gallery" : "frame");
 
         var rows = new[] { ("total", total), ("zip", zip), ("fonts", fontBytes), ("native", native) }
             .Select(r => Lines.Csv(machine, mode, "size", r.Item1, r.Item2, "bytes"))
@@ -547,13 +627,13 @@ static class SizeCommand
     /// The sizes in bytes. Debug symbols (<c>*.pdb</c>, <c>*.dbg</c>, <c>*.dSYM</c> bundles) are not shipped and count nowhere; the native
     /// libraries are every other file but the main executable; the zip uses <see cref="CompressionLevel.Optimal"/>.
     /// </summary>
-    public static (long Total, long Zip, long Fonts, long Native) Measure(string publishDir, string fontsDir)
+    public static (long Total, long Zip, long Fonts, long Native) Measure(string publishDir, string fontsDir, string mainExe = "ShellProbe")
     {
         var files = Directory.EnumerateFiles(publishDir, "*", SearchOption.AllDirectories)
             .Where(f => !IsSymbols(f))
             .Select(f => new FileInfo(f))
             .ToList();
-        var native = files.Where(f => Path.GetFileNameWithoutExtension(f.Name) != "ShellProbe").Sum(f => f.Length);
+        var native = files.Where(f => Path.GetFileNameWithoutExtension(f.Name) != mainExe).Sum(f => f.Length);
         var fonts = Directory.EnumerateFiles(fontsDir, "*.ttf").Sum(f => new FileInfo(f).Length);
 
         var zipPath = Path.Combine(Path.GetTempPath(), $"shell-probe-size-{Environment.ProcessId}.zip");
@@ -608,7 +688,7 @@ static class BudgetsCommand
             foreach (var line in File.ReadLines(path).Skip(1).Where(l => l.Length > 0))
             {
                 var p = line.Split(',');
-                if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
                 {
                     Console.Error.WriteLine($"unreadable CSV row in {path}: {line}");
                     return 1;
@@ -704,7 +784,7 @@ static class BudgetsCommand
 
     private static string N(double value) => value.ToString("0.0#", CultureInfo.InvariantCulture);
 
-    private static IEnumerable<string> Expand(string pattern)
+    public static IEnumerable<string> Expand(string pattern)
     {
         if (!pattern.Contains('*', StringComparison.Ordinal))
         {
@@ -727,6 +807,189 @@ static class BudgetsCommand
             .Select(d => Path.Combine(d, rest, file))
             .SelectMany(p => p.Contains('*', StringComparison.Ordinal) ? Directory.EnumerateFiles(Path.GetDirectoryName(p)!, file) : File.Exists(p) ? [p] : [])
             .Order(StringComparer.Ordinal);
+    }
+}
+
+/// <summary><c>check</c>: the medians of the gallery CSVs against the limits of the speed targets, and the limit table itself.</summary>
+static class CheckCommand
+{
+    public sealed record Result(string Key, string Label, double? Measured, double? Budget, double? Limit, string Verdict);
+
+    // The metrics in the order of the table: key and label with unit (ms or MiB).
+    private static readonly (string Key, string Label)[] s_metrics =
+    [
+        ("cold", "cold (ms)"),
+        ("warm", "warm (ms)"),
+        ("input", "input median (ms)"),
+        ("memory", "memory (MiB)"),
+        ("size", "size (MiB)"),
+        ("zip", "zip (MiB)"),
+    ];
+
+    // THE limit table, the only place with these numbers. The source is the entry "Speed targets of the frame (M1)" in
+    // Docs/DECISIONS.md: these are its budgets (the limit is budget x 1.25, see Stats.Limit). Budgets are never loosened
+    // here to make a check pass; a change is a new decisions entry. macOS has no budgets (indicative only).
+    private static readonly Dictionary<string, Dictionary<string, double>> s_budgets = new()
+    {
+        ["windows"] = new() { ["cold"] = 430, ["warm"] = 420, ["input"] = 10, ["memory"] = 125, ["size"] = 39, ["zip"] = 16 },
+        ["linux"] = new() { ["cold"] = 200, ["warm"] = 210, ["input"] = 20, ["memory"] = 125, ["size"] = 35, ["zip"] = 16 },
+        ["macos"] = [],
+    };
+
+    /// <summary>The limit (budget x 1.25) of a metric on a platform; null where there is none (macOS).</summary>
+    public static double? LimitOf(string platform, string key) =>
+        s_budgets.TryGetValue(platform, out var table) && table.TryGetValue(key, out var budget) ? Stats.Limit(budget) : null;
+
+    /// <summary>The platform of a runtime identifier (<c>win-x64</c>, <c>linux-x64</c>, <c>osx-*</c>); null if unknown.</summary>
+    public static string? PlatformOfRid(string rid) =>
+        rid.StartsWith("win-", StringComparison.Ordinal) ? "windows"
+        : rid.StartsWith("linux-", StringComparison.Ordinal) ? "linux"
+        : rid.StartsWith("osx-", StringComparison.Ordinal) ? "macos"
+        : null;
+
+    /// <summary>
+    /// Verdicts for the measured values (<paramref name="only"/> restricts the metrics): <c>ok</c> (at or below the limit), <c>over</c>,
+    /// <c>missing</c> (a required value is not there) or <c>indicative</c> (the platform has no limits).
+    /// </summary>
+    public static List<Result> Judge(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
+    {
+        var results = new List<Result>();
+        foreach (var (key, label) in s_metrics.Where(m => only.Length == 0 || only.Contains(m.Key)))
+        {
+            var value = measured.GetValueOrDefault(key);
+            var limit = LimitOf(platform, key);
+            double? budget = limit / Stats.Tolerance;
+            var verdict = limit is null ? "indicative" : value is null ? "missing" : value > limit ? "over" : "ok";
+            results.Add(new Result(key, label, value, budget, limit, verdict));
+        }
+
+        return results;
+    }
+
+    /// <summary>The medians of the gallery rows (mode <c>gallery</c>), then their verdicts.</summary>
+    public static List<Result> Evaluate(string platform, IReadOnlyList<BudgetsCommand.Row> rows)
+    {
+        double? Median(string @case, string? run)
+        {
+            var values = rows
+                .Where(r => r.Mode == "gallery" && r.Case == @case && (run is null ? double.TryParse(r.Run, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) : r.Run == run))
+                .Select(r => r.Unit == "bytes" ? r.Value / Stats.MiB : r.Value)
+                .ToList();
+            return values.Count == 0 ? null : Stats.Median(values);
+        }
+
+        var measured = new Dictionary<string, double?>
+        {
+            ["cold"] = Median("cold", null),
+            ["warm"] = Median("warm", null),
+            ["input"] = Median("input", "median"),
+            ["memory"] = Median("memory", null),
+            ["size"] = Median("size", "total"),
+            ["zip"] = Median("size", "zip"),
+        };
+        return Judge(platform, measured);
+    }
+
+    /// <summary>1 when any value is over its limit or a required value is missing, else 0.</summary>
+    public static int ExitCode(IReadOnlyList<Result> results) => results.Any(r => r.Verdict is "over" or "missing") ? 1 : 0;
+
+    /// <summary>The Markdown table: case, measured, budget, limit, verdict.</summary>
+    public static string Render(IReadOnlyList<Result> results)
+    {
+        static string N(double? v) => v is { } x ? x.ToString("0.0#", CultureInfo.InvariantCulture) : "–";
+        var text = new StringBuilder("| Case | Measured | Budget | Limit | Verdict |\n|---|---|---|---|---|\n");
+        foreach (var r in results)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"| {r.Label} | {N(r.Measured)} | {N(r.Budget)} | {N(r.Limit)} | {r.Verdict} |\n");
+        }
+
+        return text.ToString();
+    }
+
+    public static int Execute(Options o)
+    {
+        if (o.Require("--platform", "--in") is { } missing)
+        {
+            Console.Error.WriteLine($"{missing} is required.");
+            return 2;
+        }
+
+        var platform = o.Get("--platform")!;
+        if (!s_budgets.ContainsKey(platform))
+        {
+            Console.Error.WriteLine("--platform must be windows, linux or macos.");
+            return 2;
+        }
+
+        var rows = new List<BudgetsCommand.Row>();
+        var warnings = new List<string>();
+        var problems = new List<string>();
+        foreach (var pattern in o.GetAll("--in"))
+        {
+            List<string> paths;
+            try
+            {
+                paths = BudgetsCommand.Expand(pattern).ToList();
+            }
+            catch (DirectoryNotFoundException)
+            {
+                paths = [];
+            }
+
+            if (paths.Count == 0 || paths.Any(p => !File.Exists(p)))
+            {
+                problems.Add($"no CSV found for \"{pattern}\"");
+            }
+
+            foreach (var path in paths.Where(File.Exists))
+            {
+                if (File.Exists(RunCommand.WarningPath(path)))
+                {
+                    warnings.Add($"{Path.GetFileName(path)}: {File.ReadAllText(RunCommand.WarningPath(path)).Trim()}");
+                }
+
+                foreach (var line in File.ReadLines(path).Skip(1).Where(l => l.Length > 0))
+                {
+                    var p = line.Split(',');
+                    if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
+                    {
+                        problems.Add($"unreadable CSV row in {path}: {line}");
+                        continue;
+                    }
+
+                    rows.Add(new BudgetsCommand.Row(p[0], p[1], p[2], p[3], value, p[5]));
+                }
+            }
+        }
+
+        var results = Evaluate(platform, rows);
+        var text = new StringBuilder($"## Frame measurement ({platform})\n\n");
+        if (platform == "macos")
+        {
+            text.AppendLine("macOS has no limits; the values are indicative only.").AppendLine();
+        }
+
+        text.Append(Render(results));
+        foreach (var w in warnings)
+        {
+            text.AppendLine().AppendLine($"> **Invalid measurement:** {w}");
+        }
+
+        foreach (var problem in problems)
+        {
+            text.AppendLine().AppendLine($"> **Problem:** {problem}");
+        }
+
+        Console.Write(text.ToString());
+        if (o.Get("--summary") is { } summary)
+        {
+            File.AppendAllText(Path.GetFullPath(summary), text.ToString(), new UTF8Encoding(false));
+        }
+
+        // A missing or unreadable CSV fails the check on every platform that has limits.
+        var failed = ExitCode(results) == 1 || (platform != "macos" && problems.Count > 0);
+        Console.WriteLine(failed ? "check: FAILED (a value is over its limit or a CSV is missing)" : "check: ok");
+        return failed ? 1 : 0;
     }
 }
 
@@ -816,8 +1079,180 @@ static class SelfTest
         Expect("budgets: one section per machine", markdown.Contains("## pc", StringComparison.Ordinal) && markdown.Contains("## mac", StringComparison.Ordinal), true);
         Expect("budgets: no frame value, no budget", markdown.Contains("| cold (ms) | – | – | – | – | – |", StringComparison.Ordinal), false);
 
+        GalleryRunTests();
+        CheckTests();
+        SizeCheckTests();
+
         Console.WriteLine($"selftest: {s_checks - s_failures}/{s_checks} checks passed");
         return s_failures == 0 ? 0 : 1;
+    }
+
+    private static readonly string[] s_checkKeys = ["cold", "warm", "input", "memory", "size", "zip"];
+    private const double MiBd = 1024 * 1024;
+
+    /// <summary>The arguments of a gallery run and the CSV mode: no <c>--mode</c>, the frame view, the case switch and a settings file.</summary>
+    private static void GalleryRunTests()
+    {
+        var args = RunCommand.Arguments("gallery", null, "warm", "s.json");
+        Expect("gallery run: arguments", string.Join(' ', args), "--view frame --measure-startup --settings-file s.json");
+        Expect("gallery run: input case switch", RunCommand.Arguments("gallery", null, "input", "s.json")[2], "--measure-input");
+        Expect("gallery run: no --mode", args.Contains("--mode"), false);
+        Expect("probe run: arguments stay", string.Join(' ', RunCommand.Arguments("probe", "frame", "memory", "unused")), "--mode frame --measure-memory");
+        Expect("gallery run: CSV mode is gallery", RunCommand.CsvMode("gallery", null), "gallery");
+        Expect("probe run: CSV mode is the mode", RunCommand.CsvMode("probe", "empty"), "empty");
+
+        var fake = FakeProbe.Create("hang");
+        var exit = RunCommand.Execute(Options.Parse(["--exe", fake, "--target", "gallery", "--mode", "frame", "--case", "warm", "--out", Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "g.csv")], out _)!);
+        Expect("gallery run: --mode is a usage error", exit, 2);
+        exit = RunCommand.Execute(Options.Parse(["--exe", fake, "--target", "other", "--case", "warm", "--out", "x.csv"], out _)!);
+        Expect("run: unknown target is a usage error", exit, 2);
+    }
+
+    /// <summary>Gallery rows with every metric at <c>limit + delta</c> of the platform; <paramref name="only"/> restricts the delta to one metric.</summary>
+    private static List<BudgetsCommand.Row> GalleryRows(string platform, string? only = null, double delta = 0, string mode = "gallery")
+    {
+        double At(string key, double fallbackLimit)
+        {
+            var limit = CheckCommand.LimitOf(platform, key) ?? fallbackLimit;
+            return limit + (only is null || only == key ? delta : 0);
+        }
+
+        // Three runs around the median: the outliers must not matter, the median is the value.
+        var cold = At("cold", 1000);
+        return
+        [
+            new("pc", mode, "cold", "1", 99999, "ms"), new("pc", mode, "cold", "2", cold, "ms"), new("pc", mode, "cold", "3", 1, "ms"),
+            new("pc", mode, "warm", "1", At("warm", 1000), "ms"),
+            new("pc", mode, "input", "median", At("input", 100), "ms"), new("pc", mode, "input", "p99", 999, "ms"), new("pc", mode, "input", "max", 999, "ms"),
+            new("pc", mode, "memory", "1", At("memory", 1000) * MiBd, "bytes"),
+            new("pc", mode, "size", "total", At("size", 1000) * MiBd, "bytes"),
+            new("pc", mode, "size", "zip", At("zip", 1000) * MiBd, "bytes"),
+        ];
+    }
+
+    private static int ExitOf(string platform, List<BudgetsCommand.Row> rows) => CheckCommand.ExitCode(CheckCommand.Evaluate(platform, rows));
+
+    private static void CheckTests()
+    {
+        Expect("limit table windows cold", CheckCommand.LimitOf("windows", "cold"), 537.5);
+        Expect("limit table windows warm", CheckCommand.LimitOf("windows", "warm"), 525);
+        Expect("limit table windows input", CheckCommand.LimitOf("windows", "input"), 12.5);
+        Expect("limit table windows memory", CheckCommand.LimitOf("windows", "memory"), 156.25);
+        Expect("limit table windows size", CheckCommand.LimitOf("windows", "size"), 48.75);
+        Expect("limit table windows zip", CheckCommand.LimitOf("windows", "zip"), 20);
+        Expect("limit table linux cold", CheckCommand.LimitOf("linux", "cold"), 250);
+        Expect("limit table linux warm", CheckCommand.LimitOf("linux", "warm"), 262.5);
+        Expect("limit table linux input", CheckCommand.LimitOf("linux", "input"), 25);
+        Expect("limit table linux memory", CheckCommand.LimitOf("linux", "memory"), 156.25);
+        Expect("limit table linux size", CheckCommand.LimitOf("linux", "size"), 43.75);
+        Expect("limit table linux zip", CheckCommand.LimitOf("linux", "zip"), 20);
+        Expect("limit table macos has no limit", CheckCommand.LimitOf("macos", "cold"), null);
+
+        foreach (var platform in new[] { "windows", "linux" })
+        {
+            Expect($"check {platform}: every value exactly at its limit passes", ExitOf(platform, GalleryRows(platform)), 0);
+            Expect($"check {platform}: verdicts at the limit are ok", CheckCommand.Evaluate(platform, GalleryRows(platform)).All(r => r.Verdict == "ok"), true);
+            foreach (var key in s_checkKeys)
+            {
+                // 0.1 above (ms, MiB): a single value above its limit fails the whole check.
+                var results = CheckCommand.Evaluate(platform, GalleryRows(platform, key, 0.1));
+                Expect($"check {platform}: {key} 0.1 above its limit fails", ExitOf(platform, GalleryRows(platform, key, 0.1)), 1);
+                Expect($"check {platform}: only {key} is over", string.Join(',', results.Where(r => r.Verdict == "over").Select(r => r.Key)), key);
+                Expect($"check {platform}: {key} 0.1 below its limit passes", ExitOf(platform, GalleryRows(platform, key, -0.1)), 0);
+            }
+        }
+
+        Expect("check: probe-mode rows do not count as gallery rows", ExitOf("windows", GalleryRows("windows", mode: "frame")), 1);
+        var results2 = CheckCommand.Evaluate("windows", GalleryRows("windows", mode: "frame"));
+        Expect("check: no gallery rows gives the verdict missing", results2.All(r => r.Verdict == "missing"), true);
+        Expect("check: a missing metric fails", ExitOf("linux", GalleryRows("linux").Where(r => r.Case != "memory").ToList()), 1);
+        Expect("check: macOS is indicative, whatever the values", CheckCommand.Evaluate("macos", GalleryRows("macos", delta: 5000)).All(r => r.Verdict == "indicative"), true);
+        Expect("check: macOS exits 0 with huge values", ExitOf("macos", GalleryRows("macos", delta: 5000)), 0);
+        Expect("check: macOS exits 0 without rows", ExitOf("macos", []), 0);
+
+        // The command with files: a glob, the summary, a missing CSV.
+        var folder = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "check");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        Directory.CreateDirectory(folder);
+        var summary = Path.Combine(folder, "summary.md");
+        var csv = Path.Combine(folder, "all.csv");
+        File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows").Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")));
+        var exit = CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", Path.Combine(folder, "*.csv"), "--summary", summary], out _)!);
+        Expect("check command: CSVs at the limit exit 0", exit, 0);
+        var text = File.Exists(summary) ? File.ReadAllText(summary) : string.Empty;
+        Expect("check command: summary has the table", text.Contains("| cold (ms) | 537.5 | 430.0 | 537.5 | ok |", StringComparison.Ordinal), true);
+
+        File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows", "cold", 0.1).Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")));
+        Expect("check command: a value 0.1 above exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", csv], out _)!), 1);
+        foreach (var bad in new[] { "NaN", "Infinity", "-Infinity" })
+        {
+            // A value that is not a finite number is an unreadable row (NaN compares as "not over" and would pass silently).
+            File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows").Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")) + $"pc,gallery,warm,9,{bad},ms\n");
+            Expect($"check command: a {bad} row exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", csv], out _)!), 1);
+        }
+
+        File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows").Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")));
+        Expect("check command: a missing CSV exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", Path.Combine(folder, "nope", "*.csv")], out _)!), 1);
+        Expect("check command: a missing file exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", Path.Combine(folder, "nope.csv")], out _)!), 1);
+        Expect("check command: unknown platform is a usage error", CheckCommand.Execute(Options.Parse(["--platform", "amiga", "--in", csv], out _)!), 2);
+        Expect("check command: --platform is required", CheckCommand.Execute(Options.Parse(["--in", csv], out _)!), 2);
+    }
+
+    private static void SizeCheckTests()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "sizecheck");
+        var fonts = root + "-fonts";
+        Directory.CreateDirectory(fonts);
+        File.WriteAllBytes(Path.Combine(fonts, "a.ttf"), new byte[7]);
+
+        int Check(string rid, long bytes, bool random = false)
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+
+            Directory.CreateDirectory(root);
+            var data = new byte[bytes];
+            if (random)
+            {
+                new Random(1).NextBytes(data);
+            }
+
+            File.WriteAllBytes(Path.Combine(root, "RafficaGallery.exe"), data);
+            return SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", rid], out _)!);
+        }
+
+        const long Win = 51118080; // 48.75 MiB
+        const long Lin = 45875200; // 43.75 MiB
+        Expect("size --check windows: exactly 48.75 MiB passes", Check("win-x64", Win), 0);
+        Expect("size --check windows: one byte above fails", Check("win-x64", Win + 1), 1);
+        Expect("size --check windows: the CSV is not written", Directory.EnumerateFiles(root, "*.csv").Any() || File.Exists(Path.Combine(root, "size.csv")), false);
+        Expect("size --check linux: exactly 43.75 MiB passes", Check("linux-x64", Lin), 0);
+        Expect("size --check linux: one byte above fails", Check("linux-x64", Lin + 1), 1);
+        Expect("size --check: the same size passes on windows and fails on linux", Check("win-x64", Lin + 1), 0);
+        Expect("size --check: a zip above 20 MiB fails (incompressible 21 MiB)", Check("win-x64", 21 * 1024 * 1024, random: true), 1);
+        Expect("size --check: a zip at 19 MiB passes", Check("win-x64", 19 * 1024 * 1024, random: true), 0);
+        Expect("size --check macOS is indicative and exits 0", Check("osx-x64", Win * 2), 0);
+        Expect("size --check: unknown rid is a usage error", Check("amiga-m68k", 10), 2);
+
+        // An empty folder (a publish that failed) must not pass: the main executable has to be there.
+        Directory.CreateDirectory(root);
+        foreach (var file in Directory.EnumerateFiles(root))
+        {
+            File.Delete(file);
+        }
+
+        Expect("size --check: an empty publish folder is a usage error", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "win-x64"], out _)!), 2);
+        File.WriteAllBytes(Path.Combine(root, "lib.dll"), new byte[10]);
+        Expect("size --check: a folder without the main executable is a usage error", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "win-x64"], out _)!), 2);
+        File.WriteAllBytes(Path.Combine(root, "RafficaGallery"), new byte[10]);
+        Expect("size --check: the executable of Linux and macOS has no extension", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "linux-x64"], out _)!), 0);
+        Directory.Delete(root, recursive: true);
     }
 
     private static void Expect<T>(string name, T actual, T expected)

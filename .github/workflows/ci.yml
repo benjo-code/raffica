@@ -189,6 +189,11 @@ jobs:
       - name: Publish the gallery (Native AOT)
         run: dotnet publish src/Raffica.Gallery -c Release -r ${{ matrix.rid }} -o out/gallery
 
+      # The size limits of the speed targets (Docs/DECISIONS.md, "Speed targets of the frame (M1)"): the published gallery and its zip
+      # must stay within budget x 1.25. Fails above the limit; budgets are never loosened here.
+      - name: Size of the published gallery
+        run: dotnet run bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --publish-dir out/gallery --fonts-dir src/Raffica.Shell/Assets/Fonts
+
       - name: Smoke test of the gallery binary (Linux)
         if: runner.os == 'Linux'
         run: |

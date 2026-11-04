@@ -87,4 +87,50 @@ public sealed class PrintStringCommandTests
         Assert.Equal(string.Empty, output.ToString());
         Assert.Equal("error: Missing string: Nope" + Environment.NewLine, error.ToString());
     }
+
+    [Fact]
+    public void TheControlViewIsTheDefaultAndFrameIsAnOption()
+    {
+        Assert.Equal(GalleryView.Gallery, GalleryOptions.Parse([]).View);
+        Assert.Equal(GalleryView.Gallery, GalleryOptions.Parse(["--view", "gallery"]).View);
+        Assert.Equal(GalleryView.Frame, GalleryOptions.Parse(["--view", "frame"]).View);
+    }
+
+    [Fact]
+    public void FrameSwitchesParse()
+    {
+        var options = GalleryOptions.Parse(["--view", "frame", "--compact", "--settings-file", "x.json", "--measure-startup", "--measure-memory", "--measure-input"]);
+
+        Assert.True(options.Compact);
+        Assert.Equal("x.json", options.SettingsFile);
+        Assert.True(options.MeasureStartup);
+        Assert.True(options.MeasureMemory);
+        Assert.True(options.MeasureInput);
+        Assert.True(options.IsMeasuring);
+
+        var defaults = GalleryOptions.Parse(["--view", "frame"]);
+        Assert.False(defaults.Compact);
+        Assert.Null(defaults.SettingsFile);
+        Assert.False(defaults.IsMeasuring);
+    }
+
+    [Fact]
+    public void AnExplicitLangOrThemeIsRemembered()
+    {
+        Assert.False(GalleryOptions.Parse([]).LangGiven);
+        Assert.True(GalleryOptions.Parse(["--lang", "en"]).LangGiven);
+        Assert.False(GalleryOptions.Parse([]).ThemeGiven);
+        Assert.True(GalleryOptions.Parse(["--theme", "dark"]).ThemeGiven);
+    }
+
+    [Theory]
+    [InlineData("--view", "nonsense")]
+    [InlineData("--view")]
+    [InlineData("--settings-file")]
+    [InlineData("--measure-startup")]
+    [InlineData("--measure-memory")]
+    [InlineData("--measure-input")]
+    [InlineData("--view", "gallery", "--measure-startup")]
+    public void MeasurementSwitchesNeedTheFrameView(params string[] args) =>
+        Assert.Throws<ArgumentException>(() => GalleryOptions.Parse(args));
 }

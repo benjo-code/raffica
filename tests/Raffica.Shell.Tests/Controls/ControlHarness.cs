@@ -93,3 +93,4 @@ internal static class ControlHarness
         Settle(window);
     }
 }
+
