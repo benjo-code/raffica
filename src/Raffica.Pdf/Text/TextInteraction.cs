@@ -23,17 +23,20 @@ internal sealed class TextInteraction : IDisposable
     private static Cursor? s_ibeam;
 
     private readonly PageView _view;
+    private readonly Func<bool>? _yield;
     private PageLink? _pressedLink;
     private Point _pressPoint;
     private bool _pressed;
     private bool _moved;
     private bool _disposed;
 
-    public TextInteraction(PdfTab tab, PageView view, DialogQueue dialogs, Action<Uri>? launcher = null, TimeProvider? time = null)
+    /// <param name="yield">Says whether the pointer belongs to something else right now (an annotate tool is active): a press, a hover and a cursor are then left alone.</param>
+    public TextInteraction(PdfTab tab, PageView view, DialogQueue dialogs, Action<Uri>? launcher = null, TimeProvider? time = null, Func<bool>? yield = null)
     {
         ArgumentNullException.ThrowIfNull(tab);
         ArgumentNullException.ThrowIfNull(view);
         _view = view;
+        _yield = yield;
         Selection = new SelectionController(tab, view);
         Links = new LinkController(tab, view, dialogs, launcher, time);
         view.Selection = Selection;
@@ -79,7 +82,7 @@ internal sealed class TextInteraction : IDisposable
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetCurrentPoint(_view);
-        if (!point.Properties.IsLeftButtonPressed || _view.IsOverScrollBar(point.Position))
+        if (_yield?.Invoke() == true || !point.Properties.IsLeftButtonPressed || _view.IsOverScrollBar(point.Position))
         {
             return;
         }
@@ -105,6 +108,11 @@ internal sealed class TextInteraction : IDisposable
             }
 
             Selection.Drag(position);
+            return;
+        }
+
+        if (_yield?.Invoke() == true)
+        {
             return;
         }
 

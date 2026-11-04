@@ -64,6 +64,8 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
     private readonly Dictionary<PdfTab, SearchSession> _searches = [];
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
+    private readonly Dictionary<PdfTab, AnnotateInteraction> _annotates = [];
+    private readonly Dictionary<PdfTab, ModeIndicator> _indicators = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
@@ -133,7 +135,7 @@ internal sealed partial class PdfWindow : Window
         Dialogs = new DialogQueue(Host);
         Settings = new PdfSettingsController(options, Host, settings, appDefaults, SetCompact, SetPageThemeOfAllTabs);
         Tools = new ToolState(() => Settings.App, Settings.Update);
-        Tools.Changed += RefreshCommandStates;
+        Tools.Changed += OnToolsChanged;
         _printService = printService;
         _print = new PrintCommand(
             () => _printService ??= PlatformPrintServices.Create(),
@@ -215,6 +217,10 @@ internal sealed partial class PdfWindow : Window
         _panes.Clear();
         EachStep(_searches.Values, search => search.Dispose());
         _searches.Clear();
+        EachStep(_annotates.Values, annotate => annotate.Dispose());
+        _annotates.Clear();
+        EachStep(_indicators.Values, indicator => indicator.Dispose());
+        _indicators.Clear();
         EachStep(_texts.Values, text => text.Dispose());
         _texts.Clear();
         EachStep(_outlines, pair =>
@@ -602,6 +608,16 @@ internal sealed partial class PdfWindow : Window
                 panes.Dispose();
             }
 
+            if (_annotates.Remove(tab, out var annotate))
+            {
+                annotate.Dispose();
+            }
+
+            if (_indicators.Remove(tab, out var indicator))
+            {
+                indicator.Dispose();
+            }
+
             if (_texts.Remove(tab, out var text))
             {
                 text.Dispose();
@@ -638,6 +654,7 @@ internal sealed partial class PdfWindow : Window
         Tabs.Selected = Workspace.Active?.Tab;
         UpdateSaveState();
         ShowActiveView();
+        EnforceAnnotatePermission(showCard: false);
         RefreshCommandStates();
     }
 
@@ -674,7 +691,12 @@ internal sealed partial class PdfWindow : Window
             var search = new SearchSession(active, () => view.CurrentPage);
             _searches[active] = search;
             view.Search = search;
-            _texts[active] = new TextInteraction(active, view, Dialogs, _launcher, _time);
+            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None);
+            _texts[active] = text;
+            _annotates[active] = new AnnotateInteraction(active, view, Tools, text.Selection, Dialogs, _time);
+            var indicator = new ModeIndicator(Tools);
+            view.Badge = indicator;
+            _indicators[active] = indicator;
 
             // The outline is read once for the pane and for the palette, after the first sharp page.
             var outline = new OutlineSource(active);
@@ -782,6 +804,12 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The text interaction (selection and links) of a tab, once the tab has been shown (for tests); null before.</summary>
     internal TextInteraction? TextOf(PdfTab tab) => _texts.GetValueOrDefault(tab);
+
+    /// <summary>The annotate interaction (tool routing and markup) of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal AnnotateInteraction? AnnotateOf(PdfTab tab) => _annotates.GetValueOrDefault(tab);
+
+    /// <summary>The sign of the annotate mode over the page area of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal ModeIndicator? ModeIndicatorOf(PdfTab tab) => _indicators.GetValueOrDefault(tab);
 
     /// <summary>Copies the selected text of the active document to the clipboard (plain text and HTML); returns whether something was copied. The command catalog calls this.</summary>
     internal Task<bool> CopySelectionAsync() =>

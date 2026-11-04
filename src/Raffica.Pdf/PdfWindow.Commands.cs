@@ -241,6 +241,31 @@ internal sealed partial class PdfWindow
     internal Task ShowHelpAsync() =>
         Dialogs.ShowAsync<bool>(done => HelpCard.Create(PdfCommandCatalog.HelpEntries(), () => done(true)));
 
+    private void OnToolsChanged()
+    {
+        RefreshCommandStates();
+        EnforceAnnotatePermission(showCard: true);
+    }
+
+    /// <summary>
+    /// A document that forbids changing annotations has no annotate mode: the commands are disabled with a reason, and a path that gets
+    /// around them (the palette, a key) ends the mode again here, with a card that names the reason when the user asked for the mode
+    /// (not when only the tab changed). A permission that is not read yet (null) refuses nothing.
+    /// </summary>
+    private void EnforceAnnotatePermission(bool showCard)
+    {
+        if (Tools.Tool == AnnotateTool.None || Workspace.Active is not { } active || AnnotateAllowedOf(active) != false)
+        {
+            return;
+        }
+
+        Tools.End();
+        if (showCard)
+        {
+            _ = GuardAsync(() => Dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.AnnotateCardTitle, PdfStrings.AnnotateLockedReason, () => done(true))));
+        }
+    }
+
     /// <summary>The ribbon, the field codes and the search ask the commands again: the tabs, the active document or its permissions changed.</summary>
     private void RefreshCommandStates() => Ribbon.RefreshCommandStates();
 
@@ -264,6 +289,11 @@ internal sealed partial class PdfWindow
             if (Workspace.Tabs.Contains(tab))
             {
                 _annotateAllowed[tab] = allowed;
+                if (ReferenceEquals(Workspace.Active, tab))
+                {
+                    EnforceAnnotatePermission(showCard: true);
+                }
+
                 RefreshCommandStates();
             }
         }

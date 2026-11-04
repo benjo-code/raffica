@@ -575,4 +575,16 @@
   <data name="AnnotateLockedReason" xml:space="preserve">
     <value>Dieses Dokument erlaubt keine Änderung von Anmerkungen.</value>
   </data>
+  <data name="AnnotateModeFormat" xml:space="preserve">
+    <value>{0} – Esc zum Beenden</value>
+  </data>
+  <data name="AnnotateCardTitle" xml:space="preserve">
+    <value>Anmerkungen</value>
+  </data>
+  <data name="AnnotateLimitReached" xml:space="preserve">
+    <value>Dieses Dokument hat schon so viele Anmerkungen, wie Raffica auflisten kann (10.000). Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="AnnotateFailed" xml:space="preserve">
+    <value>Die Markierung konnte nicht hinzugefügt werden. Es wurde nichts geändert.</value>
+  </data>
 </root>

@@ -169,6 +169,10 @@ internal static class PdfStrings
     public static string CmdMarksPane => Table.Get("CmdMarksPane");
     public static string CmdDeleteMark => Table.Get("CmdDeleteMark");
     public static string AnnotateLockedReason => Table.Get("AnnotateLockedReason");
+    public static string AnnotateModeFormat => Table.Get("AnnotateModeFormat");
+    public static string AnnotateCardTitle => Table.Get("AnnotateCardTitle");
+    public static string AnnotateLimitReached => Table.Get("AnnotateLimitReached");
+    public static string AnnotateFailed => Table.Get("AnnotateFailed");
     public static string PrintLockedReason => Table.Get("PrintLockedReason");
     public static string PrintErrorStart => Table.Get("PrintErrorStart");
     public static string PrintErrorPage => Table.Get("PrintErrorPage");

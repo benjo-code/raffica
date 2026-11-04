@@ -28,6 +28,11 @@ internal sealed partial class PageView
 
     private SearchSession? _search;
     private SelectionController? _selection;
+    private IPageOverlay? _overlay;
+    private Control? _badge;
+
+    // The gap between the top of the view and the badge, in DIPs.
+    private const double BadgeTop = 12;
     private IBrush? _inkSource;
     private IBrush? _hitBrush;
     private IBrush? _currentBrush;
@@ -85,6 +90,64 @@ internal sealed partial class PageView
             }
 
             InvalidateVisual();
+        }
+    }
+
+    /// <summary>The layer drawn over the pages after the marks (the annotate mode's previews); the view draws again whenever it says it changed.</summary>
+    internal IPageOverlay? Overlay
+    {
+        get => _overlay;
+        set
+        {
+            if (ReferenceEquals(value, _overlay))
+            {
+                return;
+            }
+
+            if (_overlay is not null)
+            {
+                _overlay.Changed -= InvalidateVisual;
+            }
+
+            _overlay = value;
+            if (value is not null)
+            {
+                value.Changed += InvalidateVisual;
+            }
+
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// A small control shown over the top middle of the view (the sign of the annotate mode). It takes no part in the layout of the pages
+    /// and should take no pointer input (<c>IsHitTestVisible</c> false).
+    /// </summary>
+    internal Control? Badge
+    {
+        get => _badge;
+        set
+        {
+            if (ReferenceEquals(value, _badge))
+            {
+                return;
+            }
+
+            if (_badge is not null)
+            {
+                VisualChildren.Remove(_badge);
+                LogicalChildren.Remove(_badge);
+            }
+
+            _badge = value;
+            if (value is not null)
+            {
+                VisualChildren.Add(value);
+                LogicalChildren.Add(value);
+            }
+
+            InvalidateMeasure();
+            InvalidateArrange();
         }
     }
 

@@ -182,6 +182,37 @@ internal sealed class SelectionController : IDisposable
         return rects;
     }
 
+    /// <summary>
+    /// The rectangles of the selection on a page as a text markup wants them: like <see cref="RectsOn"/>, but without the blanks and line
+    /// breaks at either end of the selection on that page (a line that was selected with its trailing space is not marked past its last letter).
+    /// </summary>
+    /// <param name="page">The 0-based page index.</param>
+    /// <returns>The rectangles in page points; empty while the text of the page is not loaded or nothing of the page is selected.</returns>
+    public IReadOnlyList<PageRect> MarkupRectsOn(int page)
+    {
+        if (_selection is not { IsEmpty: false } selection || page < selection.Start.Page || page > selection.End.Page || !TryText(page, out var text))
+        {
+            return [];
+        }
+
+        var count = text.Chars.Count;
+        var from = Math.Clamp(page == selection.Start.Page ? selection.Start.Caret : 0, 0, count);
+        var to = Math.Clamp(page == selection.End.Page ? selection.End.Caret : count, 0, count);
+        while (from < to && IsBlank(text.Chars[from]))
+        {
+            from++;
+        }
+
+        while (to > from && IsBlank(text.Chars[to - 1]))
+        {
+            to--;
+        }
+
+        return from < to ? text.RectsOf(from, to) : [];
+    }
+
+    private static bool IsBlank(TextChar c) => c.IsGenerated || (System.Text.Rune.IsValid(c.CodePoint) && System.Text.Rune.IsWhiteSpace(new System.Text.Rune(c.CodePoint)));
+
     /// <summary>Whether a character of the page lies under the point (the I-beam cursor); false while the text of the page is not loaded.</summary>
     public bool IsOverText(Point point)
     {

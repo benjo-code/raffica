@@ -492,6 +492,7 @@ internal sealed partial class PageView : Control
     {
         _vertical.Measure(availableSize);
         _horizontal.Measure(availableSize);
+        _badge?.Measure(availableSize);
         return new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 0, double.IsFinite(availableSize.Height) ? availableSize.Height : 0);
     }
 
@@ -522,6 +523,11 @@ internal sealed partial class PageView : Control
         var barHeight = _horizontal.IsVisible ? _horizontal.DesiredSize.Height : 0;
         _vertical.Arrange(new Rect(Math.Max(0, finalSize.Width - barWidth), 0, barWidth, Math.Max(0, finalSize.Height - barHeight)));
         _horizontal.Arrange(new Rect(0, Math.Max(0, finalSize.Height - barHeight), Math.Max(0, finalSize.Width - barWidth), barHeight));
+        if (_badge is { IsVisible: true })
+        {
+            var size = _badge.DesiredSize;
+            _badge.Arrange(new Rect(Math.Max(0, (finalSize.Width - barWidth - size.Width) / 2), BadgeTop, Math.Min(size.Width, finalSize.Width), size.Height));
+        }
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -646,6 +652,8 @@ internal sealed partial class PageView : Control
                     sharp |= DrawPage(context, cache, page, Snap(rect, scaling), ground, scaling);
                 }
             }
+
+            _overlay?.Render(context, this);
         }
 
         if (sharp && !FirstSharpPageShown)

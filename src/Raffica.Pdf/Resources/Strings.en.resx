@@ -578,4 +578,16 @@
   <data name="AnnotateLockedReason" xml:space="preserve">
     <value>This document does not allow changing annotations.</value>
   </data>
+  <data name="AnnotateModeFormat" xml:space="preserve">
+    <value>{0} – Esc to finish</value>
+  </data>
+  <data name="AnnotateCardTitle" xml:space="preserve">
+    <value>Annotations</value>
+  </data>
+  <data name="AnnotateLimitReached" xml:space="preserve">
+    <value>This document already has as many annotations as Raffica can list (10,000). Nothing was added.</value>
+  </data>
+  <data name="AnnotateFailed" xml:space="preserve">
+    <value>The markup could not be added. Nothing was changed.</value>
+  </data>
 </root>
