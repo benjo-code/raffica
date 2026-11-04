@@ -590,6 +590,12 @@
   <data name="AnnotateFailed" xml:space="preserve">
     <value>The markup could not be added. Nothing was changed.</value>
   </data>
+  <data name="SelectLockedReason" xml:space="preserve">
+    <value>Locked: another program made this mark in a way Raffica cannot redraw without loss. You can comment on it or delete it.</value>
+  </data>
+  <data name="SelectFailed" xml:space="preserve">
+    <value>The change could not be made. The mark is as it was.</value>
+  </data>
   <data name="TextBoxRejectedFormat" xml:space="preserve">
     <value>A text box cannot show these characters: {0}</value>
   </data>

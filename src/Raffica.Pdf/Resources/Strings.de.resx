@@ -587,6 +587,12 @@
   <data name="AnnotateFailed" xml:space="preserve">
     <value>Die Markierung konnte nicht hinzugefügt werden. Es wurde nichts geändert.</value>
   </data>
+  <data name="SelectLockedReason" xml:space="preserve">
+    <value>Gesperrt: Ein anderes Programm hat diese Markierung so angelegt, dass Raffica sie nicht verlustfrei neu zeichnen kann. Sie kann kommentiert oder gelöscht werden.</value>
+  </data>
+  <data name="SelectFailed" xml:space="preserve">
+    <value>Die Änderung konnte nicht vorgenommen werden. Die Markierung ist unverändert.</value>
+  </data>
   <data name="TextBoxRejectedFormat" xml:space="preserve">
     <value>Ein Textfeld kann diese Zeichen nicht darstellen: {0}</value>
   </data>

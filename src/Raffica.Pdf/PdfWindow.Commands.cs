@@ -57,7 +57,7 @@ internal sealed partial class PdfWindow
         canRedo: () => Workspace.Active?.Annotations.CanRedo == true,
         busySaving: () => _print.IsRunning,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
-        hasSelection: () => false);
+        hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true);
 
     /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
     internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
@@ -146,7 +146,13 @@ internal sealed partial class PdfWindow
         TextBox: () => Tools.Choose(AnnotateTool.TextBox),
         AnnotateDone: () => Tools.End(),
         MarksPane: () => { }, // The marks pane arrives with its own task; until then the command has nothing to show.
-        DeleteMark: () => { }); // Deleting the selected mark arrives with the select tool; the rule keeps it disabled until there is a selection.
+        DeleteMark: () =>
+        {
+            if (Workspace.Active is { } active && AnnotateOf(active) is { } interaction)
+            {
+                _ = interaction.Select.DeleteSelectionAsync();
+            }
+        });
 
     private Task UndoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
 

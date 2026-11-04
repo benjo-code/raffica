@@ -173,6 +173,8 @@ internal static class PdfStrings
     public static string AnnotateCardTitle => Table.Get("AnnotateCardTitle");
     public static string AnnotateLimitReached => Table.Get("AnnotateLimitReached");
     public static string AnnotateFailed => Table.Get("AnnotateFailed");
+    public static string SelectLockedReason => Table.Get("SelectLockedReason");
+    public static string SelectFailed => Table.Get("SelectFailed");
     public static string TextBoxRejectedFormat => Table.Get("TextBoxRejectedFormat");
     public static string TextBoxTooLong => Table.Get("TextBoxTooLong");
     public static string TextBoxTooManyLines => Table.Get("TextBoxTooManyLines");

@@ -36,11 +36,14 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         Markup = new MarkupController(tab, view, tools, selection, dialogs, time);
         Drawing = new DrawingController(tab, view, tools, dialogs);
         TextBox = new TextBoxController(tab, view, tools, dialogs);
-        _controllers = [Markup, Drawing, TextBox];
+        Select = new SelectController(tab, view, tools, TextBox, dialogs, time);
+        _controllers = [Markup, Drawing, TextBox, Select];
         foreach (var controller in _controllers)
         {
             controller.Changed += OnControllerChanged;
         }
+
+        Select.SelectionChanged += OnSelectionChanged;
 
         _current = Find(tools.Tool);
         tools.Changed += OnToolChanged;
@@ -55,6 +58,9 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
     /// <inheritdoc />
     public event Action? Changed;
 
+    /// <summary>Raised when a mark is selected or the selection is gone (the delete command follows it).</summary>
+    public event Action? SelectionChanged;
+
     /// <summary>The controller of the text markup tools.</summary>
     public MarkupController Markup { get; }
 
@@ -63,6 +69,9 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
 
     /// <summary>The controller of the text box tool (its editing field also serves the select tool).</summary>
     public TextBoxController TextBox { get; }
+
+    /// <summary>The controller of the select tool (select, move, resize, recolour, delete).</summary>
+    public SelectController Select { get; }
 
     /// <inheritdoc />
     public void Render(DrawingContext context, PageView view) => _current?.Render(context, view);
@@ -86,6 +95,7 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
             _view.Overlay = null;
         }
 
+        Select.SelectionChanged -= OnSelectionChanged;
         foreach (var controller in _controllers)
         {
             controller.Changed -= OnControllerChanged;
@@ -96,6 +106,8 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
     private IToolController? Find(AnnotateTool tool) => tool == AnnotateTool.None ? null : _controllers.Find(c => c.Handles(tool));
 
     private void OnControllerChanged() => Changed?.Invoke();
+
+    private void OnSelectionChanged() => SelectionChanged?.Invoke();
 
     private void OnToolChanged()
     {

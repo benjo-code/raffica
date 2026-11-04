@@ -693,7 +693,16 @@ internal sealed partial class PdfWindow : Window
             view.Search = search;
             var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None);
             _texts[active] = text;
-            _annotates[active] = new AnnotateInteraction(active, view, Tools, text.Selection, Dialogs, _time);
+            var annotate = new AnnotateInteraction(active, view, Tools, text.Selection, Dialogs, _time);
+            _annotates[active] = annotate;
+            var annotated = active;
+            annotate.SelectionChanged += () =>
+            {
+                if (ReferenceEquals(Workspace.Active, annotated))
+                {
+                    RefreshCommandStates();
+                }
+            };
             var indicator = new ModeIndicator(Tools);
             view.Badge = indicator;
             _indicators[active] = indicator;
