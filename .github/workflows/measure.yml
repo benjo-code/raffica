@@ -1,4 +1,5 @@
-# Speed measurement of the shell probe, of the gallery app's frame and of the PDF app on the project owner's own machines (real GPU, active display).
+# Speed measurement of the shell probe, of the gallery app's frame, of the PDF app and of a reference app (the predecessor,
+# pinned by commit) on the project owner's own machines (real GPU, active display).
 #
 # SECURITY: This workflow executes repository code on personal machines, with the owner's user rights.
 # - It runs only on an explicit manual trigger: `workflow_dispatch` (needs write access to the repository). There is
@@ -9,6 +10,11 @@
 # - The owner starts each runner by hand (`run.cmd` / `run.sh` in the logged-in desktop session) when a measurement
 #   should run and stops it afterwards; it is not a service. Do not rely on it being online. No secrets are used or
 #   needed, and the token is read-only (`contents: read`).
+# - The target `reference` executes the code of a SECOND repository on the owner's machine, with the owner's user rights:
+#   it builds that repository's app and runs its published binary and its own startup script. It is reachable only by the
+#   manual `workflow_dispatch` above; the repository is named by whoever dispatches it (the owner), and its commit is
+#   pinned by a full 40-hex SHA on purpose (a tag can move). The inputs are validated before anything is fetched, the
+#   repository is checked out without credentials, no secret is used or passed, and the job keeps `contents: read`.
 # Procedure: bench/shell-probe/RUNNERS.md and bench/shell-probe/README.md; spec section 9.3.
 name: Measure
 
@@ -25,20 +31,38 @@ on:
         type: string
         required: true
       target:
-        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1) or the throwaway shell probe
+        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1), the throwaway shell probe or a reference app (the predecessor, by its own startup protocol)
         type: choice
         default: gallery
-        options: [gallery, probe, pdf]
+        options: [gallery, probe, pdf, reference]
       cases:
-        description: all, or cold-reboot (one cold run of the frame, right after a reboot)
+        description: all, or cold-reboot (one cold run of the frame, right after a reboot; not for the reference)
         type: choice
         default: all
         options: [all, cold-reboot]
+      reference_repo:
+        description: 'Target reference only: owner/name of the reference app''s repository'
+        type: string
+        default: ''
+      reference_ref:
+        description: 'Target reference only: the full 40-hex commit SHA to measure (a SHA, not a tag, on purpose)'
+        type: string
+        default: ''
+      reference_project:
+        description: 'Target reference only: project folder of the reference app inside its repository'
+        type: string
+        default: ''
+      reference_exe:
+        description: 'Target reference only: name of its published executable, without extension'
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 # Avalonia.BuildServices would send anonymous usage data while compiling; the probe itself never connects anywhere.
+# EXE, PROJECT and FONTS name the apps of this repository; the target reference does not use them (its project and
+# executable come from the reference_* inputs).
 env:
   AVALONIA_TELEMETRY_OPTOUT: '1'
   RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64"}')[inputs.platform] }}
@@ -58,8 +82,60 @@ jobs:
       group: measure-${{ inputs.platform }}
       cancel-in-progress: false
     steps:
+      # Target reference: the inputs are checked before anything is fetched or run. The values travel in environment
+      # variables, never inside the script text, and are not echoed (a value could carry a workflow command).
+      - name: Validate the reference inputs (Windows)
+        if: inputs.target == 'reference' && runner.os == 'Windows'
+        shell: powershell
+        env:
+          REF_REPO: ${{ inputs.reference_repo }}
+          REF_SHA: ${{ inputs.reference_ref }}
+          REF_PROJECT: ${{ inputs.reference_project }}
+          REF_EXE: ${{ inputs.reference_exe }}
+          CASES: ${{ inputs.cases }}
+        run: |
+          $bad = @()
+          if ($env:REF_REPO -cnotmatch '\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z') { $bad += 'reference_repo must be owner/name (letters, digits, dot, dash, underscore)' }
+          if ($env:REF_SHA -cnotmatch '\A[0-9a-f]{40}\z') { $bad += 'reference_ref must be a full 40-character lowercase hex commit SHA (not a tag or a branch)' }
+          if ($env:REF_PROJECT -cnotmatch '\A[A-Za-z0-9_][A-Za-z0-9_./-]*\z' -or $env:REF_PROJECT.Contains('..')) { $bad += 'reference_project must be a relative folder (letters, digits, dot, dash, underscore, slash; no ..)' }
+          if ($env:REF_EXE -cnotmatch '\A[A-Za-z0-9_][A-Za-z0-9_.-]*\z' -or $env:REF_EXE.Contains('..')) { $bad += 'reference_exe must be a file name without extension (letters, digits, dot, dash, underscore)' }
+          if ($env:CASES -ne 'all') { $bad += 'cases must be all for the target reference' }
+          foreach ($message in $bad) { Write-Host "::error title=Measure (reference)::$message" }
+          if ($bad.Count -gt 0) { exit 1 }
+          exit 0
+
+      - name: Validate the reference inputs (Linux, macOS)
+        if: inputs.target == 'reference' && runner.os != 'Windows'
+        shell: bash
+        env:
+          REF_REPO: ${{ inputs.reference_repo }}
+          REF_SHA: ${{ inputs.reference_ref }}
+          REF_PROJECT: ${{ inputs.reference_project }}
+          REF_EXE: ${{ inputs.reference_exe }}
+          CASES: ${{ inputs.cases }}
+        run: |
+          export LC_ALL=C
+          fail=0
+          [[ "$REF_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo '::error title=Measure (reference)::reference_repo must be owner/name (letters, digits, dot, dash, underscore)'; fail=1; }
+          [[ "$REF_SHA" =~ ^[0123456789abcdef]{40}$ ]] || { echo '::error title=Measure (reference)::reference_ref must be a full 40-character lowercase hex commit SHA (not a tag or a branch)'; fail=1; }
+          { [[ "$REF_PROJECT" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]*$ ]] && [[ "$REF_PROJECT" != *..* ]]; } || { echo '::error title=Measure (reference)::reference_project must be a relative folder (letters, digits, dot, dash, underscore, slash; no ..)'; fail=1; }
+          { [[ "$REF_EXE" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] && [[ "$REF_EXE" != *..* ]]; } || { echo '::error title=Measure (reference)::reference_exe must be a file name without extension (letters, digits, dot, dash, underscore)'; fail=1; }
+          [ "$CASES" = all ] || { echo '::error title=Measure (reference)::cases must be all for the target reference'; fail=1; }
+          exit "$fail"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+
+      # The reference app's repository, at the pinned commit, in its own folder of the workspace (the next
+      # steps run inside it). No credentials stay in its git configuration.
+      - name: Check out the reference app
+        if: inputs.target == 'reference'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.reference_repo }}
+          ref: ${{ inputs.reference_ref }}
+          path: reference
           persist-credentials: false
 
       # No root on the runner: the SDK goes into the user's folder.
@@ -84,7 +160,16 @@ jobs:
         run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
       - name: Publish the app (Native AOT)
+        if: inputs.target != 'reference'
         run: dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} -o out/app
+
+      # The reference app, from its own checkout (the SDK picks up that repository's global.json and NuGet.config). The inputs
+      # were validated by the first step. Its publish needs nothing else: the native OCR library that its CI fetches is
+      # only for its tests, the app project does not reference it.
+      - name: Publish the reference app (Native AOT)
+        if: inputs.target == 'reference'
+        working-directory: reference
+        run: dotnet publish "${{ inputs.reference_project }}" -c Release -r ${{ env.RID }} -o "${{ github.workspace }}/out/reference"
 
       # The machine note: what the owner typed, the OS, the processor and the memory. The note travels in an
       # environment variable, never inside the script text.
@@ -153,6 +238,288 @@ jobs:
             echo "Processor: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.logicalcpu) logical processors"
             echo "RAM: $(sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }') GiB"
           } | tee "$OUT/machine.txt"
+
+      # The reference app (target reference): which repository, which commit (checked against the pin: the checkout must be
+      # exactly that commit) and which binary was measured. Appended to the machine notes written above.
+      - name: Notes of the reference app (Windows)
+        if: inputs.target == 'reference' && runner.os == 'Windows'
+        shell: powershell
+        env:
+          REF_REPO: ${{ inputs.reference_repo }}
+          REF_SHA: ${{ inputs.reference_ref }}
+          REF_PROJECT: ${{ inputs.reference_project }}
+          REF_EXE: ${{ inputs.reference_exe }}
+        run: |
+          $head = ("$(git -C reference rev-parse HEAD)").Trim()
+          if ($head -ne $env:REF_SHA) {
+            Write-Host '::error title=Measure (reference)::The checkout of the reference app is not the pinned commit (or has no git metadata).'
+            exit 1
+          }
+          $exe = "out/reference/{0}.exe" -f $env:REF_EXE
+          if (-not (Test-Path -LiteralPath $exe)) {
+            Write-Host '::error title=Measure (reference)::The published executable named by reference_exe does not exist in out/reference.'
+            exit 1
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $exe).Hash.ToLowerInvariant()
+          $lines = @(
+            "Reference repository: $env:REF_REPO",
+            "Reference commit: $head",
+            "Reference project: $env:REF_PROJECT",
+            ("Reference executable: {0}.exe, SHA-256 {1}" -f $env:REF_EXE, $hash)
+          )
+          $lines | ForEach-Object { Write-Host $_ }
+          Add-Content -Path "$env:OUT/machine.txt" -Value $lines -Encoding utf8
+          exit 0
+
+      - name: Notes of the reference app (Linux, macOS)
+        if: inputs.target == 'reference' && runner.os != 'Windows'
+        shell: bash
+        env:
+          REF_REPO: ${{ inputs.reference_repo }}
+          REF_SHA: ${{ inputs.reference_ref }}
+          REF_PROJECT: ${{ inputs.reference_project }}
+          REF_EXE: ${{ inputs.reference_exe }}
+        run: |
+          head=$(git -C reference rev-parse HEAD || true)
+          if [ "$head" != "$REF_SHA" ]; then
+            echo '::error title=Measure (reference)::The checkout of the reference app is not the pinned commit (or has no git metadata).'
+            exit 1
+          fi
+          if [ ! -f "out/reference/$REF_EXE" ]; then
+            echo '::error title=Measure (reference)::The published executable named by reference_exe does not exist in out/reference.'
+            exit 1
+          fi
+          if command -v sha256sum >/dev/null; then hash=$(sha256sum "out/reference/$REF_EXE" | cut -d' ' -f1); else hash=$(shasum -a 256 "out/reference/$REF_EXE" | cut -d' ' -f1); fi
+          {
+            echo "Reference repository: $REF_REPO"
+            echo "Reference commit: $head"
+            echo "Reference project: $REF_PROJECT"
+            echo "Reference executable: $REF_EXE, SHA-256 $hash"
+          } | tee -a "$OUT/machine.txt"
+
+      # The reference app's own startup protocol, run from the root of its checkout (its startup script reads testdata/pdfs
+      # of that checkout), 10 measured runs per case as its script defines them. The first four are exactly the cases of its own
+      # protocol (text-basic.pdf for cold, warm and second; thousand-pages.pdf; hello_world.pdf as the second file). The last
+      # three use the files of the PDF target of this repository (hello_world.pdf for cold and warm; hello_world.pdf then
+      # outline.pdf for second), so the comparison with the PDF target can use the same files; the test files of both
+      # repositories are byte-identical. No display wrapper: the owner's runner has a real session. A budget miss of
+      # the reference (script exit code 1) is a result, not a failure: every exit code is kept in exit-codes.csv; only exit
+      # code 2 (wrong invocation) or a missing or empty CSV fails the step. TEMP, TMP and TMPDIR point to the temp folder of
+      # this job, which the runner empties for every job, and --no-cache rebuilds the file-based script, so a stale copy
+      # of an earlier job on the persistent runner can never run (the same reason as in ci.yml).
+      - name: Reference app, its startup protocol (Windows)
+        if: inputs.target == 'reference' && runner.os == 'Windows'
+        shell: powershell
+        working-directory: reference
+        env:
+          REF_EXE: ${{ inputs.reference_exe }}
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          $dir = Join-Path $env:GITHUB_WORKSPACE "$env:OUT/reference"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $exe = Join-Path $env:GITHUB_WORKSPACE ("out/reference/{0}.exe" -f $env:REF_EXE)
+          $cases = @(
+            @{ Key = 'cold'; Case = 'cold'; Opts = @('--pdf', 'testdata/pdfs/text-basic.pdf') },
+            @{ Key = 'warm'; Case = 'warm'; Opts = @('--pdf', 'testdata/pdfs/text-basic.pdf', '--phases') },
+            @{ Key = 'thousand'; Case = 'thousand'; Opts = @('--pdf', 'testdata/pdfs/thousand-pages.pdf') },
+            @{ Key = 'second'; Case = 'second'; Opts = @('--pdf', 'testdata/pdfs/text-basic.pdf', '--second-pdf', 'testdata/pdfs/hello_world.pdf') },
+            @{ Key = 'samefiles-cold'; Case = 'cold'; Opts = @('--pdf', 'testdata/pdfs/hello_world.pdf') },
+            @{ Key = 'samefiles-warm'; Case = 'warm'; Opts = @('--pdf', 'testdata/pdfs/hello_world.pdf') },
+            @{ Key = 'samefiles-second'; Case = 'second'; Opts = @('--pdf', 'testdata/pdfs/hello_world.pdf', '--second-pdf', 'testdata/pdfs/outline.pdf') }
+          )
+          $failed = $false
+          'case,exit' | Set-Content -Path (Join-Path $dir 'exit-codes.csv') -Encoding ascii
+          foreach ($c in $cases) {
+            $csv = Join-Path $dir ("{0}.csv" -f $c.Key)
+            $opts = $c.Opts
+            Write-Host ("::group::reference {0} ({1})" -f $c.Key, $c.Case)
+            dotnet run --no-cache bench/startup/startup.cs -- --exe $exe @opts --case $c.Case --out $csv
+            $rc = $LASTEXITCODE
+            Write-Host '::endgroup::'
+            Add-Content -Path (Join-Path $dir 'exit-codes.csv') -Value ("{0},{1}" -f $c.Key, $rc) -Encoding ascii
+            Write-Host ("reference {0}: script exit code {1} (0 = within the reference's own limit, 1 = above it or a failed run, 2 = wrong invocation)" -f $c.Key, $rc)
+            if ($rc -eq 2) {
+              Write-Host ("::error title=Measure (reference)::{0}: the startup script was called wrongly (exit code 2)." -f $c.Key)
+              $failed = $true
+            }
+            elseif (-not (Test-Path -LiteralPath $csv) -or @(Get-Content -LiteralPath $csv).Count -lt 2) {
+              Write-Host ("::error title=Measure (reference)::{0}: no CSV or no measured run (script exit code {1})." -f $c.Key, $rc)
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          exit 0
+
+      - name: Reference app, its startup protocol (Linux, macOS)
+        if: inputs.target == 'reference' && runner.os != 'Windows'
+        shell: bash
+        working-directory: reference
+        env:
+          REF_EXE: ${{ inputs.reference_exe }}
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          dir="$GITHUB_WORKSPACE/$OUT/reference"
+          mkdir -p "$dir"
+          exe="$GITHUB_WORKSPACE/out/reference/$REF_EXE"
+          echo 'case,exit' > "$dir/exit-codes.csv"
+          failed=0
+          # key|case|options of the script
+          for spec in \
+            'cold|cold|--pdf testdata/pdfs/text-basic.pdf' \
+            'warm|warm|--pdf testdata/pdfs/text-basic.pdf --phases' \
+            'thousand|thousand|--pdf testdata/pdfs/thousand-pages.pdf' \
+            'second|second|--pdf testdata/pdfs/text-basic.pdf --second-pdf testdata/pdfs/hello_world.pdf' \
+            'samefiles-cold|cold|--pdf testdata/pdfs/hello_world.pdf' \
+            'samefiles-warm|warm|--pdf testdata/pdfs/hello_world.pdf' \
+            'samefiles-second|second|--pdf testdata/pdfs/hello_world.pdf --second-pdf testdata/pdfs/outline.pdf'
+          do
+            key=${spec%%|*}
+            rest=${spec#*|}
+            case_name=${rest%%|*}
+            opts=${rest#*|}
+            csv="$dir/$key.csv"
+            echo "::group::reference $key ($case_name)"
+            rc=0
+            # shellcheck disable=SC2086
+            dotnet run --no-cache bench/startup/startup.cs -- --exe "$exe" $opts --case "$case_name" --out "$csv" || rc=$?
+            echo '::endgroup::'
+            echo "$key,$rc" >> "$dir/exit-codes.csv"
+            echo "reference $key: script exit code $rc (0 = within the reference's own limit, 1 = above it or a failed run, 2 = wrong invocation)"
+            if [ "$rc" -eq 2 ]; then
+              echo "::error title=Measure (reference)::$key: the startup script was called wrongly (exit code 2)."
+              failed=1
+            elif [ ! -f "$csv" ] || [ "$(wc -l < "$csv")" -lt 2 ]; then
+              echo "::error title=Measure (reference)::$key: no CSV or no measured run (script exit code $rc)."
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      # The job summary: the median per case from the CSVs, the published size and the exit codes of the script. The same text is
+      # kept as summary.md in the artifact. Two steps, because the path of the summary file is a different variable in
+      # PowerShell and bash.
+      - name: Summary of the reference app (Windows)
+        if: ${{ !cancelled() && inputs.target == 'reference' && runner.os == 'Windows' }}
+        shell: powershell
+        env:
+          REF_REPO: ${{ inputs.reference_repo }}
+          REF_SHA: ${{ inputs.reference_ref }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          $inv = [Globalization.CultureInfo]::InvariantCulture
+          $dir = Join-Path $env:GITHUB_WORKSPACE "$env:OUT/reference"
+          $codes = @{}
+          $codesFile = Join-Path $dir 'exit-codes.csv'
+          if (Test-Path -LiteralPath $codesFile) { foreach ($row in (Import-Csv -LiteralPath $codesFile)) { $codes[$row.case] = $row.exit } }
+          $rows = @(
+            @('cold', 'Cold start, text-basic.pdf (reference protocol)'),
+            @('warm', 'Warm start, text-basic.pdf (reference protocol, 3 warm-up runs)'),
+            @('thousand', '1000-page file to the first sharp page (reference protocol)'),
+            @('second', 'Second file in the running instance, text-basic.pdf then hello_world.pdf (reference protocol)'),
+            @('samefiles-cold', 'Cold start, hello_world.pdf (the file of the PDF target)'),
+            @('samefiles-warm', 'Warm start, hello_world.pdf (the file of the PDF target)'),
+            @('samefiles-second', 'Second file in the running instance, hello_world.pdf then outline.pdf (the files of the PDF target)')
+          )
+          $lines = @(
+            '## Reference app, measured with its own startup protocol',
+            '',
+            "Repository ``$env:REF_REPO``, commit ``$env:REF_SHA``, platform ${{ inputs.platform }}.",
+            "Machine note: $env:NOTE",
+            '',
+            '| Case | Median (ms) | Min (ms) | Max (ms) | Runs | Script exit |',
+            '|---|---:|---:|---:|---:|---:|'
+          )
+          foreach ($r in $rows) {
+            $csv = Join-Path $dir ("{0}.csv" -f $r[0])
+            $exit = if ($codes.ContainsKey($r[0])) { $codes[$r[0]] } else { 'n/a' }
+            $v = @()
+            if (Test-Path -LiteralPath $csv) { $v = @(Import-Csv -LiteralPath $csv | ForEach-Object { [double]::Parse($_.ms, $inv) } | Sort-Object) }
+            $n = $v.Count
+            if ($n -eq 0) {
+              $lines += ("| {0} | no result | | | 0 | {1} |" -f $r[1], $exit)
+            }
+            else {
+              $m = if ($n % 2 -eq 1) { $v[($n - 1) / 2] } else { ($v[$n / 2 - 1] + $v[$n / 2]) / 2 }
+              $lines += ("| {0} | {1} | {2} | {3} | {4} | {5} |" -f $r[1], $m.ToString('0.0', $inv), $v[0].ToString('0.0', $inv), $v[$n - 1].ToString('0.0', $inv), $n, $exit)
+            }
+          }
+          $publish = Join-Path $env:GITHUB_WORKSPACE 'out/reference'
+          if (Test-Path -LiteralPath $publish) {
+            $bytes = (Get-ChildItem -LiteralPath $publish -Recurse -File | Where-Object { $_.Extension -notin '.pdb', '.dbg' } | Measure-Object Length -Sum).Sum
+            $size = ("{0} MiB" -f ([math]::Round($bytes / 1MB, 2)).ToString('0.00', $inv))
+          }
+          else { $size = 'no published folder' }
+          $lines += @(
+            '',
+            "Published size of ``out/reference`` without debug symbols (``*.pdb``, ``*.dbg``): $size.",
+            '',
+            'Script exit code: 0 = median within the reference app''s own budget limit, 1 = above it or a failed run, 2 = wrong invocation (fails the step). A value of 1 is a result here, not a failure; the budget of the reference app is not a limit of this repository.',
+            'The cases without the prefix are the reference app''s own protocol; the three `samefiles` cases use the files of the PDF target. Valid only on a machine with a GPU and an active display; the machine notes are in the artifact.'
+          )
+          $text = ($lines -join "`n") + "`n"
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+          [IO.File]::WriteAllText((Join-Path $dir 'summary.md'), $text, $utf8)
+          [IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, $text, $utf8)
+          Write-Host $text
+          exit 0
+
+      - name: Summary of the reference app (Linux, macOS)
+        if: ${{ !cancelled() && inputs.target == 'reference' && runner.os != 'Windows' }}
+        shell: bash
+        env:
+          REF_REPO: ${{ inputs.reference_repo }}
+          REF_SHA: ${{ inputs.reference_ref }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          export LC_ALL=C
+          dir="$GITHUB_WORKSPACE/$OUT/reference"
+          mkdir -p "$dir"
+          # "n median min max" of the third CSV column
+          stats() {
+            tail -n +2 "$1" 2>/dev/null | tr -d '\r' | cut -d, -f3 | sort -g | awk '{ v[NR] = $1 } END { if (NR == 0) { print "0"; exit } m = (NR % 2) ? v[(NR + 1) / 2] : (v[NR / 2] + v[NR / 2 + 1]) / 2; printf "%d %.1f %.1f %.1f\n", NR, m, v[1], v[NR] }'
+          }
+          {
+            echo '## Reference app, measured with its own startup protocol'
+            echo
+            echo "Repository \`$REF_REPO\`, commit \`$REF_SHA\`, platform ${{ inputs.platform }}."
+            echo "Machine note: $NOTE"
+            echo
+            echo '| Case | Median (ms) | Min (ms) | Max (ms) | Runs | Script exit |'
+            echo '|---|---:|---:|---:|---:|---:|'
+            while IFS='|' read -r key label; do
+              exit_code=$(awk -F, -v k="$key" '$1 == k { print $2 }' "$dir/exit-codes.csv" 2>/dev/null || true)
+              read -r n median min max <<< "$(stats "$dir/$key.csv")"
+              if [ "${n:-0}" = 0 ]; then
+                echo "| $label | no result | | | 0 | ${exit_code:-n/a} |"
+              else
+                echo "| $label | $median | $min | $max | $n | ${exit_code:-n/a} |"
+              fi
+            done <<'CASES'
+          cold|Cold start, text-basic.pdf (reference protocol)
+          warm|Warm start, text-basic.pdf (reference protocol, 3 warm-up runs)
+          thousand|1000-page file to the first sharp page (reference protocol)
+          second|Second file in the running instance, text-basic.pdf then hello_world.pdf (reference protocol)
+          samefiles-cold|Cold start, hello_world.pdf (the file of the PDF target)
+          samefiles-warm|Warm start, hello_world.pdf (the file of the PDF target)
+          samefiles-second|Second file in the running instance, hello_world.pdf then outline.pdf (the files of the PDF target)
+          CASES
+            echo
+            if [ -d out/reference ]; then
+              bytes=$(find out/reference -type f ! -name '*.pdb' ! -name '*.dbg' -print0 | xargs -0 cat | wc -c)
+              echo "Published size of \`out/reference\` without debug symbols (\`*.pdb\`, \`*.dbg\`): $(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }') MiB."
+            else
+              echo 'Published size of `out/reference`: no published folder.'
+            fi
+            echo
+            echo "Script exit code: 0 = median within the reference app's own budget limit, 1 = above it or a failed run, 2 = wrong invocation (fails the step). A value of 1 is a result here, not a failure; the budget of the reference app is not a limit of this repository."
+            echo 'The cases without the prefix are the reference app'"'"'s own protocol; the three `samefiles` cases use the files of the PDF target. Valid only on a machine with a GPU and an active display; the machine notes are in the artifact.'
+          } > "$dir/summary.md"
+          cat "$dir/summary.md"
+          cat "$dir/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
       # One cold run right after a reboot (spec 9.1). Written as the case cold-reboot, apart from the scripted cold case.
       - name: Cold start after a reboot (frame)
@@ -282,9 +649,18 @@ jobs:
         run: dotnet run bench/shell-probe/measure.cs -- check --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && inputs.target != 'reference' }}
         with:
           name: measure-${{ inputs.platform }}-${{ github.run_id }}
+          path: ${{ env.OUT }}
+          retention-days: 30
+          if-no-files-found: error
+
+      # The reference app: the CSVs, the exit codes, summary.md and the machine notes (with the commit that was measured).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && inputs.target == 'reference' }}
+        with:
+          name: reference-${{ inputs.platform }}-${{ github.run_id }}
           path: ${{ env.OUT }}
           retention-days: 30
           if-no-files-found: error
