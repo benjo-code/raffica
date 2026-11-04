@@ -14,6 +14,8 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Changed
 
+- Raffica PDF: faster start on Windows and a third of the idle memory through software rendering; set `RAFFICA_RENDERING=default` to use the GPU path instead.
+
 ### Fixed
 
 ### Removed
