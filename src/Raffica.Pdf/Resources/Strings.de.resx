@@ -407,6 +407,9 @@
   <data name="SettingsDefaultZoom" xml:space="preserve">
     <value>Standardzoom</value>
   </data>
+  <data name="SettingsAuthorName" xml:space="preserve">
+    <value>Autorenname</value>
+  </data>
   <data name="PrintCardTitle" xml:space="preserve">
     <value>Drucken</value>
   </data>

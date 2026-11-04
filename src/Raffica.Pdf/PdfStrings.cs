@@ -68,6 +68,7 @@ internal static class PdfStrings
     public static string SettingsPageFollowTheme => Table.Get("SettingsPageFollowTheme");
     public static string SettingsDefaultLayout => Table.Get("SettingsDefaultLayout");
     public static string SettingsDefaultZoom => Table.Get("SettingsDefaultZoom");
+    public static string SettingsAuthorName => Table.Get("SettingsAuthorName");
     public static string CmdDarkPage => Table.Get("CmdDarkPage");
     public static string CmdPagesPane => Table.Get("CmdPagesPane");
     public static string CmdOutlinePane => Table.Get("CmdOutlinePane");

@@ -257,6 +257,33 @@ public sealed class PdfSettingsTests
         Assert.Equal(ZoomMode.FitWidth, secondView.ZoomMode);
     }
 
+    [AvaloniaFact]
+    public void AuthorNameRowIsReadBackAndLimitedTo128Characters()
+    {
+        using var windows = WindowFixture.Create(prepare: folder =>
+            Assert.True(new Raffica.Core.Settings.SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(
+                AppSettings.Default with { AuthorName = "Ada" })));
+        windows.Window.Settings.Open();
+        ViewFixture.Pump();
+
+        var author = Find<TextBox>(windows.Window, "PART_AuthorName");
+        Assert.Equal("Ada", author.Text);
+        Assert.Equal(AppSettings.MaxAuthorNameLength, author.MaxLength);
+        Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(author)));
+
+        author.Text = "Grace";
+        Click(windows.Window, "PART_Ok");
+        Assert.True(windows.Window.Settings.Flush(TimeSpan.FromSeconds(10)));
+        Assert.Equal("Grace", windows.Window.Settings.App.AuthorName);
+        Assert.Equal("Grace", new Raffica.Core.Settings.SettingsStore(windows.AppSettingsPath).LoadReadOnly().AuthorName);
+
+        windows.Window.Settings.Open();
+        ViewFixture.Pump();
+        Find<TextBox>(windows.Window, "PART_AuthorName").Text = "   ";
+        Click(windows.Window, "PART_Ok");
+        Assert.Null(windows.Window.Settings.App.AuthorName);
+    }
+
     [Fact]
     public void CorruptSettingsFilesGiveDefaults()
     {
