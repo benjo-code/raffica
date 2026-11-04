@@ -56,6 +56,7 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
     private readonly Dictionary<PdfTab, SearchSession> _searches = [];
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
+    private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
     private SearchBar? _searchBar;
@@ -98,6 +99,7 @@ internal sealed partial class PdfWindow : Window
         TitleSearch = titleBar.Search;
         TitleSearch.Source = definition;
         TitleSearch.CommandChosen += command => command.Run?.Invoke();
+        TitleSearch.ExtraResults = new PdfPaletteSource(CreatePaletteContext()).Find;
         Tabs = titleBar.Tabs;
         Tabs.CloseRequested += OnCloseRequested;
         Tabs.Items.CollectionChanged += OnTabsChanged;
@@ -176,6 +178,17 @@ internal sealed partial class PdfWindow : Window
             }
 
             _texts.Clear();
+            foreach (var (tab, outline) in _outlines)
+            {
+                if (_views.TryGetValue(tab, out var outlined))
+                {
+                    outlined.FirstSharpPage -= outline.Start;
+                }
+
+                outline.Dispose();
+            }
+
+            _outlines.Clear();
             foreach (var view in _views.Values)
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
@@ -462,6 +475,16 @@ internal sealed partial class PdfWindow : Window
                 text.Dispose();
             }
 
+            if (_outlines.Remove(tab, out var outline))
+            {
+                if (_views.TryGetValue(tab, out var outlined))
+                {
+                    outlined.FirstSharpPage -= outline.Start;
+                }
+
+                outline.Dispose();
+            }
+
             if (_searches.Remove(tab, out var search))
             {
                 search.Dispose();
@@ -514,6 +537,11 @@ internal sealed partial class PdfWindow : Window
             _searches[active] = search;
             view.Search = search;
             _texts[active] = new TextInteraction(active, view, Dialogs, _launcher, _time);
+
+            // The outline is read once for the pane and for the palette, after the first sharp page.
+            var outline = new OutlineSource(active);
+            _outlines[active] = outline;
+            view.FirstSharpPage += outline.Start;
         }
 
         DocumentPane.Content = view;
@@ -561,7 +589,7 @@ internal sealed partial class PdfWindow : Window
 
         if (!_panes.TryGetValue(active, out var panes))
         {
-            _panes[active] = panes = new TabPanes(active, view);
+            _panes[active] = panes = new TabPanes(active, view, _outlines[active]);
         }
 
         if (_leftPane == LeftPaneKind.Pages)
@@ -577,14 +605,14 @@ internal sealed partial class PdfWindow : Window
     }
 
     /// <summary>The panes of one tab; each is made when first shown and disposed with the tab.</summary>
-    private sealed class TabPanes(PdfTab tab, PageView view) : IDisposable
+    private sealed class TabPanes(PdfTab tab, PageView view, OutlineSource outline) : IDisposable
     {
         private PagesPane? _pages;
         private OutlinePane? _outline;
 
         public PagesPane Pages => _pages ??= new PagesPane(tab, view);
 
-        public OutlinePane Outline => _outline ??= new OutlinePane(tab, view);
+        public OutlinePane Outline => _outline ??= new OutlinePane(view, outline.ReadAsync);
 
         public void Dispose()
         {
@@ -773,6 +801,23 @@ internal sealed partial class PdfWindow : Window
         var size = view is { PageCount: > 0 } && ReferenceEquals(view.Tab, tab) ? view.FirstPageSize : null;
         await Dialogs.ShowAsync<bool>(done => DocumentInfoCard.Create(info, () => done(true), size));
     }
+
+    /// <summary>The outline of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal OutlineSource? OutlineOf(PdfTab tab) => _outlines.GetValueOrDefault(tab);
+
+    // What the palette needs, read when it asks (on every keystroke): nothing here reads a file or calls PDFium.
+    private PaletteContext CreatePaletteContext() => new()
+    {
+        Tabs = () => Workspace.Tabs,
+        ActiveTab = () => Workspace.Active,
+        Select = tab => Workspace.Select(tab),
+        Recent = count => _recent.ForPalette(count),
+        OpenRecent = entry => _ = GuardAsync(() => OpenRecentAsync(entry)),
+        Outline = () => Workspace.Active is { } active ? _outlines.GetValueOrDefault(active)?.Flat : null,
+        PageCount = () => ActiveView?.PageCount ?? 0,
+        GoToPage = page => ActiveView?.GoToPage(page),
+        ShowDocumentInfo = () => _ = GuardAsync(ShowDocumentInfoAsync),
+    };
 
     /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>
     internal PageView? ViewOf(PdfTab tab) => _views.GetValueOrDefault(tab);
