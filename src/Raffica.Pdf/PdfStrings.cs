@@ -100,6 +100,31 @@ internal static class PdfStrings
     public static string InfoAuthor => Table.Get("InfoAuthor");
     public static string InfoCreated => Table.Get("InfoCreated");
     public static string InfoNotSet => Table.Get("InfoNotSet");
+    public static string SearchBarName => Table.Get("SearchBarName");
+    public static string SearchMatchCase => Table.Get("SearchMatchCase");
+    public static string SearchWholeWord => Table.Get("SearchWholeWord");
+    public static string SearchPreviousHit => Table.Get("SearchPreviousHit");
+    public static string SearchNextHit => Table.Get("SearchNextHit");
+    public static string SearchCloseBar => Table.Get("SearchCloseBar");
+    public static string SearchNoHits => Table.Get("SearchNoHits");
+    public static string SearchHitOne => Table.Get("SearchHitOne");
+    public static string SearchHitsFormat => Table.Get("SearchHitsFormat");
+    public static string SearchLimitFormat => Table.Get("SearchLimitFormat");
+    public static string SearchSearching => Table.Get("SearchSearching");
+    public static string LinkTitle => Table.Get("LinkTitle");
+    public static string LinkMessage => Table.Get("LinkMessage");
+    public static string LinkAddressName => Table.Get("LinkAddressName");
+    public static string LinkOpen => Table.Get("LinkOpen");
+    public static string LinkWarningUserInfo => Table.Get("LinkWarningUserInfo");
+    public static string LinkWarningPunycodeFormat => Table.Get("LinkWarningPunycodeFormat");
+    public static string PaletteGroupGoTo => Table.Get("PaletteGroupGoTo");
+    public static string PaletteGoToPageFormat => Table.Get("PaletteGoToPageFormat");
+    public static string PaletteGoToPageDetailFormat => Table.Get("PaletteGoToPageDetailFormat");
+    public static string PaletteGroupTabs => Table.Get("PaletteGroupTabs");
+    public static string PaletteGroupRecent => Table.Get("PaletteGroupRecent");
+    public static string PaletteGroupOutline => Table.Get("PaletteGroupOutline");
+    public static string PaletteOutlinePageFormat => Table.Get("PaletteOutlinePageFormat");
+    public static string PaletteGroupDocument => Table.Get("PaletteGroupDocument");
 
     /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
     public static string Fill(string template, object? first, object? second = null) =>

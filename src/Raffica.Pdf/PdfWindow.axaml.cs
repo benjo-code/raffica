@@ -16,6 +16,7 @@ using Raffica.Pdf.Documents;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Settings;
+using Raffica.Pdf.Text;
 using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
@@ -53,6 +54,8 @@ internal sealed partial class PdfWindow : Window
     private readonly RecentService _recent;
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
+    private readonly Dictionary<PdfTab, SearchSession> _searches = [];
+    private SearchBar? _searchBar;
     private LeftPaneKind _leftPane = LeftPaneKind.Pages;
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
@@ -75,7 +78,13 @@ internal sealed partial class PdfWindow : Window
         Title = PdfStrings.WindowTitle;
 
         Frame = new AppFrame();
-        var definition = PdfRibbon.Create(new PdfCommands(Open: () => _ = GuardAsync(OpenFromDialogAsync), PagesPane: ShowPagesPane, OutlinePane: ShowOutlinePane));
+        var definition = PdfRibbon.Create(new PdfCommands(
+            Open: () => _ = GuardAsync(OpenFromDialogAsync),
+            Search: ShowSearchBar,
+            SearchNext: SearchNext,
+            SearchPrevious: SearchPrevious,
+            PagesPane: ShowPagesPane,
+            OutlinePane: ShowOutlinePane));
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter) };
 
         var titleBar = new TitleBar { Mark = CreateAppMark() };
@@ -148,9 +157,16 @@ internal sealed partial class PdfWindow : Window
             }
 
             _panes.Clear();
+            foreach (var search in _searches.Values)
+            {
+                search.Dispose();
+            }
+
+            _searches.Clear();
             foreach (var view in _views.Values)
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
+                view.Search = null;
                 view.Tab = null;
             }
 
@@ -428,9 +444,15 @@ internal sealed partial class PdfWindow : Window
                 panes.Dispose();
             }
 
+            if (_searches.Remove(tab, out var search))
+            {
+                search.Dispose();
+            }
+
             if (_views.Remove(tab, out var view))
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
+                view.Search = null;
                 view.Tab = null;
             }
 
@@ -451,6 +473,7 @@ internal sealed partial class PdfWindow : Window
         if (Workspace.Active is not { } active)
         {
             DocumentPane.Content = null;
+            CloseSearchBar();
             UpdateLeftPane();
             return;
         }
@@ -469,9 +492,17 @@ internal sealed partial class PdfWindow : Window
             };
             ApplyInitialView(view, active);
             _views[active] = view;
+            var search = new SearchSession(active, () => view.CurrentPage);
+            _searches[active] = search;
+            view.Search = search;
         }
 
         DocumentPane.Content = view;
+        if (_searchBar is not null && _searches.TryGetValue(active, out var shown))
+        {
+            _searchBar.Session = shown;
+        }
+
         UpdateLeftPane();
         UpdateViewStatus();
         Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
@@ -541,6 +572,90 @@ internal sealed partial class PdfWindow : Window
             _pages?.Dispose();
             _outline?.Dispose();
         }
+    }
+
+    /// <summary>The search of the active tab, or null without a tab.</summary>
+    private SearchSession? ActiveSearch => Workspace.Active is { } active ? _searches.GetValueOrDefault(active) : null;
+
+    /// <summary>The search bar while it is shown (for tests), else null.</summary>
+    internal SearchBar? ShownSearchBar => _searchBar is not null && ReferenceEquals(Frame.Notification, _searchBar) ? _searchBar : null;
+
+    /// <summary>The search of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal SearchSession? SearchOf(PdfTab tab) => _searches.GetValueOrDefault(tab);
+
+    /// <summary>Shows the search bar of the active document in the notification slot and puts the focus into its field. Does nothing without a document.</summary>
+    internal void ShowSearchBar()
+    {
+        if (ActiveSearch is not { } search)
+        {
+            return;
+        }
+
+        _searchBar ??= CreateSearchBar();
+        _searchBar.Session = search;
+        Frame.Notification = _searchBar;
+        _searchBar.FocusQuery();
+        var bar = _searchBar;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ReferenceEquals(Frame.Notification, bar))
+            {
+                bar.FocusQuery();
+            }
+        }, DispatcherPriority.Input);
+    }
+
+    /// <summary>Closes the search bar and forgets the searches of all documents (the highlights go); the focus returns to the document.</summary>
+    internal void CloseSearchBar()
+    {
+        var wasShown = ShownSearchBar is not null;
+        foreach (var search in _searches.Values)
+        {
+            search.Clear();
+        }
+
+        if (_searchBar is not null && ReferenceEquals(Frame.Notification, _searchBar))
+        {
+            Frame.Notification = null;
+        }
+
+        if (wasShown)
+        {
+            ActiveView?.Focus();
+        }
+    }
+
+    /// <summary>Goes to the next hit of the search; without a search it opens the bar instead.</summary>
+    internal void SearchNext()
+    {
+        if (ActiveSearch is { Hits.Count: > 0 } search)
+        {
+            search.Next();
+        }
+        else
+        {
+            ShowSearchBar();
+        }
+    }
+
+    /// <summary>Goes to the previous hit of the search; without a search it opens the bar instead.</summary>
+    internal void SearchPrevious()
+    {
+        if (ActiveSearch is { Hits.Count: > 0 } search)
+        {
+            search.Previous();
+        }
+        else
+        {
+            ShowSearchBar();
+        }
+    }
+
+    private SearchBar CreateSearchBar()
+    {
+        var bar = new SearchBar();
+        bar.CloseRequested += CloseSearchBar;
+        return bar;
     }
 
     /// <summary>The page view of the active tab, or null.</summary>
@@ -705,6 +820,7 @@ internal sealed partial class PdfWindow : Window
             Frame.StatusBar = null;
             Frame.TabRow = null;
             Frame.Band = null;
+            Frame.Notification = null;
             Frame.Document = Start;
             return;
         }

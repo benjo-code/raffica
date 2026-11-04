@@ -33,7 +33,7 @@ namespace Raffica.Pdf.Viewing;
 /// the buffer pages around it. The recorded frame of one pass holds just the pages that are visible.
 /// </para>
 /// </remarks>
-internal sealed class PageView : Control
+internal sealed partial class PageView : Control
 {
     /// <summary>The tab shown; its session is the only source of pages.</summary>
     public static readonly StyledProperty<PdfTab?> TabProperty = AvaloniaProperty.Register<PageView, PdfTab?>(nameof(Tab));
@@ -716,6 +716,7 @@ internal sealed class PageView : Control
             }
         }
 
+        DrawMarks(context, page, rect);
         if (PageBorderBrush is { } border)
         {
             context.DrawRectangle(null, new Pen(border, 1), rect.Inflate(0.5));

@@ -10,6 +10,8 @@ namespace Raffica.Pdf.Documents;
 /// </summary>
 internal sealed class PdfTab : IDisposable
 {
+    private int _disposing;
+
     public PdfTab(ViewerSession session, string path)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -22,6 +24,9 @@ internal sealed class PdfTab : IDisposable
 
     /// <summary>Raised when <see cref="IsDirty"/> changes.</summary>
     public event Action? DirtyChanged;
+
+    /// <summary>Raised once, at the start of <see cref="Dispose"/> and before the session goes: whatever works on the document (a search) stops here.</summary>
+    public event Action? Disposing;
 
     public ViewerSession Session { get; }
 
@@ -39,7 +44,15 @@ internal sealed class PdfTab : IDisposable
 
     public void MarkClean() => SetDirty(false);
 
-    public void Dispose() => Session.Dispose();
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposing, 1) == 0)
+        {
+            Disposing?.Invoke();
+        }
+
+        Session.Dispose();
+    }
 
     private void SetDirty(bool dirty)
     {

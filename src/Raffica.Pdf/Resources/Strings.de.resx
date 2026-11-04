@@ -263,4 +263,79 @@
   <data name="InfoNotSet" xml:space="preserve">
     <value>Nicht angegeben</value>
   </data>
+  <data name="SearchBarName" xml:space="preserve">
+    <value>Im Dokument suchen</value>
+  </data>
+  <data name="SearchMatchCase" xml:space="preserve">
+    <value>Groß-/Kleinschreibung beachten</value>
+  </data>
+  <data name="SearchWholeWord" xml:space="preserve">
+    <value>Ganzes Wort</value>
+  </data>
+  <data name="SearchPreviousHit" xml:space="preserve">
+    <value>Vorheriger Treffer</value>
+  </data>
+  <data name="SearchNextHit" xml:space="preserve">
+    <value>Nächster Treffer</value>
+  </data>
+  <data name="SearchCloseBar" xml:space="preserve">
+    <value>Suche schließen</value>
+  </data>
+  <data name="SearchNoHits" xml:space="preserve">
+    <value>Keine Treffer</value>
+  </data>
+  <data name="SearchHitOne" xml:space="preserve">
+    <value>1 Treffer</value>
+  </data>
+  <data name="SearchHitsFormat" xml:space="preserve">
+    <value>{0} Treffer</value>
+  </data>
+  <data name="SearchLimitFormat" xml:space="preserve">
+    <value>Mehr als {0} Treffer</value>
+  </data>
+  <data name="SearchSearching" xml:space="preserve">
+    <value>Suche läuft …</value>
+  </data>
+  <data name="LinkTitle" xml:space="preserve">
+    <value>Diesen Link öffnen?</value>
+  </data>
+  <data name="LinkMessage" xml:space="preserve">
+    <value>Dieser Link führt aus dem Dokument hinaus. Er wird in Ihrem Browser oder Mailprogramm geöffnet.</value>
+  </data>
+  <data name="LinkAddressName" xml:space="preserve">
+    <value>Adresse</value>
+  </data>
+  <data name="LinkOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="LinkWarningUserInfo" xml:space="preserve">
+    <value>Prüfen Sie diese Adresse. Sie enthält vor dem Rechnernamen einen Benutzernamen, eine häufige Tarnung für eine andere Seite.</value>
+  </data>
+  <data name="LinkWarningPunycodeFormat" xml:space="preserve">
+    <value>Prüfen Sie diese Adresse. Die Domain enthält Sonderzeichen und kann einen anderen Namen vortäuschen. Entschlüsselte Domain: {0}</value>
+  </data>
+  <data name="PaletteGroupGoTo" xml:space="preserve">
+    <value>Gehe zu</value>
+  </data>
+  <data name="PaletteGoToPageFormat" xml:space="preserve">
+    <value>Gehe zu Seite {0}</value>
+  </data>
+  <data name="PaletteGoToPageDetailFormat" xml:space="preserve">
+    <value>von {0}</value>
+  </data>
+  <data name="PaletteGroupTabs" xml:space="preserve">
+    <value>Geöffnete Dokumente</value>
+  </data>
+  <data name="PaletteGroupRecent" xml:space="preserve">
+    <value>Zuletzt geöffnet</value>
+  </data>
+  <data name="PaletteGroupOutline" xml:space="preserve">
+    <value>Gliederung</value>
+  </data>
+  <data name="PaletteOutlinePageFormat" xml:space="preserve">
+    <value>Seite {0}</value>
+  </data>
+  <data name="PaletteGroupDocument" xml:space="preserve">
+    <value>Dokument</value>
+  </data>
 </root>

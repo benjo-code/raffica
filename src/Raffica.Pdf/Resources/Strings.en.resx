@@ -266,4 +266,79 @@
   <data name="InfoNotSet" xml:space="preserve">
     <value>Not set</value>
   </data>
+  <data name="SearchBarName" xml:space="preserve">
+    <value>Find in document</value>
+  </data>
+  <data name="SearchMatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+  <data name="SearchWholeWord" xml:space="preserve">
+    <value>Whole word</value>
+  </data>
+  <data name="SearchPreviousHit" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="SearchNextHit" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="SearchCloseBar" xml:space="preserve">
+    <value>Close search</value>
+  </data>
+  <data name="SearchNoHits" xml:space="preserve">
+    <value>No hits</value>
+  </data>
+  <data name="SearchHitOne" xml:space="preserve">
+    <value>1 hit</value>
+  </data>
+  <data name="SearchHitsFormat" xml:space="preserve">
+    <value>{0} hits</value>
+  </data>
+  <data name="SearchLimitFormat" xml:space="preserve">
+    <value>More than {0} hits</value>
+  </data>
+  <data name="SearchSearching" xml:space="preserve">
+    <value>Searching…</value>
+  </data>
+  <data name="LinkTitle" xml:space="preserve">
+    <value>Open this link?</value>
+  </data>
+  <data name="LinkMessage" xml:space="preserve">
+    <value>This link leads outside the document. It opens in your browser or mail program.</value>
+  </data>
+  <data name="LinkAddressName" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="LinkOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="LinkWarningUserInfo" xml:space="preserve">
+    <value>Check this address. It contains a user name before the host name, a common disguise for a different site.</value>
+  </data>
+  <data name="LinkWarningPunycodeFormat" xml:space="preserve">
+    <value>Check this address. The domain uses special characters and can imitate another name. Decoded domain: {0}</value>
+  </data>
+  <data name="PaletteGroupGoTo" xml:space="preserve">
+    <value>Go to</value>
+  </data>
+  <data name="PaletteGoToPageFormat" xml:space="preserve">
+    <value>Go to page {0}</value>
+  </data>
+  <data name="PaletteGoToPageDetailFormat" xml:space="preserve">
+    <value>of {0}</value>
+  </data>
+  <data name="PaletteGroupTabs" xml:space="preserve">
+    <value>Open documents</value>
+  </data>
+  <data name="PaletteGroupRecent" xml:space="preserve">
+    <value>Recent files</value>
+  </data>
+  <data name="PaletteGroupOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="PaletteOutlinePageFormat" xml:space="preserve">
+    <value>Page {0}</value>
+  </data>
+  <data name="PaletteGroupDocument" xml:space="preserve">
+    <value>Document</value>
+  </data>
 </root>
