@@ -1504,6 +1504,7 @@ static class SelfTest
         CheckTests();
         SizeCheckTests();
         PdfTests();
+        EveryCommandAcceptsThePdfTarget();
 
         Console.WriteLine($"selftest: {s_checks - s_failures}/{s_checks} checks passed");
         return s_failures == 0 ? 0 : 1;
@@ -1762,6 +1763,70 @@ static class SelfTest
         }
 
         Expect("pdf limits: the test table is gone again", CheckCommand.PdfTable.Values.All(t => t.Count == 0), true);
+    }
+
+    /// <summary>
+    /// The CI step "Size of the published PDF app" calls <c>size --target pdf ... --out</c>, a path that only the gallery had a test for.
+    /// Every subcommand that takes <c>--target</c> must accept <c>pdf</c> in its argument check and refuse an unknown target with the
+    /// message that names the allowed ones; this pins all of them (run, size with and without --check, check).
+    /// </summary>
+    private static void EveryCommandAcceptsThePdfTarget()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "pdftarget");
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        var publish = Path.Combine(root, "publish");
+        var fonts = Path.Combine(root, "fonts");
+        Directory.CreateDirectory(publish);
+        Directory.CreateDirectory(fonts);
+        File.WriteAllBytes(Path.Combine(publish, "RafficaPdf.exe"), new byte[10]);
+        File.WriteAllBytes(Path.Combine(fonts, "a.ttf"), new byte[7]);
+        var csv = Path.Combine(root, "in.csv");
+        PdfCsv(csv, PdfRows("windows"));
+        var fake = FakeProbe.Create("hang");
+
+        // The size CSV of the CI step (no --check, with --out): exit 0 and rows of the mode pdf.
+        var sizeCsv = Path.Combine(root, "size.csv");
+        Expect("size --target pdf --out: exit 0", SizeCommand.Execute(Options.Parse(["--target", "pdf", "--publish-dir", publish, "--fonts-dir", fonts, "--out", sizeCsv], out _)!), 0);
+        var sizeRows = File.Exists(sizeCsv) ? File.ReadAllLines(sizeCsv) : [];
+        Expect("size --target pdf --out: the rows have the mode pdf", sizeRows.Length > 1 && sizeRows.Skip(1).All(r => r.Contains(",pdf,size,", StringComparison.Ordinal)), true);
+
+        var commands = new (string Name, Func<string, int> Run)[]
+        {
+            ("run", t => RunCommand.Execute(Options.Parse(["--target", t, "--exe", fake, "--case", "nonexistent", "--out", Path.Combine(root, "run.csv")], out _)!)),
+            ("size", t => SizeCommand.Execute(Options.Parse(["--target", t, "--publish-dir", publish, "--fonts-dir", fonts, "--out", Path.Combine(root, "s.csv")], out _)!)),
+            ("size --check", t => SizeCommand.Execute(Options.Parse(["--target", t, "--check", "win-x64", "--publish-dir", publish, "--fonts-dir", fonts], out _)!)),
+            ("check", t => CheckCommand.Execute(Options.Parse(["--target", t, "--platform", "windows", "--in", csv], out _)!)),
+        };
+        foreach (var (name, run) in commands)
+        {
+            var (_, pdfMessage) = Capture(() => run("pdf"));
+            Expect($"{name} --target pdf: the target is accepted", pdfMessage.Contains("--target must be", StringComparison.Ordinal), false);
+            var (_, badMessage) = Capture(() => run("amiga"));
+            Expect($"{name} --target amiga: refused with a message naming pdf", badMessage.Contains("--target must be", StringComparison.Ordinal) && badMessage.Contains("pdf", StringComparison.Ordinal), true);
+        }
+
+        Directory.Delete(root, recursive: true);
+    }
+
+    // The exit code and what the command wrote to the error stream.
+    private static (int Exit, string Error) Capture(Func<int> run)
+    {
+        var saved = Console.Error;
+        var writer = new StringWriter();
+        Console.SetError(writer);
+        try
+        {
+            var exit = run();
+            return (exit, writer.ToString());
+        }
+        finally
+        {
+            Console.SetError(saved);
+        }
     }
 
     private static void PdfSizeCheckTests()
