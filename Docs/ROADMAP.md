@@ -27,7 +27,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
-| 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
+| 2 | Create spec for Raffica PDF | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -145,10 +145,10 @@ Goal: The shared app frame works in the gallery app with every behaviour of the 
 
 # Subproject 3 – Raffica PDF
 
-**Spec:** not written yet (created in its first milestone)
+**Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) Raffica PDF design, approved 2026-11-04
 
 ## Milestone 2 – Create spec for Raffica PDF
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M1
+**Status:** 🟡 planned · **Plan:** [2026-11-04-milestone-02-pdf-spec.md](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M1
 
 Goal: The scope and the milestones of the PDF app on the new UI and the imported core are written down.
 
