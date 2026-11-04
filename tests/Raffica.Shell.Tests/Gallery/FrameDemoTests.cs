@@ -420,6 +420,45 @@ public sealed class FrameDemoTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void EveryDemoCommandIsReachableThroughItsFieldCode(string lang)
+    {
+        using var demo = new Demo(lang);
+        var ribbon = demo.Window.Ribbon.Definition!;
+        var session = new FieldCodeSession(ribbon);
+        var run = new List<string>();
+        session.CommandRun += command => run.Add(command.Id);
+
+        var reached = 0;
+        foreach (var tab in ribbon.Tabs)
+        {
+            foreach (var command in tab.Groups.SelectMany(g => g.Commands))
+            {
+                // Each walk starts from a fresh Alt: tab letter, then the code of the command (and of the menu item).
+                var paths = command.Items is { } items
+                    ? items.Select(item => (Typed: command.FieldCode + item.FieldCode, Expected: item.Id))
+                    : [(Typed: command.FieldCode, Expected: command.Id)];
+                foreach (var (typed, expected) in paths)
+                {
+                    run.Clear();
+                    session.F10();
+                    foreach (var c in tab.Letter + typed)
+                    {
+                        session.Type(c);
+                    }
+
+                    Assert.True(run.SequenceEqual([expected]), $"{lang}/{tab.Name}: '{tab.Letter}{typed}' ran [{string.Join(",", run)}], expected {expected}");
+                    Assert.Equal(FieldCodeStage.Off, session.Stage);
+                    reached++;
+                }
+            }
+        }
+
+        Assert.True(reached >= 50, $"only {reached} commands were walked");
+    }
+
     [AvaloniaFact]
     public void TheGermanRibbonHasRealGermanNamesAsLongAsTheSpecShows()
     {
