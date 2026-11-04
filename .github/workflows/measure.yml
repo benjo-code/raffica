@@ -1,4 +1,4 @@
-# Speed measurement of the shell probe on the project owner's own machines (real GPU, active display).
+# Speed measurement of the shell probe and of the gallery app's frame on the project owner's own machines (real GPU, active display).
 #
 # SECURITY: This workflow executes repository code on personal machines, with the owner's user rights.
 # - It runs only on an explicit manual trigger: `workflow_dispatch` (needs write access to the repository). There is
@@ -24,8 +24,13 @@ on:
         description: 'Machine note: GPU, resolution, scaling, power mode'
         type: string
         required: true
+      target:
+        description: What to measure, the gallery app's frame (default) or the throwaway shell probe
+        type: choice
+        default: gallery
+        options: [gallery, probe]
       cases:
-        description: all, or cold-reboot (one cold run in frame mode, right after a reboot)
+        description: all, or cold-reboot (one cold run of the frame, right after a reboot)
         type: choice
         default: all
         options: [all, cold-reboot]
@@ -37,9 +42,10 @@ permissions:
 env:
   AVALONIA_TELEMETRY_OPTOUT: '1'
   RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64"}')[inputs.platform] }}
-  PROBE: out/probe/ShellProbe${{ inputs.platform == 'windows' && '.exe' || '' }}
+  EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
+  PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || 'bench/shell-probe/ShellProbe' }}
   OUT: out/measure-${{ github.run_id }}
-  FONTS: bench/shell-probe/ShellProbe/Assets/Fonts
+  FONTS: ${{ inputs.target == 'gallery' && 'src/Raffica.Shell/Assets/Fonts' || 'bench/shell-probe/ShellProbe/Assets/Fonts' }}
 
 jobs:
   measure:
@@ -77,8 +83,8 @@ jobs:
         shell: powershell
         run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
-      - name: Publish the probe (Native AOT)
-        run: dotnet publish bench/shell-probe/ShellProbe -c Release -r ${{ env.RID }} -o out/probe
+      - name: Publish the app (Native AOT)
+        run: dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} -o out/app
 
       # The machine note: what the owner typed, the OS, the processor and the memory. The note travels in an
       # environment variable, never inside the script text.
@@ -150,44 +156,83 @@ jobs:
 
       # One cold run right after a reboot (spec 9.1). Written as the case cold-reboot, apart from the scripted cold case.
       - name: Cold start after a reboot (frame)
-        if: inputs.cases == 'cold-reboot'
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
+        if: inputs.cases == 'cold-reboot' && inputs.target == 'probe'
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode frame --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
 
-      # The cases of spec 9.1, both modes. A failing case does not stop the others, so that every CSV exists; the job
+      - name: Cold start after a reboot (gallery)
+        if: inputs.cases == 'cold-reboot' && inputs.target == 'gallery'
+        run: dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe ${{ env.EXE }} --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
+
+      # The cases of spec 9.1, both modes (target probe). A failing case does not stop the others, so that every CSV exists; the job
       # fails afterwards. The script warns before the runs and next to the result when the machine has no usable
       # compositor rate.
       - name: Cold start (empty)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode empty --case cold --out ${{ env.OUT }}/cold-empty.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode empty --case cold --out ${{ env.OUT }}/cold-empty.csv
 
       - name: Cold start (frame)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case cold --out ${{ env.OUT }}/cold-frame.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode frame --case cold --out ${{ env.OUT }}/cold-frame.csv
 
       - name: Warm start (empty)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode empty --case warm --out ${{ env.OUT }}/warm-empty.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode empty --case warm --out ${{ env.OUT }}/warm-empty.csv
 
       - name: Warm start (frame)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case warm --out ${{ env.OUT }}/warm-frame.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode frame --case warm --out ${{ env.OUT }}/warm-frame.csv
 
       # The input case needs the frame mode (the probe's text box); the empty mode has no such control.
       - name: Input latency (frame)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case input --out ${{ env.OUT }}/input-frame.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode frame --case input --out ${{ env.OUT }}/input-frame.csv
 
       - name: Idle memory (empty)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode empty --case memory --out ${{ env.OUT }}/memory-empty.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode empty --case memory --out ${{ env.OUT }}/memory-empty.csv
 
       - name: Idle memory (frame)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.PROBE }} --mode frame --case memory --out ${{ env.OUT }}/memory-frame.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --exe ${{ env.EXE }} --mode frame --case memory --out ${{ env.OUT }}/memory-frame.csv
 
       - name: Size (frame)
-        if: ${{ !cancelled() && inputs.cases == 'all' }}
-        run: dotnet run bench/shell-probe/measure.cs -- size --publish-dir out/probe --fonts-dir ${{ env.FONTS }} --mode frame --out ${{ env.OUT }}/size.csv
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
+        run: dotnet run bench/shell-probe/measure.cs -- size --publish-dir out/app --fonts-dir ${{ env.FONTS }} --mode frame --out ${{ env.OUT }}/size.csv
+
+      # The gallery (target gallery): the frame view only, no empty baseline. Each run gets a settings file of its own, so a
+      # measurement never reads or writes the settings of the user. The mode in the CSV is "gallery".
+      - name: Cold start (gallery)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe ${{ env.EXE }} --case cold --out ${{ env.OUT }}/cold.csv
+
+      - name: Warm start (gallery)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe ${{ env.EXE }} --case warm --out ${{ env.OUT }}/warm.csv
+
+      - name: Input latency (gallery)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe ${{ env.EXE }} --case input --out ${{ env.OUT }}/input.csv
+
+      - name: Idle memory (gallery)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe ${{ env.EXE }} --case memory --out ${{ env.OUT }}/memory.csv
+
+      - name: Size (gallery)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
+        run: dotnet run bench/shell-probe/measure.cs -- size --target gallery --publish-dir out/app --fonts-dir ${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
+
+      # The verdict against the limits of Docs/DECISIONS.md ("Speed targets of the frame (M1)"), written to the job summary. It
+      # fails the job above a limit or with a missing CSV; macOS has no limits and is indicative only. Two steps, because the
+      # path of the summary file is a different variable in PowerShell and bash.
+      - name: Check against the limits (Windows)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' && runner.os == 'Windows' }}
+        shell: powershell
+        run: dotnet run bench/shell-probe/measure.cs -- check --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$env:GITHUB_STEP_SUMMARY"
+
+      - name: Check against the limits (Linux, macOS)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' && runner.os != 'Windows' }}
+        shell: bash
+        run: dotnet run bench/shell-probe/measure.cs -- check --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}

@@ -1,6 +1,5 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:conv="using:Avalonia.Controls.Converters"
                     xmlns:controls="clr-namespace:Raffica.Shell.Controls">
   <!--
     Menu items, separators and the menu bar (rows "Menu item" and "Destructive menu item" of the state table, appendix A section 5
@@ -15,7 +14,7 @@
     border (TextElement.Foreground) so label, icon and arrow follow every state. The menu bar items are 26 px high with 8 px
     side padding and the same hover; their popup is the menu.
   -->
-  <conv:PlatformKeyGestureConverter x:Key="Raffica.Converter.KeyGesture" />
+  <controls:ShortcutTextConverter x:Key="Raffica.Converter.KeyGesture" />
 
   <ControlTheme x:Key="{x:Type Separator}" TargetType="Separator">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Rule}" />

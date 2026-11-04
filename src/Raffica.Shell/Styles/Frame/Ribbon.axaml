@@ -1,0 +1,66 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The ribbon (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md). The parts of RibbonView sit in the
+    slots of the app frame and are selected by class. Tab row: square, 32 px with a 1 px ink rule on its last pixel row; a tab is a
+    plain 32 px button, the active tab (class active) is 33 px high, weight 600, in the ink with a 1 px ink border on three sides
+    and no fill. Band: surface.band is the fill of the frame row; groups are 8 px apart, a 1 px rule stands only before a
+    destructive group. Large tile 54 px high, at least 48 wide, small button 26 px, icon-only button square; all with the 3 px
+    radius of the button theme. The group label is 12 px sentence case text.secondary. No colour outside the active and pressed
+    states (those come from the button theme), no shadow.
+  -->
+  <Style Selector="Border.ribbon-tabrule">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Rule.Width}" />
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+  </Style>
+
+  <Style Selector="Button.ribbon-tab">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.TabRow}" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="Button.ribbon-tab.active">
+    <Setter Property="Height" Value="33" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="FontWeight" Value="600" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
+  </Style>
+
+  <Style Selector="Border.ribbon-rule">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Rule}" />
+  </Style>
+
+  <Style Selector="Button.ribbon-tile">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.TileLarge}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Raffica.Size.TileLargeMin}" />
+    <Setter Property="Padding" Value="4,2" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+  </Style>
+  <Style Selector="Button.ribbon-small">
+    <Setter Property="Padding" Value="6,0" />
+  </Style>
+  <Style Selector="Button.ribbon-iconly, Button.ribbon-more">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="{DynamicResource Raffica.Size.Button}" />
+  </Style>
+  <Style Selector="Button.ribbon-more">
+    <Setter Property="MinWidth" Value="{DynamicResource Raffica.Size.HitTargetMin}" />
+    <Setter Property="Width" Value="{DynamicResource Raffica.Size.HitTargetMin}" />
+  </Style>
+
+  <Style Selector="TextBlock.ribbon-label">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.ribbon-group-label">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="LineHeight" Value="15" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+</Styles>

@@ -80,7 +80,7 @@ public sealed class MenuTests
 
         var shortcut = Shortcut(f.Save);
         Assert.EndsWith("S", shortcut.Text);
-        Assert.Contains("Ctrl", shortcut.Text);
+        Assert.Contains(OperatingSystem.IsMacOS() ? "⌃" : "Ctrl", shortcut.Text);
         Assert.Equal(13, shortcut.FontSize);
         Assert.Equal(HorizontalAlignment.Right, shortcut.HorizontalAlignment);
         ControlHarness.AssertToken("Raffica.Brush.Text.Secondary", shortcut.Foreground, "shortcut");
@@ -92,6 +92,23 @@ public sealed class MenuTests
         var cutRight = cutShortcut.TranslatePoint(new Point(cutShortcut.Bounds.Width, 0), f.Cut)!.Value.X;
         Assert.Equal(f.Save.Bounds.Width - 12, saveRight, 0.5);
         Assert.Equal(saveRight, cutRight, 0.5);
+    }
+
+    // Fails if the shortcut column keeps the framework's English key names.
+    [AvaloniaFact]
+    public void ShortcutColumnIsLocalized()
+    {
+        var previous = Raffica.Shell.Localization.ShellStrings.Culture;
+        try
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("de");
+            var f = Open(ThemeMode.Light);
+            Assert.Equal(OperatingSystem.IsMacOS() ? "⌃S" : "Strg+S", Shortcut(f.Save).Text);
+        }
+        finally
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = previous;
+        }
     }
 
     [AvaloniaTheory]

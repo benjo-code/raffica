@@ -14,7 +14,7 @@ public class TooltipContent : ContentControl
     public static readonly StyledProperty<string?> TitleProperty =
         AvaloniaProperty.Register<TooltipContent, string?>(nameof(Title));
 
-    /// <summary>The shortcut, for example <c>Ctrl+Shift+E</c>. Empty hides it.</summary>
+    /// <summary>The shortcut written with English names, for example <c>Ctrl+Shift+E</c>; it is shown in the UI language and the platform's style (<see cref="Raffica.Shell.Localization.KeyNames"/>). Empty hides it.</summary>
     public static readonly StyledProperty<string?> ShortcutProperty =
         AvaloniaProperty.Register<TooltipContent, string?>(nameof(Shortcut));
 

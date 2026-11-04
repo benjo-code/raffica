@@ -12,6 +12,41 @@
       "date": "2026-11-03",
       "context": "Milestone 1.1",
       "text": "Localized key names in menu shortcuts (`Strg+X` instead of `Ctrl+X`) and the TextBox context menu strings (Fluent's English Cut, Copy and Paste) move to milestone 1.2 with the German layout work. The gallery window is 1520 x 900. Decisions in `Docs/DECISIONS.md`, entries \"Shell project and token conventions (M1.1)\" and \"Localization mechanism and its limits\". The high-contrast palette is a fixed palette, not a token set built from the system colours as the spec asks (entry \"High-contrast palette\"); owner to confirm."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "AppFrame collapses an empty tab row and band, so the start view sits directly under the title bar; the gallery's frame demo gets a fifth File tab."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "`AutomationNameTests` ignores the RepeatButtons inside a RangeBase (the zoom slider), which carry no name of their own."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "`RibbonView.NotifyInvoked` is new so that `CommandInvoked` also fires for commands run by a field code."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "Additions beyond the plan, needed by the frame demo and the reviews: `Pane.IsDocument` and `Pane.PaneName`, `AppFrame.IsLeftPaneShown` and `IsRightPaneShown`, `TitleBar.LeadingInset`, zoom from 10 to 500 percent in steps of 10 with snapping, `FieldCodeTarget`, `PaneFocus.Focus(Pane)` and `StartView.FocusFirstTile`."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "Q (search), 6 and 7 (panes) act in the field-code tab-letter stage through app-supplied `FieldCodeTarget`s; the spec lists the badges as display only and the plan said \"shows\". The group digits stay a display-only legend."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "The frame demo window has a minimum width of 1024 px. The full ribbon at 1024 px without the compact bar clips groups of the Home tab; this is a recorded limitation and not a tested case, there is no automatic compact mode (backlog)."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 1.2",
+      "text": "The shell tests run serially (`DisableTestParallelization` in `tests/Raffica.Shell.Tests/TestCulture.cs`) because parallel test classes switching the shared `ShellStrings.Culture` made the suite flaky (about one first run in three after a build)."
     }
   ],
   "subprojects": [
@@ -99,19 +134,26 @@
         {
           "id": "1.2",
           "title": "App frame",
-          "status": "open",
+          "status": "in-progress",
+          "plan": "superpowers/plans/2026-11-03-milestone-01-2-app-frame.md",
           "prerequisites": ["1.1"],
           "goal": "The shared app frame works in the gallery app with every behaviour of the spec, within the measured speed limits.",
           "tasks": [
-            { "text": "Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar", "done": false },
-            { "text": "Field codes (Office-style sequence) and F6 pane focus", "done": false },
-            { "text": "Start view and settings dialog (theme, language after restart, compact command bar, autosave)", "done": false },
-            { "text": "Size check in CI and a German layout test at 1440 px and at the compact width", "done": false }
+            { "text": "Title bar with document tabs and search (Ctrl+K), ribbon with compact mode, side panels, status bar", "done": true },
+            { "text": "Field codes (Office-style sequence) and F6 pane focus", "done": true },
+            { "text": "Start view and settings dialog (theme, language after restart, compact command bar, autosave)", "done": true },
+            { "text": "Size check in CI and a German layout test at 1440 px and at the compact width", "done": true }
           ],
           "acceptance": [
-            { "text": "Tests cover every field-code step, the AltGr case, duplicate codes and F6 navigation", "done": false },
-            { "text": "The German layout test finds no clipped ribbon label", "done": false },
-            { "text": "A `measure.yml` run on the Windows and Linux machines stays within the limits recorded in milestone 1", "done": false }
+            { "text": "Tests cover every field-code step, the AltGr case, duplicate codes and F6 navigation", "done": true, "evidence": "Field-code steps: `FieldCodeSessionTests` (`BareAltPressAndReleaseTurnsTheModeOn`, `F10TurnsTheModeOn`, `AltWithAnotherKeyInBetweenIsAnOrdinaryShortcut`, `TabLetterShowsTheCommandCodes`, `TwoCharacterCodeCompletesOnTheSecondKey`, `MenuCommandShowsItsItemCodesNext`, `EscapeGoesBackOneStep`, `AltAgainEndsTheMode`, `CancelEndsTheMode`) and `FieldCodeInputTests` (menu item codes, click, deactivation, dialog, F6 and Ctrl+K ending the mode). AltGr: `FieldCodeSessionTests.AltGrNeverEntersTheMode`, `FieldCodeInputTests.AltGrOnWindowsTypesTheCharacter`, `AltGrPressedAndReleasedAloneDoesNotEnterTheMode`, `AltGrOnLinuxSendsNoCtrlButTheCharacterStillCountsAsAnotherKey`. Duplicate and prefix codes: `RibbonDefinitionTests.DuplicateCodeInATabFails`, `DuplicateTabLetterFails`, `DuplicateCodeInAMenuFails`, `PrefixCodeInATabFails`, `PrefixCodeInAMenuFails`, `APrefixAcrossTwoGroupsOfATabFails`, `ThePrefixCheckIsPerTabAndPerMenu`; `FrameDemoTests.EveryDemoCommandIsReachableThroughItsFieldCode` walks every demo command. F6: `PaneRingTests` (`NextCyclesThroughThePanes`, `PreviousCyclesBackwards`, `ClosedPanesAreSkipped`) and `PaneFocusTests` (`F6MovesNavigationDocumentComments`, `ShiftF6GoesBackwards`, `F6DoesNothingWhileADialogIsOpen`). Run: `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` gives 4071 total, 4050 passed, 0 failed, 21 skipped (Linux file modes and measurement-only tests); `dotnet build Raffica.slnx -c Release` gives 0 warnings; `dotnet format Raffica.slnx --verify-no-changes` is clean. Headless tests cannot show the real keyboard path of an operating system: the manual checks that stay open are listed under \"Open items\" below." },
+            { "text": "The German layout test finds no clipped ribbon label", "done": true, "evidence": "`GermanLayoutTests.NoRibbonLabelIsClippedInGerman` (1440 px with the full ribbon and 1024 px with the compact bar, Light and Dark, every tab) passes, as do `EnglishFitsToo`, `NoDocumentTabOrStatusCellIsClippedInGerman` and `TabsAndStatusCellsFitInEnglishToo`. The test can fail: the first run with `LabelFit` in place listed 15 clipped German labels at 1440 px (for example Ausschneiden, Format übertragen, Rechtschreibung, Alle Änderungen annehmen, Persönliche Daten entfernen), which were fixed (label width 96 px for tiles and 160 px for small buttons, three demo labels shortened). Negative proof: with the German `CmdCopy` lengthened to \"Kopieren in die Zwischenablage\" the test failed at 1440 px, and with the position text lengthened to \"Seite 1 von 3 im Abschnitt Einleitung\" it failed at 1024 px compact, naming the labels (status bar); both strings were reverted. Recorded limitation, not a tested case: the full ribbon at 1024 px without the compact bar clips the Find and Clear groups of the Home tab (see the scope change and the backlog entry about an automatic compact mode)." },
+            { "text": "A `measure.yml` run on the Windows and Linux machines stays within the limits recorded in milestone 1", "done": false, "evidence": "OPEN, needs the owner to start the self-hosted runners. Verified so far: the CI step \"Size of the published gallery\" is in `ci.yml`; locally the win-x64 Native AOT gallery is 40.65 MiB and its zip 16.80 MiB (`dotnet run bench/shell-probe/measure.cs -- size --check win-x64 --publish-dir artifacts/gallery/win-x64 --fonts-dir src/Raffica.Shell/Assets/Fonts`), under the limits 48.75 and 20 MiB; `dotnet run bench/shell-probe/measure.cs -- selftest` gives 122/122 checks. Not verified: the timing, input and memory medians of the Windows and Linux runs and the Linux size. Commands are listed under \"Open items\" below." }
+          ],
+          "blocks": [
+            {
+              "title": "Open items",
+              "text": "**Measurement runs (criterion 3).** With the runners started (`bench/shell-probe/RUNNERS.md`): `gh workflow run measure.yml --ref feature/m01-2-app-frame -f platform=windows -f target=gallery -f note=\"<GPU, resolution, scaling, power>\"`, then the same with `-f platform=linux`. Download each run with `gh run download <id> -n measure-<platform>-<id> -D Docs/measurements/gallery-frame-<date>/<platform>`. The `check` step of the run must pass; a run flagged \"Invalid measurement\" (compositor warning) does not count; a value above its limit is reported to the owner and no limit is changed. `--measure-input` ended with exit 3 in the implementation session (92 of 100 presses in 30 s, also for the unmodified probe); it needs a check on a real display, for example `dotnet run --project src/Raffica.Gallery -c Release -- --view frame --measure-input`. The medians then go into `Docs/DECISIONS.md` (\"Gallery frame baseline (M1.2)\").\n\n**Manual checks (headless tests cannot show them).**\n- Bare Alt on a real Windows machine: `dotnet run --project src/Raffica.Gallery -- --view frame`, press and release Alt: the field codes appear and no system menu opens; also with a dialog open (Alt inside the settings dialog) and with F10.\n- AltGr: type `@` with AltGr in the search field on a German layout; F10 then a letter.\n- Alt, H, 2, 1 opens the paste menu without taking the keyboard focus (the flyout is opened `Transient`), on Windows, Linux and macOS.\n- Title bar on the ProBook (CachyOS, Wayland): `dotnet publish src/Raffica.Gallery -c Release -r linux-x64 -o out/gallery`, then `out/gallery/RafficaGallery --view frame`; the system-title-bar fallback is not built and becomes a scope change if this fails.\n- Windows caption buttons: the roles map to the system hit codes and the buttons also set `WindowState`; check that maximize does not toggle twice.\n- macOS: drag area, the 80 px inset for the system buttons and the Option key (a bare Option tap enters the mode and takes the next letter; there is no platform gating)."
+            }
           ]
         }
       ]
@@ -241,6 +283,30 @@
     {
       "title": "Real-time collaboration",
       "text": "Several people editing one document at the same time, someday, not for the beginning."
+    },
+    {
+      "title": "Automatic compact command bar below a window width",
+      "text": "The full ribbon at 1024 px without the compact bar clips groups of the Home tab; compact mode is a user toggle today. Decide whether the frame switches to compact automatically below a width (a scope change for the frame)."
+    },
+    {
+      "title": "What the field-code group numbers should do",
+      "text": "In field-code mode the group digits are shown as a legend only; Q, 6 and 7 act. Decide whether typing a group digit should do something (for example jump to the group)."
+    },
+    {
+      "title": "German wording for \"System\" in the settings dialog",
+      "text": "The German label \"Wie System\" (`SettingsThemeSystem`, the follow-the-system theme choice) needs the owner's decision on the wording."
+    },
+    {
+      "title": "Ctrl+K and hyperlinks in Write",
+      "text": "The frame binds Ctrl+K to the search field. Word and other editors use Ctrl+K for inserting a hyperlink; settle this in the Write spec (note for the Write spec)."
+    },
+    {
+      "title": "Accessibility items deferred from the frame",
+      "text": "Not done in milestone 1.2: the selected state of ribbon and document tabs is not exposed to assistive technology (only a style class), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button)."
+    },
+    {
+      "title": "Option key handling on macOS",
+      "text": "A bare Option tap enters field-code mode and takes the next letter; there is no platform gating. Decide the macOS behaviour when the macOS subproject is specified, after checking it on a Mac."
     }
   ]
 }

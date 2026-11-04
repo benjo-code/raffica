@@ -1,0 +1,106 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:frame="clr-namespace:Raffica.Shell.Frame">
+  <!--
+    The start view (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md, board
+    Docs/design/direction-d/Start.dc.html): a 336 px column on the band surface with "New" (150 px high tiles, two per row, 12 px
+    between them, the 11 px app mark in the corner of the preview area) and "Open", then the recent files as 40 px rows. The
+    column gap of 24 px (appendix B) is the left padding of the list next to the column rule. 3 px radius on the tiles, no shadow.
+  -->
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type frame:StartView}" TargetType="frame:StartView">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+      <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}">
+            <Grid ColumnDefinitions="336,*">
+              <Border Grid.Column="0" Background="{DynamicResource Raffica.Brush.Surface.Band}"
+                      BorderBrush="{DynamicResource Raffica.Brush.Rule}" BorderThickness="0,0,1,0">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Margin="12,16" Spacing="{DynamicResource Raffica.Space.24}">
+                    <StackPanel Spacing="{DynamicResource Raffica.Space.12}">
+                      <TextBlock x:Name="PART_NewHeading" Classes="ui-emphasis" />
+                      <Grid x:Name="PART_Tiles" ColumnDefinitions="*,*" ColumnSpacing="12" RowSpacing="12" />
+                    </StackPanel>
+                    <StackPanel Spacing="{DynamicResource Raffica.Space.12}">
+                      <TextBlock x:Name="PART_OpenHeading" Classes="ui-emphasis" />
+                      <Button x:Name="PART_Browse" Classes="boxed" />
+                    </StackPanel>
+                  </StackPanel>
+                </ScrollViewer>
+              </Border>
+              <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="24,16" Spacing="{DynamicResource Raffica.Space.12}">
+                  <TextBlock x:Name="PART_RecentHeading" Classes="start-heading" />
+                  <TextBlock x:Name="PART_RecentEmpty" Classes="secondary" />
+                  <StackPanel x:Name="PART_Recent" />
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <Style Selector="TextBlock.start-heading">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="600" />
+    <Setter Property="LineHeight" Value="23.4" />
+  </Style>
+
+  <Style Selector="Button.start-tile">
+    <Setter Property="Height" Value="150" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+    <Setter Property="Padding" Value="8" />
+  </Style>
+  <Style Selector="Border.start-preview">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Desk}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Checkbox}" />
+  </Style>
+  <Style Selector="TextBlock.start-tile-label">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="500" />
+    <Setter Property="LineHeight" Value="16.25" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="TextBlock.start-mark">
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="600" />
+  </Style>
+  <Style Selector="TextBlock.start-mark.write">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink.Write}" />
+  </Style>
+  <Style Selector="TextBlock.start-mark.sheets">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink.Sheets}" />
+  </Style>
+  <Style Selector="TextBlock.start-mark.slides">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink.Slides}" />
+  </Style>
+  <Style Selector="TextBlock.start-mark.pdf">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink.Pdf}" />
+  </Style>
+
+  <Style Selector="Button.start-row">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.RowFile}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="8,0" />
+  </Style>
+  <Style Selector="TextBlock.start-row-secondary">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+</Styles>

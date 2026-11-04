@@ -15,6 +15,43 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-04 – Gallery frame baseline (M1.2)
+**Context:** Milestone 1.2 ships the shared app frame in the gallery app (`--view frame`). The speed limits of "Speed targets of the frame (M1)" apply to it: the gallery's published frame must stay within them, and a value above a limit is a finding for the owner, not a new budget (spec 9.4).
+**Decision:** The limit of each binding machine and case is the budget × 1.25, exactly the table of "Speed targets of the frame (M1)". The single copy in code is `CheckCommand` in `bench/shell-probe/measure.cs` (its selftest pins every value).
+
+| Case | Windows limit | Linux limit |
+|---|---|---|
+| Cold start | 537.5 ms | 250 ms |
+| Warm start | 525 ms | 262.5 ms |
+| Input latency (median) | 12.5 ms | 25 ms |
+| Idle memory | 156.25 MiB | 156.25 MiB |
+| Published size | 48.75 MiB | 43.75 MiB |
+| Zip | 20 MiB | 20 MiB |
+
+- **Checks:** `dotnet run bench/shell-probe/measure.cs -- check --platform <windows|linux> --in "<gallery CSVs>" [--summary <file>]` compares the medians of a `measure.yml` run (`target=gallery`) with the limits and exits 1 above a limit. `dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64> --publish-dir <dir> --fonts-dir src/Raffica.Shell/Assets/Fonts` checks size and zip only and writes no CSV; CI runs it as the step "Size of the published gallery". macOS is indicative and sets no limit. A run flagged "Invalid measurement" (compositor warning) must not count.
+- **Measured so far:** the win-x64 Native AOT publish of `src/Raffica.Gallery` is 40.65 MiB, zip 16.80 MiB at the head of the milestone branch (command `dotnet run bench/shell-probe/measure.cs -- size --check win-x64 --publish-dir artifacts/gallery/win-x64 --fonts-dir src/Raffica.Shell/Assets/Fonts`), under the limits of 48.75 and 20 MiB. The probe's own frame was 38.1 / 15.7 MiB. The Linux size was not measured locally; the CI step does it.
+- **Not recorded yet (pending):** the medians of the Windows and Linux `measure.yml` runs for the gallery frame. They need the owner to start the self-hosted runners (`bench/shell-probe/RUNNERS.md`); the commands are in the evidence of milestone 1.2 in `Docs/roadmap.json`. Once the runs exist, the CSVs go to `Docs/measurements/gallery-frame-<date>/` and the medians become the regression baseline in a follow-up entry. `--measure-input` ended with exit 3 in the implementation session (92 of 100 presses in 30 s, also for the unmodified probe); it needs a check on a real display.
+**Rationale:** One table in one place in code, so a loosened limit is a visible change. No timing figure is stated because none was measured on a valid machine.
+**Rejected alternatives:** A separate check script (a second copy of the limits); timings from the development VM (3.8 Hz compositor, invalid).
+
+## 2026-11-04 – App frame conventions (M1.2)
+**Context:** Milestone 1.2 builds the shared frame (title bar, ribbon, panes, status bar, field codes, start view, settings). The plan listed author's calls; these held, and the details that came up while building are recorded here.
+**Decision:**
+- **Where:** `src/Raffica.Shell/Frame` (one control per file) and `src/Raffica.Shell/Styles/Frame/*.axaml`. An app supplies data (`RibbonDefinition`, pane content); commands carry their own field code.
+- **Compact width:** 1024 px, the frame's minimum window width (`MinWidth` of the gallery's `FrameDemoWindow`), with the compact command bar on. The normal case is 1440 px with the full ribbon. The full ribbon at 1024 px without the compact bar clips groups of the Home tab; that is a recorded limitation, not a tested case (there is no automatic switch to compact by width).
+- **Title bar:** drawn by Raffica on Windows and Linux, on Avalonia 12 `Window.WindowDecorations` (`WindowDecorations.BorderOnly`, resize grips kept) together with `Window.ExtendClientAreaToDecorationsHint = true`. Hit testing goes through `Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole` with `Avalonia.Input.WindowDecorationsElementRole` (`TitleBar` for the drag area, `MinimizeButton`, `MaximizeButton` and `CloseButton` for the caption buttons, `User` for tabs, "+" and the search field). macOS keeps `Full` decorations and the system buttons (`TitleBar.LeadingInset` 80 px). No system-title-bar fallback is built; the check on the ProBook (CachyOS, Wayland) is open.
+- **Search:** the frame's own `CommandMatcher` (word prefixes, case-insensitive, menu items included) over the `RibbonDefinition`, with no dependency on the PDF core. Ctrl+K (the platform's command modifier from `PlatformSettings.HotkeyConfiguration.CommandModifiers`) is handled by `FrameKeys` and ignored while a dialog is open.
+- **Settings:** one JSON file through `SettingsStore`, at `SettingsStore.DefaultPath(appName)` (`Raffica/<appName>/settings.json` in the application-data folder). A missing, empty, oversized, unreadable or corrupt file gives the defaults, never an error at start. The language is stored and applies only after a restart.
+- **Field codes** (spec 4.5): tab letters, then command codes, then menu item codes (`FieldCodeSession`, `FieldCodeInput`). Bare Alt: both Alt events are consumed so the Windows system menu stays shut. AltGr: Alt with Ctrl held never enters the mode (AltGr is Ctrl+Alt on Windows); on Linux AltGr sends no Ctrl, so text input between Alt down and Alt up counts as another key. F10 enters the mode like Alt. A key that another handler already took ends the mode (`FieldCodeInput` listens with `handledEventsToo`). The mode does not start while the ribbon is not on screen or a dialog is open.
+- **Codes:** `RibbonDefinition.Validate` rejects duplicate codes and prefix codes (such as `1` and `12`) per scope (a tab, a menu), because a prefix code makes the longer one unreachable. The demo's codes are the group digit plus the position in the group. Q (search), 6 and 7 (panes) act in the tab-letter stage through app-supplied `FieldCodeTarget`s; the group digits are only a legend.
+- **Panes:** F6 moves through a ring of the open panes (`PaneRing`, `PaneFocus`), closed panes are skipped, and with a dialog open F6 stays inside it. In the status bar the field-code hint wins over the focus text.
+- **Collapsing:** `AppFrame` collapses an empty tab row and band (the start view sits directly under the title bar); a closed pane collapses its slot and its rule; `DocumentTabs` share the room down to 96 px, then scroll, and keep "+" visible.
+- **Key names:** shortcuts are written through `KeyNames` (`Ctrl+K`, `Strg+K`, `Umschalt`, `Entf`). On macOS they are symbols without a separator in both languages (`⌃⌥⇧⌘K`: Ctrl, Option, Shift, Command), a call beyond the plan.
+- **Tests:** shell test classes run one at a time (`DisableTestParallelization` in `tests/Raffica.Shell.Tests/TestCulture.cs`) because `ShellStrings.Culture` is shared static state and a parallel run was flaky; the test assembly pins English.
+**Rationale:** Each call keeps the frame data-driven and testable headless, and avoids a second copy of anything the shell already has.
+**Rejected alternatives:** The predecessor's palette matcher in the shell (ties the shell to the PDF core).
+**Not verified:** The real behaviour of bare Alt, AltGr, F10 and the Transient menu flyout on Windows, Linux and macOS; the caption buttons on Windows (the roles map to the system hit codes and the buttons also set `WindowState`, so a double maximize is possible); the macOS drag area, inset and Option key; the title bar on Wayland. The list of manual checks is in the evidence of milestone 1.2 in `Docs/roadmap.json`.
+
 ## 2026-11-03 – Shell project and token conventions (M1.1)
 **Context:** Milestone 1.1 creates the shared shell with tokens, fonts, icons and the base controls.
 **Decision:**

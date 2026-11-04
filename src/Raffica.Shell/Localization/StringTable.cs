@@ -34,5 +34,14 @@ public sealed class StringTable(string baseName, Assembly assembly)
             ?? throw new InvalidOperationException($"Missing string: {key}");
     }
 
+    /// <summary>The value of a key in a given language, regardless of <see cref="Culture"/> (for formatting with an explicit UI language).</summary>
+    public string GetIn(string key, CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(culture);
+        var manager = culture.TwoLetterISOLanguageName == "de" ? _german : _english;
+        return manager.GetString(key, CultureInfo.InvariantCulture)
+            ?? throw new InvalidOperationException($"Missing string: {key}");
+    }
+
     public string Get(string key, params object[] args) => string.Format(_culture, Get(key), args);
 }
