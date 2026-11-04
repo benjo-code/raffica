@@ -134,7 +134,6 @@ public static class GalleryStrings
     public static string Outline2 => Table.Get("Outline2");
     public static string Outline3 => Table.Get("Outline3");
     public static string Outline4 => Table.Get("Outline4");
-    public static string CommentsName => Table.Get("CommentsName");
     public static string CommentAuthor1 => Table.Get("CommentAuthor1");
     public static string Comment1 => Table.Get("Comment1");
     public static string CommentAuthor2 => Table.Get("CommentAuthor2");
