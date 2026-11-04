@@ -63,6 +63,9 @@
   <data name="CloseDocument" xml:space="preserve">
     <value>Dokument schließen</value>
   </data>
+  <data name="TabUnsavedChanges" xml:space="preserve">
+    <value>Ungespeicherte Änderungen</value>
+  </data>
   <data name="Minimize" xml:space="preserve">
     <value>Minimieren</value>
   </data>

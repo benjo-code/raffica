@@ -1,0 +1,224 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using Raffica.Core.Pdf;
+using Raffica.Core.Printing;
+using Raffica.Core.Viewing;
+using Raffica.Pdf.Commands;
+using Raffica.Pdf.Dialogs;
+using Raffica.Pdf.Documents;
+using Raffica.Pdf.Platform;
+using Raffica.Pdf.Printing;
+using Raffica.Shell.Frame;
+using Raffica.Shell.Localization;
+
+namespace Raffica.Pdf;
+
+/// <summary>
+/// The commands of the window: what each command of <see cref="PdfCommandCatalog"/> does, when it may run (<see cref="PdfCommandRules"/>)
+/// and the window-wide shortcuts. The catalog is the one list; the ribbon, the field codes, the search of the title bar and the keys all
+/// run the same <see cref="CommandDefinition"/>.
+/// </summary>
+internal sealed partial class PdfWindow
+{
+    private readonly Dictionary<PdfTab, PdfPrintInfo> _printInfo = [];
+    private readonly PdfCommandRules _rules;
+    private readonly PrintCommand _print;
+    private IPrintService? _printService;
+    private bool _printProbed;
+    private bool _printAvailable;
+    private readonly HashSet<Key> _keysDown = [];
+    private Dictionary<string, CommandDefinition> _commandsById = [];
+
+    /// <summary>The command modifier of the platform: Cmd on macOS, Ctrl elsewhere (what the frame uses for Ctrl+K).</summary>
+    private static KeyModifiers CommandModifier =>
+        Application.Current?.PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyNames.CommandModifier;
+
+    private PdfCommandRules CreateRules() => new(
+        () => Workspace.Active is not null,
+        () => Workspace.Tabs.Count,
+        () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
+        PrintAvailable);
+
+    // Whether the system can print is not asked while the first page is on its way (on Linux that loads libcups): until the first sharp page
+    // has been seen Print counts as available, then the answer is asked once and kept.
+    private bool PrintAvailable() => !_printProbed || _printAvailable;
+
+    private void ProbePrint()
+    {
+        if (_printProbed)
+        {
+            return;
+        }
+
+        try
+        {
+            _printAvailable = _print.IsAvailable;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _printAvailable = false;
+        }
+
+        _printProbed = true;
+        RefreshCommandStates();
+    }
+
+    /// <summary>What the permissions of a tab say about printing, once they were read (for tests); null before.</summary>
+    internal PdfPrintInfo? PrintInfoOf(PdfTab tab) => _printInfo.TryGetValue(tab, out var info) ? info : null;
+
+    private PdfCommands CreateCommands() => new(
+        Open: () => _ = GuardAsync(OpenFromDialogAsync),
+        Print: () => _ = GuardAsync(_print.RunAsync),
+        CloseTab: () => _ = GuardAsync(CloseActiveTabAsync),
+        Search: ShowSearchBar,
+        SearchNext: SearchNext,
+        SearchPrevious: SearchPrevious,
+        GoToPage: () => _ = GuardAsync(GoToPageAsync),
+        PreviousPage: () => MovePage(-1),
+        NextPage: () => MovePage(1),
+        FirstPage: () => MovePage(int.MinValue),
+        LastPage: () => MovePage(int.MaxValue),
+        NextTab: () => Workspace.SelectNext(),
+        PreviousTab: () => Workspace.SelectPrevious(),
+        SelectAll: SelectAll,
+        Copy: () => _ = GuardAsync(CopySelectionAsync),
+        Help: () => _ = GuardAsync(ShowHelpAsync),
+        ZoomIn: () => ActiveView?.ZoomIn(),
+        ZoomOut: () => ActiveView?.ZoomOut(),
+        FitWidth: () => ActiveView?.SetZoomMode(ZoomMode.FitWidth),
+        FitPage: () => ActiveView?.SetZoomMode(ZoomMode.FitPage),
+        ActualSize: () => ActiveView?.SetZoomMode(ZoomMode.ActualSize),
+        Continuous: () => ActiveView?.SetLayout(PageLayoutMode.Continuous),
+        SinglePage: () => ActiveView?.SetLayout(PageLayoutMode.SinglePage),
+        TwoPages: () => ActiveView?.SetLayout(PageLayoutMode.TwoPages),
+        TwoPagesCover: () => ActiveView?.SetLayout(PageLayoutMode.TwoPagesWithCover),
+        Settings: () => Settings.Open(),
+        DarkPage: ToggleDarkPage,
+        PagesPane: ShowPagesPane,
+        OutlinePane: ShowOutlinePane);
+
+    /// <summary>Indexes the commands of the ribbon by id and attaches the window-wide shortcuts. Called once, after the ribbon exists.</summary>
+    private void AttachShortcuts(RibbonDefinition definition)
+    {
+        _commandsById = definition.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToDictionary(c => c.Id, StringComparer.Ordinal);
+
+        // Avalonia does not say whether a key down is the repeat of a held key, so the window keeps the keys that are down: a key down for a
+        // key that is already down is a repeat. Handled events count too, or a key taken by another handler would look new next time.
+        AddHandler(KeyDownEvent, OnShortcutKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyUpEvent, (_, e) => _keysDown.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
+        Deactivated += (_, _) => _keysDown.Clear();
+    }
+
+    /// <summary>
+    /// The one place that turns a shortcut into a command. It runs on the way down, before the focused control, so the shortcut works
+    /// wherever the focus is, and the page view has no key handling of its own for these keys. While a dialog is open nothing happens
+    /// (the dialog is modal). Ctrl+C and Ctrl+A stay with a text box that has the focus. A shortcut whose command is disabled is
+    /// swallowed and does nothing.
+    /// </summary>
+    private void OnShortcutKeyDown(object? sender, KeyEventArgs e)
+    {
+        var isRepeat = !_keysDown.Add(e.Key);
+        if (e.Handled || Host.IsOpen)
+        {
+            return;
+        }
+
+        if (PdfCommandCatalog.Find(e.Key, e.KeyModifiers, CommandModifier) is not { } entry || !_commandsById.TryGetValue(entry.Id, out var command))
+        {
+            return;
+        }
+
+        if (entry.Id is PdfCommandIds.Copy or PdfCommandIds.SelectAll && FocusManager?.GetFocusedElement() is TextBox)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (isRepeat && entry.Shortcut is { AllowsRepeat: false })
+        {
+            // A held key runs a one-shot command once (the dark page does not flicker, no pile of file pickers); the repeat is swallowed.
+            return;
+        }
+
+        if (command.IsEnabled)
+        {
+            command.Run?.Invoke();
+        }
+    }
+
+    /// <summary>Closes the active tab through the close guard (a document with unsaved changes asks first). Does nothing without a tab.</summary>
+    internal async Task CloseActiveTabAsync()
+    {
+        if (Workspace.Active is { } active)
+        {
+            await Workspace.CloseAsync(active);
+        }
+    }
+
+    private void MovePage(int delta)
+    {
+        if (ActiveView is { PageCount: > 0 } view)
+        {
+            view.GoToPage((int)Math.Clamp((long)view.CurrentPage + delta, 0, view.PageCount - 1));
+        }
+    }
+
+    /// <summary>Switches the pages of the active tab between the light and the dark theme. It belongs to the tab; nothing is stored.</summary>
+    internal void ToggleDarkPage()
+    {
+        if (ActiveView is { } view)
+        {
+            view.PageTheme = view.PageTheme == PageTheme.Dark ? PageTheme.Light : PageTheme.Dark;
+        }
+    }
+
+    /// <summary>Gives the pages of every open tab the theme the page appearance setting asks for (it overrides the per-tab switch).</summary>
+    private void SetPageThemeOfAllTabs(PageTheme theme)
+    {
+        foreach (var view in _views.Values)
+        {
+            view.PageTheme = theme;
+        }
+    }
+
+    /// <summary>Shows the list of keyboard shortcuts and returns when it is closed.</summary>
+    internal Task ShowHelpAsync() =>
+        Dialogs.ShowAsync<bool>(done => HelpCard.Create(PdfCommandCatalog.HelpEntries(), () => done(true)));
+
+    /// <summary>The ribbon, the field codes and the search ask the commands again: the tabs, the active document or its permissions changed.</summary>
+    private void RefreshCommandStates() => Ribbon.RefreshCommandStates();
+
+    /// <summary>Reads the print permission of a tab once (the document answers on its own thread); the ribbon follows when the answer is in.</summary>
+    private void LoadPrintInfo(PdfTab tab)
+    {
+        if (_printInfo.ContainsKey(tab) || tab.Session.Document is not { } document)
+        {
+            return;
+        }
+
+        _ = ReadPrintInfoAsync(tab, document);
+    }
+
+    private async Task ReadPrintInfoAsync(PdfTab tab, PdfDocument document)
+    {
+        try
+        {
+            var info = await document.GetPrintInfoAsync();
+            if (Workspace.Tabs.Contains(tab))
+            {
+                _printInfo[tab] = info;
+                RefreshCommandStates();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A document that went away meanwhile has no permissions to show; print stays as it was.
+        }
+    }
+
+    private bool FocusIsInNavigationPane() =>
+        FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(focused, NavigationPane) || focused.GetVisualAncestors().Contains(NavigationPane));
+}

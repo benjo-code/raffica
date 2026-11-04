@@ -19,12 +19,12 @@ public sealed class SettingsDialogTests
     {
         private readonly CultureInfo _previous = ShellStrings.Culture;
 
-        public Fixture(ShellSettings current, string running = "en")
+        public Fixture(ShellSettings current, string running = "en", SettingsDialogOptions? options = null)
         {
             ShellStrings.Culture = CultureInfo.GetCultureInfo(running);
             Opener = new Button { Content = "Settings" };
             Host = new DialogHost { Content = new StackPanel { Margin = new Thickness(20), Children = { Opener } } };
-            Dialog = SettingsDialog.Create(current, ok => { Saved.Add(ok); Host.Close(); }, () => { Cancels++; Host.Close(); });
+            Dialog = SettingsDialog.Create(current, ok => { Saved.Add(ok); Host.Close(); }, () => { Cancels++; Host.Close(); }, options);
             Window = ControlHarness.Show(Host, ThemeMode.Light);
             Window.Width = 800;
             Window.Height = 600;
@@ -170,6 +170,71 @@ public sealed class SettingsDialogTests
         f.Click("PART_Ok");
 
         Assert.Null(Assert.Single(f.Saved).Language);
+    }
+
+    [AvaloniaFact]
+    public void DefaultOptionsKeepTheDialogAsItWas()
+    {
+        using var f = new Fixture(new ShellSettings(), options: new SettingsDialogOptions());
+
+        Assert.NotNull(f.Part<CheckBox>("PART_Autosave"));
+        var body = (StackPanel)f.Dialog.Content!;
+        Assert.Equal(3, body.Children.Count);
+    }
+
+    [AvaloniaFact]
+    public void AutosaveRowCanBeHidden()
+    {
+        using var f = new Fixture(new ShellSettings(), options: new SettingsDialogOptions(ShowAutosave: false));
+
+        Assert.DoesNotContain(f.Dialog.GetVisualDescendants().OfType<CheckBox>(), c => c.Name == "PART_Autosave");
+        Assert.NotNull(f.Part<CheckBox>("PART_Compact"));
+    }
+
+    [AvaloniaFact]
+    public void HiddenAutosaveKeepsTheStoredValueOnOk()
+    {
+        using var f = new Fixture(new ShellSettings(Autosave: false), options: new SettingsDialogOptions(ShowAutosave: false));
+
+        f.Click("PART_Ok");
+
+        Assert.False(Assert.Single(f.Saved).Autosave);
+    }
+
+    [AvaloniaFact]
+    public void ExtraRowsAppearAfterTheCompactRowInOrder()
+    {
+        var first = new TextBox { Name = "PART_ExtraOne" };
+        var second = new CheckBox { Name = "PART_ExtraTwo" };
+        using var f = new Fixture(
+            new ShellSettings(),
+            options: new SettingsDialogOptions(ExtraRows: [new SettingsExtraRow("First extra", first), new SettingsExtraRow("Second extra", second)]));
+
+        var body = (StackPanel)f.Dialog.Content!;
+        Assert.Equal(5, body.Children.Count);
+        var one = Assert.IsType<StackPanel>(body.Children[3]);
+        var two = Assert.IsType<StackPanel>(body.Children[4]);
+        var label = Assert.IsType<TextBlock>(one.Children[0]);
+        Assert.Equal("First extra", label.Text);
+        Assert.Contains("secondary", label.Classes);
+        Assert.Same(first, one.Children[1]);
+        Assert.Equal("Second extra", Assert.IsType<TextBlock>(two.Children[0]).Text);
+        Assert.Same(second, two.Children[1]);
+    }
+
+    [AvaloniaFact]
+    public void ExtraEditorsKeepTheirStateWhenOkIsPressed()
+    {
+        var box = new TextBox { Name = "PART_ExtraBox" };
+        using var f = new Fixture(
+            new ShellSettings(),
+            options: new SettingsDialogOptions(ExtraRows: [new SettingsExtraRow("Extra", box)]));
+
+        box.Text = "typed";
+        f.Click("PART_Ok");
+
+        Assert.Single(f.Saved);
+        Assert.Equal("typed", box.Text);
     }
 
     [AvaloniaFact]

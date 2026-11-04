@@ -15,7 +15,7 @@ namespace Raffica.Shell.Frame;
 public class StatusBar : TemplatedControl
 {
     private const double ZoomMinimum = 10;
-    private const double ZoomMaximum = 500;
+    private const double ZoomMaximum = 800;
     private const double ZoomStep = 10;
 
     public static readonly StyledProperty<string?> SaveStateProperty = AvaloniaProperty.Register<StatusBar, string?>(nameof(SaveState));
@@ -34,7 +34,7 @@ public class StatusBar : TemplatedControl
     /// <summary>The zoom value as text, for example "100%".</summary>
     public static readonly StyledProperty<string?> ZoomTextProperty = AvaloniaProperty.Register<StatusBar, string?>(nameof(ZoomText));
 
-    /// <summary>The zoom in percent (10 to 500).</summary>
+    /// <summary>The zoom in percent (10 to 800, the range of the viewer).</summary>
     public static readonly StyledProperty<double> ZoomProperty =
         AvaloniaProperty.Register<StatusBar, double>(nameof(Zoom), 100, coerce: (_, v) => Math.Clamp(v, ZoomMinimum, ZoomMaximum));
 

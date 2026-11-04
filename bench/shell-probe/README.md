@@ -29,7 +29,7 @@ The probe is not product code. No project under `src/` references it, and milest
 | `size` | The published folder, its zip (`CompressionLevel.Optimal`), and the shares of fonts and native libraries. Debug symbols (`*.pdb`, `*.dbg`) are not shipped and count nowhere. | 1 |
 
 **`first-frame`** is written in the second animation frame requested after the window's `Opened` event
-(`TopLevel.RequestAnimationFrame`, the same method as Pagewing's `first-sharp`).
+(`TopLevel.RequestAnimationFrame`, the same method as the predecessor's `first-sharp`).
 
 ### Output
 
@@ -116,3 +116,31 @@ limit or a required CSV is missing. macOS has no limits: the verdict is `indicat
 and exits with 1 above the limit; CI runs it after publishing the gallery (job step "Size of the published gallery").
 The workflow `measure.yml` takes the input `target` (`gallery` by default, or `probe`) and ends with `check`, whose table
 goes to the job summary. A gallery that is over a limit is a finding for the owner, not a new budget.
+
+## Measuring the PDF app (milestone 2.1)
+
+The method (what each case measures, the invariant-culture lines, the 30 s exit-3 timeout, the settings isolation, the rule for
+the limits) is the entry "Raffica PDF measurement method (M2.1)" in `Docs/DECISIONS.md`. The app has the switches
+`--measure-startup`, `--measure-second`, `--measure-scroll` and `--measure-memory` (each needs `--settings-file` and a file); the
+script starts it with a settings folder of its own per run. `--target pdf` has the cases `cold`, `warm`, `thousand` (the
+1000-page file to its first page), `second` (a further file handed to the running instance), `scroll` (600 wheel steps through
+the 1000-page file, p99 and max of the frame gaps) and `memory`; the CSV column `mode` is `pdf`; the test files come from
+`testdata/pdfs` (`--testdata <folder>` if the script is not run from the repository root).
+
+```
+dotnet publish src/Raffica.Pdf -c Release -r win-x64 -o artifacts/pdf/win-x64
+dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe artifacts/pdf/win-x64/RafficaPdf.exe --case warm --out artifacts/pdf/warm.csv
+dotnet run bench/shell-probe/measure.cs -- size --target pdf --publish-dir artifacts/pdf/win-x64 --fonts-dir src/Raffica.Shell/Assets/Fonts --out artifacts/pdf/size.csv
+dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform windows --in "artifacts/pdf/*.csv" --summary artifacts/pdf/summary.md
+```
+
+**The limit table of the PDF app is empty on purpose.** The budgets are the medians of the owner's runs on the owner's machines
+and cannot be produced elsewhere. Until they are recorded, `check --target pdf` (and `size --check --target pdf`) prints the
+medians and exits with 2 and the message "no limits recorded for target pdf"; it never passes. macOS is indicative only.
+
+Owner steps (open until done):
+
+1. Start the runner (see `RUNNERS.md`) and run, per machine: `gh workflow run measure.yml --ref feature/m21-viewer -f platform=windows -f target=pdf -f note="<GPU, resolution, scaling, power>"` and the same with `platform=linux`. For the cold start after a reboot add `-f cases=cold-reboot`.
+2. Read the medians in the job summary (the check step fails with exit code 2 by design) and in the uploaded CSVs; put the CSVs and the machine notes under `Docs/measurements/pdf-viewer-<date>/`. Measure the predecessor 1.0 and Chrome as references on the same machines with the method of the predecessor's comparison entry.
+3. Round each median as in M1 (time to 10 ms, memory to 5 MiB, size to 1 MiB), multiply once by 1.25, enter the budgets in `s_pdfBudgets` of `CheckCommand` in `measure.cs`, change the selftest lines that pin the empty table, and write the entry "Raffica PDF speed budgets (M2.1)" in `Docs/DECISIONS.md` (medians per machine and case, budgets, limits, reference numbers, a finding for every case that is slower than the predecessor or above a limit).
+4. Run `dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform windows --in "<CSVs>"` and the same for `linux`: both must exit 0 (a miss is a finding, never a changed limit). Then switch the CI step "Size of the published PDF app" to `size --check <rid> --target pdf`.

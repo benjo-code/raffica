@@ -1,0 +1,70 @@
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Raffica.Shell.Controls;
+using Raffica.Shell.Localization;
+
+namespace Raffica.Pdf.Dialogs;
+
+/// <summary>One line of the help card: the ribbon group, the command and its shortcut already written for the platform and the language.</summary>
+internal sealed record HelpEntry(string Group, string Name, string Shortcut);
+
+/// <summary>The list of keyboard shortcuts (F1): the commands that have one, under the heading of their ribbon group. One button closes it; Esc does too.</summary>
+internal static class HelpCard
+{
+    private const double ListWidth = 380;
+    private const double ListMaxHeight = 380;
+
+    public static Dialog Create(IReadOnlyList<HelpEntry> entries, Action done)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(done);
+
+        var list = new StackPanel { Spacing = 2, Width = ListWidth };
+        string? group = null;
+        foreach (var entry in entries)
+        {
+            if (entry.Group != group)
+            {
+                group = entry.Group;
+                var heading = new TextBlock { Text = group, Margin = new Thickness(0, list.Children.Count == 0 ? 0 : 10, 0, 2) };
+                heading.Classes.Add("secondary");
+                list.Children.Add(heading);
+            }
+
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
+            var name = new TextBlock { Text = entry.Name, TextTrimming = TextTrimming.CharacterEllipsis };
+            var shortcut = new TextBlock { Text = entry.Shortcut, HorizontalAlignment = HorizontalAlignment.Right };
+            shortcut.Classes.Add("secondary");
+            Grid.SetColumn(shortcut, 1);
+            row.Children.Add(name);
+            row.Children.Add(shortcut);
+            list.Children.Add(row);
+        }
+
+        var scroll = new ScrollViewer
+        {
+            Name = "PART_List",
+            MaxHeight = ListMaxHeight,
+            Focusable = true,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = list,
+        };
+        AutomationProperties.SetName(scroll, PdfStrings.HelpListName);
+
+        var ok = new Button { Name = "PART_Ok", Content = ShellStrings.Close };
+        ok.Classes.Add("primary");
+        var dialog = new Dialog
+        {
+            Title = PdfStrings.HelpTitle,
+            Content = scroll,
+            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+        };
+        ok.Click += (_, _) => done();
+        dialog.CancelRequested += (_, _) => done();
+        return dialog;
+    }
+}

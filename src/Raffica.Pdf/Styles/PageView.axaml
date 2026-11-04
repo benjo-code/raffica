@@ -1,0 +1,19 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:view="using:Raffica.Pdf.Viewing">
+  <!-- The page view: the desk behind the pages and the thin line around each page, both from the shell tokens. The pages themselves are white
+       or the dark ground of Core, whatever the UI theme is. -->
+  <Style Selector="view|PageView">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Desk}" />
+    <Setter Property="PageBorderBrush" Value="{DynamicResource Raffica.Brush.Rule}" />
+    <!-- The shell focus ring (2 px, app ink, keyboard focus only), drawn inside the edge: the view fills its pane, so a ring outside
+         the control would be cut off. The 32 DIP margin around the pages keeps it clear of the first page. -->
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <Border AdornerLayer.IsClipEnabled="False"
+                BorderThickness="2"
+                BorderBrush="{DynamicResource Raffica.Brush.Focus.Ring}" />
+      </FocusAdornerTemplate>
+    </Setter>
+  </Style>
+</Styles>

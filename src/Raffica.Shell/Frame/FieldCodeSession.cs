@@ -218,6 +218,12 @@ public sealed class FieldCodeSession(RibbonDefinition ribbon)
         var prefix = false;
         foreach (var command in candidates)
         {
+            if (!command.IsEnabled)
+            {
+                // A disabled command cannot be reached: its code does nothing and does not keep the mode waiting for more.
+                continue;
+            }
+
             if (command.FieldCode == typed)
             {
                 exact = command;

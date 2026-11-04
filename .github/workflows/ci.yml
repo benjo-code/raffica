@@ -191,8 +191,11 @@ jobs:
 
       # The size limits of the speed targets (Docs/DECISIONS.md, "Speed targets of the frame (M1)"): the published gallery and its zip
       # must stay within budget x 1.25. Fails above the limit; budgets are never loosened here.
+      # --no-cache: a file-based app (measure.cs) is built once and reused by the up-to-date check of `dotnet run`; on the persistent
+      # runners a build of an older measure.cs made a step run the old script (run 41856451033 printed a message that no longer exists
+      # in the checked-out file). Building every time costs a few seconds and cannot run a stale script.
       - name: Size of the published gallery
-        run: dotnet run bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --publish-dir out/gallery --fonts-dir src/Raffica.Shell/Assets/Fonts
+        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --publish-dir out/gallery --fonts-dir src/Raffica.Shell/Assets/Fonts
 
       - name: Smoke test of the gallery binary (Linux)
         if: runner.os == 'Linux'
@@ -219,6 +222,43 @@ jobs:
             if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
           }
           Write-Host 'the published gallery prints German and English strings'
+
+      # The PDF app: the same two proofs as for the gallery (Native AOT publish without warnings, resource lookup in the published
+      # binary through --print-string, which needs no display).
+      - name: Publish the PDF app (Native AOT)
+        run: dotnet publish src/Raffica.Pdf -c Release -r ${{ matrix.rid }} -o out/pdf
+
+      # The published size of the PDF app (and its zip) is printed on every build. It is NOT yet a limit: the PDF budgets are the medians of
+      # the owner's measurement runs (Docs/DECISIONS.md, "Raffica PDF measurement method (M2.1)"), and `size --check --target pdf` with the
+      # empty limit table exits 2 ("no limits recorded for target pdf") rather than pass. Once the owner has recorded the limits in
+      # CheckCommand, this step becomes `size --check ${{ matrix.rid }} --target pdf --publish-dir out/pdf --fonts-dir ...` like the gallery's.
+      - name: Size of the published PDF app
+        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts --out ${{ runner.temp }}/pdf-size.csv
+
+      - name: Smoke test of the PDF app binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          de=$(./out/pdf/RafficaPdf --print-string TabView --lang de)
+          [ "$de" = "Ansicht" ] || { echo "expected 'Ansicht' with --lang de, got: $de" >&2; exit 1; }
+          en=$(./out/pdf/RafficaPdf --print-string TabView --lang en)
+          [ "$en" = "View" ] || { echo "expected 'View' with --lang en, got: $en" >&2; exit 1; }
+          echo "the published PDF app prints German and English strings"
+
+      # RafficaPdf.exe is a GUI-subsystem program, like the gallery: Start-Process -Wait with redirected output files.
+      - name: Smoke test of the PDF app binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Resolve-Path ./out/pdf/RafficaPdf.exe).Path
+          foreach ($case in @(@('de', 'Ansicht'), @('en', 'View'))) {
+            $lang = $case[0]; $expected = $case[1]
+            $out = Join-Path $env:RUNNER_TEMP "pdf-$lang.out"
+            $err = Join-Path $env:RUNNER_TEMP "pdf-$lang.err"
+            $p = Start-Process -FilePath $exe -ArgumentList '--print-string', 'TabView', '--lang', $lang -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($p.ExitCode -ne 0) { throw "--lang $lang exited with $($p.ExitCode): $(Get-Content $err -Raw)" }
+            $text = (Get-Content $out -Raw).Trim()
+            if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
+          }
+          Write-Host 'the published PDF app prints German and English strings'
 
   # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
   # draft), so the matrix can change without touching the branch protection.

@@ -63,7 +63,7 @@ gh workflow run measure.yml -f platform=windows -f note="<GPU, resolution, scali
 
 By default the workflow measures the gallery app's frame (`-f target=gallery`) and ends with a check against the limits
 of the decisions entry "Speed targets of the frame (M1)", shown in the job summary; `-f target=probe` measures the
-throwaway shell probe as before.
+throwaway shell probe as before. `-f target=pdf` measures the PDF app (cases cold, warm, 1000 pages, second file, scroll, memory, size; see the section "Measuring the PDF app" in `README.md`); its check step fails with "no limits recorded for target pdf" until the owner has recorded the budgets.
 
 The run waits until the runner of that platform is online. For the cold start after a reboot (spec 9.1) reboot the
 machine, start the runner, and run `-f platform=<platform> -f note="…" -f cases=cold-reboot`.

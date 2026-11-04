@@ -41,6 +41,7 @@ public static class ShellStrings
     public static string SearchNoResults => Table.Get("SearchNoResults");
     public static string NewDocument => Table.Get("NewDocument");
     public static string CloseDocument => Table.Get("CloseDocument");
+    public static string TabUnsavedChanges => Table.Get("TabUnsavedChanges");
     public static string Minimize => Table.Get("Minimize");
     public static string Maximize => Table.Get("Maximize");
     public static string Restore => Table.Get("Restore");

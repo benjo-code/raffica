@@ -114,6 +114,29 @@ public sealed class StatusBarTests
         Assert.Equal(10, bar.Zoom);
     }
 
+    [AvaloniaFact]
+    public void TheZoomRangeReachesEightHundredPercent()
+    {
+        var (_, bar) = Show();
+        var slider = ControlHarness.Part<Slider>(bar, "PART_ZoomSlider");
+        var raised = new List<double>();
+        bar.ZoomChanged += (_, z) => raised.Add(z);
+
+        bar.Zoom = 800;
+        Assert.Equal(800, bar.Zoom);
+        Assert.Equal(800, slider.Value);
+        Assert.Equal(800, slider.Maximum);
+
+        // The app may set any value of the viewer range, and one above it is limited.
+        bar.Zoom = 5000;
+        Assert.Equal(800, bar.Zoom);
+
+        // From 800 the plus button cannot go further, and the minus button steps down by ten from the real value.
+        ControlHarness.Part<Button>(bar, "PART_ZoomIn").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ControlHarness.Part<Button>(bar, "PART_ZoomOut").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal([800d, 790d], raised);
+    }
+
     [AvaloniaTheory]
     [InlineData(ThemeMode.Light, false)]
     [InlineData(ThemeMode.Dark, false)]

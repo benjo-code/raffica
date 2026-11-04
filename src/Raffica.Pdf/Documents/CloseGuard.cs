@@ -1,0 +1,47 @@
+namespace Raffica.Pdf.Documents;
+
+/// <summary>What the user chose when asked about a document with unsaved changes.</summary>
+internal enum CloseChoice
+{
+    Save,
+    DontSave,
+    Cancel,
+}
+
+/// <summary>
+/// Decides whether a tab may close: a clean tab closes at once, a dirty tab asks once. <c>Save</c> closes only if the save worked,
+/// <c>Cancel</c> keeps the tab.
+/// </summary>
+internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save)
+{
+    public async Task<bool> CanCloseAsync(PdfTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!tab.IsDirty)
+        {
+            return true;
+        }
+
+        return await prompt(tab) switch
+        {
+            CloseChoice.Save => await save(tab),
+            CloseChoice.DontSave => true,
+            _ => false,
+        };
+    }
+
+    /// <summary>Asks for every tab in turn and stops at the first one that must stay.</summary>
+    public async Task<bool> CanCloseAllAsync(IEnumerable<PdfTab> tabs)
+    {
+        ArgumentNullException.ThrowIfNull(tabs);
+        foreach (var tab in tabs)
+        {
+            if (!await CanCloseAsync(tab))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
