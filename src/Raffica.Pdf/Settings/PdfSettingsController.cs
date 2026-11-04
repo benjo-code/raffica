@@ -78,6 +78,17 @@ internal sealed class PdfSettingsController
         SaveApp(App);
     }
 
+    /// <summary>
+    /// Replaces the viewer settings in force and writes the viewer file in the background (the tool state remembers colours and widths
+    /// this way). UI thread; never throws, a file that cannot be written leaves the change for this run only.
+    /// </summary>
+    public void Update(AppSettings app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        App = app;
+        SaveApp(app);
+    }
+
     /// <summary>Completes when the viewer file has been written (tests wait for it instead of sleeping).</summary>
     public Task FlushAsync() => _appWriter.FlushAsync();
 

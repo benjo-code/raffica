@@ -11,6 +11,7 @@ using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
 using Raffica.Core.Settings;
 using Raffica.Core.Viewing;
+using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
@@ -131,6 +132,8 @@ internal sealed partial class PdfWindow : Window
         Content = Host;
         Dialogs = new DialogQueue(Host);
         Settings = new PdfSettingsController(options, Host, settings, appDefaults, SetCompact, SetPageThemeOfAllTabs);
+        Tools = new ToolState(() => Settings.App, Settings.Update);
+        Tools.Changed += RefreshCommandStates;
         _printService = printService;
         _print = new PrintCommand(
             () => _printService ??= PlatformPrintServices.Create(),
@@ -592,6 +595,7 @@ internal sealed partial class PdfWindow : Window
             tab.DirtyChanged -= UpdateSaveState;
             tab.Annotations.StateChanged -= RefreshCommandStates;
             _printInfo.Remove(tab);
+            _annotateAllowed.Remove(tab);
             RememberView(tab);
             if (_panes.Remove(tab, out var panes))
             {

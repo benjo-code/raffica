@@ -500,4 +500,79 @@
   <data name="PrintFailedMoreFormat" xml:space="preserve">
     <value>{0} und {1} weitere</value>
   </data>
+  <data name="TabAnnotate" xml:space="preserve">
+    <value>Anmerken</value>
+  </data>
+  <data name="GroupHistory" xml:space="preserve">
+    <value>Verlauf</value>
+  </data>
+  <data name="GroupMarkup" xml:space="preserve">
+    <value>Textmarkierung</value>
+  </data>
+  <data name="GroupDraw" xml:space="preserve">
+    <value>Zeichnen</value>
+  </data>
+  <data name="GroupEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="GroupDelete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Speichern unter</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Rückgängig</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Wiederholen</value>
+  </data>
+  <data name="CmdAnnotateMode" xml:space="preserve">
+    <value>Anmerkungsmodus</value>
+  </data>
+  <data name="CmdHighlight" xml:space="preserve">
+    <value>Hervorheben</value>
+  </data>
+  <data name="CmdUnderline" xml:space="preserve">
+    <value>Unterstreichen</value>
+  </data>
+  <data name="CmdStrikeOut" xml:space="preserve">
+    <value>Durchstreichen</value>
+  </data>
+  <data name="CmdSelectMark" xml:space="preserve">
+    <value>Auswählen</value>
+  </data>
+  <data name="CmdFreehand" xml:space="preserve">
+    <value>Freihand</value>
+  </data>
+  <data name="CmdRectangle" xml:space="preserve">
+    <value>Rechteck</value>
+  </data>
+  <data name="CmdEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="CmdLine" xml:space="preserve">
+    <value>Linie</value>
+  </data>
+  <data name="CmdArrow" xml:space="preserve">
+    <value>Pfeil</value>
+  </data>
+  <data name="CmdTextBox" xml:space="preserve">
+    <value>Textfeld</value>
+  </data>
+  <data name="CmdAnnotateDone" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="CmdMarksPane" xml:space="preserve">
+    <value>Markierungen</value>
+  </data>
+  <data name="CmdDeleteMark" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="AnnotateLockedReason" xml:space="preserve">
+    <value>Dieses Dokument erlaubt keine Änderung von Anmerkungen.</value>
+  </data>
 </root>

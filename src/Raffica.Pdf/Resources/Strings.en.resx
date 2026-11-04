@@ -503,4 +503,79 @@
   <data name="PrintFailedMoreFormat" xml:space="preserve">
     <value>{0} and {1} more</value>
   </data>
+  <data name="TabAnnotate" xml:space="preserve">
+    <value>Annotate</value>
+  </data>
+  <data name="GroupHistory" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="GroupMarkup" xml:space="preserve">
+    <value>Markup</value>
+  </data>
+  <data name="GroupDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="GroupEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="GroupDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="CmdAnnotateMode" xml:space="preserve">
+    <value>Annotate mode</value>
+  </data>
+  <data name="CmdHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="CmdUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="CmdStrikeOut" xml:space="preserve">
+    <value>Strike out</value>
+  </data>
+  <data name="CmdSelectMark" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="CmdFreehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="CmdRectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="CmdEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="CmdLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="CmdArrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="CmdTextBox" xml:space="preserve">
+    <value>Text box</value>
+  </data>
+  <data name="CmdAnnotateDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="CmdMarksPane" xml:space="preserve">
+    <value>Marks</value>
+  </data>
+  <data name="CmdDeleteMark" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="AnnotateLockedReason" xml:space="preserve">
+    <value>This document does not allow changing annotations.</value>
+  </data>
 </root>

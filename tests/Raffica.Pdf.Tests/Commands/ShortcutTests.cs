@@ -294,6 +294,101 @@ public sealed class ShortcutTests
         ViewFixture.Pump();
     }
 
+    private static async Task MakeAnEditAsync(PdfTab tab)
+    {
+        await tab.Annotations.Editor.ApplyMarkupAsync(0, Raffica.Core.Annotations.AnnotationKind.Highlight, [new Raffica.Core.Text.PageRect(10, 10, 100, 30)], new Raffica.Core.Annotations.AnnotationColor(255, 255, 0), null, null);
+        await tab.Annotations.FlushAsync();
+        ViewFixture.Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task CtrlSSavesOnlyWhenDirty()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("text-basic.pdf");
+        var window = windows.Window;
+        var saves = 0;
+        window.SaveRequested += () => saves++;
+
+        Ctrl(window, Key.S, PhysicalKey.S);
+        Assert.Equal(0, saves);
+
+        tab.MarkDirty();
+        ViewFixture.Pump();
+        Ctrl(window, Key.S, PhysicalKey.S);
+        Assert.Equal(1, saves);
+
+        // Save As needs only a document.
+        var saveAs = 0;
+        window.SaveAsRequested += () => saveAs++;
+        tab.MarkClean();
+        ViewFixture.Pump();
+        Ctrl(window, Key.S, PhysicalKey.S, shift: true);
+        Assert.Equal(1, saveAs);
+        Assert.Equal(1, saves);
+    }
+
+    [AvaloniaFact]
+    public async Task KeyRepeatDoesNotSaveTwice()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("text-basic.pdf");
+        var window = windows.Window;
+        var saves = 0;
+        window.SaveRequested += () => saves++;
+        tab.MarkDirty();
+        ViewFixture.Pump();
+
+        Hold(window, Key.S, PhysicalKey.S, RawInputModifiers.Control, 4);
+        Assert.Equal(1, saves);
+    }
+
+    [AvaloniaFact]
+    public async Task CtrlZYieldsToATextField()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("text-rich.pdf");
+        var window = windows.Window;
+        await MakeAnEditAsync(tab);
+        Assert.True(tab.Annotations.CanUndo);
+
+        window.ShowSearchBar();
+        ViewFixture.Pump();
+        window.ShownSearchBar!.Input.Focus();
+        Ctrl(window, Key.Z, PhysicalKey.Z);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+
+        // The text field kept the key: the history of the document is untouched.
+        Assert.True(tab.Annotations.CanUndo);
+        Assert.False(tab.Annotations.CanRedo);
+
+        // With the focus in the document the same key undoes.
+        window.ViewOf(tab)!.Focus();
+        Ctrl(window, Key.Z, PhysicalKey.Z);
+        await ViewFixture.WaitAsync(() => tab.Annotations.CanRedo);
+        Assert.False(tab.Annotations.CanUndo);
+    }
+
+    [AvaloniaFact]
+    public async Task CtrlShiftZAndCtrlYRedo()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("text-rich.pdf");
+        var window = windows.Window;
+        await MakeAnEditAsync(tab);
+
+        Ctrl(window, Key.Z, PhysicalKey.Z);
+        await ViewFixture.WaitAsync(() => tab.Annotations.CanRedo);
+        Ctrl(window, Key.Z, PhysicalKey.Z, shift: true);
+        await ViewFixture.WaitAsync(() => !tab.Annotations.CanRedo && tab.Annotations.CanUndo);
+
+        Ctrl(window, Key.Z, PhysicalKey.Z);
+        await ViewFixture.WaitAsync(() => tab.Annotations.CanRedo);
+        Ctrl(window, Key.Y, PhysicalKey.Y);
+        await ViewFixture.WaitAsync(() => !tab.Annotations.CanRedo && tab.Annotations.CanUndo);
+    }
+
     [AvaloniaFact]
     public async Task AHeldKeyRunsAOneShotCommandOnlyOnce()
     {

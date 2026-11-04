@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
 using Raffica.Core.Viewing;
+using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
@@ -24,6 +25,7 @@ namespace Raffica.Pdf;
 internal sealed partial class PdfWindow
 {
     private readonly Dictionary<PdfTab, PdfPrintInfo> _printInfo = [];
+    private readonly Dictionary<PdfTab, bool> _annotateAllowed = [];
     private readonly PdfCommandRules _rules;
     private readonly PrintCommand _print;
     private IPrintService? _printService;
@@ -36,11 +38,29 @@ internal sealed partial class PdfWindow
     private static KeyModifiers CommandModifier =>
         Application.Current?.PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyNames.CommandModifier;
 
+    /// <summary>The tool model of the annotate mode: the active tool and the colours and widths the tools remember (in the viewer settings).</summary>
+    internal ToolState Tools { get; }
+
+    /// <summary>Raised when Save runs (Ctrl+S or the command); the save controller of the milestone takes it over.</summary>
+    internal event Action? SaveRequested;
+
+    /// <summary>Raised when Save as runs; the save controller of the milestone takes it over.</summary>
+    internal event Action? SaveAsRequested;
+
     private PdfCommandRules CreateRules() => new(
         () => Workspace.Active is not null,
         () => Workspace.Tabs.Count,
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
-        PrintAvailable);
+        PrintAvailable,
+        isDirty: () => Workspace.Active is { IsDirty: true },
+        canUndo: () => Workspace.Active?.Annotations.CanUndo == true,
+        canRedo: () => Workspace.Active?.Annotations.CanRedo == true,
+        busySaving: () => _print.IsRunning,
+        annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
+        hasSelection: () => false);
+
+    /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
+    internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
 
     // Whether the system can print is not asked while the first page is on its way (on Linux that loads libcups): until the first sharp page
     // has been seen Print counts as available, then the answer is asked once and kept.
@@ -98,7 +118,39 @@ internal sealed partial class PdfWindow
         Settings: () => Settings.Open(),
         DarkPage: ToggleDarkPage,
         PagesPane: ShowPagesPane,
-        OutlinePane: ShowOutlinePane);
+        OutlinePane: ShowOutlinePane,
+        Save: () => SaveRequested?.Invoke(),
+        SaveAs: () => SaveAsRequested?.Invoke(),
+        Undo: () => _ = GuardAsync(UndoActiveAsync),
+        Redo: () => _ = GuardAsync(RedoActiveAsync),
+        AnnotateMode: () =>
+        {
+            if (Tools.Tool == AnnotateTool.None)
+            {
+                Tools.Choose(AnnotateTool.Select);
+            }
+            else
+            {
+                Tools.End();
+            }
+        },
+        Highlight: () => Tools.Choose(AnnotateTool.Highlight),
+        Underline: () => Tools.Choose(AnnotateTool.Underline),
+        StrikeOut: () => Tools.Choose(AnnotateTool.StrikeOut),
+        SelectMark: () => Tools.Choose(AnnotateTool.Select),
+        Freehand: () => Tools.Choose(AnnotateTool.Freehand),
+        Rectangle: () => Tools.Choose(AnnotateTool.Rectangle),
+        Ellipse: () => Tools.Choose(AnnotateTool.Ellipse),
+        Line: () => Tools.Choose(AnnotateTool.Line),
+        Arrow: () => Tools.Choose(AnnotateTool.Arrow),
+        TextBox: () => Tools.Choose(AnnotateTool.TextBox),
+        AnnotateDone: () => Tools.End(),
+        MarksPane: () => { }, // The marks pane arrives with its own task; until then the command has nothing to show.
+        DeleteMark: () => { }); // Deleting the selected mark arrives with the select tool; the rule keeps it disabled until there is a selection.
+
+    private Task UndoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
+
+    private Task RedoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.RedoAsync() : Task.CompletedTask;
 
     /// <summary>Indexes the commands of the ribbon by id and attaches the window-wide shortcuts. Called once, after the ribbon exists.</summary>
     private void AttachShortcuts(RibbonDefinition definition)
@@ -131,7 +183,8 @@ internal sealed partial class PdfWindow
             return;
         }
 
-        if (entry.Id is PdfCommandIds.Copy or PdfCommandIds.SelectAll && FocusManager?.GetFocusedElement() is TextBox)
+        // Copy, Select all, Undo and Redo belong to a text field that has the focus (it undoes its own typing).
+        if (entry.Id is PdfCommandIds.Copy or PdfCommandIds.SelectAll or PdfCommandIds.Undo or PdfCommandIds.Redo && FocusManager?.GetFocusedElement() is TextBox)
         {
             return;
         }
@@ -200,6 +253,24 @@ internal sealed partial class PdfWindow
         }
 
         _ = ReadPrintInfoAsync(tab, document);
+        _ = ReadAnnotatePermissionAsync(tab, document);
+    }
+
+    private async Task ReadAnnotatePermissionAsync(PdfTab tab, PdfDocument document)
+    {
+        try
+        {
+            var allowed = await document.MayAnnotateAsync();
+            if (Workspace.Tabs.Contains(tab))
+            {
+                _annotateAllowed[tab] = allowed;
+                RefreshCommandStates();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A document that went away meanwhile has no permissions to show; the tools stay as they were.
+        }
     }
 
     private async Task ReadPrintInfoAsync(PdfTab tab, PdfDocument document)

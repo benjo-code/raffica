@@ -26,7 +26,8 @@ internal enum ShortcutBase
 /// <param name="AnyShift">Whether Shift is accepted but not required (Ctrl and the plus key is Ctrl+Shift+= on an English keyboard).</param>
 /// <param name="Alternates">Keys that do the same as <paramref name="Key"/> (number pad keys).</param>
 /// <param name="AllowsRepeat">Whether holding the key repeats the command (zoom, next hit); every other shortcut runs once per press.</param>
-internal sealed record PdfShortcut(Key Key, string Token, ShortcutBase Base, bool Shift = false, bool AnyShift = false, Key[]? Alternates = null, bool AllowsRepeat = false)
+/// <param name="Also">A second shortcut that does the same (Ctrl+Y beside Ctrl+Shift+Z); it has its own modifiers and shows in no text.</param>
+internal sealed record PdfShortcut(Key Key, string Token, ShortcutBase Base, bool Shift = false, bool AnyShift = false, Key[]? Alternates = null, bool AllowsRepeat = false, PdfShortcut? Also = null)
 {
     private const KeyModifiers Relevant = KeyModifiers.Control | KeyModifiers.Shift | KeyModifiers.Alt | KeyModifiers.Meta;
 
@@ -57,7 +58,10 @@ internal sealed record PdfShortcut(Key Key, string Token, ShortcutBase Base, boo
     }
 
     /// <summary>Whether a key press is this shortcut. <paramref name="command"/> is the command modifier of the platform. Alt, or any modifier the shortcut does not name, makes it no match.</summary>
-    public bool Matches(Key key, KeyModifiers modifiers, KeyModifiers command)
+    public bool Matches(Key key, KeyModifiers modifiers, KeyModifiers command) =>
+        MatchesOwn(key, modifiers, command) || Also?.Matches(key, modifiers, command) == true;
+
+    private bool MatchesOwn(Key key, KeyModifiers modifiers, KeyModifiers command)
     {
         if (!Keys.Contains(key))
         {
