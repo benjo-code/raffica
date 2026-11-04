@@ -52,7 +52,10 @@ internal sealed class AnnotationSession : IDisposable
         }
     }
 
-    /// <summary>A draft or stroke registers itself here until it is applied or dropped; dispose the result to end it. Call it on the UI thread.</summary>
+    /// <summary>
+    /// A draft or stroke registers itself here until it is applied or dropped; dispose the result to end it. Call it on the UI thread.
+    /// The handle must be disposed on every path (success, failure, cancel): closing the tab waits for it.
+    /// </summary>
     public IDisposable BeginPending()
     {
         lock (_gate)
@@ -72,7 +75,7 @@ internal sealed class AnnotationSession : IDisposable
             Task? drafts;
             lock (_gate)
             {
-                drafts = _pending > 0 ? (_idle ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task : null;
+                drafts = _pending > 0 && !_disposed ? (_idle ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task : null;
             }
 
             if (drafts is not null)
@@ -129,13 +132,14 @@ internal sealed class AnnotationSession : IDisposable
 
     public void Dispose()
     {
-        _disposed = true;
         Editor.Changed -= OnEditorChanged;
 
-        // A flush that waits for a draft nobody will end (its owner is gone with the tab) must not hang.
+        // A flush that waits for a draft nobody will end (its owner is gone with the tab) must not hang. The flag is set under the lock,
+        // so a flush either sees it or has its signal released here.
         TaskCompletionSource? release;
         lock (_gate)
         {
+            _disposed = true;
             release = _idle;
             _idle = null;
         }

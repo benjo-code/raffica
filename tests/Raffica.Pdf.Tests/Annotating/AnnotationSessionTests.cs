@@ -243,4 +243,15 @@ public sealed class AnnotationSessionTests
         session.Dispose();
         await flush.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
+
+    [AvaloniaFact]
+    public async Task FlushAfterDisposeReturnsAtOnce()
+    {
+        using var file = await AnnotatedFile.OpenAsync();
+        var session = file.Tab.Annotations;
+        _ = session.BeginPending();
+        session.Dispose();
+
+        await session.FlushAsync().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+    }
 }
