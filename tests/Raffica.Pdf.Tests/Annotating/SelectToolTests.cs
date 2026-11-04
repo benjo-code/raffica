@@ -399,4 +399,106 @@ public sealed class SelectToolTests
         Assert.Equal(130, after.Single(a => a.Kind == AnnotationKind.Rectangle).Drawing!.Box.Left, 1.5);
         Assert.Equal(rect!.Name, after.Single(a => a.Kind == AnnotationKind.Rectangle).Name);
     }
+
+    [AvaloniaFact]
+    public async Task StyleChangeRightAfterANudgeKeepsTheNudgedPosition()
+    {
+        // A drawing: the width change comes while the nudges are still waiting for their pause.
+        using (var f = await OpenSelectAsync())
+        {
+            await AddRectangleAsync(f, new PageRect(100, 200, 300, 300));
+            f.Click(At(f, 200, 201));
+            await SettleAsync(f);
+            Assert.True(Send(f, Key.Right));
+            Assert.True(Send(f, Key.Right));
+            await f.Interaction.Select.SetSelectionStyleAsync(null, 4);
+            await SettleAsync(f);
+            var drawing = Assert.Single(await AllAsync(f));
+            Assert.Equal(4, drawing.Drawing!.Width, 0.01);
+            Assert.Equal(102, drawing.Drawing!.Box.Left, 0.5);
+        }
+
+        // A text box: the colour change must not put the box back.
+        using (var f = await OpenSelectAsync())
+        {
+            await f.Tab.Annotations.Editor.ApplyTextBoxAsync(0, new TextBoxSpec(new PageRect(100, 100, 260, 160), "Hello", 12, Blue), null);
+            await SettleAsync(f);
+            f.Click(At(f, 180, 130));
+            await SettleAsync(f);
+            Assert.True(Send(f, Key.Down, KeyModifiers.Shift));
+            await f.Interaction.Select.SetSelectionStyleAsync(Red, null);
+            await SettleAsync(f);
+            var box = Assert.Single(await AllAsync(f)).TextBox!;
+            Assert.Equal(Red, box.Color);
+            Assert.Equal(110, box.Box.Top, 0.5);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DeleteRightAfterANudgeDeletesTheMarkAndLeavesNoPendingHandle()
+    {
+        using var f = await OpenSelectAsync();
+        var rect = await AddRectangleAsync(f, new PageRect(100, 200, 300, 300));
+        f.Click(At(f, 200, 201));
+        await SettleAsync(f);
+        Assert.True(Send(f, Key.Right));
+        Assert.True(Send(f, Key.Delete));
+        f.Time.Advance(600);
+        await SettleAsync(f);
+        Assert.Empty(await AllAsync(f));
+
+        // No handle is left behind: a flush (which waits for them) ends.
+        await f.Tab.Annotations.FlushAsync().WaitAsync(TimeSpan.FromSeconds(5), Cancel);
+
+        // The nudge and the delete are two steps; undoing the delete brings the mark back at its nudged place.
+        await f.Tab.Annotations.UndoAsync();
+        await SettleAsync(f);
+        var back = Assert.Single(await AllAsync(f));
+        Assert.Equal(rect.Name, back.Name);
+        Assert.Equal(101, back.Drawing!.Box.Left, 0.5);
+    }
+
+    [AvaloniaFact]
+    public async Task PressRightAfterANudgeDragsTheNudgedPlace()
+    {
+        using var f = await OpenSelectAsync();
+        await AddRectangleAsync(f, new PageRect(100, 200, 300, 300));
+        f.Click(At(f, 200, 201));
+        await SettleAsync(f);
+        Assert.True(Send(f, Key.Right, KeyModifiers.Shift));
+        Assert.True(Send(f, Key.Right, KeyModifiers.Shift));
+
+        // The press lands on the new bottom edge (120 .. 320), beyond the old one, and the drag moves from there, not from the old place.
+        Drag(f, At(f, 308, 300), At(f, 308, 320));
+        await SettleAsync(f);
+        var box = Assert.Single(await AllAsync(f)).Drawing!.Box;
+        Assert.Equal(120, box.Left, 1.5);
+        Assert.Equal(220, box.Top, 1.5);
+    }
+
+    [AvaloniaFact]
+    public async Task TabInsideTheOpenTextBoxFieldDoesNotStepTheSelection()
+    {
+        using var f = await OpenSelectAsync();
+        await AddRectangleAsync(f, new PageRect(300, 200, 380, 260));
+        var made = await f.Tab.Annotations.Editor.ApplyTextBoxAsync(0, new TextBoxSpec(new PageRect(100, 100, 260, 160), "Hello", 12, Blue), null);
+        await SettleAsync(f);
+        f.Click(At(f, 180, 130));
+        await SettleAsync(f);
+        Assert.True(Send(f, Key.Enter));
+        await ViewFixture.WaitAsync(() => f.Interaction.TextBox.IsEditing);
+
+        // The field owns its keys: nothing steps, moves or deletes while it is open.
+        Assert.False(Send(f, Key.Tab));
+        Assert.False(Send(f, Key.Tab, KeyModifiers.Shift));
+        Assert.False(Send(f, Key.Right));
+        Assert.False(Send(f, Key.Delete));
+        Assert.False(Send(f, Key.Back));
+        Assert.Equal(made!.Name, f.Interaction.Select.Selected!.Name);
+        f.Time.Advance(600);
+        await SettleAsync(f);
+        var box = Assert.Single(await AllAsync(f), a => a.Kind == AnnotationKind.TextBox);
+        Assert.Equal(100, box.TextBox!.Box.Left, 0.5);
+        Assert.Equal(2, (await AllAsync(f)).Count);
+    }
 }

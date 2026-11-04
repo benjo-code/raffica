@@ -51,6 +51,7 @@ internal sealed class SelectController : IToolController
     private KeyEventArgs? _lastOffered;
     private bool _down;
     private long _pressId;
+    private int _inFlight;
     private bool _disposed;
 
     public SelectController(PdfTab tab, PageView view, ToolState tools, TextBoxController textBox, DialogQueue dialogs, TimeProvider? time = null)
@@ -202,7 +203,9 @@ internal sealed class SelectController : IToolController
         }
 
         _lastOffered = e;
-        if (_disposed || _gesture is not null)
+
+        // The editing field owns its keys (Tab leaves it, Delete and the arrows edit its text), whatever the window decided.
+        if (_disposed || _gesture is not null || _textBox.IsEditing || _view.IsInField(e.Source))
         {
             return false;
         }
@@ -267,12 +270,17 @@ internal sealed class SelectController : IToolController
     /// <returns>The task that ends with the deletion.</returns>
     public Task DeleteSelectionAsync()
     {
-        if (_disposed || _selected is not { } selected)
+        if (_disposed || _selected is null)
         {
             return _chain;
         }
 
         CommitNudge();
+        if (_selected is not { } selected)
+        {
+            return _chain;
+        }
+
         Deselect();
         var locator = LocatorOf(selected);
         Enqueue(selected.Page, _tab.Annotations.BeginPending(), editor => editor.DeleteAsync(locator));
@@ -288,12 +296,18 @@ internal sealed class SelectController : IToolController
     /// <returns>The task that ends when the change is made.</returns>
     public Task SetSelectionStyleAsync(AnnotationColor? color, double? width)
     {
-        if (_disposed || _selected is not { } selected || !CanChangeStyle(selected))
+        if (_disposed || _selected is null)
         {
             return _chain;
         }
 
+        // A nudge in progress is made first and moves the selection to its new place: the edit is built from that, not from the place before.
         CommitNudge();
+        if (_selected is not { } selected || !CanChangeStyle(selected))
+        {
+            return _chain;
+        }
+
         var locator = LocatorOf(selected);
         if (selected.TextBox is { } spec)
         {
@@ -654,10 +668,20 @@ internal sealed class SelectController : IToolController
         if (_selected is { } selected && Same(selected, target))
         {
             _selected = WithShape(target, shape);
+            PatchCache(_selected);
             UpdateOverlay();
         }
 
         Enqueue(target.Page, pending, editor => spec is not null ? editor.ReplaceTextBoxAsync(locator, spec) : editor.ReplaceGeometryAsync(locator, shape));
+    }
+
+    // The cache shows a mark where it is going to be, so a press right after a nudge or drag hits and drags the new place.
+    private void PatchCache(PdfAnnotation annotation)
+    {
+        if (_cache.TryGetValue(annotation.Page, out var list))
+        {
+            _cache[annotation.Page] = list.Select(a => Same(a, annotation) && a.Kind == annotation.Kind ? annotation : a).ToList();
+        }
     }
 
     private async Task EditTextBoxAsync(AnnotationLocator locator)
@@ -675,8 +699,11 @@ internal sealed class SelectController : IToolController
     }
 
     // Puts a change in the queue: it runs after the ones before it, holds the pending handle until it is done, and reads the page again.
-    private void Enqueue(int page, IDisposable pending, Func<AnnotationEditor, Task> work) =>
+    private void Enqueue(int page, IDisposable pending, Func<AnnotationEditor, Task> work)
+    {
+        _inFlight++;
         _chain = RunAsync(_chain, page, pending, work);
+    }
 
     private async Task RunAsync(Task previous, int page, IDisposable pending, Func<AnnotationEditor, Task> work)
     {
@@ -705,6 +732,7 @@ internal sealed class SelectController : IToolController
 
         try
         {
+            _inFlight--;
             await LoadAsync(page);
         }
         finally
@@ -761,7 +789,8 @@ internal sealed class SelectController : IToolController
             return;
         }
 
-        if (_disposed)
+        // A change is still on its way: this read may show the place before it. The read after the change brings the truth.
+        if (_disposed || _inFlight > 0)
         {
             return;
         }
