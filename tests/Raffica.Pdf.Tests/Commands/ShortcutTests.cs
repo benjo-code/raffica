@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
@@ -268,11 +269,148 @@ public sealed class ShortcutTests
         Assert.Contains("Ctrl+O", texts);
         Assert.Contains("Ctrl+Shift+D", texts);
 
-        // A second F1 does not stack another card.
+        // A second F1 does not stack another card; Esc closes it.
+        Press(window, Key.F1, PhysicalKey.F1);
+        Assert.True(window.Host.IsOpen);
+        Press(window, Key.Escape, PhysicalKey.Escape);
+        Assert.False(window.Host.IsOpen);
+
+        // The button closes it as well.
         Press(window, Key.F1, PhysicalKey.F1);
         Assert.True(window.Host.IsOpen);
         ClickCard(window, "PART_Ok");
         Assert.False(window.Host.IsOpen);
+    }
+
+    // A held key sends a key down again and again without a key up in between.
+    private static void Hold(PdfWindow window, Key key, PhysicalKey physical, RawInputModifiers modifiers, int downs)
+    {
+        for (var i = 0; i < downs; i++)
+        {
+            window.KeyPress(key, modifiers, physical, null);
+        }
+
+        window.KeyRelease(key, modifiers, physical, null);
+        ViewFixture.Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task AHeldKeyRunsAOneShotCommandOnlyOnce()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("pages-marked.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+
+        // Ctrl+Shift+D held for four key downs toggles once (an even number of toggles would end light again).
+        Hold(window, Key.D, PhysicalKey.D, RawInputModifiers.Control | RawInputModifiers.Shift, 4);
+        Assert.Equal(PageTheme.Dark, view.PageTheme);
+
+        // Pressed and released again it is a new press.
+        Hold(window, Key.D, PhysicalKey.D, RawInputModifiers.Control | RawInputModifiers.Shift, 1);
+        Assert.Equal(PageTheme.Light, view.PageTheme);
+    }
+
+    [AvaloniaFact]
+    public async Task AHeldZoomKeyKeepsZooming()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("text-rich.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+        view.SetZoom(1.0);
+
+        Hold(window, Key.OemPlus, PhysicalKey.Equal, RawInputModifiers.Control, 3);
+        Assert.Equal(ZoomSteps.Next(ZoomSteps.Next(ZoomSteps.Next(1.0))), view.Zoom);
+    }
+
+    [AvaloniaFact]
+    public async Task AHeldCloseTabKeyClosesOneTab()
+    {
+        using var windows = WindowFixture.Create();
+        await windows.OpenAsync("hello_world.pdf");
+        await windows.OpenAsync("text-basic.pdf");
+        var window = windows.Window;
+
+        Hold(window, Key.W, PhysicalKey.W, RawInputModifiers.Control, 5);
+        await ViewFixture.WaitAsync(() => window.Workspace.Tabs.Count == 1);
+        ViewFixture.Pump();
+        Assert.Single(window.Workspace.Tabs);
+    }
+
+    [AvaloniaFact]
+    public void ASecondOpenWhileThePickerIsShowingIsIgnored()
+    {
+        using var windows = WindowFixture.Create();
+        var window = windows.Window;
+        var calls = 0;
+        var answer = new TaskCompletionSource<IReadOnlyList<string>>();
+        window.FilePicker = () =>
+        {
+            calls++;
+            return answer.Task;
+        };
+
+        var first = window.OpenFromDialogAsync();
+        var second = window.OpenFromDialogAsync();
+        Ctrl(window, Key.O, PhysicalKey.O);
+        Assert.Equal(1, calls);
+        Assert.True(second.IsCompleted);
+        Assert.False(first.IsCompleted);
+
+        answer.SetResult([]);
+        for (var i = 0; i < 200 && !first.IsCompleted; i++)
+        {
+            ViewFixture.Pump();
+        }
+
+        Assert.True(first.IsCompleted);
+        var third = window.OpenFromDialogAsync();
+        Assert.Equal(2, calls);
+        Assert.True(third.IsCompleted);
+    }
+
+    [AvaloniaFact]
+    public async Task CtrlCInATextBoxCopiesTheTextBoxAndNotTheDocumentSelection()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("text-rich.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+        await ViewFixture.WaitAsync(() => view.FirstSharpPageShown);
+        var selection = window.TextOf(tab)!.Selection;
+        for (var i = 0; i < 400 && !selection.HasSelection; i++)
+        {
+            selection.SelectAll();
+            await Task.Delay(25);
+            ViewFixture.Pump();
+        }
+
+        Assert.True(selection.HasSelection);
+
+        window.ShowSearchBar();
+        ViewFixture.Pump();
+        var bar = window.ShownSearchBar!;
+        bar.Query = "Zeichen";
+        ViewFixture.Pump();
+        bar.Input.Focus();
+        bar.Input.SelectAll();
+        var clipboard = window.Clipboard!;
+        await clipboard.ClearAsync();
+
+        Ctrl(window, Key.C, PhysicalKey.C);
+        string? copied = null;
+        for (var i = 0; i < 100 && copied is null; i++)
+        {
+            copied = await clipboard.TryGetTextAsync();
+            if (copied is null)
+            {
+                await Task.Delay(10);
+                ViewFixture.Pump();
+            }
+        }
+
+        Assert.Equal("Zeichen", copied);
     }
 
     [AvaloniaFact]

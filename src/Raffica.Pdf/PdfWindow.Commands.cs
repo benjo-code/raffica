@@ -22,6 +22,7 @@ internal sealed partial class PdfWindow
 {
     private readonly Dictionary<PdfTab, PdfPrintInfo> _printInfo = [];
     private readonly PdfCommandRules _rules;
+    private readonly HashSet<Key> _keysDown = [];
     private Dictionary<string, CommandDefinition> _commandsById = [];
 
     /// <summary>The command modifier of the platform: Cmd on macOS, Ctrl elsewhere (what the frame uses for Ctrl+K).</summary>
@@ -66,7 +67,12 @@ internal sealed partial class PdfWindow
     private void AttachShortcuts(RibbonDefinition definition)
     {
         _commandsById = definition.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToDictionary(c => c.Id, StringComparer.Ordinal);
-        AddHandler(KeyDownEvent, OnShortcutKeyDown, RoutingStrategies.Tunnel);
+
+        // Avalonia does not say whether a key down is the repeat of a held key, so the window keeps the keys that are down: a key down for a
+        // key that is already down is a repeat. Handled events count too, or a key taken by another handler would look new next time.
+        AddHandler(KeyDownEvent, OnShortcutKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyUpEvent, (_, e) => _keysDown.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
+        Deactivated += (_, _) => _keysDown.Clear();
     }
 
     /// <summary>
@@ -77,6 +83,7 @@ internal sealed partial class PdfWindow
     /// </summary>
     private void OnShortcutKeyDown(object? sender, KeyEventArgs e)
     {
+        var isRepeat = !_keysDown.Add(e.Key);
         if (e.Handled || Host.IsOpen)
         {
             return;
@@ -93,6 +100,12 @@ internal sealed partial class PdfWindow
         }
 
         e.Handled = true;
+        if (isRepeat && entry.Shortcut is { AllowsRepeat: false })
+        {
+            // A held key runs a one-shot command once (the dark page does not flicker, no pile of file pickers); the repeat is swallowed.
+            return;
+        }
+
         if (command.IsEnabled)
         {
             command.Run?.Invoke();

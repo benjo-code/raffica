@@ -265,8 +265,37 @@ internal sealed partial class PdfWindow : Window
         return tab;
     }
 
-    /// <summary>Asks for PDF files with the system file dialog and opens them.</summary>
+    /// <summary>Replaces the system file dialog (tests): returns the chosen paths, none when the user canceled. Null: the system dialog.</summary>
+    internal Func<Task<IReadOnlyList<string>>>? FilePicker { get; set; }
+
+    private bool _pickerShowing;
+
+    /// <summary>
+    /// Asks for PDF files with the system file dialog and opens them. While a dialog is already showing, another call does nothing
+    /// (a held Ctrl+O or a double click must not pile up pickers).
+    /// </summary>
     internal async Task OpenFromDialogAsync()
+    {
+        if (_pickerShowing)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> paths;
+        _pickerShowing = true;
+        try
+        {
+            paths = FilePicker is { } picker ? await picker() : await PickWithSystemDialogAsync();
+        }
+        finally
+        {
+            _pickerShowing = false;
+        }
+
+        await OpenFilesAsync(paths);
+    }
+
+    private async Task<IReadOnlyList<string>> PickWithSystemDialogAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -274,7 +303,7 @@ internal sealed partial class PdfWindow : Window
             AllowMultiple = true,
             FileTypeFilter = [new FilePickerFileType(PdfStrings.OpenFilterPdf) { Patterns = ["*.pdf"] }],
         });
-        await OpenFilesAsync(files.Select(f => f.TryGetLocalPath()).OfType<string>());
+        return files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
     }
 
     /// <summary>Opens the files of a drop (every file, whatever its extension: Core names a file that is no PDF).</summary>

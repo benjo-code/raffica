@@ -25,7 +25,8 @@ internal enum ShortcutBase
 /// <param name="Shift">Whether Shift is part of the shortcut.</param>
 /// <param name="AnyShift">Whether Shift is accepted but not required (Ctrl and the plus key is Ctrl+Shift+= on an English keyboard).</param>
 /// <param name="Alternates">Keys that do the same as <paramref name="Key"/> (number pad keys).</param>
-internal sealed record PdfShortcut(Key Key, string Token, ShortcutBase Base, bool Shift = false, bool AnyShift = false, Key[]? Alternates = null)
+/// <param name="AllowsRepeat">Whether holding the key repeats the command (zoom, next hit); every other shortcut runs once per press.</param>
+internal sealed record PdfShortcut(Key Key, string Token, ShortcutBase Base, bool Shift = false, bool AnyShift = false, Key[]? Alternates = null, bool AllowsRepeat = false)
 {
     private const KeyModifiers Relevant = KeyModifiers.Control | KeyModifiers.Shift | KeyModifiers.Alt | KeyModifiers.Meta;
 

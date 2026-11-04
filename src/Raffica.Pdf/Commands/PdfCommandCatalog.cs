@@ -90,8 +90,8 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.Settings, "CmdSettings", "AlignCenter", "14", Cmd(Key.OemComma, ","));
         home.Group("GroupFind", "2")
             .Add(PdfCommandIds.Search, "CmdSearch", "Search", "21", Cmd(Key.F, "F"), CommandSize.Large)
-            .Add(PdfCommandIds.SearchNext, "CmdSearchNext", "Redo", "22", Plain(Key.F3, "F3"))
-            .Add(PdfCommandIds.SearchPrevious, "CmdSearchPrevious", "Undo", "23", Plain(Key.F3, "F3", shift: true));
+            .Add(PdfCommandIds.SearchNext, "CmdSearchNext", "Redo", "22", Plain(Key.F3, "F3", repeat: true))
+            .Add(PdfCommandIds.SearchPrevious, "CmdSearchPrevious", "Undo", "23", Plain(Key.F3, "F3", shift: true, repeat: true));
         home.Group("GroupGoTo", "3")
             .Add(PdfCommandIds.GoToPage, "CmdGoToPage", "ChevronRight", "31", Cmd(Key.G, "G"), CommandSize.Large);
         home.Group("GroupPages", "4")
@@ -110,8 +110,8 @@ internal static class PdfCommandCatalog
 
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
-            .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "Plus", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add]))
-            .Add(PdfCommandIds.ZoomOut, "CmdZoomOut", "Minus", "12", Cmd(Key.OemMinus, "-", anyShift: true, alternates: [Key.Subtract]))
+            .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "Plus", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
+            .Add(PdfCommandIds.ZoomOut, "CmdZoomOut", "Minus", "12", Cmd(Key.OemMinus, "-", anyShift: true, alternates: [Key.Subtract], repeat: true))
             .Add(PdfCommandIds.FitWidth, "CmdFitWidth", "AlignLeft", "13", Cmd(Key.D1, "1", alternates: [Key.NumPad1]))
             .Add(PdfCommandIds.FitPage, "CmdFitPage", "Search", "14", Cmd(Key.D2, "2", alternates: [Key.NumPad2]))
             .Add(PdfCommandIds.ActualSize, "CmdActualSize", "Check", "15", Cmd(Key.D0, "0", alternates: [Key.NumPad0]));
@@ -156,10 +156,11 @@ internal static class PdfCommandCatalog
             .Select(c => new HelpEntry(c.Group.Label, c.Name, KeyNames.Format(c.Shortcut!.Text(OperatingSystem.IsMacOS()), PdfStrings.Culture)))
             .ToList();
 
-    private static PdfShortcut Cmd(Key key, string token, bool shift = false, bool anyShift = false, Key[]? alternates = null) =>
-        new(key, token, ShortcutBase.Command, shift, anyShift, alternates);
+    private static PdfShortcut Cmd(Key key, string token, bool shift = false, bool anyShift = false, Key[]? alternates = null, bool repeat = false) =>
+        new(key, token, ShortcutBase.Command, shift, anyShift, alternates, repeat);
 
-    private static PdfShortcut Plain(Key key, string token, bool shift = false) => new(key, token, ShortcutBase.None, shift);
+    private static PdfShortcut Plain(Key key, string token, bool shift = false, bool repeat = false) =>
+        new(key, token, ShortcutBase.None, shift, AllowsRepeat: repeat);
 
     private static PdfShortcut CtrlKey(Key key, string token, bool shift = false) => new(key, token, ShortcutBase.Control, shift);
 }
