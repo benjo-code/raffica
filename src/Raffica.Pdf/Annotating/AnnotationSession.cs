@@ -16,7 +16,7 @@ internal sealed class AnnotationSession : IDisposable
     private readonly object _gate = new();
     private int _pending;
     private TaskCompletionSource? _idle;
-    private bool _disposed;
+    private volatile bool _disposed;
     private bool _marked;
 
     public AnnotationSession(PdfTab tab, SynchronizationContext ui)
@@ -81,7 +81,7 @@ internal sealed class AnnotationSession : IDisposable
             }
 
             await Editor.WhenIdleAsync();
-            if (PendingCount == 0)
+            if (PendingCount == 0 || _disposed)
             {
                 break;
             }
@@ -131,6 +131,16 @@ internal sealed class AnnotationSession : IDisposable
     {
         _disposed = true;
         Editor.Changed -= OnEditorChanged;
+
+        // A flush that waits for a draft nobody will end (its owner is gone with the tab) must not hang.
+        TaskCompletionSource? release;
+        lock (_gate)
+        {
+            release = _idle;
+            _idle = null;
+        }
+
+        release?.TrySetResult();
     }
 
     private void OnEditorChanged()

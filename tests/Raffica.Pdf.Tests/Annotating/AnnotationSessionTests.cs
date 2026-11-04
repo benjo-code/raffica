@@ -228,4 +228,19 @@ public sealed class AnnotationSessionTests
         // A change that arrives after the tab is gone is ignored.
         file.Tab.Annotations.Dispose();
     }
+
+    [AvaloniaFact]
+    public async Task DisposeReleasesAWaitingFlush()
+    {
+        using var file = await AnnotatedFile.OpenAsync();
+        var session = file.Tab.Annotations;
+        _ = session.BeginPending();
+
+        var flush = session.FlushAsync();
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(flush.IsCompleted);
+
+        session.Dispose();
+        await flush.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+    }
 }
