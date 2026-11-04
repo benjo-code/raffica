@@ -1181,13 +1181,15 @@ static class CheckCommand
 
     // THE limit table of the PDF app (target pdf), the only place for these numbers. The source is the entry "Raffica PDF speed budgets
     // (M2.1)" in Docs/DECISIONS.md: these are its budgets, the medians of the owner's runs of 2026-11-04 (commit db90246, CSVs in
-    // Docs/measurements/pdf-viewer-2026-11-04/) rounded up as in M1 (time to 10 ms, memory to 5 MiB, size to 1 MiB); the limit is
+    // Docs/measurements/pdf-viewer-2026-11-04/), except the Windows ones, which the entry "Raffica PDF: software rendering is the Windows
+    // default (M2.1 follow-up)" re-derived from the software rendering medians (rendering/software), rounded up as in M1 (time to 10 ms,
+    // memory to 5 MiB, size to 1 MiB); the limit is
     // budget x 1.25 once (Stats.Limit). "scroll" is the median of the p99 of the frame gaps. "zip" has a budget like the gallery's
     // (the size check judges size and zip together; a metric without a budget would be "unrecorded" and fail). Never loosen a number
     // here to make a check pass; a change is a new decisions entry. macOS has none (indicative only).
     private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
     {
-        ["windows"] = new() { ["cold"] = 400, ["warm"] = 390, ["thousand"] = 400, ["second"] = 30, ["scroll"] = 20, ["memory"] = 130, ["size"] = 51, ["zip"] = 22 },
+        ["windows"] = new() { ["cold"] = 200, ["warm"] = 210, ["thousand"] = 200, ["second"] = 20, ["scroll"] = 20, ["memory"] = 40, ["size"] = 51, ["zip"] = 22 },
         ["linux"] = new() { ["cold"] = 230, ["warm"] = 230, ["thousand"] = 220, ["second"] = 40, ["scroll"] = 40, ["memory"] = 155, ["size"] = 48, ["zip"] = 22 },
         ["macos"] = [],
     };
@@ -1690,7 +1692,7 @@ static class SelfTest
         // The production table holds the budgets recorded from the owner's runs of 2026-11-04 (DECISIONS.md, "Raffica PDF speed budgets (M2.1)"): pinned value by value.
         (string Platform, string Key, double Budget)[] recorded =
         [
-            ("windows", "cold", 400), ("windows", "warm", 390), ("windows", "thousand", 400), ("windows", "second", 30), ("windows", "scroll", 20), ("windows", "memory", 130), ("windows", "size", 51), ("windows", "zip", 22),
+            ("windows", "cold", 200), ("windows", "warm", 210), ("windows", "thousand", 200), ("windows", "second", 20), ("windows", "scroll", 20), ("windows", "memory", 40), ("windows", "size", 51), ("windows", "zip", 22),
             ("linux", "cold", 230), ("linux", "warm", 230), ("linux", "thousand", 220), ("linux", "second", 40), ("linux", "scroll", 40), ("linux", "memory", 155), ("linux", "size", 48), ("linux", "zip", 22),
         ];
         foreach (var (platform, key, budget) in recorded)
@@ -1778,12 +1780,13 @@ static class SelfTest
             CheckCommand.PdfTableForTests = null;
         }
 
-        Expect("pdf limits: the test table is gone again", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), 500);
+        Expect("pdf limits: the test table is gone again", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), 250);
     }
 
     /// <summary>
-    /// The CSVs of the first PDF measurements (<c>Docs/measurements/pdf-viewer-2026-11-04</c>, found from the working folder upwards) pass the
-    /// recorded limits on both binding platforms, through the same <c>check</c> command and through the evaluation: a regression of the table
+    /// The committed CSVs of the PDF measurements (<c>Docs/measurements/pdf-viewer-2026-11-04</c>, found from the working folder upwards) pass the
+    /// recorded limits on both binding platforms: Linux with <c>linux</c> (first run), Windows with <c>rendering/software</c> (the run of the
+    /// software rendering path, which is the app's default; the first run in <c>windows</c> was measured on Avalonia's default path and is history), through the same <c>check</c> command and through the evaluation: a regression of the table
     /// or of the files is a failed selftest.
     /// </summary>
     private static void RecordedMeasurementsTests()
@@ -1801,9 +1804,9 @@ static class SelfTest
             return;
         }
 
-        foreach (var platform in new[] { "windows", "linux" })
+        foreach (var (platform, subfolder) in new[] { ("windows", Path.Combine("rendering", "software")), ("linux", "linux") })
         {
-            var pattern = Path.Combine(folder, platform, "*.csv");
+            var pattern = Path.Combine(folder, subfolder, "*.csv");
             Expect($"pdf measurements {platform}: check exits 0 on the committed CSVs", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", platform, "--in", pattern], out _)!), 0);
 
             var rows = new List<BudgetsCommand.Row>();
