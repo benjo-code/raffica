@@ -92,8 +92,8 @@ internal static class Program
     {
         var builder = AppBuilder.Configure(() => new App(options, instance)).UsePlatformDetect();
 
-        // Developer and measurement override, Windows only: RAFFICA_RENDERING=software takes software rendering as the only mode (no Direct3D
-        // device, no ANGLE display, no composition); anything else keeps Avalonia's default.
+        // Windows only: software rendering is the default (no Direct3D device, no ANGLE display, no composition; it halves every start case and
+        // cuts idle memory to a third, see Docs/DECISIONS.md). RAFFICA_RENDERING=default opts out to Avalonia's own default path.
         if (OperatingSystem.IsWindows()
             && RenderingChoiceParser.Parse(Environment.GetEnvironmentVariable(RenderingChoiceParser.VariableName)) == RenderingChoice.Software)
         {
