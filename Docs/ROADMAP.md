@@ -28,7 +28,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | 2026-11-04 |
-| 2.1 | Viewer | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.1 | Viewer | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) | – |
 | 2.2 | Annotate | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.4 | Organize pages | 3 – Raffica PDF | ⬜ open | – | – |
@@ -169,7 +169,7 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 - [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
 
 ## Milestone 2.1 – Viewer
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
+**Status:** 🟡 planned · **Plan:** [2026-11-04-milestone-02-1-viewer.md](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
 
 Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.
 
