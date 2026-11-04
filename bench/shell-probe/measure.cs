@@ -587,7 +587,15 @@ static class SizeCommand
             return 2;
         }
 
-        var (total, zip, fontBytes, native) = Measure(publish, fonts, target == "gallery" ? "RafficaGallery" : "ShellProbe");
+        var mainExe = target == "gallery" ? "RafficaGallery" : "ShellProbe";
+        if (check is not null && !File.Exists(Path.Combine(publish, mainExe + ".exe")) && !File.Exists(Path.Combine(publish, mainExe)))
+        {
+            // A failed publish leaves an empty folder; zero bytes would pass every limit.
+            Console.Error.WriteLine($"--publish-dir has no {mainExe} executable ({mainExe}.exe or {mainExe}); nothing to check.");
+            return 2;
+        }
+
+        var (total, zip, fontBytes, native) = Measure(publish, fonts, mainExe);
 
         if (platform is not null)
         {
@@ -680,7 +688,7 @@ static class BudgetsCommand
             foreach (var line in File.ReadLines(path).Skip(1).Where(l => l.Length > 0))
             {
                 var p = line.Split(',');
-                if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
                 {
                     Console.Error.WriteLine($"unreadable CSV row in {path}: {line}");
                     return 1;
@@ -943,7 +951,7 @@ static class CheckCommand
                 foreach (var line in File.ReadLines(path).Skip(1).Where(l => l.Length > 0))
                 {
                     var p = line.Split(',');
-                    if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                    if (p.Length != 6 || !double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
                     {
                         problems.Add($"unreadable CSV row in {path}: {line}");
                         continue;
@@ -1180,6 +1188,14 @@ static class SelfTest
 
         File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows", "cold", 0.1).Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")));
         Expect("check command: a value 0.1 above exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", csv], out _)!), 1);
+        foreach (var bad in new[] { "NaN", "Infinity", "-Infinity" })
+        {
+            // A value that is not a finite number is an unreadable row (NaN compares as "not over" and would pass silently).
+            File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows").Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")) + $"pc,gallery,warm,9,{bad},ms\n");
+            Expect($"check command: a {bad} row exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", csv], out _)!), 1);
+        }
+
+        File.WriteAllText(csv, Lines.CsvHeader + "\n" + string.Concat(GalleryRows("windows").Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")));
         Expect("check command: a missing CSV exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", Path.Combine(folder, "nope", "*.csv")], out _)!), 1);
         Expect("check command: a missing file exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", Path.Combine(folder, "nope.csv")], out _)!), 1);
         Expect("check command: unknown platform is a usage error", CheckCommand.Execute(Options.Parse(["--platform", "amiga", "--in", csv], out _)!), 2);
@@ -1223,6 +1239,19 @@ static class SelfTest
         Expect("size --check: a zip at 19 MiB passes", Check("win-x64", 19 * 1024 * 1024, random: true), 0);
         Expect("size --check macOS is indicative and exits 0", Check("osx-x64", Win * 2), 0);
         Expect("size --check: unknown rid is a usage error", Check("amiga-m68k", 10), 2);
+
+        // An empty folder (a publish that failed) must not pass: the main executable has to be there.
+        Directory.CreateDirectory(root);
+        foreach (var file in Directory.EnumerateFiles(root))
+        {
+            File.Delete(file);
+        }
+
+        Expect("size --check: an empty publish folder is a usage error", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "win-x64"], out _)!), 2);
+        File.WriteAllBytes(Path.Combine(root, "lib.dll"), new byte[10]);
+        Expect("size --check: a folder without the main executable is a usage error", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "win-x64"], out _)!), 2);
+        File.WriteAllBytes(Path.Combine(root, "RafficaGallery"), new byte[10]);
+        Expect("size --check: the executable of Linux and macOS has no extension", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "linux-x64"], out _)!), 0);
         Directory.Delete(root, recursive: true);
     }
 
