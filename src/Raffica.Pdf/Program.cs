@@ -37,7 +37,7 @@ internal static class Program
         // does not answer within a second, this process starts as an ordinary window.
         var name = InstanceName(options);
         using var instance = SingleInstance.TryBecomePrimary(name);
-        if (instance is null && InstanceHandover.TryHandOver(name, options.Files, HandOverTimeout))
+        if (instance is null && TryHandOver(name, options))
         {
             return 0;
         }
@@ -51,6 +51,19 @@ internal static class Program
             // No display, no usable backend.
             Console.Error.WriteLine($"error: the window could not be shown: {ex.GetType().Name}: {ex.Message}");
             return UsageError;
+        }
+    }
+
+    // Whatever goes wrong with the hand-over, this process starts as an ordinary window instead of failing without one.
+    private static bool TryHandOver(string name, PdfOptions options)
+    {
+        try
+        {
+            return InstanceHandover.TryHandOver(name, options.Files, HandOverTimeout);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return false;
         }
     }
 

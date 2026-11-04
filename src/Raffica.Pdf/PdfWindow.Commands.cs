@@ -27,6 +27,8 @@ internal sealed partial class PdfWindow
     private readonly PdfCommandRules _rules;
     private readonly PrintCommand _print;
     private IPrintService? _printService;
+    private bool _printProbed;
+    private bool _printAvailable;
     private readonly HashSet<Key> _keysDown = [];
     private Dictionary<string, CommandDefinition> _commandsById = [];
 
@@ -38,7 +40,34 @@ internal sealed partial class PdfWindow
         () => Workspace.Active is not null,
         () => Workspace.Tabs.Count,
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
-        () => _print.IsAvailable);
+        PrintAvailable);
+
+    // Whether the system can print is not asked while the first page is on its way (on Linux that loads libcups): until the first sharp page
+    // has been seen Print counts as available, then the answer is asked once and kept.
+    private bool PrintAvailable() => !_printProbed || _printAvailable;
+
+    private void ProbePrint()
+    {
+        if (_printProbed)
+        {
+            return;
+        }
+
+        try
+        {
+            _printAvailable = _print.IsAvailable;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _printAvailable = false;
+        }
+
+        _printProbed = true;
+        RefreshCommandStates();
+    }
+
+    /// <summary>What the permissions of a tab say about printing, once they were read (for tests); null before.</summary>
+    internal PdfPrintInfo? PrintInfoOf(PdfTab tab) => _printInfo.TryGetValue(tab, out var info) ? info : null;
 
     private PdfCommands CreateCommands() => new(
         Open: () => _ = GuardAsync(OpenFromDialogAsync),

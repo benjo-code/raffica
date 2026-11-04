@@ -65,6 +65,22 @@ public sealed class HandoverWindowTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheHandoverIsCheckedOffTheUiThreadAndOnlyTheAnswerReachesIt()
+    {
+        var window = Show();
+        var path = TestData.Pdf("hello_world.pdf");
+        var missing = Path.Combine(_folder, "missing.pdf");
+
+        // As the pipe calls it: on a pool thread (File.Exists runs there), then the UI thread opens the file and shows the card.
+        await Task.Run(() => window.OnHandover([path, missing]), TestContext.Current.CancellationToken);
+
+        await WaitAsync(() => window.Workspace.Tabs.Count == 1 && window.Host.IsOpen);
+        Assert.Equal(Path.GetFullPath(path), window.Workspace.Tabs[0].Path);
+        window.Close();
+        Pump();
+    }
+
+    [AvaloniaFact]
     public async Task SixtyFourHostilePathsNeverThrowAndOpenNothing()
     {
         var window = Show();

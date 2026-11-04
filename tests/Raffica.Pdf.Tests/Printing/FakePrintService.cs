@@ -10,7 +10,23 @@ internal sealed class FakePrintService : IPrintService
 {
     private readonly object _lock = new();
 
-    public bool IsAvailable { get; set; } = true;
+    private int _availabilityChecks;
+
+    /// <summary>How often <see cref="IsAvailable"/> was asked (the real services probe the system on the first ask).</summary>
+    public int AvailabilityChecks => Volatile.Read(ref _availabilityChecks);
+
+    public bool IsAvailable
+    {
+        get
+        {
+            Interlocked.Increment(ref _availabilityChecks);
+            return Available;
+        }
+
+        set => Available = value;
+    }
+
+    private bool Available { get; set; } = true;
 
     public bool HasSystemDialog { get; set; } = true;
 

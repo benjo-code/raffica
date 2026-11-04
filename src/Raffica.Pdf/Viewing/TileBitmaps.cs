@@ -52,7 +52,9 @@ internal sealed class TileBitmaps(int maxBytes)
         }
 
         var cost = (long)image.Width * image.Height * 4;
-        if (cost > maxBytes)
+
+        // An image without pixels has no bitmap (a WriteableBitmap cannot be empty), and one above the budget would evict everything.
+        if (cost <= 0 || cost > maxBytes)
         {
             return null;
         }

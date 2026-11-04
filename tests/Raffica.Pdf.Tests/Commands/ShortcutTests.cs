@@ -461,6 +461,41 @@ public sealed class ShortcutTests
     }
 
     [AvaloniaFact]
+    public async Task CtrlOWorksAgainAfterAPickerThatTookTheKeyUp()
+    {
+        using var windows = WindowFixture.Create();
+        var window = windows.Window;
+        var calls = 0;
+        window.FilePicker = async () =>
+        {
+            calls++;
+            await Task.Yield();
+            return [];
+        };
+
+        // The key up of the O never arrives (the picker took it): the key must not stay "down" for the window.
+        window.KeyPress(Key.O, RawInputModifiers.Control, PhysicalKey.O, null);
+        for (var i = 0; i < 200 && calls < 1; i++)
+        {
+            ViewFixture.Pump();
+            await Task.Delay(10);
+        }
+
+        Assert.Equal(1, calls);
+        await Task.Delay(100);
+        ViewFixture.Pump();
+
+        window.KeyPress(Key.O, RawInputModifiers.Control, PhysicalKey.O, null);
+        for (var i = 0; i < 200 && calls < 2; i++)
+        {
+            ViewFixture.Pump();
+            await Task.Delay(10);
+        }
+
+        Assert.Equal(2, calls);
+    }
+
+    [AvaloniaFact]
     public async Task PrintAsksTheServiceAndSettingsOpenTheDialog()
     {
         // The fake service stands for the system dialog and answers with a cancel, so Print sends nothing.

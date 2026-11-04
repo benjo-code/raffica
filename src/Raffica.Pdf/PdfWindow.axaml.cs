@@ -46,11 +46,15 @@ internal sealed partial class PdfWindow : Window
     /// <summary>How long a file given at the start may take to its first sharp page before the listener opens anyway.</summary>
     private static readonly TimeSpan FirstSharpFallbackDelay = TimeSpan.FromSeconds(3);
 
+    /// <summary>The longest the window waits for the settings files and the recent list when it closes or the process exits.</summary>
+    private static readonly TimeSpan FlushTimeout = TimeSpan.FromSeconds(1);
+
     // A hand-over of 64 hostile paths must not become 64 cards.
     private const int MaxHandoverErrorCards = 3;
     private const int MaxShownNameLength = 120;
 
     private readonly IDisposable _fieldCodes;
+    private readonly EventHandler? _processExit;
     private readonly IDisposable _selectedSubscription;
     private readonly CloseGuard _closeGuard;
     private readonly PdfOptions _options;
@@ -160,62 +164,77 @@ internal sealed partial class PdfWindow : Window
         ];
         _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
         Closing += OnWindowClosing;
-        Closed += (_, _) =>
+        Closed += OnWindowClosed;
+
+        // A normal exit of the process also writes what is still queued (a close of the window already did).
+        _processExit = (_, _) => FlushWriters();
+        AppDomain.CurrentDomain.ProcessExit += _processExit;
+    }
+
+    // Every step runs even when one before it throws: a failing Dispose must not leave the sessions open or the positions unremembered.
+    private static void Step(Action step)
+    {
+        try
         {
-            _print.Cancel();
-            _fieldCodes.Dispose();
-            _selectedSubscription.Dispose();
-            _firstSharpFallback?.Stop();
+            step();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The window is closing; there is nobody to tell.
+        }
+    }
 
-            // The position of every open file is remembered, then the views let go of their sessions, then the sessions are disposed.
-            foreach (var tab in Workspace.Tabs)
+    private static void EachStep<T>(IEnumerable<T> items, Action<T> step)
+    {
+        foreach (var item in items.ToList())
+        {
+            Step(() => step(item));
+        }
+    }
+
+    private void FlushWriters()
+    {
+        _recent.Flush(FlushTimeout);
+        Settings.Flush(FlushTimeout);
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        Step(_print.Cancel);
+        Step(_fieldCodes.Dispose);
+        Step(_selectedSubscription.Dispose);
+        Step(() => _firstSharpFallback?.Stop());
+        Step(() => AppDomain.CurrentDomain.ProcessExit -= _processExit);
+
+        // The position of every open file is remembered, then the panes, the views and the texts let go of the sessions, then the sessions are disposed.
+        EachStep(Workspace.Tabs, RememberView);
+        EachStep(_panes.Values, panes => panes.Dispose());
+        _panes.Clear();
+        EachStep(_searches.Values, search => search.Dispose());
+        _searches.Clear();
+        EachStep(_texts.Values, text => text.Dispose());
+        _texts.Clear();
+        EachStep(_outlines, pair =>
+        {
+            if (_views.TryGetValue(pair.Key, out var outlined))
             {
-                RememberView(tab);
+                outlined.FirstSharpPage -= pair.Value.Start;
             }
 
-            // The panes let go of the sessions and the views first, then the views, then the sessions.
-            foreach (var panes in _panes.Values)
-            {
-                panes.Dispose();
-            }
+            pair.Value.Dispose();
+        });
+        _outlines.Clear();
+        EachStep(_views.Values, view =>
+        {
+            view.FirstSharpPage -= OnFirstSharpPageShown;
+            view.Search = null;
+            view.Tab = null;
+        });
+        _views.Clear();
+        EachStep(Workspace.Tabs, tab => tab.Dispose());
 
-            _panes.Clear();
-            foreach (var search in _searches.Values)
-            {
-                search.Dispose();
-            }
-
-            _searches.Clear();
-            foreach (var text in _texts.Values)
-            {
-                text.Dispose();
-            }
-
-            _texts.Clear();
-            foreach (var (tab, outline) in _outlines)
-            {
-                if (_views.TryGetValue(tab, out var outlined))
-                {
-                    outlined.FirstSharpPage -= outline.Start;
-                }
-
-                outline.Dispose();
-            }
-
-            _outlines.Clear();
-            foreach (var view in _views.Values)
-            {
-                view.FirstSharpPage -= OnFirstSharpPageShown;
-                view.Search = null;
-                view.Tab = null;
-            }
-
-            _views.Clear();
-            foreach (var tab in Workspace.Tabs)
-            {
-                tab.Dispose();
-            }
-        };
+        // Last: the files get what is queued (positions of the tabs, the last printer), waiting a moment at most.
+        Step(FlushWriters);
     }
 
     /// <summary>Raised when the page view of a tab has painted its first sharp tile (the measurement of the first and the second file listens).</summary>
@@ -309,6 +328,10 @@ internal sealed partial class PdfWindow : Window
 
         IReadOnlyList<string> paths;
         _pickerShowing = true;
+
+        // The picker may take the key up of the O of Ctrl+O (a portal or a sheet does not always deactivate the window): without this the
+        // O would stay "down" and the next Ctrl+O would count as a repeat.
+        _keysDown.Clear();
         try
         {
             paths = FilePicker is { } picker ? await picker() : await PickWithSystemDialogAsync();
@@ -316,6 +339,7 @@ internal sealed partial class PdfWindow : Window
         finally
         {
             _pickerShowing = false;
+            _keysDown.Clear();
         }
 
         await OpenFilesAsync(paths);
@@ -327,7 +351,16 @@ internal sealed partial class PdfWindow : Window
         {
             Title = PdfStrings.OpenDialogTitle,
             AllowMultiple = true,
-            FileTypeFilter = [new FilePickerFileType(PdfStrings.OpenFilterPdf) { Patterns = ["*.pdf"] }],
+            FileTypeFilter =
+            [
+                new FilePickerFileType(PdfStrings.OpenFilterPdf)
+                {
+                    // Both spellings (a Linux file dialog matches the case), the MIME type for the portals and the type of macOS.
+                    Patterns = ["*.pdf", "*.PDF"],
+                    MimeTypes = ["application/pdf"],
+                    AppleUniformTypeIdentifiers = ["com.adobe.pdf"],
+                },
+            ],
         });
         return files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
     }
@@ -403,21 +436,59 @@ internal sealed partial class PdfWindow : Window
     /// </summary>
     internal async Task OnFirstSharpPageAsync()
     {
+        // The load starts first and runs off the UI thread: whatever the rest does, a failing step cannot skip it. Idempotent: a second
+        // call waits for the load of the first.
+        var load = _recent.LoadAsync();
         if (!_firstSharpWorkStarted)
         {
             _firstSharpWorkStarted = true;
             _firstSharpFallback?.Stop();
-            _instance?.StartListening(paths => Dispatcher.UIThread.Post(() => OnHandover(paths)));
+            try
+            {
+                _instance?.StartListening(OnHandover);
+            }
+            finally
+            {
+                ProbePrint();
+            }
         }
 
-        // Idempotent: a second call waits for the load of the first.
-        await _recent.LoadAsync();
+        await load;
     }
 
-    /// <summary>The files of a later launch: only existing files open, the rest ends in a few cards; the window comes to the front.</summary>
+    /// <summary>
+    /// The files of a later launch (called on the thread of the pipe, never the UI thread: asking for a file on a dead network share can
+    /// stall for a long time). The check of the paths happens here; the UI thread only gets the answer: only existing files open, the
+    /// rest ends in a few cards, and the window comes to the front.
+    /// </summary>
     internal void OnHandover(IReadOnlyList<string> paths)
     {
-        HandoverArrived?.Invoke();
+        try
+        {
+            Dispatcher.UIThread.Post(() => HandoverArrived?.Invoke());
+            if (_closeConfirmed)
+            {
+                return;
+            }
+
+            var rejected = new List<string>();
+            var accepted = InstanceHandover.Accept(paths, path =>
+            {
+                if (rejected.Count < MaxHandoverErrorCards)
+                {
+                    rejected.Add(path.Length > MaxShownNameLength ? path[..MaxShownNameLength] : path);
+                }
+            });
+            Dispatcher.UIThread.Post(() => ShowHandover(accepted, rejected));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Whatever a second instance sends must not take the app down.
+        }
+    }
+
+    private void ShowHandover(IReadOnlyList<string> accepted, IReadOnlyList<string> rejected)
+    {
         if (_closeConfirmed)
         {
             return;
@@ -425,14 +496,11 @@ internal sealed partial class PdfWindow : Window
 
         try
         {
-            var cards = 0;
-            var accepted = InstanceHandover.Accept(paths, path =>
+            foreach (var name in rejected)
             {
-                if (cards++ < MaxHandoverErrorCards)
-                {
-                    ShowOpenError(path.Length > MaxShownNameLength ? path[..MaxShownNameLength] : path, PdfOpenError.FileNotFound);
-                }
-            });
+                ShowOpenError(name, PdfOpenError.FileNotFound);
+            }
+
             if (WindowState == WindowState.Minimized)
             {
                 WindowState = WindowState.Normal;
@@ -459,10 +527,14 @@ internal sealed partial class PdfWindow : Window
     private async void OnDrop(object? sender, DragEventArgs e)
     {
         e.Handled = true;
-        if (FileDrop.Accepts(e.DataTransfer))
+        var data = e.DataTransfer;
+        await GuardAsync(async () =>
         {
-            await GuardAsync(() => OpenDroppedAsync(e.DataTransfer));
-        }
+            if (FileDrop.Accepts(data))
+            {
+                await OpenDroppedAsync(data);
+            }
+        });
     }
 
     private Task<string?> AskPasswordAsync(string fileName, bool incorrect) =>
@@ -580,6 +652,9 @@ internal sealed partial class PdfWindow : Window
             view.FirstSharpPage += OnFirstSharpPageShown;
             var shownTab = active;
             view.FirstSharpPage += () => FirstSharpPageDrawn?.Invoke(shownTab);
+
+            // The permissions are read only once this tab has its first sharp page: nothing for the print command is asked before.
+            view.FirstSharpPage += () => LoadPrintInfo(shownTab);
             var created = view;
             view.ViewChanged += () =>
             {
@@ -602,7 +677,6 @@ internal sealed partial class PdfWindow : Window
         }
 
         DocumentPane.Content = view;
-        LoadPrintInfo(active);
         if (_searchBar is not null && _searches.TryGetValue(active, out var shown))
         {
             _searchBar.Session = shown;
