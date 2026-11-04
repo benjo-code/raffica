@@ -29,7 +29,7 @@ The probe is not product code. No project under `src/` references it, and milest
 | `size` | The published folder, its zip (`CompressionLevel.Optimal`), and the shares of fonts and native libraries. Debug symbols (`*.pdb`, `*.dbg`) are not shipped and count nowhere. | 1 |
 
 **`first-frame`** is written in the second animation frame requested after the window's `Opened` event
-(`TopLevel.RequestAnimationFrame`, the same method as Pagewing's `first-sharp`).
+(`TopLevel.RequestAnimationFrame`, the same method as the predecessor's `first-sharp`).
 
 ### Output
 

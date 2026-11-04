@@ -92,7 +92,7 @@ static class Stats
     /// <summary>The budget of a size: the median rounded up to the next MiB.</summary>
     public static long BudgetBytesSize(double bytes) => (long)Math.Ceiling(bytes / MiB) * MiB;
 
-    /// <summary>The limit of a check: budget × 1.25 (as in Pagewing).</summary>
+    /// <summary>The limit of a check: budget × 1.25 (as in the predecessor).</summary>
     public static double Limit(double budget) => budget * Tolerance;
 }
 
@@ -279,7 +279,7 @@ sealed class Options
     public string? Require(params string[] names) => names.FirstOrDefault(n => Get(n) is null && GetAll(n).Count == 0);
 }
 
-/// <summary>The warning for a machine without a usable compositor rate (Pagewing's DwmFlush check).</summary>
+/// <summary>The warning for a machine without a usable compositor rate (the predecessor's DwmFlush check).</summary>
 static class FrameCadence
 {
     /// <summary>A median DWM interval above this (below 25 Hz) makes the measured times invalid.</summary>
