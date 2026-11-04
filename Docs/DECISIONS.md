@@ -30,8 +30,19 @@ Log of architecture and technology decisions. Newest entries on top.
 
 - **Checks:** `dotnet run bench/shell-probe/measure.cs -- check --platform <windows|linux> --in "<gallery CSVs>" [--summary <file>]` compares the medians of a `measure.yml` run (`target=gallery`) with the limits and exits 1 above a limit. `dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64> --publish-dir <dir> --fonts-dir src/Raffica.Shell/Assets/Fonts` checks size and zip only and writes no CSV; CI runs it as the step "Size of the published gallery". macOS is indicative and sets no limit. A run flagged "Invalid measurement" (compositor warning) must not count.
 - **Measured so far:** the win-x64 Native AOT publish of `src/Raffica.Gallery` is 40.65 MiB, zip 16.80 MiB at the head of the milestone branch (command `dotnet run bench/shell-probe/measure.cs -- size --check win-x64 --publish-dir artifacts/gallery/win-x64 --fonts-dir src/Raffica.Shell/Assets/Fonts`), under the limits of 48.75 and 20 MiB. The probe's own frame was 38.1 / 15.7 MiB. The Linux size was not measured locally; the CI step does it.
-- **Not recorded yet (pending):** the medians of the Windows and Linux `measure.yml` runs for the gallery frame. They need the owner to start the self-hosted runners (`bench/shell-probe/RUNNERS.md`); the commands are in the evidence of milestone 1.2 in `Docs/roadmap.json`. Once the runs exist, the CSVs go to `Docs/measurements/gallery-frame-<date>/` and the medians become the regression baseline in a follow-up entry. `--measure-input` ended with exit 3 in the implementation session (92 of 100 presses in 30 s, also for the unmodified probe); it needs a check on a real display.
-**Rationale:** One table in one place in code, so a loosened limit is a visible change. No timing figure is stated because none was measured on a valid machine.
+- **Baseline (measure.yml, target `gallery`, commit ae4d07c on `dev`, run 2026-11-04, `check` passed on both; CSVs and machine notes in `Docs/measurements/gallery-frame-2026-11-04/`):**
+
+| Case | Windows (run 41788263177) | Linux (run 41788266869) |
+|---|---|---|
+| Cold start (median) | 375.23 ms | 185.68 ms |
+| Warm start (median) | 361.92 ms | 182.15 ms |
+| Input latency (median / p99 / max) | 4.53 / 9.59 / 15.98 ms | 16.59 / 36.11 / 80.15 ms |
+| Idle memory | 111.34 MiB | 132.3 MiB |
+| Published size | 40.65 MiB | 37.25 MiB |
+| Zip | 16.8 MiB | 16.38 MiB |
+
+  Windows: AMD Ryzen 7 7800X3D, RTX 4070 SUPER, 1920 x 1080 at 60 Hz, power plan balanced. Linux: HP ProBook (Intel i5-8265U, 15.4 GiB), CachyOS, Wayland session. Every median is under its limit; the Linux input median (16.59 ms against a 20 ms budget) and memory (132.3 MiB against a 125 MiB budget) are the closest to their budgets, memory is above the budget but inside the limit. These medians are the regression baseline for later milestones; compare with `check`, never with a changed limit. `--measure-input` ran to the end on both machines (the exit 3 seen in the development session came from its slow compositor).
+**Rationale:** One table in one place in code, so a loosened limit is a visible change. The timings come from the two binding machines through the workflow, not from the development VM.
 **Rejected alternatives:** A separate check script (a second copy of the limits); timings from the development VM (3.8 Hz compositor, invalid).
 
 ## 2026-11-04 – App frame conventions (M1.2)
@@ -47,7 +58,7 @@ Log of architecture and technology decisions. Newest entries on top.
 - **Panes:** F6 moves through a ring of the open panes (`PaneRing`, `PaneFocus`), closed panes are skipped, and with a dialog open F6 stays inside it. In the status bar the field-code hint wins over the focus text.
 - **Collapsing:** `AppFrame` collapses an empty tab row and band (the start view sits directly under the title bar); a closed pane collapses its slot and its rule; `DocumentTabs` share the room down to 96 px, then scroll, and keep "+" visible.
 - **Key names:** shortcuts are written through `KeyNames` (`Ctrl+K`, `Strg+K`, `Umschalt`, `Entf`). On macOS they are symbols without a separator in both languages (`⌃⌥⇧⌘K`: Ctrl, Option, Shift, Command), a call beyond the plan.
-- **Tests:** shell test classes run one at a time (`DisableTestParallelization` in `tests/Raffica.Shell.Tests/TestCulture.cs`) because `ShellStrings.Culture` is shared static state and a parallel run was flaky; the test assembly pins English.
+- **Tests:** shell test classes run one at a time (`DisableTestParallelization` in `tests/Raffica.Shell.Tests/TestCulture.cs`) because `ShellStrings.Culture` is shared static state and a parallel run was flaky; the test assembly pins English, and an assembly-level `BeforeAfterTestAttribute` resets `ShellStrings.Culture` and `GalleryStrings.Culture` to English around every test, because a test that sets the process language (the `--print-string` test did, without restoring it) would otherwise leak it into whichever test runs next; the order of the tests is not fixed and differs between Windows and Linux.
 **Rationale:** Each call keeps the frame data-driven and testable headless, and avoids a second copy of anything the shell already has.
 **Rejected alternatives:** The predecessor's palette matcher in the shell (ties the shell to the PDF core).
 **Not verified:** The real behaviour of bare Alt, AltGr, F10 and the Transient menu flyout on Windows, Linux and macOS; the caption buttons on Windows (the roles map to the system hit codes and the buttons also set `WindowState`, so a double maximize is possible); the macOS drag area, inset and Option key; the title bar on Wayland. The list of manual checks is in the evidence of milestone 1.2 in `Docs/roadmap.json`.
