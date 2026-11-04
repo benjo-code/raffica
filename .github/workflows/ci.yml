@@ -225,6 +225,13 @@ jobs:
       - name: Publish the PDF app (Native AOT)
         run: dotnet publish src/Raffica.Pdf -c Release -r ${{ matrix.rid }} -o out/pdf
 
+      # The published size of the PDF app (and its zip) is printed on every build. It is NOT yet a limit: the PDF budgets are the medians of
+      # the owner's measurement runs (Docs/DECISIONS.md, "Raffica PDF measurement method (M2.1)"), and `size --check --target pdf` with the
+      # empty limit table exits 2 ("no limits recorded for target pdf") rather than pass. Once the owner has recorded the limits in
+      # CheckCommand, this step becomes `size --check ${{ matrix.rid }} --target pdf --publish-dir out/pdf --fonts-dir ...` like the gallery's.
+      - name: Size of the published PDF app
+        run: dotnet run bench/shell-probe/measure.cs -- size --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts --out ${{ runner.temp }}/pdf-size.csv
+
       - name: Smoke test of the PDF app binary (Linux)
         if: runner.os == 'Linux'
         run: |

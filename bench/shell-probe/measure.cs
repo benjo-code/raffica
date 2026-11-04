@@ -1,16 +1,18 @@
 // Measurement script of the shell probe (bench/shell-probe/README.md, spec section 9).
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
-//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery] [--mode frame] [--machine <name>]
-//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64> --publish-dir <dir> --fonts-dir <dir> [--target gallery]
-//   dotnet run bench/shell-probe/measure.cs -- check --platform windows|linux|macos --in "<csv glob>" [--summary <md>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf] [--mode frame] [--machine <name>]
+//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf]
+//   dotnet run bench/shell-probe/measure.cs -- check --platform windows|linux|macos --in "<csv glob>" [--target gallery|pdf] [--summary <md>]
 //   dotnet run bench/shell-probe/measure.cs -- budgets --in <csv>... --out <md>
 //   dotnet run bench/shell-probe/measure.cs -- selftest
 // CSV columns: machine,mode,case,run,value,unit. unit is ms or bytes. Rows of the case input carry the statistic
 // (median, p99, max) in the column run; rows of the case size carry total, zip, fonts or native. The gallery
-// (--target gallery) writes the mode gallery.
+// (--target gallery) writes the mode gallery, the PDF app (--target pdf) the mode pdf; its cases are cold, warm, thousand, second, scroll
+// (rows p99 and max per run in the column run) and memory. check --target pdf has no limits yet and exits 2 (see CheckCommand).
 //
-// Exit codes: 0 ok, 1 a failed run (or a failed selftest), 2 usage error.
+// Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for target pdf).
 
 using System.Diagnostics;
 using System.Globalization;
@@ -121,6 +123,22 @@ static class Lines
         bytes = 0;
         return line.StartsWith(Prefix, StringComparison.Ordinal)
             && long.TryParse(line.AsSpan(Prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out bytes);
+    }
+
+    /// <summary>Reads <c>scroll p99-ms=… max-ms=…</c> of the PDF app (invariant culture).</summary>
+    public static bool TryParseScroll(string line, out double p99, out double max)
+    {
+        p99 = max = 0;
+        var parts = line.Split(' ');
+        return parts is ["scroll", var a, var b] && TryValue(a, "p99-ms=", out p99) && TryValue(b, "max-ms=", out max);
+    }
+
+    /// <summary>Reads <c>second-page ms=…</c> of the PDF app (invariant culture).</summary>
+    public static bool TryParseSecond(string line, out double ms)
+    {
+        ms = 0;
+        var parts = line.Split(' ');
+        return parts is ["second-page", var a] && TryValue(a, "ms=", out ms);
     }
 
     private static bool TryValue(string text, string prefix, out double value)
@@ -373,15 +391,20 @@ static class RunCommand
     }
 
     /// <summary>The value of the CSV column <c>mode</c>: <c>gallery</c> for the gallery, else the probe's mode.</summary>
-    public static string CsvMode(string target, string? mode) => target == "gallery" ? "gallery" : mode!;
+    public static string CsvMode(string target, string? mode) => target is "gallery" or "pdf" ? target : mode!;
 
     public static int Execute(Options o)
     {
         var target = o.Get("--target") ?? "probe";
-        if (target is not ("probe" or "gallery"))
+        if (target is not ("probe" or "gallery" or "pdf"))
         {
-            Console.Error.WriteLine("--target must be probe or gallery.");
+            Console.Error.WriteLine("--target must be probe, gallery or pdf.");
             return 2;
+        }
+
+        if (target == "pdf")
+        {
+            return PdfRun.Execute(o);
         }
 
         string[] required = target == "probe" ? ["--exe", "--mode", "--case", "--out"] : ["--exe", "--case", "--out"];
@@ -552,6 +575,304 @@ static class RunCommand
     }
 }
 
+/// <summary>
+/// <c>run --target pdf</c>: the cases of the PDF app (spec section 5). The app is started with its measurement switch, a file of
+/// <c>testdata/pdfs</c> and a settings file in a fresh temporary folder per run (so a measurement never reads or writes the settings, the
+/// recent files or the instance pipe of the user, and no run sees the recent file of the run before). The CSV mode is <c>pdf</c>.
+/// </summary>
+static class PdfRun
+{
+    public sealed record Case(string Name, int Runs, int Warmup, int PauseMs, string Switch, string File, string Line);
+
+    /// <summary>The file a second launch hands to the running instance in the case <c>second</c>.</summary>
+    public const string SecondFile = "outline.pdf";
+
+    public static readonly Case[] Cases =
+    [
+        new("cold", 10, 0, 5000, "--measure-startup", "hello_world.pdf", "first-page"),
+        new("warm", 10, 3, 500, "--measure-startup", "hello_world.pdf", "first-page"),
+        new("thousand", 10, 3, 500, "--measure-startup", "thousand-pages.pdf", "first-page"),
+        new("second", 10, 1, 500, "--measure-second", "hello_world.pdf", "second-page"),
+        new("scroll", 5, 1, 500, "--measure-scroll", "thousand-pages.pdf", "scroll"),
+        new("memory", 10, 0, 500, "--measure-memory", "thousand-pages.pdf", "memory-bytes"),
+    ];
+
+    /// <summary>The arguments of one run of the app: the switch, the settings file and the file to open.</summary>
+    public static string[] Arguments(string caseName, string settingsFile, string testdata)
+    {
+        var c = Cases.First(x => x.Name == caseName);
+        return [c.Switch, "--settings-file", settingsFile, Path.Combine(testdata, c.File)];
+    }
+
+    /// <summary>The arguments of the second launch of the case <c>second</c>: the same settings file (so it finds the running instance) and the second file.</summary>
+    public static string[] SecondArguments(string settingsFile, string testdata) => ["--settings-file", settingsFile, Path.Combine(testdata, SecondFile)];
+
+    public static int Execute(Options o)
+    {
+        if (o.Require("--exe", "--case", "--out") is { } missing)
+        {
+            Console.Error.WriteLine($"{missing} is required.");
+            return 2;
+        }
+
+        if (o.Get("--mode") is not null)
+        {
+            Console.Error.WriteLine("--mode belongs to the probe; the PDF app has none.");
+            return 2;
+        }
+
+        var exe = Path.GetFullPath(o.Get("--exe")!);
+        var c = Cases.FirstOrDefault(x => x.Name == o.Get("--case"));
+        if (c is null || !File.Exists(exe))
+        {
+            Console.Error.WriteLine(!File.Exists(exe) ? $"file not found: {exe}" : "--case must be cold, warm, thousand, second, scroll or memory (--target pdf).");
+            return 2;
+        }
+
+        var testdata = Path.GetFullPath(o.Get("--testdata") ?? Path.Combine("testdata", "pdfs"));
+        var files = c.Name == "second" ? new[] { c.File, SecondFile } : [c.File];
+        if (files.FirstOrDefault(f => !File.Exists(Path.Combine(testdata, f))) is { } absent)
+        {
+            Console.Error.WriteLine($"file not found: {Path.Combine(testdata, absent)} (--testdata <folder> names the folder with the test files).");
+            return 2;
+        }
+
+        var machine = o.Get("--machine") ?? Environment.MachineName;
+        var name = $"pdf/{c.Name}";
+        Console.WriteLine($"{name}: {exe} {string.Join(' ', Arguments(c.Name, "<settings file>", testdata))}");
+        if (c.Name == "cold")
+        {
+            Console.WriteLine("note: \"cold\" does not empty the file cache of the operating system; a real cold start is a manual measurement right after a reboot (cold-reboot).");
+        }
+
+        var warning = FrameCadence.Measure();
+        if (warning is not null)
+        {
+            Console.WriteLine(warning);
+            if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+            {
+                Console.WriteLine($"::warning title=PDF measurement::{FrameCadence.ForAnnotation(warning)}");
+            }
+        }
+
+        var rows = new List<string>();
+        var values = new List<double>();
+        string? failure = null;
+        var runs = RunCommand.RunCount(o, c.Runs);
+        for (var run = -c.Warmup + 1; run <= runs; run++)
+        {
+            var folder = Path.Combine(Path.GetTempPath(), $"raffica-measure-{Environment.ProcessId}-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(folder);
+            var settingsFile = Path.Combine(folder, "settings.json");
+            (double? Value, double? Second, string? Error) result;
+            try
+            {
+                result = RunOnce(exe, c, settingsFile, testdata);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(folder, recursive: true);
+                }
+                catch (IOException)
+                {
+                    // A process that is still ending; the folder is in the temp folder anyway.
+                }
+            }
+
+            if (result.Error is not null)
+            {
+                failure = $"{name}: run {(run <= 0 ? "warm-up" : run.ToString(CultureInfo.InvariantCulture))} failed: {result.Error}";
+                break;
+            }
+
+            var label = run <= 0 ? $"warm-up {run + c.Warmup}" : $"run {run}";
+            if (c.Name == "scroll")
+            {
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: p99 {result.Value:0.00} ms, max {result.Second:0.00} ms"));
+                if (run > 0)
+                {
+                    values.Add(result.Value!.Value);
+                    rows.Add(Lines.Csv(machine, "pdf", RunCommand.Label(o), "p99", result.Value!.Value, "ms"));
+                    rows.Add(Lines.Csv(machine, "pdf", RunCommand.Label(o), "max", result.Second!.Value, "ms"));
+                }
+            }
+            else
+            {
+                var unit = c.Name == "memory" ? "bytes" : "ms";
+                var v = result.Value!.Value;
+                Console.WriteLine(unit == "ms"
+                    ? string.Create(CultureInfo.InvariantCulture, $"  {label}: {v:0.0} ms")
+                    : string.Create(CultureInfo.InvariantCulture, $"  {label}: {v / Stats.MiB:0.0} MiB"));
+                if (run > 0)
+                {
+                    values.Add(v);
+                    rows.Add(Lines.Csv(machine, "pdf", RunCommand.Label(o), run.ToString(CultureInfo.InvariantCulture), v, unit));
+                }
+            }
+
+            if (run < runs)
+            {
+                Thread.Sleep(c.PauseMs);
+            }
+        }
+
+        RunCommand.WriteCsv(o.Get("--out")!, rows);
+        if (warning is not null)
+        {
+            File.WriteAllText(RunCommand.WarningPath(Path.GetFullPath(o.Get("--out")!)), warning + Environment.NewLine, new UTF8Encoding(false));
+        }
+
+        if (failure is not null)
+        {
+            Console.Error.WriteLine($"FAILED: {failure}");
+            return 1;
+        }
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : string.Empty)})"));
+        if (warning is not null)
+        {
+            Console.WriteLine($"Result with reservation: {warning}");
+        }
+
+        return 0;
+    }
+
+    /// <summary>One run: the value (ms for the time cases and the scroll p99, bytes for memory), the scroll maximum and an error text.</summary>
+    private static (double? Value, double? Second, string? Error) RunOnce(string exe, Case c, string settingsFile, string testdata)
+    {
+        if (c.Name == "second")
+        {
+            var (ms, secondError) = RunSecond(exe, Arguments(c.Name, settingsFile, testdata), SecondArguments(settingsFile, testdata));
+            return (ms, null, secondError);
+        }
+
+        var (output, lineMs, error) = Runner.RunOnce(exe, Arguments(c.Name, settingsFile, testdata), c.Line);
+        if (error is not null)
+        {
+            return (null, null, error);
+        }
+
+        var line = output!.Split('\n').Select(l => l.Trim()).First(l => l.StartsWith(c.Line, StringComparison.Ordinal));
+        switch (c.Name)
+        {
+            case "memory":
+                return Lines.TryParseMemory(line, out var bytes) ? (bytes, null, null) : (null, null, $"unreadable line: {line}");
+            case "scroll":
+                return Lines.TryParseScroll(line, out var p99, out var max) ? (p99, max, null) : (null, null, $"unreadable line: {line}");
+            default:
+                return (lineMs, null, null);
+        }
+    }
+
+    /// <summary>
+    /// The case <c>second</c>: starts the app with the first file, waits for its <c>first-page</c>, starts a second launch with the second
+    /// file (it hands the file over and ends), and reads the <c>second-page ms=…</c> line of the running instance, which times itself from
+    /// the arrival of the hand-over.
+    /// </summary>
+    public static (double? Ms, string? Error) RunSecond(string exe, string[] primaryArguments, string[] secondArguments)
+    {
+        var timeout = Runner.Timeout;
+        using var primary = Start(exe, primaryArguments);
+        if (primary is null)
+        {
+            return (null, $"{exe} could not be started");
+        }
+
+        using var firstSeen = new ManualResetEventSlim();
+        using var secondSeen = new ManualResetEventSlim();
+        string? secondLine = null;
+        var reader = new Thread(() =>
+        {
+            while (primary.StandardOutput.ReadLine() is { } line)
+            {
+                if (line.StartsWith("first-page", StringComparison.Ordinal))
+                {
+                    firstSeen.Set();
+                }
+                else if (line.StartsWith("second-page", StringComparison.Ordinal))
+                {
+                    secondLine = line.Trim();
+                    secondSeen.Set();
+                }
+            }
+        })
+        { IsBackground = true };
+        reader.Start();
+        var errorTask = primary.StandardError.ReadToEndAsync();
+        try
+        {
+            if (!firstSeen.Wait(timeout))
+            {
+                return (null, $"no line \"first-page\" within {timeout.TotalSeconds:0} s");
+            }
+
+            // The pipe of the running instance opens right after the first sharp page; a moment of grace.
+            Thread.Sleep(500);
+            using var second = Start(exe, secondArguments);
+            if (second is null)
+            {
+                return (null, "the second launch could not be started");
+            }
+
+            _ = second.StandardOutput.ReadToEndAsync();
+            _ = second.StandardError.ReadToEndAsync();
+            if (!second.WaitForExit(TimeSpan.FromSeconds(15)))
+            {
+                second.Kill(entireProcessTree: true);
+                return (null, "the second launch did not end: it found no running instance to hand the file to");
+            }
+
+            if (!secondSeen.Wait(timeout))
+            {
+                return (null, $"no line \"second-page\" within {timeout.TotalSeconds:0} s");
+            }
+
+            if (!primary.WaitForExit(timeout))
+            {
+                return (null, "the running instance did not end after second-page");
+            }
+
+            reader.Join(TimeSpan.FromSeconds(5));
+            if (primary.ExitCode != 0)
+            {
+                return (null, $"exit code {primary.ExitCode}, stderr: {errorTask.GetAwaiter().GetResult().Trim()}");
+            }
+
+            return Lines.TryParseSecond(secondLine!, out var ms) ? (ms, null) : (null, $"unreadable line: {secondLine}");
+        }
+        finally
+        {
+            if (!primary.HasExited)
+            {
+                primary.Kill(entireProcessTree: true);
+                primary.WaitForExit();
+            }
+        }
+    }
+
+    private static Process? Start(string exe, string[] arguments)
+    {
+        var info = new ProcessStartInfo(exe)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = new UTF8Encoding(false),
+            StandardErrorEncoding = new UTF8Encoding(false),
+        };
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        return Process.Start(info);
+    }
+}
+
 /// <summary><c>size</c>: the published folder, the zip, the share of fonts and of native libraries.</summary>
 static class SizeCommand
 {
@@ -566,9 +887,9 @@ static class SizeCommand
         }
 
         var target = o.Get("--target") ?? (check is null ? "probe" : "gallery");
-        if (target is not ("probe" or "gallery"))
+        if (target is not ("probe" or "gallery" or "pdf"))
         {
-            Console.Error.WriteLine("--target must be probe or gallery.");
+            Console.Error.WriteLine("--target must be probe, gallery or pdf.");
             return 2;
         }
 
@@ -587,7 +908,7 @@ static class SizeCommand
             return 2;
         }
 
-        var mainExe = target == "gallery" ? "RafficaGallery" : "ShellProbe";
+        var mainExe = target == "gallery" ? "RafficaGallery" : target == "pdf" ? "RafficaPdf" : "ShellProbe";
         if (check is not null && !File.Exists(Path.Combine(publish, mainExe + ".exe")) && !File.Exists(Path.Combine(publish, mainExe)))
         {
             // A failed publish leaves an empty folder; zero bytes would pass every limit.
@@ -601,15 +922,23 @@ static class SizeCommand
         {
             // The CI check: the size and zip limits of the check command, exit 1 above them, no CSV.
             var measured = new Dictionary<string, double?> { ["size"] = total / (double)Stats.MiB, ["zip"] = zip / (double)Stats.MiB };
-            var results = CheckCommand.Judge(platform, measured, "size", "zip");
+            var pdf = target == "pdf";
+            var results = pdf ? CheckCommand.JudgePdf(platform, measured, "size", "zip") : CheckCommand.Judge(platform, measured, "size", "zip");
             Console.WriteLine($"Published {target} ({check}):");
             Console.Write(CheckCommand.Render(results));
+            if (pdf && CheckCommand.PdfHasNoLimits(platform))
+            {
+                // The sizes are printed above for the owner; a check without a limit never passes.
+                Console.Error.WriteLine(CheckCommand.NoPdfLimits);
+                return 2;
+            }
+
             Console.WriteLine(CheckCommand.ExitCode(results) == 1 ? "size check: FAILED (above the limit)" : "size check: ok");
             return CheckCommand.ExitCode(results);
         }
 
         var machine = o.Get("--machine") ?? Environment.MachineName;
-        var mode = o.Get("--mode") ?? (target == "gallery" ? "gallery" : "frame");
+        var mode = o.Get("--mode") ?? (target is "gallery" or "pdf" ? target : "frame");
 
         var rows = new[] { ("total", total), ("zip", zip), ("fonts", fontBytes), ("native", native) }
             .Select(r => Lines.Csv(machine, mode, "size", r.Item1, r.Item2, "bytes"))
@@ -836,9 +1165,50 @@ static class CheckCommand
         ["macos"] = [],
     };
 
+    // The metrics of the PDF app (target pdf), in the order of the table.
+    private static readonly (string Key, string Label)[] s_pdfMetrics =
+    [
+        ("cold", "cold (ms)"),
+        ("warm", "warm (ms)"),
+        ("thousand", "1000 pages (ms)"),
+        ("second", "second file (ms)"),
+        ("scroll", "scroll p99 (ms)"),
+        ("memory", "memory (MiB)"),
+        ("size", "size (MiB)"),
+        ("zip", "zip (MiB)"),
+    ];
+
+    // THE limit table of the PDF app (target pdf), the only place for these numbers. It is EMPTY on purpose: the budgets of milestone 2.1
+    // are the medians of the owner's runs on the owner's machines (Docs/DECISIONS.md, "Raffica PDF measurement method (M2.1)"),
+    // rounded as in M1 (time to 10 ms, memory to 5 MiB, size to 1 MiB); the limit is budget x 1.25 once. Until they are entered here
+    // (and the selftest line that pins the empty table is changed with them), `check --target pdf` exits 2 and never passes.
+    // Never invent a number and never loosen one to make a check pass; macOS has none (indicative only).
+    private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
+    {
+        ["windows"] = [],
+        ["linux"] = [],
+        ["macos"] = [],
+    };
+
+    /// <summary>The message of a check of the PDF app against an empty limit table.</summary>
+    public const string NoPdfLimits = "no limits recorded for target pdf";
+
+    /// <summary>Selftest only: replaces the (empty) production table of the PDF app; null restores it. Never set outside the selftest.</summary>
+    public static Dictionary<string, Dictionary<string, double>>? PdfTableForTests { get; set; }
+
+    /// <summary>The limit table of the PDF app in force.</summary>
+    public static Dictionary<string, Dictionary<string, double>> PdfTable => PdfTableForTests ?? s_pdfBudgets;
+
+    /// <summary>True when a binding platform (not macOS) of the PDF app has no limit at all, so a check cannot pass.</summary>
+    public static bool PdfHasNoLimits(string platform) =>
+        platform != "macos" && (!PdfTable.TryGetValue(platform, out var table) || table.Count == 0);
+
     /// <summary>The limit (budget x 1.25) of a metric on a platform; null where there is none (macOS).</summary>
-    public static double? LimitOf(string platform, string key) =>
-        s_budgets.TryGetValue(platform, out var table) && table.TryGetValue(key, out var budget) ? Stats.Limit(budget) : null;
+    public static double? LimitOf(string platform, string key) => LimitOf(s_budgets, platform, key);
+
+    /// <summary>The limit of a metric in the given table; null where there is none.</summary>
+    public static double? LimitOf(Dictionary<string, Dictionary<string, double>> budgets, string platform, string key) =>
+        budgets.TryGetValue(platform, out var table) && table.TryGetValue(key, out var budget) ? Stats.Limit(budget) : null;
 
     /// <summary>The platform of a runtime identifier (<c>win-x64</c>, <c>linux-x64</c>, <c>osx-*</c>); null if unknown.</summary>
     public static string? PlatformOfRid(string rid) =>
@@ -851,15 +1221,24 @@ static class CheckCommand
     /// Verdicts for the measured values (<paramref name="only"/> restricts the metrics): <c>ok</c> (at or below the limit), <c>over</c>,
     /// <c>missing</c> (a required value is not there) or <c>indicative</c> (the platform has no limits).
     /// </summary>
-    public static List<Result> Judge(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
+    public static List<Result> Judge(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only) =>
+        Judge(s_budgets, s_metrics, platform, measured, only);
+
+    /// <summary>The verdicts of the PDF app against <see cref="PdfTable"/>; a binding platform without a limit for a metric is <c>unrecorded</c>.</summary>
+    public static List<Result> JudgePdf(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only) =>
+        Judge(PdfTable, s_pdfMetrics, platform, measured, only);
+
+    private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only)
     {
         var results = new List<Result>();
-        foreach (var (key, label) in s_metrics.Where(m => only.Length == 0 || only.Contains(m.Key)))
+        foreach (var (key, label) in metrics.Where(m => only.Length == 0 || only.Contains(m.Key)))
         {
             var value = measured.GetValueOrDefault(key);
-            var limit = LimitOf(platform, key);
+            var limit = LimitOf(budgets, platform, key);
             double? budget = limit / Stats.Tolerance;
-            var verdict = limit is null ? "indicative" : value is null ? "missing" : value > limit ? "over" : "ok";
+
+            // A binding platform whose limit is not recorded must not pass silently; macOS is indicative only.
+            var verdict = limit is null ? (platform == "macos" ? "indicative" : "unrecorded") : value is null ? "missing" : value > limit ? "over" : "ok";
             results.Add(new Result(key, label, value, budget, limit, verdict));
         }
 
@@ -869,14 +1248,7 @@ static class CheckCommand
     /// <summary>The medians of the gallery rows (mode <c>gallery</c>), then their verdicts.</summary>
     public static List<Result> Evaluate(string platform, IReadOnlyList<BudgetsCommand.Row> rows)
     {
-        double? Median(string @case, string? run)
-        {
-            var values = rows
-                .Where(r => r.Mode == "gallery" && r.Case == @case && (run is null ? double.TryParse(r.Run, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) : r.Run == run))
-                .Select(r => r.Unit == "bytes" ? r.Value / Stats.MiB : r.Value)
-                .ToList();
-            return values.Count == 0 ? null : Stats.Median(values);
-        }
+        double? Median(string @case, string? run) => MedianOf(rows, "gallery", @case, run);
 
         var measured = new Dictionary<string, double?>
         {
@@ -890,8 +1262,36 @@ static class CheckCommand
         return Judge(platform, measured);
     }
 
-    /// <summary>1 when any value is over its limit or a required value is missing, else 0.</summary>
-    public static int ExitCode(IReadOnlyList<Result> results) => results.Any(r => r.Verdict is "over" or "missing") ? 1 : 0;
+    /// <summary>The medians of the rows of the PDF app (mode <c>pdf</c>; scroll: the p99 of each run), then their verdicts.</summary>
+    public static List<Result> EvaluatePdf(string platform, IReadOnlyList<BudgetsCommand.Row> rows)
+    {
+        double? Median(string @case, string? run) => MedianOf(rows, "pdf", @case, run);
+
+        var measured = new Dictionary<string, double?>
+        {
+            ["cold"] = Median("cold", null),
+            ["warm"] = Median("warm", null),
+            ["thousand"] = Median("thousand", null),
+            ["second"] = Median("second", null),
+            ["scroll"] = Median("scroll", "p99"),
+            ["memory"] = Median("memory", null),
+            ["size"] = Median("size", "total"),
+            ["zip"] = Median("size", "zip"),
+        };
+        return JudgePdf(platform, measured);
+    }
+
+    private static double? MedianOf(IReadOnlyList<BudgetsCommand.Row> rows, string mode, string @case, string? run)
+    {
+        var values = rows
+            .Where(r => r.Mode == mode && r.Case == @case && (run is null ? double.TryParse(r.Run, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) : r.Run == run))
+            .Select(r => r.Unit == "bytes" ? r.Value / Stats.MiB : r.Value)
+            .ToList();
+        return values.Count == 0 ? null : Stats.Median(values);
+    }
+
+    /// <summary>1 when any value is over its limit, a required value is missing or a limit is not recorded, else 0.</summary>
+    public static int ExitCode(IReadOnlyList<Result> results) => results.Any(r => r.Verdict is "over" or "missing" or "unrecorded") ? 1 : 0;
 
     /// <summary>The Markdown table: case, measured, budget, limit, verdict.</summary>
     public static string Render(IReadOnlyList<Result> results)
@@ -918,6 +1318,13 @@ static class CheckCommand
         if (!s_budgets.ContainsKey(platform))
         {
             Console.Error.WriteLine("--platform must be windows, linux or macos.");
+            return 2;
+        }
+
+        var target = o.Get("--target") ?? "gallery";
+        if (target is not ("gallery" or "pdf"))
+        {
+            Console.Error.WriteLine("--target must be gallery or pdf.");
             return 2;
         }
 
@@ -962,11 +1369,18 @@ static class CheckCommand
             }
         }
 
-        var results = Evaluate(platform, rows);
-        var text = new StringBuilder($"## Frame measurement ({platform})\n\n");
+        var pdf = target == "pdf";
+        var results = pdf ? EvaluatePdf(platform, rows) : Evaluate(platform, rows);
+        var text = new StringBuilder(pdf ? $"## PDF app measurement ({platform})\n\n" : $"## Frame measurement ({platform})\n\n");
         if (platform == "macos")
         {
             text.AppendLine("macOS has no limits; the values are indicative only.").AppendLine();
+        }
+
+        var noLimits = pdf && PdfHasNoLimits(platform);
+        if (noLimits)
+        {
+            text.AppendLine($"> **{NoPdfLimits}:** the medians below are the input for the budgets of milestone 2.1; they are not checked against anything yet.").AppendLine();
         }
 
         text.Append(Render(results));
@@ -986,9 +1400,16 @@ static class CheckCommand
             File.AppendAllText(Path.GetFullPath(summary), text.ToString(), new UTF8Encoding(false));
         }
 
+        if (noLimits)
+        {
+            // Nothing to check against: never a pass. The medians above are still printed and written to the summary.
+            Console.Error.WriteLine(NoPdfLimits);
+            return 2;
+        }
+
         // A missing or unreadable CSV fails the check on every platform that has limits.
         var failed = ExitCode(results) == 1 || (platform != "macos" && problems.Count > 0);
-        Console.WriteLine(failed ? "check: FAILED (a value is over its limit or a CSV is missing)" : "check: ok");
+        Console.WriteLine(failed ? "check: FAILED (a value is over its limit, a limit is not recorded or a CSV is missing)" : "check: ok");
         return failed ? 1 : 0;
     }
 }
@@ -1082,6 +1503,7 @@ static class SelfTest
         GalleryRunTests();
         CheckTests();
         SizeCheckTests();
+        PdfTests();
 
         Console.WriteLine($"selftest: {s_checks - s_failures}/{s_checks} checks passed");
         return s_failures == 0 ? 0 : 1;
@@ -1200,6 +1622,177 @@ static class SelfTest
         Expect("check command: a missing file exits 1", CheckCommand.Execute(Options.Parse(["--platform", "windows", "--in", Path.Combine(folder, "nope.csv")], out _)!), 1);
         Expect("check command: unknown platform is a usage error", CheckCommand.Execute(Options.Parse(["--platform", "amiga", "--in", csv], out _)!), 2);
         Expect("check command: --platform is required", CheckCommand.Execute(Options.Parse(["--in", csv], out _)!), 2);
+    }
+
+    private static readonly string[] s_pdfKeys = ["cold", "warm", "thousand", "second", "scroll", "memory", "size", "zip"];
+
+    // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The production table stays empty until the owner's runs exist.
+    private static Dictionary<string, Dictionary<string, double>> PdfTestTable() => new()
+    {
+        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thousand"] = 200, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16 },
+        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thousand"] = 240, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16 },
+        ["macos"] = [],
+    };
+
+    /// <summary>Rows of the PDF app with every metric at <c>limit + delta</c> of the platform in the test table; <paramref name="only"/> restricts the delta to one metric, <paramref name="without"/> leaves a metric out.</summary>
+    private static List<BudgetsCommand.Row> PdfRows(string platform, string? only = null, double delta = 0, string? without = null)
+    {
+        double At(string key) => (CheckCommand.LimitOf(CheckCommand.PdfTable, platform, key) ?? 1000) + (only is null || only == key ? delta : 0);
+
+        List<BudgetsCommand.Row> rows =
+        [
+            new("pc", "pdf", "cold", "1", 99999, "ms"), new("pc", "pdf", "cold", "2", At("cold"), "ms"), new("pc", "pdf", "cold", "3", 1, "ms"),
+            new("pc", "pdf", "warm", "1", At("warm"), "ms"),
+            new("pc", "pdf", "thousand", "1", At("thousand"), "ms"),
+            new("pc", "pdf", "second", "1", At("second"), "ms"),
+            new("pc", "pdf", "scroll", "p99", At("scroll"), "ms"), new("pc", "pdf", "scroll", "max", 999, "ms"),
+            new("pc", "pdf", "memory", "1", At("memory") * MiBd, "bytes"),
+            new("pc", "pdf", "size", "total", At("size") * MiBd, "bytes"),
+            new("pc", "pdf", "size", "zip", At("zip") * MiBd, "bytes"),
+        ];
+        return without is null ? rows : [.. rows.Where(r => without == "size" ? !(r.Case == "size" && r.Run == "total") : without == "zip" ? !(r.Case == "size" && r.Run == "zip") : r.Case != without)];
+    }
+
+    private static string PdfCsv(string path, List<BudgetsCommand.Row> rows)
+    {
+        File.WriteAllText(path, Lines.CsvHeader + "\n" + string.Concat(rows.Select(r => Lines.Csv(r.Machine, r.Mode, r.Case, r.Run, r.Value, r.Unit) + "\n")));
+        return path;
+    }
+
+    /// <summary>The target pdf: the arguments of a run, the CSV mode, the empty production table (exit 2) and the verdicts with a test-only table.</summary>
+    private static void PdfTests()
+    {
+        var td = Path.Combine("some", "testdata");
+        Expect("pdf run: arguments", string.Join(' ', PdfRun.Arguments("warm", "s.json", td)), $"--measure-startup --settings-file s.json {Path.Combine(td, "hello_world.pdf")}");
+        Expect("pdf run: cold uses the same file as warm", PdfRun.Arguments("cold", "s.json", td)[3], PdfRun.Arguments("warm", "s.json", td)[3]);
+        Expect("pdf run: thousand opens the 1000-page file", PdfRun.Arguments("thousand", "s.json", td)[3], Path.Combine(td, "thousand-pages.pdf"));
+        Expect("pdf run: scroll switch", PdfRun.Arguments("scroll", "s.json", td)[0], "--measure-scroll");
+        Expect("pdf run: memory switch", PdfRun.Arguments("memory", "s.json", td)[0], "--measure-memory");
+        Expect("pdf run: second switch", PdfRun.Arguments("second", "s.json", td)[0], "--measure-second");
+        Expect("pdf run: the second launch shares the settings file", string.Join(' ', PdfRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, PdfRun.SecondFile)}");
+        Expect("pdf run: every run has a settings file of its own", PdfRun.Cases.All(c => PdfRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
+        Expect("pdf run: the cases", string.Join(',', PdfRun.Cases.Select(c => c.Name)), "cold,warm,thousand,second,scroll,memory");
+        Expect("pdf run: CSV mode is pdf", RunCommand.CsvMode("pdf", null), "pdf");
+        Expect("parse scroll line", Lines.TryParseScroll("scroll p99-ms=33.25 max-ms=50.00", out var p99, out var max) ? string.Create(CultureInfo.InvariantCulture, $"{p99}|{max}") : "-", "33.25|50");
+        Expect("parse scroll line without values", Lines.TryParseScroll("scroll p99-ms=x max-ms=1", out _, out _), false);
+        Expect("parse second line", Lines.TryParseSecond("second-page ms=12.34", out var ms) ? ms : -1, 12.34);
+        Expect("parse first-page as second line", Lines.TryParseSecond("first-page", out _), false);
+
+        var fake = FakeProbe.Create("hang");
+        var csvPath = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "p.csv");
+        Expect("pdf run: --mode is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--mode", "frame", "--case", "warm", "--out", csvPath], out _)!), 2);
+        Expect("pdf run: an unknown case is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--case", "input", "--out", csvPath], out _)!), 2);
+        Expect("pdf run: a missing test folder is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--case", "warm", "--testdata", Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "nope"), "--out", csvPath], out _)!), 2);
+
+        // The production table is empty until the owner's runs exist: it never judges, and the check says so with exit code 2.
+        Expect("pdf limits: the production table is empty", CheckCommand.PdfTable.Values.All(t => t.Count == 0), true);
+        Expect("pdf limits: no limit windows", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), null);
+        Expect("pdf limits: windows has none", CheckCommand.PdfHasNoLimits("windows"), true);
+        Expect("pdf limits: linux has none", CheckCommand.PdfHasNoLimits("linux"), true);
+        Expect("pdf limits: macOS is indicative, not missing", CheckCommand.PdfHasNoLimits("macos"), false);
+
+        var folder = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "pdfcheck");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        Directory.CreateDirectory(folder);
+        var csv = Path.Combine(folder, "pdf.csv");
+        var summary = Path.Combine(folder, "summary.md");
+
+        // Any numbers: the production table must not pass them (no limits recorded), not even values of zero.
+        PdfCsv(csv, PdfRows("windows"));
+        foreach (var platform in new[] { "windows", "linux" })
+        {
+            Expect($"check pdf {platform}: an empty table exits 2", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", platform, "--in", csv, "--summary", summary], out _)!), 2);
+        }
+
+        var text = File.Exists(summary) ? File.ReadAllText(summary) : string.Empty;
+        Expect("check pdf: the summary names the missing limits", text.Contains(CheckCommand.NoPdfLimits, StringComparison.Ordinal), true);
+        Expect("check pdf: the summary still has the medians", text.Contains("| 1000 pages (ms) |", StringComparison.Ordinal), true);
+        Expect("check pdf macos: indicative with an empty table", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "macos", "--in", csv], out _)!), 0);
+        Expect("check: an unknown target is a usage error", CheckCommand.Execute(Options.Parse(["--target", "amiga", "--platform", "windows", "--in", csv], out _)!), 2);
+
+        // With a TEST-ONLY table the verdicts are the ones of the gallery: at the limit ok, above it over, missing fails, macOS indicative.
+        CheckCommand.PdfTableForTests = PdfTestTable();
+        try
+        {
+            Expect("pdf limits (test table): windows cold", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), 125);
+            foreach (var platform in new[] { "windows", "linux" })
+            {
+                Expect($"check pdf {platform}: every value exactly at its limit passes", CheckCommand.ExitCode(CheckCommand.EvaluatePdf(platform, PdfRows(platform))), 0);
+                Expect($"check pdf {platform}: verdicts at the limit are ok", CheckCommand.EvaluatePdf(platform, PdfRows(platform)).All(r => r.Verdict == "ok"), true);
+                foreach (var key in s_pdfKeys)
+                {
+                    var over = CheckCommand.EvaluatePdf(platform, PdfRows(platform, key, 0.1));
+                    Expect($"check pdf {platform}: {key} 0.1 above its limit fails", CheckCommand.ExitCode(over), 1);
+                    Expect($"check pdf {platform}: only {key} is over", string.Join(',', over.Where(r => r.Verdict == "over").Select(r => r.Key)), key);
+                    Expect($"check pdf {platform}: {key} 0.1 below its limit passes", CheckCommand.ExitCode(CheckCommand.EvaluatePdf(platform, PdfRows(platform, key, -0.1))), 0);
+
+                    var gone = CheckCommand.EvaluatePdf(platform, PdfRows(platform, without: key));
+                    Expect($"check pdf {platform}: a missing {key} fails", string.Join(',', gone.Where(r => r.Verdict == "missing").Select(r => r.Key)), key);
+                    Expect($"check pdf {platform}: a missing {key} exits 1", CheckCommand.ExitCode(gone), 1);
+                }
+            }
+
+            Expect("check pdf: the scroll metric is the p99 of the rows, not the maximum", CheckCommand.EvaluatePdf("windows", PdfRows("windows")).First(r => r.Key == "scroll").Measured, 37.5);
+            Expect("check pdf macos: every value passes, indicative", CheckCommand.EvaluatePdf("macos", PdfRows("windows", delta: 500)).All(r => r.Verdict == "indicative"), true);
+            Expect("check pdf macos: exit 0", CheckCommand.ExitCode(CheckCommand.EvaluatePdf("macos", PdfRows("windows", delta: 500))), 0);
+
+            PdfCsv(csv, PdfRows("windows"));
+            Expect("check command pdf: CSVs at the limit exit 0", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "windows", "--in", csv], out _)!), 0);
+            PdfCsv(csv, PdfRows("windows", "warm", 0.1));
+            Expect("check command pdf: a value 0.1 above exits 1", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "windows", "--in", csv], out _)!), 1);
+            PdfCsv(csv, PdfRows("windows"));
+            Expect("check command pdf: rows of the PDF app do not count for the gallery", CheckCommand.Execute(Options.Parse(["--target", "gallery", "--platform", "windows", "--in", csv], out _)!), 1);
+
+            // A binding platform with a table that lacks a metric is "unrecorded", never a silent pass.
+            CheckCommand.PdfTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
+            var partial = CheckCommand.EvaluatePdf("windows", PdfRows("windows"));
+            Expect("check pdf: a metric without a recorded limit is unrecorded", partial.Count(r => r.Verdict == "unrecorded"), s_pdfKeys.Length - 1);
+            Expect("check pdf: unrecorded fails", CheckCommand.ExitCode(partial), 1);
+
+            CheckCommand.PdfTableForTests = PdfTestTable();
+            PdfSizeCheckTests();
+        }
+        finally
+        {
+            CheckCommand.PdfTableForTests = null;
+        }
+
+        Expect("pdf limits: the test table is gone again", CheckCommand.PdfTable.Values.All(t => t.Count == 0), true);
+    }
+
+    private static void PdfSizeCheckTests()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "pdfsize");
+        var fonts = root + "-fonts";
+        Directory.CreateDirectory(fonts);
+        File.WriteAllBytes(Path.Combine(fonts, "a.ttf"), new byte[7]);
+
+        int Check(string rid, long bytes)
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+
+            Directory.CreateDirectory(root);
+            File.WriteAllBytes(Path.Combine(root, "RafficaPdf.exe"), new byte[bytes]);
+            return SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "pdf", "--check", rid], out _)!);
+        }
+
+        const long Win = 50 * 1024 * 1024; // 40 MiB x 1.25 (test table)
+        Expect("size --check pdf (test table): exactly at the limit passes", Check("win-x64", Win), 0);
+        Expect("size --check pdf (test table): one byte above fails", Check("win-x64", Win + 1), 1);
+        Expect("size --check pdf (test table): macOS is indicative", Check("osx-x64", Win * 2), 0);
+        CheckCommand.PdfTableForTests = null;
+        Expect("size --check pdf: an empty table exits 2", Check("win-x64", 10), 2);
+        Expect("size --check pdf: an empty table exits 2 on Linux", Check("linux-x64", 10), 2);
+        Expect("size --check pdf: macOS stays indicative", Check("osx-x64", 10), 0);
+        CheckCommand.PdfTableForTests = PdfTestTable();
+        Directory.Delete(root, recursive: true);
     }
 
     private static void SizeCheckTests()

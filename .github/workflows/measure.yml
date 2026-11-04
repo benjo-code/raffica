@@ -1,4 +1,4 @@
-# Speed measurement of the shell probe and of the gallery app's frame on the project owner's own machines (real GPU, active display).
+# Speed measurement of the shell probe, of the gallery app's frame and of the PDF app on the project owner's own machines (real GPU, active display).
 #
 # SECURITY: This workflow executes repository code on personal machines, with the owner's user rights.
 # - It runs only on an explicit manual trigger: `workflow_dispatch` (needs write access to the repository). There is
@@ -25,10 +25,10 @@ on:
         type: string
         required: true
       target:
-        description: What to measure, the gallery app's frame (default) or the throwaway shell probe
+        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1) or the throwaway shell probe
         type: choice
         default: gallery
-        options: [gallery, probe]
+        options: [gallery, probe, pdf]
       cases:
         description: all, or cold-reboot (one cold run of the frame, right after a reboot)
         type: choice
@@ -42,10 +42,10 @@ permissions:
 env:
   AVALONIA_TELEMETRY_OPTOUT: '1'
   RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64"}')[inputs.platform] }}
-  EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
-  PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || 'bench/shell-probe/ShellProbe' }}
+  EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || inputs.target == 'pdf' && 'RafficaPdf' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
+  PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || inputs.target == 'pdf' && 'src/Raffica.Pdf' || 'bench/shell-probe/ShellProbe' }}
   OUT: out/measure-${{ github.run_id }}
-  FONTS: ${{ inputs.target == 'gallery' && 'src/Raffica.Shell/Assets/Fonts' || 'bench/shell-probe/ShellProbe/Assets/Fonts' }}
+  FONTS: ${{ inputs.target == 'probe' && 'bench/shell-probe/ShellProbe/Assets/Fonts' || 'src/Raffica.Shell/Assets/Fonts' }}
 
 jobs:
   measure:
@@ -163,6 +163,10 @@ jobs:
         if: inputs.cases == 'cold-reboot' && inputs.target == 'gallery'
         run: dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe ${{ env.EXE }} --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
 
+      - name: Cold start after a reboot (pdf)
+        if: inputs.cases == 'cold-reboot' && inputs.target == 'pdf'
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
+
       # The cases of spec 9.1, both modes (target probe). A failing case does not stop the others, so that every CSV exists; the job
       # fails afterwards. The script warns before the runs and next to the result when the machine has no usable
       # compositor rate.
@@ -220,6 +224,49 @@ jobs:
       - name: Size (gallery)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
         run: dotnet run bench/shell-probe/measure.cs -- size --target gallery --publish-dir out/app --fonts-dir ${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
+
+      # The PDF app (target pdf), the cases of milestone 2.1 (spec section 5; the method is the entry "Raffica PDF measurement method (M2.1)" in
+      # Docs/DECISIONS.md). Every run gets a settings folder of its own, so a measurement never reads or writes the settings, the recent
+      # files or the instance pipe of the user. The mode in the CSV is "pdf". The test files come from testdata/pdfs of the checkout.
+      - name: Cold start (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case cold --out ${{ env.OUT }}/cold.csv
+
+      - name: Warm start (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case warm --out ${{ env.OUT }}/warm.csv
+
+      - name: 1000-page file to the first page (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case thousand --out ${{ env.OUT }}/thousand.csv
+
+      - name: Second file in a running instance (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case second --out ${{ env.OUT }}/second.csv
+
+      - name: Scrolling the 1000-page file (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case scroll --out ${{ env.OUT }}/scroll.csv
+
+      - name: Memory with the 1000-page file open (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case memory --out ${{ env.OUT }}/memory.csv
+
+      - name: Size (pdf)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
+        run: dotnet run bench/shell-probe/measure.cs -- size --target pdf --publish-dir out/app --fonts-dir ${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
+
+      # The verdict against the limits of the PDF app. The table is empty until the owner's runs are recorded: then this step prints the
+      # medians into the job summary and fails with "no limits recorded for target pdf" (exit code 2), never a pass.
+      - name: Check against the limits (pdf, Windows)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' && runner.os == 'Windows' }}
+        shell: powershell
+        run: dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$env:GITHUB_STEP_SUMMARY"
+
+      - name: Check against the limits (pdf, Linux, macOS)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' && runner.os != 'Windows' }}
+        shell: bash
+        run: dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
 
       # The verdict against the limits of Docs/DECISIONS.md ("Speed targets of the frame (M1)"), written to the job summary. It
       # fails the job above a limit or with a missing CSV; macOS has no limits and is indicative only. Two steps, because the
