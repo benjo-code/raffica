@@ -1,0 +1,8 @@
+Note: HP ProBook, Core i5-8265U, 15.4 GiB, Intel UHD Graphics 620, 1920x1080, Wayland session with XWayland, CachyOS (kernel 7.3.0-4-cachyos), balanced profile, mains power (same machine as the M1 measurements)
+Platform: linux
+Date (UTC): 2026-11-04 16:56:25
+Commit: db902469e257e7b5983925932dc66b0294c016da (refs/heads/dev)
+OS: CachyOS, kernel 7.3.0-4-cachyos
+Processor: Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz, 8 logical processors
+RAM: 15.4 GiB
+Session: wayland (DISPLAY=':0', WAYLAND_DISPLAY='wayland-1')
