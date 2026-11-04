@@ -218,6 +218,12 @@ internal sealed partial class PdfWindow : Window
         };
     }
 
+    /// <summary>Raised when the page view of a tab has painted its first sharp tile (the measurement of the first and the second file listens).</summary>
+    internal event Action<PdfTab>? FirstSharpPageDrawn;
+
+    /// <summary>Raised when the files of a later launch arrive in the running instance, before anything is checked or opened.</summary>
+    internal event Action? HandoverArrived;
+
     /// <summary>The recent files and the position per file (loaded after the first sharp page).</summary>
     internal RecentService Recent => _recent;
 
@@ -411,6 +417,7 @@ internal sealed partial class PdfWindow : Window
     /// <summary>The files of a later launch: only existing files open, the rest ends in a few cards; the window comes to the front.</summary>
     internal void OnHandover(IReadOnlyList<string> paths)
     {
+        HandoverArrived?.Invoke();
         if (_closeConfirmed)
         {
             return;
@@ -571,6 +578,8 @@ internal sealed partial class PdfWindow : Window
         {
             view = new PageView { Tab = active };
             view.FirstSharpPage += OnFirstSharpPageShown;
+            var shownTab = active;
+            view.FirstSharpPage += () => FirstSharpPageDrawn?.Invoke(shownTab);
             var created = view;
             view.ViewChanged += () =>
             {
@@ -783,7 +792,7 @@ internal sealed partial class PdfWindow : Window
     }
 
     /// <summary>The page view of the active tab, or null.</summary>
-    private PageView? ActiveView => Workspace.Active is { } active ? _views.GetValueOrDefault(active) : null;
+    internal PageView? ActiveView => Workspace.Active is { } active ? _views.GetValueOrDefault(active) : null;
 
     /// <summary>
     /// A new tab starts from the position remembered for its file (when the recent list has been loaded and knows the file, which is

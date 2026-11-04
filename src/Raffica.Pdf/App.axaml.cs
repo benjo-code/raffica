@@ -51,6 +51,11 @@ internal sealed partial class App : Application
             }
 
             desktop.MainWindow = window;
+            if (_options.IsMeasuring)
+            {
+                // Held by the watchdog timer and the window events until the run is over.
+                new Measurement(_options, window, Console.Out, code => desktop.Shutdown(code)).Start();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

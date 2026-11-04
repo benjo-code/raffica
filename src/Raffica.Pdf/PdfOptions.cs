@@ -24,9 +24,20 @@ internal sealed class PdfOptions
     /// <summary>Prints the value of this string key and exits before any window exists (the CI smoke test).</summary>
     public string? PrintString { get; private init; }
 
+    /// <summary>
+    /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
+    /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll …</c>) or
+    /// <c>--measure-memory</c> (also <c>memory-bytes …</c>); null for a normal run. See <see cref="Measurement"/>.
+    /// </summary>
+    public string? MeasureSwitch { get; private init; }
+
+    /// <summary>True for a measurement run.</summary>
+    public bool IsMeasuring => MeasureSwitch is not null;
+
     public static PdfOptions Parse(string[] args)
     {
         var files = new List<string>();
+        string? measure = null;
         string? lang = null;
         var theme = ThemeMode.System;
         var themeGiven = false;
@@ -65,6 +76,14 @@ internal sealed class PdfOptions
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
+                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory":
+                    if (measure is not null)
+                    {
+                        throw new ArgumentException($"'{args[i]}' and '{measure}' cannot be combined (one measurement per run)");
+                    }
+
+                    measure = args[i];
+                    break;
                 case var other when other.StartsWith("--", StringComparison.Ordinal):
                     throw new ArgumentException($"unknown switch '{other}'");
                 default:
@@ -73,8 +92,23 @@ internal sealed class PdfOptions
             }
         }
 
+        if (measure is not null)
+        {
+            // A measurement never meets the settings, the recent files or the instance pipe of the user: they all follow --settings-file.
+            if (string.IsNullOrWhiteSpace(settingsFile))
+            {
+                throw new ArgumentException($"'{measure}' needs --settings-file (a measurement never reads or writes the settings of the user)");
+            }
+
+            if (files.Count == 0)
+            {
+                throw new ArgumentException($"'{measure}' needs the file to open");
+            }
+        }
+
         return new PdfOptions
         {
+            MeasureSwitch = measure,
             Files = files,
             Lang = lang,
             Theme = theme,

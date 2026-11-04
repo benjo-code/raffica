@@ -554,18 +554,32 @@ internal sealed partial class PageView : Control
         _wheelZoomRemainder = 0;
 
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        var horizontal = shift ? e.Delta.Y : e.Delta.X;
-        var vertical = shift ? 0 : e.Delta.Y;
-        var fromX = _animating ? _targetX : _offsetX;
-        var fromY = _animating ? _targetY : _offsetY;
-        var targetX = PageViewScroll.ByWheel(fromX, horizontal, _layout.ContentWidth, _viewport.Width);
-        var targetY = PageViewScroll.ByWheel(fromY, vertical, _layout.ContentHeight, _viewport.Height);
-        if (targetX != fromX || targetY != fromY)
+        ScrollByWheel(shift ? e.Delta.Y : e.Delta.X, shift ? 0 : e.Delta.Y);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Scrolls by wheel notches (positive scrolls up and to the left, as the wheel reports it) from where the running smooth scroll is
+    /// heading. Returns false when the view is already at that end, so nothing moves. The wheel handler and the scroll measurement share it.
+    /// </summary>
+    internal bool ScrollByWheel(double horizontalNotches, double verticalNotches)
+    {
+        if (_layout is null)
         {
-            SmoothScrollTo(targetX, targetY);
+            return false;
         }
 
-        e.Handled = true;
+        var fromX = _animating ? _targetX : _offsetX;
+        var fromY = _animating ? _targetY : _offsetY;
+        var targetX = PageViewScroll.ByWheel(fromX, horizontalNotches, _layout.ContentWidth, _viewport.Width);
+        var targetY = PageViewScroll.ByWheel(fromY, verticalNotches, _layout.ContentHeight, _viewport.Height);
+        if (targetX == fromX && targetY == fromY)
+        {
+            return false;
+        }
+
+        SmoothScrollTo(targetX, targetY);
+        return true;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
