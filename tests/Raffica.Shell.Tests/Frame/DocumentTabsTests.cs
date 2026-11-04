@@ -120,6 +120,30 @@ public sealed class DocumentTabsTests
     }
 
     [AvaloniaFact]
+    public void ClosedTabItemIsNotKeptAliveByItsModel()
+    {
+        var kept = new DocumentTab("Kept.docx");
+        var closed = new DocumentTab("Closed.docx");
+        var (window, tabs) = Show([kept, closed]);
+        var view = Views(tabs).First(v => v.Model == closed);
+
+        tabs.Items.Remove(closed);
+        ControlHarness.Settle(window);
+        closed.IsDirty = true;
+
+        // The detached item no longer listens to its model.
+        Assert.Equal("Closed.docx", AutomationProperties.GetName(view));
+
+        // Re-adding the tab shows its current state again.
+        tabs.Items.Add(closed);
+        ControlHarness.Settle(window);
+        var again = Views(tabs).First(v => v.Model == closed);
+        Assert.Contains(ShellStrings.TabUnsavedChanges, AutomationProperties.GetName(again));
+        closed.IsDirty = false;
+        Assert.Equal("Closed.docx", AutomationProperties.GetName(again));
+    }
+
+    [AvaloniaFact]
     public void SelectedTabIsExposedToAutomation()
     {
         var first = new DocumentTab("Report.docx");

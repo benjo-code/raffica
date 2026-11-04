@@ -156,14 +156,6 @@ public sealed class DocumentTabItem : Border
         ToolTip.SetTip(this, string.IsNullOrEmpty(model.Path) ? model.Title : model.Path);
         _dirtyMark.Classes.Add("document-tab-dirty");
         UpdateDirty();
-        model.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(DocumentTab.IsDirty))
-            {
-                UpdateDirty();
-            }
-        };
-
         _close = new Button { Name = "PART_Close", Content = RibbonButton.CreateIcon("Raffica.Icon.X", 16) };
         _close.Classes.Add("document-tab-close");
         AutomationProperties.SetName(_close, ShellStrings.CloseDocument);
@@ -229,6 +221,28 @@ public sealed class DocumentTabItem : Border
 
             PseudoClasses.Set(":selected", value);
             (ControlAutomationPeer.FromElement(this) as DocumentTabItemAutomationPeer)?.SelectionChanged(!value, value);
+        }
+    }
+
+    // The model must not hold the view once the tab is closed: listen only while the view is in the tree.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Model.PropertyChanged += OnModelPropertyChanged;
+        UpdateDirty();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        Model.PropertyChanged -= OnModelPropertyChanged;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DocumentTab.IsDirty))
+        {
+            UpdateDirty();
         }
     }
 
