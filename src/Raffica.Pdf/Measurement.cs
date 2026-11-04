@@ -14,12 +14,15 @@ namespace Raffica.Pdf;
 /// <c>scroll p99-ms=… max-ms=…</c> from the gaps between the frame callbacks; <c>--measure-second</c> waits for a file that a second
 /// launch hands over and writes <c>second-page ms=…</c>, measured in this process from the arrival of the hand-over to the second animation
 /// frame after the first sharp tile of the new tab. Every line uses the invariant culture and ASCII keys (they are not localized); a run
-/// that does not finish ends with exit code 3 after 30 s. The switches need <c>--settings-file</c> (see <see cref="PdfOptions"/>), so a
+/// that does not finish ends with exit code 3 after 30 s (the message names the real timeout); a scroll run with no document ends with exit code 1. The switches need <c>--settings-file</c> (see <see cref="PdfOptions"/>), so a
 /// measurement never reads or writes the settings, the recent files or the instance pipe of the user.
 /// </summary>
 internal sealed class Measurement : IDisposable
 {
     public const int Success = 0;
+
+    /// <summary>The run could not measure what it was asked to (for example, no document to scroll).</summary>
+    public const int Failed = 1;
     public const int TimedOut = 3;
 
     /// <summary>The number of wheel steps of the scroll run.</summary>
@@ -31,6 +34,7 @@ internal sealed class Measurement : IDisposable
     private readonly PdfOptions _options;
     private readonly PdfWindow _window;
     private readonly TextWriter _output;
+    private readonly TextWriter _error;
     private readonly Action<int> _finish;
     private readonly TimeSpan _timeout;
     private readonly int _scrollSteps;
@@ -51,7 +55,8 @@ internal sealed class Measurement : IDisposable
     /// <param name="finish">Ends the run with the exit code once it is complete.</param>
     /// <param name="timeout">How long the run may take before the process ends with exit code 3; null: 30 s; <see cref="Timeout.InfiniteTimeSpan"/>: no watchdog (tests).</param>
     /// <param name="scrollSteps">The number of wheel steps of the scroll run (tests use fewer).</param>
-    public Measurement(PdfOptions options, PdfWindow window, TextWriter output, Action<int> finish, TimeSpan? timeout = null, int scrollSteps = ScrollSteps)
+    /// <param name="error">Where the error messages go (null: the standard error of the app; tests give their own).</param>
+    public Measurement(PdfOptions options, PdfWindow window, TextWriter output, Action<int> finish, TimeSpan? timeout = null, int scrollSteps = ScrollSteps, TextWriter? error = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(window);
@@ -60,6 +65,7 @@ internal sealed class Measurement : IDisposable
         _options = options;
         _window = window;
         _output = output;
+        _error = error ?? Console.Error;
         _finish = finish;
         _timeout = timeout ?? s_defaultTimeout;
         _scrollSteps = scrollSteps;
@@ -74,7 +80,7 @@ internal sealed class Measurement : IDisposable
             _watchdog = new Timer(
                 _ =>
                 {
-                    Console.Error.WriteLine("error: no result within 30 s");
+                    _error.WriteLine($"error: no result within {_timeout.TotalSeconds:0.##} s");
                     Environment.Exit(TimedOut);
                 },
                 null,
@@ -190,7 +196,15 @@ internal sealed class Measurement : IDisposable
         }
 
         _lastFrame = now;
-        if (_steps >= _scrollSteps || _window.ActiveView is not { } view)
+        if (_window.ActiveView is not { } view)
+        {
+            // No page view to scroll: a line of zeros would pass for a perfect result.
+            _error.WriteLine("error: no document is shown, nothing to scroll");
+            Finish(Failed);
+            return;
+        }
+
+        if (_steps >= _scrollSteps)
         {
             Write(_gaps.Count > 0 ? ScrollLine(_gaps) : ScrollLine([0]));
             Finish(Success);

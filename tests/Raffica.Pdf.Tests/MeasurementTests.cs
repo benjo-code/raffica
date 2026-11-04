@@ -83,6 +83,46 @@ public sealed class MeasurementTests
         Assert.Equal(2, probe.Lines.Length);
     }
 
+    /// <summary>A writer that does something when a line is written (here: the document goes away between the first page and the first scroll step).</summary>
+    private sealed class HookedWriter(Action<string> onLine) : StringWriter
+    {
+        public override void WriteLine(string? value)
+        {
+            base.WriteLine(value);
+            if (value is not null)
+            {
+                onLine(value);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AScrollRunWithoutADocumentFailsInsteadOfWritingAPerfectResult()
+    {
+        using var f = WindowFixture.Create();
+        var exits = new List<int>();
+        var error = new StringWriter();
+        var output = new HookedWriter(line =>
+        {
+            if (line == "first-page")
+            {
+                // The tab closes before the first scroll step (a clean tab closes at once).
+                Assert.True(f.Window.Workspace.CloseAsync(f.Window.Workspace.Active!).IsCompletedSuccessfully);
+            }
+        });
+        var options = PdfOptions.Parse(["--measure-scroll", "--settings-file", Path.Combine(f.Folder, "m.json"), TestData.Pdf("hello_world.pdf")]);
+        using var measurement = new Measurement(options, f.Window, output, exits.Add, Timeout.InfiniteTimeSpan, 12, error);
+        measurement.Start();
+
+        await f.OpenAsync("hello_world.pdf");
+        await ViewFixture.WaitAsync(() => exits.Count == 1);
+
+        Assert.Equal([Measurement.Failed], exits);
+        Assert.DoesNotContain("scroll", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("error:", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("no document", error.ToString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ScrollLineHasP99AndMax()
     {
