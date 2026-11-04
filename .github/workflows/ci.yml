@@ -194,8 +194,18 @@ jobs:
       # --no-cache: a file-based app (measure.cs) is built once and reused by the up-to-date check of `dotnet run`; on the persistent
       # runners a build of an older measure.cs made a step run the old script (run 41856451033 printed a message that no longer exists
       # in the checked-out file). Building every time costs a few seconds and cannot run a stale script.
+      # run 41874712000 showed that --no-cache is not enough on the persistent Windows runner (the PDF step ran a measure.cs without the
+      # limits recorded in the checkout), so the build of the file-based app also goes into the temp folder of this job, which the runner
+      # empties for every job. The two printed lines say which script ran.
       - name: Size of the published gallery
-        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --publish-dir out/gallery --fonts-dir src/Raffica.Shell/Assets/Fonts
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          git rev-parse HEAD
+          git hash-object bench/shell-probe/measure.cs
+          dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --publish-dir out/gallery --fonts-dir src/Raffica.Shell/Assets/Fonts
 
       - name: Smoke test of the gallery binary (Linux)
         if: runner.os == 'Linux'
@@ -232,7 +242,14 @@ jobs:
       # (Docs/DECISIONS.md, "Raffica PDF speed budgets (M2.1)"; the single copy of the table is CheckCommand in measure.cs): exit 1 above a
       # limit, no CSV. A miss is a finding for the owner, never a loosened limit. --no-cache for the reason given at the gallery step.
       - name: Size of the published PDF app
-        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          git rev-parse HEAD
+          git hash-object bench/shell-probe/measure.cs
+          dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts
 
       - name: Smoke test of the PDF app binary (Linux)
         if: runner.os == 'Linux'
