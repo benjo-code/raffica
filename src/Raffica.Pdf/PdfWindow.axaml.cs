@@ -6,10 +6,14 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Raffica.Core.Hosting;
 using Raffica.Core.Pdf;
+using Raffica.Core.Settings;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Hosting;
+using Raffica.Pdf.Settings;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
@@ -30,10 +34,19 @@ internal sealed partial class PdfWindow : Window
     /// <summary>Width of the (reserved) comments pane.</summary>
     internal const double CommentsPaneWidth = 300;
 
+    /// <summary>How many recent files the start view shows.</summary>
+    internal const int RecentOnStartView = 5;
+
+    // A hand-over of 64 hostile paths must not become 64 cards.
+    private const int MaxHandoverErrorCards = 3;
+    private const int MaxShownNameLength = 120;
+
     private readonly IDisposable _fieldCodes;
     private readonly IDisposable _selectedSubscription;
     private readonly CloseGuard _closeGuard;
     private readonly PdfOptions _options;
+    private readonly RecentService _recent;
+    private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
 
@@ -42,6 +55,7 @@ internal sealed partial class PdfWindow : Window
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
         _options = options;
+        _recent = new RecentService(new RecentFilesStore(PdfSettingsFiles.RecentPathFor(options.SettingsFile)));
         InitializeComponent();
         Title = PdfStrings.WindowTitle;
 
@@ -79,6 +93,8 @@ internal sealed partial class PdfWindow : Window
         Dialogs = new DialogQueue(Host);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
+        Start.OpenRequested += entry => _ = GuardAsync(() => OpenFilesAsync([Path.Combine(entry.Folder, entry.Name)]));
+        _recent.Changed += () => Start.Recent = _recent.ForStartView(RecentOnStartView);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -184,12 +200,69 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
+    /// <summary>The app listens for the files of later launches on this instance, once the window is open (the pipe opens after the first frame).</summary>
+    internal void Listen(SingleInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        _instance = instance;
+    }
+
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
         if (_options.Files.Count > 0)
         {
-            await GuardAsync(() => OpenFilesAsync(_options.Files));
+            // Not awaited: a password question of the first file must not hold back the work after the first page.
+            _ = GuardAsync(() => OpenFilesAsync(_options.Files));
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+        await GuardAsync(OnFirstSharpPageAsync);
+    }
+
+    /// <summary>
+    /// The single seam for everything that waits for the first sharp page: the recent files are read and the pipe for later launches
+    /// opens. Until the page view exists (a later milestone) it runs after the first render of the window; the page view calls it when
+    /// its first sharp page is drawn.
+    /// </summary>
+    internal async Task OnFirstSharpPageAsync()
+    {
+        _instance?.StartListening(paths => Dispatcher.UIThread.Post(() => OnHandover(paths)));
+        await _recent.LoadAsync();
+    }
+
+    /// <summary>The files of a later launch: only existing files open, the rest ends in a few cards; the window comes to the front.</summary>
+    internal void OnHandover(IReadOnlyList<string> paths)
+    {
+        if (_closeConfirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            var cards = 0;
+            var accepted = InstanceHandover.Accept(paths, path =>
+            {
+                if (cards++ < MaxHandoverErrorCards)
+                {
+                    ShowOpenError(path.Length > MaxShownNameLength ? path[..MaxShownNameLength] : path, PdfOpenError.FileNotFound);
+                }
+            });
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            Activate();
+            if (accepted.Count > 0)
+            {
+                _ = GuardAsync(() => OpenFilesAsync(accepted));
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Whatever a second instance sends must not take the app down.
         }
     }
 
@@ -249,6 +322,11 @@ internal sealed partial class PdfWindow : Window
         {
             var tab = (PdfTab)e.NewItems![0]!;
             tab.DirtyChanged += UpdateSaveState;
+            if (tab.Path is { } opened)
+            {
+                _recent.Touch(opened);
+            }
+
             Tabs.Items.Insert(Math.Min(e.NewStartingIndex, Tabs.Items.Count), tab.Tab);
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove)

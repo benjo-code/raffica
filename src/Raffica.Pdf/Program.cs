@@ -1,10 +1,15 @@
+using System.Security.Cryptography;
+using System.Text;
 using Avalonia;
+using Raffica.Core.Hosting;
+using Raffica.Pdf.Hosting;
 
 namespace Raffica.Pdf;
 
 internal static class Program
 {
     private const int UsageError = 1;
+    private static readonly TimeSpan HandOverTimeout = TimeSpan.FromSeconds(1);
 
     [STAThread]
     public static int Main(string[] args)
@@ -28,9 +33,18 @@ internal static class Program
             return PrintStringCommand.Run(options, Console.Out, Console.Error);
         }
 
+        // The first instance keeps the lock; a later one hands its files over and ends before any Avalonia start. If the first one
+        // does not answer within a second, this process starts as an ordinary window.
+        var name = InstanceName(options);
+        using var instance = SingleInstance.TryBecomePrimary(name);
+        if (instance is null && InstanceHandover.TryHandOver(name, options.Files, HandOverTimeout))
+        {
+            return 0;
+        }
+
         try
         {
-            return BuildAvaloniaApp(options).StartWithClassicDesktopLifetime([]);
+            return BuildAvaloniaApp(options, instance).StartWithClassicDesktopLifetime([]);
         }
         catch (Exception ex)
         {
@@ -40,6 +54,27 @@ internal static class Program
         }
     }
 
-    private static AppBuilder BuildAvaloniaApp(PdfOptions options) =>
-        AppBuilder.Configure(() => new App(options)).UsePlatformDetect();
+    /// <summary>One instance per user; a run with its own settings file (measurements, tests) is an instance of its own and never meets the app of the user.</summary>
+    private static string InstanceName(PdfOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.SettingsFile))
+        {
+            return SingleInstance.DefaultName;
+        }
+
+        string full;
+        try
+        {
+            full = Path.GetFullPath(options.SettingsFile);
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            full = options.SettingsFile;
+        }
+
+        return SingleInstance.DefaultName + "-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(full)), 0, 6);
+    }
+
+    private static AppBuilder BuildAvaloniaApp(PdfOptions options, SingleInstance? instance) =>
+        AppBuilder.Configure(() => new App(options, instance)).UsePlatformDetect();
 }

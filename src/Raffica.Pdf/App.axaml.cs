@@ -2,6 +2,8 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Raffica.Core.Hosting;
+using Raffica.Pdf.Settings;
 using Raffica.Shell;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
@@ -11,13 +13,15 @@ namespace Raffica.Pdf;
 internal sealed partial class App : Application
 {
     private readonly PdfOptions _options;
+    private readonly SingleInstance? _instance;
     private readonly SettingsStore _store;
     private readonly ShellSettings _settings;
 
-    public App(PdfOptions options)
+    public App(PdfOptions options, SingleInstance? instance = null)
     {
         _options = options;
-        _store = new SettingsStore(options.SettingsFile ?? SettingsStore.DefaultPath("Pdf"));
+        _instance = instance;
+        _store = new SettingsStore(PdfSettingsFiles.ShellPathFor(options.SettingsFile));
         _settings = _store.Load();
     }
 
@@ -36,7 +40,13 @@ internal sealed partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new PdfWindow(_options, _settings);
+            var window = new PdfWindow(_options, _settings);
+            if (_instance is not null)
+            {
+                window.Listen(_instance);
+            }
+
+            desktop.MainWindow = window;
         }
 
         base.OnFrameworkInitializationCompleted();
