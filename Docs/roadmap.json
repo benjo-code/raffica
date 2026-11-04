@@ -540,7 +540,7 @@
     },
     {
       "title": "Search and selection follow-ups",
-      "text": "Text prefetch for the selection runs at Interactive priority on every view change (use Background and measure). The selection highlight is lost when Core's page-text cache (32 pages) evicts a page. An unhandled `TileFailed` leaves a page on its preview."
+      "text": "The selection highlight is lost when Core's page-text cache (32 pages) evicts a page. An unhandled `TileFailed` leaves a page on its preview."
     },
     {
       "title": "Speed follow-ups of the viewer",
