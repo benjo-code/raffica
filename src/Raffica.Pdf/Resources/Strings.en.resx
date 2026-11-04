@@ -18,6 +18,10 @@
   <data name="AppMarkName" xml:space="preserve">
     <value>Raffica PDF</value>
   </data>
+  <data name="PageViewNameFormat" xml:space="preserve">
+    <value>{0}, PDF document</value>
+    <comment>Automation name of the page view; {0} is the file name of the document.</comment>
+  </data>
   <data name="PanePages" xml:space="preserve">
     <value>Pages</value>
   </data>

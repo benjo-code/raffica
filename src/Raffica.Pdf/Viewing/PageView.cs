@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -319,7 +320,11 @@ internal sealed class PageView : Control
         base.OnPropertyChanged(change);
         if (change.Property == TabProperty)
         {
-            SetSession((change.NewValue as PdfTab)?.Session);
+            var tab = change.NewValue as PdfTab;
+            SetSession(tab?.Session);
+
+            // Computed at the moment the tab is set (the language is fixed for a run), so a screen reader tells the tabs apart.
+            AutomationProperties.SetName(this, tab is null ? null : PdfStrings.PageViewName(tab.Title));
         }
         else if (change.Property == BackgroundProperty || change.Property == PageBorderBrushProperty)
         {
