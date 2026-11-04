@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+ProBook-BENNI,pdf,cold,1,831.06,ms
+ProBook-BENNI,pdf,cold,2,210.59,ms
+ProBook-BENNI,pdf,cold,3,222.75,ms
+ProBook-BENNI,pdf,cold,4,222.19,ms
+ProBook-BENNI,pdf,cold,5,256.67,ms
+ProBook-BENNI,pdf,cold,6,234.59,ms
+ProBook-BENNI,pdf,cold,7,229.43,ms
+ProBook-BENNI,pdf,cold,8,224.32,ms
+ProBook-BENNI,pdf,cold,9,225.58,ms
+ProBook-BENNI,pdf,cold,10,234.56,ms

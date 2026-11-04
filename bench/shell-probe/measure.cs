@@ -10,9 +10,10 @@
 // CSV columns: machine,mode,case,run,value,unit. unit is ms or bytes. Rows of the case input carry the statistic
 // (median, p99, max) in the column run; rows of the case size carry total, zip, fonts or native. The gallery
 // (--target gallery) writes the mode gallery, the PDF app (--target pdf) the mode pdf; its cases are cold, warm, thousand, second, scroll
-// (rows p99 and max per run in the column run) and memory. check --target pdf has no limits yet and exits 2 (see CheckCommand).
+// (rows p99 and max per run in the column run) and memory. check --target pdf judges against the recorded limits (see CheckCommand).
 //
-// Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for target pdf).
+// Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for the binding
+// platform of target pdf: a table without limits never passes).
 
 using System.Diagnostics;
 using System.Globalization;
@@ -1178,22 +1179,23 @@ static class CheckCommand
         ("zip", "zip (MiB)"),
     ];
 
-    // THE limit table of the PDF app (target pdf), the only place for these numbers. It is EMPTY on purpose: the budgets of milestone 2.1
-    // are the medians of the owner's runs on the owner's machines (Docs/DECISIONS.md, "Raffica PDF measurement method (M2.1)"),
-    // rounded as in M1 (time to 10 ms, memory to 5 MiB, size to 1 MiB); the limit is budget x 1.25 once. Until they are entered here
-    // (and the selftest line that pins the empty table is changed with them), `check --target pdf` exits 2 and never passes.
-    // Never invent a number and never loosen one to make a check pass; macOS has none (indicative only).
+    // THE limit table of the PDF app (target pdf), the only place for these numbers. The source is the entry "Raffica PDF speed budgets
+    // (M2.1)" in Docs/DECISIONS.md: these are its budgets, the medians of the owner's runs of 2026-11-04 (commit db90246, CSVs in
+    // Docs/measurements/pdf-viewer-2026-11-04/) rounded up as in M1 (time to 10 ms, memory to 5 MiB, size to 1 MiB); the limit is
+    // budget x 1.25 once (Stats.Limit). "scroll" is the median of the p99 of the frame gaps. "zip" has a budget like the gallery's
+    // (the size check judges size and zip together; a metric without a budget would be "unrecorded" and fail). Never loosen a number
+    // here to make a check pass; a change is a new decisions entry. macOS has none (indicative only).
     private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
     {
-        ["windows"] = [],
-        ["linux"] = [],
+        ["windows"] = new() { ["cold"] = 400, ["warm"] = 390, ["thousand"] = 400, ["second"] = 30, ["scroll"] = 20, ["memory"] = 130, ["size"] = 51, ["zip"] = 22 },
+        ["linux"] = new() { ["cold"] = 230, ["warm"] = 230, ["thousand"] = 220, ["second"] = 40, ["scroll"] = 40, ["memory"] = 155, ["size"] = 48, ["zip"] = 22 },
         ["macos"] = [],
     };
 
     /// <summary>The message of a check of the PDF app against an empty limit table.</summary>
     public const string NoPdfLimits = "no limits recorded for target pdf";
 
-    /// <summary>Selftest only: replaces the (empty) production table of the PDF app; null restores it. Never set outside the selftest.</summary>
+    /// <summary>Selftest only: replaces the production table of the PDF app; null restores it. Never set outside the selftest.</summary>
     public static Dictionary<string, Dictionary<string, double>>? PdfTableForTests { get; set; }
 
     /// <summary>The limit table of the PDF app in force.</summary>
@@ -1627,7 +1629,7 @@ static class SelfTest
 
     private static readonly string[] s_pdfKeys = ["cold", "warm", "thousand", "second", "scroll", "memory", "size", "zip"];
 
-    // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The production table stays empty until the owner's runs exist.
+    // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The recorded budgets are s_pdfBudgets in CheckCommand.
     private static Dictionary<string, Dictionary<string, double>> PdfTestTable() => new()
     {
         ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thousand"] = 200, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16 },
@@ -1660,7 +1662,7 @@ static class SelfTest
         return path;
     }
 
-    /// <summary>The target pdf: the arguments of a run, the CSV mode, the empty production table (exit 2) and the verdicts with a test-only table.</summary>
+    /// <summary>The target pdf: the arguments of a run, the CSV mode, the recorded production table, the empty-table behaviour (exit 2) and the verdicts with a test-only table.</summary>
     private static void PdfTests()
     {
         var td = Path.Combine("some", "testdata");
@@ -1685,12 +1687,24 @@ static class SelfTest
         Expect("pdf run: an unknown case is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--case", "input", "--out", csvPath], out _)!), 2);
         Expect("pdf run: a missing test folder is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--case", "warm", "--testdata", Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "nope"), "--out", csvPath], out _)!), 2);
 
-        // The production table is empty until the owner's runs exist: it never judges, and the check says so with exit code 2.
-        Expect("pdf limits: the production table is empty", CheckCommand.PdfTable.Values.All(t => t.Count == 0), true);
-        Expect("pdf limits: no limit windows", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), null);
-        Expect("pdf limits: windows has none", CheckCommand.PdfHasNoLimits("windows"), true);
-        Expect("pdf limits: linux has none", CheckCommand.PdfHasNoLimits("linux"), true);
-        Expect("pdf limits: macOS is indicative, not missing", CheckCommand.PdfHasNoLimits("macos"), false);
+        // The production table holds the budgets recorded from the owner's runs of 2026-11-04 (DECISIONS.md, "Raffica PDF speed budgets (M2.1)"): pinned value by value.
+        (string Platform, string Key, double Budget)[] recorded =
+        [
+            ("windows", "cold", 400), ("windows", "warm", 390), ("windows", "thousand", 400), ("windows", "second", 30), ("windows", "scroll", 20), ("windows", "memory", 130), ("windows", "size", 51), ("windows", "zip", 22),
+            ("linux", "cold", 230), ("linux", "warm", 230), ("linux", "thousand", 220), ("linux", "second", 40), ("linux", "scroll", 40), ("linux", "memory", 155), ("linux", "size", 48), ("linux", "zip", 22),
+        ];
+        foreach (var (platform, key, budget) in recorded)
+        {
+            Expect($"pdf limits: {platform} {key} is budget {budget} x 1.25", CheckCommand.LimitOf(CheckCommand.PdfTable, platform, key), budget * 1.25);
+        }
+
+        Expect("pdf limits: windows has limits", CheckCommand.PdfHasNoLimits("windows"), false);
+        Expect("pdf limits: linux has limits", CheckCommand.PdfHasNoLimits("linux"), false);
+        Expect("pdf limits: every binding metric is recorded", CheckCommand.PdfTable["windows"].Count == s_pdfKeys.Length && CheckCommand.PdfTable["linux"].Count == s_pdfKeys.Length, true);
+        Expect("pdf limits: macOS has none and is indicative, not missing", CheckCommand.PdfTable["macos"].Count == 0 && !CheckCommand.PdfHasNoLimits("macos"), true);
+
+        // The committed first measurements (CSVs of the owner's runs) are inside the recorded limits: the same files `check` is run on.
+        RecordedMeasurementsTests();
 
         var folder = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "pdfcheck");
         if (Directory.Exists(folder))
@@ -1702,7 +1716,8 @@ static class SelfTest
         var csv = Path.Combine(folder, "pdf.csv");
         var summary = Path.Combine(folder, "summary.md");
 
-        // Any numbers: the production table must not pass them (no limits recorded), not even values of zero.
+        // A table without limits (test-only, the mechanism stays) must not pass any numbers, not even values of zero.
+        CheckCommand.PdfTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
         PdfCsv(csv, PdfRows("windows"));
         foreach (var platform in new[] { "windows", "linux" })
         {
@@ -1714,6 +1729,7 @@ static class SelfTest
         Expect("check pdf: the summary still has the medians", text.Contains("| 1000 pages (ms) |", StringComparison.Ordinal), true);
         Expect("check pdf macos: indicative with an empty table", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "macos", "--in", csv], out _)!), 0);
         Expect("check: an unknown target is a usage error", CheckCommand.Execute(Options.Parse(["--target", "amiga", "--platform", "windows", "--in", csv], out _)!), 2);
+        CheckCommand.PdfTableForTests = null;
 
         // With a TEST-ONLY table the verdicts are the ones of the gallery: at the limit ok, above it over, missing fails, macOS indicative.
         CheckCommand.PdfTableForTests = PdfTestTable();
@@ -1762,7 +1778,50 @@ static class SelfTest
             CheckCommand.PdfTableForTests = null;
         }
 
-        Expect("pdf limits: the test table is gone again", CheckCommand.PdfTable.Values.All(t => t.Count == 0), true);
+        Expect("pdf limits: the test table is gone again", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), 500);
+    }
+
+    /// <summary>
+    /// The CSVs of the first PDF measurements (<c>Docs/measurements/pdf-viewer-2026-11-04</c>, found from the working folder upwards) pass the
+    /// recorded limits on both binding platforms, through the same <c>check</c> command and through the evaluation: a regression of the table
+    /// or of the files is a failed selftest.
+    /// </summary>
+    private static void RecordedMeasurementsTests()
+    {
+        string? folder = null;
+        for (var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir is not null && folder is null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "Docs", "measurements", "pdf-viewer-2026-11-04");
+            folder = Directory.Exists(candidate) ? candidate : null;
+        }
+
+        Expect("pdf measurements: the committed CSVs are found (run the selftest from the repository)", folder is not null, true);
+        if (folder is null)
+        {
+            return;
+        }
+
+        foreach (var platform in new[] { "windows", "linux" })
+        {
+            var pattern = Path.Combine(folder, platform, "*.csv");
+            Expect($"pdf measurements {platform}: check exits 0 on the committed CSVs", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", platform, "--in", pattern], out _)!), 0);
+
+            var rows = new List<BudgetsCommand.Row>();
+            foreach (var path in BudgetsCommand.Expand(pattern))
+            {
+                foreach (var line in File.ReadLines(path).Skip(1).Where(l => l.Length > 0))
+                {
+                    var p = line.Split(',');
+                    rows.Add(new BudgetsCommand.Row(p[0], p[1], p[2], p[3], double.Parse(p[4], CultureInfo.InvariantCulture), p[5]));
+                }
+            }
+
+            var results = CheckCommand.EvaluatePdf(platform, rows);
+            Expect($"pdf measurements {platform}: every metric is judged ok", results.All(r => r.Verdict == "ok") && results.Count == s_pdfKeys.Length, true);
+
+            // The budget is the median rounded up, so no median is above its budget.
+            Expect($"pdf measurements {platform}: no median is above its budget", results.All(r => r.Measured <= r.Budget), true);
+        }
     }
 
     /// <summary>
@@ -1852,10 +1911,18 @@ static class SelfTest
         Expect("size --check pdf (test table): exactly at the limit passes", Check("win-x64", Win), 0);
         Expect("size --check pdf (test table): one byte above fails", Check("win-x64", Win + 1), 1);
         Expect("size --check pdf (test table): macOS is indicative", Check("osx-x64", Win * 2), 0);
-        CheckCommand.PdfTableForTests = null;
+        CheckCommand.PdfTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
         Expect("size --check pdf: an empty table exits 2", Check("win-x64", 10), 2);
         Expect("size --check pdf: an empty table exits 2 on Linux", Check("linux-x64", 10), 2);
         Expect("size --check pdf: macOS stays indicative", Check("osx-x64", 10), 0);
+
+        // The recorded table: 51 MiB x 1.25 = 63.75 MiB on Windows, 48 MiB x 1.25 = 60 MiB on Linux (the zip of the stand-in file is far below 27.5 MiB).
+        CheckCommand.PdfTableForTests = null;
+        Expect("size --check pdf (recorded): windows exactly at 63.75 MiB passes", Check("win-x64", 63 * 1024 * 1024 + 768 * 1024), 0);
+        Expect("size --check pdf (recorded): windows one byte above 63.75 MiB fails", Check("win-x64", 63 * 1024 * 1024 + 768 * 1024 + 1), 1);
+        Expect("size --check pdf (recorded): linux exactly at 60 MiB passes", Check("linux-x64", 60 * 1024 * 1024), 0);
+        Expect("size --check pdf (recorded): linux one byte above 60 MiB fails", Check("linux-x64", 60 * 1024 * 1024 + 1), 1);
+        Expect("size --check pdf (recorded): macOS stays indicative", Check("osx-x64", 200 * 1024 * 1024), 0);
         CheckCommand.PdfTableForTests = PdfTestTable();
         Directory.Delete(root, recursive: true);
     }

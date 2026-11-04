@@ -15,6 +15,49 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-04 – Raffica PDF speed budgets (M2.1)
+**Context:** "Raffica PDF measurement method (M2.1)" fixes what is measured; this entry records the first real numbers and the budgets from them. `measure.yml` ran with `target=pdf` on the owner's two binding machines on `dev` at commit db90246 (run 2026-11-04), 10 runs per case (the scroll case 5 runs, one p99 and one maximum each), no invalid-measurement flag. The CSVs and machine notes are in `Docs/measurements/pdf-viewer-2026-11-04/`. The machines are those of the M1 entries ("Speed targets of the frame (M1)", "Gallery frame baseline (M1.2)"):
+- Windows (binding): AMD Ryzen 7 7800X3D, 30.9 GiB, NVIDIA RTX 4070 SUPER, 1920 × 1080 at 60 Hz, scaling 100 %, Windows 11 build 26300, balanced power plan, mains power.
+- Linux (binding): HP ProBook, Intel Core i5-8265U, 15.4 GiB, Intel UHD Graphics 620, 1920 × 1080, Wayland session with XWayland, CachyOS (kernel 7.3.0-4-cachyos), balanced profile, mains power.
+- macOS: not measured here (indicative only, later; the macOS subproject and the Apple-silicon numbers come after).
+
+**Measured (median, minimum to maximum):**
+
+| Case | Windows | Linux |
+|---|---|---|
+| Cold start, one page (ms) | 392.53 (387.52 to 555.01) | 227.51 (210.59 to 831.06) |
+| Warm start, one page (ms) | 382.84 (374.56 to 396.20) | 227.83 (216.96 to 252.89) |
+| 1000-page file to the first sharp page (ms) | 394.86 (371.14 to 404.84) | 217.63 (210.79 to 268.94) |
+| Second file in the running instance (ms) | 25.46 (23.93 to 32.91) | 33.82 (32.16 to 37.41) |
+| Scroll, p99 of the frame gaps (ms), median of 5 runs | 10.70 (10.04 to 11.62) | 36.25 (36.21 to 37.77) |
+| Idle memory, 1000-page file (MiB) | 126.68 (126.01 to 129.11) | 151.37 (149.62 to 154.25) |
+| Published size (MiB) | 50.80 | 47.61 |
+| Zip (MiB) | 21.60 | 21.19 |
+
+**Decision:** The rule is that of M1: the budget is the median rounded up (time to 10 ms, memory to 5 MiB, size and zip to 1 MiB), the limit is the budget × 1.25 applied once (`Stats.Limit`). The scroll metric is the median of the p99 values; the zip has a budget as in the gallery table because `size --check` judges size and zip together (a metric without a budget would be `unrecorded` and fail). The single copy in code is `s_pdfBudgets` in `CheckCommand` of `bench/shell-probe/measure.cs`; its selftest pins every value and runs `check` on the committed CSVs.
+
+| Case | Windows budget / limit | Linux budget / limit |
+|---|---|---|
+| Cold start | 400 / 500 ms | 230 / 287.5 ms |
+| Warm start | 390 / 487.5 ms | 230 / 287.5 ms |
+| 1000-page file | 400 / 500 ms | 220 / 275 ms |
+| Second file | 30 / 37.5 ms | 40 / 50 ms |
+| Scroll p99 | 20 / 25 ms | 40 / 50 ms |
+| Idle memory | 130 / 162.5 MiB | 155 / 193.75 MiB |
+| Published size | 51 / 63.75 MiB | 48 / 60 MiB |
+| Zip | 22 / 27.5 MiB | 22 / 27.5 MiB |
+
+macOS has no budgets: `check` prints the verdict `indicative` and exits 0. Re-measure with `gh workflow run measure.yml --ref <branch> -f platform=<windows|linux> -f target=pdf -f note="<GPU, resolution, scaling, power>"` (the check step must pass), or locally `dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform <windows|linux> --in "<CSVs>"`; both exit 0 on the recorded CSVs. CI checks the published size with `size --check <rid> --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts` (step "Size of the published PDF app"); a local win-x64 Native AOT publish of the same commit was 512 bytes smaller than the owner's run (53271080 against 53271592 bytes). Budgets are never loosened to make a check pass; a change is a new decisions entry.
+
+**Findings for the owner.** A finding is not a miss of a limit (the limits come from these medians); it is what the spec's reference rule calls "slower than Pagewing 1.0 on the same machines".
+- **(a) The same-machine references are open.** Pagewing 1.0 and Chrome were **not** measured on these machines, so no comparison with them exists and none is claimed here. To close it: build the predecessor's `v1.0.0` tag outside this repository (the Pagewing checkout is read-only), measure it with the same cases on the same two machines (startup to the first sharp page, a second file handed to the running instance, the 1000-page file, scrolling, memory), measure Chrome by the method of the predecessor's comparison entry, and add the numbers to this entry with a finding for every case where the PDF app is slower.
+- **(b) Against the predecessor's old absolute budgets (context only, they are not limits here):** Pagewing 1.0 had cold 400 ms, warm 200 ms, next file in a running instance 100 ms and 1000-page file 300 ms. The PDF app is within the old cold budget (393 ms Windows, 228 ms Linux), the old second-file budget (25 and 34 ms) and, on Linux, the old 1000-page budget (218 ms). It is **above the old warm budget on both machines** (383 ms Windows, 228 ms Linux against 200 ms) and **above the old 1000-page budget on Windows** (395 ms against 300 ms). Warm is **not faster than cold** in the PDF app (383 against 393 ms on Windows, 228 against 228 ms on Linux): the time is dominated by something that a warm file cache does not help.
+- **The cause is still unknown.** The cause check of Task 16 (temporary instrumentation on the development VM, relative numbers only) found nothing cheap: the `PdfWindow` constructor takes about 6.5 ms, reading the app settings about 0.15 ms, and starting PDFium early gained nothing. Recommended next steps: a startup trace on the Windows machine from the process start to the window shown, the document opened and the first tile painted; the initialisation of the Avalonia, ANGLE and Skia GPU surface; PDFium initialisation and the first render; and the two animation frames after the first tile that the measurement waits for (does the measurement itself add about 2 frames, 33 ms at 60 Hz, to every start case? a run that stops at the first painted tile would show it).
+- **(c) The first cold run on Windows was 555 ms** (run 1), later runs 388 to 398 ms; the median ignores it. The first cold run on Linux was 831 ms against 211 to 223 ms for the rest. Both are run 1 of the series, the first launch of the freshly published app (the cold case does not empty the file cache; a start after a reboot is the manual case `cold-reboot`, not run for the PDF app yet).
+**Rationale:** Budgets from the owner's machines with a real GPU and an active display are the only defensible ones ("Raffica PDF: speed budgets are measured, not inherited (M2)"). Recording the findings next to the budgets keeps the limits honest: they stop regressions from this baseline, they do not say the app is fast enough. The baseline is the regression reference for the milestones that follow.
+**Not measured:** Pagewing 1.0 and Chrome on the same machines (see finding a); a cold start after a reboot for the PDF app (`-f cases=cold-reboot`); macOS (indicative, later); a re-run of `measure.yml` with the recorded limits (it must pass the check step, command above).
+**Rejected alternatives:** Setting the budgets from the old Pagewing numbers (they fail on the warm case before any regression); leaving the zip without a budget (`size --check` would fail as `unrecorded`, or the zip would go unchecked); loosening the limits of the cases above the old budgets (the rule is that a finding is recorded, never hidden).
+
 ## 2026-11-04 – Raffica PDF measurement method (M2.1)
 **Context:** "Raffica PDF: speed budgets are measured, not inherited (M2)" says the budgets of the PDF app are the medians of measurement runs. This entry fixes what is measured and how, so that the runs of the owner's machines and the checks in `measure.yml` mean the same thing. The budgets themselves are **not recorded yet**: they are the medians of the owner's runs on the owner's Windows and Linux machines and cannot be produced elsewhere. They go into a later entry, "Raffica PDF speed budgets (M2.1)", together with the reference numbers (the predecessor 1.0 and Chrome, measured on the same machines with the method of the predecessor's comparison entry) and a finding for every case that is slower than the predecessor or above a limit.
 **Decision:** The app has the switches `--measure-startup`, `--measure-second`, `--measure-scroll` and `--measure-memory` (`src/Raffica.Pdf/Measurement.cs`); `bench/shell-probe/measure.cs --target pdf` runs them. One switch per run; each needs `--settings-file` and the file to open, so a measurement never reads or writes the settings, the recent files or the instance pipe of the user (the pipe name is derived from the settings file); the script gives every run a settings folder of its own. Every result line is written in the invariant culture with ASCII keys (not localized). A run that does not finish ends with exit code 3 after 30 s; the script kills a run after 45 s.
@@ -27,6 +70,7 @@ The cases and their metrics, in the order of spec section 5:
 - `size`: the published folder without debug symbols, and its zip (`CompressionLevel.Optimal`), as for the gallery.
 The limit rule is that of M1: budget = the median rounded up (time to 10 ms, memory to 5 MiB, size to 1 MiB), limit = budget × 1.25 once. Windows and Linux are binding, macOS is indicative only (verdict `indicative`, exit 0). The single copy of the limit table of the PDF app is `s_pdfBudgets` in `CheckCommand` of `measure.cs`; it is **empty** until the owner's runs are recorded, and until then `check --target pdf` (and `size --check --target pdf`) prints the medians and exits with 2 and "no limits recorded for target pdf" — it never passes. The `selftest` pins this, and pins the verdict logic with a test-only table. A binding platform whose table lacks a metric is `unrecorded` and fails. Budgets are never loosened to make a check pass; a miss is a finding for the owner. Heavy work (thumbnails, the text index, OCR, the outline, the print probe and the print permissions) starts only after the first sharp page, and the recent list is written by a background writer, so no disk wait sits on the first-page path.
 **Rationale:** The same definitions on every machine make the medians comparable and the budgets defensible; counting the frames after the paint makes "first page" the moment the user sees it, as in the frame baseline ("Gallery frame baseline (M1.2)"). An empty table that fails is honest: inventing limits before the runs exist would make the check meaningless. Timing the second file inside the running instance avoids the cost of the second process.
+**Update 2026-11-04:** the budgets are recorded, see "Raffica PDF speed budgets (M2.1)"; the limit table is no longer empty.
 **Rejected alternatives:** Starting the clock at the first sharp page event instead of the painted frames (it ignores the presentation). Timing `second` from the start of the second process (it measures process start, not the open in the running app). Putting provisional numbers into the table so that the check can be green (guesses). Reusing the input-latency switch (typing is no PDF case in 2.1).
 
 ## 2026-11-04 – Raffica PDF: viewer conventions (M2.1)
