@@ -88,6 +88,18 @@ internal static class Program
         return SingleInstance.DefaultName + "-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(full)), 0, 6);
     }
 
-    private static AppBuilder BuildAvaloniaApp(PdfOptions options, SingleInstance? instance) =>
-        AppBuilder.Configure(() => new App(options, instance)).UsePlatformDetect();
+    private static AppBuilder BuildAvaloniaApp(PdfOptions options, SingleInstance? instance)
+    {
+        var builder = AppBuilder.Configure(() => new App(options, instance)).UsePlatformDetect();
+
+        // Developer and measurement override, Windows only: RAFFICA_RENDERING=software takes software rendering as the only mode (no Direct3D
+        // device, no ANGLE display, no composition); anything else keeps Avalonia's default.
+        if (OperatingSystem.IsWindows()
+            && RenderingChoiceParser.Parse(Environment.GetEnvironmentVariable(RenderingChoiceParser.VariableName)) == RenderingChoice.Software)
+        {
+            builder = builder.With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Software] });
+        }
+
+        return builder;
+    }
 }

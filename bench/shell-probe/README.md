@@ -127,6 +127,12 @@ script starts it with a settings folder of its own per run. `--target pdf` has t
 the 1000-page file, p99 and max of the frame gaps) and `memory`; the CSV column `mode` is `pdf`; the test files come from
 `testdata/pdfs` (`--testdata <folder>` if the script is not run from the repository root).
 
+The `measure.yml` input `rendering` (`default` or `software`, only used for `--target pdf` on Windows) sets the environment variable
+`RAFFICA_RENDERING` for the measured app: `software` makes the app use Avalonia's software rendering instead of its default path (ANGLE
+over Direct3D 11), so the two paths can be compared on the same machine with the same method. The scripts' child processes inherit it,
+the effective value is written to `machine.txt` ("Rendering override: ...") and to the job summary, and `default` changes nothing. It is
+a developer override, not a setting of the app. The runner group allows `measure.yml` only on `dev`.
+
 ```
 dotnet publish src/Raffica.Pdf -c Release -r win-x64 -o artifacts/pdf/win-x64
 dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe artifacts/pdf/win-x64/RafficaPdf.exe --case warm --out artifacts/pdf/warm.csv
