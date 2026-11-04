@@ -631,10 +631,10 @@
     <value>Track changes</value>
   </data>
   <data name="CmdAcceptAll" xml:space="preserve">
-    <value>Accept all changes</value>
+    <value>Accept all</value>
   </data>
   <data name="CmdRejectAll" xml:space="preserve">
-    <value>Reject all changes</value>
+    <value>Reject all</value>
   </data>
   <data name="CmdNewComment" xml:space="preserve">
     <value>New comment</value>

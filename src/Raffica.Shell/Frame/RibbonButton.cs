@@ -30,6 +30,11 @@ public enum RibbonButtonKind
 /// </summary>
 public class RibbonButton : Button
 {
+    // The widest label: a tile label wraps (two lines) inside 96 px, which keeps a long German word such as "Rechtschreibung" whole;
+    // a small button label stays on one line and may take 160 px.
+    private const double TileLabelMaxWidth = 96;
+    private const double SmallLabelMaxWidth = 160;
+
     public RibbonButton(CommandDefinition definition, RibbonButtonKind kind, Action<CommandDefinition> invoked)
     {
         ArgumentNullException.ThrowIfNull(definition);
@@ -145,7 +150,7 @@ public class RibbonButton : Button
             TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = wrap ? 2 : 1,
-            MaxWidth = 76,
+            MaxWidth = wrap ? TileLabelMaxWidth : SmallLabelMaxWidth,
             VerticalAlignment = VerticalAlignment.Center,
         };
         label.Classes.Add("ribbon-label");
