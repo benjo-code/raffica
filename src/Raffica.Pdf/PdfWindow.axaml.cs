@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
@@ -211,8 +212,9 @@ internal sealed partial class PdfWindow : Window
         e.Cancel = true;
         if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
         {
+            // Posted: with no dirty tab the guard completes synchronously, and Close must not run nested inside the Closing event.
             _closeConfirmed = true;
-            Close();
+            Dispatcher.UIThread.Post(Close);
         }
     }
 
