@@ -43,9 +43,19 @@ internal sealed class FieldCodeFixture
 
     public IDisposable Attachment { get; private set; } = null!;
 
+    public IReadOnlyList<FieldCodeTarget> Targets { get; private set; } = [];
+
+    private static List<FieldCodeTarget> DefaultTargets(SearchField search, Pane left, Pane right) =>
+    [
+        new("Q", search.FocusAndSelect),
+        new("6", () => ((Button)left.Content!).Focus()),
+        new("7", () => ((Button)right.Content!).Focus()),
+    ];
+
     public List<string> Invoked { get; } = [];
 
-    public static FieldCodeFixture Create(ThemeMode mode = ThemeMode.Light, AppInk ink = AppInk.Write, RibbonDefinition? definition = null)
+    /// <param name="targets">The extra field codes of the app; by default Q focuses the search field and 6 / 7 focus the two panes.</param>
+    public static FieldCodeFixture Create(ThemeMode mode = ThemeMode.Light, AppInk ink = AppInk.Write, RibbonDefinition? definition = null, IReadOnlyList<FieldCodeTarget>? targets = null)
     {
         definition ??= SampleRibbon.Create();
         var ribbon = new RibbonView { Definition = definition };
@@ -87,7 +97,8 @@ internal sealed class FieldCodeFixture
             Session = session,
         };
         ribbon.CommandInvoked += command => fixture.Invoked.Add(command.Id);
-        fixture.Attachment = FieldCodeInput.Attach(window, session, ribbon, status);
+        fixture.Targets = targets ?? DefaultTargets(search, left, right);
+        fixture.Attachment = FieldCodeInput.Attach(window, session, ribbon, status, fixture.Targets);
         return fixture;
     }
 
@@ -96,7 +107,7 @@ internal sealed class FieldCodeFixture
     {
         Attachment.Dispose();
         register(Window);
-        Attachment = FieldCodeInput.Attach(Window, Session, Ribbon, Status);
+        Attachment = FieldCodeInput.Attach(Window, Session, Ribbon, Status, Targets);
     }
 
     /// <summary>The menu of the paste command (the one menu command of the sample ribbon).</summary>

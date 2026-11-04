@@ -3,6 +3,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
@@ -642,5 +643,110 @@ public sealed class FieldCodeInputTests
         log.Clear();
         f.Press(Key.F10, PhysicalKey.F10, RawInputModifiers.Shift);
         Assert.All(log, entry => Assert.False(entry.Handled));
+    }
+
+    private static bool FocusIsInside(FieldCodeFixture f, Control container) =>
+        f.Window.FocusManager!.GetFocusedElement() is Avalonia.Visual focused && container.IsVisualAncestorOf(focused);
+
+    [AvaloniaFact]
+    public void QFocusesTheSearchFieldAndEndsTheMode()
+    {
+        var f = FieldCodeFixture.Create();
+        f.Alt();
+
+        f.TypeCode("Q");
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.Empty(f.Badges);
+        Assert.Null(f.Status.Hint);
+        Assert.True(FocusIsInside(f, f.Search));
+
+        // The letter was a field code, not text: the search box stays empty.
+        Assert.All(ControlHarness.Descendants(f.Search).OfType<TextBox>(), box => Assert.True(string.IsNullOrEmpty(box.Text)));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("6")]
+    [InlineData("7")]
+    public void SixAndSevenFocusThePanes(string code)
+    {
+        var f = FieldCodeFixture.Create();
+        f.Alt();
+
+        f.TypeCode(code);
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.Empty(f.Badges);
+        Assert.True(FocusIsInside(f, code == "6" ? f.Left : f.Right));
+        Assert.False(FocusIsInside(f, code == "6" ? f.Right : f.Left));
+    }
+
+    [AvaloniaFact]
+    public void TargetCodesOnlyWorkAndShowInTheTabLetterStage()
+    {
+        var f = FieldCodeFixture.Create();
+        f.Alt();
+        f.TypeCode("H");
+
+        Assert.DoesNotContain("Q", f.BadgeTexts());
+        Assert.DoesNotContain("7", f.BadgeTexts());
+        f.TypeCode("Q");
+
+        // Q is not a code of the Home tab: nothing happened and the mode is still on.
+        Assert.Equal(FieldCodeStage.CommandCodes, f.Session.Stage);
+        Assert.False(FocusIsInside(f, f.Search));
+    }
+
+    [AvaloniaFact]
+    public void WithoutTargetsNoBadgeAppearsThatDoesNothing()
+    {
+        var f = FieldCodeFixture.Create(targets: []);
+        f.Alt();
+
+        Assert.DoesNotContain("Q", f.BadgeTexts());
+        Assert.DoesNotContain("6", f.BadgeTexts());
+        Assert.DoesNotContain("7", f.BadgeTexts());
+
+        f.TypeCode("Q");
+        Assert.Equal(FieldCodeStage.TabLetters, f.Session.Stage);
+        Assert.False(FocusIsInside(f, f.Search));
+    }
+
+    [AvaloniaFact]
+    public void ATargetWhosePaneIsClosedHasNoBadgeAndNoEffect()
+    {
+        var f = FieldCodeFixture.Create();
+        f.Right.IsOpen = false;
+        ControlHarness.Settle(f.Window);
+        f.Alt();
+
+        Assert.DoesNotContain("7", f.BadgeTexts());
+        f.TypeCode("7");
+
+        Assert.Equal(FieldCodeStage.TabLetters, f.Session.Stage);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("H")]
+    [InlineData("N")]
+    public void ATargetCodeThatIsATabLetterIsRejected(string code)
+    {
+        var f = FieldCodeFixture.Create();
+        f.Attachment.Dispose();
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            FieldCodeInput.Attach(f.Window, f.Session, f.Ribbon, f.Status, [new FieldCodeTarget(code, () => { })]));
+        Assert.Contains(code, ex.Message);
+    }
+
+    [AvaloniaFact]
+    public void MalformedAndDuplicateTargetCodesAreRejected()
+    {
+        var f = FieldCodeFixture.Create();
+        f.Attachment.Dispose();
+
+        Assert.Throws<ArgumentException>(() => FieldCodeInput.Attach(f.Window, f.Session, f.Ribbon, f.Status, [new FieldCodeTarget("QQ", () => { })]));
+        Assert.Throws<ArgumentException>(() => FieldCodeInput.Attach(f.Window, f.Session, f.Ribbon, f.Status, [new FieldCodeTarget("q", () => { })]));
+        Assert.Throws<ArgumentException>(() => FieldCodeInput.Attach(f.Window, f.Session, f.Ribbon, f.Status, [new FieldCodeTarget("Q", () => { }), new FieldCodeTarget("Q", () => { })]));
     }
 }

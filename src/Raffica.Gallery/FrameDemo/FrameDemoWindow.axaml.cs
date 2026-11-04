@@ -49,7 +49,7 @@ internal static class FrameDemoSettings
 /// <summary>
 /// The demo window of the app frame (<c>--view frame</c>): the shared frame with the drawn title bar (mark, three document tabs, search
 /// over the ribbon), the sample Write ribbon, a navigation pane, the document page, a comments pane, the notification bar and the
-/// status bar. F6, the Alt field codes and Ctrl+K work. Without any document tab it shows the start view; the File tab shows it too. The
+/// status bar. F6, the Alt field codes (with Q for the search field and 6 and 7 for the side panes) and Ctrl+K work. Without any document tab it shows the start view; the File tab shows it too. The
 /// start tiles and the recent files only record their request in the notification bar, nothing is opened.
 /// </summary>
 internal sealed partial class FrameDemoWindow : Window
@@ -156,8 +156,14 @@ internal sealed partial class FrameDemoWindow : Window
 
         // Window-wide keys: Ctrl+K, F6 / Shift+F6 and the Alt field codes.
         FrameKeys.Attach(this, TitleSearch);
-        _ = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
-        _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status);
+        var paneFocus = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
+        FieldCodeTarget[] targets =
+        [
+            new("Q", TitleSearch.FocusAndSelect),
+            new("6", () => paneFocus.Focus(NavigationPane)),
+            new("7", () => paneFocus.Focus(CommentsPane)),
+        ];
+        _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
         Closed += (_, _) => _fieldCodes.Dispose();
     }
 

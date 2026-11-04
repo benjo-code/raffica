@@ -214,4 +214,23 @@ public sealed class PaneFocusTests
         Assert.True(f.Focus.Move(false));
         Assert.Same(f.NavButton, TopLevel.GetTopLevel(f.Window)!.FocusManager!.GetFocusedElement());
     }
+
+    [AvaloniaFact]
+    public void FocusMovesIntoThatPaneAndMarksIt()
+    {
+        var f = Create();
+
+        Assert.True(f.Focus.Focus(f.Comments));
+
+        Assert.True(FocusIsInside(f, f.Comments));
+        Assert.True(f.Comments.IsPaneFocused);
+        Assert.Equal("Focus: Comments", f.Status.FocusPane);
+        Assert.True(f.Focus.Focus(f.Navigation));
+        Assert.False(f.Comments.IsPaneFocused);
+        Assert.True(f.Navigation.IsPaneFocused);
+
+        f.Host.Show(new Dialog { Title = "Dialog", Content = new Button { Content = "OK" } });
+        ControlHarness.Settle(f.Window);
+        Assert.False(f.Focus.Focus(f.Comments));
+    }
 }

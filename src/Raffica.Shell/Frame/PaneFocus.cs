@@ -80,6 +80,25 @@ public sealed class PaneFocus
         return false;
     }
 
+    /// <summary>
+    /// Moves the focus into <paramref name="pane"/> (as F6 would) and marks it. Returns false while a dialog is open, for a pane of
+    /// another ring, or when the pane has nothing to focus.
+    /// </summary>
+    public bool Focus(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        var index = -1;
+        for (var i = 0; i < _panes.Count; i++)
+        {
+            if (ReferenceEquals(_panes[i], pane))
+            {
+                index = i;
+            }
+        }
+
+        return index >= 0 && !IsDialogOpen() && FocusPane(index);
+    }
+
     /// <summary>Ends the navigation: no pane is marked and the status cell is empty. The keyboard focus stays where it is.</summary>
     public void End()
     {

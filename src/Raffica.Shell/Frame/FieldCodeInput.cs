@@ -31,6 +31,7 @@ public sealed class FieldCodeInput : IDisposable
     private readonly RibbonView _ribbon;
     private readonly StatusBar _status;
     private readonly IDisposable _dialogWatch;
+    private readonly Dictionary<char, Action> _targets;
     private readonly List<FieldCodeBadge> _badges = [];
     private readonly List<FieldCodeBadge> _menuBadges = [];
     private MenuFlyout? _menu;
@@ -44,12 +45,13 @@ public sealed class FieldCodeInput : IDisposable
     private bool _settingTab;
     private bool _disposed;
 
-    private FieldCodeInput(Window window, FieldCodeSession session, RibbonView ribbon, StatusBar status)
+    private FieldCodeInput(Window window, FieldCodeSession session, RibbonView ribbon, StatusBar status, IReadOnlyList<FieldCodeTarget> targets)
     {
         _window = window;
         _session = session;
         _ribbon = ribbon;
         _status = status;
+        _targets = targets.ToDictionary(t => t.Code[0], t => t.Invoke);
 
         window.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         window.AddHandler(InputElement.KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel);
@@ -65,15 +67,36 @@ public sealed class FieldCodeInput : IDisposable
 
     /// <summary>
     /// Starts feeding <paramref name="window"/> into <paramref name="session"/>. Disposing the result removes every handler and
-    /// badge again (the keys are ordinary keys afterwards).
+    /// badge again (the keys are ordinary keys afterwards). <paramref name="targets"/> are the extra one-character codes of the app
+    /// (see <see cref="FieldCodeTarget"/>); a code must be one character A-Z or 0-9, must not repeat and must not be a tab letter of the ribbon.
     /// </summary>
-    public static IDisposable Attach(Window window, FieldCodeSession session, RibbonView ribbon, StatusBar status)
+    public static IDisposable Attach(Window window, FieldCodeSession session, RibbonView ribbon, StatusBar status, IReadOnlyList<FieldCodeTarget>? targets = null)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(ribbon);
         ArgumentNullException.ThrowIfNull(status);
-        return new FieldCodeInput(window, session, ribbon, status);
+        targets ??= [];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var target in targets)
+        {
+            if (!RibbonDefinition.IsValidCode(target.Code, 1))
+            {
+                throw new ArgumentException($"Field-code target '{target.Code}' is not one character from A-Z or 0-9.", nameof(targets));
+            }
+
+            if (!seen.Add(target.Code))
+            {
+                throw new ArgumentException($"Field-code target '{target.Code}' is registered twice.", nameof(targets));
+            }
+
+            if (ribbon.Definition?.Tabs.Any(t => t.Letter == target.Code) == true)
+            {
+                throw new ArgumentException($"Field-code target '{target.Code}' is also the letter of a ribbon tab.", nameof(targets));
+            }
+        }
+
+        return new FieldCodeInput(window, session, ribbon, status, targets);
     }
 
     public void Dispose()
@@ -212,6 +235,15 @@ public sealed class FieldCodeInput : IDisposable
             if (TypedChar(e.Key) is { } c && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) == 0)
             {
                 _swallowText = true;
+                if (_session.Stage == FieldCodeStage.TabLetters && IsActiveTarget(c, out var invoke))
+                {
+                    // Q, 6, 7: the mode ends first (badges and hint go), then the target does its job.
+                    e.Handled = true;
+                    _session.Cancel();
+                    invoke();
+                    return;
+                }
+
                 e.Handled |= _session.Type(c);
             }
             else
@@ -319,14 +351,39 @@ public sealed class FieldCodeInput : IDisposable
             return;
         }
 
+        if (_session.Stage != FieldCodeStage.TabLetters)
+        {
+            return;
+        }
+
+        // The codes of the app's targets (search, panes) are only valid in the first stage; a code without a target gets no badge.
         foreach (var control in _window.GetVisualDescendants().OfType<Control>())
         {
-            if (FieldCodeBadge.GetCode(control) is { Length: > 0 } code && control.IsEffectivelyVisible
+            if (FieldCodeBadge.GetCode(control) is { Length: 1 } code && _targets.ContainsKey(code[0]) && control.IsEffectivelyVisible
                 && FieldCodeBadge.Show(control, code) is { } badge)
             {
                 _badges.Add(badge);
             }
         }
+    }
+
+    /// <summary>The target of a code, but only while a visible control carries that code (the badge is shown exactly then).</summary>
+    private bool IsActiveTarget(char code, out Action invoke)
+    {
+        invoke = static () => { };
+        if (!_targets.TryGetValue(code, out var action))
+        {
+            return false;
+        }
+
+        var text = code.ToString();
+        if (!_window.GetVisualDescendants().OfType<Control>().Any(c => c.IsEffectivelyVisible && FieldCodeBadge.GetCode(c) == text))
+        {
+            return false;
+        }
+
+        invoke = action;
+        return true;
     }
 
     /// <summary>
