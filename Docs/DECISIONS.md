@@ -15,6 +15,24 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-04 – Raffica PDF: platform code, autosave, OCR build and releases (M2)
+**Context:** Core holds the PDF features, but the platform parts (printing, default-app registration, single instance) were not imported from Pagewing, the shell's settings dialog has an autosave row, the OCR library is still fetched from a prerelease of Pagewing's repository, and the updater and release addresses are placeholders. Spec: `Docs/superpowers/specs/2026-11-04-raffica-pdf-design.md`, sections 4, 6 and 9.
+**Decision:** Platform code may be ported from Pagewing in an import commit followed by an adaptation commit; UI code is never ported. The PDF app hides the autosave row through a small additive shell option, so the other apps keep today's dialog. The Tesseract library is built in this repository as the first task of milestone 2.5 and the fetch from Pagewing's prerelease is dropped; the CodeQL and hardware-measure workflows return in 2.5 and the release workflow in 2.6. Releases live in this repository. The owner generates the update signing key and keeps it in a CI secret; the repository must be public by the first release, and nothing on GitHub changes without the owner's instruction.
+**Rationale:** Platform code is hard to get right and has no look to be redesigned; views are the new UI's job. Autosave contradicts "never damages the original" and Pagewing decided against it. Installers must not depend on another repository. A key the owner holds cannot leak through the plan.
+**Rejected alternatives:** Fetching Pagewing's prerelease for the shipped build (a dependency on a repository this project does not control). Porting Pagewing's views (they would bring back the old look). A recovery file or autosave (no autosave in Pagewing 1.0, so no parity reason).
+
+## 2026-11-04 – Raffica PDF: speed budgets are measured, not inherited (M2)
+**Context:** Pagewing 1.0 had absolute budgets (cold 400 ms, warm 200 ms, next file in a running instance 100 ms, 1000-page file 300 ms to the first sharp page). The frame alone measures 375 ms cold on the owner's Windows machine ("Gallery frame baseline (M1.2)"), so the old cold budget does not fit the new frame.
+**Decision:** As in milestone 1, milestone 2.1 measures the PDF app, sets each budget from the median, and sets the limit at budget × 1.25 once; budgets and limits are recorded here and checked in CI with the `measure.yml` machinery on Windows and Linux (macOS stays indicative). Pagewing 1.0 and Chrome are measured as references. Being slower than Pagewing 1.0 on the same machine is a recorded finding for the owner, like a miss of a budget; the plan of 2.1 looks for the cause first. Budgets are never loosened to make a check pass.
+**Rationale:** Speed is the core promise, and a limit that comes from a measurement can be defended; a number inherited from another frame cannot.
+**Rejected alternatives:** Keeping Pagewing's absolute numbers (they fail before the app exists). Setting budgets before measuring (guesses).
+
+## 2026-11-04 – Raffica PDF: scope and order (M2)
+**Context:** Milestone 2 creates the spec of the PDF app. Pagewing 1.0 is already feature-rich, and the suite needs a first app that people can use.
+**Decision:** The first Raffica PDF release has everything Pagewing 1.0 had, defined by its roadmap and README (an inventory is the first task of 2.1), and nothing new; the CLI `raffica` ships with the app. Windows and Linux only (macOS is subproject 4); no migration of Pagewing settings or files. Order: 2.1 Viewer, 2.2 Annotate, 2.3 Forms and signing, 2.4 Organize pages, 2.5 Redact, OCR and line editing, 2.6 Packaging and release. Non-goals are those of Pagewing: certificate signatures, XFA, JavaScript in PDFs, PDF-to-Word, cloud, accounts, an AI assistant, preflight, 3D and multimedia.
+**Rationale:** Parity makes the first release a replacement, not a rebuild; features come in the order that lets each milestone be used and tested alone, and packaging last avoids packaging a moving target.
+**Rejected alternatives:** A slimmer first release with the viewer only (it would not replace Pagewing). New features in the first release (they would mix a rebuild with design work).
+
 ## 2026-11-04 – Gallery frame baseline (M1.2)
 **Context:** Milestone 1.2 ships the shared app frame in the gallery app (`--view frame`). The speed limits of "Speed targets of the frame (M1)" apply to it: the gallery's published frame must stay within them, and a value above a limit is a finding for the owner, not a new budget (spec 9.4).
 **Decision:** The limit of each binding machine and case is the budget × 1.25, exactly the table of "Speed targets of the frame (M1)". The single copy in code is `CheckCommand` in `bench/shell-probe/measure.cs` (its selftest pins every value).

@@ -47,6 +47,26 @@
       "date": "2026-11-04",
       "context": "Milestone 1.2",
       "text": "The shell tests run serially (`DisableTestParallelization` in `tests/Raffica.Shell.Tests/TestCulture.cs`) because parallel test classes switching the shared `ShellStrings.Culture` made the suite flaky (about one first run in three after a build)."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 2",
+      "text": "Milestones 2.1 to 2.6 are added under the PDF spec: Viewer, Annotate, Forms and signing, Organize pages, Redact, OCR and line editing, Packaging and release. Decided in `Docs/DECISIONS.md`, entries \"Raffica PDF: scope and order (M2)\" and \"Raffica PDF: speed budgets are measured, not inherited (M2)\"."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 2",
+      "text": "Milestone 3 (macOS spec) now depends on 2.6 instead of 2, so that macOS stays after the finished PDF app; milestone 2 only means that the PDF spec exists."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 2",
+      "text": "The OCR library build moves from the backlog into milestone 2.5, and the release workflow into 2.6; the CodeQL and hardware-measure workflows come back in 2.5. Decided in `Docs/DECISIONS.md`, entry \"Raffica PDF: platform code, autosave, OCR build and releases (M2)\"."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 2",
+      "text": "Milestone 2.1 adds an additive option to the shell's settings dialog so that the PDF app hides the autosave row (autosave contradicts \"never damages the original\"); the frame's behaviour for the other apps stays as it is. Decided in `Docs/DECISIONS.md`, entry \"Raffica PDF: platform code, autosave, OCR build and releases (M2)\"."
     }
   ],
   "subprojects": [
@@ -161,19 +181,142 @@
     {
       "number": 3,
       "name": "Raffica PDF",
-      "spec": { "text": "not written yet (created in its first milestone)" },
+      "spec": { "text": "Raffica PDF design, approved 2026-11-04", "link": "superpowers/specs/2026-11-04-raffica-pdf-design.md" },
       "milestones": [
         {
           "id": "2",
           "title": "Create spec for Raffica PDF",
-          "status": "open",
+          "status": "done",
+          "completedOn": "2026-11-04",
+          "plan": "superpowers/plans/2026-11-04-milestone-02-pdf-spec.md",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["1"],
           "goal": "The scope and the milestones of the PDF app on the new UI and the imported core are written down.",
           "tasks": [
-            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": true }
           ],
           "acceptance": [
-            { "text": "The spec is approved and linked here", "done": false }
+            { "text": "The spec is approved and linked here", "done": true, "evidence": "The owner approved the spec in the planning session on 2026-11-04 (\"approved\"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green." }
+          ]
+        },
+        {
+          "id": "2.1",
+          "title": "Viewer",
+          "status": "open",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
+          "prerequisites": ["2", "1.2"],
+          "goal": "Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.",
+          "tasks": [
+            { "text": "Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change)", "done": false },
+            { "text": "App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view", "done": false },
+            { "text": "Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)", "done": false },
+            { "text": "Open by file argument, dialog, drag and drop and password; single instance (a second file opens in the running instance); recent files; tabs; position per file", "done": false },
+            { "text": "Continuous scroll with render scheduler and tile cache, zoom modes, layouts (single, continuous, two-page), dark page; pages pane and outline pane; heavy work starts only after the first sharp page", "done": false },
+            { "text": "Full-text search with highlights, select and copy text, internal and external links (external only after a click and a confirmation that shows the URL), command palette entries", "done": false },
+            { "text": "Settings that apply to PDF (page appearance, default layout and zoom; theme, language and compact command bar); the autosave row hidden through an additive shell option, recorded as a scope change", "done": false },
+            { "text": "Printing on Windows (Win32 print dialog, `FPDF_RenderPage`) and Linux (CUPS with an own Avalonia dialog): always light, annotations printed, locked for documents that forbid printing, background job with progress and cancel", "done": false },
+            { "text": "Set the PDF speed budgets: measure the cases of spec section 5 with Pagewing 1.0 and Chrome as references, record budgets and limits (budget x 1.25 once) in `Docs/DECISIONS.md`, extend the `measure.yml` machinery; if the app is slower than Pagewing 1.0, look for the cause first (for example deferring PDFium initialisation or the ribbon) before raising the finding", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The render-regression and viewer tests pass: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with `RAFFICA_REQUIRE_OCR=1`", "done": false },
+            { "text": "The PDF speed budgets are recorded in `Docs/DECISIONS.md` and `measure.yml` is within them on Windows and Linux", "done": false },
+            { "text": "The app opens a file passed as argument and a second file in the running instance (manual check, recorded)", "done": false },
+            { "text": "Every Pagewing 1.0 feature of the viewer group is either done or listed as open in the inventory", "done": false }
+          ]
+        },
+        {
+          "id": "2.2",
+          "title": "Annotate",
+          "status": "open",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
+          "prerequisites": ["2.1"],
+          "goal": "Marks and comments can be added, changed, undone and saved through the existing save pipeline.",
+          "tasks": [
+            { "text": "Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane", "done": false },
+            { "text": "Freehand, rectangle, ellipse, line, arrow and text box; move, resize, colour, delete and undo", "done": false },
+            { "text": "The save pipeline and its UI through the existing core: save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close", "done": false },
+            { "text": "Tests for every tool and for save, reopen and undo", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Tests for every tool and for save, reopen and undo pass", "done": false },
+            { "text": "A saved file opens with the marks in an independent viewer (manual check, recorded with the viewer's name)", "done": false }
+          ]
+        },
+        {
+          "id": "2.3",
+          "title": "Forms and signing",
+          "status": "open",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
+          "prerequisites": ["2.2"],
+          "goal": "AcroForm fields can be filled and a visible signature placed and saved.",
+          "tasks": [
+            { "text": "Fill AcroForm fields with entry in Avalonia elements over the field, keyboard navigation and a limited character set; the app says that calculations need JavaScript and are not run", "done": false },
+            { "text": "The required-field card before saving", "done": false },
+            { "text": "The visible signature: draw, import, saved signatures, placement; the dialog carries the Pagewing hint that a visible signature is not legally binding", "done": false },
+            { "text": "Tests for each field kind and for the signature store", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Tests for each field kind and for the signature store pass", "done": false },
+            { "text": "A filled form opens with the values in an independent viewer (manual check, recorded with the viewer's name)", "done": false }
+          ]
+        },
+        {
+          "id": "2.4",
+          "title": "Organize pages",
+          "status": "open",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
+          "prerequisites": ["2.2"],
+          "goal": "Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.",
+          "tasks": [
+            { "text": "Reorder, rotate, delete and insert pages in the pages pane and the ribbon", "done": false },
+            { "text": "Merge and split, and export pages as image", "done": false },
+            { "text": "Full rewrite for page operations with the warning for signed files", "done": false },
+            { "text": "Tests on the page edit plan and its report", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Tests on the page edit plan and its report pass", "done": false },
+            { "text": "Merge and split results open with the right page count (test and a manual check in an independent viewer)", "done": false }
+          ]
+        },
+        {
+          "id": "2.5",
+          "title": "Redact, OCR and line editing",
+          "status": "open",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
+          "prerequisites": ["2.3", "2.4"],
+          "goal": "Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository.",
+          "tasks": [
+            { "text": "Build the Tesseract library in this repository (workflow and build scripts), replace the fetch from Pagewing's prerelease in `tools/native-fetch.cs`, and put the CodeQL and hardware-measure workflows back where needed", "done": false },
+            { "text": "The destructive group of the ribbon; redaction by selection, area and pattern, ending in a full rewrite with the checks on extracted text and raw bytes", "done": false },
+            { "text": "OCR with language management; the heavy work starts after the first sharp page", "done": false },
+            { "text": "Text line editing: correct existing lines and typos, no paragraph editing", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The redaction removal tests (extracted text and raw bytes) pass through the UI path", "done": false },
+            { "text": "OCR makes a scanned test file searchable (test with `RAFFICA_REQUIRE_OCR=1`)", "done": false },
+            { "text": "Text editing changes a line and keeps the rest of the page (test)", "done": false },
+            { "text": "`tools/native-fetch.cs` no longer names the Pagewing repository and the CI builds the OCR library here", "done": false }
+          ]
+        },
+        {
+          "id": "2.6",
+          "title": "Packaging and release",
+          "status": "open",
+          "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
+          "prerequisites": ["2.5"],
+          "goal": "Installers, default-app registration and the updater exist for Windows and Linux, and the first release can be published on the owner's instruction.",
+          "tasks": [
+            { "text": "Windows installer (Inno Setup, new AppId) and portable ZIP; Linux `.deb` and AppImage", "done": false },
+            { "text": "Default-PDF-app registration and the first-start card, with the platform implementations of IDefaultAppService", "done": false },
+            { "text": "The updater with its own signing key (kept by the owner in a CI secret) and the release address of this repository; the update-check switch in the settings; the unsaved-changes prompt before an install", "done": false },
+            { "text": "License notices, the release workflow, README for users and CHANGELOG", "done": false },
+            { "text": "List the open items that need the owner's machines (installers, printers, the real update key, the public repository) with the command that checks each", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Installers build in CI (the workflow run is named in the evidence)", "done": false },
+            { "text": "An installed build runs, registers as the PDF handler and updates from one test release to the next with the test key (manual check on Windows and Linux, recorded); the path with the real key stays an open item", "done": false },
+            { "text": "The release workflow runs green as a dry run (workflow run named in the evidence); publishing the first release is not part of this milestone, it happens only on the owner's instruction and stays listed as an open item", "done": false },
+            { "text": "Every Pagewing 1.0 feature in the inventory of 2.1 is done or listed as open, with the reason (checked against the inventory by hand and recorded)", "done": false }
           ]
         }
       ]
@@ -187,7 +330,7 @@
           "id": "3",
           "title": "Create spec for macOS",
           "status": "open",
-          "prerequisites": ["2"],
+          "prerequisites": ["2.6"],
           "goal": "The build, ad-hoc signing and `.dmg` packaging for macOS are specified.",
           "tasks": [
             { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
@@ -271,10 +414,6 @@
     {
       "title": "Clean up references to Pagewing documents and translate the fixture catalogue",
       "text": "About 68 imported files cite Pagewing's German decision-log entries or `packaging/README.md` in comments; the references point at documents that are not in this repo. `testdata/pdfs/LICENSES.md` is still German and describes fixtures generated by `tools/make-testpdfs.cs`, which was not imported. Replace the references with Raffica entries or drop them, translate the catalogue, and decide whether to import or rebuild the test PDF generator."
-    },
-    {
-      "title": "Build the OCR library in this repository",
-      "text": "`tools/native-fetch.cs` fetches the Tesseract library from a pinned prerelease of the Pagewing repository. Build it here (workflow and build scripts) before the suite ships OCR, and put the CodeQL, release and hardware-measure workflows back where they are needed."
     },
     {
       "title": "Macros and extensions",

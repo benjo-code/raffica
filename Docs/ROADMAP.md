@@ -27,7 +27,13 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
-| 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ⬜ open | – | – |
+| 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | 2026-11-04 |
+| 2.1 | Viewer | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.2 | Annotate | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.3 | Forms and signing | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.4 | Organize pages | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.6 | Packaging and release | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -44,6 +50,10 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-04 (Milestone 1.2):** Q (search), 6 and 7 (panes) act in the field-code tab-letter stage through app-supplied `FieldCodeTarget`s; the spec lists the badges as display only and the plan said "shows". The group digits stay a display-only legend.
 - **2026-11-04 (Milestone 1.2):** The frame demo window has a minimum width of 1024 px. The full ribbon at 1024 px without the compact bar clips groups of the Home tab; this is a recorded limitation and not a tested case, there is no automatic compact mode (backlog).
 - **2026-11-04 (Milestone 1.2):** The shell tests run serially (`DisableTestParallelization` in `tests/Raffica.Shell.Tests/TestCulture.cs`) because parallel test classes switching the shared `ShellStrings.Culture` made the suite flaky (about one first run in three after a build).
+- **2026-11-04 (Milestone 2):** Milestones 2.1 to 2.6 are added under the PDF spec: Viewer, Annotate, Forms and signing, Organize pages, Redact, OCR and line editing, Packaging and release. Decided in `Docs/DECISIONS.md`, entries "Raffica PDF: scope and order (M2)" and "Raffica PDF: speed budgets are measured, not inherited (M2)".
+- **2026-11-04 (Milestone 2):** Milestone 3 (macOS spec) now depends on 2.6 instead of 2, so that macOS stays after the finished PDF app; milestone 2 only means that the PDF spec exists.
+- **2026-11-04 (Milestone 2):** The OCR library build moves from the backlog into milestone 2.5, and the release workflow into 2.6; the CodeQL and hardware-measure workflows come back in 2.5. Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: platform code, autosave, OCR build and releases (M2)".
+- **2026-11-04 (Milestone 2):** Milestone 2.1 adds an additive option to the shell's settings dialog so that the PDF app hides the autosave row (autosave contradicts "never damages the original"); the frame's behaviour for the other apps stays as it is. Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: platform code, autosave, OCR build and releases (M2)".
 
 ---
 
@@ -145,18 +155,120 @@ Goal: The shared app frame works in the gallery app with every behaviour of the 
 
 # Subproject 3 – Raffica PDF
 
-**Spec:** not written yet (created in its first milestone)
+**Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) Raffica PDF design, approved 2026-11-04
 
 ## Milestone 2 – Create spec for Raffica PDF
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M1
+**Status:** ✅ done (2026-11-04) · **Plan:** [2026-11-04-milestone-02-pdf-spec.md](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M1
 
 Goal: The scope and the milestones of the PDF app on the new UI and the imported core are written down.
 
 **Tasks**
-- [ ] Create the spec (brainstorming) and enter its milestones
+- [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [ ] The spec is approved and linked here
+- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
+
+## Milestone 2.1 – Viewer
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
+
+Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.
+
+**Tasks**
+- [ ] Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change)
+- [ ] App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view
+- [ ] Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)
+- [ ] Open by file argument, dialog, drag and drop and password; single instance (a second file opens in the running instance); recent files; tabs; position per file
+- [ ] Continuous scroll with render scheduler and tile cache, zoom modes, layouts (single, continuous, two-page), dark page; pages pane and outline pane; heavy work starts only after the first sharp page
+- [ ] Full-text search with highlights, select and copy text, internal and external links (external only after a click and a confirmation that shows the URL), command palette entries
+- [ ] Settings that apply to PDF (page appearance, default layout and zoom; theme, language and compact command bar); the autosave row hidden through an additive shell option, recorded as a scope change
+- [ ] Printing on Windows (Win32 print dialog, `FPDF_RenderPage`) and Linux (CUPS with an own Avalonia dialog): always light, annotations printed, locked for documents that forbid printing, background job with progress and cancel
+- [ ] Set the PDF speed budgets: measure the cases of spec section 5 with Pagewing 1.0 and Chrome as references, record budgets and limits (budget x 1.25 once) in `Docs/DECISIONS.md`, extend the `measure.yml` machinery; if the app is slower than Pagewing 1.0, look for the cause first (for example deferring PDFium initialisation or the ribbon) before raising the finding
+
+**Acceptance criteria**
+- [ ] The render-regression and viewer tests pass: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with `RAFFICA_REQUIRE_OCR=1`
+- [ ] The PDF speed budgets are recorded in `Docs/DECISIONS.md` and `measure.yml` is within them on Windows and Linux
+- [ ] The app opens a file passed as argument and a second file in the running instance (manual check, recorded)
+- [ ] Every Pagewing 1.0 feature of the viewer group is either done or listed as open in the inventory
+
+## Milestone 2.2 – Annotate
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.1
+
+Goal: Marks and comments can be added, changed, undone and saved through the existing save pipeline.
+
+**Tasks**
+- [ ] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane
+- [ ] Freehand, rectangle, ellipse, line, arrow and text box; move, resize, colour, delete and undo
+- [ ] The save pipeline and its UI through the existing core: save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close
+- [ ] Tests for every tool and for save, reopen and undo
+
+**Acceptance criteria**
+- [ ] Tests for every tool and for save, reopen and undo pass
+- [ ] A saved file opens with the marks in an independent viewer (manual check, recorded with the viewer's name)
+
+## Milestone 2.3 – Forms and signing
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
+
+Goal: AcroForm fields can be filled and a visible signature placed and saved.
+
+**Tasks**
+- [ ] Fill AcroForm fields with entry in Avalonia elements over the field, keyboard navigation and a limited character set; the app says that calculations need JavaScript and are not run
+- [ ] The required-field card before saving
+- [ ] The visible signature: draw, import, saved signatures, placement; the dialog carries the Pagewing hint that a visible signature is not legally binding
+- [ ] Tests for each field kind and for the signature store
+
+**Acceptance criteria**
+- [ ] Tests for each field kind and for the signature store pass
+- [ ] A filled form opens with the values in an independent viewer (manual check, recorded with the viewer's name)
+
+## Milestone 2.4 – Organize pages
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
+
+Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.
+
+**Tasks**
+- [ ] Reorder, rotate, delete and insert pages in the pages pane and the ribbon
+- [ ] Merge and split, and export pages as image
+- [ ] Full rewrite for page operations with the warning for signed files
+- [ ] Tests on the page edit plan and its report
+
+**Acceptance criteria**
+- [ ] Tests on the page edit plan and its report pass
+- [ ] Merge and split results open with the right page count (test and a manual check in an independent viewer)
+
+## Milestone 2.5 – Redact, OCR and line editing
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.3, M2.4
+
+Goal: Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository.
+
+**Tasks**
+- [ ] Build the Tesseract library in this repository (workflow and build scripts), replace the fetch from Pagewing's prerelease in `tools/native-fetch.cs`, and put the CodeQL and hardware-measure workflows back where needed
+- [ ] The destructive group of the ribbon; redaction by selection, area and pattern, ending in a full rewrite with the checks on extracted text and raw bytes
+- [ ] OCR with language management; the heavy work starts after the first sharp page
+- [ ] Text line editing: correct existing lines and typos, no paragraph editing
+
+**Acceptance criteria**
+- [ ] The redaction removal tests (extracted text and raw bytes) pass through the UI path
+- [ ] OCR makes a scanned test file searchable (test with `RAFFICA_REQUIRE_OCR=1`)
+- [ ] Text editing changes a line and keeps the rest of the page (test)
+- [ ] `tools/native-fetch.cs` no longer names the Pagewing repository and the CI builds the OCR library here
+
+## Milestone 2.6 – Packaging and release
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.5
+
+Goal: Installers, default-app registration and the updater exist for Windows and Linux, and the first release can be published on the owner's instruction.
+
+**Tasks**
+- [ ] Windows installer (Inno Setup, new AppId) and portable ZIP; Linux `.deb` and AppImage
+- [ ] Default-PDF-app registration and the first-start card, with the platform implementations of IDefaultAppService
+- [ ] The updater with its own signing key (kept by the owner in a CI secret) and the release address of this repository; the update-check switch in the settings; the unsaved-changes prompt before an install
+- [ ] License notices, the release workflow, README for users and CHANGELOG
+- [ ] List the open items that need the owner's machines (installers, printers, the real update key, the public repository) with the command that checks each
+
+**Acceptance criteria**
+- [ ] Installers build in CI (the workflow run is named in the evidence)
+- [ ] An installed build runs, registers as the PDF handler and updates from one test release to the next with the test key (manual check on Windows and Linux, recorded); the path with the real key stays an open item
+- [ ] The release workflow runs green as a dry run (workflow run named in the evidence); publishing the first release is not part of this milestone, it happens only on the owner's instruction and stays listed as an open item
+- [ ] Every Pagewing 1.0 feature in the inventory of 2.1 is done or listed as open, with the reason (checked against the inventory by hand and recorded)
 
 ---
 
@@ -165,7 +277,7 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 **Spec:** not written yet (created in its first milestone)
 
 ## Milestone 3 – Create spec for macOS
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M2
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M2.6
 
 Goal: The build, ad-hoc signing and `.dmg` packaging for macOS are specified.
 
@@ -236,7 +348,6 @@ Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, o
 
 - **ODF and legacy Microsoft formats:** Support for ODF (.odt, .ods, .odp) and the old .doc, .xls and .ppt formats, after the main apps are built.
 - **Clean up references to Pagewing documents and translate the fixture catalogue:** About 68 imported files cite Pagewing's German decision-log entries or `packaging/README.md` in comments; the references point at documents that are not in this repo. `testdata/pdfs/LICENSES.md` is still German and describes fixtures generated by `tools/make-testpdfs.cs`, which was not imported. Replace the references with Raffica entries or drop them, translate the catalogue, and decide whether to import or rebuild the test PDF generator.
-- **Build the OCR library in this repository:** `tools/native-fetch.cs` fetches the Tesseract library from a pinned prerelease of the Pagewing repository. Build it here (workflow and build scripts) before the suite ships OCR, and put the CodeQL, release and hardware-measure workflows back where they are needed.
 - **Macros and extensions:** A macro and extension system (a VBA replacement), someday, not for the beginning.
 - **Real-time collaboration:** Several people editing one document at the same time, someday, not for the beginning.
 - **Automatic compact command bar below a window width:** The full ribbon at 1024 px without the compact bar clips groups of the Home tab; compact mode is a user toggle today. Decide whether the frame switches to compact automatically below a width (a scope change for the frame).
