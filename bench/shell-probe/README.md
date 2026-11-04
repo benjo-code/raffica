@@ -155,5 +155,62 @@ values, runs `check` on the committed CSVs (both platforms must exit 0) and keep
 Owner steps (what is still open):
 
 1. Re-run the workflow with the recorded limits on both machines, the check step must pass: `gh workflow run measure.yml --ref <branch> -f platform=windows -f target=pdf -f note="<GPU, resolution, scaling, power>"` and the same with `platform=linux` (for the cold start after a reboot add `-f cases=cold-reboot`). Compare locally with `dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform <windows|linux> --in "<CSVs>"` (exit 0 inside the limits, 1 above one; a miss is a finding, never a changed limit).
-2. Measure the references on the same machines: build the predecessor's `v1.0.0` tag outside this repository, measure it with the same cases (startup to the first sharp page, a file handed to the running instance, the 1000-page file, scrolling, memory) and Chrome by the method of the predecessor's comparison entry, and add the numbers to the entry "Raffica PDF speed budgets (M2.1)" with a finding for every case that is slower than the predecessor.
+2. Measure the references on the same machines: the predecessor with `-f target=reference` (section "Measuring the reference app" below: startup to the first sharp page, the 1000-page file and a file handed to the running instance; the predecessor's script has no scroll or memory case) and Chrome by the method of the predecessor's comparison entry, and add the numbers to the entry "Raffica PDF speed budgets (M2.1)" with a finding for every case that is slower than the predecessor.
 3. A new budget or a loosened limit is a new decisions entry and a change of `s_pdfBudgets` together with the selftest lines that pin it, never an edit to make a check pass.
+
+## Measuring the reference app (the predecessor)
+
+`measure.yml` with `-f target=reference` measures the predecessor of this suite on the same self-hosted machines, so that the numbers of
+the PDF app (`Docs/DECISIONS.md`, "Raffica PDF speed budgets (M2.1)") can be compared with it by the same method on the same hardware.
+The reference app is measured with **its own startup protocol** (its script `bench/startup/startup.cs`, run from the root of its checkout), not with
+`measure.cs`, because the two apps have different measurement switches. Dispatch (the repository, the commit and the names are inputs, never
+written into this repository):
+
+```
+gh workflow run measure.yml --ref dev -f platform=windows -f target=reference -f reference_repo=<owner/repo> -f reference_ref=<40-hex commit> -f reference_project=<project folder> -f reference_exe=<exe name> -f note="<machine note>"
+```
+
+The same with `-f platform=linux` (macOS is indicative only). `reference_ref` is a full 40-character commit SHA on purpose (a tag can move; find
+it with `git rev-parse <tag>^{commit}` in a checkout of the reference), `reference_project` the project folder of its app inside its repository,
+`reference_exe` the published executable without extension. The workflow validates the four inputs before anything is fetched, checks out
+the reference at that commit into `reference/` without credentials, verifies that the checkout is exactly the pinned commit, and publishes
+its app with `dotnet publish <project> -c Release -r <rid> -o out/reference` (Native AOT, nothing else is needed: the native OCR library
+that the reference's CI fetches is for its tests only). Then it runs, with a real session and no display wrapper, from `reference/`:
+
+| Key | Reference script case | Files (`testdata/pdfs`) | Runs |
+|---|---|---|---|
+| `cold` | `--case cold` | `text-basic.pdf` | 10, no warm-up, 5 s pause |
+| `warm` | `--case warm --phases` | `text-basic.pdf` | 10 after 3 warm-up runs |
+| `thousand` | `--case thousand` | `thousand-pages.pdf` | 10 after 3 warm-up runs |
+| `second` | `--case second` | `text-basic.pdf`, then `hello_world.pdf` | 10 after 1 warm-up run |
+| `samefiles-cold` | `--case cold` | `hello_world.pdf` | as `cold` |
+| `samefiles-warm` | `--case warm` | `hello_world.pdf` | as `warm` |
+| `samefiles-second` | `--case second` | `hello_world.pdf`, then `outline.pdf` | as `second` |
+
+**What it produces:** the artifact `reference-<platform>-<run id>` with one CSV per key (columns `case,run,ms`, written by the reference's script),
+`exit-codes.csv` (the script's exit code per key), `summary.md` and `machine.txt` (the machine note plus the repository, the commit and the
+SHA-256 of the executable that was measured); the job summary shows the median, minimum, maximum and the number of runs per key and the published
+size of `out/reference` without debug symbols. The reference script's own budget verdict (exit code 1 above its limit) is printed, kept in
+`exit-codes.csv` and **never fails the job**; only exit code 2 (wrong invocation) or a missing CSV does. TEMP, TMP and TMPDIR point to the temp folder of the job (the
+runner empties it), so a cached build of the file-based script from an earlier job can never run.
+
+**How it compares with the PDF target.** The same measurement point (the moment the first sharp page of page 1 has been drawn and the frame after it, measured from
+just before the process starts; for `second` measured inside the running instance from the arrival of the hand-over to the frame after
+the first sharp tile of the new file) and the same isolation of settings and recent files. Compare per row:
+
+| PDF target (`measure.cs --target pdf`) | Reference |
+|---|---|
+| `cold` (`hello_world.pdf`) | `samefiles-cold` (identical file); `cold` (`text-basic.pdf`) is the reference's own protocol |
+| `warm` (`hello_world.pdf`) | `samefiles-warm`; `warm` is its own protocol |
+| `thousand` (`thousand-pages.pdf`) | `thousand` (identical file) |
+| `second` (`hello_world.pdf`, then `outline.pdf`) | `samefiles-second`; `second` is its own protocol |
+
+The test files of both repositories with the same name are byte-identical (checked by SHA-256 for `text-basic.pdf`, `hello_world.pdf`, `outline.pdf` and
+`thousand-pages.pdf`); the PDF target's `cold`, `warm` and `second` use `hello_world.pdf` and `outline.pdf`, not the reference's `text-basic.pdf`, which is why the
+`samefiles-*` rows exist. Two differences remain and belong next to every comparison: (1) on Windows the reference renders in software by default, and the
+measurement takes it as shipped, while the PDF app uses Avalonia's default (the GPU path); (2) the reference's script has no scroll and no memory case, so `scroll`
+and `memory` have no reference row here. As for the PDF target, valid numbers need a GPU and an active display (the script warns when Windows
+has no usable compositor rate; the annotation is on the run).
+
+**Security.** The target runs the code of a second repository (its build and its published binary) on the owner's machine with the owner's rights. It is reachable only by a
+manual dispatch, the commit is pinned by SHA, the dispatcher names the repository and no secret is used (see the header of `measure.yml`).
