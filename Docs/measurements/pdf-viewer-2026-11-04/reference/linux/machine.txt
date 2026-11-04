@@ -1,0 +1,12 @@
+Note: HP ProBook, Core i5-8265U, 15.4 GiB, Intel UHD Graphics 620, 1920x1080, Wayland session with XWayland, CachyOS (kernel 7.3.0-4-cachyos), balanced profile, mains power (same machine as the M1 measurements); reference run of the predecessor v1.0.0
+Platform: linux
+Date (UTC): 2026-11-04 18:34:36
+Commit: a3c7d1567b76707d86fe42337fadddd26cea06b8 (refs/heads/dev)
+OS: CachyOS, kernel 7.3.0-4-cachyos
+Processor: Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz, 8 logical processors
+RAM: 15.4 GiB
+Session: wayland (DISPLAY=':0', WAYLAND_DISPLAY='wayland-1')
+Reference repository: benjo-code/Pagewing
+Reference commit: 0373bf6fbba568176b848af889be70f9660d3b18
+Reference project: src/Pagewing.App
+Reference executable: Pagewing, SHA-256 a2e066fb50626ee0f6ce9f4225adcb848c66ecfbe643669d83925d1d3cc5e850
