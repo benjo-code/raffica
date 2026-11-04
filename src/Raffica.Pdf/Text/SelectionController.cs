@@ -321,7 +321,9 @@ internal sealed class SelectionController : IDisposable
     }
 
     // The pages on screen get their text, so a press, the cursor and the drawing of the selection find it there. Only after the first
-    // sharp page: the index is heavy work that must not compete with it.
+    // sharp page: the index is heavy work that must not compete with it, and it runs as background work so it never takes the place of a
+    // tile that is on screen. A press, a copy or Select all needs the text now and asks at the interactive priority (a load that is already
+    // running keeps the priority it started with).
     private void Prefetch()
     {
         if (_disposed || !_view.FirstSharpPageShown)
@@ -332,11 +334,11 @@ internal sealed class SelectionController : IDisposable
         var (first, last) = _view.VisiblePages;
         for (var page = first; page <= last; page++)
         {
-            Request(page);
+            Request(page, PdfPriority.Background);
         }
     }
 
-    private void Request(int page)
+    private void Request(int page, PdfPriority priority = PdfPriority.Interactive)
     {
         if (_disposed || !_view.FirstSharpPageShown || PageTexts.SourceOf(_tab) is not { } source)
         {
@@ -355,14 +357,14 @@ internal sealed class SelectionController : IDisposable
             return;
         }
 
-        _ = LoadAsync(source, page);
+        _ = LoadAsync(source, page, priority);
     }
 
-    private async Task LoadAsync(PageTextSource source, int page)
+    private async Task LoadAsync(PageTextSource source, int page, PdfPriority priority)
     {
         try
         {
-            await source.GetAsync(page, PdfPriority.Interactive, _cancel.Token);
+            await source.GetAsync(page, priority, _cancel.Token);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
