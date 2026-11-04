@@ -94,6 +94,56 @@ public sealed class StatusBarBindingTests
         Assert.Equal("100%", status.ZoomText);
     }
 
+    [AvaloniaFact]
+    public async Task ButtonsAndSliderStepFromTheRealZoomAboveFiveHundredPercent()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("pages-marked.pdf");
+        var view = windows.Window.ViewOf(tab)!;
+        var status = windows.Window.Status;
+        var plus = status.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_ZoomIn");
+        var minus = status.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_ZoomOut");
+        var slider = status.GetVisualDescendants().OfType<Slider>().Single();
+
+        view.SetZoom(8);
+        ViewFixture.Pump();
+        Assert.Equal("800%", status.ZoomText);
+        Assert.Equal(800, status.Zoom);
+        Assert.Equal(800, slider.Value);
+
+        // Plus at the top is a no-op, not a drop to 500 %.
+        plus.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal(8.0, view.Zoom);
+        Assert.Equal("800%", status.ZoomText);
+
+        // Minus steps down by ten from 800, not from 500.
+        minus.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal(7.9, view.Zoom, 6);
+        Assert.Equal("790%", status.ZoomText);
+        Assert.Equal(790, slider.Value);
+
+        view.SetZoom(6);
+        ViewFixture.Pump();
+        plus.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal(6.1, view.Zoom, 6);
+
+        slider.Value = 700;
+        ViewFixture.Pump();
+        Assert.Equal(7.0, view.Zoom, 6);
+        Assert.Equal("700%", status.ZoomText);
+
+        // At the bottom: minus does not jump.
+        view.SetZoom(0.1);
+        ViewFixture.Pump();
+        minus.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal(0.1, view.Zoom, 6);
+        Assert.Equal("10%", status.ZoomText);
+    }
+
     [Fact]
     public void TextsFormatPositionCountAndZoom()
     {

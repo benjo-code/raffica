@@ -28,7 +28,10 @@ internal sealed class WindowFixture : IDisposable
         var folder = Directory.CreateTempSubdirectory("raffica-window-").FullName;
         prepare?.Invoke(folder);
         var options = PdfOptions.Parse(["--settings-file", Path.Combine(folder, "settings.json")]);
-        var window = new PdfWindow(options, new ShellSettings()) { Width = width, Height = height };
+
+        // As the app does at startup: the app settings are read once, before the window, and handed to it.
+        var appSettings = new Raffica.Core.Settings.SettingsStore(Path.Combine(folder, "pdf-settings.json")).LoadReadOnly();
+        var window = new PdfWindow(options, new ShellSettings(), appSettings) { Width = width, Height = height };
         if (show)
         {
             window.Show();

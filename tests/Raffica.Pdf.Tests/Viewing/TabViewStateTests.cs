@@ -93,6 +93,43 @@ public sealed class TabViewStateTests
     }
 
     [AvaloniaFact]
+    public async Task OpeningTheFirstTabReadsNoSettingsFile()
+    {
+        using var windows = WindowFixture.Create(folder =>
+            Assert.True(new SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(
+                AppSettings.Default with { DefaultLayout = PageLayoutMode.TwoPages, DefaultZoomMode = ZoomMode.FitWidth })));
+
+        // The settings were read at startup; a file that is changed or gone afterwards does not matter to a tab.
+        File.WriteAllText(windows.AppSettingsPath, "{ not json at all");
+        var first = await windows.OpenAsync("pages-marked.pdf");
+        Assert.Equal(PageLayoutMode.TwoPages, windows.Window.ViewOf(first)!.Layout);
+        Assert.Equal(ZoomMode.FitWidth, windows.Window.ViewOf(first)!.ZoomMode);
+        File.Delete(windows.AppSettingsPath);
+        var second = await windows.OpenAsync("text-basic.pdf");
+        Assert.Equal(PageLayoutMode.TwoPages, windows.Window.ViewOf(second)!.Layout);
+
+        // A window that was handed no settings starts from the defaults without looking at any file.
+        var folder = Directory.CreateTempSubdirectory("raffica-nosettings-").FullName;
+        try
+        {
+            Assert.True(new SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(
+                AppSettings.Default with { DefaultLayout = PageLayoutMode.SinglePage }));
+            var options = PdfOptions.Parse(["--settings-file", Path.Combine(folder, "settings.json")]);
+            var window = new PdfWindow(options, new Raffica.Shell.Frame.ShellSettings()) { Width = 800, Height = 600 };
+            var tab = await window.Flow.OpenAsync(TestData.Pdf("pages-marked.pdf"));
+            Assert.Equal(PageLayoutMode.Continuous, window.ViewOf(tab!)!.Layout);
+            foreach (var open in window.Workspace.Tabs)
+            {
+                open.Dispose();
+            }
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task ARememberedFileOpensAtItsPosition()
     {
         using var windows = WindowFixture.Create(folder =>

@@ -53,16 +53,20 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
-    private AppSettings? _appSettings;
+    private readonly AppSettings _appSettings;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
 
-    public PdfWindow(PdfOptions options, ShellSettings settings)
+    /// <param name="options">The command line.</param>
+    /// <param name="settings">The shell settings, read by the caller at startup.</param>
+    /// <param name="appSettings">The settings of the viewer, read once at startup by the caller (null: the defaults; the window reads no file).</param>
+    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
         _options = options;
+        _appSettings = appSettings ?? AppSettings.Default;
         _recent = new RecentService(new RecentFilesStore(PdfSettingsFiles.RecentPathFor(options.SettingsFile)));
         InitializeComponent();
         Title = PdfStrings.WindowTitle;
@@ -468,9 +472,8 @@ internal sealed partial class PdfWindow : Window
             return;
         }
 
-        var settings = _appSettings ??= new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(_options.SettingsFile)).LoadReadOnly();
-        view.SetLayout(settings.DefaultLayout);
-        view.SetZoomMode(settings.DefaultZoomMode);
+        view.SetLayout(_appSettings.DefaultLayout);
+        view.SetZoomMode(_appSettings.DefaultZoomMode);
     }
 
     /// <summary>Stores where the file of a tab was read (on tab close and window close); a tab that never had a page shown stores nothing.</summary>

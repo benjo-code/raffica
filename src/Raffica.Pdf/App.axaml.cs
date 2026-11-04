@@ -16,6 +16,7 @@ internal sealed partial class App : Application
     private readonly SingleInstance? _instance;
     private readonly SettingsStore _store;
     private readonly ShellSettings _settings;
+    private readonly Raffica.Core.Settings.AppSettings _appSettings;
 
     public App(PdfOptions options, SingleInstance? instance = null)
     {
@@ -23,6 +24,9 @@ internal sealed partial class App : Application
         _instance = instance;
         _store = new SettingsStore(PdfSettingsFiles.ShellPathFor(options.SettingsFile));
         _settings = _store.Load();
+
+        // The settings of the viewer (default layout and zoom mode) are a tiny file, read once here and handed to the window: opening a tab reads nothing.
+        _appSettings = new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(options.SettingsFile)).LoadReadOnly();
     }
 
     public override void Initialize()
@@ -40,7 +44,7 @@ internal sealed partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new PdfWindow(_options, _settings);
+            var window = new PdfWindow(_options, _settings, _appSettings);
             if (_instance is not null)
             {
                 window.Listen(_instance);
