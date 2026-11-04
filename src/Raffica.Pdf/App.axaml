@@ -4,5 +4,6 @@
              x:Class="Raffica.Pdf.App">
   <Application.Styles>
     <shell:RafficaStyles />
+    <StyleInclude Source="avares://RafficaPdf/Styles/PageView.axaml" />
   </Application.Styles>
 </Application>

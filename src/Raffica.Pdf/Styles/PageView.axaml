@@ -1,0 +1,10 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:view="using:Raffica.Pdf.Viewing">
+  <!-- The page view: the desk behind the pages and the thin line around each page, both from the shell tokens. The pages themselves are white
+       or the dark ground of Core, whatever the UI theme is. -->
+  <Style Selector="view|PageView">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Desk}" />
+    <Setter Property="PageBorderBrush" Value="{DynamicResource Raffica.Brush.Rule}" />
+  </Style>
+</Styles>

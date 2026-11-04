@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Headless;
+using Avalonia.Markup.Xaml.Styling;
 using Raffica.Pdf.Tests;
 using Raffica.Shell;
 
@@ -7,10 +8,14 @@ using Raffica.Shell;
 
 namespace Raffica.Pdf.Tests;
 
-/// <summary>The application of the headless tests: the shell styles and nothing else (real Skia text shaping).</summary>
+/// <summary>The application of the headless tests: the shell styles and the page view style of the app (real Skia text shaping).</summary>
 public sealed class TestApp : Application
 {
-    public override void Initialize() => Styles.Add(new RafficaStyles());
+    public override void Initialize()
+    {
+        Styles.Add(new RafficaStyles());
+        Styles.Add(new StyleInclude(new Uri("avares://RafficaPdf/")) { Source = new Uri("avares://RafficaPdf/Styles/PageView.axaml") });
+    }
 }
 
 public static class TestAppBuilder

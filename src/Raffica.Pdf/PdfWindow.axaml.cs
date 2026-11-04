@@ -14,6 +14,7 @@ using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Settings;
+using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
@@ -23,8 +24,7 @@ namespace Raffica.Pdf;
 /// <summary>
 /// The window of the PDF app: the shared frame with the drawn title bar (mark, document tabs, search over the ribbon), the ribbon, the
 /// pages pane on the left (204 px), a reserved comments pane on the right (300 px, closed), the document slot and the status bar. Without
-/// a document tab it shows the start view (no panes, no status bar). The document slot only holds an empty placeholder pane; a later
-/// milestone fills it with the page view.
+/// a document tab it shows the start view (no panes, no status bar). The document slot shows the page view of the active tab.
 /// </summary>
 internal sealed partial class PdfWindow : Window
 {
@@ -37,6 +37,9 @@ internal sealed partial class PdfWindow : Window
     /// <summary>How many recent files the start view shows.</summary>
     internal const int RecentOnStartView = 5;
 
+    /// <summary>How long a file given at the start may take to its first sharp page before the listener opens anyway.</summary>
+    private static readonly TimeSpan FirstSharpFallbackDelay = TimeSpan.FromSeconds(3);
+
     // A hand-over of 64 hostile paths must not become 64 cards.
     private const int MaxHandoverErrorCards = 3;
     private const int MaxShownNameLength = 120;
@@ -46,6 +49,9 @@ internal sealed partial class PdfWindow : Window
     private readonly CloseGuard _closeGuard;
     private readonly PdfOptions _options;
     private readonly RecentService _recent;
+    private readonly Dictionary<PdfTab, PageView> _views = [];
+    private DispatcherTimer? _firstSharpFallback;
+    private bool _firstSharpWorkStarted;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
@@ -117,6 +123,16 @@ internal sealed partial class PdfWindow : Window
         {
             _fieldCodes.Dispose();
             _selectedSubscription.Dispose();
+            _firstSharpFallback?.Stop();
+
+            // The views let go of their sessions first, then the sessions are disposed.
+            foreach (var view in _views.Values)
+            {
+                view.FirstSharpPage -= OnFirstSharpPageShown;
+                view.Tab = null;
+            }
+
+            _views.Clear();
             foreach (var tab in Workspace.Tabs)
             {
                 tab.Dispose();
@@ -212,21 +228,48 @@ internal sealed partial class PdfWindow : Window
         Opened -= OnOpened;
         if (_options.Files.Count > 0)
         {
-            // Not awaited: a password question of the first file must not hold back the work after the first page.
-            _ = GuardAsync(() => OpenFilesAsync(_options.Files));
+            // Not awaited: a password question of the first file must not hold back the work after the first page. The page view of the
+            // first tab starts the work when its first sharp page is drawn (OnFirstSharpPageShown). Two safety nets keep the listener from
+            // never starting: when no file could be opened there is no page, and when a page never turns sharp the timer starts it.
+            _ = GuardAsync(async () =>
+            {
+                await OpenFilesAsync(_options.Files);
+                if (Workspace.Tabs.Count == 0)
+                {
+                    await OnFirstSharpPageAsync();
+                }
+            });
+            _firstSharpFallback = new DispatcherTimer { Interval = FirstSharpFallbackDelay };
+            _firstSharpFallback.Tick += (_, _) =>
+            {
+                _firstSharpFallback.Stop();
+                _ = GuardAsync(OnFirstSharpPageAsync);
+            };
+            _firstSharpFallback.Start();
+            return;
         }
 
+        // Without a file there is no page to wait for: once the window has been shown and the app is idle, the listener opens.
         await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
         await GuardAsync(OnFirstSharpPageAsync);
     }
 
+    private void OnFirstSharpPageShown() => _ = GuardAsync(OnFirstSharpPageAsync);
+
     /// <summary>
     /// The single seam for everything that waits for the first sharp page: the recent files are read and the pipe for later launches
-    /// opens. Until the page view exists (a later milestone) it runs after the first render of the window; the page view calls it when
-    /// its first sharp page is drawn.
+    /// opens. It runs once, when the page view of the first tab has drawn its first sharp page, or, when there is nothing to wait for (no
+    /// file at the start, no file that could be opened, a page that never turns sharp), after the window was shown and went idle.
     /// </summary>
     internal async Task OnFirstSharpPageAsync()
     {
+        if (_firstSharpWorkStarted)
+        {
+            return;
+        }
+
+        _firstSharpWorkStarted = true;
+        _firstSharpFallback?.Stop();
         _instance?.StartListening(paths => Dispatcher.UIThread.Post(() => OnHandover(paths)));
         await _recent.LoadAsync();
     }
@@ -333,6 +376,12 @@ internal sealed partial class PdfWindow : Window
         {
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
+            if (_views.Remove(tab, out var view))
+            {
+                view.FirstSharpPage -= OnFirstSharpPageShown;
+                view.Tab = null;
+            }
+
             Tabs.Items.Remove(tab.Tab);
         }
     }
@@ -341,7 +390,31 @@ internal sealed partial class PdfWindow : Window
     {
         Tabs.Selected = Workspace.Active?.Tab;
         UpdateSaveState();
+        ShowActiveView();
     }
+
+    /// <summary>The document slot shows the page view of the active tab (made on first use); the others leave the screen and request nothing.</summary>
+    private void ShowActiveView()
+    {
+        if (Workspace.Active is not { } active)
+        {
+            DocumentPane.Content = null;
+            return;
+        }
+
+        if (!_views.TryGetValue(active, out var view))
+        {
+            view = new PageView { Tab = active };
+            view.FirstSharpPage += OnFirstSharpPageShown;
+            _views[active] = view;
+        }
+
+        DocumentPane.Content = view;
+        Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
+    }
+
+    /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal PageView? ViewOf(PdfTab tab) => _views.GetValueOrDefault(tab);
 
     /// <summary>The user selected a tab in the strip: the workspace follows (a tab that is no document, such as a placeholder, is ignored).</summary>
     private void OnTabSelected(DocumentTab? tab)
