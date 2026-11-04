@@ -20,7 +20,8 @@ namespace Raffica.Shell.Frame;
 /// <item>Both Alt events are marked handled when the session consumes them (so the Windows system menu does not open); Alt with
 /// another key is an ordinary shortcut and nothing is consumed.</item>
 /// <item>A letter consumed by the session also produces a text input that must not reach a text box; it is swallowed.</item>
-/// <item>A pointer press, the window losing the focus, a tab change by pointer and a dialog opening end the mode.</item>
+/// <item>A pointer press, the window losing the focus, a tab change by pointer, a dialog opening and a key that another handler of
+/// the window already took (F6, Ctrl+K) end the mode.</item>
 /// </list>
 /// </summary>
 public sealed class FieldCodeInput : IDisposable
@@ -44,7 +45,7 @@ public sealed class FieldCodeInput : IDisposable
         _ribbon = ribbon;
         _status = status;
 
-        window.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        window.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         window.AddHandler(InputElement.KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel);
         window.AddHandler(InputElement.TextInputEvent, OnTextInput, RoutingStrategies.Tunnel);
         window.AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -109,7 +110,7 @@ public sealed class FieldCodeInput : IDisposable
         _ => null,
     };
 
-    private bool IsDialogOpen() => _window.GetVisualDescendants().OfType<DialogHost>().Any(host => host.IsOpen);
+    private bool IsDialogOpen() => FrameDialogs.IsOpen(_window);
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
@@ -132,6 +133,23 @@ public sealed class FieldCodeInput : IDisposable
 
             _altDownConsumed = _session.AltDown((e.KeyModifiers & KeyModifiers.Control) != 0);
             e.Handled |= _altDownConsumed;
+            return;
+        }
+
+        if (e.Handled)
+        {
+            // Another handler of the window took this key before us (F6, Ctrl+K, a shortcut): it is not a field code. Handlers of one
+            // element run in reverse order of registration, so the field codes must not rely on coming first: they listen to handled keys
+            // too and end the mode, or - with the mode off - note that Alt was a modifier.
+            if (_session.Stage != FieldCodeStage.Off)
+            {
+                _session.Cancel();
+            }
+            else
+            {
+                _session.OtherKey();
+            }
+
             return;
         }
 

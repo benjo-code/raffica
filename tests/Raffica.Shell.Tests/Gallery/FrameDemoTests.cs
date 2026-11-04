@@ -64,6 +64,36 @@ public sealed class FrameDemoTests
             }
         }
 
+        public void Press(PhysicalKey key, RawInputModifiers modifiers = RawInputModifiers.None)
+        {
+            Window.KeyPressQwerty(key, modifiers);
+            Window.KeyReleaseQwerty(key, RawInputModifiers.None);
+            Settle();
+        }
+
+        public void BareAlt()
+        {
+            Window.KeyPressQwerty(PhysicalKey.AltLeft, RawInputModifiers.Alt);
+            Window.KeyReleaseQwerty(PhysicalKey.AltLeft, RawInputModifiers.None);
+            Settle();
+        }
+
+        /// <summary>Types lower-case letters the way a keyboard does: key down, the text it types, key up.</summary>
+        public void TypeLetters(string letters)
+        {
+            foreach (var c in letters)
+            {
+                var key = (PhysicalKey)((int)PhysicalKey.A + (c - 'a'));
+                Window.KeyPressQwerty(key, RawInputModifiers.None);
+                Window.KeyTextInput(c.ToString());
+                Window.KeyReleaseQwerty(key, RawInputModifiers.None);
+            }
+
+            Settle();
+        }
+
+        public Visual? Focused => (Visual?)Window.FocusManager!.GetFocusedElement();
+
         public List<Button> Tiles() =>
             Window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("start-tile")).ToList();
 
@@ -246,6 +276,77 @@ public sealed class FrameDemoTests
 
         var focused = (Visual)demo.Window.FocusManager!.GetFocusedElement()!;
         Assert.True(demo.Window.TitleSearch.IsVisualAncestorOf(focused));
+    }
+
+    [AvaloniaFact]
+    public void CtrlKDoesNotLeaveAnOpenDialog()
+    {
+        using var demo = new Demo();
+        demo.Window.OpenSettings();
+        demo.Settle();
+        Assert.True(demo.Window.Host.IsOpen);
+        var before = demo.Focused;
+
+        demo.Press(PhysicalKey.K, RawInputModifiers.Control);
+
+        Assert.False(demo.Window.TitleSearch.IsVisualAncestorOf(demo.Focused));
+        Assert.Same(before, demo.Focused);
+        Assert.True(demo.Window.Host.IsOpen);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("f6")]
+    [InlineData("ctrlk")]
+    [InlineData("dialog")]
+    public void MovingTheFocusEndsTheFieldCodeModeSoLettersAreTyped(string how)
+    {
+        using var demo = new Demo();
+        var window = demo.Window;
+        var home = window.Ribbon.ActiveTab;
+        window.InputTarget.Focus();
+        demo.Settle();
+
+        demo.BareAlt();
+        Assert.True(window.Ribbon.ShowFieldCodes);
+        switch (how)
+        {
+            case "f6":
+                // The first F6 goes to the navigation pane and ends the mode; Alt and F6 again reach the document page with its text box.
+                demo.Press(PhysicalKey.F6);
+                Assert.False(window.Ribbon.ShowFieldCodes);
+                demo.BareAlt();
+                Assert.True(window.Ribbon.ShowFieldCodes);
+                demo.Press(PhysicalKey.F6);
+                break;
+            case "ctrlk":
+                demo.Press(PhysicalKey.K, RawInputModifiers.Control);
+                break;
+            default:
+                window.OpenSettings();
+                demo.Settle();
+                break;
+        }
+
+        Assert.False(window.Ribbon.ShowFieldCodes);
+        Assert.Null(window.Status.Hint);
+        Assert.Empty(window.GetVisualDescendants().OfType<FieldCodeBadge>());
+
+        // The letters are ordinary characters in whatever has the focus, and no ribbon tab changes.
+        demo.TypeLetters("nr");
+        Assert.Same(home, window.Ribbon.ActiveTab);
+        switch (how)
+        {
+            case "f6":
+                Assert.Equal("nr", window.InputTarget.Text?[^2..]);
+                break;
+            case "ctrlk":
+                Assert.True(window.TitleSearch.IsVisualAncestorOf(demo.Focused));
+                Assert.Equal("nr", window.TitleSearch.GetVisualDescendants().OfType<TextBox>().Single().Text);
+                break;
+            default:
+                Assert.True(window.Host.IsOpen);
+                break;
+        }
     }
 
     [AvaloniaFact]

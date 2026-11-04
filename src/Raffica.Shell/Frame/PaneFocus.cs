@@ -114,8 +114,7 @@ public sealed class PaneFocus
         return true;
     }
 
-    private bool IsDialogOpen() =>
-        _window.GetVisualDescendants().OfType<DialogHost>().Any(host => host.IsOpen);
+    private bool IsDialogOpen() => FrameDialogs.IsOpen(_window);
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {

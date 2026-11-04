@@ -357,4 +357,87 @@ public sealed class FieldCodeInputTests
         Assert.NotEmpty(log);
         Assert.All(log, e => Assert.False(e.Handled));
     }
+
+    private static void TakeF6AndCtrlK(Window window) =>
+        window.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.F6 || (e.Key == Key.K && e.KeyModifiers == KeyModifiers.Control))
+            {
+                e.Handled = true;
+            }
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+    // Tunnel handlers of one element run in reverse order of registration; the shell must not depend on that, so both orders are tried.
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void F6AndCtrlKEndTheMode(bool ctrlK, bool takenBeforeAttach)
+    {
+        var f = FieldCodeFixture.Create();
+        ControlHarness.KeyboardFocus(f.Window, f.Box);
+
+        // A handler of the window takes F6 / Ctrl+K on the way down (as the pane ring and the search shortcut do).
+        if (takenBeforeAttach)
+        {
+            f.ReattachAfter(TakeF6AndCtrlK);
+        }
+        else
+        {
+            TakeF6AndCtrlK(f.Window);
+        }
+
+        f.Alt();
+        Assert.Equal(FieldCodeStage.TabLetters, f.Session.Stage);
+
+        if (ctrlK)
+        {
+            f.Press(Key.K, PhysicalKey.K, RawInputModifiers.Control);
+        }
+        else
+        {
+            f.Press(Key.F6, PhysicalKey.F6);
+        }
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.False(f.Ribbon.ShowFieldCodes);
+        Assert.Null(f.Status.Hint);
+        Assert.Empty(f.Badges);
+
+        // The typed letter is an ordinary character now: it reaches the box and does not switch the ribbon tab.
+        f.Type(Key.N, PhysicalKey.N, "n");
+        Assert.Equal("n", f.Box.Text);
+        Assert.Equal(f.Definition.Tabs[0], f.Ribbon.ActiveTab);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AltPlusAKeyThatAnotherHandlerTookIsStillAShortcut(bool takenBeforeAttach)
+    {
+        var f = FieldCodeFixture.Create();
+        void Take(Window window) => window.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.F)
+            {
+                e.Handled = true;
+            }
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        if (takenBeforeAttach)
+        {
+            f.ReattachAfter(Take);
+        }
+        else
+        {
+            Take(f.Window);
+        }
+
+        f.AltDown();
+        f.Press(Key.F, PhysicalKey.F, RawInputModifiers.Alt);
+        f.AltUp();
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.Empty(f.Badges);
+    }
 }

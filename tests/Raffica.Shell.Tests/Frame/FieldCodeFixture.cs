@@ -88,6 +88,14 @@ internal sealed class FieldCodeFixture
         return fixture;
     }
 
+    /// <summary>Detaches the field codes, lets <paramref name="register"/> add window handlers (which then run before the field codes), and attaches again.</summary>
+    public void ReattachAfter(Action<Window> register)
+    {
+        Attachment.Dispose();
+        register(Window);
+        Attachment = FieldCodeInput.Attach(Window, Session, Ribbon, Status);
+    }
+
     public IEnumerable<FieldCodeBadge> Badges => ControlHarness.Descendants(Window).OfType<FieldCodeBadge>();
 
     public List<string> BadgeTexts() => Badges.Select(b => b.Text!).ToList();
