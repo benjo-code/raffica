@@ -1,6 +1,6 @@
-using Pagewing.Core.Printing;
+using Raffica.Core.Printing;
 
-namespace Pagewing.App.Platform.Linux;
+namespace Raffica.Pdf.Platform.Linux;
 
 /// <summary>Maps the choices of the print dialog to CUPS job options (IPP attribute names and values).</summary>
 internal static class CupsOptions
@@ -55,5 +55,35 @@ internal static class CupsOptions
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// Whether a name can be a CUPS destination: 1 to 127 printable characters without white space, <c>/</c> or <c>#</c>
+    /// (the rule of CUPS itself). The name goes to libcups as a separate argument, never into a command line; the check
+    /// keeps odd text out of the queue lookup all the same.
+    /// </summary>
+    internal static bool IsValidPrinterName(string? name)
+    {
+        if (string.IsNullOrEmpty(name) || name.Length > 127)
+        {
+            return false;
+        }
+
+        foreach (var c in name)
+        {
+            if (char.IsControl(c) || char.IsWhiteSpace(c) || c is '/' or '#')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The job title for the queue: control characters removed, at most 255 characters, never empty.</summary>
+    internal static string SanitizeTitle(string? title)
+    {
+        var clean = new string((title ?? string.Empty).Where(c => !char.IsControl(c)).Take(255).ToArray()).Trim();
+        return clean.Length > 0 ? clean : "Raffica";
     }
 }

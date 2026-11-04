@@ -1,4 +1,5 @@
 using Raffica.Core.Printing;
+using Raffica.Pdf.Platform.Linux;
 using Raffica.Pdf.Platform.Windows;
 
 namespace Raffica.Pdf.Platform;
@@ -7,7 +8,7 @@ namespace Raffica.Pdf.Platform;
 internal static class PlatformPrintServices
 {
     /// <summary>
-    /// Creates the service of this system. Where nothing can print (Linux until the CUPS service arrives, macOS) the service
+    /// Creates the service of this system. Where nothing can print (macOS for now) the service
     /// reports <see cref="IPrintService.IsAvailable"/> as <see langword="false"/>.
     /// </summary>
     public static IPrintService Create()
@@ -15,6 +16,11 @@ internal static class PlatformPrintServices
         if (OperatingSystem.IsWindows())
         {
             return new WindowsPrintService();
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return new CupsPrintService();
         }
 
         return new NoPrintService();

@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
-namespace Pagewing.App.Platform.Linux;
+namespace Raffica.Pdf.Platform.Linux;
 
 /// <summary><c>cups_option_t</c> from <c>cups/options.h</c>.</summary>
 [StructLayout(LayoutKind.Sequential)]

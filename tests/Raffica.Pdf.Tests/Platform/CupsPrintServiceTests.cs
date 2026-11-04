@@ -1,22 +1,21 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
-using Pagewing.App.Platform.Linux;
-using Pagewing.Core.Pdf;
-using Pagewing.Core.Printing;
-using Pagewing.TestSupport;
+using Raffica.Core.Pdf;
+using Raffica.Core.Printing;
+using Raffica.Pdf.Platform.Linux;
+using Raffica.TestSupport;
 using Xunit;
 
-namespace Pagewing.App.Tests;
+namespace Raffica.Pdf.Tests.Platform;
 
-[Collection("Localization")]
 [SupportedOSPlatform("linux")]
 public sealed class CupsPrintServiceTests
 {
     /// <summary>Names a CUPS-PDF queue to print through for real (its output folder is <see cref="OutputVariable"/>).</summary>
-    private const string PrinterVariable = "PAGEWING_TEST_CUPS_PRINTER";
+    private const string PrinterVariable = "RAFFICA_TEST_CUPS_PRINTER";
 
     /// <summary>The folder CUPS-PDF writes its files to.</summary>
-    private const string OutputVariable = "PAGEWING_TEST_CUPS_OUTPUT";
+    private const string OutputVariable = "RAFFICA_TEST_CUPS_OUTPUT";
 
     private static readonly TimeSpan JobTimeout = TimeSpan.FromSeconds(60);
 
@@ -45,7 +44,7 @@ public sealed class CupsPrintServiceTests
     {
         var (service, printer, output) = RealPrinterOrSkip();
         var ct = TestContext.Current.CancellationToken;
-        var name = $"pwtest-{Guid.NewGuid():N}";
+        var name = $"rftest-{Guid.NewGuid():N}";
         await using var document = await _engine.OpenAsync(TestData.Pdf("print-mixed.pdf"), cancellationToken: ct);
         var settings = new PrintSettings { Printer = printer, Pages = PrintPageChoice.Range, Range = "1-2", Copies = 2, Collate = true };
         using var ticket = new PrintTicket(settings);
@@ -63,17 +62,17 @@ public sealed class CupsPrintServiceTests
     {
         var (service, printer, output) = RealPrinterOrSkip();
         var ct = TestContext.Current.CancellationToken;
-        var name = $"pwtest-{Guid.NewGuid():N}";
+        var name = $"rftest-{Guid.NewGuid():N}";
         await using var document = await _engine.OpenAsync(TestData.Pdf("encrypted_hello_world_r6.pdf"), "hôtel", ct);
         using var ticket = new PrintTicket(new PrintSettings { Printer = printer });
-        var temporaryBefore = Directory.GetDirectories(Path.GetTempPath(), "pagewing-print-*").Length;
+        var temporaryBefore = Directory.GetDirectories(Path.GetTempPath(), "raffica-print-*").Length;
 
         await service.PrintAsync(new PrintJobRequest(document, TestData.Pdf("encrypted_hello_world_r6.pdf"), name, 0, ticket), new Collect([]), ct);
 
         var printed = await ReadOutputAsync(output, name, ct);
         Assert.Equal(document.PageCount, printed.PageCount);
         Assert.Contains("Hello", await printed.GetTextAsync(0, ct), StringComparison.Ordinal);
-        Assert.Equal(temporaryBefore, Directory.GetDirectories(Path.GetTempPath(), "pagewing-print-*").Length);
+        Assert.Equal(temporaryBefore, Directory.GetDirectories(Path.GetTempPath(), "raffica-print-*").Length);
     }
 
     [Fact]
@@ -81,7 +80,7 @@ public sealed class CupsPrintServiceTests
     {
         var (service, printer, output) = RealPrinterOrSkip();
         var ct = TestContext.Current.CancellationToken;
-        var name = $"pwtest-{Guid.NewGuid():N}";
+        var name = $"rftest-{Guid.NewGuid():N}";
         await using var document = await _engine.OpenAsync(TestData.Pdf("encrypted_hello_world_r3.pdf"), "hôtel", ct);
         using var ticket = new PrintTicket(new PrintSettings { Printer = printer });
 
@@ -108,7 +107,7 @@ public sealed class CupsPrintServiceTests
         var (service, _, _) = RealPrinterOrSkip();
         var ct = TestContext.Current.CancellationToken;
         await using var document = await _engine.OpenAsync(TestData.Pdf("print-mixed.pdf"), cancellationToken: ct);
-        using var ticket = new PrintTicket(new PrintSettings { Printer = "no-such-printer-pagewing" });
+        using var ticket = new PrintTicket(new PrintSettings { Printer = "no-such-printer-raffica" });
 
         await Assert.ThrowsAsync<PrintException>(
             () => service.PrintAsync(new PrintJobRequest(document, TestData.Pdf("print-mixed.pdf"), "x", 0, ticket), new Collect([]), ct));

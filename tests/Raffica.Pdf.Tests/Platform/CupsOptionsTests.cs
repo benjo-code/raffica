@@ -1,9 +1,9 @@
 using System.Text.RegularExpressions;
-using Pagewing.App.Platform.Linux;
-using Pagewing.Core.Printing;
+using Raffica.Core.Printing;
+using Raffica.Pdf.Platform.Linux;
 using Xunit;
 
-namespace Pagewing.App.Tests;
+namespace Raffica.Pdf.Tests.Platform;
 
 public sealed partial class CupsOptionsTests
 {
@@ -116,6 +116,34 @@ public sealed partial class CupsOptionsTests
                 Assert.Matches(OptionValue(), value);
             }
         }
+    }
+
+    [Theory]
+    [InlineData("CUPS-PDF", true)]
+    [InlineData("HP_LaserJet_4", true)]
+    [InlineData("", false)]
+    [InlineData("two words", false)]
+    [InlineData("a/b", false)]
+    [InlineData("a#b", false)]
+    [InlineData("-o\nsides=x", false)]
+    public void OnlyRealQueueNamesAreAccepted(string name, bool valid)
+    {
+        Assert.Equal(valid, CupsOptions.IsValidPrinterName(name));
+    }
+
+    [Fact]
+    public void ALongPrinterNameIsRefused()
+    {
+        Assert.False(CupsOptions.IsValidPrinterName(new string('a', 128)));
+        Assert.True(CupsOptions.IsValidPrinterName(new string('a', 127)));
+    }
+
+    [Fact]
+    public void TheJobTitleLosesControlCharactersAndIsBounded()
+    {
+        Assert.Equal("a b.pdf", CupsOptions.SanitizeTitle("a\r\n b.pdf\0"));
+        Assert.Equal(255, CupsOptions.SanitizeTitle(new string('x', 1000)).Length);
+        Assert.Equal("Raffica", CupsOptions.SanitizeTitle("\n\t"));
     }
 
     [GeneratedRegex("^[a-z-]+$")]

@@ -134,7 +134,7 @@ internal sealed class WindowsPrintService : IPrintService
         var info = document.GetPrintInfoAsync(cancellationToken).GetAwaiter().GetResult();
         if (!info.PrintAllowed)
         {
-            throw new PrintException(PdfStrings.PrintForbidden);
+            throw new PrintException(PdfStrings.PrintLockedReason);
         }
 
         var settings = ticket.Settings;

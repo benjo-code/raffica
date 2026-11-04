@@ -383,8 +383,11 @@
   <data name="PrintErrorDialog" xml:space="preserve">
     <value>The print dialog could not be shown.</value>
   </data>
-  <data name="PrintForbidden" xml:space="preserve">
-    <value>This document does not allow printing.</value>
+  <data name="PrintNoService" xml:space="preserve">
+    <value>Printing is not available: the print system (CUPS) is not installed.</value>
+  </data>
+  <data name="PrintNoPrinter" xml:space="preserve">
+    <value>No printer was found.</value>
   </data>
   <data name="HelpTitle" xml:space="preserve">
     <value>Keyboard shortcuts</value>

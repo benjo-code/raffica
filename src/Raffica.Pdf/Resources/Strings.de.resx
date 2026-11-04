@@ -380,8 +380,11 @@
   <data name="PrintErrorDialog" xml:space="preserve">
     <value>Der Druckdialog konnte nicht angezeigt werden.</value>
   </data>
-  <data name="PrintForbidden" xml:space="preserve">
-    <value>Dieses Dokument verbietet das Drucken.</value>
+  <data name="PrintNoService" xml:space="preserve">
+    <value>Drucken ist nicht möglich: das Drucksystem (CUPS) ist nicht installiert.</value>
+  </data>
+  <data name="PrintNoPrinter" xml:space="preserve">
+    <value>Es wurde kein Drucker gefunden.</value>
   </data>
   <data name="HelpTitle" xml:space="preserve">
     <value>Tastenkürzel</value>

@@ -1,9 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Pagewing.App.Resources;
-using Pagewing.Core.Printing;
+using Raffica.Core.Printing;
 
-namespace Pagewing.App.Platform.Linux;
+namespace Raffica.Pdf.Platform.Linux;
 
 /// <summary>
 /// Prints on Linux through CUPS (libcups): the file goes to the printer as it is, with the choices as job options, and
@@ -58,13 +57,19 @@ internal sealed class CupsPrintService : IPrintService
         var info = await document.GetPrintInfoAsync(cancellationToken).ConfigureAwait(false);
         if (!info.PrintAllowed)
         {
-            throw new PrintException(Strings.PrintForbidden);
+            throw new PrintException(PdfStrings.PrintLockedReason);
         }
 
         var settings = job.Ticket.Settings;
         var plan = PrintPlan.Create(document.PageCount, job.CurrentPage, settings);
         var options = CupsOptions.Build(settings, plan);
         var printer = settings.Printer.Length > 0 ? settings.Printer : await DefaultPrinterAsync(cancellationToken).ConfigureAwait(false);
+        if (!CupsOptions.IsValidPrinterName(printer))
+        {
+            throw new PrintException(PdfStrings.PrintErrorStart);
+        }
+
+        var title = CupsOptions.SanitizeTitle(job.DocumentName);
 
         string? temporaryFolder = null;
         try
@@ -74,7 +79,7 @@ internal sealed class CupsPrintService : IPrintService
             {
                 // CUPS cannot ask for a password, and a file with unsaved changes (no path) lacks them: it gets a copy written
                 // from the document in memory, without encryption, readable by the user only.
-                temporaryFolder = Directory.CreateTempSubdirectory("pagewing-print-").FullName;
+                temporaryFolder = Directory.CreateTempSubdirectory("raffica-print-").FullName;
                 File.SetUnixFileMode(temporaryFolder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
                 file = Path.Combine(temporaryFolder, "document.pdf");
                 await document.SaveDecryptedCopyAsync(file, cancellationToken).ConfigureAwait(false);
@@ -84,7 +89,7 @@ internal sealed class CupsPrintService : IPrintService
             progress.Report(new PrintProgress(0, plan.PageCountToPrint, []));
 
             // The call reads the whole file and sends it before it returns; it cannot be cancelled once it runs.
-            await Task.Run(() => Submit(printer, file, job.DocumentName, options), CancellationToken.None).ConfigureAwait(false);
+            await Task.Run(() => Submit(printer, file, title, options), CancellationToken.None).ConfigureAwait(false);
             progress.Report(new PrintProgress(plan.PageCountToPrint, plan.PageCountToPrint, []));
         }
         finally
@@ -107,7 +112,7 @@ internal sealed class CupsPrintService : IPrintService
     {
         if (!CupsNative.IsAvailable)
         {
-            throw new PrintException(Strings.PrintNoService);
+            throw new PrintException(PdfStrings.PrintNoService);
         }
     }
 
@@ -115,7 +120,7 @@ internal sealed class CupsPrintService : IPrintService
     {
         var printers = await new CupsPrintService().GetPrintersAsync(cancellationToken).ConfigureAwait(false);
         return (printers.FirstOrDefault(printer => printer.IsDefault) ?? (printers.Count > 0 ? printers[0] : null))?.Name
-            ?? throw new PrintException(Strings.PrintNoPrinter);
+            ?? throw new PrintException(PdfStrings.PrintNoPrinter);
     }
 
     private static unsafe List<PrinterInfo> ListPrinters()
@@ -206,8 +211,8 @@ internal sealed class CupsPrintService : IPrintService
             var id = CupsNative.cupsPrintFile2(0, printer, file, title, count, native);
             if (id == 0)
             {
-                var message = Marshal.PtrToStringUTF8((nint)CupsNative.cupsLastErrorString());
-                throw new PrintException(string.IsNullOrWhiteSpace(message) ? Strings.PrintErrorStart : message);
+                // The text of CUPS is English, may name paths and hosts, and is not shown; the user gets the localized message.
+                throw new PrintException(PdfStrings.PrintErrorStart);
             }
         }
         finally
