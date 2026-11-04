@@ -50,6 +50,7 @@ public class RibbonButton : Button
         });
         AutomationProperties.SetName(this, definition.Name);
         ToolTip.SetTip(this, new TooltipContent { Title = definition.Name, Shortcut = definition.Shortcut, Description = definition.Description });
+        ToolTip.SetShowOnDisabled(this, true);
         Content = BuildContent(definition, kind);
 
         if (definition.Items is { Count: > 0 } items)
@@ -66,6 +67,8 @@ public class RibbonButton : Button
         {
             Click += (_, _) => invoked(definition);
         }
+
+        RefreshState();
     }
 
     public CommandDefinition Definition { get; }
@@ -74,10 +77,39 @@ public class RibbonButton : Button
 
     protected override Type StyleKeyOverride => typeof(Button);
 
+    /// <summary>Takes over the enabled state of the definition: the button is dimmed and inert while it is disabled, and the tooltip names the reason.</summary>
+    internal void RefreshState()
+    {
+        var enabled = Definition.IsEnabled;
+        IsEnabled = enabled;
+        if (ToolTip.GetTip(this) is TooltipContent tip)
+        {
+            tip.Description = enabled ? Definition.Description : Definition.CurrentDisabledReason ?? Definition.Description;
+        }
+
+        if (Flyout is MenuFlyout flyout)
+        {
+            RefreshItems(flyout.Items);
+        }
+    }
+
+    /// <summary>Updates the enabled state of menu items made by <see cref="CreateMenuItem"/> (their command rides in the tag).</summary>
+    internal static void RefreshItems(IEnumerable<object?> items)
+    {
+        foreach (var item in items)
+        {
+            if (item is MenuItem { Tag: CommandDefinition command } menuItem)
+            {
+                menuItem.IsEnabled = command.IsEnabled;
+                RefreshItems(menuItem.Items.Cast<object?>());
+            }
+        }
+    }
+
     /// <summary>A menu item for a command (used by the menu of a command with items and by the overflow menu of a group); the command rides in <see cref="Control.Tag"/>.</summary>
     internal static MenuItem CreateMenuItem(CommandDefinition command, Action<CommandDefinition> invoked)
     {
-        var item = new MenuItem { Header = command.Name, Tag = command };
+        var item = new MenuItem { Header = command.Name, Tag = command, IsEnabled = command.IsEnabled };
         AutomationProperties.SetName(item, command.Name);
         if (!string.IsNullOrEmpty(command.Shortcut))
         {

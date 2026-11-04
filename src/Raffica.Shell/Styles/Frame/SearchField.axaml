@@ -36,6 +36,9 @@
   <Style Selector="Border.search-row:active">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
   </Style>
+  <Style Selector="Border.search-row:disabled TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+  </Style>
   <Style Selector="TextBlock.search-group">
     <Setter Property="Margin" Value="12,8,12,2" />
     <Setter Property="FontSize" Value="12" />

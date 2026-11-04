@@ -201,6 +201,12 @@ public class SearchField : TemplatedControl
 
     private void Choose(SearchResultRow row)
     {
+        if (row.Command is { IsEnabled: false })
+        {
+            // A disabled command is listed (so the user finds out that it exists) but cannot be chosen; the list stays.
+            return;
+        }
+
         if (_popup is not null)
         {
             _popup.IsOpen = false;
@@ -272,6 +278,7 @@ internal sealed class SearchResultRow : Border
     {
         Command = command;
         ShortcutText = command.Shortcut;
+        IsEnabled = command.IsEnabled;
     }
 
     public SearchResultRow(SearchEntry entry)
