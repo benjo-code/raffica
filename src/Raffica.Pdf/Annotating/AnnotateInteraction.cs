@@ -102,8 +102,14 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         // Whatever the old tool held (a gesture, a selection) goes with it. A text in the editing field is not lost: it is made first
         // (the field is open for the text box tool and for the select tool alike).
         _pressedBy = null;
+        // A text the box cannot show stays in its open field (the user has not discarded it).
         TextBox.CommitOrDrop();
-        _current?.Cancel();
+        TextBox.CancelGesture();
+        if (_current is not TextBoxController)
+        {
+            _current?.Cancel();
+        }
+
         _current = Find(_tools.Tool);
         if (_tools.Tool == AnnotateTool.None)
         {

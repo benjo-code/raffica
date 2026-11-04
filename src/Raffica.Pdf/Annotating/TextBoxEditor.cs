@@ -32,7 +32,6 @@ internal sealed class TextBoxEditor : UserControl
             AcceptsTab = false,
             TextWrapping = TextWrapping.Wrap,
             NewLine = "\n",
-            MaxLength = TextBoxSpec.MaxTextLength,
             Background = Brushes.White,
         };
         Field.Classes.Add("textbox-editor");

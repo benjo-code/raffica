@@ -57,6 +57,7 @@ internal sealed class TextBoxController : IToolController
         _preview.Changed += OnPreviewChanged;
         _view.ViewChanged += OnViewChanged;
         _tab.Annotations.FlushRequested += OnFlushRequested;
+        _tab.Annotations.DiscardDraft = DiscardForHistory;
     }
 
     /// <inheritdoc />
@@ -198,21 +199,45 @@ internal sealed class TextBoxController : IToolController
         _preview.Changed -= OnPreviewChanged;
         _view.ViewChanged -= OnViewChanged;
         _tab.Annotations.FlushRequested -= OnFlushRequested;
+        if (_tab.Annotations.DiscardDraft == DiscardForHistory)
+        {
+            _tab.Annotations.DiscardDraft = null;
+        }
     }
 
     /// <summary>
-    /// Ends the draft without asking anything of the user: a valid text is made, an empty or refused one is dropped (the tool changes, the
-    /// page scrolls away, a save, undo or close is about to wait for the draft).
+    /// Ends the draft on its own account (the tool changes, the page scrolls away, a save, undo or close is about to wait for it): a valid
+    /// text is made, an empty one is dropped. A refused text is never dropped here: the field stays open with its hint and the draft is
+    /// parked as an unresolved change (the tab stays dirty, nothing waits for it).
     /// </summary>
     public void CommitOrDrop()
     {
-        if (_draft is null)
+        if (_draft is not { } draft)
         {
             return;
         }
 
-        TryCommit();
-        Close();
+        var check = TextBoxSpec.CheckText(TextBoxSpec.NormalizeText(draft.Editor.Field.Text ?? string.Empty));
+        if (check.Problem == TextBoxTextProblem.Empty)
+        {
+            Close();
+        }
+        else if (check.Problem == TextBoxTextProblem.None)
+        {
+            TryCommit();
+        }
+        else
+        {
+            draft.Editor.ShowHint(TextBoxEditor.MessageOf(check));
+            draft.Park(_tab.Annotations);
+        }
+    }
+
+    /// <summary>Drops a gesture in progress (a drag); a draft is left alone.</summary>
+    public void CancelGesture()
+    {
+        _active = false;
+        _preview.Clear();
     }
 
     // The box a click makes: 160 x 48 points with its top left at the press point, moved to fit on the page (a page narrower or lower
@@ -309,7 +334,7 @@ internal sealed class TextBoxController : IToolController
             return;
         }
 
-        var pending = draft.TakePending();
+        var pending = draft.TakePending() ?? _tab.Annotations.BeginPending();
         var unchanged = draft.Existing is not null && string.Equals(text, TextBoxSpec.NormalizeText(draft.Original), StringComparison.Ordinal);
         var spec = new TextBoxSpec(draft.Box, text, draft.FontSize, draft.Color);
         var existing = draft.Existing;
@@ -321,6 +346,7 @@ internal sealed class TextBoxController : IToolController
             return;
         }
 
+        draft.ReleaseUnresolved();
         _chain = ApplyAsync(_chain, page, spec, existing, _tools.Author, pending);
     }
 
@@ -346,6 +372,7 @@ internal sealed class TextBoxController : IToolController
         }
 
         draft.TakePending()?.Dispose();
+        draft.ReleaseUnresolved();
         if (had && !_disposed)
         {
             _view.Focus();
@@ -444,13 +471,20 @@ internal sealed class TextBoxController : IToolController
             return;
         }
 
-        // A page that scrolled out of the view takes the draft with it: it is made (or dropped) rather than left behind.
+        // A page that scrolled out of the view: a valid text is made, an empty one dropped; a refused one is kept, hidden until its page is
+        // back (it stays an unresolved change).
         if (_view.ToView(draft.Page, draft.Box) is not { } rect || !rect.Intersects(new Rect(_view.Bounds.Size)))
         {
             CommitOrDrop();
+            if (_draft is not null)
+            {
+                _draft.Editor.IsVisible = false;
+            }
+
             return;
         }
 
+        draft.Editor.IsVisible = true;
         Layout();
     }
 
@@ -466,11 +500,24 @@ internal sealed class TextBoxController : IToolController
         }
     }
 
+    // The history commands while the field is open: the draft ends like with Esc and the history stays as it is.
+    private bool DiscardForHistory()
+    {
+        if (_draft is null)
+        {
+            return false;
+        }
+
+        Close();
+        return true;
+    }
+
     private void OnPreviewChanged() => Changed?.Invoke();
 
     private sealed class Draft(int page, PdfPageSize size, PageRect box, double fontSize, AnnotationColor color, AnnotationLocator? existing, string original, TextBoxEditor editor, IDisposable pending)
     {
         private IDisposable? _pending = pending;
+        private IDisposable? _unresolved;
 
         public int Page { get; } = page;
 
@@ -489,6 +536,26 @@ internal sealed class TextBoxController : IToolController
         public TextBoxEditor Editor { get; } = editor;
 
         /// <summary>Hands the pending handle to the caller (once); null afterwards.</summary>
+        /// <summary>Turns the pending handle (waited for) into an unresolved one (kept dirty, not waited for): the text is refused.</summary>
+        public void Park(AnnotationSession session)
+        {
+            if (_pending is null)
+            {
+                return;
+            }
+
+            _unresolved ??= session.BeginUnresolved();
+            _pending.Dispose();
+            _pending = null;
+        }
+
+        /// <summary>Ends the unresolved state (the draft was made, dropped or closed).</summary>
+        public void ReleaseUnresolved()
+        {
+            _unresolved?.Dispose();
+            _unresolved = null;
+        }
+
         public IDisposable? TakePending()
         {
             var taken = _pending;

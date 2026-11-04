@@ -15,6 +15,7 @@ internal sealed class AnnotationSession : IDisposable
     private readonly SynchronizationContext _ui;
     private readonly object _gate = new();
     private int _pending;
+    private int _unresolved;
     private TaskCompletionSource? _idle;
     private volatile bool _disposed;
     private bool _marked;
@@ -41,11 +42,28 @@ internal sealed class AnnotationSession : IDisposable
     public AnnotationEditor Editor { get; }
 
     /// <summary>Whether the document has changes that are not saved, in flight or about to be made.</summary>
-    public bool IsDirty => Editor.IsDirty || Editor.IsBusy || PendingCount > 0;
+    public bool IsDirty => Editor.IsDirty || Editor.IsBusy || PendingCount > 0 || UnresolvedCount > 0;
 
     public bool CanUndo => Editor.CanUndo;
 
     public bool CanRedo => Editor.CanRedo;
+
+    /// <summary>
+    /// Set by the owner of an open draft (the text box field): called by <see cref="UndoAsync"/> and <see cref="RedoAsync"/> before anything
+    /// else; when it returns <see langword="true"/> it ended the draft (like Esc) and the history is left alone.
+    /// </summary>
+    public Func<bool>? DiscardDraft { get; set; }
+
+    private int UnresolvedCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _unresolved;
+            }
+        }
+    }
 
     private int PendingCount
     {
@@ -71,6 +89,22 @@ internal sealed class AnnotationSession : IDisposable
 
         Refresh();
         return new Pending(this);
+    }
+
+    /// <summary>
+    /// A draft the user has not finished and that cannot be made as it stands (its text is refused) counts as an unsaved change until the
+    /// handle is disposed, but unlike <see cref="BeginPending"/> nothing waits for it: <see cref="FlushAsync"/> returns, the tab stays dirty so
+    /// closing it asks. Call it on the UI thread; dispose on every path.
+    /// </summary>
+    public IDisposable BeginUnresolved()
+    {
+        lock (_gate)
+        {
+            _unresolved++;
+        }
+
+        Refresh();
+        return new Unresolved(this);
     }
 
     /// <summary>Waits for the pending drafts, then for the editor's operations; the tab's dirty state is current afterwards.</summary>
@@ -102,6 +136,11 @@ internal sealed class AnnotationSession : IDisposable
 
     public async Task UndoAsync()
     {
+        if (DiscardDraft?.Invoke() == true)
+        {
+            return;
+        }
+
         await FlushAsync();
         await Editor.UndoAsync();
         Refresh();
@@ -109,6 +148,11 @@ internal sealed class AnnotationSession : IDisposable
 
     public async Task RedoAsync()
     {
+        if (DiscardDraft?.Invoke() == true)
+        {
+            return;
+        }
+
         await FlushAsync();
         await Editor.RedoAsync();
         Refresh();
@@ -176,6 +220,29 @@ internal sealed class AnnotationSession : IDisposable
 
         release?.TrySetResult();
         Refresh();
+    }
+
+    private void EndUnresolved()
+    {
+        lock (_gate)
+        {
+            _unresolved--;
+        }
+
+        Refresh();
+    }
+
+    private sealed class Unresolved(AnnotationSession owner) : IDisposable
+    {
+        private int _ended;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _ended, 1) == 0)
+            {
+                owner.EndUnresolved();
+            }
+        }
     }
 
     private sealed class Pending(AnnotationSession owner) : IDisposable

@@ -342,4 +342,148 @@ public sealed class TextBoxToolTests
         ViewFixture.Pump();
         Assert.Equal(AnnotateTool.None, window.Window.Tools.Tool);
     }
+
+    private const string Refused = "Keep me ☃";
+
+    private static async Task<bool> CompletesAsync(Task task) =>
+        ReferenceEquals(task, await Task.WhenAny(task, Task.Delay(5000, TestContext.Current.CancellationToken)));
+
+    [AvaloniaFact]
+    public async Task ClosingWithARefusedDraftStillAsks()
+    {
+        using var window = WindowFixture.Create();
+        var tab = await window.OpenAsync("text-rich.pdf");
+        ViewFixture.Pump();
+        window.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == "annotate.textBox").Run!.Invoke();
+        var controller = window.Window.AnnotateOf(tab)!.TextBox;
+        var view = window.Window.ActiveView!;
+        var at = view.TranslatePoint(view.ToView(0, 60, 60)!.Value, window.Window)!.Value;
+        window.Window.MouseDown(at, MouseButton.Left);
+        window.Window.MouseUp(at, MouseButton.Left);
+        ViewFixture.Pump();
+        SetText(controller.Editor!.Field, Refused);
+
+        var closing = window.Window.Workspace.CloseAsync(tab);
+        for (var i = 0; i < 400 && window.Window.Host.ActiveDialog is null; i++)
+        {
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+            ViewFixture.Pump();
+        }
+
+        // The flush did not hang, the tab counts as changed, so the close asks; the text is still there.
+        Assert.NotNull(window.Window.Host.ActiveDialog);
+        Assert.True(controller.IsEditing);
+        Assert.Equal(Refused, controller.Editor!.Field.Text);
+        var footer = Assert.IsType<Avalonia.Controls.StackPanel>(window.Window.Host.ActiveDialog!.Footer);
+        footer.Children.OfType<Avalonia.Controls.Button>().Single(b => b.Name == "PART_Cancel").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.False(await closing);
+        Assert.True(controller.IsEditing);
+    }
+
+    [AvaloniaFact]
+    public async Task RefusedDraftSurvivesAToolChange()
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var field = Open(f);
+        SetText(field, Refused);
+
+        f.Tools.Choose(AnnotateTool.Rectangle);
+        ViewFixture.Pump();
+
+        Assert.True(f.Interaction.TextBox.IsEditing);
+        Assert.Equal(Refused, field.Text);
+        Assert.NotEqual(string.Empty, f.Interaction.TextBox.Editor!.Hint);
+        Assert.Same(f.Interaction.TextBox.Editor, f.View.Field);
+        Assert.True(f.Tab.IsDirty);
+        Assert.Empty(await BoxesAsync(f));
+    }
+
+    [AvaloniaFact]
+    public async Task SaveKeepsARefusedDraftOpenAndTheTabDirty()
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var field = Open(f);
+        SetText(field, "Saved");
+        Press(field, Key.Enter, KeyModifiers.Control);
+        await FinishAsync(f);
+        field = Open(f, 60, 200);
+        SetText(field, Refused);
+
+        // What a save does first: the flush returns although the draft is refused.
+        Assert.True(await CompletesAsync(f.Tab.Annotations.FlushAsync()));
+        Assert.True(f.Interaction.TextBox.IsEditing);
+        var ct = TestContext.Current.CancellationToken;
+        var saved = await f.Tab.Annotations.Editor.SaveAsync(new PdfEngine(), f.Path!, false, null, ct);
+        await using (saved.Saved.Reopened)
+        {
+            Assert.Equal("Saved", Assert.Single(await saved.Saved.Reopened.GetAnnotationsAsync(0, ct), a => a.Kind == AnnotationKind.TextBox).Contents);
+        }
+
+        f.Tab.Annotations.Refresh();
+        Assert.True(f.Interaction.TextBox.IsEditing);
+        Assert.Equal(Refused, field.Text);
+        Assert.True(f.Tab.Annotations.IsDirty);
+        Assert.True(f.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task EscStillDiscardsARefusedDraft()
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var field = Open(f);
+        SetText(field, Refused);
+        Assert.True(await CompletesAsync(f.Tab.Annotations.FlushAsync()));
+        Assert.True(f.Tab.IsDirty);
+
+        Press(field, Key.Escape);
+
+        Assert.False(f.Interaction.TextBox.IsEditing);
+        Assert.False(f.Tab.IsDirty);
+        Assert.Empty(await BoxesAsync(f));
+        Assert.True(await CompletesAsync(f.Tab.Annotations.FlushAsync()));
+    }
+
+    [AvaloniaFact]
+    public async Task RibbonUndoWithAnOpenFieldOnlyDiscardsTheDraft()
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var field = Open(f);
+        SetText(field, "First");
+        Press(field, Key.Enter, KeyModifiers.Control);
+        await FinishAsync(f);
+        field = Open(f, 60, 200);
+        SetText(field, "Second");
+
+        await f.Tab.Annotations.UndoAsync();
+        ViewFixture.Pump();
+
+        // The draft is gone like with Esc: not made, and the first text box is not undone.
+        Assert.False(f.Interaction.TextBox.IsEditing);
+        await f.SettleAsync();
+        Assert.Equal("First", Assert.Single(await BoxesAsync(f)).Contents);
+        Assert.True(f.Tab.Annotations.CanUndo);
+        Assert.False(f.Tab.Annotations.CanRedo);
+
+        // With no field open Undo works as before.
+        await f.Tab.Annotations.UndoAsync();
+        Assert.Empty(await BoxesAsync(f));
+    }
+
+    [AvaloniaFact]
+    public async Task LongPasteIsRejectedAsAWholeAndNamedNotCut()
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var field = Open(f);
+        var text = new string('a', TextBoxSpec.MaxTextLength + 500);
+        SetText(field, text);
+        Press(field, Key.Enter, KeyModifiers.Control);
+        await f.Interaction.TextBox.Completion;
+
+        Assert.Equal(text, field.Text);
+        Assert.True(f.Interaction.TextBox.IsEditing);
+        Assert.Equal(Raffica.Pdf.PdfStrings.TextBoxTooLong, f.Interaction.TextBox.Editor!.Hint);
+        Press(field, Key.Escape);
+        Assert.Empty(await BoxesAsync(f));
+    }
 }
