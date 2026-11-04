@@ -54,6 +54,11 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-04 (Milestone 2):** Milestone 3 (macOS spec) now depends on 2.6 instead of 2, so that macOS stays after the finished PDF app; milestone 2 only means that the PDF spec exists.
 - **2026-11-04 (Milestone 2):** The OCR library build moves from the backlog into milestone 2.5, and the release workflow into 2.6; the CodeQL and hardware-measure workflows come back in 2.5. Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: platform code, autosave, OCR build and releases (M2)".
 - **2026-11-04 (Milestone 2):** Milestone 2.1 adds an additive option to the shell's settings dialog so that the PDF app hides the autosave row (autosave contradicts "never damages the original"); the frame's behaviour for the other apps stays as it is. Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: platform code, autosave, OCR build and releases (M2)".
+- **2026-11-04 (Milestone 2.1):** Inventory of Pagewing 1.0 (its roadmap and README at the `v1.0.0` tag), entered as marks `(P<n>)` in the tasks of 2.1 to 2.6. Done in 2.1 although not named in the spec's list: document info from the status bar (P4: file, pages, page size, PDF version, file size, metadata) and the F1 help card with the shortcut overview built from the command catalog (P6). Already done in the imported core: `raffica search` (P5). Open for after 2.6 unless the owner asks earlier, both in the backlog: tabs between windows (P4.1) and the "open in new window" command of P4, because the frame's `DocumentTabs` has no drag-out and a workspace across windows is a shell feature that no other app needs yet; the setting "reduce animations" (P6), because the shell's design spec has no such setting and its motion is limited to control transitions (owner to confirm). Not rebuilt on purpose: the density setting (replaced by the compact command bar of the shell) and a separate high-contrast switch (the shell follows the system). Pagewing's public-repository work (12.1) is the owner's decision and stays listed as open in 2.6.
+- **2026-11-04 (Milestone 2.1):** Three additive extensions of the shell, needed by the PDF app and neutral for the other apps: (1) the settings dialog takes optional `SettingsDialogOptions` (hide the autosave row, extra rows the app builds and reads in its `onOk`), (2) `DocumentTab` gets a dirty marker and an exposed selected state (the backlog item on the selected state of document tabs for assistive technology is done with it), (3) the frame's `SearchField` takes an optional `ExtraResults` provider for entries that are not ribbon commands (open tabs, recent files, outline entries, "Go to page N"). Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: viewer conventions (M2.1)".
+- **2026-11-04 (Milestone 2.1):** A file that is already open is selected, not opened twice (Pagewing opened a second tab). Two tabs of one file would both hold dirty state once 2.2 adds editing.
+- **2026-11-04 (Milestone 2.1):** The test PDF generator of Pagewing (`tools/make-testpdfs.cs`) is not imported in 2.1: the fixtures under `testdata/pdfs` cover every viewer test, and a task that needs a new fixture says so.
+- **2026-11-04 (Milestone 2.1):** Milestone 2.1 has 17 tasks in its plan. If the owner asks, it can be split after Task 11 of the plan into 2.1 (viewing and searching) and a further milestone (printing and speed budgets); the extra id is chosen then.
 
 ---
 
@@ -174,15 +179,18 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.
 
 **Tasks**
-- [ ] Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change)
-- [ ] App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view
+- [x] Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change) - done 2026-11-04: read from `git show v1.0.0:Docs/ROADMAP.md` and `README.md` of Pagewing (milestones 3 to 16 and the 8.1, 12.1 and 14.1 additions). Every predecessor feature is a mark `(P<n>)` in the tasks of 2.1 to 2.6 (n = Pagewing milestone); the decisions for features outside the spec list are in the scope changes of 2026-11-04 (context "Milestone 2.1"): done in 2.1 (document info, help card F1), already done in Core (`raffica search`), open for after 2.6 (tabs between windows, open in a new window, reduce-animations setting).
+- [ ] App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view (P3)
 - [ ] Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)
-- [ ] Open by file argument, dialog, drag and drop and password; single instance (a second file opens in the running instance); recent files; tabs; position per file
-- [ ] Continuous scroll with render scheduler and tile cache, zoom modes, layouts (single, continuous, two-page), dark page; pages pane and outline pane; heavy work starts only after the first sharp page
-- [ ] Full-text search with highlights, select and copy text, internal and external links (external only after a click and a confirmation that shows the URL), command palette entries
-- [ ] Settings that apply to PDF (page appearance, default layout and zoom; theme, language and compact command bar); the autosave row hidden through an additive shell option, recorded as a scope change
-- [ ] Printing on Windows (Win32 print dialog, `FPDF_RenderPage`) and Linux (CUPS with an own Avalonia dialog): always light, annotations printed, locked for documents that forbid printing, background job with progress and cancel
-- [ ] Set the PDF speed budgets: measure the cases of spec section 5 with Pagewing 1.0 and Chrome as references, record budgets and limits (budget x 1.25 once) in `Docs/DECISIONS.md`, extend the `measure.yml` machinery; if the app is slower than Pagewing 1.0, look for the cause first (for example deferring PDFium initialisation or the ribbon) before raising the finding
+- [ ] Open by file argument, dialog, drag and drop and password (P3); single instance, a second file opens in the running instance (P3); recent files, stored locally and read only after the first sharp page (P6); tabs: open, close, switch, reorder, and a file that is already open is selected instead of opened twice (P4); position per file (page, zoom, zoom mode) (P6)
+- [ ] Continuous scroll with render scheduler and tile cache (P3); zoom with Ctrl+wheel and Ctrl+plus/minus (P3); zoom modes page width, whole page, actual size, free (P4); go to page (P4); layouts single, continuous, two-page with and without cover page (P4); dark page without inverted images, switchable per tab (P6); pages pane with thumbnails and outline pane with jump (P4); heavy work starts only after the first sharp page
+- [ ] Full-text search with highlights, next and previous, in the background (P5); select and copy text (P5); internal and external links, external only after a click and a confirmation that shows the URL (P5); command palette (Ctrl+K) with open tabs, recent files, pages and outline entries besides the commands (P6)
+- [ ] Settings that apply to PDF (page appearance, default layout and zoom, print scaling; theme, language, and the compact command bar in place of the density setting; high contrast follows the shell) (P6); the autosave row hidden through an additive shell option, recorded as a scope change
+- [ ] Printing (P7) on Windows (Win32 print dialog, `FPDF_RenderPage`) and Linux (CUPS with an own Avalonia dialog): page range, copies, fit to paper, always light, annotations printed, locked for documents that forbid printing, background job with progress and cancel
+- [ ] Set the PDF speed budgets (P3 startup check): measure the cases of spec section 5 with Pagewing 1.0 and Chrome as references, record budgets and limits (budget x 1.25 once) in `Docs/DECISIONS.md`, extend the `measure.yml` machinery; if the app is slower than Pagewing 1.0, look for the cause first (for example deferring PDFium initialisation or the ribbon) before raising the finding
+- [ ] Document info from the status bar: file name, page count, page size, PDF version, file size and metadata (P4)
+- [ ] Help card (F1) with the shortcut overview built from the command catalog, and keyboard shortcuts for every viewer action (P6)
+- [x] `raffica search` in the CLI (P5): already part of the imported core, nothing to build (`tests/Raffica.Core.Tests/Cli/SearchCliTests.cs` came with the core in M0, the command is dispatched in `src/Raffica.Cli/CliApp.cs`)
 
 **Acceptance criteria**
 - [ ] The render-regression and viewer tests pass: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with `RAFFICA_REQUIRE_OCR=1`
@@ -196,9 +204,9 @@ Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame wit
 Goal: Marks and comments can be added, changed, undone and saved through the existing save pipeline.
 
 **Tasks**
-- [ ] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane
-- [ ] Freehand, rectangle, ellipse, line, arrow and text box; move, resize, colour, delete and undo
-- [ ] The save pipeline and its UI through the existing core: save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close
+- [ ] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane (P9)
+- [ ] Freehand with mouse and pen, rectangle, ellipse, line, arrow and text box (P10); select, move, resize, colour, delete, and undo and redo in one history for all annotation kinds (P9, P10)
+- [ ] The save pipeline and its UI through the existing core (P9): save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close
 - [ ] Tests for every tool and for save, reopen and undo
 
 **Acceptance criteria**
@@ -211,9 +219,9 @@ Goal: Marks and comments can be added, changed, undone and saved through the exi
 Goal: AcroForm fields can be filled and a visible signature placed and saved.
 
 **Tasks**
-- [ ] Fill AcroForm fields with entry in Avalonia elements over the field, keyboard navigation and a limited character set; the app says that calculations need JavaScript and are not run
-- [ ] The required-field card before saving
-- [ ] The visible signature: draw, import, saved signatures, placement; the dialog carries the Pagewing hint that a visible signature is not legally binding
+- [ ] Fill AcroForm fields (text, checkbox, radio, list, combo) with entry in Avalonia elements over the field, field highlight, tab order and keyboard-only use, and a limited character set (P11); undo and redo of values in the shared history with the annotations (P11); the app says that calculations, formats and checks need JavaScript and are not run, that XFA and digital signature fields are not supported and that buttons never run an action (P11)
+- [ ] The required-field card before saving, with the values saved together with the annotations in one operation (P11)
+- [ ] The visible signature (P12): draw or import an image, up to ten saved signatures stored locally, placement; the dialog carries the Raffica PDF hint that a visible signature is not legally binding
 - [ ] Tests for each field kind and for the signature store
 
 **Acceptance criteria**
@@ -226,9 +234,9 @@ Goal: AcroForm fields can be filled and a visible signature placed and saved.
 Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.
 
 **Tasks**
-- [ ] Reorder, rotate, delete and insert pages in the pages pane and the ribbon
-- [ ] Merge and split, and export pages as image
-- [ ] Full rewrite for page operations with the warning for signed files
+- [ ] Reorder, rotate, delete and insert pages in the pages pane and the ribbon (P13)
+- [ ] Merge and split (split every n pages, by ranges, by top-level bookmarks) and export pages as image (P13); the CLI commands `rotate`, `merge`, `split` and `export` already exist in the imported core
+- [ ] Full rewrite for page operations with the warning for signed files and the list of what a page operation loses, shown before it runs (P13)
 - [ ] Tests on the page edit plan and its report
 
 **Acceptance criteria**
@@ -242,9 +250,9 @@ Goal: Content can be redacted for real, scans made searchable and text lines cor
 
 **Tasks**
 - [ ] Build the Tesseract library in this repository (workflow and build scripts), replace the fetch from Pagewing's prerelease in `tools/native-fetch.cs`, and put the CodeQL and hardware-measure workflows back where needed
-- [ ] The destructive group of the ribbon; redaction by selection, area and pattern, ending in a full rewrite with the checks on extracted text and raw bytes
-- [ ] OCR with language management; the heavy work starts after the first sharp page
-- [ ] Text line editing: correct existing lines and typos, no paragraph editing
+- [ ] The destructive group of the ribbon; redaction by selection, area and pattern (email, IBAN, phone, card), fill colour, blur and pixelate for image parts, overlay text, and the rescue of pages that cannot be taken apart by turning them into an image (P14, P14.1), ending in a full rewrite with the checks on extracted text and raw bytes
+- [ ] OCR with language management (English and German bundled, more from the user folder); the heavy work starts after the first sharp page (P15)
+- [ ] Text line editing: correct existing lines and typos, no paragraph editing; an empty text removes the run (P16)
 
 **Acceptance criteria**
 - [ ] The redaction removal tests (extracted text and raw bytes) pass through the UI path
@@ -258,10 +266,10 @@ Goal: Content can be redacted for real, scans made searchable and text lines cor
 Goal: Installers, default-app registration and the updater exist for Windows and Linux, and the first release can be published on the owner's instruction.
 
 **Tasks**
-- [ ] Windows installer (Inno Setup, new AppId) and portable ZIP; Linux `.deb` and AppImage
-- [ ] Default-PDF-app registration and the first-start card, with the platform implementations of IDefaultAppService
-- [ ] The updater with its own signing key (kept by the owner in a CI secret) and the release address of this repository; the update-check switch in the settings; the unsaved-changes prompt before an install
-- [ ] License notices, the release workflow, README for users and CHANGELOG
+- [ ] Windows installer (Inno Setup, new AppId) and portable ZIP; Linux `.deb` and AppImage (P8)
+- [ ] Default-PDF-app registration and the first-start card, with the platform implementations of IDefaultAppService (P8)
+- [ ] The updater (P8.1) with its own signing key (kept by the owner in a CI secret) and the release address of this repository; the update-check switch in the settings; the unsaved-changes prompt before an install
+- [ ] License notices in the packages and the About card, the release workflow, README for users and CHANGELOG (P8)
 - [ ] List the open items that need the owner's machines (installers, printers, the real update key, the public repository) with the command that checks each
 
 **Acceptance criteria**
@@ -356,3 +364,5 @@ Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, o
 - **Ctrl+K and hyperlinks in Write:** The frame binds Ctrl+K to the search field. Word and other editors use Ctrl+K for inserting a hyperlink; settle this in the Write spec (note for the Write spec).
 - **Accessibility items deferred from the frame:** Not done in milestone 1.2: the selected state of ribbon and document tabs is not exposed to assistive technology (only a style class), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button).
 - **Option key handling on macOS:** A bare Option tap enters field-code mode and takes the next letter; there is no platform gating. Decide the macOS behaviour when the macOS subproject is specified, after checking it on a Mac.
+- **Tabs between windows and open in a new window:** Pagewing 1.0 let a tab be moved to its own window (menu "Open in new window", M4) and dragged between windows (M4.1, Windows only). Raffica PDF 2.1 has one window with tabs; the frame's `DocumentTabs` has no drag-out. Revisit after 2.6 or when the owner asks.
+- **Setting "reduce animations":** Pagewing 1.0 had it in the settings (M6, because Avalonia had no system setting for it). Raffica's shell has no such setting; add it as an extra row of the settings dialog or as a shell setting once the shell has animations that matter.
