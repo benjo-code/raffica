@@ -338,4 +338,43 @@
   <data name="PaletteGroupDocument" xml:space="preserve">
     <value>Dokument</value>
   </data>
+  <data name="GroupTabs" xml:space="preserve">
+    <value>Tabs</value>
+  </data>
+  <data name="GroupText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="GroupHelp" xml:space="preserve">
+    <value>Hilfe</value>
+  </data>
+  <data name="CmdCloseTab" xml:space="preserve">
+    <value>Tab schließen</value>
+  </data>
+  <data name="CmdSettings" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="CmdNextTab" xml:space="preserve">
+    <value>Nächster Tab</value>
+  </data>
+  <data name="CmdPreviousTab" xml:space="preserve">
+    <value>Vorheriger Tab</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Gesamten Text auswählen</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Text kopieren</value>
+  </data>
+  <data name="CmdHelp" xml:space="preserve">
+    <value>Tastenkürzel</value>
+  </data>
+  <data name="PrintLockedReason" xml:space="preserve">
+    <value>Dieses Dokument erlaubt kein Drucken.</value>
+  </data>
+  <data name="HelpTitle" xml:space="preserve">
+    <value>Tastenkürzel</value>
+  </data>
+  <data name="HelpListName" xml:space="preserve">
+    <value>Liste der Tastenkürzel</value>
+  </data>
 </root>

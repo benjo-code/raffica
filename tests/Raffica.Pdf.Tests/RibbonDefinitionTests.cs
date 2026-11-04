@@ -15,7 +15,7 @@ public sealed class RibbonDefinitionTests
     public void EveryCommandHasAFieldCodeAndAName()
     {
         var commands = Create().Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
-        Assert.Equal(22, commands.Count);
+        Assert.Equal(29, commands.Count);
         Assert.All(commands, c =>
         {
             Assert.False(string.IsNullOrWhiteSpace(c.FieldCode));
@@ -37,7 +37,7 @@ public sealed class RibbonDefinitionTests
     {
         var tabs = Create().Tabs;
         Assert.Equal(
-            ["File:11,12", "Find:21,22,23", "Go to:31", "Pages:41,42,43,44"],
+            ["File:11,12,13,14", "Find:21,22,23", "Go to:31", "Pages:41,42,43,44", "Tabs:51,52", "Text:61,62", "Help:71"],
             tabs[0].Groups.Select(Describe).ToArray());
         Assert.Equal(
             ["Zoom:11,12,13,14,15", "Layout:21,22,23,24", "Page:31", "Panes:41,42"],

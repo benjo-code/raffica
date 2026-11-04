@@ -158,30 +158,6 @@ public sealed class ZoomTests
     }
 
     [AvaloniaFact]
-    public async Task CtrlPlusAndMinusStepTheZoom()
-    {
-        using var fixture = await ViewFixture.OpenAsync("text-rich.pdf");
-        var view = fixture.View;
-        view.SetZoom(1.0);
-        view.Focus();
-
-        fixture.Window.KeyPressQwerty(PhysicalKey.Equal, RawInputModifiers.Control);
-        Assert.Equal(1.25, view.Zoom);
-        fixture.Window.KeyPressQwerty(PhysicalKey.Equal, RawInputModifiers.Control | RawInputModifiers.Shift);
-        Assert.Equal(1.5, view.Zoom);
-        fixture.Window.KeyPressQwerty(PhysicalKey.Minus, RawInputModifiers.Control);
-        Assert.Equal(1.25, view.Zoom);
-        fixture.Window.KeyPressQwerty(PhysicalKey.NumPadAdd, RawInputModifiers.Control);
-        Assert.Equal(1.5, view.Zoom);
-        fixture.Window.KeyPressQwerty(PhysicalKey.NumPadSubtract, RawInputModifiers.Control);
-        Assert.Equal(1.25, view.Zoom);
-
-        // Without Ctrl the keys do not zoom.
-        fixture.Window.KeyPressQwerty(PhysicalKey.Equal, RawInputModifiers.None);
-        Assert.Equal(1.25, view.Zoom);
-    }
-
-    [AvaloniaFact]
     public async Task ZoomOnAnOddPageStaysFinite()
     {
         foreach (var file in new[] { "rotated-page.pdf", "wide-page.pdf", "cropbox.pdf" })

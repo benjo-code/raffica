@@ -577,20 +577,6 @@ internal sealed partial class PageView : Control
         }
 
         var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
-        if (control && e.Key is Key.OemPlus or Key.Add)
-        {
-            ZoomIn();
-            e.Handled = true;
-            return;
-        }
-
-        if (control && e.Key is Key.OemMinus or Key.Subtract)
-        {
-            ZoomOut();
-            e.Handled = true;
-            return;
-        }
-
         double? y = control && e.Key is not (Key.Home or Key.End) ? null : PageViewScroll.ByKey(e.Key, _offsetY, _layout.ContentHeight, _viewport.Height);
         double? x = control ? null : PageViewScroll.ByHorizontalKey(e.Key, _offsetX, _layout.ContentWidth, _viewport.Width);
         if (y is null && x is null)

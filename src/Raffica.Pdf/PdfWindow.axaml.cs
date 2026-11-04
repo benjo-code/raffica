@@ -85,14 +85,13 @@ internal sealed partial class PdfWindow : Window
         InitializeComponent();
         Title = PdfStrings.WindowTitle;
 
+        // 2.1 has no command that changes a document, so there is nothing to save yet: a Save choice cannot succeed and keeps the tab.
+        _closeGuard = new CloseGuard(PromptAsync, _ => Task.FromResult(false));
+        Workspace = new Workspace(_closeGuard);
+
         Frame = new AppFrame();
-        var definition = PdfRibbon.Create(new PdfCommands(
-            Open: () => _ = GuardAsync(OpenFromDialogAsync),
-            Search: ShowSearchBar,
-            SearchNext: SearchNext,
-            SearchPrevious: SearchPrevious,
-            PagesPane: ShowPagesPane,
-            OutlinePane: ShowOutlinePane));
+        _rules = CreateRules();
+        var definition = PdfRibbon.Create(CreateCommands(), _rules);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter) };
 
         var titleBar = new TitleBar { Mark = CreateAppMark() };
@@ -105,9 +104,6 @@ internal sealed partial class PdfWindow : Window
         Tabs.Items.CollectionChanged += OnTabsChanged;
         _selectedSubscription = Tabs.GetObservable(DocumentTabs.SelectedProperty).Subscribe(new SelectedObserver(this));
 
-        // 2.1 has no command that changes a document, so there is nothing to save yet: a Save choice cannot succeed and keeps the tab.
-        _closeGuard = new CloseGuard(PromptAsync, _ => Task.FromResult(false));
-        Workspace = new Workspace(_closeGuard);
         Workspace.TabsChanged += OnWorkspaceTabsChanged;
         Workspace.ActiveChanged += OnWorkspaceActiveChanged;
 
@@ -136,8 +132,9 @@ internal sealed partial class PdfWindow : Window
         SetCompact(settings.CompactCommandBar);
         Refresh();
 
-        // Window-wide keys: Ctrl+K, F6 / Shift+F6 and the Alt field codes (Q the search field, 6 the pages pane, 7 the comments pane).
+        // Window-wide keys: Ctrl+K, F6 / Shift+F6, the shortcuts of the command catalog and the Alt field codes (Q the search field, 6 the pages pane, 7 the comments pane).
         FrameKeys.Attach(this, TitleSearch);
+        AttachShortcuts(definition);
         var paneFocus = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
         FieldCodeTarget[] targets =
         [
@@ -464,6 +461,7 @@ internal sealed partial class PdfWindow : Window
         {
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
+            _printInfo.Remove(tab);
             RememberView(tab);
             if (_panes.Remove(tab, out var panes))
             {
@@ -506,6 +504,7 @@ internal sealed partial class PdfWindow : Window
         Tabs.Selected = Workspace.Active?.Tab;
         UpdateSaveState();
         ShowActiveView();
+        RefreshCommandStates();
     }
 
     /// <summary>The document slot shows the page view of the active tab (made on first use); the others leave the screen and request nothing.</summary>
@@ -545,6 +544,7 @@ internal sealed partial class PdfWindow : Window
         }
 
         DocumentPane.Content = view;
+        LoadPrintInfo(active);
         if (_searchBar is not null && _searches.TryGetValue(active, out var shown))
         {
             _searchBar.Session = shown;
@@ -578,6 +578,18 @@ internal sealed partial class PdfWindow : Window
     /// once per tab); a pane that leaves the slot goes off screen and requests nothing. No tab or no wish: the slot is closed.
     /// </summary>
     private void UpdateLeftPane()
+    {
+        // A pane that leaves while the keyboard focus is inside it must not take the focus down with it: the document gets it.
+        var focusWasInside = FocusIsInNavigationPane();
+        var before = NavigationPane.Content;
+        PlaceLeftPane();
+        if (focusWasInside && (!NavigationPane.IsOpen || !ReferenceEquals(before, NavigationPane.Content)))
+        {
+            ActiveView?.Focus();
+        }
+    }
+
+    private void PlaceLeftPane()
     {
         var active = Workspace.Active;
         NavigationPane.IsOpen = Tabs.Items.Count > 0 && _leftPane != LeftPaneKind.None;
@@ -891,6 +903,7 @@ internal sealed partial class PdfWindow : Window
     /// <summary>The start view while no tab is open (no panes, no status bar, no ribbon), else the document view with every frame part.</summary>
     private void Refresh()
     {
+        RefreshCommandStates();
         if (Tabs.Items.Count == 0)
         {
             NavigationPane.IsOpen = false;

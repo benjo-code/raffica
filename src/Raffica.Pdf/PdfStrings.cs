@@ -19,6 +19,9 @@ internal static class PdfStrings
     /// <summary>The text of a key; throws <see cref="InvalidOperationException"/> for a missing key.</summary>
     public static string Get(string key) => Table.Get(key);
 
+    /// <summary>The text of a key in a given language (the current UI language is not touched); throws for a missing key.</summary>
+    public static string GetIn(string key, CultureInfo culture) => Table.GetIn(key, culture);
+
     public static string WindowTitle => Table.Get("WindowTitle");
     public static string AppMarkName => Table.Get("AppMarkName");
     public static string PanePages => Table.Get("PanePages");
@@ -125,6 +128,19 @@ internal static class PdfStrings
     public static string PaletteGroupOutline => Table.Get("PaletteGroupOutline");
     public static string PaletteOutlinePageFormat => Table.Get("PaletteOutlinePageFormat");
     public static string PaletteGroupDocument => Table.Get("PaletteGroupDocument");
+    public static string GroupTabs => Table.Get("GroupTabs");
+    public static string GroupText => Table.Get("GroupText");
+    public static string GroupHelp => Table.Get("GroupHelp");
+    public static string CmdCloseTab => Table.Get("CmdCloseTab");
+    public static string CmdSettings => Table.Get("CmdSettings");
+    public static string CmdNextTab => Table.Get("CmdNextTab");
+    public static string CmdPreviousTab => Table.Get("CmdPreviousTab");
+    public static string CmdSelectAll => Table.Get("CmdSelectAll");
+    public static string CmdCopy => Table.Get("CmdCopy");
+    public static string CmdHelp => Table.Get("CmdHelp");
+    public static string PrintLockedReason => Table.Get("PrintLockedReason");
+    public static string HelpTitle => Table.Get("HelpTitle");
+    public static string HelpListName => Table.Get("HelpListName");
 
     /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
     public static string Fill(string template, object? first, object? second = null) =>

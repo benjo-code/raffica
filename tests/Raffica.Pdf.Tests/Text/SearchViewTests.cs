@@ -240,6 +240,10 @@ public sealed class SearchViewTests
         window.Workspace.Select(first);
         ViewFixture.Pump();
         Assert.Equal("seite", bar.Query);
+
+        // The bar takes the session over; whether its summary already shows the count depends on how fast the run finishes, so wait for it.
+        await window.SearchOf(first)!.Completion.WaitAsync(Limit);
+        ViewFixture.Pump();
         Assert.Equal("2 hits", bar.SummaryText);
 
         window.CloseSearchBar();

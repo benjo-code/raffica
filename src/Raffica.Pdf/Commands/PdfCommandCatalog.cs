@@ -1,0 +1,165 @@
+using Avalonia.Input;
+using Raffica.Pdf.Dialogs;
+using Raffica.Shell.Frame;
+using Raffica.Shell.Localization;
+
+namespace Raffica.Pdf.Commands;
+
+/// <summary>A ribbon tab of the catalog.</summary>
+internal sealed class CatalogTab(string nameKey, string letter)
+{
+    private readonly List<CatalogGroup> _groups = [];
+
+    public string NameKey { get; } = nameKey;
+
+    /// <summary>The field-code letter of the tab.</summary>
+    public string Letter { get; } = letter;
+
+    public string Name => PdfStrings.Get(NameKey);
+
+    public IReadOnlyList<CatalogGroup> Groups => _groups;
+
+    internal CatalogGroup Group(string labelKey, string digit)
+    {
+        var group = new CatalogGroup(this, labelKey, digit);
+        _groups.Add(group);
+        return group;
+    }
+}
+
+/// <summary>A group of commands in a tab; its digit is the first character of the field codes of its commands.</summary>
+internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit)
+{
+    private readonly List<CatalogCommand> _commands = [];
+
+    public CatalogTab Tab { get; } = tab;
+
+    public string LabelKey { get; } = labelKey;
+
+    public string Digit { get; } = digit;
+
+    public string Label => PdfStrings.Get(LabelKey);
+
+    public IReadOnlyList<CatalogCommand> Commands => _commands;
+
+    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small)
+    {
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size));
+        return this;
+    }
+}
+
+/// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size)
+{
+    public CatalogGroup Group { get; } = group;
+
+    public CatalogTab Tab => Group.Tab;
+
+    public string Id { get; } = id;
+
+    public string NameKey { get; } = nameKey;
+
+    public string Name => PdfStrings.Get(NameKey);
+
+    /// <summary>The name of the icon in the icon set of the shell (<c>Raffica.Icon.&lt;name&gt;</c>).</summary>
+    public string Icon { get; } = icon;
+
+    /// <summary>The field code inside its tab: the group digit plus the position (<c>11</c> is the first command of the first group).</summary>
+    public string FieldCode { get; } = fieldCode;
+
+    public PdfShortcut? Shortcut { get; } = shortcut;
+
+    public CommandSize Size { get; } = size;
+}
+
+/// <summary>
+/// The single source of every command of the viewer: id, name, icon, field code, shortcut and where it sits in the ribbon. The ribbon
+/// (<see cref="PdfRibbon"/>), the key handling of the window, the help card and the tests all read this list. Icons are the closest of
+/// the shell's icon set; where none fits, one of the same family stands in.
+/// </summary>
+internal static class PdfCommandCatalog
+{
+    static PdfCommandCatalog()
+    {
+        var home = new CatalogTab("TabHome", "H");
+        home.Group("GroupFile", "1")
+            .Add(PdfCommandIds.Open, "CmdOpen", "Plus", "11", Cmd(Key.O, "O"), CommandSize.Large)
+            .Add(PdfCommandIds.Print, "CmdPrint", "AlignLeft", "12", Cmd(Key.P, "P"))
+            .Add(PdfCommandIds.CloseTab, "CmdCloseTab", "X", "13", Cmd(Key.W, "W"))
+            .Add(PdfCommandIds.Settings, "CmdSettings", "AlignCenter", "14", Cmd(Key.OemComma, ","));
+        home.Group("GroupFind", "2")
+            .Add(PdfCommandIds.Search, "CmdSearch", "Search", "21", Cmd(Key.F, "F"), CommandSize.Large)
+            .Add(PdfCommandIds.SearchNext, "CmdSearchNext", "Redo", "22", Plain(Key.F3, "F3"))
+            .Add(PdfCommandIds.SearchPrevious, "CmdSearchPrevious", "Undo", "23", Plain(Key.F3, "F3", shift: true));
+        home.Group("GroupGoTo", "3")
+            .Add(PdfCommandIds.GoToPage, "CmdGoToPage", "ChevronRight", "31", Cmd(Key.G, "G"), CommandSize.Large);
+        home.Group("GroupPages", "4")
+            .Add(PdfCommandIds.PreviousPage, "CmdPreviousPage", "Undo", "41")
+            .Add(PdfCommandIds.NextPage, "CmdNextPage", "Redo", "42")
+            .Add(PdfCommandIds.FirstPage, "CmdFirstPage", "Undo", "43")
+            .Add(PdfCommandIds.LastPage, "CmdLastPage", "Redo", "44");
+        home.Group("GroupTabs", "5")
+            .Add(PdfCommandIds.NextTab, "CmdNextTab", "Redo", "51", CtrlKey(Key.Tab, "Tab"))
+            .Add(PdfCommandIds.PreviousTab, "CmdPreviousTab", "Undo", "52", CtrlKey(Key.Tab, "Tab", shift: true));
+        home.Group("GroupText", "6")
+            .Add(PdfCommandIds.SelectAll, "CmdSelectAll", "AlignLeft", "61", Cmd(Key.A, "A"))
+            .Add(PdfCommandIds.Copy, "CmdCopy", "Plus", "62", Cmd(Key.C, "C"));
+        home.Group("GroupHelp", "7")
+            .Add(PdfCommandIds.Help, "CmdHelp", "Info", "71", Plain(Key.F1, "F1"));
+
+        var view = new CatalogTab("TabView", "V");
+        view.Group("GroupZoom", "1")
+            .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "Plus", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add]))
+            .Add(PdfCommandIds.ZoomOut, "CmdZoomOut", "Minus", "12", Cmd(Key.OemMinus, "-", anyShift: true, alternates: [Key.Subtract]))
+            .Add(PdfCommandIds.FitWidth, "CmdFitWidth", "AlignLeft", "13", Cmd(Key.D1, "1", alternates: [Key.NumPad1]))
+            .Add(PdfCommandIds.FitPage, "CmdFitPage", "Search", "14", Cmd(Key.D2, "2", alternates: [Key.NumPad2]))
+            .Add(PdfCommandIds.ActualSize, "CmdActualSize", "Check", "15", Cmd(Key.D0, "0", alternates: [Key.NumPad0]));
+        view.Group("GroupLayout", "2")
+            .Add(PdfCommandIds.Continuous, "CmdContinuous", "ChevronDown", "21")
+            .Add(PdfCommandIds.SinglePage, "CmdSinglePage", "AlignCenter", "22")
+            .Add(PdfCommandIds.TwoPages, "CmdTwoPages", "AlignRight", "23")
+            .Add(PdfCommandIds.TwoPagesCover, "CmdTwoPagesCover", "AlignLeft", "24");
+        view.Group("GroupPage", "3")
+            .Add(PdfCommandIds.DarkPage, "CmdDarkPage", "Check", "31", Cmd(Key.D, "D", shift: true), CommandSize.Large);
+        view.Group("GroupPanes", "4")
+            .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "ChevronRight", "41", Cmd(Key.D1, "1", shift: true))
+            .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "AlignLeft", "42", Cmd(Key.D2, "2", shift: true));
+
+        Tabs = [home, view];
+        Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
+    }
+
+    /// <summary>The tabs of the ribbon, in order.</summary>
+    public static IReadOnlyList<CatalogTab> Tabs { get; }
+
+    /// <summary>Every command, in ribbon order.</summary>
+    public static IReadOnlyList<CatalogCommand> Commands { get; }
+
+    /// <summary>The command a key press stands for, or null. <paramref name="command"/> is the command modifier of the platform.</summary>
+    public static CatalogCommand? Find(Key key, KeyModifiers modifiers, KeyModifiers command)
+    {
+        foreach (var candidate in Commands)
+        {
+            if (candidate.Shortcut is { } shortcut && shortcut.Matches(key, modifiers, command))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The lines of the help card: every command that has a shortcut, in ribbon order, grouped by its ribbon group, the shortcut written for the platform and the UI language.</summary>
+    public static IReadOnlyList<HelpEntry> HelpEntries() =>
+        Commands.Where(c => c.Shortcut is not null)
+            .Select(c => new HelpEntry(c.Group.Label, c.Name, KeyNames.Format(c.Shortcut!.Text(OperatingSystem.IsMacOS()), PdfStrings.Culture)))
+            .ToList();
+
+    private static PdfShortcut Cmd(Key key, string token, bool shift = false, bool anyShift = false, Key[]? alternates = null) =>
+        new(key, token, ShortcutBase.Command, shift, anyShift, alternates);
+
+    private static PdfShortcut Plain(Key key, string token, bool shift = false) => new(key, token, ShortcutBase.None, shift);
+
+    private static PdfShortcut CtrlKey(Key key, string token, bool shift = false) => new(key, token, ShortcutBase.Control, shift);
+}

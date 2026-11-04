@@ -341,4 +341,43 @@
   <data name="PaletteGroupDocument" xml:space="preserve">
     <value>Document</value>
   </data>
+  <data name="GroupTabs" xml:space="preserve">
+    <value>Tabs</value>
+  </data>
+  <data name="GroupText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="GroupHelp" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="CmdCloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="CmdSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="CmdNextTab" xml:space="preserve">
+    <value>Next tab</value>
+  </data>
+  <data name="CmdPreviousTab" xml:space="preserve">
+    <value>Previous tab</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Select all text</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Copy text</value>
+  </data>
+  <data name="CmdHelp" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="PrintLockedReason" xml:space="preserve">
+    <value>This document does not allow printing.</value>
+  </data>
+  <data name="HelpTitle" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="HelpListName" xml:space="preserve">
+    <value>List of keyboard shortcuts</value>
+  </data>
 </root>
