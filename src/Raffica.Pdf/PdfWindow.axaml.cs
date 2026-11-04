@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Raffica.Core.Hosting;
 using Raffica.Core.Pdf;
 using Raffica.Core.Settings;
+using Raffica.Core.Viewing;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
@@ -52,6 +53,7 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
+    private AppSettings? _appSettings;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
@@ -99,7 +101,8 @@ internal sealed partial class PdfWindow : Window
         Dialogs = new DialogQueue(Host);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
-        Start.OpenRequested += entry => _ = GuardAsync(() => OpenFilesAsync([Path.Combine(entry.Folder, entry.Name)]));
+        Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
+        Status.ZoomChanged += (_, percent) => ActiveView?.SetZoom(percent / 100.0);
         _recent.Changed += () => Start.Recent = _recent.ForStartView(RecentOnStartView);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -125,7 +128,12 @@ internal sealed partial class PdfWindow : Window
             _selectedSubscription.Dispose();
             _firstSharpFallback?.Stop();
 
-            // The views let go of their sessions first, then the sessions are disposed.
+            // The position of every open file is remembered, then the views let go of their sessions, then the sessions are disposed.
+            foreach (var tab in Workspace.Tabs)
+            {
+                RememberView(tab);
+            }
+
             foreach (var view in _views.Values)
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
@@ -139,6 +147,9 @@ internal sealed partial class PdfWindow : Window
             }
         };
     }
+
+    /// <summary>The recent files and the position per file (loaded after the first sharp page).</summary>
+    internal RecentService Recent => _recent;
 
     /// <summary>The open documents; the title bar tabs and the status bar follow it.</summary>
     internal Workspace Workspace { get; }
@@ -179,6 +190,23 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>Opens the files in order; the last one opened is active, a file that cannot be opened ends in an error card.</summary>
     internal Task OpenFilesAsync(IEnumerable<string> paths) => Flow.OpenManyAsync(paths);
+
+    /// <summary>
+    /// Opens the file of an entry of the recent list. A file that does not exist any more ends in the error card as usual and leaves the
+    /// list, so the entry does not come back.
+    /// </summary>
+    internal async Task<PdfTab?> OpenRecentAsync(Raffica.Shell.Frame.RecentFile entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        var path = Path.Combine(entry.Folder, entry.Name);
+        var tab = await Flow.OpenAsync(path);
+        if (tab is null && !File.Exists(path))
+        {
+            _recent.Remove(path);
+        }
+
+        return tab;
+    }
 
     /// <summary>Asks for PDF files with the system file dialog and opens them.</summary>
     internal async Task OpenFromDialogAsync()
@@ -263,14 +291,14 @@ internal sealed partial class PdfWindow : Window
     /// </summary>
     internal async Task OnFirstSharpPageAsync()
     {
-        if (_firstSharpWorkStarted)
+        if (!_firstSharpWorkStarted)
         {
-            return;
+            _firstSharpWorkStarted = true;
+            _firstSharpFallback?.Stop();
+            _instance?.StartListening(paths => Dispatcher.UIThread.Post(() => OnHandover(paths)));
         }
 
-        _firstSharpWorkStarted = true;
-        _firstSharpFallback?.Stop();
-        _instance?.StartListening(paths => Dispatcher.UIThread.Post(() => OnHandover(paths)));
+        // Idempotent: a second call waits for the load of the first.
         await _recent.LoadAsync();
     }
 
@@ -376,6 +404,7 @@ internal sealed partial class PdfWindow : Window
         {
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
+            RememberView(tab);
             if (_views.Remove(tab, out var view))
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
@@ -406,11 +435,103 @@ internal sealed partial class PdfWindow : Window
         {
             view = new PageView { Tab = active };
             view.FirstSharpPage += OnFirstSharpPageShown;
+            var created = view;
+            view.ViewChanged += () =>
+            {
+                if (ReferenceEquals(ActiveView, created))
+                {
+                    UpdateViewStatus();
+                }
+            };
+            ApplyInitialView(view, active);
             _views[active] = view;
         }
 
         DocumentPane.Content = view;
+        UpdateViewStatus();
         Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
+    }
+
+    /// <summary>The page view of the active tab, or null.</summary>
+    private PageView? ActiveView => Workspace.Active is { } active ? _views.GetValueOrDefault(active) : null;
+
+    /// <summary>
+    /// A new tab starts from the position remembered for its file (when the recent list has been loaded and knows the file, which is
+    /// not the case for a file given on the command line: that opens before the list is read, at the defaults), else from the default
+    /// layout and zoom mode of the settings.
+    /// </summary>
+    private void ApplyInitialView(PageView view, PdfTab tab)
+    {
+        if (tab.Path is { } path && _recent.ViewOf(path) is { } remembered && remembered.IsValid())
+        {
+            view.RestoreView(remembered.View, remembered.Zoom, remembered.ZoomMode, remembered.Layout);
+            return;
+        }
+
+        var settings = _appSettings ??= new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(_options.SettingsFile)).LoadReadOnly();
+        view.SetLayout(settings.DefaultLayout);
+        view.SetZoomMode(settings.DefaultZoomMode);
+    }
+
+    /// <summary>Stores where the file of a tab was read (on tab close and window close); a tab that never had a page shown stores nothing.</summary>
+    private void RememberView(PdfTab tab)
+    {
+        if (tab.Path is { } path && _views.TryGetValue(tab, out var view) && view.PageCount > 0)
+        {
+            _recent.Remember(path, view.CaptureRemembered());
+        }
+    }
+
+    /// <summary>The position, count and zoom cells follow the page view of the active tab (and are empty without one).</summary>
+    private void UpdateViewStatus()
+    {
+        if (ActiveView is not { PageCount: > 0 } view)
+        {
+            Status.Position = null;
+            Status.Count = null;
+            return;
+        }
+
+        Status.Position = ViewCommands.PositionText(view.CurrentPage + 1, view.PageCount);
+        Status.Count = ViewCommands.CountText(view.PageCount, view.CurrentPageSize);
+        Status.ZoomText = ViewCommands.ZoomText(view.Zoom);
+        Status.Zoom = view.Zoom * 100;
+    }
+
+    /// <summary>
+    /// Asks for a page number (the card of Ctrl+G) and goes to the page. Does nothing without a document. The command catalog calls this.
+    /// </summary>
+    internal async Task GoToPageAsync()
+    {
+        if (ActiveView is not { PageCount: > 0 } view)
+        {
+            return;
+        }
+
+        var count = view.PageCount;
+        var page = await Dialogs.ShowAsync<int?>(done => GoToPageCard.Create(count, view.CurrentPage + 1, done));
+        if (page is { } chosen)
+        {
+            view.GoToPage(chosen - 1);
+        }
+    }
+
+    /// <summary>
+    /// Shows the facts about the active document (Core's <see cref="DocumentInfoReader"/>) in a card and returns when it is closed. Does nothing
+    /// without a document. The count cell of the status bar is plain text in the shell, so the command catalog (the palette entry
+    /// "Document info") is the way in.
+    /// </summary>
+    internal async Task ShowDocumentInfoAsync()
+    {
+        if (Workspace.Active is not { Path: { } path } tab || tab.Session.Document is not { } document)
+        {
+            return;
+        }
+
+        var info = await DocumentInfoReader.ReadAsync(document, path);
+        var view = ActiveView;
+        var size = view is { PageCount: > 0 } && ReferenceEquals(view.Tab, tab) ? view.FirstPageSize : null;
+        await Dialogs.ShowAsync<bool>(done => DocumentInfoCard.Create(info, () => done(true), size));
     }
 
     /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>

@@ -89,17 +89,6 @@ public sealed class PageViewScrollTests
     }
 
     [AvaloniaFact]
-    public async Task WheelWithControlDoesNotScroll()
-    {
-        using var fixture = await ViewFixture.OpenAsync("text-rich.pdf");
-
-        fixture.Window.MouseWheel(new Point(300, 300), new Vector(0, -1), RawInputModifiers.Control);
-        fixture.View.CompleteScroll();
-
-        Assert.Equal(0, fixture.View.Offset.Y);
-    }
-
-    [AvaloniaFact]
     public async Task HomeAndEndGoToTheFirstAndLastPage()
     {
         using var fixture = await ViewFixture.OpenAsync("thousand-pages.pdf");

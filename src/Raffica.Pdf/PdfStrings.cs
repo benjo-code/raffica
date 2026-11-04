@@ -73,6 +73,31 @@ internal static class PdfStrings
     public static string ErrorUnknown => Table.Get("ErrorUnknown");
     public static string OpenDialogTitle => Table.Get("OpenDialogTitle");
     public static string OpenFilterPdf => Table.Get("OpenFilterPdf");
+    public static string StatusPositionFormat => Table.Get("StatusPositionFormat");
+    public static string StatusPageCountOne => Table.Get("StatusPageCountOne");
+    public static string StatusPageCountFormat => Table.Get("StatusPageCountFormat");
+    public static string StatusCountWithSizeFormat => Table.Get("StatusCountWithSizeFormat");
+    public static string PageSizeFormat => Table.Get("PageSizeFormat");
+    public static string GoToPageTitle => Table.Get("GoToPageTitle");
+    public static string GoToPageLabelFormat => Table.Get("GoToPageLabelFormat");
+    public static string GoToPageInvalidFormat => Table.Get("GoToPageInvalidFormat");
+    public static string InfoTitle => Table.Get("InfoTitle");
+    public static string InfoFileName => Table.Get("InfoFileName");
+    public static string InfoFolder => Table.Get("InfoFolder");
+    public static string InfoPages => Table.Get("InfoPages");
+    public static string InfoPageSize => Table.Get("InfoPageSize");
+    public static string InfoPdfVersion => Table.Get("InfoPdfVersion");
+    public static string InfoFileSize => Table.Get("InfoFileSize");
+    public static string InfoDocumentTitle => Table.Get("InfoDocumentTitle");
+    public static string InfoAuthor => Table.Get("InfoAuthor");
+    public static string InfoCreated => Table.Get("InfoCreated");
+    public static string InfoNotSet => Table.Get("InfoNotSet");
+
+    /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
+    public static string Fill(string template, object? first, object? second = null) =>
+        template
+            .Replace("{0}", Convert.ToString(first, Culture), StringComparison.Ordinal)
+            .Replace("{1}", Convert.ToString(second, Culture), StringComparison.Ordinal);
 
     /// <summary>The automation name of the page view of a document, so a screen reader tells the tabs apart.</summary>
     public static string PageViewName(string title) => PageViewNameFormat.Replace("{0}", title, StringComparison.Ordinal);

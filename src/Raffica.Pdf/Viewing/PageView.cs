@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Raffica.Core.Pdf;
+using Raffica.Core.Settings;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Documents;
 
@@ -88,6 +89,10 @@ internal sealed class PageView : Control
     private double _targetY;
     private TimeSpan? _lastFrame;
     private int _firstSharpPosted;
+    private bool _arranging;
+    private bool _raising;
+    private bool _viewChangedPosted;
+    private double _wheelZoomRemainder;
 
     public PageView()
     {
@@ -101,7 +106,11 @@ internal sealed class PageView : Control
         LogicalChildren.Add(_horizontal);
     }
 
-    /// <summary>Raised on the UI thread when what the view shows changed: scroll position, zoom, layout, current page or page sizes.</summary>
+    /// <summary>
+    /// Raised on the UI thread when what the view shows changed: scroll position, zoom, layout, current page or page sizes. It is never
+    /// raised inside the arrange pass and never from inside a handler of itself: a change that happens in either case is reported right after
+    /// (posted to the dispatcher), so a subscriber may change the zoom or the layout in its handler without re-entering the view.
+    /// </summary>
     public event Action? ViewChanged;
 
     /// <summary>Raised once, on the UI thread, after the first sharp (not preview) tile of a visible page was painted. Heavy work starts here.</summary>
@@ -165,7 +174,7 @@ internal sealed class PageView : Control
             if (_layout is not null)
             {
                 _layout.Mode = value;
-                if (value == PageLayoutMode.SinglePage)
+                if (value == PageLayoutMode.SinglePage && _layout.PageCount > 0)
                 {
                     _layout.ShowPage(page);
                 }
@@ -178,6 +187,21 @@ internal sealed class PageView : Control
             Relayout();
         }
     }
+
+    /// <summary>Zooms in by one step of <see cref="ZoomSteps"/>, around the centre of the view; ends a fit mode.</summary>
+    public void ZoomIn() => SetZoom(ZoomSteps.Next(_zoom));
+
+    /// <summary>Zooms out by one step of <see cref="ZoomSteps"/>, around the centre of the view; ends a fit mode.</summary>
+    public void ZoomOut() => SetZoom(ZoomSteps.Previous(_zoom));
+
+    /// <summary>Sets a manual zoom (limited to Core's range), around the centre of the view; ends a fit mode.</summary>
+    public void SetZoom(double zoom) => ZoomAround(zoom, new Point(_viewport.Width / 2, _viewport.Height / 2));
+
+    /// <summary>Sets how the zoom follows the window; <see cref="ZoomMode.Free"/> keeps the zoom as it is.</summary>
+    public void SetZoomMode(ZoomMode mode) => ZoomMode = mode;
+
+    /// <summary>Sets the page layout; the current page stays the current page.</summary>
+    public void SetLayout(PageLayoutMode mode) => Layout = mode;
 
     /// <summary>The theme of the pages (light: as the file draws them; dark: light on a dark ground, images keep their colours).</summary>
     public PageTheme PageTheme
@@ -230,6 +254,37 @@ internal sealed class PageView : Control
 
     /// <summary>The number of pages of the document the view shows; 0 before it is ready.</summary>
     internal int PageCount => _layout?.PageCount ?? 0;
+
+    /// <summary>The size in points of the current page, or <see langword="null"/> while it is not known yet.</summary>
+    internal PdfPageSize? CurrentPageSize
+    {
+        get
+        {
+            if (_layout is null || _layout.PageCount == 0)
+            {
+                return null;
+            }
+
+            var page = CurrentPage;
+            return _layout.IsSizeKnown(page) ? _layout.GetPageSize(page) : null;
+        }
+    }
+
+    /// <summary>The size in points of the first page, or <see langword="null"/> while it is not known yet.</summary>
+    internal PdfPageSize? FirstPageSize => _layout is { PageCount: > 0 } layout && layout.IsSizeKnown(0) ? layout.GetPageSize(0) : null;
+
+    /// <summary>Replaces the layout (for tests: a layout that no real document gives, such as one without pages).</summary>
+    internal void AdoptLayout(DocumentLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        layout.Mode = _layoutMode;
+        layout.Zoom = _zoom;
+        _layout = layout;
+        Relayout();
+    }
+
+    /// <summary>Whether the arrange pass of the view is running (for tests).</summary>
+    internal bool IsArranging => _arranging;
 
     /// <summary>The requests handed to the scheduler by the last plan (for tests); empty while the view requests nothing.</summary>
     internal IReadOnlyList<RenderRequest> LastPlan => _lastPlan;
@@ -287,7 +342,7 @@ internal sealed class PageView : Control
         _zoom = ZoomSteps.Clamp(zoom);
         _zoomMode = mode;
         _layoutMode = layout;
-        _anchor = view.Anchor;
+        _anchor = SanitizeAnchor(view.Anchor);
         _hasAnchor = true;
         _centreDistance = double.IsFinite(view.HorizontalFromCentre) ? view.HorizontalFromCentre : 0;
         _navigatedPage = null;
@@ -296,13 +351,85 @@ internal sealed class PageView : Control
         {
             _layout.Mode = layout;
             _layout.Zoom = _zoom;
-            if (layout == PageLayoutMode.SinglePage && view.Anchor.Page >= 0 && view.Anchor.Page < _layout.PageCount)
+            if (layout == PageLayoutMode.SinglePage && _layout.PageCount > 0)
             {
-                _layout.ShowPage(view.Anchor.Page);
+                _layout.ShowPage(_anchor.Page);
             }
         }
 
         Relayout();
+    }
+
+    /// <summary>The state to remember for the file: the position and the zoom, zoom mode and layout.</summary>
+    internal RememberedView CaptureRemembered() => new(CaptureView(), _zoom, _zoomMode, _layoutMode);
+
+    /// <summary>
+    /// Zooms to <paramref name="zoom"/> (limited to Core's range) and keeps the spot under <paramref name="point"/> (in the coordinates of the
+    /// view) where it is. A manual zoom ends a fit mode.
+    /// </summary>
+    internal void ZoomAround(double zoom, Point point)
+    {
+        zoom = ZoomSteps.Clamp(zoom);
+        var wasFitted = _zoomMode != ZoomMode.Free;
+        if (_layout is null || _layout.PageCount == 0)
+        {
+            _zoomMode = ZoomMode.Free;
+            _zoom = zoom;
+            if (_layout is not null)
+            {
+                _layout.Zoom = zoom;
+            }
+
+            return;
+        }
+
+        if (zoom == _layout.Zoom)
+        {
+            _zoomMode = ZoomMode.Free;
+            if (wasFitted)
+            {
+                Relayout();
+            }
+
+            return;
+        }
+
+        // The spot under the point: the page position at its vertical place, and its distance from the centre line of the pages.
+        var contentWidth = _layout.ContentWidth;
+        var fromCentre = point.X + _offsetX - LeftGap() - (contentWidth / 2);
+        var spot = _layout.GetAnchor(_offsetY + point.Y);
+        var ratio = zoom / _layout.Zoom;
+
+        // Above the first page lies the margin, which does not scale with the zoom: its distance to the page stays as it is in DIPs.
+        var aboveDips = spot.Fraction < 0 ? spot.Fraction * _layout.GetPageRect(spot.Page).Height : 0;
+
+        CancelAnimation();
+        _zoomMode = ZoomMode.Free;
+        _layout.Zoom = zoom;
+        _zoom = _layout.Zoom;
+        var spotOffset = spot.Fraction < 0 ? _layout.GetOffset(new PageAnchor(spot.Page, 0)) + aboveDips : _layout.GetOffset(spot);
+        _anchor = _layout.GetAnchor(Math.Max(0, spotOffset - point.Y));
+        _hasAnchor = true;
+        _navigatedPage = null;
+        _centreDistance = (fromCentre * ratio) - point.X + (_viewport.Width / 2);
+        Relayout();
+
+        // The offset was limited to the content: what is shown is the position from now on.
+        var width = _layout.ContentWidth;
+        _centreDistance = width > _viewport.Width ? _offsetX + (_viewport.Width / 2) - (width / 2) : 0;
+    }
+
+    // A remembered position may come from another version of the file: the page and the fraction are limited to what the layout has.
+    // The fraction may be below 0 (the margin above the first page) and above 1 (the gap below a page).
+    private PageAnchor SanitizeAnchor(PageAnchor anchor)
+    {
+        var fraction = double.IsFinite(anchor.Fraction) ? Math.Clamp(anchor.Fraction, -1, 2) : 0;
+        if (_layout is null)
+        {
+            return new PageAnchor(Math.Max(0, anchor.Page), fraction);
+        }
+
+        return new PageAnchor(_layout.PageCount == 0 ? 0 : Math.Clamp(anchor.Page, 0, _layout.PageCount - 1), fraction);
     }
 
     /// <summary>Moves a smooth wheel scroll that is still under way to its end at once (for tests).</summary>
@@ -370,6 +497,21 @@ internal sealed class PageView : Control
 
     protected override Size ArrangeOverride(Size finalSize)
     {
+        _arranging = true;
+        try
+        {
+            ArrangeCore(finalSize);
+        }
+        finally
+        {
+            _arranging = false;
+        }
+
+        return finalSize;
+    }
+
+    private void ArrangeCore(Size finalSize)
+    {
         if (finalSize != _viewport)
         {
             _viewport = finalSize;
@@ -380,7 +522,6 @@ internal sealed class PageView : Control
         var barHeight = _horizontal.IsVisible ? _horizontal.DesiredSize.Height : 0;
         _vertical.Arrange(new Rect(Math.Max(0, finalSize.Width - barWidth), 0, barWidth, Math.Max(0, finalSize.Height - barHeight)));
         _horizontal.Arrange(new Rect(0, Math.Max(0, finalSize.Height - barHeight), Math.Max(0, finalSize.Width - barWidth), barHeight));
-        return finalSize;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -392,11 +533,25 @@ internal sealed class PageView : Control
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
-        if (_layout is null || e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if (_layout is null)
         {
-            // Ctrl + wheel is the zoom of a later task; it must not scroll meanwhile.
             return;
         }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            // Ctrl + wheel zooms around the pointer, one step of the zoom table per notch; it never scrolls.
+            var zoom = ViewCommands.ZoomByWheel(_zoom, e.Delta.Y, ref _wheelZoomRemainder);
+            if (zoom != _zoom)
+            {
+                ZoomAround(zoom, e.GetPosition(this));
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        _wheelZoomRemainder = 0;
 
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var horizontal = shift ? e.Delta.Y : e.Delta.X;
@@ -422,6 +577,20 @@ internal sealed class PageView : Control
         }
 
         var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        if (control && e.Key is Key.OemPlus or Key.Add)
+        {
+            ZoomIn();
+            e.Handled = true;
+            return;
+        }
+
+        if (control && e.Key is Key.OemMinus or Key.Subtract)
+        {
+            ZoomOut();
+            e.Handled = true;
+            return;
+        }
+
         double? y = control && e.Key is not (Key.Home or Key.End) ? null : PageViewScroll.ByKey(e.Key, _offsetY, _layout.ContentHeight, _viewport.Height);
         double? x = control ? null : PageViewScroll.ByHorizontalKey(e.Key, _offsetX, _layout.ContentWidth, _viewport.Width);
         if (y is null && x is null)
@@ -700,6 +869,15 @@ internal sealed class PageView : Control
             };
             _appliedSizes = 0;
             changed = true;
+            if (_hasAnchor)
+            {
+                // A position restored before the layout existed: limit it to the pages the document has.
+                _anchor = SanitizeAnchor(_anchor);
+                if (_layoutMode == PageLayoutMode.SinglePage && _layout.PageCount > 0)
+                {
+                    _layout.ShowPage(_anchor.Page);
+                }
+            }
         }
 
         _document = document;
@@ -736,7 +914,8 @@ internal sealed class PageView : Control
             return;
         }
 
-        if (_zoomMode != ZoomMode.Free && _viewport.Width > 0 && _viewport.Height > 0)
+        // A document without pages has nothing to fit (and no page to take the row from). Actual size needs no viewport.
+        if (_zoomMode != ZoomMode.Free && _layout.PageCount > 0 && (_zoomMode == ZoomMode.ActualSize || (_viewport.Width > 0 && _viewport.Height > 0)))
         {
             _layout.Zoom = _layout.FitZoom(_zoomMode, Math.Clamp(_anchor.Page, 0, _layout.PageCount - 1), _viewport.Width, _viewport.Height);
         }
@@ -763,7 +942,43 @@ internal sealed class PageView : Control
         UpdateScrollBars();
         Replan();
         InvalidateVisual();
-        ViewChanged?.Invoke();
+        NotifyViewChanged();
+    }
+
+    // Raises ViewChanged, but never inside the arrange pass and never from inside a handler of the event: then it follows, posted.
+    private void NotifyViewChanged()
+    {
+        if (_arranging || _raising)
+        {
+            if (!_viewChangedPosted)
+            {
+                _viewChangedPosted = true;
+                Dispatcher.UIThread.Post(RaisePostedViewChanged, DispatcherPriority.Normal);
+            }
+
+            return;
+        }
+
+        RaiseViewChanged();
+    }
+
+    private void RaisePostedViewChanged()
+    {
+        _viewChangedPosted = false;
+        NotifyViewChanged();
+    }
+
+    private void RaiseViewChanged()
+    {
+        _raising = true;
+        try
+        {
+            ViewChanged?.Invoke();
+        }
+        finally
+        {
+            _raising = false;
+        }
     }
 
     /// <summary>Moves the view to an offset (clamped) and remembers the new top of the view.</summary>
@@ -797,7 +1012,7 @@ internal sealed class PageView : Control
         UpdateScrollBars();
         Replan();
         InvalidateVisual();
-        ViewChanged?.Invoke();
+        NotifyViewChanged();
     }
 
     private void SmoothScrollTo(double x, double y)

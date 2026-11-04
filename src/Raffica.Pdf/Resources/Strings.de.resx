@@ -175,4 +175,61 @@
   <data name="OpenFilterPdf" xml:space="preserve">
     <value>PDF-Dokumente</value>
   </data>
+  <data name="StatusPositionFormat" xml:space="preserve">
+    <value>Seite {0} von {1}</value>
+  </data>
+  <data name="StatusPageCountOne" xml:space="preserve">
+    <value>1 Seite</value>
+  </data>
+  <data name="StatusPageCountFormat" xml:space="preserve">
+    <value>{0} Seiten</value>
+  </data>
+  <data name="StatusCountWithSizeFormat" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PageSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+  </data>
+  <data name="GoToPageTitle" xml:space="preserve">
+    <value>Gehe zu Seite</value>
+  </data>
+  <data name="GoToPageLabelFormat" xml:space="preserve">
+    <value>Seitenzahl (1 bis {0})</value>
+  </data>
+  <data name="GoToPageInvalidFormat" xml:space="preserve">
+    <value>Geben Sie eine Seitenzahl von 1 bis {0} ein.</value>
+  </data>
+  <data name="InfoTitle" xml:space="preserve">
+    <value>Dokumentinfo</value>
+  </data>
+  <data name="InfoFileName" xml:space="preserve">
+    <value>Dateiname</value>
+  </data>
+  <data name="InfoFolder" xml:space="preserve">
+    <value>Ordner</value>
+  </data>
+  <data name="InfoPages" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="InfoPageSize" xml:space="preserve">
+    <value>Seitengröße</value>
+  </data>
+  <data name="InfoPdfVersion" xml:space="preserve">
+    <value>PDF-Version</value>
+  </data>
+  <data name="InfoFileSize" xml:space="preserve">
+    <value>Dateigröße</value>
+  </data>
+  <data name="InfoDocumentTitle" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="InfoAuthor" xml:space="preserve">
+    <value>Autor</value>
+  </data>
+  <data name="InfoCreated" xml:space="preserve">
+    <value>Erstellt</value>
+  </data>
+  <data name="InfoNotSet" xml:space="preserve">
+    <value>Nicht angegeben</value>
+  </data>
 </root>

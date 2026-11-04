@@ -26,6 +26,8 @@ internal sealed class ViewFixture : IDisposable
 
     public PdfTab Tab { get; }
 
+    private static string PathOf(string file) => Path.IsPathRooted(file) ? file : TestData.Pdf(file);
+
     public PageView View { get; }
 
     public Window Window { get; }
@@ -36,10 +38,10 @@ internal sealed class ViewFixture : IDisposable
     public static async Task<ViewFixture> OpenAsync(string file, double width = 800, double height = 600, bool show = true, Action<ViewerSession>? prepare = null, Action<PageView>? configure = null)
     {
         var session = new ViewerSession(Engine);
-        await session.OpenAsync(TestData.Pdf(file));
+        await session.OpenAsync(PathOf(file));
         Assert.Equal(ViewerState.Ready, session.State);
         prepare?.Invoke(session);
-        var tab = new PdfTab(session, TestData.Pdf(file));
+        var tab = new PdfTab(session, PathOf(file));
         var view = new PageView { Tab = tab };
         configure?.Invoke(view);
         var window = new Window { Width = width, Height = height };
