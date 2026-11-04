@@ -134,13 +134,26 @@ dotnet run bench/shell-probe/measure.cs -- size --target pdf --publish-dir artif
 dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform windows --in "artifacts/pdf/*.csv" --summary artifacts/pdf/summary.md
 ```
 
-**The limit table of the PDF app is empty on purpose.** The budgets are the medians of the owner's runs on the owner's machines
-and cannot be produced elsewhere. Until they are recorded, `check --target pdf` (and `size --check --target pdf`) prints the
-medians and exits with 2 and the message "no limits recorded for target pdf"; it never passes. macOS is indicative only.
+**The limit table of the PDF app is recorded.** The budgets are the medians of the owner's runs of 2026-11-04 (commit `db90246`, 10 runs per
+case, Windows and Linux, CSVs and machine notes in `Docs/measurements/pdf-viewer-2026-11-04/`), rounded up as in M1 (time to 10 ms, memory to
+5 MiB, size to 1 MiB); the limit is the budget x 1.25 applied once. The single copy is `s_pdfBudgets` in `CheckCommand` of `measure.cs`, the
+reasoning is the entry "Raffica PDF speed budgets (M2.1)" in `Docs/DECISIONS.md`. `scroll` is the median of the p99 of the frame gaps; `zip`
+has a budget like the gallery's, because `size --check` judges size and zip together. macOS has none and stays indicative. A binding platform
+with a table that lacks a limit still prints the medians and exits 2 ("no limits recorded for target pdf"); the selftest pins the recorded
+values, runs `check` on the committed CSVs (both platforms must exit 0) and keeps the verdict logic under a test-only table. CI runs
+`size --check <rid> --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts` (step "Size of the published PDF app").
 
-Owner steps (open until done):
+| | Windows budget / limit | Linux budget / limit |
+|---|---|---|
+| cold / warm (ms) | 400 / 500 and 390 / 487.5 | 230 / 287.5 and 230 / 287.5 |
+| 1000 pages (ms) | 400 / 500 | 220 / 275 |
+| second file (ms) | 30 / 37.5 | 40 / 50 |
+| scroll p99 (ms) | 20 / 25 | 40 / 50 |
+| memory (MiB) | 130 / 162.5 | 155 / 193.75 |
+| published size / zip (MiB) | 51 / 63.75 and 22 / 27.5 | 48 / 60 and 22 / 27.5 |
 
-1. Start the runner (see `RUNNERS.md`) and run, per machine: `gh workflow run measure.yml --ref feature/m21-viewer -f platform=windows -f target=pdf -f note="<GPU, resolution, scaling, power>"` and the same with `platform=linux`. For the cold start after a reboot add `-f cases=cold-reboot`.
-2. Read the medians in the job summary (the check step fails with exit code 2 by design) and in the uploaded CSVs; put the CSVs and the machine notes under `Docs/measurements/pdf-viewer-<date>/`. Measure the predecessor 1.0 and Chrome as references on the same machines with the method of the predecessor's comparison entry.
-3. Round each median as in M1 (time to 10 ms, memory to 5 MiB, size to 1 MiB), multiply once by 1.25, enter the budgets in `s_pdfBudgets` of `CheckCommand` in `measure.cs`, change the selftest lines that pin the empty table, and write the entry "Raffica PDF speed budgets (M2.1)" in `Docs/DECISIONS.md` (medians per machine and case, budgets, limits, reference numbers, a finding for every case that is slower than the predecessor or above a limit).
-4. Run `dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform windows --in "<CSVs>"` and the same for `linux`: both must exit 0 (a miss is a finding, never a changed limit). Then switch the CI step "Size of the published PDF app" to `size --check <rid> --target pdf`.
+Owner steps (what is still open):
+
+1. Re-run the workflow with the recorded limits on both machines, the check step must pass: `gh workflow run measure.yml --ref <branch> -f platform=windows -f target=pdf -f note="<GPU, resolution, scaling, power>"` and the same with `platform=linux` (for the cold start after a reboot add `-f cases=cold-reboot`). Compare locally with `dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform <windows|linux> --in "<CSVs>"` (exit 0 inside the limits, 1 above one; a miss is a finding, never a changed limit).
+2. Measure the references on the same machines: build the predecessor's `v1.0.0` tag outside this repository, measure it with the same cases (startup to the first sharp page, a file handed to the running instance, the 1000-page file, scrolling, memory) and Chrome by the method of the predecessor's comparison entry, and add the numbers to the entry "Raffica PDF speed budgets (M2.1)" with a finding for every case that is slower than the predecessor.
+3. A new budget or a loosened limit is a new decisions entry and a change of `s_pdfBudgets` together with the selftest lines that pin it, never an edit to make a check pass.
