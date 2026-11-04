@@ -461,19 +461,24 @@ public sealed class ShortcutTests
     }
 
     [AvaloniaFact]
-    public async Task PrintAndSettingsAreInTheCatalogButDoNothingYet()
+    public async Task PrintDoesNothingYetAndSettingsOpenTheDialog()
     {
         using var windows = WindowFixture.Create();
         await windows.OpenAsync("text-basic.pdf");
         var window = windows.Window;
 
+        // Print is in the catalog but has no action in 2.1.
         Ctrl(window, Key.P, PhysicalKey.P);
-        Ctrl(window, Key.OemComma, PhysicalKey.Comma);
-
         Assert.False(window.Host.IsOpen);
         var commands = window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
         Assert.False(commands.Single(c => c.Id == "file.print").IsEnabled);
-        Assert.False(commands.Single(c => c.Id == "file.settings").IsEnabled);
+        Assert.True(commands.Single(c => c.Id == "file.settings").IsEnabled);
+
+        // Settings has its action: Ctrl+Comma shows the settings dialog.
+        Ctrl(window, Key.OemComma, PhysicalKey.Comma);
+        Assert.True(window.Host.IsOpen);
+        ClickCard(window, "PART_Cancel");
+        Assert.False(window.Host.IsOpen);
     }
 
     [AvaloniaFact]
@@ -483,8 +488,8 @@ public sealed class ShortcutTests
         var window = windows.Window;
         var commands = window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
 
-        // Without a document: Open and Help (Settings has no action yet, so it is disabled too).
-        Assert.Equal(["file.open", "help.shortcuts"], commands.Where(c => c.IsEnabled).Select(c => c.Id).ToArray());
+        // Without a document: Open, Settings and Help.
+        Assert.Equal(["file.open", "file.settings", "help.shortcuts"], commands.Where(c => c.IsEnabled).Select(c => c.Id).Order(StringComparer.Ordinal).ToArray());
 
         await windows.OpenAsync("text-basic.pdf");
         var enabled = commands.Where(c => c.IsEnabled).Select(c => c.Id).ToList();

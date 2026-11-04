@@ -377,4 +377,19 @@
   <data name="HelpListName" xml:space="preserve">
     <value>Liste der Tastenkürzel</value>
   </data>
+  <data name="SettingsPageAppearance" xml:space="preserve">
+    <value>Seitendarstellung</value>
+  </data>
+  <data name="SettingsPageLight" xml:space="preserve">
+    <value>Hell</value>
+  </data>
+  <data name="SettingsPageFollowTheme" xml:space="preserve">
+    <value>Wie das Design</value>
+  </data>
+  <data name="SettingsDefaultLayout" xml:space="preserve">
+    <value>Standardlayout</value>
+  </data>
+  <data name="SettingsDefaultZoom" xml:space="preserve">
+    <value>Standardzoom</value>
+  </data>
 </root>

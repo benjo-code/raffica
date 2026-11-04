@@ -63,6 +63,11 @@ internal static class PdfStrings
     public static string CmdSinglePage => Table.Get("CmdSinglePage");
     public static string CmdTwoPages => Table.Get("CmdTwoPages");
     public static string CmdTwoPagesCover => Table.Get("CmdTwoPagesCover");
+    public static string SettingsPageAppearance => Table.Get("SettingsPageAppearance");
+    public static string SettingsPageLight => Table.Get("SettingsPageLight");
+    public static string SettingsPageFollowTheme => Table.Get("SettingsPageFollowTheme");
+    public static string SettingsDefaultLayout => Table.Get("SettingsDefaultLayout");
+    public static string SettingsDefaultZoom => Table.Get("SettingsDefaultZoom");
     public static string CmdDarkPage => Table.Get("CmdDarkPage");
     public static string CmdPagesPane => Table.Get("CmdPagesPane");
     public static string CmdOutlinePane => Table.Get("CmdOutlinePane");

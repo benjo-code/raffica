@@ -380,4 +380,19 @@
   <data name="HelpListName" xml:space="preserve">
     <value>List of keyboard shortcuts</value>
   </data>
+  <data name="SettingsPageAppearance" xml:space="preserve">
+    <value>Page appearance</value>
+  </data>
+  <data name="SettingsPageLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="SettingsPageFollowTheme" xml:space="preserve">
+    <value>Follow theme</value>
+  </data>
+  <data name="SettingsDefaultLayout" xml:space="preserve">
+    <value>Default layout</value>
+  </data>
+  <data name="SettingsDefaultZoom" xml:space="preserve">
+    <value>Default zoom</value>
+  </data>
 </root>

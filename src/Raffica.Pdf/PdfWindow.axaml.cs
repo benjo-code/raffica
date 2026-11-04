@@ -63,7 +63,6 @@ internal sealed partial class PdfWindow : Window
     private LeftPaneKind _leftPane = LeftPaneKind.Pages;
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
-    private readonly AppSettings _appSettings;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
@@ -80,7 +79,7 @@ internal sealed partial class PdfWindow : Window
         _launcher = launcher;
         _time = time;
         _options = options;
-        _appSettings = appSettings ?? AppSettings.Default;
+        var appDefaults = appSettings ?? AppSettings.Default;
         _recent = new RecentService(new RecentFilesStore(PdfSettingsFiles.RecentPathFor(options.SettingsFile)));
         InitializeComponent();
         Title = PdfStrings.WindowTitle;
@@ -120,6 +119,7 @@ internal sealed partial class PdfWindow : Window
         Host = new DialogHost { Content = Frame };
         Content = Host;
         Dialogs = new DialogQueue(Host);
+        Settings = new PdfSettingsController(options, Host, settings, appDefaults, SetCompact, SetPageThemeOfAllTabs);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -212,6 +212,9 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>Shows the cards of the window one at a time.</summary>
     internal DialogQueue Dialogs { get; }
+
+    /// <summary>The settings dialog and the settings in force.</summary>
+    internal PdfSettingsController Settings { get; }
 
     /// <summary>The host of the dialogs of the window.</summary>
     internal DialogHost Host { get; }
@@ -772,14 +775,15 @@ internal sealed partial class PdfWindow : Window
     /// </summary>
     private void ApplyInitialView(PageView view, PdfTab tab)
     {
+        view.PageTheme = Settings.PageThemeForNewTab;
         if (tab.Path is { } path && _recent.ViewOf(path) is { } remembered && remembered.IsValid())
         {
             view.RestoreView(remembered.View, remembered.Zoom, remembered.ZoomMode, remembered.Layout);
             return;
         }
 
-        view.SetLayout(_appSettings.DefaultLayout);
-        view.SetZoomMode(_appSettings.DefaultZoomMode);
+        view.SetLayout(Settings.App.DefaultLayout);
+        view.SetZoomMode(Settings.App.DefaultZoomMode);
     }
 
     /// <summary>Stores where the file of a tab was read (on tab close and window close); a tab that never had a page shown stores nothing.</summary>

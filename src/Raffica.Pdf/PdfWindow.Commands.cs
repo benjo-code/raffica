@@ -59,6 +59,7 @@ internal sealed partial class PdfWindow
         SinglePage: () => ActiveView?.SetLayout(PageLayoutMode.SinglePage),
         TwoPages: () => ActiveView?.SetLayout(PageLayoutMode.TwoPages),
         TwoPagesCover: () => ActiveView?.SetLayout(PageLayoutMode.TwoPagesWithCover),
+        Settings: () => Settings.Open(),
         DarkPage: ToggleDarkPage,
         PagesPane: ShowPagesPane,
         OutlinePane: ShowOutlinePane);
@@ -135,6 +136,15 @@ internal sealed partial class PdfWindow
         if (ActiveView is { } view)
         {
             view.PageTheme = view.PageTheme == PageTheme.Dark ? PageTheme.Light : PageTheme.Dark;
+        }
+    }
+
+    /// <summary>Gives the pages of every open tab the theme the page appearance setting asks for (it overrides the per-tab switch).</summary>
+    private void SetPageThemeOfAllTabs(PageTheme theme)
+    {
+        foreach (var view in _views.Values)
+        {
+            view.PageTheme = theme;
         }
     }
 
