@@ -1,0 +1,10 @@
+﻿Note: Owner main PC, Windows 11 (GPU/resolution/scaling/power not recorded by the controller; owner to add)
+Platform: windows
+Date (UTC): 2026-11-04 06:51:59
+Commit: ae4d07c9079ea3392830c26978e0272402987e43 (refs/heads/dev)
+OS: Microsoft Windows 11 Pro, version 10.0.26300, build 26300
+Processor: AMD Ryzen 7 7800X3D 8-Core Processor, 16 logical processors
+RAM: 30.9 GiB
+GPU: NVIDIA GeForce RTX 4070 SUPER, driver 32.0.16.1692, 1920 x 1080 at 60 Hz
+GPU: AMD Radeon(TM) Graphics, driver 32.0.21013.1000, 1920 x 1080 at 60 Hz
+Power plan: GUID des Energieschemas: 381b4222-f694-41f0-9685-ff5bb260df2e  (Ausbalanciert)

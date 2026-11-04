@@ -1,0 +1,4 @@
+machine,mode,case,run,value,unit
+ProBook-BENNI,gallery,input,median,16.59,ms
+ProBook-BENNI,gallery,input,p99,36.11,ms
+ProBook-BENNI,gallery,input,max,80.15,ms

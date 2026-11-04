@@ -1,0 +1,8 @@
+Note: HP ProBook, CachyOS (GPU/resolution/scaling/power not recorded by the controller; owner to add)
+Platform: linux
+Date (UTC): 2026-11-04 06:52:01
+Commit: ae4d07c9079ea3392830c26978e0272402987e43 (refs/heads/dev)
+OS: CachyOS, kernel 7.3.0-4-cachyos
+Processor: Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz, 8 logical processors
+RAM: 15.4 GiB
+Session: wayland (DISPLAY=':0', WAYLAND_DISPLAY='wayland-1')
