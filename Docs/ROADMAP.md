@@ -166,7 +166,7 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 - [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"); it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered.
+- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
 
 ## Milestone 2.1 – Viewer
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
@@ -174,7 +174,7 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.
 
 **Tasks**
-- [ ] Inventory Pagewing 1.0's features (its roadmap and README) as a checklist per milestone 2.1 to 2.6, kept in the plan of each milestone
+- [ ] Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change)
 - [ ] App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view
 - [ ] Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)
 - [ ] Open by file argument, dialog, drag and drop and password; single instance (a second file opens in the running instance); recent files; tabs; position per file
@@ -236,7 +236,7 @@ Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and expo
 - [ ] Merge and split results open with the right page count (test and a manual check in an independent viewer)
 
 ## Milestone 2.5 – Redact, OCR and line editing
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.4
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.3, M2.4
 
 Goal: Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository.
 
@@ -266,8 +266,9 @@ Goal: Installers, default-app registration and the updater exist for Windows and
 
 **Acceptance criteria**
 - [ ] Installers build in CI (the workflow run is named in the evidence)
-- [ ] An installed build runs, registers as the PDF handler and updates from one test release to the next (manual check on Windows and Linux, recorded)
-- [ ] The first release is published only on the owner's instruction
+- [ ] An installed build runs, registers as the PDF handler and updates from one test release to the next with the test key (manual check on Windows and Linux, recorded); the path with the real key stays an open item
+- [ ] The release workflow runs green as a dry run (workflow run named in the evidence); publishing the first release is not part of this milestone, it happens only on the owner's instruction and stays listed as an open item
+- [ ] Every Pagewing 1.0 feature in the inventory of 2.1 is done or listed as open, with the reason (checked against the inventory by hand and recorded)
 
 ---
 

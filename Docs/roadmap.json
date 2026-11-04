@@ -196,7 +196,7 @@
             { "text": "Create the spec (brainstorming) and enter its milestones", "done": true }
           ],
           "acceptance": [
-            { "text": "The spec is approved and linked here", "done": true, "evidence": "The owner approved the spec in the planning session on 2026-11-04 (\"approved\"); it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered." }
+            { "text": "The spec is approved and linked here", "done": true, "evidence": "The owner approved the spec in the planning session on 2026-11-04 (\"approved\"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green." }
           ]
         },
         {
@@ -207,7 +207,7 @@
           "prerequisites": ["2", "1.2"],
           "goal": "Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.",
           "tasks": [
-            { "text": "Inventory Pagewing 1.0's features (its roadmap and README) as a checklist per milestone 2.1 to 2.6, kept in the plan of each milestone", "done": false },
+            { "text": "Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change)", "done": false },
             { "text": "App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view", "done": false },
             { "text": "Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)", "done": false },
             { "text": "Open by file argument, dialog, drag and drop and password; single instance (a second file opens in the running instance); recent files; tabs; position per file", "done": false },
@@ -283,7 +283,7 @@
           "title": "Redact, OCR and line editing",
           "status": "open",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
-          "prerequisites": ["2.4"],
+          "prerequisites": ["2.3", "2.4"],
           "goal": "Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository.",
           "tasks": [
             { "text": "Build the Tesseract library in this repository (workflow and build scripts), replace the fetch from Pagewing's prerelease in `tools/native-fetch.cs`, and put the CodeQL and hardware-measure workflows back where needed", "done": false },
@@ -314,8 +314,9 @@
           ],
           "acceptance": [
             { "text": "Installers build in CI (the workflow run is named in the evidence)", "done": false },
-            { "text": "An installed build runs, registers as the PDF handler and updates from one test release to the next (manual check on Windows and Linux, recorded)", "done": false },
-            { "text": "The first release is published only on the owner's instruction", "done": false }
+            { "text": "An installed build runs, registers as the PDF handler and updates from one test release to the next with the test key (manual check on Windows and Linux, recorded); the path with the real key stays an open item", "done": false },
+            { "text": "The release workflow runs green as a dry run (workflow run named in the evidence); publishing the first release is not part of this milestone, it happens only on the owner's instruction and stays listed as an open item", "done": false },
+            { "text": "Every Pagewing 1.0 feature in the inventory of 2.1 is done or listed as open, with the reason (checked against the inventory by hand and recorded)", "done": false }
           ]
         }
       ]

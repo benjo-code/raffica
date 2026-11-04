@@ -1,8 +1,8 @@
 # Raffica PDF – Design
 
-Status: draft for approval · Date: 2026-11-04 · Author: brainstorming session (M2)
+Status: approved by the owner on 2026-11-04 · Date: 2026-11-04 · Author: brainstorming session (M2)
 
-Items marked **(call)** are decisions made by the author of this document, not by the project owner. The owner should check them. Everything else was decided by the owner in the session or is settled in an existing document that this one names.
+Items marked **(call)** are decisions made by the author of this document, not by the project owner; they are part of the document the owner approved on 2026-11-04 as handed over. Everything else was decided by the owner in the session or is settled in an existing document that this one names.
 
 ## 1. Intent
 

@@ -57,7 +57,7 @@ Add the six milestones of step 3 without regenerating. Run `dotnet run tools/roa
 | `2.2` | Annotate | `["2.1"]` | Marks and comments can be added, changed, undone and saved through the existing save pipeline. |
 | `2.3` | Forms and signing | `["2.2"]` | AcroForm fields can be filled and a visible signature placed and saved. |
 | `2.4` | Organize pages | `["2.2"]` | Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane. |
-| `2.5` | Redact, OCR and line editing | `["2.4"]` | Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository. |
+| `2.5` | Redact, OCR and line editing | `["2.3", "2.4"]` | Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository. |
 | `2.6` | Packaging and release | `["2.5"]` | Installers, default-app registration and the updater exist for Windows and Linux, and the first release can be published on the owner's instruction. |
 
 Milestone `2.1`'s first task is the inventory of Pagewing 1.0's features as a checklist per milestone; its tasks also include the shell option that hides the autosave row (spec section 6) and the task to look for the cause if the app is slower than Pagewing 1.0 (spec section 5). Milestone `2.5`'s first task is building the Tesseract library in this repository. Milestone `2.6` lists the open items that need the owner's machines (installers, printers, the real update key) with the command that checks each.
