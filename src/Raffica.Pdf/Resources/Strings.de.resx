@@ -25,6 +25,37 @@
   <data name="PanePages" xml:space="preserve">
     <value>Seiten</value>
   </data>
+  <data name="PaneOutline" xml:space="preserve">
+    <value>Gliederung</value>
+  </data>
+  <data name="PageThumbnailNameFormat" xml:space="preserve">
+    <value>Seite {0}</value>
+    <comment>Automation name of a page thumbnail; {0} is the page number.</comment>
+  </data>
+  <data name="PageThumbnailCurrentNameFormat" xml:space="preserve">
+    <value>Seite {0}, aktuelle Seite</value>
+    <comment>Automation name of the thumbnail of the page shown in the document; {0} is the page number.</comment>
+  </data>
+  <data name="OutlineEmpty" xml:space="preserve">
+    <value>Dieses Dokument hat keine Gliederung.</value>
+    <comment>Hint in the outline pane when the document has no bookmarks (or they could not be read).</comment>
+  </data>
+  <data name="OutlineNoPage" xml:space="preserve">
+    <value>ohne Seite</value>
+    <comment>Added to the automation name of an outline entry that has no page to go to.</comment>
+  </data>
+  <data name="OutlineExpanded" xml:space="preserve">
+    <value>aufgeklappt</value>
+    <comment>Added to the automation name of an outline entry whose children are shown.</comment>
+  </data>
+  <data name="OutlineCollapsed" xml:space="preserve">
+    <value>zugeklappt</value>
+    <comment>Added to the automation name of an outline entry whose children are hidden.</comment>
+  </data>
+  <data name="OutlineUntitled" xml:space="preserve">
+    <value>(ohne Titel)</value>
+    <comment>Shown for an outline entry without a title.</comment>
+  </data>
   <data name="TabHome" xml:space="preserve">
     <value>Start</value>
   </data>

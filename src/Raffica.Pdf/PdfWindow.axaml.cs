@@ -14,6 +14,7 @@ using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Hosting;
+using Raffica.Pdf.Panes;
 using Raffica.Pdf.Settings;
 using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
@@ -51,6 +52,8 @@ internal sealed partial class PdfWindow : Window
     private readonly PdfOptions _options;
     private readonly RecentService _recent;
     private readonly Dictionary<PdfTab, PageView> _views = [];
+    private readonly Dictionary<PdfTab, TabPanes> _panes = [];
+    private LeftPaneKind _leftPane = LeftPaneKind.Pages;
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
     private readonly AppSettings _appSettings;
@@ -72,7 +75,7 @@ internal sealed partial class PdfWindow : Window
         Title = PdfStrings.WindowTitle;
 
         Frame = new AppFrame();
-        var definition = PdfRibbon.Create(new PdfCommands(Open: () => _ = GuardAsync(OpenFromDialogAsync)));
+        var definition = PdfRibbon.Create(new PdfCommands(Open: () => _ = GuardAsync(OpenFromDialogAsync), PagesPane: ShowPagesPane, OutlinePane: ShowOutlinePane));
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter) };
 
         var titleBar = new TitleBar { Mark = CreateAppMark() };
@@ -90,10 +93,10 @@ internal sealed partial class PdfWindow : Window
         Workspace.TabsChanged += OnWorkspaceTabsChanged;
         Workspace.ActiveChanged += OnWorkspaceActiveChanged;
 
-        PagesPane = new Pane { Title = PdfStrings.PanePages, Width = PagesPaneWidth };
+        NavigationPane = new Pane { Title = PdfStrings.PanePages, Width = PagesPaneWidth };
         DocumentPane = new Pane { IsDocument = true, PaneName = ShellStrings.PaneDocument };
         CommentsPane = new Pane { Title = ShellStrings.PaneComments, Width = CommentsPaneWidth, IsOpen = false };
-        FieldCodeBadge.SetCode(PagesPane, "6");
+        FieldCodeBadge.SetCode(NavigationPane, "6");
         FieldCodeBadge.SetCode(CommentsPane, "7");
 
         Status = new StatusBar();
@@ -117,11 +120,11 @@ internal sealed partial class PdfWindow : Window
 
         // Window-wide keys: Ctrl+K, F6 / Shift+F6 and the Alt field codes (Q the search field, 6 the pages pane, 7 the comments pane).
         FrameKeys.Attach(this, TitleSearch);
-        var paneFocus = new PaneFocus(this, [PagesPane, DocumentPane, CommentsPane], Status);
+        var paneFocus = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
         FieldCodeTarget[] targets =
         [
             new("Q", TitleSearch.FocusAndSelect),
-            new("6", () => paneFocus.Focus(PagesPane)),
+            new("6", () => paneFocus.Focus(NavigationPane)),
             new("7", () => paneFocus.Focus(CommentsPane)),
         ];
         _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
@@ -138,6 +141,13 @@ internal sealed partial class PdfWindow : Window
                 RememberView(tab);
             }
 
+            // The panes let go of the sessions and the views first, then the views, then the sessions.
+            foreach (var panes in _panes.Values)
+            {
+                panes.Dispose();
+            }
+
+            _panes.Clear();
             foreach (var view in _views.Values)
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
@@ -177,7 +187,11 @@ internal sealed partial class PdfWindow : Window
 
     public StatusBar Status { get; }
 
-    public Pane PagesPane { get; }
+    /// <summary>
+    /// The left slot of the frame (204 px): the thumbnails of the pages or the outline of the active tab, one at a time. It is closed while
+    /// no document is open and after <see cref="CloseLeftPane"/>; it takes part in the F6 ring.
+    /// </summary>
+    public Pane NavigationPane { get; }
 
     public Pane DocumentPane { get; }
 
@@ -409,6 +423,11 @@ internal sealed partial class PdfWindow : Window
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
             RememberView(tab);
+            if (_panes.Remove(tab, out var panes))
+            {
+                panes.Dispose();
+            }
+
             if (_views.Remove(tab, out var view))
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
@@ -432,6 +451,7 @@ internal sealed partial class PdfWindow : Window
         if (Workspace.Active is not { } active)
         {
             DocumentPane.Content = null;
+            UpdateLeftPane();
             return;
         }
 
@@ -452,8 +472,75 @@ internal sealed partial class PdfWindow : Window
         }
 
         DocumentPane.Content = view;
+        UpdateLeftPane();
         UpdateViewStatus();
         Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
+    }
+
+    /// <summary>What the left slot shows now (for tests and the commands of the pane group).</summary>
+    internal LeftPaneKind LeftPane => _leftPane;
+
+    /// <summary>Opens the left slot with the thumbnails of the pages.</summary>
+    internal void ShowPagesPane() => ShowLeftPane(LeftPaneKind.Pages);
+
+    /// <summary>Opens the left slot with the outline of the document.</summary>
+    internal void ShowOutlinePane() => ShowLeftPane(LeftPaneKind.Outline);
+
+    /// <summary>Closes the left slot (the pages and the outline); the document takes the room.</summary>
+    internal void CloseLeftPane() => ShowLeftPane(LeftPaneKind.None);
+
+    private void ShowLeftPane(LeftPaneKind kind)
+    {
+        _leftPane = kind;
+        UpdateLeftPane();
+    }
+
+    /// <summary>
+    /// Puts the pane of the active tab for the wanted kind into the slot (made on first use, kept until the tab closes: the outline is read
+    /// once per tab); a pane that leaves the slot goes off screen and requests nothing. No tab or no wish: the slot is closed.
+    /// </summary>
+    private void UpdateLeftPane()
+    {
+        var active = Workspace.Active;
+        NavigationPane.IsOpen = Tabs.Items.Count > 0 && _leftPane != LeftPaneKind.None;
+        if (active is null || !_views.TryGetValue(active, out var view) || _leftPane == LeftPaneKind.None)
+        {
+            NavigationPane.Content = null;
+            return;
+        }
+
+        if (!_panes.TryGetValue(active, out var panes))
+        {
+            _panes[active] = panes = new TabPanes(active, view);
+        }
+
+        if (_leftPane == LeftPaneKind.Pages)
+        {
+            NavigationPane.Title = PdfStrings.PanePages;
+            NavigationPane.Content = panes.Pages;
+        }
+        else
+        {
+            NavigationPane.Title = PdfStrings.PaneOutline;
+            NavigationPane.Content = panes.Outline;
+        }
+    }
+
+    /// <summary>The panes of one tab; each is made when first shown and disposed with the tab.</summary>
+    private sealed class TabPanes(PdfTab tab, PageView view) : IDisposable
+    {
+        private PagesPane? _pages;
+        private OutlinePane? _outline;
+
+        public PagesPane Pages => _pages ??= new PagesPane(tab, view);
+
+        public OutlinePane Outline => _outline ??= new OutlinePane(tab, view);
+
+        public void Dispose()
+        {
+            _pages?.Dispose();
+            _outline?.Dispose();
+        }
     }
 
     /// <summary>The page view of the active tab, or null.</summary>
@@ -611,7 +698,7 @@ internal sealed partial class PdfWindow : Window
     {
         if (Tabs.Items.Count == 0)
         {
-            PagesPane.IsOpen = false;
+            NavigationPane.IsOpen = false;
             DocumentPane.IsOpen = false;
             Frame.LeftPane = null;
             Frame.RightPane = null;
@@ -624,11 +711,11 @@ internal sealed partial class PdfWindow : Window
 
         Frame.TabRow = Ribbon.TabRow;
         Frame.Band = Ribbon.Band;
-        Frame.LeftPane = PagesPane;
+        Frame.LeftPane = NavigationPane;
         Frame.RightPane = CommentsPane;
         Frame.Document = DocumentPane;
         Frame.StatusBar = Status;
-        PagesPane.IsOpen = true;
+        NavigationPane.IsOpen = _leftPane != LeftPaneKind.None;
         DocumentPane.IsOpen = true;
     }
 }

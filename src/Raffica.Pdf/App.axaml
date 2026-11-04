@@ -5,5 +5,6 @@
   <Application.Styles>
     <shell:RafficaStyles />
     <StyleInclude Source="avares://RafficaPdf/Styles/PageView.axaml" />
+    <StyleInclude Source="avares://RafficaPdf/Styles/Panes.axaml" />
   </Application.Styles>
 </Application>

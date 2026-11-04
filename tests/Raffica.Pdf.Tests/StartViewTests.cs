@@ -32,7 +32,7 @@ public sealed class StartViewTests
         window.Tabs.Selected = tab;
         Assert.Same(window.DocumentPane, window.Frame.Document);
         Assert.Same(window.Status, window.Frame.StatusBar);
-        Assert.Same(window.PagesPane, window.Frame.LeftPane);
+        Assert.Same(window.NavigationPane, window.Frame.LeftPane);
 
         window.Tabs.Items.Remove(tab);
         Assert.Same(window.Start, window.Frame.Document);
@@ -43,13 +43,13 @@ public sealed class StartViewTests
     public void ThePanesHaveTheirWidthsAndTheCommentsPaneIsReservedAndClosed()
     {
         var window = Show();
-        Assert.Equal(204, window.PagesPane.Width);
+        Assert.Equal(204, window.NavigationPane.Width);
         Assert.Equal(300, window.CommentsPane.Width);
-        Assert.False(window.PagesPane.IsOpen);
+        Assert.False(window.NavigationPane.IsOpen);
 
         // With a document the pages pane opens; the comments pane stays closed (reserved for a later milestone).
         window.Tabs.Items.Add(new DocumentTab("a.pdf"));
-        Assert.True(window.PagesPane.IsOpen);
+        Assert.True(window.NavigationPane.IsOpen);
         Assert.False(window.CommentsPane.IsOpen);
     }
 

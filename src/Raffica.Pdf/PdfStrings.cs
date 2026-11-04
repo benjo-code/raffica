@@ -22,6 +22,14 @@ internal static class PdfStrings
     public static string WindowTitle => Table.Get("WindowTitle");
     public static string AppMarkName => Table.Get("AppMarkName");
     public static string PanePages => Table.Get("PanePages");
+    public static string PaneOutline => Table.Get("PaneOutline");
+    public static string PageThumbnailNameFormat => Table.Get("PageThumbnailNameFormat");
+    public static string PageThumbnailCurrentNameFormat => Table.Get("PageThumbnailCurrentNameFormat");
+    public static string OutlineEmpty => Table.Get("OutlineEmpty");
+    public static string OutlineNoPage => Table.Get("OutlineNoPage");
+    public static string OutlineExpanded => Table.Get("OutlineExpanded");
+    public static string OutlineCollapsed => Table.Get("OutlineCollapsed");
+    public static string OutlineUntitled => Table.Get("OutlineUntitled");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string TabHome => Table.Get("TabHome");
     public static string TabView => Table.Get("TabView");
@@ -98,6 +106,22 @@ internal static class PdfStrings
         template
             .Replace("{0}", Convert.ToString(first, Culture), StringComparison.Ordinal)
             .Replace("{1}", Convert.ToString(second, Culture), StringComparison.Ordinal);
+
+    /// <summary>The automation name of the thumbnail of a page (1-based number); the page shown in the document says so.</summary>
+    public static string PageThumbnailName(int number, bool current) =>
+        Fill(current ? PageThumbnailCurrentNameFormat : PageThumbnailNameFormat, number);
+
+    /// <summary>The automation name of an outline entry: the title, its state (open or closed) and that it has no page, in the UI language.</summary>
+    public static string OutlineEntryName(string title, bool hasChildren, bool expanded, bool hasPage)
+    {
+        var name = string.IsNullOrWhiteSpace(title) ? OutlineUntitled : title;
+        if (hasChildren)
+        {
+            name += ", " + (expanded ? OutlineExpanded : OutlineCollapsed);
+        }
+
+        return hasPage ? name : name + ", " + OutlineNoPage;
+    }
 
     /// <summary>The automation name of the page view of a document, so a screen reader tells the tabs apart.</summary>
     public static string PageViewName(string title) => PageViewNameFormat.Replace("{0}", title, StringComparison.Ordinal);
