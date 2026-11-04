@@ -101,7 +101,8 @@ internal sealed class WindowsPrintService : IPrintService
         }
 
         // The device context belongs to one thread for the whole job; PDFium draws on it from its own thread while this
-        // one waits, so the context is never used by two threads at once. The thread waits on PDFium, never the UI thread.
+        // one waits for every request to finish (also when cancelled), so the context is never used by two threads at once.
+        // The thread waits on PDFium, never the UI thread.
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
@@ -130,7 +131,7 @@ internal sealed class WindowsPrintService : IPrintService
     private static void Run(PrintJobRequest job, WindowsPrintTicket ticket, IProgress<PrintProgress> progress, CancellationToken cancellationToken)
     {
         var document = job.Document;
-        var info = document.GetPrintInfoAsync(cancellationToken).WaitAsync(cancellationToken).GetAwaiter().GetResult();
+        var info = document.GetPrintInfoAsync(cancellationToken).GetAwaiter().GetResult();
         if (!info.PrintAllowed)
         {
             throw new PrintException(PdfStrings.PrintForbidden);
@@ -231,12 +232,15 @@ internal sealed class WindowsPrintService : IPrintService
         {
             if (!sizes.TryGetValue(index, out var size))
             {
-                size = job.Document.GetPageSizeAsync(index, cancellationToken).WaitAsync(cancellationToken).GetAwaiter().GetResult();
+                size = job.Document.GetPageSizeAsync(index, cancellationToken).GetAwaiter().GetResult();
                 sizes[index] = size;
             }
 
             var placement = PrintPlacement.Plan(size, area, settings.Scaling).ToDevice(dpiX, dpiY);
-            job.Document.PrintPageToDeviceAsync(index, context, placement, cancellationToken).WaitAsync(cancellationToken).GetAwaiter().GetResult();
+            // Wait for the task itself, never with WaitAsync(token): a cancellation only stops a request of PDFium that has not
+            // started, a running one always finishes, and the task ends after it. Returning earlier would let AbortDoc and
+            // DeleteDC run while PDFium still draws on the device context.
+            job.Document.PrintPageToDeviceAsync(index, context, placement, cancellationToken).GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is PdfRenderException or InvalidDataException or ArgumentOutOfRangeException)
         {

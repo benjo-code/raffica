@@ -87,6 +87,32 @@ public sealed class WindowsPrintToPdfTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PrintAsync(new PrintSettings(), progress, cancel.Token));
     }
 
+    // Cancels at many moments of a running job, among them while PDFium draws a page. The job must end only after the request
+    // in flight has finished (the page draw is waited for itself, not with WaitAsync), so that AbortDoc and the disposal of the
+    // ticket never meet a device context that PDFium still draws on. The moment of the cancellation is not controllable, so this
+    // is a stress test of the race, not a deterministic proof; the guarantee is the wait in WindowsPrintService.PrintPage.
+    [Fact]
+    public async Task CancellingAtAnyMomentEndsTheJobCleanlyAndTheNextJobPrints()
+    {
+        for (var delay = 0; delay <= 60; delay += 4)
+        {
+            using var cancel = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            cancel.CancelAfter(TimeSpan.FromMilliseconds(delay));
+            try
+            {
+                await PrintAsync(new PrintSettings(), null, cancel.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected for most delays; a job that finished before the cancellation is fine too.
+            }
+        }
+
+        var output = await PrintAsync(new PrintSettings(), null, TestContext.Current.CancellationToken);
+        await using var printed = await _engine.OpenAsync(output, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(4, printed.PageCount);
+    }
+
     private async Task<string> PrintAsync(PrintSettings settings, IProgress<PrintProgress>? progress, CancellationToken cancellationToken)
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Printing needs Windows.");
