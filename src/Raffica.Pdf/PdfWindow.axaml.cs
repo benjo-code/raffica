@@ -55,6 +55,9 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
     private readonly Dictionary<PdfTab, SearchSession> _searches = [];
+    private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
+    private readonly Action<Uri>? _launcher;
+    private readonly TimeProvider? _time;
     private SearchBar? _searchBar;
     private LeftPaneKind _leftPane = LeftPaneKind.Pages;
     private DispatcherTimer? _firstSharpFallback;
@@ -67,10 +70,14 @@ internal sealed partial class PdfWindow : Window
     /// <param name="options">The command line.</param>
     /// <param name="settings">The shell settings, read by the caller at startup.</param>
     /// <param name="appSettings">The settings of the viewer, read once at startup by the caller (null: the defaults; the window reads no file).</param>
-    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null)
+    /// <param name="launcher">Opens a confirmed address outside the document (tests give their own; null: the system browser or mail program).</param>
+    /// <param name="time">The clock of the arming delay of the link card (tests move it; null: the system clock).</param>
+    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
+        _launcher = launcher;
+        _time = time;
         _options = options;
         _appSettings = appSettings ?? AppSettings.Default;
         _recent = new RecentService(new RecentFilesStore(PdfSettingsFiles.RecentPathFor(options.SettingsFile)));
@@ -163,6 +170,12 @@ internal sealed partial class PdfWindow : Window
             }
 
             _searches.Clear();
+            foreach (var text in _texts.Values)
+            {
+                text.Dispose();
+            }
+
+            _texts.Clear();
             foreach (var view in _views.Values)
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
@@ -444,6 +457,11 @@ internal sealed partial class PdfWindow : Window
                 panes.Dispose();
             }
 
+            if (_texts.Remove(tab, out var text))
+            {
+                text.Dispose();
+            }
+
             if (_searches.Remove(tab, out var search))
             {
                 search.Dispose();
@@ -495,6 +513,7 @@ internal sealed partial class PdfWindow : Window
             var search = new SearchSession(active, () => view.CurrentPage);
             _searches[active] = search;
             view.Search = search;
+            _texts[active] = new TextInteraction(active, view, Dialogs, _launcher, _time);
         }
 
         DocumentPane.Content = view;
@@ -582,6 +601,22 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The search of a tab, once the tab has been shown (for tests); null before.</summary>
     internal SearchSession? SearchOf(PdfTab tab) => _searches.GetValueOrDefault(tab);
+
+    /// <summary>The text interaction (selection and links) of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal TextInteraction? TextOf(PdfTab tab) => _texts.GetValueOrDefault(tab);
+
+    /// <summary>Copies the selected text of the active document to the clipboard (plain text and HTML); returns whether something was copied. The command catalog calls this.</summary>
+    internal Task<bool> CopySelectionAsync() =>
+        Workspace.Active is { } active && _texts.TryGetValue(active, out var text) ? text.Selection.CopyAsync() : Task.FromResult(false);
+
+    /// <summary>Selects the text of the pages that are shown in the active document. The command catalog calls this.</summary>
+    internal void SelectAll()
+    {
+        if (Workspace.Active is { } active && _texts.TryGetValue(active, out var text))
+        {
+            text.Selection.SelectAll();
+        }
+    }
 
     /// <summary>Shows the search bar of the active document in the notification slot and puts the focus into its field. Does nothing without a document.</summary>
     internal void ShowSearchBar()

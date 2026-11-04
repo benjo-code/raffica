@@ -21,14 +21,17 @@ internal sealed partial class PageView
     // Opacity of the ink over the page: the hits are light, the current hit and the selection are stronger.
     private const double HitOpacity = 0.22;
     private const double CurrentHitOpacity = 0.5;
+    private const double SelectionOpacity = 0.32;
 
     // How far a revealed rectangle keeps from the edge of the view, in DIPs.
     private const double RevealMargin = 24;
 
     private SearchSession? _search;
+    private SelectionController? _selection;
     private IBrush? _inkSource;
     private IBrush? _hitBrush;
     private IBrush? _currentBrush;
+    private IBrush? _selectionBrush;
     private IPen? _currentPen;
 
     /// <summary>The search whose hits are drawn; the view scrolls to the current hit whenever the session says it changed.</summary>
@@ -58,6 +61,36 @@ internal sealed partial class PageView
             InvalidateVisual();
         }
     }
+
+    /// <summary>The selection whose rectangles are drawn.</summary>
+    internal SelectionController? Selection
+    {
+        get => _selection;
+        set
+        {
+            if (ReferenceEquals(value, _selection))
+            {
+                return;
+            }
+
+            if (_selection is not null)
+            {
+                _selection.Changed -= InvalidateVisual;
+            }
+
+            _selection = value;
+            if (value is not null)
+            {
+                value.Changed += InvalidateVisual;
+            }
+
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>Whether a point of the view lies on one of the scroll bars (they take their own mouse input).</summary>
+    internal bool IsOverScrollBar(Point point) =>
+        (_vertical.IsVisible && _vertical.Bounds.Contains(point)) || (_horizontal.IsVisible && _horizontal.Bounds.Contains(point));
 
     /// <summary>The page and the position in points under a point of the view, or null when the point is on no page (or the page size is not known yet).</summary>
     internal PageSpot? PageAt(Point point)
@@ -232,8 +265,10 @@ internal sealed partial class PageView
     private void DrawMarks(DrawingContext context, int page, Rect rect)
     {
         var hits = _search?.HitsOn(page);
+        var selected = _selection?.RectsOn(page);
         var hasHits = hits is { Count: > 0 };
-        if (!hasHits || _layout is null || !_layout.IsSizeKnown(page))
+        var hasSelection = selected is { Count: > 0 };
+        if ((!hasHits && !hasSelection) || _layout is null || !_layout.IsSizeKnown(page))
         {
             return;
         }
@@ -266,6 +301,14 @@ internal sealed partial class PageView
                 }
             }
         }
+
+        if (hasSelection)
+        {
+            foreach (var r in selected!)
+            {
+                context.FillRectangle(_selectionBrush!, MarkRect(rect, r, scaleX, scaleY));
+            }
+        }
     }
 
     private static Rect MarkRect(Rect page, PageRect r, double scaleX, double scaleY) =>
@@ -284,10 +327,11 @@ internal sealed partial class PageView
             return;
         }
 
-        var color = (source as ISolidColorBrush)?.Color ?? Colors.DarkMagenta;
+        var color = source?.Color ?? Colors.DarkMagenta;
         _inkSource = source;
         _hitBrush = new ImmutableSolidColorBrush(color, HitOpacity);
         _currentBrush = new ImmutableSolidColorBrush(color, CurrentHitOpacity);
+        _selectionBrush = new ImmutableSolidColorBrush(color, SelectionOpacity);
         _currentPen = new ImmutablePen(new ImmutableSolidColorBrush(color), 1.5);
     }
 }

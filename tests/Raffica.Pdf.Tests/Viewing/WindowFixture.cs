@@ -23,7 +23,7 @@ internal sealed class WindowFixture : IDisposable
     public string AppSettingsPath => Path.Combine(Folder, "pdf-settings.json");
 
     /// <summary>Makes the window; <paramref name="prepare"/> runs first and may write files into the settings folder.</summary>
-    public static WindowFixture Create(Action<string>? prepare = null, bool show = true, double width = 1000, double height = 700)
+    public static WindowFixture Create(Action<string>? prepare = null, bool show = true, double width = 1000, double height = 700, Action<Uri>? launcher = null, TimeProvider? time = null)
     {
         var folder = Directory.CreateTempSubdirectory("raffica-window-").FullName;
         prepare?.Invoke(folder);
@@ -31,7 +31,7 @@ internal sealed class WindowFixture : IDisposable
 
         // As the app does at startup: the app settings are read once, before the window, and handed to it.
         var appSettings = new Raffica.Core.Settings.SettingsStore(Path.Combine(folder, "pdf-settings.json")).LoadReadOnly();
-        var window = new PdfWindow(options, new ShellSettings(), appSettings) { Width = width, Height = height };
+        var window = new PdfWindow(options, new ShellSettings(), appSettings, launcher, time) { Width = width, Height = height };
         if (show)
         {
             window.Show();
