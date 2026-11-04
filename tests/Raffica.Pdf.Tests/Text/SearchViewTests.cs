@@ -240,15 +240,42 @@ public sealed class SearchViewTests
         window.Workspace.Select(first);
         ViewFixture.Pump();
         Assert.Equal("seite", bar.Query);
-
-        // The bar takes the session over; whether its summary already shows the count depends on how fast the run finishes, so wait for it.
-        await window.SearchOf(first)!.Completion.WaitAsync(Limit);
-        ViewFixture.Pump();
         Assert.Equal("2 hits", bar.SummaryText);
 
         window.CloseSearchBar();
         Assert.Empty(window.SearchOf(first)!.Hits);
         Assert.Empty(window.SearchOf(second)!.Hits);
+    }
+
+    [AvaloniaFact]
+    public async Task SwitchingBackToATabDoesNotRestartItsSearch()
+    {
+        using var fixture = WindowFixture.Create();
+        var first = await fixture.OpenAsync("text-rich.pdf");
+        var window = fixture.Window;
+        window.ShowSearchBar();
+        var bar = window.ShownSearchBar!;
+        var session = window.SearchOf(first)!;
+        await TypeAsync(bar, session, "seite");
+        session.Next();
+        Assert.Equal(1, session.Current);
+        var completion = session.Completion;
+
+        await fixture.OpenAsync("text-dense.pdf");
+        ViewFixture.Pump();
+        window.Workspace.Select(first);
+
+        // The text box raises TextChanged after the setter that gave it the session's query; that must not count as the user typing.
+        for (var i = 0; i < 20; i++)
+        {
+            ViewFixture.Pump();
+            await Task.Delay(10);
+        }
+
+        Assert.Same(completion, session.Completion);
+        Assert.False(session.IsRunning);
+        Assert.Equal(1, session.Current);
+        Assert.Equal("2 hits", bar.SummaryText);
     }
 
     [AvaloniaFact]

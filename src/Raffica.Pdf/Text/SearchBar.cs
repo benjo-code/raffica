@@ -143,6 +143,13 @@ internal sealed class SearchBar : Border
             return;
         }
 
+        // The text box raises TextChanged after the setter that showed the query of a session (a tab came back), when the binding guard
+        // is already down. A field that says what the session already searches is not a new question.
+        if (Query == _session.Query && Options == _session.Options)
+        {
+            return;
+        }
+
         _session.Start(Query, Options);
     }
 
