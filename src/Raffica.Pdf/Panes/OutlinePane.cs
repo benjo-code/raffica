@@ -74,6 +74,7 @@ internal sealed class OutlinePane : UserControl, IDisposable
         _list.ContainerPrepared += (_, e) => Decorate(e.Container, e.Index);
         _list.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         _list.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        _list.AddHandler(GotFocusEvent, (_, e) => NavList.EnterAt(_list, e, () => Math.Max(0, _list.SelectedIndex)), RoutingStrategies.Bubble, handledEventsToo: true);
 
         _hint = new TextBlock
         {
@@ -339,7 +340,7 @@ internal sealed class OutlinePane : UserControl, IDisposable
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.KeyModifiers != KeyModifiers.None || _list.SelectedIndex is not (>= 0 and var index) || index >= _rows.Count)
+        if (e.KeyModifiers != KeyModifiers.None || NavList.RowForKey(_list) is not (>= 0 and var index) || index >= _rows.Count)
         {
             return;
         }

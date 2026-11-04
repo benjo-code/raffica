@@ -77,4 +77,78 @@ public sealed class PaneFocusTests
         F6(window);
         Assert.True(FocusIsIn(window, window.NavigationPane));
     }
+
+    private static ListBoxItem? FocusedItem(PdfWindow window) =>
+        window.FocusManager?.GetFocusedElement() is Visual focused ? focused.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault() : null;
+
+    private static void Press(PdfWindow window, Key key, PhysicalKey physical)
+    {
+        window.KeyPress(key, RawInputModifiers.None, physical, null);
+        ViewFixture.Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task F6IntoThePagesPaneFocusesTheCurrentPageAndKeysActOnTheFocusedRow()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("pages-marked.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+        await ViewFixture.WaitAsync(() => view.FirstSharpPageShown);
+        view.GoToPage(2);
+        ViewFixture.Pump();
+        var pane = (PagesPane)window.NavigationPane.Content!;
+
+        F6(window);
+        Assert.True(FocusIsIn(window, window.NavigationPane));
+        var focused = FocusedItem(window);
+        Assert.NotNull(focused);
+        Assert.Equal(2, pane.List.IndexFromContainer(focused));
+        Assert.Equal(2, pane.List.SelectedIndex);
+
+        // Down moves from the focused row, Enter acts on the row that has the focus.
+        Press(window, Key.Down, PhysicalKey.ArrowDown);
+        Assert.Equal(3, pane.List.IndexFromContainer(FocusedItem(window)!));
+        Press(window, Key.Enter, PhysicalKey.Enter);
+        Assert.Equal(3, view.CurrentPage);
+    }
+
+    [AvaloniaFact]
+    public async Task F6IntoTheOutlineFocusesAndSelectsTheFirstRowAndKeysActOnTheFocusedRow()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("outline.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+        await ViewFixture.WaitAsync(() => view.FirstSharpPageShown);
+        window.ShowOutlinePane();
+        var pane = (OutlinePane)window.NavigationPane.Content!;
+        await pane.LoadTask;
+        ViewFixture.Pump();
+        view.GoToPage(2);
+        ViewFixture.Pump();
+
+        F6(window);
+        var focused = FocusedItem(window);
+        Assert.NotNull(focused);
+        Assert.Equal(0, pane.List.IndexFromContainer(focused));
+        Assert.Equal(0, pane.List.SelectedIndex);
+
+        // Enter on the first row (Kapitel 1, page 1) jumps.
+        Press(window, Key.Enter, PhysicalKey.Enter);
+        Assert.Equal(0, view.CurrentPage);
+
+        // Down to Abschnitt 1.1, Enter acts on that row.
+        Press(window, Key.Down, PhysicalKey.ArrowDown);
+        Assert.Equal(1, pane.List.IndexFromContainer(FocusedItem(window)!));
+        Press(window, Key.Enter, PhysicalKey.Enter);
+        Assert.Equal(1, view.CurrentPage);
+
+        // Right on a closed entry opens the one that has the focus (Kapitel 2).
+        var chapter2 = Enumerable.Range(0, pane.RowCount).First(i => pane.RowTitle(i) == "Kapitel 2");
+        Assert.True(pane.ContainerOf(chapter2)!.Focus(NavigationMethod.Tab));
+        var before = pane.RowCount;
+        Press(window, Key.Right, PhysicalKey.ArrowRight);
+        Assert.Equal(before + 1, pane.RowCount);
+    }
 }

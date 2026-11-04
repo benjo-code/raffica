@@ -80,6 +80,7 @@ internal sealed class PagesPane : UserControl, IDisposable
         };
         _list.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         _list.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        _list.AddHandler(GotFocusEvent, (_, e) => NavList.EnterAt(_list, e, () => _marked), RoutingStrategies.Bubble, handledEventsToo: true);
         Content = _list;
 
         view.ViewChanged += OnViewChanged;
@@ -212,10 +213,10 @@ internal sealed class PagesPane : UserControl, IDisposable
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None && _list.SelectedIndex >= 0)
+        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None && NavList.RowForKey(_list) is >= 0 and var row)
         {
             e.Handled = true;
-            Choose(_list.SelectedIndex);
+            Choose(row);
         }
     }
 
