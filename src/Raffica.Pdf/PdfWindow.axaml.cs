@@ -1,8 +1,11 @@
 using System.Collections.Specialized;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Raffica.Pdf.Commands;
+using Raffica.Pdf.Dialogs;
+using Raffica.Pdf.Documents;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
@@ -24,6 +27,9 @@ internal sealed partial class PdfWindow : Window
     internal const double CommentsPaneWidth = 300;
 
     private readonly IDisposable _fieldCodes;
+    private readonly IDisposable _selectedSubscription;
+    private readonly CloseGuard _closeGuard;
+    private bool _closeConfirmed;
 
     public PdfWindow(PdfOptions options, ShellSettings settings)
     {
@@ -41,8 +47,15 @@ internal sealed partial class PdfWindow : Window
         TitleSearch.Source = definition;
         TitleSearch.CommandChosen += command => command.Run?.Invoke();
         Tabs = titleBar.Tabs;
-        Tabs.CloseRequested += tab => Tabs.Items.Remove(tab);
+        Tabs.CloseRequested += OnCloseRequested;
         Tabs.Items.CollectionChanged += OnTabsChanged;
+        _selectedSubscription = Tabs.GetObservable(DocumentTabs.SelectedProperty).Subscribe(new SelectedObserver(this));
+
+        // 2.1 has no command that changes a document, so there is nothing to save yet: a Save choice cannot succeed and keeps the tab.
+        _closeGuard = new CloseGuard(PromptAsync, _ => Task.FromResult(false));
+        Workspace = new Workspace(_closeGuard);
+        Workspace.TabsChanged += OnWorkspaceTabsChanged;
+        Workspace.ActiveChanged += OnWorkspaceActiveChanged;
 
         PagesPane = new Pane { Title = PdfStrings.PanePages, Width = PagesPaneWidth };
         DocumentPane = new Pane { IsDocument = true, PaneName = ShellStrings.PaneDocument };
@@ -54,7 +67,8 @@ internal sealed partial class PdfWindow : Window
         Start = new StartView { Tiles = StartTile.Standard(), Recent = [], OwnApp = StartApp.Pdf };
 
         Frame.TitleBar = titleBar;
-        Content = new DialogHost { Content = Frame };
+        Host = new DialogHost { Content = Frame };
+        Content = Host;
         SetCompact(settings.CompactCommandBar);
         Refresh();
 
@@ -68,8 +82,23 @@ internal sealed partial class PdfWindow : Window
             new("7", () => paneFocus.Focus(CommentsPane)),
         ];
         _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
-        Closed += (_, _) => _fieldCodes.Dispose();
+        Closing += OnWindowClosing;
+        Closed += (_, _) =>
+        {
+            _fieldCodes.Dispose();
+            _selectedSubscription.Dispose();
+            foreach (var tab in Workspace.Tabs)
+            {
+                tab.Dispose();
+            }
+        };
     }
+
+    /// <summary>The open documents; the title bar tabs and the status bar follow it.</summary>
+    internal Workspace Workspace { get; }
+
+    /// <summary>The host of the dialogs of the window.</summary>
+    internal DialogHost Host { get; }
 
     public AppFrame Frame { get; }
 
@@ -105,6 +134,100 @@ internal sealed partial class PdfWindow : Window
     }
 
     private void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e) => Refresh();
+
+    private PdfTab? FindDocument(DocumentTab? tab) => tab is null ? null : Workspace.Tabs.FirstOrDefault(t => ReferenceEquals(t.Tab, tab));
+
+    private async void OnCloseRequested(DocumentTab tab)
+    {
+        if (FindDocument(tab) is { } document)
+        {
+            await Workspace.CloseAsync(document);
+        }
+        else
+        {
+            Tabs.Items.Remove(tab);
+        }
+    }
+
+    private void OnWorkspaceTabsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Add)
+        {
+            var tab = (PdfTab)e.NewItems![0]!;
+            tab.DirtyChanged += UpdateSaveState;
+            Tabs.Items.Insert(Math.Min(e.NewStartingIndex, Tabs.Items.Count), tab.Tab);
+        }
+        else if (e.Action == NotifyCollectionChangedAction.Remove)
+        {
+            var tab = (PdfTab)e.OldItems![0]!;
+            tab.DirtyChanged -= UpdateSaveState;
+            Tabs.Items.Remove(tab.Tab);
+        }
+    }
+
+    private void OnWorkspaceActiveChanged()
+    {
+        Tabs.Selected = Workspace.Active?.Tab;
+        UpdateSaveState();
+    }
+
+    /// <summary>The user selected a tab in the strip: the workspace follows (a tab that is no document, such as a placeholder, is ignored).</summary>
+    private void OnTabSelected(DocumentTab? tab)
+    {
+        if (FindDocument(tab) is { } document)
+        {
+            Workspace.Select(document);
+        }
+    }
+
+    /// <summary>The save cell of the status bar shows "Unsaved changes" while the active document is dirty, else nothing.</summary>
+    private void UpdateSaveState() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
+
+    private Task<CloseChoice> PromptAsync(PdfTab tab)
+    {
+        if (Host.IsOpen)
+        {
+            return Task.FromResult(CloseChoice.Cancel);
+        }
+
+        Workspace.Select(tab);
+        var answer = new TaskCompletionSource<CloseChoice>();
+        Host.Show(UnsavedChangesCard.Create(tab.Title, choice =>
+        {
+            Host.Close();
+            answer.TrySetResult(choice);
+        }));
+        return answer.Task;
+    }
+
+    /// <summary>Asks about every document with unsaved changes before the window closes; a Cancel keeps the window open.</summary>
+    private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (_closeConfirmed)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
+        {
+            _closeConfirmed = true;
+            Close();
+        }
+    }
+
+    private sealed class SelectedObserver(PdfWindow window) : IObserver<DocumentTab?>
+    {
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(DocumentTab? value) => window.OnTabSelected(value);
+    }
 
     /// <summary>The start view while no tab is open (no panes, no status bar, no ribbon), else the document view with every frame part.</summary>
     private void Refresh()

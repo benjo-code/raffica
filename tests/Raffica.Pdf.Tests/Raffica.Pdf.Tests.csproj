@@ -12,4 +12,7 @@
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <ProjectReference Include="..\..\src\Raffica.Pdf\Raffica.Pdf.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\TestData.cs" Link="Shared\TestData.cs" />
+  </ItemGroup>
 </Project>

@@ -53,4 +53,8 @@ internal static class PdfStrings
     public static string CmdDarkPage => Table.Get("CmdDarkPage");
     public static string CmdPagesPane => Table.Get("CmdPagesPane");
     public static string CmdOutlinePane => Table.Get("CmdOutlinePane");
+    public static string UnsavedTitle => Table.Get("UnsavedTitle");
+    public static string UnsavedMessageFormat => Table.Get("UnsavedMessageFormat");
+    public static string UnsavedSave => Table.Get("UnsavedSave");
+    public static string UnsavedDontSave => Table.Get("UnsavedDontSave");
 }

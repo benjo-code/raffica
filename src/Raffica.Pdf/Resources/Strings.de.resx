@@ -117,4 +117,16 @@
   <data name="CmdOutlinePane" xml:space="preserve">
     <value>Gliederung</value>
   </data>
+  <data name="UnsavedTitle" xml:space="preserve">
+    <value>Änderungen speichern?</value>
+  </data>
+  <data name="UnsavedMessageFormat" xml:space="preserve">
+    <value>{0} enthält ungespeicherte Änderungen. Möchten Sie sie speichern, bevor Sie das Dokument schließen?</value>
+  </data>
+  <data name="UnsavedSave" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="UnsavedDontSave" xml:space="preserve">
+    <value>Nicht speichern</value>
+  </data>
 </root>
