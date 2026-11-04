@@ -178,17 +178,60 @@ public sealed class LinkCardTests
     [InlineData("https://example.org/a b")]
     [InlineData("https://example.org/\"quoted\"")]
     [InlineData("")]
-    public void DangerousTargetsAreNotClickable(string url)
+    public async Task DangerousTargetsAreNotClickable(string url)
     {
-        Assert.Null(LinkController.Resolve(UriLink(url), 10));
+        using var f = await TextFixture.OpenAsync("text-rich.pdf");
+        await AssertNeverReachesTheLauncherAsync(f, url);
     }
 
     [AvaloniaFact]
-    public void ATooLongAddressIsNotClickable()
+    public async Task ATooLongAddressIsNotClickable()
     {
-        Assert.Null(LinkController.Resolve(UriLink("https://example.org/" + new string('a', 5000)), 10));
         Assert.Null(LinkController.Resolve(UriLink("https://example.org/" + new string('a', ExternalLink.MaxLength)), 10));
         Assert.NotNull(LinkController.Resolve(UriLink("https://example.org/" + new string('a', 200)), 10));
+
+        using var f = await TextFixture.OpenAsync("text-rich.pdf");
+        await AssertNeverReachesTheLauncherAsync(f, "https://example.org/" + new string('a', 5000));
+    }
+
+    /// <summary>The one place for the whole promise: dangerous targets are not clickable, deceptive ones warn on the card, and nothing reaches the launcher unconfirmed.</summary>
+    [AvaloniaFact]
+    public async Task DangerousTargetsAreNotClickableAndDeceptiveOnesWarn()
+    {
+        using var f = await TextFixture.OpenAsync("text-rich.pdf");
+
+        // Dangerous: no action, no card, and the launcher is never called.
+        await AssertNeverReachesTheLauncherAsync(f, "javascript:alert(1)");
+        await AssertNeverReachesTheLauncherAsync(f, "file:///C:/Windows/System32/cmd.exe");
+        await AssertNeverReachesTheLauncherAsync(f, "https://example.org/" + new string('a', 5000));
+
+        // Deceptive (a look-alike host): the card shows the warning, and cancelling it never launches.
+        var url = "https://xn--80ak6aa92e.com/login";
+        var action = Assert.IsType<OpenExternal>(LinkController.Resolve(UriLink(url), 10));
+        Assert.Equal(ExternalLinkWarning.Punycode, action.Link.Warning);
+        var task = f.Text.Links.ActivateAsync(UriLink(url));
+        var card = Card(f);
+        var warning = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Warning");
+        Assert.True(warning.IsVisible);
+        Assert.False(string.IsNullOrWhiteSpace(warning.Text));
+        Assert.Empty(f.Launched);
+
+        f.Time.Advance(LinkCard.ArmingDelayMilliseconds);
+        Click(Button(card, "PART_Cancel"));
+        await task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Empty(f.Launched);
+        Assert.False(f.Host.IsOpen);
+    }
+
+    private static async Task AssertNeverReachesTheLauncherAsync(TextFixture f, string url)
+    {
+        Assert.Null(LinkController.Resolve(UriLink(url), 10));
+
+        // The click path: activating the link does nothing, shows no card and never calls the launcher.
+        await f.Text.Links.ActivateAsync(UriLink(url)).WaitAsync(TimeSpan.FromSeconds(10));
+        ViewFixture.Pump();
+        Assert.Empty(f.Launched);
+        Assert.False(f.Host.IsOpen);
     }
 
     [AvaloniaFact]
