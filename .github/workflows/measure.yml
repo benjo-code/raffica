@@ -40,6 +40,11 @@ on:
         type: choice
         default: all
         options: [all, cold-reboot]
+      rendering:
+        description: 'PDF app on Windows only: Avalonia rendering path (sets RAFFICA_RENDERING for the measured app)'
+        type: choice
+        default: default
+        options: [default, software]
       reference_repo:
         description: 'Target reference only: owner/name of the reference app''s repository'
         type: string
@@ -70,6 +75,9 @@ env:
   PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || inputs.target == 'pdf' && 'src/Raffica.Pdf' || 'bench/shell-probe/ShellProbe' }}
   OUT: out/measure-${{ github.run_id }}
   FONTS: ${{ inputs.target == 'probe' && 'bench/shell-probe/ShellProbe/Assets/Fonts' || 'src/Raffica.Shell/Assets/Fonts' }}
+  # Only the PDF app on Windows reads it (a developer override, bench/shell-probe/README.md); the child processes of measure.cs inherit it.
+  # Empty for every other target and platform, and "default" changes nothing.
+  RAFFICA_RENDERING: ${{ inputs.target == 'pdf' && inputs.platform == 'windows' && inputs.rendering || '' }}
 
 jobs:
   measure:
@@ -195,6 +203,10 @@ jobs:
             $lines += "GPU: $($gpu.Name), driver $($gpu.DriverVersion), $($gpu.CurrentHorizontalResolution) x $($gpu.CurrentVerticalResolution) at $($gpu.CurrentRefreshRate) Hz"
           }
           $lines += "Power plan: " + ((powercfg /getactivescheme) -join ' ')
+          if ($env:RAFFICA_RENDERING) {
+            $lines += "Rendering override: $env:RAFFICA_RENDERING"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "Rendering override: $env:RAFFICA_RENDERING" -Encoding utf8
+          }
           if (-not [Environment]::UserInteractive) {
             Write-Host '::warning title=Measure::The runner does not run in an interactive session (is it a service?). The probe gets no desktop and the numbers are invalid. Start run.cmd in the logged-in session.'
           }
