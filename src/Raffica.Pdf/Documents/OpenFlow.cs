@@ -21,7 +21,7 @@ internal sealed class OpenFlow(Workspace workspace, Func<PdfEngine> engine, Func
     /// <returns>The tab, or null when the file was not opened (an error was shown, or the password question was canceled).</returns>
     public async Task<PdfTab?> OpenAsync(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(path);
         var turn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task before;
         lock (_gate)
@@ -53,6 +53,13 @@ internal sealed class OpenFlow(Workspace workspace, Func<PdfEngine> engine, Func
 
     private async Task<PdfTab?> OpenCoreAsync(string path)
     {
+        // An empty path, a blank one and one with invalid characters are unreadable files like any other.
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            ShowError(path, PdfOpenError.CannotRead);
+            return null;
+        }
+
         string full;
         try
         {
@@ -60,7 +67,7 @@ internal sealed class OpenFlow(Workspace workspace, Func<PdfEngine> engine, Func
         }
         catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
         {
-            showError(path, PdfOpenError.CannotRead);
+            ShowError(path, PdfOpenError.CannotRead);
             return null;
         }
 
@@ -95,12 +102,12 @@ internal sealed class OpenFlow(Workspace workspace, Func<PdfEngine> engine, Func
                 return tab;
             }
 
-            showError(path, session.Error ?? PdfOpenError.Unknown);
+            ShowError(path, session.Error ?? PdfOpenError.Unknown);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // Nothing a file does may take the app down.
-            showError(path, PdfOpenError.Unknown);
+            ShowError(path, PdfOpenError.Unknown);
         }
         finally
         {
@@ -108,5 +115,18 @@ internal sealed class OpenFlow(Workspace workspace, Func<PdfEngine> engine, Func
         }
 
         return null;
+    }
+
+    /// <summary>Tells the user; a callback that throws must neither take the app down nor wedge the chain of opens.</summary>
+    private void ShowError(string path, PdfOpenError error)
+    {
+        try
+        {
+            showError(path, error);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The user cannot be told; the open still ends cleanly (no tab, session disposed).
+        }
     }
 }

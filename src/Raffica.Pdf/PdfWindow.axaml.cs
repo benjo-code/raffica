@@ -46,7 +46,7 @@ internal sealed partial class PdfWindow : Window
         Title = PdfStrings.WindowTitle;
 
         Frame = new AppFrame();
-        var definition = PdfRibbon.Create(new PdfCommands(Open: () => _ = OpenFromDialogAsync()));
+        var definition = PdfRibbon.Create(new PdfCommands(Open: () => _ = GuardAsync(OpenFromDialogAsync)));
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter) };
 
         var titleBar = new TitleBar { Mark = CreateAppMark() };
@@ -78,7 +78,7 @@ internal sealed partial class PdfWindow : Window
         Content = Host;
         Dialogs = new DialogQueue(Host);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
-        Start.BrowseRequested += () => _ = OpenFromDialogAsync();
+        Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -171,12 +171,25 @@ internal sealed partial class PdfWindow : Window
         return mark;
     }
 
+    /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
+    private static async Task GuardAsync(Func<Task> open)
+    {
+        try
+        {
+            await open();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // OpenFlow already turns a bad file into an error card; this is the last net for anything else.
+        }
+    }
+
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
         if (_options.Files.Count > 0)
         {
-            await OpenFilesAsync(_options.Files);
+            await GuardAsync(() => OpenFilesAsync(_options.Files));
         }
     }
 
@@ -191,7 +204,7 @@ internal sealed partial class PdfWindow : Window
         e.Handled = true;
         if (FileDrop.Accepts(e.DataTransfer))
         {
-            await OpenDroppedAsync(e.DataTransfer);
+            await GuardAsync(() => OpenDroppedAsync(e.DataTransfer));
         }
     }
 
@@ -213,13 +226,20 @@ internal sealed partial class PdfWindow : Window
 
     private async void OnCloseRequested(DocumentTab tab)
     {
-        if (FindDocument(tab) is { } document)
+        try
         {
-            await Workspace.CloseAsync(document);
+            if (FindDocument(tab) is { } document)
+            {
+                await Workspace.CloseAsync(document);
+            }
+            else
+            {
+                Tabs.Items.Remove(tab);
+            }
         }
-        else
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Tabs.Items.Remove(tab);
+            // An exception in the close guard keeps the tab; it must not take the app down.
         }
     }
 
@@ -283,11 +303,18 @@ internal sealed partial class PdfWindow : Window
         }
 
         e.Cancel = true;
-        if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
+        try
         {
-            // Posted: with no dirty tab the guard completes synchronously, and Close must not run nested inside the Closing event.
-            _closeConfirmed = true;
-            Dispatcher.UIThread.Post(Close);
+            if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
+            {
+                // Posted: with no dirty tab the guard completes synchronously, and Close must not run nested inside the Closing event.
+                _closeConfirmed = true;
+                Dispatcher.UIThread.Post(Close);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // An exception in the close guard keeps the window open; it must not take the app down.
         }
     }
 
