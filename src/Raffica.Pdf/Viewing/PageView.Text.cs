@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.VisualTree;
 using Raffica.Core.Text;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Text;
@@ -30,6 +31,8 @@ internal sealed partial class PageView
     private SelectionController? _selection;
     private IPageOverlay? _overlay;
     private Control? _badge;
+    private Control? _field;
+    private Rect _fieldRect;
 
     // The gap between the top of the view and the badge, in DIPs.
     private const double BadgeTop = 12;
@@ -150,6 +153,59 @@ internal sealed partial class PageView
             InvalidateArrange();
         }
     }
+
+    /// <summary>
+    /// An editing field over the pages (the text box editor). It is laid out at <see cref="FieldRect"/> (its width; its height is what it
+    /// needs) and takes part in no other layout. Null for none.
+    /// </summary>
+    internal Control? Field
+    {
+        get => _field;
+        set
+        {
+            if (ReferenceEquals(value, _field))
+            {
+                return;
+            }
+
+            if (_field is not null)
+            {
+                VisualChildren.Remove(_field);
+                LogicalChildren.Remove(_field);
+            }
+
+            _field = value;
+            if (value is not null)
+            {
+                VisualChildren.Add(value);
+                LogicalChildren.Add(value);
+            }
+
+            InvalidateMeasure();
+            InvalidateArrange();
+        }
+    }
+
+    /// <summary>Where <see cref="Field"/> is placed, in the coordinates of the view.</summary>
+    internal Rect FieldRect
+    {
+        get => _fieldRect;
+        set
+        {
+            if (value == _fieldRect)
+            {
+                return;
+            }
+
+            _fieldRect = value;
+            InvalidateMeasure();
+            InvalidateArrange();
+        }
+    }
+
+    /// <summary>Whether a source of an event lies in the editing field (its pointer and key events belong to it).</summary>
+    internal bool IsInField(object? source) =>
+        _field is { } field && source is Visual visual && (ReferenceEquals(field, visual) || field.IsVisualAncestorOf(visual));
 
     /// <summary>Whether a point of the view lies on one of the scroll bars (they take their own mouse input).</summary>
     internal bool IsOverScrollBar(Point point) =>

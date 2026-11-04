@@ -173,6 +173,10 @@ internal static class PdfStrings
     public static string AnnotateCardTitle => Table.Get("AnnotateCardTitle");
     public static string AnnotateLimitReached => Table.Get("AnnotateLimitReached");
     public static string AnnotateFailed => Table.Get("AnnotateFailed");
+    public static string TextBoxRejectedFormat => Table.Get("TextBoxRejectedFormat");
+    public static string TextBoxTooLong => Table.Get("TextBoxTooLong");
+    public static string TextBoxTooManyLines => Table.Get("TextBoxTooManyLines");
+    public static string TextBoxFieldName => Table.Get("TextBoxFieldName");
     public static string PrintLockedReason => Table.Get("PrintLockedReason");
     public static string PrintErrorStart => Table.Get("PrintErrorStart");
     public static string PrintErrorPage => Table.Get("PrintErrorPage");

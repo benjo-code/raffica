@@ -32,6 +32,12 @@ internal sealed class AnnotationSession : IDisposable
     /// <summary>Raised on the UI thread after the dirty, undo or redo state may have changed.</summary>
     public event Action? StateChanged;
 
+    /// <summary>
+    /// Raised at the start of <see cref="FlushAsync"/> (and so before a save, an undo or a close), on the calling thread, so that an open
+    /// draft (the text box field) can end itself: a flush that waits for a draft nobody ends would never return.
+    /// </summary>
+    public event Action? FlushRequested;
+
     public AnnotationEditor Editor { get; }
 
     /// <summary>Whether the document has changes that are not saved, in flight or about to be made.</summary>
@@ -70,6 +76,7 @@ internal sealed class AnnotationSession : IDisposable
     /// <summary>Waits for the pending drafts, then for the editor's operations; the tab's dirty state is current afterwards.</summary>
     public async Task FlushAsync()
     {
+        FlushRequested?.Invoke();
         while (true)
         {
             Task? drafts;

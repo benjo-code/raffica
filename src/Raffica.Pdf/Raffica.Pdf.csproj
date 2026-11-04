@@ -27,4 +27,8 @@
     <EmbeddedResource Update="Resources\Strings.en.resx" WithCulture="false" LogicalName="Raffica.Pdf.Strings.en.resources" />
     <EmbeddedResource Update="Resources\Strings.de.resx" WithCulture="false" LogicalName="Raffica.Pdf.Strings.de.resources" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Geist Regular (Core embeds the same file for the text box appearance): the font of the text box editing field, so the field shows what the page will. -->
+    <AvaloniaResource Include="..\Raffica.Core\Assets\Fonts\Geist-Regular.ttf" Link="Assets\Fonts\Geist-Regular.ttf" />
+  </ItemGroup>
 </Project>

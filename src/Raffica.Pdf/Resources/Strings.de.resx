@@ -587,4 +587,16 @@
   <data name="AnnotateFailed" xml:space="preserve">
     <value>Die Markierung konnte nicht hinzugefügt werden. Es wurde nichts geändert.</value>
   </data>
+  <data name="TextBoxRejectedFormat" xml:space="preserve">
+    <value>Ein Textfeld kann diese Zeichen nicht darstellen: {0}</value>
+  </data>
+  <data name="TextBoxTooLong" xml:space="preserve">
+    <value>Der Text ist länger als 2.000 Zeichen.</value>
+  </data>
+  <data name="TextBoxTooManyLines" xml:space="preserve">
+    <value>Der Text hat mehr als 200 Zeilen.</value>
+  </data>
+  <data name="TextBoxFieldName" xml:space="preserve">
+    <value>Text des Textfelds</value>
+  </data>
 </root>

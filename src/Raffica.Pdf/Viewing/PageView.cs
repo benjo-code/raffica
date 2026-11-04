@@ -493,6 +493,7 @@ internal sealed partial class PageView : Control
         _vertical.Measure(availableSize);
         _horizontal.Measure(availableSize);
         _badge?.Measure(availableSize);
+        _field?.Measure(new Size(Math.Max(0, _fieldRect.Width), double.PositiveInfinity));
         return new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 0, double.IsFinite(availableSize.Height) ? availableSize.Height : 0);
     }
 
@@ -528,12 +529,20 @@ internal sealed partial class PageView : Control
             var size = _badge.DesiredSize;
             _badge.Arrange(new Rect(Math.Max(0, (finalSize.Width - barWidth - size.Width) / 2), BadgeTop, Math.Min(size.Width, finalSize.Width), size.Height));
         }
+
+        _field?.Arrange(new Rect(_fieldRect.X, _fieldRect.Y, _fieldRect.Width, Math.Max(_fieldRect.Height, _field.DesiredSize.Height)));
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        Focus();
+
+        // A press in the editing field belongs to the field: it keeps the focus.
+        if (!IsInField(e.Source))
+        {
+            Focus();
+        }
+
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

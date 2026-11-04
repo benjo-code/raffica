@@ -35,7 +35,8 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         _tools = tools;
         Markup = new MarkupController(tab, view, tools, selection, dialogs, time);
         Drawing = new DrawingController(tab, view, tools, dialogs);
-        _controllers = [Markup, Drawing];
+        TextBox = new TextBoxController(tab, view, tools, dialogs);
+        _controllers = [Markup, Drawing, TextBox];
         foreach (var controller in _controllers)
         {
             controller.Changed += OnControllerChanged;
@@ -59,6 +60,9 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
 
     /// <summary>The controller of the drawing tools.</summary>
     public DrawingController Drawing { get; }
+
+    /// <summary>The controller of the text box tool (its editing field also serves the select tool).</summary>
+    public TextBoxController TextBox { get; }
 
     /// <inheritdoc />
     public void Render(DrawingContext context, PageView view) => _current?.Render(context, view);
@@ -95,8 +99,10 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
 
     private void OnToolChanged()
     {
-        // Whatever the old tool held (a gesture, a selection, a draft) goes with it.
+        // Whatever the old tool held (a gesture, a selection) goes with it. A text in the editing field is not lost: it is made first
+        // (the field is open for the text box tool and for the select tool alike).
         _pressedBy = null;
+        TextBox.CommitOrDrop();
         _current?.Cancel();
         _current = Find(_tools.Tool);
         if (_tools.Tool == AnnotateTool.None)
@@ -110,6 +116,12 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
         if (_tools.Tool == AnnotateTool.None || Find(_tools.Tool) is not { } controller)
+        {
+            return;
+        }
+
+        // A press in the editing field belongs to the field (placing the caret, selecting text).
+        if (_view.IsInField(e.Source))
         {
             return;
         }

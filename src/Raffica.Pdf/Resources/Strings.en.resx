@@ -590,4 +590,16 @@
   <data name="AnnotateFailed" xml:space="preserve">
     <value>The markup could not be added. Nothing was changed.</value>
   </data>
+  <data name="TextBoxRejectedFormat" xml:space="preserve">
+    <value>A text box cannot show these characters: {0}</value>
+  </data>
+  <data name="TextBoxTooLong" xml:space="preserve">
+    <value>The text is longer than 2,000 characters.</value>
+  </data>
+  <data name="TextBoxTooManyLines" xml:space="preserve">
+    <value>The text has more than 200 lines.</value>
+  </data>
+  <data name="TextBoxFieldName" xml:space="preserve">
+    <value>Text of the text box</value>
+  </data>
 </root>
