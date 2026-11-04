@@ -578,6 +578,7 @@ internal sealed partial class PdfWindow : Window
         {
             var tab = (PdfTab)e.NewItems![0]!;
             tab.DirtyChanged += UpdateSaveState;
+            tab.Annotations.StateChanged += RefreshCommandStates;
             if (tab.Path is { } opened)
             {
                 _recent.Touch(opened);
@@ -589,6 +590,7 @@ internal sealed partial class PdfWindow : Window
         {
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
+            tab.Annotations.StateChanged -= RefreshCommandStates;
             _printInfo.Remove(tab);
             RememberView(tab);
             if (_panes.Remove(tab, out var panes))

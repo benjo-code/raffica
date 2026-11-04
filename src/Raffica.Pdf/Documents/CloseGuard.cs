@@ -17,6 +17,13 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
     public async Task<bool> CanCloseAsync(PdfTab tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
+
+        // A mark that is still being made counts: wait for it, so the dirty state is current before it is read.
+        if (tab.AnnotationsIfCreated is { } annotations)
+        {
+            await annotations.FlushAsync();
+        }
+
         if (!tab.IsDirty)
         {
             return true;

@@ -1,4 +1,6 @@
+using Avalonia.Threading;
 using Raffica.Core.Viewing;
+using Raffica.Pdf.Annotating;
 using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf.Documents;
@@ -11,6 +13,7 @@ namespace Raffica.Pdf.Documents;
 internal sealed class PdfTab : IDisposable
 {
     private int _disposing;
+    private AnnotationSession? _annotations;
 
     public PdfTab(ViewerSession session, string path)
     {
@@ -40,6 +43,12 @@ internal sealed class PdfTab : IDisposable
 
     public bool IsDirty { get; private set; }
 
+    /// <summary>The annotation session of the tab, made on first use and disposed with the tab. UI thread.</summary>
+    public AnnotationSession Annotations => _annotations ??= new AnnotationSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+
+    /// <summary>The annotation session if one was made, else null (whoever only asks must not make one).</summary>
+    public AnnotationSession? AnnotationsIfCreated => _annotations;
+
     public void MarkDirty() => SetDirty(true);
 
     public void MarkClean() => SetDirty(false);
@@ -51,7 +60,14 @@ internal sealed class PdfTab : IDisposable
             Disposing?.Invoke();
         }
 
+        _annotations?.Dispose();
         Session.Dispose();
+    }
+
+    /// <summary>The fallback when no context is installed on the calling thread: posts to the UI thread.</summary>
+    private sealed class DispatcherContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state) => Dispatcher.UIThread.Post(() => d(state));
     }
 
     private void SetDirty(bool dirty)
