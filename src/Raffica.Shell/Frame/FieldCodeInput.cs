@@ -32,6 +32,10 @@ public sealed class FieldCodeInput : IDisposable
     private readonly StatusBar _status;
     private readonly IDisposable _dialogWatch;
     private readonly List<FieldCodeBadge> _badges = [];
+    private readonly List<FieldCodeBadge> _menuBadges = [];
+    private MenuFlyout? _menu;
+    private CommandDefinition? _menuCommand;
+    private FlyoutShowMode _menuShowMode;
     private bool _altHeld;
     private bool _altDownConsumed;
     private bool _swallowText;
@@ -89,7 +93,9 @@ public sealed class FieldCodeInput : IDisposable
         _session.CommandRun -= OnCommandRun;
         _dialogWatch.Dispose();
         _session.Cancel();
+        CloseMenu();
         FieldCodeBadge.RemoveAll(_badges);
+        _ribbon.FieldCodeMenu = null;
         _ribbon.ShowFieldCodes = false;
         _ribbon.FieldCodeTabLetter = null;
         _status.Hint = null;
@@ -266,10 +272,12 @@ public sealed class FieldCodeInput : IDisposable
     {
         var on = _session.Stage != FieldCodeStage.Off;
         _ribbon.FieldCodeTabLetter = on ? _session.ActiveTab?.Letter : null;
+        _ribbon.FieldCodeMenu = _session.Stage == FieldCodeStage.MenuItems ? _session.OpenMenu : null;
         _ribbon.ShowFieldCodes = on;
         _status.Hint = on ? ShellStrings.FieldCodeHint : null;
 
         FieldCodeBadge.RemoveAll(_badges);
+        SyncMenu();
         if (!on)
         {
             return;
@@ -282,6 +290,67 @@ public sealed class FieldCodeInput : IDisposable
             {
                 _badges.Add(badge);
             }
+        }
+    }
+
+    /// <summary>
+    /// Keeps the menu of the session in step: in the menu stage the flyout of the command is open and its items carry their codes;
+    /// in every other stage it is closed.
+    /// </summary>
+    private void SyncMenu()
+    {
+        var wanted = _session.Stage == FieldCodeStage.MenuItems ? _session.OpenMenu : null;
+        if (wanted is not null && ReferenceEquals(wanted, _menuCommand))
+        {
+            return;
+        }
+
+        CloseMenu();
+        if (wanted is null || _ribbon.FindMenuButton(wanted) is not { Flyout: MenuFlyout flyout } button)
+        {
+            return;
+        }
+
+        _menu = flyout;
+        _menuCommand = wanted;
+        flyout.Closed += OnMenuClosed;
+
+        // A transient flyout does not take the keyboard focus, so the next key still reaches the window (and this class); a menu that
+        // took the focus would swallow the item codes, because key events do not leave a popup. The ordinary mode comes back on close.
+        _menuShowMode = flyout.ShowMode;
+        flyout.ShowMode = FlyoutShowMode.Transient;
+        flyout.ShowAt(button);
+        foreach (var item in flyout.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is CommandDefinition command && FieldCodeBadge.Show(item, command.FieldCode, inside: true) is { } badge)
+            {
+                _menuBadges.Add(badge);
+            }
+        }
+    }
+
+    private void CloseMenu()
+    {
+        FieldCodeBadge.RemoveAll(_menuBadges);
+        if (_menu is not { } menu)
+        {
+            return;
+        }
+
+        _menu = null;
+        _menuCommand = null;
+        menu.Closed -= OnMenuClosed;
+        menu.Hide();
+        menu.ShowMode = _menuShowMode;
+    }
+
+    private void OnMenuClosed(object? sender, EventArgs e)
+    {
+        // The menu closed on its own (a click away, an item chosen with the pointer): the mode is over.
+        if (ReferenceEquals(sender, _menu))
+        {
+            CloseMenu();
+            _session.Cancel();
         }
     }
 

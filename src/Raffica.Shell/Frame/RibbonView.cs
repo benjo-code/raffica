@@ -32,6 +32,12 @@ public class RibbonView : TemplatedControl
     /// <summary>The letter of the tab chosen in the field-code session, or null while the session still waits for a tab letter.</summary>
     public static readonly StyledProperty<string?> FieldCodeTabLetterProperty = AvaloniaProperty.Register<RibbonView, string?>(nameof(FieldCodeTabLetter));
 
+    /// <summary>
+    /// The menu command whose items the field-code session shows (set by <see cref="FieldCodeInput"/>), or null. While it is set the
+    /// ribbon itself shows no badges: the codes sit on the items of the menu.
+    /// </summary>
+    public static readonly StyledProperty<CommandDefinition?> FieldCodeMenuProperty = AvaloniaProperty.Register<RibbonView, CommandDefinition?>(nameof(FieldCodeMenu));
+
     private readonly Panel _tabRow = new();
     private readonly StackPanel _tabStrip = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Border _band = new() { ClipToBounds = true };
@@ -47,6 +53,7 @@ public class RibbonView : TemplatedControl
         IsCompactProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RebuildBand());
         ShowFieldCodesProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
         FieldCodeTabLetterProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
+        FieldCodeMenuProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
     }
 
     public RibbonView()
@@ -70,6 +77,8 @@ public class RibbonView : TemplatedControl
     public bool ShowFieldCodes { get => GetValue(ShowFieldCodesProperty); set => SetValue(ShowFieldCodesProperty, value); }
 
     public string? FieldCodeTabLetter { get => GetValue(FieldCodeTabLetterProperty); set => SetValue(FieldCodeTabLetterProperty, value); }
+
+    public CommandDefinition? FieldCodeMenu { get => GetValue(FieldCodeMenuProperty); set => SetValue(FieldCodeMenuProperty, value); }
 
     /// <summary>The tab row, for <see cref="AppFrame.TabRow"/>.</summary>
     public Control TabRow => _tabRow;
@@ -113,6 +122,10 @@ public class RibbonView : TemplatedControl
 
         RebuildBand();
     }
+
+    /// <summary>The button of a menu command in the band, or null when the command has no button there (for example in the overflow menu of the compact band).</summary>
+    internal RibbonButton? FindMenuButton(CommandDefinition command) =>
+        _groups.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => ReferenceEquals(b.Definition, command) && b.Flyout is MenuFlyout);
 
     /// <summary>Raises <see cref="CommandInvoked"/> for a command the field-code session ran (the session calls <c>Run</c> itself).</summary>
     internal void NotifyInvoked(CommandDefinition command) => CommandInvoked?.Invoke(command);
@@ -172,7 +185,7 @@ public class RibbonView : TemplatedControl
     private void RefreshBadges()
     {
         FieldCodeBadge.RemoveAll(_badges);
-        if (!ShowFieldCodes)
+        if (!ShowFieldCodes || FieldCodeMenu is not null)
         {
             return;
         }

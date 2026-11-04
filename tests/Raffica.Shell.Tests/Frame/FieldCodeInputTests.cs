@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -439,5 +440,116 @@ public sealed class FieldCodeInputTests
 
         Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
         Assert.Empty(f.Badges);
+    }
+
+    private static FieldCodeFixture InPasteMenu()
+    {
+        var f = FieldCodeFixture.Create();
+        f.Alt();
+        f.TypeCode("H");
+        f.TypeCode("V");
+        return f;
+    }
+
+    [AvaloniaFact]
+    public void AMenuCommandOpensItsMenuWithTheItemCodes()
+    {
+        var f = InPasteMenu();
+        var flyout = f.PasteFlyout();
+
+        Assert.Equal(FieldCodeStage.MenuItems, f.Session.Stage);
+        Assert.True(flyout.IsOpen);
+        Assert.Equal(["K", "T"], FieldCodeFixture.MenuBadgeTexts(flyout));
+
+        // The command badges are gone while the menu items show their codes; the hint stays.
+        Assert.DoesNotContain("AL", f.BadgeTexts());
+        Assert.DoesNotContain("B", f.BadgeTexts());
+        Assert.DoesNotContain("V", f.BadgeTexts());
+        Assert.Equal(ShellStrings.FieldCodeHint, f.Status.Hint);
+    }
+
+    [AvaloniaFact]
+    public void EscClosesTheMenuAndGoesBackToTheCommandCodes()
+    {
+        var f = InPasteMenu();
+        var flyout = f.PasteFlyout();
+
+        f.Press(Key.Escape, PhysicalKey.Escape);
+
+        Assert.Equal(FieldCodeStage.CommandCodes, f.Session.Stage);
+        Assert.False(flyout.IsOpen);
+        Assert.Contains("AL", f.BadgeTexts());
+        Assert.Contains("V", f.BadgeTexts());
+        Assert.Empty(FieldCodeFixture.MenuBadgeTexts(flyout));
+    }
+
+    [AvaloniaFact]
+    public void TypingAnItemCodeRunsTheItemAndClosesTheMenu()
+    {
+        var f = InPasteMenu();
+        var flyout = f.PasteFlyout();
+
+        f.TypeCode("T");
+
+        Assert.Equal(["paste.text"], f.Invoked);
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.False(flyout.IsOpen);
+        Assert.Empty(f.Badges);
+        Assert.Empty(FieldCodeFixture.MenuBadgeTexts(flyout));
+        Assert.Null(f.Status.Hint);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("alt")]
+    [InlineData("click")]
+    [InlineData("deactivate")]
+    public void AnyOtherEndOfTheModeClosesTheMenu(string how)
+    {
+        var f = InPasteMenu();
+        var flyout = f.PasteFlyout();
+
+        switch (how)
+        {
+            case "alt":
+                f.Alt();
+                break;
+            case "click":
+                f.Window.MouseDown(new Avalonia.Point(700, 500), MouseButton.Left);
+                break;
+            default:
+                f.Deactivate();
+                break;
+        }
+
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.False(flyout.IsOpen);
+        Assert.Empty(f.Badges);
+    }
+
+    [AvaloniaFact]
+    public void TheMenuIsAnOrdinaryMenuAgainAfterTheMode()
+    {
+        var f = InPasteMenu();
+        var flyout = f.PasteFlyout();
+        Assert.Equal(FlyoutShowMode.Transient, flyout.ShowMode);
+
+        f.TypeCode("K");
+
+        Assert.Equal(FlyoutShowMode.Standard, flyout.ShowMode);
+        Assert.Equal(["paste.keep"], f.Invoked);
+    }
+
+    [AvaloniaFact]
+    public void TheMenuClosingByItselfEndsTheMode()
+    {
+        var f = InPasteMenu();
+
+        f.PasteFlyout().Hide();
+        ControlHarness.Settle(f.Window);
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.Empty(f.Badges);
+        Assert.Null(f.Status.Hint);
     }
 }

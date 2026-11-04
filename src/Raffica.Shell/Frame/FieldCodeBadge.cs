@@ -24,8 +24,12 @@ public class FieldCodeBadge : TemplatedControl
 
     public static void SetCode(Control control, string? code) => control.SetValue(CodeProperty, code);
 
-    /// <summary>Puts a badge with <paramref name="text"/> on <paramref name="target"/>; null when the target is not in a window yet.</summary>
-    internal static FieldCodeBadge? Show(Control target, string text)
+    /// <summary>
+    /// Puts a badge with <paramref name="text"/> on <paramref name="target"/>; null when the target is not in a window yet. With
+    /// <paramref name="inside"/> the badge sits inside the right edge of the target, vertically centred (for the items of a menu, whose
+    /// popup would clip a badge that hangs over the edge).
+    /// </summary>
+    internal static FieldCodeBadge? Show(Control target, string text, bool inside = false)
     {
         if (AdornerLayer.GetAdornerLayer(target) is not { } layer)
         {
@@ -36,8 +40,8 @@ public class FieldCodeBadge : TemplatedControl
         {
             Text = text,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, -4, -6),
+            VerticalAlignment = inside ? VerticalAlignment.Center : VerticalAlignment.Bottom,
+            Margin = inside ? new Thickness(0, 0, 6, 0) : new Thickness(0, 0, -4, -6),
         };
         AdornerLayer.SetAdornedElement(badge, target);
         AdornerLayer.SetIsClipEnabled(badge, false);

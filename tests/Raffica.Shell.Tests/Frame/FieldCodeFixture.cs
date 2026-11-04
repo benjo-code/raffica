@@ -96,6 +96,16 @@ internal sealed class FieldCodeFixture
         Attachment = FieldCodeInput.Attach(Window, Session, Ribbon, Status);
     }
 
+    /// <summary>The menu of the paste command (the one menu command of the sample ribbon).</summary>
+    public MenuFlyout PasteFlyout() =>
+        (MenuFlyout)ControlHarness.Descendants(Ribbon.Band).OfType<RibbonButton>().Single(b => b.Definition.Id == "paste").Flyout!;
+
+    /// <summary>The badges that sit on the items of a menu (they live in the popup, not in the tree of the window).</summary>
+    public static List<string> MenuBadgeTexts(MenuFlyout flyout) =>
+        flyout.Items.OfType<MenuItem>()
+            .SelectMany(item => AdornerLayer.GetAdornerLayer(item)?.Children.OfType<FieldCodeBadge>().Where(b => ReferenceEquals(AdornerLayer.GetAdornedElement(b), item)).Select(b => b.Text!) ?? [])
+            .ToList();
+
     public IEnumerable<FieldCodeBadge> Badges => ControlHarness.Descendants(Window).OfType<FieldCodeBadge>();
 
     public List<string> BadgeTexts() => Badges.Select(b => b.Text!).ToList();
