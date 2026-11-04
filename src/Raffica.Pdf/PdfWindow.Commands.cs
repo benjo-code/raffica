@@ -145,7 +145,7 @@ internal sealed partial class PdfWindow
         Arrow: () => Tools.Choose(AnnotateTool.Arrow),
         TextBox: () => Tools.Choose(AnnotateTool.TextBox),
         AnnotateDone: () => Tools.End(),
-        MarksPane: () => { }, // The marks pane arrives with its own task; until then the command has nothing to show.
+        MarksPane: ToggleMarksPane,
         DeleteMark: () =>
         {
             if (Workspace.Active is { } active && AnnotateOf(active) is { } interaction)
@@ -185,7 +185,8 @@ internal sealed partial class PdfWindow
         }
 
         // While the annotate mode is on, the active tool gets the key first (Esc ends the mode), unless a text field or the search bar owns it.
-        if (Tools.Tool != AnnotateTool.None && !KeyBelongsToTextOrSearch() && Workspace.Active is { } annotated
+        // The marks pane keeps its keys (the arrows move in its list, Delete acts on the entry that has the focus), except Esc, which still ends the mode.
+        if (Tools.Tool != AnnotateTool.None && !KeyBelongsToTextOrSearch() && !(e.Key != Key.Escape && FocusIsInMarksPane()) && Workspace.Active is { } annotated
             && _annotates.TryGetValue(annotated, out var interaction) && interaction.HandleKey(e))
         {
             return;
@@ -339,6 +340,9 @@ internal sealed partial class PdfWindow
             // A document that went away meanwhile has no permissions to show; print stays as it was.
         }
     }
+
+    private bool FocusIsInMarksPane() =>
+        FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(focused, CommentsPane) || focused.GetVisualAncestors().Contains(CommentsPane));
 
     private bool FocusIsInNavigationPane() =>
         FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(focused, NavigationPane) || focused.GetVisualAncestors().Contains(NavigationPane));

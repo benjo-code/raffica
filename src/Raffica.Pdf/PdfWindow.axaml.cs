@@ -30,7 +30,7 @@ namespace Raffica.Pdf;
 
 /// <summary>
 /// The window of the PDF app: the shared frame with the drawn title bar (mark, document tabs, search over the ribbon), the ribbon, the
-/// pages pane on the left (204 px), a reserved comments pane on the right (300 px, closed), the document slot and the status bar. Without
+/// pages pane on the left (204 px), the marks pane on the right (256 px, closed until asked for), the document slot and the status bar. Without
 /// a document tab it shows the start view (no panes, no status bar). The document slot shows the page view of the active tab.
 /// </summary>
 internal sealed partial class PdfWindow : Window
@@ -38,8 +38,8 @@ internal sealed partial class PdfWindow : Window
     /// <summary>Width of the pages pane in device-independent pixels.</summary>
     internal const double PagesPaneWidth = 204;
 
-    /// <summary>Width of the (reserved) comments pane.</summary>
-    internal const double CommentsPaneWidth = 300;
+    /// <summary>Width of the marks pane (the right slot).</summary>
+    internal const double MarksPaneWidth = 256;
 
     /// <summary>How many recent files the start view shows.</summary>
     internal const int RecentOnStartView = 5;
@@ -62,6 +62,8 @@ internal sealed partial class PdfWindow : Window
     private readonly RecentService _recent;
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
+    private readonly Dictionary<PdfTab, MarksPane> _marks = [];
+    private readonly HashSet<PdfTab> _marksOpen = [];
     private readonly Dictionary<PdfTab, SearchSession> _searches = [];
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
     private readonly Dictionary<PdfTab, AnnotateInteraction> _annotates = [];
@@ -119,7 +121,7 @@ internal sealed partial class PdfWindow : Window
 
         NavigationPane = new Pane { Title = PdfStrings.PanePages, Width = PagesPaneWidth };
         DocumentPane = new Pane { IsDocument = true, PaneName = ShellStrings.PaneDocument };
-        CommentsPane = new Pane { Title = ShellStrings.PaneComments, Width = CommentsPaneWidth, IsOpen = false };
+        CommentsPane = new Pane { Title = PdfStrings.PaneMarks, Width = MarksPaneWidth, IsOpen = false };
         FieldCodeBadge.SetCode(NavigationPane, "6");
         FieldCodeBadge.SetCode(CommentsPane, "7");
 
@@ -157,7 +159,7 @@ internal sealed partial class PdfWindow : Window
         SetCompact(settings.CompactCommandBar);
         Refresh();
 
-        // Window-wide keys: Ctrl+K, F6 / Shift+F6, the shortcuts of the command catalog and the Alt field codes (Q the search field, 6 the pages pane, 7 the comments pane).
+        // Window-wide keys: Ctrl+K, F6 / Shift+F6, the shortcuts of the command catalog and the Alt field codes (Q the search field, 6 the pages pane, 7 the marks pane).
         FrameKeys.Attach(this, TitleSearch);
         AttachShortcuts(definition);
         var paneFocus = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
@@ -215,6 +217,9 @@ internal sealed partial class PdfWindow : Window
         EachStep(Workspace.Tabs, RememberView);
         EachStep(_panes.Values, panes => panes.Dispose());
         _panes.Clear();
+        EachStep(_marks.Values, DisposeMarks);
+        _marks.Clear();
+        _marksOpen.Clear();
         EachStep(_searches.Values, search => search.Dispose());
         _searches.Clear();
         EachStep(_annotates.Values, annotate => annotate.Dispose());
@@ -288,6 +293,7 @@ internal sealed partial class PdfWindow : Window
 
     public Pane DocumentPane { get; }
 
+    /// <summary>The right slot of the frame (256 px): the marks pane of the active tab. Closed until the marks command opens it; it takes part in the F6 ring (field code 7).</summary>
     public Pane CommentsPane { get; }
 
     public StartView Start { get; }
@@ -608,6 +614,13 @@ internal sealed partial class PdfWindow : Window
                 panes.Dispose();
             }
 
+            // The marks pane listens to the select controller of the tab, so it goes first.
+            _marksOpen.Remove(tab);
+            if (_marks.Remove(tab, out var marks))
+            {
+                DisposeMarks(marks);
+            }
+
             if (_annotates.Remove(tab, out var annotate))
             {
                 annotate.Dispose();
@@ -666,6 +679,7 @@ internal sealed partial class PdfWindow : Window
             DocumentPane.Content = null;
             CloseSearchBar();
             UpdateLeftPane();
+            UpdateMarksPane();
             return;
         }
 
@@ -720,8 +734,59 @@ internal sealed partial class PdfWindow : Window
         }
 
         UpdateLeftPane();
+        UpdateMarksPane();
         UpdateViewStatus();
         Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
+    }
+
+    /// <summary>The marks pane of a tab once it was opened (for tests); null before.</summary>
+    internal MarksPane? MarksOf(PdfTab tab) => _marks.GetValueOrDefault(tab);
+
+    /// <summary>Shows the marks pane of the active tab, or hides it when it is shown. The state belongs to the tab: another tab keeps its own.</summary>
+    internal void ToggleMarksPane()
+    {
+        if (Workspace.Active is not { } active || !_views.ContainsKey(active))
+        {
+            return;
+        }
+
+        if (!_marksOpen.Remove(active))
+        {
+            _marksOpen.Add(active);
+        }
+
+        UpdateMarksPane();
+    }
+
+    /// <summary>
+    /// Puts the marks pane of the active tab into the right slot when the tab has it open (made on first use and read after the first
+    /// sharp page, kept until the tab closes); else the slot is closed. A pane that closes under the keyboard focus hands the focus to the
+    /// document (the F6 ring does that when the slot closes).
+    /// </summary>
+    private void UpdateMarksPane()
+    {
+        var active = Workspace.Active;
+        if (active is null || Tabs.Items.Count == 0 || !_marksOpen.Contains(active) || !_views.TryGetValue(active, out var view) || !_annotates.TryGetValue(active, out var annotate))
+        {
+            CommentsPane.IsOpen = false;
+            CommentsPane.Content = null;
+            return;
+        }
+
+        if (!_marks.TryGetValue(active, out var marks))
+        {
+            var shown = active;
+            _marks[active] = marks = new MarksPane(new MarksModel(active, view), active, view, Tools, annotate.Select, Dialogs, () => AnnotateAllowedOf(shown) != false);
+        }
+
+        CommentsPane.Content = marks;
+        CommentsPane.IsOpen = true;
+    }
+
+    private static void DisposeMarks(MarksPane marks)
+    {
+        marks.Dispose();
+        marks.Model.Dispose();
     }
 
     /// <summary>What the left slot shows now (for tests and the commands of the pane group).</summary>

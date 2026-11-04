@@ -605,4 +605,109 @@
   <data name="TextBoxFieldName" xml:space="preserve">
     <value>Text des Textfelds</value>
   </data>
+  <data name="PaneMarks" xml:space="preserve">
+    <value>Markierungen</value>
+  </data>
+  <data name="MarkFilterName" xml:space="preserve">
+    <value>Markierungen anzeigen</value>
+  </data>
+  <data name="MarkFilterAll" xml:space="preserve">
+    <value>Alle Markierungen</value>
+  </data>
+  <data name="MarkFilterHighlight" xml:space="preserve">
+    <value>Hervorhebungen</value>
+  </data>
+  <data name="MarkFilterUnderline" xml:space="preserve">
+    <value>Unterstreichungen</value>
+  </data>
+  <data name="MarkFilterStrikeOut" xml:space="preserve">
+    <value>Durchstreichungen</value>
+  </data>
+  <data name="MarkFilterDrawings" xml:space="preserve">
+    <value>Zeichnungen und Textfelder</value>
+  </data>
+  <data name="MarkFilterOther" xml:space="preserve">
+    <value>Andere</value>
+  </data>
+  <data name="MarkKindHighlight" xml:space="preserve">
+    <value>Hervorhebung</value>
+  </data>
+  <data name="MarkKindUnderline" xml:space="preserve">
+    <value>Unterstreichung</value>
+  </data>
+  <data name="MarkKindStrikeOut" xml:space="preserve">
+    <value>Durchstreichung</value>
+  </data>
+  <data name="MarkKindFreehand" xml:space="preserve">
+    <value>Freihand</value>
+  </data>
+  <data name="MarkKindRectangle" xml:space="preserve">
+    <value>Rechteck</value>
+  </data>
+  <data name="MarkKindEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="MarkKindLine" xml:space="preserve">
+    <value>Linie</value>
+  </data>
+  <data name="MarkKindArrow" xml:space="preserve">
+    <value>Pfeil</value>
+  </data>
+  <data name="MarkKindTextBox" xml:space="preserve">
+    <value>Textfeld</value>
+  </data>
+  <data name="MarkKindSignature" xml:space="preserve">
+    <value>Unterschrift</value>
+  </data>
+  <data name="MarkKindOtherFormat" xml:space="preserve">
+    <value>Andere: {0}</value>
+  </data>
+  <data name="MarkGroupFormat" xml:space="preserve">
+    <value>Freihand, {0} Striche</value>
+  </data>
+  <data name="MarkPageTagFormat" xml:space="preserve">
+    <value>S. {0}</value>
+  </data>
+  <data name="MarkLockedLabel" xml:space="preserve">
+    <value>Gesperrt</value>
+  </data>
+  <data name="MarkSummaryOneFormat" xml:space="preserve">
+    <value>1 Markierung auf Seite {0}</value>
+  </data>
+  <data name="MarkSummaryOnePageFormat" xml:space="preserve">
+    <value>{0} Markierungen, alle auf Seite {1}</value>
+  </data>
+  <data name="MarkSummaryPagesFormat" xml:space="preserve">
+    <value>{0} Markierungen auf {1} Seiten</value>
+  </data>
+  <data name="MarksEmpty" xml:space="preserve">
+    <value>Dieses Dokument hat keine Markierungen.</value>
+  </data>
+  <data name="MarksNoneOfKind" xml:space="preserve">
+    <value>Keine Markierungen dieser Art.</value>
+  </data>
+  <data name="MarksHelp" xml:space="preserve">
+    <value>Eine gelöschte Markierung bleibt in früheren Revisionen der Datei erhalten.</value>
+  </data>
+  <data name="MarkCommentName" xml:space="preserve">
+    <value>Kommentar</value>
+  </data>
+  <data name="MarkCommentHint" xml:space="preserve">
+    <value>Strg+Eingabe übernimmt, Esc verwirft.</value>
+  </data>
+  <data name="MarkRepliesReason" xml:space="preserve">
+    <value>Diese Markierung hat Antworten, deshalb lässt Raffica sie unverändert.</value>
+  </data>
+  <data name="MarkOtherReason" xml:space="preserve">
+    <value>Von einem anderen Programm. Raffica zeigt sie an, kann sie aber nicht ändern.</value>
+  </data>
+  <data name="MarkTextBoxLockedReason" xml:space="preserve">
+    <value>Gesperrt: Ein anderes Programm hat dieses Textfeld erstellt. Sie können es löschen.</value>
+  </data>
+  <data name="MarkTextBoxNote" xml:space="preserve">
+    <value>Zum Ändern des Textes das Textfeld im Dokument doppelt anklicken.</value>
+  </data>
+  <data name="MarkCommentFailed" xml:space="preserve">
+    <value>Der Kommentar konnte nicht geändert werden. Die Markierung ist unverändert.</value>
+  </data>
 </root>

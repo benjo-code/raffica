@@ -54,4 +54,26 @@
   <Style Selector="TextBlock.nav-hint">
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
   </Style>
+  <!-- The marks list (right pane): rows of several lines. The selected row shows an edge bar as well as the tint, so the selection never
+       rests on colour alone; the swatch of a mark's colour has a border of the control token so that a pale colour still shows. -->
+  <Style Selector="ListBox.marks-list > ListBoxItem">
+    <Setter Property="Padding" Value="6,6,6,6" />
+  </Style>
+  <Style Selector="Border.mark-edge">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="1" />
+  </Style>
+  <Style Selector="ListBoxItem:selected Border.mark-edge">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="Border.mark-swatch">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+    <Setter Property="CornerRadius" Value="2" />
+  </Style>
+  <Style Selector="Border.mark-comment">
+    <Setter Property="BorderThickness" Value="2,0,0,0" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Rule}" />
+    <Setter Property="Padding" Value="6,0,0,0" />
+  </Style>
 </Styles>

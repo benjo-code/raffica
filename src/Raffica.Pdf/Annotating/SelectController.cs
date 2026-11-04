@@ -266,6 +266,32 @@ internal sealed class SelectController : IToolController
         return false;
     }
 
+    /// <summary>
+    /// Selects a mark that is named by a locator (the marks pane does): the marks of its page are read first when they are not known yet.
+    /// A mark that cannot be selected (not editable, or gone) leaves the selection as it is. The selection is shown only while the Select
+    /// tool is active; the caller chooses the tool. Never throws; the task ends when the selection is made.
+    /// </summary>
+    /// <param name="locator">The mark; found by name when it has one, else by index.</param>
+    /// <returns>The task that ends when the read and the selection are done.</returns>
+    public Task SelectAsync(AnnotationLocator locator)
+    {
+        if (_disposed)
+        {
+            return _chain;
+        }
+
+        EnqueueLoad(locator.Page, () =>
+        {
+            if (_cache.TryGetValue(locator.Page, out var list)
+                && list.FirstOrDefault(a => locator.Name is not null ? a.Name == locator.Name : a.Name is null && a.Index == locator.Index) is { } found
+                && DrawingHitTest.IsSelectable(found))
+            {
+                Select(found);
+            }
+        });
+        return _chain;
+    }
+
     /// <summary>Deletes the selected mark (one history step). Never throws; the task ends when the deletion is made.</summary>
     /// <returns>The task that ends with the deletion.</returns>
     public Task DeleteSelectionAsync()

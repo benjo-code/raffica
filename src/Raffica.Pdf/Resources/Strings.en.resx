@@ -608,4 +608,109 @@
   <data name="TextBoxFieldName" xml:space="preserve">
     <value>Text of the text box</value>
   </data>
+  <data name="PaneMarks" xml:space="preserve">
+    <value>Marks</value>
+  </data>
+  <data name="MarkFilterName" xml:space="preserve">
+    <value>Show marks</value>
+  </data>
+  <data name="MarkFilterAll" xml:space="preserve">
+    <value>All marks</value>
+  </data>
+  <data name="MarkFilterHighlight" xml:space="preserve">
+    <value>Highlights</value>
+  </data>
+  <data name="MarkFilterUnderline" xml:space="preserve">
+    <value>Underlines</value>
+  </data>
+  <data name="MarkFilterStrikeOut" xml:space="preserve">
+    <value>Strike-outs</value>
+  </data>
+  <data name="MarkFilterDrawings" xml:space="preserve">
+    <value>Drawings and text boxes</value>
+  </data>
+  <data name="MarkFilterOther" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="MarkKindHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="MarkKindUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="MarkKindStrikeOut" xml:space="preserve">
+    <value>Strike-out</value>
+  </data>
+  <data name="MarkKindFreehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="MarkKindRectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="MarkKindEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="MarkKindLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="MarkKindArrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="MarkKindTextBox" xml:space="preserve">
+    <value>Text box</value>
+  </data>
+  <data name="MarkKindSignature" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="MarkKindOtherFormat" xml:space="preserve">
+    <value>Other: {0}</value>
+  </data>
+  <data name="MarkGroupFormat" xml:space="preserve">
+    <value>Freehand, {0} strokes</value>
+  </data>
+  <data name="MarkPageTagFormat" xml:space="preserve">
+    <value>p. {0}</value>
+  </data>
+  <data name="MarkLockedLabel" xml:space="preserve">
+    <value>Locked</value>
+  </data>
+  <data name="MarkSummaryOneFormat" xml:space="preserve">
+    <value>1 mark on page {0}</value>
+  </data>
+  <data name="MarkSummaryOnePageFormat" xml:space="preserve">
+    <value>{0} marks, all on page {1}</value>
+  </data>
+  <data name="MarkSummaryPagesFormat" xml:space="preserve">
+    <value>{0} marks on {1} pages</value>
+  </data>
+  <data name="MarksEmpty" xml:space="preserve">
+    <value>This document has no marks.</value>
+  </data>
+  <data name="MarksNoneOfKind" xml:space="preserve">
+    <value>No marks of this kind.</value>
+  </data>
+  <data name="MarksHelp" xml:space="preserve">
+    <value>A deleted mark stays in earlier revisions of the file.</value>
+  </data>
+  <data name="MarkCommentName" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="MarkCommentHint" xml:space="preserve">
+    <value>Ctrl+Enter applies, Esc discards.</value>
+  </data>
+  <data name="MarkRepliesReason" xml:space="preserve">
+    <value>This mark has replies, so Raffica leaves it as it is.</value>
+  </data>
+  <data name="MarkOtherReason" xml:space="preserve">
+    <value>Made by another program. Raffica shows it but cannot change it.</value>
+  </data>
+  <data name="MarkTextBoxLockedReason" xml:space="preserve">
+    <value>Locked: another program made this text box. You can delete it.</value>
+  </data>
+  <data name="MarkTextBoxNote" xml:space="preserve">
+    <value>Double-click the text box in the document to change its text.</value>
+  </data>
+  <data name="MarkCommentFailed" xml:space="preserve">
+    <value>The comment could not be changed. The mark is as it was.</value>
+  </data>
 </root>
