@@ -8,7 +8,7 @@ namespace Raffica.Shell.Frame;
 /// The container of the app frame (section 6 of the design spec): title bar 36, command tab row 32, ribbon band 82 (40 when
 /// <see cref="IsCompact"/>), the document row with an optional pane on each side, an optional notification and the status bar 30.
 /// It only places the slots; what goes into them is the job of the app and of the later frame controls. A slot that is null
-/// collapses (panes, notification and status bar); the fixed rows keep their height.
+/// collapses (tab row, band, panes, notification and status bar); only the title bar row keeps its height.
 /// </summary>
 public class AppFrame : TemplatedControl
 {

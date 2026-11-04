@@ -6,7 +6,7 @@
     1 px rule drawn over its last pixel row), 32 (command tab row), 82 (ribbon band, 40 compact), the document row, the optional notification and 30
     (status bar, which draws its own 1 px rule above). Panels left and right of the document row are surface.band with a 1 px rule on the inner edge.
     All edges are square, nothing has a shadow. The rules of the title bar and the band overlay the last pixel row of their fixed height. The fixed rows are wrappers with a height; the grid rows are Auto, so a row whose
-    slot is empty collapses by hiding its wrapper.
+    slot is empty collapses by hiding its wrapper (the title bar row keeps its height; the start view of an app has no tab row and no band).
   -->
   <ControlTheme x:Key="{x:Type frame:AppFrame}" TargetType="frame:AppFrame">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Desk}" />
@@ -27,13 +27,15 @@
           <Border x:Name="PART_TabRowRow"
                   Grid.Row="1" Grid.ColumnSpan="3"
                   Height="{DynamicResource Raffica.Size.TabRow}"
-                  Background="{DynamicResource Raffica.Brush.Surface.Page}">
+                  Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                  IsVisible="{TemplateBinding TabRow, Converter={x:Static ObjectConverters.IsNotNull}}">
             <ContentPresenter Content="{TemplateBinding TabRow}" />
           </Border>
           <Border x:Name="PART_BandRow"
                   Grid.Row="2" Grid.ColumnSpan="3"
                   Height="{DynamicResource Raffica.Size.Ribbon}"
-                  Background="{DynamicResource Raffica.Brush.Surface.Band}">
+                  Background="{DynamicResource Raffica.Brush.Surface.Band}"
+                  IsVisible="{TemplateBinding Band, Converter={x:Static ObjectConverters.IsNotNull}}">
             <Panel>
               <ContentPresenter Content="{TemplateBinding Band}" />
               <Border VerticalAlignment="Bottom" IsHitTestVisible="False" Height="{DynamicResource Raffica.Rule.Width}" Background="{DynamicResource Raffica.Brush.Rule}" />

@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Raffica.Gallery.FrameDemo.FrameDemoWindow"
+        Width="1440"
+        Height="900"
+        MinWidth="720"
+        MinHeight="480"
+        Background="{DynamicResource Raffica.Brush.Surface.Page}"
+        Foreground="{DynamicResource Raffica.Brush.Text.Primary}"
+        FontFamily="{DynamicResource Raffica.Font.Ui}"
+        FontSize="14">
+  <Window.Styles>
+    <!-- The outline list of the navigation pane: plain rows with the hover and selection tints of the shell. -->
+    <Style Selector="ListBox.outline">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.outline > ListBoxItem">
+      <Setter Property="Height" Value="{DynamicResource Raffica.Size.RowList}" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.outline > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="ListBox.outline > ListBoxItem:selected">
+      <Setter Property="FontWeight" Value="600" />
+    </Style>
+    <Style Selector="ListBox.outline > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="ListBox.outline > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
+    </Style>
+
+    <!-- The app mark in the title bar: a small ink tile with the initial. -->
+    <Style Selector="Border.app-mark">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="Border.app-mark > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+      <Setter Property="FontWeight" Value="600" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.app-mark-button">
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+
+    <!-- The comments in the right pane. -->
+    <Style Selector="TextBlock.comment-author">
+      <Setter Property="FontWeight" Value="600" />
+    </Style>
+    <Style Selector="TextBlock.comment-text">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.comment">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Rule}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="0,0,0,10" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+  </Window.Styles>
+</Window>

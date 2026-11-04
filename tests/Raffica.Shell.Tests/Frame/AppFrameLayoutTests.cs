@@ -71,6 +71,25 @@ public sealed class AppFrameLayoutTests
         Assert.Equal(320 - 36 - 32 - 82 - 30, doc.Bounds.Height, 0.01);
     }
 
+    [AvaloniaFact]
+    public void TabRowAndBandCollapseWhenNullAndTheTitleBarKeepsItsRow()
+    {
+        var (window, frame, _, tabs, band, doc, _) = Show();
+
+        frame.TabRow = null;
+        frame.Band = null;
+        ControlHarness.Settle(window);
+
+        // The start view of an app has no tab row and no band: the document row starts right under the 36 px title bar.
+        Assert.Equal(36, doc.TranslatePoint(new Point(0, 0), window)!.Value.Y, 0.01);
+        Assert.Equal(320 - 36 - 30, doc.Bounds.Height, 0.01);
+
+        frame.TabRow = tabs;
+        frame.Band = band;
+        ControlHarness.Settle(window);
+        Assert.Equal(36 + 32 + 82, doc.TranslatePoint(new Point(0, 0), window)!.Value.Y, 0.01);
+    }
+
     // The height of the grid row that holds the control (the row, not the control: a control may be smaller than its row).
     private static Rect Row(Control c) => ((Control)c.Parent!).Bounds;
 }

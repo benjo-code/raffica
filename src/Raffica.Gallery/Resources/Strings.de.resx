@@ -321,4 +321,355 @@
   <data name="InkSample" xml:space="preserve">
     <value>Text auf Tinte</value>
   </data>
+  <data name="FrameWindowTitle" xml:space="preserve">
+    <value>Raffica App-Rahmen</value>
+  </data>
+  <data name="AppMenuName" xml:space="preserve">
+    <value>Anwendungsmenü</value>
+  </data>
+  <data name="DocTab1" xml:space="preserve">
+    <value>Quartalsbericht.docx</value>
+  </data>
+  <data name="DocTab2" xml:space="preserve">
+    <value>Notizen.docx</value>
+  </data>
+  <data name="DocTab3" xml:space="preserve">
+    <value>Haushaltsplan 2027.docx</value>
+  </data>
+  <data name="DocTabNew" xml:space="preserve">
+    <value>Unbenannt {0}</value>
+  </data>
+  <data name="DocHeading" xml:space="preserve">
+    <value>Quartalsbericht</value>
+  </data>
+  <data name="DocParagraph1" xml:space="preserve">
+    <value>Das dritte Quartal schloss in allen Regionen mit stetigem Wachstum. Die Aufträge stiegen um elf Prozent, und der neue Servicedesk beantwortete die meisten Anfragen noch am selben Tag.</value>
+  </data>
+  <data name="DocParagraph2" xml:space="preserve">
+    <value>Die Kosten blieben unter dem Plan. Die größte Einsparung brachte der gemeinsame Druckvertrag, den das Finanzteam im August neu verhandelt hat.</value>
+  </data>
+  <data name="DocInputName" xml:space="preserve">
+    <value>Dokumenttext</value>
+  </data>
+  <data name="DocInputSample" xml:space="preserve">
+    <value>Hier tippen, um die Tastatur auszuprobieren.</value>
+  </data>
+  <data name="OutlineName" xml:space="preserve">
+    <value>Gliederung</value>
+  </data>
+  <data name="Outline1" xml:space="preserve">
+    <value>Zusammenfassung</value>
+  </data>
+  <data name="Outline2" xml:space="preserve">
+    <value>Aufträge nach Region</value>
+  </data>
+  <data name="Outline3" xml:space="preserve">
+    <value>Kosten und Einsparungen</value>
+  </data>
+  <data name="Outline4" xml:space="preserve">
+    <value>Ausblick</value>
+  </data>
+  <data name="CommentsName" xml:space="preserve">
+    <value>Kommentare</value>
+  </data>
+  <data name="CommentAuthor1" xml:space="preserve">
+    <value>Anna</value>
+  </data>
+  <data name="Comment1" xml:space="preserve">
+    <value>Bitte die Zahl für die Region Nord ergänzen.</value>
+  </data>
+  <data name="CommentAuthor2" xml:space="preserve">
+    <value>Jonas</value>
+  </data>
+  <data name="Comment2" xml:space="preserve">
+    <value>Der Druckvertrag braucht eine Quellenangabe.</value>
+  </data>
+  <data name="StatusSaved" xml:space="preserve">
+    <value>Gespeichert</value>
+  </data>
+  <data name="StatusPosition" xml:space="preserve">
+    <value>Seite 1 von 3</value>
+  </data>
+  <data name="StatusCount" xml:space="preserve">
+    <value>412 Wörter</value>
+  </data>
+  <data name="StatusZoom" xml:space="preserve">
+    <value>100%</value>
+  </data>
+  <data name="RequestedNew" xml:space="preserve">
+    <value>Angefordert: neues {0}-Dokument</value>
+  </data>
+  <data name="RequestedOpenPdf" xml:space="preserve">
+    <value>Angefordert: PDF-Datei öffnen</value>
+  </data>
+  <data name="RequestedBrowse" xml:space="preserve">
+    <value>Angefordert: Dateidialog</value>
+  </data>
+  <data name="RequestedOpen" xml:space="preserve">
+    <value>Angefordert: {0} öffnen</value>
+  </data>
+  <data name="RanCommand" xml:space="preserve">
+    <value>Ausgeführt: {0}</value>
+  </data>
+  <data name="RecentName1" xml:space="preserve">
+    <value>Quartalsbericht.docx</value>
+  </data>
+  <data name="RecentName2" xml:space="preserve">
+    <value>Haushaltsplan 2027.xlsx</value>
+  </data>
+  <data name="RecentName3" xml:space="preserve">
+    <value>Produkteinführung.pptx</value>
+  </data>
+  <data name="RecentName4" xml:space="preserve">
+    <value>Vertrag.pdf</value>
+  </data>
+  <data name="RecentFolder1" xml:space="preserve">
+    <value>Dokumente</value>
+  </data>
+  <data name="RecentFolder2" xml:space="preserve">
+    <value>Dokumente/Finanzen</value>
+  </data>
+  <data name="RecentFolder3" xml:space="preserve">
+    <value>Dokumente/Vorträge</value>
+  </data>
+  <data name="RecentFolder4" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="TabFile" xml:space="preserve">
+    <value>Datei</value>
+  </data>
+  <data name="TabHome" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="TabInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="TabReview" xml:space="preserve">
+    <value>Überprüfen</value>
+  </data>
+  <data name="TabView" xml:space="preserve">
+    <value>Ansicht</value>
+  </data>
+  <data name="GroupDocument" xml:space="preserve">
+    <value>Dokument</value>
+  </data>
+  <data name="GroupHistory" xml:space="preserve">
+    <value>Verlauf</value>
+  </data>
+  <data name="GroupClipboard" xml:space="preserve">
+    <value>Zwischenablage</value>
+  </data>
+  <data name="GroupFont" xml:space="preserve">
+    <value>Schrift</value>
+  </data>
+  <data name="GroupParagraph" xml:space="preserve">
+    <value>Absatz</value>
+  </data>
+  <data name="GroupFind" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="GroupClear" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="GroupPages" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="GroupIllustrations" xml:space="preserve">
+    <value>Illustrationen</value>
+  </data>
+  <data name="GroupLinks" xml:space="preserve">
+    <value>Verknüpfungen</value>
+  </data>
+  <data name="GroupProofing" xml:space="preserve">
+    <value>Dokumentprüfung</value>
+  </data>
+  <data name="GroupChanges" xml:space="preserve">
+    <value>Änderungen</value>
+  </data>
+  <data name="GroupComments" xml:space="preserve">
+    <value>Kommentare</value>
+  </data>
+  <data name="GroupFinalize" xml:space="preserve">
+    <value>Abschließen</value>
+  </data>
+  <data name="GroupZoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="GroupShow" xml:space="preserve">
+    <value>Anzeigen</value>
+  </data>
+  <data name="GroupLayout" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="CmdNew" xml:space="preserve">
+    <value>Neu</value>
+  </data>
+  <data name="CmdOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Speichern unter</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Rückgängig</value>
+  </data>
+  <data name="CmdUndoDescription" xml:space="preserve">
+    <value>Die letzte Änderung zurücknehmen.</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Wiederholen</value>
+  </data>
+  <data name="CmdRedoDescription" xml:space="preserve">
+    <value>Die zurückgenommene Änderung wiederholen.</value>
+  </data>
+  <data name="CmdPaste" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="CmdPasteDescription" xml:space="preserve">
+    <value>Das Kopierte einfügen.</value>
+  </data>
+  <data name="CmdPasteKeep" xml:space="preserve">
+    <value>Quellformatierung beibehalten</value>
+  </data>
+  <data name="CmdPasteText" xml:space="preserve">
+    <value>Nur Text übernehmen</value>
+  </data>
+  <data name="CmdCut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="CmdPainter" xml:space="preserve">
+    <value>Format übertragen</value>
+  </data>
+  <data name="CmdBold" xml:space="preserve">
+    <value>Fett</value>
+  </data>
+  <data name="CmdItalic" xml:space="preserve">
+    <value>Kursiv</value>
+  </data>
+  <data name="CmdUnderline" xml:space="preserve">
+    <value>Unterstrichen</value>
+  </data>
+  <data name="CmdStrike" xml:space="preserve">
+    <value>Durchgestrichen</value>
+  </data>
+  <data name="CmdSuperscript" xml:space="preserve">
+    <value>Hochgestellt</value>
+  </data>
+  <data name="CmdSubscript" xml:space="preserve">
+    <value>Tiefgestellt</value>
+  </data>
+  <data name="CmdAlignLeft" xml:space="preserve">
+    <value>Linksbündig</value>
+  </data>
+  <data name="CmdAlignCenter" xml:space="preserve">
+    <value>Zentriert</value>
+  </data>
+  <data name="CmdAlignRight" xml:space="preserve">
+    <value>Rechtsbündig</value>
+  </data>
+  <data name="CmdBullets" xml:space="preserve">
+    <value>Aufzählung</value>
+  </data>
+  <data name="CmdSpacing" xml:space="preserve">
+    <value>Zeilenabstand</value>
+  </data>
+  <data name="CmdFind" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="CmdFindDescription" xml:space="preserve">
+    <value>Das Dokument durchsuchen.</value>
+  </data>
+  <data name="CmdReplace" xml:space="preserve">
+    <value>Ersetzen</value>
+  </data>
+  <data name="CmdClearFormatting" xml:space="preserve">
+    <value>Formatierung löschen</value>
+  </data>
+  <data name="CmdDeletePage" xml:space="preserve">
+    <value>Seite löschen</value>
+  </data>
+  <data name="CmdBlankPage" xml:space="preserve">
+    <value>Leere Seite</value>
+  </data>
+  <data name="CmdCoverPage" xml:space="preserve">
+    <value>Deckblatt</value>
+  </data>
+  <data name="CmdPageBreak" xml:space="preserve">
+    <value>Seitenumbruch</value>
+  </data>
+  <data name="CmdPicture" xml:space="preserve">
+    <value>Grafik</value>
+  </data>
+  <data name="CmdShape" xml:space="preserve">
+    <value>Form</value>
+  </data>
+  <data name="CmdChart" xml:space="preserve">
+    <value>Diagramm</value>
+  </data>
+  <data name="CmdLink" xml:space="preserve">
+    <value>Verknüpfung</value>
+  </data>
+  <data name="CmdBookmark" xml:space="preserve">
+    <value>Textmarke</value>
+  </data>
+  <data name="CmdContents" xml:space="preserve">
+    <value>Inhaltsverzeichnis</value>
+  </data>
+  <data name="CmdSpelling" xml:space="preserve">
+    <value>Rechtschreibung</value>
+  </data>
+  <data name="CmdWordCount" xml:space="preserve">
+    <value>Wörter zählen</value>
+  </data>
+  <data name="CmdTrack" xml:space="preserve">
+    <value>Änderungen verfolgen</value>
+  </data>
+  <data name="CmdAcceptAll" xml:space="preserve">
+    <value>Alle Änderungen annehmen</value>
+  </data>
+  <data name="CmdRejectAll" xml:space="preserve">
+    <value>Alle Änderungen ablehnen</value>
+  </data>
+  <data name="CmdNewComment" xml:space="preserve">
+    <value>Neuer Kommentar</value>
+  </data>
+  <data name="CmdDeleteComment" xml:space="preserve">
+    <value>Kommentar löschen</value>
+  </data>
+  <data name="CmdApply" xml:space="preserve">
+    <value>Endgültig anwenden</value>
+  </data>
+  <data name="CmdRemovePersonal" xml:space="preserve">
+    <value>Persönliche Daten entfernen</value>
+  </data>
+  <data name="CmdZoomIn" xml:space="preserve">
+    <value>Vergrößern</value>
+  </data>
+  <data name="CmdZoomOut" xml:space="preserve">
+    <value>Verkleinern</value>
+  </data>
+  <data name="CmdFitPage" xml:space="preserve">
+    <value>Seite einpassen</value>
+  </data>
+  <data name="CmdRuler" xml:space="preserve">
+    <value>Lineal</value>
+  </data>
+  <data name="CmdGridlines" xml:space="preserve">
+    <value>Gitternetzlinien</value>
+  </data>
+  <data name="CmdNavigationPane" xml:space="preserve">
+    <value>Navigationsbereich</value>
+  </data>
+  <data name="CmdCompact" xml:space="preserve">
+    <value>Kompakte Befehlsleiste</value>
+  </data>
+  <data name="CmdFullScreen" xml:space="preserve">
+    <value>Vollbild</value>
+  </data>
 </root>
