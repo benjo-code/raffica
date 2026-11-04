@@ -26,10 +26,19 @@ internal sealed class MarksModel : IDisposable
 
     private readonly PdfTab _tab;
     private readonly PageView? _view;
+    private readonly Func<PdfDocument, int, Task<IReadOnlyList<PdfAnnotation>>>? _read;
     private readonly SortedDictionary<int, IReadOnlyList<MarkEntry>> _pages = [];
     private readonly Dictionary<int, int> _reads = [];
     private readonly HashSet<int> _expanded = [];
+    private readonly SortedSet<int> _pending = [];
+    private readonly HashSet<int> _failed = [];
     private Task _chain = Task.CompletedTask;
+    private PdfDocument? _current;
+    private bool _wantAll;
+    private bool _allQueued;
+    private bool _retried;
+    private bool _draining;
+    private int _changePosted;
     private bool _started;
     private bool _disposed;
 
@@ -38,12 +47,15 @@ internal sealed class MarksModel : IDisposable
     /// The page view whose first sharp page starts the reading; <see langword="null"/>: start at once (tests, and a view that already
     /// drew its first page).
     /// </param>
-    public MarksModel(PdfTab tab, PageView? view = null)
+    /// <param name="read">Reads the annotations of a page instead of the document (tests only); <see langword="null"/>: the document.</param>
+    public MarksModel(PdfTab tab, PageView? view = null, Func<PdfDocument, int, Task<IReadOnlyList<PdfAnnotation>>>? read = null)
     {
         ArgumentNullException.ThrowIfNull(tab);
         _tab = tab;
         _view = view;
+        _read = read;
         _tab.Session.PagesInvalidated += OnPagesInvalidated;
+        _tab.Session.Changed += OnSessionChanged;
         if (view is null || view.FirstSharpPageShown)
         {
             Start();
@@ -98,8 +110,21 @@ internal sealed class MarksModel : IDisposable
             return _chain;
         }
 
-        var copy = pages?.ToArray();
-        _chain = ReadChainedAsync(_chain, copy);
+        // A new request gives the pages that failed before one more try; the pages queued so far are read once, however often they were named.
+        _retried = false;
+        if (pages is null)
+        {
+            _wantAll = true;
+        }
+        else
+        {
+            foreach (var page in pages)
+            {
+                _pending.Add(page);
+            }
+        }
+
+        Kick();
         return _chain;
     }
 
@@ -201,6 +226,7 @@ internal sealed class MarksModel : IDisposable
 
         _disposed = true;
         _tab.Session.PagesInvalidated -= OnPagesInvalidated;
+        _tab.Session.Changed -= OnSessionChanged;
         if (_view is not null)
         {
             _view.FirstSharpPage -= Start;
@@ -236,47 +262,122 @@ internal sealed class MarksModel : IDisposable
         });
     }
 
-    private async Task ReadChainedAsync(Task previous, int[]? pages)
+    // Any thread (the session raises it after every change of state, a save that swaps the document included): only posts. When the
+    // document of the tab is another one than the one read, the pages are read again from the new one.
+    private void OnSessionChanged()
     {
-        await previous;
-        if (_disposed || _tab.Session.Document is not { } document)
+        if (Interlocked.Exchange(ref _changePosted, 1) != 0)
         {
             return;
         }
 
-        var list = pages ?? Enumerable.Range(0, document.PageCount).ToArray();
-        foreach (var page in list)
+        Dispatcher.UIThread.Post(() =>
         {
-            if (_disposed)
+            Volatile.Write(ref _changePosted, 0);
+            if (!_disposed && _started && _tab.Session.Document is { } document && !ReferenceEquals(document, _current))
             {
-                return;
+                Kick();
             }
+        });
+    }
 
-            if (page < 0 || page >= document.PageCount)
+    private void Kick()
+    {
+        if (!_draining)
+        {
+            _draining = true;
+            _chain = DrainAsync(_chain);
+        }
+    }
+
+    // Reads the queued pages one after the other, always from the document the tab has now: a result read from a document that was
+    // replaced meanwhile (a save, a reopen) is dropped and everything is read again from the new one. A page that cannot be read gets
+    // one more try per request and then stays failed; while any page is failed or queued the model is not loaded.
+    private async Task DrainAsync(Task previous)
+    {
+        await previous;
+        try
+        {
+            while (!_disposed && _tab.Session.Document is { } document)
             {
-                if (_pages.Remove(page))
+                if (!ReferenceEquals(document, _current))
+                {
+                    _current = document;
+                    _wantAll = true;
+                    _failed.Clear();
+                    _retried = false;
+                    IsLoaded = false;
+                }
+
+                if (_wantAll)
+                {
+                    _wantAll = false;
+                    _allQueued = true;
+                    for (var i = 0; i < document.PageCount; i++)
+                    {
+                        _pending.Add(i);
+                    }
+                }
+
+                if (_pending.Count == 0)
+                {
+                    if (_failed.Count == 0 || _retried)
+                    {
+                        break;
+                    }
+
+                    _retried = true;
+                    _pending.UnionWith(_failed);
+                    _failed.Clear();
+                    continue;
+                }
+
+                var page = _pending.Min;
+                _pending.Remove(page);
+                if (page < 0 || page >= document.PageCount)
+                {
+                    _failed.Remove(page);
+                    if (_pages.Remove(page))
+                    {
+                        Changed?.Invoke();
+                    }
+
+                    continue;
+                }
+
+                var entries = await ReadPageAsync(document, page);
+                if (_disposed)
+                {
+                    return;
+                }
+
+                if (!ReferenceEquals(document, _tab.Session.Document))
+                {
+                    // The document was replaced while the page was read: the result belongs to the old one, the next turn starts over.
+                    continue;
+                }
+
+                if (entries is null)
+                {
+                    _failed.Add(page);
+                    continue;
+                }
+
+                _failed.Remove(page);
+                var had = _pages.TryGetValue(page, out var old) && old.Count > 0;
+                _pages[page] = entries;
+                if (had || entries.Count > 0)
                 {
                     Changed?.Invoke();
                 }
-
-                continue;
-            }
-
-            var entries = await ReadPageAsync(document, page);
-            if (entries is null || _disposed)
-            {
-                continue;
-            }
-
-            var had = _pages.TryGetValue(page, out var old) && old.Count > 0;
-            _pages[page] = entries;
-            if (had || entries.Count > 0)
-            {
-                Changed?.Invoke();
             }
         }
+        finally
+        {
+            _draining = false;
+        }
 
-        if (pages is null && !IsLoaded && !_disposed)
+        if (!_disposed && _allQueued && !IsLoaded && _pending.Count == 0 && _failed.Count == 0 && ReferenceEquals(_current, _tab.Session.Document))
         {
             IsLoaded = true;
             Changed?.Invoke();
@@ -289,7 +390,7 @@ internal sealed class MarksModel : IDisposable
         IReadOnlyList<PdfAnnotation> read;
         try
         {
-            read = await document.GetAnnotationsAsync(page);
+            read = await (_read?.Invoke(document, page) ?? document.GetAnnotationsAsync(page));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

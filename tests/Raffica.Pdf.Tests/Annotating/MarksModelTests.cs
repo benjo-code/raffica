@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Raffica.Core.Annotations;
+using Raffica.Core.Pdf;
 using Raffica.Core.Text;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Tests.Viewing;
@@ -168,5 +169,90 @@ public sealed class MarksModelTests
         Assert.False(model.HasMarks);
         Assert.Empty(model.Rows(MarkFilter.All));
         Assert.Equal(string.Empty, model.Summary(MarkFilter.All));
+    }
+
+    [AvaloniaFact]
+    public async Task SaveDuringTheFirstReadStillListsEveryMark()
+    {
+        using var copy = new TempCopy("annotations-foreign.pdf");
+        using var f = await ViewFixture.OpenAsync(copy.Path, show: false);
+        await AddRectangleAsync(f, 1, 30, 30);
+
+        // The first read of page 1 is held until the save has replaced the document.
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var held = false;
+        var model = new MarksModel(
+            f.Tab,
+            null,
+            async (document, page) =>
+            {
+                if (!held)
+                {
+                    held = true;
+                    reading.SetResult();
+                    await release.Task;
+                }
+
+                return await document.GetAnnotationsAsync(page);
+            });
+        var emptyShown = false;
+        model.Changed += () => emptyShown |= model.IsLoaded && !model.HasMarks;
+        await ViewFixture.WaitAsync(() => reading.Task.IsCompleted);
+
+        var before = f.Tab.Session.Document;
+        var saved = await f.Tab.Annotations.Editor.SaveAsync(new PdfEngine(), copy.Path, false, null, TestContext.Current.CancellationToken);
+        Assert.NotNull(saved);
+        Assert.NotSame(before, f.Tab.Session.Document);
+        release.SetResult();
+        await SettleAsync(model);
+        await SettleAsync(model);
+
+        Assert.True(model.IsLoaded);
+        Assert.False(emptyShown);
+        Assert.Equal(8, Entries(model).Count);
+        Assert.Equal("8 marks on 2 pages", model.Summary(MarkFilter.All));
+    }
+
+    [AvaloniaFact]
+    public async Task FailedPageReadIsRetriedAndNotReportedAsNoMarks()
+    {
+        using var f = await ViewFixture.OpenAsync("annotations-foreign.pdf", show: false);
+        var failures = 0;
+        var model = new MarksModel(
+            f.Tab,
+            null,
+            (document, page) =>
+            {
+                if (page == 1 && failures++ == 0)
+                {
+                    throw new InvalidOperationException("the page cannot be read now");
+                }
+
+                return document.GetAnnotationsAsync(page);
+            });
+        await SettleAsync(model);
+
+        Assert.Equal(2, failures);
+        Assert.Equal(2, model.ReadsOf(1));
+        Assert.True(model.IsLoaded);
+        Assert.Equal(7, Entries(model).Count);
+    }
+
+    [AvaloniaFact]
+    public async Task APageThatNeverReadsIsNeverReportedAsEmptyAndTheRetriesAreBounded()
+    {
+        using var f = await ViewFixture.OpenAsync("annotations-foreign.pdf", show: false);
+        var model = new MarksModel(f.Tab, null, (_, _) => throw new InvalidOperationException("never"));
+        await SettleAsync(model);
+
+        Assert.False(model.IsLoaded);
+        Assert.Equal(4, model.ReadCount);
+
+        // Another request for the pages asks again, once.
+        await model.RefreshAsync(new HashSet<int> { 0 });
+        await SettleAsync(model);
+        Assert.False(model.IsLoaded);
+        Assert.Equal(7, model.ReadCount);
     }
 }
