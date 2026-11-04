@@ -3,7 +3,7 @@
         x:Class="Raffica.Gallery.FrameDemo.FrameDemoWindow"
         Width="1440"
         Height="900"
-        MinWidth="720"
+        MinWidth="1024"
         MinHeight="480"
         Background="{DynamicResource Raffica.Brush.Surface.Page}"
         Foreground="{DynamicResource Raffica.Brush.Text.Primary}"

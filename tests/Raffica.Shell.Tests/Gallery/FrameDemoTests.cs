@@ -383,6 +383,62 @@ public sealed class FrameDemoTests
         Assert.Equal(ShellStrings.FieldCodeHint, demo.Window.Status.Hint);
     }
 
+    [AvaloniaTheory]
+    [InlineData("q")]
+    [InlineData("6")]
+    [InlineData("7")]
+    public void QSixAndSevenWorkInTheDemo(string code)
+    {
+        using var demo = new Demo();
+        var window = demo.Window;
+        window.InputTarget.Focus();
+        demo.Settle();
+
+        demo.BareAlt();
+        Assert.True(window.Ribbon.ShowFieldCodes);
+        var badges = window.GetVisualDescendants().OfType<FieldCodeBadge>().Select(b => b.Text).ToList();
+        Assert.Contains(code.ToUpperInvariant(), badges);
+
+        window.KeyPressQwerty(code == "q" ? PhysicalKey.Q : code == "6" ? PhysicalKey.Digit6 : PhysicalKey.Digit7, RawInputModifiers.None);
+        window.KeyReleaseQwerty(code == "q" ? PhysicalKey.Q : code == "6" ? PhysicalKey.Digit6 : PhysicalKey.Digit7, RawInputModifiers.None);
+        demo.Settle();
+
+        Assert.False(window.Ribbon.ShowFieldCodes);
+        Assert.Empty(window.GetVisualDescendants().OfType<FieldCodeBadge>());
+        var target = code switch
+        {
+            "q" => window.TitleSearch,
+            "6" => (Control)window.NavigationPane,
+            _ => window.CommentsPane,
+        };
+        Assert.True(target.IsVisualAncestorOf(demo.Focused));
+        if (code != "q")
+        {
+            Assert.True(code == "6" ? window.NavigationPane.IsPaneFocused : window.CommentsPane.IsPaneFocused);
+        }
+    }
+
+    [AvaloniaFact]
+    public void NoPaneBadgesInTheStartView()
+    {
+        using var demo = new Demo();
+        demo.CloseAllTabs();
+        demo.BareAlt();
+
+        // The start view has no ribbon and no panes: nothing starts the mode, so there is nothing to show.
+        Assert.False(demo.Window.Ribbon.ShowFieldCodes);
+        Assert.Empty(demo.Window.GetVisualDescendants().OfType<FieldCodeBadge>());
+        Assert.Null(demo.Window.Status.Hint);
+    }
+
+    [AvaloniaFact]
+    public void TheFrameDemoWindowIsAtLeast1024PixelsWide()
+    {
+        using var demo = new Demo();
+
+        Assert.Equal(1024, demo.Window.MinWidth);
+    }
+
     [AvaloniaFact]
     public void CompactStaysInSyncBetweenFrameAndRibbon()
     {
