@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Raffica.Pdf.PdfWindow"
+        Width="1280"
+        Height="860"
+        MinWidth="1024"
+        MinHeight="480"
+        Background="{DynamicResource Raffica.Brush.Surface.Page}"
+        Foreground="{DynamicResource Raffica.Brush.Text.Primary}"
+        FontFamily="{DynamicResource Raffica.Font.Ui}"
+        FontSize="14">
+  <Window.Styles>
+    <!-- The app mark in the title bar: a small ink tile with the initial. -->
+    <Style Selector="Border.app-mark">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="Border.app-mark > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+      <Setter Property="FontWeight" Value="600" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </Window.Styles>
+</Window>

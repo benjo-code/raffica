@@ -1,0 +1,16 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The search bar of the document (the notification slot of the frame): the chrome of the shell notification bar, 40 px high, shell
+       tokens only. -->
+  <Style Selector="Border.search-bar">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.NotificationBar}" />
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Overlay}" />
+    <Setter Property="Padding" Value="11,0,7,0" />
+  </Style>
+  <Style Selector="TextBlock.search-summary">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+</Styles>

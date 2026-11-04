@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="AppMarkName" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="PageViewNameFormat" xml:space="preserve">
+    <value>{0}, PDF document</value>
+    <comment>Automation name of the page view; {0} is the file name of the document.</comment>
+  </data>
+  <data name="PanePages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="PaneOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="PageThumbnailNameFormat" xml:space="preserve">
+    <value>Page {0}</value>
+    <comment>Automation name of a page thumbnail; {0} is the page number.</comment>
+  </data>
+  <data name="PageThumbnailCurrentNameFormat" xml:space="preserve">
+    <value>Page {0}, current page</value>
+    <comment>Automation name of the thumbnail of the page shown in the document; {0} is the page number.</comment>
+  </data>
+  <data name="OutlineEmpty" xml:space="preserve">
+    <value>This document has no outline.</value>
+    <comment>Hint in the outline pane when the document has no bookmarks (or they could not be read).</comment>
+  </data>
+  <data name="OutlineNoPage" xml:space="preserve">
+    <value>no page</value>
+    <comment>Added to the automation name of an outline entry that has no page to go to.</comment>
+  </data>
+  <data name="OutlineExpanded" xml:space="preserve">
+    <value>expanded</value>
+    <comment>Added to the automation name of an outline entry whose children are shown.</comment>
+  </data>
+  <data name="OutlineCollapsed" xml:space="preserve">
+    <value>collapsed</value>
+    <comment>Added to the automation name of an outline entry whose children are hidden.</comment>
+  </data>
+  <data name="OutlineUntitled" xml:space="preserve">
+    <value>(untitled)</value>
+    <comment>Shown for an outline entry without a title.</comment>
+  </data>
+  <data name="TabHome" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="TabView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="GroupFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="GroupFind" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="GroupGoTo" xml:space="preserve">
+    <value>Go to</value>
+  </data>
+  <data name="GroupPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="GroupZoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="GroupLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="GroupPage" xml:space="preserve">
+    <value>Page</value>
+  </data>
+  <data name="GroupPanes" xml:space="preserve">
+    <value>Panes</value>
+  </data>
+  <data name="CmdOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="CmdPrint" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="CmdSearch" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="CmdSearchNext" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="CmdSearchPrevious" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="CmdGoToPage" xml:space="preserve">
+    <value>Go to page</value>
+  </data>
+  <data name="CmdPreviousPage" xml:space="preserve">
+    <value>Previous page</value>
+  </data>
+  <data name="CmdNextPage" xml:space="preserve">
+    <value>Next page</value>
+  </data>
+  <data name="CmdFirstPage" xml:space="preserve">
+    <value>First page</value>
+  </data>
+  <data name="CmdLastPage" xml:space="preserve">
+    <value>Last page</value>
+  </data>
+  <data name="CmdZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="CmdZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="CmdFitWidth" xml:space="preserve">
+    <value>Fit width</value>
+  </data>
+  <data name="CmdFitPage" xml:space="preserve">
+    <value>Fit page</value>
+  </data>
+  <data name="CmdActualSize" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="CmdContinuous" xml:space="preserve">
+    <value>Continuous</value>
+  </data>
+  <data name="CmdSinglePage" xml:space="preserve">
+    <value>Single page</value>
+  </data>
+  <data name="CmdTwoPages" xml:space="preserve">
+    <value>Two pages</value>
+  </data>
+  <data name="CmdTwoPagesCover" xml:space="preserve">
+    <value>Two pages with cover</value>
+  </data>
+  <data name="CmdDarkPage" xml:space="preserve">
+    <value>Dark page</value>
+  </data>
+  <data name="CmdPagesPane" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="CmdOutlinePane" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="UnsavedTitle" xml:space="preserve">
+    <value>Save changes?</value>
+  </data>
+  <data name="UnsavedMessageFormat" xml:space="preserve">
+    <value>{0} has unsaved changes. Do you want to save them before you close it?</value>
+  </data>
+  <data name="UnsavedSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="UnsavedDontSave" xml:space="preserve">
+    <value>Don't save</value>
+  </data>
+  <data name="PasswordTitle" xml:space="preserve">
+    <value>Enter the password</value>
+  </data>
+  <data name="PasswordMessageFormat" xml:space="preserve">
+    <value>{0} is protected by a password. Enter it to open the file.</value>
+  </data>
+  <data name="PasswordLabel" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="PasswordIncorrect" xml:space="preserve">
+    <value>The password is incorrect. Try again.</value>
+  </data>
+  <data name="ErrorTitle" xml:space="preserve">
+    <value>The file could not be opened</value>
+  </data>
+  <data name="ErrorFileNotFound" xml:space="preserve">
+    <value>The file does not exist any more or was moved.</value>
+  </data>
+  <data name="ErrorCannotRead" xml:space="preserve">
+    <value>The file cannot be read. It may be in use by another program, or you may not have access to it.</value>
+  </data>
+  <data name="ErrorNotAPdf" xml:space="preserve">
+    <value>This is not a PDF file, or the file is damaged.</value>
+  </data>
+  <data name="ErrorPasswordRequired" xml:space="preserve">
+    <value>The file is protected by a password.</value>
+  </data>
+  <data name="ErrorPasswordIncorrect" xml:space="preserve">
+    <value>The password for this file is incorrect.</value>
+  </data>
+  <data name="ErrorUnsupportedEncryption" xml:space="preserve">
+    <value>The file uses a kind of protection that is not supported.</value>
+  </data>
+  <data name="ErrorUnknown" xml:space="preserve">
+    <value>The file could not be opened for an unknown reason.</value>
+  </data>
+  <data name="OpenDialogTitle" xml:space="preserve">
+    <value>Open PDF</value>
+  </data>
+  <data name="OpenFilterPdf" xml:space="preserve">
+    <value>PDF documents</value>
+  </data>
+  <data name="StatusPositionFormat" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+    <comment>Position cell of the status bar: current page and page count.</comment>
+  </data>
+  <data name="StatusPageCountOne" xml:space="preserve">
+    <value>1 page</value>
+  </data>
+  <data name="StatusPageCountFormat" xml:space="preserve">
+    <value>{0} pages</value>
+  </data>
+  <data name="StatusCountWithSizeFormat" xml:space="preserve">
+    <value>{0} · {1}</value>
+    <comment>Count cell: the page count, then the page size.</comment>
+  </data>
+  <data name="PageSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+    <comment>Page size, width by height in millimetres.</comment>
+  </data>
+  <data name="GoToPageTitle" xml:space="preserve">
+    <value>Go to page</value>
+  </data>
+  <data name="GoToPageLabelFormat" xml:space="preserve">
+    <value>Page number (1 to {0})</value>
+  </data>
+  <data name="GoToPageInvalidFormat" xml:space="preserve">
+    <value>Enter a page number from 1 to {0}.</value>
+  </data>
+  <data name="InfoTitle" xml:space="preserve">
+    <value>Document info</value>
+  </data>
+  <data name="InfoFileName" xml:space="preserve">
+    <value>File name</value>
+  </data>
+  <data name="InfoFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="InfoPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="InfoPageSize" xml:space="preserve">
+    <value>Page size</value>
+  </data>
+  <data name="InfoPdfVersion" xml:space="preserve">
+    <value>PDF version</value>
+  </data>
+  <data name="InfoFileSize" xml:space="preserve">
+    <value>File size</value>
+  </data>
+  <data name="InfoDocumentTitle" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="InfoAuthor" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="InfoCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="InfoNotSet" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+  <data name="SearchBarName" xml:space="preserve">
+    <value>Find in document</value>
+  </data>
+  <data name="SearchMatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+  <data name="SearchWholeWord" xml:space="preserve">
+    <value>Whole word</value>
+  </data>
+  <data name="SearchPreviousHit" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="SearchNextHit" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="SearchCloseBar" xml:space="preserve">
+    <value>Close search</value>
+  </data>
+  <data name="SearchNoHits" xml:space="preserve">
+    <value>No hits</value>
+  </data>
+  <data name="SearchHitOne" xml:space="preserve">
+    <value>1 hit</value>
+  </data>
+  <data name="SearchHitsFormat" xml:space="preserve">
+    <value>{0} hits</value>
+  </data>
+  <data name="SearchLimitFormat" xml:space="preserve">
+    <value>More than {0} hits</value>
+  </data>
+  <data name="SearchSearching" xml:space="preserve">
+    <value>Searching…</value>
+  </data>
+  <data name="LinkTitle" xml:space="preserve">
+    <value>Open this link?</value>
+  </data>
+  <data name="LinkMessage" xml:space="preserve">
+    <value>This link leads outside the document. It opens in your browser or mail program.</value>
+  </data>
+  <data name="LinkAddressName" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="LinkOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="LinkWarningUserInfo" xml:space="preserve">
+    <value>Check this address. It contains a user name before the host name, a common disguise for a different site.</value>
+  </data>
+  <data name="LinkWarningPunycodeFormat" xml:space="preserve">
+    <value>Check this address. The domain uses special characters and can imitate another name. Decoded domain: {0}</value>
+  </data>
+  <data name="PaletteGroupGoTo" xml:space="preserve">
+    <value>Go to</value>
+  </data>
+  <data name="PaletteGoToPageFormat" xml:space="preserve">
+    <value>Go to page {0}</value>
+  </data>
+  <data name="PaletteGoToPageDetailFormat" xml:space="preserve">
+    <value>of {0}</value>
+  </data>
+  <data name="PaletteGroupTabs" xml:space="preserve">
+    <value>Open documents</value>
+  </data>
+  <data name="PaletteGroupRecent" xml:space="preserve">
+    <value>Recent files</value>
+  </data>
+  <data name="PaletteGroupOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="PaletteOutlinePageFormat" xml:space="preserve">
+    <value>Page {0}</value>
+  </data>
+  <data name="PaletteGroupDocument" xml:space="preserve">
+    <value>Document</value>
+  </data>
+  <data name="GroupTabs" xml:space="preserve">
+    <value>Tabs</value>
+  </data>
+  <data name="GroupText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="GroupHelp" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="CmdCloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="CmdSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="CmdNextTab" xml:space="preserve">
+    <value>Next tab</value>
+  </data>
+  <data name="CmdPreviousTab" xml:space="preserve">
+    <value>Previous tab</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Select all text</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Copy text</value>
+  </data>
+  <data name="CmdHelp" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="PrintLockedReason" xml:space="preserve">
+    <value>This document does not allow printing.</value>
+  </data>
+  <data name="PrintErrorStart" xml:space="preserve">
+    <value>The printer could not start the print job.</value>
+  </data>
+  <data name="PrintErrorPage" xml:space="preserve">
+    <value>The printer reported an error while printing.</value>
+  </data>
+  <data name="PrintErrorDialog" xml:space="preserve">
+    <value>The print dialog could not be shown.</value>
+  </data>
+  <data name="PrintNoService" xml:space="preserve">
+    <value>No printing service is available on this system.</value>
+  </data>
+  <data name="PrintNoPrinter" xml:space="preserve">
+    <value>No printer was found.</value>
+  </data>
+  <data name="HelpTitle" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="HelpListName" xml:space="preserve">
+    <value>List of keyboard shortcuts</value>
+  </data>
+  <data name="SettingsPageAppearance" xml:space="preserve">
+    <value>Page appearance</value>
+  </data>
+  <data name="SettingsPageLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="SettingsPageFollowTheme" xml:space="preserve">
+    <value>Follow theme</value>
+  </data>
+  <data name="SettingsDefaultLayout" xml:space="preserve">
+    <value>Default layout</value>
+  </data>
+  <data name="SettingsDefaultZoom" xml:space="preserve">
+    <value>Default zoom</value>
+  </data>
+  <data name="PrintCardTitle" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="PrintCardPrinter" xml:space="preserve">
+    <value>Printer</value>
+  </data>
+  <data name="PrintCardPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="PrintPagesAll" xml:space="preserve">
+    <value>All pages</value>
+  </data>
+  <data name="PrintPagesCurrent" xml:space="preserve">
+    <value>Current page</value>
+  </data>
+  <data name="PrintPagesRange" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="PrintRangeLabel" xml:space="preserve">
+    <value>Page range</value>
+  </data>
+  <data name="PrintCardCopies" xml:space="preserve">
+    <value>Copies</value>
+  </data>
+  <data name="PrintCardCollate" xml:space="preserve">
+    <value>Collate</value>
+  </data>
+  <data name="PrintCardScaling" xml:space="preserve">
+    <value>Scaling</value>
+  </data>
+  <data name="PrintScalingFit" xml:space="preserve">
+    <value>Fit to paper</value>
+  </data>
+  <data name="PrintScalingActual" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="PrintCardDuplex" xml:space="preserve">
+    <value>Two-sided</value>
+  </data>
+  <data name="PrintDuplexDefault" xml:space="preserve">
+    <value>Printer default</value>
+  </data>
+  <data name="PrintDuplexOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="PrintDuplexLong" xml:space="preserve">
+    <value>Flip on long edge</value>
+  </data>
+  <data name="PrintDuplexShort" xml:space="preserve">
+    <value>Flip on short edge</value>
+  </data>
+  <data name="PrintCardOrientation" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="PrintOrientationDefault" xml:space="preserve">
+    <value>Printer default</value>
+  </data>
+  <data name="PrintOrientationPortrait" xml:space="preserve">
+    <value>Portrait</value>
+  </data>
+  <data name="PrintOrientationLandscape" xml:space="preserve">
+    <value>Landscape</value>
+  </data>
+  <data name="PrintRangeInvalidFormat" xml:space="preserve">
+    <value>Enter pages from 1 to {0}, for example 1-3, 5.</value>
+  </data>
+  <data name="PrintCopiesInvalid" xml:space="preserve">
+    <value>Enter a number of copies from 1 to 999.</value>
+  </data>
+  <data name="PrintJobTitleFormat" xml:space="preserve">
+    <value>Printing {0}</value>
+  </data>
+  <data name="PrintJobPreparing" xml:space="preserve">
+    <value>Preparing the job</value>
+  </data>
+  <data name="PrintJobProgressFormat" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+  </data>
+  <data name="PrintJobCancelling" xml:space="preserve">
+    <value>Cancelling</value>
+  </data>
+  <data name="PrintBusy" xml:space="preserve">
+    <value>A print job is already running.</value>
+  </data>
+  <data name="PrintFailedPagesFormat" xml:space="preserve">
+    <value>These pages could not be printed: {0}.</value>
+  </data>
+  <data name="PrintFailedMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
+</root>

@@ -16,7 +16,7 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        // Native AOT: AppContext must be initialized before any other thread starts (as in Pagewing).
+        // Native AOT: AppContext must be initialized before any other thread starts (as in the predecessor).
         _ = AppContext.GetData("System.GC.Server");
 
         var options = ProbeOptions.Parse(args, out var error);

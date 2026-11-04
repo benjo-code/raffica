@@ -130,8 +130,34 @@ public class RibbonView : TemplatedControl
     /// <summary>Raises <see cref="CommandInvoked"/> for a command the field-code session ran (the session calls <c>Run</c> itself).</summary>
     internal void NotifyInvoked(CommandDefinition command) => CommandInvoked?.Invoke(command);
 
+    /// <summary>
+    /// Asks every command of the band again whether it is enabled (see <see cref="CommandDefinition.EnabledWhen"/>) and updates the
+    /// buttons, the items of the menus and the tooltip reasons in place; focus and open menus stay. The app calls this when what the
+    /// conditions look at has changed.
+    /// </summary>
+    public void RefreshCommandStates()
+    {
+        foreach (var button in _groups.GetVisualDescendants().OfType<RibbonButton>())
+        {
+            button.RefreshState();
+        }
+
+        foreach (var more in _groups.GetVisualDescendants().OfType<Button>())
+        {
+            if (more is not RibbonButton && more.Flyout is MenuFlyout flyout)
+            {
+                RibbonButton.RefreshItems(flyout.Items);
+            }
+        }
+    }
+
     private void Invoke(CommandDefinition command)
     {
+        if (!command.IsEnabled)
+        {
+            return;
+        }
+
         command.Run?.Invoke();
         CommandInvoked?.Invoke(command);
     }

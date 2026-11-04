@@ -28,7 +28,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | 2026-11-04 |
-| 2.1 | Viewer | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.1 | Viewer | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) | – |
 | 2.2 | Annotate | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.4 | Organize pages | 3 – Raffica PDF | ⬜ open | – | – |
@@ -54,6 +54,18 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-04 (Milestone 2):** Milestone 3 (macOS spec) now depends on 2.6 instead of 2, so that macOS stays after the finished PDF app; milestone 2 only means that the PDF spec exists.
 - **2026-11-04 (Milestone 2):** The OCR library build moves from the backlog into milestone 2.5, and the release workflow into 2.6; the CodeQL and hardware-measure workflows come back in 2.5. Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: platform code, autosave, OCR build and releases (M2)".
 - **2026-11-04 (Milestone 2):** Milestone 2.1 adds an additive option to the shell's settings dialog so that the PDF app hides the autosave row (autosave contradicts "never damages the original"); the frame's behaviour for the other apps stays as it is. Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: platform code, autosave, OCR build and releases (M2)".
+- **2026-11-04 (Milestone 2.1):** Inventory of Pagewing 1.0 (its roadmap and README at the `v1.0.0` tag), entered as marks `(P<n>)` in the tasks of 2.1 to 2.6. Done in 2.1 although not named in the spec's list: document info from the status bar (P4: file, pages, page size, PDF version, file size, metadata) and the F1 help card with the shortcut overview built from the command catalog (P6). Already done in the imported core: `raffica search` (P5). Open for after 2.6 unless the owner asks earlier, both in the backlog: tabs between windows (P4.1) and the "open in new window" command of P4, because the frame's `DocumentTabs` has no drag-out and a workspace across windows is a shell feature that no other app needs yet; the setting "reduce animations" (P6), because the shell's design spec has no such setting and its motion is limited to control transitions (owner to confirm). Not rebuilt on purpose: the density setting (replaced by the compact command bar of the shell) and a separate high-contrast switch (Pagewing followed the system setting as well, and the shell does the same through `ShellTheme.Apply`, so there is nothing to rebuild). Pagewing's public-repository work (12.1) is the owner's decision and stays listed as open in 2.6.
+- **2026-11-04 (Milestone 2.1):** Three additive extensions of the shell, needed by the PDF app and neutral for the other apps: (1) the settings dialog takes optional `SettingsDialogOptions` (hide the autosave row, extra rows the app builds and reads in its `onOk`), (2) `DocumentTab` gets a dirty marker and an exposed selected state (the selected state of document tabs for assistive technology is done with it, and the backlog item "Accessibility items deferred from the frame" is narrowed to what remains), (3) the frame's `SearchField` takes an optional `ExtraResults` provider for entries that are not ribbon commands (open tabs, recent files, outline entries, "Go to page N"). Decided in `Docs/DECISIONS.md`, entry "Raffica PDF: viewer conventions (M2.1)".
+- **2026-11-04 (Milestone 2.1):** A file that is already open is selected, not opened twice (Pagewing opened a second tab). Two tabs of one file would both hold dirty state once 2.2 adds editing.
+- **2026-11-04 (Milestone 2.1):** The test PDF generator of Pagewing (`tools/make-testpdfs.cs`) is not imported in 2.1: the fixtures under `testdata/pdfs` cover every viewer test, and a task that needs a new fixture says so.
+- **2026-11-04 (Milestone 2.1):** Milestone 2.1 has 17 tasks in its plan. If the owner asks, it can be split after Task 11 of the plan into 2.1 (viewing and searching) and a further milestone (printing and speed budgets); the extra id is chosen then.
+- **2026-11-04 (Milestone 2.1):** Additions to the shell made while building 2.1, neutral for the other apps: the status bar zoom range goes up to 800 percent (it was 500; Core allows 800, and above 500 the buttons and the slider drove the zoom backwards), and `CommandDefinition` gets `EnabledWhen` and `DisabledReason` so that a ribbon command can be disabled with a reason (`RibbonView.RefreshCommandStates`; the ribbon did not disable commands before).
+- **2026-11-04 (Milestone 2.1):** The Home tab of the PDF ribbon grew to 7 groups and 29 commands (Close tab, Settings, Tabs, Text and Help groups were added); the spec leaves the ribbon content to the app within the frame rules. With no document open, Open, Help and Settings are enabled (the plan said only Open).
+- **2026-11-04 (Milestone 2.1):** The Linux print card has no paper-size row: Core's `PrintSettings` has no paper field (the same as Pagewing 1.0), so the printer's default paper is used. The plan item "paper size" is not delivered.
+- **2026-11-04 (Milestone 2.1):** The settings of PDF follow Core's enums: the page appearance reads "Light / Follow theme" and the default zoom offers three modes (Free is not a valid default).
+- **2026-11-04 (Milestone 2.1):** `--settings-file` isolates all of the app's files (`pdf-settings.json` and `recent.json` next to the given file) and the single-instance pipe (its name gets a hash suffix of the path), so a measurement or a test never touches the user's data.
+- **2026-11-04 (Milestone 2.1):** A file given on the command line at first launch opens at the default position, not at the remembered one: `recent.json` is loaded only after the first sharp page. Measured option for a follow-up: read it in parallel on a pool thread during the open (about 2 ms per run, no effect on the first page); recommended, not adopted. Recorded in `Docs/DECISIONS.md`.
+- **2026-11-04 (Milestone 2.1):** Naming hygiene: four comments and notes under `bench/` that named the predecessor are reworded to "the predecessor"; the tests keep "Pagewing" only as test data.
 
 ---
 
@@ -169,26 +181,46 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 - [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
 
 ## Milestone 2.1 – Viewer
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
+**Status:** 🔵 in progress · **Plan:** [2026-11-04-milestone-02-1-viewer.md](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
 
 Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame within speed budgets measured for it.
 
 **Tasks**
-- [ ] Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change)
-- [ ] App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view
-- [ ] Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)
-- [ ] Open by file argument, dialog, drag and drop and password; single instance (a second file opens in the running instance); recent files; tabs; position per file
-- [ ] Continuous scroll with render scheduler and tile cache, zoom modes, layouts (single, continuous, two-page), dark page; pages pane and outline pane; heavy work starts only after the first sharp page
-- [ ] Full-text search with highlights, select and copy text, internal and external links (external only after a click and a confirmation that shows the URL), command palette entries
-- [ ] Settings that apply to PDF (page appearance, default layout and zoom; theme, language and compact command bar); the autosave row hidden through an additive shell option, recorded as a scope change
-- [ ] Printing on Windows (Win32 print dialog, `FPDF_RenderPage`) and Linux (CUPS with an own Avalonia dialog): always light, annotations printed, locked for documents that forbid printing, background job with progress and cancel
-- [ ] Set the PDF speed budgets: measure the cases of spec section 5 with Pagewing 1.0 and Chrome as references, record budgets and limits (budget x 1.25 once) in `Docs/DECISIONS.md`, extend the `measure.yml` machinery; if the app is slower than Pagewing 1.0, look for the cause first (for example deferring PDFium initialisation or the ribbon) before raising the finding
+- [x] Inventory Pagewing 1.0's features (its roadmap and README) and enter the result in this roadmap as a checklist per milestone 2.1 to 2.6 (tasks of each milestone, recorded as a scope change) - done 2026-11-04: read from `git show v1.0.0:Docs/ROADMAP.md` and `README.md` of Pagewing (milestones 3 to 16 and the 8.1, 12.1 and 14.1 additions). Every predecessor feature is a mark `(P<n>)` in the tasks of 2.1 to 2.6 (n = Pagewing milestone); the decisions for features outside the spec list are in the scope changes of 2026-11-04 (context "Milestone 2.1"): done in 2.1 (document info, help card F1), already done in Core (`raffica search`), open for after 2.6 (tabs between windows, open in a new window, reduce-animations setting).
+- [x] App project and executable on the shared frame (depends on `Raffica.Core` and `Raffica.Shell` only); PDF ribbon, panes and start view (P3)
+- [x] Document and tab model with the dirty state, its marker on the tab and in the status bar, and the close prompt (Save, Don't save, Cancel)
+- [x] Open by file argument, dialog, drag and drop and password (P3); single instance, a second file opens in the running instance (P3); recent files, stored locally and read only after the first sharp page (P6); tabs: open, close, switch, reorder, and a file that is already open is selected instead of opened twice (P4); position per file (page, zoom, zoom mode) (P6)
+- [x] Continuous scroll with render scheduler and tile cache (P3); zoom with Ctrl+wheel and Ctrl+plus/minus (P3); zoom modes page width, whole page, actual size, free (P4); go to page (P4); layouts single, continuous, two-page with and without cover page (P4); dark page without inverted images, switchable per tab (P6); pages pane with thumbnails and outline pane with jump (P4); heavy work starts only after the first sharp page
+- [x] Full-text search with highlights, next and previous, in the background (P5); select and copy text (P5); internal and external links, external only after a click and a confirmation that shows the URL (P5); command palette (Ctrl+K) with open tabs, recent files, pages and outline entries besides the commands (P6)
+- [x] Settings that apply to PDF (page appearance, default layout and zoom, print scaling; theme, language, and the compact command bar in place of the density setting; high contrast follows the shell) (P6); the autosave row hidden through an additive shell option, recorded as a scope change
+- [x] Printing (P7) on Windows (Win32 print dialog, `FPDF_RenderPage`) and Linux (CUPS with an own Avalonia dialog): page range, copies, fit to paper, always light, annotations printed, locked for documents that forbid printing, background job with progress and cancel
+- [ ] Set the PDF speed budgets (P3 startup check): measure the cases of spec section 5 with Pagewing 1.0 and Chrome as references, record budgets and limits (budget x 1.25 once) in `Docs/DECISIONS.md`, extend the `measure.yml` machinery; if the app is slower than Pagewing 1.0, look for the cause first (for example deferring PDFium initialisation or the ribbon) before raising the finding
+- [x] Document info from the status bar: file name, page count, page size, PDF version, file size and metadata (P4)
+- [x] Help card (F1) with the shortcut overview built from the command catalog, and keyboard shortcuts for every viewer action (P6)
+- [x] `raffica search` in the CLI (P5): already part of the imported core, nothing to build (`tests/Raffica.Core.Tests/Cli/SearchCliTests.cs` came with the core in M0, the command is dispatched in `src/Raffica.Cli/CliApp.cs`)
 
 **Acceptance criteria**
-- [ ] The render-regression and viewer tests pass: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with `RAFFICA_REQUIRE_OCR=1`
+- [x] The render-regression and viewer tests pass: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with `RAFFICA_REQUIRE_OCR=1` – `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` on 2026-11-04 gives 4493 total, 4466 passed, 0 failed, 27 skipped: `Raffica.Pdf.Tests` 400 (394 passed, 6 skipped: the CUPS tests, which need Linux), `Raffica.Shell.Tests` 684, `Raffica.Render.Tests` 59 (the render-regression tests), `Raffica.Core.Tests` 3350 (3329 passed, 21 skipped: Linux file modes, Windows print to a device context and measurement-only tests); `dotnet build Raffica.slnx -c Release` gives 0 warnings; `dotnet format Raffica.slnx --verify-no-changes` is clean; `dotnet run tools/roadmap.cs -- check` is valid. Local builds and tests used `-p:NuGetAudit=false` because of the advisory on `Microsoft.DotNet.ILCompiler` (handled separately).
 - [ ] The PDF speed budgets are recorded in `Docs/DECISIONS.md` and `measure.yml` is within them on Windows and Linux
 - [ ] The app opens a file passed as argument and a second file in the running instance (manual check, recorded)
-- [ ] Every Pagewing 1.0 feature of the viewer group is either done or listed as open in the inventory
+- [x] Every Pagewing 1.0 feature of the viewer group is either done or listed as open in the inventory – Compared by hand on 2026-11-04: every predecessor feature of 2.1 (the marks P3 to P7 in the tasks above) is built and covered by the tests named there. What is not built is listed as open: tabs between windows and open in a new window, and the setting "reduce animations" (backlog), the density setting (not rebuilt); high contrast follows the system setting on both sides, the predecessor and the app through the shell (ShellTheme.Apply), so there is no separate switch, see the scope changes of 2026-11-04 (context "Milestone 2.1"). Added beyond the spec list: document info and the F1 help card.
+
+**Open items**
+**Why 2.1 is not `done`:** two acceptance criteria are open because they need the owner's machines: the speed budgets (criterion 2) and the recorded manual check of a second file in the running instance (criterion 3). Everything else is built and tested.
+
+**Speed budgets (criterion 2), owner's runs.** Per machine: `gh workflow run measure.yml --ref feature/m21-viewer -f platform=windows -f target=pdf -f note="<GPU, resolution, scaling, power>"` and the same with `-f platform=linux`; after a reboot also `-f cases=cold-reboot`. Measure the predecessor 1.0 and Chrome on the same machines. Then record budgets and limits (`s_pdfBudgets` in `bench/shell-probe/measure.cs`, the selftest lines that pin the empty table, the entry "Raffica PDF speed budgets (M2.1)" in `Docs/DECISIONS.md`, the CSVs in `Docs/measurements/pdf-viewer-<date>/`), switch the CI step "Size of the published PDF app" to `--check`, and run `dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform windows --in "<CSVs>"` and the same with `--platform linux` (expected exit 0). Details: `bench/shell-probe/README.md`. Task "Set the PDF speed budgets" stays open until then: the switches (`MeasurementTests`), the `pdf` target of `measure.cs` (`selftest` 250/250 checks), `measure.yml`, the method entry in `Docs/DECISIONS.md` and the cause check (Task 16: the window constructor takes about 6.5 ms, no cause found) are done; the limit table is empty on purpose and `check --target pdf` exits 2 until it is filled.
+
+**Second file in the running instance (criterion 3).** The paths are covered by tests (`InstanceHandoverTests`, `HandoverWindowTests`, `OpenFlowTests`), the manual run was never made. Start `RafficaPdf.exe --settings-file %TEMP%\rt\s.json testdata\pdfs\text-rich.pdf`, then in a second shell with the same `--settings-file` and a relative path `RafficaPdf.exe --settings-file %TEMP%\rt\s.json hello_world.pdf`: expect exit code 0, one process, the second file as a second tab and the window brought to the front.
+
+**Manual checks on real machines (not blocking; headless tests cannot show them).**
+- Printers: a real print on Windows (the Win32 dialog from the print command, `WindowsPrintToPdfTests` on a real desktop) and on Linux with CUPS: `RAFFICA_TEST_CUPS_PRINTER=<queue> RAFFICA_TEST_CUPS_OUTPUT=<folder> dotnet test tests/Raffica.Pdf.Tests -c Release --filter-namespace "*Platform*"` (6 tests skip without it); the look of the print card and job strip in light, dark and high contrast and in German.
+- Display looks: `dotnet run --project src/Raffica.Pdf -c Release -- testdata\pdfs\thousand-pages.pdf` for scroll smoothness, scroll bar drag, tile seams at 125 and 150 percent, the dark page, focus rings, highlight and selection look, bitmap disposal with fast scrolling and a small tile budget; the link card with a 2000-character address, the extra settings rows and the help card in light, dark and high contrast and in German.
+- Input: a German keyboard (Ctrl+plus on the main key and the numpad, Ctrl+Shift+1/2, Ctrl+comma), Ctrl+Tab on Linux and macOS window managers, the Ctrl+O picker on Linux portals and macOS (key state after the picker), the Alt field-code overlay with the new groups.
+- Clipboard and links: paste copied text into Word and Outlook (CF_HTML), a link opening in a real browser and mail program.
+- Platforms: the title bar on the ProBook (CachyOS, Wayland), macOS (Cmd mapping, drag area), the Linux file dialog filter for `*.PDF`.
+- Measurements on real hardware and the predecessor and Chrome references, see criterion 2. The scroll p99 of about 50 ms on the dev VM is the compositor cadence, not the app; the 30 s watchdog of the scroll run can be tight on slow compositors.
+
+**Proof of the tasks.** Tests are in `tests/Raffica.Pdf.Tests` (`dotnet test` counts are in the evidence of criterion 1): app project `AppProjectTests`, `StartViewTests`, `RibbonDefinitionTests`, `FieldCodeIntegrationTests`; tab model `WorkspaceTests`, `TabBindingTests`, `CloseGuardTests`, `WindowCloseTests` (Save does nothing in 2.1, real saving comes with 2.2); opening `OpenFlowTests`, `DropTests`, `PasswordCardTests`, `ErrorCardTests`, `DialogQueueTests`, single instance `InstanceHandoverTests`, `HandoverWindowTests`, recent files `RecentServiceTests`; viewing `PageViewRenderTests`, `PageViewScrollTests`, `TileBitmapsTests`, `ZoomTests`, `LayoutTests`, `PageViewStateTests`, `TabViewStateTests`, `GoToPageCardTests`, `PagesPaneTests`, `OutlinePaneTests`, `PaneFocusTests`, `PaneSwitcherTests`; text `SearchSessionTests`, `SearchViewTests`, `SelectionTests`, `CopyTests`, `LinkCardTests`, `PaletteSourceTests`, `WindowTextTests`; settings `PdfSettingsTests`, `TranslationTests`; printing `WindowsPrintNativeTests`, `WindowsPrintToPdfTests` (28 platform tests passed on Windows with Microsoft Print to PDF), `CupsOptionsTests`, `CupsPrintServiceTests`, `PrintCardTests`, `PrintCommandTests`; document info `DocumentInfoCardTests`; help card and shortcuts `CommandCatalogTests`, `ShortcutTests`, `ShortcutMatchTests`.
 
 ## Milestone 2.2 – Annotate
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.1
@@ -196,9 +228,9 @@ Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame wit
 Goal: Marks and comments can be added, changed, undone and saved through the existing save pipeline.
 
 **Tasks**
-- [ ] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane
-- [ ] Freehand, rectangle, ellipse, line, arrow and text box; move, resize, colour, delete and undo
-- [ ] The save pipeline and its UI through the existing core: save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close
+- [ ] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane (P9)
+- [ ] Freehand with mouse and pen, rectangle, ellipse, line, arrow and text box (P10); select, move, resize, colour, delete, and undo and redo in one history for all annotation kinds (P9, P10)
+- [ ] The save pipeline and its UI through the existing core (P9): save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close
 - [ ] Tests for every tool and for save, reopen and undo
 
 **Acceptance criteria**
@@ -211,9 +243,9 @@ Goal: Marks and comments can be added, changed, undone and saved through the exi
 Goal: AcroForm fields can be filled and a visible signature placed and saved.
 
 **Tasks**
-- [ ] Fill AcroForm fields with entry in Avalonia elements over the field, keyboard navigation and a limited character set; the app says that calculations need JavaScript and are not run
-- [ ] The required-field card before saving
-- [ ] The visible signature: draw, import, saved signatures, placement; the dialog carries the Pagewing hint that a visible signature is not legally binding
+- [ ] Fill AcroForm fields (text, checkbox, radio, list, combo) with entry in Avalonia elements over the field, field highlight, tab order and keyboard-only use, and a limited character set (P11); undo and redo of values in the shared history with the annotations (P11); the app says that calculations, formats and checks need JavaScript and are not run, that XFA and digital signature fields are not supported and that buttons never run an action (P11)
+- [ ] The required-field card before saving, with the values saved together with the annotations in one operation (P11)
+- [ ] The visible signature (P12): draw or import an image, up to ten saved signatures stored locally, placement; the dialog carries the Raffica PDF hint that a visible signature is not legally binding
 - [ ] Tests for each field kind and for the signature store
 
 **Acceptance criteria**
@@ -226,9 +258,9 @@ Goal: AcroForm fields can be filled and a visible signature placed and saved.
 Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.
 
 **Tasks**
-- [ ] Reorder, rotate, delete and insert pages in the pages pane and the ribbon
-- [ ] Merge and split, and export pages as image
-- [ ] Full rewrite for page operations with the warning for signed files
+- [ ] Reorder, rotate, delete and insert pages in the pages pane and the ribbon (P13)
+- [ ] Merge and split (split every n pages, by ranges, by top-level bookmarks) and export pages as image (P13); the CLI commands `rotate`, `merge`, `split` and `export` already exist in the imported core
+- [ ] Full rewrite for page operations with the warning for signed files and the list of what a page operation loses, shown before it runs (P13)
 - [ ] Tests on the page edit plan and its report
 
 **Acceptance criteria**
@@ -242,9 +274,9 @@ Goal: Content can be redacted for real, scans made searchable and text lines cor
 
 **Tasks**
 - [ ] Build the Tesseract library in this repository (workflow and build scripts), replace the fetch from Pagewing's prerelease in `tools/native-fetch.cs`, and put the CodeQL and hardware-measure workflows back where needed
-- [ ] The destructive group of the ribbon; redaction by selection, area and pattern, ending in a full rewrite with the checks on extracted text and raw bytes
-- [ ] OCR with language management; the heavy work starts after the first sharp page
-- [ ] Text line editing: correct existing lines and typos, no paragraph editing
+- [ ] The destructive group of the ribbon; redaction by selection, area and pattern (email, IBAN, phone, card), fill colour, blur and pixelate for image parts, overlay text, and the rescue of pages that cannot be taken apart by turning them into an image (P14, P14.1), ending in a full rewrite with the checks on extracted text and raw bytes
+- [ ] OCR with language management (English and German bundled, more from the user folder); the heavy work starts after the first sharp page (P15)
+- [ ] Text line editing: correct existing lines and typos, no paragraph editing; an empty text removes the run (P16)
 
 **Acceptance criteria**
 - [ ] The redaction removal tests (extracted text and raw bytes) pass through the UI path
@@ -258,10 +290,10 @@ Goal: Content can be redacted for real, scans made searchable and text lines cor
 Goal: Installers, default-app registration and the updater exist for Windows and Linux, and the first release can be published on the owner's instruction.
 
 **Tasks**
-- [ ] Windows installer (Inno Setup, new AppId) and portable ZIP; Linux `.deb` and AppImage
-- [ ] Default-PDF-app registration and the first-start card, with the platform implementations of IDefaultAppService
-- [ ] The updater with its own signing key (kept by the owner in a CI secret) and the release address of this repository; the update-check switch in the settings; the unsaved-changes prompt before an install
-- [ ] License notices, the release workflow, README for users and CHANGELOG
+- [ ] Windows installer (Inno Setup, new AppId) and portable ZIP; Linux `.deb` and AppImage (P8)
+- [ ] Default-PDF-app registration and the first-start card, with the platform implementations of IDefaultAppService (P8)
+- [ ] The updater (P8.1) with its own signing key (kept by the owner in a CI secret) and the release address of this repository; the update-check switch in the settings; the unsaved-changes prompt before an install
+- [ ] License notices in the packages and the About card, the release workflow, README for users and CHANGELOG (P8)
 - [ ] List the open items that need the owner's machines (installers, printers, the real update key, the public repository) with the command that checks each
 
 **Acceptance criteria**
@@ -354,5 +386,13 @@ Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, o
 - **What the field-code group numbers should do:** In field-code mode the group digits are shown as a legend only; Q, 6 and 7 act. Decide whether typing a group digit should do something (for example jump to the group).
 - **German wording for "System" in the settings dialog:** The German label "Wie System" (`SettingsThemeSystem`, the follow-the-system theme choice) needs the owner's decision on the wording.
 - **Ctrl+K and hyperlinks in Write:** The frame binds Ctrl+K to the search field. Word and other editors use Ctrl+K for inserting a hyperlink; settle this in the Write spec (note for the Write spec).
-- **Accessibility items deferred from the frame:** Not done in milestone 1.2: the selected state of ribbon and document tabs is not exposed to assistive technology (only a style class), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button).
+- **Accessibility items deferred from the frame:** Not done in milestone 1.2: the selected state of ribbon tabs is not exposed to assistive technology (only a style class; the document tabs expose it since milestone 2.1), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button).
 - **Option key handling on macOS:** A bare Option tap enters field-code mode and takes the next letter; there is no platform gating. Decide the macOS behaviour when the macOS subproject is specified, after checking it on a Mac.
+- **Tabs between windows and open in a new window:** Pagewing 1.0 let a tab be moved to its own window (menu "Open in new window", M4) and dragged between windows (M4.1, Windows only). Raffica PDF 2.1 has one window with tabs; the frame's `DocumentTabs` has no drag-out. Revisit after 2.6 or when the owner asks.
+- **Setting "reduce animations":** Pagewing 1.0 had it in the settings (M6, because Avalonia had no system setting for it). Raffica's shell has no such setting; add it as an extra row of the settings dialog or as a shell setting once the shell has animations that matter.
+- **Remove the overlap between Core and Shell settings:** Core's `AppSettings` still has `Theme`, `Language` and `Density`, which the shell settings (`ShellSettings`) own; the PDF app does not read them. Remove the fields or migrate them so that two files cannot disagree.
+- **PDF app: command states and icons:** Toggle commands (dark page, panes) have no checked state; add a shell `CheckedWhen` like `EnabledWhen`. Missing shell icons: printer, gear, up and left chevrons, moon, copy; the ribbon uses the least misleading placeholders. Disabled ribbon buttons are not focusable, so the reason (for example for print) shows on hover only; expose it as help text.
+- **PDF app: pane and print card accessibility:** The outline is a flat list with depth in the automation name, not a tree with levels in the accessibility tree; there is no visible pane switcher (ribbon group and shortcuts switch); the print job card has no live region or real progress element.
+- **Print follow-ups:** Cancelling during the CUPS submit still prints (the submit call, cupsPrintFile2, cannot be cancelled and the app does not call cupsCancelJob2 afterwards: add it and test it on a Linux machine, see DECISIONS, viewer deviations). Failed pages are lost if the job is cancelled afterwards.
+- **Search and selection follow-ups:** The selection highlight is lost when Core's page-text cache (32 pages) evicts a page. An unhandled `TileFailed` leaves a page on its preview.
+- **Speed follow-ups of the viewer:** Read `recent.json` in parallel with the first open so that a command-line file opens at its remembered position (about 2 ms per run). Per-frame allocations in `PageView.Replan` and `DrawPage` (a `Pen` per page, LINQ in the planner) are small on the dev VM; re-check the scroll case on real GPU machines before changing them.

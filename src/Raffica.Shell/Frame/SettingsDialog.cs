@@ -20,7 +20,8 @@ public static class SettingsDialog
     /// <param name="current">The stored settings the controls start from.</param>
     /// <param name="onOk">Called with the new settings when the user confirms.</param>
     /// <param name="onCancel">Called by Cancel, the close button and Esc.</param>
-    public static Dialog Create(ShellSettings current, Action<ShellSettings> onOk, Action onCancel)
+    /// <param name="options">Optional app adjustments (hidden autosave row, extra rows); <see langword="null"/> keeps the default dialog.</param>
+    public static Dialog Create(ShellSettings current, Action<ShellSettings> onOk, Action onCancel, SettingsDialogOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(onOk);
@@ -54,12 +55,23 @@ public static class SettingsDialog
         language.SelectionChanged += (_, _) => UpdateNote();
 
         var compact = new CheckBox { Name = "PART_Compact", Content = ShellStrings.SettingsCompact, IsChecked = current.CompactCommandBar };
+        var showAutosave = options?.ShowAutosave ?? true;
         var autosave = new CheckBox { Name = "PART_Autosave", Content = ShellStrings.SettingsAutosave, IsChecked = current.Autosave };
 
         var body = new StackPanel { Spacing = 16 };
         body.Children.Add(Field(ShellStrings.SettingsTheme, theme));
         body.Children.Add(Field(ShellStrings.SettingsLanguage, language, note));
-        body.Children.Add(new StackPanel { Spacing = 8, Children = { compact, autosave } });
+        var checks = new StackPanel { Spacing = 8, Children = { compact } };
+        if (showAutosave)
+        {
+            checks.Children.Add(autosave);
+        }
+
+        body.Children.Add(checks);
+        foreach (var row in options?.ExtraRows ?? [])
+        {
+            body.Children.Add(Field(row.Label, row.Editor));
+        }
 
         var cancel = new Button { Name = "PART_Cancel", Content = ShellStrings.Cancel };
         cancel.Classes.Add("boxed");
@@ -83,7 +95,7 @@ public static class SettingsDialog
                 // An untouched first-start choice stays "follow the system" instead of being pinned.
                 current.Language is null && selected == running ? null : selected,
                 compact.IsChecked == true,
-                autosave.IsChecked == true));
+                showAutosave ? autosave.IsChecked == true : current.Autosave));
         };
         return dialog;
     }
