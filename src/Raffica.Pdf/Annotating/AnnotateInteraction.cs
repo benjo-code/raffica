@@ -34,7 +34,8 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
         _view = view;
         _tools = tools;
         Markup = new MarkupController(tab, view, tools, selection, dialogs, time);
-        _controllers = [Markup];
+        Drawing = new DrawingController(tab, view, tools, dialogs);
+        _controllers = [Markup, Drawing];
         foreach (var controller in _controllers)
         {
             controller.Changed += OnControllerChanged;
@@ -55,6 +56,9 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
 
     /// <summary>The controller of the text markup tools.</summary>
     public MarkupController Markup { get; }
+
+    /// <summary>The controller of the drawing tools.</summary>
+    public DrawingController Drawing { get; }
 
     /// <inheritdoc />
     public void Render(DrawingContext context, PageView view) => _current?.Render(context, view);
@@ -106,6 +110,12 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
         if (_tools.Tool == AnnotateTool.None || Find(_tools.Tool) is not { } controller)
+        {
+            return;
+        }
+
+        // Touch scrolls and zooms the page; only the mouse and the pen work on it (the pen is captured, so it does not scroll).
+        if (e.Pointer.Type == PointerType.Touch)
         {
             return;
         }

@@ -199,6 +199,10 @@ internal sealed partial class PageView
         return best;
     }
 
+    /// <summary>The size of a page in points, or null when the size is not known yet.</summary>
+    internal Raffica.Core.Pdf.PdfPageSize? SizeOfPage(int page) =>
+        _layout is not null && page >= 0 && page < _layout.PageCount && _layout.IsSizeKnown(page) ? _layout.GetPageSize(page) : null;
+
     /// <summary>The place of a position of a page in the view, or null when the page is not shown or its size is not known.</summary>
     internal Point? ToView(int page, double x, double y)
     {
