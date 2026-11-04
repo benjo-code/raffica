@@ -381,7 +381,7 @@
     <value>Der Druckdialog konnte nicht angezeigt werden.</value>
   </data>
   <data name="PrintNoService" xml:space="preserve">
-    <value>Drucken ist nicht möglich: das Drucksystem (CUPS) ist nicht installiert.</value>
+    <value>Auf diesem System ist kein Druckdienst verfügbar.</value>
   </data>
   <data name="PrintNoPrinter" xml:space="preserve">
     <value>Es wurde kein Drucker gefunden.</value>

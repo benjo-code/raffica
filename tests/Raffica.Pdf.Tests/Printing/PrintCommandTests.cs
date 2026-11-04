@@ -158,6 +158,44 @@ public sealed class PrintCommandTests
     }
 
     [AvaloniaFact]
+    public async Task ClosingTheTabCancelsTheJobAndShowsNoError()
+    {
+        using var host = new PrintHost();
+        var service = new FakePrintService { DialogResult = Ticket(), PauseBefore = 2 };
+        var tab = await host.OpenAsync(FourPages);
+        var command = Create(service, host, tab);
+
+        var run = command.RunAsync();
+        await PrintHost.UntilAsync(() => service.Paused.Task.IsCompleted && host.Slot.Content is PrintJobCard);
+
+        // The tab closes under the running job: its session goes, the job is cancelled first, and nothing is reported.
+        tab.Dispose();
+        await run.WaitAsync(TimeSpan.FromSeconds(10));
+        PrintHost.Pump();
+
+        Assert.Equal([0, 1], service.Printed.Single());
+        Assert.False(host.Host.IsOpen);
+        Assert.Null(host.Slot.Content);
+        Assert.False(command.IsRunning);
+        Assert.All(service.TemporaryFiles, f => Assert.False(File.Exists(f)));
+    }
+
+    [AvaloniaFact]
+    public async Task ADocumentThatWasDisposedUnderTheJobEndsQuietly()
+    {
+        using var host = new PrintHost();
+        var service = new FakePrintService { DialogResult = Ticket(), Fail = new ObjectDisposedException("session") };
+        var tab = await host.OpenAsync(FourPages);
+
+        await Create(service, host, tab).RunAsync();
+        PrintHost.Pump();
+
+        // Not the card "could not start printing": the document went away, that is all.
+        Assert.False(host.Host.IsOpen);
+        Assert.Null(host.Slot.Content);
+    }
+
+    [AvaloniaFact]
     public async Task OnlyOneJobRunsAtATime()
     {
         using var host = new PrintHost();

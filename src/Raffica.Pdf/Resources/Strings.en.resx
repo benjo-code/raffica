@@ -384,7 +384,7 @@
     <value>The print dialog could not be shown.</value>
   </data>
   <data name="PrintNoService" xml:space="preserve">
-    <value>Printing is not available: the print system (CUPS) is not installed.</value>
+    <value>No printing service is available on this system.</value>
   </data>
   <data name="PrintNoPrinter" xml:space="preserve">
     <value>No printer was found.</value>

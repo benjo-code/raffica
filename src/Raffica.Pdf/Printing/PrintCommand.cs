@@ -230,6 +230,24 @@ internal sealed class PrintCommand
             }
         });
         var progress = new JobProgress(card);
+
+        // The tab that is closing takes its session with it: the job is cancelled before the session goes, and what the next page then
+        // throws is no error to report.
+        var tabClosing = false;
+        void OnTabDisposing()
+        {
+            tabClosing = true;
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The job ended meanwhile.
+            }
+        }
+
+        tab.Disposing += OnTabDisposing;
         try
         {
             // A file with unsaved changes has no file to print: the service then writes a copy from the document in memory.
@@ -244,12 +262,17 @@ internal sealed class PrintCommand
         {
             // A cancelled job ends quietly.
         }
+        catch (Exception ex) when (ex is ObjectDisposedException || (tabClosing && ex is not OutOfMemoryException))
+        {
+            // The document went away under the job (its tab was closed): the same as a cancel.
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _presenter.Message(ErrorText(ex));
         }
         finally
         {
+            tab.Disposing -= OnTabDisposing;
             _running = null;
             _presenter.HideJob(card);
         }
