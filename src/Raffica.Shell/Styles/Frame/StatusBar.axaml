@@ -49,7 +49,7 @@
                     MinWidth="{DynamicResource Raffica.Size.ZoomButton}" MinHeight="{DynamicResource Raffica.Size.ZoomButton}">
               <controls:StrokeIcon Size="16" Data="{DynamicResource Raffica.Icon.Minus}" />
             </Button>
-            <Slider x:Name="PART_ZoomSlider" Width="{DynamicResource Raffica.Size.ZoomSlider}"
+            <Slider x:Name="PART_ZoomSlider" Theme="{DynamicResource Raffica.Theme.StatusZoomSlider}" Width="{DynamicResource Raffica.Size.ZoomSlider}"
                     Height="{DynamicResource Raffica.Size.ZoomButton}" MinHeight="0" VerticalAlignment="Center" />
             <Button x:Name="PART_ZoomIn" Classes="icon"
                     Width="{DynamicResource Raffica.Size.ZoomButton}" Height="{DynamicResource Raffica.Size.ZoomButton}"
@@ -62,6 +62,54 @@
           </StackPanel>
         </Grid>
         </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!--
+    The zoom slider of the status bar is neutral: a 2 px track (Border.Control, the part before the thumb in Text.Secondary) and a
+    12 px round thumb in Text.Primary, no accent. Its focus ring is the shared one; it snaps to 10 (set in code).
+  -->
+  <ControlTheme x:Key="Raffica.Theme.StatusZoomSlider" TargetType="Slider">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid Height="{TemplateBinding Height}" Background="Transparent">
+          <Track x:Name="PART_Track"
+                 Orientation="Horizontal"
+                 Minimum="{TemplateBinding Minimum}"
+                 Maximum="{TemplateBinding Maximum}"
+                 Value="{TemplateBinding Value, Mode=TwoWay}">
+            <Track.DecreaseButton>
+              <RepeatButton x:Name="PART_DecreaseButton" Focusable="False">
+                <RepeatButton.Template>
+                  <ControlTemplate>
+                    <Grid Background="Transparent">
+                      <Border Height="2" VerticalAlignment="Center" Background="{DynamicResource Raffica.Brush.Text.Secondary}" />
+                    </Grid>
+                  </ControlTemplate>
+                </RepeatButton.Template>
+              </RepeatButton>
+            </Track.DecreaseButton>
+            <Track.IncreaseButton>
+              <RepeatButton x:Name="PART_IncreaseButton" Focusable="False">
+                <RepeatButton.Template>
+                  <ControlTemplate>
+                    <Grid Background="Transparent">
+                      <Border Height="2" VerticalAlignment="Center" Background="{DynamicResource Raffica.Brush.Border.Control}" />
+                    </Grid>
+                  </ControlTemplate>
+                </RepeatButton.Template>
+              </RepeatButton>
+            </Track.IncreaseButton>
+            <Thumb x:Name="PART_ZoomThumb" Width="12" Height="12" VerticalAlignment="Center">
+              <Thumb.Template>
+                <ControlTemplate>
+                  <Ellipse x:Name="PART_ThumbShape" Fill="{DynamicResource Raffica.Brush.Text.Primary}" />
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+          </Track>
+        </Grid>
       </ControlTemplate>
     </Setter>
   </ControlTheme>

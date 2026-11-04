@@ -24,9 +24,22 @@ public class AppFrame : TemplatedControl
     /// <summary>Compact ribbon: the band row is 40 px instead of 82.</summary>
     public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<AppFrame, bool>(nameof(IsCompact));
 
+    /// <summary>Whether the left pane slot shows: a pane is set and it is visible. A closed pane takes its slot, and the rule of the slot, with it.</summary>
+    public static readonly DirectProperty<AppFrame, bool> IsLeftPaneShownProperty =
+        AvaloniaProperty.RegisterDirect<AppFrame, bool>(nameof(IsLeftPaneShown), f => f._isLeftPaneShown);
+
+    /// <summary>Whether the right pane slot shows: a pane is set and it is visible.</summary>
+    public static readonly DirectProperty<AppFrame, bool> IsRightPaneShownProperty =
+        AvaloniaProperty.RegisterDirect<AppFrame, bool>(nameof(IsRightPaneShown), f => f._isRightPaneShown);
+
+    private bool _isLeftPaneShown;
+    private bool _isRightPaneShown;
+
     static AppFrame()
     {
         IsCompactProperty.Changed.AddClassHandler<AppFrame>((frame, e) => frame.PseudoClasses.Set(":compact", e.GetNewValue<bool>()));
+        LeftPaneProperty.Changed.AddClassHandler<AppFrame>((frame, e) => Follow(e, frame.OnLeftPaneVisibility, frame.UpdateLeftPane));
+        RightPaneProperty.Changed.AddClassHandler<AppFrame>((frame, e) => Follow(e, frame.OnRightPaneVisibility, frame.UpdateRightPane));
     }
 
     public Control? TitleBar { get => GetValue(TitleBarProperty); set => SetValue(TitleBarProperty, value); }
@@ -46,4 +59,44 @@ public class AppFrame : TemplatedControl
     public Control? StatusBar { get => GetValue(StatusBarProperty); set => SetValue(StatusBarProperty, value); }
 
     public bool IsCompact { get => GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
+
+    public bool IsLeftPaneShown => _isLeftPaneShown;
+
+    public bool IsRightPaneShown => _isRightPaneShown;
+
+    // The slot follows the visibility of its pane: the handler sits on the pane while it is in the slot.
+    private static void Follow(AvaloniaPropertyChangedEventArgs e, EventHandler<AvaloniaPropertyChangedEventArgs> handler, Action update)
+    {
+        if (e.OldValue is Control old)
+        {
+            old.PropertyChanged -= handler;
+        }
+
+        if (e.NewValue is Control added)
+        {
+            added.PropertyChanged += handler;
+        }
+
+        update();
+    }
+
+    private void OnLeftPaneVisibility(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == IsVisibleProperty)
+        {
+            UpdateLeftPane();
+        }
+    }
+
+    private void OnRightPaneVisibility(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == IsVisibleProperty)
+        {
+            UpdateRightPane();
+        }
+    }
+
+    private void UpdateLeftPane() => SetAndRaise(IsLeftPaneShownProperty, ref _isLeftPaneShown, LeftPane is { IsVisible: true });
+
+    private void UpdateRightPane() => SetAndRaise(IsRightPaneShownProperty, ref _isRightPaneShown, RightPane is { IsVisible: true });
 }

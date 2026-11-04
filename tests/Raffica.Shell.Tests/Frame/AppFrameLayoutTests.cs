@@ -90,6 +90,46 @@ public sealed class AppFrameLayoutTests
         Assert.Equal(36 + 32 + 82, doc.TranslatePoint(new Point(0, 0), window)!.Value.Y, 0.01);
     }
 
+    [AvaloniaFact]
+    public void AClosedPaneCollapsesItsSlotAndItsRule()
+    {
+        var left = new Pane { Title = "Navigation", Width = 100, Content = new Border() };
+        var right = new Pane { Title = "Comments", Width = 120, Content = new Border() };
+        var frame = new AppFrame { TitleBar = Block(), Document = new Border(), LeftPane = left, RightPane = right };
+        var window = ControlHarness.Show(frame, ThemeMode.Light);
+        var document = ControlHarness.Part<Control>(frame, "PART_Document");
+        var leftSlot = ControlHarness.Part<Control>(frame, "PART_LeftPaneRow");
+        var rightSlot = ControlHarness.Part<Control>(frame, "PART_RightPaneRow");
+        Assert.True(leftSlot.IsVisible && rightSlot.IsVisible);
+        Assert.Equal(480 - leftSlot.Bounds.Width - rightSlot.Bounds.Width, document.Bounds.Width, 0.01);
+
+        left.IsOpen = false;
+        right.IsOpen = false;
+        ControlHarness.Settle(window);
+
+        Assert.False(leftSlot.IsVisible);
+        Assert.False(rightSlot.IsVisible);
+        Assert.Equal(0, document.Bounds.X, 0.01);
+        Assert.Equal(480, document.Bounds.Width, 0.01);
+
+        left.IsOpen = true;
+        ControlHarness.Settle(window);
+        Assert.True(leftSlot.IsVisible);
+        Assert.Equal(leftSlot.Bounds.Width, document.Bounds.X, 0.01);
+
+        // Taking a pane out of the slot, and putting a new one in, follows the same rule.
+        frame.LeftPane = null;
+        ControlHarness.Settle(window);
+        Assert.False(leftSlot.IsVisible);
+        var other = new Pane { Title = "Other", Width = 80, Content = new Border(), IsOpen = false };
+        frame.LeftPane = other;
+        ControlHarness.Settle(window);
+        Assert.False(leftSlot.IsVisible);
+        other.IsOpen = true;
+        ControlHarness.Settle(window);
+        Assert.True(leftSlot.IsVisible);
+    }
+
     // The height of the grid row that holds the control (the row, not the control: a control may be smaller than its row).
     private static Rect Row(Control c) => ((Control)c.Parent!).Bounds;
 }

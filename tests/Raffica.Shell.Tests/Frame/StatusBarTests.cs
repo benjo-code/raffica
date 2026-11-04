@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
@@ -94,6 +95,52 @@ public sealed class StatusBarTests
 
         Assert.Equal([150d], raised);
         Assert.Equal(150, bar.Zoom);
+    }
+
+    [AvaloniaFact]
+    public void ZoomChangedReportsMultiplesOfTen()
+    {
+        var (_, bar) = Show();
+        var raised = new List<double>();
+        bar.ZoomChanged += (_, z) => raised.Add(z);
+        var slider = ControlHarness.Part<Slider>(bar, "PART_ZoomSlider");
+
+        slider.Value = 147;
+        slider.Value = 203;
+        slider.Value = 12;
+
+        Assert.NotEmpty(raised);
+        Assert.All(raised, z => Assert.Equal(0, z % 10));
+        Assert.Equal(10, bar.Zoom);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light, false)]
+    [InlineData(ThemeMode.Dark, false)]
+    [InlineData(ThemeMode.Light, true)]
+    public void TheZoomSliderUsesNeutralTokensNotTheFluentAccent(ThemeMode mode, bool highContrast)
+    {
+        var (window, bar) = Show();
+        try
+        {
+            ShellTheme.Apply(Application.Current!, mode, AppInk.Write, highContrast);
+            ControlHarness.Settle(window);
+            var slider = ControlHarness.Part<Slider>(bar, "PART_ZoomSlider");
+            var thumb = ControlHarness.Part<Avalonia.Controls.Shapes.Ellipse>(slider, "PART_ThumbShape");
+            ControlHarness.AssertToken("Raffica.Brush.Text.Primary", thumb.Fill, "slider thumb");
+            var app = Application.Current!;
+            Assert.True(app.TryGetResource("SystemAccentColor", app.ActualThemeVariant, out var accent), "Fluent accent not found");
+            Assert.NotEqual((Color)accent!, ControlHarness.Strict(thumb.Fill));
+
+            // The thumb is fully inside the 24 px high slider (no half-clipped edge) and 12 px wide.
+            var shape = new Rect(thumb.TranslatePoint(default, slider)!.Value, thumb.Bounds.Size);
+            Assert.Equal(12, thumb.Bounds.Width, 0.01);
+            Assert.True(shape.Top >= 0 && shape.Bottom <= slider.Bounds.Height, $"thumb {shape} in slider {slider.Bounds}");
+        }
+        finally
+        {
+            ShellTheme.Apply(Application.Current!, ThemeMode.Light, AppInk.Write, forceHighContrast: false);
+        }
     }
 
     [AvaloniaFact]

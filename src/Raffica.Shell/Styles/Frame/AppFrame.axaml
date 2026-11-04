@@ -4,7 +4,7 @@
   <!--
     The app frame (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): rows of 36 (title bar, surface.page,
     1 px rule drawn over its last pixel row), 32 (command tab row), 82 (ribbon band, 40 compact), the document row, the optional notification and 30
-    (status bar, which draws its own 1 px rule above). Panels left and right of the document row are surface.band with a 1 px rule on the inner edge.
+    (status bar, which draws its own 1 px rule above). Panels left and right of the document row are surface.band with a 1 px rule on the inner edge; a slot without a pane or with a closed (invisible) pane collapses with its rule.
     All edges are square, nothing has a shadow. The rules of the title bar and the band overlay the last pixel row of their fixed height. The fixed rows are wrappers with a height; the grid rows are Auto, so a row whose
     slot is empty collapses by hiding its wrapper (the title bar row keeps its height; the start view of an app has no tab row and no band).
   -->
@@ -46,7 +46,7 @@
                   Background="{DynamicResource Raffica.Brush.Surface.Band}"
                   BorderBrush="{DynamicResource Raffica.Brush.Rule}"
                   BorderThickness="0,0,1,0"
-                  IsVisible="{TemplateBinding LeftPane, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  IsVisible="{TemplateBinding IsLeftPaneShown}">
             <ContentPresenter Content="{TemplateBinding LeftPane}" />
           </Border>
           <ContentPresenter x:Name="PART_Document"
@@ -57,7 +57,7 @@
                   Background="{DynamicResource Raffica.Brush.Surface.Band}"
                   BorderBrush="{DynamicResource Raffica.Brush.Rule}"
                   BorderThickness="1,0,0,0"
-                  IsVisible="{TemplateBinding RightPane, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  IsVisible="{TemplateBinding IsRightPaneShown}">
             <ContentPresenter Content="{TemplateBinding RightPane}" />
           </Border>
           <ContentPresenter x:Name="PART_NotificationRow"

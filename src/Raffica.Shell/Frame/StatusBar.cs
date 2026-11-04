@@ -91,6 +91,10 @@ public class StatusBar : TemplatedControl
         {
             _slider.Minimum = ZoomMinimum;
             _slider.Maximum = ZoomMaximum;
+            _slider.TickFrequency = ZoomStep;
+            _slider.IsSnapToTickEnabled = true;
+            _slider.SmallChange = ZoomStep;
+            _slider.LargeChange = ZoomStep;
             _slider.Value = Zoom;
             _slider.ValueChanged += OnSliderChanged;
             AutomationProperties.SetName(_slider, ShellStrings.ZoomLevel);
@@ -121,7 +125,8 @@ public class StatusBar : TemplatedControl
 
     private void UserZoom(double value)
     {
-        var clamped = Math.Clamp(value, ZoomMinimum, ZoomMaximum);
+        // The user zooms in steps of 10: the slider snaps on a click or a key, a value set in code snaps here.
+        var clamped = Math.Clamp(Math.Round(value / ZoomStep, MidpointRounding.AwayFromZero) * ZoomStep, ZoomMinimum, ZoomMaximum);
         SetCurrentValue(ZoomProperty, clamped);
         ZoomChanged?.Invoke(this, clamped);
     }
