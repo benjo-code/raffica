@@ -552,4 +552,95 @@ public sealed class FieldCodeInputTests
         Assert.Empty(f.Badges);
         Assert.Null(f.Status.Hint);
     }
+
+    [AvaloniaFact]
+    public void TheModeDoesNotStartWhileTheRibbonIsNotOnScreen()
+    {
+        var f = FieldCodeFixture.Create();
+        ControlHarness.KeyboardFocus(f.Window, f.Box);
+
+        // As in the start view: the tab row and the band are taken out of the frame.
+        f.Frame.TabRow = null;
+        f.Frame.Band = null;
+        ControlHarness.Settle(f.Window);
+
+        f.Alt();
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        f.Press(Key.F10, PhysicalKey.F10);
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        f.Type(Key.N, PhysicalKey.N, "n");
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.Null(f.Status.Hint);
+        Assert.Empty(f.Badges);
+        Assert.Equal("n", f.Box.Text);
+        Assert.Equal(f.Definition.Tabs[0], f.Ribbon.ActiveTab);
+
+        // The ribbon comes back: the codes work again.
+        f.Frame.TabRow = f.Ribbon.TabRow;
+        f.Frame.Band = f.Ribbon.Band;
+        ControlHarness.Settle(f.Window);
+        f.Alt();
+        Assert.Equal(FieldCodeStage.TabLetters, f.Session.Stage);
+    }
+
+    [AvaloniaFact]
+    public void TheModeEndsAtTheNextKeyWhenTheRibbonLeftTheScreen()
+    {
+        var f = FieldCodeFixture.Create();
+        ControlHarness.KeyboardFocus(f.Window, f.Box);
+        f.Alt();
+        Assert.Equal(FieldCodeStage.TabLetters, f.Session.Stage);
+
+        // The last document tab closes: the start view replaces the ribbon while the mode is on.
+        f.Frame.TabRow = null;
+        f.Frame.Band = null;
+        ControlHarness.Settle(f.Window);
+        f.Type(Key.N, PhysicalKey.N, "n");
+
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+        Assert.Empty(f.Badges);
+        Assert.Equal("n", f.Box.Text);
+        Assert.Equal(f.Definition.Tabs[0], f.Ribbon.ActiveTab);
+    }
+
+    [AvaloniaFact]
+    public void WithADialogOpenABareAltAndF10AreStillConsumedSoTheSystemMenuStaysShut()
+    {
+        var f = FieldCodeFixture.Create();
+        f.Host.Show(new Dialog { Title = "Dialog", Content = new Button { Content = "OK" } });
+        ControlHarness.Settle(f.Window);
+        var log = f.WatchKeys();
+
+        f.Alt();
+        Assert.Equal([(FieldCodeFixture.RoutedEventKind.Down, Key.LeftAlt, false), (FieldCodeFixture.RoutedEventKind.Up, Key.LeftAlt, true)], log);
+
+        log.Clear();
+        f.Press(Key.F10, PhysicalKey.F10);
+        Assert.Equal([(FieldCodeFixture.RoutedEventKind.Down, Key.F10, true), (FieldCodeFixture.RoutedEventKind.Up, Key.F10, true)], log);
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+
+        // Alt with another key stays an ordinary shortcut: nothing of it is consumed.
+        log.Clear();
+        f.AltDown();
+        f.Press(Key.F, PhysicalKey.F, RawInputModifiers.Alt);
+        f.AltUp();
+        Assert.All(log, entry => Assert.False(entry.Handled, $"{entry.Kind} {entry.Key} must stay unhandled"));
+    }
+
+    [AvaloniaFact]
+    public void F10IsConsumedOnTheWayUpToo()
+    {
+        var f = FieldCodeFixture.Create();
+        var log = f.WatchKeys();
+
+        f.Press(Key.F10, PhysicalKey.F10);
+
+        Assert.Equal([(FieldCodeFixture.RoutedEventKind.Down, Key.F10, true), (FieldCodeFixture.RoutedEventKind.Up, Key.F10, true)], log);
+
+        // Shift+F10 is no field-code key: neither of its events is consumed.
+        log.Clear();
+        f.Press(Key.F10, PhysicalKey.F10, RawInputModifiers.Shift);
+        Assert.All(log, entry => Assert.False(entry.Handled));
+    }
 }

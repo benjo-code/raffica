@@ -39,6 +39,8 @@ public sealed class FieldCodeInput : IDisposable
     private bool _altHeld;
     private bool _altDownConsumed;
     private bool _swallowText;
+    private bool _altBlocked;
+    private bool _f10Consumed;
     private bool _settingTab;
     private bool _disposed;
 
@@ -118,6 +120,17 @@ public sealed class FieldCodeInput : IDisposable
 
     private bool IsDialogOpen() => FrameDialogs.IsOpen(_window);
 
+    /// <summary>The mode only makes sense for a ribbon that is on screen: its tab row sits in the visual tree of this window and is visible (the start view has none).</summary>
+    private bool IsRibbonOnScreen() =>
+        ReferenceEquals(TopLevel.GetTopLevel(_ribbon.TabRow), _window) && _ribbon.TabRow.IsEffectivelyVisible;
+
+    /// <summary>A key that is not a bare Alt: Alt, if held, was a modifier. A bare Alt that was only blocked (dialog, no ribbon) is no longer consumed on release.</summary>
+    private void NoteOtherKey()
+    {
+        _altBlocked = false;
+        _session.OtherKey();
+    }
+
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (IsAlt(e.Key))
@@ -130,16 +143,25 @@ public sealed class FieldCodeInput : IDisposable
             }
 
             _altHeld = true;
-            if (IsDialogOpen())
+            _altBlocked = false;
+            if (IsDialogOpen() || !IsRibbonOnScreen())
             {
+                // No mode here, but a bare Alt is still consumed on release (else the Windows system menu opens); Alt with a key is not.
                 _session.Cancel();
                 _altDownConsumed = false;
+                _altBlocked = (e.KeyModifiers & KeyModifiers.Control) == 0;
                 return;
             }
 
             _altDownConsumed = _session.AltDown((e.KeyModifiers & KeyModifiers.Control) != 0);
             e.Handled |= _altDownConsumed;
             return;
+        }
+
+        if (_session.Stage != FieldCodeStage.Off && !IsRibbonOnScreen())
+        {
+            // The ribbon went away while the mode was on (the last document closed): the mode ends with the next key.
+            _session.Cancel();
         }
 
         if (e.Handled)
@@ -153,7 +175,7 @@ public sealed class FieldCodeInput : IDisposable
             }
             else
             {
-                _session.OtherKey();
+                NoteOtherKey();
             }
 
             return;
@@ -161,17 +183,22 @@ public sealed class FieldCodeInput : IDisposable
 
         if (e.Key == Key.F10 && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Shift | KeyModifiers.Alt | KeyModifiers.Meta)) == 0)
         {
-            if (!IsDialogOpen())
+            if (IsDialogOpen() || !IsRibbonOnScreen())
             {
-                e.Handled |= _session.F10();
+                // No mode here either; the key is consumed all the same, down and up, so the Windows system menu stays shut.
+                e.Handled = true;
+                _f10Consumed = true;
+                return;
             }
 
+            _f10Consumed = _session.F10();
+            e.Handled |= _f10Consumed;
             return;
         }
 
         if (_session.Stage == FieldCodeStage.Off)
         {
-            _session.OtherKey();
+            NoteOtherKey();
             return;
         }
 
@@ -201,11 +228,18 @@ public sealed class FieldCodeInput : IDisposable
         {
             _altHeld = false;
             _altDownConsumed = false;
-            e.Handled |= _session.AltUp();
+            var consumed = _session.AltUp() | _altBlocked;
+            _altBlocked = false;
+            e.Handled |= consumed;
         }
         else if (!IsModifier(e.Key))
         {
             _swallowText = false;
+            if (e.Key == Key.F10)
+            {
+                e.Handled |= _f10Consumed;
+                _f10Consumed = false;
+            }
         }
     }
 
@@ -220,7 +254,7 @@ public sealed class FieldCodeInput : IDisposable
         }
 
         // A character between Alt down and Alt up (AltGr on Linux, which sends no Ctrl): Alt was a modifier, not a bare press.
-        _session.OtherKey();
+        NoteOtherKey();
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -234,6 +268,8 @@ public sealed class FieldCodeInput : IDisposable
         // The Alt release never reaches a window that lost the focus (Alt+Tab); forget the held key as well.
         _altHeld = false;
         _altDownConsumed = false;
+        _altBlocked = false;
+        _f10Consumed = false;
         _swallowText = false;
         _session.Cancel();
     }

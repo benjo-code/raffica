@@ -23,6 +23,8 @@ internal sealed class FieldCodeFixture
 
     public RibbonDefinition Definition { get; }
 
+    public AppFrame Frame { get; private set; } = null!;
+
     public RibbonView Ribbon { get; private set; } = null!;
 
     public StatusBar Status { get; private set; } = null!;
@@ -74,6 +76,7 @@ internal sealed class FieldCodeFixture
         var session = new FieldCodeSession(definition);
         var fixture = new FieldCodeFixture(window, definition)
         {
+            Frame = frame,
             Ribbon = ribbon,
             Status = status,
             Search = search,
