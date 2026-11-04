@@ -713,4 +713,73 @@
   <data name="MarkCommentFailed" xml:space="preserve">
     <value>The comment could not be changed. The mark is as it was.</value>
   </data>
+  <data name="SignedWarnTitle" xml:space="preserve">
+    <value>This signature does not allow comments</value>
+  </data>
+  <data name="SignedWarnText" xml:space="preserve">
+    <value>After saving, programs such as Acrobat will show it as invalid.</value>
+  </data>
+  <data name="SignedNoteTitle" xml:space="preserve">
+    <value>This document is signed</value>
+  </data>
+  <data name="SignedNoteText" xml:space="preserve">
+    <value>Raffica PDF only appends your changes; the signed bytes stay unchanged.</value>
+  </data>
+  <data name="SignedSaveAnyway" xml:space="preserve">
+    <value>Save anyway</value>
+  </data>
+  <data name="ChangedTitle" xml:space="preserve">
+    <value>The file has been replaced</value>
+  </data>
+  <data name="ChangedMessageFormat" xml:space="preserve">
+    <value>Another file has taken the place of {0} since you opened it. Do you want to overwrite it?</value>
+  </data>
+  <data name="ChangedOverwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="SaveFailedTitle" xml:space="preserve">
+    <value>Not saved</value>
+  </data>
+  <data name="SaveFailNotWritable" xml:space="preserve">
+    <value>The file could not be saved because the folder or the file is read-only or access is denied. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailDiskFull" xml:space="preserve">
+    <value>The disk is full. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailWriteFailed" xml:space="preserve">
+    <value>The file could not be written, for example because another program has it open. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailVerificationFailed" xml:space="preserve">
+    <value>The saved file did not pass the check and was discarded. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailOriginalChanged" xml:space="preserve">
+    <value>Another file has taken the place of the original since you opened it. Nothing was overwritten, and the original file is unchanged.</value>
+  </data>
+  <data name="SaveFailSourceModified" xml:space="preserve">
+    <value>Another program rewrote this file after you opened it. Close it and open it again to continue; this save left the original file unchanged.</value>
+  </data>
+  <data name="SaveFailEncryptedNotSupported" xml:space="preserve">
+    <value>This document is encrypted, and the saved file would not keep the encryption. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailTargetExists" xml:space="preserve">
+    <value>A file already exists at the target and was not replaced. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailRedactionFailed" xml:space="preserve">
+    <value>The check of the redaction failed, so nothing was saved. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailWriterNotSupported" xml:space="preserve">
+    <value>Raffica PDF cannot save this document. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailCanceled" xml:space="preserve">
+    <value>Saving was canceled. The original file is unchanged.</value>
+  </data>
+  <data name="UnsavedLockedTitle" xml:space="preserve">
+    <value>Close without saving?</value>
+  </data>
+  <data name="UnsavedLockedMessageFormat" xml:space="preserve">
+    <value>{0} has changes that cannot be saved here. If you close it, they are lost.</value>
+  </data>
+  <data name="UnsavedDiscard" xml:space="preserve">
+    <value>Close and discard changes</value>
+  </data>
 </root>

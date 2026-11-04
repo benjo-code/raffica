@@ -1,5 +1,6 @@
 using System.Globalization;
 using Raffica.Core.Pdf;
+using Raffica.Core.Saving;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf;
@@ -290,5 +291,47 @@ internal static class PdfStrings
         PdfOpenError.UnsupportedEncryption => ErrorUnsupportedEncryption,
         PdfOpenError.Unknown => ErrorUnknown,
         _ => throw new ArgumentOutOfRangeException(nameof(error), error, "This open error has no text."),
+    };
+
+    public static string SignedWarnTitle => Table.Get("SignedWarnTitle");
+    public static string SignedWarnText => Table.Get("SignedWarnText");
+    public static string SignedNoteTitle => Table.Get("SignedNoteTitle");
+    public static string SignedNoteText => Table.Get("SignedNoteText");
+    public static string SignedSaveAnyway => Table.Get("SignedSaveAnyway");
+    public static string SaveFailNotWritable => Table.Get("SaveFailNotWritable");
+    public static string SaveFailDiskFull => Table.Get("SaveFailDiskFull");
+    public static string SaveFailWriteFailed => Table.Get("SaveFailWriteFailed");
+    public static string SaveFailVerificationFailed => Table.Get("SaveFailVerificationFailed");
+    public static string SaveFailOriginalChanged => Table.Get("SaveFailOriginalChanged");
+    public static string SaveFailSourceModified => Table.Get("SaveFailSourceModified");
+    public static string SaveFailEncryptedNotSupported => Table.Get("SaveFailEncryptedNotSupported");
+    public static string SaveFailTargetExists => Table.Get("SaveFailTargetExists");
+    public static string SaveFailRedactionFailed => Table.Get("SaveFailRedactionFailed");
+    public static string SaveFailWriterNotSupported => Table.Get("SaveFailWriterNotSupported");
+    public static string SaveFailCanceled => Table.Get("SaveFailCanceled");
+    public static string ChangedTitle => Table.Get("ChangedTitle");
+    public static string ChangedMessageFormat => Table.Get("ChangedMessageFormat");
+    public static string ChangedOverwrite => Table.Get("ChangedOverwrite");
+    public static string SaveFailedTitle => Table.Get("SaveFailedTitle");
+    public static string UnsavedLockedTitle => Table.Get("UnsavedLockedTitle");
+    public static string UnsavedLockedMessageFormat => Table.Get("UnsavedLockedMessageFormat");
+    public static string UnsavedDiscard => Table.Get("UnsavedDiscard");
+
+    /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string SaveFailure(SaveFailureReason reason) => reason switch
+    {
+        SaveFailureReason.NotWritable => SaveFailNotWritable,
+        SaveFailureReason.DiskFull => SaveFailDiskFull,
+        SaveFailureReason.WriteFailed => SaveFailWriteFailed,
+        SaveFailureReason.VerificationFailed => SaveFailVerificationFailed,
+        SaveFailureReason.OriginalChanged => SaveFailOriginalChanged,
+        SaveFailureReason.SourceModified => SaveFailSourceModified,
+        SaveFailureReason.EncryptedNotSupported => SaveFailEncryptedNotSupported,
+        SaveFailureReason.TargetExists => SaveFailTargetExists,
+        SaveFailureReason.RedactionFailed => SaveFailRedactionFailed,
+        SaveFailureReason.WriterNotSupported => SaveFailWriterNotSupported,
+        SaveFailureReason.Canceled => SaveFailCanceled,
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "This save failure has no text."),
     };
 }
