@@ -92,6 +92,12 @@ public sealed class FrameDemoTests
             Settle();
         }
 
+        public void InputOnPage()
+        {
+            Window.InputTarget.Focus();
+            Settle();
+        }
+
         public Visual? Focused => (Visual?)Window.FocusManager!.GetFocusedElement();
 
         public List<Button> Tiles() =>
@@ -189,6 +195,19 @@ public sealed class FrameDemoTests
         Assert.NotNull(frame.StatusBar);
         Assert.Equal(30, frame.StatusBar!.Bounds.Height, 0.01);
         Assert.Single(demo.Window.Tabs.Items);
+    }
+
+    [AvaloniaFact]
+    public void ClosingTheLastTabMovesTheKeyboardFocusIntoTheStartView()
+    {
+        using var demo = new Demo();
+        demo.InputOnPage();
+
+        demo.CloseAllTabs();
+
+        // The tab that held the focus is gone: the first tile takes it, so Tab / Enter work at once.
+        Assert.IsType<StartView>(demo.Window.Frame.Document);
+        Assert.Same(demo.Tiles()[0], demo.Focused);
     }
 
     [AvaloniaFact]

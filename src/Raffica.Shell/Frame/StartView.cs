@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -46,6 +47,15 @@ public class StartView : TemplatedControl
     public IReadOnlyList<RecentFile> Recent { get => GetValue(RecentProperty); set => SetValue(RecentProperty, value); }
 
     public StartApp OwnApp { get => GetValue(OwnAppProperty); set => SetValue(OwnAppProperty, value); }
+
+    /// <summary>Moves the keyboard focus to the first tile (for a host that just showed the view). Returns false when there is none to focus.</summary>
+    public bool FocusFirstTile()
+    {
+        // The template parts are laid out first: a tile that is not in the window yet cannot take the focus.
+        ApplyTemplate();
+        UpdateLayout();
+        return _tiles?.Children.OfType<Button>().FirstOrDefault()?.Focus(NavigationMethod.Tab) ?? false;
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

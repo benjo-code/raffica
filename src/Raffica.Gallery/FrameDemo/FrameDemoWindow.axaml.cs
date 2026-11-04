@@ -295,6 +295,9 @@ internal sealed partial class FrameDemoWindow : Window
         if (Tabs.Items.Count == 0)
         {
             ShowStart(keepRibbon: false);
+
+            // The closed tab held the keyboard focus: hand it to the start view.
+            _start.FocusFirstTile();
         }
     }
 
