@@ -129,4 +129,46 @@
   <data name="UnsavedDontSave" xml:space="preserve">
     <value>Don't save</value>
   </data>
+  <data name="PasswordTitle" xml:space="preserve">
+    <value>Enter the password</value>
+  </data>
+  <data name="PasswordMessageFormat" xml:space="preserve">
+    <value>{0} is protected by a password. Enter it to open the file.</value>
+  </data>
+  <data name="PasswordLabel" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="PasswordIncorrect" xml:space="preserve">
+    <value>The password is incorrect. Try again.</value>
+  </data>
+  <data name="ErrorTitle" xml:space="preserve">
+    <value>The file could not be opened</value>
+  </data>
+  <data name="ErrorFileNotFound" xml:space="preserve">
+    <value>The file does not exist any more or was moved.</value>
+  </data>
+  <data name="ErrorCannotRead" xml:space="preserve">
+    <value>The file cannot be read. It may be in use by another program, or you may not have access to it.</value>
+  </data>
+  <data name="ErrorNotAPdf" xml:space="preserve">
+    <value>This is not a PDF file, or the file is damaged.</value>
+  </data>
+  <data name="ErrorPasswordRequired" xml:space="preserve">
+    <value>The file is protected by a password.</value>
+  </data>
+  <data name="ErrorPasswordIncorrect" xml:space="preserve">
+    <value>The password for this file is incorrect.</value>
+  </data>
+  <data name="ErrorUnsupportedEncryption" xml:space="preserve">
+    <value>The file uses a kind of protection that is not supported.</value>
+  </data>
+  <data name="ErrorUnknown" xml:space="preserve">
+    <value>The file could not be opened for an unknown reason.</value>
+  </data>
+  <data name="OpenDialogTitle" xml:space="preserve">
+    <value>Open PDF</value>
+  </data>
+  <data name="OpenFilterPdf" xml:space="preserve">
+    <value>PDF documents</value>
+  </data>
 </root>

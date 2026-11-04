@@ -2,8 +2,11 @@ using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Raffica.Core.Pdf;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
@@ -30,17 +33,20 @@ internal sealed partial class PdfWindow : Window
     private readonly IDisposable _fieldCodes;
     private readonly IDisposable _selectedSubscription;
     private readonly CloseGuard _closeGuard;
+    private readonly PdfOptions _options;
+    private PdfEngine? _engine;
     private bool _closeConfirmed;
 
     public PdfWindow(PdfOptions options, ShellSettings settings)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
+        _options = options;
         InitializeComponent();
         Title = PdfStrings.WindowTitle;
 
         Frame = new AppFrame();
-        var definition = PdfRibbon.Create(new PdfCommands());
+        var definition = PdfRibbon.Create(new PdfCommands(Open: () => _ = OpenFromDialogAsync()));
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter) };
 
         var titleBar = new TitleBar { Mark = CreateAppMark() };
@@ -70,6 +76,13 @@ internal sealed partial class PdfWindow : Window
         Frame.TitleBar = titleBar;
         Host = new DialogHost { Content = Frame };
         Content = Host;
+        Dialogs = new DialogQueue(Host);
+        Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
+        Start.BrowseRequested += () => _ = OpenFromDialogAsync();
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
+        Opened += OnOpened;
         SetCompact(settings.CompactCommandBar);
         Refresh();
 
@@ -97,6 +110,12 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The open documents; the title bar tabs and the status bar follow it.</summary>
     internal Workspace Workspace { get; }
+
+    /// <summary>Opens files into <see cref="Workspace"/> (argument, dialog and drop all go through it).</summary>
+    internal OpenFlow Flow { get; }
+
+    /// <summary>Shows the cards of the window one at a time.</summary>
+    internal DialogQueue Dialogs { get; }
 
     /// <summary>The host of the dialogs of the window.</summary>
     internal DialogHost Host { get; }
@@ -126,6 +145,24 @@ internal sealed partial class PdfWindow : Window
         Ribbon.IsCompact = compact;
     }
 
+    /// <summary>Opens the files in order; the last one opened is active, a file that cannot be opened ends in an error card.</summary>
+    internal Task OpenFilesAsync(IEnumerable<string> paths) => Flow.OpenManyAsync(paths);
+
+    /// <summary>Asks for PDF files with the system file dialog and opens them.</summary>
+    internal async Task OpenFromDialogAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = PdfStrings.OpenDialogTitle,
+            AllowMultiple = true,
+            FileTypeFilter = [new FilePickerFileType(PdfStrings.OpenFilterPdf) { Patterns = ["*.pdf"] }],
+        });
+        await OpenFilesAsync(files.Select(f => f.TryGetLocalPath()).OfType<string>());
+    }
+
+    /// <summary>Opens the files of a drop (every file, whatever its extension: Core names a file that is no PDF).</summary>
+    internal Task OpenDroppedAsync(IDataTransfer data) => OpenFilesAsync(FileDrop.Paths(data));
+
     private static Border CreateAppMark()
     {
         var mark = new Border { Child = new TextBlock { Text = "R" }, VerticalAlignment = VerticalAlignment.Center };
@@ -133,6 +170,42 @@ internal sealed partial class PdfWindow : Window
         AutomationProperties.SetName(mark, PdfStrings.AppMarkName);
         return mark;
     }
+
+    private async void OnOpened(object? sender, EventArgs e)
+    {
+        Opened -= OnOpened;
+        if (_options.Files.Count > 0)
+        {
+            await OpenFilesAsync(_options.Files);
+        }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = FileDrop.Accepts(e.DataTransfer) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnDrop(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (FileDrop.Accepts(e.DataTransfer))
+        {
+            await OpenDroppedAsync(e.DataTransfer);
+        }
+    }
+
+    private Task<string?> AskPasswordAsync(string fileName, bool incorrect) =>
+        Dialogs.ShowAsync<string?>(done => PasswordCard.Create(fileName, incorrect, done));
+
+    private static string DisplayName(string path)
+    {
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        return string.IsNullOrEmpty(name) ? path : name;
+    }
+
+    private void ShowOpenError(string path, PdfOpenError error) =>
+        _ = Dialogs.ShowAsync<bool>(done => ErrorCard.Create(DisplayName(path), error, () => done(true)));
 
     private void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e) => Refresh();
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Raffica.Core.Pdf;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf;
@@ -57,4 +58,32 @@ internal static class PdfStrings
     public static string UnsavedMessageFormat => Table.Get("UnsavedMessageFormat");
     public static string UnsavedSave => Table.Get("UnsavedSave");
     public static string UnsavedDontSave => Table.Get("UnsavedDontSave");
+    public static string PasswordTitle => Table.Get("PasswordTitle");
+    public static string PasswordMessageFormat => Table.Get("PasswordMessageFormat");
+    public static string PasswordLabel => Table.Get("PasswordLabel");
+    public static string PasswordIncorrect => Table.Get("PasswordIncorrect");
+    public static string ErrorTitle => Table.Get("ErrorTitle");
+    public static string ErrorFileNotFound => Table.Get("ErrorFileNotFound");
+    public static string ErrorCannotRead => Table.Get("ErrorCannotRead");
+    public static string ErrorNotAPdf => Table.Get("ErrorNotAPdf");
+    public static string ErrorPasswordRequired => Table.Get("ErrorPasswordRequired");
+    public static string ErrorPasswordIncorrect => Table.Get("ErrorPasswordIncorrect");
+    public static string ErrorUnsupportedEncryption => Table.Get("ErrorUnsupportedEncryption");
+    public static string ErrorUnknown => Table.Get("ErrorUnknown");
+    public static string OpenDialogTitle => Table.Get("OpenDialogTitle");
+    public static string OpenFilterPdf => Table.Get("OpenFilterPdf");
+
+    /// <summary>The reason a file could not be opened, in the UI language (one text per <see cref="PdfOpenError"/> value, no raw exception text).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string OpenError(PdfOpenError error) => error switch
+    {
+        PdfOpenError.FileNotFound => ErrorFileNotFound,
+        PdfOpenError.CannotRead => ErrorCannotRead,
+        PdfOpenError.NotAPdf => ErrorNotAPdf,
+        PdfOpenError.PasswordRequired => ErrorPasswordRequired,
+        PdfOpenError.PasswordIncorrect => ErrorPasswordIncorrect,
+        PdfOpenError.UnsupportedEncryption => ErrorUnsupportedEncryption,
+        PdfOpenError.Unknown => ErrorUnknown,
+        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "This open error has no text."),
+    };
 }
