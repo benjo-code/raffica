@@ -497,6 +497,15 @@
   <data name="PrintBusy" xml:space="preserve">
     <value>A print job is already running.</value>
   </data>
+  <data name="SaveBusy" xml:space="preserve">
+    <value>A save is running.</value>
+  </data>
+  <data name="SaveJobTitleFormat" xml:space="preserve">
+    <value>Saving {0}</value>
+  </data>
+  <data name="SaveDialogTitle" xml:space="preserve">
+    <value>Save as</value>
+  </data>
   <data name="PrintFailedPagesFormat" xml:space="preserve">
     <value>These pages could not be printed: {0}.</value>
   </data>
@@ -756,7 +765,7 @@
     <value>Another file has taken the place of the original since you opened it. Nothing was overwritten, and the original file is unchanged.</value>
   </data>
   <data name="SaveFailSourceModified" xml:space="preserve">
-    <value>Another program rewrote this file after you opened it. Close it and open it again to continue; this save left the original file unchanged.</value>
+    <value>Another program rewrote this file after you opened it, so it cannot be saved from here. Your changes are still in this tab, and this save left the original file unchanged.</value>
   </data>
   <data name="SaveFailEncryptedNotSupported" xml:space="preserve">
     <value>This document is encrypted, and the saved file would not keep the encryption. The original file is unchanged.</value>

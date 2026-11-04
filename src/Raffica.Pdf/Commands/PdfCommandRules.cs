@@ -19,7 +19,8 @@ internal sealed class PdfCommandRules(
     Func<bool>? canRedo = null,
     Func<bool>? busySaving = null,
     Func<bool>? annotateAllowed = null,
-    Func<bool>? hasSelection = null)
+    Func<bool>? hasSelection = null,
+    Func<bool>? saveRunning = null)
 {
     private static readonly HashSet<string> Tools =
     [
@@ -32,8 +33,9 @@ internal sealed class PdfCommandRules(
     {
         PdfCommandIds.Open or PdfCommandIds.Settings or PdfCommandIds.Help => true,
         PdfCommandIds.NextTab or PdfCommandIds.PreviousTab => tabCount() > 1,
-        PdfCommandIds.Print => hasDocument() && !PrintForbidden() && !NoPrinter(),
+        PdfCommandIds.Print => hasDocument() && !PrintForbidden() && !NoPrinter() && !Ask(saveRunning, false),
         PdfCommandIds.Save => hasDocument() && Ask(isDirty, false) && !Ask(busySaving, false),
+        PdfCommandIds.SaveAs => hasDocument() && !Ask(busySaving, false),
         PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false),
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),

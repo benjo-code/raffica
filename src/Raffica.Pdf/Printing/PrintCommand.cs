@@ -24,6 +24,7 @@ internal sealed class PrintCommand
     private readonly Action<string?> _rememberPrinter;
     private readonly Func<int>? _currentPage;
     private readonly Func<nint>? _owner;
+    private readonly Func<bool>? _saveRunning;
     private CancellationTokenSource? _running;
 
     /// <param name="service">The print service of the system; asked lazily, so nothing is probed before the first print.</param>
@@ -33,6 +34,7 @@ internal sealed class PrintCommand
     /// <param name="rememberPrinter">Stores the printer a job was sent to.</param>
     /// <param name="currentPage">The page being looked at, 0-based (null: the first).</param>
     /// <param name="owner">The native handle of the window that owns the system dialog (null: none).</param>
+    /// <param name="saveRunning">Whether a save runs; printing is then refused (null: never).</param>
     public PrintCommand(
         Func<IPrintService> service,
         Func<PdfTab?> active,
@@ -40,7 +42,8 @@ internal sealed class PrintCommand
         Func<AppSettings> settings,
         Action<string?> rememberPrinter,
         Func<int>? currentPage = null,
-        Func<nint>? owner = null)
+        Func<nint>? owner = null,
+        Func<bool>? saveRunning = null)
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(active);
@@ -54,6 +57,7 @@ internal sealed class PrintCommand
         _rememberPrinter = rememberPrinter;
         _currentPage = currentPage;
         _owner = owner;
+        _saveRunning = saveRunning;
     }
 
     /// <summary>Gets whether a job is running (a second one is refused).</summary>
@@ -95,6 +99,12 @@ internal sealed class PrintCommand
         if (IsRunning)
         {
             _presenter.Message(PdfStrings.PrintBusy);
+            return;
+        }
+
+        if (_saveRunning?.Invoke() == true)
+        {
+            _presenter.Message(PdfStrings.SaveBusy);
             return;
         }
 

@@ -78,6 +78,8 @@ internal sealed partial class PdfWindow : Window
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
+    private SaveController _saves = null!; // made in the constructor, after the dialog queue it needs
+    private readonly Func<PdfTab, Task<string?>>? _savePicker;
 
     /// <param name="options">The command line.</param>
     /// <param name="settings">The shell settings, read by the caller at startup.</param>
@@ -85,7 +87,9 @@ internal sealed partial class PdfWindow : Window
     /// <param name="launcher">Opens a confirmed address outside the document (tests give their own; null: the system browser or mail program).</param>
     /// <param name="time">The clock of the arming delay of the link card (tests move it; null: the system clock).</param>
     /// <param name="printService">The print service (tests give a fake; null: the one of the system, made on the first print).</param>
-    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null)
+    /// <param name="saveRunner">Replaces the save of Core (tests; null: the real save).</param>
+    /// <param name="savePicker">Replaces the save dialog of the system (tests; null: the system dialog).</param>
+    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null, SaveRunner? saveRunner = null, Func<PdfTab, Task<string?>>? savePicker = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
@@ -97,8 +101,9 @@ internal sealed partial class PdfWindow : Window
         InitializeComponent();
         Title = PdfStrings.WindowTitle;
 
-        // 2.1 has no command that changes a document, so there is nothing to save yet: a Save choice cannot succeed and keeps the tab.
-        _closeGuard = new CloseGuard(PromptAsync, _ => Task.FromResult(false));
+        // The Save choice of the close question saves through the controller and closes only if that worked.
+        _savePicker = savePicker;
+        _closeGuard = new CloseGuard(PromptAsync, tab => _saves.SaveAsync(tab));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -146,7 +151,11 @@ internal sealed partial class PdfWindow : Window
             () => Settings.App,
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
-            () => TryGetPlatformHandle()?.Handle ?? 0);
+            () => TryGetPlatformHandle()?.Handle ?? 0,
+            () => _saves.IsSaving);
+        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner);
+        _saves.Changed += RefreshCommandStates;
+        _saves.PathChanged += OnSavedUnderNewPath;
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -208,6 +217,7 @@ internal sealed partial class PdfWindow : Window
     private void OnWindowClosed(object? sender, EventArgs e)
     {
         Step(_print.Cancel);
+        Step(_saves.Cancel);
         Step(_fieldCodes.Dispose);
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
@@ -378,6 +388,60 @@ internal sealed partial class PdfWindow : Window
             ],
         });
         return files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
+    }
+
+    /// <summary>Saves the active tab into its file (what Ctrl+S does); false without a tab or when nothing was saved.</summary>
+    internal Task<bool> SaveActiveAsync() => Workspace.Active is { } tab ? _saves.SaveAsync(tab) : Task.FromResult(false);
+
+    /// <summary>Saves the active tab under a path the user picks (what Ctrl+Shift+S does).</summary>
+    internal Task<bool> SaveActiveAsAsync() => Workspace.Active is { } tab ? _saves.SaveAsAsync(tab) : Task.FromResult(false);
+
+    /// <summary>The save and save as logic of the window (for tests).</summary>
+    internal SaveController Saves => _saves;
+
+    private void OnSavedUnderNewPath(PdfTab tab)
+    {
+        if (tab.Path is { } path)
+        {
+            _recent.Touch(path);
+        }
+    }
+
+    private async Task<string?> PickSavePathAsync(PdfTab tab)
+    {
+        if (_savePicker is { } picker)
+        {
+            return await picker(tab);
+        }
+
+        // As with the open dialog: a picker may take the key up of the S of Ctrl+S.
+        _keysDown.Clear();
+        try
+        {
+            var start = tab.Path is { } path && Path.GetDirectoryName(path) is { Length: > 0 } folder ? await StorageProvider.TryGetFolderFromPathAsync(folder) : null;
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = PdfStrings.SaveDialogTitle,
+                SuggestedFileName = tab.Title,
+                DefaultExtension = "pdf",
+                ShowOverwritePrompt = true,
+                SuggestedStartLocation = start,
+                FileTypeChoices =
+                [
+                    new FilePickerFileType(PdfStrings.OpenFilterPdf)
+                    {
+                        Patterns = ["*.pdf", "*.PDF"],
+                        MimeTypes = ["application/pdf"],
+                        AppleUniformTypeIdentifiers = ["com.adobe.pdf"],
+                    },
+                ],
+            });
+            return file?.TryGetLocalPath();
+        }
+        finally
+        {
+            _keysDown.Clear();
+        }
     }
 
     /// <summary>Opens the files of a drop (every file, whatever its extension: Core names a file that is no PDF).</summary>

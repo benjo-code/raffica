@@ -494,6 +494,15 @@
   <data name="PrintBusy" xml:space="preserve">
     <value>Es läuft bereits ein Druckauftrag.</value>
   </data>
+  <data name="SaveBusy" xml:space="preserve">
+    <value>Es läuft bereits ein Speichervorgang.</value>
+  </data>
+  <data name="SaveJobTitleFormat" xml:space="preserve">
+    <value>{0} wird gespeichert</value>
+  </data>
+  <data name="SaveDialogTitle" xml:space="preserve">
+    <value>Speichern unter</value>
+  </data>
   <data name="PrintFailedPagesFormat" xml:space="preserve">
     <value>Diese Seiten konnten nicht gedruckt werden: {0}.</value>
   </data>
@@ -753,7 +762,7 @@
     <value>An der Stelle des Originals steht seit dem Öffnen eine andere Datei. Es wurde nichts überschrieben, die Originaldatei ist unverändert.</value>
   </data>
   <data name="SaveFailSourceModified" xml:space="preserve">
-    <value>Ein anderes Programm hat diese Datei nach dem Öffnen neu geschrieben. Schließen Sie sie und öffnen Sie sie erneut; dieses Speichern hat die Originaldatei unverändert gelassen.</value>
+    <value>Ein anderes Programm hat diese Datei nach dem Öffnen neu geschrieben, sie kann von hier aus nicht gespeichert werden. Ihre Änderungen sind weiterhin in diesem Tab, und dieses Speichern hat die Originaldatei unverändert gelassen.</value>
   </data>
   <data name="SaveFailEncryptedNotSupported" xml:space="preserve">
     <value>Dieses Dokument ist verschlüsselt, und die gespeicherte Datei würde die Verschlüsselung nicht behalten. Die Originaldatei ist unverändert.</value>

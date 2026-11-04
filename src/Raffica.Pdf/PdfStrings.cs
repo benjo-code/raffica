@@ -249,6 +249,9 @@ internal static class PdfStrings
     public static string PrintJobProgressFormat => Table.Get("PrintJobProgressFormat");
     public static string PrintJobCancelling => Table.Get("PrintJobCancelling");
     public static string PrintBusy => Table.Get("PrintBusy");
+    public static string SaveBusy => Table.Get("SaveBusy");
+    public static string SaveJobTitleFormat => Table.Get("SaveJobTitleFormat");
+    public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
     public static string PrintFailedPagesFormat => Table.Get("PrintFailedPagesFormat");
     public static string PrintFailedMoreFormat => Table.Get("PrintFailedMoreFormat");
     public static string HelpTitle => Table.Get("HelpTitle");

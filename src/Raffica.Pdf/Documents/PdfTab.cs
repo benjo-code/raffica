@@ -36,10 +36,10 @@ internal sealed class PdfTab : IDisposable
     /// <summary>The model of the tab in the title bar; its marker follows <see cref="IsDirty"/>.</summary>
     public DocumentTab Tab { get; }
 
-    public string Title { get; }
+    public string Title { get; private set; }
 
     /// <summary>The full path of the file.</summary>
-    public string? Path { get; }
+    public string? Path { get; private set; }
 
     public bool IsDirty { get; private set; }
 
@@ -48,6 +48,16 @@ internal sealed class PdfTab : IDisposable
 
     /// <summary>The annotation session if one was made, else null (whoever only asks must not make one).</summary>
     public AnnotationSession? AnnotationsIfCreated => _annotations;
+
+    /// <summary>The document was saved under another path (Save as): the path, the title and the title bar tab follow. UI thread.</summary>
+    public void Rename(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        Path = System.IO.Path.GetFullPath(path);
+        Title = System.IO.Path.GetFileName(Path);
+        Tab.Title = Title;
+        Tab.Path = Path;
+    }
 
     public void MarkDirty() => SetDirty(true);
 

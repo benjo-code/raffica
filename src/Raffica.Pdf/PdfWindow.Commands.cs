@@ -41,10 +41,10 @@ internal sealed partial class PdfWindow
     /// <summary>The tool model of the annotate mode: the active tool and the colours and widths the tools remember (in the viewer settings).</summary>
     internal ToolState Tools { get; }
 
-    /// <summary>Raised when Save runs (Ctrl+S or the command); the save controller of the milestone takes it over.</summary>
+    /// <summary>Raised when Save runs (Ctrl+S or the command), just before the save starts.</summary>
     internal event Action? SaveRequested;
 
-    /// <summary>Raised when Save as runs; the save controller of the milestone takes it over.</summary>
+    /// <summary>Raised when Save as runs, just before the dialog opens.</summary>
     internal event Action? SaveAsRequested;
 
     private PdfCommandRules CreateRules() => new(
@@ -55,9 +55,10 @@ internal sealed partial class PdfWindow
         isDirty: () => Workspace.Active is { IsDirty: true },
         canUndo: () => Workspace.Active?.Annotations.CanUndo == true,
         canRedo: () => Workspace.Active?.Annotations.CanRedo == true,
-        busySaving: () => _print.IsRunning,
+        busySaving: () => _print.IsRunning || _saves.IsSaving,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
-        hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true);
+        hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
+        saveRunning: () => _saves.IsSaving);
 
     /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
     internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
@@ -119,8 +120,16 @@ internal sealed partial class PdfWindow
         DarkPage: ToggleDarkPage,
         PagesPane: ShowPagesPane,
         OutlinePane: ShowOutlinePane,
-        Save: () => SaveRequested?.Invoke(),
-        SaveAs: () => SaveAsRequested?.Invoke(),
+        Save: () =>
+        {
+            SaveRequested?.Invoke();
+            _ = GuardAsync(SaveActiveAsync);
+        },
+        SaveAs: () =>
+        {
+            SaveAsRequested?.Invoke();
+            _ = GuardAsync(SaveActiveAsAsync);
+        },
         Undo: () => _ = GuardAsync(UndoActiveAsync),
         Redo: () => _ = GuardAsync(RedoActiveAsync),
         AnnotateMode: () =>
