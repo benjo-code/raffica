@@ -27,7 +27,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1 | Design directions & spec | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-design-directions.md) | 2026-11-03 |
 | 1.1 | Tokens and base controls | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-1-tokens-and-base-controls.md) | 2026-11-03 |
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
-| 2 | Create spec for Raffica PDF | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | – |
+| 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | 2026-11-04 |
 | 2.1 | Viewer | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.2 | Annotate | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ⬜ open | – | – |
@@ -158,15 +158,15 @@ Goal: The shared app frame works in the gallery app with every behaviour of the 
 **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) Raffica PDF design, approved 2026-11-04
 
 ## Milestone 2 – Create spec for Raffica PDF
-**Status:** 🟡 planned · **Plan:** [2026-11-04-milestone-02-pdf-spec.md](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M1
+**Status:** ✅ done (2026-11-04) · **Plan:** [2026-11-04-milestone-02-pdf-spec.md](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M1
 
 Goal: The scope and the milestones of the PDF app on the new UI and the imported core are written down.
 
 **Tasks**
-- [ ] Create the spec (brainstorming) and enter its milestones
+- [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [ ] The spec is approved and linked here
+- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"); it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered.
 
 ## Milestone 2.1 – Viewer
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2

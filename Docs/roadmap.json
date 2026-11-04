@@ -186,16 +186,17 @@
         {
           "id": "2",
           "title": "Create spec for Raffica PDF",
-          "status": "planned",
+          "status": "done",
+          "completedOn": "2026-11-04",
           "plan": "superpowers/plans/2026-11-04-milestone-02-pdf-spec.md",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["1"],
           "goal": "The scope and the milestones of the PDF app on the new UI and the imported core are written down.",
           "tasks": [
-            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": true }
           ],
           "acceptance": [
-            { "text": "The spec is approved and linked here", "done": false }
+            { "text": "The spec is approved and linked here", "done": true, "evidence": "The owner approved the spec in the planning session on 2026-11-04 (\"approved\"); it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered." }
           ]
         },
         {
