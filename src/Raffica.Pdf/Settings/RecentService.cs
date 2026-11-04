@@ -6,12 +6,15 @@ namespace Raffica.Pdf.Settings;
 /// <summary>
 /// The recently opened files and the position per file. Nothing is read before <see cref="LoadAsync"/>, which the window calls after
 /// the first sharp page (never in the start path); changes made before that are kept and applied after the load. A missing, corrupt or
-/// oversized file gives an empty list. Every change is saved at once (small file, atomic write, failures are ignored). UI thread only.
+/// oversized file gives an empty list. A change is applied in memory at once and written by a background writer (<see cref="CoalescingWriter"/>: one
+/// writer, the newest list wins, failures are ignored), so the UI thread never waits for the disk; <see cref="FlushAsync"/> and
+/// <see cref="Flush"/> wait for what was posted (the window flushes when it closes). UI thread only.
 /// </summary>
 /// <param name="store">The file with the list.</param>
 internal sealed class RecentService(RecentFilesStore store)
 {
     private readonly List<Action<RecentFiles>> _pending = [];
+    private readonly CoalescingWriter _writer = new();
     private RecentFiles? _files;
     private Task? _loading;
 
@@ -46,6 +49,12 @@ internal sealed class RecentService(RecentFilesStore store)
     /// <summary>Empties the list.</summary>
     public void Clear() => Change(files => files.Clear());
 
+    /// <summary>Completes when the changes made so far have been written to the file (tests wait for it instead of sleeping).</summary>
+    public Task FlushAsync() => _writer.FlushAsync();
+
+    /// <summary>Waits for the changes made so far to be written, for at most <paramref name="timeout"/> (the window closing); returns whether they were.</summary>
+    public bool Flush(TimeSpan timeout) => _writer.Flush(timeout);
+
     private async Task LoadCoreAsync()
     {
         // RecentFilesStore.Load never throws; the list is built off the UI thread and only used on it.
@@ -60,7 +69,7 @@ internal sealed class RecentService(RecentFilesStore store)
         _pending.Clear();
         if (changed)
         {
-            store.TrySave(loaded);
+            Save(loaded);
         }
 
         Changed?.Invoke();
@@ -75,8 +84,15 @@ internal sealed class RecentService(RecentFilesStore store)
         }
 
         change(_files);
-        store.TrySave(_files);
+        Save(_files);
         Changed?.Invoke();
+    }
+
+    // The list is copied here, on the UI thread (it is not thread-safe); the writer only ever sees the copy.
+    private void Save(RecentFiles files)
+    {
+        var snapshot = new RecentFiles(files.Items);
+        _writer.Post(() => store.TrySave(snapshot));
     }
 
     private IReadOnlyList<RecentEntry> Entries(int count) =>

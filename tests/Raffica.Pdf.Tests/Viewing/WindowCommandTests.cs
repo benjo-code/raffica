@@ -64,6 +64,7 @@ public sealed class WindowCommandTests
         ViewFixture.Pump();
 
         Assert.Equal(["text-basic.pdf"], windows.Window.Start.Recent.Select(r => r.Name));
+        await windows.Window.Recent.FlushAsync();
         Assert.Null(new RecentFilesStore(windows.RecentPath).Load().TryGet(gone));
         Assert.NotNull(new RecentFilesStore(windows.RecentPath).Load().TryGet(here));
 

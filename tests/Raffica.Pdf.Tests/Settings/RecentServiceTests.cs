@@ -37,6 +37,7 @@ public sealed class RecentServiceTests : IDisposable
         await first.LoadAsync();
         first.Touch(PathOf("a.pdf"));
         first.Touch(PathOf("b.pdf"));
+        await first.FlushAsync();
 
         var second = Create();
         await second.LoadAsync();
@@ -73,6 +74,7 @@ public sealed class RecentServiceTests : IDisposable
         first.Remember(PathOf("a.pdf"), View(3));
         first.Remember(PathOf("b.pdf"), View(7));
         first.Touch(PathOf("a.pdf"));
+        await first.FlushAsync();
 
         var second = Create();
         await second.LoadAsync();
@@ -88,6 +90,7 @@ public sealed class RecentServiceTests : IDisposable
         var seed = Create();
         await seed.LoadAsync();
         seed.Touch(PathOf("a.pdf"));
+        await seed.FlushAsync();
 
         var service = Create();
         Assert.Empty(service.ForStartView(5));
@@ -113,6 +116,7 @@ public sealed class RecentServiceTests : IDisposable
 
         service.Clear();
         Assert.Empty(service.ForStartView(5));
+        await service.FlushAsync();
 
         var again = Create();
         await again.LoadAsync();

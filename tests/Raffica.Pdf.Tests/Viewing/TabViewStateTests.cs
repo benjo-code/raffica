@@ -204,6 +204,7 @@ public sealed class TabViewStateTests
         Assert.Equal(ZoomMode.Free, stored.ZoomMode);
         Assert.Equal(expected.Anchor.Page, stored.View.Anchor.Page);
         Assert.Equal(expected.Anchor.Fraction, stored.View.Anchor.Fraction, 6);
+        await windows.Window.Recent.FlushAsync();
         Assert.NotNull(new RecentFilesStore(windows.RecentPath).Load().TryGet(path)?.View);
 
         // Window close.

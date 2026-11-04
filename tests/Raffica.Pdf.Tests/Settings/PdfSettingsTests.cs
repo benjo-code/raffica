@@ -112,6 +112,7 @@ public sealed class PdfSettingsTests
             Find<CheckBox>(windows.Window, "PART_Compact").IsChecked = true;
             Find<SelectBox>(windows.Window, "PART_DefaultLayout").SelectedIndex = 1;
             Click(windows.Window, "PART_Ok");
+            Assert.True(windows.Window.Settings.Flush(TimeSpan.FromSeconds(10)));
 
             Assert.False(windows.Window.Host.IsOpen);
             Assert.Equal(ThemeVariant.Dark, Application.Current!.RequestedThemeVariant);
@@ -128,6 +129,65 @@ public sealed class PdfSettingsTests
         finally
         {
             Restore();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CancelWritesNothingAndChangesNothing()
+    {
+        using var windows = WindowFixture.Create();
+        var before = windows.Window.Settings.App;
+        var themeBefore = Application.Current!.RequestedThemeVariant;
+
+        windows.Window.Settings.Open();
+        ViewFixture.Pump();
+        Find<SegmentedControl>(windows.Window, "PART_Theme").SelectedIndex = 1;
+        Find<CheckBox>(windows.Window, "PART_Compact").IsChecked = true;
+        Find<SelectBox>(windows.Window, "PART_DefaultLayout").SelectedIndex = 2;
+        Click(windows.Window, "PART_Cancel");
+
+        Assert.True(windows.Window.Settings.Flush(TimeSpan.FromSeconds(10)));
+        Assert.False(windows.Window.Host.IsOpen);
+        Assert.False(File.Exists(Path.Combine(windows.Folder, "settings.json")));
+        Assert.False(File.Exists(windows.AppSettingsPath));
+        Assert.Equal(before, windows.Window.Settings.App);
+        Assert.Equal(themeBefore, Application.Current!.RequestedThemeVariant);
+        Assert.False(windows.Window.Frame.IsCompact);
+    }
+
+    [AvaloniaFact]
+    public void AFailingSaveDoesNotThrowAndTheChoiceStaysInForce()
+    {
+        // The folder of the settings file is a file: nothing can be written there.
+        var folder = Directory.CreateTempSubdirectory("raffica-failing-save-").FullName;
+        var blocker = Path.Combine(folder, "blocker");
+        File.WriteAllText(blocker, "this is a file, not a folder");
+        var options = PdfOptions.Parse(["--settings-file", Path.Combine(blocker, "sub", "settings.json")]);
+        var window = new PdfWindow(options, new ShellSettings(), AppSettings.Default, printService: new Raffica.Pdf.Tests.Printing.FakePrintService()) { Width = 1000, Height = 700 };
+        try
+        {
+            window.Show();
+            ViewFixture.Pump();
+            window.Settings.Open();
+            ViewFixture.Pump();
+            Find<SegmentedControl>(window, "PART_Theme").SelectedIndex = 1;
+            Find<SelectBox>(window, "PART_DefaultLayout").SelectedIndex = 1;
+
+            var failure = Record.Exception(() => Click(window, "PART_Ok"));
+            Assert.Null(failure);
+            Assert.True(window.Settings.Flush(TimeSpan.FromSeconds(10)));
+
+            Assert.False(window.Host.IsOpen);
+            Assert.Equal(PageLayoutMode.SinglePage, window.Settings.App.DefaultLayout);
+            Assert.Equal(ThemeVariant.Dark, Application.Current!.RequestedThemeVariant);
+            Assert.StartsWith("this is a file", File.ReadAllText(blocker), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Restore();
+            window.Close();
+            ViewFixture.Pump();
+            Directory.Delete(folder, recursive: true);
         }
     }
 
@@ -246,6 +306,7 @@ public sealed class PdfSettingsTests
             ViewFixture.Pump();
             Find<SegmentedControl>(windows.Window, "PART_Theme").SelectedIndex = 2;
             Click(windows.Window, "PART_Ok");
+            Assert.True(windows.Window.Settings.Flush(TimeSpan.FromSeconds(10)));
 
             Assert.True(File.Exists(shellPath));
             Assert.True(File.Exists(windows.AppSettingsPath));

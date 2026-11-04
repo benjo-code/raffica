@@ -210,6 +210,7 @@ public sealed class PrintCommandTests
         windows.Window.Settings.RememberPrinter("Laser");
 
         Assert.Equal("Laser", windows.Window.Settings.App.LastPrinter);
+        Assert.True(windows.Window.Settings.Flush(TimeSpan.FromSeconds(10)));
         var saved = new SettingsStore(windows.AppSettingsPath).LoadReadOnly();
         Assert.Equal("Laser", saved.LastPrinter);
         Assert.Equal(before.DefaultLayout, saved.DefaultLayout);

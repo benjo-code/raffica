@@ -18,7 +18,8 @@ namespace Raffica.Pdf.Settings;
 /// 2.1) and applies what the user confirms. The two settings files are written on OK: the shell file (theme, language, compact bar) and
 /// the viewer file (<see cref="AppSettings"/>). Theme and compact bar apply at once, the page appearance to every open tab, the default
 /// layout and zoom to tabs opened later (the controller keeps the current <see cref="App"/> in memory, so opening a tab reads no file);
-/// a language applies after a restart, which the dialog says.
+/// a language applies after a restart, which the dialog says. The choices are applied in memory first, then saved; the viewer file is
+/// written by a background writer (one writer, the newest settings win), so no click waits for the disk for it.
 /// </summary>
 internal sealed class PdfSettingsController
 {
@@ -31,6 +32,7 @@ internal sealed class PdfSettingsController
     private readonly DialogHost _host;
     private readonly Action<bool> _setCompact;
     private readonly Action<PageTheme> _setPageTheme;
+    private readonly CoalescingWriter _appWriter = new();
     private ShellSettings _shell;
 
     /// <param name="options">The command line (its <c>--settings-file</c> decides where the files are).</param>
@@ -62,8 +64,8 @@ internal sealed class PdfSettingsController
     public PageTheme PageThemeForNewTab => PageThemeFor(App.PageAppearance);
 
     /// <summary>
-    /// Remembers the printer a job went to: sets <see cref="AppSettings.LastPrinter"/> in memory and writes the viewer file. The other fields are
-    /// the ones in force; a file that cannot be written leaves the choice for this run only. Never throws.
+    /// Remembers the printer a job went to: sets <see cref="AppSettings.LastPrinter"/> in memory and writes the viewer file in the
+    /// background. The other fields are the ones in force; a file that cannot be written leaves the choice for this run only. Never throws.
     /// </summary>
     public void RememberPrinter(string? printer)
     {
@@ -73,15 +75,14 @@ internal sealed class PdfSettingsController
         }
 
         App = App with { LastPrinter = printer };
-        try
-        {
-            _ = new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(_options.SettingsFile)).TrySave(App);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The printer is remembered until the app ends.
-        }
+        SaveApp(App);
     }
+
+    /// <summary>Completes when the viewer file has been written (tests wait for it instead of sleeping).</summary>
+    public Task FlushAsync() => _appWriter.FlushAsync();
+
+    /// <summary>Waits for the viewer file to be written, for at most <paramref name="timeout"/> (the window closing); returns whether it was.</summary>
+    public bool Flush(TimeSpan timeout) => _appWriter.Flush(timeout);
 
     /// <summary>Shows the dialog; does nothing while another dialog is open.</summary>
     public void Open()
@@ -149,9 +150,9 @@ internal sealed class PdfSettingsController
 
     private void Apply(ShellSettings shell, AppSettings app)
     {
+        // In memory first: whatever happens to the files, the choice is in force for this run.
         _shell = shell;
         App = app;
-        Save(shell, app);
 
         // The theme first: "follow the theme" for the pages asks the theme that is in force afterwards.
         if (Application.Current is { } current)
@@ -163,21 +164,21 @@ internal sealed class PdfSettingsController
 
         // A change of the setting overrides the per-tab dark page switch of the open tabs; tabs opened later start from it.
         _setPageTheme(PageThemeFor(app.PageAppearance));
+        Save(shell, app);
     }
 
     // Settings are never a reason to fail: a file that cannot be written leaves the choice in force for this run only.
     private void Save(ShellSettings shell, AppSettings app)
     {
-        try
-        {
-            new ShellSettingsStore(PdfSettingsFiles.ShellPathFor(_options.SettingsFile)).Save(shell);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The choice stays in force until the app ends.
-        }
+        _ = new ShellSettingsStore(PdfSettingsFiles.ShellPathFor(_options.SettingsFile)).TrySave(shell);
+        SaveApp(app);
+    }
 
-        _ = new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(_options.SettingsFile)).TrySave(app);
+    // The settings are a record: the writer gets the values as they are now, whatever changes afterwards.
+    private void SaveApp(AppSettings app)
+    {
+        var path = PdfSettingsFiles.PdfSettingsPathFor(_options.SettingsFile);
+        _appWriter.Post(() => _ = new Raffica.Core.Settings.SettingsStore(path).TrySave(app));
     }
 
     private static PageTheme PageThemeFor(PageAppearanceSetting appearance) =>
