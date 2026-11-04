@@ -8,21 +8,32 @@ public sealed class CoalescingWriterTests
     private static readonly TimeSpan Limit = TimeSpan.FromSeconds(30);
 
     [Fact]
-    public async Task AWriteRunsOnAnotherThreadAndFlushWaitsForIt()
+    public async Task PostReturnsWhileTheWriteIsStillPendingAndFlushWaitsForIt()
     {
         var writer = new CoalescingWriter();
-        var caller = Environment.CurrentManagedThreadId;
-        var ranOn = -1;
+        var gate = new ManualResetEventSlim();
+        var started = new ManualResetEventSlim();
+        var done = false;
 
+        // The write blocks on the gate. If Post performed it on the caller, Post would not return before the gate opens (the gate is
+        // opened only below), so reaching the next line proves the caller never waits for the disk. Which thread runs the write is not
+        // part of the contract.
         writer.Post(() =>
         {
-            Thread.Sleep(50);
-            ranOn = Environment.CurrentManagedThreadId;
+            started.Set();
+            gate.Wait(Limit, TestContext.Current.CancellationToken);
+            done = true;
         });
-        await writer.FlushAsync().WaitAsync(Limit, TestContext.Current.CancellationToken);
 
-        Assert.NotEqual(-1, ranOn);
-        Assert.NotEqual(caller, ranOn);
+        Assert.False(done);
+        Assert.True(started.Wait(Limit, TestContext.Current.CancellationToken));
+        var flush = writer.FlushAsync();
+        Assert.False(flush.IsCompleted);
+
+        gate.Set();
+        await flush.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        Assert.True(done);
+        Assert.True(writer.FlushAsync().IsCompleted);
     }
 
     [Fact]

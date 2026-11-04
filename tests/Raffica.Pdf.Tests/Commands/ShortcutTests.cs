@@ -482,8 +482,13 @@ public sealed class ShortcutTests
         }
 
         Assert.Equal(1, calls);
-        await Task.Delay(100);
-        ViewFixture.Pump();
+
+        // Let the end of the first picker run (it completes on the next turns of the dispatcher) before the key is pressed again.
+        for (var i = 0; i < 30; i++)
+        {
+            ViewFixture.Pump();
+            await Task.Delay(10);
+        }
 
         window.KeyPress(Key.O, RawInputModifiers.Control, PhysicalKey.O, null);
         for (var i = 0; i < 200 && calls < 2; i++)
