@@ -4,11 +4,13 @@
     <Project Path="src/Raffica.Core/Raffica.Core.csproj" />
     <Project Path="src/Raffica.Gallery/Raffica.Gallery.csproj" />
     <Project Path="src/Raffica.Ocr/Raffica.Ocr.csproj" />
+    <Project Path="src/Raffica.Pdf/Raffica.Pdf.csproj" />
     <Project Path="src/Raffica.Pdfium/Raffica.Pdfium.csproj" />
     <Project Path="src/Raffica.Shell/Raffica.Shell.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Raffica.Core.Tests/Raffica.Core.Tests.csproj" />
+    <Project Path="tests/Raffica.Pdf.Tests/Raffica.Pdf.Tests.csproj" />
     <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
     <Project Path="tests/Raffica.Shell.Tests/Raffica.Shell.Tests.csproj" />
   </Folder>

@@ -220,6 +220,36 @@ jobs:
           }
           Write-Host 'the published gallery prints German and English strings'
 
+      # The PDF app: the same two proofs as for the gallery (Native AOT publish without warnings, resource lookup in the published
+      # binary through --print-string, which needs no display).
+      - name: Publish the PDF app (Native AOT)
+        run: dotnet publish src/Raffica.Pdf -c Release -r ${{ matrix.rid }} -o out/pdf
+
+      - name: Smoke test of the PDF app binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          de=$(./out/pdf/RafficaPdf --print-string TabView --lang de)
+          [ "$de" = "Ansicht" ] || { echo "expected 'Ansicht' with --lang de, got: $de" >&2; exit 1; }
+          en=$(./out/pdf/RafficaPdf --print-string TabView --lang en)
+          [ "$en" = "View" ] || { echo "expected 'View' with --lang en, got: $en" >&2; exit 1; }
+          echo "the published PDF app prints German and English strings"
+
+      # RafficaPdf.exe is a GUI-subsystem program, like the gallery: Start-Process -Wait with redirected output files.
+      - name: Smoke test of the PDF app binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Resolve-Path ./out/pdf/RafficaPdf.exe).Path
+          foreach ($case in @(@('de', 'Ansicht'), @('en', 'View'))) {
+            $lang = $case[0]; $expected = $case[1]
+            $out = Join-Path $env:RUNNER_TEMP "pdf-$lang.out"
+            $err = Join-Path $env:RUNNER_TEMP "pdf-$lang.err"
+            $p = Start-Process -FilePath $exe -ArgumentList '--print-string', 'TabView', '--lang', $lang -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($p.ExitCode -ne 0) { throw "--lang $lang exited with $($p.ExitCode): $(Get-Content $err -Raw)" }
+            $text = (Get-Content $out -Raw).Trim()
+            if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
+          }
+          Write-Host 'the published PDF app prints German and English strings'
+
   # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
   # draft), so the matrix can change without touching the branch protection.
   ci:

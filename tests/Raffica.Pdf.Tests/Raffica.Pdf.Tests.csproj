@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      Avalonia.Headless.XUnit 12.1.4 is built against xunit.v3 3.2.x and fails test discovery with the central 4.0.x.
+      The override stays in the UI test projects only; drop it once Avalonia.Headless.XUnit supports xunit.v3 4.x.
+    -->
+    <PackageReference Include="xunit.v3" VersionOverride="3.2.2" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <ProjectReference Include="..\..\src\Raffica.Pdf\Raffica.Pdf.csproj" />
+  </ItemGroup>
+</Project>
