@@ -67,10 +67,14 @@ public sealed class OrganizeAcceptanceTests
         using var rig = await ApplyRig.OpenAsync();
         var main = await ReadAsync(rig.Path);
         var hello = await ReadAsync(TestData.Pdf("hello_world.pdf"));
-        var third = rig.CopyOf("outline.pdf", "third.pdf");
+        var third = rig.CopyOf("print-mixed.pdf", "third.pdf");
         var thirdRead = await ReadAsync(third);
         Assert.Equal(6, main.Count);
         Assert.True(thirdRead.Count >= 3);
+
+        // The pages taken from the third file must be told apart by their text (and by their size), or the tail could not fail.
+        Assert.Equal(thirdRead.Count, thirdRead.Texts.Distinct().Count());
+        Assert.All(thirdRead.Texts[1..3], t => Assert.NotEmpty(t));
         Assert.NotEmpty(main.Outline);
 
         // hello_world.pdf goes after page 3 (the selection), pages 2 to 3 of the third file at the end.
@@ -87,6 +91,7 @@ public sealed class OrganizeAcceptanceTests
         Assert.Equal(6 + hello.Count + 2, merged.Count);
         string[] expected = [.. main.Texts[..3], .. hello.Texts, .. main.Texts[3..], thirdRead.Texts[1], thirdRead.Texts[2]];
         Assert.Equal(expected, merged.Texts);
+        Assert.Equal([thirdRead.Sizes[1], thirdRead.Sizes[2]], [merged.Sizes[^2], merged.Sizes[^1]]);
 
         // The bookmarks of the main file stay and follow their pages: the page a bookmark points at still holds the text it held.
         Assert.Equal(Flatten(main.Outline).Select(i => i.Title), Flatten(merged.Outline).Select(i => i.Title));
@@ -132,27 +137,45 @@ public sealed class OrganizeAcceptanceTests
             Assert.Equal(before.Texts[4..], (await ReadAsync(Path.Combine(folder, files[1]))).Texts);
         }
 
-        // By the top-level bookmarks of outline.pdf: the parts cover what Core's plan says and each reopens with its own page count.
-        using (var rig = await SplitRig.OpenAsync("outline.pdf"))
+        // By the top-level bookmarks of pages-marked.pdf (pages 1, 3 and 5): three parts of two pages, with their own text.
+        using (var rig = await SplitRig.OpenAsync())
         {
             var before = await ReadAsync(rig.Path);
-            var starts = before.Outline.Where(i => i.PageIndex is not null).Select(i => i.PageIndex!.Value).Distinct().Order().ToArray();
-            Assert.True(starts.Length >= 2);
+            Assert.Equal([0, 2, 4], before.Outline.Select(i => i.PageIndex!.Value));
             var folder = rig.NewFolder();
             var run = await StartSplitAsync(rig, folder, find => Choose(find, "PART_ModeBookmarks"));
             SplitRig.Click(await rig.ResultAsync(), "PART_Ok");
             Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
 
-            var counts = new List<int>();
+            // The names follow the bookmark titles; the parts are told apart by their text.
+            var parts = new List<string[]>();
             foreach (var file in Pdfs(folder))
             {
-                counts.Add((await ReadAsync(Path.Combine(folder, file))).Count);
+                parts.Add((await ReadAsync(Path.Combine(folder, file))).Texts);
             }
 
-            // Every part is a block of pages from one bookmark to the next; together they hold the whole file.
-            Assert.Equal(starts.Length + (starts[0] > 0 ? 1 : 0), counts.Count);
-            Assert.Equal(before.Count, counts.Sum());
-            Assert.All(counts, c => Assert.True(c >= 1));
+            Assert.Equal(3, parts.Count);
+            Assert.Equivalent(new[] { before.Texts[..2], before.Texts[2..4], before.Texts[4..] }, parts, strict: false);
+        }
+
+        // By the top-level bookmarks of outline.pdf: each part reopens with the page count Core's plan gives it, under its own name.
+        using (var rig = await SplitRig.OpenAsync("outline.pdf"))
+        {
+            var folder = rig.NewFolder();
+            await using var document = await new PdfEngine().OpenAsync(rig.Path, null, Ct);
+            var expected = DocumentSplitter.Plan(document.PageCount, SplitMode.Bookmarks(await document.GetOutlineAsync(Ct)), "outline");
+            Assert.True(expected.Count >= 2);
+            var names = OutputNames.Unique(expected.Select(p => p.Stem), ".pdf", _ => false);
+            var run = await StartSplitAsync(rig, folder, find => Choose(find, "PART_ModeBookmarks"));
+            SplitRig.Click(await rig.ResultAsync(), "PART_Ok");
+            Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+
+            Assert.Equal(names.Order(StringComparer.Ordinal), Pdfs(folder));
+            Assert.Equal(document.PageCount, expected.Sum(p => p.Pages.Count));
+            for (var k = 0; k < expected.Count; k++)
+            {
+                Assert.Equal(expected[k].Pages.Count, (await ReadAsync(Path.Combine(folder, names[k]))).Count);
+            }
         }
     }
 
@@ -205,7 +228,7 @@ public sealed class OrganizeAcceptanceTests
         Assert.Equal(7, written.Count);
         Assert.Equal([before.Texts[5], before.Texts[1], string.Empty, before.Texts[2], before.Texts[2], before.Texts[3], before.Texts[4]], written.Texts);
         Assert.Equal(
-            [before.Rotations[5], (before.Rotations[1] + 90) % 360, written.Rotations[2], before.Rotations[2], (before.Rotations[2] + 180) % 360, before.Rotations[3], before.Rotations[4]],
+            [before.Rotations[5], (before.Rotations[1] + 90) % 360, 0, before.Rotations[2], (before.Rotations[2] + 180) % 360, before.Rotations[3], before.Rotations[4]],
             written.Rotations);
         Assert.Equal(300, written.Sizes[2].Width, 0.5);
         Assert.Equal(400, written.Sizes[2].Height, 0.5);
@@ -217,6 +240,7 @@ public sealed class OrganizeAcceptanceTests
         using var rig = await ApplyRig.OpenAsync();
         var original = await File.ReadAllBytesAsync(rig.Path, Ct);
         var fixture = await File.ReadAllBytesAsync(TestData.Pdf("pages-marked.pdf"), Ct);
+        var fixtureTexts = (await ReadAsync(rig.Path)).Texts;
         rig.Session.Selection.Set(6, [0, 1]);
         Assert.True(rig.Session.Delete().IsDone);
         rig.Session.Selection.Set(4, [3]);
@@ -228,7 +252,9 @@ public sealed class OrganizeAcceptanceTests
 
         Assert.Equal(original, await File.ReadAllBytesAsync(rig.Path, Ct));
         Assert.Equal(fixture, await File.ReadAllBytesAsync(TestData.Pdf("pages-marked.pdf"), Ct));
-        Assert.Equal(4, (await ReadAsync(target)).Count);
+        var written = await ReadAsync(target);
+        Assert.Equal(4, written.Count);
+        Assert.Equal(fixtureTexts[2..], written.Texts);
     }
 
     [AvaloniaFact]
@@ -253,6 +279,7 @@ public sealed class OrganizeAcceptanceTests
         Assert.Null(rig.Host.ActiveDialog);
         Assert.Empty(rig.Rebuilds);
         Assert.Empty(rig.PathChanges);
+        Assert.Single(rig.Picks); // the save picker was never consulted
         Assert.Equal(original, await File.ReadAllBytesAsync(rig.Path, Ct));
         Assert.Equal(filesBefore, Directory.GetFileSystemEntries(rig.Folder).Order(StringComparer.Ordinal).ToArray());
     }
@@ -282,6 +309,7 @@ public sealed class OrganizeAcceptanceTests
 
         // The page is turned, so the engine may read its lines in another order: the same lines are there.
         Assert.Equal(Lines(before.Texts[0]), Lines(written.Texts[0]));
+        Assert.Equal(["Signed document", "Structure dummy, no real signature."], Lines(written.Texts[0]));
         Assert.Equal((before.Rotations[0] + 90) % 360, written.Rotations[0]);
         Assert.Equal(original, await File.ReadAllBytesAsync(rig.Path, Ct));
     }
