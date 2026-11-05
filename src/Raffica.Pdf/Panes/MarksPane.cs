@@ -50,6 +50,7 @@ internal sealed class MarksPane : UserControl, IDisposable
     private AnnotationLocator? _editFor;
     private string _editBase = string.Empty;
     private IDisposable? _unresolved;
+    private Window? _deactivatedHost;
     private int _applying;
     private bool _rebuildPosted;
     private bool _syncing;
@@ -111,14 +112,12 @@ internal sealed class MarksPane : UserControl, IDisposable
         // A key whose release never reaches the list (the focused row went away with a delete, the focus moved on) is not held any more:
         // when the focus has left the list the flag is dropped. A move from row to row stays inside and keeps it.
         _list.AddHandler(LostFocusEvent, (_, _) => Dispatcher.UIThread.Post(DropHeldKeysWhenFocusLeft), RoutingStrategies.Bubble, handledEventsToo: true);
-        _list.DetachedFromVisualTree += (_, _) => _heldKeys.Clear();
-        _list.AttachedToVisualTree += (_, _) =>
+        _list.DetachedFromVisualTree += (_, _) =>
         {
-            if (TopLevel.GetTopLevel(_list) is Window window)
-            {
-                window.Deactivated += (_, _) => _heldKeys.Clear();
-            }
+            _heldKeys.Clear();
+            UnhookDeactivated();
         };
+        _list.AttachedToVisualTree += (_, _) => HookDeactivated();
         _list.AddHandler(GotFocusEvent, (_, e) => NavList.EnterAt(_list, e, () => Math.Max(0, _list.SelectedIndex)), RoutingStrategies.Bubble, handledEventsToo: true);
 
         _empty = new TextBlock
@@ -218,6 +217,9 @@ internal sealed class MarksPane : UserControl, IDisposable
 
     /// <summary>Whether the comment field holds text that was typed and not applied to the mark yet (the tab counts as changed then).</summary>
     internal bool HasUnappliedComment => HasUnappliedText;
+
+    /// <summary>How many window subscriptions for the loss of activation the pane holds now (0 while detached, else 1; for tests).</summary>
+    internal int DeactivationHooks => _deactivatedHost is null ? 0 : 1;
 
     /// <summary>The rows of the list at the moment.</summary>
     internal int RowCount => _rows.Count;
@@ -331,8 +333,32 @@ internal sealed class MarksPane : UserControl, IDisposable
         _model.Changed -= OnModelChanged;
         _select.SelectionChanged -= OnDocumentSelectionChanged;
         _tab.Annotations.FlushRequested -= OnFlushRequested;
+        UnhookDeactivated();
         ReleaseUnresolved();
     }
+
+    // A window that loses the activation drops the keys held in the list (their release will not arrive). One subscription at a time,
+    // taken when the list enters a window and given back when it leaves it, so a pane that is shown again and again does not pile them up.
+    private void HookDeactivated()
+    {
+        UnhookDeactivated();
+        if (!_disposed && TopLevel.GetTopLevel(_list) is Window window)
+        {
+            _deactivatedHost = window;
+            window.Deactivated += OnWindowDeactivated;
+        }
+    }
+
+    private void UnhookDeactivated()
+    {
+        if (_deactivatedHost is { } window)
+        {
+            _deactivatedHost = null;
+            window.Deactivated -= OnWindowDeactivated;
+        }
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e) => _heldKeys.Clear();
 
     private async Task ApplyAsync(AnnotationLocator locator, string text, string previousBase, IDisposable pending)
     {

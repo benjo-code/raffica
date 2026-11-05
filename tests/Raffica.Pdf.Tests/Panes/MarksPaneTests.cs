@@ -363,6 +363,27 @@ public sealed class MarksPaneTests
     }
 
     [AvaloniaFact]
+    public async Task ShowingThePaneAgainAndAgainKeepsOneWindowSubscription()
+    {
+        using var f = await Fixture.OpenAsync("text-basic.pdf");
+        Assert.Equal(1, f.Pane.DeactivationHooks);
+
+        for (var i = 0; i < 5; i++)
+        {
+            f.Window.Content = null;
+            ViewFixture.Pump();
+            Assert.Equal(0, f.Pane.DeactivationHooks);
+            f.Window.Content = f.Pane;
+            ViewFixture.Pump();
+            Assert.Equal(1, f.Pane.DeactivationHooks);
+        }
+
+        // A pane that is disposed while shown gives the subscription back too.
+        f.Pane.Dispose();
+        Assert.Equal(0, f.Pane.DeactivationHooks);
+    }
+
+    [AvaloniaFact]
     public async Task LockedEntryShowsTheReasonAndNoEditor()
     {
         using var f = await Fixture.OpenAsync("annotations-foreign.pdf");
