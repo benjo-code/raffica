@@ -15,6 +15,27 @@ public sealed class ToolStateTests
     }
 
     [Fact]
+    public void AColorOrWidthThatIsKeptRaisesStyleChangedAndOneThatIsRefusedDoesNot()
+    {
+        var state = new Store().Create();
+        var style = 0;
+        var tool = 0;
+        state.StyleChanged += () => style++;
+        state.Changed += () => tool++;
+
+        state.SetColor(AnnotateTool.Freehand, DrawPalette.ColorOf(DrawColor.Blue));
+        state.SetWidth(AnnotateTool.Freehand, StrokeWidth.Thick);
+        state.SetColor(AnnotateTool.Highlight, AnnotationPalette.ColorOf(MarkupColor.Green));
+        Assert.Equal(3, style);
+
+        // A colour that is not in the palette of the tool, and a width of a tool that has none, change nothing.
+        state.SetColor(AnnotateTool.Freehand, new AnnotationColor(1, 2, 3));
+        state.SetWidth(AnnotateTool.Highlight, StrokeWidth.Thick);
+        Assert.Equal(3, style);
+        Assert.Equal(0, tool);
+    }
+
+    [Fact]
     public void ChoosingTheActiveToolEndsTheMode()
     {
         var state = new Store().Create();

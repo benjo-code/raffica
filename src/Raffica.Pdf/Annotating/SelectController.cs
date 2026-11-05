@@ -93,6 +93,9 @@ internal sealed class SelectController : IToolController
     /// <summary>The reason the selected mark cannot be changed (shown with a lock sign), or <see langword="null"/>.</summary>
     public string? LockReason => _overlay.LockReason;
 
+    /// <summary>Whether the selected mark can take a new colour (and a new width, for a drawing): false without a selection and for a locked mark.</summary>
+    public bool CanChangeSelectionStyle => _selected is { } selected && CanChangeStyle(selected);
+
     /// <summary>The number of handles shown on the selection.</summary>
     public int HandleCount => _overlay.Handles.Count;
 

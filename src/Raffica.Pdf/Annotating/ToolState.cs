@@ -26,6 +26,9 @@ internal sealed class ToolState
     /// <summary>Raised when the active tool changed.</summary>
     public event Action? Changed;
 
+    /// <summary>Raised when the colour or width a tool remembers changed (not when the active tool changed: that is <see cref="Changed"/>).</summary>
+    public event Action? StyleChanged;
+
     /// <summary>Gets the active tool; <see cref="AnnotateTool.None"/> while the annotate mode is off.</summary>
     public AnnotateTool Tool { get; private set; }
 
@@ -100,6 +103,7 @@ internal sealed class ToolState
                     AnnotateTool.StrikeOut => settings with { StrikeOutColor = markup },
                     _ => settings with { HighlightColor = markup },
                 });
+                StyleChanged?.Invoke();
                 return;
             default:
                 if (KindOf(tool) is not { } kind
@@ -109,6 +113,7 @@ internal sealed class ToolState
                 }
 
                 _write(settings.WithToolStyle(kind, settings.StyleOf(kind) with { Color = draw }));
+                StyleChanged?.Invoke();
                 return;
         }
     }
@@ -125,6 +130,7 @@ internal sealed class ToolState
 
         var settings = _read();
         _write(settings.WithToolStyle(kind, settings.StyleOf(kind) with { Width = width }));
+        StyleChanged?.Invoke();
     }
 
     private static AnnotationKind? KindOf(AnnotateTool tool) => tool switch

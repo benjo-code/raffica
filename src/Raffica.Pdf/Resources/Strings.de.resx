@@ -788,4 +788,64 @@
   <data name="UnsavedDiscard" xml:space="preserve">
     <value>Schließen und Änderungen verwerfen</value>
   </data>
+  <data name="StyleStripColorName" xml:space="preserve">
+    <value>Farbe</value>
+  </data>
+  <data name="StyleStripColorWidthName" xml:space="preserve">
+    <value>Farbe und Linienstärke</value>
+  </data>
+  <data name="StyleStripColorSizeName" xml:space="preserve">
+    <value>Farbe und Textgröße</value>
+  </data>
+  <data name="MarkupColorYellow" xml:space="preserve">
+    <value>Gelb</value>
+  </data>
+  <data name="MarkupColorGreen" xml:space="preserve">
+    <value>Grün</value>
+  </data>
+  <data name="MarkupColorBlue" xml:space="preserve">
+    <value>Blau</value>
+  </data>
+  <data name="MarkupColorPink" xml:space="preserve">
+    <value>Rosa</value>
+  </data>
+  <data name="MarkupColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="DrawColorRed" xml:space="preserve">
+    <value>Rot</value>
+  </data>
+  <data name="DrawColorBlack" xml:space="preserve">
+    <value>Schwarz</value>
+  </data>
+  <data name="DrawColorBlue" xml:space="preserve">
+    <value>Blau</value>
+  </data>
+  <data name="DrawColorGreen" xml:space="preserve">
+    <value>Grün</value>
+  </data>
+  <data name="DrawColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="StyleWidthThin" xml:space="preserve">
+    <value>Dünn</value>
+  </data>
+  <data name="StyleWidthMedium" xml:space="preserve">
+    <value>Mittel</value>
+  </data>
+  <data name="StyleWidthThick" xml:space="preserve">
+    <value>Dick</value>
+  </data>
+  <data name="StyleSizeSmall" xml:space="preserve">
+    <value>Klein</value>
+  </data>
+  <data name="StyleSizeMedium" xml:space="preserve">
+    <value>Mittel</value>
+  </data>
+  <data name="StyleSizeLarge" xml:space="preserve">
+    <value>Groß</value>
+  </data>
+  <data name="StylePointsFormat" xml:space="preserve">
+    <value>{0}, {1} pt</value>
+  </data>
 </root>

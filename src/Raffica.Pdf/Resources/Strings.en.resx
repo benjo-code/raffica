@@ -791,4 +791,64 @@
   <data name="UnsavedDiscard" xml:space="preserve">
     <value>Close and discard changes</value>
   </data>
+  <data name="StyleStripColorName" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="StyleStripColorWidthName" xml:space="preserve">
+    <value>Color and width</value>
+  </data>
+  <data name="StyleStripColorSizeName" xml:space="preserve">
+    <value>Color and text size</value>
+  </data>
+  <data name="MarkupColorYellow" xml:space="preserve">
+    <value>Yellow</value>
+  </data>
+  <data name="MarkupColorGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="MarkupColorBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="MarkupColorPink" xml:space="preserve">
+    <value>Pink</value>
+  </data>
+  <data name="MarkupColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="DrawColorRed" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="DrawColorBlack" xml:space="preserve">
+    <value>Black</value>
+  </data>
+  <data name="DrawColorBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="DrawColorGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="DrawColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="StyleWidthThin" xml:space="preserve">
+    <value>Thin</value>
+  </data>
+  <data name="StyleWidthMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="StyleWidthThick" xml:space="preserve">
+    <value>Thick</value>
+  </data>
+  <data name="StyleSizeSmall" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="StyleSizeMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="StyleSizeLarge" xml:space="preserve">
+    <value>Large</value>
+  </data>
+  <data name="StylePointsFormat" xml:space="preserve">
+    <value>{0}, {1} pt</value>
+  </data>
 </root>

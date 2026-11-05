@@ -123,8 +123,9 @@ internal sealed partial class PageView
     }
 
     /// <summary>
-    /// A small control shown over the top middle of the view (the sign of the annotate mode). It takes no part in the layout of the pages
-    /// and should take no pointer input (<c>IsHitTestVisible</c> false).
+    /// A small control shown over the top middle of the view (the sign of the annotate mode and its style strip). It takes no part in the
+    /// layout of the pages. What in it takes input (the buttons of the style strip) is reached by <see cref="IsInBadge"/>: the pointer and
+    /// key events that come from it do not belong to the tool of the mode.
     /// </summary>
     internal Control? Badge
     {
@@ -206,6 +207,10 @@ internal sealed partial class PageView
     /// <summary>Whether a source of an event lies in the editing field (its pointer and key events belong to it).</summary>
     internal bool IsInField(object? source) =>
         _field is { } field && source is Visual visual && (ReferenceEquals(field, visual) || field.IsVisualAncestorOf(visual));
+
+    /// <summary>Whether a source of an event lies in the badge (its pointer and key events belong to its own controls).</summary>
+    internal bool IsInBadge(object? source) =>
+        _badge is { } badge && source is Visual visual && (ReferenceEquals(badge, visual) || badge.IsVisualAncestorOf(visual));
 
     /// <summary>Whether a point of the view lies on one of the scroll bars (they take their own mouse input).</summary>
     internal bool IsOverScrollBar(Point point) =>

@@ -67,7 +67,7 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, SearchSession> _searches = [];
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
     private readonly Dictionary<PdfTab, AnnotateInteraction> _annotates = [];
-    private readonly Dictionary<PdfTab, ModeIndicator> _indicators = [];
+    private readonly Dictionary<PdfTab, AnnotateBadge> _badges = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
@@ -234,8 +234,8 @@ internal sealed partial class PdfWindow : Window
         _searches.Clear();
         EachStep(_annotates.Values, annotate => annotate.Dispose());
         _annotates.Clear();
-        EachStep(_indicators.Values, indicator => indicator.Dispose());
-        _indicators.Clear();
+        EachStep(_badges.Values, badge => badge.Dispose());
+        _badges.Clear();
         EachStep(_texts.Values, text => text.Dispose());
         _texts.Clear();
         EachStep(_outlines, pair =>
@@ -690,9 +690,9 @@ internal sealed partial class PdfWindow : Window
                 annotate.Dispose();
             }
 
-            if (_indicators.Remove(tab, out var indicator))
+            if (_badges.Remove(tab, out var badge))
             {
-                indicator.Dispose();
+                badge.Dispose();
             }
 
             if (_texts.Remove(tab, out var text))
@@ -781,9 +781,9 @@ internal sealed partial class PdfWindow : Window
                     RefreshCommandStates();
                 }
             };
-            var indicator = new ModeIndicator(Tools);
-            view.Badge = indicator;
-            _indicators[active] = indicator;
+            var badge = new AnnotateBadge(Tools, annotate.Select);
+            view.Badge = badge;
+            _badges[active] = badge;
 
             // The outline is read once for the pane and for the palette, after the first sharp page.
             var outline = new OutlineSource(active);
@@ -947,7 +947,10 @@ internal sealed partial class PdfWindow : Window
     internal AnnotateInteraction? AnnotateOf(PdfTab tab) => _annotates.GetValueOrDefault(tab);
 
     /// <summary>The sign of the annotate mode over the page area of a tab, once the tab has been shown (for tests); null before.</summary>
-    internal ModeIndicator? ModeIndicatorOf(PdfTab tab) => _indicators.GetValueOrDefault(tab);
+    internal ModeIndicator? ModeIndicatorOf(PdfTab tab) => _badges.GetValueOrDefault(tab)?.Indicator;
+
+    /// <summary>The colour and width choice over the page area of a tab, once the tab has been shown (for tests); null before.</summary>
+    internal StyleStrip? StyleStripOf(PdfTab tab) => _badges.GetValueOrDefault(tab)?.Strip;
 
     /// <summary>Copies the selected text of the active document to the clipboard (plain text and HTML); returns whether something was copied. The command catalog calls this.</summary>
     internal Task<bool> CopySelectionAsync() =>

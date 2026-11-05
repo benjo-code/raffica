@@ -1,0 +1,18 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The colour and width strip of the annotate mode (over the page area). The buttons are the shell's toggle buttons: the choice in force
+       is the "on" state (a filled frame around the swatch), so it shows by shape and fill as well as by the swatch; the swatches are the
+       colours of Core's palettes (set in code, they are data). The width bar and the separator use the text and rule tokens only. -->
+  <Style Selector="Border.width-bar">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="ToggleButton:checked Border.width-bar">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+  </Style>
+  <Style Selector="ToggleButton:disabled Border.width-bar">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+  </Style>
+  <Style Selector="Border.style-separator">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Rule}" />
+  </Style>
+</Styles>

@@ -138,8 +138,8 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
             return;
         }
 
-        // A press in the editing field belongs to the field (placing the caret, selecting text).
-        if (_view.IsInField(e.Source))
+        // A press in the editing field belongs to the field (placing the caret, selecting text); one on the style strip belongs to its buttons.
+        if (_view.IsInField(e.Source) || _view.IsInBadge(e.Source))
         {
             return;
         }
@@ -207,7 +207,8 @@ internal sealed class AnnotateInteraction : IPageOverlay, IDisposable
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (!e.Handled)
+        // The keys of a button on the style strip (Tab, the arrows, Space) are the strip's: they move the focus there, not a mark.
+        if (!e.Handled && !_view.IsInBadge(e.Source))
         {
             HandleKey(e);
         }
