@@ -268,6 +268,45 @@ public sealed class MarksPaneTests
     }
 
     [AvaloniaFact]
+    public async Task DeleteIgnoresKeyRepeatInTheList()
+    {
+        PdfAnnotation? first = null;
+        using var f = await Fixture.OpenAsync("pages-marked.pdf", async a =>
+        {
+            first = await AddRectangleAsync(a, 0, 80, 80);
+            await AddRectangleAsync(a, 0, 80, 200);
+        });
+        f.Annotate.Tools.Choose(AnnotateTool.Select);
+        Assert.Equal(2, f.Pane.RowCount);
+        var row = f.IndexOf(first!.Name);
+        f.Click(f.Pane.ContainerOf(row)!);
+        await f.SettleAsync();
+        f.Pane.ContainerOf(f.Pane.List.SelectedIndex)!.Focus(NavigationMethod.Tab);
+
+        // One physical press: the key goes down, the system repeats it, and only the first one deletes.
+        f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        await f.SettleAsync();
+        Assert.Equal(1, f.Pane.RowCount);
+
+        // The focus stays in the list (on the row that is left) while the key is held.
+        f.Pane.List.SelectedIndex = 0;
+        f.Pane.ContainerOf(0)!.Focus(NavigationMethod.Tab);
+        f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        await f.SettleAsync();
+        Assert.Equal(1, f.Pane.RowCount);
+        Assert.Single(await f.Annotate.Tab.Session.Document!.GetAnnotationsAsync(0, Cancel));
+
+        // Released and pressed again, the next press deletes the next mark.
+        f.Window.KeyRelease(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        f.Pane.ContainerOf(0)!.Focus(NavigationMethod.Tab);
+        f.Pane.List.SelectedIndex = 0;
+        f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        await f.SettleAsync();
+        Assert.Equal(0, f.Pane.RowCount);
+    }
+
+    [AvaloniaFact]
     public async Task DeleteOutsideTheModeDoesNothing()
     {
         PdfAnnotation? made = null;

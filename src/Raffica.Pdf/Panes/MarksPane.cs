@@ -39,6 +39,7 @@ internal sealed class MarksPane : UserControl, IDisposable
     private readonly ObservableCollection<MarkRow> _rows = [];
     private readonly SelectBox _filter;
     private readonly ListBox _list;
+    private readonly HashSet<Key> _heldKeys = [];
     private readonly TextBlock _empty;
     private readonly TextBlock _summary;
     private readonly TextBlock _note;
@@ -102,6 +103,7 @@ internal sealed class MarksPane : UserControl, IDisposable
         _list.ContainerPrepared += (_, e) => Decorate(e.Container, e.Index);
         _list.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         _list.AddHandler(KeyDownEvent, OnListKeyDown, RoutingStrategies.Tunnel);
+        _list.AddHandler(KeyUpEvent, (_, e) => _heldKeys.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
         _list.AddHandler(GotFocusEvent, (_, e) => NavList.EnterAt(_list, e, () => Math.Max(0, _list.SelectedIndex)), RoutingStrategies.Bubble, handledEventsToo: true);
 
         _empty = new TextBlock
@@ -528,10 +530,15 @@ internal sealed class MarksPane : UserControl, IDisposable
                 Act(_rows[index]);
                 break;
             case Key.Delete or Key.Back:
+                // Avalonia does not say whether a key down is a repeat: a key that is held down deletes once per physical press.
+                var repeat = !_heldKeys.Add(e.Key);
                 if (_rows[index] is EntryRow entry && _tools.Tool != AnnotateTool.None)
                 {
                     e.Handled = true;
-                    _ = DeleteAsync(entry.Entry);
+                    if (!repeat)
+                    {
+                        _ = DeleteAsync(entry.Entry);
+                    }
                 }
 
                 break;
