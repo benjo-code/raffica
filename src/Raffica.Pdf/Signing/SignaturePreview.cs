@@ -30,13 +30,22 @@ internal sealed class SignaturePreview : Control
     /// <summary>Gets the cutout shown, or <see langword="null"/> when the preview shows strokes or nothing.</summary>
     public SignatureImage? Image => _image;
 
+    /// <summary>Gets how many bitmaps were built (for tests: the same image does not build another).</summary>
+    internal int BitmapBuilds { get; private set; }
+
     /// <summary>Shows a cutout (<see langword="null"/> shows nothing); the strokes are dropped.</summary>
     public void ShowImage(SignatureImage? image)
     {
+        if (image is not null && ReferenceEquals(image, _image))
+        {
+            return; // the same cutout: its bitmap stays
+        }
+
         _strokes = null;
         _image = image;
         _bitmap?.Dispose();
         _bitmap = image is null ? null : ToBitmap(image);
+        BitmapBuilds += image is null ? 0 : 1;
         InvalidateVisual();
     }
 

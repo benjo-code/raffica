@@ -54,6 +54,7 @@ internal static class NewSignatureCard
         private readonly Button _clear;
         private readonly Button _choose;
         private readonly Button _save;
+        private readonly Button _cancel;
         private readonly List<(ToggleButton Button, DrawColor Color)> _swatches = [];
         private SignatureImage? _source;
         private SignatureImage? _trimmed;
@@ -62,6 +63,9 @@ internal static class NewSignatureCard
         private int _version;
         private bool _finished;
         private bool _saving;
+        private bool _recomputeRunning;
+        private bool _recomputeAgain;
+        private Task _recompute = Task.CompletedTask;
         private bool _picking;
         private bool _nameTouched;
         private bool _settingName;
@@ -142,7 +146,7 @@ internal static class NewSignatureCard
             var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintWritten + " " + PdfStrings.SignatureHintImage, TextWrapping = TextWrapping.Wrap };
             hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Text.Secondary"));
 
-            var cancel = TextButton("PART_Cancel", ShellStrings.Cancel, "boxed");
+            _cancel = TextButton("PART_Cancel", ShellStrings.Cancel, "boxed");
             _save = TextButton("PART_Save", PdfStrings.SignatureNewSave, "primary");
             _save.IsEnabled = false;
 
@@ -150,7 +154,7 @@ internal static class NewSignatureCard
             {
                 Title = PdfStrings.SignatureNewTitle,
                 Content = new StackPanel { Spacing = 10, Children = { _tabs, _drawPanel, _imagePanel, _preview, nameRow, _message, hint } },
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, _save } },
+                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _cancel, _save } },
             };
 
             _tabs.SelectionChanged += (_, _) => OnTabChanged();
@@ -168,14 +172,8 @@ internal static class NewSignatureCard
             };
             _name.TextChanged += (_, _) => _nameTouched |= !_settingName;
             _save.Click += async (_, _) => await SaveAsync();
-            cancel.Click += (_, _) => Finish(null);
-            Dialog.CancelRequested += (_, _) =>
-            {
-                if (!_saving)
-                {
-                    Finish(null);
-                }
-            };
+            _cancel.Click += (_, _) => Cancel();
+            Dialog.CancelRequested += (_, _) => Cancel();
 
             Refresh();
             _ = SuggestNameAsync();
@@ -282,12 +280,18 @@ internal static class NewSignatureCard
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    Refuse(PdfStrings.SignatureNewRefusalUnreadable);
+                    RefusePick(PdfStrings.SignatureNewRefusalUnreadable);
                     return;
                 }
 
-                if (stream is null || _finished)
+                if (stream is null)
                 {
+                    return;
+                }
+
+                if (_finished)
+                {
+                    await stream.DisposeAsync(); // the card closed while the file dialog was open
                     return;
                 }
 
@@ -308,7 +312,7 @@ internal static class NewSignatureCard
 
                 if (result is SignatureImageResult.Problem problem)
                 {
-                    Refuse(problem.Reason switch
+                    RefusePick(problem.Reason switch
                     {
                         SignatureImageProblem.TooLarge => PdfStrings.SignatureNewRefusalTooLarge,
                         SignatureImageProblem.TooManyPixels => PdfStrings.SignatureNewRefusalTooManyPixels,
@@ -329,7 +333,7 @@ internal static class NewSignatureCard
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 // Never lets a failure of the picker or the decoder escape a click handler.
-                Refuse(PdfStrings.SignatureNewRefusalUnreadable);
+                RefusePick(PdfStrings.SignatureNewRefusalUnreadable);
             }
             finally
             {
@@ -338,24 +342,74 @@ internal static class NewSignatureCard
         }
 
         /// <summary>Makes the cutout of the loaded image at the slider's threshold off the UI thread; only the newest request is shown.</summary>
-        private async Task RecomputeAsync()
+        private Task RecomputeAsync()
         {
-            var source = _source;
-            if (source is null)
+            // One running task: a request that comes while it works only asks it to go round once more with the newest slider value.
+            _recomputeAgain = true;
+            if (!_recomputeRunning)
             {
-                return;
+                _recomputeRunning = true;
+                _recompute = RunRecomputeAsync();
             }
 
-            var version = ++_version;
-            var threshold = (int)Math.Round(_cutout.Value);
-            var trimmed = await Task.Run(() => SignatureCutout.TrimToContent(SignatureCutout.Apply(source, threshold)));
-            if (version != _version || _finished)
-            {
-                return;
-            }
+            return _recompute;
+        }
 
-            _trimmed = trimmed;
-            Refresh();
+        private async Task RunRecomputeAsync()
+        {
+            try
+            {
+                while (_recomputeAgain && !_finished)
+                {
+                    _recomputeAgain = false;
+                    var source = _source;
+                    if (source is null)
+                    {
+                        continue;
+                    }
+
+                    var version = _version;
+                    var threshold = (int)Math.Round(_cutout.Value);
+                    var trimmed = await Task.Run(() => SignatureCutout.TrimToContent(SignatureCutout.Apply(source, threshold)));
+                    if (_recomputeAgain || version != _version || _finished)
+                    {
+                        continue; // a newer request, a new or cleared image, or a closed card: this result is stale
+                    }
+
+                    _trimmed = trimmed;
+                    Refresh();
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // The cutout could not be made: say so (nothing is stored) rather than leave a failed task unobserved.
+                RefusePick(PdfStrings.SignatureNewRefusalUnreadable);
+            }
+            finally
+            {
+                _recomputeRunning = false;
+            }
+        }
+
+        /// <summary>A refused file: its reason is shown and the image of an earlier pick is dropped, so the reason matches what Save would store.</summary>
+        private void RefusePick(string reason)
+        {
+            _version++;
+            _source = null;
+            _trimmed = null;
+            _imageRefusal = null;
+            _cutout.IsEnabled = false;
+            _imageStatus.Text = PdfStrings.SignatureNewImageNone;
+            Refuse(reason);
+        }
+
+        /// <summary>Cancel, Esc and the close button: while a save runs they do nothing (the save is reported when it ends), so no stored signature is ever left unreported.</summary>
+        private void Cancel()
+        {
+            if (!_saving)
+            {
+                Finish(null);
+            }
         }
 
         /// <summary>The reason the current cutout cannot be saved, or <see langword="null"/> when it can.</summary>
@@ -401,6 +455,7 @@ internal static class NewSignatureCard
 
             _back.IsEnabled = _clear.IsEnabled = _pad.HasInk && !_saving;
             _choose.IsEnabled = !_saving;
+            _cancel.IsEnabled = !_saving;
             _save.IsEnabled = CanSave();
             var reason = _actionRefusal ?? (draw ? null : _imageRefusal);
             _message.Text = reason ?? string.Empty;
@@ -460,6 +515,7 @@ internal static class NewSignatureCard
             }
 
             _finished = true;
+            _preview.ShowStrokes(null, DrawColor.Black); // frees the bitmap of the preview
             _version++;
             _done(saved);
         }
