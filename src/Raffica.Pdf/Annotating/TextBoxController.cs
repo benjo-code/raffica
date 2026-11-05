@@ -43,6 +43,7 @@ internal sealed class TextBoxController : IToolController
     private DisplayPoint _anchor;
     private DisplayPoint _current;
     private bool _disposed;
+    private readonly IDisposable _discardRegistration;
 
     public TextBoxController(PdfTab tab, PageView view, ToolState tools, DialogQueue dialogs)
     {
@@ -57,7 +58,7 @@ internal sealed class TextBoxController : IToolController
         _preview.Changed += OnPreviewChanged;
         _view.ViewChanged += OnViewChanged;
         _tab.Annotations.FlushRequested += OnFlushRequested;
-        _tab.Annotations.DiscardDraft = DiscardForHistory;
+        _discardRegistration = _tab.Annotations.AddDiscardHandler(DiscardForHistory);
     }
 
     /// <inheritdoc />
@@ -199,10 +200,7 @@ internal sealed class TextBoxController : IToolController
         _preview.Changed -= OnPreviewChanged;
         _view.ViewChanged -= OnViewChanged;
         _tab.Annotations.FlushRequested -= OnFlushRequested;
-        if (_tab.Annotations.DiscardDraft == DiscardForHistory)
-        {
-            _tab.Annotations.DiscardDraft = null;
-        }
+        _discardRegistration.Dispose();
     }
 
     /// <summary>
