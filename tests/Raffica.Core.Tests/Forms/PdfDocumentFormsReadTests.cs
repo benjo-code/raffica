@@ -46,6 +46,20 @@ public sealed class PdfDocumentFormsReadTests : IDisposable
         await Assert.ThrowsAsync<ObjectDisposedException>(() => disposed.GetFormFieldsAsync(0, Ct));
     }
 
+    [Theory]
+    [InlineData(PdfPriority.Interactive)]
+    [InlineData(PdfPriority.Background)]
+    public async Task FieldsCanBeReadAtEitherPriorityWithTheSameResult(PdfPriority priority)
+    {
+        await using var document = await OpenFixtureAsync(FormsBasic);
+
+        var expected = await document.GetFormFieldsAsync(0, Ct);
+        var fields = await document.GetFormFieldsAsync(0, priority, Ct);
+
+        Assert.Equal(expected.Select(f => (f.Key, f.State, f.Lock)), fields.Select(f => (f.Key, f.State, f.Lock)));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.GetFormFieldsAsync(-1, priority, Ct));
+    }
+
     [Fact]
     public async Task FieldsOfAPageComeAsFormFieldsInAnnotsOrder()
     {

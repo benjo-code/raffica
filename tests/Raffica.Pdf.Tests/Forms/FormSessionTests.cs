@@ -1,5 +1,8 @@
 using Avalonia.Headless.XUnit;
+using Raffica.Core.Annotations;
 using Raffica.Core.Forms;
+using Raffica.Core.Pdf;
+using Raffica.Core.Text;
 using Raffica.Pdf.Forms;
 using Raffica.Pdf.Tests.Annotating;
 using Raffica.Pdf.Tests.Viewing;
@@ -51,8 +54,10 @@ public sealed class FormSessionTests
         Assert.Null(file.Tab.AnnotationsIfCreated);
     }
 
+    // The priority itself is not observable from here (it only orders PDFium jobs; Core's tests cover the overload and FormSession
+    // always passes PdfPriority.Background); what is checked: per page, lazily, single flight.
     [AvaloniaFact]
-    public async Task FieldsAreLoadedPerPageAndASecondCallJoinsTheFirst()
+    public async Task FieldsAreLoadedPerPageAtBackgroundPriority()
     {
         using var file = await AnnotatedFile.OpenAsync(Basic);
         var forms = file.Tab.Forms;
@@ -74,7 +79,7 @@ public sealed class FormSessionTests
     }
 
     [AvaloniaFact]
-    public async Task FieldAtFindsTheTopmostWidgetAndLockedOnesToo()
+    public async Task FieldAtFindsLockedWidgetsToo()
     {
         using var file = await AnnotatedFile.OpenAsync(Basic);
         var forms = file.Tab.Forms;
@@ -86,14 +91,116 @@ public sealed class FormSessionTests
         Assert.Equal(locked.Key, forms.FieldAt(0, (locked.Bounds.Left + locked.Bounds.Right) / 2, (locked.Bounds.Top + locked.Bounds.Bottom) / 2)?.Key);
         Assert.Null(forms.FieldAt(0, -5, -5));
         Assert.Null(forms.FieldAt(7, 10, 10));
+    }
 
-        // Where widgets overlap, the one later in the page's annotations is on top.
-        foreach (var field in forms.FieldsOn(0))
+    [AvaloniaFact]
+    public async Task FieldAtFindsTheTopmostOfOverlappingWidgets()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        using var forms = new FormSession(file.Tab, new QueueContext())
         {
-            var x = (field.Bounds.Left + field.Bounds.Right) / 2;
-            var y = (field.Bounds.Top + field.Bounds.Bottom) / 2;
-            Assert.Equal(forms.FieldsOn(0).Last(f => f.Bounds.Contains(x, y)).Key, forms.FieldAt(0, x, y)?.Key);
-        }
+            PageReader = (_, _, _) => Task.FromResult<IReadOnlyList<FormField>>(
+            [
+                Widget("below", new PageRect(10, 10, 110, 40)),
+                Widget("on top", new PageRect(60, 20, 160, 50)),
+                Widget("alone", new PageRect(200, 10, 260, 40)),
+            ]),
+        };
+        await forms.LoadPageAsync(0);
+
+        Assert.Equal("on top", forms.FieldAt(0, 80, 30)?.Key.FieldName);
+        Assert.Equal("below", forms.FieldAt(0, 20, 15)?.Key.FieldName);
+        Assert.Equal("on top", forms.FieldAt(0, 150, 45)?.Key.FieldName);
+        Assert.Equal("alone", forms.FieldAt(0, 230, 20)?.Key.FieldName);
+        Assert.Null(forms.FieldAt(0, 180, 20));
+    }
+
+    [AvaloniaFact]
+    public async Task InfoAndRequiredReadBeforeTheFirstPageLoadSurviveIt()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+
+        await forms.LoadInfoAsync();
+        await forms.RefreshRequiredAsync();
+        var info = forms.Info;
+        Assert.NotNull(info);
+        Assert.Equal(["Pflicht"], forms.EmptyRequired);
+
+        var required = await FieldAsync(forms, "Pflicht");
+
+        Assert.Same(info, forms.Info);
+        Assert.Equal(["Pflicht"], forms.EmptyRequired);
+
+        // The list is still maintained: a value empties it, and an undo brings the name back.
+        Assert.IsType<FormEditResult.Applied>(await forms.SetValueAsync(required, FormFieldState.OfText("x")));
+        Assert.Empty(forms.EmptyRequired);
+        await file.Tab.Annotations.UndoAsync();
+        Assert.True(await WaitForAsync(() => forms.EmptyRequired.Count == 1));
+    }
+
+    [AvaloniaFact]
+    public async Task ARefreshAskedWhileThePageIsBeingReadIsNotLost()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        using var forms = new FormSession(file.Tab, new QueueContext())
+        {
+            PageReader = async (_, _, _) =>
+            {
+                var n = Interlocked.Increment(ref calls);
+                if (n == 1)
+                {
+                    await gate.Task;
+                }
+
+                return [Widget("v" + n, new PageRect(0, 0, 10, 10))];
+            },
+        };
+
+        var load = forms.LoadPageAsync(0);
+        Assert.True(await WaitForAsync(() => Volatile.Read(ref calls) == 1));
+        var refresh = forms.RefreshPagesAsync([0]);
+        gate.SetResult();
+        await Task.WhenAll(load, refresh);
+
+        // The first read is dropped as stale and the page is read again.
+        Assert.Equal(2, Volatile.Read(ref calls));
+        Assert.Equal("v2", forms.FieldsOn(0).Single().Key.FieldName);
+
+        // A refresh after the read ended starts a new one.
+        await forms.RefreshPagesAsync([0]);
+        Assert.Equal(3, Volatile.Read(ref calls));
+        Assert.Equal("v3", forms.FieldsOn(0).Single().Key.FieldName);
+    }
+
+    private static FormField Widget(string name, PageRect bounds) => new(
+        new FormWidgetKey(name, 0, 0),
+        0,
+        FormFieldKind.Text,
+        FormFieldTraits.None,
+        bounds,
+        null,
+        null,
+        null,
+        [],
+        FormFieldState.OfText(string.Empty),
+        FormLock.None,
+        null);
+
+    [Fact]
+    public void ExceptionsOfTheWriteMapToTheirProblem()
+    {
+        IReadOnlySet<int> pages = new HashSet<int> { 0 };
+
+        Assert.Equal(FormEditProblem.NotKept, FormErrors.FromException(new FormWriteException("x", pages, restored: true))?.Problem);
+        Assert.Equal(FormEditProblem.NotKeptNotRestored, FormErrors.FromException(new FormWriteException("x", pages, restored: false))?.Problem);
+        Assert.Equal(FormEditProblem.NotFound, FormErrors.FromException(new FormFieldNotFoundException())?.Problem);
+        Assert.Equal(FormEditProblem.HistoryFull, FormErrors.FromException(new AnnotationHistoryFullException())?.Problem);
+        Assert.Equal(FormEditProblem.Locked, FormErrors.FromException(new InvalidOperationException("locked"))?.Problem);
+        Assert.Equal(FormEditProblem.Invalid, FormErrors.FromException(new ArgumentException("bad"))?.Problem);
+        Assert.Null(FormErrors.FromException(new IOException()));
     }
 
     [AvaloniaFact]

@@ -36,6 +36,9 @@ internal sealed class FormSession : IDisposable
         _tab.Session.PagesInvalidated += OnPagesInvalidated;
     }
 
+    /// <summary>A test seam: reads the widgets of a page instead of the document (default: the document, background priority).</summary>
+    internal Func<PdfDocument, int, CancellationToken, Task<IReadOnlyList<FormField>>>? PageReader { get; init; }
+
     /// <summary>Raised on the UI thread when a page was (re)read, the required list or the info changed.</summary>
     public event Action? Changed;
 
@@ -141,10 +144,15 @@ internal sealed class FormSession : IDisposable
 
         try
         {
+            lock (_gate)
+            {
+                SyncDocument(document);
+            }
+
             var info = await document.GetFormInfoAsync(_cts.Token).ConfigureAwait(false);
             lock (_gate)
             {
-                if (!_disposed && ReferenceEquals(_tab.Session.Document, document))
+                if (!_disposed && ReferenceEquals(_document, document))
                 {
                     _info = info;
                 }
@@ -173,11 +181,20 @@ internal sealed class FormSession : IDisposable
 
         try
         {
+            lock (_gate)
+            {
+                SyncDocument(document);
+            }
+
             var names = await document.GetEmptyRequiredFieldsAsync(_cts.Token).ConfigureAwait(false);
             lock (_gate)
             {
-                _required = names;
-                _requiredRead = true;
+                // A result of a document that was swapped out meanwhile belongs to nobody.
+                if (!_disposed && ReferenceEquals(_document, document))
+                {
+                    _required = names;
+                    _requiredRead = true;
+                }
             }
 
             RaiseChanged();
@@ -268,7 +285,7 @@ internal sealed class FormSession : IDisposable
     private static bool IsExpected(Exception ex) =>
         ex is OperationCanceledException or ObjectDisposedException or InvalidDataException or ArgumentOutOfRangeException;
 
-    private Task RefreshPagesAsync(IEnumerable<int> pages)
+    internal Task RefreshPagesAsync(IEnumerable<int> pages)
     {
         List<Task> tasks = [];
         foreach (var page in pages)
@@ -298,6 +315,31 @@ internal sealed class FormSession : IDisposable
         }
     }
 
+    /// <summary>
+    /// A new document (a save was adopted) invalidates everything read from the old one; the first document seen only becomes current. Under
+    /// <c>_gate</c>; every reader and writer of the cache calls it first, so a result read before the first page load is not wiped.
+    /// </summary>
+    private void SyncDocument(PdfDocument document)
+    {
+        if (ReferenceEquals(_document, document))
+        {
+            return;
+        }
+
+        var first = _document is null;
+        _document = document;
+        if (first)
+        {
+            return;
+        }
+
+        _pages.Clear();
+        _stale.Clear();
+        _info = null;
+        _requiredRead = false;
+        _required = [];
+    }
+
     private bool IsInflight(int page)
     {
         lock (_gate)
@@ -315,16 +357,7 @@ internal sealed class FormSession : IDisposable
 
         lock (_gate)
         {
-            // A new document (a save was adopted): what was read from the old one is not valid.
-            if (!ReferenceEquals(_document, document))
-            {
-                _document = document;
-                _pages.Clear();
-                _stale.Clear();
-                _info = null;
-                _requiredRead = false;
-                _required = [];
-            }
+            SyncDocument(document);
 
             if (_inflight.TryGetValue(page, out var running))
             {
@@ -349,6 +382,8 @@ internal sealed class FormSession : IDisposable
 
     private async Task ReadPageAsync(PdfDocument document, int page)
     {
+        var reader = PageReader ?? ((doc, index, token) => doc.GetFormFieldsAsync(index, PdfPriority.Background, token));
+        var done = false;
         try
         {
             while (true)
@@ -358,7 +393,7 @@ internal sealed class FormSession : IDisposable
                     _stale.Remove(page);
                 }
 
-                var fields = await document.GetFormFieldsAsync(page, _cts.Token).ConfigureAwait(false);
+                var fields = await reader(document, page, _cts.Token).ConfigureAwait(false);
                 lock (_gate)
                 {
                     if (_stale.Contains(page))
@@ -371,6 +406,9 @@ internal sealed class FormSession : IDisposable
                         _pages[page] = fields;
                     }
 
+                    // Leaving the single flight in the same lock as the last stale check: a refresh asked from now on starts a new read.
+                    _inflight.Remove(page);
+                    done = true;
                     break;
                 }
             }
@@ -382,9 +420,12 @@ internal sealed class FormSession : IDisposable
         }
         finally
         {
-            lock (_gate)
+            if (!done)
             {
-                _inflight.Remove(page);
+                lock (_gate)
+                {
+                    _inflight.Remove(page);
+                }
             }
         }
     }

@@ -215,6 +215,20 @@ public sealed partial class PdfDocument
         ReadFormFieldsAsync(pageIndex, PdfiumPriority.Interactive, cancellationToken);
 
     /// <summary>
+    /// Like <see cref="GetFormFieldsAsync(int, CancellationToken)"/> with the scheduling class of the job chosen by the caller
+    /// (a page that is not in view yet is read with <see cref="PdfPriority.Background"/>).
+    /// </summary>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="priority">The scheduling class.</param>
+    /// <param name="cancellationToken">Cancels the read until it starts.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pageIndex"/> is not a page of the document.</exception>
+    /// <exception cref="InvalidDataException">The page is damaged and cannot be loaded.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before the fields were read.</exception>
+    /// <exception cref="ObjectDisposedException">The document is disposed.</exception>
+    public Task<IReadOnlyList<FormField>> GetFormFieldsAsync(int pageIndex, PdfPriority priority, CancellationToken cancellationToken = default) =>
+        ReadFormFieldsAsync(pageIndex, priority == PdfPriority.Background ? PdfiumPriority.Background : PdfiumPriority.Interactive, cancellationToken);
+
+    /// <summary>
     /// Lists the names of the required fields that have no value (<see cref="FormInfo.EmptyRequired"/>), reading only the
     /// pages with widgets, one short <see cref="PdfPriority.Background"/> job per page. The pages come from
     /// <see cref="GetFormInfoAsync"/> (scanned first when not known yet). A document without a form gives an empty list.
