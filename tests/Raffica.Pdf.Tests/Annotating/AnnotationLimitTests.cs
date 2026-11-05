@@ -13,7 +13,7 @@ namespace Raffica.Pdf.Tests.Annotating;
 public sealed class AnnotationLimitTests
 {
     // One page with a line of text and as many note annotations as the document may list; a new one would never be listed.
-    private static string WriteFullPdf(string folder)
+    internal static string WriteFullPdf(string folder)
     {
         var content = "BT /F1 18 Tf 40 150 Td (Full of notes) Tj ET";
         var objects = new List<string>

@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Headless;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Raffica.Core.Annotations;
 using Raffica.Core.Pdf;
 using Raffica.Pdf.Annotating;
@@ -133,7 +135,7 @@ public sealed class DrawingToolTests
     }
 
     [AvaloniaFact]
-    public async Task TouchDoesNotDrawButScrolls()
+    public async Task TouchDoesNotDraw()
     {
         using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
         f.Tools.Choose(AnnotateTool.Freehand);
@@ -147,6 +149,70 @@ public sealed class DrawingToolTests
         Assert.Empty(await DrawingsAsync(f));
         Assert.False(f.Tab.IsDirty);
         Assert.Equal(AnnotateTool.Freehand, f.Tools.Tool);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(nameof(AnnotateTool.Rectangle), 120, 0)]
+    [InlineData(nameof(AnnotateTool.Rectangle), 0, 120)]
+    [InlineData(nameof(AnnotateTool.Ellipse), 120, 0)]
+    [InlineData(nameof(AnnotateTool.Ellipse), 0, 120)]
+    public async Task AnAxisAlignedShapeDragNeverFailsAndShowsNoCard(string toolName, int dx, int dy)
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        f.Tools.Choose(Enum.Parse<AnnotateTool>(toolName));
+
+        // Longer than 4 DIPs, but the box has no width (or no height): it draws nothing, throws nothing and says nothing.
+        Drag(f, At(f, 100, 100), At(f, 100 + (dx / 2), 100 + (dy / 2)));
+        await FinishAsync(f);
+        ViewFixture.Pump();
+
+        Assert.Null(f.Host.ActiveDialog);
+        Assert.Empty(await DrawingsAsync(f));
+        Assert.False(f.Tab.IsDirty);
+        Assert.False(f.Tab.Annotations.CanUndo);
+    }
+
+    [AvaloniaFact]
+    public async Task DrawingLimitIsReportedAndNothingIsCreated()
+    {
+        var folder = Directory.CreateTempSubdirectory("raffica-limit-").FullName;
+        try
+        {
+            using var f = await AnnotateFixture.OpenPathAsync(AnnotationLimitTests.WriteFullPdf(folder), width: 600, height: 500);
+            var ct = TestContext.Current.CancellationToken;
+            Assert.Equal(PdfDocument.MaxAnnotations, (await f.Tab.Session.Document!.GetAnnotationsAsync(0, ct)).Count);
+            f.Tools.Choose(AnnotateTool.Rectangle);
+
+            Drag(f, At(f, 100, 60), At(f, 200, 120));
+            for (var i = 0; i < 400 && !f.Host.IsOpen; i++)
+            {
+                await Task.Delay(25, ct);
+                ViewFixture.Pump();
+            }
+
+            // The error card names the limit; nothing was created and the tab is not dirty.
+            var card = Assert.IsType<Raffica.Shell.Controls.Dialog>(f.Host.ActiveDialog);
+            var message = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Message").Text;
+            Assert.Equal(PdfStrings.AnnotateLimitReached, message);
+            Assert.False(f.Tab.IsDirty);
+            Assert.False(f.Tab.Annotations.CanUndo);
+            Assert.Equal(PdfDocument.MaxAnnotations, (await f.Tab.Session.Document!.GetAnnotationsAsync(0, ct)).Count);
+
+            card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Ok").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await f.Interaction.Drawing.Completion.WaitAsync(TimeSpan.FromSeconds(30), ct);
+            Assert.False(f.Tab.IsDirty);
+            Assert.Equal(AnnotateTool.Rectangle, f.Tools.Tool);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
     }
 
     [AvaloniaFact]
@@ -194,11 +260,10 @@ public sealed class DrawingToolTests
 
         var ct = TestContext.Current.CancellationToken;
         var saved = await f.Tab.Annotations.Editor.SaveAsync(new PdfEngine(), f.Path!, false, null, ct);
-        await using (saved.Saved.Reopened)
-        {
-            var back = (await saved.Saved.Reopened.GetAnnotationsAsync(0, ct)).Where(a => DrawingKinds.Contains(a.Kind)).ToList();
-            Assert.Equal(AnnotationKind.Arrow, Assert.Single(back).Kind);
-        }
+
+        // The saved file is adopted by the tab (it owns the reopened document), so it must not be disposed here.
+        var back = (await saved.Saved.Reopened.GetAnnotationsAsync(0, ct)).Where(a => DrawingKinds.Contains(a.Kind)).ToList();
+        Assert.Equal(AnnotationKind.Arrow, Assert.Single(back).Kind);
     }
 
     [AvaloniaFact]
