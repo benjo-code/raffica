@@ -672,6 +672,7 @@ internal sealed partial class PdfWindow : Window
             tab.Annotations.StateChanged -= RefreshCommandStates;
             _printInfo.Remove(tab);
             _annotateAllowed.Remove(tab);
+            _fillAllowed.Remove(tab);
             RememberView(tab);
             if (_panes.Remove(tab, out var panes))
             {

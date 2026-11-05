@@ -40,6 +40,12 @@ internal static class FpdfConstants
     /// </summary>
     public const int PermissionAnnotate = 1 << 5;
 
+    /// <summary>
+    /// Permission bit 9 of the permission flags (<c>FPDF_GetDocPermissions</c>): filling in existing form fields is allowed
+    /// (PDF specification, ISO 32000-1, table 22; bit n has the value 1 &lt;&lt; (n - 1)).
+    /// </summary>
+    public const int PermissionFillForms = 1 << 8;
+
     /// <summary><c>FPDF_ANNOT_TEXT</c> (<c>fpdf_annot.h</c>): a text (sticky note) annotation.</summary>
     public const int AnnotText = 1;
 

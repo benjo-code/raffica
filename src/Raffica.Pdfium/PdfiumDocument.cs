@@ -176,6 +176,13 @@ internal sealed unsafe class PdfiumDocument : IDisposable
     /// </summary>
     public bool MayAnnotate => AllowsAnnotating((uint)Fpdf.FPDF_GetDocPermissions(Access()).Value);
 
+    /// <summary>
+    /// Gets whether the permissions of whoever opened the document allow filling in form fields (bit 9, or bit 6, which also
+    /// covers it, PDF 32000-1 table 22); an unencrypted document, or one opened with its owner password, allows everything.
+    /// Must be called on the PDFium thread.
+    /// </summary>
+    public bool MayFillForms => AllowsFillingForms((uint)Fpdf.FPDF_GetDocPermissions(Access()).Value);
+
     /// <summary>Gets the number of signatures and the most restrictive DocMDP level they declare. Must be called on the PDFium thread.</summary>
     /// <returns>The signature count and the lowest DocMDP level (1 to 3), or 0 if no signature declares one.</returns>
     public (int Count, int DocMdpLevel) GetSignatures()
@@ -203,6 +210,10 @@ internal sealed unsafe class PdfiumDocument : IDisposable
 
     /// <summary>Tells whether a permission word (<c>/P</c> value as returned by PDFium) contains the "modify annotations" bit.</summary>
     internal static bool AllowsAnnotating(uint permissions) => (permissions & FpdfConstants.PermissionAnnotate) != 0;
+
+    /// <summary>Tells whether a permission word contains the "fill in form fields" bit (9) or the "modify annotations" bit (6).</summary>
+    internal static bool AllowsFillingForms(uint permissions) =>
+        (permissions & (FpdfConstants.PermissionFillForms | FpdfConstants.PermissionAnnotate)) != 0;
 
     /// <summary>Gets the PDF version from the file header (14 for 1.4), or <see langword="null"/> if unknown.</summary>
     public int? FileVersion

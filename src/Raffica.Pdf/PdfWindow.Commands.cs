@@ -26,6 +26,7 @@ internal sealed partial class PdfWindow
 {
     private readonly Dictionary<PdfTab, PdfPrintInfo> _printInfo = [];
     private readonly Dictionary<PdfTab, bool> _annotateAllowed = [];
+    private readonly Dictionary<PdfTab, bool> _fillAllowed = [];
     private readonly PdfCommandRules _rules;
     private readonly PrintCommand _print;
     private IPrintService? _printService;
@@ -62,6 +63,9 @@ internal sealed partial class PdfWindow
 
     /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
     internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
+
+    /// <summary>Whether the permissions of the document allow filling in forms; <see langword="null"/> until they are read.</summary>
+    internal bool? FillAllowedOf(PdfTab tab) => _fillAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
 
     // Whether the system can print is not asked while the first page is on its way (on Linux that loads libcups): until the first sharp page
     // has been seen Print counts as available, then the answer is asked once and kept.
@@ -310,6 +314,24 @@ internal sealed partial class PdfWindow
 
         _ = ReadPrintInfoAsync(tab, document);
         _ = ReadAnnotatePermissionAsync(tab, document);
+        _ = ReadFillPermissionAsync(tab, document);
+    }
+
+    private async Task ReadFillPermissionAsync(PdfTab tab, PdfDocument document)
+    {
+        try
+        {
+            var allowed = await document.MayFillFormsAsync();
+            if (Workspace.Tabs.Contains(tab))
+            {
+                _fillAllowed[tab] = allowed;
+                RefreshCommandStates();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A document that went away meanwhile has no permissions to show; filling stays as it was.
+        }
     }
 
     private async Task ReadAnnotatePermissionAsync(PdfTab tab, PdfDocument document)
