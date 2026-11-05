@@ -212,6 +212,14 @@ internal static class PdfStrings
     public static string FormHistoryFull => Table.Get("FormHistoryFull");
     public static string FormInvalid => Table.Get("FormInvalid");
     public static string FormFillForbidden => Table.Get("FormFillForbidden");
+    public static string TabForms => Table.Get("TabForms");
+    public static string GroupFill => Table.Get("GroupFill");
+    public static string CmdFormsNext => Table.Get("CmdFormsNext");
+    public static string CmdFormsPrevious => Table.Get("CmdFormsPrevious");
+    public static string CmdFormsNextRequired => Table.Get("CmdFormsNextRequired");
+    public static string CmdFormsHighlight => Table.Get("CmdFormsHighlight");
+    public static string FormsNoFormReason => Table.Get("FormsNoFormReason");
+    public static string FormsNoRequiredReason => Table.Get("FormsNoRequiredReason");
     public static string FormTipReadOnly => Table.Get("FormTipReadOnly");
     public static string FormTipSignature => Table.Get("FormTipSignature");
     public static string FormTipButton => Table.Get("FormTipButton");

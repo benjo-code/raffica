@@ -138,6 +138,15 @@ internal static class PdfCommandCatalog
         annotate.Group("GroupDelete", "4", destructive: true)
             .Add(PdfCommandIds.DeleteMark, "CmdDeleteMark", "X", "41");
 
+        // Letter F for the tab (free: the frame keeps Q, 6 and 7). The four commands only exist for a document with fillable fields; the keys of the
+        // form (Tab, Shift+Tab, Enter, Space, Esc) belong to the page view and are no catalog shortcuts. The icons are stand-ins as in the other tabs.
+        var forms = new CatalogTab("TabForms", "F");
+        forms.Group("GroupFill", "1")
+            .Add(PdfCommandIds.FormsNext, "CmdFormsNext", "Redo", "11")
+            .Add(PdfCommandIds.FormsPrevious, "CmdFormsPrevious", "Undo", "12")
+            .Add(PdfCommandIds.FormsNextRequired, "CmdFormsNextRequired", "TriangleAlert", "13")
+            .Add(PdfCommandIds.FormsHighlight, "CmdFormsHighlight", "Bold", "14");
+
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
             .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "Plus", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
@@ -156,7 +165,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "ChevronRight", "41", Cmd(Key.D1, "1", shift: true))
             .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "AlignLeft", "42", Cmd(Key.D2, "2", shift: true));
 
-        Tabs = [home, annotate, view];
+        Tabs = [home, annotate, forms, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 

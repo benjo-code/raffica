@@ -703,6 +703,8 @@ internal sealed partial class PdfWindow : Window
 
             if (_formParts.Remove(tab, out var formParts))
             {
+                tab.Forms.Changed -= RefreshCommandStates;
+                formParts.Keys.Dispose();
                 formParts.Interaction.Dispose();
                 formParts.Markers.Dispose();
             }
@@ -840,7 +842,11 @@ internal sealed partial class PdfWindow : Window
         markers.Attach(view);
         view.FormOverlay = markers;
         var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab));
-        _formParts[tab] = new FormParts(markers, focus, interaction);
+        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab));
+        _formParts[tab] = new FormParts(markers, focus, interaction, keys);
+
+        // The commands of the Forms tab follow what the session knows: the fields, the required list, the highlight.
+        tab.Forms.Changed += RefreshCommandStates;
     }
 
     /// <summary>The form markers and the form focus of a tab once the tab has been shown (for tests and the form interaction); null for a document without a form.</summary>

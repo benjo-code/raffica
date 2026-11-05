@@ -15,7 +15,7 @@ public sealed class RibbonDefinitionTests
     public void EveryCommandHasAFieldCodeAndAName()
     {
         var commands = Create().Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
-        Assert.Equal(47, commands.Count);
+        Assert.Equal(51, commands.Count);
         Assert.All(commands, c =>
         {
             Assert.False(string.IsNullOrWhiteSpace(c.FieldCode));
@@ -25,11 +25,11 @@ public sealed class RibbonDefinitionTests
     }
 
     [Fact]
-    public void TabsAreHomeAnnotateAndViewWithLettersHAAndV()
+    public void TabsAreHomeAnnotateFormsAndViewWithLettersHAFAndV()
     {
         var tabs = Create().Tabs;
-        Assert.Equal(["H", "A", "V"], tabs.Select(t => t.Letter).ToArray());
-        Assert.Equal(["Home", "Annotate", "View"], tabs.Select(t => t.Name).ToArray());
+        Assert.Equal(["H", "A", "F", "V"], tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal(["Home", "Annotate", "Forms", "View"], tabs.Select(t => t.Name).ToArray());
     }
 
     [Fact]
@@ -68,9 +68,10 @@ public sealed class RibbonDefinitionTests
         Assert.Equal(
             ["Markup:11,12,13", "Draw:21,22,23,24,25,26", "Edit:31,32,33,34", "Delete:41"],
             tabs[1].Groups.Select(Describe).ToArray());
+        Assert.Equal(["Fill:11,12,13,14"], tabs[2].Groups.Select(Describe).ToArray());
         Assert.Equal(
             ["Zoom:11,12,13,14,15", "Layout:21,22,23,24", "Page:31", "Panes:41,42"],
-            tabs[2].Groups.Select(Describe).ToArray());
+            tabs[3].Groups.Select(Describe).ToArray());
     }
 
     [Fact]

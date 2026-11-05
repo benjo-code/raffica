@@ -140,7 +140,7 @@ public sealed class CommandCatalogTests
 
         // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
         Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
-        Assert.Equal(47, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(51, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -149,8 +149,8 @@ public sealed class CommandCatalogTests
         var rules = new PdfCommandRules(() => true, () => 1, () => new PdfPrintInfo(false, true));
         var blocked = PdfCommandCatalog.Commands.Where(c => !rules.Allows(c.Id)).Select(c => c.Id).ToArray();
 
-        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection.
-        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
+        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection, the form commands a form.
+        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "forms.highlight", "forms.next", "forms.nextRequired", "forms.previous", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
         Assert.True(new PdfCommandRules(() => true, () => 2, () => null).Allows("tabs.next"));
     }
 

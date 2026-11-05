@@ -10,6 +10,7 @@ using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Forms;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
 using Raffica.Shell.Frame;
@@ -59,7 +60,10 @@ internal sealed partial class PdfWindow
         busySaving: () => _print.IsRunning || _saves.IsSaving,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
-        saveRunning: () => _saves.IsSaving);
+        saveRunning: () => _saves.IsSaving,
+        hasForm: () => Workspace.Active is { } active && active.Forms.HasForm,
+        fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
+        hasEmptyRequired: () => Workspace.Active is not { } active || !active.Forms.RequiredKnown || active.Forms.EmptyRequired.Count > 0);
 
     /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
     internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
@@ -165,7 +169,40 @@ internal sealed partial class PdfWindow
             {
                 _ = interaction.Select.DeleteSelectionAsync();
             }
+        },
+        FormsNext: () => MoveFormFocus(forward: true),
+        FormsPrevious: () => MoveFormFocus(forward: false),
+        FormsNextRequired: () => RunFormMove(mover => mover.MoveToNextRequiredAsync()),
+        FormsHighlight: ToggleFormHighlight);
+
+    // The commands of the Forms tab work on the active tab and hand the keyboard to its page view, so Enter and Space act on the field right away.
+    private void MoveFormFocus(bool forward) => RunFormMove(mover => mover.MoveAsync(forward));
+
+    private void RunFormMove(Func<FormMover, Task<bool>> move)
+    {
+        if (Workspace.Active is not { } active || FormsOf(active) is not { } parts)
+        {
+            return;
+        }
+
+        _ = GuardAsync(async () =>
+        {
+            await move(parts.Interaction.Mover);
+            if (ReferenceEquals(Workspace.Active, active) && _views.TryGetValue(active, out var view))
+            {
+                view.Focus();
+            }
         });
+    }
+
+    // The ribbon has no checked state: the name of the command says what it does, and the highlight shows on the page.
+    private void ToggleFormHighlight()
+    {
+        if (Workspace.Active is { } active && FormsOf(active) is { } parts)
+        {
+            parts.Markers.ApplyHighlight(!active.Forms.Highlight);
+        }
+    }
 
     private Task UndoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
 

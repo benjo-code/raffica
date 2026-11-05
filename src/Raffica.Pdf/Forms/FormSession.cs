@@ -85,6 +85,18 @@ internal sealed class FormSession : IDisposable
         }
     }
 
+    /// <summary>Whether <see cref="EmptyRequired"/> was read at least once for the current document (before that the list is empty because nobody asked).</summary>
+    public bool RequiredKnown
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _requiredRead;
+            }
+        }
+    }
+
     /// <summary>Whether the form fields are highlighted in the main view. Applied to the session once per change, and never for a document without a form.</summary>
     public bool Highlight
     {

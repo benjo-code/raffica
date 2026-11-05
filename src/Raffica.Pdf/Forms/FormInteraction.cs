@@ -58,6 +58,7 @@ internal sealed class FormInteraction : IDisposable
         _focus = focus;
         _dialogs = dialogs;
         _fillAllowed = fillAllowed ?? (() => null);
+        Mover = new FormMover(view, forms, focus);
         view.AddHandler(InputElement.PointerPressedEvent, OnPressed, RoutingStrategies.Tunnel);
         view.AddHandler(InputElement.PointerMovedEvent, OnMoved, RoutingStrategies.Bubble);
         view.AddHandler(InputElement.PointerExitedEvent, OnExited, RoutingStrategies.Bubble);
@@ -75,6 +76,9 @@ internal sealed class FormInteraction : IDisposable
 
     /// <summary>The widget of the open editor, or <see langword="null"/>.</summary>
     public FormField? EditedField => _draft?.Field;
+
+    /// <summary>The one walk of the form focus over the widgets (it reads pages and scrolls); Enter in an editor, the keys and the commands share it.</summary>
+    public FormMover Mover { get; }
 
     /// <summary>The task that ends when every value committed so far is written (for tests).</summary>
     public Task Completion => _chain;
@@ -131,6 +135,18 @@ internal sealed class FormInteraction : IDisposable
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Tab (<paramref name="forward"/>) or Shift+Tab in an open editor: ends it like Enter does, then the form focus moves on (back). A refused
+    /// text stays in its editor and the focus stays too.
+    /// </summary>
+    public void CommitAndMove(bool forward)
+    {
+        if (_draft is { } draft)
+        {
+            TryCommit(draft, advance: true, forward);
+        }
     }
 
     /// <summary>Ends an open editor like a click elsewhere does: a valid text is written, an unchanged one closes, a refused one stays.</summary>
@@ -305,7 +321,7 @@ internal sealed class FormInteraction : IDisposable
 
     // A text the field takes is written and the editor closes; an unchanged one closes; a refused one stays with the reason in the hint and
     // turns the pending handle into an unresolved one.
-    private void TryCommit(Draft draft, bool advance)
+    private void TryCommit(Draft draft, bool advance, bool forward = true)
     {
         if (!ReferenceEquals(_draft, draft))
         {
@@ -320,6 +336,7 @@ internal sealed class FormInteraction : IDisposable
             if (!draft.Editor.IsTextDraft || !draft.HadValue)
             {
                 Close(draft);
+                MoveOnIf(advance, forward);
                 return;
             }
 
@@ -333,7 +350,7 @@ internal sealed class FormInteraction : IDisposable
             if (string.Equals(text, draft.OriginalText, StringComparison.Ordinal))
             {
                 Close(draft);
-                MoveOnIf(advance);
+                MoveOnIf(advance, forward);
                 return;
             }
 
@@ -349,7 +366,7 @@ internal sealed class FormInteraction : IDisposable
         var pending = draft.TakePending() ?? _tab.Annotations.BeginPending();
         Close(draft);
         _chain = ApplyAsync(_chain, draft.Field, _ => state, pending);
-        MoveOnIf(advance);
+        MoveOnIf(advance, forward);
     }
 
     private void OnTextEdited(Draft draft)
@@ -408,32 +425,21 @@ internal sealed class FormInteraction : IDisposable
         }
     }
 
-    // Enter in a single-line field commits and moves the form focus on; where the next page is not read yet it is read first, once.
-    private void MoveOnIf(bool advance)
+    // Enter in a single-line field (Tab, Shift+Tab in any editor) commits and moves the form focus on (back); where the next page is not read yet
+    // it is read first.
+    private void MoveOnIf(bool advance, bool forward = true)
     {
         if (advance && !_disposed)
         {
-            _ = MoveOnAsync();
+            _ = MoveOnAsync(forward);
         }
     }
 
-    private async Task MoveOnAsync()
+    private async Task MoveOnAsync(bool forward)
     {
         try
         {
-            if (_focus.Move(_forms, forward: true))
-            {
-                return;
-            }
-
-            if (_focus.PageToLoad(_forms, forward: true) is { } page)
-            {
-                await _forms.LoadPageAsync(page);
-                if (!_disposed)
-                {
-                    _focus.Move(_forms, forward: true);
-                }
-            }
+            await Mover.MoveAsync(forward);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
