@@ -21,6 +21,7 @@ using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
 using Raffica.Pdf.Settings;
+using Raffica.Pdf.Signing;
 using Raffica.Pdf.Text;
 using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
@@ -61,6 +62,7 @@ internal sealed partial class PdfWindow : Window
     private readonly CloseGuard _closeGuard;
     private readonly PdfOptions _options;
     private readonly RecentService _recent;
+    private SignatureLibrary? _signatures;
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
     private readonly Dictionary<PdfTab, MarksPane> _marks = [];
@@ -278,6 +280,12 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The recent files and the position per file (loaded after the first sharp page).</summary>
     internal RecentService Recent => _recent;
+
+    /// <summary>
+    /// The saved signatures. Made on the first use (the folder next to <c>--settings-file</c> or the one of the user); neither the
+    /// library nor its folder exists before that, so the start and the measurement runs are unchanged.
+    /// </summary>
+    internal SignatureLibrary Signatures => _signatures ??= new SignatureLibrary(() => PdfSettingsFiles.SignaturesDirectoryFor(_options.SettingsFile));
 
     /// <summary>The open documents; the title bar tabs and the status bar follow it.</summary>
     internal Workspace Workspace { get; }

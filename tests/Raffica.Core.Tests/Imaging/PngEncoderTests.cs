@@ -188,6 +188,59 @@ public sealed class PngEncoderTests
         Assert.Throws<NotSupportedException>(() => PngDecoder.Decode(png));
     }
 
+    [Fact]
+    public void EncodeWithAlphaKeepsEveryRgbaPixel()
+    {
+        var width = 5;
+        var height = 3;
+        var bgra = new byte[width * height * 4];
+        for (var i = 0; i < bgra.Length; i++)
+        {
+            bgra[i] = (byte)((i * 37) + (i / 7));
+        }
+
+        var png = PngEncoder.EncodeWithAlpha(new Raffica.Core.Signatures.SignatureImage(width, height, bgra));
+
+        Assert.Equal(6, png[25]); // colour type RGBA
+        var compressed = new MemoryStream();
+        var position = 8;
+        while (position < png.Length)
+        {
+            var length = BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(position, 4));
+            if (Encoding.ASCII.GetString(png, position + 4, 4) == "IDAT")
+            {
+                compressed.Write(png, position + 8, length);
+            }
+
+            position += 12 + length;
+        }
+
+        compressed.Position = 0;
+        var raw = new byte[height * (1 + (width * 4))];
+        using (var zlib = new ZLibStream(compressed, CompressionMode.Decompress))
+        {
+            zlib.ReadExactly(raw);
+        }
+
+        var rowLength = width * 4;
+        var expected = new byte[bgra.Length];
+        for (var y = 0; y < height; y++)
+        {
+            Assert.Equal(2, raw[y * (1 + rowLength)]);
+            for (var x = 0; x < width; x++)
+            {
+                var o = ((y * width) + x) * 4;
+                var r = (y * (1 + rowLength)) + 1 + (x * 4);
+                expected[o + 2] = (byte)(raw[r] + (y == 0 ? 0 : expected[o + 2 - rowLength]));
+                expected[o + 1] = (byte)(raw[r + 1] + (y == 0 ? 0 : expected[o + 1 - rowLength]));
+                expected[o] = (byte)(raw[r + 2] + (y == 0 ? 0 : expected[o - rowLength]));
+                expected[o + 3] = (byte)(raw[r + 3] + (y == 0 ? 0 : expected[o + 3 - rowLength]));
+            }
+        }
+
+        Assert.Equal(bgra, expected);
+    }
+
     private static RenderedImage Gradient(int width, int height, int stride)
     {
         var pixels = new byte[stride * height];
