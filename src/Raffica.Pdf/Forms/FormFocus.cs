@@ -24,7 +24,7 @@ internal sealed class FormFocus
 
     /// <summary>
     /// Moves the focus to the next (or previous) widget that can be changed, walking the pages in order and never over a page that is not
-    /// read: the walk steps over pages that are read and have no changeable widget.
+    /// read: the walk steps over pages that are read and have no changeable widget, and over pages whose read failed.
     /// </summary>
     /// <returns>
     /// <see langword="false"/> and no move when there is no further widget in that direction, or when the next page in that direction is not
@@ -75,7 +75,8 @@ internal sealed class FormFocus
 
         for (; page >= 0 && page < count; page += step)
         {
-            if (!session.IsLoaded(page))
+            // A page that cannot be read has no widgets for the walk (it is no stop and is never waited for again).
+            if (!session.IsLoaded(page) && !session.IsFailed(page))
             {
                 return (null, page);
             }

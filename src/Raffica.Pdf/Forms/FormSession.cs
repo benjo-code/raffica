@@ -19,6 +19,7 @@ internal sealed class FormSession : IDisposable
     private readonly Dictionary<int, IReadOnlyList<FormField>> _pages = [];
     private readonly Dictionary<int, Task> _inflight = [];
     private readonly HashSet<int> _stale = [];
+    private readonly HashSet<int> _failed = [];
     private readonly CancellationTokenSource _cts = new();
     private PdfDocument? _document;
     private FormInfo? _info;
@@ -148,6 +149,18 @@ internal sealed class FormSession : IDisposable
             {
                 return 0;
             }
+        }
+    }
+
+    /// <summary>
+    /// Whether reading the widgets of <paramref name="page"/> failed (a damaged page): the page counts as having no widgets, so the walk of the form
+    /// goes over it and never waits for it again. Cleared when the page is read again after an invalidation, and when the document is swapped.
+    /// </summary>
+    public bool IsFailed(int page)
+    {
+        lock (_gate)
+        {
+            return _failed.Contains(page);
         }
     }
 
@@ -334,6 +347,14 @@ internal sealed class FormSession : IDisposable
         _cts.Cancel();
     }
 
+    // Filter of the page read: an expected exception is swallowed; whether it means the page cannot be read (not a cancel or a disposal) is noted.
+    // Any other exception is not caught here (it faults the read, as before), but the page is noted as failed too.
+    private static bool Failed(Exception ex, ref bool failed)
+    {
+        failed = ex is not (OperationCanceledException or ObjectDisposedException);
+        return IsExpected(ex);
+    }
+
     private static bool IsExpected(Exception ex) =>
         ex is OperationCanceledException or ObjectDisposedException or InvalidDataException or ArgumentOutOfRangeException;
 
@@ -342,7 +363,7 @@ internal sealed class FormSession : IDisposable
         List<Task> tasks = [];
         foreach (var page in pages)
         {
-            if (IsLoaded(page) || IsInflight(page))
+            if (IsLoaded(page) || IsInflight(page) || IsFailed(page))
             {
                 tasks.Add(StartPage(page, refresh: true));
             }
@@ -387,6 +408,7 @@ internal sealed class FormSession : IDisposable
 
         _pages.Clear();
         _stale.Clear();
+        _failed.Clear();
         _info = null;
         _requiredRead = false;
         _required = [];
@@ -421,7 +443,7 @@ internal sealed class FormSession : IDisposable
                 return running;
             }
 
-            if (!refresh && _pages.ContainsKey(page))
+            if (!refresh && (_pages.ContainsKey(page) || _failed.Contains(page)))
             {
                 return Task.CompletedTask;
             }
@@ -436,6 +458,7 @@ internal sealed class FormSession : IDisposable
     {
         var reader = PageReader ?? ((doc, index, token) => doc.GetFormFieldsAsync(index, PdfPriority.Background, token));
         var done = false;
+        var failed = false;
         try
         {
             while (true)
@@ -456,6 +479,7 @@ internal sealed class FormSession : IDisposable
                     if (ReferenceEquals(_document, document))
                     {
                         _pages[page] = fields;
+                        _failed.Remove(page);
                     }
 
                     // Leaving the single flight in the same lock as the last stale check: a refresh asked from now on starts a new read.
@@ -467,7 +491,7 @@ internal sealed class FormSession : IDisposable
 
             RaiseChanged();
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (Failed(ex, ref failed))
         {
         }
         finally
@@ -477,6 +501,17 @@ internal sealed class FormSession : IDisposable
                 lock (_gate)
                 {
                     _inflight.Remove(page);
+
+                    // A page that cannot be read is remembered, so the walk of the form does not wait for it again.
+                    if (failed && !_disposed && ReferenceEquals(_document, document))
+                    {
+                        _failed.Add(page);
+                    }
+                }
+
+                if (failed)
+                {
+                    RaiseChanged();
                 }
             }
         }

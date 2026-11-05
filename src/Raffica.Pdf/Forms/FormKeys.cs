@@ -25,6 +25,9 @@ internal sealed class FormKeys : IDisposable
     private readonly HashSet<Key> _down = [];
     private bool _disposed;
 
+    /// <summary>Whether the handler took the last key it saw (it set <c>Handled</c> itself); a key it leaves alone is passed on. For tests.</summary>
+    internal bool TookLastKey { get; private set; }
+
     public FormKeys(PageView view, ToolState tools, FormSession forms, FormFocus focus, FormInteraction interaction, DialogQueue dialogs, Func<bool?>? fillAllowed = null)
     {
         ArgumentNullException.ThrowIfNull(view);
@@ -78,6 +81,7 @@ internal sealed class FormKeys : IDisposable
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         var repeat = !_down.Add(e.Key);
+        TookLastKey = false;
         if (e.Handled || !Live || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
         {
             return;
@@ -88,7 +92,7 @@ internal sealed class FormKeys : IDisposable
         {
             if (e.Key == Key.Tab)
             {
-                e.Handled = true;
+                e.Handled = TookLastKey = true;
                 _interaction.CommitAndMove(forward: e.KeyModifiers == KeyModifiers.None);
             }
 
@@ -108,7 +112,7 @@ internal sealed class FormKeys : IDisposable
                 break;
             case Key.Enter or Key.Space when e.KeyModifiers == KeyModifiers.None && _focus.CurrentField(_forms) is { } field:
                 // A held key acts once: the repeat is taken and does nothing.
-                e.Handled = true;
+                e.Handled = TookLastKey = true;
                 if (!repeat)
                 {
                     _interaction.Activate(field);
@@ -116,7 +120,7 @@ internal sealed class FormKeys : IDisposable
 
                 break;
             case Key.Escape when e.KeyModifiers == KeyModifiers.None && _focus.Current is not null:
-                e.Handled = true;
+                e.Handled = TookLastKey = true;
                 _focus.Set(null);
                 break;
         }
@@ -129,10 +133,10 @@ internal sealed class FormKeys : IDisposable
         switch (_interaction.Mover.Step(forward).Step)
         {
             case FormStep.Moved:
-                e.Handled = true;
+                e.Handled = TookLastKey = true;
                 break;
             case FormStep.NeedsPage:
-                e.Handled = true;
+                e.Handled = TookLastKey = true;
                 _ = MoveAfterReadAsync(forward);
                 break;
         }
@@ -142,7 +146,10 @@ internal sealed class FormKeys : IDisposable
     {
         try
         {
-            await _interaction.Mover.MoveAsync(forward);
+            if (!_disposed)
+            {
+                await _interaction.Mover.MoveAsync(forward);
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

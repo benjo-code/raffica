@@ -166,6 +166,7 @@ internal sealed class FormInteraction : IDisposable
         }
 
         _disposed = true;
+        Mover.Dispose();
         _view.RemoveHandler(InputElement.PointerPressedEvent, OnPressed);
         _view.RemoveHandler(InputElement.PointerMovedEvent, OnMoved);
         _view.RemoveHandler(InputElement.PointerExitedEvent, OnExited);

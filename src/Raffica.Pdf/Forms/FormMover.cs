@@ -22,18 +22,28 @@ internal enum FormStep
 /// Previous field and Next required field. It reads the pages the walk needs (the UI thread never waits for it), enters a form from the page
 /// that is on screen, and scrolls the target into view. UI thread only.
 /// </summary>
-internal sealed class FormMover(PageView view, FormSession forms, FormFocus focus)
+internal sealed class FormMover(PageView view, FormSession forms, FormFocus focus) : IDisposable
 {
+    private bool _disposed;
+
+    /// <summary>Ends the walks: one that completes after this neither moves the focus nor scrolls the view.</summary>
+    public void Dispose() => _disposed = true;
+
     /// <summary>
     /// One step of the walk that never waits: moves the focus when the next widget is known, else names the page to read first. With no
     /// focus yet the walk begins on the first (last) page on screen; if that page has no widget it goes on from the start (end) of the document.
     /// </summary>
     public (FormStep Step, int Page) Step(bool forward)
     {
+        if (_disposed)
+        {
+            return (FormStep.End, -1);
+        }
+
         if (focus.Current is null && forms.PageCount > 0)
         {
             var entry = Math.Clamp(EntryPage(forward), 0, forms.PageCount - 1);
-            if (!forms.IsLoaded(entry))
+            if (!forms.IsLoaded(entry) && !forms.IsFailed(entry))
             {
                 return (FormStep.NeedsPage, entry);
             }
@@ -91,7 +101,9 @@ internal sealed class FormMover(PageView view, FormSession forms, FormFocus focu
             }
 
             await forms.LoadPageAsync(page);
-            if (!forms.IsLoaded(page))
+
+            // A page that failed to read is walked over by the next step; one that is neither read nor failed (the document went away) ends the walk.
+            if (_disposed || (!forms.IsLoaded(page) && !forms.IsFailed(page)))
             {
                 return false;
             }
@@ -115,6 +127,11 @@ internal sealed class FormMover(PageView view, FormSession forms, FormFocus focu
             return false;
         }
 
+        if (_disposed)
+        {
+            return false;
+        }
+
         var start = focus.Current;
         var count = forms.PageCount;
         var first = start?.Page ?? 0;
@@ -123,13 +140,18 @@ internal sealed class FormMover(PageView view, FormSession forms, FormFocus focu
         for (var i = 0; i <= count; i++)
         {
             var page = (first + i) % count;
-            if (!forms.IsLoaded(page))
+            if (!forms.IsLoaded(page) && !forms.IsFailed(page))
             {
                 await forms.LoadPageAsync(page);
-                if (!forms.IsLoaded(page))
+                if (_disposed)
                 {
-                    continue;
+                    return false;
                 }
+            }
+
+            if (!forms.IsLoaded(page))
+            {
+                continue;
             }
 
             var fields = forms.FieldsOn(page);
@@ -153,7 +175,7 @@ internal sealed class FormMover(PageView view, FormSession forms, FormFocus focu
     /// <summary>Scrolls the focused widget into view (nothing moves while it is in view).</summary>
     public void Reveal()
     {
-        if (focus.CurrentField(forms) is { } field)
+        if (!_disposed && focus.CurrentField(forms) is { } field)
         {
             view.Reveal(field.Key.Page, field.Bounds);
         }

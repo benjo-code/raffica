@@ -25,10 +25,20 @@ public sealed class FormKeyboardTests
     ];
 
     /// <summary>One press of Tab (or Shift+Tab) on the page view; waits for the move when the key took it, since a page may have to be read first.</summary>
+    /// <summary>
+    /// What the form keys decided about a key press: whether <see cref="FormKeys"/> took it. Not <c>Handled</c> of the finished event, because the
+    /// window moves its keyboard focus on for a Tab the form leaves alone and then reports it handled.
+    /// </summary>
+    private static bool Decide(FormKeys keys, Control view, Key key, KeyModifiers modifiers = KeyModifiers.None)
+    {
+        FormEditFixture.Press(view, key, modifiers);
+        return keys.TookLastKey;
+    }
+
     private static async Task<bool> TabAsync(FormEditFixture f, bool shift = false)
     {
         var before = f.Parts.Focus.Current;
-        var handled = FormEditFixture.Press(f.View, Key.Tab, shift ? KeyModifiers.Shift : KeyModifiers.None);
+        var handled = Decide(f.Parts.Keys, f.View, Key.Tab, shift ? KeyModifiers.Shift : KeyModifiers.None);
         if (handled)
         {
             await ViewFixture.WaitAsync(() => f.Parts.Focus.Current != before);
@@ -73,7 +83,7 @@ public sealed class FormKeyboardTests
         Assert.Equal(Enumerable.Range(0, TabOrder.Length).Select(Expected), visited);
 
         // The end is a true end: the key passes on (the window moves its keyboard focus on, so there is no trap), the form focus stays.
-        FormEditFixture.Press(f.View, Key.Tab);
+        Assert.False(Decide(f.Parts.Keys, f.View, Key.Tab));
         Assert.Equal((1, "Ort", 0), Where(f));
         Assert.Equal(FormStep.End, f.Interaction.Mover.Step(forward: true).Step);
     }
@@ -103,10 +113,154 @@ public sealed class FormKeyboardTests
         f.View.Focus();
 
         // The key is taken at once (nothing waits for the page) and the move follows when the page is read.
-        Assert.True(FormEditFixture.Press(f.View, Key.Tab));
+        Assert.True(Decide(keys, f.View, Key.Tab));
         await ViewFixture.WaitAsync(() => focus.Current is { Page: 1 });
         Assert.True(forms.IsLoaded(1));
         Assert.Equal(FormNavigation.Next(forms.FieldsOn(1), null, forward: true), focus.Current);
+    }
+
+    // A session that has read page 0 only, with "Mehrfach" as its last field there; page 1 is read by the given reader. The parts of the window
+    // are replaced by new ones over this session (as in the test above).
+    private static async Task<(FormSession Forms, FormFocus Focus, FormInteraction Interaction, FormKeys Keys)> SessionWithUnreadPageAsync(
+        FormEditFixture f, Func<PdfDocument, int, CancellationToken, Task<IReadOnlyList<FormField>>> pageOne)
+    {
+        var forms = new FormSession(f.Tab, SynchronizationContext.Current!)
+        {
+            PageReader = async (doc, page, token) =>
+            {
+                if (page == 1)
+                {
+                    return await pageOne(doc, page, token);
+                }
+
+                var fields = await doc.GetFormFieldsAsync(page, PdfPriority.Background, token);
+                return [.. fields.Where(w => w.Key.FieldName == "Mehrfach")];
+            },
+        };
+        await forms.LoadPageAsync(0);
+        f.Parts.Keys.Dispose();
+        f.Interaction.Dispose();
+        var focus = new FormFocus();
+        var interaction = new FormInteraction(f.Tab, f.View, f.Window.Tools, forms, focus, f.Window.Dialogs, () => true);
+        var keys = new FormKeys(f.View, f.Window.Tools, forms, focus, interaction, f.Window.Dialogs, () => true);
+        focus.Set(forms.FieldsOn(0).Single().Key);
+        f.View.Focus();
+        return (forms, focus, interaction, keys);
+    }
+
+    [AvaloniaFact]
+    public async Task APageThatCannotBeReadNeverTrapsTheKey()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var reads = 0;
+        var (forms, focus, interaction, keys) = await SessionWithUnreadPageAsync(f, (_, _, _) =>
+        {
+            Interlocked.Increment(ref reads);
+            throw new InvalidDataException("damaged page");
+        });
+        using (forms)
+        using (interaction)
+        using (keys)
+        {
+            var mehrfach = focus.Current;
+
+            // The first Tab is taken (the page has to be read), the read fails and the page counts as having no widgets.
+            Assert.True(Decide(keys, f.View, Key.Tab));
+            await ViewFixture.WaitAsync(() => forms.IsFailed(1));
+            Assert.False(forms.IsLoaded(1));
+            Assert.Equal(mehrfach, focus.Current);
+
+            // Every further Tab passes on: nothing swallows the key for the same page twice, and the page is not read again.
+            for (var i = 0; i < 3; i++)
+            {
+                Assert.False(Decide(keys, f.View, Key.Tab));
+            }
+
+            Assert.Equal(1, reads);
+            Assert.Equal(FormStep.End, interaction.Mover.Step(forward: true).Step);
+            Assert.Null(focus.PageToLoad(forms, forward: true));
+
+            // With no focus the walk over the failed page goes the other way and the end passes the key on as well.
+            focus.Set(null);
+            Assert.True(Decide(keys, f.View, Key.Tab, KeyModifiers.Shift));
+            Assert.Equal(mehrfach, focus.Current);
+            Assert.False(Decide(keys, f.View, Key.Tab));
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task APageThatFailedIsReadAgainAfterItWasInvalidated()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var fail = true;
+        var (forms, _, interaction, keys) = await SessionWithUnreadPageAsync(f, async (doc, page, token) =>
+            fail ? throw new InvalidDataException("damaged page") : await doc.GetFormFieldsAsync(page, PdfPriority.Background, token));
+        using (forms)
+        using (interaction)
+        using (keys)
+        {
+            await forms.LoadPageAsync(1);
+            Assert.True(forms.IsFailed(1));
+
+            // The page was invalidated (an undo, a save): the next read is made and clears the mark.
+            fail = false;
+            await forms.RefreshPagesAsync([1]);
+            Assert.True(forms.IsLoaded(1));
+            Assert.False(forms.IsFailed(1));
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AMoveThatEndsAfterTheTabWasClosedDoesNotTouchTheFocus()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (forms, focus, interaction, keys) = await SessionWithUnreadPageAsync(f, async (doc, page, token) =>
+        {
+            await release.Task;
+            return await doc.GetFormFieldsAsync(page, PdfPriority.Background, token);
+        });
+        var before = focus.Current;
+        using (forms)
+        {
+            // The key is taken and the read of page 1 is pending.
+            Assert.True(Decide(keys, f.View, Key.Tab));
+
+            // The tab closes (the window disposes its parts) before the read ends.
+            keys.Dispose();
+            interaction.Dispose();
+            release.SetResult();
+            await ViewFixture.WaitAsync(() => forms.IsLoaded(1));
+            await Task.Delay(100);
+            ViewFixture.Pump();
+
+            Assert.Equal(before, focus.Current);
+            Assert.Equal(FormStep.End, interaction.Mover.Step(forward: true).Step);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TheKeysAreDeadWhileFillingIsForbidden()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        f.Parts.Keys.Dispose();
+        using var keys = new FormKeys(f.View, f.Window.Tools, f.Forms, f.Parts.Focus, f.Interaction, f.Window.Dialogs, () => false);
+        f.View.Focus();
+
+        // Tab passes on and does not enter the form.
+        Assert.False(Decide(keys, f.View, Key.Tab));
+        Assert.Null(f.Parts.Focus.Current);
+
+        // With a widget focused, Enter, Space and Esc are not taken either and nothing is toggled or cleared.
+        f.Parts.Focus.Set(f.Field("Agb").Key);
+        Assert.False(Decide(keys, f.View, Key.Space));
+        Assert.False(Decide(keys, f.View, Key.Enter));
+        Assert.False(Decide(keys, f.View, Key.Escape));
+        await f.SettleAsync();
+        Assert.Equal(f.Field("Agb").Key, f.Parts.Focus.Current);
+        Assert.False((await f.FromDocumentAsync("Agb")).State.Checked);
+        Assert.False(f.Tab.IsDirty);
+        Assert.False(f.Interaction.IsEditing);
     }
 
     [AvaloniaFact]
@@ -129,7 +283,7 @@ public sealed class FormKeyboardTests
 
         // The start passes the key on.
         f.Parts.Focus.Set(WidgetAt(f, 0, "Name", 0).Key);
-        FormEditFixture.Press(f.View, Key.Tab, KeyModifiers.Shift);
+        Assert.False(Decide(f.Parts.Keys, f.View, Key.Tab, KeyModifiers.Shift));
         Assert.Equal((0, "Name", 0), Where(f));
         Assert.Equal(FormStep.End, f.Interaction.Mover.Step(forward: false).Step);
     }
@@ -415,7 +569,7 @@ public sealed class FormKeyboardTests
         ViewFixture.Pump();
         Assert.True(f.Window.Host.IsOpen);
 
-        FormEditFixture.Press(f.View, Key.Tab);
+        Assert.False(Decide(f.Parts.Keys, f.View, Key.Tab));
         Assert.Null(f.Parts.Focus.Current);
 
         close!(true);
@@ -432,7 +586,7 @@ public sealed class FormKeyboardTests
         f.View.Focus();
         f.Window.Tools.Choose(Raffica.Pdf.Annotating.AnnotateTool.Select);
         ViewFixture.Pump();
-        FormEditFixture.Press(f.View, Key.Tab);
+        Assert.False(Decide(f.Parts.Keys, f.View, Key.Tab));
         Assert.Null(f.Parts.Focus.Current);
         f.Window.Tools.End();
     }
