@@ -29,6 +29,44 @@ public sealed class PageLossWordingTests
 
     private static string? Name(int id) => id == 1 ? "other.pdf" : null;
 
+
+    [Fact]
+    public void EqualReportsGiveOneSentenceForAllParts()
+    {
+        var sentence = PageLossWording.Describe(new PageLoss(PageLossKind.SignatureInvalidated, null, null));
+        var report = new PageEditReport([new PageLoss(PageLossKind.SignatureInvalidated, null, null)]);
+
+        var lines = PageLossWording.DescribeParts([report, report, report]);
+
+        Assert.Equal([sentence], lines);
+    }
+
+    [Fact]
+    public void ASentenceOfSomePartsNamesTheFiles()
+    {
+        var sentence = PageLossWording.Describe(new PageLoss(PageLossKind.SignatureInvalidated, null, null));
+        var some = new PageEditReport([new PageLoss(PageLossKind.SignatureInvalidated, null, null)]);
+        var none = new PageEditReport([]);
+
+        var lines = PageLossWording.DescribeParts([some, none, some]);
+
+        Assert.Equal([PdfStrings.Fill(PdfStrings.OutputLossFilesFormat, "1 and 3", sentence)], lines);
+    }
+
+    [Fact]
+    public void LongListsOfDifferentSentencesAreCappedAtTwentyLines()
+    {
+        var reports = Enumerable.Range(0, 25)
+            .Select(i => new PageEditReport([new PageLoss(PageLossKind.BookmarkToDeletedPage, null, [i])]))
+            .ToList();
+
+        var lines = PageLossWording.DescribeParts(reports);
+
+        Assert.Equal(21, lines.Count);
+        Assert.Equal(PdfStrings.Fill(PdfStrings.OutputMoreFormat, 5), lines[^1]);
+        Assert.All(lines.Take(20), line => Assert.Contains("Files", line, StringComparison.Ordinal));
+        Assert.Empty(PageLossWording.DescribeParts([new PageEditReport([]), new PageEditReport([])]));
+    }
     [Fact]
     public void EveryLossKindHasAWording()
     {

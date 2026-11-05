@@ -23,7 +23,7 @@ internal sealed partial class PdfWindow
     /// <summary>Gets whether the flow of the output commands exists (it is made by the first of them; for tests).</summary>
     internal bool OutputFlowCreated => _outputFlow is not null;
 
-    private SplitFlow Output => _outputFlow ??= new SplitFlow(
+    internal SplitFlow Output => _outputFlow ??= new SplitFlow(
         Dialogs,
         (tab, name) => ExtractPathPicker is { } picker ? picker(tab, name) : PickPathAsync(tab, name, PdfStrings.ExtractSaveTitle),
         _ => FolderPicker is { } picker ? picker() : PickFolderAsync(),
@@ -33,7 +33,8 @@ internal sealed partial class PdfWindow
             ? outline.ReadAsync(token)
             : tab.Session.Document is { } document ? document.GetOutlineAsync(token) : Task.FromResult<IReadOnlyList<PdfOutlineItem>>([]),
         path => Flow.OpenAsync(path),
-        RefreshCommandStates);
+        RefreshCommandStates,
+        () => _applyFlow?.IsRunning == true);
 
     /// <summary>Extracts pages of the active document into a new file (the Extract pages command).</summary>
     internal void ExtractPages() => _ = GuardAsync(ExtractPagesAsync);

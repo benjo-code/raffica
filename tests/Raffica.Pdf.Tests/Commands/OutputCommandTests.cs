@@ -105,4 +105,98 @@ public sealed class OutputCommandTests
         await ViewFixture.WaitAsync(() => fixture.Window.Workspace.Tabs.Count == 2);
         Assert.Equal(target, fixture.Window.Workspace.Active!.Path);
     }
+
+    // Starts an extract of page 1 whose write waits until its token is canceled; returns the run, the signal that the write started and the signal of the cancel.
+    private static async Task<(Task Run, Task Started, Task Canceled)> StartBlockedExtractAsync(WindowFixture fixture)
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var canceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Window.ExtractPathPicker = (_, _) => Task.FromResult<string?>(Path.Combine(fixture.Folder, "blocked.pdf"));
+        fixture.Window.Output.Writer = async (_, _, _, _, _, _, _, token, _) =>
+        {
+            token.Register(() => canceled.TrySetResult());
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return [];
+        };
+        var run = fixture.Window.ExtractPagesAsync();
+        var range = await CardWithAsync(fixture, "PART_Range");
+        Click(range, "PART_Extract");
+        await Task.WhenAny(started.Task, Task.Delay(TimeSpan.FromSeconds(20), Ct));
+        while (!started.Task.IsCompleted)
+        {
+            // A confirm card with a loss list comes first for a file with bookmarks.
+            var card = fixture.Window.Host.ActiveDialog;
+            if (card is not null && card.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "PART_Go"))
+            {
+                Click(card, "PART_Go");
+            }
+
+            PrintHost.Pump();
+            await Task.Delay(10, Ct);
+        }
+
+        return (run, started.Task, canceled.Task);
+    }
+
+    private static async Task FinishAsync(WindowFixture fixture, Task run)
+    {
+        Click(await CardWithAsync(fixture, "PART_Ok"), "PART_Ok");
+        await run.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingTheTabDuringTheJobCancelsIt()
+    {
+        using var fixture = WindowFixture.Create();
+        var tab = await OpenReadyAsync(fixture);
+        var (run, _, canceled) = await StartBlockedExtractAsync(fixture);
+        Assert.False(canceled.IsCompleted);
+
+        var close = fixture.Window.CloseActiveTabAsync();
+        await canceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        // The job ends as a cancel: the card says so and nothing was written.
+        await FinishAsync(fixture, run);
+        await close.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        Assert.DoesNotContain(tab, fixture.Window.Workspace.Tabs);
+        Assert.False(File.Exists(Path.Combine(fixture.Folder, "blocked.pdf")));
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingTheWindowDuringTheJobCancelsIt()
+    {
+        using var fixture = WindowFixture.Create();
+        await OpenReadyAsync(fixture);
+        var (_, _, canceled) = await StartBlockedExtractAsync(fixture);
+
+        fixture.Window.Close();
+        await canceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+    }
+
+    [AvaloniaFact]
+    public async Task ASecondInvocationIsBlockedAndSaveAndPrintAreRefusedWhileItRuns()
+    {
+        using var fixture = WindowFixture.Create();
+        await OpenReadyAsync(fixture);
+        Assert.True(Command(fixture.Window, "file.saveAs").IsEnabled);
+        var (run, _, canceled) = await StartBlockedExtractAsync(fixture);
+        Assert.True(fixture.Window.Output.IsRunning);
+
+        // The same command and the other one do nothing while the job runs (no second card), and the commands that write or print are locked.
+        var card = fixture.Window.Host.ActiveDialog;
+        await fixture.Window.ExtractPagesAsync().WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        await fixture.Window.SplitDocumentAsync().WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        Assert.Same(card, fixture.Window.Host.ActiveDialog);
+        Assert.False(Command(fixture.Window, "file.saveAs").IsEnabled);
+        Assert.False(Command(fixture.Window, "file.print").IsEnabled);
+        Assert.False(Command(fixture.Window, "file.save").IsEnabled);
+
+        // Cancel from the job card; afterwards everything is available again.
+        Click(card!, "PART_Cancel");
+        await canceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await FinishAsync(fixture, run);
+        Assert.False(fixture.Window.Output.IsRunning);
+        Assert.True(Command(fixture.Window, "file.saveAs").IsEnabled);
+    }
 }

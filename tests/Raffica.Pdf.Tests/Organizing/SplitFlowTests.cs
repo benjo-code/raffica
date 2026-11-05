@@ -353,6 +353,12 @@ public sealed class SplitFlowTests
 
         // Titles of 4 bookmarks on pages 2 to 5 give a front part and four parts, all directly in the folder; nothing else appeared outside it.
         Assert.Equal(5, Pdfs(folder).Length);
+
+        // The device name and the raw titles are never a file name as they are; the long title is cut.
+        Assert.DoesNotContain(Pdfs(folder), name => string.Equals(name, "CON.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(Pdfs(folder), name => name.StartsWith("CON", StringComparison.OrdinalIgnoreCase) && name.Length == 7);
+        Assert.DoesNotContain(Pdfs(folder), name => name.StartsWith(new string('A', 200), StringComparison.Ordinal));
+        Assert.Contains(Pdfs(folder), name => name.Length > 7 && name.Contains("CON", StringComparison.OrdinalIgnoreCase) && name != "CON.pdf");
         Assert.Equal(before, Directory.GetFileSystemEntries(rig.Folder).Order(StringComparer.Ordinal).ToArray());
         Assert.DoesNotContain(Directory.GetFiles(rig.Folder, "*.pdf"), f => !string.Equals(f, rig.Path, StringComparison.OrdinalIgnoreCase));
         Assert.All(Directory.GetFiles(folder), f => Assert.True(Path.GetFileName(f).Length <= 200));
@@ -461,6 +467,48 @@ public sealed class SplitFlowTests
         Assert.False(await split.WaitAsync(TimeSpan.FromSeconds(30), Ct));
         Assert.Empty(rig.SuggestedNames);
         Assert.Equal(0, rig.FolderAsked);
+
+        // Unsaved marks lock them too: the files are cut from the file on disk.
+        rig.Tab.Organize.End();
+        using var pending = rig.Tab.Annotations.BeginPending();
+        var marks = rig.Flow.ExtractAsync(rig.Tab);
+        var notice = await rig.CardWithAsync("PART_Ok");
+        Assert.Contains(SplitRig.TextsOf(notice), t => t == PdfStrings.SaveMarksFirstReason);
+        SplitRig.Click(notice, "PART_Ok");
+        Assert.False(await marks.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        var marksSplit = rig.Flow.SplitAsync(rig.Tab);
+        var again2 = await rig.CardWithAsync("PART_Ok");
+        Assert.Contains(SplitRig.TextsOf(again2), t => t == PdfStrings.SaveMarksFirstReason);
+        SplitRig.Click(again2, "PART_Ok");
+        Assert.False(await marksSplit.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Empty(rig.SuggestedNames);
+        Assert.Equal(0, rig.FolderAsked);
+    }
+
+    [AvaloniaFact]
+    public async Task TheEngineIsResolvedOnTheUiThread()
+    {
+        using var rig = await SplitRig.OpenAsync();
+        var folder = rig.NewFolder();
+        var run = await StartSplitAsync(rig, folder, (_, find) => Choose(find, "PART_ModeEvery", every: "3"));
+        SplitRig.Click(await rig.ResultAsync(), "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.NotEmpty(rig.EngineOnUiThread);
+        Assert.All(rig.EngineOnUiThread, onUi => Assert.True(onUi));
+    }
+
+    [AvaloniaFact]
+    public async Task ThePartFailureCausesHaveTheirOwnWording()
+    {
+        using var rig = await SplitRig.OpenAsync();
+        var folder = rig.NewFolder();
+        var causes = new Exception[] { new PdfOpenException(PdfOpenError.NotAPdf), new InvalidDataException("x"), new IOException("x") };
+        foreach (var cause in causes)
+        {
+            var text = SplitFlow.FailureText(new DocumentSplitException(DocumentSplitError.PartFailed, "x", [Path.Combine(folder, "a.pdf")], 0, cause));
+            Assert.NotEqual(PdfStrings.OutputFailOther, text);
+            Assert.DoesNotContain("{", text, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

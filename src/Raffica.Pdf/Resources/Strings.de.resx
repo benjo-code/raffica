@@ -1634,4 +1634,13 @@
   <data name="OutputFailOther" xml:space="preserve">
     <value>Die Dateien konnten nicht geschrieben werden.</value>
   </data>
+  <data name="OutputCauseOpen" xml:space="preserve">
+    <value>Eine dafür nötige Datei konnte nicht geöffnet werden.</value>
+  </data>
+  <data name="OutputCauseDamaged" xml:space="preserve">
+    <value>Eine Seite ist beschädigt und konnte nicht kopiert werden.</value>
+  </data>
+  <data name="FileJobBusy" xml:space="preserve">
+    <value>Es läuft bereits ein anderer Dateiauftrag.</value>
+  </data>
 </root>

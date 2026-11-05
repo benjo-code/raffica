@@ -1,4 +1,3 @@
-using Avalonia.Threading;
 using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
@@ -29,6 +28,7 @@ namespace Raffica.Pdf.Organizing;
 /// <param name="changed">Called when the flow starts or ends and after a successful apply (the command states refresh); null: nothing.</param>
 /// <param name="busy">Whether a print job runs (an apply is then refused); null: never.</param>
 /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
+/// <param name="otherJob">Whether another file job of the window runs (extract, split): an apply is then refused; null: never.</param>
 internal sealed class ApplyFlow(
     DialogQueue dialogs,
     Func<PdfTab, Task<bool>> saveMarks,
@@ -39,21 +39,26 @@ internal sealed class ApplyFlow(
     Action<PdfTab>? pathChanged = null,
     Action? changed = null,
     Func<bool>? busy = null,
-    TimeProvider? time = null)
+    TimeProvider? time = null,
+    Func<bool>? otherJob = null)
 {
-    private CancellationTokenSource? _running;
+    private readonly JobRunner _jobs = new(dialogs);
 
     /// <summary>Replaces the rewrite of Core (tests make it fail in ways the saver does not, or block it); null: <see cref="DocumentSaver"/>.</summary>
     internal Func<PdfDocument, PdfEngine, RewriteRequest, IProgress<double>?, CancellationToken, Task<SaveResult>>? Rewriter { get; set; }
 
     /// <summary>Replaces the dialog around the job card (tests make it throw); null: the normal dialog.</summary>
-    internal Func<SaveJobCard, Dialog>? JobDialog { get; set; }
+    internal Func<SaveJobCard, Dialog>? JobDialog
+    {
+        get => _jobs.JobDialog;
+        set => _jobs.JobDialog = value;
+    }
 
     /// <summary>Gets whether an apply is running (from its first question to its last card).</summary>
     public bool IsRunning { get; private set; }
 
     /// <summary>Cancels the running job, if any (the window is closing).</summary>
-    public void Cancel() => TryCancel(_running);
+    public void Cancel() => _jobs.Cancel();
 
     /// <summary>Runs the apply for the plan that is open on <paramref name="tab"/>. Returns whether the plan was applied.</summary>
     public async Task<bool> RunAsync(PdfTab tab, ApplyTarget target = ApplyTarget.Choose)
@@ -64,16 +69,16 @@ internal sealed class ApplyFlow(
             return false;
         }
 
-        if (busy?.Invoke() == true)
+        if (busy?.Invoke() == true || otherJob?.Invoke() == true)
         {
-            await dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.CmdApplyPages, PdfStrings.PrintBusy, () => done(true)));
+            await dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.CmdApplyPages, busy?.Invoke() == true ? PdfStrings.PrintBusy : PdfStrings.FileJobBusy, () => done(true)));
             return false;
         }
 
         IsRunning = true;
         try
         {
-            Guarded(() => changed?.Invoke());
+            JobRunner.Guarded(() => changed?.Invoke());
             return await RunCoreAsync(tab, session, target);
         }
         catch (OperationCanceledException)
@@ -89,7 +94,7 @@ internal sealed class ApplyFlow(
         finally
         {
             IsRunning = false;
-            Guarded(() => changed?.Invoke());
+            JobRunner.Guarded(() => changed?.Invoke());
         }
     }
 
@@ -137,7 +142,7 @@ internal sealed class ApplyFlow(
         // (3) What the plan loses; the documents are the ones of the session (the primary one as the session shows it now).
         var document = tab.Session.Document ?? throw new InvalidOperationException("No document is open.");
         var opened = inserted.ToDictionary(pair => pair.Key, pair => pair.Value.Document);
-        var report = await RunJobAsync(tab, PdfStrings.ApplyCheckingTitleFormat, (_, token) => PageEditExecutor.AnalyzeAsync(plan, document, opened, token));
+        var report = await _jobs.RunAsync(tab, PdfStrings.ApplyTitle, PdfStrings.ApplyCheckingTitleFormat, (_, token) => PageEditExecutor.AnalyzeAsync(plan, document, opened, token));
 
         // (4) The card. A refused report only says why.
         var choice = await dialogs.ShowAsync<ApplyChoice>(done => ApplyCard.Create(tab.Title, summary, report, id => Name(id), target, done, time));
@@ -178,9 +183,12 @@ internal sealed class ApplyFlow(
         {
             PdfDocument? rewritten = null;
             var request = new PageApplyRequest(plan, targetPath, files, overwrite, arrived => rewritten = arrived);
+
+            // The engine is resolved here, on the UI thread: the window creates it on first use.
+            var pdf = engine();
             try
             {
-                var result = await RunJobAsync(tab, PdfStrings.ApplyJobTitleFormat, (progress, token) => PageEditApplier.ApplyAsync(tab.Session, engine(), request, progress, token, Rewriter));
+                var result = await _jobs.RunAsync(tab, PdfStrings.ApplyTitle, PdfStrings.ApplyJobTitleFormat, (progress, token) => PageEditApplier.ApplyAsync(tab.Session, pdf, request, progress, token, Rewriter));
                 if (!result.Adopted || rewritten is null || !ReferenceEquals(tab.Session.Document, rewritten))
                 {
                     // The file is written, but the tab does not show it (the session was closed or opened something else meanwhile).
@@ -223,19 +231,19 @@ internal sealed class ApplyFlow(
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var page = 0;
-        Guarded(() => page = plan.FollowPage(Math.Clamp(currentPage(tab), 0, plan.PrimaryPageCount - 1)));
+        JobRunner.Guarded(() => page = plan.FollowPage(Math.Clamp(currentPage(tab), 0, plan.PrimaryPageCount - 1)));
         var renamed = !string.Equals(Path.GetFullPath(written), tab.Path, comparison);
         if (renamed)
         {
-            Guarded(() => tab.Rename(written));
+            JobRunner.Guarded(() => tab.Rename(written));
         }
 
         // Deliberate order: the plan ends first (the pages pane lets go of the inserted files), then the pieces of the tab are made anew over the adopted document.
-        Guarded(session.End);
-        Guarded(() => rebuild(tab, page));
+        JobRunner.Guarded(session.End);
+        JobRunner.Guarded(() => rebuild(tab, page));
         if (renamed)
         {
-            Guarded(() => pathChanged?.Invoke(tab));
+            JobRunner.Guarded(() => pathChanged?.Invoke(tab));
         }
     }
 
@@ -258,7 +266,7 @@ internal sealed class ApplyFlow(
         var message = ex switch
         {
             PageApplyAdoptException adopt => PdfStrings.Fill(PdfStrings.ApplyFailAdoptFormat, adopt.TargetPath),
-            SaveFailureException { Reason: SaveFailureReason.SourceModified, FilePath: { } path } when !SamePath(path, tab.Path) =>
+            SaveFailureException { Reason: SaveFailureReason.SourceModified, FilePath: { } path } when !JobRunner.SamePath(path, tab.Path) =>
                 PdfStrings.Fill(PdfStrings.ApplyFailInsertedModifiedFormat, Path.GetFileName(path)) + stays,
             SaveFailureException { Reason: SaveFailureReason.SourceModified } => PdfStrings.ApplyFailSourceModified + stays,
             SaveFailureException { Reason: SaveFailureReason.EncryptedNotSupported } => PdfStrings.ApplyFailEncrypted + stays,
@@ -271,97 +279,6 @@ internal sealed class ApplyFlow(
         return (PdfStrings.ApplyFailedTitle, message);
     }
 
-    private static bool SamePath(string a, string? b) =>
-        b is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
     private Task<bool> Tell(string message) =>
         dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.CmdApplyPages, message, () => done(true)));
-
-    // A job on a pool thread behind a dialog with the job card (progress, Cancel): the window is blocked meanwhile, so the plan cannot change.
-    // Canceling, the tab closing or the window closing cancel the token.
-    private async Task<T> RunJobAsync<T>(PdfTab tab, string titleFormat, Func<IProgress<double>, CancellationToken, Task<T>> work)
-    {
-        using var cancellation = new CancellationTokenSource();
-        _running = cancellation;
-        var card = new SaveJobCard(tab.Title, () => TryCancel(cancellation), titleFormat);
-        Action<bool>? close = null;
-        var finished = false;
-        var shown = dialogs.ShowAsync<bool>(done =>
-        {
-            // A card that was waiting in the queue while the job already ended is not shown.
-            if (finished)
-            {
-                throw new OperationCanceledException();
-            }
-
-            close = done;
-            var dialog = JobDialog?.Invoke(card) ?? new Dialog { Title = PdfStrings.ApplyTitle, Content = card };
-            dialog.CancelRequested += (_, _) => card.RequestCancel();
-            return dialog;
-        });
-
-        void OnTabDisposing() => TryCancel(cancellation);
-        tab.Disposing += OnTabDisposing;
-        try
-        {
-            return await Task.Run(() => work(new UiProgress(card), cancellation.Token));
-        }
-        finally
-        {
-            tab.Disposing -= OnTabDisposing;
-            _running = null;
-            finished = true;
-            close?.Invoke(true);
-            try
-            {
-                await shown;
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
-            {
-                // The card never appeared or could not be made: that must not replace the result of the job (a written file is no failure).
-            }
-        }
-    }
-
-    private static void TryCancel(CancellationTokenSource? source)
-    {
-        try
-        {
-            source?.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-            // The job ended meanwhile.
-        }
-    }
-
-    private static void Guarded(Action step)
-    {
-        try
-        {
-            step();
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // The file is written; a step after it that fails must not turn into the card "the file is unchanged".
-        }
-    }
-
-    /// <summary>Takes the progress from the PDFium thread and hands it to the card on the UI thread.</summary>
-    internal sealed class UiProgress(SaveJobCard card) : IProgress<double>
-    {
-        private double _last;
-
-        public void Report(double value)
-        {
-            // The bar never goes back, whatever order the steps of the rewrite report in.
-            double shown;
-            lock (this)
-            {
-                shown = _last = Math.Max(_last, value);
-            }
-
-            Dispatcher.UIThread.Post(() => card.Report(shown));
-        }
-    }
 }

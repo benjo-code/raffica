@@ -29,6 +29,7 @@ internal sealed record SplitPlan(IReadOnlyList<SplitPart>? Parts, string? Proble
 /// <param name="readOutline">Reads the outline of the tab (the one the outline pane reads).</param>
 /// <param name="open">Opens a written file as a tab (the open flow).</param>
 /// <param name="changed">Called when the flow starts or ends (the command states refresh); null: nothing.</param>
+/// <param name="otherJob">Whether another file job of the window runs (an apply): extract and split are then refused; null: never.</param>
 internal sealed class SplitFlow(
     DialogQueue dialogs,
     Func<PdfTab, string, Task<string?>> pickSavePath,
@@ -37,9 +38,11 @@ internal sealed class SplitFlow(
     Func<PdfTab, int> currentPage,
     Func<PdfTab, CancellationToken, Task<IReadOnlyList<PdfOutlineItem>>> readOutline,
     Func<string, Task> open,
-    Action? changed = null)
+    Action? changed = null,
+    Func<bool>? otherJob = null)
 {
-    private CancellationTokenSource? _running;
+    private readonly JobRunner _jobs = new(dialogs);
+    private string _jobTitle = string.Empty;
 
     /// <summary>The write of Core (<see cref="DocumentSplitter.WriteAsync"/>).</summary>
     internal delegate Task<IReadOnlyList<string>> PartsWriter(
@@ -57,19 +60,23 @@ internal sealed class SplitFlow(
     internal PartsWriter? Writer { get; set; }
 
     /// <summary>Replaces the dialog around the job card (tests); null: the normal dialog.</summary>
-    internal Func<SaveJobCard, Dialog>? JobDialog { get; set; }
+    internal Func<SaveJobCard, Dialog>? JobDialog
+    {
+        get => _jobs.JobDialog;
+        set => _jobs.JobDialog = value;
+    }
 
     /// <summary>Gets whether a flow is running (from its first card to its last).</summary>
     public bool IsRunning { get; private set; }
 
     /// <summary>Cancels the running job, if any (the window is closing, or the user chose Cancel).</summary>
-    public void Cancel() => TryCancel(_running);
+    public void Cancel() => _jobs.Cancel();
 
     /// <summary>Runs "Extract pages" for the active document of <paramref name="tab"/>. Returns whether files were written without a stop.</summary>
-    public Task<bool> ExtractAsync(PdfTab tab) => RunAsync(tab, PdfStrings.CmdExtractPages, ExtractCoreAsync);
+    public Task<bool> ExtractAsync(PdfTab tab) => RunAsync(tab, PdfStrings.CmdExtractPages, PdfStrings.ExtractTitle, ExtractCoreAsync);
 
     /// <summary>Runs "Split document" for the active document of <paramref name="tab"/>. Returns whether all files were written.</summary>
-    public Task<bool> SplitAsync(PdfTab tab) => RunAsync(tab, PdfStrings.CmdSplitDocument, SplitCoreAsync);
+    public Task<bool> SplitAsync(PdfTab tab) => RunAsync(tab, PdfStrings.CmdSplitDocument, PdfStrings.SplitTitle, SplitCoreAsync);
 
     /// <summary>
     /// Works out the parts of a split for the texts of the card; the reason (in the UI language) when they do not make a split. Pure.
@@ -125,7 +132,7 @@ internal sealed class SplitFlow(
         }
     }
 
-    private async Task<bool> RunAsync(PdfTab tab, string title, Func<PdfTab, Task<bool>> core)
+    private async Task<bool> RunAsync(PdfTab tab, string title, string jobTitle, Func<PdfTab, Task<bool>> core)
     {
         ArgumentNullException.ThrowIfNull(tab);
         if (IsRunning)
@@ -133,10 +140,17 @@ internal sealed class SplitFlow(
             return false;
         }
 
+        if (otherJob?.Invoke() == true)
+        {
+            await Tell(title, PdfStrings.FileJobBusy);
+            return false;
+        }
+
         IsRunning = true;
         try
         {
-            Guarded(() => changed?.Invoke());
+            JobRunner.Guarded(() => changed?.Invoke());
+            _jobTitle = jobTitle;
             if (Refusal(tab) is { } reason)
             {
                 await Tell(title, reason);
@@ -159,7 +173,7 @@ internal sealed class SplitFlow(
         finally
         {
             IsRunning = false;
-            Guarded(() => changed?.Invoke());
+            JobRunner.Guarded(() => changed?.Invoke());
         }
     }
 
@@ -207,7 +221,7 @@ internal sealed class SplitFlow(
         var folder = Path.GetDirectoryName(chosen) ?? throw new InvalidOperationException("The chosen file has no folder.");
         var named = new SplitPart(Path.GetFileNameWithoutExtension(chosen), part.Pages);
         var target = DocumentSplitter.TargetPaths([named], folder)[0];
-        var overwrite = SamePath(target, chosen);
+        var overwrite = JobRunner.SamePath(target, chosen);
         return await WriteAsync(tab, SourceOf(tab), [named], folder, overwrite, PdfStrings.OutputResultExtractTitle, canOpen: true);
     }
 
@@ -258,7 +272,7 @@ internal sealed class SplitFlow(
     // The report of Core for the parts (a cancelable job); the card with the loss list only when there is something to say. Returns whether to go on.
     private async Task<bool> ConfirmLossesAsync(PdfTab tab, SplitSource source, IReadOnlyList<SplitPart> parts, Func<IReadOnlyList<string>, Func<Action<bool>, Dialog>> confirm)
     {
-        var reports = await RunJobAsync(tab, PdfStrings.OutputCheckingTitleFormat, (_, token) => DocumentSplitter.AnalyzeAsync(source.Document, parts, token));
+        var reports = await _jobs.RunAsync(tab, _jobTitle, PdfStrings.OutputCheckingTitleFormat, (_, token) => DocumentSplitter.AnalyzeAsync(source.Document, parts, token));
 
         // Nothing is written for a part that Core refuses (it takes no pages from other files, so none does today).
         if (reports.Any(static report => report.IsRefused))
@@ -279,7 +293,10 @@ internal sealed class SplitFlow(
         try
         {
             var write = Writer ?? new PartsWriter(DocumentSplitter.WriteAsync);
-            await RunJobAsync(tab, PdfStrings.OutputJobTitleFormat, (progress, token) => write(engine(), source.Document, source.File, parts, folder, overwrite, progress, token, written));
+
+            // The engine is resolved here, on the UI thread: the window creates it on first use.
+            var pdf = engine();
+            await _jobs.RunAsync(tab, _jobTitle, PdfStrings.OutputJobTitleFormat, (progress, token) => write(pdf, source.Document, source.File, parts, folder, overwrite, progress, token, written));
         }
         catch (OperationCanceledException)
         {
@@ -334,7 +351,14 @@ internal sealed class SplitFlow(
     private static string PartFailedText(DocumentSplitException split)
     {
         var name = split.Paths.Count > 0 ? Path.GetFileName(split.Paths[0]) : string.Empty;
-        var cause = split.InnerException is SaveFailureException save ? CauseOf(save) : PdfStrings.OutputFailOther;
+        var cause = split.InnerException switch
+        {
+            SaveFailureException save => CauseOf(save),
+            PdfOpenException => PdfStrings.OutputCauseOpen,
+            InvalidDataException => PdfStrings.OutputCauseDamaged,
+            IOException or UnauthorizedAccessException => CauseOf(new SaveFailureException(SaveFailureReason.NotWritable, "not writable")),
+            _ => PdfStrings.OutputFailOther,
+        };
         return PdfStrings.Fill(PdfStrings.OutputFailPartFormat, split.PartIndex + 1, name).Replace("{2}", cause, StringComparison.Ordinal);
     }
 
@@ -358,79 +382,6 @@ internal sealed class SplitFlow(
         return paths.Count > 5 ? text + ", " + PdfStrings.Fill(PdfStrings.OutputMoreFormat, paths.Count - 5) : text;
     }
 
-    private static bool SamePath(string a, string b) =>
-        string.Equals(a, b, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
     private Task<bool> Tell(string title, string message) =>
         dialogs.ShowAsync<bool>(done => NoticeCard.Create(title, message, () => done(true)));
-
-    // A job on a pool thread behind a dialog with the job card (progress, Cancel): the window is blocked meanwhile, so nothing else changes.
-    // The pattern of ApplyFlow; canceling, the tab closing or the window closing cancel the token.
-    private async Task<T> RunJobAsync<T>(PdfTab tab, string titleFormat, Func<IProgress<double>, CancellationToken, Task<T>> work)
-    {
-        using var cancellation = new CancellationTokenSource();
-        _running = cancellation;
-        var card = new SaveJobCard(tab.Title, () => TryCancel(cancellation), titleFormat);
-        Action<bool>? close = null;
-        var finished = false;
-        var shown = dialogs.ShowAsync<bool>(done =>
-        {
-            // A card that was waiting in the queue while the job already ended is not shown.
-            if (finished)
-            {
-                throw new OperationCanceledException();
-            }
-
-            close = done;
-            var dialog = JobDialog?.Invoke(card) ?? new Dialog { Title = PdfStrings.OutputResultSplitTitle, Content = card };
-            dialog.CancelRequested += (_, _) => card.RequestCancel();
-            return dialog;
-        });
-
-        void OnTabDisposing() => TryCancel(cancellation);
-        tab.Disposing += OnTabDisposing;
-        try
-        {
-            return await Task.Run(() => work(new ApplyFlow.UiProgress(card), cancellation.Token));
-        }
-        finally
-        {
-            tab.Disposing -= OnTabDisposing;
-            _running = null;
-            finished = true;
-            close?.Invoke(true);
-            try
-            {
-                await shown;
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
-            {
-                // The card never appeared or could not be made: that must not replace the result of the job (a written file is no failure).
-            }
-        }
-    }
-
-    private static void TryCancel(CancellationTokenSource? source)
-    {
-        try
-        {
-            source?.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-            // The job ended meanwhile.
-        }
-    }
-
-    private static void Guarded(Action step)
-    {
-        try
-        {
-            step();
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // A refresh of the window that fails must not turn into a failed flow.
-        }
-    }
 }

@@ -461,6 +461,9 @@ internal static class PdfStrings
     public static string OutputFailLimit => Table.Get("OutputFailLimit");
     public static string OutputFailRange => Table.Get("OutputFailRange");
     public static string OutputFailOther => Table.Get("OutputFailOther");
+    public static string OutputCauseOpen => Table.Get("OutputCauseOpen");
+    public static string OutputCauseDamaged => Table.Get("OutputCauseDamaged");
+    public static string FileJobBusy => Table.Get("FileJobBusy");
     public static string LossSignature => Table.Get("LossSignature");
     public static string LossSignatureLevelFormat => Table.Get("LossSignatureLevelFormat");
     public static string LossLabelsShifted => Table.Get("LossLabelsShifted");

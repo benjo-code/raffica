@@ -39,7 +39,11 @@ internal sealed class SplitRig : IDisposable
                 FolderAsked++;
                 return Task.FromResult(FolderPicks.Count > 0 ? FolderPicks.Dequeue() : null);
             },
-            () => _engine,
+            () =>
+            {
+                EngineOnUiThread.Add(Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
+                return _engine;
+            },
             _ => CurrentPage,
             (t, token) => Outline is { } custom ? Task.FromResult(custom) : t.Session.Document!.GetOutlineAsync(token),
             path =>
@@ -62,6 +66,9 @@ internal sealed class SplitRig : IDisposable
     public List<string> Opened { get; } = [];
 
     public int FolderAsked { get; private set; }
+
+    /// <summary>For each time the flow asked for the engine: whether that was on the UI thread.</summary>
+    public List<bool> EngineOnUiThread { get; } = [];
 
     public int CurrentPage { get; set; }
 
