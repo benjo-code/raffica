@@ -110,7 +110,7 @@ internal static class ImageExportPlan
                 largestPixels = pixels;
             }
 
-            if (over < 0 && pixels > PageImageExporter.MaxPixels)
+            if (over < 0 && Exceeds(sizes[page], scale))
             {
                 over = page;
                 overPixels = pixels;
@@ -238,7 +238,7 @@ internal sealed class ImageExportFlow(
     private async Task<bool> CoreAsync(PdfTab tab)
     {
         var source = DocumentSplitter.SourceOf(tab.Session) ?? throw new InvalidOperationException(PdfStrings.OutputNoSource);
-        var sizes = await ReadSizesAsync(source.Document);
+        var sizes = await ReadSizesAsync(tab, source.Document);
         var choice = await dialogs.ShowAsync<ImageExportChoice?>(done => ExportImagesCard.Create(tab.Title, sizes, () => pickFolder(tab), done));
         if (choice is not { } chosen)
         {
@@ -296,10 +296,25 @@ internal sealed class ImageExportFlow(
         CancellationToken cancellationToken) =>
         PageImageExporter.ExportAsync(document, stem, pages, scale, annotations, directory, overwrite: false, progress, cancellationToken, written, sourcePath);
 
-    private async Task<IReadOnlyList<PdfPageSize>> ReadSizesAsync(PdfDocument document)
+    private async Task<IReadOnlyList<PdfPageSize>> ReadSizesAsync(PdfTab tab, PdfDocument document)
     {
         using var reading = new CancellationTokenSource();
         _reading = reading;
+
+        // A tab that closes during the read ends it as a quiet cancel (the document goes with the tab).
+        void OnTabDisposing()
+        {
+            try
+            {
+                reading.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The read ended meanwhile.
+            }
+        }
+
+        tab.Disposing += OnTabDisposing;
         try
         {
             return await (SizeReader?.Invoke(document, reading.Token)
@@ -307,6 +322,7 @@ internal sealed class ImageExportFlow(
         }
         finally
         {
+            tab.Disposing -= OnTabDisposing;
             _reading = null;
         }
     }

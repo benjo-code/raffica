@@ -526,6 +526,10 @@ internal static class PdfStrings
             .Replace("{0}", Convert.ToString(first, Culture), StringComparison.Ordinal)
             .Replace("{1}", Convert.ToString(second, Culture), StringComparison.Ordinal);
 
+    /// <summary>Fills {0}, {1} and {2} of a template (numbers in the UI culture).</summary>
+    public static string Fill(string template, object? first, object? second, object? third) =>
+        Fill(template, first, second).Replace("{2}", Convert.ToString(third, Culture), StringComparison.Ordinal);
+
     /// <summary>The automation name of the thumbnail of a page (1-based number); the page shown in the document says so.</summary>
     public static string PageThumbnailName(int number, bool current) =>
         Fill(current ? PageThumbnailCurrentNameFormat : PageThumbnailNameFormat, number);

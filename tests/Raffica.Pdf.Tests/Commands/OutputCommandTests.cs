@@ -285,6 +285,57 @@ public sealed class OutputCommandTests
     }
 
     [AvaloniaFact]
+    public async Task ExtractSplitAndApplyAreRefusedWhileAnExportRuns()
+    {
+        using var fixture = WindowFixture.Create();
+        var tab = await OpenReadyAsync(fixture);
+        var (export, canceled, job) = await StartBlockedExportAsync(fixture);
+
+        // An apply needs an open plan with a change; the plan is made while the export runs (the export started without one).
+        tab.Organize.Enter();
+        tab.Organize.Selection.Set(tab.Session.Document!.PageCount, [0]);
+        Assert.True(tab.Organize.Rotate(90).IsDone);
+
+        // Each is refused with the busy reason; the notices wait behind the job card.
+        var extract = fixture.Window.Output.ExtractAsync(tab);
+        var split = fixture.Window.Output.SplitAsync(tab);
+        var apply = fixture.Window.Applying.RunAsync(tab);
+        Assert.False(fixture.Window.Output.IsRunning);
+        Assert.False(fixture.Window.Applying.IsRunning);
+
+        Click(job, "PART_Cancel");
+        await canceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        var busy = 0;
+        for (var i = 0; i < 4; i++)
+        {
+            Dialog card;
+            try
+            {
+                card = await CardWithAsync(fixture, "PART_Ok");
+            }
+            catch (TimeoutException)
+            {
+                var active = fixture.Window.Host.ActiveDialog;
+                throw new TimeoutException($"i={i} busy={busy} active={(active is null ? "none" : active.Title + ": " + string.Join(" / ", active.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)))}");
+            }
+
+            if (card.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == PdfStrings.FileJobBusy))
+            {
+                busy++;
+            }
+
+            Click(card, "PART_Ok");
+            await PrintHost.UntilAsync(() => !ReferenceEquals(fixture.Window.Host.ActiveDialog, card));
+        }
+
+        Assert.Equal(3, busy);
+        Assert.False(await extract.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+        Assert.False(await split.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+        Assert.False(await apply.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+        await export.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+    }
+
+    [AvaloniaFact]
     public async Task ClosingTheTabDuringTheExportCancelsItAndTheCardKeepsWhatWasWritten()
     {
         using var fixture = WindowFixture.Create();

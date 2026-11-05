@@ -332,10 +332,14 @@ public sealed class ImageExportFlowTests
         using var rig = await ExportRig.OpenAsync("thousand-pages.pdf");
         var folder = rig.NewFolder();
         var onUiThread = new List<bool>();
-        rig.Flow.Exporter = (document, stem, pages, scale, annotations, directory, progress, written, sourcePath, token) =>
+        var uiRanWhileExporting = false;
+        rig.Flow.Exporter = async (document, stem, pages, scale, annotations, directory, progress, written, sourcePath, token) =>
         {
             onUiThread.Add(Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
-            return PageImageExporter.ExportAsync(document, stem, pages, scale, annotations, directory, false, progress, token, written, sourcePath);
+
+            // The UI thread is free while the exporter runs: an action posted from the job runs before the export goes on.
+            uiRanWhileExporting = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => true);
+            return await PageImageExporter.ExportAsync(document, stem, pages, scale, annotations, directory, false, progress, token, written, sourcePath);
         };
 
         var run = await rig.StartAsync(folder, "1-100");
@@ -355,8 +359,90 @@ public sealed class ImageExportFlowTests
         Assert.Contains(ExportRig.TextsOf(result), t => t == "and 90 more");
         Assert.Contains(ExportRig.TextsOf(result), t => t == "100 files were written.");
         Assert.Equal([false], onUiThread);
+        Assert.True(uiRanWhileExporting);
         ExportRig.Click(result, "PART_Ok");
         Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task EvaluateAllowsExactlyTheLimitAndRefusesOnePixelMore()
+    {
+        // 8000 x 8000 pt at 72 dpi is exactly 64,000,000 pixels: allowed. One point more on a side is over, and the page is named.
+        var exact = ImageExportPlan.Evaluate("all", "72", [new PdfPageSize(8000, 8000)]);
+        Assert.Equal(PageImageExporter.MaxPixels, (long)(exact.LargestWidth * exact.LargestHeight));
+        Assert.Equal(-1, exact.OverPage);
+        Assert.True(exact.IsOk);
+        var over = ImageExportPlan.Evaluate("all", "72", [new PdfPageSize(595, 842), new PdfPageSize(8000, 8001)]);
+        Assert.Equal(1, over.OverPage);
+        Assert.Equal(8000L * 8001L, over.OverPixels);
+        Assert.False(over.IsOk);
+
+        // And the verdict is Core's, for a real page at the resolutions of the card.
+        using var rig = await ExportRig.OpenAsync();
+        var size = (await SizesAsync(rig))[0];
+        var folder = rig.NewFolder();
+        foreach (var dpi in new[] { 72, 150, 300 })
+        {
+            var view = ImageExportPlan.Evaluate("1", dpi.ToString(CultureInfo.InvariantCulture), [size]);
+            var pixels = ImageExportPlan.PixelsOf(size, ImageExportPlan.ScaleOf(dpi));
+            Assert.Equal(pixels > PageImageExporter.MaxPixels, view.OverPage == 0);
+            await PageImageExporter.ExportAsync(rig.Tab.Session.Document!, "agree", [0], ImageExportPlan.ScaleOf(dpi), false, folder, true, null, Ct, null, rig.Path, view.OverPage == 0 ? pixels - 1 : pixels);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingTheTabDuringTheSizeReadEndsTheFlowQuietly()
+    {
+        using var rig = await ExportRig.OpenAsync();
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        rig.Flow.SizeReader = async (_, token) =>
+        {
+            reading.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return [];
+        };
+        var run = rig.Flow.ExportAsync(rig.Tab);
+        await reading.Task.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        rig.Tab.Dispose();
+
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+        PrintHost.Pump();
+        Assert.Null(rig.Host.ActiveDialog);
+        Assert.False(rig.Flow.IsRunning);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("TooLarge")]
+    [InlineData("DirectoryMissing")]
+    [InlineData("TargetIsSource")]
+    [InlineData("WriteFailed")]
+    [InlineData("Render")]
+    [InlineData("Generic")]
+    public async Task EveryFailureEndsInACardWithItsOwnReason(string kind)
+    {
+        using var rig = await ExportRig.OpenAsync();
+        var folder = rig.NewFolder();
+        var (error, expected) = kind switch
+        {
+            "TooLarge" => (new PageExportException(1, "too large"), PdfStrings.Fill(PdfStrings.ExportFailTooLargeFormat, 2)),
+            "DirectoryMissing" => (new PageExportException(PageExportError.DirectoryMissing, "m", -1, [], null), PdfStrings.OutputFailDirectoryMissing),
+            "TargetIsSource" => (new PageExportException(PageExportError.TargetIsSource, "s", -1, [], null), PdfStrings.OutputFailTargetIsSource),
+            "WriteFailed" => (new PageExportException(PageExportError.WriteFailed, "w", 1, ["x.png"], new IOException("disk")), PdfStrings.Fill(PdfStrings.ExportFailWriteFormat, 2)),
+            "Render" => ((Exception)new PdfRenderException("r"), PdfStrings.ExportFailRender),
+            _ => (new InvalidOperationException("boom"), PdfStrings.OutputFailOther),
+        };
+        rig.Flow.Exporter = (_, _, _, _, _, _, _, _, _, _) => throw error;
+
+        var run = await rig.StartAsync(folder, "1");
+        var result = await rig.CardWithAsync("PART_Ok");
+
+        // Nothing escapes: a card names the reason, nothing was written, and the run ends as a failure.
+        Assert.Equal(expected, PrintHost.Find<TextBlock>(result, "PART_Reason").Text);
+        Assert.Contains(ExportRig.TextsOf(result), t => t == PdfStrings.OutputNothingWritten);
+        ExportRig.Click(result, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Empty(Pngs(folder));
     }
 
     [AvaloniaFact]

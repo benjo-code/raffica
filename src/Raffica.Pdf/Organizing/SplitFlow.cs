@@ -359,7 +359,7 @@ internal sealed class SplitFlow(
             IOException or UnauthorizedAccessException => CauseOf(new SaveFailureException(SaveFailureReason.NotWritable, "not writable")),
             _ => PdfStrings.OutputFailOther,
         };
-        return PdfStrings.Fill(PdfStrings.OutputFailPartFormat, split.PartIndex + 1, name).Replace("{2}", cause, StringComparison.Ordinal);
+        return PdfStrings.Fill(PdfStrings.OutputFailPartFormat, split.PartIndex + 1, name, cause);
     }
 
     private static string CauseOf(SaveFailureException save)

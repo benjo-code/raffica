@@ -92,23 +92,25 @@ internal static class ExportImagesCard
             rangeHint.IsVisible = view.RangeProblem is not null;
             dpiHint.Text = custom.IsChecked == true ? view.DpiProblem : null;
             dpiHint.IsVisible = custom.IsChecked == true && view.DpiProblem is not null;
-            customField.IsEnabled = custom.IsChecked == true;
 
             largest.IsVisible = view.LargestPage >= 0;
             if (view.LargestPage >= 0)
             {
-                largest.Text = PdfStrings.Fill(PdfStrings.ExportLargestFormat, view.LargestWidth.ToString("N0", PdfStrings.Culture), view.LargestHeight.ToString("N0", PdfStrings.Culture))
-                    .Replace("{2}", (view.LargestWidth * view.LargestHeight / 1_000_000.0).ToString("0.#", PdfStrings.Culture), StringComparison.Ordinal);
+                largest.Text = PdfStrings.Fill(
+                    PdfStrings.ExportLargestFormat,
+                    view.LargestWidth.ToString("N0", PdfStrings.Culture),
+                    view.LargestHeight.ToString("N0", PdfStrings.Culture),
+                    (view.LargestWidth * view.LargestHeight / 1_000_000.0).ToString("0.#", PdfStrings.Culture));
             }
 
             sizeHint.IsVisible = view.OverPage >= 0;
             if (view.OverPage >= 0)
             {
                 var pixels = view.OverPixels == long.MaxValue ? double.PositiveInfinity : view.OverPixels / 1_000_000.0;
-                sizeHint.Text = (double.IsInfinity(pixels)
-                    ? PdfStrings.Fill(PdfStrings.ExportTooLargeHugeFormat, view.OverPage + 1)
-                    : PdfStrings.Fill(PdfStrings.ExportTooLargeFormat, view.OverPage + 1, pixels.ToString("0.#", PdfStrings.Culture)))
-                    .Replace("{2}", (Raffica.Core.Pages.PageImageExporter.MaxPixels / 1_000_000.0).ToString("0.###", PdfStrings.Culture), StringComparison.Ordinal);
+                var limit = (Raffica.Core.Pages.PageImageExporter.MaxPixels / 1_000_000.0).ToString("0.###", PdfStrings.Culture);
+                sizeHint.Text = double.IsInfinity(pixels)
+                    ? PdfStrings.Fill(PdfStrings.ExportTooLargeHugeFormat, view.OverPage + 1, string.Empty, limit)
+                    : PdfStrings.Fill(PdfStrings.ExportTooLargeFormat, view.OverPage + 1, pixels.ToString("0.#", PdfStrings.Culture), limit);
             }
 
             export.IsEnabled = view.IsOk && folder is not null && folderHint.IsVisible == false;
@@ -130,7 +132,7 @@ internal static class ExportImagesCard
             radio.IsCheckedChanged += (_, _) => Update();
         }
 
-        // Working in the custom field chooses it.
+        // Working in the custom field chooses it (the field is always enabled so that focusing it can).
         customField.GotFocus += (_, _) => custom.IsChecked = true;
 
         var picking = false;
@@ -170,14 +172,17 @@ internal static class ExportImagesCard
         export.Click += (_, _) => Confirm();
         cancel.Click += (_, _) => done(null);
         dialog.CancelRequested += (_, _) => done(null);
-        range.KeyDown += (_, e) =>
+        void ConfirmOnEnter(object? sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)
             {
                 e.Handled = true;
                 Confirm();
             }
-        };
+        }
+
+        range.KeyDown += ConfirmOnEnter;
+        customField.KeyDown += ConfirmOnEnter;
         dialog.AttachedToVisualTree += (_, _) => range.SelectAll();
         Update();
         return dialog;
