@@ -173,11 +173,16 @@ internal sealed class FormMover(PageView view, FormSession forms, FormFocus focu
     }
 
     /// <summary>Scrolls the focused widget into view (nothing moves while it is in view).</summary>
-    public void Reveal()
+    /// <returns>Whether the view moved (the widget was out of view and is in view now).</returns>
+    public bool Reveal()
     {
-        if (!_disposed && focus.CurrentField(forms) is { } field)
+        if (_disposed || focus.CurrentField(forms) is not { } field)
         {
-            view.Reveal(field.Key.Page, field.Bounds);
+            return false;
         }
+
+        var (offset, page) = (view.Offset, view.CurrentPage);
+        view.Reveal(field.Key.Page, field.Bounds);
+        return view.Offset != offset || view.CurrentPage != page;
     }
 }

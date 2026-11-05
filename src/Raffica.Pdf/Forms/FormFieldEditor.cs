@@ -44,8 +44,8 @@ internal sealed class FormFieldEditor : UserControl
         Input.Name = "PART_Input";
         Input.MinWidth = 0;
         Input.MinHeight = 0;
-        AutomationProperties.SetName(Input, field.DisplayName);
-        AutomationProperties.SetName(this, field.DisplayName);
+        AutomationProperties.SetName(Input, FormAutomation.NameOf(field));
+        AutomationProperties.SetName(this, FormAutomation.NameOf(field));
 
         _hintText = new TextBlock();
         _hint = new Border { Child = _hintText, IsVisible = false };
@@ -202,7 +202,10 @@ internal sealed class FormFieldEditor : UserControl
     {
         var box = new TextBox
         {
-            AcceptsReturn = _multiline,
+            // Every text box takes a line break: the control cuts a typed or pasted text at the first break when it does not, which would
+            // shorten the text silently. A break in a single-line field is refused as a whole by the rules, with a hint; Enter and
+            // Shift+Enter are taken by the editor there (see OnKeyDown), so a break can only come in by paste.
+            AcceptsReturn = true,
             AcceptsTab = false,
             TextWrapping = _multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
             NewLine = "\n",
@@ -288,7 +291,7 @@ internal sealed class FormFieldEditor : UserControl
             e.Handled = true;
             CommitRequested?.Invoke(false);
         }
-        else if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None && IsTextDraft && !_multiline)
+        else if (e.Key == Key.Enter && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift && IsTextDraft && !_multiline)
         {
             e.Handled = true;
             CommitRequested?.Invoke(true);

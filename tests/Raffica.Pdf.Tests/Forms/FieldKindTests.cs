@@ -22,12 +22,13 @@ public sealed class FieldKindTests
         foreach (var field in f.Forms.FieldsOn(0).Where(w => w.Lock == FormLock.None && w.Kind is FormFieldKind.Text or FormFieldKind.ComboBox or FormFieldKind.ListBox))
         {
             var editor = new FormFieldEditor(field);
-            Assert.Equal(field.DisplayName, AutomationProperties.GetName(editor.Input));
+            Assert.StartsWith(field.DisplayName, AutomationProperties.GetName(editor.Input), StringComparison.Ordinal);
             switch (field.Kind)
             {
                 case FormFieldKind.Text:
                     var box = Assert.IsType<TextBox>(editor.Input);
-                    Assert.Equal(field.Traits.HasFlag(FormFieldTraits.Multiline), box.AcceptsReturn);
+                    // Every text box takes a line break (the control would cut a pasted text at the first break otherwise); a single-line field refuses it by the rules.
+                    Assert.True(box.AcceptsReturn);
                     Assert.Equal(field.Traits.HasFlag(FormFieldTraits.Password), box.PasswordChar != '\0');
 
                     // The control must not shorten a pasted text: a text that is too long is refused as a whole by the rules, with a hint.

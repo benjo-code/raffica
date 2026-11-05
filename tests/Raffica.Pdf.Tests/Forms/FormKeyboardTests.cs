@@ -82,10 +82,10 @@ public sealed class FormKeyboardTests
         // The locked field is skipped, the second page was read on the way (never skipped), and the order is the one of the page.
         Assert.Equal(Enumerable.Range(0, TabOrder.Length).Select(Expected), visited);
 
-        // The end is a true end: the key passes on (the window moves its keyboard focus on, so there is no trap), the form focus stays.
+        // The end is a true end: the key passes on (the window moves its keyboard focus on, so there is no trap) and the form focus is cleared,
+        // so the next Tab from the page view enters the form again.
         Assert.False(Decide(f.Parts.Keys, f.View, Key.Tab));
-        Assert.Equal((1, "Ort", 0), Where(f));
-        Assert.Equal(FormStep.End, f.Interaction.Mover.Step(forward: true).Step);
+        Assert.Null(f.Parts.Focus.Current);
     }
 
     [AvaloniaFact]
@@ -170,14 +170,17 @@ public sealed class FormKeyboardTests
             Assert.False(forms.IsLoaded(1));
             Assert.Equal(mehrfach, focus.Current);
 
-            // Every further Tab passes on: nothing swallows the key for the same page twice, and the page is not read again.
+            // The next Tab passes on (the page is walked over, the form focus is let go); the one after enters the form again, and the one after
+            // that passes again: nothing swallows the key for the same page twice, and the page is not read again.
             for (var i = 0; i < 3; i++)
             {
                 Assert.False(Decide(keys, f.View, Key.Tab));
+                Assert.Null(focus.Current);
+                Assert.True(Decide(keys, f.View, Key.Tab));
+                Assert.Equal(mehrfach, focus.Current);
             }
 
             Assert.Equal(1, reads);
-            Assert.Equal(FormStep.End, interaction.Mover.Step(forward: true).Step);
             Assert.Null(focus.PageToLoad(forms, forward: true));
 
             // With no focus the walk over the failed page goes the other way and the end passes the key on as well.
@@ -284,8 +287,7 @@ public sealed class FormKeyboardTests
         // The start passes the key on.
         f.Parts.Focus.Set(WidgetAt(f, 0, "Name", 0).Key);
         Assert.False(Decide(f.Parts.Keys, f.View, Key.Tab, KeyModifiers.Shift));
-        Assert.Equal((0, "Name", 0), Where(f));
-        Assert.Equal(FormStep.End, f.Interaction.Mover.Step(forward: false).Step);
+        Assert.Null(f.Parts.Focus.Current);
     }
 
     [AvaloniaFact]
@@ -608,7 +610,7 @@ public sealed class FormKeyboardTests
         Assert.False(string.IsNullOrEmpty(pageName));
 
         f.Parts.Focus.Set(agb.Key);
-        Assert.Equal(Alternate, AutomationProperties.GetName(f.View));
+        Assert.Equal(Alternate + ", " + PdfStrings.FormStateNotChecked, AutomationProperties.GetName(f.View));
 
         // A field without an alternate name is named by its field name; no focus gives the view its own name back.
         f.Parts.Focus.Set(f.Field("Name").Key);

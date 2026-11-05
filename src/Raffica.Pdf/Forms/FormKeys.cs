@@ -76,7 +76,7 @@ internal sealed class FormKeys : IDisposable
     private void OnLostFocus(object? sender, RoutedEventArgs e) => _down.Clear();
 
     // The page view carries the name of the focused widget: a check box or a radio button has no element of its own.
-    private void UpdateName() => _view.FocusedFieldName = _focus.CurrentField(_forms)?.DisplayName;
+    private void UpdateName() => _view.FocusedFieldName = _focus.CurrentField(_forms) is { } field ? FormAutomation.NameOf(field) : null;
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
@@ -94,6 +94,12 @@ internal sealed class FormKeys : IDisposable
             {
                 e.Handled = TookLastKey = true;
                 _interaction.CommitAndMove(forward: e.KeyModifiers == KeyModifiers.None);
+            }
+            else if (e.Key is Key.Enter or Key.Space && e.KeyModifiers == KeyModifiers.None && ReferenceEquals(e.Source, _view) && _interaction.HasHiddenDraft)
+            {
+                // The editor is out of sight (its refused text waits): the key shows it instead of doing nothing.
+                e.Handled = TookLastKey = true;
+                _interaction.RevealDraft();
             }
 
             return;
@@ -113,7 +119,10 @@ internal sealed class FormKeys : IDisposable
             case Key.Enter or Key.Space when e.KeyModifiers == KeyModifiers.None && _focus.CurrentField(_forms) is { } field:
                 // A held key acts once: the repeat is taken and does nothing.
                 e.Handled = TookLastKey = true;
-                if (!repeat)
+
+                // A widget that is out of sight (the wheel moved the page away from the form focus) is scrolled to first and acted on with the
+                // next key press; one that is in sight is acted on at once.
+                if (!repeat && !_interaction.Mover.Reveal())
                 {
                     _interaction.Activate(field);
                 }
@@ -138,6 +147,10 @@ internal sealed class FormKeys : IDisposable
             case FormStep.NeedsPage:
                 e.Handled = TookLastKey = true;
                 _ = MoveAfterReadAsync(forward);
+                break;
+            default:
+                // A true end: the key passes on and the form focus is let go, so the next Tab into the page view enters the form again.
+                _focus.Set(null);
                 break;
         }
     }

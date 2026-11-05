@@ -227,6 +227,9 @@ internal static class PdfStrings
     public static string FormTipButton => Table.Get("FormTipButton");
     public static string FormTipUnsupported => Table.Get("FormTipUnsupported");
     public static string FormTipRequired => Table.Get("FormTipRequired");
+    public static string FormNameFormat => Table.Get("FormNameFormat");
+    public static string FormStateChecked => Table.Get("FormStateChecked");
+    public static string FormStateNotChecked => Table.Get("FormStateNotChecked");
     public static string FormNoticeScripts => Table.Get("FormNoticeScripts");
     public static string FormNoticeXfa => Table.Get("FormNoticeXfa");
     public static string FormNoticeSignature => Table.Get("FormNoticeSignature");

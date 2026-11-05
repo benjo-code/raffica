@@ -63,6 +63,7 @@ internal sealed class FormInteraction : IDisposable
         view.AddHandler(InputElement.PointerMovedEvent, OnMoved, RoutingStrategies.Bubble);
         view.AddHandler(InputElement.PointerExitedEvent, OnExited, RoutingStrategies.Bubble);
         view.ViewChanged += OnViewChanged;
+        view.FieldChanged += OnFieldSlotChanged;
         tools.Changed += OnToolsChanged;
         tab.Annotations.FlushRequested += OnFlushRequested;
         _discardRegistration = tab.Annotations.AddDiscardHandler(DiscardForHistory);
@@ -102,17 +103,20 @@ internal sealed class FormInteraction : IDisposable
             return true;
         }
 
-        // A draft that is still open (its text is refused) keeps the press: nothing else happens until it is fixed or dropped.
+        // A draft that is still open (its text is refused) keeps the press: nothing else happens until it is fixed or dropped. It is shown
+        // (scrolled to, focused) so its hint says why, even when it was hidden because its field is out of sight.
         if (_draft is not null && _draft.Field.Key != field.Key)
         {
             CommitOrPark();
             if (_draft is not null)
             {
+                RevealDraft();
                 return true;
             }
         }
         else if (_draft is not null)
         {
+            RevealDraft();
             return true;
         }
 
@@ -146,7 +150,60 @@ internal sealed class FormInteraction : IDisposable
         if (_draft is { } draft)
         {
             TryCommit(draft, advance: true, forward);
+
+            // A refused text stays: show it, so the hint explains why the key did not move on.
+            if (_draft is not null)
+            {
+                RevealDraft();
+            }
         }
+    }
+
+    /// <summary>Whether an editor is open that is not on screen: hidden (its field is out of sight, a tool is active) or without the slot of the view.</summary>
+    public bool HasHiddenDraft => _draft is { } d && (!d.Editor.IsVisible || !ReferenceEquals(_view.Field, d.Editor));
+
+    /// <summary>
+    /// Shows the open editor: scrolls its field into view, puts it in the slot of the view when that is free and gives it the keyboard focus, so
+    /// its hint says why the draft stays. Used wherever a refused draft stops an action. Does nothing without an editor.
+    /// </summary>
+    /// <returns>Whether there is an editor.</returns>
+    public bool RevealDraft()
+    {
+        if (_draft is not { } draft)
+        {
+            return false;
+        }
+
+        _view.Reveal(draft.Field.Key.Page, draft.Field.Bounds);
+        if (_tools.Tool == AnnotateTool.None && ReferenceEquals(_draft, draft))
+        {
+            Show(draft);
+        }
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (ReferenceEquals(_draft, draft) && draft.Editor.IsVisible && ReferenceEquals(_view.Field, draft.Editor))
+                {
+                    draft.Editor.FocusInput();
+                }
+            },
+            DispatcherPriority.Input);
+        return true;
+    }
+
+    /// <summary>Ends an open editor like <see cref="CommitOrPark"/>; a draft that stays (its text is refused) is shown and the caller is told to stop.</summary>
+    /// <returns><see langword="true"/> when no draft is left and the caller may go on.</returns>
+    public bool EndOrReveal()
+    {
+        CommitOrPark();
+        if (_draft is null)
+        {
+            return true;
+        }
+
+        RevealDraft();
+        return false;
     }
 
     /// <summary>Ends an open editor like a click elsewhere does: a valid text is written, an unchanged one closes, a refused one stays.</summary>
@@ -171,6 +228,7 @@ internal sealed class FormInteraction : IDisposable
         _view.RemoveHandler(InputElement.PointerMovedEvent, OnMoved);
         _view.RemoveHandler(InputElement.PointerExitedEvent, OnExited);
         _view.ViewChanged -= OnViewChanged;
+        _view.FieldChanged -= OnFieldSlotChanged;
         _tools.Changed -= OnToolsChanged;
         _tab.Annotations.FlushRequested -= OnFlushRequested;
         _discardRegistration.Dispose();
@@ -250,14 +308,9 @@ internal sealed class FormInteraction : IDisposable
     /// <summary>The reason a widget is marked: a lock names why, a star says the field is required and still empty; null for a widget with neither.</summary>
     private string? TipOf(FormField field)
     {
-        if (field.Lock != FormLock.None)
+        if (FormAutomation.LockText(field) is { } locked)
         {
-            return field.Lock == FormLock.ReadOnly ? PdfStrings.FormTipReadOnly : field.Kind switch
-            {
-                FormFieldKind.Signature => PdfStrings.FormTipSignature,
-                FormFieldKind.PushButton => PdfStrings.FormTipButton,
-                _ => PdfStrings.FormTipUnsupported,
-            };
+            return locked;
         }
 
         if (_fillAllowed() == false && IsEditableKind(field.Kind))
@@ -564,6 +617,16 @@ internal sealed class FormInteraction : IDisposable
         }
     }
 
+    // The slot of the view was freed (the text box field closed): a refused draft that waited for it comes back when its field is in view.
+    private void OnFieldSlotChanged()
+    {
+        if (_draft is { } draft && HasHiddenDraft && _tools.Tool == AnnotateTool.None && _view.Field is null
+            && FormEditorLayout.RectOf(_view, draft.Field) is { } rect && FormEditorLayout.IsInView(_view, rect))
+        {
+            Show(draft);
+        }
+    }
+
     private void OnToolsChanged()
     {
         ClearTip();
@@ -602,9 +665,16 @@ internal sealed class FormInteraction : IDisposable
     // The history commands while an editor is open: the draft ends like with Esc and the history stays as it is.
     private bool DiscardForHistory()
     {
-        if (_draft is null)
+        if (_draft is not { } draft)
         {
             return false;
+        }
+
+        // A refused draft the user cannot see is not dropped behind their back: it is shown, and the history stays as it is.
+        if (HasHiddenDraft && draft.IsParked)
+        {
+            RevealDraft();
+            return true;
         }
 
         Close();
@@ -629,6 +699,9 @@ internal sealed class FormInteraction : IDisposable
         /// <summary>Whether the text differs from the start text and no handle is held yet.</summary>
         public bool NeedsPending(string? text) =>
             _pending is null && _unresolved is null && text is not null && !string.Equals(text, OriginalText, StringComparison.Ordinal);
+
+        /// <summary>Whether the text was refused and the draft is held as an unresolved change.</summary>
+        public bool IsParked => _unresolved is not null;
 
         public void BeginPending(AnnotationSession session) => _pending ??= session.BeginPending();
 

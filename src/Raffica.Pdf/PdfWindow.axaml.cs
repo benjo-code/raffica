@@ -109,7 +109,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, tab => _saves.SaveAsync(tab));
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync);
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -245,8 +245,7 @@ internal sealed partial class PdfWindow : Window
         _hosts.Clear();
         EachStep(_badges.Values, badge => badge.Dispose());
         _badges.Clear();
-        EachStep(_formParts.Values, parts => parts.Interaction.Dispose());
-        EachStep(_formParts.Values, parts => parts.Markers.Dispose());
+        EachStep(_formParts, pair => DisposeFormParts(pair.Key, pair.Value));
         _formParts.Clear();
         EachStep(_texts.Values, text => text.Dispose());
         _texts.Clear();
@@ -752,10 +751,7 @@ internal sealed partial class PdfWindow : Window
 
             if (_formParts.Remove(tab, out var formParts))
             {
-                tab.Forms.Changed -= RefreshCommandStates;
-                formParts.Keys.Dispose();
-                formParts.Interaction.Dispose();
-                formParts.Markers.Dispose();
+                DisposeFormParts(tab, formParts);
             }
 
             if (_texts.Remove(tab, out var text))
@@ -916,6 +912,16 @@ internal sealed partial class PdfWindow : Window
         {
             view.FirstSharpPage += BuildBadge;
         }
+    }
+
+    // The one cleanup of the form pieces of a tab, for the close of the tab and of the window: the commands stop following the session, then the
+    // keys, the interaction and the markers let go.
+    private void DisposeFormParts(PdfTab tab, FormParts parts)
+    {
+        tab.FormsIfCreated!.Changed -= RefreshCommandStates;
+        parts.Keys.Dispose();
+        parts.Interaction.Dispose();
+        parts.Markers.Dispose();
     }
 
     /// <summary>The form markers and the form focus of a tab once the tab has been shown (for tests and the form interaction); null for a document without a form.</summary>
@@ -1281,16 +1287,32 @@ internal sealed partial class PdfWindow : Window
         var choice = await Dialogs.ShowAsync<RequiredChoice>(done => RequiredFieldsCard.Create(names, done));
         if (choice == RequiredChoice.GoToFirst && ReferenceEquals(Workspace.Active, tab))
         {
-            // "First" means the first name on the card: the walk starts at the beginning, not after the field that had the focus.
-            if (FormsOf(tab) is { } parts)
-            {
-                parts.Focus.Set(null);
-            }
-
-            RunNextRequired();
+            GoToFirstRequired(tab);
         }
 
         return choice;
+    }
+
+    // "Save" of the close prompt: when a refused field draft keeps the tab open after the save, the draft is shown so the user sees why.
+    private async Task<bool> SaveForCloseAsync(PdfTab tab)
+    {
+        var saved = await _saves.SaveAsync(tab);
+        if (tab.AnnotationsIfCreated is { HasUnresolved: true } && FormsOf(tab) is { } parts)
+        {
+            parts.Interaction.RevealDraft();
+        }
+
+        return saved;
+    }
+
+    /// <summary>"Go to first empty field": the walk starts at the beginning, not after the field that had the focus; a draft that is still open stops it and is shown.</summary>
+    internal void GoToFirstRequired(PdfTab tab)
+    {
+        if (FormsOf(tab) is { } parts && parts.Interaction.EndOrReveal())
+        {
+            parts.Focus.Set(null);
+            RunNextRequired();
+        }
     }
 
     private Task<CloseChoice> PromptAsync(PdfTab tab)

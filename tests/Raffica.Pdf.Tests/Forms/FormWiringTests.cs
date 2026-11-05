@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Raffica.Pdf.Annotating;
+using Raffica.Pdf.Commands;
 using Raffica.Pdf.Tests.Viewing;
 using Xunit;
 
@@ -13,8 +14,17 @@ public sealed class FormWiringTests
         using var window = WindowFixture.Create();
         var tab = await window.OpenAsync("text-rich.pdf");
 
+        // Refreshing the command states (the rules ask about the form) must not create a session for a document without a form.
         Assert.Null(window.Window.FormsOf(tab));
         Assert.Null(window.Window.ActiveView!.FormOverlay);
+        window.Window.Ribbon.RefreshCommandStates();
+        ViewFixture.Pump();
+        foreach (var id in new[] { PdfCommandIds.FormsNext, PdfCommandIds.FormsPrevious, PdfCommandIds.FormsNextRequired, PdfCommandIds.FormsHighlight })
+        {
+            Assert.False(window.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == id).IsEnabled);
+        }
+
+        Assert.Null(tab.FormsIfCreated);
         Assert.False(tab.Forms.HasForm);
     }
 

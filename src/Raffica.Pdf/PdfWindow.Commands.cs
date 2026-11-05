@@ -65,9 +65,22 @@ internal sealed partial class PdfWindow
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
         saveRunning: () => _saves.IsSaving,
-        hasForm: () => Workspace.Active is { } active && active.Forms.HasForm,
+        hasForm: () => Workspace.Active is { } active && TabHasForm(active),
         fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
-        hasEmptyRequired: () => Workspace.Active is not { } active || !active.Forms.RequiredKnown || active.Forms.EmptyRequired.Count > 0);
+        hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0);
+
+    // The rules ask for every tab, with or without a form: a document without an AcroForm creates no form session (and its subscription) for it.
+    private static bool TabHasForm(PdfTab tab)
+    {
+        try
+        {
+            return tab.FormsIfCreated?.HasForm ?? tab.Session.Document is { HasAcroForm: true };
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
     internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
@@ -258,6 +271,12 @@ internal sealed partial class PdfWindow
     private void RunFormMove(Func<FormMover, Task<bool>> move)
     {
         if (Workspace.Active is not { } active || FormsOf(active) is not { } parts)
+        {
+            return;
+        }
+
+        // A draft whose text is refused stops the walk and is shown, so its hint says why.
+        if (!parts.Interaction.EndOrReveal())
         {
             return;
         }

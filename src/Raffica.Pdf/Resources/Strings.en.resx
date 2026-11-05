@@ -932,6 +932,15 @@
   <data name="FormTipRequired" xml:space="preserve">
     <value>Required field, still empty</value>
   </data>
+  <data name="FormNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FormStateChecked" xml:space="preserve">
+    <value>checked</value>
+  </data>
+  <data name="FormStateNotChecked" xml:space="preserve">
+    <value>not checked</value>
+  </data>
   <data name="FormNoticeScripts" xml:space="preserve">
     <value>Calculations, formats and checks in this form need JavaScript and are not run.</value>
   </data>

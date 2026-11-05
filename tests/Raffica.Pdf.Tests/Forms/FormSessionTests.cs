@@ -201,6 +201,9 @@ public sealed class FormSessionTests
         Assert.Equal(FormEditProblem.Locked, FormErrors.FromException(new InvalidOperationException("locked"))?.Problem);
         Assert.Equal(FormEditProblem.Invalid, FormErrors.FromException(new ArgumentException("bad"))?.Problem);
         Assert.Null(FormErrors.FromException(new IOException()));
+
+        // A write that races a document swap or a dispose is no lock: ObjectDisposedException is an InvalidOperationException and must not read as one.
+        Assert.Null(FormErrors.FromException(new ObjectDisposedException("document")));
     }
 
     [AvaloniaFact]

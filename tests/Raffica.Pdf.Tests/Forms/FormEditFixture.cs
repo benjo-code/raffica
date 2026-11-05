@@ -84,6 +84,13 @@ internal sealed class FormEditFixture : IDisposable
     public FormField Field(string name, int index = 0, int page = 0) =>
         Forms.FieldsOn(page).Where(f => f.Key.FieldName == name).ElementAt(index);
 
+    /// <summary>Reads page 1 and returns a widget of it.</summary>
+    public async Task<FormField> OtherPageFieldAsync(string name)
+    {
+        await Forms.LoadPageAsync(1);
+        return Field(name, 0, 1);
+    }
+
     /// <summary>The widget as the document has it now (read from the document, not from the cache).</summary>
     public async Task<FormField> FromDocumentAsync(string name, int index = 0, int page = 0) =>
         (await Tab.Session.Document!.GetFormFieldsAsync(page, TestContext.Current.CancellationToken)).Where(f => f.Key.FieldName == name).ElementAt(index);

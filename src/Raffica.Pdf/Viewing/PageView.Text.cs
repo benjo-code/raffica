@@ -211,8 +211,12 @@ internal sealed partial class PageView
 
             InvalidateMeasure();
             InvalidateArrange();
+            FieldChanged?.Invoke();
         }
     }
+
+    /// <summary>Raised when <see cref="Field"/> was set to another element or to none (an owner that waits for the slot to be free listens).</summary>
+    internal event Action? FieldChanged;
 
     /// <summary>Where <see cref="Field"/> is placed, in the coordinates of the view.</summary>
     internal Rect FieldRect

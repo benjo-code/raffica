@@ -78,6 +78,8 @@ internal static class FormErrors
         FormWriteException { Restored: true } => new(FormEditProblem.NotKept, string.Empty),
         FormWriteException => new(FormEditProblem.NotKeptNotRestored, string.Empty),
         FormFieldNotFoundException => new(FormEditProblem.NotFound, string.Empty),
+        // A write that raced a document swap or a dispose is no lock (ObjectDisposedException is an InvalidOperationException): the caller ends quietly.
+        ObjectDisposedException => null,
         InvalidOperationException => new(FormEditProblem.Locked, string.Empty),
         ArgumentException => new(FormEditProblem.Invalid, string.Empty),
         _ => null,

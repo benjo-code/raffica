@@ -929,6 +929,15 @@
   <data name="FormTipRequired" xml:space="preserve">
     <value>Pflichtfeld, noch leer</value>
   </data>
+  <data name="FormNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FormStateChecked" xml:space="preserve">
+    <value>angekreuzt</value>
+  </data>
+  <data name="FormStateNotChecked" xml:space="preserve">
+    <value>nicht angekreuzt</value>
+  </data>
   <data name="FormNoticeScripts" xml:space="preserve">
     <value>Berechnungen, Formate und Prüfungen in diesem Formular brauchen JavaScript und werden nicht ausgeführt.</value>
   </data>
