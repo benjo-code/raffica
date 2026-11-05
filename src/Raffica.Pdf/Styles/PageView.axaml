@@ -16,4 +16,37 @@
       </FocusAdornerTemplate>
     </Setter>
   </Style>
+  <!-- The editing field of a text box over the page: Geist, paper white with the colour of the annotation as text (both set by the editor,
+       the colour is the data of the palette), the app ink as a 1 px edge in every state (the field is the one thing being edited). -->
+  <Style Selector="TextBox.textbox-editor">
+    <Setter Property="FontFamily" Value="avares://RafficaPdf/Assets/Fonts#Geist" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="3" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
+  </Style>
+  <Style Selector="TextBox.textbox-editor /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+  </Style>
+  <Style Selector="TextBox.textbox-editor:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+  </Style>
+  <Style Selector="TextBox.textbox-editor:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+  </Style>
+  <Style Selector="Border.textbox-hint">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Band}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Danger}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="6,3" />
+  </Style>
+  <Style Selector="Border.textbox-hint > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
 </Styles>

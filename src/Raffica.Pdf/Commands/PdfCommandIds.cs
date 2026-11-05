@@ -32,4 +32,22 @@ internal static class PdfCommandIds
     public const string DarkPage = "page.dark";
     public const string PagesPane = "panes.pages";
     public const string OutlinePane = "panes.outline";
+    public const string Save = "file.save";
+    public const string SaveAs = "file.saveAs";
+    public const string Undo = "edit.undo";
+    public const string Redo = "edit.redo";
+    public const string AnnotateMode = "annotate.mode";
+    public const string Highlight = "annotate.highlight";
+    public const string Underline = "annotate.underline";
+    public const string StrikeOut = "annotate.strikeOut";
+    public const string SelectMark = "annotate.select";
+    public const string Freehand = "annotate.freehand";
+    public const string Rectangle = "annotate.rectangle";
+    public const string Ellipse = "annotate.ellipse";
+    public const string Line = "annotate.line";
+    public const string Arrow = "annotate.arrow";
+    public const string TextBox = "annotate.textBox";
+    public const string AnnotateDone = "annotate.done";
+    public const string MarksPane = "annotate.marks";
+    public const string DeleteMark = "annotate.delete";
 }

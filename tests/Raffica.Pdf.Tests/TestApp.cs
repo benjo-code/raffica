@@ -17,6 +17,7 @@ public sealed class TestApp : Application
         Styles.Add(new StyleInclude(new Uri("avares://RafficaPdf/")) { Source = new Uri("avares://RafficaPdf/Styles/PageView.axaml") });
         Styles.Add(new StyleInclude(new Uri("avares://RafficaPdf/")) { Source = new Uri("avares://RafficaPdf/Styles/Panes.axaml") });
         Styles.Add(new StyleInclude(new Uri("avares://RafficaPdf/")) { Source = new Uri("avares://RafficaPdf/Styles/SearchBar.axaml") });
+        Styles.Add(new StyleInclude(new Uri("avares://RafficaPdf/")) { Source = new Uri("avares://RafficaPdf/Styles/StyleStrip.axaml") });
     }
 }
 

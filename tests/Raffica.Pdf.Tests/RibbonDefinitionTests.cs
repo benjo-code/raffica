@@ -15,7 +15,7 @@ public sealed class RibbonDefinitionTests
     public void EveryCommandHasAFieldCodeAndAName()
     {
         var commands = Create().Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
-        Assert.Equal(29, commands.Count);
+        Assert.Equal(47, commands.Count);
         Assert.All(commands, c =>
         {
             Assert.False(string.IsNullOrWhiteSpace(c.FieldCode));
@@ -25,11 +25,37 @@ public sealed class RibbonDefinitionTests
     }
 
     [Fact]
-    public void TabsAreHomeAndViewWithLettersHAndV()
+    public void TabsAreHomeAnnotateAndViewWithLettersHAAndV()
     {
         var tabs = Create().Tabs;
-        Assert.Equal(["H", "V"], tabs.Select(t => t.Letter).ToArray());
-        Assert.Equal(["Home", "View"], tabs.Select(t => t.Name).ToArray());
+        Assert.Equal(["H", "A", "V"], tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal(["Home", "Annotate", "View"], tabs.Select(t => t.Name).ToArray());
+    }
+
+    [Fact]
+    public void ExactlyOneGroupIsDestructiveAndItHoldsOnlyDelete()
+    {
+        var tabs = Create().Tabs;
+        var group = Assert.Single(tabs.SelectMany(t => t.Groups), g => g.Destructive);
+        Assert.Equal(["annotate.delete"], group.Commands.Select(c => c.Id).ToArray());
+        Assert.Equal("A", tabs.Single(t => t.Groups.Contains(group)).Letter);
+    }
+
+    [Fact]
+    public void FieldCodesAreUniqueAndPrefixFreePerTab()
+    {
+        foreach (var tab in Create().Tabs)
+        {
+            var codes = tab.Groups.SelectMany(g => g.Commands).Select(c => c.FieldCode).ToList();
+            Assert.Equal(codes.Count, codes.Distinct().Count());
+            foreach (var a in codes)
+            {
+                foreach (var b in codes)
+                {
+                    Assert.True(a == b || !b.StartsWith(a, StringComparison.Ordinal), tab.Letter + ": " + a + " begins " + b);
+                }
+            }
+        }
     }
 
     [Fact]
@@ -37,11 +63,14 @@ public sealed class RibbonDefinitionTests
     {
         var tabs = Create().Tabs;
         Assert.Equal(
-            ["File:11,12,13,14", "Find:21,22,23", "Go to:31", "Pages:41,42,43,44", "Tabs:51,52", "Text:61,62", "Help:71"],
+            ["File:11,12,13,14,15,16", "Find:21,22,23", "Go to:31", "Pages:41,42,43,44", "Tabs:51,52", "Text:61,62", "Help:71", "History:81,82"],
             tabs[0].Groups.Select(Describe).ToArray());
         Assert.Equal(
-            ["Zoom:11,12,13,14,15", "Layout:21,22,23,24", "Page:31", "Panes:41,42"],
+            ["Markup:11,12,13", "Draw:21,22,23,24,25,26", "Edit:31,32,33,34", "Delete:41"],
             tabs[1].Groups.Select(Describe).ToArray());
+        Assert.Equal(
+            ["Zoom:11,12,13,14,15", "Layout:21,22,23,24", "Page:31", "Panes:41,42"],
+            tabs[2].Groups.Select(Describe).ToArray());
     }
 
     [Fact]

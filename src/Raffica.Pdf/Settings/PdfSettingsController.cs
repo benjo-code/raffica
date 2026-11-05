@@ -78,6 +78,17 @@ internal sealed class PdfSettingsController
         SaveApp(App);
     }
 
+    /// <summary>
+    /// Replaces the viewer settings in force and writes the viewer file in the background (the tool state remembers colours and widths
+    /// this way). UI thread; never throws, a file that cannot be written leaves the change for this run only.
+    /// </summary>
+    public void Update(AppSettings app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        App = app;
+        SaveApp(app);
+    }
+
     /// <summary>Completes when the viewer file has been written (tests wait for it instead of sleeping).</summary>
     public Task FlushAsync() => _appWriter.FlushAsync();
 
@@ -121,6 +132,16 @@ internal sealed class PdfSettingsController
         };
         AutomationProperties.SetName(zoom, PdfStrings.SettingsDefaultZoom);
 
+        var author = new TextBox
+        {
+            Name = "PART_AuthorName",
+            Text = App.AuthorName,
+            MaxLength = AppSettings.MaxAuthorNameLength,
+            MinWidth = 240,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        AutomationProperties.SetName(author, PdfStrings.SettingsAuthorName);
+
         var options = new SettingsDialogOptions(
             ShowAutosave: false,
             ExtraRows:
@@ -128,6 +149,7 @@ internal sealed class PdfSettingsController
                 new SettingsExtraRow(PdfStrings.SettingsPageAppearance, appearance),
                 new SettingsExtraRow(PdfStrings.SettingsDefaultLayout, layout),
                 new SettingsExtraRow(PdfStrings.SettingsDefaultZoom, zoom),
+                new SettingsExtraRow(PdfStrings.SettingsAuthorName, author),
             ]);
 
         _host.Show(SettingsDialog.Create(
@@ -142,6 +164,7 @@ internal sealed class PdfSettingsController
                         PageAppearance = Appearances[Math.Max(0, appearance.SelectedIndex)],
                         DefaultLayout = Layouts[Math.Max(0, layout.SelectedIndex)],
                         DefaultZoomMode = Zooms[Math.Max(0, zoom.SelectedIndex)],
+                        AuthorName = string.IsNullOrWhiteSpace(author.Text) ? null : author.Text.Trim(),
                     });
             },
             _host.Close,

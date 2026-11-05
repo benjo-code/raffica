@@ -1,4 +1,6 @@
+using Avalonia.Threading;
 using Raffica.Core.Viewing;
+using Raffica.Pdf.Annotating;
 using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf.Documents;
@@ -11,6 +13,7 @@ namespace Raffica.Pdf.Documents;
 internal sealed class PdfTab : IDisposable
 {
     private int _disposing;
+    private AnnotationSession? _annotations;
 
     public PdfTab(ViewerSession session, string path)
     {
@@ -33,12 +36,28 @@ internal sealed class PdfTab : IDisposable
     /// <summary>The model of the tab in the title bar; its marker follows <see cref="IsDirty"/>.</summary>
     public DocumentTab Tab { get; }
 
-    public string Title { get; }
+    public string Title { get; private set; }
 
     /// <summary>The full path of the file.</summary>
-    public string? Path { get; }
+    public string? Path { get; private set; }
 
     public bool IsDirty { get; private set; }
+
+    /// <summary>The annotation session of the tab, made on first use and disposed with the tab. UI thread.</summary>
+    public AnnotationSession Annotations => _annotations ??= new AnnotationSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+
+    /// <summary>The annotation session if one was made, else null (whoever only asks must not make one).</summary>
+    public AnnotationSession? AnnotationsIfCreated => _annotations;
+
+    /// <summary>The document was saved under another path (Save as): the path, the title and the title bar tab follow. UI thread.</summary>
+    public void Rename(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        Path = System.IO.Path.GetFullPath(path);
+        Title = System.IO.Path.GetFileName(Path);
+        Tab.Title = Title;
+        Tab.Path = Path;
+    }
 
     public void MarkDirty() => SetDirty(true);
 
@@ -51,7 +70,14 @@ internal sealed class PdfTab : IDisposable
             Disposing?.Invoke();
         }
 
+        _annotations?.Dispose();
         Session.Dispose();
+    }
+
+    /// <summary>The fallback when no context is installed on the calling thread: posts to the UI thread.</summary>
+    private sealed class DispatcherContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state) => Dispatcher.UIThread.Post(() => d(state));
     }
 
     private void SetDirty(bool dirty)

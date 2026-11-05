@@ -184,6 +184,34 @@ public sealed class DocumentTabsTests
     }
 
     [AvaloniaFact]
+    public void TitleAndPathChangesRaisePropertyChangedAndTheTabItemFollows()
+    {
+        var tab = new DocumentTab("Old.docx", "/docs/Old.docx");
+        var raised = new List<string?>();
+        tab.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        var (window, tabs) = Show([tab]);
+        var view = Views(tabs).Single();
+        Assert.Equal("Old.docx", ControlHarness.Part<MiddleTrimTextBlock>(view, "PART_Title").Text);
+        Assert.Equal("/docs/Old.docx", ToolTip.GetTip(view));
+
+        tab.Title = "New.docx";
+        tab.Path = "/docs/New.docx";
+        tab.Title = "New.docx";
+        tab.Path = "/docs/New.docx";
+        ControlHarness.Settle(window);
+
+        // Setting the same value again raises nothing.
+        Assert.Equal([nameof(DocumentTab.Title), nameof(DocumentTab.Path)], raised);
+        Assert.Equal("New.docx", ControlHarness.Part<MiddleTrimTextBlock>(view, "PART_Title").Text);
+        Assert.Equal("/docs/New.docx", ToolTip.GetTip(view));
+
+        // Without a path the tooltip is the title.
+        tab.Path = null;
+        ControlHarness.Settle(window);
+        Assert.Equal("New.docx", ToolTip.GetTip(view));
+    }
+
+    [AvaloniaFact]
     public void CloseButtonIs24By24AndNamed()
     {
         var (_, tabs) = Show([new DocumentTab("Report.docx")]);

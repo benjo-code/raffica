@@ -151,4 +151,54 @@ public sealed class PaneFocusTests
         Press(window, Key.Right, PhysicalKey.ArrowRight);
         Assert.Equal(before + 1, pane.RowCount);
     }
+
+    [AvaloniaFact]
+    public async Task PaneJoinsTheF6RingWithFieldCode7()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("outline.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+        await ViewFixture.WaitAsync(() => view.FirstSharpPageShown);
+        Assert.Equal("7", Raffica.Shell.Frame.FieldCodeBadge.GetCode(window.CommentsPane));
+
+        // The marks pane is closed first, so it is passed over; once it is open it is the third stop.
+        window.ToggleMarksPane();
+        ViewFixture.Pump();
+        Assert.True(window.CommentsPane.IsOpen);
+        Assert.Equal(256, window.CommentsPane.Width);
+
+        F6(window);
+        Assert.True(FocusIsIn(window, window.NavigationPane));
+        F6(window);
+        Assert.True(FocusIsIn(window, window.DocumentPane));
+        F6(window);
+        Assert.True(FocusIsIn(window, window.CommentsPane), "third stop: the marks pane");
+        Assert.True(window.CommentsPane.IsPaneFocused);
+        F6(window);
+        Assert.True(FocusIsIn(window, window.NavigationPane));
+        F6(window, shift: true);
+        Assert.True(FocusIsIn(window, window.CommentsPane));
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingTheMarksPaneWhileFocusedMovesToTheDocument()
+    {
+        using var windows = WindowFixture.Create();
+        var tab = await windows.OpenAsync("outline.pdf");
+        var window = windows.Window;
+        var view = window.ViewOf(tab)!;
+        await ViewFixture.WaitAsync(() => view.FirstSharpPageShown);
+        window.ToggleMarksPane();
+        ViewFixture.Pump();
+        F6(window);
+        F6(window);
+        F6(window);
+        Assert.True(FocusIsIn(window, window.CommentsPane));
+
+        window.ToggleMarksPane();
+        ViewFixture.Pump();
+        Assert.False(window.CommentsPane.IsOpen);
+        Assert.True(FocusIsIn(window, window.DocumentPane));
+    }
 }

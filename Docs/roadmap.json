@@ -137,6 +137,16 @@
       "date": "2026-11-04",
       "context": "Milestone 2.1",
       "text": "Software rendering is the Windows default of the PDF app (owner decision of 2026-11-04, after the measurement of runs 41892985596 and 41893002871: every start case halves, idle memory drops to a third, the scroll p99 rises from 13.5 to 18.0 ms). `RAFFICA_RENDERING=default` opts out; Linux and macOS are untouched. The Windows budgets of the PDF target are re-derived from the software medians (cold 200, warm 210, 1000 pages 200, second file 20, scroll p99 20 ms, memory 40, size 51, zip 22 MiB; the old ones, 400/390/400/30/20 ms and 130 MiB, belonged to the GPU path); the Linux budgets stand. Entry \"Raffica PDF: software rendering is the Windows default (M2.1 follow-up)\" in `Docs/DECISIONS.md`."
+    },
+    {
+      "date": "2026-11-04",
+      "context": "Milestone 2.2",
+      "text": "The right pane of the PDF app is one marks pane of 256 px (the approved canvas shows a single pane \"Markierungen\" and no separate comments pane); the empty 300 px comments pane slot of 2.1 is reused for it, and a mark's comment is shown and edited in its entry. The annotate mode of the predecessor is kept (a tool in the Annotate tab starts it, Esc or \"Done\" ends it); comments are the `/Contents` of a markup or drawing. Not rebuilt from the predecessor's 1.0 feature set because Core has no support for them: sticky notes, reply threads, shape fill, pressure-sensitive width, and a full-rewrite option for annotation saves (annotation saves are incremental only). Entry \"Raffica PDF: annotation conventions (M2.2)\" in `Docs/DECISIONS.md`; owner to confirm the marks pane."
+    },
+    {
+      "date": "2026-11-05",
+      "context": "Milestone 2.2",
+      "text": "Changes while building, against the plan and the entry \"Raffica PDF: annotation conventions (M2.2)\" in `Docs/DECISIONS.md` (amended there): (a) the tool letters I, R, E, L, A and T are not implemented; the Annotate tab's key tips and the Ctrl+Shift shortcuts exist instead, which avoids another key-capture surface. (b) Colour and width are chosen in an app-side style strip (`Annotating/StyleStrip`) beside the mode badge, not in the ribbon, because the shell ribbon has no checked or swatch control; moving it into the ribbon is a later option. A text box gets colours only on the strip, for a selection. (c) The text-box default font size is 16 pt (Medium, the default of Core and Pagewing 1.0); the plan text said 12. (d) The ribbon shows no checked state for the active tool; the mode badge names the tool and \"Esc to finish\". (e) Touch input is ignored in annotate mode, because the page view has no touch scrolling yet. (f) The marks pane (256 px, the one right pane) stays flagged \"owner to confirm\"."
     }
   ],
   "subprojects": [
@@ -305,19 +315,23 @@
         {
           "id": "2.2",
           "title": "Annotate",
-          "status": "open",
+          "status": "done", "completedOn": "2026-11-05",
+          "plan": "superpowers/plans/2026-11-04-milestone-02-2-annotate.md",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["2.1"],
           "goal": "Marks and comments can be added, changed, undone and saved through the existing save pipeline.",
           "tasks": [
-            { "text": "Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane (P9)", "done": false },
-            { "text": "Freehand with mouse and pen, rectangle, ellipse, line, arrow and text box (P10); select, move, resize, colour, delete, and undo and redo in one history for all annotation kinds (P9, P10)", "done": false },
-            { "text": "The save pipeline and its UI through the existing core (P9): save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close", "done": false },
-            { "text": "Tests for every tool and for save, reopen and undo", "done": false }
+            { "text": "Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane (P9) - done: `Annotating/MarkupController`, `Annotating/MarksModel` and `Panes/MarksPane` (the one right pane, 256 px); tests `MarkupToolTests`, `MarksModelTests`.", "done": true },
+            { "text": "Freehand with mouse and pen, rectangle, ellipse, line, arrow and text box (P10); select, move, resize, colour, delete, and undo and redo in one history for all annotation kinds (P9, P10) - done: `Annotating/DrawingController`, `TextBoxController`, `SelectController`, `StyleStrip`, over Core's one `AnnotationEditor` history; tests `DrawingToolTests`, `TextBoxToolTests`, `SelectToolTests`. Pens and touch are not verified here (Open items).", "done": true },
+            { "text": "The save pipeline and its UI through the existing core (P9): save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close - done: `Documents/SaveController` with `Dialogs/SignedFileCard`, `SaveFailedCard`, `ChangedOriginalCard`, `UnsavedChangesCard`; tests `SaveControllerTests`, `EndToEndTests.UndoAfterSaveIsDisabled`.", "done": true },
+            { "text": "Tests for every tool and for save, reopen and undo - done: `DrawingToolTests` (theory `EveryToolSurvivesSaveReopenAndUndo`), `MarkupToolTests`, `TextBoxToolTests`, `SelectToolTests`, `MarksModelTests`, `SaveControllerTests`, `EndToEndTests.EveryToolSurvivesSaveReopenAndUndoThroughTheWindow`; saving tests work on temp copies.", "done": true }
           ],
           "acceptance": [
-            { "text": "Tests for every tool and for save, reopen and undo pass", "done": false },
+            { "text": "Tests for every tool and for save, reopen and undo pass", "done": true, "evidence": "Verified on commit 8eea06c, Windows, 2026-11-05: `dotnet build Raffica.slnx -c Release -p:NuGetAudit=false` 0 warnings (the plain build fails only on the known NU1903 advisory of ILCompiler); `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4747 total, 4720 passed, 27 skipped, 0 failed (Pdf 652: 646 passed, 6 CUPS skipped; Shell 685; Render 59; Core 3351: 3330 passed, 21 skipped, Core changed by one added test only); `dotnet format Raffica.slnx --verify-no-changes --no-restore` clean; `dotnet run tools/roadmap.cs -- check` valid. Tests: see the tasks above." },
             { "text": "A saved file opens with the marks in an independent viewer (manual check, recorded with the viewer's name)", "done": false }
+          ],
+          "blocks": [
+            { "title": "Open items", "text": "**Why 2.2 is `done` with open points:** closed on 2026-11-05 on the owner's instruction. Everything is built and the automated checks are green (criterion 1). Criterion 2 (a saved file opens with the marks in an independent viewer) is a manual check that was not made; it stays unticked because it was not done, and it is a backlog entry with its steps. The owner will make the manual checks together once Raffica PDF is done.\n\n**Independent viewer (criterion 2).** Open a temp copy of a PDF in Raffica PDF, add one mark of every kind (highlight, underline, strike-through, each with a comment; freehand, rectangle, ellipse, line, arrow, text box), save, then open the saved file in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect every mark in place with its colour, width and comment. Record the viewer's name and version here and tick the criterion (see the backlog entry \"Manual check: independent viewer for annotated files (skipped for 2.2)\").\n\n**Not verified here (command or check in brackets).**\n- Real pens and touch (a pen on a real digitizer; touch is ignored in annotate mode by design).\n- High-DPI looks and German text widths in the cards, the marks pane and the style strip (`dotnet run --project src/Raffica.Pdf -c Release -- --lang de testdata\\pdfs\\text-rich.pdf` at 125, 150 and 200 percent).\n- The Geist font in the text-box field and the padlock icon on a real display (same run).\n- A signed file saved in Acrobat: the signed-file warning and an incremental save keep the signature valid (open the saved copy in Acrobat and check the signature panel).\n- Linux and macOS window managers and the file picker `.pdf` extension in Save as.\n- First-read cost of the marks pane on `testdata\\pdfs\\thousand-pages.pdf` (unmeasured; the pane reads pages at background priority).\n- The print pixel test skips off Windows (the CI Windows leg runs it).\n- Keyboard reachability of the style strip under the Select tool (Tab is consumed by mark stepping, there is no roving focus); focus stays on a swatch after a click; colour plus width on a selection are two undo steps." }
           ]
         },
         {
@@ -485,6 +499,10 @@
     }
   ],
   "backlog": [
+    {
+      "title": "Manual check: independent viewer for annotated files (skipped for 2.2)",
+      "text": "Open a temp copy of a PDF in Raffica PDF, add one mark of every kind (highlight, underline and strike-through, each with a comment; freehand, rectangle, ellipse, line, arrow, text box), save, then open the saved file in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect every mark in place with its colour, width and comment. Record the viewer's name and version, then tick the second acceptance criterion of milestone 2.2. Skipped for milestone 2.2 by the owner on 2026-11-05; the owner makes the manual checks together once Raffica PDF is done. The other points not verified here are listed in the open items of 2.2."
+    },
     {
       "title": "Manual check: second file in the running instance (skipped for 2.1)",
       "text": "Start `RafficaPdf.exe --settings-file %TEMP%\\rt\\s.json testdata\\pdfs\\text-rich.pdf`, then in a second shell with the same `--settings-file` and a relative path `RafficaPdf.exe --settings-file %TEMP%\\rt\\s.json hello_world.pdf`: expect exit code 0, one process, the second file as a second tab and the window brought to the front. Skipped for milestone 2.1 by the owner on 2026-11-04; do it with the next release check."

@@ -7,5 +7,6 @@
     <StyleInclude Source="avares://RafficaPdf/Styles/PageView.axaml" />
     <StyleInclude Source="avares://RafficaPdf/Styles/Panes.axaml" />
     <StyleInclude Source="avares://RafficaPdf/Styles/SearchBar.axaml" />
+    <StyleInclude Source="avares://RafficaPdf/Styles/StyleStrip.axaml" />
   </Application.Styles>
 </Application>

@@ -80,9 +80,9 @@ public sealed class ShortcutMatchTests
     }
 
     [Fact]
-    public void OnlyZoomAndTheHitKeysRepeatWhenHeld()
+    public void OnlyZoomTheHitKeysAndUndoRepeatWhenHeld()
     {
-        var repeating = PdfCommandCatalog.Commands.Where(c => c.Shortcut is { AllowsRepeat: true }).Select(c => c.Id).Order().ToArray();
-        Assert.Equal(["find.next", "find.previous", "zoom.in", "zoom.out"], repeating);
+        var repeating = PdfCommandCatalog.Commands.Where(c => c.Shortcut is { AllowsRepeat: true }).Select(c => c.Id).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(["edit.redo", "edit.undo", "find.next", "find.previous", "zoom.in", "zoom.out"], repeating);
     }
 }

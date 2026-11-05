@@ -17,12 +17,47 @@ namespace Raffica.Shell.Frame;
 
 /// <summary>
 /// An open document in the title bar. Two tabs are the same only if they are the same instance, so two untitled documents stay apart
-/// (this holds although <see cref="IsDirty"/> can change). <see cref="IsDirty"/> says the document has unsaved changes.
+/// (this holds although <see cref="IsDirty"/> can change). <see cref="IsDirty"/> says the document has unsaved changes; <see cref="Title"/> and
+/// <see cref="Path"/> change when the document is saved under another name.
 /// </summary>
-public sealed record DocumentTab(string Title, string? Path = null) : INotifyPropertyChanged
+public sealed record DocumentTab : INotifyPropertyChanged
 {
-    /// <summary>Raised when <see cref="IsDirty"/> changes.</summary>
+    public DocumentTab(string title, string? path = null)
+    {
+        Title = title;
+        Path = path;
+    }
+
+    /// <summary>Raised when <see cref="IsDirty"/>, <see cref="Title"/> or <see cref="Path"/> changes.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>The name shown on the tab.</summary>
+    public string Title
+    {
+        get;
+        set
+        {
+            if (field != value)
+            {
+                field = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
+            }
+        }
+    }
+
+    /// <summary>The full path shown as the tooltip, or null.</summary>
+    public string? Path
+    {
+        get;
+        set
+        {
+            if (field != value)
+            {
+                field = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Path)));
+            }
+        }
+    }
 
     /// <summary>Whether the document has unsaved changes; the tab then shows a mark before its close button.</summary>
     public bool IsDirty
@@ -229,7 +264,7 @@ public sealed class DocumentTabItem : Border
     {
         base.OnAttachedToVisualTree(e);
         Model.PropertyChanged += OnModelPropertyChanged;
-        UpdateDirty();
+        UpdateTitle();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -244,9 +279,20 @@ public sealed class DocumentTabItem : Border
         {
             UpdateDirty();
         }
+        else if (e.PropertyName is nameof(DocumentTab.Title) or nameof(DocumentTab.Path))
+        {
+            UpdateTitle();
+        }
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new DocumentTabItemAutomationPeer(this);
+
+    private void UpdateTitle()
+    {
+        _title.Text = Model.Title;
+        ToolTip.SetTip(this, string.IsNullOrEmpty(Model.Path) ? Model.Title : Model.Path);
+        UpdateDirty();
+    }
 
     private void UpdateDirty()
     {

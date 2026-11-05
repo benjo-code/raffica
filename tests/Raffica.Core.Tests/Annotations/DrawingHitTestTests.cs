@@ -90,6 +90,20 @@ public sealed class DrawingHitTestTests
         Assert.Null(DrawingHitTest.Pick([textBox], new DisplayPoint(300, 150), 2));
     }
 
+    [Fact]
+    public void ATextBoxWithRepliesIsNotPickedAndTheToleranceReachesJustOutsideItsBox()
+    {
+        // Task 8 check: DrawingHitTest already covers text boxes (selectable, picked inside the box, over markups); a reply locks one.
+        var box = new PageRect(100, 100, 260, 160);
+        var textBox = TextBox(0, box, own: true);
+        var replied = textBox with { Index = 1, Name = "tb-replied", Editable = false };
+        Assert.False(DrawingHitTest.IsSelectable(replied));
+        Assert.Same(textBox, DrawingHitTest.Pick([textBox, replied], new DisplayPoint(180, 130), 2));
+        Assert.Null(DrawingHitTest.Pick([replied], new DisplayPoint(180, 130), 2));
+        Assert.Same(textBox, DrawingHitTest.Pick([textBox], new DisplayPoint(262, 130), 3));
+        Assert.Null(DrawingHitTest.Pick([textBox], new DisplayPoint(266, 130), 3));
+    }
+
     internal static PdfAnnotation TextBox(int index, PageRect box, bool own) => new(
         Page: 0,
         Index: index,
