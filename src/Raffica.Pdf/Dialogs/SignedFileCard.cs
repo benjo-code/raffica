@@ -27,11 +27,13 @@ internal enum SignedChoice
 /// The card shown before a signed file is saved. <see cref="SignatureAdvice.WouldInvalidate"/> (DocMDP 1 or 2) warns that programs such as
 /// Acrobat will show the signature as invalid afterwards: Cancel is the default, Save as is safe, Save anyway is locked for 400 ms.
 /// <see cref="SignatureAdvice.AppendedOnly"/> (DocMDP 3 or none) is only a note with OK; it has its own card rather than <see cref="NoticeCard"/>
-/// because Esc must cancel the save there, and <see cref="NoticeCard"/> treats Esc like OK. The card never calls the signature valid.
+/// because Esc must cancel the save there, and <see cref="NoticeCard"/> treats Esc like OK. The card never calls the signature valid. With
+/// <c>onlyFormChanges</c> (the editor holds form values only) the warning says so: the level of the signature may allow filling, but the app
+/// cannot check whether the signature stays intact.
 /// </summary>
 internal static class SignedFileCard
 {
-    public static Dialog Create(string fileName, SignatureAdvice advice, Action<SignedChoice> done, TimeProvider? time = null)
+    public static Dialog Create(string fileName, SignatureAdvice advice, bool onlyFormChanges, Action<SignedChoice> done, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(done);
@@ -69,7 +71,7 @@ internal static class SignedFileCard
             return noteDialog;
         }
 
-        var message = new TextBlock { Name = "PART_Message", Text = PdfStrings.SignedWarnText, TextWrapping = TextWrapping.Wrap };
+        var message = new TextBlock { Name = "PART_Message", Text = onlyFormChanges ? PdfStrings.SignedFormsText : PdfStrings.SignedWarnText, TextWrapping = TextWrapping.Wrap };
         var cancel = new Button { Name = "PART_Cancel", Content = ShellStrings.Cancel };
         cancel.Classes.Add("primary");
         var saveAs = new Button { Name = "PART_SaveAs", Content = PdfStrings.CmdSaveAs };
@@ -79,7 +81,7 @@ internal static class SignedFileCard
 
         var dialog = new Dialog
         {
-            Title = PdfStrings.SignedWarnTitle,
+            Title = onlyFormChanges ? PdfStrings.SignedFormsTitle : PdfStrings.SignedWarnTitle,
             Content = new StackPanel { Spacing = 8, Children = { name, message } },
             Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, saveAs, anyway } },
         };

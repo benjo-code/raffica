@@ -33,6 +33,10 @@ internal static class PdfSettingsFiles
     public static string RecentPathFor(string? settingsFile) =>
         FolderOf(settingsFile) is { } folder ? Path.Combine(folder, RecentName) : RecentPath;
 
+    /// <summary>The folder of the saved signatures: <c>signatures</c> next to the given shell settings file, else <see cref="UserDataPaths.SignaturesDirectory()"/>.</summary>
+    public static string SignaturesDirectoryFor(string? settingsFile) =>
+        FolderOf(settingsFile) is { } folder ? Path.Combine(folder, "signatures") : UserDataPaths.SignaturesDirectory();
+
     // A switch with a malformed path still must not send the files into the folder of the user: they go to the temp folder.
     private static string? FolderOf(string? settingsFile)
     {

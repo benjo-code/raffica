@@ -22,6 +22,9 @@ internal sealed class DialogQueue
         _host.GetObservable(DialogHost.ActiveDialogProperty).Subscribe(new HostObserver(this));
     }
 
+    /// <summary>Whether a dialog is open in the host (whoever opened it).</summary>
+    public bool IsOpen => _host.IsOpen;
+
     /// <summary>Shows the card made by <paramref name="create"/> (it gets the callback that closes the card with a result) and returns the result.</summary>
     /// <remarks>When the card cannot be created or shown, the returned task fails with that exception and the queue goes on.</remarks>
     public Task<T> ShowAsync<T>(Func<Action<T>, Dialog> create)

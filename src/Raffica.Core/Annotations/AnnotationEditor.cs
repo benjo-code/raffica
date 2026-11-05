@@ -164,6 +164,22 @@ public sealed class AnnotationEditor
     }
 
     /// <summary>
+    /// Gets whether any form value was changed since the last save (or since another document was bound), whatever else was changed next to it
+    /// (<see cref="AnnotationHistory.HasFormChanges"/>), also one undone since. A save then writes form values, so the question about empty
+    /// required fields applies.
+    /// </summary>
+    public bool HasFormChanges
+    {
+        get
+        {
+            lock (gate)
+            {
+                return history.HasFormChanges;
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets whether a text recognition run was applied since the last save (<see cref="AnnotationHistory.HasOcrChanges"/>), also one
     /// undone since: the warning before saving a signed document names the invisible text that is added.
     /// </summary>

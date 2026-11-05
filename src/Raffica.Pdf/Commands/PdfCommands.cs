@@ -52,7 +52,12 @@ internal sealed record PdfCommands(
     Action? TextBox = null,
     Action? AnnotateDone = null,
     Action? MarksPane = null,
-    Action? DeleteMark = null)
+    Action? DeleteMark = null,
+    Action? Sign = null,
+    Action? FormsNext = null,
+    Action? FormsPrevious = null,
+    Action? FormsNextRequired = null,
+    Action? FormsHighlight = null)
 {
     /// <summary>The action behind a command id of <see cref="PdfCommandIds"/>, or null when there is none.</summary>
     public Action? RunOf(string id) => id switch
@@ -104,6 +109,11 @@ internal sealed record PdfCommands(
         PdfCommandIds.AnnotateDone => AnnotateDone,
         PdfCommandIds.MarksPane => MarksPane,
         PdfCommandIds.DeleteMark => DeleteMark,
+        PdfCommandIds.Sign => Sign,
+        PdfCommandIds.FormsNext => FormsNext,
+        PdfCommandIds.FormsPrevious => FormsPrevious,
+        PdfCommandIds.FormsNextRequired => FormsNextRequired,
+        PdfCommandIds.FormsHighlight => FormsHighlight,
         _ => null,
     };
 }

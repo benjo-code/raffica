@@ -16,6 +16,7 @@ internal sealed class AnnotationSession : IDisposable
     private readonly object _gate = new();
     private int _pending;
     private int _unresolved;
+    private readonly List<DiscardRegistration> _discardHandlers = [];
     private TaskCompletionSource? _idle;
     private volatile bool _disposed;
     private bool _marked;
@@ -49,10 +50,21 @@ internal sealed class AnnotationSession : IDisposable
     public bool CanRedo => Editor.CanRedo;
 
     /// <summary>
-    /// Set by the owner of an open draft (the text box field): called by <see cref="UndoAsync"/> and <see cref="RedoAsync"/> before anything
-    /// else; when it returns <see langword="true"/> it ended the draft (like Esc) and the history is left alone.
+    /// Registers the owner of an open draft (the text box field, a form field editor): <see cref="UndoAsync"/> and <see cref="RedoAsync"/> ask
+    /// the handlers in the order they were added before anything else; the first that returns <see langword="true"/> ended its draft (like
+    /// Esc) and wins: the later ones are not asked and the history is left alone. Dispose the result to remove the handler. UI thread.
     /// </summary>
-    public Func<bool>? DiscardDraft { get; set; }
+    public IDisposable AddDiscardHandler(Func<bool> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        var registration = new DiscardRegistration(this, handler);
+        lock (_gate)
+        {
+            _discardHandlers.Add(registration);
+        }
+
+        return registration;
+    }
 
     /// <summary>Whether a draft is open that cannot be made as it stands (see <see cref="BeginUnresolved"/>).</summary>
     public bool HasUnresolved => UnresolvedCount > 0;
@@ -139,7 +151,7 @@ internal sealed class AnnotationSession : IDisposable
 
     public async Task UndoAsync()
     {
-        if (DiscardDraft?.Invoke() == true)
+        if (TryDiscardDraft())
         {
             return;
         }
@@ -151,7 +163,7 @@ internal sealed class AnnotationSession : IDisposable
 
     public async Task RedoAsync()
     {
-        if (DiscardDraft?.Invoke() == true)
+        if (TryDiscardDraft())
         {
             return;
         }
@@ -159,6 +171,25 @@ internal sealed class AnnotationSession : IDisposable
         await FlushAsync();
         await Editor.RedoAsync();
         Refresh();
+    }
+
+    private bool TryDiscardDraft()
+    {
+        DiscardRegistration[] handlers;
+        lock (_gate)
+        {
+            handlers = [.. _discardHandlers];
+        }
+
+        foreach (var registration in handlers)
+        {
+            if (registration.Handler())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Takes the state of the editor over into the tab and tells the listeners. UI thread.</summary>
@@ -233,6 +264,19 @@ internal sealed class AnnotationSession : IDisposable
         }
 
         Refresh();
+    }
+
+    private sealed class DiscardRegistration(AnnotationSession owner, Func<bool> handler) : IDisposable
+    {
+        public Func<bool> Handler { get; } = handler;
+
+        public void Dispose()
+        {
+            lock (owner._gate)
+            {
+                owner._discardHandlers.Remove(this);
+            }
+        }
     }
 
     private sealed class Unresolved(AnnotationSession owner) : IDisposable

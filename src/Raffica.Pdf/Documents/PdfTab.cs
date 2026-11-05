@@ -1,6 +1,7 @@
 using Avalonia.Threading;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
+using Raffica.Pdf.Forms;
 using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf.Documents;
@@ -14,6 +15,7 @@ internal sealed class PdfTab : IDisposable
 {
     private int _disposing;
     private AnnotationSession? _annotations;
+    private FormSession? _forms;
 
     public PdfTab(ViewerSession session, string path)
     {
@@ -46,6 +48,15 @@ internal sealed class PdfTab : IDisposable
     /// <summary>The annotation session of the tab, made on first use and disposed with the tab. UI thread.</summary>
     public AnnotationSession Annotations => _annotations ??= new AnnotationSession(this, SynchronizationContext.Current ?? new DispatcherContext());
 
+    /// <summary>
+    /// The form session of the tab, made on first use (it shares the annotation session's editor and history) and disposed with the tab.
+    /// UI thread. Whoever only wants to know whether the document has a form asks <see cref="ViewerSession.Document"/> instead.
+    /// </summary>
+    public FormSession Forms => _forms ??= new FormSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+
+    /// <summary>The form session if one was made, else null.</summary>
+    public FormSession? FormsIfCreated => _forms;
+
     /// <summary>The annotation session if one was made, else null (whoever only asks must not make one).</summary>
     public AnnotationSession? AnnotationsIfCreated => _annotations;
 
@@ -70,6 +81,7 @@ internal sealed class PdfTab : IDisposable
             Disposing?.Invoke();
         }
 
+        _forms?.Dispose();
         _annotations?.Dispose();
         Session.Dispose();
     }

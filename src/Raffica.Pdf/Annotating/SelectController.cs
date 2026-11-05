@@ -407,10 +407,12 @@ internal sealed class SelectController : IToolController
     private static bool IsMarkup(AnnotationKind kind) => kind is AnnotationKind.Highlight or AnnotationKind.Underline or AnnotationKind.StrikeOut;
 
     // A mark Raffica can move, resize and recolour: it has a shape it can redraw without loss.
-    private static bool CanChange(PdfAnnotation a) => a.Editable && a.GeometryEditable && (a.Drawing is not null || a.TextBox is not null);
+    // (an imported signature has no Drawing, but its bounds are a shape: SelectionShape)
+    private static bool CanChange(PdfAnnotation a) => a.Editable && a.GeometryEditable && a.SelectionShape is not null;
 
+    // An imported signature is a picture: it has neither a colour nor a stroke width to change (it can still be moved and scaled).
     private static bool CanChangeStyle(PdfAnnotation a) =>
-        a.Editable && (IsMarkup(a.Kind) || CanChange(a));
+        a.Editable && !a.IsSignatureImage && (IsMarkup(a.Kind) || CanChange(a));
 
     private static PageRect FrameOf(PdfAnnotation a) => a.SelectionShape?.Box ?? a.Bounds;
 
@@ -420,7 +422,7 @@ internal sealed class SelectController : IToolController
     private static PdfAnnotation WithShape(PdfAnnotation a, DrawingGeometry shape) =>
         a.TextBox is { } spec
             ? a with { TextBox = spec with { Box = shape.Box }, Bounds = shape.Box }
-            : a with { Drawing = shape, Bounds = shape.Box };
+            : a.IsSignatureImage ? a with { Bounds = shape.Box } : a with { Drawing = shape, Bounds = shape.Box };
 
     private static bool Differs(DrawingGeometry a, DrawingGeometry b) =>
         Math.Abs(a.Box.Left - b.Box.Left) > 0.001 || Math.Abs(a.Box.Top - b.Box.Top) > 0.001

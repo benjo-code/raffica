@@ -30,6 +30,9 @@ internal sealed class TextInteraction : IDisposable
     private bool _moved;
     private bool _disposed;
 
+    /// <summary>Whether a left press started here is still held (the page has the pointer); for tests.</summary>
+    internal bool IsPressed => _pressed;
+
     /// <param name="yield">Says whether the pointer belongs to something else right now (an annotate tool is active): a press, a hover and a cursor are then left alone.</param>
     public TextInteraction(PdfTab tab, PageView view, DialogQueue dialogs, Action<Uri>? launcher = null, TimeProvider? time = null, Func<bool>? yield = null)
     {

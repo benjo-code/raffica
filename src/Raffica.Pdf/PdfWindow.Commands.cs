@@ -5,13 +5,16 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
+using Raffica.Core.Signatures;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Forms;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
+using Raffica.Pdf.Signing;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
 
@@ -26,12 +29,15 @@ internal sealed partial class PdfWindow
 {
     private readonly Dictionary<PdfTab, PdfPrintInfo> _printInfo = [];
     private readonly Dictionary<PdfTab, bool> _annotateAllowed = [];
+    private readonly Dictionary<PdfTab, bool> _fillAllowed = [];
     private readonly PdfCommandRules _rules;
     private readonly PrintCommand _print;
     private IPrintService? _printService;
     private bool _printProbed;
     private bool _printAvailable;
     private readonly HashSet<Key> _keysDown = [];
+    private SignaturePlacer? _signaturePlacer;
+    private bool _signRunning;
     private Dictionary<string, CommandDefinition> _commandsById = [];
 
     /// <summary>The command modifier of the platform: Cmd on macOS, Ctrl elsewhere (what the frame uses for Ctrl+K).</summary>
@@ -58,10 +64,29 @@ internal sealed partial class PdfWindow
         busySaving: () => _print.IsRunning || _saves.IsSaving,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
-        saveRunning: () => _saves.IsSaving);
+        saveRunning: () => _saves.IsSaving,
+        hasForm: () => Workspace.Active is { } active && TabHasForm(active),
+        fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
+        hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0);
+
+    // The rules ask for every tab, with or without a form: a document without an AcroForm creates no form session (and its subscription) for it.
+    private static bool TabHasForm(PdfTab tab)
+    {
+        try
+        {
+            return tab.FormsIfCreated?.HasForm ?? tab.Session.Document is { HasAcroForm: true };
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>Whether the permissions of a tab allow changing annotations, once they were read (null before: the tools are not refused yet).</summary>
     internal bool? AnnotateAllowedOf(PdfTab tab) => _annotateAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
+
+    /// <summary>Whether the permissions of the document allow filling in forms; <see langword="null"/> until they are read.</summary>
+    internal bool? FillAllowedOf(PdfTab tab) => _fillAllowed.TryGetValue(tab, out var allowed) ? allowed : null;
 
     // Whether the system can print is not asked while the first page is on its way (on Linux that loads libcups): until the first sharp page
     // has been seen Print counts as available, then the answer is asked once and kept.
@@ -161,7 +186,119 @@ internal sealed partial class PdfWindow
             {
                 _ = interaction.Select.DeleteSelectionAsync();
             }
+        },
+        Sign: () => _ = GuardAsync(SignAsync),
+        FormsNext: () => MoveFormFocus(forward: true),
+        FormsPrevious: () => MoveFormFocus(forward: false),
+        FormsNextRequired: RunNextRequired,
+        FormsHighlight: ToggleFormHighlight);
+
+    /// <summary>
+    /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
+    /// "New signature" opens the card); the signature that results is placed at the centre of the visible part of the current page and
+    /// selected with the select tool. A document that forbids annotating (a signature is an annotation) or no document does nothing.
+    /// </summary>
+    internal async Task SignAsync()
+    {
+        // Two quick clicks would queue two pickers behind each other and place twice: a Sign while one runs does nothing.
+        if (_signRunning)
+        {
+            return;
+        }
+
+        _signRunning = true;
+        try
+        {
+            await SignCoreAsync();
+        }
+        finally
+        {
+            _signRunning = false;
+        }
+    }
+
+    private async Task SignCoreAsync()
+    {
+        if (Workspace.Active is not { } tab || AnnotateAllowedOf(tab) == false || !_views.TryGetValue(tab, out var view) || AnnotateOf(tab) is not { } interaction)
+        {
+            return;
+        }
+
+        IReadOnlyList<SavedSignature> items;
+        try
+        {
+            items = await Signatures.LoadAsync();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The folder cannot be read: say so (no path in the text) instead of letting the click do nothing.
+            await Dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.SignaturePlaceTitle, PdfStrings.SignaturePlaceFailed, () => done(true)));
+            return;
+        }
+
+        SavedSignature? chosen;
+        if (items.Count == 0)
+        {
+            chosen = await ShowNewSignatureAsync();
+        }
+        else
+        {
+            var answer = await Dialogs.ShowAsync<PickerResult>(done => SignaturePickerCard.Create(items, Signatures, done));
+            chosen = answer switch
+            {
+                PickerResult.Picked picked => picked.Signature,
+                PickerResult.New => await ShowNewSignatureAsync(),
+                _ => null,
+            };
+        }
+
+        // The cards are modal, so the tab is the one that was active; a tab that was closed meanwhile (by a path around the dialog) gets nothing.
+        if (chosen is null || !Workspace.Tabs.Contains(tab) || AnnotateAllowedOf(tab) == false)
+        {
+            return;
+        }
+
+        _signaturePlacer ??= new SignaturePlacer(Signatures, Tools, Dialogs);
+        await _signaturePlacer.PlaceAsync(tab, view, interaction.Select, chosen);
+    }
+
+    // The commands of the Forms tab work on the active tab and hand the keyboard to its page view, so Enter and Space act on the field right away.
+    private void MoveFormFocus(bool forward) => RunFormMove(mover => mover.MoveAsync(forward));
+
+    // The command and the counter button of the form badge are the same thing.
+    private void RunNextRequired() => RunFormMove(mover => mover.MoveToNextRequiredAsync());
+
+    private void RunFormMove(Func<FormMover, Task<bool>> move)
+    {
+        if (Workspace.Active is not { } active || FormsOf(active) is not { } parts)
+        {
+            return;
+        }
+
+        // A draft whose text is refused stops the walk and is shown, so its hint says why.
+        if (!parts.Interaction.EndOrReveal())
+        {
+            return;
+        }
+
+        _ = GuardAsync(async () =>
+        {
+            await move(parts.Interaction.Mover);
+            if (ReferenceEquals(Workspace.Active, active) && _views.TryGetValue(active, out var view))
+            {
+                view.Focus();
+            }
         });
+    }
+
+    // The ribbon has no checked state: the name of the command says what it does, and the highlight shows on the page.
+    private void ToggleFormHighlight()
+    {
+        if (Workspace.Active is { } active && FormsOf(active) is { } parts)
+        {
+            parts.Markers.ApplyHighlight(!active.Forms.Highlight);
+        }
+    }
 
     private Task UndoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
 
@@ -274,6 +411,12 @@ internal sealed partial class PdfWindow
 
     private void OnToolsChanged()
     {
+        // The form markers are hidden while a tool is active.
+        foreach (var parts in _formParts.Values)
+        {
+            parts.Markers.Invalidate();
+        }
+
         RefreshCommandStates();
         EnforceAnnotatePermission(showCard: true);
     }
@@ -310,6 +453,24 @@ internal sealed partial class PdfWindow
 
         _ = ReadPrintInfoAsync(tab, document);
         _ = ReadAnnotatePermissionAsync(tab, document);
+        _ = ReadFillPermissionAsync(tab, document);
+    }
+
+    private async Task ReadFillPermissionAsync(PdfTab tab, PdfDocument document)
+    {
+        try
+        {
+            var allowed = await document.MayFillFormsAsync();
+            if (Workspace.Tabs.Contains(tab))
+            {
+                _fillAllowed[tab] = allowed;
+                RefreshCommandStates();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A document that went away meanwhile has no permissions to show; filling stays as it was.
+        }
     }
 
     private async Task ReadAnnotatePermissionAsync(PdfTab tab, PdfDocument document)

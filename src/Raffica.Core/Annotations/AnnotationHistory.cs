@@ -155,6 +155,13 @@ public sealed class AnnotationHistory
     public bool HasOnlyFormChanges => _formSteps && !_otherSteps;
 
     /// <summary>
+    /// Gets whether any step pushed since the last <see cref="Clear"/> changed a form value (<see cref="AnnotationCommand.FormValue"/>), whatever else
+    /// was changed next to it. Like <see cref="HasOnlyFormChanges"/> it counts for good until the next clear, also when the step was undone since.
+    /// <see cref="MarkChanged"/> is no step of its own.
+    /// </summary>
+    public bool HasFormChanges => _formSteps;
+
+    /// <summary>
     /// Gets whether a text recognition step was pushed since the last <see cref="Clear"/>, also one undone, dropped or forgotten since: the
     /// document was touched by it. Saving a signed document says then that invisible text is added.
     /// </summary>

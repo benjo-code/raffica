@@ -50,13 +50,65 @@ public static class PngEncoder
         WriteChunk(destination, IendType, []);
     }
 
-    private static void WriteHeader(Stream destination, RenderedImage image)
+    /// <summary>
+    /// Encodes a signature image as an 8-bit RGBA PNG (colour type 6, not interlaced, filter "Up"): unlike
+    /// <see cref="Encode(RenderedImage)"/> this keeps the alpha channel, which is what a signature on transparent paper is made of.
+    /// The pixels are not premultiplied, as in a PNG.
+    /// </summary>
+    public static byte[] EncodeWithAlpha(Signatures.SignatureImage image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        using var destination = new MemoryStream();
+        destination.Write(Signature);
+        WriteHeader(destination, image.Width, image.Height, colorType: 6);
+
+        var rowLength = image.Width * 4;
+        using var compressed = new MemoryStream();
+        using (var zlib = new ZLibStream(compressed, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            var source = image.Bgra;
+            var output = new byte[1 + rowLength];
+            output[0] = 2;
+            for (var y = 0; y < image.Height; y++)
+            {
+                for (var x = 0; x < image.Width; x++)
+                {
+                    var s = ((y * image.Width) + x) * 4;
+                    var d = 1 + (x * 4);
+                    output[d] = Up(source, s + 2, y, rowLength);
+                    output[d + 1] = Up(source, s + 1, y, rowLength);
+                    output[d + 2] = Up(source, s, y, rowLength);
+                    output[d + 3] = Up(source, s + 3, y, rowLength);
+                }
+
+                zlib.Write(output);
+            }
+        }
+
+        var buffer = compressed.GetBuffer().AsSpan(0, (int)compressed.Length);
+        for (var offset = 0; offset < buffer.Length; offset += MaxIdatLength)
+        {
+            WriteChunk(destination, IdatType, buffer.Slice(offset, Math.Min(MaxIdatLength, buffer.Length - offset)));
+        }
+
+        WriteChunk(destination, IendType, []);
+        return destination.ToArray();
+    }
+
+    /// <summary>The byte at <paramref name="index"/> minus the same byte one row above (none in the first row): the "Up" filter.</summary>
+    private static byte Up(byte[] bgra, int index, int row, int rowLength) =>
+        (byte)(bgra[index] - (row == 0 ? 0 : bgra[index - rowLength]));
+
+    private static void WriteHeader(Stream destination, RenderedImage image) =>
+        WriteHeader(destination, image.Width, image.Height, colorType: 2);
+
+    private static void WriteHeader(Stream destination, int width, int height, byte colorType)
     {
         Span<byte> ihdr = stackalloc byte[13];
-        BinaryPrimitives.WriteInt32BigEndian(ihdr[..4], image.Width);
-        BinaryPrimitives.WriteInt32BigEndian(ihdr.Slice(4, 4), image.Height);
+        BinaryPrimitives.WriteInt32BigEndian(ihdr[..4], width);
+        BinaryPrimitives.WriteInt32BigEndian(ihdr.Slice(4, 4), height);
         ihdr[8] = 8; // bit depth
-        ihdr[9] = 2; // colour type: truecolour (RGB)
+        ihdr[9] = colorType; // 2: truecolour (RGB), 6: truecolour with alpha
         ihdr[10] = 0; // compression method: deflate
         ihdr[11] = 0; // filter method: adaptive
         ihdr[12] = 0; // interlace method: none
