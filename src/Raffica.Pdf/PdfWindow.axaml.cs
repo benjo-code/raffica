@@ -69,6 +69,7 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
     private readonly Dictionary<PdfTab, AnnotateInteraction> _annotates = [];
     private readonly Dictionary<PdfTab, AnnotateBadge> _badges = [];
+    private readonly Dictionary<PdfTab, BadgeHost> _hosts = [];
     private readonly Dictionary<PdfTab, FormParts> _formParts = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
     private readonly Action<Uri>? _launcher;
@@ -236,6 +237,9 @@ internal sealed partial class PdfWindow : Window
         _searches.Clear();
         EachStep(_annotates.Values, annotate => annotate.Dispose());
         _annotates.Clear();
+        EachStep(_hosts.Values, host => host.Forms?.Dispose());
+        EachStep(_hosts.Values, host => host.Dispose());
+        _hosts.Clear();
         EachStep(_badges.Values, badge => badge.Dispose());
         _badges.Clear();
         EachStep(_formParts.Values, parts => parts.Interaction.Dispose());
@@ -696,6 +700,12 @@ internal sealed partial class PdfWindow : Window
                 annotate.Dispose();
             }
 
+            if (_hosts.Remove(tab, out var host))
+            {
+                host.Forms?.Dispose();
+                host.Dispose();
+            }
+
             if (_badges.Remove(tab, out var badge))
             {
                 badge.Dispose();
@@ -797,8 +807,10 @@ internal sealed partial class PdfWindow : Window
                 }
             };
             var badge = new AnnotateBadge(Tools, annotate.Select);
-            view.Badge = badge;
+            var host = new BadgeHost(badge, null, Tools);
+            view.Badge = host;
             _badges[active] = badge;
+            _hosts[active] = host;
             AttachForm(active, view);
 
             // The outline is read once for the pane and for the palette, after the first sharp page.
@@ -847,10 +859,31 @@ internal sealed partial class PdfWindow : Window
 
         // The commands of the Forms tab follow what the session knows: the fields, the required list, the highlight.
         tab.Forms.Changed += RefreshCommandStates;
+
+        // The badge (notice, counter, highlight switch) is built once the first sharp page is there, and only for a document with a form.
+        void BuildBadge()
+        {
+            if (_hosts.TryGetValue(tab, out var host) && host.Forms is null && _formParts.ContainsKey(tab))
+            {
+                host.Forms = new FormBadge(tab.Forms, markers, RunNextRequired);
+            }
+        }
+
+        if (view.FirstSharpPageShown)
+        {
+            BuildBadge();
+        }
+        else
+        {
+            view.FirstSharpPage += BuildBadge;
+        }
     }
 
     /// <summary>The form markers and the form focus of a tab once the tab has been shown (for tests and the form interaction); null for a document without a form.</summary>
     internal FormParts? FormsOf(PdfTab tab) => _formParts.GetValueOrDefault(tab);
+
+    /// <summary>The host of the badges of a tab once the tab has been shown (for tests); its form badge exists after the first sharp page of a document with a form.</summary>
+    internal BadgeHost? BadgeHostOf(PdfTab tab) => _hosts.GetValueOrDefault(tab);
 
     /// <summary>The marks pane of a tab once it was opened (for tests); null before.</summary>
     internal MarksPane? MarksOf(PdfTab tab) => _marks.GetValueOrDefault(tab);

@@ -102,7 +102,11 @@ internal sealed class FormMarkers : IPageOverlay, IDisposable
 
         _session.Highlight = on;
         _view?.RestartRendering();
+        HighlightChanged?.Invoke();
     }
+
+    /// <summary>Raised after <see cref="ApplyHighlight"/> changed the highlight (the badge's switch follows it, whoever asked).</summary>
+    public event Action? HighlightChanged;
 
     /// <summary>
     /// Whether a widget gets the star (required and empty). Why a widget is marked is told by the field itself: <see cref="FormField.LockReason"/>

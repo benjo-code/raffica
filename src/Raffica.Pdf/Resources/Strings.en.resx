@@ -926,4 +926,28 @@
   <data name="FormTipRequired" xml:space="preserve">
     <value>Required field, still empty</value>
   </data>
+  <data name="FormNoticeScripts" xml:space="preserve">
+    <value>Calculations, formats and checks in this form need JavaScript and are not run.</value>
+  </data>
+  <data name="FormNoticeXfa" xml:space="preserve">
+    <value>This is an XFA form; Raffica PDF does not support XFA forms.</value>
+  </data>
+  <data name="FormNoticeSignature" xml:space="preserve">
+    <value>Digital signature fields are not supported.</value>
+  </data>
+  <data name="FormNoticeButtons" xml:space="preserve">
+    <value>Buttons in this form never run an action.</value>
+  </data>
+  <data name="FormNoticeDismiss" xml:space="preserve">
+    <value>Dismiss notice</value>
+  </data>
+  <data name="FormRequiredOne" xml:space="preserve">
+    <value>1 required field empty</value>
+  </data>
+  <data name="FormRequiredManyFormat" xml:space="preserve">
+    <value>{0} required fields empty</value>
+  </data>
+  <data name="FormHighlightToggle" xml:space="preserve">
+    <value>Highlight fields</value>
+  </data>
 </root>

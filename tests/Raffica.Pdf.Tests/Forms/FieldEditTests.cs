@@ -421,16 +421,23 @@ public sealed class FieldEditTests
         Assert.True((await f.FromDocumentAsync("Agb")).State.Checked);
     }
 
+    // The badge hangs over the top middle of the page area (as the annotate badge does): a word under it is not the test's.
+    private static bool UnderBadge(FormEditFixture f, Raffica.Core.Text.PageRect box) =>
+        f.View.ToView(0, (box.Left + box.Right) / 2, (box.Top + box.Bottom) / 2) is { } spot && f.Window.BadgeHostOf(f.Tab) is { } host && host.IsVisible && host.Bounds.Contains(spot);
+
     [AvaloniaFact]
     public async Task OutsideAFieldTextSelectionStillWorks()
     {
         using var f = await FormEditFixture.OpenAsync();
+        // The badge takes its size from what the form says (the counter appears once the required fields are read): let it settle before a word is picked.
+        await ViewFixture.WaitAsync(() => f.Window.BadgeHostOf(f.Tab)?.Forms is not null && f.Forms.Info is not null && f.Forms.RequiredKnown);
+        ViewFixture.Pump();
         var text = await f.Tab.Session.EnsurePageTexts()!.GetAsync(0, cancellationToken: Cancel);
         var fields = f.Forms.FieldsOn(0);
 
         // A word of the page that no widget covers: a double click selects it, as it does in a document without a form (links are the
         // unchanged LinkController of 2.1; no form fixture has a link, so this test does not claim them).
-        var letter = text.Chars.Select((c, i) => (c, i)).First(x => char.IsLetter(text.GetText(x.i, 1)[0]) && !fields.Any(w => w.Bounds.Contains((x.c.Box.Left + x.c.Box.Right) / 2, (x.c.Box.Top + x.c.Box.Bottom) / 2)));
+        var letter = text.Chars.Select((c, i) => (c, i)).First(x => text.GetText(x.i, x.i + 1) is { Length: > 0 } glyph && char.IsLetter(glyph[0]) && !fields.Any(w => w.Bounds.Contains((x.c.Box.Left + x.c.Box.Right) / 2, (x.c.Box.Top + x.c.Box.Bottom) / 2)) && !UnderBadge(f, x.c.Box));
         var spot = f.View.ToView(0, (letter.c.Box.Left + letter.c.Box.Right) / 2, (letter.c.Box.Top + letter.c.Box.Bottom) / 2)!.Value;
         var point = f.View.TranslatePoint(spot, f.Window)!.Value;
 

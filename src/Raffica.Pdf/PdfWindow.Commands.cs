@@ -172,11 +172,14 @@ internal sealed partial class PdfWindow
         },
         FormsNext: () => MoveFormFocus(forward: true),
         FormsPrevious: () => MoveFormFocus(forward: false),
-        FormsNextRequired: () => RunFormMove(mover => mover.MoveToNextRequiredAsync()),
+        FormsNextRequired: RunNextRequired,
         FormsHighlight: ToggleFormHighlight);
 
     // The commands of the Forms tab work on the active tab and hand the keyboard to its page view, so Enter and Space act on the field right away.
     private void MoveFormFocus(bool forward) => RunFormMove(mover => mover.MoveAsync(forward));
+
+    // The command and the counter button of the form badge are the same thing.
+    private void RunNextRequired() => RunFormMove(mover => mover.MoveToNextRequiredAsync());
 
     private void RunFormMove(Func<FormMover, Task<bool>> move)
     {

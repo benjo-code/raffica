@@ -923,4 +923,28 @@
   <data name="FormTipRequired" xml:space="preserve">
     <value>Pflichtfeld, noch leer</value>
   </data>
+  <data name="FormNoticeScripts" xml:space="preserve">
+    <value>Berechnungen, Formate und Prüfungen in diesem Formular brauchen JavaScript und werden nicht ausgeführt.</value>
+  </data>
+  <data name="FormNoticeXfa" xml:space="preserve">
+    <value>Dies ist ein XFA-Formular; Raffica PDF unterstützt keine XFA-Formulare.</value>
+  </data>
+  <data name="FormNoticeSignature" xml:space="preserve">
+    <value>Digitale Signaturfelder werden nicht unterstützt.</value>
+  </data>
+  <data name="FormNoticeButtons" xml:space="preserve">
+    <value>Schaltflächen in diesem Formular führen nie eine Aktion aus.</value>
+  </data>
+  <data name="FormNoticeDismiss" xml:space="preserve">
+    <value>Hinweis schließen</value>
+  </data>
+  <data name="FormRequiredOne" xml:space="preserve">
+    <value>1 Pflichtfeld ist leer</value>
+  </data>
+  <data name="FormRequiredManyFormat" xml:space="preserve">
+    <value>{0} Pflichtfelder sind leer</value>
+  </data>
+  <data name="FormHighlightToggle" xml:space="preserve">
+    <value>Felder hervorheben</value>
+  </data>
 </root>
