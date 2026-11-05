@@ -157,6 +157,11 @@
       "date": "2026-11-05",
       "context": "Milestone 2.3",
       "text": "Changes while building, against the plan (details in the amendment of the entry \"Raffica PDF: forms and signing conventions (M2.3)\" in `Docs/DECISIONS.md`). Core got four small additions: `PdfDocument.MayFillFormsAsync`, the `GetFormFieldsAsync(int, PdfPriority, ...)` overload, `AnnotationEditor.HasFormChanges` and `PngEncoder.EncodeWithAlpha`. The required-field card is asked for any form change (`HasFormChanges`, which stays true until the next save clears the history, also after the only form step was undone); the form-aware signed-file wording stays tied to `HasOnlyFormChanges`. Every field-editor text box has `AcceptsReturn = true` and no `MaxLength` (the inner text box of an editable combo box keeps Avalonia's default, see the open items), so Avalonia never shortens a pasted text; a pasted break is refused with the one-line hint, instead of the planned `MaxLength` from the field. Added beyond the plan: hover tooltips and composed automation names for locked and required widgets (`FormInteraction`, `FormAutomation`), `FormFocus.PageToLoad` (the walk never jumps an unloaded page, failed page reads are remembered), non-focusable badge buttons, a card when the signature library cannot be read, the Sign group (digit 5, code 51), image signatures that can be moved and scaled (`SelectController.CanChange` tests `SelectionShape`) and Cancel disabled while a signature save is in flight. `NativeBindingsTests` was fixed: `PermissionFillForms` is a PDF-specification bit and is mapped in `SpecificationValues`."
+    },
+    {
+      "date": "2026-11-05",
+      "context": "Milestone 2.4",
+      "text": "Departures from the predecessor's page design (M13) and the author's calls of the plan `superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md`, recorded in `Docs/DECISIONS.md` (\"Raffica PDF: page organizing conventions (M2.4)\"); the owner can overturn single calls: (1) while a page plan is open, the annotate tools, Sign, form filling, Extract, Split and Export images are disabled with the reason \"Apply or discard the page changes first\" (the output commands read the open document without the plan). (2) Unsaved marks or form values are saved first, after a question; flowing the history into the working copy is not built. (3) The Apply card offers \"Save as…\" as the default and \"Save in the original file\" as an armed second choice, lists every loss per kind before anything is written, and says that a rewrite cannot be undone and that no backup copy is made. (4) After a rewrite the app rebuilds the view and panes of the tab (fallback: reopen the written file in the same strip position), because the page list and the page sizes changed. (5) Merge is \"Insert file…\" into the plan with a page range and a position; the predecessor's merge dialog with a file list stays in the backlog. (6) Extract, Split and Export images are cards with a range field that read the open document; JPEG, crop, watermark, page numbers, page labels, images as pages and dragging pages between tabs stay out as in the predecessor. (7) The ribbon gets a Pages tab (letter P) with the organize, edit, history, apply, output and destructive groups. Milestone 2.5 (redaction) builds on the same rewrite mechanics and the tab rebuild."
     }
   ],
   "subprojects": [
@@ -369,7 +374,8 @@
         {
           "id": "2.4",
           "title": "Organize pages",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["2.2"],
           "goal": "Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.",
