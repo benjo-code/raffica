@@ -1457,4 +1457,7 @@
   <data name="LossListMoreFormat" xml:space="preserve">
     <value>{0} und {1} weitere</value>
   </data>
+  <data name="ApplyPlanChanged" xml:space="preserve">
+    <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wende sie erneut an, um die aktuelle Liste zu sehen.</value>
+  </data>
 </root>

@@ -389,6 +389,7 @@ internal static class PdfStrings
     public static string ApplyOriginal => Table.Get("ApplyOriginal");
     public static string ApplyBack => Table.Get("ApplyBack");
     public static string ApplyOpenEdit => Table.Get("ApplyOpenEdit");
+    public static string ApplyPlanChanged => Table.Get("ApplyPlanChanged");
     public static string ApplyJobTitleFormat => Table.Get("ApplyJobTitleFormat");
     public static string ApplyCheckingTitleFormat => Table.Get("ApplyCheckingTitleFormat");
     public static string ApplySuggestedNameFormat => Table.Get("ApplySuggestedNameFormat");

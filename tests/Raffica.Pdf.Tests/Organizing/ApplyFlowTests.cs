@@ -104,7 +104,7 @@ public sealed class ApplyFlowTests
     }
 
     [AvaloniaFact]
-    public async Task InPlaceApplyReplacesTheOriginalOnlyAfterTheCheck()
+    public async Task TheOriginalIsUnchangedUntilTheRewriterReturnsAndReplacedAfterwards()
     {
         using var rig = await ApplyRig.OpenAsync();
         var original = await File.ReadAllBytesAsync(rig.Path, Ct);
@@ -112,7 +112,7 @@ public sealed class ApplyFlowTests
         rig.Session.Selection.Set(6, [2]);
         rig.Session.Delete();
 
-        // While the rewrite runs (the checked file is not in place yet) the original is as it was.
+        // Nothing is written to the target before the rewriter returns: while it runs the original is byte for byte as it was.
         byte[]? during = null;
         rig.Flow.Rewriter = async (working, engine, request, progress, token) =>
         {
@@ -139,14 +139,28 @@ public sealed class ApplyFlowTests
         rig.Session.Selection.Set(6, [0]);
         rig.Session.Rotate(90);
         bool? onUi = null;
+        var started = new TaskCompletionSource();
+        using var release = new ManualResetEventSlim();
         rig.Flow.Rewriter = (working, engine, request, progress, token) =>
         {
             onUi = Dispatcher.UIThread.CheckAccess();
+            started.SetResult();
+
+            // Blocks the thread it runs on: on the UI thread this would freeze the window and the probe below could not run.
+            release.Wait(token);
             return DocumentSaver.RewriteAsync(working, engine, request, progress, token);
         };
         rig.Picks.Enqueue(Output(rig));
 
-        Assert.True(await rig.ApplyAsync());
+        var run = rig.Flow.RunAsync(rig.Tab);
+        ApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        // The UI thread is free while the rewriter blocks: a dispatcher probe posted now runs.
+        var probe = Dispatcher.UIThread.InvokeAsync(() => true);
+        Assert.True(await probe.GetTask().WaitAsync(TimeSpan.FromSeconds(10), Ct));
+        release.Set();
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
 
         Assert.False(onUi);
     }

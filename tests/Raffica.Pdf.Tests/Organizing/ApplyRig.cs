@@ -32,7 +32,15 @@ internal sealed class ApplyRig : IDisposable
         Flow = new ApplyFlow(
             new DialogQueue(_host.Host),
             t => SaveMarks(t),
-            _ => Task.FromResult(Picks.Count > 0 ? Picks.Dequeue() : null),
+            async _ =>
+            {
+                if (BeforePick is { } before)
+                {
+                    await before();
+                }
+
+                return Picks.Count > 0 ? Picks.Dequeue() : null;
+            },
             () => _engine,
             _ => CurrentPage,
             (t, page) => Rebuilds.Add((t, page)),
@@ -49,6 +57,9 @@ internal sealed class ApplyRig : IDisposable
     public ManualTime Time { get; } = new();
 
     public Queue<string?> Picks { get; } = new();
+
+    /// <summary>Runs while the file picker is open (a test edits the plan there); null: nothing.</summary>
+    public Func<Task>? BeforePick { get; set; }
 
     public List<(PdfTab Tab, int Page)> Rebuilds { get; } = [];
 

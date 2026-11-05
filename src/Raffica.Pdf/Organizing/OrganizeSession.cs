@@ -124,42 +124,41 @@ internal sealed class OrganizeSession : IDisposable
     /// <summary>The files pages were inserted from, by the number the slots name them with.</summary>
     public IReadOnlyDictionary<PageSourceId, InsertedFile> Inserted => _inserted;
 
-    public PlanSummary Summary
+    public PlanSummary Summary => Summarize(Plan);
+
+    /// <summary>What <paramref name="plan"/> does to its document.</summary>
+    public static PlanSummary Summarize(PageEditPlan plan)
     {
-        get
+        var turned = 0;
+        var blank = 0;
+        var duplicated = 0;
+        var files = new HashSet<int>();
+        var seen = new HashSet<(int, int)>();
+        foreach (var slot in plan.Slots)
         {
-            var plan = Plan;
-            var turned = 0;
-            var blank = 0;
-            var duplicated = 0;
-            var files = new HashSet<int>();
-            var seen = new HashSet<(int, int)>();
-            foreach (var slot in plan.Slots)
+            if (slot.ExtraRotation != 0)
             {
-                if (slot.ExtraRotation != 0)
-                {
-                    turned++;
-                }
-
-                if (slot.Blank is not null)
-                {
-                    blank++;
-                    continue;
-                }
-
-                if (slot.Source.Value != 0)
-                {
-                    files.Add(slot.Source.Value);
-                }
-
-                if (!seen.Add((slot.Source.Value, slot.SourceIndex)))
-                {
-                    duplicated++;
-                }
+                turned++;
             }
 
-            return new PlanSummary(plan.PrimaryPageCount, plan.Slots.Count, turned, files.Count, blank, duplicated);
+            if (slot.Blank is not null)
+            {
+                blank++;
+                continue;
+            }
+
+            if (slot.Source.Value != 0)
+            {
+                files.Add(slot.Source.Value);
+            }
+
+            if (!seen.Add((slot.Source.Value, slot.SourceIndex)))
+            {
+                duplicated++;
+            }
         }
+
+        return new PlanSummary(plan.PrimaryPageCount, plan.Slots.Count, turned, files.Count, blank, duplicated);
     }
 
     /// <summary>Starts a plan that leaves the document as it is. Does nothing if one is open. The tab stays clean until the plan changes.</summary>

@@ -46,6 +46,9 @@ internal sealed class ApplyFlow(
     /// <summary>Replaces the rewrite of Core (tests make it fail in ways the saver does not, or block it); null: <see cref="DocumentSaver"/>.</summary>
     internal Func<PdfDocument, PdfEngine, RewriteRequest, IProgress<double>?, CancellationToken, Task<SaveResult>>? Rewriter { get; set; }
 
+    /// <summary>Replaces the dialog around the job card (tests make it throw); null: the normal dialog.</summary>
+    internal Func<SaveJobCard, Dialog>? JobDialog { get; set; }
+
     /// <summary>Gets whether an apply is running (from its first question to its last card).</summary>
     public bool IsRunning { get; private set; }
 
@@ -68,9 +71,9 @@ internal sealed class ApplyFlow(
         }
 
         IsRunning = true;
-        changed?.Invoke();
         try
         {
+            Guarded(() => changed?.Invoke());
             return await RunCoreAsync(tab, session, target);
         }
         catch (OperationCanceledException)
@@ -122,12 +125,12 @@ internal sealed class ApplyFlow(
                 // Canceled or failed (the save said why): the flow stops, the plan stays.
                 return false;
             }
-
-            // The save cleared the dirty state its own session had set; the plan is still open.
-            tab.MarkDirty();
         }
 
+        // The plan the user is shown is the plan that is written: a change of the list while a picker or card was open is noticed by its version.
         var plan = session.Plan;
+        var version = session.Version;
+        var summary = OrganizeSession.Summarize(plan);
         var inserted = session.Inserted;
         string Name(int id) => inserted.TryGetValue(new PageSourceId(id), out var file) ? file.Name : id.ToString(System.Globalization.CultureInfo.CurrentCulture);
 
@@ -137,14 +140,14 @@ internal sealed class ApplyFlow(
         var report = await RunJobAsync(tab, PdfStrings.ApplyCheckingTitleFormat, (_, token) => PageEditExecutor.AnalyzeAsync(plan, document, opened, token));
 
         // (4) The card. A refused report only says why.
-        var summary = session.Summary;
         var choice = await dialogs.ShowAsync<ApplyChoice>(done => ApplyCard.Create(tab.Title, summary, report, id => Name(id), target, done, time));
-        if (choice == ApplyChoice.Back || report.IsRefused || !session.IsActive)
+        if (choice == ApplyChoice.Back || report.IsRefused || !session.IsActive || session.Version != version)
         {
             return false;
         }
 
-        // (5) The target. "Save as" never preselects the name of the open file; the system dialog confirms replacing another file.
+        // (5) The target. "Save as" never preselects the name of the open file; the system dialog confirms replacing another file, so the request
+        // keeps ReplaceExisting at its default (true) and nothing here asks again.
         var tabPath = tab.Path ?? throw new InvalidOperationException("The tab has no path.");
         var targetPath = tabPath;
         if (choice == ApplyChoice.SaveAs)
@@ -155,6 +158,13 @@ internal sealed class ApplyFlow(
             }
 
             targetPath = Path.GetFullPath(picked);
+        }
+
+        if (!session.IsActive || session.Version != version)
+        {
+            // The list was edited while the picker was open: nothing is written for a plan the user has not seen.
+            await Tell(PdfStrings.ApplyPlanChanged);
+            return false;
         }
 
         // (6) The rewrite.
@@ -220,7 +230,7 @@ internal sealed class ApplyFlow(
             Guarded(() => tab.Rename(written));
         }
 
-        // The plan ends first (the pages pane lets go of the inserted files), then the pieces of the tab are made anew over the adopted document.
+        // Deliberate order: the plan ends first (the pages pane lets go of the inserted files), then the pieces of the tab are made anew over the adopted document.
         Guarded(session.End);
         Guarded(() => rebuild(tab, page));
         if (renamed)
@@ -285,7 +295,7 @@ internal sealed class ApplyFlow(
             }
 
             close = done;
-            var dialog = new Dialog { Title = PdfStrings.ApplyTitle, Content = card };
+            var dialog = JobDialog?.Invoke(card) ?? new Dialog { Title = PdfStrings.ApplyTitle, Content = card };
             dialog.CancelRequested += (_, _) => card.RequestCancel();
             return dialog;
         });
@@ -306,9 +316,9 @@ internal sealed class ApplyFlow(
             {
                 await shown;
             }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                // The card never appeared.
+                // The card never appeared or could not be made: that must not replace the result of the job (a written file is no failure).
             }
         }
     }

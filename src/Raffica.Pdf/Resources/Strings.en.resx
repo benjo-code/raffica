@@ -1473,4 +1473,7 @@
   <data name="LossListMoreFormat" xml:space="preserve">
     <value>{0} and {1} more</value>
   </data>
+  <data name="ApplyPlanChanged" xml:space="preserve">
+    <value>The page changes were edited while the file dialog was open, so nothing was written. Apply again to see the current list.</value>
+  </data>
 </root>
