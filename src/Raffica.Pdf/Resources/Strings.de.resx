@@ -977,4 +977,94 @@
   <data name="RequiredSaveAnyway" xml:space="preserve">
     <value>Trotzdem speichern</value>
   </data>
+  <data name="SignatureNewTitle" xml:space="preserve">
+    <value>Neue Unterschrift</value>
+  </data>
+  <data name="SignatureNewTabs" xml:space="preserve">
+    <value>Art der Erstellung</value>
+  </data>
+  <data name="SignatureNewTabDraw" xml:space="preserve">
+    <value>Zeichnen</value>
+  </data>
+  <data name="SignatureNewTabImage" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="SignatureNewName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="SignatureNewDefaultNameFormat" xml:space="preserve">
+    <value>Unterschrift {0}</value>
+  </data>
+  <data name="SignatureNewPadName" xml:space="preserve">
+    <value>Zeichenfläche für Ihre Unterschrift</value>
+  </data>
+  <data name="SignatureNewClear" xml:space="preserve">
+    <value>Leeren</value>
+  </data>
+  <data name="SignatureNewBack" xml:space="preserve">
+    <value>Zurück</value>
+  </data>
+  <data name="SignatureNewBackTip" xml:space="preserve">
+    <value>Letzten Strich entfernen</value>
+  </data>
+  <data name="SignatureNewInk" xml:space="preserve">
+    <value>Tintenfarbe</value>
+  </data>
+  <data name="SignatureNewChoose" xml:space="preserve">
+    <value>Bild wählen</value>
+  </data>
+  <data name="SignatureNewImageNone" xml:space="preserve">
+    <value>PNG oder JPG, bis 10 MB</value>
+  </data>
+  <data name="SignatureNewImageLoaded" xml:space="preserve">
+    <value>Schieben Sie den Regler, bis nur Ihre Unterschrift übrig bleibt.</value>
+  </data>
+  <data name="SignatureNewCutout" xml:space="preserve">
+    <value>Freistellen</value>
+  </data>
+  <data name="SignatureNewCutoutTip" xml:space="preserve">
+    <value>Rechts bleibt mehr vom Bild, links wird mehr entfernt</value>
+  </data>
+  <data name="SignatureNewPreview" xml:space="preserve">
+    <value>Vorschau auf transparentem Hintergrund</value>
+  </data>
+  <data name="SignatureNewSave" xml:space="preserve">
+    <value>Unterschrift speichern</value>
+  </data>
+  <data name="SignatureNewPickTitle" xml:space="preserve">
+    <value>Bild Ihrer Unterschrift wählen</value>
+  </data>
+  <data name="SignatureNewPickFilter" xml:space="preserve">
+    <value>Bilder (PNG, JPG)</value>
+  </data>
+  <data name="SignatureNewRefusalLimit" xml:space="preserve">
+    <value>Die Sammlung enthält schon zehn Unterschriften. Entfernen Sie zuerst eine.</value>
+  </data>
+  <data name="SignatureNewRefusalTooLarge" xml:space="preserve">
+    <value>Die Datei ist größer als 10 MB.</value>
+  </data>
+  <data name="SignatureNewRefusalTooManyPixels" xml:space="preserve">
+    <value>Das Bild ist auf einer Seite größer als 6000 Pixel.</value>
+  </data>
+  <data name="SignatureNewRefusalUnreadable" xml:space="preserve">
+    <value>Die Datei ist kein PNG- oder JPG-Bild oder kann nicht gelesen werden.</value>
+  </data>
+  <data name="SignatureNewRefusalEmpty" xml:space="preserve">
+    <value>Vom Bild bleibt nichts übrig. Wählen Sie ein anderes Bild oder schieben Sie den Regler.</value>
+  </data>
+  <data name="SignatureNewRefusalAspect" xml:space="preserve">
+    <value>Die Unterschrift wäre zu breit oder zu hoch. Wählen Sie ein anderes Bild oder schieben Sie den Regler.</value>
+  </data>
+  <data name="SignatureNewRefusalUnusable" xml:space="preserve">
+    <value>Diese Zeichnung kann nicht gespeichert werden. Leeren Sie sie und zeichnen Sie mit weniger Strichen neu.</value>
+  </data>
+  <data name="SignatureNewRefusalWriteFailed" xml:space="preserve">
+    <value>Die Unterschrift konnte nicht gespeichert werden. Es wurde nichts geändert.</value>
+  </data>
+  <data name="SignatureHintWritten" xml:space="preserve">
+    <value>Ersetzt keine handschriftliche Unterschrift, wo die Schriftform vorgeschrieben ist.</value>
+  </data>
+  <data name="SignatureHintImage" xml:space="preserve">
+    <value>Das ist ein Bild Ihrer Unterschrift, keine digitale Signatur.</value>
+  </data>
 </root>

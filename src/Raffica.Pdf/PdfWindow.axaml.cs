@@ -10,6 +10,7 @@ using Raffica.Core.Hosting;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
 using Raffica.Core.Settings;
+using Raffica.Core.Signatures;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
@@ -286,6 +287,33 @@ internal sealed partial class PdfWindow : Window
     /// library nor its folder exists before that, so the start and the measurement runs are unchanged.
     /// </summary>
     internal SignatureLibrary Signatures => _signatures ??= new SignatureLibrary(() => PdfSettingsFiles.SignaturesDirectoryFor(_options.SettingsFile));
+
+    /// <summary>
+    /// Shows the new-signature card (through the dialog queue) and gives the signature it saved, or <see langword="null"/> when it was cancelled.
+    /// The card picks its image with the system file dialog unless <paramref name="pickImage"/> is given (tests).
+    /// </summary>
+    internal Task<SavedSignature?> ShowNewSignatureAsync(Func<Task<Stream?>>? pickImage = null) =>
+        Dialogs.ShowAsync<SavedSignature?>(done => NewSignatureCard.Create(Signatures, pickImage ?? PickSignatureImageAsync, done));
+
+    /// <summary>The file dialog of the card: one PNG or JPG; the stream is read by the card, the path is never kept.</summary>
+    private async Task<Stream?> PickSignatureImageAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = PdfStrings.SignatureNewPickTitle,
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(PdfStrings.SignatureNewPickFilter)
+                {
+                    Patterns = ["*.png", "*.PNG", "*.jpg", "*.JPG", "*.jpeg", "*.JPEG"],
+                    MimeTypes = ["image/png", "image/jpeg"],
+                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg"],
+                },
+            ],
+        });
+        return files.Count == 0 ? null : await files[0].OpenReadAsync();
+    }
 
     /// <summary>The open documents; the title bar tabs and the status bar follow it.</summary>
     internal Workspace Workspace { get; }

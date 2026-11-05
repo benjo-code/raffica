@@ -28,6 +28,10 @@ public sealed class SaveCardsTests
         "UnsavedLockedTitle", "UnsavedLockedMessageFormat", "UnsavedDiscard",
     ];
 
+    // Every text of the new-signature card and its hint (M2.3): found by name, so a new string is covered without a list to keep.
+    private static readonly string[] SignatureKeys =
+        [.. typeof(PdfStrings).GetProperties().Where(p => p.PropertyType == typeof(string) && p.Name.StartsWith("Signature", StringComparison.Ordinal)).Select(p => p.Name)];
+
     private sealed class Shown(Window window, Dialog card, ManualTime time) : IDisposable
     {
         public Dialog Card { get; } = card;
@@ -300,7 +304,7 @@ public sealed class SaveCardsTests
         foreach (var culture in new[] { "en", "de" })
         {
             var info = CultureInfo.GetCultureInfo(culture);
-            var texts = CardKeys.Select(k => PdfStrings.GetIn(k, info)).ToList();
+            var texts = CardKeys.Concat(SignatureKeys).Select(k => PdfStrings.GetIn(k, info)).ToList();
             PdfStrings.Culture = info;
             texts.AddRange(AllReasons.Select(PdfStrings.SaveFailure));
             Assert.All(texts, t => Assert.False(banned.IsMatch(t), t));

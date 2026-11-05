@@ -980,4 +980,94 @@
   <data name="RequiredSaveAnyway" xml:space="preserve">
     <value>Save anyway</value>
   </data>
+  <data name="SignatureNewTitle" xml:space="preserve">
+    <value>New signature</value>
+  </data>
+  <data name="SignatureNewTabs" xml:space="preserve">
+    <value>Way to make the signature</value>
+  </data>
+  <data name="SignatureNewTabDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="SignatureNewTabImage" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="SignatureNewName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="SignatureNewDefaultNameFormat" xml:space="preserve">
+    <value>Signature {0}</value>
+  </data>
+  <data name="SignatureNewPadName" xml:space="preserve">
+    <value>Drawing area for your signature</value>
+  </data>
+  <data name="SignatureNewClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="SignatureNewBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="SignatureNewBackTip" xml:space="preserve">
+    <value>Remove the last stroke</value>
+  </data>
+  <data name="SignatureNewInk" xml:space="preserve">
+    <value>Ink colour</value>
+  </data>
+  <data name="SignatureNewChoose" xml:space="preserve">
+    <value>Choose image</value>
+  </data>
+  <data name="SignatureNewImageNone" xml:space="preserve">
+    <value>PNG or JPG, up to 10 MB</value>
+  </data>
+  <data name="SignatureNewImageLoaded" xml:space="preserve">
+    <value>Move the slider until only your signature is left.</value>
+  </data>
+  <data name="SignatureNewCutout" xml:space="preserve">
+    <value>Cutout</value>
+  </data>
+  <data name="SignatureNewCutoutTip" xml:space="preserve">
+    <value>Right keeps more of the image, left removes more</value>
+  </data>
+  <data name="SignatureNewPreview" xml:space="preserve">
+    <value>Preview on a transparent background</value>
+  </data>
+  <data name="SignatureNewSave" xml:space="preserve">
+    <value>Save signature</value>
+  </data>
+  <data name="SignatureNewPickTitle" xml:space="preserve">
+    <value>Choose an image of your signature</value>
+  </data>
+  <data name="SignatureNewPickFilter" xml:space="preserve">
+    <value>Images (PNG, JPG)</value>
+  </data>
+  <data name="SignatureNewRefusalLimit" xml:space="preserve">
+    <value>The library already holds ten signatures. Remove one first.</value>
+  </data>
+  <data name="SignatureNewRefusalTooLarge" xml:space="preserve">
+    <value>The file is larger than 10 MB.</value>
+  </data>
+  <data name="SignatureNewRefusalTooManyPixels" xml:space="preserve">
+    <value>The image is larger than 6000 pixels on a side.</value>
+  </data>
+  <data name="SignatureNewRefusalUnreadable" xml:space="preserve">
+    <value>The file is not a PNG or JPG image, or it cannot be read.</value>
+  </data>
+  <data name="SignatureNewRefusalEmpty" xml:space="preserve">
+    <value>Nothing of the image is left. Choose another image or move the slider.</value>
+  </data>
+  <data name="SignatureNewRefusalAspect" xml:space="preserve">
+    <value>The signature would be too wide or too tall. Choose another image or move the slider.</value>
+  </data>
+  <data name="SignatureNewRefusalUnusable" xml:space="preserve">
+    <value>This drawing cannot be saved. Clear it and draw again with fewer strokes.</value>
+  </data>
+  <data name="SignatureNewRefusalWriteFailed" xml:space="preserve">
+    <value>The signature could not be saved. Nothing was changed.</value>
+  </data>
+  <data name="SignatureHintWritten" xml:space="preserve">
+    <value>Replaces no handwritten signature where written form is required.</value>
+  </data>
+  <data name="SignatureHintImage" xml:space="preserve">
+    <value>This is an image of your signature, not a digital signature.</value>
+  </data>
 </root>
