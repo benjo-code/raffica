@@ -209,7 +209,7 @@ internal sealed class ImageExportFlow(
         try
         {
             JobRunner.Guarded(() => changed?.Invoke());
-            if (SplitFlow.Refusal(tab) is { } reason)
+            if (await SplitFlow.FlushedRefusalAsync(tab) is { } reason)
             {
                 await Tell(title, reason);
                 return false;
@@ -239,9 +239,23 @@ internal sealed class ImageExportFlow(
     {
         var source = DocumentSplitter.SourceOf(tab.Session) ?? throw new InvalidOperationException(PdfStrings.OutputNoSource);
         var sizes = await ReadSizesAsync(tab, source.Document);
+
+        // The sizes were read without a job card: the mode may have started or a mark been made meanwhile.
+        if (SplitFlow.Refusal(tab) is { } afterRead)
+        {
+            await Tell(PdfStrings.CmdExportImages, afterRead);
+            return false;
+        }
+
         var choice = await dialogs.ShowAsync<ImageExportChoice?>(done => ExportImagesCard.Create(tab.Title, sizes, () => pickFolder(tab), done));
         if (choice is not { } chosen)
         {
+            return false;
+        }
+
+        if (SplitFlow.Refusal(tab) is { } afterCard)
+        {
+            await Tell(PdfStrings.CmdExportImages, afterCard);
             return false;
         }
 

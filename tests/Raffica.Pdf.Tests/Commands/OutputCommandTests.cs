@@ -335,6 +335,25 @@ public sealed class OutputCommandTests
         await export.WaitAsync(TimeSpan.FromSeconds(20), Ct);
     }
 
+    // A value typed into a field and not yet written is a mark: the flows end the edit first (as Print and Apply do), so the lock for unsaved marks sees it
+    // and says "Save the marks first" instead of cutting files that miss the value.
+    [AvaloniaFact]
+    public async Task OpenFieldEditIsEndedFirstAndThenCountsAsAnUnsavedMark()
+    {
+        using var f = await Forms.FormEditFixture.OpenAsync();
+        var box = (TextBox)f.Open(f.Field("Name"));
+        Forms.FormEditFixture.SetText(box, "Erika");
+        Assert.True(f.Interaction.IsEditing);
+
+        var run = f.Window.Output.ExtractAsync(f.Tab);
+        var notice = await CardWithAsync(f.Windows, "PART_Message");
+        Assert.Equal(PdfStrings.SaveMarksFirstReason, PrintHost.Find<TextBlock>(notice, "PART_Message").Text);
+        Click(notice, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.False(f.Interaction.IsEditing);
+        Assert.True(f.Tab.Annotations.Editor.IsDirty);
+    }
+
     [AvaloniaFact]
     public async Task ClosingTheTabDuringTheExportCancelsItAndTheCardKeepsWhatWasWritten()
     {

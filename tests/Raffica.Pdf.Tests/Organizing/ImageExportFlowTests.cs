@@ -458,12 +458,72 @@ public sealed class ImageExportFlowTests
         Assert.Equal(0, rig.FolderAsked);
 
         rig.Tab.Organize.End();
-        using var pending = rig.Tab.Annotations.BeginPending();
+        using var pending = rig.Tab.Annotations.BeginUnresolved();
         var marks = rig.Flow.ExportAsync(rig.Tab);
         var notice = await rig.CardWithAsync("PART_Ok");
         Assert.Contains(ExportRig.TextsOf(notice), t => t == PdfStrings.SaveMarksFirstReason);
         ExportRig.Click(notice, "PART_Ok");
         Assert.False(await marks.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
+    // A draft that ends during the flush is a mark made before the locks are read: no refusal because of a nudge that was about to finish.
+    [AvaloniaFact]
+    public async Task OpenDraftIsFlushedBeforeTheLocksAreRead()
+    {
+        using var rig = await ExportRig.OpenAsync();
+        var pending = rig.Tab.Annotations.BeginPending();
+        var run = rig.Flow.ExportAsync(rig.Tab);
+        pending.Dispose();
+
+        var card = await rig.CardWithAsync("PART_Range");
+        ExportRig.Click(card, "PART_Cancel");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
+    // The sizes are read without a job card: a mode that starts meanwhile refuses the export before its card.
+    [AvaloniaFact]
+    public async Task ModeStartedDuringTheSizeReadRefusesTheExport()
+    {
+        using var rig = await ExportRig.OpenAsync();
+        var gate = new TaskCompletionSource();
+        rig.Flow.SizeReader = async (document, token) =>
+        {
+            await gate.Task;
+            return await document.GetPageSizesAsync(0, document.PageCount, PdfPriority.Background, token);
+        };
+        var run = rig.Flow.ExportAsync(rig.Tab);
+
+        rig.Tab.Organize.Enter();
+        gate.SetResult();
+
+        var notice = await rig.CardWithAsync("PART_Ok");
+        Assert.Contains(ExportRig.TextsOf(notice), t => t == PdfStrings.PageChangesLockedReason);
+        ExportRig.Click(notice, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Equal(0, rig.FolderAsked);
+    }
+
+    // The export card takes time: a mode that starts while it is open refuses the export when Export is pressed, and nothing is written.
+    [AvaloniaFact]
+    public async Task ModeStartedWhileTheExportCardIsOpenRefusesTheWrite()
+    {
+        using var rig = await ExportRig.OpenAsync();
+        var folder = rig.NewFolder();
+        rig.FolderPicks.Enqueue(folder);
+        var run = rig.Flow.ExportAsync(rig.Tab);
+        var card = await rig.CardWithAsync("PART_Range");
+        ExportRig.Click(card, "PART_ChooseFolder");
+        var export = PrintHost.Find<Button>(card, "PART_Export");
+        await PrintHost.UntilAsync(() => export.IsEnabled);
+
+        rig.Tab.Organize.Enter();
+        ExportRig.Click(card, "PART_Export");
+
+        var notice = await rig.CardWithAsync("PART_Ok");
+        Assert.Contains(ExportRig.TextsOf(notice), t => t == PdfStrings.PageChangesLockedReason);
+        ExportRig.Click(notice, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Empty(Pngs(folder));
     }
 
     [AvaloniaFact]

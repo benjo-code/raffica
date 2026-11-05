@@ -45,7 +45,15 @@ internal sealed class SplitRig : IDisposable
                 return _engine;
             },
             _ => CurrentPage,
-            (t, token) => Outline is { } custom ? Task.FromResult(custom) : t.Session.Document!.GetOutlineAsync(token),
+            async (t, token) =>
+            {
+                if (OutlineGate is { } gate)
+                {
+                    await gate;
+                }
+
+                return Outline is { } custom ? custom : await t.Session.Document!.GetOutlineAsync(token);
+            },
             path =>
             {
                 Opened.Add(path);
@@ -71,6 +79,9 @@ internal sealed class SplitRig : IDisposable
     public List<bool> EngineOnUiThread { get; } = [];
 
     public int CurrentPage { get; set; }
+
+    /// <summary>When set, the read of the outline waits for it (the user can act during a read that has no job card).</summary>
+    public Task? OutlineGate { get; set; }
 
     /// <summary>An outline no file has (hostile titles); null: the outline of the document.</summary>
     public IReadOnlyList<PdfOutlineItem>? Outline { get; set; }

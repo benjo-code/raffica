@@ -43,6 +43,7 @@ internal sealed class SplitFlow(
 {
     private readonly JobRunner _jobs = new(dialogs);
     private string _jobTitle = string.Empty;
+    private string _title = string.Empty;
 
     /// <summary>The write of Core (<see cref="DocumentSplitter.WriteAsync"/>).</summary>
     internal delegate Task<IReadOnlyList<string>> PartsWriter(
@@ -151,7 +152,8 @@ internal sealed class SplitFlow(
         {
             JobRunner.Guarded(() => changed?.Invoke());
             _jobTitle = jobTitle;
-            if (Refusal(tab) is { } reason)
+            _title = title;
+            if (await FlushedRefusalAsync(tab) is { } reason)
             {
                 await Tell(title, reason);
                 return false;
@@ -175,6 +177,29 @@ internal sealed class SplitFlow(
             IsRunning = false;
             JobRunner.Guarded(() => changed?.Invoke());
         }
+    }
+
+    // An open field edit or pending nudge is made first (as Print and Apply do), so a value just typed is a mark the lock below sees; then the locks.
+    internal static async Task<string?> FlushedRefusalAsync(PdfTab tab)
+    {
+        if (tab.AnnotationsIfCreated is { } annotations)
+        {
+            await annotations.FlushAsync();
+        }
+
+        return Refusal(tab);
+    }
+
+    // The locks are read again after an await that let the user act (a read without a card, a card, a picker); says why and returns false when one holds.
+    private async Task<bool> StillAllowedAsync(PdfTab tab)
+    {
+        if (Refusal(tab) is not { } reason)
+        {
+            return true;
+        }
+
+        await Tell(_title, reason);
+        return false;
     }
 
     // The same locks as the commands: the files are cut from the file on disk, so an open plan or unsaved marks would not be in them.
@@ -205,7 +230,7 @@ internal sealed class SplitFlow(
         }
 
         var part = DocumentSplitter.Extract(pageCount, range, stem);
-        if (!await ConfirmLossesAsync(tab, source, [part], lines => done => ExtractCard.CreateConfirm(range, lines, done)))
+        if (!await ConfirmLossesAsync(tab, source, [part], lines => done => ExtractCard.CreateConfirm(range, lines, done)) || !await StillAllowedAsync(tab))
         {
             return false;
         }
@@ -239,6 +264,12 @@ internal sealed class SplitFlow(
         {
             // A file whose outline cannot be read has no bookmarks to split by.
             outline = [];
+        }
+
+        // The outline was read without a job card: the mode may have started or a mark been made meanwhile.
+        if (!await StillAllowedAsync(tab))
+        {
+            return false;
         }
 
         var hasBookmarks = PlanFor(pageCount, SplitModeChoice.Bookmarks, "1", "all", stem, outline).Parts is not null;
@@ -287,6 +318,12 @@ internal sealed class SplitFlow(
 
     private async Task<bool> WriteAsync(PdfTab tab, SplitSource source, IReadOnlyList<SplitPart> parts, string folder, bool overwrite, string title, bool canOpen)
     {
+        // Cards, a picker and a check job came since the locks were read: the files are cut from the file on disk, so they are read again before the write.
+        if (!await StillAllowedAsync(tab))
+        {
+            return false;
+        }
+
         var written = new List<string>();
         Exception? failure = null;
         var canceled = false;

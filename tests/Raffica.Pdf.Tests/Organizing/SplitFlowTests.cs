@@ -470,7 +470,7 @@ public sealed class SplitFlowTests
 
         // Unsaved marks lock them too: the files are cut from the file on disk.
         rig.Tab.Organize.End();
-        using var pending = rig.Tab.Annotations.BeginPending();
+        using var pending = rig.Tab.Annotations.BeginUnresolved();
         var marks = rig.Flow.ExtractAsync(rig.Tab);
         var notice = await rig.CardWithAsync("PART_Ok");
         Assert.Contains(SplitRig.TextsOf(notice), t => t == PdfStrings.SaveMarksFirstReason);
@@ -509,6 +509,63 @@ public sealed class SplitFlowTests
             Assert.NotEqual(PdfStrings.OutputFailOther, text);
             Assert.DoesNotContain("{", text, StringComparison.Ordinal);
         }
+    }
+
+    // A draft that ends during the flush is a mark made before the locks are read: the flow does not refuse because of a nudge that was about to finish.
+    [AvaloniaFact]
+    public async Task OpenDraftIsFlushedBeforeTheLocksAreRead()
+    {
+        using var rig = await SplitRig.OpenAsync();
+        var pending = rig.Tab.Annotations.BeginPending();
+        var run = rig.Flow.ExtractAsync(rig.Tab);
+        pending.Dispose();
+
+        // Without the flush the refusal "Save the marks first" would have been told at once.
+        var card = await rig.CardWithAsync("PART_Range");
+        Assert.DoesNotContain(SplitRig.TextsOf(card), t => t == PdfStrings.SaveMarksFirstReason);
+        SplitRig.Click(card, "PART_Cancel");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
+    // The outline is read without a job card: a mode that starts meanwhile refuses the split before its card.
+    [AvaloniaFact]
+    public async Task ModeStartedDuringTheOutlineReadRefusesTheSplit()
+    {
+        using var rig = await SplitRig.OpenAsync();
+        var gate = new TaskCompletionSource();
+        rig.OutlineGate = gate.Task;
+        var run = rig.Flow.SplitAsync(rig.Tab);
+
+        rig.Tab.Organize.Enter();
+        gate.SetResult();
+
+        var notice = await rig.CardWithAsync("PART_Ok");
+        Assert.Contains(SplitRig.TextsOf(notice), t => t == PdfStrings.PageChangesLockedReason);
+        SplitRig.Click(notice, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Equal(0, rig.FolderAsked);
+        Assert.False(rig.Flow.IsRunning);
+    }
+
+    // The range card, the check and the save dialog take time: the locks are read again before anything is written.
+    [AvaloniaFact]
+    public async Task ModeStartedWhileTheRangeCardIsOpenRefusesTheExtractBeforeTheWrite()
+    {
+        using var rig = await SplitRig.OpenAsync();
+        var target = System.IO.Path.Combine(rig.NewFolder(), "extracted.pdf");
+        rig.SavePicks.Enqueue(target);
+        var run = rig.Flow.ExtractAsync(rig.Tab);
+        var card = await rig.CardWithAsync("PART_Range");
+
+        rig.Tab.Organize.Enter();
+        SplitRig.Click(card, "PART_Extract");
+
+        var notice = await rig.ResultAsync();
+        Assert.Contains(SplitRig.TextsOf(notice), t => t == PdfStrings.PageChangesLockedReason);
+        SplitRig.Click(notice, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.False(File.Exists(target));
+        Assert.Empty(rig.SuggestedNames);
     }
 
     [Fact]
