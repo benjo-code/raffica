@@ -240,6 +240,74 @@ public sealed class ApplyFlowTests
         Assert.False(rig.Tab.IsDirty);
     }
 
+    // Save as is asked to keep the open file: the save-first card must say plainly that the open file is changed (the plain Apply card keeps its wording).
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SaveFirstCardNamesTheChangedFileOnTheSaveAsPathOnly(bool changedWording)
+    {
+        using var rig = await ApplyRig.OpenAsync("text-rich.pdf");
+        Assert.NotNull(await AnnotatedFile.HighlightAsync(rig.Tab.Annotations));
+        await rig.Tab.Annotations.FlushAsync();
+        rig.Session.Selection.Set(rig.Session.Plan.Slots.Count, [0]);
+        Assert.True(rig.Session.Rotate(90).IsDone);
+
+        var run = rig.Flow.RunAsync(rig.Tab, changedWording ? ApplyTarget.SaveAs : ApplyTarget.Choose);
+        var question = await rig.CardWithAsync("PART_SaveFirst");
+        var message = PrintHost.Find<TextBlock>(question, "PART_Message").Text;
+
+        var title = rig.Tab.Title;
+        Assert.Equal(PdfStrings.Fill(changedWording ? PdfStrings.SaveFirstSaveAsMessage : PdfStrings.SaveFirstMessage, title), message);
+        if (changedWording)
+        {
+            // Both languages name the open file and say that it is changed.
+            foreach (var language in new[] { "en", "de" })
+            {
+                var text = PdfStrings.Fill(PdfStrings.GetIn("SaveFirstSaveAsMessage", System.Globalization.CultureInfo.GetCultureInfo(language)), "x.pdf");
+                Assert.Contains("x.pdf", text, StringComparison.Ordinal);
+                Assert.Contains(language == "en" ? "is changed" : "geändert", text, StringComparison.Ordinal);
+            }
+        }
+
+        ApplyRig.Click(question, "PART_Back");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
+    // After the marks were written into the file, a failed rewrite must not claim that the file is unchanged.
+    [AvaloniaFact]
+    public async Task AFailureAfterSaveFirstDoesNotSayTheFileIsUnchanged()
+    {
+        using var rig = await ApplyRig.OpenAsync("text-rich.pdf");
+        Assert.NotNull(await AnnotatedFile.HighlightAsync(rig.Tab.Annotations));
+        await rig.Tab.Annotations.FlushAsync();
+        rig.Session.Selection.Set(rig.Session.Plan.Slots.Count, [0]);
+        Assert.True(rig.Session.Rotate(90).IsDone);
+        rig.SaveMarks = async tab =>
+        {
+            await tab.Annotations.Editor.SaveAsync(new PdfEngine(), tab.Path!, false, new Progress<double>(), Ct);
+            tab.Annotations.Refresh();
+            return true;
+        };
+        rig.Flow.Rewriter = (_, _, _, _, _) => throw new InvalidOperationException("boom");
+        rig.Picks.Enqueue(Output(rig));
+
+        var run = rig.Flow.RunAsync(rig.Tab);
+        ApplyRig.Click(await rig.CardWithAsync("PART_SaveFirst"), "PART_SaveFirst");
+        ApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+        var failure = await rig.CardWithAsync("PART_Ok");
+        var texts = ApplyRig.TextsOf(failure);
+
+        Assert.Contains(texts, t => t is not null && t.Contains(PdfStrings.ApplyStaysAfterSave, StringComparison.Ordinal));
+        Assert.DoesNotContain(texts, t => t is not null && t.Contains(PdfStrings.ApplyStays, StringComparison.Ordinal));
+        ApplyRig.Click(failure, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.True(rig.Session.IsActive);
+
+        // The next run starts again from "nothing saved first": an identity-free failure without a save-first says "unchanged".
+        Assert.Contains(PdfStrings.ApplyStays, ApplyFlow.FailureText(rig.Tab, new InvalidOperationException("x")).Message, StringComparison.Ordinal);
+        Assert.Contains(PdfStrings.ApplyStaysAfterSave, ApplyFlow.FailureText(rig.Tab, new InvalidOperationException("x"), savedFirst: true).Message, StringComparison.Ordinal);
+    }
+
     [AvaloniaFact]
     public async Task BackOnTheSaveFirstCardKeepsEverything()
     {

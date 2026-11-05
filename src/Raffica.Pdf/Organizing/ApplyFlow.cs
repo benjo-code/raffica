@@ -57,6 +57,9 @@ internal sealed class ApplyFlow(
     /// <summary>Gets whether an apply is running (from its first question to its last card).</summary>
     public bool IsRunning { get; private set; }
 
+    // Whether the marks were saved into the file by this run (read by the failure text).
+    private bool _savedFirst;
+
     /// <summary>Cancels the running job, if any (the window is closing).</summary>
     public void Cancel() => _jobs.Cancel();
 
@@ -76,6 +79,7 @@ internal sealed class ApplyFlow(
         }
 
         IsRunning = true;
+        _savedFirst = false;
         try
         {
             JobRunner.Guarded(() => changed?.Invoke());
@@ -120,7 +124,7 @@ internal sealed class ApplyFlow(
         // (2) The rewrite takes its pages from the file: marks and form values that are not in it yet are saved first, on agreement.
         if (tab.AnnotationsIfCreated is { Editor.IsDirty: true } unsaved)
         {
-            if (!await dialogs.ShowAsync<bool>(done => SaveFirstCard.Create(tab.Title, done)))
+            if (!await dialogs.ShowAsync<bool>(done => SaveFirstCard.Create(tab.Title, done, target == ApplyTarget.SaveAs)))
             {
                 return false;
             }
@@ -130,6 +134,9 @@ internal sealed class ApplyFlow(
                 // Canceled or failed (the save said why): the flow stops, the plan stays.
                 return false;
             }
+
+            // From here on the marks are in the file: a failure must not say that the file is unchanged.
+            _savedFirst = true;
         }
 
         // The plan the user is shown is the plan that is written: a change of the list while a picker or card was open is noticed by its version.
@@ -256,7 +263,7 @@ internal sealed class ApplyFlow(
 
     private Task<bool> FailAsync(PdfTab tab, Exception ex)
     {
-        var (title, message) = FailureText(tab, ex);
+        var (title, message) = FailureText(tab, ex, _savedFirst);
         return FailedCardAsync(tab.Title, title, message);
     }
 
@@ -266,10 +273,14 @@ internal sealed class ApplyFlow(
         return false;
     }
 
-    /// <summary>The title and the sentence of a failure: the reason, and that the file is unchanged and the plan is open (except after an adopt failure).</summary>
-    internal static (string Title, string Message) FailureText(PdfTab tab, Exception ex)
+    /// <summary>
+    /// The title and the sentence of a failure: the reason, and that the file is unchanged and the plan is open (except after an adopt failure).
+    /// <paramref name="savedFirst"/>: the marks were written into the file first, so the sentence says that instead of "unchanged".
+    /// </summary>
+    internal static (string Title, string Message) FailureText(PdfTab tab, Exception ex, bool savedFirst = false)
     {
-        var stays = " " + PdfStrings.ApplyStays;
+        // After a save-first the marks were just written into the file, so "the file is unchanged" would be wrong.
+        var stays = " " + (savedFirst ? PdfStrings.ApplyStaysAfterSave : PdfStrings.ApplyStays);
         var message = ex switch
         {
             PageApplyAdoptException adopt => PdfStrings.Fill(PdfStrings.ApplyFailAdoptFormat, adopt.TargetPath),

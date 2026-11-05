@@ -395,9 +395,11 @@ internal static class PdfStrings
     public static string ApplySuggestedNameFormat => Table.Get("ApplySuggestedNameFormat");
     public static string SaveFirstTitle => Table.Get("SaveFirstTitle");
     public static string SaveFirstMessage => Table.Get("SaveFirstMessage");
+    public static string SaveFirstSaveAsMessage => Table.Get("SaveFirstSaveAsMessage");
     public static string SaveFirstSave => Table.Get("SaveFirstSave");
     public static string ApplyFailedTitle => Table.Get("ApplyFailedTitle");
     public static string ApplyStays => Table.Get("ApplyStays");
+    public static string ApplyStaysAfterSave => Table.Get("ApplyStaysAfterSave");
     public static string ApplyChangesOpen => Table.Get("ApplyChangesOpen");
     public static string ApplyFailSourceModified => Table.Get("ApplyFailSourceModified");
     public static string ApplyFailInsertedModifiedFormat => Table.Get("ApplyFailInsertedModifiedFormat");

@@ -1355,6 +1355,9 @@
   <data name="SaveFirstMessage" xml:space="preserve">
     <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Seitenänderungen angewendet.</value>
   </data>
+  <data name="SaveFirstSaveAsMessage" xml:space="preserve">
+    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach werden die Seitenänderungen als neue Datei gespeichert. Mit „Zurück“ bleibt alles, wie es ist.</value>
+  </data>
   <data name="SaveFirstSave" xml:space="preserve">
     <value>Zuerst speichern</value>
   </data>
@@ -1363,6 +1366,9 @@
   </data>
   <data name="ApplyStays" xml:space="preserve">
     <value>Die Datei ist unverändert, und die Seitenänderungen sind weiterhin offen.</value>
+  </data>
+  <data name="ApplyStaysAfterSave" xml:space="preserve">
+    <value>Die Markierungen sind in der Datei gespeichert, die Seitenänderungen wurden aber nicht angewendet und sind weiterhin offen.</value>
   </data>
   <data name="ApplyChangesOpen" xml:space="preserve">
     <value>Die Seitenänderungen sind weiterhin offen.</value>

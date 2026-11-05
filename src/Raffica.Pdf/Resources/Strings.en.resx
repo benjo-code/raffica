@@ -1371,6 +1371,9 @@
   <data name="SaveFirstMessage" xml:space="preserve">
     <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the page changes are applied.</value>
   </data>
+  <data name="SaveFirstSaveAsMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the page changes are saved as a new file. Back leaves everything as it is.</value>
+  </data>
   <data name="SaveFirstSave" xml:space="preserve">
     <value>Save first</value>
   </data>
@@ -1379,6 +1382,9 @@
   </data>
   <data name="ApplyStays" xml:space="preserve">
     <value>The file is unchanged and the page changes are still open.</value>
+  </data>
+  <data name="ApplyStaysAfterSave" xml:space="preserve">
+    <value>The marks are saved into the file, but the page changes were not applied and are still open.</value>
   </data>
   <data name="ApplyChangesOpen" xml:space="preserve">
     <value>The page changes are still open.</value>
