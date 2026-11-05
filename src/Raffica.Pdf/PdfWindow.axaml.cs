@@ -709,6 +709,7 @@ internal sealed partial class PdfWindow : Window
             var tab = (PdfTab)e.NewItems![0]!;
             tab.DirtyChanged += UpdateSaveState;
             tab.Annotations.StateChanged += RefreshCommandStates;
+            tab.OrganizeCreated += OnOrganizeCreated;
             if (tab.Path is { } opened)
             {
                 _recent.Touch(opened);
@@ -721,6 +722,7 @@ internal sealed partial class PdfWindow : Window
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
             tab.Annotations.StateChanged -= RefreshCommandStates;
+            tab.OrganizeCreated -= OnOrganizeCreated;
             _printInfo.Remove(tab);
             _annotateAllowed.Remove(tab);
             _fillAllowed.Remove(tab);
@@ -844,6 +846,12 @@ internal sealed partial class PdfWindow : Window
     private void OnWorkspaceActiveChanged()
     {
         Tabs.Selected = Workspace.Active?.Tab;
+        if (OpenPlan is not null)
+        {
+            // The tool is the window's, not the tab's: a tool left over from another tab does not run over an open plan.
+            Tools.End();
+        }
+
         UpdateSaveState();
         ShowActiveView();
         EnforceAnnotatePermission(showCard: false);
@@ -871,6 +879,9 @@ internal sealed partial class PdfWindow : Window
 
             // The permissions are read only once this tab has its first sharp page: nothing for the print command is asked before.
             view.FirstSharpPage += () => LoadPrintInfo(shownTab);
+
+            // The Pages commands wait for the first sharp page (nothing of the mode is read before it).
+            view.FirstSharpPage += RefreshCommandStates;
             var created = view;
             view.ViewChanged += () =>
             {

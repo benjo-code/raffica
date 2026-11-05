@@ -1176,4 +1176,70 @@
     <value>A plan can hold at most {0} pages. Nothing was changed.</value>
     <comment>Notice when the plan would grow beyond the limit; {0} is the limit.</comment>
   </data>
+  <data name="TabPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="GroupOrganize" xml:space="preserve">
+    <value>Organize</value>
+  </data>
+  <data name="GroupApply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="GroupOutput" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="CmdOrganize" xml:space="preserve">
+    <value>Organize pages</value>
+  </data>
+  <data name="CmdRotateLeft" xml:space="preserve">
+    <value>Rotate left</value>
+  </data>
+  <data name="CmdRotateRight" xml:space="preserve">
+    <value>Rotate right</value>
+  </data>
+  <data name="CmdDuplicatePages" xml:space="preserve">
+    <value>Duplicate pages</value>
+  </data>
+  <data name="CmdBlankPage" xml:space="preserve">
+    <value>Insert blank page</value>
+  </data>
+  <data name="CmdInsertFile" xml:space="preserve">
+    <value>Insert pages from file…</value>
+  </data>
+  <data name="CmdMovePagesUp" xml:space="preserve">
+    <value>Move pages up</value>
+  </data>
+  <data name="CmdMovePagesDown" xml:space="preserve">
+    <value>Move pages down</value>
+  </data>
+  <data name="CmdPagesUndo" xml:space="preserve">
+    <value>Undo page change</value>
+  </data>
+  <data name="CmdPagesRedo" xml:space="preserve">
+    <value>Redo page change</value>
+  </data>
+  <data name="CmdApplyPages" xml:space="preserve">
+    <value>Apply page changes</value>
+  </data>
+  <data name="CmdDiscardPages" xml:space="preserve">
+    <value>Discard page changes</value>
+  </data>
+  <data name="CmdDeletePages" xml:space="preserve">
+    <value>Delete pages</value>
+  </data>
+  <data name="CmdExtractPages" xml:space="preserve">
+    <value>Extract pages…</value>
+  </data>
+  <data name="CmdSplitDocument" xml:space="preserve">
+    <value>Split document…</value>
+  </data>
+  <data name="CmdExportImages" xml:space="preserve">
+    <value>Export pages as images…</value>
+  </data>
+  <data name="PageChangesLockedReason" xml:space="preserve">
+    <value>Apply or discard the page changes first</value>
+  </data>
+  <data name="SaveMarksFirstReason" xml:space="preserve">
+    <value>Save the marks first</value>
+  </data>
 </root>

@@ -445,6 +445,9 @@ internal sealed class OrganizeList : UserControl, IDisposable
         }
     }
 
+    /// <summary>Says what a refused step of a ribbon command was (the list's notice); a step that worked takes an old notice away.</summary>
+    internal void Report(OrganizeResult result) => Apply(result);
+
     private void Say(string text)
     {
         _notice.Text = text;

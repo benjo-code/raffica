@@ -59,15 +59,22 @@ internal sealed partial class PdfWindow
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
         PrintAvailable,
         isDirty: () => Workspace.Active is { IsDirty: true },
-        canUndo: () => Workspace.Active?.Annotations.CanUndo == true,
-        canRedo: () => Workspace.Active?.Annotations.CanRedo == true,
+        canUndo: () => OpenPlan is { } plan ? plan.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
+        canRedo: () => OpenPlan is { } plan ? plan.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
         busySaving: () => _print.IsRunning || _saves.IsSaving,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
         saveRunning: () => _saves.IsSaving,
         hasForm: () => Workspace.Active is { } active && TabHasForm(active),
         fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
-        hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0);
+        hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0,
+        pagesReady: () => Workspace.Active is { } active && _views.TryGetValue(active, out var view) && view.FirstSharpPageShown,
+        organizeActive: () => OpenPlan is not null,
+        pageSelection: () => OpenPlan is { } plan && plan.Selection.Count > 0,
+        planCanUndo: () => OpenPlan?.CanUndo == true,
+        planCanRedo: () => OpenPlan?.CanRedo == true,
+        planChanged: () => OpenPlan is { } plan && !plan.Plan.IsIdentity,
+        marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true);
 
     // The rules ask for every tab, with or without a form: a document without an AcroForm creates no form session (and its subscription) for it.
     private static bool TabHasForm(PdfTab tab)
@@ -191,7 +198,17 @@ internal sealed partial class PdfWindow
         FormsNext: () => MoveFormFocus(forward: true),
         FormsPrevious: () => MoveFormFocus(forward: false),
         FormsNextRequired: RunNextRequired,
-        FormsHighlight: ToggleFormHighlight);
+        FormsHighlight: ToggleFormHighlight,
+        Organize: ToggleOrganize,
+        RotateLeft: () => RunPageEdit(session => session.Rotate(-90)),
+        RotateRight: () => RunPageEdit(session => session.Rotate(90)),
+        DuplicatePages: () => RunPageEdit(session => session.Duplicate()),
+        BlankPage: InsertBlankPage,
+        MovePagesUp: () => RunPageEdit(session => session.MoveBy(-1)),
+        MovePagesDown: () => RunPageEdit(session => session.MoveBy(1)),
+        PagesUndo: () => OpenPlan?.Undo(),
+        PagesRedo: () => OpenPlan?.Redo(),
+        DeletePages: () => RunPageEdit(session => session.Delete()));
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
@@ -300,9 +317,28 @@ internal sealed partial class PdfWindow
         }
     }
 
-    private Task UndoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
+    // While the page plan is open Undo and Redo (the Home tab's and Ctrl+Z, Ctrl+Y) belong to its history; the marks are locked and clean then.
+    private Task UndoActiveAsync()
+    {
+        if (OpenPlan is { } plan)
+        {
+            plan.Undo();
+            return Task.CompletedTask;
+        }
 
-    private Task RedoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.RedoAsync() : Task.CompletedTask;
+        return Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
+    }
+
+    private Task RedoActiveAsync()
+    {
+        if (OpenPlan is { } plan)
+        {
+            plan.Redo();
+            return Task.CompletedTask;
+        }
+
+        return Workspace.Active is { } tab ? tab.Annotations.RedoAsync() : Task.CompletedTask;
+    }
 
     /// <summary>Indexes the commands of the ribbon by id and attaches the window-wide shortcuts. Called once, after the ribbon exists.</summary>
     private void AttachShortcuts(RibbonDefinition definition)
@@ -411,6 +447,13 @@ internal sealed partial class PdfWindow
 
     private void OnToolsChanged()
     {
+        // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a plan is open.
+        if (Tools.Tool != AnnotateTool.None && OpenPlan is not null)
+        {
+            Tools.End();
+            return;
+        }
+
         // The form markers are hidden while a tool is active.
         foreach (var parts in _formParts.Values)
         {

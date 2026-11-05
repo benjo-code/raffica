@@ -282,6 +282,9 @@ internal sealed partial class PageView : Control
         }
     }
 
+    /// <summary>The size in points of a page (0-based), or <see langword="null"/> while it is not known yet or the page does not exist.</summary>
+    internal PdfPageSize? PageSizeOf(int page) => _layout is { } layout && page >= 0 && page < layout.PageCount && layout.IsSizeKnown(page) ? layout.GetPageSize(page) : null;
+
     /// <summary>The size in points of the first page, or <see langword="null"/> while it is not known yet.</summary>
     internal PdfPageSize? FirstPageSize => _layout is { PageCount: > 0 } layout && layout.IsSizeKnown(0) ? layout.GetPageSize(0) : null;
 

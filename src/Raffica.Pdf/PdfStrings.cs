@@ -327,6 +327,28 @@ internal static class PdfStrings
     public static string OrganizeCopy => Table.Get("OrganizeCopy");
     public static string OrganizeLastPageRefused => Table.Get("OrganizeLastPageRefused");
     public static string OrganizeLimitRefusedFormat => Table.Get("OrganizeLimitRefusedFormat");
+    public static string TabPages => Table.Get("TabPages");
+    public static string GroupOrganize => Table.Get("GroupOrganize");
+    public static string GroupApply => Table.Get("GroupApply");
+    public static string GroupOutput => Table.Get("GroupOutput");
+    public static string CmdOrganize => Table.Get("CmdOrganize");
+    public static string CmdRotateLeft => Table.Get("CmdRotateLeft");
+    public static string CmdRotateRight => Table.Get("CmdRotateRight");
+    public static string CmdDuplicatePages => Table.Get("CmdDuplicatePages");
+    public static string CmdBlankPage => Table.Get("CmdBlankPage");
+    public static string CmdInsertFile => Table.Get("CmdInsertFile");
+    public static string CmdMovePagesUp => Table.Get("CmdMovePagesUp");
+    public static string CmdMovePagesDown => Table.Get("CmdMovePagesDown");
+    public static string CmdPagesUndo => Table.Get("CmdPagesUndo");
+    public static string CmdPagesRedo => Table.Get("CmdPagesRedo");
+    public static string CmdApplyPages => Table.Get("CmdApplyPages");
+    public static string CmdDiscardPages => Table.Get("CmdDiscardPages");
+    public static string CmdDeletePages => Table.Get("CmdDeletePages");
+    public static string CmdExtractPages => Table.Get("CmdExtractPages");
+    public static string CmdSplitDocument => Table.Get("CmdSplitDocument");
+    public static string CmdExportImages => Table.Get("CmdExportImages");
+    public static string PageChangesLockedReason => Table.Get("PageChangesLockedReason");
+    public static string SaveMarksFirstReason => Table.Get("SaveMarksFirstReason");
 
     /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
     public static string Fill(string template, object? first, object? second = null) =>

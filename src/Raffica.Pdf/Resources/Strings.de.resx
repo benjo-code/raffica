@@ -1160,4 +1160,70 @@
   <data name="OrganizeLimitRefusedFormat" xml:space="preserve">
     <value>Ein Plan kann höchstens {0} Seiten enthalten. Nichts wurde geändert.</value>
   </data>
+  <data name="TabPages" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="GroupOrganize" xml:space="preserve">
+    <value>Organisieren</value>
+  </data>
+  <data name="GroupApply" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="GroupOutput" xml:space="preserve">
+    <value>Ausgabe</value>
+  </data>
+  <data name="CmdOrganize" xml:space="preserve">
+    <value>Seiten organisieren</value>
+  </data>
+  <data name="CmdRotateLeft" xml:space="preserve">
+    <value>Nach links drehen</value>
+  </data>
+  <data name="CmdRotateRight" xml:space="preserve">
+    <value>Nach rechts drehen</value>
+  </data>
+  <data name="CmdDuplicatePages" xml:space="preserve">
+    <value>Seiten duplizieren</value>
+  </data>
+  <data name="CmdBlankPage" xml:space="preserve">
+    <value>Leere Seite einfügen</value>
+  </data>
+  <data name="CmdInsertFile" xml:space="preserve">
+    <value>Seiten aus Datei einfügen …</value>
+  </data>
+  <data name="CmdMovePagesUp" xml:space="preserve">
+    <value>Seiten nach oben</value>
+  </data>
+  <data name="CmdMovePagesDown" xml:space="preserve">
+    <value>Seiten nach unten</value>
+  </data>
+  <data name="CmdPagesUndo" xml:space="preserve">
+    <value>Seitenänderung rückgängig</value>
+  </data>
+  <data name="CmdPagesRedo" xml:space="preserve">
+    <value>Seitenänderung wiederholen</value>
+  </data>
+  <data name="CmdApplyPages" xml:space="preserve">
+    <value>Seitenänderungen anwenden</value>
+  </data>
+  <data name="CmdDiscardPages" xml:space="preserve">
+    <value>Seitenänderungen verwerfen</value>
+  </data>
+  <data name="CmdDeletePages" xml:space="preserve">
+    <value>Seiten löschen</value>
+  </data>
+  <data name="CmdExtractPages" xml:space="preserve">
+    <value>Seiten extrahieren …</value>
+  </data>
+  <data name="CmdSplitDocument" xml:space="preserve">
+    <value>Dokument teilen …</value>
+  </data>
+  <data name="CmdExportImages" xml:space="preserve">
+    <value>Seiten als Bilder exportieren …</value>
+  </data>
+  <data name="PageChangesLockedReason" xml:space="preserve">
+    <value>Wenden Sie die Seitenänderungen zuerst an oder verwerfen Sie sie</value>
+  </data>
+  <data name="SaveMarksFirstReason" xml:space="preserve">
+    <value>Speichern Sie zuerst die Markierungen</value>
+  </data>
 </root>
