@@ -271,10 +271,11 @@ public sealed class MarksPaneTests
     public async Task DeleteIgnoresKeyRepeatInTheList()
     {
         PdfAnnotation? first = null;
+        PdfAnnotation? second = null;
         using var f = await Fixture.OpenAsync("pages-marked.pdf", async a =>
         {
             first = await AddRectangleAsync(a, 0, 80, 80);
-            await AddRectangleAsync(a, 0, 80, 200);
+            second = await AddRectangleAsync(a, 0, 80, 200);
         });
         f.Annotate.Tools.Choose(AnnotateTool.Select);
         Assert.Equal(2, f.Pane.RowCount);
@@ -283,19 +284,14 @@ public sealed class MarksPaneTests
         await f.SettleAsync();
         f.Pane.ContainerOf(f.Pane.List.SelectedIndex)!.Focus(NavigationMethod.Tab);
 
-        // One physical press: the key goes down, the system repeats it, and only the first one deletes.
+        // One physical press: the key goes down and the system repeats it while the delete is on its way; one mark goes.
         f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
-        await f.SettleAsync();
-        Assert.Equal(1, f.Pane.RowCount);
-
-        // The focus stays in the list (on the row that is left) while the key is held.
-        f.Pane.List.SelectedIndex = 0;
-        f.Pane.ContainerOf(0)!.Focus(NavigationMethod.Tab);
         f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
         f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
         await f.SettleAsync();
         Assert.Equal(1, f.Pane.RowCount);
-        Assert.Single(await f.Annotate.Tab.Session.Document!.GetAnnotationsAsync(0, Cancel));
+        var left = Assert.Single(await f.Annotate.Tab.Session.Document!.GetAnnotationsAsync(0, Cancel));
+        Assert.Equal(second!.Name, left.Name);
 
         // Released and pressed again, the next press deletes the next mark.
         f.Window.KeyRelease(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
@@ -303,6 +299,47 @@ public sealed class MarksPaneTests
         f.Pane.List.SelectedIndex = 0;
         f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
         await f.SettleAsync();
+        Assert.Equal(0, f.Pane.RowCount);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("click")]
+    [InlineData("focusLeft")]
+    public async Task ADeleteAfterADeleteWorksWhenNoKeyUpReachedTheList(string how)
+    {
+        PdfAnnotation? first = null;
+        PdfAnnotation? second = null;
+        using var f = await Fixture.OpenAsync("pages-marked.pdf", async a =>
+        {
+            first = await AddRectangleAsync(a, 0, 80, 80);
+            second = await AddRectangleAsync(a, 0, 80, 200);
+        });
+        f.Annotate.Tools.Choose(AnnotateTool.Select);
+        f.Click(f.Pane.ContainerOf(f.IndexOf(first!.Name))!);
+        await f.SettleAsync();
+        f.Pane.ContainerOf(f.Pane.List.SelectedIndex)!.Focus(NavigationMethod.Tab);
+
+        // The key goes down on the row and the row goes away with the delete: the release never reaches the list.
+        f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        await f.SettleAsync();
+        Assert.Equal(1, f.Pane.RowCount);
+
+        if (how == "click")
+        {
+            f.Click(f.Pane.ContainerOf(f.IndexOf(second!.Name))!);
+        }
+        else
+        {
+            f.Window.Focus();
+            ViewFixture.Pump();
+            f.Pane.List.SelectedIndex = f.IndexOf(second!.Name);
+        }
+
+        await f.SettleAsync();
+        f.Pane.ContainerOf(f.Pane.List.SelectedIndex)!.Focus(NavigationMethod.Tab);
+        f.Window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+        await f.SettleAsync();
+
         Assert.Equal(0, f.Pane.RowCount);
     }
 

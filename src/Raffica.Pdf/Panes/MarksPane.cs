@@ -101,9 +101,22 @@ internal sealed class MarksPane : UserControl, IDisposable
         AutomationProperties.SetName(_list, PdfStrings.PaneMarks);
         _list.SelectionChanged += (_, _) => OnListSelectionChanged();
         _list.ContainerPrepared += (_, e) => Decorate(e.Container, e.Index);
+        _list.AddHandler(PointerPressedEvent, (_, _) => _heldKeys.Clear(), RoutingStrategies.Tunnel, handledEventsToo: true);
         _list.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         _list.AddHandler(KeyDownEvent, OnListKeyDown, RoutingStrategies.Tunnel);
         _list.AddHandler(KeyUpEvent, (_, e) => _heldKeys.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        // A key whose release never reaches the list (the focused row went away with a delete, the focus moved on) is not held any more:
+        // when the focus has left the list the flag is dropped. A move from row to row stays inside and keeps it.
+        _list.AddHandler(LostFocusEvent, (_, _) => Dispatcher.UIThread.Post(DropHeldKeysWhenFocusLeft), RoutingStrategies.Bubble, handledEventsToo: true);
+        _list.DetachedFromVisualTree += (_, _) => _heldKeys.Clear();
+        _list.AttachedToVisualTree += (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(_list) is Window window)
+            {
+                window.Deactivated += (_, _) => _heldKeys.Clear();
+            }
+        };
         _list.AddHandler(GotFocusEvent, (_, e) => NavList.EnterAt(_list, e, () => Math.Max(0, _list.SelectedIndex)), RoutingStrategies.Bubble, handledEventsToo: true);
 
         _empty = new TextBlock
@@ -513,6 +526,15 @@ internal sealed class MarksPane : UserControl, IDisposable
 
         _list.SelectedIndex = index;
         Act(_rows[index]);
+    }
+
+    private void DropHeldKeysWhenFocusLeft()
+    {
+        var focused = TopLevel.GetTopLevel(_list)?.FocusManager?.GetFocusedElement();
+        if (focused is not Visual visual || !(ReferenceEquals(visual, _list) || _list.IsVisualAncestorOf(visual)))
+        {
+            _heldKeys.Clear();
+        }
     }
 
     private void OnListKeyDown(object? sender, KeyEventArgs e)
