@@ -410,6 +410,9 @@
   <data name="SettingsDefaultZoom" xml:space="preserve">
     <value>Default zoom</value>
   </data>
+  <data name="SettingsAuthorName" xml:space="preserve">
+    <value>Author name</value>
+  </data>
   <data name="PrintCardTitle" xml:space="preserve">
     <value>Print</value>
   </data>
@@ -494,10 +497,358 @@
   <data name="PrintBusy" xml:space="preserve">
     <value>A print job is already running.</value>
   </data>
+  <data name="SaveBusy" xml:space="preserve">
+    <value>A save is running.</value>
+  </data>
+  <data name="SaveJobTitleFormat" xml:space="preserve">
+    <value>Saving {0}</value>
+  </data>
+  <data name="SaveDialogTitle" xml:space="preserve">
+    <value>Save as</value>
+  </data>
   <data name="PrintFailedPagesFormat" xml:space="preserve">
     <value>These pages could not be printed: {0}.</value>
   </data>
   <data name="PrintFailedMoreFormat" xml:space="preserve">
     <value>{0} and {1} more</value>
+  </data>
+  <data name="TabAnnotate" xml:space="preserve">
+    <value>Annotate</value>
+  </data>
+  <data name="GroupHistory" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="GroupMarkup" xml:space="preserve">
+    <value>Markup</value>
+  </data>
+  <data name="GroupDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="GroupEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="GroupDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="CmdAnnotateMode" xml:space="preserve">
+    <value>Annotate mode</value>
+  </data>
+  <data name="CmdHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="CmdUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="CmdStrikeOut" xml:space="preserve">
+    <value>Strike out</value>
+  </data>
+  <data name="CmdSelectMark" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="CmdFreehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="CmdRectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="CmdEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="CmdLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="CmdArrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="CmdTextBox" xml:space="preserve">
+    <value>Text box</value>
+  </data>
+  <data name="CmdAnnotateDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="CmdMarksPane" xml:space="preserve">
+    <value>Marks</value>
+  </data>
+  <data name="CmdDeleteMark" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="AnnotateLockedReason" xml:space="preserve">
+    <value>This document does not allow changing annotations.</value>
+  </data>
+  <data name="AnnotateModeFormat" xml:space="preserve">
+    <value>{0} – Esc to finish</value>
+  </data>
+  <data name="AnnotateCardTitle" xml:space="preserve">
+    <value>Annotations</value>
+  </data>
+  <data name="AnnotateLimitReached" xml:space="preserve">
+    <value>This document already has as many annotations as Raffica can list (10,000). Nothing more could be added. What was added before that was kept and can be undone.</value>
+  </data>
+  <data name="AnnotateFailed" xml:space="preserve">
+    <value>The mark could not be added. What was added before that, on earlier pages, was kept and can be undone.</value>
+  </data>
+  <data name="SelectLockedReason" xml:space="preserve">
+    <value>Locked: another program made this mark in a way Raffica cannot redraw without loss. You can comment on it or delete it.</value>
+  </data>
+  <data name="SelectFailed" xml:space="preserve">
+    <value>The change could not be made. The mark is as it was.</value>
+  </data>
+  <data name="TextBoxRejectedFormat" xml:space="preserve">
+    <value>A text box cannot show these characters: {0}</value>
+  </data>
+  <data name="TextBoxTooLong" xml:space="preserve">
+    <value>The text is longer than 2,000 characters.</value>
+  </data>
+  <data name="TextBoxTooManyLines" xml:space="preserve">
+    <value>The text has more than 200 lines.</value>
+  </data>
+  <data name="TextBoxFieldName" xml:space="preserve">
+    <value>Text of the text box</value>
+  </data>
+  <data name="PaneMarks" xml:space="preserve">
+    <value>Marks</value>
+  </data>
+  <data name="MarkFilterName" xml:space="preserve">
+    <value>Show marks</value>
+  </data>
+  <data name="MarkFilterAll" xml:space="preserve">
+    <value>All marks</value>
+  </data>
+  <data name="MarkFilterHighlight" xml:space="preserve">
+    <value>Highlights</value>
+  </data>
+  <data name="MarkFilterUnderline" xml:space="preserve">
+    <value>Underlines</value>
+  </data>
+  <data name="MarkFilterStrikeOut" xml:space="preserve">
+    <value>Strike-outs</value>
+  </data>
+  <data name="MarkFilterDrawings" xml:space="preserve">
+    <value>Drawings and text boxes</value>
+  </data>
+  <data name="MarkFilterOther" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="MarkKindHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="MarkKindUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="MarkKindStrikeOut" xml:space="preserve">
+    <value>Strike-out</value>
+  </data>
+  <data name="MarkKindFreehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="MarkKindRectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="MarkKindEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="MarkKindLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="MarkKindArrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="MarkKindTextBox" xml:space="preserve">
+    <value>Text box</value>
+  </data>
+  <data name="MarkKindSignature" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="MarkKindOtherFormat" xml:space="preserve">
+    <value>Other: {0}</value>
+  </data>
+  <data name="MarkGroupFormat" xml:space="preserve">
+    <value>Freehand, {0} strokes</value>
+  </data>
+  <data name="MarkPageTagFormat" xml:space="preserve">
+    <value>p. {0}</value>
+  </data>
+  <data name="MarkLockedLabel" xml:space="preserve">
+    <value>Locked</value>
+  </data>
+  <data name="MarkSummaryOneFormat" xml:space="preserve">
+    <value>1 mark on page {0}</value>
+  </data>
+  <data name="MarkSummaryOnePageFormat" xml:space="preserve">
+    <value>{0} marks, all on page {1}</value>
+  </data>
+  <data name="MarkSummaryPagesFormat" xml:space="preserve">
+    <value>{0} marks on {1} pages</value>
+  </data>
+  <data name="MarksEmpty" xml:space="preserve">
+    <value>This document has no marks.</value>
+  </data>
+  <data name="MarksNoneOfKind" xml:space="preserve">
+    <value>No marks of this kind.</value>
+  </data>
+  <data name="MarksHelp" xml:space="preserve">
+    <value>A deleted mark stays in earlier revisions of the file.</value>
+  </data>
+  <data name="MarkCommentName" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="MarkCommentHint" xml:space="preserve">
+    <value>Ctrl+Enter applies, Esc discards.</value>
+  </data>
+  <data name="MarkRepliesReason" xml:space="preserve">
+    <value>This mark has replies, so Raffica leaves it as it is.</value>
+  </data>
+  <data name="MarkOtherReason" xml:space="preserve">
+    <value>Made by another program. Raffica shows it but cannot change it.</value>
+  </data>
+  <data name="MarkTextBoxLockedReason" xml:space="preserve">
+    <value>Locked: another program made this text box. You can delete it.</value>
+  </data>
+  <data name="MarkTextBoxNote" xml:space="preserve">
+    <value>Double-click the text box in the document to change its text.</value>
+  </data>
+  <data name="MarkCommentFailed" xml:space="preserve">
+    <value>The comment could not be changed. The mark is as it was.</value>
+  </data>
+  <data name="SignedWarnTitle" xml:space="preserve">
+    <value>This signature does not allow comments</value>
+  </data>
+  <data name="SignedWarnText" xml:space="preserve">
+    <value>After saving, programs such as Acrobat will show it as invalid.</value>
+  </data>
+  <data name="SignedNoteTitle" xml:space="preserve">
+    <value>This document is signed</value>
+  </data>
+  <data name="SignedNoteText" xml:space="preserve">
+    <value>Raffica PDF only appends your changes; the signed bytes stay unchanged.</value>
+  </data>
+  <data name="SignedSaveAnyway" xml:space="preserve">
+    <value>Save anyway</value>
+  </data>
+  <data name="ChangedTitle" xml:space="preserve">
+    <value>The file has been replaced</value>
+  </data>
+  <data name="ChangedMessageFormat" xml:space="preserve">
+    <value>Another file has taken the place of {0} since you opened it. Do you want to overwrite it?</value>
+  </data>
+  <data name="ChangedOverwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="SaveFailedTitle" xml:space="preserve">
+    <value>Not saved</value>
+  </data>
+  <data name="SaveFailNotWritable" xml:space="preserve">
+    <value>The file could not be saved because the folder or the file is read-only or access is denied. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailDiskFull" xml:space="preserve">
+    <value>The disk is full. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailWriteFailed" xml:space="preserve">
+    <value>The file could not be written, for example because another program has it open. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailVerificationFailed" xml:space="preserve">
+    <value>The saved file did not pass the check and was discarded. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailOriginalChanged" xml:space="preserve">
+    <value>Another file has taken the place of the original since you opened it. Nothing was overwritten, and the original file is unchanged.</value>
+  </data>
+  <data name="SaveFailSourceModified" xml:space="preserve">
+    <value>Another program rewrote this file after you opened it, so it cannot be saved from here. Your changes are still in this tab, and this save left the original file unchanged.</value>
+  </data>
+  <data name="SaveFailEncryptedNotSupported" xml:space="preserve">
+    <value>This document is encrypted, and the saved file would not keep the encryption. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailTargetExists" xml:space="preserve">
+    <value>A file already exists at the target and was not replaced. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailRedactionFailed" xml:space="preserve">
+    <value>The check of the redaction failed, so nothing was saved. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailWriterNotSupported" xml:space="preserve">
+    <value>Raffica PDF cannot save this document. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailCanceled" xml:space="preserve">
+    <value>Saving was canceled. The original file is unchanged.</value>
+  </data>
+  <data name="UnsavedLockedTitle" xml:space="preserve">
+    <value>Close without saving?</value>
+  </data>
+  <data name="UnsavedLockedMessageFormat" xml:space="preserve">
+    <value>{0} has changes that cannot be saved here. If you close it, they are lost.</value>
+  </data>
+  <data name="UnsavedDiscard" xml:space="preserve">
+    <value>Close and discard changes</value>
+  </data>
+  <data name="StyleStripColorName" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="StyleStripColorWidthName" xml:space="preserve">
+    <value>Color and width</value>
+  </data>
+  <data name="StyleStripColorSizeName" xml:space="preserve">
+    <value>Color and text size</value>
+  </data>
+  <data name="MarkupColorYellow" xml:space="preserve">
+    <value>Yellow</value>
+  </data>
+  <data name="MarkupColorGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="MarkupColorBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="MarkupColorPink" xml:space="preserve">
+    <value>Pink</value>
+  </data>
+  <data name="MarkupColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="DrawColorRed" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="DrawColorBlack" xml:space="preserve">
+    <value>Black</value>
+  </data>
+  <data name="DrawColorBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="DrawColorGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="DrawColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="StyleWidthThin" xml:space="preserve">
+    <value>Thin</value>
+  </data>
+  <data name="StyleWidthMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="StyleWidthThick" xml:space="preserve">
+    <value>Thick</value>
+  </data>
+  <data name="StyleSizeSmall" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="StyleSizeMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="StyleSizeLarge" xml:space="preserve">
+    <value>Large</value>
+  </data>
+  <data name="StylePointsFormat" xml:space="preserve">
+    <value>{0}, {1} pt</value>
   </data>
 </root>

@@ -19,16 +19,16 @@ internal sealed class CatalogTab(string nameKey, string letter)
 
     public IReadOnlyList<CatalogGroup> Groups => _groups;
 
-    internal CatalogGroup Group(string labelKey, string digit)
+    internal CatalogGroup Group(string labelKey, string digit, bool destructive = false)
     {
-        var group = new CatalogGroup(this, labelKey, digit);
+        var group = new CatalogGroup(this, labelKey, digit, destructive);
         _groups.Add(group);
         return group;
     }
 }
 
 /// <summary>A group of commands in a tab; its digit is the first character of the field codes of its commands.</summary>
-internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit)
+internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit, bool destructive = false)
 {
     private readonly List<CatalogCommand> _commands = [];
 
@@ -39,6 +39,9 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
     public string Digit { get; } = digit;
 
     public string Label => PdfStrings.Get(LabelKey);
+
+    /// <summary>Whether the group is set apart at the end of the tab (the commands that remove things).</summary>
+    public bool Destructive { get; } = destructive;
 
     public IReadOnlyList<CatalogCommand> Commands => _commands;
 
@@ -87,7 +90,9 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.Open, "CmdOpen", "Plus", "11", Cmd(Key.O, "O"), CommandSize.Large)
             .Add(PdfCommandIds.Print, "CmdPrint", "AlignLeft", "12", Cmd(Key.P, "P"))
             .Add(PdfCommandIds.CloseTab, "CmdCloseTab", "X", "13", Cmd(Key.W, "W"))
-            .Add(PdfCommandIds.Settings, "CmdSettings", "AlignCenter", "14", Cmd(Key.OemComma, ","));
+            .Add(PdfCommandIds.Settings, "CmdSettings", "AlignCenter", "14", Cmd(Key.OemComma, ","))
+            .Add(PdfCommandIds.Save, "CmdSave", "Check", "15", Cmd(Key.S, "S"))
+            .Add(PdfCommandIds.SaveAs, "CmdSaveAs", "Check", "16", Cmd(Key.S, "S", shift: true));
         home.Group("GroupFind", "2")
             .Add(PdfCommandIds.Search, "CmdSearch", "Search", "21", Cmd(Key.F, "F"), CommandSize.Large)
             .Add(PdfCommandIds.SearchNext, "CmdSearchNext", "Redo", "22", Plain(Key.F3, "F3", repeat: true))
@@ -107,6 +112,31 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.Copy, "CmdCopy", "Plus", "62", Cmd(Key.C, "C"));
         home.Group("GroupHelp", "7")
             .Add(PdfCommandIds.Help, "CmdHelp", "Info", "71", Plain(Key.F1, "F1"));
+        home.Group("GroupHistory", "8")
+            .Add(PdfCommandIds.Undo, "CmdUndo", "Undo", "81", Cmd(Key.Z, "Z", repeat: true))
+            .Add(PdfCommandIds.Redo, "CmdRedo", "Redo", "82", Cmd(Key.Z, "Z", shift: true, repeat: true, also: Cmd(Key.Y, "Y", repeat: true)));
+
+        // Letter A for the tab (the pane codes 6 and 7 belong to the panes and Q to the title bar search, none is a tab letter). The icon set
+        // has no marker, pen or shape icons yet: the closest of the set stand in, as in the other tabs, and the real ones come with the icon pass.
+        var annotate = new CatalogTab("TabAnnotate", "A");
+        annotate.Group("GroupMarkup", "1")
+            .Add(PdfCommandIds.Highlight, "CmdHighlight", "Bold", "11", Cmd(Key.H, "H", shift: true))
+            .Add(PdfCommandIds.Underline, "CmdUnderline", "Underline", "12", Cmd(Key.U, "U", shift: true))
+            .Add(PdfCommandIds.StrikeOut, "CmdStrikeOut", "Minus", "13", Cmd(Key.X, "X", shift: true));
+        annotate.Group("GroupDraw", "2")
+            .Add(PdfCommandIds.Freehand, "CmdFreehand", "Plus", "21")
+            .Add(PdfCommandIds.Rectangle, "CmdRectangle", "AlignLeft", "22")
+            .Add(PdfCommandIds.Ellipse, "CmdEllipse", "AlignCenter", "23")
+            .Add(PdfCommandIds.Line, "CmdLine", "Minus", "24")
+            .Add(PdfCommandIds.Arrow, "CmdArrow", "ChevronRight", "25")
+            .Add(PdfCommandIds.TextBox, "CmdTextBox", "Italic", "26");
+        annotate.Group("GroupEdit", "3")
+            .Add(PdfCommandIds.AnnotateMode, "CmdAnnotateMode", "Plus", "31", Cmd(Key.K, "K", shift: true), CommandSize.Large)
+            .Add(PdfCommandIds.SelectMark, "CmdSelectMark", "Search", "32", Cmd(Key.M, "M", shift: true))
+            .Add(PdfCommandIds.AnnotateDone, "CmdAnnotateDone", "Check", "33")
+            .Add(PdfCommandIds.MarksPane, "CmdMarksPane", "AlignRight", "34");
+        annotate.Group("GroupDelete", "4", destructive: true)
+            .Add(PdfCommandIds.DeleteMark, "CmdDeleteMark", "X", "41");
 
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
@@ -126,7 +156,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "ChevronRight", "41", Cmd(Key.D1, "1", shift: true))
             .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "AlignLeft", "42", Cmd(Key.D2, "2", shift: true));
 
-        Tabs = [home, view];
+        Tabs = [home, annotate, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 
@@ -156,8 +186,8 @@ internal static class PdfCommandCatalog
             .Select(c => new HelpEntry(c.Group.Label, c.Name, KeyNames.Format(c.Shortcut!.Text(OperatingSystem.IsMacOS()), PdfStrings.Culture)))
             .ToList();
 
-    private static PdfShortcut Cmd(Key key, string token, bool shift = false, bool anyShift = false, Key[]? alternates = null, bool repeat = false) =>
-        new(key, token, ShortcutBase.Command, shift, anyShift, alternates, repeat);
+    private static PdfShortcut Cmd(Key key, string token, bool shift = false, bool anyShift = false, Key[]? alternates = null, bool repeat = false, PdfShortcut? also = null) =>
+        new(key, token, ShortcutBase.Command, shift, anyShift, alternates, repeat, also);
 
     private static PdfShortcut Plain(Key key, string token, bool shift = false, bool repeat = false) =>
         new(key, token, ShortcutBase.None, shift, AllowsRepeat: repeat);

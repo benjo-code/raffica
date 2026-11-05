@@ -44,7 +44,7 @@ public sealed class CommandCatalogTests
 
         // No two commands answer to the same key with the same modifiers, alternates included.
         var seen = new HashSet<(Avalonia.Input.Key, bool, ShortcutBase)>();
-        foreach (var shortcut in shortcuts)
+        foreach (var shortcut in shortcuts.SelectMany(s => s.Also is { } also ? new[] { s, also } : [s]))
         {
             foreach (var key in shortcut.Keys)
             {
@@ -100,6 +100,15 @@ public sealed class CommandCatalogTests
     [InlineData("text.copy", "Ctrl+C")]
     [InlineData("text.selectall", "Ctrl+A")]
     [InlineData("help.shortcuts", "F1")]
+    [InlineData("file.save", "Ctrl+S")]
+    [InlineData("file.saveAs", "Ctrl+Shift+S")]
+    [InlineData("edit.undo", "Ctrl+Z")]
+    [InlineData("edit.redo", "Ctrl+Shift+Z")]
+    [InlineData("annotate.mode", "Ctrl+Shift+K")]
+    [InlineData("annotate.highlight", "Ctrl+Shift+H")]
+    [InlineData("annotate.underline", "Ctrl+Shift+U")]
+    [InlineData("annotate.strikeOut", "Ctrl+Shift+X")]
+    [InlineData("annotate.select", "Ctrl+Shift+M")]
     public void TheShortcutsFollowTheSpecification(string id, string expected)
     {
         var command = PdfCommandCatalog.Commands.Single(c => c.Id == id);
@@ -131,6 +140,7 @@ public sealed class CommandCatalogTests
 
         // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
         Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
+        Assert.Equal(47, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -139,8 +149,8 @@ public sealed class CommandCatalogTests
         var rules = new PdfCommandRules(() => true, () => 1, () => new PdfPrintInfo(false, true));
         var blocked = PdfCommandCatalog.Commands.Where(c => !rules.Allows(c.Id)).Select(c => c.Id).ToArray();
 
-        // Moving between tabs needs a second tab.
-        Assert.Equal(["tabs.next", "tabs.previous"], blocked.Order().ToArray());
+        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection.
+        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
         Assert.True(new PdfCommandRules(() => true, () => 2, () => null).Allows("tabs.next"));
     }
 

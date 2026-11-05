@@ -54,7 +54,7 @@ internal sealed class TextFixture : IDisposable
 
     public Window Window => _inner.Window;
 
-    public static async Task<TextFixture> OpenAsync(string file, double width = 800, double height = 900, double? zoom = null)
+    public static async Task<TextFixture> OpenAsync(string file, double width = 800, double height = 900, double? zoom = null, Func<bool>? yield = null)
     {
         var inner = await ViewFixture.OpenAsync(file, width, height, show: false);
         var host = new DialogHost { Content = inner.View };
@@ -69,7 +69,7 @@ internal sealed class TextFixture : IDisposable
         await inner.SettleAsync();
         var time = new ManualTime();
         var launched = new List<Uri>();
-        var text = new TextInteraction(inner.Tab, inner.View, new DialogQueue(host), launched.Add, time);
+        var text = new TextInteraction(inner.Tab, inner.View, new DialogQueue(host), launched.Add, time, yield);
         await text.Selection.EnsureVisibleTextAsync();
         return new TextFixture(inner, host, text, time, launched);
     }

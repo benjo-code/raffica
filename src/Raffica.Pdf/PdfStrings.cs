@@ -1,5 +1,6 @@
 using System.Globalization;
 using Raffica.Core.Pdf;
+using Raffica.Core.Saving;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf;
@@ -68,6 +69,7 @@ internal static class PdfStrings
     public static string SettingsPageFollowTheme => Table.Get("SettingsPageFollowTheme");
     public static string SettingsDefaultLayout => Table.Get("SettingsDefaultLayout");
     public static string SettingsDefaultZoom => Table.Get("SettingsDefaultZoom");
+    public static string SettingsAuthorName => Table.Get("SettingsAuthorName");
     public static string CmdDarkPage => Table.Get("CmdDarkPage");
     public static string CmdPagesPane => Table.Get("CmdPagesPane");
     public static string CmdOutlinePane => Table.Get("CmdOutlinePane");
@@ -143,6 +145,96 @@ internal static class PdfStrings
     public static string CmdSelectAll => Table.Get("CmdSelectAll");
     public static string CmdCopy => Table.Get("CmdCopy");
     public static string CmdHelp => Table.Get("CmdHelp");
+    public static string TabAnnotate => Table.Get("TabAnnotate");
+    public static string GroupHistory => Table.Get("GroupHistory");
+    public static string GroupMarkup => Table.Get("GroupMarkup");
+    public static string GroupDraw => Table.Get("GroupDraw");
+    public static string GroupEdit => Table.Get("GroupEdit");
+    public static string GroupDelete => Table.Get("GroupDelete");
+    public static string CmdSave => Table.Get("CmdSave");
+    public static string CmdSaveAs => Table.Get("CmdSaveAs");
+    public static string CmdUndo => Table.Get("CmdUndo");
+    public static string CmdRedo => Table.Get("CmdRedo");
+    public static string CmdAnnotateMode => Table.Get("CmdAnnotateMode");
+    public static string CmdHighlight => Table.Get("CmdHighlight");
+    public static string CmdUnderline => Table.Get("CmdUnderline");
+    public static string CmdStrikeOut => Table.Get("CmdStrikeOut");
+    public static string CmdSelectMark => Table.Get("CmdSelectMark");
+    public static string CmdFreehand => Table.Get("CmdFreehand");
+    public static string CmdRectangle => Table.Get("CmdRectangle");
+    public static string CmdEllipse => Table.Get("CmdEllipse");
+    public static string CmdLine => Table.Get("CmdLine");
+    public static string CmdArrow => Table.Get("CmdArrow");
+    public static string CmdTextBox => Table.Get("CmdTextBox");
+    public static string CmdAnnotateDone => Table.Get("CmdAnnotateDone");
+    public static string CmdMarksPane => Table.Get("CmdMarksPane");
+    public static string CmdDeleteMark => Table.Get("CmdDeleteMark");
+    public static string AnnotateLockedReason => Table.Get("AnnotateLockedReason");
+    public static string AnnotateModeFormat => Table.Get("AnnotateModeFormat");
+    public static string AnnotateCardTitle => Table.Get("AnnotateCardTitle");
+    public static string AnnotateLimitReached => Table.Get("AnnotateLimitReached");
+    public static string AnnotateFailed => Table.Get("AnnotateFailed");
+    public static string StyleStripColorName => Table.Get("StyleStripColorName");
+    public static string StyleStripColorWidthName => Table.Get("StyleStripColorWidthName");
+    public static string StyleStripColorSizeName => Table.Get("StyleStripColorSizeName");
+    public static string MarkupColorYellow => Table.Get("MarkupColorYellow");
+    public static string MarkupColorGreen => Table.Get("MarkupColorGreen");
+    public static string MarkupColorBlue => Table.Get("MarkupColorBlue");
+    public static string MarkupColorPink => Table.Get("MarkupColorPink");
+    public static string MarkupColorOrange => Table.Get("MarkupColorOrange");
+    public static string DrawColorRed => Table.Get("DrawColorRed");
+    public static string DrawColorBlack => Table.Get("DrawColorBlack");
+    public static string DrawColorBlue => Table.Get("DrawColorBlue");
+    public static string DrawColorGreen => Table.Get("DrawColorGreen");
+    public static string DrawColorOrange => Table.Get("DrawColorOrange");
+    public static string StyleWidthThin => Table.Get("StyleWidthThin");
+    public static string StyleWidthMedium => Table.Get("StyleWidthMedium");
+    public static string StyleWidthThick => Table.Get("StyleWidthThick");
+    public static string StyleSizeSmall => Table.Get("StyleSizeSmall");
+    public static string StyleSizeMedium => Table.Get("StyleSizeMedium");
+    public static string StyleSizeLarge => Table.Get("StyleSizeLarge");
+    public static string StylePointsFormat => Table.Get("StylePointsFormat");
+    public static string SelectLockedReason => Table.Get("SelectLockedReason");
+    public static string SelectFailed => Table.Get("SelectFailed");
+    public static string TextBoxRejectedFormat => Table.Get("TextBoxRejectedFormat");
+    public static string TextBoxTooLong => Table.Get("TextBoxTooLong");
+    public static string TextBoxTooManyLines => Table.Get("TextBoxTooManyLines");
+    public static string TextBoxFieldName => Table.Get("TextBoxFieldName");
+    public static string PaneMarks => Table.Get("PaneMarks");
+    public static string MarkFilterName => Table.Get("MarkFilterName");
+    public static string MarkFilterAll => Table.Get("MarkFilterAll");
+    public static string MarkFilterHighlight => Table.Get("MarkFilterHighlight");
+    public static string MarkFilterUnderline => Table.Get("MarkFilterUnderline");
+    public static string MarkFilterStrikeOut => Table.Get("MarkFilterStrikeOut");
+    public static string MarkFilterDrawings => Table.Get("MarkFilterDrawings");
+    public static string MarkFilterOther => Table.Get("MarkFilterOther");
+    public static string MarkKindHighlight => Table.Get("MarkKindHighlight");
+    public static string MarkKindUnderline => Table.Get("MarkKindUnderline");
+    public static string MarkKindStrikeOut => Table.Get("MarkKindStrikeOut");
+    public static string MarkKindFreehand => Table.Get("MarkKindFreehand");
+    public static string MarkKindRectangle => Table.Get("MarkKindRectangle");
+    public static string MarkKindEllipse => Table.Get("MarkKindEllipse");
+    public static string MarkKindLine => Table.Get("MarkKindLine");
+    public static string MarkKindArrow => Table.Get("MarkKindArrow");
+    public static string MarkKindTextBox => Table.Get("MarkKindTextBox");
+    public static string MarkKindSignature => Table.Get("MarkKindSignature");
+    public static string MarkKindOtherFormat => Table.Get("MarkKindOtherFormat");
+    public static string MarkGroupFormat => Table.Get("MarkGroupFormat");
+    public static string MarkPageTagFormat => Table.Get("MarkPageTagFormat");
+    public static string MarkLockedLabel => Table.Get("MarkLockedLabel");
+    public static string MarkSummaryOneFormat => Table.Get("MarkSummaryOneFormat");
+    public static string MarkSummaryOnePageFormat => Table.Get("MarkSummaryOnePageFormat");
+    public static string MarkSummaryPagesFormat => Table.Get("MarkSummaryPagesFormat");
+    public static string MarksEmpty => Table.Get("MarksEmpty");
+    public static string MarksNoneOfKind => Table.Get("MarksNoneOfKind");
+    public static string MarksHelp => Table.Get("MarksHelp");
+    public static string MarkCommentName => Table.Get("MarkCommentName");
+    public static string MarkCommentHint => Table.Get("MarkCommentHint");
+    public static string MarkRepliesReason => Table.Get("MarkRepliesReason");
+    public static string MarkOtherReason => Table.Get("MarkOtherReason");
+    public static string MarkTextBoxLockedReason => Table.Get("MarkTextBoxLockedReason");
+    public static string MarkTextBoxNote => Table.Get("MarkTextBoxNote");
+    public static string MarkCommentFailed => Table.Get("MarkCommentFailed");
     public static string PrintLockedReason => Table.Get("PrintLockedReason");
     public static string PrintErrorStart => Table.Get("PrintErrorStart");
     public static string PrintErrorPage => Table.Get("PrintErrorPage");
@@ -177,6 +269,9 @@ internal static class PdfStrings
     public static string PrintJobProgressFormat => Table.Get("PrintJobProgressFormat");
     public static string PrintJobCancelling => Table.Get("PrintJobCancelling");
     public static string PrintBusy => Table.Get("PrintBusy");
+    public static string SaveBusy => Table.Get("SaveBusy");
+    public static string SaveJobTitleFormat => Table.Get("SaveJobTitleFormat");
+    public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
     public static string PrintFailedPagesFormat => Table.Get("PrintFailedPagesFormat");
     public static string PrintFailedMoreFormat => Table.Get("PrintFailedMoreFormat");
     public static string HelpTitle => Table.Get("HelpTitle");
@@ -219,5 +314,47 @@ internal static class PdfStrings
         PdfOpenError.UnsupportedEncryption => ErrorUnsupportedEncryption,
         PdfOpenError.Unknown => ErrorUnknown,
         _ => throw new ArgumentOutOfRangeException(nameof(error), error, "This open error has no text."),
+    };
+
+    public static string SignedWarnTitle => Table.Get("SignedWarnTitle");
+    public static string SignedWarnText => Table.Get("SignedWarnText");
+    public static string SignedNoteTitle => Table.Get("SignedNoteTitle");
+    public static string SignedNoteText => Table.Get("SignedNoteText");
+    public static string SignedSaveAnyway => Table.Get("SignedSaveAnyway");
+    public static string SaveFailNotWritable => Table.Get("SaveFailNotWritable");
+    public static string SaveFailDiskFull => Table.Get("SaveFailDiskFull");
+    public static string SaveFailWriteFailed => Table.Get("SaveFailWriteFailed");
+    public static string SaveFailVerificationFailed => Table.Get("SaveFailVerificationFailed");
+    public static string SaveFailOriginalChanged => Table.Get("SaveFailOriginalChanged");
+    public static string SaveFailSourceModified => Table.Get("SaveFailSourceModified");
+    public static string SaveFailEncryptedNotSupported => Table.Get("SaveFailEncryptedNotSupported");
+    public static string SaveFailTargetExists => Table.Get("SaveFailTargetExists");
+    public static string SaveFailRedactionFailed => Table.Get("SaveFailRedactionFailed");
+    public static string SaveFailWriterNotSupported => Table.Get("SaveFailWriterNotSupported");
+    public static string SaveFailCanceled => Table.Get("SaveFailCanceled");
+    public static string ChangedTitle => Table.Get("ChangedTitle");
+    public static string ChangedMessageFormat => Table.Get("ChangedMessageFormat");
+    public static string ChangedOverwrite => Table.Get("ChangedOverwrite");
+    public static string SaveFailedTitle => Table.Get("SaveFailedTitle");
+    public static string UnsavedLockedTitle => Table.Get("UnsavedLockedTitle");
+    public static string UnsavedLockedMessageFormat => Table.Get("UnsavedLockedMessageFormat");
+    public static string UnsavedDiscard => Table.Get("UnsavedDiscard");
+
+    /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string SaveFailure(SaveFailureReason reason) => reason switch
+    {
+        SaveFailureReason.NotWritable => SaveFailNotWritable,
+        SaveFailureReason.DiskFull => SaveFailDiskFull,
+        SaveFailureReason.WriteFailed => SaveFailWriteFailed,
+        SaveFailureReason.VerificationFailed => SaveFailVerificationFailed,
+        SaveFailureReason.OriginalChanged => SaveFailOriginalChanged,
+        SaveFailureReason.SourceModified => SaveFailSourceModified,
+        SaveFailureReason.EncryptedNotSupported => SaveFailEncryptedNotSupported,
+        SaveFailureReason.TargetExists => SaveFailTargetExists,
+        SaveFailureReason.RedactionFailed => SaveFailRedactionFailed,
+        SaveFailureReason.WriterNotSupported => SaveFailWriterNotSupported,
+        SaveFailureReason.Canceled => SaveFailCanceled,
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "This save failure has no text."),
     };
 }

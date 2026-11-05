@@ -60,6 +60,26 @@ public sealed class CloseGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveThenCloseKeepsTheTabWhenADraftIsUnresolved()
+    {
+        // A draft that cannot be made (a refused text box text) keeps the tab dirty; a save writes nothing for it and returns, so the
+        // close must not go on and drop the draft.
+        var tab = NewTab(dirty: false);
+        using var draft = tab.Annotations.BeginUnresolved();
+        Assert.True(tab.IsDirty);
+        var saves = 0;
+        var guard = new CloseGuard(_ => Task.FromResult(CloseChoice.Save), _ => { saves++; return Task.FromResult(true); });
+
+        Assert.False(await guard.CanCloseAsync(tab));
+        Assert.Equal(1, saves);
+
+        // Once the draft is gone the same choice closes the tab.
+        draft.Dispose();
+        Assert.False(tab.IsDirty);
+        Assert.True(await guard.CanCloseAsync(tab));
+    }
+
+    [Fact]
     public async Task SaveThatFailsKeepsTheTab()
     {
         var guard = new CloseGuard(_ => Task.FromResult(CloseChoice.Save), _ => Task.FromResult(false));

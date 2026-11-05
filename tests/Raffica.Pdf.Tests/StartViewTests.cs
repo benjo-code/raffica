@@ -44,7 +44,7 @@ public sealed class StartViewTests
     {
         var window = Show();
         Assert.Equal(204, window.NavigationPane.Width);
-        Assert.Equal(300, window.CommentsPane.Width);
+        Assert.Equal(256, window.CommentsPane.Width);
         Assert.False(window.NavigationPane.IsOpen);
 
         // With a document the pages pane opens; the comments pane stays closed (reserved for a later milestone).
@@ -59,6 +59,6 @@ public sealed class StartViewTests
         var window = Show();
         Assert.Equal("Raffica PDF", window.Title);
         Assert.Equal("H", window.Ribbon.ActiveTab?.Letter);
-        Assert.Equal(2, window.Ribbon.Definition!.Tabs.Count);
+        Assert.Equal(3, window.Ribbon.Definition!.Tabs.Count);
     }
 }

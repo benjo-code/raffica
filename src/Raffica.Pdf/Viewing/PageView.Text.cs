@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.VisualTree;
 using Raffica.Core.Text;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Text;
@@ -28,6 +29,13 @@ internal sealed partial class PageView
 
     private SearchSession? _search;
     private SelectionController? _selection;
+    private IPageOverlay? _overlay;
+    private Control? _badge;
+    private Control? _field;
+    private Rect _fieldRect;
+
+    // The gap between the top of the view and the badge, in DIPs.
+    private const double BadgeTop = 12;
     private IBrush? _inkSource;
     private IBrush? _hitBrush;
     private IBrush? _currentBrush;
@@ -88,6 +96,122 @@ internal sealed partial class PageView
         }
     }
 
+    /// <summary>The layer drawn over the pages after the marks (the annotate mode's previews); the view draws again whenever it says it changed.</summary>
+    internal IPageOverlay? Overlay
+    {
+        get => _overlay;
+        set
+        {
+            if (ReferenceEquals(value, _overlay))
+            {
+                return;
+            }
+
+            if (_overlay is not null)
+            {
+                _overlay.Changed -= InvalidateVisual;
+            }
+
+            _overlay = value;
+            if (value is not null)
+            {
+                value.Changed += InvalidateVisual;
+            }
+
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// A small control shown over the top middle of the view (the sign of the annotate mode and its style strip). It takes no part in the
+    /// layout of the pages. What in it takes input (the buttons of the style strip) is reached by <see cref="IsInBadge"/>: the pointer and
+    /// key events that come from it do not belong to the tool of the mode.
+    /// </summary>
+    internal Control? Badge
+    {
+        get => _badge;
+        set
+        {
+            if (ReferenceEquals(value, _badge))
+            {
+                return;
+            }
+
+            if (_badge is not null)
+            {
+                VisualChildren.Remove(_badge);
+                LogicalChildren.Remove(_badge);
+            }
+
+            _badge = value;
+            if (value is not null)
+            {
+                VisualChildren.Add(value);
+                LogicalChildren.Add(value);
+            }
+
+            InvalidateMeasure();
+            InvalidateArrange();
+        }
+    }
+
+    /// <summary>
+    /// An editing field over the pages (the text box editor). It is laid out at <see cref="FieldRect"/> (its width; its height is what it
+    /// needs) and takes part in no other layout. Null for none.
+    /// </summary>
+    internal Control? Field
+    {
+        get => _field;
+        set
+        {
+            if (ReferenceEquals(value, _field))
+            {
+                return;
+            }
+
+            if (_field is not null)
+            {
+                VisualChildren.Remove(_field);
+                LogicalChildren.Remove(_field);
+            }
+
+            _field = value;
+            if (value is not null)
+            {
+                VisualChildren.Add(value);
+                LogicalChildren.Add(value);
+            }
+
+            InvalidateMeasure();
+            InvalidateArrange();
+        }
+    }
+
+    /// <summary>Where <see cref="Field"/> is placed, in the coordinates of the view.</summary>
+    internal Rect FieldRect
+    {
+        get => _fieldRect;
+        set
+        {
+            if (value == _fieldRect)
+            {
+                return;
+            }
+
+            _fieldRect = value;
+            InvalidateMeasure();
+            InvalidateArrange();
+        }
+    }
+
+    /// <summary>Whether a source of an event lies in the editing field (its pointer and key events belong to it).</summary>
+    internal bool IsInField(object? source) =>
+        _field is { } field && source is Visual visual && (ReferenceEquals(field, visual) || field.IsVisualAncestorOf(visual));
+
+    /// <summary>Whether a source of an event lies in the badge (its pointer and key events belong to its own controls).</summary>
+    internal bool IsInBadge(object? source) =>
+        _badge is { } badge && source is Visual visual && (ReferenceEquals(badge, visual) || badge.IsVisualAncestorOf(visual));
+
     /// <summary>Whether a point of the view lies on one of the scroll bars (they take their own mouse input).</summary>
     internal bool IsOverScrollBar(Point point) =>
         (_vertical.IsVisible && _vertical.Bounds.Contains(point)) || (_horizontal.IsVisible && _horizontal.Bounds.Contains(point));
@@ -135,6 +259,10 @@ internal sealed partial class PageView
 
         return best;
     }
+
+    /// <summary>The size of a page in points, or null when the size is not known yet.</summary>
+    internal Raffica.Core.Pdf.PdfPageSize? SizeOfPage(int page) =>
+        _layout is not null && page >= 0 && page < _layout.PageCount && _layout.IsSizeKnown(page) ? _layout.GetPageSize(page) : null;
 
     /// <summary>The place of a position of a page in the view, or null when the page is not shown or its size is not known.</summary>
     internal Point? ToView(int page, double x, double y)
