@@ -50,6 +50,49 @@ internal static class PageLossWording
         return string.Join(" ", report.Losses.Where(static loss => loss.Blocks).Select(loss => Describe(loss, fileName)));
     }
 
+    // The most lines the loss block of the parts shows; the sentences that carry pages differ from part to part and could be many.
+    private const int PartLinesShown = 20;
+
+    /// <summary>
+    /// Words the losses of the parts of a split or an extract as one block: the same sentence for equal reports (said once when it holds for every
+    /// part, else with the files it holds for), in the order the parts report them; a long list shows its first lines and the count of the rest.
+    /// </summary>
+    /// <param name="reports">One report per part, in the order of the parts.</param>
+    public static IReadOnlyList<string> DescribeParts(IReadOnlyList<PageEditReport> reports)
+    {
+        ArgumentNullException.ThrowIfNull(reports);
+        var order = new List<string>();
+        var parts = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        for (var i = 0; i < reports.Count; i++)
+        {
+            foreach (var loss in reports[i].Losses)
+            {
+                var sentence = Describe(loss);
+                if (!parts.TryGetValue(sentence, out var list))
+                {
+                    parts[sentence] = list = [];
+                    order.Add(sentence);
+                }
+
+                if (list.Count == 0 || list[^1] != i)
+                {
+                    list.Add(i);
+                }
+            }
+        }
+
+        var lines = order
+            .Select(sentence => parts[sentence].Count == reports.Count ? sentence : PdfStrings.Fill(PdfStrings.OutputLossFilesFormat, PageList(parts[sentence]), sentence))
+            .ToList();
+        if (lines.Count > PartLinesShown)
+        {
+            var rest = lines.Count - PartLinesShown;
+            lines = lines.Take(PartLinesShown).Append(PdfStrings.Fill(PdfStrings.OutputMoreFormat, rest)).ToList();
+        }
+
+        return lines;
+    }
+
     /// <summary>Formats 0-based pages as 1-based text: "3", "3 and 5", "3, 5 and 9"; a long list shows its first pages and the count of the rest.</summary>
     public static string PageList(IReadOnlyList<int> zeroBasedPages)
     {

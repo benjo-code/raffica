@@ -348,7 +348,7 @@ internal sealed class ApplyFlow(
     }
 
     /// <summary>Takes the progress from the PDFium thread and hands it to the card on the UI thread.</summary>
-    private sealed class UiProgress(SaveJobCard card) : IProgress<double>
+    internal sealed class UiProgress(SaveJobCard card) : IProgress<double>
     {
         private double _last;
 

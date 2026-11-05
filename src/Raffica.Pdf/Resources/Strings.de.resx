@@ -1472,4 +1472,166 @@
   <data name="UnsavedPlanDiscard" xml:space="preserve">
     <value>Verwerfen</value>
   </data>
+  <data name="ExtractTitle" xml:space="preserve">
+    <value>Seiten extrahieren</value>
+  </data>
+  <data name="ExtractHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} Seiten)</value>
+  </data>
+  <data name="ExtractRangeLabel" xml:space="preserve">
+    <value>Zu extrahierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder all)</value>
+  </data>
+  <data name="ExtractNameLabel" xml:space="preserve">
+    <value>Die neue Datei wird vorgeschlagen als</value>
+  </data>
+  <data name="ExtractConfirm" xml:space="preserve">
+    <value>Extrahieren…</value>
+  </data>
+  <data name="ExtractGo" xml:space="preserve">
+    <value>Extrahieren</value>
+  </data>
+  <data name="ExtractSaveTitle" xml:space="preserve">
+    <value>Extrahierte Seiten speichern unter</value>
+  </data>
+  <data name="ExtractSuggestedNameFormat" xml:space="preserve">
+    <value>{0}-seiten-{1}</value>
+  </data>
+  <data name="ExtractConfirmTitle" xml:space="preserve">
+    <value>Seiten extrahieren</value>
+  </data>
+  <data name="ExtractConfirmIntroFormat" xml:space="preserve">
+    <value>Die Seiten {0} des Dokuments werden in eine neue Datei geschrieben. Die geöffnete Datei bleibt unverändert.</value>
+  </data>
+  <data name="SplitTitle" xml:space="preserve">
+    <value>Dokument teilen</value>
+  </data>
+  <data name="SplitHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} Seiten)</value>
+  </data>
+  <data name="SplitModeLabel" xml:space="preserve">
+    <value>Teilen nach</value>
+  </data>
+  <data name="SplitModeEvery" xml:space="preserve">
+    <value>Alle n Seiten</value>
+  </data>
+  <data name="SplitEveryLabel" xml:space="preserve">
+    <value>Seiten pro Datei</value>
+  </data>
+  <data name="SplitModeRanges" xml:space="preserve">
+    <value>Seitenbereiche, je eine Datei</value>
+  </data>
+  <data name="SplitRangesLabel" xml:space="preserve">
+    <value>Bereiche (zum Beispiel 1-3,4-9)</value>
+  </data>
+  <data name="SplitModeBookmarks" xml:space="preserve">
+    <value>Lesezeichen der obersten Ebene</value>
+  </data>
+  <data name="SplitNoBookmarksReason" xml:space="preserve">
+    <value>Diese Datei hat keine Lesezeichen</value>
+  </data>
+  <data name="SplitFolderLabel" xml:space="preserve">
+    <value>Ordner für die neuen Dateien</value>
+  </data>
+  <data name="SplitFolderChoose" xml:space="preserve">
+    <value>Ordner wählen…</value>
+  </data>
+  <data name="SplitFolderNone" xml:space="preserve">
+    <value>Noch kein Ordner gewählt</value>
+  </data>
+  <data name="SplitFolderPickTitle" xml:space="preserve">
+    <value>Ordner für die neuen Dateien wählen</value>
+  </data>
+  <data name="SplitPreviewHeading" xml:space="preserve">
+    <value>Dateien, die geschrieben werden</value>
+  </data>
+  <data name="SplitPreviewItemFormat" xml:space="preserve">
+    <value>{0} (Seiten {1})</value>
+  </data>
+  <data name="SplitPreviewMoreFormat" xml:space="preserve">
+    <value>und {0} weitere</value>
+  </data>
+  <data name="SplitConfirm" xml:space="preserve">
+    <value>Teilen</value>
+  </data>
+  <data name="SplitEveryInvalid" xml:space="preserve">
+    <value>Geben Sie eine ganze Seitenzahl ein, mindestens 1.</value>
+  </data>
+  <data name="SplitTooManyFormat" xml:space="preserve">
+    <value>Ein Teilen kann höchstens {0} Dateien ergeben.</value>
+  </data>
+  <data name="SplitConfirmIntroFormat" xml:space="preserve">
+    <value>Das Dokument wird in {0} neue Dateien geteilt. Die geöffnete Datei bleibt unverändert.</value>
+  </data>
+  <data name="OutputLossesHeading" xml:space="preserve">
+    <value>In den neuen Dateien geht Folgendes verloren oder ändert sich:</value>
+  </data>
+  <data name="OutputLossFilesFormat" xml:space="preserve">
+    <value>Dateien {0}: {1}</value>
+  </data>
+  <data name="OutputCheckingTitleFormat" xml:space="preserve">
+    <value>{0} wird geprüft</value>
+  </data>
+  <data name="OutputJobTitleFormat" xml:space="preserve">
+    <value>Neue Dateien aus {0} werden geschrieben</value>
+  </data>
+  <data name="OutputNoSource" xml:space="preserve">
+    <value>Das Dokument ist nicht mehr verfügbar.</value>
+  </data>
+  <data name="OutputResultExtractTitle" xml:space="preserve">
+    <value>Seiten extrahiert</value>
+  </data>
+  <data name="OutputResultSplitTitle" xml:space="preserve">
+    <value>Dokument geteilt</value>
+  </data>
+  <data name="OutputWrittenOne" xml:space="preserve">
+    <value>1 Datei wurde geschrieben.</value>
+  </data>
+  <data name="OutputWrittenFormat" xml:space="preserve">
+    <value>{0} Dateien wurden geschrieben.</value>
+  </data>
+  <data name="OutputNothingWritten" xml:space="preserve">
+    <value>Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputCanceled" xml:space="preserve">
+    <value>Abgebrochen.</value>
+  </data>
+  <data name="OutputWrittenBefore" xml:space="preserve">
+    <value>Diese Dateien wurden vor dem Stopp geschrieben und bleiben bestehen:</value>
+  </data>
+  <data name="OutputFolderLabel" xml:space="preserve">
+    <value>Ordner</value>
+  </data>
+  <data name="OutputMoreFormat" xml:space="preserve">
+    <value>und {0} weitere</value>
+  </data>
+  <data name="OutputOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="OutputFailTargetExistsFormat" xml:space="preserve">
+    <value>Eine Datei mit diesem Namen gibt es schon: {0}. Es wurde nichts ersetzt.</value>
+  </data>
+  <data name="OutputFailTargetIsSource" xml:space="preserve">
+    <value>Eine neue Datei würde das geöffnete Dokument ersetzen. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailDirectoryMissing" xml:space="preserve">
+    <value>Der Ordner existiert nicht mehr. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailNoBookmarks" xml:space="preserve">
+    <value>Diese Datei hat keine Lesezeichen. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailUnsafeName" xml:space="preserve">
+    <value>Ein Dateiname ist nicht verwendbar. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailPartFormat" xml:space="preserve">
+    <value>Datei {0} ({1}) konnte nicht geschrieben werden: {2}</value>
+  </data>
+  <data name="OutputFailLimit" xml:space="preserve">
+    <value>Die Seiten oder Dateien übersteigen, was ein Teilen zulässt. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailRange" xml:space="preserve">
+    <value>Die Seiten passen nicht zu diesem Dokument. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailOther" xml:space="preserve">
+    <value>Die Dateien konnten nicht geschrieben werden.</value>
+  </data>
 </root>
