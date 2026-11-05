@@ -147,6 +147,11 @@
       "date": "2026-11-05",
       "context": "Milestone 2.2",
       "text": "Changes while building, against the plan and the entry \"Raffica PDF: annotation conventions (M2.2)\" in `Docs/DECISIONS.md` (amended there): (a) the tool letters I, R, E, L, A and T are not implemented; the Annotate tab's key tips and the Ctrl+Shift shortcuts exist instead, which avoids another key-capture surface. (b) Colour and width are chosen in an app-side style strip (`Annotating/StyleStrip`) beside the mode badge, not in the ribbon, because the shell ribbon has no checked or swatch control; moving it into the ribbon is a later option. A text box gets colours only on the strip, for a selection. (c) The text-box default font size is 16 pt (Medium, the default of Core and Pagewing 1.0); the plan text said 12. (d) The ribbon shows no checked state for the active tool; the mode badge names the tool and \"Esc to finish\". (e) Touch input is ignored in annotate mode, because the page view has no touch scrolling yet. (f) The marks pane (256 px, the one right pane) stays flagged \"owner to confirm\"."
+    },
+    {
+      "date": "2026-11-05",
+      "context": "Milestone 2.3",
+      "text": "Departures from the predecessor's forms and signature designs (M11, M12), approved by the owner on 2026-11-05: (1) there is no separate \"Fill form\" mode; form fields are live whenever the document has fillable fields and no annotate tool is active, and an annotate tool makes them inert. (2) The field highlight is a per-tab switch on a form badge (on by default for a document with fillable fields, not stored); PDFium draws it, the app draws stars for required and locks for read-only fields and the focus ring. (3) The required-field card before saving stays (\"Go to first empty field\" is the default, \"Save anyway\" never blocks) and gets a counter on the badge and a \"Next required field\" command. (4) The notices (calculations and format scripts, XFA, signature fields, buttons) are one dismissible line naming only what applies, not one bar per hint. (5) Core gets `PdfDocument.MayFillFormsAsync` with a Core test, because `MayAnnotateAsync` alone would lock forms of documents that allow only filling. (6) Signing is one step: the Sign command opens the New-signature card when nothing is saved, else a picker card with thumbnails; a pick is placed in the centre of the visible part of the page and selected with the select tool (no ghost under the pointer). Not rebuilt: renaming a saved signature, pasting an image from the clipboard. The signatures folder lies next to `--settings-file` when that switch is given. Entry \"Raffica PDF: forms and signing conventions (M2.3)\" in `Docs/DECISIONS.md`."
     }
   ],
   "subprojects": [
@@ -337,7 +342,8 @@
         {
           "id": "2.3",
           "title": "Forms and signing",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-05-milestone-02-3-forms-and-signing.md",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["2.2"],
           "goal": "AcroForm fields can be filled and a visible signature placed and saved.",
