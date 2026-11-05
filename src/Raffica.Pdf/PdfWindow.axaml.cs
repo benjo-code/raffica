@@ -1242,6 +1242,12 @@ internal sealed partial class PdfWindow : Window
         var choice = await Dialogs.ShowAsync<RequiredChoice>(done => RequiredFieldsCard.Create(names, done));
         if (choice == RequiredChoice.GoToFirst && ReferenceEquals(Workspace.Active, tab))
         {
+            // "First" means the first name on the card: the walk starts at the beginning, not after the field that had the focus.
+            if (FormsOf(tab) is { } parts)
+            {
+                parts.Focus.Set(null);
+            }
+
             RunNextRequired();
         }
 

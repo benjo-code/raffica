@@ -188,8 +188,9 @@ internal sealed class SaveController
 
     private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab)
     {
-        // Only a save that writes form values is asked: a document without a form, or a save that holds no form change, never is.
-        if (_askRequired is null || !tab.Annotations.Editor.HasOnlyFormChanges || !tab.Forms.HasForm)
+        // Only a save that writes form values is asked, whatever else is saved with them: a document without a form, or a save that holds
+        // no form change, never is.
+        if (_askRequired is null || !tab.Annotations.Editor.HasFormChanges || !tab.Forms.HasForm)
         {
             return RequiredChoice.SaveAnyway;
         }
@@ -212,6 +213,7 @@ internal sealed class SaveController
         }
 
         var name = tab.Title;
+        // "Only form fields were filled" is told only when that is all the editor holds; a save that mixes in a mark gets the generic warning.
         var onlyForm = tab.Annotations.Editor.HasOnlyFormChanges;
         var choice = await _dialogs.ShowAsync<SignedChoice>(done => SignedFileCard.Create(name, advice, onlyForm, done, _time));
         if (advice == SignatureAdvice.AppendedOnly && choice == SignedChoice.Continue)

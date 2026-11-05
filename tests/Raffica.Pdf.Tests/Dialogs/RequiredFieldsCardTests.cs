@@ -13,8 +13,11 @@ using Xunit;
 
 namespace Raffica.Pdf.Tests.Dialogs;
 
-public sealed class RequiredFieldsCardTests
+public sealed class RequiredFieldsCardTests : IDisposable
 {
+    // The cards are shown in the language of the row; the next test finds English again.
+    public void Dispose() => PdfStrings.Culture = CultureInfo.GetCultureInfo("en");
+
     private sealed class Shown(Window window, Dialog card) : IDisposable
     {
         public Dialog Card { get; } = card;
@@ -109,8 +112,11 @@ public sealed class RequiredFieldsCardTests
         }
 
         Assert.DoesNotContain("Feld6", text, StringComparison.Ordinal);
-        Assert.Contains("8", text, StringComparison.Ordinal);
-        Assert.Contains("3", text, StringComparison.Ordinal);
+        Assert.Contains(PdfStrings.RequiredText(8), text, StringComparison.Ordinal);
+        Assert.Contains(PdfStrings.RequiredList(names), text, StringComparison.Ordinal);
+
+        // The exact "and 3 more" (the visible name Feld3 also holds a 3, so a bare digit proves nothing).
+        Assert.Contains(PdfStrings.GetIn("RequiredMore", CultureInfo.GetCultureInfo(culture)).Replace("{0}", "3", StringComparison.Ordinal), text, StringComparison.Ordinal);
         Assert.DoesNotMatch(new Regex(@"\b(invalid|ungültig|ungueltig|corrupt|defekt|beschädigt)\b", RegexOptions.IgnoreCase), text);
     }
 

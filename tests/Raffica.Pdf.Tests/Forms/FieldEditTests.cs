@@ -345,6 +345,10 @@ public sealed class FieldEditTests
         Assert.True(f.Tab.IsDirty);
 
         f.PressKey(Avalonia.Input.PhysicalKey.S, Avalonia.Input.RawInputModifiers.Control);
+
+        // A mark next to the values does not spare the question about the empty required field; the values and the mark are one save.
+        await ViewFixture.WaitAsync(() => f.Window.Host.ActiveDialog is not null);
+        f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_SaveAnyway").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         await ViewFixture.WaitAsync(() => !f.Tab.IsDirty && !f.Window.Saves.IsSaving);
         await f.ReopenAsync();
 
