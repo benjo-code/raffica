@@ -161,6 +161,14 @@ internal sealed class PrintCommand
             return;
         }
 
+        // An open field edit is committed first (the same flush the save path uses), so the pages carry the value the user just typed; a draft
+        // the rules refuse stays where it is and the pages carry the last accepted value. A tab that never had an annotation session has
+        // nothing to flush, and none is made for it.
+        if (tab.AnnotationsIfCreated is { } annotations)
+        {
+            await annotations.FlushAsync();
+        }
+
         var info = await document.GetPrintInfoAsync();
         if (!info.PrintAllowed)
         {

@@ -22,10 +22,15 @@ public sealed class SaveCardsTests
 
     private static readonly string[] CardKeys =
     [
-        "SignedWarnTitle", "SignedWarnText", "SignedNoteTitle", "SignedNoteText", "SignedSaveAnyway",
+        "SignedWarnTitle", "SignedWarnText", "SignedNoteTitle", "SignedNoteText", "SignedSaveAnyway", "SignedFormsTitle", "SignedFormsText",
+        "RequiredTitle", "RequiredTextOne", "RequiredTextMany", "RequiredNames", "RequiredMore", "RequiredHint", "RequiredGoToFirst", "RequiredSaveAnyway",
         "ChangedTitle", "ChangedMessageFormat", "ChangedOverwrite", "SaveFailedTitle",
         "UnsavedLockedTitle", "UnsavedLockedMessageFormat", "UnsavedDiscard",
     ];
+
+    // Every text of the new-signature card and its hint (M2.3): found by name, so a new string is covered without a list to keep.
+    private static readonly string[] SignatureKeys =
+        [.. typeof(PdfStrings).GetProperties().Where(p => p.PropertyType == typeof(string) && p.Name.StartsWith("Signature", StringComparison.Ordinal)).Select(p => p.Name)];
 
     private sealed class Shown(Window window, Dialog card, ManualTime time) : IDisposable
     {
@@ -76,7 +81,7 @@ public sealed class SaveCardsTests
     public void SignedWarningDefaultsToCancel()
     {
         SignedChoice? result = null;
-        using var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.WouldInvalidate, c => result = c, t));
+        using var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.WouldInvalidate, false, c => result = c, t));
 
         Assert.Equal(PdfStrings.SignedWarnTitle, s.Card.Title);
         Assert.Contains(PdfStrings.SignedWarnText, s.Texts);
@@ -89,10 +94,38 @@ public sealed class SaveCardsTests
     }
 
     [AvaloniaFact]
+    public void SignedCardNamesFormOnlyChanges()
+    {
+        SignedChoice? result = null;
+        using var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.WouldInvalidate, true, c => result = c, t));
+
+        // The text names the form fields and says the app cannot check the signature; the buttons and the default are as for any other change.
+        Assert.Equal(PdfStrings.SignedFormsTitle, s.Card.Title);
+        Assert.Contains(PdfStrings.SignedFormsText, s.Texts);
+        Assert.DoesNotContain(PdfStrings.SignedWarnText, s.Texts);
+        Assert.Contains("form fields", PdfStrings.SignedFormsText, StringComparison.Ordinal);
+        Assert.Contains("cannot check", PdfStrings.SignedFormsText, StringComparison.Ordinal);
+        Assert.Equal(["PART_Cancel", "PART_SaveAs", "PART_SaveAnyway"], s.ButtonNames);
+        Assert.True(s.Button("PART_Cancel").IsFocused);
+        Assert.False(s.Button("PART_SaveAnyway").IsEnabled);
+
+        s.Escape();
+        Assert.Equal(SignedChoice.Cancel, result);
+    }
+
+    [Fact]
+    public void FormOnlyWordingIsGermanToo()
+    {
+        var de = CultureInfo.GetCultureInfo("de");
+        Assert.Contains("Formularfelder", PdfStrings.GetIn("SignedFormsText", de), StringComparison.Ordinal);
+        Assert.NotEqual(PdfStrings.GetIn("SignedFormsText", CultureInfo.GetCultureInfo("en")), PdfStrings.GetIn("SignedFormsText", de));
+    }
+
+    [AvaloniaFact]
     public void LevelThreeIsOnlyANote()
     {
         SignedChoice? result = null;
-        using var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.AppendedOnly, c => result = c, t));
+        using var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.AppendedOnly, false, c => result = c, t));
 
         Assert.Equal(PdfStrings.SignedNoteTitle, s.Card.Title);
         Assert.Contains(PdfStrings.SignedNoteText, s.Texts);
@@ -105,13 +138,13 @@ public sealed class SaveCardsTests
 
     [Fact]
     public void ACardForAnUnsignedFileIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => SignedFileCard.Create("a.pdf", SignatureAdvice.None, _ => { }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SignedFileCard.Create("a.pdf", SignatureAdvice.None, false, _ => { }));
 
     [AvaloniaFact]
     public void DangerousChoicesAreDisabledFor400ms()
     {
         var signed = new List<SignedChoice>();
-        using (var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.WouldInvalidate, signed.Add, t)))
+        using (var s = Show(t => SignedFileCard.Create("a.pdf", SignatureAdvice.WouldInvalidate, false, signed.Add, t)))
         {
             Assert.False(s.Button("PART_SaveAnyway").IsEnabled);
             s.Click("PART_SaveAnyway");
@@ -172,7 +205,7 @@ public sealed class SaveCardsTests
         var signed = new List<SignedChoice>();
         foreach (var advice in new[] { SignatureAdvice.WouldInvalidate, SignatureAdvice.AppendedOnly })
         {
-            using var s = Show(t => SignedFileCard.Create("a.pdf", advice, signed.Add, t));
+            using var s = Show(t => SignedFileCard.Create("a.pdf", advice, false, signed.Add, t));
             s.Time.Advance(1000);
             s.Escape();
         }
@@ -271,7 +304,7 @@ public sealed class SaveCardsTests
         foreach (var culture in new[] { "en", "de" })
         {
             var info = CultureInfo.GetCultureInfo(culture);
-            var texts = CardKeys.Select(k => PdfStrings.GetIn(k, info)).ToList();
+            var texts = CardKeys.Concat(SignatureKeys).Select(k => PdfStrings.GetIn(k, info)).ToList();
             PdfStrings.Culture = info;
             texts.AddRange(AllReasons.Select(PdfStrings.SaveFailure));
             Assert.All(texts, t => Assert.False(banned.IsMatch(t), t));

@@ -169,6 +169,8 @@ internal static class PdfStrings
     public static string CmdAnnotateDone => Table.Get("CmdAnnotateDone");
     public static string CmdMarksPane => Table.Get("CmdMarksPane");
     public static string CmdDeleteMark => Table.Get("CmdDeleteMark");
+    public static string GroupSign => Table.Get("GroupSign");
+    public static string CmdSign => Table.Get("CmdSign");
     public static string AnnotateLockedReason => Table.Get("AnnotateLockedReason");
     public static string AnnotateModeFormat => Table.Get("AnnotateModeFormat");
     public static string AnnotateCardTitle => Table.Get("AnnotateCardTitle");
@@ -200,6 +202,42 @@ internal static class PdfStrings
     public static string TextBoxTooLong => Table.Get("TextBoxTooLong");
     public static string TextBoxTooManyLines => Table.Get("TextBoxTooManyLines");
     public static string TextBoxFieldName => Table.Get("TextBoxFieldName");
+    public static string FormCardTitle => Table.Get("FormCardTitle");
+    public static string FormRejectedFormat => Table.Get("FormRejectedFormat");
+    public static string FormControlCharacterFormat => Table.Get("FormControlCharacterFormat");
+    public static string FormTooLongFormat => Table.Get("FormTooLongFormat");
+    public static string FormOneLineOnly => Table.Get("FormOneLineOnly");
+    public static string FormNotKept => Table.Get("FormNotKept");
+    public static string FormNotKeptNotRestored => Table.Get("FormNotKeptNotRestored");
+    public static string FormLocked => Table.Get("FormLocked");
+    public static string FormNotFound => Table.Get("FormNotFound");
+    public static string FormHistoryFull => Table.Get("FormHistoryFull");
+    public static string FormInvalid => Table.Get("FormInvalid");
+    public static string FormFillForbidden => Table.Get("FormFillForbidden");
+    public static string TabForms => Table.Get("TabForms");
+    public static string GroupFill => Table.Get("GroupFill");
+    public static string CmdFormsNext => Table.Get("CmdFormsNext");
+    public static string CmdFormsPrevious => Table.Get("CmdFormsPrevious");
+    public static string CmdFormsNextRequired => Table.Get("CmdFormsNextRequired");
+    public static string CmdFormsHighlight => Table.Get("CmdFormsHighlight");
+    public static string FormsNoFormReason => Table.Get("FormsNoFormReason");
+    public static string FormsNoRequiredReason => Table.Get("FormsNoRequiredReason");
+    public static string FormTipReadOnly => Table.Get("FormTipReadOnly");
+    public static string FormTipSignature => Table.Get("FormTipSignature");
+    public static string FormTipButton => Table.Get("FormTipButton");
+    public static string FormTipUnsupported => Table.Get("FormTipUnsupported");
+    public static string FormTipRequired => Table.Get("FormTipRequired");
+    public static string FormNameFormat => Table.Get("FormNameFormat");
+    public static string FormStateChecked => Table.Get("FormStateChecked");
+    public static string FormStateNotChecked => Table.Get("FormStateNotChecked");
+    public static string FormNoticeScripts => Table.Get("FormNoticeScripts");
+    public static string FormNoticeXfa => Table.Get("FormNoticeXfa");
+    public static string FormNoticeSignature => Table.Get("FormNoticeSignature");
+    public static string FormNoticeButtons => Table.Get("FormNoticeButtons");
+    public static string FormNoticeDismiss => Table.Get("FormNoticeDismiss");
+    public static string FormRequiredOne => Table.Get("FormRequiredOne");
+    public static string FormRequiredManyFormat => Table.Get("FormRequiredManyFormat");
+    public static string FormHighlightToggle => Table.Get("FormHighlightToggle");
     public static string PaneMarks => Table.Get("PaneMarks");
     public static string MarkFilterName => Table.Get("MarkFilterName");
     public static string MarkFilterAll => Table.Get("MarkFilterAll");
@@ -321,6 +359,30 @@ internal static class PdfStrings
     public static string SignedNoteTitle => Table.Get("SignedNoteTitle");
     public static string SignedNoteText => Table.Get("SignedNoteText");
     public static string SignedSaveAnyway => Table.Get("SignedSaveAnyway");
+    public static string SignedFormsTitle => Table.Get("SignedFormsTitle");
+    public static string SignedFormsText => Table.Get("SignedFormsText");
+    public static string RequiredTitle => Table.Get("RequiredTitle");
+    public static string RequiredTextOne => Table.Get("RequiredTextOne");
+    public static string RequiredTextMany => Table.Get("RequiredTextMany");
+    public static string RequiredNames => Table.Get("RequiredNames");
+    public static string RequiredMore => Table.Get("RequiredMore");
+    public static string RequiredHint => Table.Get("RequiredHint");
+    public static string RequiredGoToFirst => Table.Get("RequiredGoToFirst");
+    public static string RequiredSaveAnyway => Table.Get("RequiredSaveAnyway");
+
+    /// <summary>The line above the names on the required-fields card: one text for one field, one for several (the count in it).</summary>
+    public static string RequiredText(int count) =>
+        count == 1 ? RequiredTextOne : RequiredTextMany.Replace("{0}", count.ToString(Culture), StringComparison.Ordinal);
+
+    /// <summary>The names of the empty required fields, at most <paramref name="shown"/>, then how many more there are.</summary>
+    public static string RequiredList(IReadOnlyList<string> names, int shown = 5)
+    {
+        var list = RequiredNames.Replace("{0}", string.Join(", ", names.Take(shown)), StringComparison.Ordinal);
+        return names.Count > shown
+            ? list + " " + RequiredMore.Replace("{0}", (names.Count - shown).ToString(Culture), StringComparison.Ordinal)
+            : list;
+    }
+
     public static string SaveFailNotWritable => Table.Get("SaveFailNotWritable");
     public static string SaveFailDiskFull => Table.Get("SaveFailDiskFull");
     public static string SaveFailWriteFailed => Table.Get("SaveFailWriteFailed");
@@ -339,6 +401,52 @@ internal static class PdfStrings
     public static string UnsavedLockedTitle => Table.Get("UnsavedLockedTitle");
     public static string UnsavedLockedMessageFormat => Table.Get("UnsavedLockedMessageFormat");
     public static string UnsavedDiscard => Table.Get("UnsavedDiscard");
+    public static string SignatureNewTitle => Table.Get("SignatureNewTitle");
+    public static string SignatureNewTabs => Table.Get("SignatureNewTabs");
+    public static string SignatureNewTabDraw => Table.Get("SignatureNewTabDraw");
+    public static string SignatureNewTabImage => Table.Get("SignatureNewTabImage");
+    public static string SignatureNewName => Table.Get("SignatureNewName");
+    public static string SignatureNewDefaultNameFormat => Table.Get("SignatureNewDefaultNameFormat");
+    public static string SignatureNewPadName => Table.Get("SignatureNewPadName");
+    public static string SignatureNewClear => Table.Get("SignatureNewClear");
+    public static string SignatureNewBack => Table.Get("SignatureNewBack");
+    public static string SignatureNewBackTip => Table.Get("SignatureNewBackTip");
+    public static string SignatureNewInk => Table.Get("SignatureNewInk");
+    public static string SignatureNewChoose => Table.Get("SignatureNewChoose");
+    public static string SignatureNewImageNone => Table.Get("SignatureNewImageNone");
+    public static string SignatureNewImageLoaded => Table.Get("SignatureNewImageLoaded");
+    public static string SignatureNewCutout => Table.Get("SignatureNewCutout");
+    public static string SignatureNewCutoutTip => Table.Get("SignatureNewCutoutTip");
+    public static string SignatureNewPreview => Table.Get("SignatureNewPreview");
+    public static string SignatureNewSave => Table.Get("SignatureNewSave");
+    public static string SignatureNewPickTitle => Table.Get("SignatureNewPickTitle");
+    public static string SignatureNewPickFilter => Table.Get("SignatureNewPickFilter");
+    public static string SignatureNewRefusalLimit => Table.Get("SignatureNewRefusalLimit");
+    public static string SignatureNewRefusalTooLarge => Table.Get("SignatureNewRefusalTooLarge");
+    public static string SignatureNewRefusalTooManyPixels => Table.Get("SignatureNewRefusalTooManyPixels");
+    public static string SignatureNewRefusalUnreadable => Table.Get("SignatureNewRefusalUnreadable");
+    public static string SignatureNewRefusalEmpty => Table.Get("SignatureNewRefusalEmpty");
+    public static string SignatureNewRefusalAspect => Table.Get("SignatureNewRefusalAspect");
+    public static string SignatureNewRefusalUnusable => Table.Get("SignatureNewRefusalUnusable");
+    public static string SignatureNewRefusalWriteFailed => Table.Get("SignatureNewRefusalWriteFailed");
+    public static string SignatureHintWritten => Table.Get("SignatureHintWritten");
+    public static string SignatureHintImage => Table.Get("SignatureHintImage");
+
+    /// <summary>The two sentences of the signature hint as one text (new-signature card and picker); a method, so it is no key of its own.</summary>
+    public static string SignatureHintText() => SignatureHintWritten + " " + SignatureHintImage;
+    public static string SignaturePickerTitle => Table.Get("SignaturePickerTitle");
+    public static string SignaturePickerList => Table.Get("SignaturePickerList");
+    public static string SignaturePickerNew => Table.Get("SignaturePickerNew");
+    public static string SignaturePickerDelete => Table.Get("SignaturePickerDelete");
+    public static string SignaturePickerDeleteTip => Table.Get("SignaturePickerDeleteTip");
+    public static string SignaturePickerDeleteConfirm => Table.Get("SignaturePickerDeleteConfirm");
+    public static string SignaturePickerDeleteYes => Table.Get("SignaturePickerDeleteYes");
+    public static string SignaturePickerDeleteKeep => Table.Get("SignaturePickerDeleteKeep");
+    public static string SignaturePickerDeleteFailed => Table.Get("SignaturePickerDeleteFailed");
+    public static string SignaturePickerEmpty => Table.Get("SignaturePickerEmpty");
+    public static string SignaturePlaceTitle => Table.Get("SignaturePlaceTitle");
+    public static string SignaturePlaceHistoryFull => Table.Get("SignaturePlaceHistoryFull");
+    public static string SignaturePlaceFailed => Table.Get("SignaturePlaceFailed");
 
     /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

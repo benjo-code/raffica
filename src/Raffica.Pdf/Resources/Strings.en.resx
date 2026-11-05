@@ -584,6 +584,12 @@
   <data name="CmdDeleteMark" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="GroupSign" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="CmdSign" xml:space="preserve">
+    <value>Sign</value>
+  </data>
   <data name="AnnotateLockedReason" xml:space="preserve">
     <value>This document does not allow changing annotations.</value>
   </data>
@@ -850,5 +856,272 @@
   </data>
   <data name="StylePointsFormat" xml:space="preserve">
     <value>{0}, {1} pt</value>
+  </data>
+  <data name="FormCardTitle" xml:space="preserve">
+    <value>Form</value>
+  </data>
+  <data name="FormRejectedFormat" xml:space="preserve">
+    <value>A form field cannot show these characters: {0}</value>
+  </data>
+  <data name="FormControlCharacterFormat" xml:space="preserve">
+    <value>A form field cannot take this control character: {0}</value>
+  </data>
+  <data name="FormTooLongFormat" xml:space="preserve">
+    <value>The field takes at most {0} characters.</value>
+  </data>
+  <data name="FormOneLineOnly" xml:space="preserve">
+    <value>This field takes one line only.</value>
+  </data>
+  <data name="FormNotKept" xml:space="preserve">
+    <value>The form did not keep the value. The field is as it was.</value>
+  </data>
+  <data name="FormNotKeptNotRestored" xml:space="preserve">
+    <value>The form did not keep the value and the field could not be checked afterwards. The page is read again; the field may differ from the undo history.</value>
+  </data>
+  <data name="FormLocked" xml:space="preserve">
+    <value>This field cannot be changed.</value>
+  </data>
+  <data name="FormNotFound" xml:space="preserve">
+    <value>The document has no such field any more.</value>
+  </data>
+  <data name="FormHistoryFull" xml:space="preserve">
+    <value>The undo history is full. Save the document first, then go on.</value>
+  </data>
+  <data name="FormInvalid" xml:space="preserve">
+    <value>This value cannot be written to the field.</value>
+  </data>
+  <data name="FormFillForbidden" xml:space="preserve">
+    <value>This document does not allow filling in form fields.</value>
+  </data>
+  <data name="TabForms" xml:space="preserve">
+    <value>Forms</value>
+  </data>
+  <data name="GroupFill" xml:space="preserve">
+    <value>Fill</value>
+  </data>
+  <data name="CmdFormsNext" xml:space="preserve">
+    <value>Next field</value>
+  </data>
+  <data name="CmdFormsPrevious" xml:space="preserve">
+    <value>Previous field</value>
+  </data>
+  <data name="CmdFormsNextRequired" xml:space="preserve">
+    <value>Next required field</value>
+  </data>
+  <data name="CmdFormsHighlight" xml:space="preserve">
+    <value>Show or hide field highlight</value>
+  </data>
+  <data name="FormsNoFormReason" xml:space="preserve">
+    <value>This document has no form fields to fill in.</value>
+  </data>
+  <data name="FormsNoRequiredReason" xml:space="preserve">
+    <value>No required field is empty.</value>
+  </data>
+  <data name="FormTipReadOnly" xml:space="preserve">
+    <value>Read-only field</value>
+  </data>
+  <data name="FormTipSignature" xml:space="preserve">
+    <value>Signature field: Raffica does not sign here</value>
+  </data>
+  <data name="FormTipButton" xml:space="preserve">
+    <value>Button: Raffica never runs a button's action</value>
+  </data>
+  <data name="FormTipUnsupported" xml:space="preserve">
+    <value>Raffica cannot change this field</value>
+  </data>
+  <data name="FormTipRequired" xml:space="preserve">
+    <value>Required field, still empty</value>
+  </data>
+  <data name="FormNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FormStateChecked" xml:space="preserve">
+    <value>checked</value>
+  </data>
+  <data name="FormStateNotChecked" xml:space="preserve">
+    <value>not checked</value>
+  </data>
+  <data name="FormNoticeScripts" xml:space="preserve">
+    <value>Calculations, formats and checks in this form need JavaScript and are not run.</value>
+  </data>
+  <data name="FormNoticeXfa" xml:space="preserve">
+    <value>This is an XFA form; Raffica PDF does not support XFA forms.</value>
+  </data>
+  <data name="FormNoticeSignature" xml:space="preserve">
+    <value>Digital signature fields are not supported.</value>
+  </data>
+  <data name="FormNoticeButtons" xml:space="preserve">
+    <value>Buttons in this form never run an action.</value>
+  </data>
+  <data name="FormNoticeDismiss" xml:space="preserve">
+    <value>Dismiss notice</value>
+  </data>
+  <data name="FormRequiredOne" xml:space="preserve">
+    <value>1 required field empty</value>
+  </data>
+  <data name="FormRequiredManyFormat" xml:space="preserve">
+    <value>{0} required fields empty</value>
+  </data>
+  <data name="FormHighlightToggle" xml:space="preserve">
+    <value>Highlight fields</value>
+  </data>
+  <data name="SignedFormsTitle" xml:space="preserve">
+    <value>This file is signed</value>
+  </data>
+  <data name="SignedFormsText" xml:space="preserve">
+    <value>Only form fields were filled in. The level of this signature may allow that, but Raffica PDF cannot check whether the signature stays intact. Programs such as Acrobat may show it as invalid.</value>
+  </data>
+  <data name="RequiredTitle" xml:space="preserve">
+    <value>Required fields are empty</value>
+  </data>
+  <data name="RequiredTextOne" xml:space="preserve">
+    <value>One required field has no value yet.</value>
+  </data>
+  <data name="RequiredTextMany" xml:space="preserve">
+    <value>{0} required fields have no value yet.</value>
+  </data>
+  <data name="RequiredNames" xml:space="preserve">
+    <value>Empty: {0}</value>
+  </data>
+  <data name="RequiredMore" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="RequiredHint" xml:space="preserve">
+    <value>You can also save the file as it is.</value>
+  </data>
+  <data name="RequiredGoToFirst" xml:space="preserve">
+    <value>Go to first empty field</value>
+  </data>
+  <data name="RequiredSaveAnyway" xml:space="preserve">
+    <value>Save anyway</value>
+  </data>
+  <data name="SignatureNewTitle" xml:space="preserve">
+    <value>New signature</value>
+  </data>
+  <data name="SignatureNewTabs" xml:space="preserve">
+    <value>Way to make the signature</value>
+  </data>
+  <data name="SignatureNewTabDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="SignatureNewTabImage" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="SignatureNewName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="SignatureNewDefaultNameFormat" xml:space="preserve">
+    <value>Signature {0}</value>
+  </data>
+  <data name="SignatureNewPadName" xml:space="preserve">
+    <value>Drawing area for your signature</value>
+  </data>
+  <data name="SignatureNewClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="SignatureNewBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="SignatureNewBackTip" xml:space="preserve">
+    <value>Remove the last stroke</value>
+  </data>
+  <data name="SignatureNewInk" xml:space="preserve">
+    <value>Ink colour</value>
+  </data>
+  <data name="SignatureNewChoose" xml:space="preserve">
+    <value>Choose image</value>
+  </data>
+  <data name="SignatureNewImageNone" xml:space="preserve">
+    <value>PNG or JPG, up to 10 MB</value>
+  </data>
+  <data name="SignatureNewImageLoaded" xml:space="preserve">
+    <value>Move the slider until only your signature is left.</value>
+  </data>
+  <data name="SignatureNewCutout" xml:space="preserve">
+    <value>Cutout</value>
+  </data>
+  <data name="SignatureNewCutoutTip" xml:space="preserve">
+    <value>Right keeps more of the image, left removes more</value>
+  </data>
+  <data name="SignatureNewPreview" xml:space="preserve">
+    <value>Preview on a transparent background</value>
+  </data>
+  <data name="SignatureNewSave" xml:space="preserve">
+    <value>Save signature</value>
+  </data>
+  <data name="SignatureNewPickTitle" xml:space="preserve">
+    <value>Choose an image of your signature</value>
+  </data>
+  <data name="SignatureNewPickFilter" xml:space="preserve">
+    <value>Images (PNG, JPG)</value>
+  </data>
+  <data name="SignatureNewRefusalLimit" xml:space="preserve">
+    <value>The library already holds ten signatures. Remove one first.</value>
+  </data>
+  <data name="SignatureNewRefusalTooLarge" xml:space="preserve">
+    <value>The file is larger than 10 MB.</value>
+  </data>
+  <data name="SignatureNewRefusalTooManyPixels" xml:space="preserve">
+    <value>The image is larger than 6000 pixels on a side.</value>
+  </data>
+  <data name="SignatureNewRefusalUnreadable" xml:space="preserve">
+    <value>The file is not a PNG or JPG image, or it cannot be read.</value>
+  </data>
+  <data name="SignatureNewRefusalEmpty" xml:space="preserve">
+    <value>Nothing of the image is left. Choose another image or move the slider.</value>
+  </data>
+  <data name="SignatureNewRefusalAspect" xml:space="preserve">
+    <value>The signature would be too wide or too tall. Choose another image or move the slider.</value>
+  </data>
+  <data name="SignatureNewRefusalUnusable" xml:space="preserve">
+    <value>This drawing cannot be saved. Clear it and draw again with fewer strokes.</value>
+  </data>
+  <data name="SignatureNewRefusalWriteFailed" xml:space="preserve">
+    <value>The signature could not be saved. Nothing was changed.</value>
+  </data>
+  <data name="SignatureHintWritten" xml:space="preserve">
+    <value>Replaces no handwritten signature where written form is required.</value>
+  </data>
+  <data name="SignatureHintImage" xml:space="preserve">
+    <value>This is an image of your signature, not a digital signature.</value>
+  </data>
+  <data name="SignaturePickerTitle" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="SignaturePickerList" xml:space="preserve">
+    <value>Saved signatures</value>
+  </data>
+  <data name="SignaturePickerNew" xml:space="preserve">
+    <value>New signature…</value>
+  </data>
+  <data name="SignaturePickerDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SignaturePickerDeleteTip" xml:space="preserve">
+    <value>Delete this signature from your saved signatures</value>
+  </data>
+  <data name="SignaturePickerDeleteConfirm" xml:space="preserve">
+    <value>Delete this signature from your saved signatures? Documents that already contain it stay as they are.</value>
+  </data>
+  <data name="SignaturePickerDeleteYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SignaturePickerDeleteKeep" xml:space="preserve">
+    <value>Keep</value>
+  </data>
+  <data name="SignaturePickerDeleteFailed" xml:space="preserve">
+    <value>The signature could not be deleted. Nothing was changed.</value>
+  </data>
+  <data name="SignaturePickerEmpty" xml:space="preserve">
+    <value>No saved signatures.</value>
+  </data>
+  <data name="SignaturePlaceTitle" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="SignaturePlaceHistoryFull" xml:space="preserve">
+    <value>There is no room left for more unsaved changes. Save the document first, then place the signature. Nothing was placed.</value>
+  </data>
+  <data name="SignaturePlaceFailed" xml:space="preserve">
+    <value>The signature could not be placed. Nothing was added to the document.</value>
   </data>
 </root>

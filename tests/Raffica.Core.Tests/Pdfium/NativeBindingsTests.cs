@@ -113,6 +113,7 @@ public sealed partial class NativeBindingsTests
         [nameof(FpdfConstants.TextRenderModeInvisible)] = 3,
         [nameof(FpdfConstants.PermissionPrint)] = 1L << (3 - 1),
         [nameof(FpdfConstants.PermissionAnnotate)] = 1L << (6 - 1),
+        [nameof(FpdfConstants.PermissionFillForms)] = 1L << (9 - 1),
         [nameof(FpdfConstants.FormFlagNoToggleToOff)] = 1L << (15 - 1),
         [nameof(FpdfConstants.FormFlagFileSelect)] = 1L << (21 - 1),
         [nameof(FpdfConstants.FormFlagDoNotSpellCheck)] = 1L << (23 - 1),

@@ -1,7 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Raffica.Core.Annotations;
+using Raffica.Core.Forms;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
 using Raffica.Core.Text;
@@ -9,8 +11,10 @@ using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Forms;
 using Raffica.Pdf.Printing;
 using Raffica.Pdf.Tests.Annotating;
+using Raffica.Pdf.Tests.Forms;
 using Raffica.Pdf.Tests.Printing;
 using Raffica.Pdf.Tests.Text;
 using Raffica.Pdf.Tests.Viewing;
@@ -699,5 +703,353 @@ public sealed class SaveControllerTests
         Assert.Equal(1, calls);
         Assert.Null(windows.Window.Host.ActiveDialog);
         Assert.True(tab.IsDirty);
+    }
+
+    // --- Required fields (M2.3) ---
+
+    private static async Task FillNameAsync(FormEditFixture f, string text = "Anna")
+    {
+        Assert.IsType<FormEditResult.Applied>(await f.Forms.SetValueAsync(f.Field("Name"), FormFieldState.OfText(text)));
+        await f.SettleAsync();
+        Assert.True(f.Tab.IsDirty);
+        Assert.True(f.Tab.Annotations.Editor.HasOnlyFormChanges);
+    }
+
+    private static async Task FillRequiredAsync(FormEditFixture f)
+    {
+        await f.Forms.RefreshRequiredAsync();
+        foreach (var name in f.Forms.EmptyRequired.ToList())
+        {
+            var field = f.Field(name);
+            var state = field.Kind == FormFieldKind.CheckBox ? FormFieldState.OfChecked(true) : FormFieldState.OfText("x");
+            Assert.IsType<FormEditResult.Applied>(await f.Forms.SetValueAsync(field, state));
+        }
+
+        await f.SettleAsync();
+        await f.Forms.RefreshRequiredAsync();
+        Assert.Empty(f.Forms.EmptyRequired);
+    }
+
+    private static async Task<Dialog> RequiredCardAsync(FormEditFixture f, Task<bool> save)
+    {
+        await ViewFixture.WaitAsync(() => save.IsCompleted || f.Window.Host.ActiveDialog is not null);
+        Assert.False(save.IsCompleted, "no card was asked");
+        var card = f.Window.Host.ActiveDialog!;
+        Assert.NotNull(PrintHost.Find<Button>(card, "PART_GoToFirst"));
+        return card;
+    }
+
+    [AvaloniaFact]
+    public async Task GoToFirstStopsTheSaveAndMovesToTheField()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var bytes = await File.ReadAllBytesAsync(f.Copy.Path, TestContext.Current.CancellationToken);
+        await FillNameAsync(f);
+        await f.Forms.RefreshRequiredAsync();
+        var required = f.Forms.EmptyRequired.ToList();
+        Assert.NotEmpty(required);
+
+        var save = f.Window.SaveActiveAsync();
+        var card = await RequiredCardAsync(f, save);
+        Click(card, "PART_GoToFirst");
+
+        Assert.False(await save);
+        ViewFixture.Pump();
+        Assert.True(f.Tab.IsDirty);
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(f.Copy.Path, TestContext.Current.CancellationToken));
+        Assert.False(f.Window.Saves.IsSaving);
+        await ViewFixture.WaitAsync(() => f.Parts.Focus.Current is { } key && required.Contains(key.FieldName));
+    }
+
+    [AvaloniaFact]
+    public async Task SaveAnywayWritesTheFile()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        await FillNameAsync(f);
+
+        var save = f.Window.SaveActiveAsync();
+        var card = await RequiredCardAsync(f, save);
+        Click(card, "PART_SaveAnyway");
+
+        Assert.True(await save);
+        ViewFixture.Pump();
+        Assert.False(f.Tab.IsDirty);
+        await f.ReopenAsync();
+        Assert.Equal("Anna", (await f.FromDocumentAsync("Name")).State.Text);
+    }
+
+    [AvaloniaFact]
+    public async Task NoCardWithoutEmptyRequiredFields()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        await FillRequiredAsync(f);
+        await FillNameAsync(f);
+
+        var save = f.Window.SaveActiveAsync();
+        await ViewFixture.WaitAsync(() => save.IsCompleted || f.Window.Host.ActiveDialog is not null);
+        Assert.Null(f.Window.Host.ActiveDialog);
+        Assert.True(await save);
+        Assert.False(f.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task NoCardForADocumentWithoutAForm()
+    {
+        using var copy = new TempCopy("text-rich.pdf");
+        using var windows = WindowFixture.Create(realSave: true);
+        var tab = await OpenDirtyAsync(windows, copy.Path);
+        Assert.False(tab.Forms.HasForm);
+
+        var save = windows.Window.SaveActiveAsync();
+        await ViewFixture.WaitAsync(() => save.IsCompleted || windows.Window.Host.ActiveDialog is not null);
+        Assert.Null(windows.Window.Host.ActiveDialog);
+        Assert.True(await save);
+    }
+
+    [AvaloniaFact]
+    public async Task NoCardForSaveAsWithoutAFormChange()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        Assert.True(f.Forms.HasForm);
+        var asked = 0;
+        var controller = new SaveController(
+            new DialogQueue(f.Window.Host),
+            _ => Task.FromResult<string?>(null),
+            () => new PdfEngine(),
+            askRequired: (_, _) =>
+            {
+                asked++;
+                return Task.FromResult(RequiredChoice.SaveAnyway);
+            });
+
+        // No form change in the editor: Save as asks for the target (answered with a cancel) and never about required fields.
+        Assert.False(await controller.SaveAsAsync(f.Tab));
+        Assert.Equal(0, asked);
+
+        // With a form change it does ask.
+        await FillNameAsync(f);
+        Assert.False(await controller.SaveAsAsync(f.Tab));
+        Assert.Equal(1, asked);
+    }
+
+    [AvaloniaFact]
+    public async Task TheCardGetsTheNamesOfTheEmptyRequiredFields()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        await FillNameAsync(f);
+        IReadOnlyList<string>? names = null;
+        var controller = new SaveController(
+            new DialogQueue(f.Window.Host),
+            _ => Task.FromResult<string?>(null),
+            () => new PdfEngine(),
+            askRequired: (_, n) =>
+            {
+                names = n;
+                return Task.FromResult(RequiredChoice.GoToFirst);
+            });
+
+        Assert.False(await controller.SaveAsync(f.Tab));
+        await f.Forms.RefreshRequiredAsync();
+        // The one required field of forms-basic.pdf.
+        Assert.Equal(["Pflicht"], names);
+        Assert.True(f.Tab.IsDirty);
+    }
+
+    // The signed fixture has no required field: the temp copy gets one by a same-length edit of the Name widget (/Ff 2 = required), so no offset moves.
+    private static void MakeNameRequired(string path)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(path));
+        const string Old = "/P 5 0 R /F 4 /MK << /BC [0 0 0] /BG [1 1 1] >> /FT /Tx /T (Name) /DA (/Helv";
+        const string New = "/P 5 0 R/F 4/MK << /BC [0 0 0] /BG [1 1 1] >>/FT /Tx /Ff 2 /T(Name)/DA(/Helv";
+        Assert.Equal(Old.Length, New.Length);
+        Assert.Contains(Old, text, StringComparison.Ordinal);
+        File.WriteAllBytes(path, System.Text.Encoding.Latin1.GetBytes(text.Replace(Old, New, StringComparison.Ordinal)));
+    }
+
+    [AvaloniaFact]
+    public async Task RequiredCardComesBeforeTheSignedFileQuestion()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-signed.pdf", prepare: MakeNameRequired);
+        await FillNameAsync(f);
+
+        // The only fillable field is the required one: a value and then a cleared field leave a form change and an empty required field.
+        Assert.IsType<FormEditResult.Applied>(await f.Forms.SetValueAsync(f.Field("Name"), FormFieldState.OfText(string.Empty)));
+        await f.SettleAsync();
+        await f.Forms.RefreshRequiredAsync();
+        Assert.NotEmpty(f.Forms.EmptyRequired);
+
+        var save = f.Window.SaveActiveAsync();
+        var required = await RequiredCardAsync(f, save);
+        Click(required, "PART_SaveAnyway");
+
+        // Only now the question about the signature (a form-only change says so).
+        await ViewFixture.WaitAsync(() => save.IsCompleted || (f.Window.Host.ActiveDialog is { } d && !ReferenceEquals(d, required)));
+        Assert.False(save.IsCompleted);
+        var signed = f.Window.Host.ActiveDialog!;
+        Assert.Null(signed.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "PART_GoToFirst"));
+        Assert.Equal(PdfStrings.SignedFormsTitle, signed.Title);
+        Click(signed, "PART_Cancel");
+        Assert.False(await save);
+        Assert.True(f.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task AFormValueNextToAnAnnotationStillAsksAboutRequiredFields()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        await FillNameAsync(f);
+        Assert.NotNull(await HighlightAsync(f.Tab));
+        await f.SettleAsync();
+        Assert.False(f.Tab.Annotations.Editor.HasOnlyFormChanges);
+        Assert.True(f.Tab.Annotations.Editor.HasFormChanges);
+
+        var asked = 0;
+        var controller = new SaveController(
+            new DialogQueue(f.Window.Host),
+            _ => Task.FromResult<string?>(null),
+            () => new PdfEngine(),
+            askRequired: (_, _) =>
+            {
+                asked++;
+                return Task.FromResult(RequiredChoice.GoToFirst);
+            });
+
+        Assert.False(await controller.SaveAsync(f.Tab));
+        Assert.Equal(1, asked);
+        Assert.True(f.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task AnAnnotationAloneAsksNothingAboutRequiredFields()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        Assert.NotNull(await HighlightAsync(f.Tab));
+        await f.SettleAsync();
+        Assert.False(f.Tab.Annotations.Editor.HasFormChanges);
+        var asked = 0;
+        var controller = new SaveController(
+            new DialogQueue(f.Window.Host),
+            _ => Task.FromResult<string?>(null),
+            () => new PdfEngine(),
+            askRequired: (_, _) =>
+            {
+                asked++;
+                return Task.FromResult(RequiredChoice.GoToFirst);
+            });
+
+        Assert.True(await controller.SaveAsync(f.Tab));
+        Assert.Equal(0, asked);
+    }
+
+    [AvaloniaFact]
+    public async Task AMixedSaveOfASignedFormGetsTheRequiredCardThenTheGenericSignedCard()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-signed.pdf", prepare: MakeNameRequired);
+        await FillNameAsync(f);
+        Assert.IsType<FormEditResult.Applied>(await f.Forms.SetValueAsync(f.Field("Name"), FormFieldState.OfText(string.Empty)));
+        Assert.NotNull(await HighlightAsync(f.Tab));
+        await f.SettleAsync();
+        Assert.False(f.Tab.Annotations.Editor.HasOnlyFormChanges);
+
+        var save = f.Window.SaveActiveAsync();
+        var required = await RequiredCardAsync(f, save);
+        Click(required, "PART_SaveAnyway");
+
+        // The changes are not form values only: the generic warning, not the one that says only form fields were filled.
+        await ViewFixture.WaitAsync(() => save.IsCompleted || (f.Window.Host.ActiveDialog is { } d && !ReferenceEquals(d, required)));
+        Assert.False(save.IsCompleted);
+        var signed = f.Window.Host.ActiveDialog!;
+        Assert.Equal(PdfStrings.SignedWarnTitle, signed.Title);
+        Assert.Contains(PdfStrings.SignedWarnText, signed.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+        Click(signed, "PART_Cancel");
+        Assert.False(await save);
+    }
+
+    // forms-basic.pdf has one required field; the temp copy gets a second one by a same-length edit of the Telefon widget (/Ff 2 = required).
+    private static void MakeTelefonRequired(string path)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(path));
+        const string Old = "/P 9 0 R /F 4 /MK << /BC [0 0 0] /BG [1 1 1] >> /FT /Tx /T (Telefon) /DA (/Helv";
+        const string New = "/P 9 0 R/F 4/MK << /BC [0 0 0] /BG [1 1 1] >>/FT /Tx /Ff 2 /T(Telefon)/DA(/Helv";
+        Assert.Equal(Old.Length, New.Length);
+        Assert.Contains(Old, text, StringComparison.Ordinal);
+        File.WriteAllBytes(path, System.Text.Encoding.Latin1.GetBytes(text.Replace(Old, New, StringComparison.Ordinal)));
+    }
+
+    [AvaloniaFact]
+    public async Task GoToFirstStartsAtTheFirstNameOnTheCardWhateverHadTheFocus()
+    {
+        // Telefon (page 2) is required as well: with the focus on Pflicht, "the next one" would be Telefon.
+        using var f = await FormEditFixture.OpenAsync(prepare: MakeTelefonRequired);
+        await FillNameAsync(f);
+        await f.Forms.RefreshRequiredAsync();
+        Assert.Equal(["Pflicht", "Telefon"], f.Forms.EmptyRequired);
+
+        // The focus sits on the first required field: "the next one" would be the second name on the card.
+        f.Parts.Focus.Set(f.Field("Pflicht").Key);
+
+        var save = f.Window.SaveActiveAsync();
+        var card = await RequiredCardAsync(f, save);
+        var landed = new List<string>();
+        f.Parts.Focus.Changed += () =>
+        {
+            if (f.Parts.Focus.Current is { } key)
+            {
+                landed.Add(key.FieldName);
+            }
+        };
+        Click(card, "PART_GoToFirst");
+        Assert.False(await save);
+
+        // The focus is set to a field by the move (it was on Pflicht before, so only a change counts): the first one it lands on is Pflicht.
+        await ViewFixture.WaitAsync(() => landed.Count > 0);
+        Assert.Equal("Pflicht", landed[0]);
+    }
+
+    [AvaloniaFact]
+    public async Task CloseWithOpenFieldStillAsks()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var box = (TextBox)f.Open(f.Field("Name"));
+        FormEditFixture.SetText(box, "Anna");
+
+        // The open edit is committed by the flush of the close: the tab is dirty, so the window asks and the draft is not lost silently.
+        f.Window.Close();
+        await ViewFixture.WaitAsync(() => f.Window.Host.ActiveDialog is not null);
+        var card = f.Window.Host.ActiveDialog!;
+        Assert.NotNull(PrintHost.Find<Button>(card, "PART_DontSave"));
+        Click(card, "PART_Cancel");
+        ViewFixture.Pump();
+
+        Assert.True(f.Window.IsVisible);
+        Assert.True(f.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task SaveWithARefusedDraftOpenDoesNotDropIt()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        await FillNameAsync(f);
+
+        // "Kurz" takes five characters: the draft is refused and stays in its editor.
+        var box = (TextBox)f.Open(f.Field("Kurz"));
+        FormEditFixture.SetText(box, "123456");
+        f.Leave();
+        await f.SettleAsync();
+        Assert.True(f.Interaction.IsEditing);
+        Assert.True(f.Tab.Annotations.HasUnresolved);
+
+        // The required card is asked as for any save and does not swallow the draft; the written file holds the name, the tab stays dirty.
+        var save = f.Window.SaveActiveAsync();
+        var card = await RequiredCardAsync(f, save);
+        Click(card, "PART_SaveAnyway");
+        Assert.True(await save);
+        ViewFixture.Pump();
+
+        Assert.True(f.Interaction.IsEditing);
+        Assert.True(f.Tab.Annotations.HasUnresolved);
+        Assert.True(f.Tab.IsDirty);
+        Assert.Equal("123456", ((TextBox)f.Interaction.Editor!.Input).Text);
+        Assert.Equal("Anna", (await f.FromDocumentAsync("Name")).State.Text);
     }
 }

@@ -408,6 +408,17 @@ public sealed partial class PdfDocument : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
+    /// Reads whether the permissions of whoever opened the document allow filling in form fields (an unencrypted
+    /// document, or one opened with its owner password, allows it; so does the annotate bit).
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The document is disposed.</exception>
+    public Task<bool> MayFillFormsAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        return document.Thread.InvokeAsync(() => document.MayFillForms, PdfiumPriority.Background, cancellationToken);
+    }
+
+    /// <summary>
     /// Draws one page on a printer device context (Windows <c>HDC</c> with a page started), with its annotations, always in
     /// the light colours of the page. Runs as one short request with <see cref="PdfPriority.Background"/>, so the rendering
     /// of the tabs goes on between two pages of a job. A page with form fields (widgets) is printed in strips of pixels, with

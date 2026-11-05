@@ -254,4 +254,40 @@ public sealed class AnnotationSessionTests
 
         await session.FlushAsync().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
+
+    [AvaloniaFact]
+    public async Task TwoDiscardHandlersAreAskedInOrderAndTheFirstThatDiscardsWins()
+    {
+        using var file = await AnnotatedFile.OpenAsync();
+        var session = file.Tab.Annotations;
+        await AnnotatedFile.HighlightAsync(session);
+        await session.FlushAsync();
+        List<string> asked = [];
+        using var first = session.AddDiscardHandler(() =>
+        {
+            asked.Add("first");
+            return false;
+        });
+        var second = session.AddDiscardHandler(() =>
+        {
+            asked.Add("second");
+            return true;
+        });
+        using var third = session.AddDiscardHandler(() =>
+        {
+            asked.Add("third");
+            return true;
+        });
+
+        await session.UndoAsync();
+
+        Assert.Equal(["first", "second"], asked);
+        Assert.True(session.CanUndo);
+
+        // A removed handler is not asked; the next that discards wins, and the history is only touched once none does.
+        asked.Clear();
+        second.Dispose();
+        await session.RedoAsync();
+        Assert.Equal(["first", "third"], asked);
+    }
 }

@@ -89,6 +89,7 @@ internal sealed partial class PageView : Control
     private double _targetY;
     private TimeSpan? _lastFrame;
     private int _firstSharpPosted;
+    private string? _focusedFieldName;
     private bool _arranging;
     private bool _raising;
     private bool _viewChangedPosted;
@@ -220,6 +221,17 @@ internal sealed partial class PageView : Control
             Replan();
             InvalidateVisual();
         }
+    }
+
+    /// <summary>
+    /// Plans the visible pages again and drops the converted bitmaps: what a change of the session's render settings (the form highlight)
+    /// emptied is rendered again without waiting for the next scroll or zoom.
+    /// </summary>
+    internal void RestartRendering()
+    {
+        _bitmaps.Clear();
+        Replan();
+        InvalidateVisual();
     }
 
     /// <summary>The page the view counts as current: the one a jump went to while it is still on screen, else the one with the most visible height.</summary>
@@ -442,6 +454,27 @@ internal sealed partial class PageView : Control
         }
     }
 
+    /// <summary>
+    /// The name of the form field that has the form focus, or <see langword="null"/>. A check box or a radio button has no element of its own, so
+    /// the page view carries the name of the focused field for a screen reader; without a focused field the view is named after its document.
+    /// </summary>
+    internal string? FocusedFieldName
+    {
+        get => _focusedFieldName;
+        set
+        {
+            if (_focusedFieldName != value)
+            {
+                _focusedFieldName = value;
+                UpdateAutomationName();
+            }
+        }
+    }
+
+    // Computed when the tab is set (the language is fixed for a run), so a screen reader tells the tabs apart.
+    private void UpdateAutomationName() =>
+        AutomationProperties.SetName(this, _focusedFieldName ?? (Tab is { } tab ? PdfStrings.PageViewName(tab.Title) : null));
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -450,8 +483,7 @@ internal sealed partial class PageView : Control
             var tab = change.NewValue as PdfTab;
             SetSession(tab?.Session);
 
-            // Computed at the moment the tab is set (the language is fixed for a run), so a screen reader tells the tabs apart.
-            AutomationProperties.SetName(this, tab is null ? null : PdfStrings.PageViewName(tab.Title));
+            UpdateAutomationName();
         }
         else if (change.Property == BackgroundProperty || change.Property == PageBorderBrushProperty)
         {
@@ -662,6 +694,7 @@ internal sealed partial class PageView : Control
                 }
             }
 
+            _formOverlay?.Render(context, this);
             _overlay?.Render(context, this);
         }
 

@@ -39,6 +39,14 @@
   <Style Selector="TextBox.textbox-editor:focus /template/ Border#PART_BorderElement">
     <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
   </Style>
+  <!-- The editors of the form fields over the page (list and combo box; the text field has the style above): paper white and dark text are
+       set by the editor, the app ink is the edge. -->
+  <Style Selector="ComboBox.form-editor, ListBox.form-editor">
+    <Setter Property="FontFamily" Value="avares://RafficaPdf/Assets/Fonts#Geist" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
   <Style Selector="Border.textbox-hint">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Band}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Danger}" />

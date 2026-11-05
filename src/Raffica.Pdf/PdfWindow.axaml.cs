@@ -10,16 +10,19 @@ using Raffica.Core.Hosting;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
 using Raffica.Core.Settings;
+using Raffica.Core.Signatures;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Forms;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
 using Raffica.Pdf.Settings;
+using Raffica.Pdf.Signing;
 using Raffica.Pdf.Text;
 using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
@@ -60,6 +63,7 @@ internal sealed partial class PdfWindow : Window
     private readonly CloseGuard _closeGuard;
     private readonly PdfOptions _options;
     private readonly RecentService _recent;
+    private SignatureLibrary? _signatures;
     private readonly Dictionary<PdfTab, PageView> _views = [];
     private readonly Dictionary<PdfTab, TabPanes> _panes = [];
     private readonly Dictionary<PdfTab, MarksPane> _marks = [];
@@ -68,6 +72,8 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
     private readonly Dictionary<PdfTab, AnnotateInteraction> _annotates = [];
     private readonly Dictionary<PdfTab, AnnotateBadge> _badges = [];
+    private readonly Dictionary<PdfTab, BadgeHost> _hosts = [];
+    private readonly Dictionary<PdfTab, FormParts> _formParts = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
@@ -103,7 +109,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, tab => _saves.SaveAsync(tab));
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync);
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -153,7 +159,7 @@ internal sealed partial class PdfWindow : Window
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
             () => _saves.IsSaving);
-        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner);
+        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
@@ -234,8 +240,13 @@ internal sealed partial class PdfWindow : Window
         _searches.Clear();
         EachStep(_annotates.Values, annotate => annotate.Dispose());
         _annotates.Clear();
+        EachStep(_hosts.Values, host => host.Forms?.Dispose());
+        EachStep(_hosts.Values, host => host.Dispose());
+        _hosts.Clear();
         EachStep(_badges.Values, badge => badge.Dispose());
         _badges.Clear();
+        EachStep(_formParts, pair => DisposeFormParts(pair.Key, pair.Value));
+        _formParts.Clear();
         EachStep(_texts.Values, text => text.Dispose());
         _texts.Clear();
         EachStep(_outlines, pair =>
@@ -269,6 +280,42 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The recent files and the position per file (loaded after the first sharp page).</summary>
     internal RecentService Recent => _recent;
+
+    /// <summary>
+    /// The saved signatures. Made on the first use (the folder next to <c>--settings-file</c> or the one of the user); neither the
+    /// library nor its folder exists before that, so the start and the measurement runs are unchanged.
+    /// </summary>
+    internal SignatureLibrary Signatures => _signatures ??= new SignatureLibrary(() => PdfSettingsFiles.SignaturesDirectoryFor(_options.SettingsFile));
+
+    /// <summary>Replaces the library (tests: one over a folder that cannot be read).</summary>
+    internal void UseSignatureLibrary(SignatureLibrary library) => _signatures = library ?? throw new ArgumentNullException(nameof(library));
+
+    /// <summary>
+    /// Shows the new-signature card (through the dialog queue) and gives the signature it saved, or <see langword="null"/> when it was cancelled.
+    /// The card picks its image with the system file dialog unless <paramref name="pickImage"/> is given (tests).
+    /// </summary>
+    internal Task<SavedSignature?> ShowNewSignatureAsync(Func<Task<Stream?>>? pickImage = null) =>
+        Dialogs.ShowAsync<SavedSignature?>(done => NewSignatureCard.Create(Signatures, pickImage ?? PickSignatureImageAsync, done));
+
+    /// <summary>The file dialog of the card: one PNG or JPG; the stream is read by the card, the path is never kept.</summary>
+    private async Task<Stream?> PickSignatureImageAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = PdfStrings.SignatureNewPickTitle,
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(PdfStrings.SignatureNewPickFilter)
+                {
+                    Patterns = ["*.png", "*.PNG", "*.jpg", "*.JPG", "*.jpeg", "*.JPEG"],
+                    MimeTypes = ["image/png", "image/jpeg"],
+                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg"],
+                },
+            ],
+        });
+        return files.Count == 0 ? null : await files[0].OpenReadAsync();
+    }
 
     /// <summary>The open documents; the title bar tabs and the status bar follow it.</summary>
     internal Workspace Workspace { get; }
@@ -672,6 +719,7 @@ internal sealed partial class PdfWindow : Window
             tab.Annotations.StateChanged -= RefreshCommandStates;
             _printInfo.Remove(tab);
             _annotateAllowed.Remove(tab);
+            _fillAllowed.Remove(tab);
             RememberView(tab);
             if (_panes.Remove(tab, out var panes))
             {
@@ -690,9 +738,20 @@ internal sealed partial class PdfWindow : Window
                 annotate.Dispose();
             }
 
+            if (_hosts.Remove(tab, out var host))
+            {
+                host.Forms?.Dispose();
+                host.Dispose();
+            }
+
             if (_badges.Remove(tab, out var badge))
             {
                 badge.Dispose();
+            }
+
+            if (_formParts.Remove(tab, out var formParts))
+            {
+                DisposeFormParts(tab, formParts);
             }
 
             if (_texts.Remove(tab, out var text))
@@ -719,6 +778,7 @@ internal sealed partial class PdfWindow : Window
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
                 view.Search = null;
+                view.FormOverlay = null;
                 view.Tab = null;
             }
 
@@ -782,8 +842,11 @@ internal sealed partial class PdfWindow : Window
                 }
             };
             var badge = new AnnotateBadge(Tools, annotate.Select);
-            view.Badge = badge;
+            var host = new BadgeHost(badge, null, Tools);
+            view.Badge = host;
             _badges[active] = badge;
+            _hosts[active] = host;
+            AttachForm(active, view);
 
             // The outline is read once for the pane and for the palette, after the first sharp page.
             var outline = new OutlineSource(active);
@@ -802,6 +865,70 @@ internal sealed partial class PdfWindow : Window
         UpdateViewStatus();
         Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
     }
+
+    // A document without a form gets no form session and no overlay: nothing is created, drawn or loaded for it.
+    private void AttachForm(PdfTab tab, PageView view)
+    {
+        bool hasForm;
+        try
+        {
+            hasForm = tab.Session.Document is { HasAcroForm: true };
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        if (!hasForm)
+        {
+            return;
+        }
+
+        var focus = new FormFocus();
+        var markers = new FormMarkers(tab.Forms, focus) { Suppressed = () => Tools.Tool != AnnotateTool.None };
+        markers.Attach(view);
+        view.FormOverlay = markers;
+        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab));
+        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab));
+        _formParts[tab] = new FormParts(markers, focus, interaction, keys);
+
+        // The commands of the Forms tab follow what the session knows: the fields, the required list, the highlight.
+        tab.Forms.Changed += RefreshCommandStates;
+
+        // The badge (notice, counter, highlight switch) is built once the first sharp page is there, and only for a document with a form.
+        void BuildBadge()
+        {
+            if (_hosts.TryGetValue(tab, out var host) && host.Forms is null && _formParts.ContainsKey(tab))
+            {
+                host.Forms = new FormBadge(tab.Forms, markers, RunNextRequired);
+            }
+        }
+
+        if (view.FirstSharpPageShown)
+        {
+            BuildBadge();
+        }
+        else
+        {
+            view.FirstSharpPage += BuildBadge;
+        }
+    }
+
+    // The one cleanup of the form pieces of a tab, for the close of the tab and of the window: the commands stop following the session, then the
+    // keys, the interaction and the markers let go.
+    private void DisposeFormParts(PdfTab tab, FormParts parts)
+    {
+        tab.FormsIfCreated!.Changed -= RefreshCommandStates;
+        parts.Keys.Dispose();
+        parts.Interaction.Dispose();
+        parts.Markers.Dispose();
+    }
+
+    /// <summary>The form markers and the form focus of a tab once the tab has been shown (for tests and the form interaction); null for a document without a form.</summary>
+    internal FormParts? FormsOf(PdfTab tab) => _formParts.GetValueOrDefault(tab);
+
+    /// <summary>The host of the badges of a tab once the tab has been shown (for tests); its form badge exists after the first sharp page of a document with a form.</summary>
+    internal BadgeHost? BadgeHostOf(PdfTab tab) => _hosts.GetValueOrDefault(tab);
 
     /// <summary>The marks pane of a tab once it was opened (for tests); null before.</summary>
     internal MarksPane? MarksOf(PdfTab tab) => _marks.GetValueOrDefault(tab);
@@ -1153,6 +1280,40 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The save cell of the status bar shows "Unsaved changes" while the active document is dirty, else nothing.</summary>
     private void UpdateSaveState() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
+
+    // The card about empty required fields; "go to first empty field" takes the same path as the ribbon command and the badge counter.
+    private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab, IReadOnlyList<string> names)
+    {
+        var choice = await Dialogs.ShowAsync<RequiredChoice>(done => RequiredFieldsCard.Create(names, done));
+        if (choice == RequiredChoice.GoToFirst && ReferenceEquals(Workspace.Active, tab))
+        {
+            GoToFirstRequired(tab);
+        }
+
+        return choice;
+    }
+
+    // "Save" of the close prompt: when a refused field draft keeps the tab open after the save, the draft is shown so the user sees why.
+    private async Task<bool> SaveForCloseAsync(PdfTab tab)
+    {
+        var saved = await _saves.SaveAsync(tab);
+        if (tab.AnnotationsIfCreated is { HasUnresolved: true } && FormsOf(tab) is { } parts)
+        {
+            parts.Interaction.RevealDraft();
+        }
+
+        return saved;
+    }
+
+    /// <summary>"Go to first empty field": the walk starts at the beginning, not after the field that had the focus; a draft that is still open stops it and is shown.</summary>
+    internal void GoToFirstRequired(PdfTab tab)
+    {
+        if (FormsOf(tab) is { } parts && parts.Interaction.EndOrReveal())
+        {
+            parts.Focus.Set(null);
+            RunNextRequired();
+        }
+    }
 
     private Task<CloseChoice> PromptAsync(PdfTab tab)
     {

@@ -140,7 +140,7 @@ public sealed class CommandCatalogTests
 
         // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
         Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
-        Assert.Equal(47, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(52, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -149,8 +149,8 @@ public sealed class CommandCatalogTests
         var rules = new PdfCommandRules(() => true, () => 1, () => new PdfPrintInfo(false, true));
         var blocked = PdfCommandCatalog.Commands.Where(c => !rules.Allows(c.Id)).Select(c => c.Id).ToArray();
 
-        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection.
-        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
+        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection, the form commands a form.
+        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "forms.highlight", "forms.next", "forms.nextRequired", "forms.previous", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
         Assert.True(new PdfCommandRules(() => true, () => 2, () => null).Allows("tabs.next"));
     }
 
@@ -183,6 +183,36 @@ public sealed class CommandCatalogTests
     public void ThePrintReasonIsGerman()
     {
         Assert.Equal("Dieses Dokument erlaubt kein Drucken.", PdfStrings.GetIn("PrintLockedReason", German));
+    }
+
+    [Fact]
+    public void SignSitsInItsOwnAnnotateGroupBeforeTheDestructiveOne()
+    {
+        var annotate = PdfCommandCatalog.Tabs.Single(t => t.Letter == "A");
+        var group = annotate.Groups.Single(g => g.Commands.Any(c => c.Id == "annotate.sign"));
+        Assert.Equal("5", group.Digit);
+        Assert.Equal(["annotate.sign"], group.Commands.Select(c => c.Id).ToArray());
+        Assert.Equal("51", group.Commands[0].FieldCode);
+        Assert.Equal("CmdSign", group.Commands[0].NameKey);
+        Assert.Equal("Sign", PdfStrings.GetIn("CmdSign", English));
+        Assert.Equal("Unterschreiben", PdfStrings.GetIn("CmdSign", German));
+        Assert.True(annotate.Groups[^1].Destructive, "the destructive group stays last");
+        Assert.True(annotate.Groups.ToList().IndexOf(group) < annotate.Groups.Count - 1);
+        Assert.Null(group.Commands[0].Shortcut);
+    }
+
+    [Fact]
+    public void SignFollowsTheAnnotatePermissionWithItsReason()
+    {
+        var allowed = new PdfCommandRules(() => true, () => 1, () => null, annotateAllowed: () => true);
+        Assert.True(allowed.Allows("annotate.sign"));
+        Assert.Null(allowed.ReasonFor("annotate.sign"));
+
+        var forbidden = new PdfCommandRules(() => true, () => 1, () => null, annotateAllowed: () => false);
+        Assert.False(forbidden.Allows("annotate.sign"));
+        Assert.Equal(PdfStrings.AnnotateLockedReason, forbidden.ReasonFor("annotate.sign"));
+
+        Assert.False(new PdfCommandRules(() => false, () => 0, () => null).Allows("annotate.sign"));
     }
 
     [AvaloniaFact]

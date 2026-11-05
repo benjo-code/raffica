@@ -5,7 +5,7 @@ namespace Raffica.Pdf.Commands;
 /// <summary>
 /// When a command may run: without a document only Open (and Help and Settings, which need none) is enabled; moving between tabs needs a
 /// second tab; Print is refused for a document whose permissions forbid printing, and where the system cannot print, each with its reason.
-/// Save needs a dirty tab and no running save or print, Undo and Redo a history, Delete a selection, and the annotate tools a document that
+/// Save needs a dirty tab and no running save or print, Undo and Redo a history, Delete a selection, and the annotate tools and Sign a document that
 /// allows changing annotations (with a reason when it does not; a permission not read yet does not refuse). The window gives the questions;
 /// the rules themselves know nothing of the UI.
 /// </summary>
@@ -20,12 +20,21 @@ internal sealed class PdfCommandRules(
     Func<bool>? busySaving = null,
     Func<bool>? annotateAllowed = null,
     Func<bool>? hasSelection = null,
-    Func<bool>? saveRunning = null)
+    Func<bool>? saveRunning = null,
+    Func<bool>? hasForm = null,
+    Func<bool?>? fillAllowed = null,
+    Func<bool>? hasEmptyRequired = null)
 {
     private static readonly HashSet<string> Tools =
     [
         PdfCommandIds.AnnotateMode, PdfCommandIds.Highlight, PdfCommandIds.Underline, PdfCommandIds.StrikeOut, PdfCommandIds.SelectMark,
         PdfCommandIds.Freehand, PdfCommandIds.Rectangle, PdfCommandIds.Ellipse, PdfCommandIds.Line, PdfCommandIds.Arrow, PdfCommandIds.TextBox,
+        PdfCommandIds.Sign, // a signature is an annotation: the same permission and the same reason
+    ];
+
+    private static readonly HashSet<string> FormCommands =
+    [
+        PdfCommandIds.FormsNext, PdfCommandIds.FormsPrevious, PdfCommandIds.FormsNextRequired, PdfCommandIds.FormsHighlight,
     ];
 
     /// <summary>Whether the command may run now (not counting whether an action is wired behind it).</summary>
@@ -40,6 +49,8 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
         _ when Tools.Contains(id) => hasDocument() && Ask(annotateAllowed, true),
+        PdfCommandIds.FormsNextRequired => hasDocument() && FormsReady() && Ask(hasEmptyRequired, true),
+        _ when FormCommands.Contains(id) => hasDocument() && FormsReady(),
         _ => hasDocument(),
     };
 
@@ -56,6 +67,21 @@ internal sealed class PdfCommandRules(
             return Ask(annotateAllowed, true) ? null : PdfStrings.AnnotateLockedReason;
         }
 
+        if (FormCommands.Contains(id))
+        {
+            if (!Ask(hasForm, false))
+            {
+                return PdfStrings.FormsNoFormReason;
+            }
+
+            if (fillAllowed?.Invoke() == false)
+            {
+                return PdfStrings.FormFillForbidden;
+            }
+
+            return id == PdfCommandIds.FormsNextRequired && !Ask(hasEmptyRequired, true) ? PdfStrings.FormsNoRequiredReason : null;
+        }
+
         if (id != PdfCommandIds.Print)
         {
             return null;
@@ -65,6 +91,9 @@ internal sealed class PdfCommandRules(
     }
 
     private static bool Ask(Func<bool>? question, bool unknown) => question is null ? unknown : question();
+
+    // A document with fillable fields that does not forbid filling; a permission that is not read yet does not refuse.
+    private bool FormsReady() => Ask(hasForm, false) && fillAllowed?.Invoke() != false;
 
     // Asked only with a document open, so a system without printing (Linux without CUPS) is probed when a file is opened, not at startup.
     private bool NoPrinter() => printerAvailable is not null && !printerAvailable();

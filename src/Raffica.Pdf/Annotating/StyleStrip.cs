@@ -145,6 +145,11 @@ internal sealed class StyleStrip : Border, IDisposable
             return null;
         }
 
+        if (selected.IsSignatureImage)
+        {
+            return null; // a picture of a signature offers neither colour nor width
+        }
+
         var enabled = _select.CanChangeSelectionStyle;
         var reason = enabled ? null : _select.LockReason ?? PdfStrings.SelectLockedReason;
         if (IsMarkup(selected.Kind))

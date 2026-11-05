@@ -270,6 +270,45 @@ public sealed class AnnotationHistoryTests
     }
 
     [Fact]
+    public void AnyFormChangeSinceTheLastClearIsTold()
+    {
+        var history = new AnnotationHistory();
+        var form = new AnnotationCommand.FormValue("Name", FormFieldState.OfText("Alt"), FormFieldState.OfText("Neu"), new HashSet<int> { 0 });
+
+        // None yet.
+        Assert.False(history.HasFormChanges);
+
+        // An annotation alone is no form change.
+        history.Push(Command(1));
+        Assert.False(history.HasFormChanges);
+        Assert.False(history.HasOnlyFormChanges);
+
+        // A form value next to an annotation is one, although the changes are no longer only form values.
+        history.Push(form);
+        Assert.True(history.HasFormChanges);
+        Assert.False(history.HasOnlyFormChanges);
+
+        // Form only.
+        history.Clear();
+        Assert.False(history.HasFormChanges);
+        history.Push(form);
+        Assert.True(history.HasFormChanges);
+        Assert.True(history.HasOnlyFormChanges);
+
+        // Undone since: the document was touched by it, so it counts until the next clear (as the annotation steps do for HasOnlyFormChanges).
+        Assert.NotNull(history.TakeUndo());
+        Assert.True(history.HasFormChanges);
+
+        // A save (a clear) starts afresh.
+        history.Clear();
+        Assert.False(history.HasFormChanges);
+
+        // A change the history cannot undo (a failed form write) is no form step.
+        history.MarkChanged();
+        Assert.False(history.HasFormChanges);
+    }
+
+    [Fact]
     public void MarkChangedMovesTheVersionWithoutAStep()
     {
         var history = new AnnotationHistory();

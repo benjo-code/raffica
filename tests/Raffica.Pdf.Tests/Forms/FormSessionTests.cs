@@ -1,0 +1,373 @@
+using Avalonia.Headless.XUnit;
+using Raffica.Core.Annotations;
+using Raffica.Core.Forms;
+using Raffica.Core.Pdf;
+using Raffica.Core.Text;
+using Raffica.Pdf.Forms;
+using Raffica.Pdf.Tests.Annotating;
+using Raffica.Pdf.Tests.Viewing;
+using Xunit;
+
+namespace Raffica.Pdf.Tests.Forms;
+
+public sealed class FormSessionTests
+{
+    private const string Basic = "forms-basic.pdf";
+
+    private static async Task<FormField> FieldAsync(FormSession forms, string name)
+    {
+        await forms.LoadPageAsync(0);
+        return forms.FieldsOn(0).Single(f => f.Key.FieldName == name);
+    }
+
+    private static async Task<bool> WaitForAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 400 && !condition(); i++)
+        {
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+            ViewFixture.Pump();
+        }
+
+        return condition();
+    }
+
+    [AvaloniaFact]
+    public async Task NoFormMeansNoWork()
+    {
+        using var file = await AnnotatedFile.OpenAsync("text-rich.pdf");
+        var forms = file.Tab.Forms;
+        var changes = 0;
+        forms.Changed += () => changes++;
+
+        Assert.False(forms.HasForm);
+        var load = forms.LoadPageAsync(0);
+        Assert.True(load.IsCompletedSuccessfully);
+        await forms.RefreshRequiredAsync();
+        await forms.LoadInfoAsync();
+        ViewFixture.Pump();
+
+        Assert.Empty(forms.FieldsOn(0));
+        Assert.False(forms.IsLoaded(0));
+        Assert.Null(forms.Info);
+        Assert.Empty(forms.EmptyRequired);
+        Assert.Equal(0, changes);
+        Assert.Null(file.Tab.AnnotationsIfCreated);
+    }
+
+    // The priority itself is not observable from here (it only orders PDFium jobs; Core's tests cover the overload and FormSession
+    // always passes PdfPriority.Background); what is checked: per page, lazily, single flight.
+    [AvaloniaFact]
+    public async Task FieldsAreLoadedPerPageAtBackgroundPriority()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        Assert.True(forms.HasForm);
+        Assert.Empty(forms.FieldsOn(0));
+
+        var first = forms.LoadPageAsync(0);
+        var second = forms.LoadPageAsync(0);
+        Assert.Same(first, second);
+        await first;
+
+        Assert.Contains(forms.FieldsOn(0), f => f.Key.FieldName == "Name");
+        Assert.Empty(forms.FieldsOn(1));
+        Assert.True(forms.LoadPageAsync(0).IsCompletedSuccessfully);
+
+        await forms.LoadInfoAsync();
+        Assert.NotNull(forms.Info);
+        Assert.True(forms.Info.HasFields);
+    }
+
+    [AvaloniaFact]
+    public async Task FieldAtFindsLockedWidgetsToo()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        var name = await FieldAsync(forms, "Name");
+        var locked = forms.FieldsOn(0).Single(f => f.Key.FieldName == "Gesperrt");
+        Assert.NotEqual(FormLock.None, locked.Lock);
+
+        Assert.Equal(name.Key, forms.FieldAt(0, (name.Bounds.Left + name.Bounds.Right) / 2, (name.Bounds.Top + name.Bounds.Bottom) / 2)?.Key);
+        Assert.Equal(locked.Key, forms.FieldAt(0, (locked.Bounds.Left + locked.Bounds.Right) / 2, (locked.Bounds.Top + locked.Bounds.Bottom) / 2)?.Key);
+        Assert.Null(forms.FieldAt(0, -5, -5));
+        Assert.Null(forms.FieldAt(7, 10, 10));
+    }
+
+    [AvaloniaFact]
+    public async Task FieldAtFindsTheTopmostOfOverlappingWidgets()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        using var forms = new FormSession(file.Tab, new QueueContext())
+        {
+            PageReader = (_, _, _) => Task.FromResult<IReadOnlyList<FormField>>(
+            [
+                Widget("below", new PageRect(10, 10, 110, 40)),
+                Widget("on top", new PageRect(60, 20, 160, 50)),
+                Widget("alone", new PageRect(200, 10, 260, 40)),
+            ]),
+        };
+        await forms.LoadPageAsync(0);
+
+        Assert.Equal("on top", forms.FieldAt(0, 80, 30)?.Key.FieldName);
+        Assert.Equal("below", forms.FieldAt(0, 20, 15)?.Key.FieldName);
+        Assert.Equal("on top", forms.FieldAt(0, 150, 45)?.Key.FieldName);
+        Assert.Equal("alone", forms.FieldAt(0, 230, 20)?.Key.FieldName);
+        Assert.Null(forms.FieldAt(0, 180, 20));
+    }
+
+    [AvaloniaFact]
+    public async Task InfoAndRequiredReadBeforeTheFirstPageLoadSurviveIt()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+
+        await forms.LoadInfoAsync();
+        await forms.RefreshRequiredAsync();
+        var info = forms.Info;
+        Assert.NotNull(info);
+        Assert.Equal(["Pflicht"], forms.EmptyRequired);
+
+        var required = await FieldAsync(forms, "Pflicht");
+
+        Assert.Same(info, forms.Info);
+        Assert.Equal(["Pflicht"], forms.EmptyRequired);
+
+        // The list is still maintained: a value empties it, and an undo brings the name back.
+        Assert.IsType<FormEditResult.Applied>(await forms.SetValueAsync(required, FormFieldState.OfText("x")));
+        Assert.Empty(forms.EmptyRequired);
+        await file.Tab.Annotations.UndoAsync();
+        Assert.True(await WaitForAsync(() => forms.EmptyRequired.Count == 1));
+    }
+
+    [AvaloniaFact]
+    public async Task ARefreshAskedWhileThePageIsBeingReadIsNotLost()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        using var forms = new FormSession(file.Tab, new QueueContext())
+        {
+            PageReader = async (_, _, _) =>
+            {
+                var n = Interlocked.Increment(ref calls);
+                if (n == 1)
+                {
+                    await gate.Task;
+                }
+
+                return [Widget("v" + n, new PageRect(0, 0, 10, 10))];
+            },
+        };
+
+        var load = forms.LoadPageAsync(0);
+        Assert.True(await WaitForAsync(() => Volatile.Read(ref calls) == 1));
+        var refresh = forms.RefreshPagesAsync([0]);
+        gate.SetResult();
+        await Task.WhenAll(load, refresh);
+
+        // The first read is dropped as stale and the page is read again.
+        Assert.Equal(2, Volatile.Read(ref calls));
+        Assert.Equal("v2", forms.FieldsOn(0).Single().Key.FieldName);
+
+        // A refresh after the read ended starts a new one.
+        await forms.RefreshPagesAsync([0]);
+        Assert.Equal(3, Volatile.Read(ref calls));
+        Assert.Equal("v3", forms.FieldsOn(0).Single().Key.FieldName);
+    }
+
+    private static FormField Widget(string name, PageRect bounds) => new(
+        new FormWidgetKey(name, 0, 0),
+        0,
+        FormFieldKind.Text,
+        FormFieldTraits.None,
+        bounds,
+        null,
+        null,
+        null,
+        [],
+        FormFieldState.OfText(string.Empty),
+        FormLock.None,
+        null);
+
+    [Fact]
+    public void ExceptionsOfTheWriteMapToTheirProblem()
+    {
+        IReadOnlySet<int> pages = new HashSet<int> { 0 };
+
+        Assert.Equal(FormEditProblem.NotKept, FormErrors.FromException(new FormWriteException("x", pages, restored: true))?.Problem);
+        Assert.Equal(FormEditProblem.NotKeptNotRestored, FormErrors.FromException(new FormWriteException("x", pages, restored: false))?.Problem);
+        Assert.Equal(FormEditProblem.NotFound, FormErrors.FromException(new FormFieldNotFoundException())?.Problem);
+        Assert.Equal(FormEditProblem.HistoryFull, FormErrors.FromException(new AnnotationHistoryFullException())?.Problem);
+        Assert.Equal(FormEditProblem.Locked, FormErrors.FromException(new InvalidOperationException("locked"))?.Problem);
+        Assert.Equal(FormEditProblem.Invalid, FormErrors.FromException(new ArgumentException("bad"))?.Problem);
+        Assert.Null(FormErrors.FromException(new IOException()));
+
+        // A write that races a document swap or a dispose is no lock: ObjectDisposedException is an InvalidOperationException and must not read as one.
+        Assert.Null(FormErrors.FromException(new ObjectDisposedException("document")));
+    }
+
+    [AvaloniaFact]
+    public async Task SetValueMakesOneUndoStepAndTheTabDirty()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        var name = await FieldAsync(forms, "Name");
+        Assert.False(file.Tab.IsDirty);
+
+        var result = await forms.SetValueAsync(name, FormFieldState.OfText("Neu"));
+        await file.Tab.Annotations.FlushAsync();
+        ViewFixture.Pump();
+
+        Assert.IsType<FormEditResult.Applied>(result);
+        Assert.True(file.Tab.IsDirty);
+        Assert.True(file.Tab.Annotations.CanUndo);
+        Assert.Equal(FormFieldState.OfText("Neu"), forms.FieldsOn(0).Single(f => f.Key.FieldName == "Name").State);
+
+        await file.Tab.Annotations.UndoAsync();
+        Assert.False(file.Tab.Annotations.CanUndo);
+        Assert.True(await WaitForAsync(() => forms.FieldsOn(0).Single(f => f.Key.FieldName == "Name").State.Equals(FormFieldState.OfText("Alt"))));
+    }
+
+    [AvaloniaFact]
+    public async Task UnchangedValueIsNotAStep()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        var name = await FieldAsync(forms, "Name");
+
+        var result = await forms.SetValueAsync(name, FormFieldState.OfText("Alt"));
+        await file.Tab.Annotations.FlushAsync();
+        ViewFixture.Pump();
+
+        Assert.IsType<FormEditResult.Unchanged>(result);
+        Assert.False(file.Tab.Annotations.CanUndo);
+        Assert.False(file.Tab.IsDirty);
+    }
+
+    // A document can hold a value the rules refuse (a line break in a single line, other characters, longer than the field takes): writing
+    // that same value again is no change and never an error, so the UI does not depend on the order of the checks. A different value that
+    // breaks the rules is still refused.
+    [AvaloniaTheory]
+    [InlineData("Zeile\nzwei", null, nameof(FormEditProblem.LineBreakNotAllowed))]
+    [InlineData("中文", null, nameof(FormEditProblem.UnsupportedCharacters))]
+    [InlineData("viel zu lang", 5, nameof(FormEditProblem.TooLong))]
+    public async Task AValueTheDocumentHoldsIsUnchangedEvenWhenTheRulesRefuseIt(string stored, int? maxLength, string expected)
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var field = FormFocusTests.Widget("held", 0, state: FormFieldState.OfText(stored)) with { MaxLength = maxLength };
+        using var forms = await FormFocusTests.SessionAsync(file, field);
+        Assert.False(FormValueRules.CheckText(field, stored).Accepted);
+
+        var same = await forms.SetValueAsync(field, FormFieldState.OfText(stored));
+        Assert.IsType<FormEditResult.Unchanged>(same);
+        Assert.False(file.Tab.IsDirty);
+        Assert.False(file.Tab.Annotations.CanUndo);
+
+        var other = await forms.SetValueAsync(field, FormFieldState.OfText(stored + "!"));
+        Assert.Equal(Enum.Parse<FormEditProblem>(expected), Assert.IsType<FormEditResult.Refused>(other).Problem);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Name", "Zeile\nzwei", nameof(FormEditProblem.LineBreakNotAllowed))]
+    [InlineData("Kurz", "viel zu lang", nameof(FormEditProblem.TooLong))]
+    [InlineData("Name", "中文", nameof(FormEditProblem.UnsupportedCharacters))]
+    public async Task RefusedTextReturnsTheProblemAndWritesNothing(string fieldName, string text, string expected)
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        var field = await FieldAsync(forms, fieldName);
+        var before = field.State;
+
+        var result = await forms.SetValueAsync(field, FormFieldState.OfText(text));
+        await file.Tab.Annotations.FlushAsync();
+        ViewFixture.Pump();
+
+        var refused = Assert.IsType<FormEditResult.Refused>(result);
+        Assert.Equal(Enum.Parse<FormEditProblem>(expected), refused.Problem);
+        Assert.False(file.Tab.Annotations.CanUndo);
+        Assert.False(file.Tab.IsDirty);
+        Assert.Equal(before, forms.FieldsOn(0).Single(f => f.Key.FieldName == fieldName).State);
+    }
+
+    [AvaloniaFact]
+    public async Task LockedFieldIsRefused()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        var locked = await FieldAsync(forms, "Gesperrt");
+
+        var result = await forms.SetValueAsync(locked, FormFieldState.OfText("Anders"));
+
+        Assert.Equal(FormEditProblem.Locked, Assert.IsType<FormEditResult.Refused>(result).Problem);
+        Assert.False(file.Tab.Annotations.CanUndo);
+        Assert.False(file.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task PagesInvalidatedRefreshesTheCachedPage()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        await FieldAsync(forms, "Name");
+
+        // Not through the form session: the editor writes and the viewer session announces the page.
+        await file.Tab.Annotations.Editor.SetFormValueAsync("Name", FormFieldState.OfText("Direkt"));
+
+        Assert.True(await WaitForAsync(() => forms.FieldsOn(0).Single(f => f.Key.FieldName == "Name").State.Equals(FormFieldState.OfText("Direkt"))));
+    }
+
+    [AvaloniaFact]
+    public async Task RequiredListFollowsTheValues()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var forms = file.Tab.Forms;
+        var required = await FieldAsync(forms, "Pflicht");
+
+        await forms.RefreshRequiredAsync();
+        Assert.Equal(["Pflicht"], forms.EmptyRequired);
+
+        Assert.IsType<FormEditResult.Applied>(await forms.SetValueAsync(required, FormFieldState.OfText("ausgefüllt")));
+        Assert.Empty(forms.EmptyRequired);
+
+        await file.Tab.Annotations.UndoAsync();
+        Assert.True(await WaitForAsync(() => forms.EmptyRequired.Count == 1));
+    }
+
+    [AvaloniaFact]
+    public async Task HighlightIsAppliedOnceAndNotForADocumentWithoutAForm()
+    {
+        using (var file = await AnnotatedFile.OpenAsync(Basic))
+        {
+            var forms = file.Tab.Forms;
+            Assert.False(file.Tab.Session.FormHighlight);
+            forms.Highlight = true;
+            forms.Highlight = true;
+            Assert.True(file.Tab.Session.FormHighlight);
+            forms.Highlight = false;
+            Assert.False(file.Tab.Session.FormHighlight);
+        }
+
+        using var plain = await AnnotatedFile.OpenAsync("text-rich.pdf");
+        plain.Tab.Forms.Highlight = true;
+        Assert.True(plain.Tab.Forms.Highlight);
+        Assert.False(plain.Tab.Session.FormHighlight);
+    }
+
+    [AvaloniaFact]
+    public async Task ChangedIsMarshalledToTheUiContext()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var ui = new QueueContext();
+        using var forms = new FormSession(file.Tab, ui);
+        var changes = 0;
+        forms.Changed += () => changes++;
+
+        await forms.LoadPageAsync(0);
+
+        Assert.True(ui.Count > 0);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, ui.PostedFromThread);
+        Assert.Equal(0, changes);
+        Assert.True(ui.Run() > 0);
+        Assert.True(changes > 0);
+    }
+}
