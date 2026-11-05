@@ -21,7 +21,8 @@ internal sealed class SaveJobCard : Border
 
     /// <param name="documentName">The name of the document being saved.</param>
     /// <param name="cancel">Called once when the user cancels; the card then says that it is cancelling.</param>
-    public SaveJobCard(string documentName, Action cancel)
+    /// <param name="titleFormat">The first line with {0} for the document name; null: "Saving {0}".</param>
+    public SaveJobCard(string documentName, Action cancel, string? titleFormat = null)
     {
         ArgumentNullException.ThrowIfNull(documentName);
         ArgumentNullException.ThrowIfNull(cancel);
@@ -32,7 +33,7 @@ internal sealed class SaveJobCard : Border
         Bind(BackgroundProperty, this.GetResourceObservable("Raffica.Brush.Surface.Band"));
         Bind(BorderBrushProperty, this.GetResourceObservable("Raffica.Brush.Rule"));
 
-        _title = new TextBlock { Name = "PART_Title", Text = PdfStrings.Fill(PdfStrings.SaveJobTitleFormat, documentName), FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        _title = new TextBlock { Name = "PART_Title", Text = PdfStrings.Fill(titleFormat ?? PdfStrings.SaveJobTitleFormat, documentName), FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
         var track = new Border { Height = 4, CornerRadius = new CornerRadius(2), ClipToBounds = true, Margin = new Thickness(0, 6, 0, 0) };
         track.Bind(BackgroundProperty, track.GetResourceObservable("Raffica.Brush.Rule"));
         var fill = new Border { CornerRadius = new CornerRadius(2) };

@@ -61,7 +61,7 @@ internal sealed partial class PdfWindow
         isDirty: () => Workspace.Active is { IsDirty: true },
         canUndo: () => OpenPlan is { } plan ? plan.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
         canRedo: () => OpenPlan is { } plan ? plan.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
-        busySaving: () => _print.IsRunning || _saves.IsSaving,
+        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
         saveRunning: () => _saves.IsSaving,
@@ -209,6 +209,7 @@ internal sealed partial class PdfWindow
         MovePagesDown: () => RunPageEdit(session => session.MoveBy(1)),
         PagesUndo: () => OpenPlan?.Undo(),
         PagesRedo: () => OpenPlan?.Redo(),
+        ApplyPages: () => _ = GuardAsync(ApplyActiveAsync),
         DeletePages: () => RunPageEdit(session => session.Delete()));
 
     /// <summary>

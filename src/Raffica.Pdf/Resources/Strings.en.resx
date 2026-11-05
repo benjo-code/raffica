@@ -1305,4 +1305,172 @@
   <data name="InsertRefusedOther" xml:space="preserve">
     <value>The pages could not be inserted.</value>
   </data>
+  <data name="ApplyTitle" xml:space="preserve">
+    <value>Apply page changes</value>
+  </data>
+  <data name="ApplyRefusedTitle" xml:space="preserve">
+    <value>Page changes cannot be applied</value>
+  </data>
+  <data name="ApplyRefusedIntro" xml:space="preserve">
+    <value>Nothing was written. These page changes cannot be applied:</value>
+  </data>
+  <data name="ApplySummaryPagesFormat" xml:space="preserve">
+    <value>{0} → {1} pages</value>
+  </data>
+  <data name="ApplySummaryTurnedFormat" xml:space="preserve">
+    <value>{0} turned</value>
+  </data>
+  <data name="ApplySummaryFileOne" xml:space="preserve">
+    <value>1 file inserted</value>
+  </data>
+  <data name="ApplySummaryFilesFormat" xml:space="preserve">
+    <value>{0} files inserted</value>
+  </data>
+  <data name="ApplySummaryBlankOne" xml:space="preserve">
+    <value>1 blank page</value>
+  </data>
+  <data name="ApplySummaryBlankFormat" xml:space="preserve">
+    <value>{0} blank pages</value>
+  </data>
+  <data name="ApplySummaryDuplicatedFormat" xml:space="preserve">
+    <value>{0} duplicated</value>
+  </data>
+  <data name="ApplyLossesHeading" xml:space="preserve">
+    <value>These things are lost or change:</value>
+  </data>
+  <data name="ApplyNoLosses" xml:space="preserve">
+    <value>Nothing but the page changes is affected.</value>
+  </data>
+  <data name="ApplyWarning" xml:space="preserve">
+    <value>The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use Save as.</value>
+  </data>
+  <data name="ApplySaveAs" xml:space="preserve">
+    <value>Save as…</value>
+  </data>
+  <data name="ApplyOriginal" xml:space="preserve">
+    <value>Save in the original file</value>
+  </data>
+  <data name="ApplyBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="ApplyOpenEdit" xml:space="preserve">
+    <value>Finish or discard the open edit first.</value>
+  </data>
+  <data name="ApplyJobTitleFormat" xml:space="preserve">
+    <value>Applying page changes to {0}</value>
+  </data>
+  <data name="ApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Checking page changes of {0}</value>
+  </data>
+  <data name="ApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-pages.pdf</value>
+  </data>
+  <data name="SaveFirstTitle" xml:space="preserve">
+    <value>Save the marks first?</value>
+  </data>
+  <data name="SaveFirstMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the page changes are applied.</value>
+  </data>
+  <data name="SaveFirstSave" xml:space="preserve">
+    <value>Save first</value>
+  </data>
+  <data name="ApplyFailedTitle" xml:space="preserve">
+    <value>Page changes not applied</value>
+  </data>
+  <data name="ApplyStays" xml:space="preserve">
+    <value>The file is unchanged and the page changes are still open.</value>
+  </data>
+  <data name="ApplyChangesOpen" xml:space="preserve">
+    <value>The page changes are still open.</value>
+  </data>
+  <data name="ApplyFailSourceModified" xml:space="preserve">
+    <value>The file changed on disk since it was opened, so its pages cannot be rewritten from here.</value>
+  </data>
+  <data name="ApplyFailInsertedModifiedFormat" xml:space="preserve">
+    <value>The inserted file {0} changed on disk since it was inserted.</value>
+  </data>
+  <data name="ApplyFailEncrypted" xml:space="preserve">
+    <value>An encrypted file cannot be inserted into a document that is not encrypted: its content would be written unprotected.</value>
+  </data>
+  <data name="ApplyFailPlan" xml:space="preserve">
+    <value>The page changes no longer fit the document.</value>
+  </data>
+  <data name="ApplyFailOpen" xml:space="preserve">
+    <value>A file of the page changes could not be opened.</value>
+  </data>
+  <data name="ApplyFailDamaged" xml:space="preserve">
+    <value>A page of one of the files is damaged and could not be copied.</value>
+  </data>
+  <data name="ApplyFailOther" xml:space="preserve">
+    <value>The page changes could not be applied.</value>
+  </data>
+  <data name="ApplyFailAdoptFormat" xml:space="preserve">
+    <value>The page changes were written, but the document could not be taken over. The file at {0} is the rewritten one: open it to continue.</value>
+  </data>
+  <data name="LossSignature" xml:space="preserve">
+    <value>This file is digitally signed. Programs that check signatures will report the signature as broken after the pages changed.</value>
+  </data>
+  <data name="LossSignatureLevelFormat" xml:space="preserve">
+    <value>The signature was made with change level {0}.</value>
+  </data>
+  <data name="LossLabelsShifted" xml:space="preserve">
+    <value>The file has page labels (such as "iv" or "A-3"). They follow the position, not the pages, so they will name other pages.</value>
+  </data>
+  <data name="LossLabelsSourceFormat" xml:space="preserve">
+    <value>The page labels of the inserted file {0} are not taken over.</value>
+  </data>
+  <data name="LossForeignOutlineFormat" xml:space="preserve">
+    <value>The bookmarks of the inserted file {0} are not taken over.</value>
+  </data>
+  <data name="LossBookmarkDeleted" xml:space="preserve">
+    <value>Bookmarks that point to deleted pages stay as entries without a target.</value>
+  </data>
+  <data name="LossFormInserted" xml:space="preserve">
+    <value>Inserted pages have form fields. They are not entered into the form of the file, so other programs may not let you fill them in.</value>
+  </data>
+  <data name="LossFormDuplicated" xml:space="preserve">
+    <value>Copied pages have form fields. A field then appears on more than one page and its value is shared.</value>
+  </data>
+  <data name="LossNameUnchecked" xml:space="preserve">
+    <value>There were too many form field names to check whether fields of the same name come from different files.</value>
+  </data>
+  <data name="LossNameCollision" xml:space="preserve">
+    <value>Form fields of the same name come from different files. They are read as one field.</value>
+  </data>
+  <data name="LossEncryptionBlocksFormat" xml:space="preserve">
+    <value>The inserted file {0} is encrypted, but the new file would not be. Its protected content would be written unprotected.</value>
+  </data>
+  <data name="LossEncryptionWarnFormat" xml:space="preserve">
+    <value>The inserted file {0} is encrypted. Its pages are protected by the password and permissions of the main file, not by their own.</value>
+  </data>
+  <data name="LossLinkCopied" xml:space="preserve">
+    <value>Internal links on copied pages lose their destination.</value>
+  </data>
+  <data name="LossLinkDeleted" xml:space="preserve">
+    <value>Internal links lose their target because the target page is deleted.</value>
+  </data>
+  <data name="LossOrphan" xml:space="preserve">
+    <value>Form fields on deleted pages stay in the form of the file without a page.</value>
+  </data>
+  <data name="LossOther" xml:space="preserve">
+    <value>The page changes lose something.</value>
+  </data>
+  <data name="LossPageResultFormat" xml:space="preserve">
+    <value> (page {0} of the new file)</value>
+  </data>
+  <data name="LossPagesResultFormat" xml:space="preserve">
+    <value> (pages {0} of the new file)</value>
+  </data>
+  <data name="LossPageOriginalFormat" xml:space="preserve">
+    <value> (original page {0})</value>
+  </data>
+  <data name="LossPagesOriginalFormat" xml:space="preserve">
+    <value> (original pages {0})</value>
+  </data>
+  <data name="LossListAnd" xml:space="preserve">
+    <value> and </value>
+  </data>
+  <data name="LossListMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
 </root>

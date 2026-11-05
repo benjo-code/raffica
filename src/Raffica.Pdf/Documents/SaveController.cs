@@ -81,11 +81,27 @@ internal sealed class SaveController
         }
     }
 
+    /// <summary>
+    /// Hands Save and Save as of a tab with an open page plan that changes something to the Apply flow (the second argument says it is Save as): a page
+    /// plan is written by the rewrite of Apply, never by the incremental save. A tab without such a plan saves as before. Set by the window (the flow
+    /// itself uses <see cref="SaveMarksAsync"/>, so this class does not know it).
+    /// </summary>
+    public Func<PdfTab, bool, Task<bool>>? ApplyPlan { get; set; }
+
     /// <summary>Saves the tab into its own file. Returns whether the changes are saved (a clean tab counts as saved; a tab that is dirty only because of an unresolved draft is not).</summary>
-    public Task<bool> SaveAsync(PdfTab tab) => RunAsync(tab, askForTarget: false);
+    public Task<bool> SaveAsync(PdfTab tab) => HasPlan(tab) ? ApplyPlan!(tab, false) : RunAsync(tab, askForTarget: false);
 
     /// <summary>Saves the tab under a path the user picks; the tab then belongs to that file. Returns whether the changes are saved.</summary>
-    public Task<bool> SaveAsAsync(PdfTab tab) => RunAsync(tab, askForTarget: true);
+    public Task<bool> SaveAsAsync(PdfTab tab) => HasPlan(tab) ? ApplyPlan!(tab, true) : RunAsync(tab, askForTarget: true);
+
+    /// <summary>
+    /// Saves the marks and form values of the tab into its own file (the normal incremental save) although a page plan is open: the first step of Apply.
+    /// Returns whether they are saved; a tab without changes counts as not saved here, the caller asks <c>Editor.IsDirty</c> first.
+    /// </summary>
+    public Task<bool> SaveMarksAsync(PdfTab tab) => RunAsync(tab, askForTarget: false);
+
+    private bool HasPlan(PdfTab tab) =>
+        ApplyPlan is not null && tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity;
 
     private async Task<bool> RunAsync(PdfTab tab, bool askForTarget)
     {
@@ -297,6 +313,15 @@ internal sealed class SaveController
 
         // The tab is clean unless the session still holds something unsaved (a text box draft that was refused stays dirty).
         Guarded(tab.Annotations.Refresh);
+
+        // An open page plan keeps the tab dirty: the session of the marks cleared the state it had set, the plan has not been applied.
+        Guarded(() =>
+        {
+            if (tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity)
+            {
+                tab.MarkDirty();
+            }
+        });
         Guarded(() => Changed?.Invoke());
         return true;
     }

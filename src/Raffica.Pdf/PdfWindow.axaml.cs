@@ -162,10 +162,11 @@ internal sealed partial class PdfWindow : Window
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
-            () => _saves.IsSaving);
+            () => _saves.IsSaving || _applyFlow?.IsRunning == true);
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
+        _saves.ApplyPlan = (tab, saveAs) => Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -228,6 +229,7 @@ internal sealed partial class PdfWindow : Window
     {
         Step(_print.Cancel);
         Step(_saves.Cancel);
+        Step(() => _applyFlow?.Cancel());
         Step(_fieldCodes.Dispose);
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
@@ -458,7 +460,13 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
-    private async Task<string?> PickSavePathAsync(PdfTab tab)
+    private Task<string?> PickSavePathAsync(PdfTab tab) => PickPathAsync(tab, tab.Title);
+
+    // The target of an applied page plan: never the name of the open file, so that a quick Enter cannot replace it.
+    private Task<string?> PickApplyPathAsync(PdfTab tab) =>
+        PickPathAsync(tab, PdfStrings.Fill(PdfStrings.ApplySuggestedNameFormat, Path.GetFileNameWithoutExtension(tab.Title)));
+
+    private async Task<string?> PickPathAsync(PdfTab tab, string suggestedName)
     {
         if (_savePicker is { } picker)
         {
@@ -473,7 +481,7 @@ internal sealed partial class PdfWindow : Window
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = PdfStrings.SaveDialogTitle,
-                SuggestedFileName = tab.Title,
+                SuggestedFileName = suggestedName,
                 DefaultExtension = "pdf",
                 ShowOverwritePrompt = true,
                 SuggestedStartLocation = start,

@@ -1289,4 +1289,172 @@
   <data name="InsertRefusedOther" xml:space="preserve">
     <value>Die Seiten konnten nicht eingefügt werden.</value>
   </data>
+  <data name="ApplyTitle" xml:space="preserve">
+    <value>Seitenänderungen anwenden</value>
+  </data>
+  <data name="ApplyRefusedTitle" xml:space="preserve">
+    <value>Die Seitenänderungen lassen sich nicht anwenden</value>
+  </data>
+  <data name="ApplyRefusedIntro" xml:space="preserve">
+    <value>Es wurde nichts geschrieben. Diese Seitenänderungen lassen sich nicht anwenden:</value>
+  </data>
+  <data name="ApplySummaryPagesFormat" xml:space="preserve">
+    <value>{0} → {1} Seiten</value>
+  </data>
+  <data name="ApplySummaryTurnedFormat" xml:space="preserve">
+    <value>{0} gedreht</value>
+  </data>
+  <data name="ApplySummaryFileOne" xml:space="preserve">
+    <value>1 Datei eingefügt</value>
+  </data>
+  <data name="ApplySummaryFilesFormat" xml:space="preserve">
+    <value>{0} Dateien eingefügt</value>
+  </data>
+  <data name="ApplySummaryBlankOne" xml:space="preserve">
+    <value>1 leere Seite</value>
+  </data>
+  <data name="ApplySummaryBlankFormat" xml:space="preserve">
+    <value>{0} leere Seiten</value>
+  </data>
+  <data name="ApplySummaryDuplicatedFormat" xml:space="preserve">
+    <value>{0} dupliziert</value>
+  </data>
+  <data name="ApplyLossesHeading" xml:space="preserve">
+    <value>Das geht verloren oder ändert sich:</value>
+  </data>
+  <data name="ApplyNoLosses" xml:space="preserve">
+    <value>Außer den Seitenänderungen ist nichts betroffen.</value>
+  </data>
+  <data name="ApplyWarning" xml:space="preserve">
+    <value>Die Datei wird neu geschrieben. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt. Um das Original zu behalten, wähle Speichern unter.</value>
+  </data>
+  <data name="ApplySaveAs" xml:space="preserve">
+    <value>Speichern unter…</value>
+  </data>
+  <data name="ApplyOriginal" xml:space="preserve">
+    <value>In der Originaldatei speichern</value>
+  </data>
+  <data name="ApplyBack" xml:space="preserve">
+    <value>Zurück</value>
+  </data>
+  <data name="ApplyOpenEdit" xml:space="preserve">
+    <value>Beende oder verwirf zuerst die offene Bearbeitung.</value>
+  </data>
+  <data name="ApplyJobTitleFormat" xml:space="preserve">
+    <value>Seitenänderungen werden auf {0} angewendet</value>
+  </data>
+  <data name="ApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Seitenänderungen von {0} werden geprüft</value>
+  </data>
+  <data name="ApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-seiten.pdf</value>
+  </data>
+  <data name="SaveFirstTitle" xml:space="preserve">
+    <value>Markierungen zuerst speichern?</value>
+  </data>
+  <data name="SaveFirstMessage" xml:space="preserve">
+    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Seitenänderungen angewendet.</value>
+  </data>
+  <data name="SaveFirstSave" xml:space="preserve">
+    <value>Zuerst speichern</value>
+  </data>
+  <data name="ApplyFailedTitle" xml:space="preserve">
+    <value>Seitenänderungen nicht angewendet</value>
+  </data>
+  <data name="ApplyStays" xml:space="preserve">
+    <value>Die Datei ist unverändert, und die Seitenänderungen sind weiterhin offen.</value>
+  </data>
+  <data name="ApplyChangesOpen" xml:space="preserve">
+    <value>Die Seitenänderungen sind weiterhin offen.</value>
+  </data>
+  <data name="ApplyFailSourceModified" xml:space="preserve">
+    <value>Die Datei hat sich seit dem Öffnen auf dem Datenträger geändert, deshalb lassen sich ihre Seiten von hier aus nicht neu schreiben.</value>
+  </data>
+  <data name="ApplyFailInsertedModifiedFormat" xml:space="preserve">
+    <value>Die eingefügte Datei {0} hat sich seit dem Einfügen auf dem Datenträger geändert.</value>
+  </data>
+  <data name="ApplyFailEncrypted" xml:space="preserve">
+    <value>Eine verschlüsselte Datei lässt sich nicht in ein unverschlüsseltes Dokument einfügen: Ihr Inhalt würde ungeschützt geschrieben.</value>
+  </data>
+  <data name="ApplyFailPlan" xml:space="preserve">
+    <value>Die Seitenänderungen passen nicht mehr zum Dokument.</value>
+  </data>
+  <data name="ApplyFailOpen" xml:space="preserve">
+    <value>Eine Datei der Seitenänderungen ließ sich nicht öffnen.</value>
+  </data>
+  <data name="ApplyFailDamaged" xml:space="preserve">
+    <value>Eine Seite einer der Dateien ist beschädigt und ließ sich nicht kopieren.</value>
+  </data>
+  <data name="ApplyFailOther" xml:space="preserve">
+    <value>Die Seitenänderungen ließen sich nicht anwenden.</value>
+  </data>
+  <data name="ApplyFailAdoptFormat" xml:space="preserve">
+    <value>Die Seitenänderungen wurden geschrieben, aber das Dokument ließ sich nicht übernehmen. Die Datei unter {0} ist die neu geschriebene: Öffne sie, um weiterzuarbeiten.</value>
+  </data>
+  <data name="LossSignature" xml:space="preserve">
+    <value>Diese Datei ist digital signiert. Programme, die Signaturen prüfen, melden die Signatur nach der Änderung der Seiten als gebrochen.</value>
+  </data>
+  <data name="LossSignatureLevelFormat" xml:space="preserve">
+    <value>Die Signatur wurde mit Änderungsstufe {0} erstellt.</value>
+  </data>
+  <data name="LossLabelsShifted" xml:space="preserve">
+    <value>Die Datei hat Seitenbezeichnungen (etwa „iv“ oder „A-3“). Sie folgen der Position, nicht den Seiten, und benennen danach andere Seiten.</value>
+  </data>
+  <data name="LossLabelsSourceFormat" xml:space="preserve">
+    <value>Die Seitenbezeichnungen der eingefügten Datei {0} werden nicht übernommen.</value>
+  </data>
+  <data name="LossForeignOutlineFormat" xml:space="preserve">
+    <value>Die Lesezeichen der eingefügten Datei {0} werden nicht übernommen.</value>
+  </data>
+  <data name="LossBookmarkDeleted" xml:space="preserve">
+    <value>Lesezeichen, die auf gelöschte Seiten zeigen, bleiben als Einträge ohne Ziel erhalten.</value>
+  </data>
+  <data name="LossFormInserted" xml:space="preserve">
+    <value>Eingefügte Seiten haben Formularfelder. Sie werden nicht in das Formular der Datei aufgenommen, daher lassen sie sich in anderen Programmen womöglich nicht ausfüllen.</value>
+  </data>
+  <data name="LossFormDuplicated" xml:space="preserve">
+    <value>Kopierte Seiten haben Formularfelder. Ein Feld erscheint dann auf mehreren Seiten, und sein Wert wird geteilt.</value>
+  </data>
+  <data name="LossNameUnchecked" xml:space="preserve">
+    <value>Es waren zu viele Formularfeldnamen, um zu prüfen, ob gleichnamige Felder aus verschiedenen Dateien stammen.</value>
+  </data>
+  <data name="LossNameCollision" xml:space="preserve">
+    <value>Gleichnamige Formularfelder stammen aus verschiedenen Dateien. Sie werden als ein Feld gelesen.</value>
+  </data>
+  <data name="LossEncryptionBlocksFormat" xml:space="preserve">
+    <value>Die eingefügte Datei {0} ist verschlüsselt, die neue Datei wäre es aber nicht. Ihr geschützter Inhalt würde ungeschützt geschrieben.</value>
+  </data>
+  <data name="LossEncryptionWarnFormat" xml:space="preserve">
+    <value>Die eingefügte Datei {0} ist verschlüsselt. Ihre Seiten sind durch das Kennwort und die Berechtigungen der Hauptdatei geschützt, nicht mehr durch ihre eigenen.</value>
+  </data>
+  <data name="LossLinkCopied" xml:space="preserve">
+    <value>Interne Links auf kopierten Seiten verlieren ihr Ziel.</value>
+  </data>
+  <data name="LossLinkDeleted" xml:space="preserve">
+    <value>Interne Links verlieren ihr Ziel, weil die Zielseite gelöscht wird.</value>
+  </data>
+  <data name="LossOrphan" xml:space="preserve">
+    <value>Formularfelder auf gelöschten Seiten bleiben ohne Seite im Formular der Datei.</value>
+  </data>
+  <data name="LossOther" xml:space="preserve">
+    <value>Die Seitenänderungen verlieren etwas.</value>
+  </data>
+  <data name="LossPageResultFormat" xml:space="preserve">
+    <value> (Seite {0} der neuen Datei)</value>
+  </data>
+  <data name="LossPagesResultFormat" xml:space="preserve">
+    <value> (Seiten {0} der neuen Datei)</value>
+  </data>
+  <data name="LossPageOriginalFormat" xml:space="preserve">
+    <value> (ursprüngliche Seite {0})</value>
+  </data>
+  <data name="LossPagesOriginalFormat" xml:space="preserve">
+    <value> (ursprüngliche Seiten {0})</value>
+  </data>
+  <data name="LossListAnd" xml:space="preserve">
+    <value> und </value>
+  </data>
+  <data name="LossListMoreFormat" xml:space="preserve">
+    <value>{0} und {1} weitere</value>
+  </data>
 </root>

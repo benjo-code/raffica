@@ -221,7 +221,7 @@ public sealed class OrganizeCommandTests
 
         Command(window, "pages.duplicate").Run!();
         Assert.Equal(7, session.Plan.Slots.Count);
-        Assert.False(Command(window, "pages.apply").IsEnabled, "apply stays unwired until its task");
+        Assert.True(Command(window, "pages.apply").IsEnabled, "a plan that changes something can be applied");
 
         Command(window, "pages.delete").Run!();
         Assert.Equal(6, session.Plan.Slots.Count);
@@ -260,7 +260,7 @@ public sealed class OrganizeCommandTests
         using var fixture = WindowFixture.Create();
         await OpenReadyAsync(fixture);
         var window = fixture.Window;
-        foreach (var id in new[] { "pages.apply", "pages.discard", "pages.extract", "pages.split", "pages.exportImages" })
+        foreach (var id in new[] { "pages.discard", "pages.extract", "pages.split", "pages.exportImages" })
         {
             Assert.Null(Command(window, id).Run);
             Assert.False(Command(window, id).IsEnabled, id);

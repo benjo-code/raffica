@@ -116,6 +116,24 @@ internal sealed partial class PdfWindow
         result => Dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.InsertRefusedTitle, PdfStrings.InsertRefusal(result), () => done(true))),
         () => _engine ??= new PdfEngine());
 
+    private ApplyFlow? _applyFlow;
+
+    /// <summary>The apply flow of the window (made on first use; for tests).</summary>
+    internal ApplyFlow Applying => _applyFlow ??= new ApplyFlow(
+        Dialogs,
+        tab => _saves.SaveMarksAsync(tab),
+        PickApplyPathAsync,
+        () => _engine ??= new PdfEngine(),
+        tab => _views.TryGetValue(tab, out var view) ? view.CurrentPage : 0,
+        RebuildTab,
+        OnSavedUnderNewPath,
+        RefreshCommandStates,
+        () => _print.IsRunning,
+        _time);
+
+    /// <summary>Applies the page plan of the active tab (the Apply command; Save and Save as with an open plan come here too).</summary>
+    internal Task<bool> ApplyActiveAsync() => Workspace.Active is { } tab ? Applying.RunAsync(tab) : Task.FromResult(false);
+
     private bool _insertRunning;
 
     /// <summary>Asks for a PDF and inserts pages of it into the open plan (the position and the pages are asked on a card).</summary>
