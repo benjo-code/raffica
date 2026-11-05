@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Raffica.Core.Annotations;
 using Raffica.Core.Forms;
 using Raffica.Pdf.Annotating;
@@ -362,6 +363,11 @@ public sealed class FieldEditTests
         Assert.True(f.Tab.IsDirty);
 
         f.PressKey(Avalonia.Input.PhysicalKey.S, Avalonia.Input.RawInputModifiers.Control);
+
+        // The form has empty required fields: the card asks after the open field was committed (the value is in the file either way).
+        await ViewFixture.WaitAsync(() => f.Window.Host.ActiveDialog is not null);
+        var card = f.Window.Host.ActiveDialog!;
+        card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_SaveAnyway").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         await ViewFixture.WaitAsync(() => !f.Tab.IsDirty && !f.Window.Saves.IsSaving);
         Assert.False(f.Interaction.IsEditing);
         await f.ReopenAsync();

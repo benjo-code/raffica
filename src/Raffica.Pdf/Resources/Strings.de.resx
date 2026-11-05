@@ -947,4 +947,34 @@
   <data name="FormHighlightToggle" xml:space="preserve">
     <value>Felder hervorheben</value>
   </data>
+  <data name="SignedFormsTitle" xml:space="preserve">
+    <value>Diese Datei ist signiert</value>
+  </data>
+  <data name="SignedFormsText" xml:space="preserve">
+    <value>Es wurden nur Formularfelder ausgefüllt. Die Stufe dieser Signatur kann das erlauben, Raffica PDF kann aber nicht prüfen, ob die Signatur unversehrt bleibt. Programme wie Acrobat zeigen sie unter Umständen als ungültig an.</value>
+  </data>
+  <data name="RequiredTitle" xml:space="preserve">
+    <value>Pflichtfelder sind leer</value>
+  </data>
+  <data name="RequiredTextOne" xml:space="preserve">
+    <value>Ein Pflichtfeld hat noch keinen Wert.</value>
+  </data>
+  <data name="RequiredTextMany" xml:space="preserve">
+    <value>{0} Pflichtfelder haben noch keinen Wert.</value>
+  </data>
+  <data name="RequiredNames" xml:space="preserve">
+    <value>Leer: {0}</value>
+  </data>
+  <data name="RequiredMore" xml:space="preserve">
+    <value>und {0} weitere</value>
+  </data>
+  <data name="RequiredHint" xml:space="preserve">
+    <value>Sie können die Datei auch so speichern, wie sie ist.</value>
+  </data>
+  <data name="RequiredGoToFirst" xml:space="preserve">
+    <value>Zum ersten leeren Feld</value>
+  </data>
+  <data name="RequiredSaveAnyway" xml:space="preserve">
+    <value>Trotzdem speichern</value>
+  </data>
 </root>

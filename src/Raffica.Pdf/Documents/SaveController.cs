@@ -12,7 +12,7 @@ namespace Raffica.Pdf.Documents;
 internal delegate Task<AnnotationSaveResult> SaveRunner(PdfTab tab, string target, bool overwriteChangedOriginal, IProgress<double> progress, CancellationToken cancellationToken);
 
 /// <summary>
-/// Save and Save as. Both end the open drafts first (<see cref="Annotating.AnnotationSession.FlushAsync"/>), ask about a signed file
+/// Save and Save as. Both end the open drafts first (<see cref="Annotating.AnnotationSession.FlushAsync"/>), ask about the empty required fields of a form (never blocking), ask about a signed file
 /// (<see cref="SignaturePolicy"/>), run the incremental save of Core with a job card (progress, Cancel) and turn every failure into a card:
 /// nothing escapes to the caller. The dirty state of the tab after a save follows the annotation session, so a draft that could not be made
 /// keeps the tab dirty. One save at a time; a save and a print job refuse each other.
@@ -24,6 +24,7 @@ internal sealed class SaveController
     private readonly SaveRunner _runner;
     private readonly Action<Control?>? _setJobSlot;
     private readonly Func<bool>? _printRunning;
+    private readonly Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? _askRequired;
     private readonly TimeProvider? _time;
     private readonly ConditionalWeakTable<PdfTab, NotedDocument> _noted = [];
     private CancellationTokenSource? _running;
@@ -34,6 +35,7 @@ internal sealed class SaveController
     /// <param name="setJobSlot">Puts the job card into the frame (null: no card is shown).</param>
     /// <param name="printRunning">Whether a print job runs (a save is then refused).</param>
     /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
+    /// <param name="askRequired">Asks about the empty required fields of a form that is saved (the names are passed); null: never asked.</param>
     /// <param name="runner">Replaces the save of Core (tests); null: <see cref="AnnotationEditor.SaveAsync"/> of the tab.</param>
     public SaveController(
         DialogQueue dialogs,
@@ -42,7 +44,8 @@ internal sealed class SaveController
         Action<Control?>? setJobSlot = null,
         Func<bool>? printRunning = null,
         TimeProvider? time = null,
-        SaveRunner? runner = null)
+        SaveRunner? runner = null,
+        Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? askRequired = null)
     {
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(pickSavePath);
@@ -52,6 +55,7 @@ internal sealed class SaveController
         _setJobSlot = setJobSlot;
         _printRunning = printRunning;
         _time = time;
+        _askRequired = askRequired;
         _runner = runner ?? ((tab, target, overwrite, progress, token) => tab.Annotations.Editor.SaveAsync(engine(), target, overwrite, progress, token));
     }
 
@@ -131,6 +135,12 @@ internal sealed class SaveController
             return !tab.IsDirty;
         }
 
+        // Empty required fields come first: that question is about the form, the one about the signature is about the file. It never blocks.
+        if (await AskRequiredAsync(tab) == RequiredChoice.GoToFirst)
+        {
+            return false;
+        }
+
         var advice = SignaturePolicy.Evaluate(await document.GetSignatureInfoAsync());
         var target = askForTarget ? null : tab.Path;
         var decided = false;
@@ -176,6 +186,19 @@ internal sealed class SaveController
         return await WriteAsync(tab, target, askForTarget);
     }
 
+    private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab)
+    {
+        // Only a save that writes form values is asked: a document without a form, or a save that holds no form change, never is.
+        if (_askRequired is null || !tab.Annotations.Editor.HasOnlyFormChanges || !tab.Forms.HasForm)
+        {
+            return RequiredChoice.SaveAnyway;
+        }
+
+        await tab.Forms.RefreshRequiredAsync();
+        var names = tab.Forms.EmptyRequired;
+        return names.Count == 0 ? RequiredChoice.SaveAnyway : await _askRequired(tab, names);
+    }
+
     private async Task<SignedChoice> AskSignedAsync(PdfTab tab, PdfDocument document, SignatureAdvice advice)
     {
         if (advice == SignatureAdvice.None)
@@ -189,7 +212,8 @@ internal sealed class SaveController
         }
 
         var name = tab.Title;
-        var choice = await _dialogs.ShowAsync<SignedChoice>(done => SignedFileCard.Create(name, advice, done, _time));
+        var onlyForm = tab.Annotations.Editor.HasOnlyFormChanges;
+        var choice = await _dialogs.ShowAsync<SignedChoice>(done => SignedFileCard.Create(name, advice, onlyForm, done, _time));
         if (advice == SignatureAdvice.AppendedOnly && choice == SignedChoice.Continue)
         {
             _noted.AddOrUpdate(tab, new NotedDocument(document));

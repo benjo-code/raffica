@@ -354,6 +354,26 @@ internal static class PdfStrings
     public static string SignedNoteTitle => Table.Get("SignedNoteTitle");
     public static string SignedNoteText => Table.Get("SignedNoteText");
     public static string SignedSaveAnyway => Table.Get("SignedSaveAnyway");
+    public static string SignedFormsTitle => Table.Get("SignedFormsTitle");
+    public static string SignedFormsText => Table.Get("SignedFormsText");
+    public static string RequiredTitle => Table.Get("RequiredTitle");
+    public static string RequiredTextOne => Table.Get("RequiredTextOne");
+    public static string RequiredHint => Table.Get("RequiredHint");
+    public static string RequiredGoToFirst => Table.Get("RequiredGoToFirst");
+    public static string RequiredSaveAnyway => Table.Get("RequiredSaveAnyway");
+
+    /// <summary>The line above the names on the required-fields card: one text for one field, one for several (the count in it).</summary>
+    public static string RequiredText(int count) =>
+        count == 1 ? RequiredTextOne : Table.Get("RequiredTextMany").Replace("{0}", count.ToString(Culture), StringComparison.Ordinal);
+
+    /// <summary>The names of the empty required fields, at most <paramref name="shown"/>, then how many more there are.</summary>
+    public static string RequiredList(IReadOnlyList<string> names, int shown = 5)
+    {
+        var list = Table.Get("RequiredNames").Replace("{0}", string.Join(", ", names.Take(shown)), StringComparison.Ordinal);
+        return names.Count > shown
+            ? list + " " + Table.Get("RequiredMore").Replace("{0}", (names.Count - shown).ToString(Culture), StringComparison.Ordinal)
+            : list;
+    }
     public static string SaveFailNotWritable => Table.Get("SaveFailNotWritable");
     public static string SaveFailDiskFull => Table.Get("SaveFailDiskFull");
     public static string SaveFailWriteFailed => Table.Get("SaveFailWriteFailed");

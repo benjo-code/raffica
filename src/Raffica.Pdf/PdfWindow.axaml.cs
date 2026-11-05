@@ -156,7 +156,7 @@ internal sealed partial class PdfWindow : Window
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
             () => _saves.IsSaving);
-        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner);
+        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
@@ -1235,6 +1235,18 @@ internal sealed partial class PdfWindow : Window
 
     /// <summary>The save cell of the status bar shows "Unsaved changes" while the active document is dirty, else nothing.</summary>
     private void UpdateSaveState() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
+
+    // The card about empty required fields; "go to first empty field" takes the same path as the ribbon command and the badge counter.
+    private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab, IReadOnlyList<string> names)
+    {
+        var choice = await Dialogs.ShowAsync<RequiredChoice>(done => RequiredFieldsCard.Create(names, done));
+        if (choice == RequiredChoice.GoToFirst && ReferenceEquals(Workspace.Active, tab))
+        {
+            RunNextRequired();
+        }
+
+        return choice;
+    }
 
     private Task<CloseChoice> PromptAsync(PdfTab tab)
     {
