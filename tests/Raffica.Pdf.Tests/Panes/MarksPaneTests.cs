@@ -290,7 +290,7 @@ public sealed class MarksPaneTests
 
         CtrlEnter(f);
         await f.Pane.Completion;
-        ViewFixture.Pump();
+        await ViewFixture.WaitAsync(() => f.Annotate.Host.ActiveDialog is not null);
 
         // The card says the mark is as it was; the field still holds the text and the tab still counts as changed.
         Assert.NotNull(f.Annotate.Host.ActiveDialog);
@@ -318,11 +318,15 @@ public sealed class MarksPaneTests
         Select(f, a);
         Type(f, "typed for a mark that goes");
 
-        // The mark is deleted behind the pane's back (the pane has not read the page yet).
+        // The mark is deleted behind the pane's back. Whether the list has read the page by now depends on timing: if it has, its row went and
+        // the text is applied because of that, and if not, the apply below does it. Either way the card must come up. The apply is called
+        // as Ctrl+Enter does and not with a key press: a key press runs the pending work of the window first, so on a slow machine the card
+        // is already up when the key arrives, and Enter then presses the button of the card and closes it (the key itself is covered by
+        // AFailedApplyKeepsTheTypedTextAndTheTabDirty).
         await f.Annotate.Tab.Annotations.Editor.DeleteAsync(a.Locator);
-        CtrlEnter(f);
+        await f.Pane.ApplyCommentAsync();
         await f.SettleAsync();
-        ViewFixture.Pump();
+        await ViewFixture.WaitAsync(() => f.Annotate.Host.ActiveDialog is not null);
 
         Assert.NotNull(f.Annotate.Host.ActiveDialog);
         Assert.False(f.Pane.HasUnappliedComment);
