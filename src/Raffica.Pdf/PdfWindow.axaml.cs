@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -75,6 +76,9 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, BadgeHost> _hosts = [];
     private readonly Dictionary<PdfTab, FormParts> _formParts = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
+
+    // Where a tab starts when its view is made again after a rewrite (page, zoom, zoom mode, layout); used once by ApplyInitialView.
+    private readonly Dictionary<PdfTab, RememberedView> _rebuildViews = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
     private SearchBar? _searchBar;
@@ -721,69 +725,120 @@ internal sealed partial class PdfWindow : Window
             _annotateAllowed.Remove(tab);
             _fillAllowed.Remove(tab);
             RememberView(tab);
-            if (_panes.Remove(tab, out var panes))
-            {
-                panes.Dispose();
-            }
-
-            // The marks pane listens to the select controller of the tab, so it goes first.
             _marksOpen.Remove(tab);
-            if (_marks.Remove(tab, out var marks))
-            {
-                DisposeMarks(marks);
-            }
-
-            if (_annotates.Remove(tab, out var annotate))
-            {
-                annotate.Dispose();
-            }
-
-            if (_hosts.Remove(tab, out var host))
-            {
-                host.Forms?.Dispose();
-                host.Dispose();
-            }
-
-            if (_badges.Remove(tab, out var badge))
-            {
-                badge.Dispose();
-            }
-
-            if (_formParts.Remove(tab, out var formParts))
-            {
-                DisposeFormParts(tab, formParts);
-            }
-
-            if (_texts.Remove(tab, out var text))
-            {
-                text.Dispose();
-            }
-
-            if (_outlines.Remove(tab, out var outline))
-            {
-                if (_views.TryGetValue(tab, out var outlined))
-                {
-                    outlined.FirstSharpPage -= outline.Start;
-                }
-
-                outline.Dispose();
-            }
-
-            if (_searches.Remove(tab, out var search))
-            {
-                search.Dispose();
-            }
-
-            if (_views.Remove(tab, out var view))
-            {
-                view.FirstSharpPage -= OnFirstSharpPageShown;
-                view.Search = null;
-                view.FormOverlay = null;
-                view.Tab = null;
-            }
+            _rebuildViews.Remove(tab);
+            DisposeTabPieces(tab);
 
             Tabs.Items.Remove(tab.Tab);
         }
+    }
+
+    // The one cleanup of the per-tab pieces (panes, marks, interactions, badges, form parts, text, outline, search, view), for the close of a tab
+    // and for the rebuild after a rewrite. It leaves the dictionaries without the tab and the tab itself alone.
+    private void DisposeTabPieces(PdfTab tab)
+    {
+        if (_panes.Remove(tab, out var panes))
+        {
+            panes.Dispose();
+        }
+
+        // The marks pane listens to the select controller of the tab, so it goes first.
+        if (_marks.Remove(tab, out var marks))
+        {
+            DisposeMarks(marks);
+        }
+
+        if (_annotates.Remove(tab, out var annotate))
+        {
+            annotate.Dispose();
+        }
+
+        if (_hosts.Remove(tab, out var host))
+        {
+            host.Forms?.Dispose();
+            host.Dispose();
+        }
+
+        if (_badges.Remove(tab, out var badge))
+        {
+            badge.Dispose();
+        }
+
+        if (_formParts.Remove(tab, out var formParts))
+        {
+            DisposeFormParts(tab, formParts);
+        }
+
+        if (_texts.Remove(tab, out var text))
+        {
+            text.Dispose();
+        }
+
+        if (_outlines.Remove(tab, out var outline))
+        {
+            if (_views.TryGetValue(tab, out var outlined))
+            {
+                outlined.FirstSharpPage -= outline.Start;
+            }
+
+            outline.Dispose();
+        }
+
+        if (_searches.Remove(tab, out var search))
+        {
+            search.Dispose();
+        }
+
+        if (_views.Remove(tab, out var view))
+        {
+            view.FirstSharpPage -= OnFirstSharpPageShown;
+            view.Search = null;
+            view.FormOverlay = null;
+            view.Tab = null;
+        }
+    }
+
+    /// <summary>
+    /// The document of the tab was rewritten (page changes applied) and the session adopted the new file: every piece that is bound to the old
+    /// page list or the old page sizes goes (the same cleanup as the close of a tab) and is made anew over the adopted document, at
+    /// <paramref name="page"/> (0-based, limited to the new count) with the zoom, zoom mode and layout the tab had. The annotation and form
+    /// sessions are made anew too (the editor of a rewritten document starts clean) and the permissions are read again. A tab in the background
+    /// shows nothing until it is selected. UI thread; no edit may be open (the Apply flow asks for that first).
+    /// </summary>
+    internal void RebuildTab(PdfTab tab, int page)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!Workspace.Tabs.Contains(tab))
+        {
+            return;
+        }
+
+        Debug.Assert(tab.AnnotationsIfCreated is not { IsDirty: true }, "A rewritten document has no open edit.");
+        if (_views.TryGetValue(tab, out var view))
+        {
+            var kept = view.CaptureRemembered();
+            _rebuildViews[tab] = kept with { View = new ViewState(new PageAnchor(Math.Max(0, page), 0), 0) };
+        }
+
+        if (tab.AnnotationsIfCreated is { } old)
+        {
+            old.StateChanged -= RefreshCommandStates;
+        }
+
+        DisposeTabPieces(tab);
+        tab.ResetForRewrittenDocument();
+        tab.Annotations.StateChanged += RefreshCommandStates;
+        _printInfo.Remove(tab);
+        _annotateAllowed.Remove(tab);
+        _fillAllowed.Remove(tab);
+        if (ReferenceEquals(Workspace.Active, tab))
+        {
+            ShowActiveView();
+            EnforceAnnotatePermission(showCard: false);
+        }
+
+        UpdateSaveState();
+        RefreshCommandStates();
     }
 
     private void OnWorkspaceActiveChanged()
@@ -1178,6 +1233,12 @@ internal sealed partial class PdfWindow : Window
     private void ApplyInitialView(PageView view, PdfTab tab)
     {
         view.PageTheme = Settings.PageThemeForNewTab;
+        if (_rebuildViews.Remove(tab, out var rebuilt))
+        {
+            view.RestoreView(rebuilt.View, rebuilt.Zoom, rebuilt.ZoomMode, rebuilt.Layout);
+            return;
+        }
+
         if (tab.Path is { } path && _recent.ViewOf(path) is { } remembered && remembered.IsValid())
         {
             view.RestoreView(remembered.View, remembered.Zoom, remembered.ZoomMode, remembered.Layout);

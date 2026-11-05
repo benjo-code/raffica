@@ -70,6 +70,20 @@ internal sealed class PdfTab : IDisposable
         Tab.Path = Path;
     }
 
+    /// <summary>
+    /// The document was rewritten and the session adopted the written file: the annotation and form sessions belong to the old document, so they
+    /// are disposed and forgotten (made anew on first use, over the adopted document, with an editor that starts clean) and the tab is clean.
+    /// The caller has unhooked its handlers from them first. UI thread.
+    /// </summary>
+    public void ResetForRewrittenDocument()
+    {
+        _forms?.Dispose();
+        _forms = null;
+        _annotations?.Dispose();
+        _annotations = null;
+        MarkClean();
+    }
+
     public void MarkDirty() => SetDirty(true);
 
     public void MarkClean() => SetDirty(false);
