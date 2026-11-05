@@ -7,24 +7,25 @@ namespace Raffica.Pdf.Signing;
 /// <summary>
 /// The saved signatures of this machine, as the UI uses them: Core's <see cref="SignatureStore"/> (which repairs names, keeps the
 /// limit of ten, moves a corrupt index aside and writes atomically) behind a lazy start, work off the UI thread and a
-/// <see cref="Changed"/> event. The folder is asked for, read and created only when the library is first used; a signature never
-/// leaves it except inside a PDF the user saves.
+/// <see cref="Changed"/> event. The folder is asked for, read and created only when the library is first used, and then on a
+/// pool thread; a signature never leaves it except inside a PDF the user saves.
 /// </summary>
 internal sealed class SignatureLibrary(Func<string> directory)
 {
     private readonly object _gate = new();
-    private SignatureStore? _store;
+    private Task<SignatureStore>? _opening;
 
-    /// <summary>Raised after a signature was added or removed (on the context that awaited the change).</summary>
+    /// <summary>Raised after a signature was added or removed, on the context that awaited the change (the UI thread for the UI). A handler that throws does not fail the change.</summary>
     public event Action? Changed;
 
     /// <summary>Opens the library afresh from its folder (it sees changes of another window) and lists its signatures in the order they were added.</summary>
     public async Task<IReadOnlyList<SavedSignature>> LoadAsync()
     {
-        var store = await Task.Run(() => SignatureStore.Load(directory())).ConfigureAwait(false);
+        var opening = Task.Run(() => SignatureStore.Load(directory()));
+        var store = await opening.ConfigureAwait(false);
         lock (_gate)
         {
-            _store = store;
+            _opening = opening;
         }
 
         return store.Items;
@@ -36,9 +37,9 @@ internal sealed class SignatureLibrary(Func<string> directory)
     /// <exception cref="IOException">The library could not be written; nothing changed.</exception>
     public async Task<SavedSignature> AddDrawnAsync(string name, IReadOnlyList<IReadOnlyList<DisplayPoint>> strokes, DrawColor color)
     {
-        var store = Store();
-        var saved = await Task.Run(() => store.AddDrawn(name, strokes, color)).ConfigureAwait(false);
-        Changed?.Invoke();
+        var store = await EnsureStoreAsync();
+        var saved = await Task.Run(() => store.AddDrawn(name, strokes, color));
+        RaiseChanged();
         return saved;
     }
 
@@ -54,13 +55,13 @@ internal sealed class SignatureLibrary(Func<string> directory)
             throw new ArgumentException("The image shows nothing.", nameof(cutout));
         }
 
-        var store = Store();
+        var store = await EnsureStoreAsync();
         var saved = await Task.Run(() =>
         {
             var stored = SignatureCutout.FitWithin(cutout, SignatureLimits.MaxStoredSide);
             return store.AddImage(name, PngEncoder.EncodeWithAlpha(stored), (double)stored.Width / stored.Height);
-        }).ConfigureAwait(false);
-        Changed?.Invoke();
+        });
+        RaiseChanged();
         return saved;
     }
 
@@ -68,9 +69,9 @@ internal sealed class SignatureLibrary(Func<string> directory)
     /// <exception cref="IOException">The library could not be written; nothing changed.</exception>
     public async Task RemoveAsync(string id)
     {
-        var store = Store();
-        await Task.Run(() => store.Remove(id)).ConfigureAwait(false);
-        Changed?.Invoke();
+        var store = await EnsureStoreAsync();
+        await Task.Run(() => store.Remove(id));
+        RaiseChanged();
     }
 
     /// <summary>Reads the pixels of an imported signature.</summary>
@@ -78,19 +79,52 @@ internal sealed class SignatureLibrary(Func<string> directory)
     /// <exception cref="InvalidDataException">The stored file cannot be decoded.</exception>
     public async Task<SignatureImage> ReadImageAsync(string id)
     {
-        var store = Store();
+        var store = await EnsureStoreAsync().ConfigureAwait(false);
         var png = await Task.Run(() => store.ReadPng(id)).ConfigureAwait(false)
             ?? throw new FileNotFoundException("The signature has no image.");
         var result = await SignatureImageCodec.DecodeAsync(new MemoryStream(png, writable: false)).ConfigureAwait(false);
         return result is SignatureImageResult.Ok ok ? ok.Image : throw new InvalidDataException("The stored image cannot be read.");
     }
 
-    private SignatureStore Store()
+    /// <summary>
+    /// Gives the store, opening it on a pool thread on the first use. Callers that arrive while it opens share that one opening;
+    /// one that failed is forgotten so the next call tries again.
+    /// </summary>
+    private async Task<SignatureStore> EnsureStoreAsync()
     {
+        Task<SignatureStore> opening;
         lock (_gate)
         {
-            // Opening reads the index (a small file); the first use is a user action, not the start.
-            return _store ??= SignatureStore.Load(directory());
+            opening = _opening ??= Task.Run(() => SignatureStore.Load(directory()));
+        }
+
+        try
+        {
+            return await opening;
+        }
+        catch
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_opening, opening))
+                {
+                    _opening = null;
+                }
+            }
+
+            throw;
+        }
+    }
+
+    private void RaiseChanged()
+    {
+        try
+        {
+            Changed?.Invoke();
+        }
+        catch (Exception)
+        {
+            // The change is saved; a listener that fails (a view being torn down) must not make that look like a failure.
         }
     }
 }

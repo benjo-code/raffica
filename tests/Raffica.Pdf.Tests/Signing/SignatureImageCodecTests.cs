@@ -35,6 +35,52 @@ public sealed class SignatureImageCodecTests
     }
 
     [AvaloniaFact]
+    public async Task HalfTransparentPixelComesBackStraightNotPremultiplied()
+    {
+        var bgra = new byte[8 * 6 * 4];
+        var pixel = ((2 * 8) + 3) * 4;
+        bgra[pixel] = 20;
+        bgra[pixel + 1] = 40;
+        bgra[pixel + 2] = 200;
+        bgra[pixel + 3] = 128;
+
+        var result = await SignatureImageCodec.DecodeAsync(new MemoryStream(PngEncoder.EncodeWithAlpha(new SignatureImage(8, 6, bgra))));
+
+        var image = Assert.IsType<SignatureImageResult.Ok>(result).Image;
+        // Premultiplied values would be about 10, 20 and 100; the small tolerance is the rounding of the round trip.
+        Assert.InRange(image.Bgra[pixel], 17, 23);
+        Assert.InRange(image.Bgra[pixel + 1], 37, 43);
+        Assert.InRange(image.Bgra[pixel + 2], 197, 203);
+        Assert.InRange(image.Bgra[pixel + 3], 127, 129);
+    }
+
+    [AvaloniaFact]
+    public async Task NonSeekableStreamOver10MiBIsRefusedAfterAboutTheLimit()
+    {
+        var length = SignatureLimits.MaxFileBytes + (10 * 1024 * 1024);
+        using var stream = new CountingStream(length);
+
+        var result = await SignatureImageCodec.DecodeAsync(stream);
+
+        Assert.Equal(SignatureImageProblem.TooLarge, Assert.IsType<SignatureImageResult.Problem>(result).Reason);
+        // The copy reads in blocks, so it may be one block past the limit, but never on towards the end of the stream.
+        Assert.True(stream.BytesRead <= SignatureLimits.MaxFileBytes + (128 * 1024), $"read {stream.BytesRead}");
+    }
+
+    [AvaloniaFact]
+    public async Task ExactlyTenMiBPassesTheSizeCheck()
+    {
+        // Zeros are no image: the size check let it through and it is refused as Unreadable, not as TooLarge.
+        var seekable = await SignatureImageCodec.DecodeAsync(new MemoryStream(new byte[SignatureLimits.MaxFileBytes]));
+        using var forward = new CountingStream(SignatureLimits.MaxFileBytes);
+        var unknownLength = await SignatureImageCodec.DecodeAsync(forward);
+
+        Assert.Equal(SignatureImageProblem.Unreadable, Assert.IsType<SignatureImageResult.Problem>(seekable).Reason);
+        Assert.Equal(SignatureImageProblem.Unreadable, Assert.IsType<SignatureImageResult.Problem>(unknownLength).Reason);
+        Assert.Equal(SignatureLimits.MaxFileBytes, forward.BytesRead);
+    }
+
+    [AvaloniaFact]
     public async Task FileOver10MiBIsTooLargeBeforeDecoding()
     {
         // Zeros are no image at all: were it decoded the answer would be Unreadable.
@@ -104,5 +150,47 @@ public sealed class SignatureImageCodecTests
 
         var image = Assert.IsType<SignatureImageResult.Ok>(result).Image;
         Assert.Equal((1200, 300), (image.Width, image.Height));
+    }
+
+    /// <summary>A forward-only stream of zeros that counts what was read from it.</summary>
+    private sealed class CountingStream(long length) : Stream
+    {
+        public long BytesRead { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            var n = (int)Math.Min(buffer.Length, length - BytesRead);
+            buffer[..n].Clear();
+            BytesRead += n;
+            return n;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => new(Read(buffer.Span));
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

@@ -138,6 +138,80 @@ public sealed class SignatureLibraryTests : IDisposable
         await Assert.ThrowsAsync<FileNotFoundException>(() => library.ReadImageAsync(new string('0', 32)));
     }
 
+    [AvaloniaFact]
+    public async Task ChangedIsRaisedOnTheUiThread()
+    {
+        var library = new SignatureLibrary(() => _root);
+        var threads = new List<bool>();
+        library.Changed += () => threads.Add(Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
+
+        var first = await library.AddDrawnAsync("A", Stroke(), DrawColor.Red);
+        await library.AddImageAsync("B", Cutout());
+        await library.RemoveAsync(first.Id);
+
+        Assert.Equal([true, true, true], threads);
+    }
+
+    [Fact]
+    public async Task ThrowingChangedHandlerDoesNotFailTheSave()
+    {
+        var library = new SignatureLibrary(() => _root);
+        library.Changed += () => throw new InvalidOperationException("handler bug");
+
+        var saved = await library.AddDrawnAsync("Kept", Stroke(), DrawColor.Red);
+        await library.RemoveAsync("0123456789abcdef0123456789abcdef");
+
+        Assert.Equal([saved.Id], (await new SignatureLibrary(() => _root).LoadAsync()).Select(s => s.Id));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FirstCallNeverReadsTheFolderOnTheCallingThread(bool image)
+    {
+        var caller = -1;
+        var calledOn = -1;
+        var library = new SignatureLibrary(() =>
+        {
+            calledOn = Environment.CurrentManagedThreadId;
+            return _root;
+        });
+
+        // A dedicated thread is the caller: a pool thread could run the queued work itself once the call returns to it.
+        await Task.Factory.StartNew(
+            () =>
+            {
+                caller = Environment.CurrentManagedThreadId;
+                return image ? (Task)library.AddImageAsync("First", Cutout()) : library.AddDrawnAsync("First", Stroke(), DrawColor.Red);
+            },
+            TestContext.Current.CancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
+
+        Assert.NotEqual(-1, calledOn);
+        Assert.NotEqual(caller, calledOn);
+    }
+
+    [Fact]
+    public async Task TwoConcurrentFirstCallsLoadOnce()
+    {
+        var loads = 0;
+        var library = new SignatureLibrary(() =>
+        {
+            Interlocked.Increment(ref loads);
+            Thread.Sleep(150);
+            return _root;
+        });
+
+        var both = await Task.WhenAll(
+            Task.Run(() => library.AddDrawnAsync("One", Stroke(), DrawColor.Red), TestContext.Current.CancellationToken),
+            Task.Run(() => library.AddImageAsync("Two", Cutout()), TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, loads);
+        Assert.Equal(2, (await new SignatureLibrary(() => _root).LoadAsync()).Count);
+        Assert.NotEqual(both[0].Id, both[1].Id);
+    }
+
     private static IReadOnlyList<IReadOnlyList<DisplayPoint>> Stroke() =>
         [[new DisplayPoint(0, 0), new DisplayPoint(40, 10), new DisplayPoint(80, 0)]];
 
