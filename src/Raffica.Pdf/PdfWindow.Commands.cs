@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
+using Raffica.Core.Signatures;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
@@ -13,6 +14,7 @@ using Raffica.Pdf.Documents;
 using Raffica.Pdf.Forms;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
+using Raffica.Pdf.Signing;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
 
@@ -34,6 +36,7 @@ internal sealed partial class PdfWindow
     private bool _printProbed;
     private bool _printAvailable;
     private readonly HashSet<Key> _keysDown = [];
+    private SignaturePlacer? _signaturePlacer;
     private Dictionary<string, CommandDefinition> _commandsById = [];
 
     /// <summary>The command modifier of the platform: Cmd on macOS, Ctrl elsewhere (what the frame uses for Ctrl+K).</summary>
@@ -170,10 +173,50 @@ internal sealed partial class PdfWindow
                 _ = interaction.Select.DeleteSelectionAsync();
             }
         },
+        Sign: () => _ = GuardAsync(SignAsync),
         FormsNext: () => MoveFormFocus(forward: true),
         FormsPrevious: () => MoveFormFocus(forward: false),
         FormsNextRequired: RunNextRequired,
         FormsHighlight: ToggleFormHighlight);
+
+    /// <summary>
+    /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
+    /// "New signature" opens the card); the signature that results is placed at the centre of the visible part of the current page and
+    /// selected with the select tool. A document that forbids annotating (a signature is an annotation) or no document does nothing.
+    /// </summary>
+    internal async Task SignAsync()
+    {
+        if (Workspace.Active is not { } tab || AnnotateAllowedOf(tab) == false || !_views.TryGetValue(tab, out var view) || AnnotateOf(tab) is not { } interaction)
+        {
+            return;
+        }
+
+        var items = await Signatures.LoadAsync();
+        SavedSignature? chosen;
+        if (items.Count == 0)
+        {
+            chosen = await ShowNewSignatureAsync();
+        }
+        else
+        {
+            var answer = await Dialogs.ShowAsync<PickerResult>(done => SignaturePickerCard.Create(items, Signatures, done));
+            chosen = answer switch
+            {
+                PickerResult.Picked picked => picked.Signature,
+                PickerResult.New => await ShowNewSignatureAsync(),
+                _ => null,
+            };
+        }
+
+        // The cards are modal, so the tab is the one that was active; a tab that was closed meanwhile (by a path around the dialog) gets nothing.
+        if (chosen is null || !Workspace.Tabs.Contains(tab) || AnnotateAllowedOf(tab) == false)
+        {
+            return;
+        }
+
+        _signaturePlacer ??= new SignaturePlacer(Signatures, Tools, Dialogs);
+        await _signaturePlacer.PlaceAsync(tab, view, interaction.Select, chosen);
+    }
 
     // The commands of the Forms tab work on the active tab and hand the keyboard to its page view, so Enter and Space act on the field right away.
     private void MoveFormFocus(bool forward) => RunFormMove(mover => mover.MoveAsync(forward));

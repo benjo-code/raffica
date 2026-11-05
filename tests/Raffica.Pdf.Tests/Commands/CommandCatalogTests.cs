@@ -140,7 +140,7 @@ public sealed class CommandCatalogTests
 
         // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
         Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
-        Assert.Equal(51, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(52, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -183,6 +183,36 @@ public sealed class CommandCatalogTests
     public void ThePrintReasonIsGerman()
     {
         Assert.Equal("Dieses Dokument erlaubt kein Drucken.", PdfStrings.GetIn("PrintLockedReason", German));
+    }
+
+    [Fact]
+    public void SignSitsInItsOwnAnnotateGroupBeforeTheDestructiveOne()
+    {
+        var annotate = PdfCommandCatalog.Tabs.Single(t => t.Letter == "A");
+        var group = annotate.Groups.Single(g => g.Commands.Any(c => c.Id == "annotate.sign"));
+        Assert.Equal("5", group.Digit);
+        Assert.Equal(["annotate.sign"], group.Commands.Select(c => c.Id).ToArray());
+        Assert.Equal("51", group.Commands[0].FieldCode);
+        Assert.Equal("CmdSign", group.Commands[0].NameKey);
+        Assert.Equal("Sign", PdfStrings.GetIn("CmdSign", English));
+        Assert.Equal("Unterschreiben", PdfStrings.GetIn("CmdSign", German));
+        Assert.True(annotate.Groups[^1].Destructive, "the destructive group stays last");
+        Assert.True(annotate.Groups.ToList().IndexOf(group) < annotate.Groups.Count - 1);
+        Assert.Null(group.Commands[0].Shortcut);
+    }
+
+    [Fact]
+    public void SignFollowsTheAnnotatePermissionWithItsReason()
+    {
+        var allowed = new PdfCommandRules(() => true, () => 1, () => null, annotateAllowed: () => true);
+        Assert.True(allowed.Allows("annotate.sign"));
+        Assert.Null(allowed.ReasonFor("annotate.sign"));
+
+        var forbidden = new PdfCommandRules(() => true, () => 1, () => null, annotateAllowed: () => false);
+        Assert.False(forbidden.Allows("annotate.sign"));
+        Assert.Equal(PdfStrings.AnnotateLockedReason, forbidden.ReasonFor("annotate.sign"));
+
+        Assert.False(new PdfCommandRules(() => false, () => 0, () => null).Allows("annotate.sign"));
     }
 
     [AvaloniaFact]

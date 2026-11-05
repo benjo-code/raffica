@@ -5,7 +5,7 @@ namespace Raffica.Pdf.Commands;
 /// <summary>
 /// When a command may run: without a document only Open (and Help and Settings, which need none) is enabled; moving between tabs needs a
 /// second tab; Print is refused for a document whose permissions forbid printing, and where the system cannot print, each with its reason.
-/// Save needs a dirty tab and no running save or print, Undo and Redo a history, Delete a selection, and the annotate tools a document that
+/// Save needs a dirty tab and no running save or print, Undo and Redo a history, Delete a selection, and the annotate tools and Sign a document that
 /// allows changing annotations (with a reason when it does not; a permission not read yet does not refuse). The window gives the questions;
 /// the rules themselves know nothing of the UI.
 /// </summary>
@@ -29,6 +29,7 @@ internal sealed class PdfCommandRules(
     [
         PdfCommandIds.AnnotateMode, PdfCommandIds.Highlight, PdfCommandIds.Underline, PdfCommandIds.StrikeOut, PdfCommandIds.SelectMark,
         PdfCommandIds.Freehand, PdfCommandIds.Rectangle, PdfCommandIds.Ellipse, PdfCommandIds.Line, PdfCommandIds.Arrow, PdfCommandIds.TextBox,
+        PdfCommandIds.Sign, // a signature is an annotation: the same permission and the same reason
     ];
 
     private static readonly HashSet<string> FormCommands =

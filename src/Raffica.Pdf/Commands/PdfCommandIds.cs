@@ -50,6 +50,7 @@ internal static class PdfCommandIds
     public const string AnnotateDone = "annotate.done";
     public const string MarksPane = "annotate.marks";
     public const string DeleteMark = "annotate.delete";
+    public const string Sign = "annotate.sign";
     public const string FormsNext = "forms.next";
     public const string FormsPrevious = "forms.previous";
     public const string FormsNextRequired = "forms.nextRequired";

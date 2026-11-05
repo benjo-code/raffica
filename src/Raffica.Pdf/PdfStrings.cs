@@ -169,6 +169,8 @@ internal static class PdfStrings
     public static string CmdAnnotateDone => Table.Get("CmdAnnotateDone");
     public static string CmdMarksPane => Table.Get("CmdMarksPane");
     public static string CmdDeleteMark => Table.Get("CmdDeleteMark");
+    public static string GroupSign => Table.Get("GroupSign");
+    public static string CmdSign => Table.Get("CmdSign");
     public static string AnnotateLockedReason => Table.Get("AnnotateLockedReason");
     public static string AnnotateModeFormat => Table.Get("AnnotateModeFormat");
     public static string AnnotateCardTitle => Table.Get("AnnotateCardTitle");
@@ -426,6 +428,19 @@ internal static class PdfStrings
     public static string SignatureNewRefusalWriteFailed => Table.Get("SignatureNewRefusalWriteFailed");
     public static string SignatureHintWritten => Table.Get("SignatureHintWritten");
     public static string SignatureHintImage => Table.Get("SignatureHintImage");
+    public static string SignaturePickerTitle => Table.Get("SignaturePickerTitle");
+    public static string SignaturePickerList => Table.Get("SignaturePickerList");
+    public static string SignaturePickerNew => Table.Get("SignaturePickerNew");
+    public static string SignaturePickerDelete => Table.Get("SignaturePickerDelete");
+    public static string SignaturePickerDeleteTip => Table.Get("SignaturePickerDeleteTip");
+    public static string SignaturePickerDeleteConfirm => Table.Get("SignaturePickerDeleteConfirm");
+    public static string SignaturePickerDeleteYes => Table.Get("SignaturePickerDeleteYes");
+    public static string SignaturePickerDeleteKeep => Table.Get("SignaturePickerDeleteKeep");
+    public static string SignaturePickerDeleteFailed => Table.Get("SignaturePickerDeleteFailed");
+    public static string SignaturePickerEmpty => Table.Get("SignaturePickerEmpty");
+    public static string SignaturePlaceTitle => Table.Get("SignaturePlaceTitle");
+    public static string SignaturePlaceHistoryFull => Table.Get("SignaturePlaceHistoryFull");
+    public static string SignaturePlaceFailed => Table.Get("SignaturePlaceFailed");
 
     /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

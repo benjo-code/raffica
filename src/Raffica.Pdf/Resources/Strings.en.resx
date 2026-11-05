@@ -584,6 +584,12 @@
   <data name="CmdDeleteMark" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="GroupSign" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="CmdSign" xml:space="preserve">
+    <value>Sign</value>
+  </data>
   <data name="AnnotateLockedReason" xml:space="preserve">
     <value>This document does not allow changing annotations.</value>
   </data>
@@ -1069,5 +1075,44 @@
   </data>
   <data name="SignatureHintImage" xml:space="preserve">
     <value>This is an image of your signature, not a digital signature.</value>
+  </data>
+  <data name="SignaturePickerTitle" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="SignaturePickerList" xml:space="preserve">
+    <value>Saved signatures</value>
+  </data>
+  <data name="SignaturePickerNew" xml:space="preserve">
+    <value>New signature…</value>
+  </data>
+  <data name="SignaturePickerDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SignaturePickerDeleteTip" xml:space="preserve">
+    <value>Delete this signature from your saved signatures</value>
+  </data>
+  <data name="SignaturePickerDeleteConfirm" xml:space="preserve">
+    <value>Delete this signature from your saved signatures? Documents that already contain it stay as they are.</value>
+  </data>
+  <data name="SignaturePickerDeleteYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SignaturePickerDeleteKeep" xml:space="preserve">
+    <value>Keep</value>
+  </data>
+  <data name="SignaturePickerDeleteFailed" xml:space="preserve">
+    <value>The signature could not be deleted. Nothing was changed.</value>
+  </data>
+  <data name="SignaturePickerEmpty" xml:space="preserve">
+    <value>No saved signatures.</value>
+  </data>
+  <data name="SignaturePlaceTitle" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="SignaturePlaceHistoryFull" xml:space="preserve">
+    <value>There is no room left for more unsaved changes. Save the document first, then place the signature. Nothing was placed.</value>
+  </data>
+  <data name="SignaturePlaceFailed" xml:space="preserve">
+    <value>The signature could not be placed. Nothing was added to the document.</value>
   </data>
 </root>

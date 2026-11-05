@@ -581,6 +581,12 @@
   <data name="CmdDeleteMark" xml:space="preserve">
     <value>Löschen</value>
   </data>
+  <data name="GroupSign" xml:space="preserve">
+    <value>Unterschrift</value>
+  </data>
+  <data name="CmdSign" xml:space="preserve">
+    <value>Unterschreiben</value>
+  </data>
   <data name="AnnotateLockedReason" xml:space="preserve">
     <value>Dieses Dokument erlaubt keine Änderung von Anmerkungen.</value>
   </data>
@@ -1066,5 +1072,44 @@
   </data>
   <data name="SignatureHintImage" xml:space="preserve">
     <value>Das ist ein Bild Ihrer Unterschrift, keine digitale Signatur.</value>
+  </data>
+  <data name="SignaturePickerTitle" xml:space="preserve">
+    <value>Unterschreiben</value>
+  </data>
+  <data name="SignaturePickerList" xml:space="preserve">
+    <value>Gespeicherte Unterschriften</value>
+  </data>
+  <data name="SignaturePickerNew" xml:space="preserve">
+    <value>Neue Unterschrift …</value>
+  </data>
+  <data name="SignaturePickerDelete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="SignaturePickerDeleteTip" xml:space="preserve">
+    <value>Diese Unterschrift aus den gespeicherten Unterschriften löschen</value>
+  </data>
+  <data name="SignaturePickerDeleteConfirm" xml:space="preserve">
+    <value>Diese Unterschrift aus den gespeicherten Unterschriften löschen? Dokumente, die sie schon enthalten, bleiben unverändert.</value>
+  </data>
+  <data name="SignaturePickerDeleteYes" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="SignaturePickerDeleteKeep" xml:space="preserve">
+    <value>Behalten</value>
+  </data>
+  <data name="SignaturePickerDeleteFailed" xml:space="preserve">
+    <value>Die Unterschrift konnte nicht gelöscht werden. Es wurde nichts geändert.</value>
+  </data>
+  <data name="SignaturePickerEmpty" xml:space="preserve">
+    <value>Keine gespeicherten Unterschriften.</value>
+  </data>
+  <data name="SignaturePlaceTitle" xml:space="preserve">
+    <value>Unterschrift</value>
+  </data>
+  <data name="SignaturePlaceHistoryFull" xml:space="preserve">
+    <value>Für weitere ungespeicherte Änderungen ist kein Platz mehr. Speichern Sie das Dokument zuerst und setzen Sie die Unterschrift dann ein. Es wurde nichts eingesetzt.</value>
+  </data>
+  <data name="SignaturePlaceFailed" xml:space="preserve">
+    <value>Die Unterschrift konnte nicht eingesetzt werden. Dem Dokument wurde nichts hinzugefügt.</value>
   </data>
 </root>
