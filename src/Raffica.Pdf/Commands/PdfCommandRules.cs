@@ -9,7 +9,7 @@ namespace Raffica.Pdf.Commands;
 /// allows changing annotations (with a reason when it does not; a permission not read yet does not refuse). The window gives the questions;
 /// the rules themselves know nothing of the UI. The page commands follow the organize mode and its plan (the edits also a selection, apply a changed
 /// plan); the tools, Sign, the forms and the output commands (extract, split, export) are locked while the mode is on, and the output commands
-/// also while marks are unsaved, each with its reason.
+/// also while marks are unsaved. Entering the mode, Apply and the output commands also wait for a running save (or another file job), each with its reason.
 /// </summary>
 internal sealed class PdfCommandRules(
     Func<bool> hasDocument,
@@ -67,14 +67,14 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false),
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
-        PdfCommandIds.Organize => hasDocument() && (PlanOpen() || Ask(pagesReady, true)),
+        PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when PageEdits.Contains(id) => hasDocument() && PlanOpen() && Ask(pageSelection, false),
         PdfCommandIds.BlankPage or PdfCommandIds.InsertFile => hasDocument() && PlanOpen(),
         PdfCommandIds.PagesUndo => hasDocument() && PlanOpen() && Ask(planCanUndo, false),
         PdfCommandIds.PagesRedo => hasDocument() && PlanOpen() && Ask(planCanRedo, false),
-        PdfCommandIds.ApplyPages => hasDocument() && PlanOpen() && Ask(planChanged, false),
+        PdfCommandIds.ApplyPages => hasDocument() && PlanOpen() && Ask(planChanged, false) && !Ask(saveRunning, false),
         PdfCommandIds.DiscardPages => hasDocument() && PlanOpen(),
-        _ when PageOutputs.Contains(id) => hasDocument() && !PlanOpen() && !Ask(marksUnsaved, false),
+        _ when PageOutputs.Contains(id) => hasDocument() && !PlanOpen() && !Ask(marksUnsaved, false) && !Ask(saveRunning, false),
         _ when Tools.Contains(id) => hasDocument() && !PlanOpen() && Ask(annotateAllowed, true),
         PdfCommandIds.FormsNextRequired => hasDocument() && !PlanOpen() && FormsReady() && Ask(hasEmptyRequired, true),
         _ when FormCommands.Contains(id) => hasDocument() && !PlanOpen() && FormsReady(),
@@ -98,7 +98,13 @@ internal sealed class PdfCommandRules(
 
         if (PageOutputs.Contains(id))
         {
-            return Ask(marksUnsaved, false) ? PdfStrings.SaveMarksFirstReason : null;
+            return Ask(marksUnsaved, false) ? PdfStrings.SaveMarksFirstReason : Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
+        }
+
+        // A save, an apply or an output job that runs holds the file: entering the mode and applying wait for it.
+        if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages)
+        {
+            return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
         }
 
         if (Tools.Contains(id))

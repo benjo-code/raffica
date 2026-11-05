@@ -28,7 +28,7 @@ namespace Raffica.Pdf.Organizing;
 /// <param name="changed">Called when the flow starts or ends and after a successful apply (the command states refresh); null: nothing.</param>
 /// <param name="busy">Whether a print job runs (an apply is then refused); null: never.</param>
 /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
-/// <param name="otherJob">Whether another file job of the window runs (extract, split): an apply is then refused; null: never.</param>
+/// <param name="otherJob">Whether another file job of the window runs (a save, extract, split, export): an apply is then refused; null: never.</param>
 internal sealed class ApplyFlow(
     DialogQueue dialogs,
     Func<PdfTab, Task<bool>> saveMarks,

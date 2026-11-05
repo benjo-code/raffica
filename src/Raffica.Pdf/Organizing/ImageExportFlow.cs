@@ -136,7 +136,7 @@ internal static class ImageExportPlan
 /// <param name="dialogs">Where the cards appear.</param>
 /// <param name="pickFolder">Asks for the folder; null: canceled.</param>
 /// <param name="changed">Called when the flow starts or ends (the command states refresh); null: nothing.</param>
-/// <param name="otherJob">Whether another file job of the window runs (an apply, an extract or a split); the export is then refused; null: never.</param>
+/// <param name="otherJob">Whether another file job of the window runs (a save, an apply, an extract or a split); the export is then refused; null: never.</param>
 internal sealed class ImageExportFlow(
     DialogQueue dialogs,
     Func<PdfTab, Task<string?>> pickFolder,

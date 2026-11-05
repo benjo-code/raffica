@@ -29,7 +29,7 @@ internal sealed record SplitPlan(IReadOnlyList<SplitPart>? Parts, string? Proble
 /// <param name="readOutline">Reads the outline of the tab (the one the outline pane reads).</param>
 /// <param name="open">Opens a written file as a tab (the open flow).</param>
 /// <param name="changed">Called when the flow starts or ends (the command states refresh); null: nothing.</param>
-/// <param name="otherJob">Whether another file job of the window runs (an apply): extract and split are then refused; null: never.</param>
+/// <param name="otherJob">Whether another file job of the window runs (a save, an apply, an export): extract and split are then refused; null: never.</param>
 internal sealed class SplitFlow(
     DialogQueue dialogs,
     Func<PdfTab, string, Task<string?>> pickSavePath,

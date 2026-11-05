@@ -36,6 +36,12 @@ internal sealed partial class PdfWindow
             return;
         }
 
+        // A running save (the incremental one is not modal) holds the document: the mode starts after it.
+        if (_saves.IsSaving && tab.OrganizeIfCreated is not { IsActive: true })
+        {
+            return;
+        }
+
         var session = tab.Organize;
         if (session.IsActive)
         {
@@ -158,7 +164,7 @@ internal sealed partial class PdfWindow
         RefreshCommandStates,
         () => _print.IsRunning,
         _time,
-        () => _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+        () => _saves.IsSaving || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
 
     /// <summary>Applies the page plan of the active tab (the Apply command; Save and Save as with an open plan come here too).</summary>
     internal Task<bool> ApplyActiveAsync() => Workspace.Active is { } tab ? Applying.RunAsync(tab) : Task.FromResult(false);
