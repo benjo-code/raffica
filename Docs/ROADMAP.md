@@ -31,7 +31,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.1 | Viewer | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) | 2026-11-04 |
 | 2.2 | Annotate | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | 2026-11-05 |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-3-forms-and-signing.md) | 2026-11-05 |
-| 2.4 | Organize pages | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | – |
+| 2.4 | Organize pages | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | – |
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
@@ -295,7 +295,7 @@ Goal: AcroForm fields can be filled and a visible signature placed and saved.
 - The automation name of the field editor is fixed when the editor opens.
 
 ## Milestone 2.4 – Organize pages
-**Status:** 🟡 planned · **Plan:** [2026-11-05-milestone-02-4-organize-pages.md](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
+**Status:** 🔵 in progress · **Plan:** [2026-11-05-milestone-02-4-organize-pages.md](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
 
 Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.
 
