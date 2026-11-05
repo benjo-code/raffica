@@ -42,11 +42,10 @@ public sealed class OrganizeThumbnailTests
         return (pixels, size.Width, size.Height);
     }
 
-    // The centre of the dark pixels inside the frame of the thumbnail, or null if there are none.
-    private static (double X, double Y)? Centroid(byte[] pixels, int width, int height)
+    // The share of the dark pixels (inside the frame of the thumbnail) that lies in each quadrant: top left, top right, bottom left, bottom right.
+    private static double[] Quadrants(byte[] pixels, int width, int height)
     {
-        double sx = 0, sy = 0;
-        var n = 0;
+        var mass = new double[4];
         for (var y = 4; y < height - 4; y++)
         {
             for (var x = 4; x < width - 4; x++)
@@ -54,46 +53,70 @@ public sealed class OrganizeThumbnailTests
                 var i = (y * width + x) * 4;
                 if (pixels[i] + pixels[i + 1] + pixels[i + 2] < 3 * 110)
                 {
-                    sx += x;
-                    sy += y;
-                    n++;
+                    mass[(y < height / 2 ? 0 : 2) + (x < width / 2 ? 0 : 1)]++;
                 }
             }
         }
 
-        return n == 0 ? null : (sx / n, sy / n);
+        var total = mass.Sum();
+        Assert.True(total > 0, "the thumbnail shows nothing dark");
+        return [.. mass.Select(m => m / total)];
     }
 
     [AvaloniaFact]
     public async Task RotatedThumbnailIsDrawnTurned()
     {
-        using var f = await OrganizeListFixture.OpenAsync();
+        using var f = await OrganizeListFixture.OpenAsync("print-mixed.pdf");
         await f.Inner.FirstSharpAsync();
         var thumbnails = f.Tab.Session.EnsureThumbnails()!;
-        await ViewFixture.WaitAsync(() => thumbnails.Cache.Contains(new TileKey(2, TileKey.PreviewScaleKey, 0, 0)));
+        await ViewFixture.WaitAsync(() => thumbnails.Cache.Contains(new TileKey(1, TileKey.PreviewScaleKey, 0, 0)));
         ViewFixture.Pump();
 
-        // Page 3 of pages-marked.pdf is landscape (400 x 300).
-        var plain = ThumbnailOf(f, 2);
+        // Page 2 of print-mixed.pdf is landscape (842 x 595) with content off centre, so a turn moves the mass from quadrant to quadrant
+        // while a plain stretch of the picture into the swapped box would not.
+        var plain = ThumbnailOf(f, 1);
         Assert.True(plain.Bounds.Width > plain.Bounds.Height);
         var before = Draw(plain);
-        var beforeCentre = Centroid(before.Pixels, before.Width, before.Height);
+        var q = Quadrants(before.Pixels, before.Width, before.Height);
+        Assert.True(q.Max() - q.Min() > 0.15, "the fixture page is too symmetric to tell a turn: " + string.Join(", ", q));
 
-        f.Session.Selection.Select(2);
+        f.Session.Selection.Select(1);
         f.Session.Rotate(90);
-        ViewFixture.Pump();
-        await ViewFixture.WaitAsync(() => thumbnails.Cache.Contains(new TileKey(2, TileKey.PreviewScaleKey, 0, 0)));
-        var turned = ThumbnailOf(f, 2);
-        Assert.True(turned.Bounds.Height > turned.Bounds.Width);
-        Assert.NotNull(f.List.Thumbnails.BitmapFor(f.Session.Plan.Slots[2]));
-        var after = Draw(turned);
-        var afterCentre = Centroid(after.Pixels, after.Width, after.Height);
+        await TurnedAsync(f, thumbnails);
+        Assert.True(ThumbnailOf(f, 1).Bounds.Height > ThumbnailOf(f, 1).Bounds.Width);
+        var clockwise = QuadrantsOf(ThumbnailOf(f, 1));
 
-        // A quarter turn clockwise takes the point (x, y) of a w x h picture to (h - y, x) of the h x w one.
-        Assert.NotNull(beforeCentre);
-        Assert.NotNull(afterCentre);
-        Assert.InRange(afterCentre.Value.X, before.Height - beforeCentre.Value.Y - 8, before.Height - beforeCentre.Value.Y + 8);
-        Assert.InRange(afterCentre.Value.Y, beforeCentre.Value.X - 8, beforeCentre.Value.X + 8);
+        // A quarter turn clockwise: the top left goes to the top right, that to the bottom right, then the bottom left, then the top left.
+        double[] expected90 = [q[2], q[0], q[3], q[1]];
+        AssertQuadrants(expected90, clockwise);
+
+        f.Session.Rotate(180);
+        await TurnedAsync(f, thumbnails);
+        var counter = QuadrantsOf(ThumbnailOf(f, 1));
+        Assert.Equal(270, f.Session.Plan.Slots[1].ExtraRotation);
+        double[] expected270 = [q[1], q[3], q[0], q[2]];
+        AssertQuadrants(expected270, counter);
+    }
+
+    private static double[] QuadrantsOf(Control control)
+    {
+        var drawn = Draw(control);
+        return Quadrants(drawn.Pixels, drawn.Width, drawn.Height);
+    }
+
+    private static void AssertQuadrants(double[] expected, double[] actual)
+    {
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.InRange(actual[i], expected[i] - 0.1, expected[i] + 0.1);
+        }
+    }
+
+    private static async Task TurnedAsync(OrganizeListFixture f, ThumbnailSource thumbnails)
+    {
+        ViewFixture.Pump();
+        await ViewFixture.WaitAsync(() => thumbnails.Cache.Contains(new TileKey(1, TileKey.PreviewScaleKey, 0, 0)) && f.List.Thumbnails.BitmapFor(f.Session.Plan.Slots[1]) is not null);
+        ViewFixture.Pump();
     }
 
     [AvaloniaFact]

@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Raffica.Core.Pages;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;
+using Raffica.Pdf.Panes;
 using Raffica.Pdf.Tests.Panes;
 using Raffica.Pdf.Tests.Viewing;
 using Raffica.Shell.Controls;
@@ -314,6 +315,70 @@ public sealed class OrganizeListTests
         Assert.Equal(270, f.Session.Plan.Slots[1].ExtraRotation);
         f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Control);
         Assert.Equal(7, f.Session.Plan.Slots.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task BracketKeysRotateWithAltGrOnGermanLayouts()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        f.Click(1);
+
+        // AltGr+9 and AltGr+8 reach the list as Control+Alt with the character in the key symbol.
+        var altGr = RawInputModifiers.Control | RawInputModifiers.Alt;
+        f.Window.KeyPress(Key.D9, altGr, PhysicalKey.Digit9, "]");
+        ViewFixture.Pump();
+        Assert.Equal(90, f.Session.Plan.Slots[1].ExtraRotation);
+        f.Window.KeyPress(Key.D8, altGr, PhysicalKey.Digit8, "[");
+        ViewFixture.Pump();
+        Assert.Equal(0, f.Session.Plan.Slots[1].ExtraRotation);
+
+        // Other keys with Control+Alt, and a bracket with Control alone, do nothing.
+        var version = f.Session.Version;
+        f.Window.KeyPress(Key.Up, altGr, PhysicalKey.ArrowUp, null);
+        f.Window.KeyPress(Key.D, altGr, PhysicalKey.D, "d");
+        f.Window.KeyPress(Key.D9, RawInputModifiers.Control, PhysicalKey.Digit9, "]");
+        ViewFixture.Pump();
+        Assert.Equal(version, f.Session.Version);
+
+        // The keys that already worked still do (Alt+Down moves, a plain bracket with its character turns).
+        f.Key(Key.Down, PhysicalKey.ArrowDown, RawInputModifiers.Alt);
+        Assert.Equal([0, 2, 1, 3, 4, 5], f.Order());
+        f.Window.KeyPress(Key.OemCloseBrackets, RawInputModifiers.None, PhysicalKey.BracketRight, "]");
+        ViewFixture.Pump();
+        Assert.Equal(90, f.Session.Plan.Slots[2].ExtraRotation);
+    }
+
+    [AvaloniaFact]
+    public async Task FocusStaysOnItsRowAfterSelectAllAndMoves()
+    {
+        using var f = await OrganizeListFixture.OpenAsync("thousand-pages.pdf");
+        var list = f.List.List;
+        list.ScrollIntoView(500);
+        ViewFixture.Pump();
+        f.Click(500);
+        Assert.Equal(500, NavList.FocusedIndex(list));
+
+        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Control);
+        Assert.Equal(1000, f.Session.Selection.Count);
+        Assert.Equal(500, NavList.FocusedIndex(list));
+        Assert.Contains(500, f.List.RealizedPositions);
+        Assert.DoesNotContain(0, f.List.RealizedPositions);
+
+        // A block with the focus on its middle page: the move keeps the focus inside the block, on the same row.
+        f.Session.Selection.Set(1000, [499, 500, 501, 502]);
+        Assert.True(f.Item(501).Focus());
+        f.Key(Key.Down, PhysicalKey.ArrowDown, RawInputModifiers.Alt);
+        Assert.Equal([500, 501, 502, 503], f.Session.Selection.Positions);
+        Assert.Equal(501, NavList.FocusedIndex(list));
+        Assert.Contains(501, f.List.RealizedPositions);
+
+        // A single page: the focus follows it.
+        list.ScrollIntoView(300);
+        ViewFixture.Pump();
+        f.Click(300);
+        f.Key(Key.Down, PhysicalKey.ArrowDown, RawInputModifiers.Alt);
+        Assert.Equal([301], f.Session.Selection.Positions);
+        Assert.Equal(301, NavList.FocusedIndex(list));
     }
 
     [AvaloniaFact]

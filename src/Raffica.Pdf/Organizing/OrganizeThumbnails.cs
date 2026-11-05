@@ -154,6 +154,7 @@ internal sealed class OrganizeThumbnails : IDisposable
 
         foreach (var (id, route) in _inserted)
         {
+            route.Bitmaps.ReleaseRetired();
             if (!wanted.ContainsKey(id))
             {
                 Stop(route);

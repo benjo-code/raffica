@@ -359,7 +359,7 @@ internal sealed class OrganizeList : UserControl, IDisposable
     {
         var wanted = _session.Selection.Positions;
         var current = _list.Selection.SelectedIndexes;
-        if (wanted.Count == current.Count && wanted.All(p => current.Contains(p)))
+        if (wanted.Count == current.Count && wanted.SequenceEqual(current.Order()))
         {
             return;
         }
@@ -584,6 +584,23 @@ internal sealed class OrganizeList : UserControl, IDisposable
         }
 
         var wasFocused = NavList.FocusedIndex(_list);
+        if (BracketTurn(e) is { } turn)
+        {
+            e.Handled = Edit(() => _session.Rotate(turn));
+        }
+        else
+        {
+            HandleKey(e, wasFocused);
+        }
+
+        if (e.Handled && wasFocused >= 0)
+        {
+            KeepFocus(wasFocused);
+        }
+    }
+
+    private void HandleKey(KeyEventArgs e, int wasFocused)
+    {
         switch (e.KeyModifiers)
         {
             case KeyModifiers.Alt:
@@ -613,14 +630,6 @@ internal sealed class OrganizeList : UserControl, IDisposable
                 {
                     e.Handled = Edit(_session.Delete);
                 }
-                else if (IsBracket(e, "[", Key.OemOpenBrackets))
-                {
-                    e.Handled = Edit(() => _session.Rotate(-90));
-                }
-                else if (IsBracket(e, "]", Key.OemCloseBrackets))
-                {
-                    e.Handled = Edit(() => _session.Rotate(90));
-                }
                 else if (e.Key == Key.Escape && wasFocused >= 0)
                 {
                     // Escape collapses the selection to the page that has the focus; leaving the mode is a command, never a key of the list.
@@ -630,15 +639,21 @@ internal sealed class OrganizeList : UserControl, IDisposable
 
                 break;
         }
-
-        if (e.Handled && wasFocused >= 0)
-        {
-            KeepFocus(wasFocused);
-        }
     }
 
-    // The character wins where the platform gives it (the bracket sits elsewhere on other layouts), else the key.
-    private static bool IsBracket(KeyEventArgs e, string symbol, Key key) => e.KeySymbol is { Length: > 0 } ? e.KeySymbol == symbol : e.Key == key;
+    // The turn a bracket key asks for (left -90, right 90), or null. The character wins where the platform gives it: the bracket sits elsewhere
+    // on other layouts, and on a German one it is AltGr+8 and AltGr+9, which Windows reports as Control+Alt. Without a character the key decides.
+    private static int? BracketTurn(KeyEventArgs e)
+    {
+        var plain = e.KeyModifiers == KeyModifiers.None;
+        var altGr = e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt);
+        if (e.KeySymbol is { Length: > 0 } symbol)
+        {
+            return (plain || altGr) && symbol is "[" or "]" ? (symbol == "[" ? -90 : 90) : null;
+        }
+
+        return !plain ? null : e.Key == Key.OemOpenBrackets ? -90 : e.Key == Key.OemCloseBrackets ? 90 : null;
+    }
 
     private bool Edit(Func<OrganizeResult> operation)
     {
@@ -646,7 +661,8 @@ internal sealed class OrganizeList : UserControl, IDisposable
         return true;
     }
 
-    // After a change the item that had the focus may be gone or moved: the focus goes to the first selected page, else to the nearest one.
+    // After a change the item that had the focus may be gone or moved: the focus stays on its row while that row is still selected (or nothing
+    // is selected and the row exists), else it goes to the selected row nearest to it, else to the nearest row.
     private void KeepFocus(int was)
     {
         Dispatcher.UIThread.Post(
@@ -657,7 +673,10 @@ internal sealed class OrganizeList : UserControl, IDisposable
                     return;
                 }
 
-                var row = _session.Selection.Count > 0 ? _session.Selection.Positions[0] : Math.Min(was, _items.Count - 1);
+                var selection = _session.Selection;
+                var row = selection.Count == 0 || selection.Contains(was)
+                    ? Math.Min(was, _items.Count - 1)
+                    : selection.Positions.MinBy(p => Math.Abs(p - was));
                 _list.ScrollIntoView(row);
                 if (ContainerOf(row) is null)
                 {

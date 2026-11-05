@@ -228,6 +228,9 @@ internal sealed class PagesPane : UserControl, IDisposable
 
         if (session.IsActive && _organize is null)
         {
+            // The navigation list and the organize list share the tab's one thumbnail source: the navigation list stops (no wish, empty cache)
+            // before the organize list plans, never after it, so the hand-over does not depend on the order of posted work.
+            StopRequesting();
             _organize = new OrganizeList(_tab, _view, session);
             Content = _organize;
             RequestReplan();
