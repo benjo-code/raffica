@@ -42,6 +42,20 @@ internal sealed class InsertFileFlow(
             return null;
         }
 
+        // Whatever goes wrong from here on ends in a card with the general reason, never in silence.
+        try
+        {
+            return await RunCoreAsync(tab, session, path);
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+        {
+            return await TellAsync(OrganizeResult.Refused(OrganizeProblem.Unreadable, ex.Message), general: true);
+        }
+    }
+
+    private async Task<OrganizeResult?> RunCoreAsync(PdfTab tab, OrganizeSession session, string path)
+    {
+
         // The refusals that need no look into the file come first, so nobody is asked for pages of a file that cannot be used.
         if (Early(tab, session, path) is { } early)
         {
@@ -72,6 +86,12 @@ internal sealed class InsertFileFlow(
             {
                 return await TellAsync(OrganizeResult.Refused(OrganizeProblem.Unreadable, ex.Message));
             }
+        }
+
+        // A file without pages has nothing to insert (and no range to ask for).
+        if (pageCount < 1)
+        {
+            return await TellAsync(OrganizeResult.Refused(OrganizeProblem.Unreadable));
         }
 
         // The mode may end, and the selection change, while the cards are open: both are read again after the card.
@@ -123,9 +143,11 @@ internal sealed class InsertFileFlow(
         });
     }
 
-    private async Task<OrganizeResult> TellAsync(OrganizeResult result)
+    // general: the cause is unexpected, so the card says the pages could not be inserted (the result keeps the cause text).
+    private async Task<OrganizeResult> TellAsync(OrganizeResult result, bool general = false)
     {
-        await refuse(result);
-        return result;
+        var told = general ? OrganizeResult.Refused(OrganizeProblem.OutOfRange, result.Detail) : result;
+        await refuse(told);
+        return told;
     }
 }

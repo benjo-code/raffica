@@ -100,6 +100,12 @@ public sealed class InsertFileTests
             Assert.Contains("5", h.CardsShown[^1].After); // "after page 5"
             Assert.Empty(h.Refusals);
             Assert.True(file.Tab.IsDirty);
+
+            // A selection that is not contiguous: the pages go after the last selected one (positions 1 and 4 of 15: after 4).
+            session.Selection.Set(session.Plan.Slots.Count, [1, 4]);
+            Assert.Contains("5", (await ShowAfterAsync(h, file)) ?? string.Empty);
+            Assert.Equal(21, session.Plan.Slots.Count);
+            Assert.Equal([5, 6, 7, 8, 9, 10], session.Selection.Positions);
         }
     }
 
@@ -169,6 +175,23 @@ public sealed class InsertFileTests
             await Expect(corrupt, OrganizeProblem.Unreadable);
             await Expect(Path.Combine(file.Folder, "missing.pdf"), OrganizeProblem.Unreadable);
 
+            // A PDF without pages: no card (it would ask for pages of nothing), a refusal.
+            var empty = Path.Combine(file.Folder, "no-pages.pdf");
+            using (var blank = await new PdfEngine().CreateEmptyAsync())
+            await using (var stream = File.Create(empty))
+            {
+                await blank.SaveRewriteAsync(stream);
+            }
+
+            using (var reopened = await new PdfEngine().OpenAsync(empty))
+            {
+                Assert.Equal(0, reopened.PageCount); // it opens: the refusal comes from the page count, not from the open
+            }
+
+            var shownBefore = h.CardsShown.Count;
+            await Expect(empty, OrganizeProblem.Unreadable);
+            Assert.Equal(shownBefore, h.CardsShown.Count);
+
             // A range outside the file gets past a card that was bypassed (the session still refuses it).
             await Expect(file.CopyOf("pages-marked.pdf", "other.pdf"), OrganizeProblem.BadRange, "99");
 
@@ -211,6 +234,43 @@ public sealed class InsertFileTests
             Assert.Same(before, bigSession.Plan);
             Assert.Empty(bigSession.Inserted);
         }
+    }
+
+    [AvaloniaFact]
+    public async Task AnUnexpectedFailureAfterThePickerEndsInACardNotInSilence()
+    {
+        var (file, session) = await OpenPlanAsync();
+        using (file)
+        {
+            var refusals = new List<OrganizeResult>();
+            var flow = new InsertFileFlow(
+                () => Task.FromResult<string?>(file.CopyOf("pages-marked.pdf", "other.pdf")),
+                (_, _) => Task.FromResult<string?>(null),
+                (_, _, _) => throw new InvalidOperationException("the card broke"),
+                result =>
+                {
+                    refusals.Add(result);
+                    return Task.CompletedTask;
+                },
+                () => new PdfEngine());
+
+            var result = await flow.RunAsync(file.Tab);
+
+            Assert.False(result?.IsDone);
+            var told = Assert.Single(refusals);
+            Assert.False(told.IsDone);
+            Assert.Equal(PdfStrings.InsertRefusedOther, PdfStrings.InsertRefusal(told));
+            Assert.True(session.Plan.IsIdentity);
+            Assert.Empty(session.Inserted);
+        }
+    }
+
+    // Runs the flow with "after the selected pages" and gives the text the card offered for it.
+    private static async Task<string?> ShowAfterAsync(Harness h, OrganizeFile file)
+    {
+        h.Choice = new InsertChoice("all", InsertPosition.AfterSelection);
+        Assert.True((await h.Flow.RunAsync(file.Tab))?.IsDone);
+        return h.CardsShown[^1].After;
     }
 
     private static string TestSupportPath(string name) => Raffica.TestSupport.TestData.Pdf(name);
