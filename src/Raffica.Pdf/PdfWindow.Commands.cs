@@ -211,7 +211,9 @@ internal sealed partial class PdfWindow
         PagesRedo: () => OpenPlan?.Redo(),
         ApplyPages: () => _ = GuardAsync(ApplyActiveAsync),
         DiscardPages: DiscardPlan,
-        DeletePages: () => RunPageEdit(session => session.Delete()));
+        DeletePages: () => RunPageEdit(session => session.Delete()),
+        ExtractPages: ExtractPages,
+        SplitDocument: SplitDocument);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,

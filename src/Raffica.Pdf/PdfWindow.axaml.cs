@@ -466,7 +466,7 @@ internal sealed partial class PdfWindow : Window
     private Task<string?> PickApplyPathAsync(PdfTab tab) =>
         PickPathAsync(tab, PdfStrings.Fill(PdfStrings.ApplySuggestedNameFormat, Path.GetFileNameWithoutExtension(tab.Title)));
 
-    private async Task<string?> PickPathAsync(PdfTab tab, string suggestedName)
+    private async Task<string?> PickPathAsync(PdfTab tab, string suggestedName, string? title = null)
     {
         if (_savePicker is { } picker)
         {
@@ -480,7 +480,7 @@ internal sealed partial class PdfWindow : Window
             var start = tab.Path is { } path && Path.GetDirectoryName(path) is { Length: > 0 } folder ? await StorageProvider.TryGetFolderFromPathAsync(folder) : null;
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = PdfStrings.SaveDialogTitle,
+                Title = title ?? PdfStrings.SaveDialogTitle,
                 SuggestedFileName = suggestedName,
                 DefaultExtension = "pdf",
                 ShowOverwritePrompt = true,

@@ -266,7 +266,7 @@ public sealed class OrganizeCommandTests
         using var fixture = WindowFixture.Create();
         await OpenReadyAsync(fixture);
         var window = fixture.Window;
-        foreach (var id in new[] { "pages.extract", "pages.split", "pages.exportImages" })
+        foreach (var id in new[] { "pages.exportImages" })
         {
             Assert.Null(Command(window, id).Run);
             Assert.False(Command(window, id).IsEnabled, id);
