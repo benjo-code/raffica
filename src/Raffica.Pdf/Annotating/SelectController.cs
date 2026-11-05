@@ -44,6 +44,9 @@ internal sealed class SelectController : IToolController
     private readonly TimeProvider _time;
     private readonly SelectionOverlay _overlay = new();
     private readonly Dictionary<int, IReadOnlyList<PdfAnnotation>> _cache = [];
+
+    // The pages a prefetch has queued and that are not read yet: a page is queued once, however often the view changes meanwhile.
+    private readonly HashSet<int> _prefetching = [];
     private Task _chain = Task.CompletedTask;
     private PdfAnnotation? _selected;
     private Gesture? _gesture;
@@ -95,6 +98,9 @@ internal sealed class SelectController : IToolController
 
     /// <summary>The task that ends when every read and change started so far is done (for tests).</summary>
     public Task Completion => _chain;
+
+    /// <summary>Replaces the read of the marks of a page (tests hold or count the reads); <see langword="null"/>: the document.</summary>
+    internal Func<PdfDocument, int, Task<IReadOnlyList<PdfAnnotation>>>? ReadPage { get; set; }
 
     public bool Handles(AnnotateTool tool) => tool == AnnotateTool.Select;
 
@@ -784,11 +790,24 @@ internal sealed class SelectController : IToolController
         }
     }
 
-    private void EnqueueLoad(int page, Action? then = null) => _chain = LoadChainedAsync(_chain, page, then);
+    private void EnqueueLoad(int page, Action? then = null, bool speculative = false) => _chain = LoadChainedAsync(_chain, page, then, speculative);
 
-    private async Task LoadChainedAsync(Task previous, int page, Action? then)
+    private async Task LoadChainedAsync(Task previous, int page, Action? then, bool speculative)
     {
         await previous;
+
+        // A page that was only queued ahead of need is read if it is still wanted when its turn comes: a fast scroll must not leave a press
+        // waiting behind the reads of pages that are long gone.
+        if (speculative)
+        {
+            _prefetching.Remove(page);
+            var (first, last) = _view.VisiblePages;
+            if (_disposed || _tools.Tool != AnnotateTool.Select || ((page < first || page > last) && _selected?.Page != page))
+            {
+                return;
+            }
+        }
+
         await LoadAsync(page);
         if (then is not null && !_disposed)
         {
@@ -807,7 +826,7 @@ internal sealed class SelectController : IToolController
         IReadOnlyList<PdfAnnotation> list;
         try
         {
-            list = await document.GetAnnotationsAsync(page);
+            list = await (ReadPage?.Invoke(document, page) ?? document.GetAnnotationsAsync(page));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -847,9 +866,9 @@ internal sealed class SelectController : IToolController
         var (first, last) = _view.VisiblePages;
         for (var page = first; page <= last; page++)
         {
-            if (!_cache.ContainsKey(page))
+            if (!_cache.ContainsKey(page) && _prefetching.Add(page))
             {
-                EnqueueLoad(page);
+                EnqueueLoad(page, speculative: true);
             }
         }
 

@@ -67,6 +67,81 @@ public sealed class SelectToolTests
 
     private static bool Send(AnnotateFixture f, Key key, KeyModifiers modifiers = KeyModifiers.None) => f.Interaction.HandleKey(KeyOf(key, modifiers));
 
+    // Holds the first read of the marks of a page at a gate and records every read that is asked for after it.
+    private static (List<int> Reads, TaskCompletionSource Gate) HoldReads(AnnotateFixture f)
+    {
+        var reads = new List<int>();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Interaction.Select.ReadPage = async (document, page) =>
+        {
+            reads.Add(page);
+            if (reads.Count == 1)
+            {
+                await gate.Task;
+            }
+
+            return await document.GetAnnotationsAsync(page, Cancel);
+        };
+        return (reads, gate);
+    }
+
+    [AvaloniaFact]
+    public async Task APageThatScrolledOutOfViewIsNotReadWhenItsTurnComes()
+    {
+        using var f = await AnnotateFixture.OpenAsync("pages-marked.pdf");
+        var (reads, gate) = HoldReads(f);
+        f.Tools.Choose(AnnotateTool.Select);
+        ViewFixture.Pump();
+        var (firstShown, lastShown) = f.View.VisiblePages;
+        var initial = Enumerable.Range(firstShown, lastShown - firstShown + 1).ToList();
+
+        // A fast scroll: the view passes pages 2 and 3 on its way to page 5, while the first read is still going.
+        var passed = new List<int>();
+        foreach (var target in new[] { 2, 3, 5 })
+        {
+            f.View.GoToPage(target);
+            ViewFixture.Pump();
+            var (a, b) = f.View.VisiblePages;
+            passed.AddRange(Enumerable.Range(a, b - a + 1));
+        }
+
+        var (first, last) = f.View.VisiblePages;
+        var finalPages = Enumerable.Range(first, last - first + 1).ToList();
+        var gone = passed.Distinct().Where(p => !finalPages.Contains(p) && !initial.Contains(p)).ToList();
+        Assert.NotEmpty(gone);
+
+        gate.SetResult();
+        await SettleAsync(f);
+
+        // Only the read that had started, and the pages that are in view now, were read; the pages on the way were skipped.
+        Assert.All(reads, page => Assert.True(initial.Contains(page) || finalPages.Contains(page), $"page {page} was read though it is gone"));
+        Assert.Empty(reads.Intersect(gone));
+        Assert.All(finalPages, page => Assert.Contains(page, reads));
+    }
+
+    [AvaloniaFact]
+    public async Task AViewThatChangesOftenQueuesAPageOnce()
+    {
+        using var f = await AnnotateFixture.OpenAsync("pages-marked.pdf");
+        var (reads, gate) = HoldReads(f);
+        f.Tools.Choose(AnnotateTool.Select);
+        ViewFixture.Pump();
+
+        // The view changes again and again while the chain is held: each page is queued once, not once per change.
+        for (var i = 0; i < 6; i++)
+        {
+            f.View.GoToPage(i % 2 == 0 ? 4 : 5);
+            ViewFixture.Pump();
+        }
+
+        f.View.GoToPage(4);
+        ViewFixture.Pump();
+        gate.SetResult();
+        await SettleAsync(f);
+
+        Assert.Equal(reads.Count, reads.Distinct().Count());
+    }
+
     [AvaloniaFact]
     public async Task PicksTheTopmostEditableAnnotation()
     {
