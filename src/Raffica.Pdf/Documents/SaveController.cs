@@ -97,9 +97,9 @@ internal sealed class SaveController
             return false;
         }
 
-        SetSaving(true);
         try
         {
+            SetSaving(true);
             return await SaveCoreAsync(tab, askForTarget);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -234,6 +234,11 @@ internal sealed class SaveController
                     return false;
                 }
             }
+            catch (SaveFailureException ex) when (ex.Reason == SaveFailureReason.Canceled)
+            {
+                // Canceled is no failure: no card, the tab stays dirty with its history.
+                return false;
+            }
             catch (SaveFailureException ex)
             {
                 await ShowFailureAsync(tab, ex.Reason);
@@ -253,16 +258,30 @@ internal sealed class SaveController
         }
 
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+        // The file is written: whatever goes wrong from here on (a handler of the window) is no save failure and no card.
         if (saveAs && !string.Equals(Path.GetFullPath(target), tab.Path, comparison))
         {
-            tab.Rename(target);
-            PathChanged?.Invoke(tab);
+            Guarded(() => tab.Rename(target));
+            Guarded(() => PathChanged?.Invoke(tab));
         }
 
         // The tab is clean unless the session still holds something unsaved (a text box draft that was refused stays dirty).
-        tab.Annotations.Refresh();
-        Changed?.Invoke();
+        Guarded(tab.Annotations.Refresh);
+        Guarded(() => Changed?.Invoke());
         return true;
+    }
+
+    private static void Guarded(Action step)
+    {
+        try
+        {
+            step();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The save itself succeeded; a step after it that fails must not turn into the card "the original is unchanged".
+        }
     }
 
     private async Task RunJobAsync(PdfTab tab, string target, bool overwrite)

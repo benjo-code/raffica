@@ -22,8 +22,9 @@ namespace Raffica.Pdf.Tests.Documents;
 
 public sealed class SaveControllerTests
 {
+    // OriginalChanged asks a question and Canceled ends silently; both have their own tests.
     private static readonly SaveFailureReason[] OtherReasons =
-        [.. Enum.GetValues<SaveFailureReason>().Where(r => r != SaveFailureReason.OriginalChanged)];
+        [.. Enum.GetValues<SaveFailureReason>().Where(r => r is not (SaveFailureReason.OriginalChanged or SaveFailureReason.Canceled))];
 
     public static TheoryData<SaveFailureReason> EveryOtherReason => new(OtherReasons);
 
@@ -160,6 +161,93 @@ public sealed class SaveControllerTests
         Assert.True(tab.IsDirty);
         Assert.True(tab.Annotations.CanUndo);
         Assert.False(windows.Window.Saves.IsSaving);
+    }
+
+    [AvaloniaFact]
+    public async Task ACanceledFailureReasonEndsWithoutACard()
+    {
+        using var copy = new TempCopy("text-rich.pdf");
+        using var windows = WindowFixture.Create(saveRunner: Failing(SaveFailureReason.Canceled));
+        var tab = await OpenDirtyAsync(windows, copy.Path);
+
+        var saving = windows.Window.SaveActiveAsync();
+        await PrintHost.UntilAsync(() => saving.IsCompleted || windows.Window.Host.ActiveDialog is not null);
+
+        Assert.Null(windows.Window.Host.ActiveDialog);
+        Assert.False(await saving);
+        Assert.True(tab.IsDirty);
+        Assert.True(tab.Annotations.CanUndo);
+        Assert.False(windows.Window.Saves.IsSaving);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("changed")]
+    [InlineData("pathChanged")]
+    public async Task AnExceptionAfterTheSaveSucceededIsNoSaveFailure(string failing)
+    {
+        using var copy = new TempCopy("text-rich.pdf");
+        var target = Path.Combine(copy.Folder, "renamed.pdf");
+        var before = await HighlightsAsync(copy.Path);
+        using var windows = WindowFixture.Create(realSave: true, savePicker: _ => Task.FromResult<string?>(target));
+        var tab = await OpenDirtyAsync(windows, copy.Path);
+        var calls = 0;
+
+        // Changed is raised three times by a save (saving starts, the save is done, saving ends): the second is the one after Core succeeded.
+        windows.Window.Saves.Changed += () =>
+        {
+            if (failing == "changed" && ++calls == 2)
+            {
+                throw new InvalidOperationException("boom");
+            }
+        };
+        windows.Window.Saves.PathChanged += _ =>
+        {
+            if (failing == "pathChanged")
+            {
+                throw new InvalidOperationException("boom");
+            }
+        };
+
+        var saving = failing == "changed" ? windows.Window.SaveActiveAsync() : windows.Window.SaveActiveAsAsync();
+        await PrintHost.UntilAsync(() => saving.IsCompleted || windows.Window.Host.ActiveDialog is not null);
+
+        // No card "the save failed, the original is unchanged": the file was written.
+        Assert.Null(windows.Window.Host.ActiveDialog);
+        Assert.True(await saving);
+        Assert.False(tab.IsDirty);
+        Assert.False(windows.Window.Saves.IsSaving);
+        Assert.Equal(before + 1, await HighlightsAsync(failing == "changed" ? copy.Path : target));
+    }
+
+    [AvaloniaFact]
+    public async Task AThrowingChangedHandlerAtTheStartDoesNotLeaveSavingStuck()
+    {
+        using var copy = new TempCopy("text-rich.pdf");
+        using var windows = WindowFixture.Create(realSave: true);
+        var tab = await OpenDirtyAsync(windows, copy.Path);
+        var armed = true;
+        windows.Window.Saves.Changed += () =>
+        {
+            if (armed)
+            {
+                armed = false;
+                throw new InvalidOperationException("boom");
+            }
+        };
+
+        var saving = windows.Window.SaveActiveAsync();
+        await PrintHost.UntilAsync(() => saving.IsCompleted || windows.Window.Host.ActiveDialog is not null);
+        if (windows.Window.Host.ActiveDialog is { } card)
+        {
+            Click(card, "PART_Ok");
+        }
+
+        Assert.False(await saving);
+        Assert.False(windows.Window.Saves.IsSaving);
+
+        // The next save works.
+        Assert.True(await windows.Window.SaveActiveAsync());
+        Assert.False(tab.IsDirty);
     }
 
     [AvaloniaFact]
