@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Tests.Annotating;
 using Raffica.Pdf.Tests.Printing;
 using Raffica.Pdf.Tests.Text;
 using Raffica.Pdf.Tests.Viewing;
@@ -217,10 +218,10 @@ public sealed class OrganizeCloseTests
         await PrintHost.UntilAsync(() => fixture.Window.Host.ActiveDialog is null);
         Assert.True(fixture.Window.IsVisible);
 
-        // Asked again, both are asked once more and the window goes.
+        // Discard was the answer for the first tab, so its plan is gone; only the second one is asked again, and then the window goes.
+        Assert.False(first.Organize.IsActive);
+        Assert.True(second.Organize.IsActive);
         fixture.Window.Close();
-        await PressAsync(fixture, "PART_Discard");
-        await PrintHost.UntilAsync(() => fixture.Window.Host.ActiveDialog is not null && ReferenceEquals(fixture.Window.Workspace.Active, second));
         await PressAsync(fixture, "PART_Discard");
         await PrintHost.UntilAsync(() => !fixture.Window.IsVisible);
     }
@@ -268,5 +269,65 @@ public sealed class OrganizeCloseTests
         {
             Directory.Delete(folder, recursive: true);
         }
+    }
+
+    private static Raffica.Shell.Frame.CommandDefinition Command(PdfWindow window, string id) =>
+        window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == id);
+
+    [AvaloniaFact]
+    public async Task DiscardCommandIsWiredAndGivesTheToolsBack()
+    {
+        using var fixture = Fixture();
+        var tab = await OpenAsync(fixture);
+        var window = fixture.Window;
+        var discard = Command(window, "pages.discard");
+        Assert.NotNull(discard.Run);
+        Assert.True(discard.IsEnabled);
+        Assert.False(Command(window, "annotate.highlight").IsEnabled);
+
+        discard.Run!();
+        await PressAsync(fixture, "PART_Discard");
+        await ViewFixture.WaitAsync(() => !tab.Organize.IsActive);
+
+        // The mode is gone: the tools and the output commands work again, the discard command is off.
+        Assert.True(Command(window, "annotate.highlight").IsEnabled);
+        Assert.False(Command(window, "pages.discard").IsEnabled);
+        Assert.False(Command(window, "pages.apply").IsEnabled);
+    }
+
+    [AvaloniaFact]
+    public async Task UnsavedMarksAreAskedAfterTheModeWasEnteredAndTheTabClosed()
+    {
+        using var fixture = Fixture();
+        var tab = await fixture.OpenAsync("pages-marked.pdf");
+        await ViewFixture.WaitAsync(() => fixture.Window.ViewOf(tab)?.FirstSharpPageShown == true);
+        Assert.NotNull(await AnnotatedFile.HighlightAsync(tab.Annotations));
+        await tab.Annotations.FlushAsync();
+        Assert.True(tab.Annotations.Editor.IsDirty);
+        fixture.Window.ToggleOrganize();
+        await ViewFixture.WaitAsync(() => tab.OrganizeIfCreated is { IsActive: true });
+        Assert.True(tab.Organize.Plan.IsIdentity);
+
+        // An unchanged plan does not hide the marks: the normal question comes, Cancel keeps the tab.
+        var close = fixture.Window.Workspace.CloseAsync(tab);
+        var card = await CardWithAsync(fixture, "PART_Save");
+        Assert.Equal("Save changes?", card.Title);
+        await PressAsync(fixture, "PART_Cancel");
+        Assert.False(await close.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Contains(tab, fixture.Window.Workspace.Tabs);
+
+        // A changed plan asks about the plan first; Discard drops it and the marks are asked next.
+        tab.Organize.Selection.Select(1);
+        Assert.True(tab.Organize.Rotate(90).IsDone);
+        close = fixture.Window.Workspace.CloseAsync(tab);
+        card = await CardWithAsync(fixture, "PART_Discard");
+        Assert.Equal("Discard the page changes?", card.Title);
+        await PressAsync(fixture, "PART_Discard");
+        card = await CardWithAsync(fixture, "PART_DontSave");
+        Assert.Equal("Save changes?", card.Title);
+        Assert.False(tab.Organize.IsActive);
+        await PressAsync(fixture, "PART_DontSave");
+        Assert.True(await close.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.DoesNotContain(tab, fixture.Window.Workspace.Tabs);
     }
 }

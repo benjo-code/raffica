@@ -133,6 +133,9 @@ public sealed class CloseGuardTests : IDisposable
         return tab;
     }
 
+    private static PlanClose Plan(CloseChoice choice, Func<bool>? apply = null) =>
+        new(_ => Task.FromResult(choice), _ => Task.FromResult(apply?.Invoke() ?? false));
+
     [Fact]
     public async Task PlanTabAsksItsOwnQuestionAndNeverTheSaveOne()
     {
@@ -141,14 +144,13 @@ public sealed class CloseGuardTests : IDisposable
         var guard = new CloseGuard(
             _ => throw new InvalidOperationException("the save question must not be asked"),
             _ => throw new InvalidOperationException("the save must not run"),
-            _ => { plans++; return Task.FromResult(CloseChoice.Save); },
-            _ => { applies++; return Task.FromResult(false); });
+            new PlanClose(_ => { plans++; return Task.FromResult(CloseChoice.Save); }, _ => { applies++; return Task.FromResult(false); }));
         var tab = await PlanTabAsync(changed: true);
 
         // Apply that does not succeed keeps the tab; one that does closes it.
         Assert.False(await guard.CanCloseAsync(tab));
         Assert.Equal((1, 1), (plans, applies));
-        var succeeding = new CloseGuard(_ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true), _ => Task.FromResult(CloseChoice.Save), _ => Task.FromResult(true));
+        var succeeding = new CloseGuard(_ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true), Plan(CloseChoice.Save, () => true));
         Assert.True(await succeeding.CanCloseAsync(tab));
     }
 
@@ -156,10 +158,14 @@ public sealed class CloseGuardTests : IDisposable
     public async Task PlanDiscardClosesAndPlanCancelKeeps()
     {
         var tab = await PlanTabAsync(changed: true);
-        var discard = new CloseGuard(_ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true), _ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(false));
-        Assert.True(await discard.CanCloseAsync(tab));
-        var cancel = new CloseGuard(_ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(true), _ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true));
+        var cancel = new CloseGuard(_ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(true), Plan(CloseChoice.Cancel, () => true));
         Assert.False(await cancel.CanCloseAsync(tab));
+        Assert.True(tab.Organize.IsActive);
+
+        var discard = new CloseGuard(_ => throw new InvalidOperationException("asked"), _ => Task.FromResult(true), Plan(CloseChoice.DontSave));
+        Assert.True(await discard.CanCloseAsync(tab));
+        Assert.False(tab.Organize.IsActive);
+        Assert.False(tab.IsDirty);
     }
 
     [Fact]
@@ -168,8 +174,42 @@ public sealed class CloseGuardTests : IDisposable
         var guard = new CloseGuard(
             _ => throw new InvalidOperationException("asked"),
             _ => throw new InvalidOperationException("saved"),
-            _ => throw new InvalidOperationException("asked about the plan"),
-            _ => throw new InvalidOperationException("applied"));
+            new PlanClose(_ => throw new InvalidOperationException("asked about the plan"), _ => throw new InvalidOperationException("applied")));
         Assert.True(await guard.CanCloseAsync(await PlanTabAsync(changed: false)));
+    }
+
+    // Marks that were committed before the mode started stay unsaved next to the plan; neither an unchanged plan nor Discard may drop them.
+    [Fact]
+    public async Task UnsavedMarksNextToAnIdentityPlanAreStillAsked()
+    {
+        var tab = await PlanTabAsync(changed: false);
+        using var pending = tab.Annotations.BeginUnresolved();
+        Assert.True(tab.IsDirty);
+        var asked = 0;
+        var guard = new CloseGuard(
+            _ => { asked++; return Task.FromResult(CloseChoice.Cancel); },
+            _ => Task.FromResult(true),
+            new PlanClose(_ => throw new InvalidOperationException("asked about the plan"), _ => throw new InvalidOperationException("applied")));
+
+        Assert.False(await guard.CanCloseAsync(tab));
+        Assert.Equal(1, asked);
+    }
+
+    [Fact]
+    public async Task DiscardOfAChangedPlanStillAsksForTheUnsavedMarks()
+    {
+        var tab = await PlanTabAsync(changed: true);
+        using var pending = tab.Annotations.BeginUnresolved();
+        var asked = 0;
+        var guard = new CloseGuard(
+            _ => { asked++; return Task.FromResult(CloseChoice.Cancel); },
+            _ => Task.FromResult(true),
+            Plan(CloseChoice.DontSave));
+
+        // The plan is dropped (the answer was Discard), the marks are not: the tab stays and the normal question was asked.
+        Assert.False(await guard.CanCloseAsync(tab));
+        Assert.Equal(1, asked);
+        Assert.False(tab.Organize.IsActive);
+        Assert.True(tab.IsDirty);
     }
 }

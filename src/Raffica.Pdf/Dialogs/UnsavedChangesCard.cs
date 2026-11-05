@@ -8,18 +8,32 @@ using Raffica.Shell.Localization;
 namespace Raffica.Pdf.Dialogs;
 
 /// <summary>
-/// The question for a document with unsaved changes: Save (primary), Don't save, Cancel. For a tab that cannot be saved (<c>locked</c>) the
+/// The question for a document with unsaved changes: Save (primary), Don't save, Cancel. For a tab that cannot be saved (<see cref="UnsavedKind.Locked"/>) the
 /// card offers only "Close and discard changes" and Cancel (the default), and answers <see cref="CloseChoice.DontSave"/> or
-/// <see cref="CloseChoice.Cancel"/>. For an open page plan (<c>plan</c>) the card has its own wording: "Apply…" (answers <see cref="CloseChoice.Save"/>), "Discard"
+/// <see cref="CloseChoice.Cancel"/>. For an open page plan (<see cref="UnsavedKind.Plan"/>) the card has its own wording: "Apply…" (answers <see cref="CloseChoice.Save"/>), "Discard"
 /// (<see cref="CloseChoice.DontSave"/>) and Cancel. Don't save, Discard and Close and discard changes are disabled for the first 400 ms after the card was made.
 /// </summary>
+internal enum UnsavedKind
+{
+    /// <summary>A document with unsaved changes: Save, Don't save, Cancel.</summary>
+    Save,
+
+    /// <summary>A tab that cannot be saved: Close and discard changes, Cancel.</summary>
+    Locked,
+
+    /// <summary>An open page plan: Apply…, Discard, Cancel.</summary>
+    Plan,
+}
+
 internal static class UnsavedChangesCard
 {
-    public static Dialog Create(string fileName, Action<CloseChoice> chosen, bool locked = false, TimeProvider? time = null, bool plan = false)
+    public static Dialog Create(string fileName, Action<CloseChoice> chosen, UnsavedKind kind = UnsavedKind.Save, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(chosen);
 
+        var locked = kind == UnsavedKind.Locked;
+        var plan = kind == UnsavedKind.Plan;
         var format = plan ? PdfStrings.UnsavedPlanMessageFormat : locked ? PdfStrings.UnsavedLockedMessageFormat : PdfStrings.UnsavedMessageFormat;
         var message = new TextBlock { Text = format.Replace("{0}", fileName, StringComparison.Ordinal), TextWrapping = TextWrapping.Wrap };
         var cancel = CreateButton("PART_Cancel", ShellStrings.Cancel, primary: locked);

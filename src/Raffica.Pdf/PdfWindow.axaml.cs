@@ -113,7 +113,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, AskPlanAsync, ApplyForCloseAsync);
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -1395,25 +1395,12 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
-    private Task<CloseChoice> PromptAsync(PdfTab tab)
-    {
-        if (Host.IsOpen)
-        {
-            return Task.FromResult(CloseChoice.Cancel);
-        }
-
-        Workspace.Select(tab);
-        var answer = new TaskCompletionSource<CloseChoice>();
-        Host.Show(UnsavedChangesCard.Create(tab.Title, choice =>
-        {
-            Host.Close();
-            answer.TrySetResult(choice);
-        }));
-        return answer.Task;
-    }
+    private Task<CloseChoice> PromptAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Save);
 
     /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open answers Cancel.</summary>
-    internal Task<CloseChoice> AskPlanAsync(PdfTab tab)
+    internal Task<CloseChoice> AskPlanAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Plan);
+
+    private Task<CloseChoice> AskAsync(PdfTab tab, UnsavedKind kind)
     {
         if (Host.IsOpen)
         {
@@ -1426,7 +1413,7 @@ internal sealed partial class PdfWindow : Window
         {
             Host.Close();
             answer.TrySetResult(choice);
-        }, time: _time, plan: true));
+        }, kind, _time));
         return answer.Task;
     }
 
