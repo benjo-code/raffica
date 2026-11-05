@@ -594,10 +594,10 @@
     <value>Annotations</value>
   </data>
   <data name="AnnotateLimitReached" xml:space="preserve">
-    <value>This document already has as many annotations as Raffica can list (10,000). Nothing was added.</value>
+    <value>This document already has as many annotations as Raffica can list (10,000). Nothing more could be added. What was added before that was kept and can be undone.</value>
   </data>
   <data name="AnnotateFailed" xml:space="preserve">
-    <value>The markup could not be added. Nothing was changed.</value>
+    <value>The mark could not be added. What was added before that, on earlier pages, was kept and can be undone.</value>
   </data>
   <data name="SelectLockedReason" xml:space="preserve">
     <value>Locked: another program made this mark in a way Raffica cannot redraw without loss. You can comment on it or delete it.</value>

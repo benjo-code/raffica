@@ -591,10 +591,10 @@
     <value>Anmerkungen</value>
   </data>
   <data name="AnnotateLimitReached" xml:space="preserve">
-    <value>Dieses Dokument hat schon so viele Anmerkungen, wie Raffica auflisten kann (10.000). Es wurde nichts hinzugefügt.</value>
+    <value>Dieses Dokument hat schon so viele Anmerkungen, wie Raffica auflisten kann (10.000). Es konnte nichts mehr hinzugefügt werden. Was davor hinzugefügt wurde, blieb erhalten und lässt sich rückgängig machen.</value>
   </data>
   <data name="AnnotateFailed" xml:space="preserve">
-    <value>Die Markierung konnte nicht hinzugefügt werden. Es wurde nichts geändert.</value>
+    <value>Die Markierung konnte nicht hinzugefügt werden. Was davor auf früheren Seiten hinzugefügt wurde, blieb erhalten und lässt sich rückgängig machen.</value>
   </data>
   <data name="SelectLockedReason" xml:space="preserve">
     <value>Gesperrt: Ein anderes Programm hat diese Markierung so angelegt, dass Raffica sie nicht verlustfrei neu zeichnen kann. Sie kann kommentiert oder gelöscht werden.</value>
