@@ -253,16 +253,47 @@ public sealed class EndToEndTests
         return (pixels, stride, size.Width, size.Height);
     }
 
-    private static async Task RenderedAsync(PdfTab tab)
+    private static bool Saturated(byte[] pixels, int offset) =>
+        Math.Max(pixels[offset], Math.Max(pixels[offset + 1], pixels[offset + 2])) - Math.Min(pixels[offset], Math.Min(pixels[offset + 1], pixels[offset + 2])) > 80;
+
+    // The yellow of the highlight on the dark page: red and green clearly above blue.
+    private static bool Yellowish(byte[] pixels, int offset) =>
+        pixels[offset + 2] - pixels[offset] > 40 && pixels[offset + 1] - pixels[offset] > 40;
+
+    // The number of pixels in a region (in view pixels) that satisfy the predicate; BGRA frames.
+    private static int CountIn((byte[] Pixels, int Stride, int Width, int Height) frame, Rect region, Func<byte[], int, bool> predicate)
     {
-        for (var i = 0; i < 400 && tab.Session.Scheduler is { PendingCount: > 0 }; i++)
+        var count = 0;
+        for (var y = Math.Max(0, (int)region.Top); y < Math.Min(frame.Height, (int)region.Bottom); y++)
         {
-            await Task.Delay(25, Cancel);
-            ViewFixture.Pump();
+            for (var x = Math.Max(0, (int)region.Left); x < Math.Min(frame.Width, (int)region.Right); x++)
+            {
+                if (predicate(frame.Pixels, (y * frame.Stride) + (x * 4)))
+                {
+                    count++;
+                }
+            }
         }
 
-        await Task.Delay(100, Cancel);
-        ViewFixture.Pump();
+        return count;
+    }
+
+    private static int DifferingIn((byte[] Pixels, int Stride, int Width, int Height) before, (byte[] Pixels, int Stride, int Width, int Height) after, Rect region)
+    {
+        var count = 0;
+        for (var y = Math.Max(0, (int)region.Top); y < Math.Min(before.Height, (int)region.Bottom); y++)
+        {
+            for (var x = Math.Max(0, (int)region.Left); x < Math.Min(before.Width, (int)region.Right); x++)
+            {
+                var o = (y * before.Stride) + (x * 4);
+                if (before.Pixels[o] != after.Pixels[o] || before.Pixels[o + 1] != after.Pixels[o + 1] || before.Pixels[o + 2] != after.Pixels[o + 2])
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
     }
 
     [AvaloniaFact]
@@ -271,9 +302,9 @@ public sealed class EndToEndTests
         using var copy = new TempCopy("text-rich.pdf");
         using var window = WindowFixture.Create(realSave: true);
         var tab = await OpenAsync(window, copy.Path);
+        var view = window.Window.ActiveView!;
         RunCommand(window, PdfCommandIds.DarkPage);
-        await RenderedAsync(tab);
-        Assert.Equal(PageTheme.Dark, window.Window.ActiveView!.PageTheme);
+        await ViewFixture.WaitAsync(() => view.PageTheme == PageTheme.Dark && tab.Session.Scheduler is { PendingCount: 0 });
         var plain = Capture(window);
 
         // A rectangle with a clear outline and a highlight over a word, both made with the tools.
@@ -287,43 +318,43 @@ public sealed class EndToEndTests
         RunCommand(window, PdfCommandIds.Highlight);
         Drag(window, CharPoint(window, text, start, right: false), CharPoint(window, text, end - 1, right: true));
         await SettleAsync(window, tab);
-        await RenderedAsync(tab);
-        var marked = Capture(window);
 
-        // Inside the window the view is at an offset; the same bounds are compared in both frames. The rectangle region and the word
-        // region differ, and the page outside them is as before.
-        var view = window.Window.ActiveView!;
+        // The mode ends first: no preview, selection or overlay is left to repaint the regions.
+        RunCommand(window, PdfCommandIds.AnnotateDone);
+        window.Window.TextOf(tab)!.Selection.Clear();
+        ViewFixture.Pump();
+        Assert.Equal(AnnotateTool.None, window.Window.Tools.Tool);
+
         var topLeft = view.TranslatePoint(new Point(0, 0), window.Window)!.Value;
-        int Differing(Rect region)
-        {
-            var count = 0;
-            for (var y = (int)region.Top; y < (int)region.Bottom; y++)
-            {
-                for (var x = (int)region.Left; x < (int)region.Right; x++)
-                {
-                    if (x < 0 || y < 0 || x >= plain.Width || y >= plain.Height)
-                    {
-                        continue;
-                    }
-
-                    var o = (y * plain.Stride) + (x * 4);
-                    var delta = Math.Abs(plain.Pixels[o] - marked.Pixels[o]) + Math.Abs(plain.Pixels[o + 1] - marked.Pixels[o + 1]) + Math.Abs(plain.Pixels[o + 2] - marked.Pixels[o + 2]);
-                    if (delta > 60)
-                    {
-                        count++;
-                    }
-                }
-            }
-
-            return count;
-        }
-
-        Rect InView(Point a, Point b) => new(Math.Min(a.X, b.X) - topLeft.X - 4, Math.Min(a.Y, b.Y) - topLeft.Y - 4, Math.Abs(a.X - b.X) + 8, Math.Abs(a.Y - b.Y) + 8);
-
-        Assert.True(Differing(InView(from, to)) > 40, "the rectangle is visible on the dark page");
+        Rect InView(Point a, Point b, double pad) => new(Math.Min(a.X, b.X) - topLeft.X - pad, Math.Min(a.Y, b.Y) - topLeft.Y - pad, Math.Abs(a.X - b.X) + (2 * pad), Math.Abs(a.Y - b.Y) + (2 * pad));
         var wordFrom = CharPoint(window, text, start, right: false);
         var wordTo = CharPoint(window, text, end - 1, right: true);
-        Assert.True(Differing(InView(new Point(wordFrom.X, wordFrom.Y - 6), new Point(wordTo.X, wordTo.Y + 6))) > 40, "the highlight is visible on the dark page");
+        var rectangleRegion = InView(from, to, 4);
+        var wordRegion = InView(new Point(wordFrom.X, wordFrom.Y - 6), new Point(wordTo.X, wordTo.Y + 6), 0);
+
+        // Wait for the tiles with the marks: the state is "the colour is on the screen" (a failure shows as the end of the wait).
+        var marked = plain;
+        for (var i = 0; i < 400; i++)
+        {
+            ViewFixture.Pump();
+            marked = Capture(window);
+            if (tab.Session.Scheduler is { PendingCount: 0 } && CountIn(marked, rectangleRegion, Saturated) > 40 && CountIn(marked, wordRegion, Yellowish) > 40)
+            {
+                break;
+            }
+
+            await Task.Delay(25, Cancel);
+        }
+
+        // The dark page has no saturated colour of its own: the outline and the highlight bring it, and only there.
+        Assert.Equal(0, CountIn(plain, rectangleRegion, Saturated));
+        Assert.Equal(0, CountIn(plain, wordRegion, Yellowish));
+        Assert.True(CountIn(marked, rectangleRegion, Saturated) > 40, "the outline is visible on the dark page");
+        Assert.True(CountIn(marked, wordRegion, Yellowish) > 40, "the highlight is visible on the dark page");
+
+        // A control region away from both marks is as it was.
+        var control = InView(At(window, 470, 150), At(window, 560, 330), 0);
+        Assert.Equal(0, DifferingIn(plain, marked, control));
 
         // The dark page is a view setting: the file itself has the marks and nothing of the theme.
         var kinds = await KindsAsync(tab);
@@ -334,27 +365,125 @@ public sealed class EndToEndTests
     [AvaloniaFact]
     public async Task PrintKeepsAnnotationsOnALightPage()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The print path draws onto a Windows device context.");
+        }
+
         using var copy = new TempCopy("text-rich.pdf");
         var service = new FakePrintService { DialogResult = new PrintTicket(new PrintSettings { Printer = "Office" }) };
         using var window = WindowFixture.Create(realSave: true, printService: service);
         var tab = await OpenAsync(window, copy.Path);
         RunCommand(window, PdfCommandIds.DarkPage);
-        Assert.NotNull(await AnnotatedFile.HighlightAsync(tab.Annotations));
+        Assert.Equal(PageTheme.Dark, window.Window.ActiveView!.PageTheme);
+        var red = new AnnotationColor(220, 38, 38);
+        Assert.NotNull(await tab.Annotations.Editor.ApplyDrawingAsync(0, DrawingGeometry.Rectangle(new PageRect(300, 150, 420, 230), 4), red, null, null));
         await tab.Annotations.FlushAsync();
         ViewFixture.Pump();
         Assert.True(tab.IsDirty);
 
         RunCommand(window, PdfCommandIds.Print);
         await PrintHost.UntilAsync(() => service.Jobs.Count == 1);
+        await PrintHost.UntilAsync(() => service.Printed.Count == 1 && !window.Window.Host.IsOpen);
 
-        // The service gets the document with the unsaved mark in it; the print path of the service draws pages with annotations and
-        // without the page theme (the theme is a setting of the view and of its render requests only).
+        // The job carries the document and nothing more: the print path of the service draws the page itself. So the page is printed here
+        // with the same call the Windows service makes, onto a memory device context, and looked at.
         var job = service.Jobs[0];
         Assert.Same(tab.Session.Document, job.Document);
-        Assert.Contains(await job.Document.GetAnnotationsAsync(0, Cancel), a => a.Kind == AnnotationKind.Highlight);
-        Assert.Equal(PageTheme.Dark, window.Window.ActiveView!.PageTheme);
-        Assert.True(RenderOptions.Default.Annotations);
-        Assert.Equal(PageTheme.Light, RenderOptions.Default.PageTheme);
-        await PrintHost.UntilAsync(() => service.Printed.Count == 1 && !window.Window.Host.IsOpen);
+        var size = window.Window.ActiveView!.SizeOfPage(0)!.Value;
+        const int Width = 600;
+        var height = (int)Math.Round(Width * size.Height / size.Width);
+        var scale = Width / size.Width;
+        var pixels = await PrintToMemoryAsync(job.Document, Width, height);
+
+        int Count(PageRect region, Func<byte[], int, bool> predicate)
+        {
+            var count = 0;
+            for (var y = (int)(region.Top * scale); y < (int)(region.Bottom * scale); y++)
+            {
+                for (var x = (int)(region.Left * scale); x < (int)(region.Right * scale); x++)
+                {
+                    if (predicate(pixels, ((y * Width) + x) * 4))
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
+        // The red outline is on the paper (the top edge of the rectangle), and the paper is light: the empty corner is white.
+        var edge = new PageRect(300, 148, 420, 152);
+        Assert.True(Count(edge, (p, o) => p[o + 2] > 180 && p[o + 1] < 100 && p[o] < 100) > 100, "the annotation is printed");
+        var corner = new PageRect(size.Width - 60, size.Height - 60, size.Width - 10, size.Height - 10);
+        Assert.Equal(Count(corner, (_, _) => true), Count(corner, (p, o) => p[o] == 255 && p[o + 1] == 255 && p[o + 2] == 255));
+    }
+
+    // Prints a page with the call of the Windows print service onto a memory device context; BGRA, top-down.
+    private static async Task<byte[]> PrintToMemoryAsync(PdfDocument document, int width, int height)
+    {
+        var dc = CreateCompatibleDC(0);
+        Assert.NotEqual(0, dc);
+        try
+        {
+            var header = new BitmapInfoHeader { Size = Marshal.SizeOf<BitmapInfoHeader>(), Width = width, Height = -height, Planes = 1, BitCount = 32 };
+            var bitmap = CreateDIBSection(dc, ref header, 0, out var bits, 0, 0);
+            Assert.NotEqual(0, bitmap);
+            try
+            {
+                var old = SelectObject(dc, bitmap);
+                var pixels = new byte[width * height * 4];
+                Array.Fill(pixels, (byte)0xFF);
+                Marshal.Copy(pixels, 0, bits, pixels.Length);
+                await document.PrintPageToDeviceAsync(0, dc, new DevicePlacement(0, 0, width, height, 0), Cancel);
+                GdiFlush();
+                Marshal.Copy(bits, pixels, 0, pixels.Length);
+                SelectObject(dc, old);
+                return pixels;
+            }
+            finally
+            {
+                DeleteObject(bitmap);
+            }
+        }
+        finally
+        {
+            DeleteDC(dc);
+        }
+    }
+
+    [DllImport("gdi32.dll")]
+    private static extern nint CreateCompatibleDC(nint dc);
+
+    [DllImport("gdi32.dll")]
+    private static extern nint CreateDIBSection(nint dc, ref BitmapInfoHeader header, uint usage, out nint bits, nint section, uint offset);
+
+    [DllImport("gdi32.dll")]
+    private static extern nint SelectObject(nint dc, nint gdiObject);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(nint gdiObject);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteDC(nint dc);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool GdiFlush();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BitmapInfoHeader
+    {
+        public int Size;
+        public int Width;
+        public int Height;
+        public short Planes;
+        public short BitCount;
+        public int Compression;
+        public int SizeImage;
+        public int XPelsPerMeter;
+        public int YPelsPerMeter;
+        public int ClrUsed;
+        public int ClrImportant;
     }
 }

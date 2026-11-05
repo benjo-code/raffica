@@ -191,12 +191,14 @@ public sealed class SaveControllerTests
         using var windows = WindowFixture.Create(realSave: true, savePicker: _ => Task.FromResult<string?>(target));
         var tab = await OpenDirtyAsync(windows, copy.Path);
         var calls = 0;
+        var thrown = false;
 
         // Changed is raised three times by a save (saving starts, the save is done, saving ends): the second is the one after Core succeeded.
         windows.Window.Saves.Changed += () =>
         {
             if (failing == "changed" && ++calls == 2)
             {
+                thrown = true;
                 throw new InvalidOperationException("boom");
             }
         };
@@ -204,6 +206,7 @@ public sealed class SaveControllerTests
         {
             if (failing == "pathChanged")
             {
+                thrown = true;
                 throw new InvalidOperationException("boom");
             }
         };
@@ -214,6 +217,7 @@ public sealed class SaveControllerTests
         // No card "the save failed, the original is unchanged": the file was written.
         Assert.Null(windows.Window.Host.ActiveDialog);
         Assert.True(await saving);
+        Assert.True(thrown, "the handler was never called, so the test proves nothing");
         Assert.False(tab.IsDirty);
         Assert.False(windows.Window.Saves.IsSaving);
         Assert.Equal(before + 1, await HighlightsAsync(failing == "changed" ? copy.Path : target));
@@ -226,11 +230,13 @@ public sealed class SaveControllerTests
         using var windows = WindowFixture.Create(realSave: true);
         var tab = await OpenDirtyAsync(windows, copy.Path);
         var armed = true;
+        var thrown = false;
         windows.Window.Saves.Changed += () =>
         {
             if (armed)
             {
                 armed = false;
+                thrown = true;
                 throw new InvalidOperationException("boom");
             }
         };
@@ -243,6 +249,7 @@ public sealed class SaveControllerTests
         }
 
         Assert.False(await saving);
+        Assert.True(thrown, "the handler was never called, so the test proves nothing");
         Assert.False(windows.Window.Saves.IsSaving);
 
         // The next save works.

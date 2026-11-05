@@ -170,6 +170,12 @@ public sealed class DrawingToolTests
         Assert.Empty(await DrawingsAsync(f));
         Assert.False(f.Tab.IsDirty);
         Assert.False(f.Tab.Annotations.CanUndo);
+
+        // Positive control: the same drag with a real extent in both directions draws.
+        Drag(f, At(f, 100, 100), At(f, 100 + 60, 100 + 60));
+        await FinishAsync(f);
+        Assert.Null(f.Host.ActiveDialog);
+        Assert.Single(await DrawingsAsync(f));
     }
 
     [AvaloniaFact]
