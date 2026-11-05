@@ -121,6 +121,22 @@ public sealed class TextBoxToolTests
     }
 
     [AvaloniaFact]
+    public async Task CmdEnterCommitsLikeCtrlEnter()
+    {
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var field = Open(f);
+        SetText(field, "From the Mac");
+
+        // Cmd (Meta) + Enter commits, as Ctrl+Enter does and as the comment field of the marks pane does.
+        Press(field, Key.Enter, KeyModifiers.Meta);
+        await FinishAsync(f);
+
+        var made = Assert.Single(await BoxesAsync(f));
+        Assert.Equal("From the Mac", made.Contents);
+        Assert.False(f.Interaction.TextBox.IsEditing);
+    }
+
+    [AvaloniaFact]
     public async Task EmptyTextCreatesNothing()
     {
         using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");

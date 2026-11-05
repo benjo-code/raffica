@@ -11,7 +11,7 @@ namespace Raffica.Pdf.Annotating;
 /// <summary>
 /// The editing field of a text box, placed over the box on the page: a multi-line <see cref="TextBox"/> in Geist at the size the text will
 /// have on the page (font size times zoom), the colour of the annotation as text on paper white, with the app ink as its edge, and a hint
-/// below it that names what is wrong with the text. The field owns the keys of the draft: Ctrl+Enter asks to commit, Esc asks to discard,
+/// below it that names what is wrong with the text. The field owns the keys of the draft: Ctrl+Enter (Cmd+Enter on the Mac) asks to commit, Esc asks to discard,
 /// everything else (Ctrl+Z, Ctrl+A, the arrows) stays with the <see cref="TextBox"/>. It decides nothing itself; the
 /// <see cref="TextBoxController"/> reacts to the events. Used on the UI thread only.
 /// </summary>
@@ -151,7 +151,7 @@ internal sealed class TextBoxEditor : UserControl
             e.Handled = true;
             DiscardRequested?.Invoke();
         }
-        else if (e.Key is Key.Enter && e.KeyModifiers == KeyModifiers.Control)
+        else if (e.Key is Key.Enter && e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta)
         {
             e.Handled = true;
             CommitRequested?.Invoke();
