@@ -164,8 +164,9 @@ public sealed class CloseGuardTests : IDisposable
 
         var discard = new CloseGuard(_ => throw new InvalidOperationException("asked"), _ => Task.FromResult(true), Plan(CloseChoice.DontSave));
         Assert.True(await discard.CanCloseAsync(tab));
-        Assert.False(tab.Organize.IsActive);
-        Assert.False(tab.IsDirty);
+
+        // The guard never ends the plan: it goes with the tab when the tab really closes.
+        Assert.True(tab.Organize.IsActive);
     }
 
     [Fact]
@@ -206,10 +207,34 @@ public sealed class CloseGuardTests : IDisposable
             _ => Task.FromResult(true),
             Plan(CloseChoice.DontSave));
 
-        // The plan is dropped (the answer was Discard), the marks are not: the tab stays and the normal question was asked.
+        // The answer was Discard but the tab stays (Cancel at the marks question): nothing was dropped, the plan is still open and the tab dirty.
         Assert.False(await guard.CanCloseAsync(tab));
         Assert.Equal(1, asked);
-        Assert.False(tab.Organize.IsActive);
+        Assert.True(tab.Organize.IsActive);
+        Assert.False(tab.Organize.Plan.IsIdentity);
         Assert.True(tab.IsDirty);
+    }
+
+    [Fact]
+    public async Task DiscardWithoutMarksSkipsTheGenericQuestionAndSaveWritesMarksOnly()
+    {
+        // The plan makes the tab dirty by itself: after Discard only the marks decide, so a plan alone closes without the generic question.
+        var tab = await PlanTabAsync(changed: true);
+        var alone = new CloseGuard(_ => throw new InvalidOperationException("asked"), _ => throw new InvalidOperationException("saved"), Plan(CloseChoice.DontSave));
+        Assert.True(tab.IsDirty);
+        Assert.True(await alone.CanCloseAsync(tab));
+
+        // With marks the Save of that question is the marks-only save, never the guard's own (which would be the Apply while the plan is open).
+        using var pending = tab.Annotations.BeginUnresolved();
+        var saves = 0;
+        var marksSaves = 0;
+        var guard = new CloseGuard(
+            _ => Task.FromResult(CloseChoice.Save),
+            _ => { saves++; return Task.FromResult(true); },
+            new PlanClose(_ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(true), _ => { marksSaves++; return Task.FromResult(true); }));
+
+        // The unresolved draft keeps the tab open after a save, as for any save.
+        Assert.False(await guard.CanCloseAsync(tab));
+        Assert.Equal((0, 1), (saves, marksSaves));
     }
 }

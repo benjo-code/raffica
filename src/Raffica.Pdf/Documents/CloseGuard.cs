@@ -8,15 +8,19 @@ internal enum CloseChoice
     Cancel,
 }
 
-/// <summary>The question of a tab with an open page plan: what the user chose, and the Apply flow behind "Apply…" (true when the plan was written).</summary>
-internal sealed record PlanClose(Func<PdfTab, Task<CloseChoice>> Prompt, Func<PdfTab, Task<bool>> Apply);
+/// <summary>
+/// The question of a tab with an open page plan: what the user chose, the Apply flow behind "Apply…" (true when the plan was written) and the save of the
+/// marks alone (<paramref name="SaveMarks"/>, used when the plan was discarded but is still open until the tab goes; without it the guard's own save is used).
+/// </summary>
+internal sealed record PlanClose(Func<PdfTab, Task<CloseChoice>> Prompt, Func<PdfTab, Task<bool>> Apply, Func<PdfTab, Task<bool>>? SaveMarks = null);
 
 /// <summary>
 /// Decides whether a tab may close: a clean tab closes at once, a dirty tab asks once. <c>Save</c> closes only if the save worked and no unresolved draft is left,
 /// <c>Cancel</c> keeps the tab. A tab with an open page plan that changes something asks its own question first (<paramref name="plan"/>, "Discard the page
 /// changes?"): <c>Save</c> is Apply and closes only if it succeeded, <c>DontSave</c> discards the plan, <c>Cancel</c> keeps tab and plan. Marks that are unsaved
 /// next to the plan (committed before the mode started) are never dropped with it: after the plan is dealt with, the normal question about them follows.
-/// A plan that changes nothing and no unsaved marks leave silently.
+/// A plan that changes nothing and no unsaved marks leave silently. The guard never ends a plan itself: "Discard" is only remembered, so a Cancel at the
+/// question about the marks (or at a later tab of Close all) keeps the plan; the plan goes with the tab when the tab really closes.
 /// </summary>
 internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save, PlanClose? plan = null)
 {
@@ -31,6 +35,7 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
         }
 
         // The tab is dirty while a changed plan is open, but the generic "Save changes?" would be the wrong question for it: the plan has its own.
+        var planDiscarded = false;
         if (plan is not null && tab.OrganizeIfCreated is { IsActive: true } open && !open.Plan.IsIdentity)
         {
             switch (await plan.Prompt(tab))
@@ -38,23 +43,25 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
                 case CloseChoice.Save:
                     return await plan.Apply(tab);
                 case CloseChoice.DontSave:
-                    // The plan ends here, so that the tab is dirty only by what is not the plan's (unsaved marks), which the question below asks about
-                    // and the save of that question writes as an ordinary save.
-                    open.End();
+                    // The plan stays open until the tab is gone (a Cancel below must find it as it was). From here on only the marks decide whether
+                    // the generic question is asked, and its save writes the marks alone, never the plan.
+                    planDiscarded = true;
                     break;
                 default:
                     return false;
             }
         }
 
-        if (!tab.IsDirty)
+        // A discarded plan makes the tab dirty by itself, so then only the marks count.
+        if (planDiscarded ? tab.AnnotationsIfCreated is not { IsDirty: true } : !tab.IsDirty)
         {
             return true;
         }
 
+        var saveNow = planDiscarded && plan?.SaveMarks is { } marksOnly ? marksOnly : save;
         return await prompt(tab) switch
         {
-            CloseChoice.Save => await save(tab) && !HoldsUnresolvedEdit(tab),
+            CloseChoice.Save => await saveNow(tab) && !HoldsUnresolvedEdit(tab),
             CloseChoice.DontSave => true,
             _ => false,
         };

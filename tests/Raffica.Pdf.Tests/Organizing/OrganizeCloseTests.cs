@@ -218,10 +218,15 @@ public sealed class OrganizeCloseTests
         await PrintHost.UntilAsync(() => fixture.Window.Host.ActiveDialog is null);
         Assert.True(fixture.Window.IsVisible);
 
-        // Discard was the answer for the first tab, so its plan is gone; only the second one is asked again, and then the window goes.
-        Assert.False(first.Organize.IsActive);
+        // The window stayed, so nothing is lost: the first tab's Discard did not end its plan (the answer counts only when the tab closes).
+        Assert.True(first.Organize.IsActive);
+        Assert.False(first.Organize.Plan.IsIdentity);
         Assert.True(second.Organize.IsActive);
+
+        // Asked again for both tabs; discarding both lets the window go.
         fixture.Window.Close();
+        await PressAsync(fixture, "PART_Discard");
+        await PrintHost.UntilAsync(() => fixture.Window.Host.ActiveDialog is not null && ReferenceEquals(fixture.Window.Workspace.Active, second));
         await PressAsync(fixture, "PART_Discard");
         await PrintHost.UntilAsync(() => !fixture.Window.IsVisible);
     }
@@ -325,9 +330,68 @@ public sealed class OrganizeCloseTests
         await PressAsync(fixture, "PART_Discard");
         card = await CardWithAsync(fixture, "PART_DontSave");
         Assert.Equal("Save changes?", card.Title);
-        Assert.False(tab.Organize.IsActive);
+        Assert.True(tab.Organize.IsActive);
         await PressAsync(fixture, "PART_DontSave");
         Assert.True(await close.WaitAsync(TimeSpan.FromSeconds(30), Ct));
         Assert.DoesNotContain(tab, fixture.Window.Workspace.Tabs);
+    }
+
+    // Scenario A of the final review: a changed plan next to unsaved marks, Discard, then Cancel at "Save changes?": the tab stays and so does its plan.
+    [AvaloniaFact]
+    public async Task DiscardThenCancelAtTheMarksQuestionKeepsThePlan()
+    {
+        using var fixture = Fixture();
+        var tab = await fixture.OpenAsync("pages-marked.pdf");
+        await ViewFixture.WaitAsync(() => fixture.Window.ViewOf(tab)?.FirstSharpPageShown == true);
+        Assert.NotNull(await AnnotatedFile.HighlightAsync(tab.Annotations));
+        await tab.Annotations.FlushAsync();
+        fixture.Window.ToggleOrganize();
+        await ViewFixture.WaitAsync(() => tab.OrganizeIfCreated is { IsActive: true });
+        tab.Organize.Selection.Select(1);
+        Assert.True(tab.Organize.Rotate(90).IsDone);
+        var version = tab.Organize.Version;
+
+        var close = fixture.Window.Workspace.CloseAsync(tab);
+        await PressAsync(fixture, "PART_Discard");
+        await CardWithAsync(fixture, "PART_DontSave");
+        await PressAsync(fixture, "PART_Cancel");
+
+        Assert.False(await close.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Contains(tab, fixture.Window.Workspace.Tabs);
+        Assert.True(tab.Organize.IsActive);
+        Assert.False(tab.Organize.Plan.IsIdentity);
+        Assert.Equal(version, tab.Organize.Version);
+        Assert.True(tab.IsDirty);
+    }
+
+    // Discard, then Save at "Save changes?": the marks are written by the ordinary save (not the Apply, the plan is still open) and the tab closes.
+    [AvaloniaFact]
+    public async Task DiscardThenSaveWritesTheMarksOnlyAndCloses()
+    {
+        using var copy = new TempCopy("pages-marked.pdf");
+        using var fixture = WindowFixture.Create(realSave: true);
+        var tab = await fixture.Window.Flow.OpenAsync(copy.Path) ?? throw new InvalidOperationException("did not open");
+        await ViewFixture.WaitAsync(() => fixture.Window.ViewOf(tab)?.FirstSharpPageShown == true);
+        var pages = tab.Session.Document!.PageCount;
+        Assert.NotNull(await AnnotatedFile.HighlightAsync(tab.Annotations));
+        await tab.Annotations.FlushAsync();
+        fixture.Window.ToggleOrganize();
+        await ViewFixture.WaitAsync(() => tab.OrganizeIfCreated is { IsActive: true });
+        tab.Organize.Selection.Select(1);
+        Assert.True(tab.Organize.Delete().IsDone);
+        var before = await File.ReadAllBytesAsync(copy.Path, Ct);
+
+        var close = fixture.Window.Workspace.CloseAsync(tab);
+        await PressAsync(fixture, "PART_Discard");
+        await PressAsync(fixture, "PART_Save");
+
+        Assert.True(await close.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        Assert.DoesNotContain(tab, fixture.Window.Workspace.Tabs);
+        Assert.NotEqual(before, await File.ReadAllBytesAsync(copy.Path, Ct));
+
+        // Only the marks were written: the page count of the file is the old one.
+        var engine = new Raffica.Core.Pdf.PdfEngine();
+        using var written = await engine.OpenAsync(copy.Path);
+        Assert.Equal(pages, written.PageCount);
     }
 }

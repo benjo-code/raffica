@@ -113,7 +113,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync));
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -1376,9 +1376,14 @@ internal sealed partial class PdfWindow : Window
     }
 
     // "Save" of the close prompt: when a refused field draft keeps the tab open after the save, the draft is shown so the user sees why.
-    private async Task<bool> SaveForCloseAsync(PdfTab tab)
+    private Task<bool> SaveForCloseAsync(PdfTab tab) => SaveForCloseCoreAsync(tab, marksOnly: false);
+
+    // The same, for a tab whose plan was discarded at the close question but is still open: only the marks are written, never the plan.
+    private Task<bool> SaveMarksForCloseAsync(PdfTab tab) => SaveForCloseCoreAsync(tab, marksOnly: true);
+
+    private async Task<bool> SaveForCloseCoreAsync(PdfTab tab, bool marksOnly)
     {
-        var saved = await _saves.SaveAsync(tab);
+        var saved = await (marksOnly ? _saves.SaveMarksAsync(tab) : _saves.SaveAsync(tab));
         if (tab.AnnotationsIfCreated is { HasUnresolved: true } && FormsOf(tab) is { } parts)
         {
             parts.Interaction.RevealDraft();
