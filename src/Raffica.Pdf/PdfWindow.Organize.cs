@@ -1,4 +1,7 @@
+using Avalonia.Platform.Storage;
 using Raffica.Core.Pages;
+using Raffica.Core.Pdf;
+using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;
 
@@ -99,6 +102,65 @@ internal sealed partial class PdfWindow
                 panes.Pages.Organize?.Report(result);
             }
         }
+    }
+
+    /// <summary>Replaces the system file dialog of "Insert file" (tests): returns the chosen path, null when the user canceled. Null: the system dialog.</summary>
+    internal Func<Task<string?>>? InsertFilePicker { get; set; }
+
+    private InsertFileFlow? _insertFlow;
+
+    private InsertFileFlow InsertFlow => _insertFlow ??= new InsertFileFlow(
+        () => InsertFilePicker is { } picker ? picker() : PickInsertFileAsync(),
+        AskPasswordAsync,
+        (name, count, after) => Dialogs.ShowAsync<InsertChoice?>(done => InsertFileCard.Create(name, count, after, done)),
+        result => Dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.InsertRefusedTitle, PdfStrings.InsertRefusal(result), () => done(true))),
+        () => _engine ??= new PdfEngine());
+
+    private bool _insertRunning;
+
+    /// <summary>Asks for a PDF and inserts pages of it into the open plan (the position and the pages are asked on a card).</summary>
+    internal void InsertFile() => _ = GuardAsync(InsertFileAsync);
+
+    internal async Task InsertFileAsync()
+    {
+        // A held key or two clicks must not pile up pickers and cards.
+        if (_insertRunning || OpenPlan is null || Workspace.Active is not { } tab)
+        {
+            return;
+        }
+
+        _insertRunning = true;
+        try
+        {
+            var result = await InsertFlow.RunAsync(tab);
+            if (result is { IsDone: true } && _panes.TryGetValue(tab, out var panes))
+            {
+                panes.Pages.Organize?.Report(result.Value);
+            }
+        }
+        finally
+        {
+            _insertRunning = false;
+        }
+    }
+
+    private async Task<string?> PickInsertFileAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = PdfStrings.InsertFilePickTitle,
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType(PdfStrings.OpenFilterPdf)
+                {
+                    Patterns = ["*.pdf", "*.PDF"],
+                    MimeTypes = ["application/pdf"],
+                    AppleUniformTypeIdentifiers = ["com.adobe.pdf"],
+                },
+            ],
+        });
+        return files.Count == 0 ? null : files[0].TryGetLocalPath();
     }
 
     // After the last selected page, else at the end.

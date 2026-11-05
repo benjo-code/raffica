@@ -1,6 +1,8 @@
 using System.Globalization;
+using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
+using Raffica.Pdf.Organizing;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf;
@@ -349,6 +351,41 @@ internal static class PdfStrings
     public static string CmdExportImages => Table.Get("CmdExportImages");
     public static string PageChangesLockedReason => Table.Get("PageChangesLockedReason");
     public static string SaveMarksFirstReason => Table.Get("SaveMarksFirstReason");
+    public static string InsertFileTitle => Table.Get("InsertFileTitle");
+    public static string InsertFilePickTitle => Table.Get("InsertFilePickTitle");
+    public static string InsertFileHeaderFormat => Table.Get("InsertFileHeaderFormat");
+    public static string InsertFileRangeLabel => Table.Get("InsertFileRangeLabel");
+    public static string InsertRangeInvalid => Table.Get("InsertRangeInvalid");
+    public static string InsertRangeOutsideFormat => Table.Get("InsertRangeOutsideFormat");
+    public static string InsertPositionLabel => Table.Get("InsertPositionLabel");
+    public static string InsertAfterFormat => Table.Get("InsertAfterFormat");
+    public static string InsertAtEnd => Table.Get("InsertAtEnd");
+    public static string InsertAtStart => Table.Get("InsertAtStart");
+    public static string InsertConfirm => Table.Get("InsertConfirm");
+    public static string InsertRefusedTitle => Table.Get("InsertRefusedTitle");
+    public static string InsertRefusedSameFile => Table.Get("InsertRefusedSameFile");
+    public static string InsertRefusedTooManyFormat => Table.Get("InsertRefusedTooManyFormat");
+    public static string InsertRefusedUnreadable => Table.Get("InsertRefusedUnreadable");
+    public static string InsertRefusedNeedsPassword => Table.Get("InsertRefusedNeedsPassword");
+    public static string InsertRefusedWrongPassword => Table.Get("InsertRefusedWrongPassword");
+    public static string InsertRefusedBadRange => Table.Get("InsertRefusedBadRange");
+    public static string InsertRefusedLimitFormat => Table.Get("InsertRefusedLimitFormat");
+    public static string InsertRefusedNotActive => Table.Get("InsertRefusedNotActive");
+    public static string InsertRefusedOther => Table.Get("InsertRefusedOther");
+
+    /// <summary>The reason an insertion was refused, in the UI language (no raw exception text).</summary>
+    public static string InsertRefusal(OrganizeResult result) => result.Problem switch
+    {
+        OrganizeProblem.SameFile => InsertRefusedSameFile,
+        OrganizeProblem.TooManyFiles => Fill(InsertRefusedTooManyFormat, PageEditLimits.MaxInsertedFiles),
+        OrganizeProblem.Unreadable => InsertRefusedUnreadable,
+        OrganizeProblem.NeedsPassword => InsertRefusedNeedsPassword,
+        OrganizeProblem.WrongPassword => InsertRefusedWrongPassword,
+        OrganizeProblem.BadRange => InsertRefusedBadRange,
+        OrganizeProblem.LimitExceeded => Fill(InsertRefusedLimitFormat, PageEditLimits.MaxSlots),
+        OrganizeProblem.NotActive => InsertRefusedNotActive,
+        _ => InsertRefusedOther,
+    };
 
     /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
     public static string Fill(string template, object? first, object? second = null) =>

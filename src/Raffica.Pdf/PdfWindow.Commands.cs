@@ -204,6 +204,7 @@ internal sealed partial class PdfWindow
         RotateRight: () => RunPageEdit(session => session.Rotate(90)),
         DuplicatePages: () => RunPageEdit(session => session.Duplicate()),
         BlankPage: InsertBlankPage,
+        InsertFile: InsertFile,
         MovePagesUp: () => RunPageEdit(session => session.MoveBy(-1)),
         MovePagesDown: () => RunPageEdit(session => session.MoveBy(1)),
         PagesUndo: () => OpenPlan?.Undo(),

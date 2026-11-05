@@ -1242,4 +1242,67 @@
   <data name="SaveMarksFirstReason" xml:space="preserve">
     <value>Save the marks first</value>
   </data>
+  <data name="InsertFileTitle" xml:space="preserve">
+    <value>Insert pages from a file</value>
+  </data>
+  <data name="InsertFilePickTitle" xml:space="preserve">
+    <value>Choose a PDF to insert</value>
+  </data>
+  <data name="InsertFileHeaderFormat" xml:space="preserve">
+    <value>{0} (pages: {1})</value>
+  </data>
+  <data name="InsertFileRangeLabel" xml:space="preserve">
+    <value>Pages to insert (for example 3, 2-5, 1,3,5-7 or all)</value>
+  </data>
+  <data name="InsertRangeInvalid" xml:space="preserve">
+    <value>Enter pages like 3, 2-5, 1,3,5-7 or all.</value>
+  </data>
+  <data name="InsertRangeOutsideFormat" xml:space="preserve">
+    <value>The file has only {0} pages.</value>
+  </data>
+  <data name="InsertPositionLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="InsertAfterFormat" xml:space="preserve">
+    <value>After the selected pages (after page {0})</value>
+  </data>
+  <data name="InsertAtEnd" xml:space="preserve">
+    <value>At the end</value>
+  </data>
+  <data name="InsertAtStart" xml:space="preserve">
+    <value>At the start</value>
+  </data>
+  <data name="InsertConfirm" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="InsertRefusedTitle" xml:space="preserve">
+    <value>Nothing was inserted</value>
+  </data>
+  <data name="InsertRefusedSameFile" xml:space="preserve">
+    <value>This is the open file itself. Pages of it cannot be inserted into it.</value>
+  </data>
+  <data name="InsertRefusedTooManyFormat" xml:space="preserve">
+    <value>Pages of at most {0} other files can be inserted before the changes are applied.</value>
+  </data>
+  <data name="InsertRefusedUnreadable" xml:space="preserve">
+    <value>The file cannot be read or is not a PDF.</value>
+  </data>
+  <data name="InsertRefusedNeedsPassword" xml:space="preserve">
+    <value>The file needs a password.</value>
+  </data>
+  <data name="InsertRefusedWrongPassword" xml:space="preserve">
+    <value>The password is wrong.</value>
+  </data>
+  <data name="InsertRefusedBadRange" xml:space="preserve">
+    <value>The page selection does not fit the pages of the file.</value>
+  </data>
+  <data name="InsertRefusedLimitFormat" xml:space="preserve">
+    <value>A document can have at most {0} pages.</value>
+  </data>
+  <data name="InsertRefusedNotActive" xml:space="preserve">
+    <value>The page changes were closed in the meantime.</value>
+  </data>
+  <data name="InsertRefusedOther" xml:space="preserve">
+    <value>The pages could not be inserted.</value>
+  </data>
 </root>

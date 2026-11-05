@@ -1226,4 +1226,67 @@
   <data name="SaveMarksFirstReason" xml:space="preserve">
     <value>Speichern Sie zuerst die Markierungen</value>
   </data>
+  <data name="InsertFileTitle" xml:space="preserve">
+    <value>Seiten aus einer Datei einfügen</value>
+  </data>
+  <data name="InsertFilePickTitle" xml:space="preserve">
+    <value>PDF zum Einfügen wählen</value>
+  </data>
+  <data name="InsertFileHeaderFormat" xml:space="preserve">
+    <value>{0} (Seiten: {1})</value>
+  </data>
+  <data name="InsertFileRangeLabel" xml:space="preserve">
+    <value>Einzufügende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder all)</value>
+  </data>
+  <data name="InsertRangeInvalid" xml:space="preserve">
+    <value>Geben Sie Seiten an wie 3, 2-5, 1,3,5-7 oder all.</value>
+  </data>
+  <data name="InsertRangeOutsideFormat" xml:space="preserve">
+    <value>Die Datei hat nur {0} Seiten.</value>
+  </data>
+  <data name="InsertPositionLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="InsertAfterFormat" xml:space="preserve">
+    <value>Nach den markierten Seiten (nach Seite {0})</value>
+  </data>
+  <data name="InsertAtEnd" xml:space="preserve">
+    <value>Am Ende</value>
+  </data>
+  <data name="InsertAtStart" xml:space="preserve">
+    <value>Am Anfang</value>
+  </data>
+  <data name="InsertConfirm" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="InsertRefusedTitle" xml:space="preserve">
+    <value>Es wurde nichts eingefügt</value>
+  </data>
+  <data name="InsertRefusedSameFile" xml:space="preserve">
+    <value>Das ist die geöffnete Datei selbst. Ihre Seiten können nicht in sie eingefügt werden.</value>
+  </data>
+  <data name="InsertRefusedTooManyFormat" xml:space="preserve">
+    <value>Vor dem Anwenden der Änderungen können Seiten aus höchstens {0} weiteren Dateien eingefügt werden.</value>
+  </data>
+  <data name="InsertRefusedUnreadable" xml:space="preserve">
+    <value>Die Datei lässt sich nicht lesen oder ist keine PDF-Datei.</value>
+  </data>
+  <data name="InsertRefusedNeedsPassword" xml:space="preserve">
+    <value>Die Datei braucht ein Kennwort.</value>
+  </data>
+  <data name="InsertRefusedWrongPassword" xml:space="preserve">
+    <value>Das Kennwort ist falsch.</value>
+  </data>
+  <data name="InsertRefusedBadRange" xml:space="preserve">
+    <value>Die Seitenauswahl passt nicht zu den Seiten der Datei.</value>
+  </data>
+  <data name="InsertRefusedLimitFormat" xml:space="preserve">
+    <value>Ein Dokument kann höchstens {0} Seiten haben.</value>
+  </data>
+  <data name="InsertRefusedNotActive" xml:space="preserve">
+    <value>Die Seitenänderungen wurden inzwischen geschlossen.</value>
+  </data>
+  <data name="InsertRefusedOther" xml:space="preserve">
+    <value>Die Seiten konnten nicht eingefügt werden.</value>
+  </data>
 </root>
