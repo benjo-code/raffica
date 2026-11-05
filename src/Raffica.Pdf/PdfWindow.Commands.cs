@@ -12,6 +12,7 @@ using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Forms;
+using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
 using Raffica.Pdf.Signing;
@@ -392,6 +393,13 @@ internal sealed partial class PdfWindow
             return;
         }
 
+        // Select all and Copy belong to the list of the organize mode while the focus is in it: Ctrl+A selects the pages there (the catalog command
+        // would select the text of the page view behind it). Undo and Redo stay with the window, which sends them to the plan.
+        if (entry.Id is PdfCommandIds.Copy or PdfCommandIds.SelectAll && FocusIsInOrganizeList())
+        {
+            return;
+        }
+
         e.Handled = true;
         if (isRepeat && entry.Shortcut is { AllowsRepeat: false })
         {
@@ -404,6 +412,11 @@ internal sealed partial class PdfWindow
             command.Run?.Invoke();
         }
     }
+
+    // True while a plan is open and the focus is on the organize list of the active tab's pages pane or inside it.
+    private bool FocusIsInOrganizeList() =>
+        OpenPlan is not null && NavigationPane.Content is PagesPane { Organize: { } list }
+        && FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(list, focused) || list.IsVisualAncestorOf(focused));
 
     // A text field (the comment, a text box editor, the search field) or anything in the search bar keeps its keys, Esc included.
     private bool KeyBelongsToTextOrSearch()
