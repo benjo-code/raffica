@@ -36,6 +36,9 @@ internal sealed class FormSession : IDisposable
         _tab.Session.PagesInvalidated += OnPagesInvalidated;
     }
 
+    /// <summary>A test seam: the number of pages instead of the document's.</summary>
+    internal Func<int>? PageCountSource { get; init; }
+
     /// <summary>A test seam: reads the widgets of a page instead of the document (default: the document, background priority).</summary>
     internal Func<PdfDocument, int, CancellationToken, Task<IReadOnlyList<FormField>>>? PageReader { get; init; }
 
@@ -107,6 +110,32 @@ internal sealed class FormSession : IDisposable
         lock (_gate)
         {
             return _pages.TryGetValue(page, out var fields) ? fields : [];
+        }
+    }
+
+    /// <summary>The number of pages of the document; 0 for a document without a form.</summary>
+    public int PageCount
+    {
+        get
+        {
+            if (!HasForm)
+            {
+                return 0;
+            }
+
+            if (PageCountSource is { } source)
+            {
+                return source();
+            }
+
+            try
+            {
+                return _tab.Session.Document?.PageCount ?? 0;
+            }
+            catch (ObjectDisposedException)
+            {
+                return 0;
+            }
         }
     }
 

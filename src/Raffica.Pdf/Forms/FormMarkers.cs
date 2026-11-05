@@ -89,7 +89,28 @@ internal sealed class FormMarkers : IPageOverlay, IDisposable
         }
     }
 
-    /// <summary>The markers of the visible pages as they are drawn, in the order star, lock, ring of each widget.</summary>
+    /// <summary>
+    /// Turns the form highlight of the main view on or off and renders the visible pages again (the session drops what it rendered with the
+    /// old setting). The one entry point for the first switch-on and the toggle; does nothing for a document without a form or when nothing changes.
+    /// </summary>
+    public void ApplyHighlight(bool on)
+    {
+        if (_disposed || _session.Highlight == on || !_session.HasForm)
+        {
+            return;
+        }
+
+        _session.Highlight = on;
+        _view?.RestartRendering();
+    }
+
+    /// <summary>
+    /// Whether a widget gets the star (required and empty). Why a widget is marked is told by the field itself: <see cref="FormField.LockReason"/>
+    /// for a lock, this for the star; the hover text belongs to the form interaction.
+    /// </summary>
+    public static bool IsMarkedRequired(FormField field) => IsEmptyRequired(field);
+
+    /// <summary>The markers of the visible pages as they are drawn, in the order lock, star, ring of each widget.</summary>
     public IReadOnlyList<FormMarker> Plan(PageView view)
     {
         ArgumentNullException.ThrowIfNull(view);
@@ -284,7 +305,7 @@ internal sealed class FormMarkers : IPageOverlay, IDisposable
         }
 
         // Applied once, after the first sharp page and only for a document with a form.
-        _session.Highlight = true;
+        ApplyHighlight(true);
         Request();
     }
 

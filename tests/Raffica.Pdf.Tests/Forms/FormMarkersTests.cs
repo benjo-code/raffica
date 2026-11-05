@@ -123,19 +123,41 @@ public sealed class FormMarkersTests
             var view = file.Fixture.View;
             var bounds = forms.FieldsOn(0)[0].Bounds;
             var before = markers.Plan(view).Single();
-            Assert.True(Math.Abs(view.ToView(0, bounds)!.Value.Right - before.Bounds.Right) < 20);
+            Assert.Equal(view.ToView(0, bounds)!.Value.Right, before.Bounds.Right, 0.01);
 
             view.SetZoom(view.Zoom * 2);
             ViewFixture.Pump();
             var zoomed = markers.Plan(view).Single();
-            Assert.NotEqual(before.Bounds.Right, zoomed.Bounds.Right);
-            Assert.True(Math.Abs(view.ToView(0, bounds)!.Value.Right - zoomed.Bounds.Right) < 40);
+            Assert.Equal(view.ToView(0, bounds)!.Value.Right, zoomed.Bounds.Right, 0.01);
+            Assert.NotEqual(before.Bounds.Right, zoomed.Bounds.Right, 0.5);
 
-            view.Offset = new Avalonia.Vector(0, 10);
+            var top = zoomed.Bounds.Top;
+            view.Offset = new Avalonia.Vector(view.Offset.X, view.Offset.Y + 10);
             ViewFixture.Pump();
             var scrolled = markers.Plan(view).Single();
-            Assert.NotEqual(zoomed.Bounds.Top, scrolled.Bounds.Top);
+            Assert.Equal(top - 10, scrolled.Bounds.Top, 0.01);
         }
+    }
+
+    [AvaloniaFact]
+    public async Task TheFirstHighlightRendersTheVisiblePagesAgain()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        using var forms = await FormFocusTests.SessionAsync(file, FormFocusTests.Widget("a", 0));
+        using var markers = new FormMarkers(forms, new FormFocus());
+        var view = file.Fixture.View;
+        markers.Attach(view);
+        view.FormOverlay = markers;
+
+        await ShownAsync(file);
+        await ViewFixture.WaitAsync(() => forms.Highlight);
+
+        // The flip emptied the session's cache; the page comes back without any scroll or zoom.
+        var cache = file.Fixture.Session.Cache!;
+        await ViewFixture.WaitAsync(() => cache.Count > 0 && file.Fixture.Session.Scheduler is { PendingCount: 0 });
+        await file.Fixture.SettleAsync();
+        Assert.True(view.Bitmaps.Count > 0);
+        Assert.True(cache.Count > 0);
     }
 
     [AvaloniaFact]

@@ -222,6 +222,17 @@ internal sealed partial class PageView : Control
         }
     }
 
+    /// <summary>
+    /// Plans the visible pages again and drops the converted bitmaps: what a change of the session's render settings (the form highlight)
+    /// emptied is rendered again without waiting for the next scroll or zoom.
+    /// </summary>
+    internal void RestartRendering()
+    {
+        _bitmaps.Clear();
+        Replan();
+        InvalidateVisual();
+    }
+
     /// <summary>The page the view counts as current: the one a jump went to while it is still on screen, else the one with the most visible height.</summary>
     public int CurrentPage
     {
