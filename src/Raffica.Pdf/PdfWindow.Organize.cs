@@ -81,6 +81,9 @@ internal sealed partial class PdfWindow
         }
 
         session.Enter();
+
+        // A tool chosen while the flush above was awaited (a key can arrive then) must not survive into the mode: the tools are locked while a plan is open.
+        Tools.End();
         ShowPagesPane();
         RefreshCommandStates();
     }

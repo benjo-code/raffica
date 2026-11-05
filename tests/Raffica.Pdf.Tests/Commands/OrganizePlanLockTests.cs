@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Raffica.Core.Annotations;
+using Raffica.Pdf.Annotating;
 using Raffica.Core.Text;
 using Raffica.Pdf.Tests.Forms;
 using Raffica.Pdf.Tests.Viewing;
@@ -93,6 +94,23 @@ public sealed class OrganizePlanLockTests
         ViewFixture.Pump();
         Assert.True(f.Tab.Annotations.CanUndo, "the marks history is not touched while the plan is open");
         Assert.Equal("Erika", (await f.FromDocumentAsync("Name")).State.Text);
+    }
+
+    // The mode starts after an awaited flush; a tool chosen meanwhile (Ctrl+Shift+H) must be ended when the mode starts.
+    [AvaloniaFact]
+    public async Task ToolChosenDuringTheFlushDoesNotSurviveTheModeStart()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var box = (TextBox)f.Open(f.Field("Name"));
+        FormEditFixture.SetText(box, "Erika");
+
+        ToggleMode(f.Window);
+        Assert.False(f.Tab.Organize.IsActive, "the mode waits for the flush");
+        f.Window.Tools.Choose(AnnotateTool.Highlight);
+        await ViewFixture.WaitAsync(() => f.Tab.Organize.IsActive);
+        await f.SettleAsync();
+
+        Assert.Equal(AnnotateTool.None, f.Window.Tools.Tool);
     }
 
     [AvaloniaFact]
