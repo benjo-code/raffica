@@ -1,5 +1,7 @@
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Raffica.Core.Pages;
+using Raffica.Core.Pdf;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;
 using Raffica.Pdf.Tests.Annotating;
@@ -520,5 +522,103 @@ public sealed class OrganizeSessionTests
         Assert.Equal(3, raised);
         session.Redo();
         Assert.Equal(4, raised);
+    }
+
+    [AvaloniaFact]
+    public async Task InsertRaisesItsEventsOnTheUiThread()
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var session = Enter(file);
+        var changed = new List<bool>();
+        var dirty = new List<bool>();
+        session.Changed += () => changed.Add(Dispatcher.UIThread.CheckAccess());
+        file.Tab.DirtyChanged += () => dirty.Add(Dispatcher.UIThread.CheckAccess());
+
+        var result = await session.InsertFileAsync(file.CopyOf("hello_world.pdf"), null, "all", 0);
+
+        Assert.True(result.IsDone);
+        Assert.NotEmpty(changed);
+        Assert.All(changed, onUi => Assert.True(onUi));
+        Assert.NotEmpty(dirty);
+        Assert.All(dirty, onUi => Assert.True(onUi));
+        Assert.True(Dispatcher.UIThread.CheckAccess());
+    }
+
+    [AvaloniaFact]
+    public async Task InsertRegistersOnTheSessionsContextWhenTheCallerHasAnother()
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var ui = new QueueContext();
+        using var session = new OrganizeSession(file.Tab, ui);
+        session.Enter();
+        var threads = new List<int>();
+        session.Changed += () => threads.Add(Environment.CurrentManagedThreadId);
+
+        var insert = session.InsertFileAsync(file.CopyOf("hello_world.pdf"), null, "all", 0);
+        for (var i = 0; i < 500 && ui.Count == 0; i++)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        // Nothing is registered until the "UI thread" runs its queue.
+        Assert.Empty(session.Inserted);
+        var runner = Environment.CurrentManagedThreadId;
+        Assert.True(ui.Run() > 0);
+        Assert.True((await insert).IsDone);
+        Assert.Single(session.Inserted);
+        Assert.All(threads, id => Assert.Equal(runner, id));
+    }
+
+    [AvaloniaFact]
+    public async Task EndDuringAFileReadDropsTheFileAndRefuses()
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var session = Enter(file);
+        var discarded = new List<PdfDocument>();
+        session.DocumentDiscarded = discarded.Add;
+
+        var insert = session.InsertFileAsync(file.CopyOf("hello_world.pdf"), null, "all", 0);
+        session.End();
+        var result = await insert;
+
+        Assert.Equal(OrganizeProblem.NotActive, result.Problem);
+        Assert.Empty(session.Inserted);
+        var document = Assert.Single(discarded);
+        Assert.Throws<ObjectDisposedException>(() => document.PageCount);
+        Assert.False(file.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task InsertWaitingForTheGateOpensNothingAfterEnd()
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var session = Enter(file);
+        var discarded = new List<PdfDocument>();
+        session.DocumentDiscarded = discarded.Add;
+        var other = file.CopyOf("hello_world.pdf");
+
+        var first = session.InsertFileAsync(other, null, "all", 0);
+        var second = session.InsertFileAsync(other, null, "all", 0);
+        session.End();
+
+        Assert.Equal(OrganizeProblem.NotActive, (await first).Problem);
+        Assert.Equal(OrganizeProblem.NotActive, (await second).Problem);
+        Assert.Empty(session.Inserted);
+        Assert.Single(discarded);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(180)]
+    [InlineData(270)]
+    public async Task RotateBy180And270(int degrees)
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var session = Enter(file);
+        session.Selection.Select(1);
+
+        Assert.True(session.Rotate(degrees).IsDone);
+        Assert.Equal(degrees, session.Plan.Slots[1].ExtraRotation);
+        Assert.True(session.Rotate(degrees).IsDone);
+        Assert.Equal(degrees * 2 % 360, session.Plan.Slots[1].ExtraRotation);
     }
 }

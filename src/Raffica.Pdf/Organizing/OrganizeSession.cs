@@ -98,6 +98,9 @@ internal sealed class OrganizeSession : IDisposable
     /// <summary>Raised on the UI thread after the plan, the selection or the inserted files changed (a change of the plan also sets the selection, so it raises once).</summary>
     public event Action? Changed;
 
+    /// <summary>A test seam: raised after a file that was read but not registered (the mode ended, the plan refused it) was closed again.</summary>
+    internal Action<PdfDocument>? DocumentDiscarded { get; set; }
+
     public OrganizeSelection Selection { get; }
 
     public bool IsActive => _history is not null;
@@ -270,6 +273,12 @@ internal sealed class OrganizeSession : IDisposable
         await _insertGate.WaitAsync();
         try
         {
+            // The mode may have ended while this call waited for the gate: no file is opened for a plan that is gone.
+            if (_history is null)
+            {
+                return OrganizeResult.Refused(OrganizeProblem.NotActive);
+            }
+
             return await InsertCoreAsync(path, password, range, at);
         }
         finally
@@ -434,23 +443,34 @@ internal sealed class OrganizeSession : IDisposable
                     opened.Dispose();
                     throw;
                 }
-            }).ConfigureAwait(false);
+            });
         }
         catch (PdfOpenException ex)
         {
-            await OnUiAsync();
             return OrganizeResult.Refused(ProblemOf(ex.Error), ex.Message);
         }
         catch (Exception ex) when (ex is FormatException or ArgumentOutOfRangeException)
         {
-            await OnUiAsync();
             return OrganizeResult.Refused(OrganizeProblem.BadRange, ex.Message);
         }
 
-        await OnUiAsync();
+        // The await above resumes on the context the call was made on; the rest changes the plan and the tab and must run on the UI context.
+        if (SynchronizationContext.Current == _ui)
+        {
+            return Register(document, pages, generation, fullPath, password, at);
+        }
+
+        var done = new TaskCompletionSource<OrganizeResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ui.Post(_ => done.SetResult(Register(document, pages, generation, fullPath, password, at)), null);
+        return await done.Task;
+    }
+
+    // Registers the opened file and makes the step. UI thread.
+    private OrganizeResult Register(PdfDocument document, IReadOnlyList<int> pages, int generation, string fullPath, string? password, int at)
+    {
         if (_history is null || generation != _generation)
         {
-            document.Dispose();
+            Discard(document);
             return OrganizeResult.Refused(OrganizeProblem.NotActive);
         }
 
@@ -462,7 +482,7 @@ internal sealed class OrganizeSession : IDisposable
         }
         catch (PageEditException ex)
         {
-            document.Dispose();
+            Discard(document);
             return OrganizeResult.Refused(ProblemOf(ex.Error), ex.Message);
         }
 
@@ -472,17 +492,10 @@ internal sealed class OrganizeSession : IDisposable
         return OrganizeResult.Done;
     }
 
-    // Continues on the UI context: the work of the file ran on the pool, the plan and the tab belong to the UI thread.
-    private Task OnUiAsync()
+    private void Discard(PdfDocument document)
     {
-        if (SynchronizationContext.Current == _ui)
-        {
-            return Task.CompletedTask;
-        }
-
-        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ui.Post(static state => ((TaskCompletionSource)state!).SetResult(), done);
-        return done.Task;
+        document.Dispose();
+        DocumentDiscarded?.Invoke(document);
     }
 
     // Takes the plan over into the dirty state of the tab. The session clears only what it set itself, and not while the marks are unsaved.
