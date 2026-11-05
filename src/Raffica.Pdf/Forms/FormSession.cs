@@ -110,6 +110,15 @@ internal sealed class FormSession : IDisposable
         }
     }
 
+    /// <summary>The widgets of all pages read so far in tab order (pages ascending, then as the page lists them).</summary>
+    public IReadOnlyList<FormField> LoadedFields()
+    {
+        lock (_gate)
+        {
+            return [.. _pages.OrderBy(p => p.Key).SelectMany(p => p.Value)];
+        }
+    }
+
     /// <summary>Whether the widgets of <paramref name="page"/> are read.</summary>
     public bool IsLoaded(int page)
     {

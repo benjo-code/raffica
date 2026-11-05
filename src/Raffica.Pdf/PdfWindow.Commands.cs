@@ -278,6 +278,12 @@ internal sealed partial class PdfWindow
 
     private void OnToolsChanged()
     {
+        // The form markers are hidden while a tool is active.
+        foreach (var parts in _formParts.Values)
+        {
+            parts.Markers.Invalidate();
+        }
+
         RefreshCommandStates();
         EnforceAnnotatePermission(showCard: true);
     }

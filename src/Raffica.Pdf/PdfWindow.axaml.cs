@@ -15,6 +15,7 @@ using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Forms;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
@@ -68,6 +69,7 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, TextInteraction> _texts = [];
     private readonly Dictionary<PdfTab, AnnotateInteraction> _annotates = [];
     private readonly Dictionary<PdfTab, AnnotateBadge> _badges = [];
+    private readonly Dictionary<PdfTab, FormParts> _formParts = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
@@ -236,6 +238,8 @@ internal sealed partial class PdfWindow : Window
         _annotates.Clear();
         EachStep(_badges.Values, badge => badge.Dispose());
         _badges.Clear();
+        EachStep(_formParts.Values, parts => parts.Markers.Dispose());
+        _formParts.Clear();
         EachStep(_texts.Values, text => text.Dispose());
         _texts.Clear();
         EachStep(_outlines, pair =>
@@ -696,6 +700,11 @@ internal sealed partial class PdfWindow : Window
                 badge.Dispose();
             }
 
+            if (_formParts.Remove(tab, out var formParts))
+            {
+                formParts.Markers.Dispose();
+            }
+
             if (_texts.Remove(tab, out var text))
             {
                 text.Dispose();
@@ -720,6 +729,7 @@ internal sealed partial class PdfWindow : Window
             {
                 view.FirstSharpPage -= OnFirstSharpPageShown;
                 view.Search = null;
+                view.FormOverlay = null;
                 view.Tab = null;
             }
 
@@ -785,6 +795,7 @@ internal sealed partial class PdfWindow : Window
             var badge = new AnnotateBadge(Tools, annotate.Select);
             view.Badge = badge;
             _badges[active] = badge;
+            AttachForm(active, view);
 
             // The outline is read once for the pane and for the palette, after the first sharp page.
             var outline = new OutlineSource(active);
@@ -803,6 +814,34 @@ internal sealed partial class PdfWindow : Window
         UpdateViewStatus();
         Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
     }
+
+    // A document without a form gets no form session and no overlay: nothing is created, drawn or loaded for it.
+    private void AttachForm(PdfTab tab, PageView view)
+    {
+        bool hasForm;
+        try
+        {
+            hasForm = tab.Session.Document is { HasAcroForm: true };
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        if (!hasForm)
+        {
+            return;
+        }
+
+        var focus = new FormFocus();
+        var markers = new FormMarkers(tab.Forms, focus) { Suppressed = () => Tools.Tool != AnnotateTool.None };
+        markers.Attach(view);
+        view.FormOverlay = markers;
+        _formParts[tab] = new FormParts(markers, focus);
+    }
+
+    /// <summary>The form markers and the form focus of a tab once the tab has been shown (for tests and the form interaction); null for a document without a form.</summary>
+    internal FormParts? FormsOf(PdfTab tab) => _formParts.GetValueOrDefault(tab);
 
     /// <summary>The marks pane of a tab once it was opened (for tests); null before.</summary>
     internal MarksPane? MarksOf(PdfTab tab) => _marks.GetValueOrDefault(tab);

@@ -30,6 +30,7 @@ internal sealed partial class PageView
     private SearchSession? _search;
     private SelectionController? _selection;
     private IPageOverlay? _overlay;
+    private IPageOverlay? _formOverlay;
     private Control? _badge;
     private Control? _field;
     private Rect _fieldRect;
@@ -87,6 +88,32 @@ internal sealed partial class PageView
             }
 
             _selection = value;
+            if (value is not null)
+            {
+                value.Changed += InvalidateVisual;
+            }
+
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>The layer of the form (markers and focus ring), drawn before <see cref="Overlay"/>; the view draws again whenever it says it changed.</summary>
+    internal IPageOverlay? FormOverlay
+    {
+        get => _formOverlay;
+        set
+        {
+            if (ReferenceEquals(value, _formOverlay))
+            {
+                return;
+            }
+
+            if (_formOverlay is not null)
+            {
+                _formOverlay.Changed -= InvalidateVisual;
+            }
+
+            _formOverlay = value;
             if (value is not null)
             {
                 value.Changed += InvalidateVisual;
