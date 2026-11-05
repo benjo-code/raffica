@@ -29,7 +29,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | 2026-11-04 |
 | 2.1 | Viewer | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) | 2026-11-04 |
-| 2.2 | Annotate | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | – |
+| 2.2 | Annotate | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | 2026-11-05 |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.4 | Organize pages | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ⬜ open | – | – |
@@ -228,7 +228,7 @@ Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame wit
 **Proof of the tasks.** Tests are in `tests/Raffica.Pdf.Tests` (`dotnet test` counts are in the evidence of criterion 1): app project `AppProjectTests`, `StartViewTests`, `RibbonDefinitionTests`, `FieldCodeIntegrationTests`; tab model `WorkspaceTests`, `TabBindingTests`, `CloseGuardTests`, `WindowCloseTests` (Save does nothing in 2.1, real saving comes with 2.2); opening `OpenFlowTests`, `DropTests`, `PasswordCardTests`, `ErrorCardTests`, `DialogQueueTests`, single instance `InstanceHandoverTests`, `HandoverWindowTests`, recent files `RecentServiceTests`; viewing `PageViewRenderTests`, `PageViewScrollTests`, `TileBitmapsTests`, `ZoomTests`, `LayoutTests`, `PageViewStateTests`, `TabViewStateTests`, `GoToPageCardTests`, `PagesPaneTests`, `OutlinePaneTests`, `PaneFocusTests`, `PaneSwitcherTests`; text `SearchSessionTests`, `SearchViewTests`, `SelectionTests`, `CopyTests`, `LinkCardTests`, `PaletteSourceTests`, `WindowTextTests`; settings `PdfSettingsTests`, `TranslationTests`; printing `WindowsPrintNativeTests`, `WindowsPrintToPdfTests` (28 platform tests passed on Windows with Microsoft Print to PDF), `CupsOptionsTests`, `CupsPrintServiceTests`, `PrintCardTests`, `PrintCommandTests`; document info `DocumentInfoCardTests`; help card and shortcuts `CommandCatalogTests`, `ShortcutTests`, `ShortcutMatchTests`.
 
 ## Milestone 2.2 – Annotate
-**Status:** 🔵 in progress · **Plan:** [2026-11-04-milestone-02-2-annotate.md](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.1
+**Status:** ✅ done (2026-11-05) · **Plan:** [2026-11-04-milestone-02-2-annotate.md](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.1
 
 Goal: Marks and comments can be added, changed, undone and saved through the existing save pipeline.
 
@@ -243,9 +243,9 @@ Goal: Marks and comments can be added, changed, undone and saved through the exi
 - [ ] A saved file opens with the marks in an independent viewer (manual check, recorded with the viewer's name)
 
 **Open items**
-**Why 2.2 is `in-progress`:** everything is built and the automated checks are green (criterion 1). Criterion 2 is a manual check on the owner's machines and has not been made; the milestone is not `done` until it is.
+**Why 2.2 is `done` with open points:** closed on 2026-11-05 on the owner's instruction. Everything is built and the automated checks are green (criterion 1). Criterion 2 (a saved file opens with the marks in an independent viewer) is a manual check that was not made; it stays unticked because it was not done, and it is a backlog entry with its steps. The owner will make the manual checks together once Raffica PDF is done.
 
-**Independent viewer (criterion 2).** Open a temp copy of a PDF in Raffica PDF, add one mark of every kind (highlight, underline, strike-through, each with a comment; freehand, rectangle, ellipse, line, arrow, text box), save, then open the saved file in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect every mark in place with its colour, width and comment. Record the viewer's name and version here and tick the criterion.
+**Independent viewer (criterion 2).** Open a temp copy of a PDF in Raffica PDF, add one mark of every kind (highlight, underline, strike-through, each with a comment; freehand, rectangle, ellipse, line, arrow, text box), save, then open the saved file in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect every mark in place with its colour, width and comment. Record the viewer's name and version here and tick the criterion (see the backlog entry "Manual check: independent viewer for annotated files (skipped for 2.2)").
 
 **Not verified here (command or check in brackets).**
 - Real pens and touch (a pen on a real digitizer; touch is ignored in annotate mode by design).
@@ -398,6 +398,7 @@ Goal: The scope of Slides, reusing the text layout of Write, is written down.
 
 Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, one becomes a milestone.
 
+- **Manual check: independent viewer for annotated files (skipped for 2.2):** Open a temp copy of a PDF in Raffica PDF, add one mark of every kind (highlight, underline and strike-through, each with a comment; freehand, rectangle, ellipse, line, arrow, text box), save, then open the saved file in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect every mark in place with its colour, width and comment. Record the viewer's name and version, then tick the second acceptance criterion of milestone 2.2. Skipped for milestone 2.2 by the owner on 2026-11-05; the owner makes the manual checks together once Raffica PDF is done. The other points not verified here are listed in the open items of 2.2.
 - **Manual check: second file in the running instance (skipped for 2.1):** Start `RafficaPdf.exe --settings-file %TEMP%\rt\s.json testdata\pdfs\text-rich.pdf`, then in a second shell with the same `--settings-file` and a relative path `RafficaPdf.exe --settings-file %TEMP%\rt\s.json hello_world.pdf`: expect exit code 0, one process, the second file as a second tab and the window brought to the front. Skipped for milestone 2.1 by the owner on 2026-11-04; do it with the next release check.
 - **ODF and legacy Microsoft formats:** Support for ODF (.odt, .ods, .odp) and the old .doc, .xls and .ppt formats, after the main apps are built.
 - **Clean up references to Pagewing documents and translate the fixture catalogue:** About 68 imported files cite Pagewing's German decision-log entries or `packaging/README.md` in comments; the references point at documents that are not in this repo. `testdata/pdfs/LICENSES.md` is still German and describes fixtures generated by `tools/make-testpdfs.cs`, which was not imported. Replace the references with Raffica entries or drop them, translate the catalogue, and decide whether to import or rebuild the test PDF generator.
