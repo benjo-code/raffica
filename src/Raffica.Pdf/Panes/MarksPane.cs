@@ -49,6 +49,8 @@ internal sealed class MarksPane : UserControl, IDisposable
     private Task _work = Task.CompletedTask;
     private AnnotationLocator? _editFor;
     private string _editBase = string.Empty;
+    private IDisposable? _unresolved;
+    private int _applying;
     private bool _rebuildPosted;
     private bool _syncing;
     private bool _disposed;
@@ -147,6 +149,13 @@ internal sealed class MarksPane : UserControl, IDisposable
         };
         AutomationProperties.SetName(_comment, PdfStrings.MarkCommentName);
         _comment.AddHandler(KeyDownEvent, OnCommentKeyDown, RoutingStrategies.Tunnel);
+        _comment.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == TextBox.TextProperty)
+            {
+                UpdateUnresolved();
+            }
+        };
 
         _commentHint = new TextBlock { Text = PdfStrings.MarkCommentHint, IsVisible = false, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
         _commentHint.Classes.Add("secondary");
@@ -176,6 +185,7 @@ internal sealed class MarksPane : UserControl, IDisposable
 
         _model.Changed += OnModelChanged;
         _select.SelectionChanged += OnDocumentSelectionChanged;
+        _tab.Annotations.FlushRequested += OnFlushRequested;
         Rebuild();
     }
 
@@ -202,6 +212,12 @@ internal sealed class MarksPane : UserControl, IDisposable
 
     /// <summary>The marks of the document.</summary>
     internal MarksModel Model => _model;
+
+    /// <summary>Replaces the engine call that applies a comment (tests make it fail or wait); <see langword="null"/>: the editor of the tab.</summary>
+    internal Func<AnnotationLocator, string, Task>? UpdateComment { get; set; }
+
+    /// <summary>Whether the comment field holds text that was typed and not applied to the mark yet (the tab counts as changed then).</summary>
+    internal bool HasUnappliedComment => HasUnappliedText;
 
     /// <summary>The rows of the list at the moment.</summary>
     internal int RowCount => _rows.Count;
@@ -276,7 +292,8 @@ internal sealed class MarksPane : UserControl, IDisposable
 
     /// <summary>
     /// Applies the text of the comment field to the selected mark (an empty text removes the comment) as one history step. Nothing
-    /// happens when the text is the one the mark has. The tab counts as dirty from the start until the change is made.
+    /// happens when the text is the one the mark has, or is already on its way (a second Ctrl+Enter before the list has read the mark again
+    /// does not repeat the change). The tab counts as dirty from the start until the change is made.
     /// </summary>
     /// <returns>The task that ends when the change is made.</returns>
     internal Task ApplyCommentAsync()
@@ -286,14 +303,20 @@ internal sealed class MarksPane : UserControl, IDisposable
             return _work;
         }
 
-        var text = string.IsNullOrWhiteSpace(_comment.Text) ? string.Empty : _comment.Text!;
+        var text = TypedText;
         if (text == _editBase)
         {
             return _work;
         }
 
         var pending = _tab.Annotations.BeginPending();
-        Run(() => ApplyAsync(locator, text, pending));
+        var previous = _editBase;
+
+        // The text counts as applied from now on; a failure takes that back.
+        _editBase = text;
+        UpdateUnresolved();
+        _applying++;
+        Run(() => ApplyAsync(locator, text, previous, pending));
         return _work;
     }
 
@@ -307,38 +330,132 @@ internal sealed class MarksPane : UserControl, IDisposable
         _disposed = true;
         _model.Changed -= OnModelChanged;
         _select.SelectionChanged -= OnDocumentSelectionChanged;
+        _tab.Annotations.FlushRequested -= OnFlushRequested;
+        ReleaseUnresolved();
     }
 
-    private async Task ApplyAsync(AnnotationLocator locator, string text, IDisposable pending)
+    private async Task ApplyAsync(AnnotationLocator locator, string text, string previousBase, IDisposable pending)
     {
         string? failure = null;
+        var applied = false;
+        var gone = false;
         try
         {
-            await _tab.Annotations.Editor.UpdateAsync(locator, new AnnotationEdit(Contents: text));
-        }
-        catch (Exception ex) when (ex is OperationCanceledException or PdfAnnotationNotFoundException)
-        {
-            // The document went away or the mark is gone (undone meanwhile): the list follows with its next read.
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            failure = PdfStrings.MarkCommentFailed;
+            try
+            {
+                await (UpdateComment is { } update ? update(locator, text) : _tab.Annotations.Editor.UpdateAsync(locator, new AnnotationEdit(Contents: text)));
+                applied = true;
+            }
+            catch (OperationCanceledException)
+            {
+                // The document went away: nothing more to do.
+            }
+            catch (PdfAnnotationNotFoundException)
+            {
+                // The mark is gone (undone or deleted meanwhile): the text has no mark to go to, and the card says so.
+                gone = true;
+                failure = PdfStrings.MarkCommentFailed;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                failure = PdfStrings.MarkCommentFailed;
+            }
+
+            if (applied || gone)
+            {
+                // The list reads the mark again now, so the field is in line with what the document has before anything else happens.
+                await _model.RefreshAsync(new HashSet<int> { locator.Page });
+            }
         }
         finally
         {
             pending.Dispose();
+            _applying--;
+        }
+
+        if (!_disposed)
+        {
+            if (!applied && !gone && _editFor is { } shown && SameMark(shown, locator) && _editBase == text)
+            {
+                // Not applied: the mark is as it was and the typed text stays in the field, still counted as an unsaved change.
+                _editBase = previousBase;
+            }
+            else if (gone && _editFor is { } vanished && SameMark(vanished, locator))
+            {
+                // The mark is gone: nothing to apply to, so the text is not tried again (the card has told).
+                _editBase = text;
+            }
+
+            if (applied || gone)
+            {
+                Rebuild();
+            }
+            else
+            {
+                UpdateUnresolved();
+            }
         }
 
         if (failure is not null && !_disposed && _dialogs is { } dialogs)
         {
-            try
-            {
-                await dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.AnnotateCardTitle, failure, () => done(true)));
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
-            {
-                // The card could not be shown; the comment was not changed either way.
-            }
+            // The card is not waited for: the work of the pane goes on behind it (the comment is retried with the next Ctrl+Enter).
+            _ = ShowNoticeAsync(dialogs, failure);
+        }
+    }
+
+    private static async Task ShowNoticeAsync(DialogQueue dialogs, string message)
+    {
+        try
+        {
+            await dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.AnnotateCardTitle, message, () => done(true)));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The card could not be shown; the comment was not changed either way.
+        }
+    }
+
+    private static bool SameMark(AnnotationLocator a, AnnotationLocator b) =>
+        a.Page == b.Page && (a.Name is not null ? a.Name == b.Name : b.Name is null && a.Index == b.Index);
+
+    // The text of the field as it would be applied (a blank text is no comment).
+    private string TypedText => string.IsNullOrWhiteSpace(_comment.Text) ? string.Empty : _comment.Text!;
+
+    private bool HasUnappliedText => _editFor is not null && _comment.IsVisible && TypedText != _editBase;
+
+    // While the field holds text that is not applied, the tab counts as changed (closing it asks, Save is possible); the flush of a save or
+    // a close applies the text first.
+    private void UpdateUnresolved()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (HasUnappliedText)
+        {
+            _unresolved ??= _tab.Annotations.BeginUnresolved();
+        }
+        else
+        {
+            ReleaseUnresolved();
+        }
+    }
+
+    private void ReleaseUnresolved()
+    {
+        if (_unresolved is { } held)
+        {
+            _unresolved = null;
+            held.Dispose();
+        }
+    }
+
+    private void OnFlushRequested()
+    {
+        if (!_disposed && HasUnappliedText)
+        {
+            _ = ApplyCommentAsync();
         }
     }
 
@@ -458,10 +575,18 @@ internal sealed class MarksPane : UserControl, IDisposable
         }
     }
 
-    // The comment field and the note follow the selected row. Typing is kept while the same mark stays selected and its comment did not change.
+    // The comment field and the note follow the selected row. Typing is kept while the same mark stays selected. When another mark (or none)
+    // is selected, the text that was typed and not applied is applied to the mark it was typed for first (as if the field lost its focus),
+    // so a change of the selection never drops it; if that cannot be done the card says so.
     private void UpdateEditor()
     {
         var entry = _list.SelectedItem is EntryRow row ? row.Entry : null;
+        var stays = entry is { CanComment: true } && _editFor is { } current && entry.IsFor(current);
+        if (!stays && HasUnappliedText)
+        {
+            _ = ApplyCommentAsync();
+        }
+
         if (entry is null)
         {
             _editFor = null;
@@ -469,6 +594,7 @@ internal sealed class MarksPane : UserControl, IDisposable
             _comment.IsVisible = false;
             _commentHint.IsVisible = false;
             _note.IsVisible = false;
+            UpdateUnresolved();
             return;
         }
 
@@ -481,18 +607,34 @@ internal sealed class MarksPane : UserControl, IDisposable
         {
             _editFor = null;
             _editBase = string.Empty;
+            UpdateUnresolved();
             return;
         }
 
         var contents = entry.Comment ?? string.Empty;
-        if (_editFor is { } current && entry.IsFor(current) && _editBase == contents)
+        if (stays)
         {
+            // A change on its way owns the field; a comment that changed meanwhile (an undo) becomes the new base and the typed text stays.
+            if (_applying > 0 || _editBase == contents)
+            {
+                return;
+            }
+
+            var typed = HasUnappliedText;
+            _editBase = contents;
+            if (!typed)
+            {
+                _comment.Text = contents;
+            }
+
+            UpdateUnresolved();
             return;
         }
 
         _editFor = entry.Locator;
         _editBase = contents;
         _comment.Text = contents;
+        UpdateUnresolved();
     }
 
     // The mark was selected (or the selection ended) in the document: the list follows without choosing anything again.

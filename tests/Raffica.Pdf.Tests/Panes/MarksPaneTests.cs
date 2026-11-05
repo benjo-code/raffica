@@ -6,6 +6,8 @@ using Avalonia.Input;
 using Raffica.Core.Annotations;
 using Raffica.Core.Text;
 using Raffica.Pdf.Annotating;
+using Raffica.Pdf.Dialogs;
+using Raffica.Pdf.Documents;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Tests.Annotating;
 using Raffica.Pdf.Tests.Viewing;
@@ -29,7 +31,7 @@ public sealed class MarksPaneTests
 
         public Window Window { get; } = window;
 
-        public static async Task<Fixture> OpenAsync(string file, Func<AnnotateFixture, Task>? prepare = null, Func<bool>? selectAllowed = null)
+        public static async Task<Fixture> OpenAsync(string file, Func<AnnotateFixture, Task>? prepare = null, Func<bool>? selectAllowed = null, bool cards = false)
         {
             var annotate = await AnnotateFixture.OpenAsync(file);
             if (prepare is not null)
@@ -39,7 +41,7 @@ public sealed class MarksPaneTests
 
             await ViewFixture.WaitAsync(() => annotate.View.FirstSharpPageShown);
             var model = new MarksModel(annotate.Tab, annotate.View);
-            var pane = new MarksPane(model, annotate.Tab, annotate.View, annotate.Tools, annotate.Interaction.Select, null, selectAllowed ?? (() => true));
+            var pane = new MarksPane(model, annotate.Tab, annotate.View, annotate.Tools, annotate.Interaction.Select, cards ? new DialogQueue(annotate.Host) : null, selectAllowed ?? (() => true));
             var window = new Window { Width = 256, Height = 640, Content = pane };
             window.Show();
             var fixture = new Fixture(annotate, model, pane, window);
@@ -170,6 +172,194 @@ public sealed class MarksPaneTests
 
         Assert.Equal("kept", f.Pane.CommentEditor.Text);
         Assert.Equal("kept", (await CurrentAsync(f, made.Name)).Contents);
+    }
+
+    // Two marks of the foreign file that can be commented; the tab is clean (nothing was changed yet).
+    private static async Task<(Fixture F, MarkEntry A, MarkEntry B)> OpenWithTwoCommentableMarksAsync(bool cards = false)
+    {
+        var f = await Fixture.OpenAsync("annotations-foreign.pdf", cards: cards);
+        var entries = Enumerable.Range(0, f.Pane.RowCount).Select(f.Pane.EntryAt).Where(e => e is { CanComment: true, Annotation.Name: not null }).Select(e => e!).ToList();
+        Assert.True(entries.Count >= 2);
+        Assert.False(f.Annotate.Tab.IsDirty);
+        return (f, entries[0], entries[1]);
+    }
+
+    private static async Task<string> ContentsAsync(Fixture f, MarkEntry entry) =>
+        (await f.Annotate.Tab.Session.Document!.GetAnnotationsAsync(entry.Page, Cancel)).First(a => a.Name == entry.Annotation.Name).Contents ?? string.Empty;
+
+    private static void Select(Fixture f, MarkEntry entry)
+    {
+        f.Pane.List.SelectedIndex = f.IndexOf(entry.Annotation.Name);
+        ViewFixture.Pump();
+    }
+
+    private static void Type(Fixture f, string text)
+    {
+        f.Pane.CommentEditor.Text = text;
+        f.Pane.CommentEditor.Focus();
+        ViewFixture.Pump();
+    }
+
+    private static void CtrlEnter(Fixture f) => f.Window.KeyPress(Key.Enter, RawInputModifiers.Control, PhysicalKey.Enter, null);
+
+    [AvaloniaFact]
+    public async Task CommentTypedButNotAppliedKeepsTheTabDirty()
+    {
+        var (f, a, _) = await OpenWithTwoCommentableMarksAsync();
+        using var _ = f;
+        var original = a.Comment ?? string.Empty;
+        Select(f, a);
+        Assert.False(f.Annotate.Tab.IsDirty);
+
+        Type(f, "typed, not applied");
+        Assert.True(f.Pane.HasUnappliedComment);
+        Assert.True(f.Annotate.Tab.IsDirty);
+
+        // Typing the old text back, and Esc, both leave the tab as it was.
+        Type(f, original);
+        Assert.False(f.Annotate.Tab.IsDirty);
+        Type(f, "typed again");
+        Assert.True(f.Annotate.Tab.IsDirty);
+        f.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        await f.SettleAsync();
+        Assert.Equal(original, f.Pane.CommentEditor.Text);
+        Assert.False(f.Annotate.Tab.IsDirty);
+        Assert.Equal(original, await ContentsAsync(f, a));
+    }
+
+    [AvaloniaFact]
+    public async Task SaveAppliesAPendingComment()
+    {
+        var (f, a, _) = await OpenWithTwoCommentableMarksAsync();
+        using var _ = f;
+        Select(f, a);
+        Type(f, "typed before save");
+
+        // What Save and the close guard do first: the flush ends the open edits, and the comment is applied.
+        await f.Annotate.Tab.Annotations.FlushAsync();
+        await f.SettleAsync();
+
+        Assert.Equal("typed before save", await ContentsAsync(f, a));
+        Assert.False(f.Pane.HasUnappliedComment);
+        Assert.True(f.Annotate.Tab.Annotations.Editor.IsDirty);
+        Assert.True(f.Annotate.Tab.IsDirty);
+        Assert.Equal("typed before save", f.Pane.CommentEditor.Text);
+    }
+
+    [AvaloniaFact]
+    public async Task SelectionChangeDoesNotDropATypedComment()
+    {
+        var (f, a, b) = await OpenWithTwoCommentableMarksAsync();
+        using var _ = f;
+        var other = b.Comment ?? string.Empty;
+        Select(f, a);
+        Type(f, "typed for the first");
+
+        Select(f, b);
+        await f.SettleAsync();
+
+        Assert.Equal("typed for the first", await ContentsAsync(f, a));
+        Assert.Equal(other, await ContentsAsync(f, b));
+        Assert.Equal(other, f.Pane.CommentEditor.Text);
+        Assert.False(f.Pane.HasUnappliedComment);
+    }
+
+    [AvaloniaFact]
+    public async Task CloseWithATypedCommentAsks()
+    {
+        var (f, a, _) = await OpenWithTwoCommentableMarksAsync();
+        using var _ = f;
+        Select(f, a);
+        Type(f, "typed before close");
+
+        var prompts = 0;
+        var guard = new CloseGuard(_ => { prompts++; return Task.FromResult(CloseChoice.Cancel); }, _ => Task.FromResult(true));
+        Assert.False(await guard.CanCloseAsync(f.Annotate.Tab));
+        Assert.Equal(1, prompts);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailedApplyKeepsTheTypedTextAndTheTabDirty()
+    {
+        var (f, a, _) = await OpenWithTwoCommentableMarksAsync(cards: true);
+        using var _ = f;
+        var original = a.Comment ?? string.Empty;
+        Select(f, a);
+        f.Pane.UpdateComment = (_, _) => throw new InvalidOperationException("injected");
+        Type(f, "typed, refused");
+
+        CtrlEnter(f);
+        await f.Pane.Completion;
+        ViewFixture.Pump();
+
+        // The card says the mark is as it was; the field still holds the text and the tab still counts as changed.
+        Assert.NotNull(f.Annotate.Host.ActiveDialog);
+        Assert.Equal("typed, refused", f.Pane.CommentEditor.Text);
+        Assert.True(f.Pane.HasUnappliedComment);
+        Assert.True(f.Annotate.Tab.IsDirty);
+        Assert.Equal(original, await ContentsAsync(f, a));
+
+        // Once the engine works again the same text can be applied.
+        f.Pane.UpdateComment = null;
+        Raffica.Pdf.Tests.Printing.PrintHost.Find<Button>(f.Annotate.Host.ActiveDialog!, "PART_Ok").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ViewFixture.Pump();
+        f.Pane.CommentEditor.Focus();
+        CtrlEnter(f);
+        await f.SettleAsync();
+        Assert.Equal("typed, refused", await ContentsAsync(f, a));
+        Assert.False(f.Pane.HasUnappliedComment);
+    }
+
+    [AvaloniaFact]
+    public async Task AMarkThatIsGoneTellsInsteadOfDroppingTheTextSilently()
+    {
+        var (f, a, _) = await OpenWithTwoCommentableMarksAsync(cards: true);
+        using var _ = f;
+        Select(f, a);
+        Type(f, "typed for a mark that goes");
+
+        // The mark is deleted behind the pane's back (the pane has not read the page yet).
+        await f.Annotate.Tab.Annotations.Editor.DeleteAsync(a.Locator);
+        CtrlEnter(f);
+        await f.SettleAsync();
+        ViewFixture.Pump();
+
+        Assert.NotNull(f.Annotate.Host.ActiveDialog);
+        Assert.False(f.Pane.HasUnappliedComment);
+        Assert.DoesNotContain(Enumerable.Range(0, f.Pane.RowCount), i => f.Pane.EntryAt(i)?.Annotation.Name == a.Annotation.Name);
+    }
+
+    [AvaloniaFact]
+    public async Task ASecondCtrlEnterBeforeTheListReadsAgainDoesNotRepeatTheUpdate()
+    {
+        var (f, a, _) = await OpenWithTwoCommentableMarksAsync();
+        using var _ = f;
+        Select(f, a);
+        var calls = 0;
+        var gate = new TaskCompletionSource();
+        f.Pane.UpdateComment = async (locator, text) =>
+        {
+            calls++;
+            await gate.Task;
+            await f.Annotate.Tab.Annotations.Editor.UpdateAsync(locator, new AnnotationEdit(Contents: text));
+        };
+        Type(f, "applied once");
+
+        // The change is on its way (held at the gate): the second Ctrl+Enter finds the text already counted as applied.
+        CtrlEnter(f);
+        CtrlEnter(f);
+        ViewFixture.Pump();
+        Assert.Equal(1, calls);
+        gate.SetResult();
+        await f.SettleAsync();
+
+        // The list has read the mark again, the field shows the new comment, and one more Ctrl+Enter changes nothing.
+        Assert.Equal("applied once", await ContentsAsync(f, a));
+        Assert.Equal("applied once", f.Pane.EntryAt(f.IndexOf(a.Annotation.Name))!.Comment);
+        Assert.Equal("applied once", f.Pane.CommentEditor.Text);
+        CtrlEnter(f);
+        await f.SettleAsync();
+        Assert.Equal(1, calls);
     }
 
     [AvaloniaFact]
