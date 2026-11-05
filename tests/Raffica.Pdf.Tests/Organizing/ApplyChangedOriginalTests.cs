@@ -175,6 +175,42 @@ public sealed class ApplyChangedOriginalTests
         Assert.Empty(rig.Rebuilds);
     }
 
+    // The picker behind the changed-original card is a picker like the first one: a plan edited while it is open is not written either.
+    [AvaloniaFact]
+    public async Task APlanEditedWhileTheSecondPickerIsOpenIsNotWritten()
+    {
+        using var rig = await ApplyRig.OpenAsync();
+        Prepare(rig);
+        var bytes = await File.ReadAllBytesAsync(rig.Path, Ct);
+        var copy = Path.Combine(rig.Folder, "copy.pdf");
+        rig.Picks.Enqueue(copy);
+        var requests = new List<RewriteRequest>();
+        rig.Flow.Rewriter = ChangedThenReal(requests);
+        rig.BeforePick = () =>
+        {
+            // The first pick belongs to the original-file button (no picker); this one is the Save as of the changed-original card.
+            rig.Session.Selection.Set(rig.Session.Plan.Slots.Count, [0]);
+            rig.Session.Rotate(180);
+            return Task.CompletedTask;
+        };
+
+        var run = rig.Flow.RunAsync(rig.Tab);
+        var changed = await ChooseOriginalAsync(rig);
+        ApplyRig.Click(changed, "PART_SaveAs");
+        var notice = await rig.CardWithAsync("PART_Ok");
+        var editedVersion = rig.Session.Version;
+
+        Assert.Contains(PdfStrings.ApplyPlanChanged, ApplyRig.TextsOf(notice));
+        ApplyRig.Click(notice, "PART_Ok");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Single(requests);
+        Assert.False(File.Exists(copy));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(rig.Path, Ct));
+        Assert.True(rig.Session.IsActive);
+        Assert.Equal(editedVersion, rig.Session.Version);
+        Assert.Empty(rig.Rebuilds);
+    }
+
     [AvaloniaFact]
     public async Task AJobDialogThatCannotBeMadeNeverTurnsASuccessIntoAFailure()
     {

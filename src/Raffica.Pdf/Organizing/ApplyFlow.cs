@@ -210,6 +210,13 @@ internal sealed class ApplyFlow(
                 }
                 else if (changedChoice == ChangedChoice.SaveAs && await pickSavePath(tab) is { } other)
                 {
+                    if (!session.IsActive || session.Version != version)
+                    {
+                        // The list was edited while this picker was open: nothing is written for a plan the user has not seen.
+                        await Tell(PdfStrings.ApplyPlanChanged);
+                        return false;
+                    }
+
                     targetPath = Path.GetFullPath(other);
                     choice = ApplyChoice.SaveAs;
                 }
