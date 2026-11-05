@@ -428,6 +428,9 @@ internal static class PdfStrings
     public static string SignatureNewRefusalWriteFailed => Table.Get("SignatureNewRefusalWriteFailed");
     public static string SignatureHintWritten => Table.Get("SignatureHintWritten");
     public static string SignatureHintImage => Table.Get("SignatureHintImage");
+
+    /// <summary>The two sentences of the signature hint as one text (new-signature card and picker); a method, so it is no key of its own.</summary>
+    public static string SignatureHintText() => SignatureHintWritten + " " + SignatureHintImage;
     public static string SignaturePickerTitle => Table.Get("SignaturePickerTitle");
     public static string SignaturePickerList => Table.Get("SignaturePickerList");
     public static string SignaturePickerNew => Table.Get("SignaturePickerNew");

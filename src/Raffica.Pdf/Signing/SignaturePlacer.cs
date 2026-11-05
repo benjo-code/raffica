@@ -25,6 +25,9 @@ internal sealed class SignaturePlacer(SignatureLibrary library, ToolState tools,
     /// <summary>The stroke width of a drawn signature in points (the "medium" width of the drawing tools).</summary>
     private static readonly double DrawnWidth = StrokeWidths.PointsOf(StrokeWidth.Medium);
 
+    /// <summary>Replaces the select step after a placement (tests); <see langword="null"/> selects with the controller.</summary>
+    internal Func<SelectController, AnnotationLocator, Task>? SelectStep { get; set; }
+
     /// <summary>Places <paramref name="signature"/> on the page the view counts as current.</summary>
     /// <param name="tab">The document.</param>
     /// <param name="view">The page view of the tab.</param>
@@ -99,7 +102,17 @@ internal sealed class SignaturePlacer(SignatureLibrary library, ToolState tools,
             tools.Choose(AnnotateTool.Select);
         }
 
-        await select.SelectAsync(new AnnotationLocator(created.Page, created.Index, created.Name));
+        // Best effort: the signature is placed and is one history step whether or not it could be selected afterwards.
+        try
+        {
+            await (SelectStep?.Invoke(select, new AnnotationLocator(created.Page, created.Index, created.Name))
+                ?? select.SelectAsync(new AnnotationLocator(created.Page, created.Index, created.Name)));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The handles are a courtesy; the placement stands and is reported as made.
+        }
+
         return true;
     }
 

@@ -151,6 +151,61 @@ public sealed class SignCommandTests
     }
 
     [AvaloniaFact]
+    public async Task ALibraryThatCannotBeReadGivesACardAndPlacesNothing()
+    {
+        PdfStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("en");
+
+        // A library whose folder cannot be found out (the directory function throws, as for an inaccessible profile).
+        using var window = WindowFixture.Create();
+        window.Window.UseSignatureLibrary(new SignatureLibrary(() => throw new IOException(Path.Combine(window.Folder, "secret"))));
+        var tab = await window.OpenAsync("text-rich.pdf");
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var running = window.Window.SignAsync();
+            var card = await NextCardAsync(window);
+            var texts = card.Card.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains(PdfStrings.SignaturePlaceFailed, texts);
+            Assert.DoesNotContain(window.Folder, string.Join(" ", texts), StringComparison.OrdinalIgnoreCase);
+            card.Click("PART_Ok");
+            await running;
+
+            // Nothing placed, nothing changed, and the command is usable again (the second round asks again).
+            Assert.Empty(await SignaturesAsync(tab));
+            Assert.False(tab.IsDirty);
+            Assert.False(window.Window.Host.IsOpen);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ASecondSignWhileOneRunsDoesNothing()
+    {
+        using var window = WindowFixture.Create();
+        var saved = await SaveDrawnAsync(window);
+        var tab = await window.OpenAsync("text-rich.pdf");
+
+        var first = window.Window.SignAsync();
+        var picker = await NextCardAsync(window);
+        var second = window.Window.SignAsync();
+        ViewFixture.Pump();
+        Assert.True(second.IsCompleted, "a second Sign while one runs returns at once");
+        Assert.Same(picker.Card, window.Window.Host.ActiveDialog);
+
+        picker.Click("PART_Pick_" + saved.Id);
+        await first;
+        await SettleAsync(window, tab);
+        Assert.Single(await SignaturesAsync(tab));
+        Assert.False(window.Window.Host.IsOpen); // no second picker was queued behind the first
+
+        // Finished: Sign works again.
+        var third = window.Window.SignAsync();
+        var again = await NextCardAsync(window);
+        again.Click("PART_Cancel");
+        await third;
+        Assert.Single(await SignaturesAsync(tab));
+    }
+
+    [AvaloniaFact]
     public async Task SignCommandNeedsADocument()
     {
         using var window = WindowFixture.Create();

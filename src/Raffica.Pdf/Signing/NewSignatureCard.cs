@@ -143,7 +143,7 @@ internal static class NewSignatureCard
             _message.Bind(TextBlock.ForegroundProperty, _message.GetResourceObservable("Raffica.Brush.Danger"));
             AutomationProperties.SetLiveSetting(_message, AutomationLiveSetting.Polite);
 
-            var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintWritten + " " + PdfStrings.SignatureHintImage, TextWrapping = TextWrapping.Wrap };
+            var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintText(), TextWrapping = TextWrapping.Wrap };
             hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Text.Secondary"));
 
             _cancel = TextButton("PART_Cancel", ShellStrings.Cancel, "boxed");

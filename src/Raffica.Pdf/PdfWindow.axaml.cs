@@ -288,6 +288,9 @@ internal sealed partial class PdfWindow : Window
     /// </summary>
     internal SignatureLibrary Signatures => _signatures ??= new SignatureLibrary(() => PdfSettingsFiles.SignaturesDirectoryFor(_options.SettingsFile));
 
+    /// <summary>Replaces the library (tests: one over a folder that cannot be read).</summary>
+    internal void UseSignatureLibrary(SignatureLibrary library) => _signatures = library ?? throw new ArgumentNullException(nameof(library));
+
     /// <summary>
     /// Shows the new-signature card (through the dialog queue) and gives the signature it saved, or <see langword="null"/> when it was cancelled.
     /// The card picks its image with the system file dialog unless <paramref name="pickImage"/> is given (tests).

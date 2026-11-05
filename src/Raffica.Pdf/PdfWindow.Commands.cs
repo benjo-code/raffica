@@ -37,6 +37,7 @@ internal sealed partial class PdfWindow
     private bool _printAvailable;
     private readonly HashSet<Key> _keysDown = [];
     private SignaturePlacer? _signaturePlacer;
+    private bool _signRunning;
     private Dictionary<string, CommandDefinition> _commandsById = [];
 
     /// <summary>The command modifier of the platform: Cmd on macOS, Ctrl elsewhere (what the frame uses for Ctrl+K).</summary>
@@ -186,12 +187,42 @@ internal sealed partial class PdfWindow
     /// </summary>
     internal async Task SignAsync()
     {
+        // Two quick clicks would queue two pickers behind each other and place twice: a Sign while one runs does nothing.
+        if (_signRunning)
+        {
+            return;
+        }
+
+        _signRunning = true;
+        try
+        {
+            await SignCoreAsync();
+        }
+        finally
+        {
+            _signRunning = false;
+        }
+    }
+
+    private async Task SignCoreAsync()
+    {
         if (Workspace.Active is not { } tab || AnnotateAllowedOf(tab) == false || !_views.TryGetValue(tab, out var view) || AnnotateOf(tab) is not { } interaction)
         {
             return;
         }
 
-        var items = await Signatures.LoadAsync();
+        IReadOnlyList<SavedSignature> items;
+        try
+        {
+            items = await Signatures.LoadAsync();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The folder cannot be read: say so (no path in the text) instead of letting the click do nothing.
+            await Dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.SignaturePlaceTitle, PdfStrings.SignaturePlaceFailed, () => done(true)));
+            return;
+        }
+
         SavedSignature? chosen;
         if (items.Count == 0)
         {

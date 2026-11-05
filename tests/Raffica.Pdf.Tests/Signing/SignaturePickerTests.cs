@@ -140,8 +140,7 @@ public sealed class SignaturePickerTests : IDisposable
 
         Assert.Contains("Alpha", shown.AllText);
         Assert.Contains("Beta", shown.AllText);
-        Assert.Contains(PdfStrings.SignatureHintWritten, shown.AllText);
-        Assert.Contains(PdfStrings.SignatureHintImage, shown.AllText);
+        Assert.Contains(PdfStrings.SignatureHintText(), shown.AllText);
         Assert.Equal(PdfStrings.SignaturePickerNew, shown.Button("PART_New").Content);
         Assert.Equal(PdfStrings.SignaturePickerTitle, shown.Card.Title);
         Assert.Empty(shown.Results);
@@ -314,14 +313,19 @@ public sealed class SignaturePickerTests : IDisposable
     {
         var library = NewLibrary();
         var drawn = await DrawnAsync(library, "Alpha");
-        using var shown = Show([drawn], library, "de");
+        try
+        {
+            using var shown = Show([drawn], library, "de");
 
-        Assert.Equal(PdfStrings.SignaturePickerTitle, shown.Card.Title);
-        Assert.Equal("Unterschreiben", shown.Card.Title);
-        Assert.Contains("Neue Unterschrift", shown.AllText + shown.Button("PART_New").Content);
-        Assert.Contains(PdfStrings.SignatureHintWritten, shown.AllText);
-        PdfStrings.Culture = CultureInfo.GetCultureInfo("en");
-        await Task.CompletedTask;
+            Assert.Equal(PdfStrings.SignaturePickerTitle, shown.Card.Title);
+            Assert.Equal("Unterschreiben", shown.Card.Title);
+            Assert.Contains("Neue Unterschrift", shown.AllText + shown.Button("PART_New").Content);
+            Assert.Contains(PdfStrings.SignatureHintText(), shown.AllText);
+        }
+        finally
+        {
+            PdfStrings.Culture = CultureInfo.GetCultureInfo("en");
+        }
     }
 
     [Fact]

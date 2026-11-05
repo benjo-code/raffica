@@ -247,9 +247,9 @@ public sealed class SignaturePlacementTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("rotated-page.pdf")]
-    [InlineData("cropbox.pdf")]
-    public async Task SignatureSurvivesSaveAndReopenOnARotatedAndACropBoxPage(string file)
+    [InlineData("rotated-page.pdf", 90, 100, 200)] // MediaBox 200 x 100, /Rotate 90: displayed 100 x 200
+    [InlineData("cropbox.pdf", 0, 200, 150)] // MediaBox 300 x 300, CropBox [50 75 250 225]: displayed 200 x 150
+    public async Task SignatureSurvivesSaveAndReopenOnARotatedAndACropBoxPage(string file, int rotation, double displayedWidth, double displayedHeight)
     {
         var library = NewLibrary();
         var drawn = await DrawnAsync(library);
@@ -257,6 +257,12 @@ public sealed class SignaturePlacementTests : IDisposable
         using var f = await AnnotateFixture.OpenAsync(file, 600, 700);
         var placer = PlacerOf(f, library);
         var visible = VisiblePart(f);
+
+        // The fixture really is rotated or cropped: the page is not shown as it is stored, so the test cannot pass on a plain page.
+        Assert.Equal(rotation, await f.Tab.Session.Document!.GetPageRotationAsync(0, Cancel));
+        var shownSize = f.View.SizeOfPage(0)!.Value;
+        Assert.Equal(displayedWidth, shownSize.Width, 0.5);
+        Assert.Equal(displayedHeight, shownSize.Height, 0.5);
 
         Assert.True(await placer.PlaceAsync(f.Tab, f.View, f.Interaction.Select, drawn));
         Assert.True(await placer.PlaceAsync(f.Tab, f.View, f.Interaction.Select, image));
@@ -267,6 +273,8 @@ public sealed class SignaturePlacementTests : IDisposable
         foreach (var mark in before)
         {
             // On the displayed page, at the centre of what is visible of it.
+            var expectedAspect = mark.IsSignatureImage ? image.Aspect : drawn.Aspect;
+            Assert.Equal(expectedAspect, mark.Bounds.Width / mark.Bounds.Height, expectedAspect * 0.05);
             Assert.True(mark.Bounds.Left >= -0.5 && mark.Bounds.Top >= -0.5 && mark.Bounds.Right <= size.Width + 0.5 && mark.Bounds.Bottom <= size.Height + 0.5);
             var shown = CentreInView(f, mark);
             Assert.Equal(visible.Center.X, shown.X, 2);
@@ -351,6 +359,26 @@ public sealed class SignaturePlacementTests : IDisposable
         Assert.Equal(AnnotateTool.None, f.Tools.Tool);
         Assert.Equal(libraryBefore, await File.ReadAllBytesAsync(Path.Combine(_root, "signatures.json"), Cancel));
         Assert.Single(await library.LoadAsync());
+    }
+
+    [AvaloniaFact]
+    public async Task AFailingSelectAfterThePlacementLeavesThePlacementStanding()
+    {
+        PdfStrings.Culture = CultureInfo.GetCultureInfo("en");
+        var library = NewLibrary();
+        var signature = await DrawnAsync(library);
+        using var f = await AnnotateFixture.OpenAsync("text-rich.pdf");
+        var placer = PlacerOf(f, library);
+        placer.SelectStep = (_, _) => throw new InvalidOperationException("select failed");
+
+        Assert.True(await placer.PlaceAsync(f.Tab, f.View, f.Interaction.Select, signature));
+        await SettleAsync(f);
+
+        // The signature exists and is one history step; the selection was only a courtesy, so there is no card and no failure.
+        Assert.Single(await SignaturesAsync(f));
+        Assert.False(f.Host.IsOpen);
+        Assert.True(f.Tab.Annotations.CanUndo);
+        Assert.Equal(AnnotateTool.Select, f.Tools.Tool);
     }
 
     [AvaloniaFact]

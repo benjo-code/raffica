@@ -92,7 +92,7 @@ internal static class SignaturePickerCard
             _message.Bind(TextBlock.ForegroundProperty, _message.GetResourceObservable("Raffica.Brush.Danger"));
             AutomationProperties.SetLiveSetting(_message, AutomationLiveSetting.Polite);
 
-            var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintWritten + " " + PdfStrings.SignatureHintImage, TextWrapping = TextWrapping.Wrap };
+            var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintText(), TextWrapping = TextWrapping.Wrap };
             hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Text.Secondary"));
 
             _new = TextButton("PART_New", PdfStrings.SignaturePickerNew, "boxed");
