@@ -1121,4 +1121,43 @@
   <data name="SignaturePlaceFailed" xml:space="preserve">
     <value>Die Unterschrift konnte nicht eingesetzt werden. Dem Dokument wurde nichts hinzugefügt.</value>
   </data>
+  <data name="OrganizeListName" xml:space="preserve">
+    <value>Seitenplan</value>
+  </data>
+  <data name="OrganizeCounterChangedFormat" xml:space="preserve">
+    <value>{0} → {1} Seiten</value>
+  </data>
+  <data name="OrganizeCounterChangedOneFormat" xml:space="preserve">
+    <value>{0} → 1 Seite</value>
+  </data>
+  <data name="OrganizeCounterSameFormat" xml:space="preserve">
+    <value>{0} Seiten</value>
+  </data>
+  <data name="OrganizeCounterSameOne" xml:space="preserve">
+    <value>1 Seite</value>
+  </data>
+  <data name="OrganizeGoneFormat" xml:space="preserve">
+    <value>{0} entfernt</value>
+  </data>
+  <data name="OrganizeTurnedFormat" xml:space="preserve">
+    <value>Um {0}° gedreht</value>
+  </data>
+  <data name="OrganizeBlank" xml:space="preserve">
+    <value>Neue leere Seite</value>
+  </data>
+  <data name="OrganizeBlankSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+  </data>
+  <data name="OrganizeFromFileFormat" xml:space="preserve">
+    <value>Aus {0}, Seite {1}</value>
+  </data>
+  <data name="OrganizeCopy" xml:space="preserve">
+    <value>Kopie</value>
+  </data>
+  <data name="OrganizeLastPageRefused" xml:space="preserve">
+    <value>Die letzte Seite kann nicht gelöscht werden. Nichts wurde geändert.</value>
+  </data>
+  <data name="OrganizeLimitRefusedFormat" xml:space="preserve">
+    <value>Ein Plan kann höchstens {0} Seiten enthalten. Nichts wurde geändert.</value>
+  </data>
 </root>

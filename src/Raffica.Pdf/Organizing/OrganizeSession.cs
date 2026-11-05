@@ -98,6 +98,12 @@ internal sealed class OrganizeSession : IDisposable
     /// <summary>Raised on the UI thread after the plan, the selection or the inserted files changed (a change of the plan also sets the selection, so it raises once).</summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Raised on the UI thread just before the inserted files are closed (the mode ends, the session is disposed), so whoever reads them
+    /// (the thumbnails of the pages pane) lets go of them first.
+    /// </summary>
+    public event Action? Ending;
+
     /// <summary>A test seam: raised after a file that was read but not registered (the mode ended, the plan refused it) was closed again.</summary>
     internal Action<PdfDocument>? DocumentDiscarded { get; set; }
 
@@ -178,6 +184,7 @@ internal sealed class OrganizeSession : IDisposable
             return;
         }
 
+        Ending?.Invoke();
         _generation++;
         _versionBase += _history.Version + 1;
         _history = null;
@@ -319,6 +326,7 @@ internal sealed class OrganizeSession : IDisposable
 
     public void Dispose()
     {
+        Ending?.Invoke();
         _disposed = true;
         _generation++;
         _history = null;

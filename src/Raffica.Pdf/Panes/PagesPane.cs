@@ -12,6 +12,7 @@ using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Organizing;
 using Raffica.Pdf.Viewing;
 
 namespace Raffica.Pdf.Panes;
@@ -21,19 +22,23 @@ namespace Raffica.Pdf.Panes;
 /// selected; a click or Enter goes to the page. The thumbnails come from Core's <see cref="ThumbnailSource"/> (own cache, own scheduler,
 /// background priority) and are requested only for the items the list has realised, only after the page view drew its first sharp page,
 /// and only while the pane is on screen: a pane that is not shown (another tab, the outline) cancels its requests and lets go of its
-/// bitmaps. The converted bitmaps come from the same bridge as the page view (<see cref="TileBitmaps"/>).
+/// bitmaps. The converted bitmaps come from the same bridge as the page view (<see cref="TileBitmaps"/>). While the tab's page plan is open
+/// (<see cref="OrganizeSession.IsActive"/>) the pane shows the <see cref="OrganizeList"/> instead and requests nothing of its own.
 /// </summary>
 internal sealed class PagesPane : UserControl, IDisposable
 {
     // The stand-in for the size of a page that is not known yet (A4 in points).
     private static readonly PdfPageSize FallbackPageSize = new(595.28, 841.89);
 
+    private readonly PdfTab _tab;
     private readonly PageView _view;
     private readonly ViewerSession _session;
     private readonly ListBox _list;
     private readonly TileBitmaps _bitmaps = new(16 * 1024 * 1024);
     private readonly int[] _pages;
     private readonly object _readyGate = new();
+    private OrganizeSession? _organizeSession;
+    private OrganizeList? _organize;
     private ThumbnailSource? _source;
     private IReadOnlyList<RenderRequest> _lastPlan = [];
     private TopLevel? _topLevel;
@@ -51,6 +56,7 @@ internal sealed class PagesPane : UserControl, IDisposable
     {
         ArgumentNullException.ThrowIfNull(tab);
         ArgumentNullException.ThrowIfNull(view);
+        _tab = tab;
         _view = view;
         _session = tab.Session;
         _pages = Enumerable.Range(0, _session.Document?.PageCount ?? 0).ToArray();
@@ -87,6 +93,13 @@ internal sealed class PagesPane : UserControl, IDisposable
         view.FirstSharpPage += OnFirstSharpPage;
         _session.Changed += OnSessionChanged;
         _session.PagesInvalidated += OnPagesInvalidated;
+
+        // The organize session is made when it is first used; the pane must not make it, so it waits for it.
+        tab.OrganizeCreated += AttachOrganize;
+        if (tab.OrganizeIfCreated is { } existing)
+        {
+            AttachOrganize(existing);
+        }
     }
 
     /// <summary>The list of thumbnails (for tests).</summary>
@@ -94,6 +107,9 @@ internal sealed class PagesPane : UserControl, IDisposable
 
     /// <summary>The zero-based page the pane marks as the current one: the page the document shows.</summary>
     internal int MarkedPage => _marked;
+
+    /// <summary>The list of the organize mode while the page plan is open, else <see langword="null"/>.</summary>
+    internal OrganizeList? Organize => _organize;
 
     /// <summary>The requests handed to the thumbnail scheduler by the last plan; empty while the pane requests nothing.</summary>
     internal IReadOnlyList<RenderRequest> LastPlan => _lastPlan;
@@ -167,6 +183,14 @@ internal sealed class PagesPane : UserControl, IDisposable
         _view.FirstSharpPage -= OnFirstSharpPage;
         _session.Changed -= OnSessionChanged;
         _session.PagesInvalidated -= OnPagesInvalidated;
+        _tab.OrganizeCreated -= AttachOrganize;
+        if (_organizeSession is not null)
+        {
+            _organizeSession.Changed -= SyncMode;
+        }
+
+        _organize?.Dispose();
+        _organize = null;
         StopRequesting();
         ReleaseSource();
     }
@@ -186,6 +210,36 @@ internal sealed class PagesPane : UserControl, IDisposable
     }
 
     private static bool Usable(PdfPageSize size) => double.IsFinite(size.Width) && double.IsFinite(size.Height) && size.Width > 0 && size.Height > 0;
+
+    private void AttachOrganize(OrganizeSession session)
+    {
+        _organizeSession = session;
+        session.Changed += SyncMode;
+        SyncMode();
+    }
+
+    // The organize list stands in for the navigation list while the plan is open.
+    private void SyncMode()
+    {
+        if (_disposed || _organizeSession is not { } session)
+        {
+            return;
+        }
+
+        if (session.IsActive && _organize is null)
+        {
+            _organize = new OrganizeList(_tab, _view, session);
+            Content = _organize;
+            RequestReplan();
+        }
+        else if (!session.IsActive && _organize is not null)
+        {
+            _organize.Dispose();
+            _organize = null;
+            Content = _list;
+            RequestReplan();
+        }
+    }
 
     private void Decorate(Control container, int index)
     {
@@ -375,7 +429,7 @@ internal sealed class PagesPane : UserControl, IDisposable
         }
 
         _bitmaps.ReleaseRetired();
-        var onScreen = _started && _topLevel is not null && IsEffectivelyVisible && _pages.Length > 0;
+        var onScreen = _started && _topLevel is not null && IsEffectivelyVisible && _pages.Length > 0 && _organize is null;
         if (!onScreen)
         {
             StopRequesting();

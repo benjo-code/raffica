@@ -60,7 +60,22 @@ internal sealed class PdfTab : IDisposable
     /// The organize session of the tab (the page plan of the pages pane), made on first use and disposed with the tab; it reads and opens nothing
     /// before its <c>Enter</c>. UI thread.
     /// </summary>
-    public OrganizeSession Organize => _organize ??= new OrganizeSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+    public OrganizeSession Organize
+    {
+        get
+        {
+            if (_organize is null)
+            {
+                _organize = new OrganizeSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+                OrganizeCreated?.Invoke(_organize);
+            }
+
+            return _organize;
+        }
+    }
+
+    /// <summary>Raised when the organize session is made (the pages pane, which must not make it, listens to it). UI thread.</summary>
+    public event Action<OrganizeSession>? OrganizeCreated;
 
     /// <summary>The organize session if one was made, else null (whoever only asks must not make one).</summary>
     public OrganizeSession? OrganizeIfCreated => _organize;

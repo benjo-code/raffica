@@ -314,6 +314,19 @@ internal static class PdfStrings
     public static string PrintFailedMoreFormat => Table.Get("PrintFailedMoreFormat");
     public static string HelpTitle => Table.Get("HelpTitle");
     public static string HelpListName => Table.Get("HelpListName");
+    public static string OrganizeListName => Table.Get("OrganizeListName");
+    public static string OrganizeCounterChangedFormat => Table.Get("OrganizeCounterChangedFormat");
+    public static string OrganizeCounterChangedOneFormat => Table.Get("OrganizeCounterChangedOneFormat");
+    public static string OrganizeCounterSameFormat => Table.Get("OrganizeCounterSameFormat");
+    public static string OrganizeCounterSameOne => Table.Get("OrganizeCounterSameOne");
+    public static string OrganizeGoneFormat => Table.Get("OrganizeGoneFormat");
+    public static string OrganizeTurnedFormat => Table.Get("OrganizeTurnedFormat");
+    public static string OrganizeBlank => Table.Get("OrganizeBlank");
+    public static string OrganizeBlankSizeFormat => Table.Get("OrganizeBlankSizeFormat");
+    public static string OrganizeFromFileFormat => Table.Get("OrganizeFromFileFormat");
+    public static string OrganizeCopy => Table.Get("OrganizeCopy");
+    public static string OrganizeLastPageRefused => Table.Get("OrganizeLastPageRefused");
+    public static string OrganizeLimitRefusedFormat => Table.Get("OrganizeLimitRefusedFormat");
 
     /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
     public static string Fill(string template, object? first, object? second = null) =>

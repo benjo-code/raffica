@@ -182,4 +182,33 @@ public sealed class PagesPaneTests
         Assert.Equal("Seite 2", AutomationProperties.GetName(f.Pane.ContainerOf(1)!));
         Assert.Equal("Seite 1, aktuelle Seite", AutomationProperties.GetName(f.Pane.ContainerOf(0)!));
     }
+
+    [AvaloniaFact]
+    public async Task NavigationListIsUnchangedOutsideTheMode()
+    {
+        using var f = await OpenAsync("pages-marked.pdf");
+        await f.FirstSharpAsync();
+        var navigation = f.Pane.List;
+        Assert.Same(navigation, f.Pane.Content);
+        Assert.Null(f.Pane.Organize);
+
+        // Nothing of the mode exists before it starts; the session made by asking for it does not start it.
+        _ = f.Tab.Organize;
+        Assert.Same(navigation, f.Pane.Content);
+        f.Tab.Organize.Enter();
+        ViewFixture.Pump();
+        Assert.NotNull(f.Pane.Organize);
+        Assert.Same(f.Pane.Organize, f.Pane.Content);
+        Assert.Equal(6, f.Pane.Organize.Items.Count);
+        await ViewFixture.WaitAsync(() => f.Pane.LastPlan.Count == 0);
+
+        var organize = f.Pane.Organize;
+        f.Tab.Organize.End();
+        ViewFixture.Pump();
+        Assert.Null(f.Pane.Organize);
+        Assert.Same(navigation, f.Pane.Content);
+        Assert.True(organize.IsDisposed);
+        await ViewFixture.WaitAsync(() => f.Pane.LastPlan.Count > 0);
+        Assert.Equal(f.View.CurrentPage, f.Pane.List.SelectedIndex);
+    }
 }

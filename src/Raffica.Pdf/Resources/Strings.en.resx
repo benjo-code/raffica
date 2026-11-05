@@ -1124,4 +1124,56 @@
   <data name="SignaturePlaceFailed" xml:space="preserve">
     <value>The signature could not be placed. Nothing was added to the document.</value>
   </data>
+  <data name="OrganizeListName" xml:space="preserve">
+    <value>Page plan</value>
+    <comment>Automation name of the list of the pages in organize mode.</comment>
+  </data>
+  <data name="OrganizeCounterChangedFormat" xml:space="preserve">
+    <value>{0} → {1} pages</value>
+    <comment>Counter above the organize list when the plan changes the page count; {0} pages before, {1} after (more than one).</comment>
+  </data>
+  <data name="OrganizeCounterChangedOneFormat" xml:space="preserve">
+    <value>{0} → 1 page</value>
+    <comment>Counter when the plan leaves one page; {0} pages before.</comment>
+  </data>
+  <data name="OrganizeCounterSameFormat" xml:space="preserve">
+    <value>{0} pages</value>
+    <comment>Counter when the plan keeps the page count; {0} is the count (more than one).</comment>
+  </data>
+  <data name="OrganizeCounterSameOne" xml:space="preserve">
+    <value>1 page</value>
+    <comment>Counter for a document of one page that the plan does not change in size.</comment>
+  </data>
+  <data name="OrganizeGoneFormat" xml:space="preserve">
+    <value>{0} removed</value>
+    <comment>Under the counter: how many pages of the document the plan removes.</comment>
+  </data>
+  <data name="OrganizeTurnedFormat" xml:space="preserve">
+    <value>Turned {0}°</value>
+    <comment>Pending state of a page in the plan: turned by {0} degrees.</comment>
+  </data>
+  <data name="OrganizeBlank" xml:space="preserve">
+    <value>New blank page</value>
+    <comment>Pending state of a blank page in the plan.</comment>
+  </data>
+  <data name="OrganizeBlankSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+    <comment>Size of a blank page in the plan: width and height in millimetres.</comment>
+  </data>
+  <data name="OrganizeFromFileFormat" xml:space="preserve">
+    <value>From {0}, page {1}</value>
+    <comment>Pending state of a page taken from another file; {0} is the file name, {1} the page number there.</comment>
+  </data>
+  <data name="OrganizeCopy" xml:space="preserve">
+    <value>Copy</value>
+    <comment>Pending state of a page that is a further copy of a page of the plan.</comment>
+  </data>
+  <data name="OrganizeLastPageRefused" xml:space="preserve">
+    <value>The last page cannot be deleted. Nothing was changed.</value>
+    <comment>Notice when the plan would be left without a page.</comment>
+  </data>
+  <data name="OrganizeLimitRefusedFormat" xml:space="preserve">
+    <value>A plan can hold at most {0} pages. Nothing was changed.</value>
+    <comment>Notice when the plan would grow beyond the limit; {0} is the limit.</comment>
+  </data>
 </root>
