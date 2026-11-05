@@ -180,6 +180,45 @@ public sealed class SelectToolTests
     }
 
     [AvaloniaFact]
+    public async Task ADragThatEndsWhereItStartedMakesNoUndoStep()
+    {
+        using var f = await OpenSelectAsync();
+        var rect = await AddRectangleAsync(f, new PageRect(100, 200, 300, 300));
+
+        // Out and back: the pointer went far enough to count as a drag, but the mark is where it was.
+        var start = At(f, 200, 201);
+        f.Window.MouseDown(start, MouseButton.Left);
+        f.Window.MouseMove(At(f, 260, 241));
+        f.Window.MouseMove(start);
+        f.Window.MouseUp(start, MouseButton.Left);
+        ViewFixture.Pump();
+        await SettleAsync(f);
+
+        // A single undo takes the rectangle away: no step was made for the drag.
+        await f.Tab.Annotations.UndoAsync();
+        await SettleAsync(f);
+        Assert.Empty(await AllAsync(f));
+        Assert.NotNull(rect);
+    }
+
+    [AvaloniaFact]
+    public async Task ADragThatIsClampedToTheSameBoxMakesNoUndoStep()
+    {
+        using var f = await OpenSelectAsync();
+        await AddRectangleAsync(f, new PageRect(0, 200, 100, 300));
+
+        // The mark already touches the left edge of the page: moving it further left changes nothing.
+        Drag(f, At(f, 50, 201), At(f, -40, 201));
+        await SettleAsync(f);
+        var kept = Assert.Single(await AllAsync(f));
+        Assert.Equal(0, kept.Drawing!.Box.Left, 0.5);
+
+        await f.Tab.Annotations.UndoAsync();
+        await SettleAsync(f);
+        Assert.Empty(await AllAsync(f));
+    }
+
+    [AvaloniaFact]
     public async Task DragMovesAsOneUndoStep()
     {
         using var f = await OpenSelectAsync();

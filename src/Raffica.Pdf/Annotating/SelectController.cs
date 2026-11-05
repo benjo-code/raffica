@@ -190,7 +190,9 @@ internal sealed class SelectController : IToolController
         gesture.Shift = modifiers.HasFlag(KeyModifiers.Shift);
         Track(gesture, point);
         _gesture = null;
-        if (gesture.Farthest >= ClickSlop && gesture.Shape is { } shape && !_disposed)
+
+        // A drag that ends where it started, or is clamped to the same box, changes nothing: no history step, the tab stays as it was.
+        if (gesture.Farthest >= ClickSlop && gesture.Shape is { } shape && !_disposed && Differs(gesture.Origin, shape))
         {
             CommitGeometry(gesture.Target, shape, _tab.Annotations.BeginPending());
         }
