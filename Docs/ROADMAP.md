@@ -29,7 +29,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 1.2 | App frame | 2 – Design system and shell | ✅ done | [Plan](superpowers/plans/2026-11-03-milestone-01-2-app-frame.md) | 2026-11-04 |
 | 2 | Create spec for Raffica PDF | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-pdf-spec.md) | 2026-11-04 |
 | 2.1 | Viewer | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) | 2026-11-04 |
-| 2.2 | Annotate | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | – |
+| 2.2 | Annotate | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | – |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.4 | Organize pages | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ⬜ open | – | – |
@@ -69,6 +69,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-04 (Milestone 2.1):** Milestone 2.1 is closed `done` although acceptance criterion 3 (manual check: a file passed as argument and a second file in the running instance) was not checked: the owner skipped it on 2026-11-04. The criterion stays unticked, the automated paths are covered by tests (`InstanceHandoverTests`, `HandoverWindowTests`, `OpenFlowTests`), and the manual check is a backlog entry. The task "Set the PDF speed budgets" is ticked although Chrome was not measured again on the two machines (the M1 numbers stand) and the Windows start-time finding was still open (resolved on 2026-11-04, see the next entry).
 - **2026-11-04 (Milestone 2.1):** Software rendering is the Windows default of the PDF app (owner decision of 2026-11-04, after the measurement of runs 41892985596 and 41893002871: every start case halves, idle memory drops to a third, the scroll p99 rises from 13.5 to 18.0 ms). `RAFFICA_RENDERING=default` opts out; Linux and macOS are untouched. The Windows budgets of the PDF target are re-derived from the software medians (cold 200, warm 210, 1000 pages 200, second file 20, scroll p99 20 ms, memory 40, size 51, zip 22 MiB; the old ones, 400/390/400/30/20 ms and 130 MiB, belonged to the GPU path); the Linux budgets stand. Entry "Raffica PDF: software rendering is the Windows default (M2.1 follow-up)" in `Docs/DECISIONS.md`.
 - **2026-11-04 (Milestone 2.2):** The right pane of the PDF app is one marks pane of 256 px (the approved canvas shows a single pane "Markierungen" and no separate comments pane); the empty 300 px comments pane slot of 2.1 is reused for it, and a mark's comment is shown and edited in its entry. The annotate mode of the predecessor is kept (a tool in the Annotate tab starts it, Esc or "Done" ends it); comments are the `/Contents` of a markup or drawing. Not rebuilt from the predecessor's 1.0 feature set because Core has no support for them: sticky notes, reply threads, shape fill, pressure-sensitive width, and a full-rewrite option for annotation saves (annotation saves are incremental only). Entry "Raffica PDF: annotation conventions (M2.2)" in `Docs/DECISIONS.md`; owner to confirm the marks pane.
+- **2026-11-05 (Milestone 2.2):** Changes while building, against the plan and the entry "Raffica PDF: annotation conventions (M2.2)" in `Docs/DECISIONS.md` (amended there): (a) the tool letters I, R, E, L, A and T are not implemented; the Annotate tab's key tips and the Ctrl+Shift shortcuts exist instead, which avoids another key-capture surface. (b) Colour and width are chosen in an app-side style strip (`Annotating/StyleStrip`) beside the mode badge, not in the ribbon, because the shell ribbon has no checked or swatch control; moving it into the ribbon is a later option. A text box gets colours only on the strip, for a selection. (c) The text-box default font size is 16 pt (Medium, the default of Core and Pagewing 1.0); the plan text said 12. (d) The ribbon shows no checked state for the active tool; the mode badge names the tool and "Esc to finish". (e) Touch input is ignored in annotate mode, because the page view has no touch scrolling yet. (f) The marks pane (256 px, the one right pane) stays flagged "owner to confirm".
 
 ---
 
@@ -227,19 +228,34 @@ Goal: Raffica PDF opens, shows, searches and prints PDFs on the shared frame wit
 **Proof of the tasks.** Tests are in `tests/Raffica.Pdf.Tests` (`dotnet test` counts are in the evidence of criterion 1): app project `AppProjectTests`, `StartViewTests`, `RibbonDefinitionTests`, `FieldCodeIntegrationTests`; tab model `WorkspaceTests`, `TabBindingTests`, `CloseGuardTests`, `WindowCloseTests` (Save does nothing in 2.1, real saving comes with 2.2); opening `OpenFlowTests`, `DropTests`, `PasswordCardTests`, `ErrorCardTests`, `DialogQueueTests`, single instance `InstanceHandoverTests`, `HandoverWindowTests`, recent files `RecentServiceTests`; viewing `PageViewRenderTests`, `PageViewScrollTests`, `TileBitmapsTests`, `ZoomTests`, `LayoutTests`, `PageViewStateTests`, `TabViewStateTests`, `GoToPageCardTests`, `PagesPaneTests`, `OutlinePaneTests`, `PaneFocusTests`, `PaneSwitcherTests`; text `SearchSessionTests`, `SearchViewTests`, `SelectionTests`, `CopyTests`, `LinkCardTests`, `PaletteSourceTests`, `WindowTextTests`; settings `PdfSettingsTests`, `TranslationTests`; printing `WindowsPrintNativeTests`, `WindowsPrintToPdfTests` (28 platform tests passed on Windows with Microsoft Print to PDF), `CupsOptionsTests`, `CupsPrintServiceTests`, `PrintCardTests`, `PrintCommandTests`; document info `DocumentInfoCardTests`; help card and shortcuts `CommandCatalogTests`, `ShortcutTests`, `ShortcutMatchTests`.
 
 ## Milestone 2.2 – Annotate
-**Status:** 🟡 planned · **Plan:** [2026-11-04-milestone-02-2-annotate.md](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.1
+**Status:** 🔵 in progress · **Plan:** [2026-11-04-milestone-02-2-annotate.md](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.1
 
 Goal: Marks and comments can be added, changed, undone and saved through the existing save pipeline.
 
 **Tasks**
-- [ ] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane (P9)
-- [ ] Freehand with mouse and pen, rectangle, ellipse, line, arrow and text box (P10); select, move, resize, colour, delete, and undo and redo in one history for all annotation kinds (P9, P10)
-- [ ] The save pipeline and its UI through the existing core (P9): save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close
-- [ ] Tests for every tool and for save, reopen and undo
+- [x] Markup (highlight, underline, strike-through) and comments with the comments pane and the marks pane (P9) - done: `Annotating/MarkupController`, `Annotating/MarksModel` and `Panes/MarksPane` (the one right pane, 256 px); tests `MarkupToolTests`, `MarksModelTests`.
+- [x] Freehand with mouse and pen, rectangle, ellipse, line, arrow and text box (P10); select, move, resize, colour, delete, and undo and redo in one history for all annotation kinds (P9, P10) - done: `Annotating/DrawingController`, `TextBoxController`, `SelectController`, `StyleStrip`, over Core's one `AnnotationEditor` history; tests `DrawingToolTests`, `TextBoxToolTests`, `SelectToolTests`. Pens and touch are not verified here (Open items).
+- [x] The save pipeline and its UI through the existing core (P9): save, save as, incremental by default, atomic and checked, the warning for signed files, failure cards, the unsaved-changes prompt on close - done: `Documents/SaveController` with `Dialogs/SignedFileCard`, `SaveFailedCard`, `ChangedOriginalCard`, `UnsavedChangesCard`; tests `SaveControllerTests`, `EndToEndTests.UndoAfterSaveIsDisabled`.
+- [x] Tests for every tool and for save, reopen and undo - done: `DrawingToolTests` (theory `EveryToolSurvivesSaveReopenAndUndo`), `MarkupToolTests`, `TextBoxToolTests`, `SelectToolTests`, `MarksModelTests`, `SaveControllerTests`, `EndToEndTests.EveryToolSurvivesSaveReopenAndUndoThroughTheWindow`; saving tests work on temp copies.
 
 **Acceptance criteria**
-- [ ] Tests for every tool and for save, reopen and undo pass
+- [x] Tests for every tool and for save, reopen and undo pass – Verified on commit 8eea06c, Windows, 2026-11-05: `dotnet build Raffica.slnx -c Release -p:NuGetAudit=false` 0 warnings (the plain build fails only on the known NU1903 advisory of ILCompiler); `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4747 total, 4720 passed, 27 skipped, 0 failed (Pdf 652: 646 passed, 6 CUPS skipped; Shell 685; Render 59; Core 3351: 3330 passed, 21 skipped, Core changed by one added test only); `dotnet format Raffica.slnx --verify-no-changes --no-restore` clean; `dotnet run tools/roadmap.cs -- check` valid. Tests: see the tasks above.
 - [ ] A saved file opens with the marks in an independent viewer (manual check, recorded with the viewer's name)
+
+**Open items**
+**Why 2.2 is `in-progress`:** everything is built and the automated checks are green (criterion 1). Criterion 2 is a manual check on the owner's machines and has not been made; the milestone is not `done` until it is.
+
+**Independent viewer (criterion 2).** Open a temp copy of a PDF in Raffica PDF, add one mark of every kind (highlight, underline, strike-through, each with a comment; freehand, rectangle, ellipse, line, arrow, text box), save, then open the saved file in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect every mark in place with its colour, width and comment. Record the viewer's name and version here and tick the criterion.
+
+**Not verified here (command or check in brackets).**
+- Real pens and touch (a pen on a real digitizer; touch is ignored in annotate mode by design).
+- High-DPI looks and German text widths in the cards, the marks pane and the style strip (`dotnet run --project src/Raffica.Pdf -c Release -- --lang de testdata\pdfs\text-rich.pdf` at 125, 150 and 200 percent).
+- The Geist font in the text-box field and the padlock icon on a real display (same run).
+- A signed file saved in Acrobat: the signed-file warning and an incremental save keep the signature valid (open the saved copy in Acrobat and check the signature panel).
+- Linux and macOS window managers and the file picker `.pdf` extension in Save as.
+- First-read cost of the marks pane on `testdata\pdfs\thousand-pages.pdf` (unmeasured; the pane reads pages at background priority).
+- The print pixel test skips off Windows (the CI Windows leg runs it).
+- Keyboard reachability of the style strip under the Select tool (Tab is consumed by mark stepping, there is no roving focus); focus stays on a swatch after a click; colour plus width on a selection are two undo steps.
 
 ## Milestone 2.3 – Forms and signing
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
