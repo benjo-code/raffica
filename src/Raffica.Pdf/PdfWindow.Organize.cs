@@ -17,12 +17,18 @@ internal sealed partial class PdfWindow
     // The session of the active tab while its plan is open (the mode is on, whether the plan changes anything or not), else null.
     private OrganizeSession? OpenPlan => Workspace.Active?.OrganizeIfCreated is { IsActive: true } session ? session : null;
 
+    private static bool PlanOpenOf(PdfTab tab) => tab.OrganizeIfCreated is { IsActive: true };
+
+    private bool _organizeStarting;
+
     private void OnOrganizeCreated(OrganizeSession session) => session.Changed += RefreshCommandStates;
 
     /// <summary>Enters the organize mode of the active tab and opens the pages pane, or leaves it again when the plan changes nothing.</summary>
-    internal void ToggleOrganize()
+    internal void ToggleOrganize() => _ = GuardAsync(ToggleOrganizeAsync);
+
+    private async Task ToggleOrganizeAsync()
     {
-        if (Workspace.Active is not { } tab || tab.Session.Document is null)
+        if (_organizeStarting || Workspace.Active is not { } tab || tab.Session.Document is null)
         {
             return;
         }
@@ -41,8 +47,36 @@ internal sealed partial class PdfWindow
             return;
         }
 
-        // The annotate tools are locked while a plan is open: the mode ends them first.
+        // The annotate tools are locked while a plan is open: the mode ends them first. So do an open field edit and a typed comment of the
+        // marks pane: a value that is valid is written first (the marks are then unsaved, which Apply asks about), one that is refused stays on
+        // screen with its reason and the mode does not start. Nothing of the marks changes while the plan is open.
         Tools.End();
+        var editing = FormsOf(tab)?.Interaction.IsEditing == true;
+        var typed = MarksOf(tab)?.HasUnappliedComment == true;
+        if (editing && !FormsOf(tab)!.Interaction.EndOrReveal())
+        {
+            return;
+        }
+
+        if (editing || typed)
+        {
+            _organizeStarting = true;
+            try
+            {
+                await tab.Annotations.FlushAsync();
+            }
+            finally
+            {
+                _organizeStarting = false;
+            }
+
+            if (!Workspace.Tabs.Contains(tab) || !ReferenceEquals(Workspace.Active, tab) || session.IsActive
+                || FormsOf(tab)?.Interaction.IsEditing == true || MarksOf(tab)?.HasUnappliedComment == true)
+            {
+                return;
+            }
+        }
+
         session.Enter();
         ShowPagesPane();
         RefreshCommandStates();
@@ -56,9 +90,14 @@ internal sealed partial class PdfWindow
         }
 
         var result = edit(session);
-        if (!result.IsDone && _panes.TryGetValue(tab, out var panes))
+        if (!result.IsDone)
         {
-            panes.Pages.Organize?.Report(result);
+            // The refusal is said in the list of the pages pane: show the pane first (the outline or nothing may be in the slot).
+            ShowPagesPane();
+            if (_panes.TryGetValue(tab, out var panes))
+            {
+                panes.Pages.Organize?.Report(result);
+            }
         }
     }
 
@@ -70,8 +109,8 @@ internal sealed partial class PdfWindow
         return session.InsertBlank(at, BlankSizeAt(session, at));
     });
 
-    // The new page takes the size of the page before it (the first page for a position at the start); a page of an inserted file or one whose
-    // size is not read yet counts as unknown and the first page, then A4, stands in.
+    // The new page takes the size of the page before it (the first page for a position at the start), as the document has it: the extra rotation
+    // of that page is deliberately not copied. A page of an inserted file or one whose size is not read yet counts as unknown; the first page, then A4, stands in.
     private BlankPage BlankSizeAt(OrganizeSession session, int at)
     {
         var slots = session.Plan.Slots;

@@ -954,8 +954,8 @@ internal sealed partial class PdfWindow : Window
         var markers = new FormMarkers(tab.Forms, focus) { Suppressed = () => Tools.Tool != AnnotateTool.None };
         markers.Attach(view);
         view.FormOverlay = markers;
-        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab));
-        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab));
+        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab), () => PlanOpenOf(tab));
+        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab), () => PlanOpenOf(tab));
         _formParts[tab] = new FormParts(markers, focus, interaction, keys);
 
         // The commands of the Forms tab follow what the session knows: the fields, the required list, the highlight.
