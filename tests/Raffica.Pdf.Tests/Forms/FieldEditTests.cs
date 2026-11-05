@@ -422,13 +422,14 @@ public sealed class FieldEditTests
     }
 
     [AvaloniaFact]
-    public async Task OutsideAFieldTextSelectionAndLinksWorkAsIn21()
+    public async Task OutsideAFieldTextSelectionStillWorks()
     {
         using var f = await FormEditFixture.OpenAsync();
         var text = await f.Tab.Session.EnsurePageTexts()!.GetAsync(0, cancellationToken: Cancel);
         var fields = f.Forms.FieldsOn(0);
 
-        // A word of the page that no widget covers: a double click selects it, as it does in a document without a form.
+        // A word of the page that no widget covers: a double click selects it, as it does in a document without a form (links are the
+        // unchanged LinkController of 2.1; no form fixture has a link, so this test does not claim them).
         var letter = text.Chars.Select((c, i) => (c, i)).First(x => char.IsLetter(text.GetText(x.i, 1)[0]) && !fields.Any(w => w.Bounds.Contains((x.c.Box.Left + x.c.Box.Right) / 2, (x.c.Box.Top + x.c.Box.Bottom) / 2)));
         var spot = f.View.ToView(0, (letter.c.Box.Left + letter.c.Box.Right) / 2, (letter.c.Box.Top + letter.c.Box.Bottom) / 2)!.Value;
         var point = f.View.TranslatePoint(spot, f.Window)!.Value;

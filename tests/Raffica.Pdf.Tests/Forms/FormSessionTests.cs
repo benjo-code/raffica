@@ -241,6 +241,29 @@ public sealed class FormSessionTests
         Assert.False(file.Tab.IsDirty);
     }
 
+    // A document can hold a value the rules refuse (a line break in a single line, other characters, longer than the field takes): writing
+    // that same value again is no change and never an error, so the UI does not depend on the order of the checks. A different value that
+    // breaks the rules is still refused.
+    [AvaloniaTheory]
+    [InlineData("Zeile\nzwei", null, nameof(FormEditProblem.LineBreakNotAllowed))]
+    [InlineData("中文", null, nameof(FormEditProblem.UnsupportedCharacters))]
+    [InlineData("viel zu lang", 5, nameof(FormEditProblem.TooLong))]
+    public async Task AValueTheDocumentHoldsIsUnchangedEvenWhenTheRulesRefuseIt(string stored, int? maxLength, string expected)
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var field = FormFocusTests.Widget("held", 0, state: FormFieldState.OfText(stored)) with { MaxLength = maxLength };
+        using var forms = await FormFocusTests.SessionAsync(file, field);
+        Assert.False(FormValueRules.CheckText(field, stored).Accepted);
+
+        var same = await forms.SetValueAsync(field, FormFieldState.OfText(stored));
+        Assert.IsType<FormEditResult.Unchanged>(same);
+        Assert.False(file.Tab.IsDirty);
+        Assert.False(file.Tab.Annotations.CanUndo);
+
+        var other = await forms.SetValueAsync(field, FormFieldState.OfText(stored + "!"));
+        Assert.Equal(Enum.Parse<FormEditProblem>(expected), Assert.IsType<FormEditResult.Refused>(other).Problem);
+    }
+
     [AvaloniaTheory]
     [InlineData("Name", "Zeile\nzwei", nameof(FormEditProblem.LineBreakNotAllowed))]
     [InlineData("Kurz", "viel zu lang", nameof(FormEditProblem.TooLong))]

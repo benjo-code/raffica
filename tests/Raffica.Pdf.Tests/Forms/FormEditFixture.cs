@@ -43,9 +43,11 @@ internal sealed class FormEditFixture : IDisposable
 
     public FormSession Forms => Tab.Forms;
 
-    public static async Task<FormEditFixture> OpenAsync(string file = "forms-basic.pdf", bool realSave = true)
+    /// <param name="prepare">Changes the temp copy before it is opened (it gets the path of the copy); the fixture in testdata is never touched.</param>
+    public static async Task<FormEditFixture> OpenAsync(string file = "forms-basic.pdf", bool realSave = true, Action<string>? prepare = null)
     {
         var copy = new TempCopy(file);
+        prepare?.Invoke(copy.Path);
         var windows = WindowFixture.Create(realSave: realSave);
         var tab = await OpenPathAsync(windows, copy.Path);
         var fixture = new FormEditFixture(windows, copy, tab);

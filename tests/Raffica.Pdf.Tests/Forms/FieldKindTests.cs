@@ -114,7 +114,12 @@ public sealed class FieldKindTests
     {
         using var f = await FormEditFixture.OpenAsync();
         var queue = new DialogQueue(f.Window.Host);
-        var shown = queue.ShowAsync<bool>(done => NoticeCard.Create("Test", "Open", () => done(true)));
+        Action<bool>? close = null;
+        var shown = queue.ShowAsync<bool>(done =>
+        {
+            close = done;
+            return NoticeCard.Create("Test", "Open", () => done(true));
+        });
         ViewFixture.Pump();
         Assert.True(f.Window.Host.IsOpen);
 
@@ -129,7 +134,7 @@ public sealed class FieldKindTests
         Assert.False(press.Handled);
         Assert.False(f.Interaction.IsEditing);
 
-        f.Window.Host.Close();
-        await shown.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken).ContinueWith(_ => { }, TestContext.Current.CancellationToken);
+        close!(true);
+        await shown.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 }

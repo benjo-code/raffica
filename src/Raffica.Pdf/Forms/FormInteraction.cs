@@ -259,7 +259,7 @@ internal sealed class FormInteraction : IDisposable
         }
 
         var editor = new FormFieldEditor(field);
-        var draft = new Draft(field, editor, editor.DraftText);
+        var draft = new Draft(field, editor, OriginalTextOf(field, editor));
         _draft = draft;
         editor.CommitRequested += advance => TryCommit(draft, advance);
         editor.DiscardRequested += () => Close(draft);
@@ -279,6 +279,19 @@ internal sealed class FormInteraction : IDisposable
             DispatcherPriority.Input);
     }
 
+    // The text the draft starts from, as the field has it: for an editable combo box the label of the chosen option or the typed text.
+    private static string? OriginalTextOf(FormField field, FormFieldEditor editor)
+    {
+        if (field.Kind == FormFieldKind.ComboBox && editor.IsTextDraft)
+        {
+            return field.State.SelectedOptions.Count > 0 && field.State.SelectedOptions[0] is var i && i >= 0 && i < field.Options.Count
+                ? field.Options[i].Label
+                : field.State.Text ?? string.Empty;
+        }
+
+        return editor.DraftText;
+    }
+
     private void Layout(Draft draft)
     {
         if (FormEditorLayout.RectOf(_view, draft.Field) is not { } rect)
@@ -294,30 +307,41 @@ internal sealed class FormInteraction : IDisposable
     // turns the pending handle into an unresolved one.
     private void TryCommit(Draft draft, bool advance)
     {
-        if (!ReferenceEquals(_draft, draft) || draft.Editor.ReadState() is not { } state)
+        if (!ReferenceEquals(_draft, draft))
         {
-            if (ReferenceEquals(_draft, draft))
+            return;
+        }
+
+        var state = draft.Editor.ReadState();
+        if (state is null)
+        {
+            // Nothing chosen and nothing typed: when the field had a value that is an edit (the text was cleared) and the empty value is
+            // written (or refused visibly); a field that was empty already is unchanged.
+            if (!draft.Editor.IsTextDraft || !draft.HadValue)
             {
                 Close(draft);
+                return;
             }
 
-            return;
+            state = FormFieldState.OfText(string.Empty);
         }
 
         if (state.Text is { } text && draft.Field.Kind is FormFieldKind.Text or FormFieldKind.ComboBox)
         {
+            // Unchanged comes first: a document may hold a value the rules refuse (other characters, too long, a line break in one line),
+            // and leaving it as it is is no error and no draft.
+            if (string.Equals(text, draft.OriginalText, StringComparison.Ordinal))
+            {
+                Close(draft);
+                MoveOnIf(advance);
+                return;
+            }
+
             var check = FormValueRules.CheckText(draft.Field, text);
             if (!check.Accepted)
             {
                 draft.Editor.ShowHint(FormFieldEditor.MessageOf(FormErrors.FromCheck(check)));
                 draft.Park(_tab.Annotations);
-                return;
-            }
-
-            if (string.Equals(text, draft.OriginalText, StringComparison.Ordinal))
-            {
-                Close(draft);
-                MoveOnIf(advance);
                 return;
             }
         }
@@ -343,6 +367,7 @@ internal sealed class FormInteraction : IDisposable
 
         // The hint is live: a text the field will refuse says so while it is typed, and nothing is written.
         if (draft.Editor.DraftText is { } text && draft.Field.Kind is FormFieldKind.Text or FormFieldKind.ComboBox
+            && !string.Equals(text, draft.OriginalText, StringComparison.Ordinal)
             && FormValueRules.CheckText(draft.Field, text) is { Accepted: false } check)
         {
             draft.Editor.ShowHint(FormFieldEditor.MessageOf(FormErrors.FromCheck(check)));
@@ -587,6 +612,9 @@ internal sealed class FormInteraction : IDisposable
         public FormField Field { get; } = field;
 
         public FormFieldEditor Editor { get; } = editor;
+
+        /// <summary>Whether the field had a value when the editor opened (a chosen option or a non-empty text).</summary>
+        public bool HadValue { get; } = field.State.SelectedOptions.Count > 0 || !string.IsNullOrEmpty(field.State.Text);
 
         /// <summary>The text the draft started with (line breaks as LF), or <see langword="null"/> for a draft that is no text.</summary>
         public string? OriginalText { get; } = originalText is null ? null : FormFieldEditor.Normalize(originalText);

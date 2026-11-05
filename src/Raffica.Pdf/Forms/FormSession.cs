@@ -244,7 +244,7 @@ internal sealed class FormSession : IDisposable
 
     /// <summary>
     /// Writes a value as one undo step of the tab's history. A locked field and a refused text are refused before the document is touched;
-    /// a value equal to the one the field has is <see cref="FormEditResult.Unchanged"/> and no step. The cached pages of the field are read
+    /// a value equal to the one the field has is <see cref="FormEditResult.Unchanged"/> and no step (checked before the text rules). The cached pages of the field are read
     /// again before this returns. UI thread.
     /// </summary>
     public async Task<FormEditResult> SetValueAsync(FormField field, FormFieldState state)
@@ -256,6 +256,15 @@ internal sealed class FormSession : IDisposable
             return new FormEditResult.Refused(FormEditProblem.Locked, field.LockReason ?? string.Empty);
         }
 
+        // The cache knows the current value; the field the caller holds may be older. A value equal to it is no change, whatever the rules
+        // say about it: a document may hold a value the rules would refuse (other characters, longer than the field takes) and leaving it
+        // as it is must not be an error.
+        var current = FieldsOn(field.Key.Page).FirstOrDefault(f => f.Key == field.Key) ?? field;
+        if (current.State.Equals(state))
+        {
+            return new FormEditResult.Unchanged();
+        }
+
         if (state.Text is { } text && field.Kind is FormFieldKind.Text or FormFieldKind.ComboBox)
         {
             var check = FormValueRules.CheckText(field, text);
@@ -263,13 +272,6 @@ internal sealed class FormSession : IDisposable
             {
                 return FormErrors.FromCheck(check);
             }
-        }
-
-        // The cache knows the current value; the field the caller holds may be older.
-        var current = FieldsOn(field.Key.Page).FirstOrDefault(f => f.Key == field.Key) ?? field;
-        if (current.State.Equals(state))
-        {
-            return new FormEditResult.Unchanged();
         }
 
         IReadOnlySet<int> pages;
