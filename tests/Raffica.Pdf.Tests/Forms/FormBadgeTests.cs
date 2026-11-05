@@ -182,6 +182,110 @@ public sealed class FormBadgeTests
         Assert.True(badge.IsVisible);
     }
 
+    private static Point CentreOf(FormEditFixture f, Control control) =>
+        control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), f.Window)!.Value;
+
+    [AvaloniaFact]
+    public async Task APressOnTheBadgeBackgroundNeverReachesThePage()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-calc.pdf");
+        var badge = await BadgeAsync(f);
+        Assert.True(badge.NoticeVisible);
+        var text = f.Window.TextOf(f.Tab)!;
+
+        // Between the notice text and the frame edge, in the notice text itself, and in the padding at the top left corner of the badge.
+        var host = HostOf(f);
+        await Task.Delay(100);
+        ViewFixture.Pump();
+        List<Point> spots =
+        [
+            host.TranslatePoint(new Point(3, 3), f.Window)!.Value,
+            host.TranslatePoint(new Point(host.Bounds.Width - 3, host.Bounds.Height - 3), f.Window)!.Value,
+            CentreOf(f, badge.NoticeBlock),
+        ];
+        var away = f.View.TranslatePoint(new Point(f.View.Bounds.Width / 2, f.View.Bounds.Height / 2), f.Window)!.Value;
+        foreach (var spot in spots)
+        {
+            Assert.True(f.View.IsInBadge(f.Window.InputHitTest(spot)), "the spot " + spot + " is not on the badge");
+
+            // A click, and a drag that starts on the badge and leaves it: no selection and no capture by the page.
+            f.Window.MouseDown(spot, MouseButton.Left);
+            f.Window.MouseMove(away);
+            f.Window.MouseMove(away + new Point(30, 20));
+            Assert.False(text.Selection.HasSelection, "a press at " + spot + " started a selection");
+            f.Window.MouseUp(away, MouseButton.Left);
+            ViewFixture.Pump();
+            Assert.False(text.Selection.HasSelection, "a press at " + spot + " selected text");
+            Assert.False(text.IsPressed, "the page took the press at " + spot);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ClickingTheBadgeButtonsLeavesTheKeyboardOnThePage()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-calc.pdf");
+        var badge = await BadgeAsync(f);
+        f.View.Focus();
+        ViewFixture.Pump();
+        Assert.Same(f.View, f.Window.FocusManager!.GetFocusedElement());
+
+        foreach (var button in new Button[] { badge.HighlightToggle, badge.DismissButton })
+        {
+            var centre = CentreOf(f, button);
+            f.Window.MouseDown(centre, MouseButton.Left);
+            f.Window.MouseUp(centre, MouseButton.Left);
+            ViewFixture.Pump();
+            Assert.Same(f.View, f.Window.FocusManager!.GetFocusedElement());
+        }
+
+        // Tab still walks the fields of the page.
+        Assert.Null(f.Parts.Focus.Current);
+        f.PressKey(PhysicalKey.Tab, RawInputModifiers.None);
+        await ViewFixture.WaitAsync(() => f.Parts.Focus.Current is not null);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailingLoadIsObservedAndTheBadgeStaysUsable()
+    {
+        using var file = await AnnotatedFile.OpenAsync("forms-basic.pdf");
+        using var forms = await FormFocusTests.SessionAsync(file, FormFocusTests.Widget("a", 0));
+        using var markers = new FormMarkers(forms, new FormFocus());
+        var calls = 0;
+        var unobserved = false;
+        void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs e) => unobserved = true;
+        TaskScheduler.UnobservedTaskException += OnUnobserved;
+        try
+        {
+            using var badge = new FormBadge(forms, markers, () => { }, () =>
+            {
+                calls++;
+                throw new InvalidOperationException("an unexpected failure of the document");
+            });
+            Assert.Equal(1, calls);
+            await Task.Delay(50);
+            ViewFixture.Pump();
+
+            // Nothing was left faulted, and the next change of the form asks again (the single flight was released).
+            file.Fixture.Window.Content = file.Fixture.View;
+            markers.ApplyHighlight(true);
+            ViewFixture.Pump();
+            Assert.Equal(2, calls);
+            Assert.False(badge.NoticeVisible);
+        }
+        finally
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+
+            TaskScheduler.UnobservedTaskException -= OnUnobserved;
+        }
+
+        Assert.False(unobserved);
+    }
+
     // The pixels in the left part of the "Name" field as drawn in the view once the rendering has settled.
     private static async Task<byte[]> FieldPixelsAsync(FormEditFixture f)
     {

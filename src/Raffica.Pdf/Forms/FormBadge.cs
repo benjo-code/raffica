@@ -3,6 +3,8 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -25,6 +27,7 @@ internal sealed class FormBadge : UserControl, IDisposable
     private readonly Button _counter;
     private readonly TextBlock _counterText;
     private readonly ToggleButton _highlight;
+    private readonly Func<Task> _load;
     private bool _dismissed;
     private bool _loading;
     private bool _syncing;
@@ -33,13 +36,15 @@ internal sealed class FormBadge : UserControl, IDisposable
     /// <param name="session">The form state of the tab.</param>
     /// <param name="markers">The overlay, the one place that applies the highlight.</param>
     /// <param name="nextRequired">Runs the Next required field command of the window (the counter button calls it).</param>
-    public FormBadge(FormSession session, FormMarkers markers, Action nextRequired)
+    /// <param name="load">A test seam: reads the form info and the required list instead of the session (default: the session).</param>
+    public FormBadge(FormSession session, FormMarkers markers, Action nextRequired, Func<Task>? load = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(markers);
         ArgumentNullException.ThrowIfNull(nextRequired);
         _session = session;
         _markers = markers;
+        _load = load ?? LoadAsync;
 
         _notice = new TextBlock { Name = "PART_Notice", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
         _notice.Bind(TextBlock.ForegroundProperty, _notice.GetResourceObservable("Raffica.Brush.Text.Primary"));
@@ -74,6 +79,17 @@ internal sealed class FormBadge : UserControl, IDisposable
         frame.Bind(Border.BorderBrushProperty, frame.GetResourceObservable("Raffica.Brush.Rule"));
         Content = frame;
 
+        // A press on the badge (also on its padding, the gaps and the notice) is not a press on the page under it: no selection, no link, no pointer capture.
+        frame.AddHandler(PointerPressedEvent, (_, e) => e.Handled = true, RoutingStrategies.Bubble, handledEventsToo: true);
+        frame.AddHandler(PointerReleasedEvent, (_, e) => e.Handled = true, RoutingStrategies.Bubble, handledEventsToo: true);
+
+        // The badge never takes the keyboard from the page: a click on a button leaves the focus on the page view, so Tab and Enter still reach the
+        // form keys. The buttons are out of the tab order for that reason; their keyboard path is the ribbon (Next required field, Show or hide
+        // field highlight), and they stay reachable and invokable for assistive technology.
+        _dismiss.Focusable = false;
+        _counter.Focusable = false;
+        _highlight.Focusable = false;
+
         _session.Changed += Update;
         _markers.HighlightChanged += Update;
         Update();
@@ -84,6 +100,9 @@ internal sealed class FormBadge : UserControl, IDisposable
 
     /// <summary>The notice line (empty while it is not shown).</summary>
     public string NoticeText => _notice.Text ?? string.Empty;
+
+    /// <summary>The text of the notice line (for tests).</summary>
+    internal TextBlock NoticeBlock => _notice;
 
     /// <summary>The button that closes the notice.</summary>
     public Button DismissButton => _dismiss;
@@ -181,7 +200,11 @@ internal sealed class FormBadge : UserControl, IDisposable
     {
         try
         {
-            await LoadAsync();
+            await _load();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The last net, as for the other jobs nobody awaits: the counter stays as it was, the next change of the form asks again.
         }
         finally
         {
