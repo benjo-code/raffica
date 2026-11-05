@@ -122,8 +122,10 @@ public sealed class PrintFormValuesTests
         Assert.Equal("Alt", (await onDisk.GetFormFieldsAsync(0, Cancel)).Single(x => x.Key.FieldName == "Name").State.Text);
     }
 
+    // Printing must not make a form or annotation session for a plain document. The window-level case (no form work on open) lives in
+    // FormBadgeTests.BadgeIsHiddenForADocumentWithoutAForm.
     [AvaloniaFact]
-    public async Task DocumentWithoutAFormCreatesNoFormWork()
+    public async Task PrintingADocumentWithoutAFormCreatesNoSession()
     {
         using var host = new PrintHost();
         var fake = new FakePrintService { DialogResult = new PrintTicket(new PrintSettings { Printer = "Office" }) };
@@ -138,6 +140,7 @@ public sealed class PrintFormValuesTests
         Assert.Null(tab.AnnotationsIfCreated);
     }
 
+    // This pins Core and the Windows service (the pages carry an unsaved value); the flush in PrintCommand is pinned by the fake-service tests above.
     // Prints for real through "Microsoft Print to PDF" (no dialog, no paper) and compares the printed page of the unchanged form with the
     // printed page after a value was set and not saved: the pictures must differ. Skipped where that printer is not installed and off Windows.
     [AvaloniaFact]
