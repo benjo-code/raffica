@@ -77,7 +77,7 @@ internal sealed class SaveController
         }
     }
 
-    /// <summary>Saves the tab into its own file. Returns whether the changes are saved (a clean tab counts as saved).</summary>
+    /// <summary>Saves the tab into its own file. Returns whether the changes are saved (a clean tab counts as saved; a tab that is dirty only because of an unresolved draft is not).</summary>
     public Task<bool> SaveAsync(PdfTab tab) => RunAsync(tab, askForTarget: false);
 
     /// <summary>Saves the tab under a path the user picks; the tab then belongs to that file. Returns whether the changes are saved.</summary>
@@ -123,9 +123,12 @@ internal sealed class SaveController
             return false;
         }
 
-        if (!askForTarget && !tab.IsDirty)
+        // Nothing to write when the editor holds no change: a clean tab counts as saved, and a tab that is dirty only because of an unresolved
+        // draft (a text box text that was refused, a comment that could not be applied) keeps its draft and stays dirty. There is no write
+        // and no question about a signed file for a document that would be written unchanged. Save as still writes a copy.
+        if (!askForTarget && !tab.Annotations.Editor.IsDirty)
         {
-            return true;
+            return !tab.IsDirty;
         }
 
         var advice = SignaturePolicy.Evaluate(await document.GetSignatureInfoAsync());

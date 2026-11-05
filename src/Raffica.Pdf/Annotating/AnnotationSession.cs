@@ -54,6 +54,9 @@ internal sealed class AnnotationSession : IDisposable
     /// </summary>
     public Func<bool>? DiscardDraft { get; set; }
 
+    /// <summary>Whether a draft is open that cannot be made as it stands (see <see cref="BeginUnresolved"/>).</summary>
+    public bool HasUnresolved => UnresolvedCount > 0;
+
     private int UnresolvedCount
     {
         get

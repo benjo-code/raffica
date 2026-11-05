@@ -71,6 +71,37 @@ public sealed class SaveControllerTests
     private static string[] TempFiles(string folder) => Directory.GetFiles(folder, ".pw-*.tmp");
 
     [AvaloniaFact]
+    public async Task SaveWithOnlyARefusedDraftDoesNotWriteAndKeepsTheTabDirty()
+    {
+        var writes = 0;
+        SaveRunner runner = (_, _, _, _, _) =>
+        {
+            writes++;
+            return Task.FromResult<AnnotationSaveResult>(null!);
+        };
+
+        // A signed file: a save would ask about the signature first. The tab is dirty only because a text box draft was refused.
+        using var windows = WindowFixture.Create(saveRunner: runner);
+        var tab = await windows.OpenAsync("signed-docmdp-1.pdf");
+        using var draft = tab.Annotations.BeginUnresolved();
+        Assert.True(tab.IsDirty);
+        Assert.False(tab.Annotations.Editor.IsDirty);
+
+        // A card (the signed-file question) would hold the save open: wait for either the end or a card, never for the user.
+        var save = windows.Window.SaveActiveAsync();
+        await ViewFixture.WaitAsync(() => save.IsCompleted || windows.Window.Host.ActiveDialog is not null);
+        Assert.Null(windows.Window.Host.ActiveDialog);
+        var saved = await save;
+        ViewFixture.Pump();
+
+        Assert.False(saved);
+        Assert.Equal(0, writes);
+        Assert.True(tab.IsDirty);
+        Assert.True(tab.Annotations.HasUnresolved);
+        Assert.False(windows.Window.Saves.IsSaving);
+    }
+
+    [AvaloniaFact]
     public async Task SaveCleansTheTabAndKeepsScrollAndZoom()
     {
         using var copy = new TempCopy("text-rich.pdf");
@@ -607,9 +638,7 @@ public sealed class SaveControllerTests
             calls++;
             throw new OperationCanceledException();
         });
-        var tab = await windows.Window.Flow.OpenAsync(copy.Path) ?? throw new InvalidOperationException("did not open");
-        tab.MarkDirty();
-        ViewFixture.Pump();
+        _ = await OpenDirtyAsync(windows, copy.Path);
 
         // Cancel is the default: nothing is saved.
         var saving = windows.Window.SaveActiveAsync();
@@ -638,9 +667,7 @@ public sealed class SaveControllerTests
             calls++;
             throw new OperationCanceledException();
         });
-        var tab = await windows.Window.Flow.OpenAsync(copy.Path) ?? throw new InvalidOperationException("did not open");
-        tab.MarkDirty();
-        ViewFixture.Pump();
+        _ = await OpenDirtyAsync(windows, copy.Path);
 
         var first = windows.Window.SaveActiveAsync();
         var note = await NextCardAsync(windows.Window.Host);
