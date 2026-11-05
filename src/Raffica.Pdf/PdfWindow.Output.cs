@@ -7,7 +7,7 @@ using Raffica.Pdf.Organizing;
 namespace Raffica.Pdf;
 
 /// <summary>
-/// The output commands of the Pages tab that write new files from the open document: Extract pages and Split document. They read the document
+/// The output commands of the Pages tab that write new files from the open document: Extract pages, Split document and Export pages as images. They read the document
 /// without a plan, so the command rules lock them while a plan is open or marks are unsaved; the flow behind them is made on first use.
 /// </summary>
 internal sealed partial class PdfWindow
@@ -19,6 +19,7 @@ internal sealed partial class PdfWindow
     internal Func<Task<string?>>? FolderPicker { get; set; }
 
     private SplitFlow? _outputFlow;
+    private ImageExportFlow? _exportFlow;
 
     /// <summary>Gets whether the flow of the output commands exists (it is made by the first of them; for tests).</summary>
     internal bool OutputFlowCreated => _outputFlow is not null;
@@ -34,7 +35,7 @@ internal sealed partial class PdfWindow
             : tab.Session.Document is { } document ? document.GetOutlineAsync(token) : Task.FromResult<IReadOnlyList<PdfOutlineItem>>([]),
         path => Flow.OpenAsync(path),
         RefreshCommandStates,
-        () => _applyFlow?.IsRunning == true);
+        () => _applyFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
 
     /// <summary>Extracts pages of the active document into a new file (the Extract pages command).</summary>
     internal void ExtractPages() => _ = GuardAsync(ExtractPagesAsync);
@@ -47,6 +48,21 @@ internal sealed partial class PdfWindow
 
     internal Task SplitDocumentAsync() =>
         Workspace.Active is { } tab && _rules.Allows(PdfCommandIds.SplitDocument) ? Output.SplitAsync(tab) : Task.CompletedTask;
+
+    /// <summary>Gets whether the flow of the image export exists (it is made by the command; for tests).</summary>
+    internal bool ExportFlowCreated => _exportFlow is not null;
+
+    internal ImageExportFlow ExportFlow => _exportFlow ??= new ImageExportFlow(
+        Dialogs,
+        _ => FolderPicker is { } picker ? picker() : PickFolderAsync(),
+        RefreshCommandStates,
+        () => _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true);
+
+    /// <summary>Exports pages of the active document as PNG images (the Export pages as images command).</summary>
+    internal void ExportImages() => _ = GuardAsync(ExportImagesAsync);
+
+    internal Task ExportImagesAsync() =>
+        Workspace.Active is { } tab && _rules.Allows(PdfCommandIds.ExportImages) ? ExportFlow.ExportAsync(tab) : Task.CompletedTask;
 
     private async Task<string?> PickFolderAsync()
     {

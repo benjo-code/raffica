@@ -158,7 +158,7 @@ internal sealed partial class PdfWindow
         RefreshCommandStates,
         () => _print.IsRunning,
         _time,
-        () => _outputFlow?.IsRunning == true);
+        () => _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
 
     /// <summary>Applies the page plan of the active tab (the Apply command; Save and Save as with an open plan come here too).</summary>
     internal Task<bool> ApplyActiveAsync() => Workspace.Active is { } tab ? Applying.RunAsync(tab) : Task.FromResult(false);

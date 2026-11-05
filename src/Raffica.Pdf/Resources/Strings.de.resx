@@ -1643,4 +1643,61 @@
   <data name="FileJobBusy" xml:space="preserve">
     <value>Es läuft bereits ein anderer Dateiauftrag.</value>
   </data>
+  <data name="ExportTitle" xml:space="preserve">
+    <value>Seiten als Bilder exportieren</value>
+  </data>
+  <data name="ExportRangeLabel" xml:space="preserve">
+    <value>Zu exportierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder alle)</value>
+  </data>
+  <data name="ExportDpiLabel" xml:space="preserve">
+    <value>Auflösung</value>
+  </data>
+  <data name="ExportDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="ExportDpiCustom" xml:space="preserve">
+    <value>Eigene</value>
+  </data>
+  <data name="ExportDpiCustomLabel" xml:space="preserve">
+    <value>Eigene Auflösung in dpi (1 bis 1200)</value>
+  </data>
+  <data name="ExportDpiInvalid" xml:space="preserve">
+    <value>Gib eine ganze Zahl von 1 bis 1200 ein.</value>
+  </data>
+  <data name="ExportMarks" xml:space="preserve">
+    <value>Markierungen und Formularfelder einbeziehen</value>
+  </data>
+  <data name="ExportLargestFormat" xml:space="preserve">
+    <value>Größte Seite: {0} × {1} Pixel ({2} Megapixel)</value>
+  </data>
+  <data name="ExportTooLargeFormat" xml:space="preserve">
+    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+  </data>
+  <data name="ExportTooLargeHugeFormat" xml:space="preserve">
+    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+  </data>
+  <data name="ExportFolderMissing" xml:space="preserve">
+    <value>Dieser Ordner existiert nicht.</value>
+  </data>
+  <data name="ExportConfirm" xml:space="preserve">
+    <value>Exportieren</value>
+  </data>
+  <data name="ExportJobTitleFormat" xml:space="preserve">
+    <value>Seiten von {0} werden exportiert</value>
+  </data>
+  <data name="ExportResultTitle" xml:space="preserve">
+    <value>Seiten exportiert</value>
+  </data>
+  <data name="ExportFailTooLargeFormat" xml:space="preserve">
+    <value>Seite {0} ist bei dieser Auflösung zu groß. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="ExportFailTooMany" xml:space="preserve">
+    <value>Es wurden mehr Seiten gewählt, als ein Export schreiben kann. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="ExportFailWriteFormat" xml:space="preserve">
+    <value>Das Bild von Seite {0} konnte nicht geschrieben werden.</value>
+  </data>
+  <data name="ExportFailRender" xml:space="preserve">
+    <value>Eine Seite konnte nicht gezeichnet werden.</value>
+  </data>
 </root>

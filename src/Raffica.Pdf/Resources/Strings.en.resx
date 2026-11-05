@@ -1659,4 +1659,61 @@
   <data name="FileJobBusy" xml:space="preserve">
     <value>Another file job is already running.</value>
   </data>
+  <data name="ExportTitle" xml:space="preserve">
+    <value>Export pages as images</value>
+  </data>
+  <data name="ExportRangeLabel" xml:space="preserve">
+    <value>Pages to export (for example 3, 2-5, 1,3,5-7 or all)</value>
+  </data>
+  <data name="ExportDpiLabel" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="ExportDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="ExportDpiCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="ExportDpiCustomLabel" xml:space="preserve">
+    <value>Custom resolution in dpi (1 to 1200)</value>
+  </data>
+  <data name="ExportDpiInvalid" xml:space="preserve">
+    <value>Enter a whole number from 1 to 1200.</value>
+  </data>
+  <data name="ExportMarks" xml:space="preserve">
+    <value>Include marks and form fields</value>
+  </data>
+  <data name="ExportLargestFormat" xml:space="preserve">
+    <value>Largest page: {0} × {1} pixels ({2} megapixels)</value>
+  </data>
+  <data name="ExportTooLargeFormat" xml:space="preserve">
+    <value>Page {0} would have {1} megapixels at this resolution; the limit is {2} megapixels. Choose a lower resolution or leave this page out.</value>
+  </data>
+  <data name="ExportTooLargeHugeFormat" xml:space="preserve">
+    <value>Page {0} would be far larger than the limit of {2} megapixels at this resolution. Choose a lower resolution or leave this page out.</value>
+  </data>
+  <data name="ExportFolderMissing" xml:space="preserve">
+    <value>This folder does not exist.</value>
+  </data>
+  <data name="ExportConfirm" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="ExportJobTitleFormat" xml:space="preserve">
+    <value>Exporting pages of {0}</value>
+  </data>
+  <data name="ExportResultTitle" xml:space="preserve">
+    <value>Pages exported</value>
+  </data>
+  <data name="ExportFailTooLargeFormat" xml:space="preserve">
+    <value>Page {0} is too large at this resolution. Nothing was written.</value>
+  </data>
+  <data name="ExportFailTooMany" xml:space="preserve">
+    <value>More pages were chosen than one export can write. Nothing was written.</value>
+  </data>
+  <data name="ExportFailWriteFormat" xml:space="preserve">
+    <value>The image of page {0} could not be written.</value>
+  </data>
+  <data name="ExportFailRender" xml:space="preserve">
+    <value>A page could not be drawn.</value>
+  </data>
 </root>

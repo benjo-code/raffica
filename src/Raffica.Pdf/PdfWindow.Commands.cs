@@ -61,10 +61,10 @@ internal sealed partial class PdfWindow
         isDirty: () => Workspace.Active is { IsDirty: true },
         canUndo: () => OpenPlan is { } plan ? plan.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
         canRedo: () => OpenPlan is { } plan ? plan.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
-        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true,
+        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
-        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true,
+        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         hasForm: () => Workspace.Active is { } active && TabHasForm(active),
         fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
         hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0,
@@ -213,7 +213,8 @@ internal sealed partial class PdfWindow
         DiscardPages: DiscardPlan,
         DeletePages: () => RunPageEdit(session => session.Delete()),
         ExtractPages: ExtractPages,
-        SplitDocument: SplitDocument);
+        SplitDocument: SplitDocument,
+        ExportImages: ExportImages);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,

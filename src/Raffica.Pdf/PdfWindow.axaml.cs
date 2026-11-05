@@ -162,7 +162,7 @@ internal sealed partial class PdfWindow : Window
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
-            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true);
+            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
@@ -231,6 +231,7 @@ internal sealed partial class PdfWindow : Window
         Step(_saves.Cancel);
         Step(() => _applyFlow?.Cancel());
         Step(() => _outputFlow?.Cancel());
+        Step(() => _exportFlow?.Cancel());
         Step(_fieldCodes.Dispose);
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());

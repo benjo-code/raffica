@@ -178,7 +178,7 @@ internal sealed class SplitFlow(
     }
 
     // The same locks as the commands: the files are cut from the file on disk, so an open plan or unsaved marks would not be in them.
-    private static string? Refusal(PdfTab tab)
+    internal static string? Refusal(PdfTab tab)
     {
         if (tab.OrganizeIfCreated is { IsActive: true })
         {
@@ -375,7 +375,7 @@ internal sealed class SplitFlow(
     }
 
     // The names of the files in the way: the first five, then the count of the rest.
-    private static string NamesOf(IReadOnlyList<string> paths)
+    internal static string NamesOf(IReadOnlyList<string> paths)
     {
         var names = paths.Select(Path.GetFileName).Take(5);
         var text = string.Join(", ", names);

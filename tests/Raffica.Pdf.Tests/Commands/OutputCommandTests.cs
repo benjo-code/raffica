@@ -199,4 +199,125 @@ public sealed class OutputCommandTests
         Assert.False(fixture.Window.Output.IsRunning);
         Assert.True(Command(fixture.Window, "file.saveAs").IsEnabled);
     }
+
+    [AvaloniaFact]
+    public async Task ExportImagesIsWiredLockedWithAPlanAndLazilyCreated()
+    {
+        using var fixture = WindowFixture.Create();
+        var folder = Path.Combine(fixture.Folder, "images");
+        Directory.CreateDirectory(folder);
+        fixture.Window.FolderPicker = () => Task.FromResult<string?>(folder);
+        var tab = await OpenReadyAsync(fixture);
+        Assert.False(fixture.Window.ExportFlowCreated);
+        Assert.NotNull(Command(fixture.Window, "pages.exportImages").Run);
+        Assert.True(Command(fixture.Window, "pages.exportImages").IsEnabled);
+
+        // With a plan open the command is locked with the reason, and running it does nothing.
+        fixture.Window.ToggleOrganize();
+        await ViewFixture.WaitAsync(() => tab.OrganizeIfCreated is { IsActive: true });
+        Assert.False(Command(fixture.Window, "pages.exportImages").IsEnabled);
+        Assert.Equal("Apply or discard the page changes first", Command(fixture.Window, "pages.exportImages").CurrentDisabledReason);
+        await fixture.Window.ExportImagesAsync();
+        Assert.False(fixture.Window.ExportFlowCreated);
+        fixture.Window.DiscardPlan();
+        await ViewFixture.WaitAsync(() => tab.OrganizeIfCreated is { IsActive: false });
+
+        // Export page 2 as an image.
+        var run = fixture.Window.ExportImagesAsync();
+        var card = await CardWithAsync(fixture, "PART_Range");
+        PrintHost.Find<TextBox>(card, "PART_Range").Text = "2";
+        Click(card, "PART_ChooseFolder");
+        await PrintHost.UntilAsync(() => PrintHost.Find<Button>(card, "PART_Export").IsEnabled);
+        Click(card, "PART_Export");
+        Click(await CardWithAsync(fixture, "PART_Ok"), "PART_Ok");
+        await run.WaitAsync(TimeSpan.FromSeconds(60), Ct);
+        Assert.True(fixture.Window.ExportFlowCreated);
+        Assert.Equal(["pages-marked-p002.png"], Directory.GetFiles(folder).Select(Path.GetFileName).OfType<string>().ToArray());
+    }
+
+    // Starts an export whose write waits until its token is canceled; returns the run, the signal of the cancel and the job card.
+    private static async Task<(Task Run, Task Canceled, Dialog Job)> StartBlockedExportAsync(WindowFixture fixture)
+    {
+        var folder = Path.Combine(fixture.Folder, "images");
+        Directory.CreateDirectory(folder);
+        fixture.Window.FolderPicker = () => Task.FromResult<string?>(folder);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var canceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Window.ExportFlow.Exporter = async (_, _, _, _, _, _, _, _, _, token) =>
+        {
+            token.Register(() => canceled.TrySetResult());
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return [];
+        };
+        var run = fixture.Window.ExportImagesAsync();
+        var card = await CardWithAsync(fixture, "PART_Range");
+        Click(card, "PART_ChooseFolder");
+        await PrintHost.UntilAsync(() => PrintHost.Find<Button>(card, "PART_Export").IsEnabled);
+        Click(card, "PART_Export");
+        while (!started.Task.IsCompleted)
+        {
+            PrintHost.Pump();
+            await Task.Delay(10, Ct);
+        }
+
+        return (run, canceled.Task, fixture.Window.Host.ActiveDialog!);
+    }
+
+    [AvaloniaFact]
+    public async Task ExportIsInTheBusyListsSaveAndPrintAreRefusedAndTheWindowClosingCancelsIt()
+    {
+        using var fixture = WindowFixture.Create();
+        await OpenReadyAsync(fixture);
+        Assert.True(Command(fixture.Window, "file.saveAs").IsEnabled);
+        var (_, canceled, job) = await StartBlockedExportAsync(fixture);
+
+        // Save, print and the other file commands are refused while it runs; the same command does nothing (no second card).
+        Assert.True(fixture.Window.ExportFlow.IsRunning);
+        Assert.False(Command(fixture.Window, "file.saveAs").IsEnabled);
+        Assert.False(Command(fixture.Window, "file.print").IsEnabled);
+        Assert.False(Command(fixture.Window, "file.save").IsEnabled);
+        await fixture.Window.ExportImagesAsync().WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        Assert.Same(job, fixture.Window.Host.ActiveDialog);
+
+        fixture.Window.Close();
+        await canceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingTheTabDuringTheExportCancelsItAndTheCardKeepsWhatWasWritten()
+    {
+        using var fixture = WindowFixture.Create();
+        var tab = await OpenReadyAsync(fixture);
+        var (run, canceled, _) = await StartBlockedExportAsync(fixture);
+
+        var close = fixture.Window.CloseActiveTabAsync();
+        await canceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await FinishAsync(fixture, run);
+        await close.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        Assert.DoesNotContain(tab, fixture.Window.Workspace.Tabs);
+    }
+
+    [AvaloniaFact]
+    public async Task ExportAndExtractRefuseEachOther()
+    {
+        using var fixture = WindowFixture.Create();
+        var tab = await OpenReadyAsync(fixture);
+        var (extract, _, extractCanceled) = await StartBlockedExtractAsync(fixture);
+
+        // The export flow refuses with the busy reason while the extract runs.
+        var asked = fixture.Window.ExportFlow.ExportAsync(tab);
+        Assert.False(fixture.Window.ExportFlow.IsRunning);
+
+        // The notice waits behind the job card of the extract; cancel the extract from it.
+        var job = await CardWithAsync(fixture, "PART_Cancel");
+        Click(job, "PART_Cancel");
+        await extractCanceled.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        var notice = await CardWithAsync(fixture, "PART_Message");
+        Assert.Contains(PdfStrings.FileJobBusy, PrintHost.Find<TextBlock>(notice, "PART_Message").Text);
+        Click(notice, "PART_Ok");
+        Assert.False(await asked.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+        await FinishAsync(fixture, extract);
+        Assert.False(fixture.Window.ExportFlow.IsRunning);
+    }
 }

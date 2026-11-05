@@ -261,19 +261,6 @@ public sealed class OrganizeCommandTests
     }
 
     [AvaloniaFact]
-    public async Task AnUnwiredCommandStaysDisabledEvenWhenTheRulesAllowIt()
-    {
-        using var fixture = WindowFixture.Create();
-        await OpenReadyAsync(fixture);
-        var window = fixture.Window;
-        foreach (var id in new[] { "pages.exportImages" })
-        {
-            Assert.Null(Command(window, id).Run);
-            Assert.False(Command(window, id).IsEnabled, id);
-        }
-    }
-
-    [AvaloniaFact]
     public async Task AnnotateToolsSignAndFormsAreRefusedInTheWindowWhileAPlanIsOpen()
     {
         using var fixture = WindowFixture.Create();
