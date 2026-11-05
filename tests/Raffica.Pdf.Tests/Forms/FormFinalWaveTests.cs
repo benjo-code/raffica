@@ -220,6 +220,66 @@ public sealed class FormFinalWaveTests
         Assert.False(textBox.IsEditing);
         Assert.True(draft.IsVisible);
         Assert.Same(draft, f.View.Field);
+
+        // It is laid out over its widget (not at zero width in the corner, whatever the order of the text box field's clean-up was) and the input
+        // has the keyboard focus once the dispatcher settles.
+        ViewFixture.Pump();
+        var rect = f.View.ToView(0, name.Bounds)!.Value;
+        Assert.Equal(rect, f.View.FieldRect);
+        Assert.InRange(draft.Input.Bounds.Width, rect.Width - 1, rect.Width + 1);
+        Assert.InRange(draft.Input.Bounds.Height, rect.Height - 1, rect.Height + 1);
+        Assert.True(rect.Width > 0 && rect.Height > 0);
+        Assert.True(draft.Input.IsKeyboardFocusWithin, "the re-shown editor has no focus");
+    }
+
+    private static readonly Raffica.Core.Annotations.AnnotationColor Red = new(220, 38, 38);
+
+    [AvaloniaFact]
+    public async Task UndoIsNotSwallowedByAHiddenRefusedDraftWhileAToolIsActive()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var mark = await f.Tab.Annotations.Editor.ApplyDrawingAsync(
+            0, Raffica.Core.Annotations.DrawingGeometry.Rectangle(new Raffica.Core.Text.PageRect(100, 560, 200, 600), 2), Red, null, null);
+        Assert.NotNull(mark);
+        var box = (TextBox)f.Open(f.Field("Name"));
+        FormEditFixture.SetText(box, "中");
+        f.Leave();
+        f.Window.Tools.Choose(AnnotateTool.Rectangle);
+        ViewFixture.Pump();
+        Assert.True(f.Interaction.HasHiddenDraft);
+        Assert.True(f.Tab.Annotations.HasUnresolved);
+        Assert.True(f.Tab.Annotations.CanUndo);
+
+        // Nothing can be shown while a tool is active, so the draft must not hold the undo: the history step is undone, the draft ends.
+        await f.Tab.Annotations.UndoAsync();
+        ViewFixture.Pump();
+
+        Assert.False(f.Tab.Annotations.CanUndo);
+        Assert.False(f.Interaction.IsEditing);
+        Assert.False(f.Tab.Annotations.HasUnresolved);
+        var marks = await f.Tab.Session.Document!.GetAnnotationsAsync(0, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(marks, a => a.Kind == Raffica.Core.Annotations.AnnotationKind.Rectangle);
+    }
+
+    [AvaloniaFact]
+    public async Task TheFormCommandsDoNotScrollForAHiddenDraftWhileAToolIsActive()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        await HiddenRefusedDraftAsync(f);
+        f.Window.Tools.Choose(AnnotateTool.Rectangle);
+        ViewFixture.Pump();
+        var offset = f.View.Offset;
+        var before = f.Parts.Focus.Current;
+
+        RunCommand(f, PdfCommandIds.FormsNext);
+        ViewFixture.Pump();
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+
+        // The move ends without a scroll that shows nothing, and without moving the form focus.
+        Assert.Equal(offset, f.View.Offset);
+        Assert.Equal(before, f.Parts.Focus.Current);
+        Assert.True(f.Interaction.IsEditing);
     }
 
     [AvaloniaFact]

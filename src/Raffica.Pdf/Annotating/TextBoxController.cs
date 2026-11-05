@@ -365,8 +365,10 @@ internal sealed class TextBoxController : IToolController
         editor.TextEdited -= OnTextEdited;
         if (ReferenceEquals(_view.Field, editor))
         {
-            _view.Field = null;
+            // The rectangle first: clearing the slot tells the listeners that it is free, and one of them may put its own element there at
+            // once, laid out at its own rectangle, which a later reset would wipe.
             _view.FieldRect = default;
+            _view.Field = null;
         }
 
         draft.TakePending()?.Dispose();

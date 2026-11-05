@@ -174,23 +174,35 @@ internal sealed class FormInteraction : IDisposable
             return false;
         }
 
+        // While an annotate tool is active the fields are inert and the slot belongs to the tool: there is nothing to show, and a scroll that
+        // shows nothing would only move the page.
+        if (_tools.Tool != AnnotateTool.None)
+        {
+            return true;
+        }
+
         _view.Reveal(draft.Field.Key.Page, draft.Field.Bounds);
-        if (_tools.Tool == AnnotateTool.None && ReferenceEquals(_draft, draft))
+        if (ReferenceEquals(_draft, draft))
         {
             Show(draft);
         }
 
+        PostLayoutAndFocus(draft);
+        return true;
+    }
+
+    // After the dispatcher has settled the draft is laid out once more and gets the focus, whatever the order of the callers that touched the slot.
+    private void PostLayoutAndFocus(Draft draft) =>
         Dispatcher.UIThread.Post(
             () =>
             {
                 if (ReferenceEquals(_draft, draft) && draft.Editor.IsVisible && ReferenceEquals(_view.Field, draft.Editor))
                 {
+                    Layout(draft);
                     draft.Editor.FocusInput();
                 }
             },
             DispatcherPriority.Input);
-        return true;
-    }
 
     /// <summary>Ends an open editor like <see cref="CommitOrPark"/>; a draft that stays (its text is refused) is shown and the caller is told to stop.</summary>
     /// <returns><see langword="true"/> when no draft is left and the caller may go on.</returns>
@@ -568,8 +580,8 @@ internal sealed class FormInteraction : IDisposable
         var had = open.Editor.IsKeyboardFocusWithin;
         if (ReferenceEquals(_view.Field, open.Editor))
         {
-            _view.Field = null;
             _view.FieldRect = default;
+            _view.Field = null;
         }
 
         open.Release();
@@ -624,6 +636,7 @@ internal sealed class FormInteraction : IDisposable
             && FormEditorLayout.RectOf(_view, draft.Field) is { } rect && FormEditorLayout.IsInView(_view, rect))
         {
             Show(draft);
+            PostLayoutAndFocus(draft);
         }
     }
 
@@ -670,15 +683,17 @@ internal sealed class FormInteraction : IDisposable
             return false;
         }
 
-        // A refused draft the user cannot see is not dropped behind their back: it is shown, and the history stays as it is.
-        if (HasHiddenDraft && draft.IsParked)
+        // A refused draft the user cannot see is not dropped behind their back: it is shown, and the history stays as it is. While an annotate
+        // tool is active it cannot be shown, so it must not hold the undo either: it ends, and the undo goes on.
+        if (HasHiddenDraft && draft.IsParked && _tools.Tool == AnnotateTool.None)
         {
             RevealDraft();
             return true;
         }
 
+        var hiddenByTool = _tools.Tool != AnnotateTool.None && HasHiddenDraft;
         Close();
-        return true;
+        return !hiddenByTool;
     }
 
     private sealed class Draft(FormField field, FormFieldEditor editor, string? originalText)
