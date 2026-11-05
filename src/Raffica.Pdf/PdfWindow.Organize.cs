@@ -39,14 +39,8 @@ internal sealed partial class PdfWindow
         var session = tab.Organize;
         if (session.IsActive)
         {
-            // The mode is left only with a plan that changes nothing. A plan with changes keeps the mode: leaving it means to apply or to
-            // discard them, and that three-way question comes with the Apply and Discard flows.
-            if (session.Plan.IsIdentity)
-            {
-                session.End();
-            }
-
-            RefreshCommandStates();
+            // A plan that changes nothing is left silently; one with changes asks (Apply…, Discard, Cancel), as Discard page changes does.
+            await LeavePlanAsync(tab, session);
             return;
         }
 
@@ -82,6 +76,40 @@ internal sealed partial class PdfWindow
 
         session.Enter();
         ShowPagesPane();
+        RefreshCommandStates();
+    }
+
+    /// <summary>Drops the open plan of the active tab (the Discard command): the three-way question when it changes something.</summary>
+    internal void DiscardPlan() => _ = GuardAsync(DiscardPlanAsync);
+
+    internal Task DiscardPlanAsync() =>
+        Workspace.Active is { } tab && tab.OrganizeIfCreated is { IsActive: true } session ? LeavePlanAsync(tab, session) : Task.CompletedTask;
+
+    // Ends the open plan: silently when it changes nothing, else after the question. Apply… runs the Apply flow (the plan ends with its success),
+    // Discard ends the session (the file is untouched and the tab is clean again), Cancel keeps the mode and the plan.
+    private async Task LeavePlanAsync(PdfTab tab, OrganizeSession session)
+    {
+        if (!session.Plan.IsIdentity)
+        {
+            switch (await AskPlanAsync(tab))
+            {
+                case CloseChoice.Save:
+                    await Applying.RunAsync(tab);
+                    break;
+                case CloseChoice.DontSave:
+                    if (tab.OrganizeIfCreated is { IsActive: true } open)
+                    {
+                        open.End();
+                    }
+
+                    break;
+            }
+        }
+        else
+        {
+            session.End();
+        }
+
         RefreshCommandStates();
     }
 

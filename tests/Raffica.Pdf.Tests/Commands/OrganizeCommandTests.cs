@@ -1,10 +1,13 @@
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Raffica.Core.Pdf;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Panes;
+using Raffica.Pdf.Tests.Printing;
 using Raffica.Pdf.Tests.Viewing;
 using Raffica.Shell.Frame;
 using Xunit;
@@ -169,7 +172,10 @@ public sealed class OrganizeCommandTests
         ViewFixture.Pump();
         Assert.False(tab.Organize.Plan.IsIdentity);
 
+        // Leaving asks (the answers are tested in OrganizeCloseTests); Cancel keeps the mode.
         Command(window, "pages.organize").Run!();
+        await PrintHost.UntilAsync(() => window.Host.ActiveDialog is not null);
+        PrintHost.Find<Button>(window.Host.ActiveDialog!, "PART_Cancel").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         ViewFixture.Pump();
         Assert.True(tab.Organize.IsActive);
         Assert.True(tab.IsDirty);
@@ -260,7 +266,7 @@ public sealed class OrganizeCommandTests
         using var fixture = WindowFixture.Create();
         await OpenReadyAsync(fixture);
         var window = fixture.Window;
-        foreach (var id in new[] { "pages.discard", "pages.extract", "pages.split", "pages.exportImages" })
+        foreach (var id in new[] { "pages.extract", "pages.split", "pages.exportImages" })
         {
             Assert.Null(Command(window, id).Run);
             Assert.False(Command(window, id).IsEnabled, id);

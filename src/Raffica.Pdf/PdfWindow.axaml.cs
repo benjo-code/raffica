@@ -113,7 +113,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync);
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, AskPlanAsync, ApplyForCloseAsync);
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -1411,6 +1411,27 @@ internal sealed partial class PdfWindow : Window
         }));
         return answer.Task;
     }
+
+    /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open answers Cancel.</summary>
+    internal Task<CloseChoice> AskPlanAsync(PdfTab tab)
+    {
+        if (Host.IsOpen)
+        {
+            return Task.FromResult(CloseChoice.Cancel);
+        }
+
+        Workspace.Select(tab);
+        var answer = new TaskCompletionSource<CloseChoice>();
+        Host.Show(UnsavedChangesCard.Create(tab.Title, choice =>
+        {
+            Host.Close();
+            answer.TrySetResult(choice);
+        }, time: _time, plan: true));
+        return answer.Task;
+    }
+
+    // "Apply…" of the close question: the Apply card flow; the tab closes only if the plan was written.
+    private Task<bool> ApplyForCloseAsync(PdfTab tab) => Applying.RunAsync(tab);
 
     /// <summary>Asks about every document with unsaved changes before the window closes; a Cancel keeps the window open.</summary>
     private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)

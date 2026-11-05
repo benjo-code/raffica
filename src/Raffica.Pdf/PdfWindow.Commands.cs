@@ -210,6 +210,7 @@ internal sealed partial class PdfWindow
         PagesUndo: () => OpenPlan?.Undo(),
         PagesRedo: () => OpenPlan?.Redo(),
         ApplyPages: () => _ = GuardAsync(ApplyActiveAsync),
+        DiscardPages: DiscardPlan,
         DeletePages: () => RunPageEdit(session => session.Delete()));
 
     /// <summary>

@@ -1460,4 +1460,16 @@
   <data name="ApplyPlanChanged" xml:space="preserve">
     <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wende sie erneut an, um die aktuelle Liste zu sehen.</value>
   </data>
+  <data name="UnsavedPlanTitle" xml:space="preserve">
+    <value>Seitenänderungen verwerfen?</value>
+  </data>
+  <data name="UnsavedPlanMessageFormat" xml:space="preserve">
+    <value>Die Seitenänderungen von {0} sind noch nicht angewendet. „Anwenden“ schreibt sie in eine Datei; „Verwerfen“ wirft sie weg und lässt die Datei, wie sie ist.</value>
+  </data>
+  <data name="UnsavedPlanApply" xml:space="preserve">
+    <value>Anwenden…</value>
+  </data>
+  <data name="UnsavedPlanDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
 </root>

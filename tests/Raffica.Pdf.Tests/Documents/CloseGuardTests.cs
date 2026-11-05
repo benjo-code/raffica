@@ -116,4 +116,60 @@ public sealed class CloseGuardTests : IDisposable
         var allow = new CloseGuard(_ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(true));
         Assert.True(await allow.CanCloseAllAsync([first, second, third, NewTab(dirty: false)]));
     }
+
+    private async Task<PdfTab> PlanTabAsync(bool changed)
+    {
+        var session = new ViewerSession(_engine);
+        await session.OpenAsync(Raffica.TestSupport.TestData.Pdf("pages-marked.pdf"));
+        var tab = new PdfTab(session, Raffica.TestSupport.TestData.Pdf("pages-marked.pdf"));
+        _tabs.Add(tab);
+        tab.Organize.Enter();
+        if (changed)
+        {
+            tab.Organize.Selection.Select(0);
+            Assert.True(tab.Organize.Rotate(90).IsDone);
+        }
+
+        return tab;
+    }
+
+    [Fact]
+    public async Task PlanTabAsksItsOwnQuestionAndNeverTheSaveOne()
+    {
+        var plans = 0;
+        var applies = 0;
+        var guard = new CloseGuard(
+            _ => throw new InvalidOperationException("the save question must not be asked"),
+            _ => throw new InvalidOperationException("the save must not run"),
+            _ => { plans++; return Task.FromResult(CloseChoice.Save); },
+            _ => { applies++; return Task.FromResult(false); });
+        var tab = await PlanTabAsync(changed: true);
+
+        // Apply that does not succeed keeps the tab; one that does closes it.
+        Assert.False(await guard.CanCloseAsync(tab));
+        Assert.Equal((1, 1), (plans, applies));
+        var succeeding = new CloseGuard(_ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true), _ => Task.FromResult(CloseChoice.Save), _ => Task.FromResult(true));
+        Assert.True(await succeeding.CanCloseAsync(tab));
+    }
+
+    [Fact]
+    public async Task PlanDiscardClosesAndPlanCancelKeeps()
+    {
+        var tab = await PlanTabAsync(changed: true);
+        var discard = new CloseGuard(_ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true), _ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(false));
+        Assert.True(await discard.CanCloseAsync(tab));
+        var cancel = new CloseGuard(_ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(true), _ => Task.FromResult(CloseChoice.Cancel), _ => Task.FromResult(true));
+        Assert.False(await cancel.CanCloseAsync(tab));
+    }
+
+    [Fact]
+    public async Task IdentityPlanTabClosesWithoutAnyQuestion()
+    {
+        var guard = new CloseGuard(
+            _ => throw new InvalidOperationException("asked"),
+            _ => throw new InvalidOperationException("saved"),
+            _ => throw new InvalidOperationException("asked about the plan"),
+            _ => throw new InvalidOperationException("applied"));
+        Assert.True(await guard.CanCloseAsync(await PlanTabAsync(changed: false)));
+    }
 }

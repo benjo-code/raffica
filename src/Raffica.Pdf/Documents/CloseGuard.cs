@@ -10,9 +10,15 @@ internal enum CloseChoice
 
 /// <summary>
 /// Decides whether a tab may close: a clean tab closes at once, a dirty tab asks once. <c>Save</c> closes only if the save worked and no unresolved draft is left,
-/// <c>Cancel</c> keeps the tab.
+/// <c>Cancel</c> keeps the tab. A tab with an open page plan that changes something asks its own question instead (<paramref name="planPrompt"/>, "Discard the page
+/// changes?"): <c>Save</c> is Apply and closes only if <paramref name="applyPlan"/> succeeded, <c>DontSave</c> discards the plan, <c>Cancel</c> keeps tab and plan.
+/// A plan that changes nothing leaves silently.
 /// </summary>
-internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save)
+internal sealed class CloseGuard(
+    Func<PdfTab, Task<CloseChoice>> prompt,
+    Func<PdfTab, Task<bool>> save,
+    Func<PdfTab, Task<CloseChoice>>? planPrompt = null,
+    Func<PdfTab, Task<bool>>? applyPlan = null)
 {
     public async Task<bool> CanCloseAsync(PdfTab tab)
     {
@@ -22,6 +28,18 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
         if (tab.AnnotationsIfCreated is { } annotations)
         {
             await annotations.FlushAsync();
+        }
+
+        // The tab is dirty while a plan is open, but the generic "Save changes?" would be the wrong question: the plan has its own. Marks cannot be
+        // open at the same time (the mode locks them), so nothing else is asked.
+        if (planPrompt is not null && applyPlan is not null && tab.OrganizeIfCreated is { IsActive: true } plan)
+        {
+            return plan.Plan.IsIdentity || await planPrompt!(tab) switch
+            {
+                CloseChoice.Save => await applyPlan!(tab),
+                CloseChoice.DontSave => true,
+                _ => false,
+            };
         }
 
         if (!tab.IsDirty)

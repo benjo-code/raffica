@@ -1476,4 +1476,16 @@
   <data name="ApplyPlanChanged" xml:space="preserve">
     <value>The page changes were edited while the file dialog was open, so nothing was written. Apply again to see the current list.</value>
   </data>
+  <data name="UnsavedPlanTitle" xml:space="preserve">
+    <value>Discard the page changes?</value>
+  </data>
+  <data name="UnsavedPlanMessageFormat" xml:space="preserve">
+    <value>The page changes of {0} are not applied yet. Apply writes them to a file; Discard drops them and leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedPlanApply" xml:space="preserve">
+    <value>Apply…</value>
+  </data>
+  <data name="UnsavedPlanDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
 </root>

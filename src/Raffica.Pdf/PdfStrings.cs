@@ -530,6 +530,10 @@ internal static class PdfStrings
     public static string UnsavedLockedTitle => Table.Get("UnsavedLockedTitle");
     public static string UnsavedLockedMessageFormat => Table.Get("UnsavedLockedMessageFormat");
     public static string UnsavedDiscard => Table.Get("UnsavedDiscard");
+    public static string UnsavedPlanTitle => Table.Get("UnsavedPlanTitle");
+    public static string UnsavedPlanMessageFormat => Table.Get("UnsavedPlanMessageFormat");
+    public static string UnsavedPlanApply => Table.Get("UnsavedPlanApply");
+    public static string UnsavedPlanDiscard => Table.Get("UnsavedPlanDiscard");
     public static string SignatureNewTitle => Table.Get("SignatureNewTitle");
     public static string SignatureNewTabs => Table.Get("SignatureNewTabs");
     public static string SignatureNewTabDraw => Table.Get("SignatureNewTabDraw");

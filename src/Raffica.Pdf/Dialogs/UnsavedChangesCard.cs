@@ -10,16 +10,17 @@ namespace Raffica.Pdf.Dialogs;
 /// <summary>
 /// The question for a document with unsaved changes: Save (primary), Don't save, Cancel. For a tab that cannot be saved (<c>locked</c>) the
 /// card offers only "Close and discard changes" and Cancel (the default), and answers <see cref="CloseChoice.DontSave"/> or
-/// <see cref="CloseChoice.Cancel"/>. Don't save and Close and discard changes are disabled for the first 400 ms after the card was made.
+/// <see cref="CloseChoice.Cancel"/>. For an open page plan (<c>plan</c>) the card has its own wording: "Apply…" (answers <see cref="CloseChoice.Save"/>), "Discard"
+/// (<see cref="CloseChoice.DontSave"/>) and Cancel. Don't save, Discard and Close and discard changes are disabled for the first 400 ms after the card was made.
 /// </summary>
 internal static class UnsavedChangesCard
 {
-    public static Dialog Create(string fileName, Action<CloseChoice> chosen, bool locked = false, TimeProvider? time = null)
+    public static Dialog Create(string fileName, Action<CloseChoice> chosen, bool locked = false, TimeProvider? time = null, bool plan = false)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(chosen);
 
-        var format = locked ? PdfStrings.UnsavedLockedMessageFormat : PdfStrings.UnsavedMessageFormat;
+        var format = plan ? PdfStrings.UnsavedPlanMessageFormat : locked ? PdfStrings.UnsavedLockedMessageFormat : PdfStrings.UnsavedMessageFormat;
         var message = new TextBlock { Text = format.Replace("{0}", fileName, StringComparison.Ordinal), TextWrapping = TextWrapping.Wrap };
         var cancel = CreateButton("PART_Cancel", ShellStrings.Cancel, primary: locked);
 
@@ -37,11 +38,11 @@ internal static class UnsavedChangesCard
         }
         else
         {
-            var save = CreateButton("PART_Save", PdfStrings.UnsavedSave, primary: true);
-            dangerous = CreateButton("PART_DontSave", PdfStrings.UnsavedDontSave, primary: false);
+            var save = CreateButton(plan ? "PART_Apply" : "PART_Save", plan ? PdfStrings.UnsavedPlanApply : PdfStrings.UnsavedSave, primary: true);
+            dangerous = CreateButton(plan ? "PART_Discard" : "PART_DontSave", plan ? PdfStrings.UnsavedPlanDiscard : PdfStrings.UnsavedDontSave, primary: false);
             dialog = new Dialog
             {
-                Title = PdfStrings.UnsavedTitle,
+                Title = plan ? PdfStrings.UnsavedPlanTitle : PdfStrings.UnsavedTitle,
                 Content = message,
                 Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { save, dangerous, cancel } },
             };
