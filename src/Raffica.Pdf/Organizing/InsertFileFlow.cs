@@ -1,5 +1,6 @@
 using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
+using Raffica.Core.Saving;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 
@@ -60,6 +61,12 @@ internal sealed class InsertFileFlow(
         if (Early(tab, session, path) is { } early)
         {
             return await TellAsync(early);
+        }
+
+        // The file system tells what the spelling of the paths cannot (8.3 names, links, hard links); off the UI thread.
+        if (tab.Path is { } own && await Task.Run(() => FileIdentity.AreSameFile(own, path) == true))
+        {
+            return await TellAsync(OrganizeResult.Refused(OrganizeProblem.SameFile));
         }
 
         string? password = null;

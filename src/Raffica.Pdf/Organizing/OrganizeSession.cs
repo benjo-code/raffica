@@ -1,5 +1,6 @@
 using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
+using Raffica.Core.Saving;
 using Raffica.Pdf.Documents;
 
 namespace Raffica.Pdf.Organizing;
@@ -433,17 +434,24 @@ internal sealed class OrganizeSession : IDisposable
 
         var generation = _generation;
         var engine = _engine ??= new PdfEngine();
-        PdfDocument document;
+        PdfDocument? read;
         IReadOnlyList<int> pages;
         try
         {
-            // The file work (the open, the page count, the range) is not done on the UI thread.
-            (document, pages) = await Task.Run(async () =>
+            // The file work (the identity check, the open, the page count, the range) is not done on the UI thread.
+            var openPath = _tab.Path;
+            (read, pages) = await Task.Run(async () =>
             {
+                // The spelling of the paths was compared above; the file system tells the rest (8.3 names, links, hard links, other drive names).
+                if (openPath is not null && FileIdentity.AreSameFile(openPath, fullPath) == true)
+                {
+                    return ((PdfDocument?)null, (IReadOnlyList<int>)[]);
+                }
+
                 var opened = await engine.OpenAsync(fullPath, password).ConfigureAwait(false);
                 try
                 {
-                    return (opened, PageRange.Parse(range, opened.PageCount));
+                    return ((PdfDocument?)opened, PageRange.Parse(range, opened.PageCount));
                 }
                 catch
                 {
@@ -461,6 +469,11 @@ internal sealed class OrganizeSession : IDisposable
             return OrganizeResult.Refused(OrganizeProblem.BadRange, ex.Message);
         }
 
+        if (read is not { } document)
+        {
+            return OrganizeResult.Refused(OrganizeProblem.SameFile);
+        }
+
         // The await above resumes on the context the call was made on; the rest changes the plan and the tab and must run on the UI context.
         if (SynchronizationContext.Current == _ui)
         {
@@ -468,7 +481,21 @@ internal sealed class OrganizeSession : IDisposable
         }
 
         var done = new TaskCompletionSource<OrganizeResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ui.Post(_ => done.SetResult(Register(document, pages, generation, fullPath, password, at)), null);
+        _ui.Post(
+            _ =>
+            {
+                // A handler of Changed or DirtyChanged that throws must reach the caller, not the dispatcher loop: the awaiting call (and with it the
+                // insert gate and the window's running flag) would otherwise never be released.
+                try
+                {
+                    done.SetResult(Register(document, pages, generation, fullPath, password, at));
+                }
+                catch (Exception ex)
+                {
+                    done.SetException(ex);
+                }
+            },
+            null);
         return await done.Task;
     }
 

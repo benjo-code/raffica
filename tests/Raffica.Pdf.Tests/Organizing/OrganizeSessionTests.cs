@@ -44,6 +44,34 @@ internal sealed class OrganizeFile : IDisposable
         return target;
     }
 
+    /// <summary>A second name of the open file (a hard link in its folder): the spelling differs, the file is the same.</summary>
+    public string HardLink(string name = "alias.pdf")
+    {
+        var link = System.IO.Path.Combine(Folder, name);
+        CreateHardLink(link, Path);
+        return link;
+    }
+
+    // A second name of the very same file (a hard link), which the spelling of the paths cannot reveal.
+    internal static void CreateHardLink(string link, string target)
+    {
+        var start = OperatingSystem.IsWindows()
+            ? new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /H \"{link}\" \"{target}\"")
+            : new System.Diagnostics.ProcessStartInfo("ln", ["--", target, link]);
+        start.CreateNoWindow = true;
+        start.UseShellExecute = false;
+        start.RedirectStandardOutput = true;
+        start.RedirectStandardError = true;
+        using var process = System.Diagnostics.Process.Start(start) ?? throw new IOException("The link tool could not be started.");
+        process.StandardOutput.ReadToEnd();
+        process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0 || !File.Exists(link))
+        {
+            throw new IOException("The hard link could not be created.");
+        }
+    }
+
     public void Dispose()
     {
         Fixture.Dispose();
@@ -322,6 +350,44 @@ public sealed class OrganizeSessionTests
         Assert.NotNull(inserted.Value.File.Stamp);
         Assert.True(file.Tab.IsDirty);
         Assert.Equal(1, session.Summary.InsertedFiles);
+    }
+
+    // The registration is posted to the UI context when the insert was started elsewhere; a handler of Changed that throws must reach the caller
+    // (and release the gate), not vanish into the dispatcher with a task that never completes.
+    [AvaloniaFact]
+    public async Task ThrowingChangedHandlerOfAPostedRegisterReachesTheCallerAndFreesTheGate()
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var session = Enter(file);
+        var first = file.CopyOf("pages-marked.pdf", "first.pdf");
+        var second = file.CopyOf("pages-marked.pdf", "second.pdf");
+        void Throwing() => throw new InvalidOperationException("handler");
+        session.Changed += Throwing;
+
+        var insert = Task.Run(() => session.InsertFileAsync(first, null, "1", 0), TestContext.Current.CancellationToken);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => insert.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        Assert.Equal("handler", ex.Message);
+
+        // The gate is free again: the next insert is made.
+        session.Changed -= Throwing;
+        var next = await Task.Run(() => session.InsertFileAsync(second, null, "1", 0), TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        Assert.True(next.IsDone, next.Problem + " " + next.Detail);
+    }
+
+    // Another name of the open file is the open file: a hard link (8.3 names and symbolic links give the same identity) is refused like its own spelling.
+    [AvaloniaFact]
+    public async Task InsertOfAnotherNameOfTheOpenFileIsRefused()
+    {
+        using var file = await OrganizeFile.OpenAsync();
+        var session = Enter(file);
+        var version = session.Version;
+
+        var result = await session.InsertFileAsync(file.HardLink(), null, "all", 0);
+
+        Assert.Equal(OrganizeProblem.SameFile, result.Problem);
+        Assert.Equal(version, session.Version);
+        Assert.Empty(session.Inserted);
     }
 
     [AvaloniaFact]

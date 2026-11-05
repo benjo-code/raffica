@@ -168,6 +168,10 @@ public sealed class InsertFileTests
             await Expect(file.Path, OrganizeProblem.SameFile);
             Assert.Empty(h.CardsShown);
 
+            // Another name of the open file (a hard link) is the open file, before any card.
+            await Expect(file.HardLink(), OrganizeProblem.SameFile);
+            Assert.Empty(h.CardsShown);
+
             // Not a PDF, a corrupt file, a missing file.
             await Expect(file.CopyOf("not-a-pdf.pdf"), OrganizeProblem.Unreadable);
             var corrupt = Path.Combine(file.Folder, "corrupt.pdf");
