@@ -20,8 +20,8 @@ internal enum FormMarkerKind
     Focus,
 }
 
-/// <summary>The per-tab form pieces the window keeps: the overlay and the form focus.</summary>
-internal sealed record FormParts(FormMarkers Markers, FormFocus Focus);
+/// <summary>The per-tab form pieces the window keeps: the overlay, the form focus and the pointer interaction with its editors.</summary>
+internal sealed record FormParts(FormMarkers Markers, FormFocus Focus, FormInteraction Interaction);
 
 /// <summary>One marker as planned for the current view; <see cref="Bounds"/> is the glyph (star, lock) or the widget (focus ring), in view coordinates.</summary>
 internal readonly record struct FormMarker(FormMarkerKind Kind, FormWidgetKey Key, Rect Bounds);

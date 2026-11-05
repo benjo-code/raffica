@@ -848,4 +848,55 @@
   <data name="StylePointsFormat" xml:space="preserve">
     <value>{0}, {1} pt</value>
   </data>
+  <data name="FormCardTitle" xml:space="preserve">
+    <value>Formular</value>
+  </data>
+  <data name="FormRejectedFormat" xml:space="preserve">
+    <value>Ein Formularfeld kann diese Zeichen nicht darstellen: {0}</value>
+  </data>
+  <data name="FormControlCharacterFormat" xml:space="preserve">
+    <value>Ein Formularfeld kann dieses Steuerzeichen nicht aufnehmen: {0}</value>
+  </data>
+  <data name="FormTooLongFormat" xml:space="preserve">
+    <value>Das Feld nimmt höchstens {0} Zeichen auf.</value>
+  </data>
+  <data name="FormOneLineOnly" xml:space="preserve">
+    <value>Dieses Feld nimmt nur eine Zeile auf.</value>
+  </data>
+  <data name="FormNotKept" xml:space="preserve">
+    <value>Das Formular hat den Wert nicht übernommen. Das Feld ist unverändert.</value>
+  </data>
+  <data name="FormNotKeptNotRestored" xml:space="preserve">
+    <value>Das Formular hat den Wert nicht übernommen und das Feld ließ sich danach nicht prüfen. Die Seite wird neu gelesen; das Feld weicht womöglich vom Rückgängig-Verlauf ab.</value>
+  </data>
+  <data name="FormLocked" xml:space="preserve">
+    <value>Dieses Feld kann nicht geändert werden.</value>
+  </data>
+  <data name="FormNotFound" xml:space="preserve">
+    <value>Das Dokument hat dieses Feld nicht mehr.</value>
+  </data>
+  <data name="FormHistoryFull" xml:space="preserve">
+    <value>Der Rückgängig-Verlauf ist voll. Speichern Sie zuerst das Dokument und machen Sie dann weiter.</value>
+  </data>
+  <data name="FormInvalid" xml:space="preserve">
+    <value>Dieser Wert kann nicht in das Feld geschrieben werden.</value>
+  </data>
+  <data name="FormFillForbidden" xml:space="preserve">
+    <value>Dieses Dokument erlaubt das Ausfüllen von Formularfeldern nicht.</value>
+  </data>
+  <data name="FormTipReadOnly" xml:space="preserve">
+    <value>Schreibgeschütztes Feld</value>
+  </data>
+  <data name="FormTipSignature" xml:space="preserve">
+    <value>Signaturfeld: Raffica signiert hier nicht</value>
+  </data>
+  <data name="FormTipButton" xml:space="preserve">
+    <value>Schaltfläche: Raffica führt nie die Aktion einer Schaltfläche aus</value>
+  </data>
+  <data name="FormTipUnsupported" xml:space="preserve">
+    <value>Raffica kann dieses Feld nicht ändern</value>
+  </data>
+  <data name="FormTipRequired" xml:space="preserve">
+    <value>Pflichtfeld, noch leer</value>
+  </data>
 </root>

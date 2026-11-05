@@ -851,4 +851,55 @@
   <data name="StylePointsFormat" xml:space="preserve">
     <value>{0}, {1} pt</value>
   </data>
+  <data name="FormCardTitle" xml:space="preserve">
+    <value>Form</value>
+  </data>
+  <data name="FormRejectedFormat" xml:space="preserve">
+    <value>A form field cannot show these characters: {0}</value>
+  </data>
+  <data name="FormControlCharacterFormat" xml:space="preserve">
+    <value>A form field cannot take this control character: {0}</value>
+  </data>
+  <data name="FormTooLongFormat" xml:space="preserve">
+    <value>The field takes at most {0} characters.</value>
+  </data>
+  <data name="FormOneLineOnly" xml:space="preserve">
+    <value>This field takes one line only.</value>
+  </data>
+  <data name="FormNotKept" xml:space="preserve">
+    <value>The form did not keep the value. The field is as it was.</value>
+  </data>
+  <data name="FormNotKeptNotRestored" xml:space="preserve">
+    <value>The form did not keep the value and the field could not be checked afterwards. The page is read again; the field may differ from the undo history.</value>
+  </data>
+  <data name="FormLocked" xml:space="preserve">
+    <value>This field cannot be changed.</value>
+  </data>
+  <data name="FormNotFound" xml:space="preserve">
+    <value>The document has no such field any more.</value>
+  </data>
+  <data name="FormHistoryFull" xml:space="preserve">
+    <value>The undo history is full. Save the document first, then go on.</value>
+  </data>
+  <data name="FormInvalid" xml:space="preserve">
+    <value>This value cannot be written to the field.</value>
+  </data>
+  <data name="FormFillForbidden" xml:space="preserve">
+    <value>This document does not allow filling in form fields.</value>
+  </data>
+  <data name="FormTipReadOnly" xml:space="preserve">
+    <value>Read-only field</value>
+  </data>
+  <data name="FormTipSignature" xml:space="preserve">
+    <value>Signature field: Raffica does not sign here</value>
+  </data>
+  <data name="FormTipButton" xml:space="preserve">
+    <value>Button: Raffica never runs a button's action</value>
+  </data>
+  <data name="FormTipUnsupported" xml:space="preserve">
+    <value>Raffica cannot change this field</value>
+  </data>
+  <data name="FormTipRequired" xml:space="preserve">
+    <value>Required field, still empty</value>
+  </data>
 </root>

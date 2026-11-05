@@ -238,6 +238,7 @@ internal sealed partial class PdfWindow : Window
         _annotates.Clear();
         EachStep(_badges.Values, badge => badge.Dispose());
         _badges.Clear();
+        EachStep(_formParts.Values, parts => parts.Interaction.Dispose());
         EachStep(_formParts.Values, parts => parts.Markers.Dispose());
         _formParts.Clear();
         EachStep(_texts.Values, text => text.Dispose());
@@ -702,6 +703,7 @@ internal sealed partial class PdfWindow : Window
 
             if (_formParts.Remove(tab, out var formParts))
             {
+                formParts.Interaction.Dispose();
                 formParts.Markers.Dispose();
             }
 
@@ -837,7 +839,8 @@ internal sealed partial class PdfWindow : Window
         var markers = new FormMarkers(tab.Forms, focus) { Suppressed = () => Tools.Tool != AnnotateTool.None };
         markers.Attach(view);
         view.FormOverlay = markers;
-        _formParts[tab] = new FormParts(markers, focus);
+        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab));
+        _formParts[tab] = new FormParts(markers, focus, interaction);
     }
 
     /// <summary>The form markers and the form focus of a tab once the tab has been shown (for tests and the form interaction); null for a document without a form.</summary>
