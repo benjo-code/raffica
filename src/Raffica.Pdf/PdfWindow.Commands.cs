@@ -193,9 +193,10 @@ internal sealed partial class PdfWindow
             return;
         }
 
-        // While the annotate mode is on, the active tool gets the key first (Esc ends the mode), unless a text field or the search bar owns it.
-        // The marks pane keeps its keys (the arrows move in its list, Delete acts on the entry that has the focus), except Esc, which still ends the mode.
-        if (Tools.Tool != AnnotateTool.None && !KeyBelongsToTextOrSearch() && !(e.Key != Key.Escape && FocusIsInMarksPane()) && Workspace.Active is { } annotated
+        // While the annotate mode is on, Esc ends it from wherever the focus is (the tool drops what it holds first), unless a text field or the
+        // search bar owns the key. Every other key belongs to the tool only when it comes from inside the document: the page view handles it on
+        // the way up (AnnotateInteraction), so Tab, the arrows, Delete and Enter keep working in the ribbon, the tab strip and the panes.
+        if (e.Key == Key.Escape && Tools.Tool != AnnotateTool.None && !KeyBelongsToTextOrSearch() && Workspace.Active is { } annotated
             && _annotates.TryGetValue(annotated, out var interaction) && interaction.HandleKey(e))
         {
             return;
@@ -349,9 +350,6 @@ internal sealed partial class PdfWindow
             // A document that went away meanwhile has no permissions to show; print stays as it was.
         }
     }
-
-    private bool FocusIsInMarksPane() =>
-        FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(focused, CommentsPane) || focused.GetVisualAncestors().Contains(CommentsPane));
 
     private bool FocusIsInNavigationPane() =>
         FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(focused, NavigationPane) || focused.GetVisualAncestors().Contains(NavigationPane));
