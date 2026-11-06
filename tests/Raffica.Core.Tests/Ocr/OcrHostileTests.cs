@@ -10,6 +10,7 @@ using Xunit;
 namespace Raffica.Core.Tests.Ocr;
 
 /// <summary>Hostile input (milestone 15, task 11): the largest page, a page of specks that look like 100,000 words, characters the font lacks, and a run that is stopped.</summary>
+[Collection(ProcessWideMeasurementGroup.Name)]
 public sealed class OcrHostileTests : IDisposable
 {
     private readonly TempFolder folder = new();
