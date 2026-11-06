@@ -984,6 +984,7 @@ internal static class PdfStrings
     public static string FindAcknowledge => Table.Get("FindAcknowledge");
     public static string FindAcknowledged => Table.Get("FindAcknowledged");
     public static string FindPicturesOne => Table.Get("FindPicturesOne");
+    public static string FindPicturesInstruction => Table.Get("FindPicturesInstruction");
     public static string FindPicturesManyFormat => Table.Get("FindPicturesManyFormat");
     public static string FindMarkAll => Table.Get("FindMarkAll");
     public static string FindMarkTicked => Table.Get("FindMarkTicked");

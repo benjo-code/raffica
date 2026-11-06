@@ -18,7 +18,7 @@ public sealed class TextEditLockWordingTests
         var en = PdfStrings.GetIn("TextEditLockInvisibleText", CultureInfo.GetCultureInfo("en"));
         var de = PdfStrings.GetIn("TextEditLockInvisibleText", CultureInfo.GetCultureInfo("de"));
         Assert.Contains("picture is what you see", en, StringComparison.Ordinal);
-        Assert.Contains("Bild das, was du siehst", de, StringComparison.Ordinal);
+        Assert.Contains("Bild das, was Sie sehen", de, StringComparison.Ordinal);
 
         // The limits are in the words of their reasons (the numbers are the ones of Core).
         Assert.Contains(TextEditLimits.MaxRunsPerPage.ToString(CultureInfo.InvariantCulture), TextEditWording.Lock(TextEditLockReason.TooManyRuns), StringComparison.Ordinal);

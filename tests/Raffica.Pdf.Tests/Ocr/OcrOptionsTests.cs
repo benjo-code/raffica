@@ -315,7 +315,7 @@ public sealed class OcrOptionsTests
         Assert.False(rules.Allows("ocr.languages"));
         Assert.Equal(PdfStrings.ModeOcrReason, rules.ReasonFor("ocr.languages"));
         PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
-        Assert.Equal("Warte, bis die Texterkennung fertig ist, oder brich sie ab.", rules.ReasonFor("ocr.languages"));
+        Assert.Equal("Warten Sie, bis die Texterkennung fertig ist, oder brechen Sie sie ab.", rules.ReasonFor("ocr.languages"));
 
         // Another mode in the way does not lock it; without a document nothing is on.
         Assert.False(new PdfCommandRules(() => false, () => 0, () => null).Allows("ocr.languages"));

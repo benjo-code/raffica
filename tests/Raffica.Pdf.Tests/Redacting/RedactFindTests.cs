@@ -400,7 +400,8 @@ public sealed class RedactFindTests
         panel2.TermBox.Text = "Zzyzx";
         Assert.True(await panel2.SearchAsync());
         ViewFixture.Pump();
-        Assert.Equal("1 page is a picture; text in pictures is not searched", panel2.PictureText);
+        // No command is wired here, so the row carries the instruction.
+        Assert.Equal("1 page is a picture; text in pictures is not searched " + PdfStrings.FindPicturesInstruction, panel2.PictureText);
     }
 
     [AvaloniaFact]
@@ -415,9 +416,37 @@ public sealed class RedactFindTests
         await panel.SearchAsync();
         ViewFixture.Pump();
 
-        Assert.True(panel.OcrButton.IsVisible);
-        Assert.False(panel.OcrButton.IsEnabled);
-        Assert.Equal("Leave the redact mode first.", Avalonia.Controls.ToolTip.GetTip(panel.OcrButton));
+        // A command that cannot run offers no dead button: the row says what to do instead.
+        Assert.False(panel.OcrButton.IsVisible);
+        Assert.Equal(PdfStrings.FindPictures(3) + " " + PdfStrings.FindPicturesInstruction, panel.PictureText);
+    }
+
+    [AvaloniaFact]
+    public async Task InTheRealWindowTheRowIsAnInstructionBecauseRedactAndOcrExcludeEachOther()
+    {
+        using var rig = await RedactUiRig.OpenAsync("ocr-scan.pdf", realSave: false);
+        await rig.EnterModeAsync();
+        var pane = rig.Window.RedactOf(rig.Tab)!.Pane;
+        pane.ToggleFind();
+        var panel = pane.FindPanel!;
+        Assert.False(rig.Command("ocr.run").IsEnabled, "Recognize text cannot run inside the redact mode");
+
+        panel.TermBox.Text = "Invoice";
+        Assert.True(await panel.SearchAsync());
+        ViewFixture.Pump();
+
+        Assert.False(panel.OcrButton.IsVisible);
+        Assert.Equal(
+            "3 pages are pictures; text in pictures is not searched Recognize text first: leave Redact mode (apply or discard the marks), recognize the text, then search again.",
+            panel.PictureText);
+
+        PdfStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("de");
+        panel.TermBox.Text = "Invoice";
+        Assert.True(await panel.SearchAsync());
+        ViewFixture.Pump();
+        Assert.False(panel.OcrButton.IsVisible);
+        Assert.Contains("Erkennen Sie zuerst den Text", panel.PictureText, StringComparison.Ordinal);
+        Assert.Contains("Seiten sind Bilder", panel.PictureText, StringComparison.Ordinal);
     }
 
     [AvaloniaFact]

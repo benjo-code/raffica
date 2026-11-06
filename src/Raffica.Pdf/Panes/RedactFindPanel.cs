@@ -40,6 +40,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
     private readonly TextBlock _caution;
     private readonly Button _acknowledge;
     private readonly TextBlock _pictures;
+    private bool _offerOcr;
     private readonly Button _ocr;
     private readonly ListBox _list;
     private readonly Button _markAll;
@@ -317,8 +318,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
 
         var offerOcr = done && _find.PictureCount > 0;
         _pictures.IsVisible = offerOcr;
-        _pictures.Text = offerOcr ? PdfStrings.FindPictures(_find.PictureCount) : string.Empty;
-        _ocr.IsVisible = offerOcr;
+        _offerOcr = offerOcr;
         UpdateOcrButton();
 
         foreach (var kind in s_kinds)
@@ -339,13 +339,20 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         }
     }
 
-    /// <summary>Enables the offer of the recognition command only when the command is wired and allowed; otherwise it shows the reason.</summary>
+    /// <summary>
+    /// Offers the recognition command as a button only when the command is wired and allowed. Redact and OCR exclude each other, so inside the
+    /// redact mode it never is: the row then says what to do (leave the mode, recognize, search again) instead of showing a dead button.
+    /// </summary>
     internal void UpdateOcrButton()
     {
         var command = _pane.OcrCommand?.Invoke();
         var usable = command is { Run: not null, IsEnabled: true };
         _ocr.IsEnabled = usable;
-        ToolTip.SetTip(_ocr, usable ? null : command?.CurrentDisabledReason);
+        _ocr.IsVisible = _offerOcr && usable;
+        ToolTip.SetTip(_ocr, null);
+        _pictures.Text = _offerOcr
+            ? PdfStrings.FindPictures(_find.PictureCount) + (usable ? string.Empty : " " + PdfStrings.FindPicturesInstruction)
+            : string.Empty;
     }
 
     private string StatusOf()

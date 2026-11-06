@@ -1758,19 +1758,19 @@
     <value>Bearbeiten beenden</value>
   </data>
   <data name="ModeAnnotateReason" xml:space="preserve">
-    <value>Beende zuerst das Anmerken.</value>
+    <value>Beenden Sie zuerst das Anmerken.</value>
   </data>
   <data name="ModeFormsReason" xml:space="preserve">
-    <value>Beende zuerst das Ausfüllen des Formulars.</value>
+    <value>Beenden Sie zuerst das Ausfüllen des Formulars.</value>
   </data>
   <data name="ModeRedactReason" xml:space="preserve">
-    <value>Wende die Schwärzungen zuerst an oder verwirf sie.</value>
+    <value>Wenden Sie die Schwärzungen zuerst an oder verwerfen Sie sie.</value>
   </data>
   <data name="ModeOcrReason" xml:space="preserve">
-    <value>Warte, bis die Texterkennung fertig ist, oder brich sie ab.</value>
+    <value>Warten Sie, bis die Texterkennung fertig ist, oder brechen Sie sie ab.</value>
   </data>
   <data name="ModeTextEditReason" xml:space="preserve">
-    <value>Beende zuerst das Bearbeiten des Textes.</value>
+    <value>Beenden Sie zuerst das Bearbeiten des Textes.</value>
   </data>
   <data name="UnsavedRedactTitle" xml:space="preserve">
     <value>Die Schwärzungen verwerfen?</value>
@@ -1788,7 +1788,7 @@
     <value>Die Texterkennung abbrechen?</value>
   </data>
   <data name="UnsavedOcrMessageFormat" xml:space="preserve">
-    <value>Die Texterkennung von {0} läuft noch. Wenn du sie beendest, bleibt die Datei, wie sie ist.</value>
+    <value>Die Texterkennung von {0} läuft noch. Wenn Sie sie beenden, bleibt die Datei, wie sie ist.</value>
   </data>
   <data name="UnsavedOcrStop" xml:space="preserve">
     <value>Erkennung beenden</value>
@@ -1800,7 +1800,7 @@
     <value>Schwärzen</value>
   </data>
   <data name="RedactHint" xml:space="preserve">
-    <value>Es wird nichts entfernt, bevor du die Markierungen anwendest.</value>
+    <value>Es wird nichts entfernt, bevor Sie die Markierungen anwenden.</value>
   </data>
   <data name="RedactCounterNone" xml:space="preserve">
     <value>Noch keine Markierungen</value>
@@ -1857,7 +1857,7 @@
     <value>Text</value>
   </data>
   <data name="RedactRefusalNothingSelected" xml:space="preserve">
-    <value>Wähle zuerst Text aus.</value>
+    <value>Wählen Sie zuerst Text aus.</value>
   </data>
   <data name="RedactRefusalTextNotMarkable" xml:space="preserve">
     <value>Dieser Text lässt sich nicht markieren, darum wurde nichts markiert.</value>
@@ -1866,7 +1866,7 @@
     <value>Ein Dokument kann höchstens {0} Markierungen enthalten.</value>
   </data>
   <data name="RedactRefusalNotArea" xml:space="preserve">
-    <value>Nur Bereiche lassen sich verschieben oder in der Größe ändern. Lösche die Markierung und markiere den Text neu.</value>
+    <value>Nur Bereiche lassen sich verschieben oder in der Größe ändern. Löschen Sie die Markierung und markieren Sie den Text neu.</value>
   </data>
   <data name="RedactRefusalOutOfRange" xml:space="preserve">
     <value>Dieser Bereich liegt nicht auf der Seite.</value>
@@ -1881,7 +1881,7 @@
     <value>Der Schwärzen-Modus ist aus.</value>
   </data>
   <data name="RedactRefusalTooManyLinesFormat" xml:space="preserve">
-    <value>Diese Auswahl umfasst mehr als {0} Zeilen, mehr als eine Markierung fassen kann. Wähle weniger Text aus.</value>
+    <value>Diese Auswahl umfasst mehr als {0} Zeilen, mehr als eine Markierung fassen kann. Wählen Sie weniger Text aus.</value>
   </data>
   <data name="RedactRefusalBusy" xml:space="preserve">
     <value>Die Auswahl wird noch markiert.</value>
@@ -1984,6 +1984,9 @@
   </data>
   <data name="FindPicturesManyFormat" xml:space="preserve">
     <value>{0} Seiten sind Bilder; Text in Bildern wird nicht durchsucht</value>
+  </data>
+  <data name="FindPicturesInstruction" xml:space="preserve">
+    <value>Erkennen Sie zuerst den Text: Verlassen Sie den Schwärzen-Modus (Markierungen anwenden oder verwerfen), erkennen Sie den Text und suchen Sie dann erneut.</value>
   </data>
   <data name="FindMarkAll" xml:space="preserve">
     <value>Alle markieren</value>
@@ -2391,13 +2394,13 @@
     <value>Seiten, die sich nicht an Ort und Stelle schwärzen lassen</value>
   </data>
   <data name="RedactRescueIntro" xml:space="preserve">
-    <value>Das Schwärzen dieser Seiten würde Inhalt außerhalb der Markierungen verändern. Wandle jede in ein Bild um, um fortzufahren, oder gehe zurück und entferne ihre Markierungen.</value>
+    <value>Das Schwärzen dieser Seiten würde Inhalt außerhalb der Markierungen verändern. Wandeln Sie jede in ein Bild um, um fortzufahren, oder gehen Sie zurück und entfernen Sie ihre Markierungen.</value>
   </data>
   <data name="RedactRescueTickFormat" xml:space="preserve">
     <value>Seite {0}: in ein Bild umwandeln ({1} dpi, {2} x {3} Pixel, bis zu {4} MB)</value>
   </data>
   <data name="RedactRescueBlocked" xml:space="preserve">
-    <value>Hake jede Seite oben ab oder gehe zurück. Bis dahin wartet das Anwenden.</value>
+    <value>Haken Sie jede Seite oben ab oder gehen Sie zurück. Bis dahin wartet das Anwenden.</value>
   </data>
   <data name="RedactRefusedTitle" xml:space="preserve">
     <value>Schwärzen nicht möglich</value>
@@ -2415,10 +2418,10 @@
     <value>Die Seitenschlüssel der Datei konnten nicht geprüft werden, deshalb wird die Datei nicht geschwärzt: Eine Seite kann Daten tragen, die Raffica nicht entfernen kann.</value>
   </data>
   <data name="RedactRefusedNotRedactableFormat" xml:space="preserve">
-    <value>Das Schwärzen von {0} würde Inhalt außerhalb der markierten Bereiche verändern, deshalb wird die Datei nicht geschwärzt. Wandle die Seite in ein Bild um oder entferne ihre Markierungen.</value>
+    <value>Das Schwärzen von {0} würde Inhalt außerhalb der markierten Bereiche verändern, deshalb wird die Datei nicht geschwärzt. Wandeln Sie die Seite in ein Bild um oder entfernen Sie ihre Markierungen.</value>
   </data>
   <data name="RedactRefusedOverlayFormat" xml:space="preserve">
-    <value>Der Text auf den Flächen von {0} enthält einen geschwärzten Text und würde ihn auf die Seite zurückbringen, deshalb wird die Datei nicht geschwärzt. Ändere den Text auf den Flächen.</value>
+    <value>Der Text auf den Flächen von {0} enthält einen geschwärzten Text und würde ihn auf die Seite zurückbringen, deshalb wird die Datei nicht geschwärzt. Ändern Sie den Text auf den Flächen.</value>
   </data>
   <data name="RedactPageOneFormat" xml:space="preserve">
     <value>Seite {0}</value>
@@ -2502,7 +2505,7 @@
     <value>Die Schwärzungen wurden geschrieben, aber der Tab konnte die Datei nicht übernehmen. Die Datei unter {0} ist die geschwärzte: Öffne sie vom Datenträger, um weiterzumachen.</value>
   </data>
   <data name="RedactPlanChanged" xml:space="preserve">
-    <value>Die Markierungen wurden bei geöffnetem Dateidialog bearbeitet, deshalb wurde nichts geschrieben. Wende erneut an, um die aktuellen Markierungen zu sehen.</value>
+    <value>Die Markierungen wurden bei geöffnetem Dateidialog bearbeitet, deshalb wurde nichts geschrieben. Wenden Sie erneut an, um die aktuellen Markierungen zu sehen.</value>
   </data>
   <data name="RedactApplySuggestedNameFormat" xml:space="preserve">
     <value>{0}-geschwaerzt.pdf</value>
@@ -2859,10 +2862,10 @@
     <value>Die Auswahl der Sprachen ist nicht brauchbar.</value>
   </data>
   <data name="OcrFailLanguageMissingFormat" xml:space="preserve">
-    <value>Diese Sprachdateien fehlen: {0}. Füge sie mit „Sprachen…“ hinzu oder wähle andere Sprachen.</value>
+    <value>Diese Sprachdateien fehlen: {0}. Fügen Sie sie mit „Sprachen…“ hinzu oder wählen Sie andere Sprachen.</value>
   </data>
   <data name="OcrFailLanguageMissingNone" xml:space="preserve">
-    <value>Eine Sprachdatei fehlt. Füge sie mit „Sprachen…“ hinzu oder wähle eine andere Sprache.</value>
+    <value>Eine Sprachdatei fehlt. Fügen Sie sie mit „Sprachen…“ hinzu oder wählen Sie eine andere Sprache.</value>
   </data>
   <data name="OcrFailDataCorrupt" xml:space="preserve">
     <value>Eine Sprachdatei konnte nicht gelesen werden. Sie ist vielleicht beschädigt oder für eine andere Version gemacht.</value>
@@ -2913,16 +2916,16 @@
     <value>{0} und {1} weitere</value>
   </data>
   <data name="OcrReportUndoable" xml:space="preserve">
-    <value>Die Erkennung ist ein Schritt im Rückgängig-Verlauf. Speichere die Datei, um sie zu behalten.</value>
+    <value>Die Erkennung ist ein Schritt im Rückgängig-Verlauf. Speichern Sie die Datei, um sie zu behalten.</value>
   </data>
   <data name="OcrReportNotUndoable" xml:space="preserve">
-    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließe ohne zu speichern, um ihn zu verwerfen.</value>
+    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließen Sie ohne zu speichern, um ihn zu verwerfen.</value>
   </data>
   <data name="OcrSkipHasText" xml:space="preserve">
     <value>Die Seite hat schon eigenen Text.</value>
   </data>
   <data name="OcrSkipAlreadyRecognized" xml:space="preserve">
-    <value>Die Seite hat schon eine Textebene von Raffica. Wähle die Option zum Neuerstellen, um sie zu ersetzen.</value>
+    <value>Die Seite hat schon eine Textebene von Raffica. Wählen Sie die Option zum Neuerstellen, um sie zu ersetzen.</value>
   </data>
   <data name="OcrSkipTooLarge" xml:space="preserve">
     <value>Die Seite ist zu groß oder hat mehr Wörter, als verarbeitet werden.</value>
@@ -2949,7 +2952,7 @@
     <value>und {0} weitere Seiten, die nicht erkannt wurden</value>
   </data>
   <data name="OcrNotStartedReason" xml:space="preserve">
-    <value>Die Texterkennung konnte nicht beginnen, weil sich das Dokument inzwischen geändert hat. Versuche es noch einmal.</value>
+    <value>Die Texterkennung konnte nicht beginnen, weil sich das Dokument inzwischen geändert hat. Versuchen Sie es noch einmal.</value>
   </data>
   <data name="TextEditBadgeText" xml:space="preserve">
     <value>Text bearbeiten – Esc zum Beenden</value>
@@ -2973,7 +2976,7 @@
     <value>Gesperrte Zeile {0} auf Seite {1}</value>
   </data>
   <data name="TextEditLockInvisibleText" xml:space="preserve">
-    <value>Gesperrt: Dieser Text ist unsichtbar. Bei einer gescannten Seite ist das Bild das, was du siehst; den versteckten Text zu ändern, ändert das Bild nicht.</value>
+    <value>Gesperrt: Dieser Text ist unsichtbar. Bei einer gescannten Seite ist das Bild das, was Sie sehen; den versteckten Text zu ändern, ändert das Bild nicht.</value>
   </data>
   <data name="TextEditLockType3Font" xml:space="preserve">
     <value>Gesperrt: Diese Seite benutzt eine Schriftart (Type 3), die Raffica nicht neu schreiben kann; deshalb lässt sich keine Zeile der Seite ändern.</value>
@@ -3036,13 +3039,13 @@
     <value>Zeile geändert. Mit Rückgängig kommt der alte Text zurück.</value>
   </data>
   <data name="TextEditNoteStale" xml:space="preserve">
-    <value>Die Seite hat sich geändert, nachdem diese Zeile gelesen wurde. Nichts wurde geändert. Wähle die Zeile noch einmal.</value>
+    <value>Die Seite hat sich geändert, nachdem diese Zeile gelesen wurde. Nichts wurde geändert. Wählen Sie die Zeile noch einmal.</value>
   </data>
   <data name="TextEditNoteWriteFailed" xml:space="preserve">
-    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sieh dir die Seite an; mit Rückgängig gehst du zurück.</value>
+    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sehen Sie sich die Seite an; mit Rückgängig gehen Sie zurück.</value>
   </data>
   <data name="TextEditNoteHistoryFull" xml:space="preserve">
-    <value>Für weitere Rückgängig-Schritte ist kein Platz mehr. Speichere zuerst. Nichts wurde geändert.</value>
+    <value>Für weitere Rückgängig-Schritte ist kein Platz mehr. Speichern Sie zuerst. Nichts wurde geändert.</value>
   </data>
   <data name="TextEditNoteFailed" xml:space="preserve">
     <value>Die Zeile konnte nicht geändert werden. Nichts wurde geändert.</value>

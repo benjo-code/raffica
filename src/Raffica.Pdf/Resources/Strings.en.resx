@@ -2001,6 +2001,9 @@
   <data name="FindPicturesManyFormat" xml:space="preserve">
     <value>{0} pages are pictures; text in pictures is not searched</value>
   </data>
+  <data name="FindPicturesInstruction" xml:space="preserve">
+    <value>Recognize text first: leave Redact mode (apply or discard the marks), recognize the text, then search again.</value>
+  </data>
   <data name="FindMarkAll" xml:space="preserve">
     <value>Mark all</value>
   </data>
