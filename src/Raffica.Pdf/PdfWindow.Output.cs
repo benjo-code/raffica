@@ -35,7 +35,7 @@ internal sealed partial class PdfWindow
             : tab.Session.Document is { } document ? document.GetOutlineAsync(token) : Task.FromResult<IReadOnlyList<PdfOutlineItem>>([]),
         path => Flow.OpenAsync(path),
         RefreshCommandStates,
-        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
 
     /// <summary>Extracts pages of the active document into a new file (the Extract pages command).</summary>
     internal void ExtractPages() => _ = GuardAsync(ExtractPagesAsync);
@@ -56,7 +56,7 @@ internal sealed partial class PdfWindow
         Dialogs,
         _ => FolderPicker is { } picker ? picker() : PickFolderAsync(),
         RefreshCommandStates,
-        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true);
+        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true);
 
     /// <summary>Exports pages of the active document as PNG images (the Export pages as images command).</summary>
     internal void ExportImages() => _ = GuardAsync(ExportImagesAsync);

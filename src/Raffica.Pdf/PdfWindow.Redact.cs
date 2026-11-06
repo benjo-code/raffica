@@ -1,3 +1,4 @@
+using Raffica.Core.Pdf;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
@@ -11,7 +12,8 @@ namespace Raffica.Pdf;
 /// <summary>
 /// The commands of the Redact tab that act on the marks: they work on the redact session of the active tab (made by the first of them). The mode
 /// puts the redact pane into the right slot, the badge over the page area and the marks over the pages; leaving it with marks asks first
-/// (Discard, Cancel). The Find panel opens with its own command, "Turn page into image" toggles the current page; the apply flow arrives with its own step and stays unwired until then.
+/// (Apply…, Discard, Cancel). The Find panel opens with its own command, "Turn page into image" toggles the current page, and Apply runs the redaction flow (the Apply command, the pane
+/// button, Save and Save as with marks, the close question).
 /// </summary>
 internal sealed partial class PdfWindow
 {
@@ -103,13 +105,23 @@ internal sealed partial class PdfWindow
     internal Task DiscardRedactAsync() =>
         Workspace.Active is { } tab && tab.RedactIfCreated is { IsActive: true } session ? LeaveRedactAsync(tab, session) : Task.CompletedTask;
 
-    // Ends the mode: silently when nothing is marked, else after the question. Discard ends it, Cancel keeps mode and marks. Apply… is the same
-    // as Cancel until the apply flow exists.
+    // Ends the mode: silently when nothing is marked, else after the question. Apply… runs the redaction flow (the mode ends with its success),
+    // Discard ends it, Cancel keeps mode and marks.
     private async Task LeaveRedactAsync(PdfTab tab, RedactSession session)
     {
-        if (!session.Plan.IsEmpty && await AskRedactAsync(tab) != CloseChoice.DontSave)
+        if (!session.Plan.IsEmpty)
         {
-            return;
+            switch (await AskRedactAsync(tab))
+            {
+                case CloseChoice.Save:
+                    await Redacting.RunAsync(tab);
+                    RefreshCommandStates();
+                    return;
+                case CloseChoice.DontSave:
+                    break;
+                default:
+                    return;
+            }
         }
 
         if (Workspace.Tabs.Contains(tab) && session.IsActive)
@@ -117,6 +129,34 @@ internal sealed partial class PdfWindow
             EndRedact(tab, session);
         }
     }
+
+    private RedactApplyFlow? _redactFlow;
+
+    /// <summary>The redaction apply flow of the window (made on first use; for tests).</summary>
+    internal RedactApplyFlow Redacting => _redactFlow ??= new RedactApplyFlow(
+        Dialogs,
+        tab => _saves.SaveMarksAsync(tab),
+        PickRedactPathAsync,
+        () => _engine ??= new PdfEngine(),
+        tab => _views.TryGetValue(tab, out var view) ? view.CurrentPage : 0,
+        RebuildTab,
+        OnSavedUnderNewPath,
+        RefreshCommandStates,
+        () => _print.IsRunning,
+        _time,
+        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+
+    /// <summary>Gets whether the redaction apply flow exists (it is made by the first Apply; for tests).</summary>
+    internal bool RedactFlowCreated => _redactFlow is not null;
+
+    // The target of applied redactions: never the name of the open file, so that a quick Enter cannot replace it.
+    private Task<string?> PickRedactPathAsync(PdfTab tab) =>
+        PickPathAsync(tab, PdfStrings.Fill(PdfStrings.RedactApplySuggestedNameFormat, Path.GetFileNameWithoutExtension(tab.Title)));
+
+    /// <summary>Applies the redactions of the active tab (the Apply command, the pane button; Save and Save as with marks come here too).</summary>
+    internal void ApplyRedact() => _ = GuardAsync(ApplyRedactAsync);
+
+    internal Task<bool> ApplyRedactAsync() => Workspace.Active is { } tab ? Redacting.RunAsync(tab) : Task.FromResult(false);
 
     private void EndRedact(PdfTab tab, RedactSession session)
     {
@@ -187,6 +227,7 @@ internal sealed partial class PdfWindow
         }
 
         interaction.Refused += pane.Report;
+        pane.ApplyRequested += ApplyRedact;
         interaction.EndRequested += () => _ = GuardAsync(() => tab.RedactIfCreated is { IsActive: true } open ? LeaveRedactAsync(tab, open) : Task.CompletedTask);
         session.Changed += RefreshCommandStates;
         _redacts[tab] = new RedactParts(interaction, overlay, badge, pane);

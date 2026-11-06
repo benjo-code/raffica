@@ -23,5 +23,11 @@ public sealed class StartupCreatesNoRedactOcrOrEditWorkTests
             Assert.Null(open.OcrIfCreated);
             Assert.Null(open.TextEditIfCreated);
         }
+
+        // The apply flow is made by the first Apply, not by opening a file or entering the mode.
+        Assert.False(f.Window.RedactFlowCreated);
+        f.Window.ToggleRedact();
+        await ViewFixture.WaitAsync(() => tab.RedactIfCreated is { IsActive: true });
+        Assert.False(f.Window.RedactFlowCreated);
     }
 }

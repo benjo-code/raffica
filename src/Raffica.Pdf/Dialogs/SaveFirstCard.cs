@@ -15,12 +15,13 @@ internal static class SaveFirstCard
     /// <param name="fileName">The open file.</param>
     /// <param name="done">Gets the answer: true for "Save first".</param>
     /// <param name="saveAs">Whether the apply was asked as Save as (the open file is changed although the pages go to a new file).</param>
-    public static Dialog Create(string fileName, Action<bool> done, bool saveAs = false)
+    /// <param name="redact">Whether the question is asked before redactions are applied (its words say redactions, not page changes).</param>
+    public static Dialog Create(string fileName, Action<bool> done, bool saveAs = false, bool redact = false)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(done);
 
-        var message = new TextBlock { Name = "PART_Message", Text = PdfStrings.Fill(saveAs ? PdfStrings.SaveFirstSaveAsMessage : PdfStrings.SaveFirstMessage, fileName), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var message = new TextBlock { Name = "PART_Message", Text = PdfStrings.Fill(redact ? (saveAs ? PdfStrings.RedactSaveFirstSaveAsMessage : PdfStrings.RedactSaveFirstMessage) : (saveAs ? PdfStrings.SaveFirstSaveAsMessage : PdfStrings.SaveFirstMessage), fileName), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         var save = new Button { Name = "PART_SaveFirst", Content = PdfStrings.SaveFirstSave };
         save.Classes.Add("primary");
         var back = new Button { Name = "PART_Back", Content = PdfStrings.ApplyBack };

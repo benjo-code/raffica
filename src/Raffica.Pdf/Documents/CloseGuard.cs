@@ -19,11 +19,11 @@ internal sealed record PlanClose(Func<PdfTab, Task<CloseChoice>> Prompt, Func<Pd
 /// <c>Cancel</c> keeps the tab. A tab with an open page plan that changes something asks its own question first (<paramref name="plan"/>, "Discard the page
 /// changes?"): <c>Save</c> is Apply and closes only if it succeeded, <c>DontSave</c> discards the plan, <c>Cancel</c> keeps tab and plan. Marks that are unsaved
 /// next to the plan (committed before the mode started) are never dropped with it: after the plan is dealt with, the normal question about them follows.
-/// A tab in the redact mode with marks that are not applied asks its own question first (<paramref name="redact"/>, "Discard the redactions?"): <c>DontSave</c> (Discard) lets the tab close,
-/// anything else keeps tab and marks (the Apply choice arrives with the apply step and keeps the tab until then). A plan that changes nothing and no unsaved marks leave silently. The guard never ends a plan itself: "Discard" is only remembered, so a Cancel at the
+/// A tab in the redact mode with marks that are not applied asks its own question first (<paramref name="redact"/>, "Discard the redactions?"): <c>Save</c> is Apply and closes only if the
+/// redactions were written, <c>DontSave</c> (Discard) lets the tab close, <c>Cancel</c> keeps tab and marks. A plan that changes nothing and no unsaved marks leave silently. The guard never ends a plan itself: "Discard" is only remembered, so a Cancel at the
 /// question about the marks (or at a later tab of Close all) keeps the plan; the plan goes with the tab when the tab really closes.
 /// </summary>
-internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save, PlanClose? plan = null, Func<PdfTab, Task<CloseChoice>>? redact = null)
+internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save, PlanClose? plan = null, PlanClose? redact = null)
 {
     public async Task<bool> CanCloseAsync(PdfTab tab)
     {
@@ -36,13 +36,24 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
         }
 
         // Redactions that are marked and not applied are no change of the file, so the tab is not dirty; they still ask before they are lost.
-        if (redact is not null && tab.RedactIfCreated is { IsActive: true } marking && !marking.Plan.IsEmpty && await redact(tab) != CloseChoice.DontSave)
+        // Apply… closes only after a write; Discard is remembered like the page plan's (the marks go with the tab), so the marks of the annotations
+        // are asked next, and their save never applies the redactions.
+        var planDiscarded = false;
+        if (redact is not null && tab.RedactIfCreated is { IsActive: true } marking && !marking.Plan.IsEmpty)
         {
-            return false;
+            switch (await redact.Prompt(tab))
+            {
+                case CloseChoice.Save:
+                    return await redact.Apply(tab);
+                case CloseChoice.DontSave:
+                    planDiscarded = true;
+                    break;
+                default:
+                    return false;
+            }
         }
 
         // The tab is dirty while a changed plan is open, but the generic "Save changes?" would be the wrong question for it: the plan has its own.
-        var planDiscarded = false;
         if (plan is not null && tab.OrganizeIfCreated is { IsActive: true } open && !open.Plan.IsIdentity)
         {
             switch (await plan.Prompt(tab))
@@ -65,7 +76,7 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
             return true;
         }
 
-        var saveNow = planDiscarded && plan?.SaveMarks is { } marksOnly ? marksOnly : save;
+        var saveNow = planDiscarded && (plan?.SaveMarks ?? redact?.SaveMarks) is { } marksOnly ? marksOnly : save;
         return await prompt(tab) switch
         {
             CloseChoice.Save => await saveNow(tab) && !HoldsUnresolvedEdit(tab),

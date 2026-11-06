@@ -2211,4 +2211,463 @@
   <data name="RedactRefusalOverlayRepeatsManyFormat" xml:space="preserve">
     <value>The text on marks on pages {0} repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
   </data>
+  <data name="RedactApplyTitle" xml:space="preserve">
+    <value>Apply redactions</value>
+  </data>
+  <data name="RedactApplyJobTitleFormat" xml:space="preserve">
+    <value>Applying the redactions to {0}</value>
+  </data>
+  <data name="RedactApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Checking the redactions of {0}</value>
+  </data>
+  <data name="RedactApplyRemovedHeading" xml:space="preserve">
+    <value>What will be removed</value>
+  </data>
+  <data name="RedactApplyWholeHeading" xml:space="preserve">
+    <value>Removed whole instead of precisely</value>
+  </data>
+  <data name="RedactApplyRasterHeading" xml:space="preserve">
+    <value>Pages turned into images</value>
+  </data>
+  <data name="RedactApplyImageHeading" xml:space="preserve">
+    <value>Image areas</value>
+  </data>
+  <data name="RedactApplyOverlayHeading" xml:space="preserve">
+    <value>Overlay text</value>
+  </data>
+  <data name="RedactApplyCleanedHeading" xml:space="preserve">
+    <value>Also removed from the whole file, every time</value>
+  </data>
+  <data name="RedactApplyLostHeading" xml:space="preserve">
+    <value>What the rewrite loses</value>
+  </data>
+  <data name="RedactApplyNotCleanedHeading" xml:space="preserve">
+    <value>Not cleaned</value>
+  </data>
+  <data name="RedactCountChars" xml:space="preserve">
+    <value>Characters removed: {0}</value>
+  </data>
+  <data name="RedactCountSplit" xml:space="preserve">
+    <value>Text objects split: {0}</value>
+  </data>
+  <data name="RedactCountTextWhole" xml:space="preserve">
+    <value>Text objects removed as a whole: {0}</value>
+  </data>
+  <data name="RedactCountImagesOver" xml:space="preserve">
+    <value>Images overwritten under a mark: {0}</value>
+  </data>
+  <data name="RedactCountImagesWhole" xml:space="preserve">
+    <value>Images removed as a whole: {0}</value>
+  </data>
+  <data name="RedactCountPathsCut" xml:space="preserve">
+    <value>Paths cropped: {0}</value>
+  </data>
+  <data name="RedactCountPathsWhole" xml:space="preserve">
+    <value>Paths removed as a whole: {0}</value>
+  </data>
+  <data name="RedactCountForms" xml:space="preserve">
+    <value>Form objects taken apart or removed: {0}</value>
+  </data>
+  <data name="RedactCountAnnots" xml:space="preserve">
+    <value>Annotations removed, with their popups and replies: {0}</value>
+  </data>
+  <data name="RedactPageLineFormat" xml:space="preserve">
+    <value>Page {0}: {1}</value>
+  </data>
+  <data name="RedactPageNothingFormat" xml:space="preserve">
+    <value>Page {0}: no content was under the marks; the areas are drawn.</value>
+  </data>
+  <data name="RedactFallbackTextObject" xml:space="preserve">
+    <value>a text object with characters under a mark</value>
+  </data>
+  <data name="RedactFallbackImage" xml:space="preserve">
+    <value>an image under a mark</value>
+  </data>
+  <data name="RedactFallbackPath" xml:space="preserve">
+    <value>a path under a mark</value>
+  </data>
+  <data name="RedactFallbackForm" xml:space="preserve">
+    <value>a form object under a mark</value>
+  </data>
+  <data name="RedactCleanAuthor" xml:space="preserve">
+    <value>Information field Author</value>
+  </data>
+  <data name="RedactCleanTitle" xml:space="preserve">
+    <value>Information field Title</value>
+  </data>
+  <data name="RedactCleanSubject" xml:space="preserve">
+    <value>Information field Subject</value>
+  </data>
+  <data name="RedactCleanKeywords" xml:space="preserve">
+    <value>Information field Keywords</value>
+  </data>
+  <data name="RedactCleanCreator" xml:space="preserve">
+    <value>Information field Creator</value>
+  </data>
+  <data name="RedactCleanProducer" xml:space="preserve">
+    <value>Information field Producer</value>
+  </data>
+  <data name="RedactCleanXmpFormat" xml:space="preserve">
+    <value>XMP metadata: up to {0}</value>
+  </data>
+  <data name="RedactCleanBookmarksFormat" xml:space="preserve">
+    <value>Bookmarks: up to {0}</value>
+  </data>
+  <data name="RedactCleanAttachmentsFormat" xml:space="preserve">
+    <value>Attached files: {0}</value>
+  </data>
+  <data name="RedactCleanJavaScriptFormat" xml:space="preserve">
+    <value>JavaScript: up to {0}</value>
+  </data>
+  <data name="RedactCleanLabelsFormat" xml:space="preserve">
+    <value>Page labels: {0}</value>
+  </data>
+  <data name="RedactCleanNone" xml:space="preserve">
+    <value>The file has none of the document-level data that the cleanup removes.</value>
+  </data>
+  <data name="RedactCleanIncomplete" xml:space="preserve">
+    <value>The scan of the file could not read every stream, so there may be more.</value>
+  </data>
+  <data name="RedactLossLinksFormat" xml:space="preserve">
+    <value>Internal links lose their target and lead nowhere ({0}).</value>
+  </data>
+  <data name="RedactLossFormsFormat" xml:space="preserve">
+    <value>Form fields are no longer reliably fillable ({0}); their widgets stay on the pages as annotations.</value>
+  </data>
+  <data name="RedactLossRgbFormat" xml:space="preserve">
+    <value>Images overwritten under a mark are written again as RGB; colours of CMYK or indexed images may look different in other viewers ({0}).</value>
+  </data>
+  <data name="RedactLossSignatureFormat" xml:space="preserve">
+    <value>The file is digitally signed ({0}). Programs that check signatures will report the signature as broken after this change; its data stays in the file.</value>
+  </data>
+  <data name="RedactNotCleanedMeta" xml:space="preserve">
+    <value>Metadata and private data (/Metadata, /PieceInfo) of form objects and image objects that come with the pages.</value>
+  </data>
+  <data name="RedactNotCleanedActions" xml:space="preserve">
+    <value>Actions of annotations (links and other actions) that come with the pages.</value>
+  </data>
+  <data name="RedactNotCleanedAnnots" xml:space="preserve">
+    <value>Annotations outside the marked areas (comment texts, authors, replies, popups, notes) come along unchanged; only an annotation under a mark is removed.</value>
+  </data>
+  <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
+    <value>File attachments of annotations (paperclip notes): up to {0}. Their embedded files come with the pages and stay in the file.</value>
+  </data>
+  <data name="RedactNotCleanedFormValues" xml:space="preserve">
+    <value>The values of form fields stay on their widgets in the file; a marked text inside them is found by the check of the file, and then nothing is written.</value>
+  </data>
+  <data name="RedactNotCleanedSignature" xml:space="preserve">
+    <value>The data of a digital signature (certificate name, contents) stays in the file.</value>
+  </data>
+  <data name="RedactImgPixelatedFormat" xml:space="preserve">
+    <value>Image areas pixelated: {0}</value>
+  </data>
+  <data name="RedactImgBlurredFormat" xml:space="preserve">
+    <value>Image areas blurred: {0}</value>
+  </data>
+  <data name="RedactImgSolidFormat" xml:space="preserve">
+    <value>Image areas filled solid instead ({0}): {1}</value>
+  </data>
+  <data name="RedactSolidTooSmall" xml:space="preserve">
+    <value>the area is smaller than 2 x 2 blocks of 8 pixels</value>
+  </data>
+  <data name="RedactSolidTurned" xml:space="preserve">
+    <value>the image is turned or sheared</value>
+  </data>
+  <data name="RedactSolidClipped" xml:space="preserve">
+    <value>the image is cut by a clipping path</value>
+  </data>
+  <data name="RedactSolidOverlapping" xml:space="preserve">
+    <value>several areas overlap on the same image</value>
+  </data>
+  <data name="RedactSolidUnreadable" xml:space="preserve">
+    <value>the pixels of the image could not be read or written reliably</value>
+  </data>
+  <data name="RedactSolidTooMany" xml:space="preserve">
+    <value>too many treated images lie under one area</value>
+  </data>
+  <data name="RedactOverlayNotShownFormat" xml:space="preserve">
+    <value>Areas without overlay text because a pixelated or blurred image lies under them: {0}</value>
+  </data>
+  <data name="RedactOverlayNotFitFormat" xml:space="preserve">
+    <value>Areas whose overlay text does not fit and stay filled without text: {0}</value>
+  </data>
+  <data name="RedactOverlayLimitFormat" xml:space="preserve">
+    <value>Of these, areas left out because the limit for overlay text was reached: {0}</value>
+  </data>
+  <data name="RedactRasterInfoFormat" xml:space="preserve">
+    <value>Page {0}: turned into an image at {1} dpi ({2} x {3} pixels, up to {4} MB). Only the picture of the page stays; its text, links, comments and form fields are not kept.</value>
+  </data>
+  <data name="RedactRasterLowered" xml:space="preserve">
+    <value>The resolution is lower than asked for because the page is large.</value>
+  </data>
+  <data name="RedactRasterInfoPlainFormat" xml:space="preserve">
+    <value>Page {0}: turned into an image. Only the picture of the page stays; its text, links, comments and form fields are not kept.</value>
+  </data>
+  <data name="RedactRescueHeading" xml:space="preserve">
+    <value>Pages that cannot be redacted in place</value>
+  </data>
+  <data name="RedactRescueIntro" xml:space="preserve">
+    <value>Redacting these pages would change content outside the marks. Turn each one into an image to go on, or go back and remove its marks.</value>
+  </data>
+  <data name="RedactRescueTickFormat" xml:space="preserve">
+    <value>Page {0}: turn into an image ({1} dpi, {2} x {3} pixels, up to {4} MB)</value>
+  </data>
+  <data name="RedactRescueBlocked" xml:space="preserve">
+    <value>Tick every page above, or go back. Applying waits until then.</value>
+  </data>
+  <data name="RedactRefusedTitle" xml:space="preserve">
+    <value>Redaction not possible</value>
+  </data>
+  <data name="RedactRefusedIntro" xml:space="preserve">
+    <value>Nothing was written. The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactRefusedEncrypted" xml:space="preserve">
+    <value>The file is encrypted. Raffica does not remove protection silently, so the file is not redacted.</value>
+  </data>
+  <data name="RedactRefusedKeysFormat" xml:space="preserve">
+    <value>A thumbnail, private data, metadata or actions that Raffica cannot remove are on {0}, so the file is not redacted.</value>
+  </data>
+  <data name="RedactRefusedKeysUnverified" xml:space="preserve">
+    <value>The page keys of the file could not be checked, so the file is not redacted: a page may carry data that Raffica cannot remove.</value>
+  </data>
+  <data name="RedactRefusedNotRedactableFormat" xml:space="preserve">
+    <value>Redacting {0} would change content outside the marked areas, so the file is not redacted. Turn the page into an image or remove its marks.</value>
+  </data>
+  <data name="RedactRefusedOverlayFormat" xml:space="preserve">
+    <value>The text on the areas of {0} contains a text that is redacted, which would put it back on the page, so the file is not redacted. Change the text on the areas.</value>
+  </data>
+  <data name="RedactPageOneFormat" xml:space="preserve">
+    <value>page {0}</value>
+  </data>
+  <data name="RedactPageManyFormat" xml:space="preserve">
+    <value>pages {0}</value>
+  </data>
+  <data name="RedactPagesNone" xml:space="preserve">
+    <value>the file</value>
+  </data>
+  <data name="RedactFailedTitle" xml:space="preserve">
+    <value>Redaction stopped by the check</value>
+  </data>
+  <data name="RedactFailedIntro" xml:space="preserve">
+    <value>The written file did not pass the check, so nothing was written. The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactFailedNoCheck" xml:space="preserve">
+    <value>The check of the written file could not be finished, so nothing was written. The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactFailUnremovableFormat" xml:space="preserve">
+    <value>Removed text is still in the file in a place that is not a page object (for example a Type 3 font, a pattern or a stream of a form), and Raffica cannot remove it ({0}).</value>
+  </data>
+  <data name="RedactFailTextFormat" xml:space="preserve">
+    <value>A removed text is still in the page text of the result ({0}).</value>
+  </data>
+  <data name="RedactFailCharFormat" xml:space="preserve">
+    <value>Characters of the result lie inside a marked area ({0}).</value>
+  </data>
+  <data name="RedactFailPixelFormat" xml:space="preserve">
+    <value>Pixels of an image under a marked area were not overwritten ({0}).</value>
+  </data>
+  <data name="RedactFailUnreadableFormat" xml:space="preserve">
+    <value>Part of the file could not be read ({0}), so it cannot be shown that nothing of the removed text is left in it.</value>
+  </data>
+  <data name="RedactFailKeysFormat" xml:space="preserve">
+    <value>A page still carries a thumbnail, private data, metadata or actions that Raffica cannot remove, or the keys could not be checked ({0}).</value>
+  </data>
+  <data name="RedactFailOutsideFormat" xml:space="preserve">
+    <value>A page looks different outside the marked areas ({0}).</value>
+  </data>
+  <data name="RedactFailUnverifiableFormat" xml:space="preserve">
+    <value>A removed text could not be searched for ({0}), so the result cannot be checked.</value>
+  </data>
+  <data name="RedactFailCleanupFormat" xml:space="preserve">
+    <value>Something the cleanup should have removed from the whole file is still there ({0}).</value>
+  </data>
+  <data name="RedactFailRasterFormat" xml:space="preserve">
+    <value>A page that was turned into an image is not only one image, or could not be checked ({0}).</value>
+  </data>
+  <data name="RedactFailTreatmentFormat" xml:space="preserve">
+    <value>An image area that should be pixelated or blurred is neither filled solid nor the block averages of the original ({0}).</value>
+  </data>
+  <data name="RedactFailedWriteTitle" xml:space="preserve">
+    <value>Redactions not applied</value>
+  </data>
+  <data name="RedactStays" xml:space="preserve">
+    <value>The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactStaysAfterSave" xml:space="preserve">
+    <value>The marks are saved into the file, but the redactions were not applied and are still open.</value>
+  </data>
+  <data name="RedactFailSourceModified" xml:space="preserve">
+    <value>The file changed on disk since it was opened, so it cannot be redacted from here.</value>
+  </data>
+  <data name="RedactFailEncrypted" xml:space="preserve">
+    <value>The file is encrypted, so it is not redacted.</value>
+  </data>
+  <data name="RedactFailMarks" xml:space="preserve">
+    <value>A mark no longer fits the document.</value>
+  </data>
+  <data name="RedactFailOpen" xml:space="preserve">
+    <value>The file could not be opened for the redaction.</value>
+  </data>
+  <data name="RedactFailDamaged" xml:space="preserve">
+    <value>A page of the file is damaged and could not be read.</value>
+  </data>
+  <data name="RedactFailOther" xml:space="preserve">
+    <value>The redactions could not be applied.</value>
+  </data>
+  <data name="RedactFailAdoptFormat" xml:space="preserve">
+    <value>The redactions were written, but the tab could not take the file over. The file at {0} is the redacted one: open it from disk to continue.</value>
+  </data>
+  <data name="RedactPlanChanged" xml:space="preserve">
+    <value>The marks were edited while the file dialog was open, so nothing was written. Apply again to see the current marks.</value>
+  </data>
+  <data name="RedactApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-redacted.pdf</value>
+  </data>
+  <data name="RedactResultTitle" xml:space="preserve">
+    <value>Redactions applied</value>
+  </data>
+  <data name="RedactResultIntroFormat" xml:space="preserve">
+    <value>The redacted file {0} was written and read back. Below: what was removed, what the check covered and what it did not.</value>
+  </data>
+  <data name="RedactResRemovedHeading" xml:space="preserve">
+    <value>Removed</value>
+  </data>
+  <data name="RedactResCleanedHeading" xml:space="preserve">
+    <value>Cleaned, read back from the written file</value>
+  </data>
+  <data name="RedactResLostHeading" xml:space="preserve">
+    <value>Lost</value>
+  </data>
+  <data name="RedactResCheckedHeading" xml:space="preserve">
+    <value>Checked</value>
+  </data>
+  <data name="RedactResNotCheckedHeading" xml:space="preserve">
+    <value>Not checked</value>
+  </data>
+  <data name="RedactChkPageText" xml:space="preserve">
+    <value>Page text: every removed text occurs in the page text of the written file at most as often as before, minus the places removed (never, for a text marked everywhere).</value>
+  </data>
+  <data name="RedactChkBytes" xml:space="preserve">
+    <value>File bytes: the file was searched for each removed text of at least 4 characters, with strings decoded and streams unpacked, in older revisions, metadata and attachments too.</value>
+  </data>
+  <data name="RedactChkAreasSolid" xml:space="preserve">
+    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are the colour of the area.</value>
+  </data>
+  <data name="RedactChkAreasTreated" xml:space="preserve">
+    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are either the colour of the area or exactly the block averages worked out from the original.</value>
+  </data>
+  <data name="RedactChkPagesAll" xml:space="preserve">
+    <value>Pages: every redacted page was rendered from the written file and looks like the original outside the marked areas.</value>
+  </data>
+  <data name="RedactChkPagesInPlace" xml:space="preserve">
+    <value>Pages: every page redacted in place was rendered from the written file and looks like the original outside the marked areas.</value>
+  </data>
+  <data name="RedactChkRasterFormat" xml:space="preserve">
+    <value>Pages turned into images ({0}): each has exactly one image and no text, other object, annotation, link or form field, and the pixels under the marks are the colour of the area. These pages are not rendered against the original.</value>
+  </data>
+  <data name="RedactChkKeys" xml:space="preserve">
+    <value>Page keys: no page of the written file carries /Thumb, /PieceInfo, /Metadata or /AA.</value>
+  </data>
+  <data name="RedactChkCleanup" xml:space="preserve">
+    <value>Cleanup: the information dictionary, bookmarks, the names tree (attached files, scripts), page labels, the open action, actions, form and permissions were read back from the written file; none is left.</value>
+  </data>
+  <data name="RedactNcOther" xml:space="preserve">
+    <value>Further limits of the check apply.</value>
+  </data>
+  <data name="RedactNcBlankFormat" xml:space="preserve">
+    <value>Removed texts that are only white space: {0}. They are not searched for.</value>
+  </data>
+  <data name="RedactNcUnreadableCharsFormat" xml:space="preserve">
+    <value>Removed texts with a character that could not be read exactly: {0}. They are not searched for.</value>
+  </data>
+  <data name="RedactNcTruncatedFormat" xml:space="preserve">
+    <value>Removed texts longer than the limit: {0}. Only their beginning is searched for.</value>
+  </data>
+  <data name="RedactNcFurtherFormat" xml:space="preserve">
+    <value>Further removed texts beyond the limit of {1}: {0}. They are not searched for.</value>
+  </data>
+  <data name="RedactNcRawShortFormat" xml:space="preserve">
+    <value>Removed texts shorter than {1} characters: {0}. They are not searched for in the file bytes.</value>
+  </data>
+  <data name="RedactNcRawNothing" xml:space="preserve">
+    <value>No text was removed, so the file bytes were not searched.</value>
+  </data>
+  <data name="RedactNcRawStillOccurFormat" xml:space="preserve">
+    <value>Removed texts that still occur in the page text: {0} (in {1} places), so a leaked copy in the file bytes cannot be told from them.</value>
+  </data>
+  <data name="RedactNcRawFilterFormat" xml:space="preserve">
+    <value>Streams with a filter that is not unpacked: {0}. They are searched as bytes only.</value>
+  </data>
+  <data name="RedactNcRawImageStreamsFormat" xml:space="preserve">
+    <value>Streams with image data: {0}. They are searched as bytes only.</value>
+  </data>
+  <data name="RedactNcRawUnreadableFormat" xml:space="preserve">
+    <value>Streams that could not be unpacked: {0}.</value>
+  </data>
+  <data name="RedactNcRawTooLargeFormat" xml:space="preserve">
+    <value>Streams that unpack to more than the limit of one stream: {0}.</value>
+  </data>
+  <data name="RedactNcRawTotalFormat" xml:space="preserve">
+    <value>Streams not unpacked because the file reached the total limit: {0}.</value>
+  </data>
+  <data name="RedactNcRawPredictorFormat" xml:space="preserve">
+    <value>Streams with a predictor that is not undone: {0}.</value>
+  </data>
+  <data name="RedactNcRawEncrypted" xml:space="preserve">
+    <value>The file has an encryption entry, so its streams cannot be read.</value>
+  </data>
+  <data name="RedactNcRawFontMapping" xml:space="preserve">
+    <value>Fonts with their own code mapping: the text is not readable in the streams.</value>
+  </data>
+  <data name="RedactNcRawEncodings" xml:space="preserve">
+    <value>Only common encodings of the text are searched; others are not found.</value>
+  </data>
+  <data name="RedactNcRawSplit" xml:space="preserve">
+    <value>A text split across text objects, XML entities and other spellings of the case are not found.</value>
+  </data>
+  <data name="RedactNcRawImageAttachments" xml:space="preserve">
+    <value>Image data is searched as bytes only, and attached files are not looked into.</value>
+  </data>
+  <data name="RedactNcPixelsBeyondFormat" xml:space="preserve">
+    <value>Marked areas beyond the limit of {1} were not read back: {0}.</value>
+  </data>
+  <data name="RedactNcPixelsOnlyImages" xml:space="preserve">
+    <value>Only images that touch a marked area are read back.</value>
+  </data>
+  <data name="RedactNcOtherViewer" xml:space="preserve">
+    <value>Another program may read the file differently.</value>
+  </data>
+  <data name="RedactNcApplyRender" xml:space="preserve">
+    <value>Render comparison: only the pages redacted in place are compared with the original, outside the marked areas and the places where content was removed; pages without a mark are not compared, and for a document with a form the annotations are left out of both renders.</value>
+  </data>
+  <data name="RedactNcApplyRenderRasterFormat" xml:space="preserve">
+    <value>Render comparison: only the pages redacted in place are compared with the original, outside the marked areas and the places where content was removed; pages without a mark and the pages turned into images ({0}) are not compared, and for a document with a form the annotations are left out of both renders.</value>
+  </data>
+  <data name="RedactNcApplyPageKeys" xml:space="preserve">
+    <value>Page keys: only /Thumb, /PieceInfo, /Metadata and /AA of the page dictionaries are looked for; the same keys of form objects, image objects and annotations are not.</value>
+  </data>
+  <data name="RedactNcApplyXmp" xml:space="preserve">
+    <value>XMP metadata and JavaScript were removed from the document level by building the file anew; the entries inside page-level objects are not read back.</value>
+  </data>
+  <data name="RedactNcRasterOutsideFormat" xml:space="preserve">
+    <value>Pages turned into images ({0}): a visible occurrence of a removed text outside the marked areas stays in the image and cannot be found without text recognition.</value>
+  </data>
+  <data name="RedactNcImageTextFormat" xml:space="preserve">
+    <value>Image areas pixelated or blurred: {0}, filled solid: {1}. Whether text inside such an image stays legible is not checked.</value>
+  </data>
+  <data name="RedactNcOverlayNotRead" xml:space="preserve">
+    <value>Overlay text is drawn as shapes on the areas and is not read back from the written file.</value>
+  </data>
+  <data name="RedactNcNoTermFormat" xml:space="preserve">
+    <value>Marks without a text (rectangles dragged on the page): {0}. The text under them is removed, but no text is searched for in the file bytes for them; only the characters inside the areas are looked for.</value>
+  </data>
+  <data name="RedactMarksOpen" xml:space="preserve">
+    <value>The marks are still open.</value>
+  </data>
+  <data name="RedactSaveFirstMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the redactions are applied.</value>
+  </data>
+  <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. Back leaves everything as it is.</value>
+  </data>
 </root>

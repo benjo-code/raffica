@@ -28,9 +28,9 @@ public sealed class SaveCardsTests
         "UnsavedLockedTitle", "UnsavedLockedMessageFormat", "UnsavedDiscard",
     ];
 
-    // Every text of the new-signature card and its hint (M2.3): found by name, so a new string is covered without a list to keep.
+    // Every text of the new-signature card and its hint (M2.3) and of the redaction (M2.5): found by name, so a new string is covered without a list to keep.
     private static readonly string[] SignatureKeys =
-        [.. typeof(PdfStrings).GetProperties().Where(p => p.PropertyType == typeof(string) && p.Name.StartsWith("Signature", StringComparison.Ordinal)).Select(p => p.Name)];
+        [.. typeof(PdfStrings).GetProperties().Where(p => p.PropertyType == typeof(string) && (p.Name.StartsWith("Signature", StringComparison.Ordinal) || p.Name.StartsWith("Redact", StringComparison.Ordinal))).Select(p => p.Name)];
 
     private sealed class Shown(Window window, Dialog card, ManualTime time) : IDisposable
     {

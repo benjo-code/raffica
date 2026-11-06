@@ -33,6 +33,7 @@ internal sealed class PdfCommandRules(
     Func<bool>? planCanRedo = null,
     Func<bool>? planChanged = null,
     Func<bool>? marksUnsaved = null,
+    Func<bool>? redactMarked = null,
     ModeExclusion? modes = null)
 {
     // Without the window's own exclusion the only mode known is the page plan, which organizeActive tells.
@@ -92,6 +93,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false),
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
+        PdfCommandIds.RedactApply => hasDocument() && _modes.IsActive(PdfMode.Redact) && Ask(redactMarked, false) && !Ask(saveRunning, false),
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
         PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
@@ -148,7 +150,7 @@ internal sealed class PdfCommandRules(
         }
 
         // A save, an apply or an output job that runs holds the file: entering the mode and applying wait for it.
-        if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages || (id == PdfCommandIds.RedactMode && !_modes.IsActive(PdfMode.Redact)))
+        if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages || id == PdfCommandIds.RedactApply || (id == PdfCommandIds.RedactMode && !_modes.IsActive(PdfMode.Redact)))
         {
             return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
         }

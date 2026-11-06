@@ -59,13 +59,13 @@ internal sealed partial class PdfWindow
         () => Workspace.Tabs.Count,
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
         PrintAvailable,
-        isDirty: () => Workspace.Active is { IsDirty: true },
+        isDirty: () => Workspace.Active is { IsDirty: true } || OpenRedact is { Plan.IsEmpty: false },
         canUndo: () => OpenPlan is { } plan ? plan.CanUndo : OpenRedact is { } redact ? redact.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
         canRedo: () => OpenPlan is { } plan ? plan.CanRedo : OpenRedact is { } redact ? redact.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
-        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
+        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
-        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
+        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         hasForm: () => Workspace.Active is { } active && TabHasForm(active),
         fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
         hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0,
@@ -76,6 +76,7 @@ internal sealed partial class PdfWindow
         planCanRedo: () => OpenPlan?.CanRedo == true,
         planChanged: () => OpenPlan is { } plan && !plan.Plan.IsIdentity,
         marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true,
+        redactMarked: () => OpenRedact is { Plan.IsEmpty: false },
         modes: new ModeExclusion(ModeIsOn));
 
     // Which modes are on for the active tab: the annotate tool is the window's, the others are the sessions of the tab (none is made by asking).
@@ -235,7 +236,8 @@ internal sealed partial class PdfWindow
         RedactFind: ToggleRedactFind,
         RedactRasterPage: ToggleRedactRasterPage,
         RedactDeleteMarks: DeleteRedactMarks,
-        RedactDiscard: DiscardRedact);
+        RedactDiscard: DiscardRedact,
+        RedactApply: ApplyRedact);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,

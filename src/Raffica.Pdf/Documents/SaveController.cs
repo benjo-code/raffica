@@ -82,8 +82,8 @@ internal sealed class SaveController
     }
 
     /// <summary>
-    /// Hands Save and Save as of a tab with an open page plan that changes something to the Apply flow (the second argument says it is Save as): a page
-    /// plan is written by the rewrite of Apply, never by the incremental save. A tab without such a plan saves as before. Set by the window (the flow
+    /// Hands Save and Save as of a tab with an open page plan that changes something, or with marked redactions, to the Apply flow (the second argument says it
+    /// is Save as): a page plan or redactions are written by the rewrite of Apply, never by the incremental save. A tab without such a plan saves as before. Set by the window (the flow
     /// itself uses <see cref="SaveMarksAsync"/>, so this class does not know it).
     /// </summary>
     public Func<PdfTab, bool, Task<bool>>? ApplyPlan { get; set; }
@@ -100,8 +100,11 @@ internal sealed class SaveController
     /// </summary>
     public Task<bool> SaveMarksAsync(PdfTab tab) => RunAsync(tab, askForTarget: false);
 
+    // A page plan that changes something, or redactions that are marked: both are written by their own apply, never by the incremental save.
     private bool HasPlan(PdfTab tab) =>
-        ApplyPlan is not null && tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity;
+        ApplyPlan is not null
+        && ((tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity)
+            || (tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty));
 
     private async Task<bool> RunAsync(PdfTab tab, bool askForTarget)
     {

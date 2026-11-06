@@ -114,7 +114,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync), AskRedactAsync);
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync), new PlanClose(AskRedactAsync, ApplyRedactForCloseAsync, SaveMarksForCloseAsync));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -163,11 +163,13 @@ internal sealed partial class PdfWindow : Window
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
-            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
-        _saves.ApplyPlan = (tab, saveAs) => Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
+        _saves.ApplyPlan = (tab, saveAs) => tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty
+            ? Redacting.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose)
+            : Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -231,6 +233,7 @@ internal sealed partial class PdfWindow : Window
         Step(_print.Cancel);
         Step(_saves.Cancel);
         Step(() => _applyFlow?.Cancel());
+        Step(() => _redactFlow?.Cancel());
         Step(() => _outputFlow?.Cancel());
         Step(() => _exportFlow?.Cancel());
         Step(_fieldCodes.Dispose);
@@ -1449,6 +1452,9 @@ internal sealed partial class PdfWindow : Window
 
     // "Apply…" of the close question: the Apply card flow; the tab closes only if the plan was written.
     private Task<bool> ApplyForCloseAsync(PdfTab tab) => Applying.RunAsync(tab);
+
+    // "Apply…" of the close question of the redactions: the redaction Apply card flow; the tab closes only if the redactions were written.
+    private Task<bool> ApplyRedactForCloseAsync(PdfTab tab) => Redacting.RunAsync(tab);
 
     /// <summary>Asks about every document with unsaved changes before the window closes; a Cancel keeps the window open.</summary>
     private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
