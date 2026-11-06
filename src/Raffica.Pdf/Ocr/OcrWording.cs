@@ -19,6 +19,9 @@ internal static class OcrWording
     /// <summary>The most page numbers named in one line of the report; the rest is counted.</summary>
     private const int PagesNamed = 20;
 
+    /// <summary>The most skipped pages the report names one by one (each with its reason); the rest is counted in one line.</summary>
+    internal const int SkippedLinesShown = 50;
+
     /// <summary>Why a page was not recognized. <paramref name="detail"/> is the resolution Core names ("72 dpi") for a resolution that is too low.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The reason has no text.</exception>
     public static string Text(OcrSkipReason reason, string? detail) => reason switch
@@ -85,9 +88,14 @@ internal static class OcrWording
             }
         }
 
-        foreach (var skipped in report.Skipped)
+        foreach (var skipped in report.Skipped.Take(SkippedLinesShown))
         {
             lines.Add(SkippedLine(skipped));
+        }
+
+        if (report.Skipped.Count > SkippedLinesShown)
+        {
+            lines.Add(PdfStrings.Fill(PdfStrings.OcrReportSkippedMoreFormat, report.Skipped.Count - SkippedLinesShown));
         }
 
         AddPages(lines, PdfStrings.OcrReportLowFormat, report.LowConfidencePages);

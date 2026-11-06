@@ -65,7 +65,7 @@ public sealed class OcrReportTests
             }
 
             // The card shows the same lines.
-            var card = OcrReportCard.Create(text2, () => { });
+            var card = OcrReportCard.Create(text2, "scan.pdf", () => { });
             var host = new Raffica.Shell.Controls.DialogHost { Content = new Avalonia.Controls.Border() };
             var window = new Avalonia.Controls.Window { Content = host };
             window.Show();
@@ -171,21 +171,28 @@ public sealed class OcrReportTests
     }
 
     [AvaloniaFact]
-    public void HistoryFullCardOffersSaveFirstAndBack()
+    public void ThousandSkippedPagesGiveABoundedReport()
     {
-        var answers = new List<bool>();
-        var card = OcrKeepPagesCard.CreateHistoryFull("scan.pdf", answers.Add);
+        var skipped = Enumerable.Range(0, 1000).Select(page => new OcrSkippedPage(page, OcrSkipReason.HasText)).ToList();
+        var report = new OcrReport { PagesRecognized = 0, Words = 0, Skipped = skipped };
+        var text = OcrWording.Report(report, applied: null, canceled: false);
+
+        // The first pages are named with their reason, the rest is counted, and the card holds as many children as lines.
+        Assert.InRange(text.Lines.Count, 50, 60);
+        Assert.Contains(PdfStrings.Fill(PdfStrings.OcrReportSkippedLineFormat, 1, PdfStrings.OcrSkipHasText), text.Lines);
+        Assert.Contains(PdfStrings.Fill(PdfStrings.OcrReportSkippedLineFormat, 50, PdfStrings.OcrSkipHasText), text.Lines);
+        Assert.DoesNotContain(PdfStrings.Fill(PdfStrings.OcrReportSkippedLineFormat, 1000, PdfStrings.OcrSkipHasText), text.Lines);
+        Assert.Contains(PdfStrings.Fill(PdfStrings.OcrReportSkippedMoreFormat, 950), text.Lines);
+
+        var card = OcrReportCard.Create(text, "scan.pdf", () => { });
         var host = new Raffica.Shell.Controls.DialogHost { Content = new Avalonia.Controls.Border() };
         var window = new Avalonia.Controls.Window { Content = host };
         window.Show();
         host.Show(card);
         PrintHost.Pump();
-        Assert.Equal(PdfStrings.OcrHistoryFullTitle, card.Title);
-        Assert.Contains("scan.pdf", card.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(b => b.Name == "PART_Message").Text, StringComparison.Ordinal);
-        OcrRig.Click(card, "PART_SaveFirst");
-        OcrRig.Click(card, "PART_Back");
-        // The first answer counts, a second click does nothing.
-        Assert.Equal([true], answers);
+        Assert.Equal(text.Lines.Count, card.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Count(b => b.Name == "PART_Line"));
         window.Close();
+
+        InBothLanguages(_ => Assert.False(string.IsNullOrWhiteSpace(PdfStrings.Fill(PdfStrings.OcrReportSkippedMoreFormat, 950))));
     }
 }

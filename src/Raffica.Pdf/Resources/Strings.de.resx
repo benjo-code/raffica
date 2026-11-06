@@ -2810,9 +2810,6 @@
   <data name="OcrAnnounceStart" xml:space="preserve">
     <value>Die Texterkennung hat begonnen.</value>
   </data>
-  <data name="OcrAnnounceStepFormat" xml:space="preserve">
-    <value>{0} von {1} Seiten.</value>
-  </data>
   <data name="OcrAnnounceDoneFormat" xml:space="preserve">
     <value>Die Texterkennung ist beendet. {0} Seiten erkannt.</value>
   </data>
@@ -2844,19 +2841,13 @@
     <value>Die fertigen Seiten behalten?</value>
   </data>
   <data name="OcrKeepMessageFormat" xml:space="preserve">
-    <value>Die Erkennung wurde nach {0} Seiten abgebrochen. Soll ihr Text behalten werden, oder soll er verworfen werden und die Datei bleibt, wie sie ist?</value>
+    <value>Die Erkennung von {1} wurde nach {0} Seiten abgebrochen. Soll ihr Text behalten werden, oder soll er verworfen werden und die Datei bleibt, wie sie ist?</value>
   </data>
   <data name="OcrKeepKeepFormat" xml:space="preserve">
     <value>{0} Seiten behalten</value>
   </data>
   <data name="OcrKeepDiscard" xml:space="preserve">
     <value>Verwerfen</value>
-  </data>
-  <data name="OcrHistoryFullTitle" xml:space="preserve">
-    <value>Zuerst die Änderungen speichern</value>
-  </data>
-  <data name="OcrHistoryFullMessageFormat" xml:space="preserve">
-    <value>Der erkannte Text von {0} passt neben den noch nicht gespeicherten Änderungen nicht in den Rückgängig-Verlauf. Speichere die Datei zuerst; danach wird der erkannte Text hinzugefügt.</value>
   </data>
   <data name="OcrFailTitle" xml:space="preserve">
     <value>Texterkennung</value>
@@ -2882,9 +2873,6 @@
   <data name="OcrFailApply" xml:space="preserve">
     <value>Der erkannte Text konnte nicht in die Datei geschrieben werden. Die Datei ist unverändert.</value>
   </data>
-  <data name="OcrFailNotAdded" xml:space="preserve">
-    <value>Der erkannte Text wurde der Datei nicht hinzugefügt.</value>
-  </data>
   <data name="OcrReportTitle" xml:space="preserve">
     <value>Texterkennung</value>
   </data>
@@ -2905,9 +2893,6 @@
   </data>
   <data name="OcrReportNothingWritten" xml:space="preserve">
     <value>Es wurde nichts in die Datei geschrieben.</value>
-  </data>
-  <data name="OcrReportSkippedHeading" xml:space="preserve">
-    <value>Seiten, die nicht erkannt wurden</value>
   </data>
   <data name="OcrReportSkippedLineFormat" xml:space="preserve">
     <value>Seite {0}: {1}</value>
@@ -2956,5 +2941,14 @@
   </data>
   <data name="OcrSkipNoSupportedCharacters" xml:space="preserve">
     <value>Es konnte kein Wort geschrieben werden, weil dessen Zeichen in der Schrift der Textebene fehlen.</value>
+  </data>
+  <data name="OcrReportFileFormat" xml:space="preserve">
+    <value>Dokument: {0}</value>
+  </data>
+  <data name="OcrReportSkippedMoreFormat" xml:space="preserve">
+    <value>und {0} weitere Seiten, die nicht erkannt wurden</value>
+  </data>
+  <data name="OcrNotStartedReason" xml:space="preserve">
+    <value>Die Texterkennung konnte nicht beginnen, weil sich das Dokument inzwischen geändert hat. Versuche es noch einmal.</value>
   </data>
 </root>

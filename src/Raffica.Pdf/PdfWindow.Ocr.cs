@@ -31,7 +31,7 @@ internal sealed partial class PdfWindow
     private OcrRunFlow? _ocrFlow;
     private readonly Dictionary<PdfTab, OcrParts> _ocrParts = [];
     private readonly HashSet<PdfTab> _scanHintChecked = [];
-    private bool _ocrHintShown;
+    private string? _ocrHintText;
 
     /// <summary>
     /// What starts a run with the options of the card (the run flow of the next task). While it is null the Recognize command stays disabled, so the card
@@ -72,7 +72,6 @@ internal sealed partial class PdfWindow
     internal OcrRunFlow OcrFlow => _ocrFlow ??= new OcrRunFlow(
         Dialogs,
         languages => OcrEngineFactory is { } custom ? custom(languages) : DefaultEngineFactory(languages),
-        tab => _saves.SaveMarksAsync(tab),
         tab => Workspace.Tabs.Contains(tab),
         RefreshCommandStates);
 
@@ -118,7 +117,7 @@ internal sealed partial class PdfWindow
     internal async Task RecognizeAsync()
     {
         // A held key or two clicks must not pile up cards.
-        if (_recognizeRunning || Workspace.Active is not { } tab || tab.Session.Document is not { } document || OcrRunStarter is not { } starter || !OcrLibraryAvailable())
+        if (_recognizeRunning || _ocrStarting || OcrBusy || Workspace.Active is not { } tab || tab.Session.Document is not { } document || OcrRunStarter is not { } starter || !OcrLibraryAvailable())
         {
             return;
         }
@@ -195,55 +194,94 @@ internal sealed partial class PdfWindow
 
     /// <summary>
     /// Starts the run for the options of the card. An open field edit and a typed comment are written first (the tools that held them are locked from here on);
-    /// a value that is refused stays on screen with its reason and the run does not start. Waits for the first sharp page, a running job and another mode.
+    /// a value that is refused stays on screen with its reason and the run does not start. Whatever else keeps the run from starting after the card was confirmed
+    /// (a running job, another mode, a permission, a document that changed meanwhile) ends in a note with its reason, never in nothing.
     /// </summary>
     internal async Task StartOcrRunAsync(PdfTab tab, OcrOptions options)
     {
-        if (_ocrStarting || OcrBusy || !Workspace.Tabs.Contains(tab) || !_views.TryGetValue(tab, out var view) || !view.FirstSharpPageShown)
+        if (_ocrStarting || !Workspace.Tabs.Contains(tab) || !_views.TryGetValue(tab, out var view))
         {
             return;
         }
 
-        var modes = new ModeExclusion(mode => ModeIsOnFor(tab, mode));
-        if (BusyWithFileJob() || !modes.CanEnter(PdfMode.Ocr, out _))
+        // The guard covers the whole start: the Recognize card cannot open again during the flush (a held key), and ends where the mode takes over.
+        _ocrStarting = true;
+        string? refusal;
+        try
         {
-            return;
-        }
-
-        var editing = FormsOf(tab)?.Interaction.IsEditing == true;
-        var typed = MarksOf(tab)?.HasUnappliedComment == true;
-        if (editing && !FormsOf(tab)!.Interaction.EndOrReveal())
-        {
-            return;
-        }
-
-        if (editing || typed)
-        {
-            _ocrStarting = true;
-            try
+            var modes = new ModeExclusion(mode => ModeIsOnFor(tab, mode));
+            refusal = OcrStartRefusal(tab, view, modes);
+            if (refusal is null)
             {
-                await tab.Annotations.FlushAsync();
+                var editing = FormsOf(tab)?.Interaction.IsEditing == true;
+                var typed = MarksOf(tab)?.HasUnappliedComment == true;
+                if (editing && !FormsOf(tab)!.Interaction.EndOrReveal())
+                {
+                    // The refused value stays on screen with its own reason.
+                    return;
+                }
+
+                if (editing || typed)
+                {
+                    await tab.Annotations.FlushAsync();
+                    if (!Workspace.Tabs.Contains(tab))
+                    {
+                        return;
+                    }
+
+                    refusal = OcrStartRefusal(tab, view, modes)
+                        ?? (FormsOf(tab)?.Interaction.IsEditing == true || MarksOf(tab)?.HasUnappliedComment == true ? PdfStrings.OcrNotStartedReason : null);
+                }
             }
-            finally
+
+            if (refusal is null)
             {
+                // The badge and the hint of the status bar follow the session from here; the scan hint has served its purpose. The run enters its mode before
+                // its first await, so there is no gap in which the guard is off and the mode is not on.
+                EnsureOcrParts(tab);
+                if (_hosts.TryGetValue(tab, out var host))
+                {
+                    host.Hint?.End();
+                }
+
                 _ocrStarting = false;
-            }
-
-            if (!Workspace.Tabs.Contains(tab) || OcrBusy || BusyWithFileJob() || FormsOf(tab)?.Interaction.IsEditing == true || MarksOf(tab)?.HasUnappliedComment == true || !modes.CanEnter(PdfMode.Ocr, out _))
-            {
+                await OcrFlow.RunAsync(tab, options);
+                UpdateOcrStatus();
                 return;
             }
         }
-
-        // The badge and the hint of the status bar follow the session from here; the scan hint has served its purpose.
-        EnsureOcrParts(tab);
-        if (_hosts.TryGetValue(tab, out var host))
+        finally
         {
-            host.Hint?.End();
+            _ocrStarting = false;
         }
 
-        await OcrFlow.RunAsync(tab, options);
-        UpdateOcrStatus();
+        await Dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.OcrFailTitle, refusal, () => done(true)));
+    }
+
+    // Why a run cannot start now, in the UI language, or null when it can.
+    private string? OcrStartRefusal(PdfTab tab, PageView view, ModeExclusion modes)
+    {
+        if (OcrBusy)
+        {
+            return PdfStrings.ModeOcrReason;
+        }
+
+        if (AnnotateAllowedOf(tab) == false)
+        {
+            return PdfStrings.AnnotateLockedReason;
+        }
+
+        if (BusyWithFileJob())
+        {
+            return PdfStrings.SaveBusy;
+        }
+
+        if (!view.FirstSharpPageShown)
+        {
+            return PdfStrings.OcrNotStartedReason;
+        }
+
+        return modes.CanEnter(PdfMode.Ocr, out var inTheWay) ? null : inTheWay;
     }
 
     private bool BusyWithFileJob() =>
@@ -259,9 +297,17 @@ internal sealed partial class PdfWindow
 
         var session = tab.Ocr;
         var badge = new OcrRunBadge(session, CancelOcr);
+        var wasActive = session.IsActive;
+
+        // The commands are asked again when the mode starts or ends, not at every page: a run of a thousand pages reports a thousand times.
         void OnChanged()
         {
-            RefreshCommandStates();
+            if (session.IsActive != wasActive)
+            {
+                wasActive = session.IsActive;
+                RefreshCommandStates();
+            }
+
             UpdateOcrStatus();
         }
 
@@ -289,18 +335,27 @@ internal sealed partial class PdfWindow
         parts.Badge.Dispose();
     }
 
-    // The status bar says how far the run of the active tab is ("3 of 12 pages") and gives the cell back when it is over; a hint of another owner is left alone.
+    // The status bar says how far the run of the active tab is ("3 of 12 pages") and gives the cell back when it is over. A hint of another owner (the field
+    // codes) is never overwritten or cleared: the cell is ours only while it holds the text this feature wrote.
     private void UpdateOcrStatus()
     {
         if (Workspace.Active?.OcrIfCreated is { IsActive: true, Progress: { } progress })
         {
-            Status.Hint = PdfStrings.Fill(PdfStrings.OcrHintFormat, progress.PagesDone, progress.PagesTotal);
-            _ocrHintShown = true;
+            var text = PdfStrings.Fill(PdfStrings.OcrHintFormat, progress.PagesDone, progress.PagesTotal);
+            if (string.IsNullOrEmpty(Status.Hint) || Status.Hint == _ocrHintText)
+            {
+                Status.Hint = text;
+                _ocrHintText = text;
+            }
         }
-        else if (_ocrHintShown)
+        else if (_ocrHintText is not null)
         {
-            Status.Hint = null;
-            _ocrHintShown = false;
+            if (Status.Hint == _ocrHintText)
+            {
+                Status.Hint = null;
+            }
+
+            _ocrHintText = null;
         }
     }
 

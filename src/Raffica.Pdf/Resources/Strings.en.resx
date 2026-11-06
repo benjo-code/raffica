@@ -2826,9 +2826,6 @@
   <data name="OcrAnnounceStart" xml:space="preserve">
     <value>Text recognition started.</value>
   </data>
-  <data name="OcrAnnounceStepFormat" xml:space="preserve">
-    <value>{0} of {1} pages.</value>
-  </data>
   <data name="OcrAnnounceDoneFormat" xml:space="preserve">
     <value>Text recognition ended. {0} pages recognized.</value>
   </data>
@@ -2860,19 +2857,13 @@
     <value>Keep the finished pages?</value>
   </data>
   <data name="OcrKeepMessageFormat" xml:space="preserve">
-    <value>The recognition was canceled after {0} pages. Keep their text, or discard it and leave the file as it is?</value>
+    <value>The recognition of {1} was canceled after {0} pages. Keep their text, or discard it and leave the file as it is?</value>
   </data>
   <data name="OcrKeepKeepFormat" xml:space="preserve">
     <value>Keep {0} pages</value>
   </data>
   <data name="OcrKeepDiscard" xml:space="preserve">
     <value>Discard</value>
-  </data>
-  <data name="OcrHistoryFullTitle" xml:space="preserve">
-    <value>Save the changes first</value>
-  </data>
-  <data name="OcrHistoryFullMessageFormat" xml:space="preserve">
-    <value>The recognized text of {0} does not fit into the undo history next to the changes you have not saved. Save the file first; the recognized text is then added.</value>
   </data>
   <data name="OcrFailTitle" xml:space="preserve">
     <value>Text recognition</value>
@@ -2898,9 +2889,6 @@
   <data name="OcrFailApply" xml:space="preserve">
     <value>The recognized text could not be written into the file. The file is unchanged.</value>
   </data>
-  <data name="OcrFailNotAdded" xml:space="preserve">
-    <value>The recognized text was not added to the file.</value>
-  </data>
   <data name="OcrReportTitle" xml:space="preserve">
     <value>Text recognition</value>
   </data>
@@ -2921,9 +2909,6 @@
   </data>
   <data name="OcrReportNothingWritten" xml:space="preserve">
     <value>Nothing was written into the file.</value>
-  </data>
-  <data name="OcrReportSkippedHeading" xml:space="preserve">
-    <value>Pages that were not recognized</value>
   </data>
   <data name="OcrReportSkippedLineFormat" xml:space="preserve">
     <value>Page {0}: {1}</value>
@@ -2972,5 +2957,14 @@
   </data>
   <data name="OcrSkipNoSupportedCharacters" xml:space="preserve">
     <value>No word could be written, because its characters are missing in the font of the text layer.</value>
+  </data>
+  <data name="OcrReportFileFormat" xml:space="preserve">
+    <value>Document: {0}</value>
+  </data>
+  <data name="OcrReportSkippedMoreFormat" xml:space="preserve">
+    <value>and {0} more pages that were not recognized</value>
+  </data>
+  <data name="OcrNotStartedReason" xml:space="preserve">
+    <value>The text recognition could not start, because the document changed in the meantime. Try again.</value>
   </data>
 </root>

@@ -18,7 +18,6 @@ internal sealed class OcrRunFlow
 {
     private readonly DialogQueue _dialogs;
     private readonly Func<string, IOcrEngineFactory> _factoryFor;
-    private readonly Func<PdfTab, Task<bool>> _saveMarks;
     private readonly Func<PdfTab, bool> _isOpen;
     private readonly Action _refresh;
     private Run? _current;
@@ -26,22 +25,22 @@ internal sealed class OcrRunFlow
 
     /// <param name="dialogs">Where the cards appear.</param>
     /// <param name="factoryFor">Makes the engine factory for the normalized languages (it runs on a pool thread; it throws <see cref="TessdataMissingException"/> for a language without a file).</param>
-    /// <param name="saveMarks">Saves the unsaved changes of a tab (the incremental save), for the "save first" path of a full undo history.</param>
     /// <param name="isOpen">Whether a tab is still open.</param>
     /// <param name="refresh">Asks the commands again (the mode or the run changed).</param>
-    public OcrRunFlow(DialogQueue dialogs, Func<string, IOcrEngineFactory> factoryFor, Func<PdfTab, Task<bool>> saveMarks, Func<PdfTab, bool> isOpen, Action refresh)
+    public OcrRunFlow(DialogQueue dialogs, Func<string, IOcrEngineFactory> factoryFor, Func<PdfTab, bool> isOpen, Action refresh)
     {
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(factoryFor);
-        ArgumentNullException.ThrowIfNull(saveMarks);
         ArgumentNullException.ThrowIfNull(isOpen);
         ArgumentNullException.ThrowIfNull(refresh);
         _dialogs = dialogs;
         _factoryFor = factoryFor;
-        _saveMarks = saveMarks;
         _isOpen = isOpen;
         _refresh = refresh;
     }
+
+    /// <summary>Tests: called on the UI thread right after the runner returned a result, before the flow looks at a cancel that arrived meanwhile.</summary>
+    internal Action? RunReturned { get; set; }
 
     /// <summary>Whether a run is on (from its start to the close of its last card).</summary>
     public bool IsRunning => _current is not null;
@@ -169,7 +168,10 @@ internal sealed class OcrRunFlow
             return;
         }
 
-        var canceledRun = result is null;
+        RunReturned?.Invoke();
+
+        // A Cancel that arrived after the last page but before the run returned is a cancel: the finished pages are asked about, never written silently.
+        var canceledRun = result is null || (session.CancelRequested && !run.Discard);
         var toWrite = result ?? partial;
         if (canceledRun)
         {
@@ -180,7 +182,7 @@ internal sealed class OcrRunFlow
                 return;
             }
 
-            var keep = await _dialogs.ShowAsync<bool>(done => OcrKeepPagesCard.CreateKeep(toWrite.Pages.Count, done)).ConfigureAwait(true);
+            var keep = await _dialogs.ShowAsync<bool>(done => OcrKeepPagesCard.CreateKeep(toWrite.Pages.Count, tab.Title, done)).ConfigureAwait(true);
             if (!keep || _abandoned || run.Discard || !_isOpen(tab) || !ReferenceEquals(tab.Session.Document, document))
             {
                 session.Say(PdfStrings.OcrAnnounceCanceled);
@@ -203,51 +205,26 @@ internal sealed class OcrRunFlow
         session.Say(canceledRun
             ? PdfStrings.Fill(PdfStrings.OcrAnnounceKeptFormat, toWrite.Pages.Count)
             : PdfStrings.Fill(PdfStrings.OcrAnnounceDoneFormat, toWrite.Report.PagesRecognized));
-        await _dialogs.ShowAsync<bool>(done => OcrReportCard.Create(report, () => done(true))).ConfigureAwait(true);
+        await _dialogs.ShowAsync<bool>(done => OcrReportCard.Create(report, tab.Title, () => done(true))).ConfigureAwait(true);
     }
 
-    // Writes the result as one step. A history that is too full for it asks to save first and tries once more; every other failure is a card.
+    // Writes the result as one step. A run too large for the undo history is written all the same (the report says it cannot be undone); a refusal is a card.
     private async Task<Applied> ApplyAsync(Run run, OcrRunResult result, bool replace)
     {
         var tab = run.Tab;
-        for (var attempt = 0; ; attempt++)
+        try
         {
-            try
+            // The handle keeps the tab from closing under the write and is disposed on every path.
+            using (tab.Annotations.BeginPending())
             {
-                using (tab.Annotations.BeginPending())
-                {
-                    return new Applied(await tab.Annotations.Editor.ApplyOcrAsync(result, replace).ConfigureAwait(true), Failed: false);
-                }
+                return new Applied(await tab.Annotations.Editor.ApplyOcrAsync(result, replace).ConfigureAwait(true), Failed: false);
             }
-            catch (AnnotationHistoryFullException)
-            {
-                // The handle is disposed: the save below waits for pending drafts and would wait for this one.
-                if (attempt > 0 || _abandoned)
-                {
-                    await FailAsync(run, PdfStrings.OcrFailNotAdded).ConfigureAwait(true);
-                    return new Applied(null, Failed: true);
-                }
-
-                var saveFirst = await _dialogs.ShowAsync<bool>(done => OcrKeepPagesCard.CreateHistoryFull(tab.Title, done)).ConfigureAwait(true);
-                if (!saveFirst || !_isOpen(tab))
-                {
-                    run.Session.Say(PdfStrings.OcrAnnounceFailed);
-                    return new Applied(null, Failed: true);
-                }
-
-                // A save that fails shows its own card (SaveController); the text is then not added.
-                if (!await _saveMarks(tab).ConfigureAwait(true))
-                {
-                    await FailAsync(run, PdfStrings.OcrFailNotAdded).ConfigureAwait(true);
-                    return new Applied(null, Failed: true);
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                // PDFium refused: nothing is left of the run.
-                await FailAsync(run, PdfStrings.OcrFailApply).ConfigureAwait(true);
-                return new Applied(null, Failed: true);
-            }
+        }
+        catch (InvalidOperationException)
+        {
+            // PDFium refused: nothing is left of the run.
+            await FailAsync(run, PdfStrings.OcrFailApply).ConfigureAwait(true);
+            return new Applied(null, Failed: true);
         }
     }
 

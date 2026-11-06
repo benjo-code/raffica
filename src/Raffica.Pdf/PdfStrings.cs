@@ -1184,7 +1184,6 @@ internal static class PdfStrings
     public static string OcrBadgeProgressFormat => Table.Get("OcrBadgeProgressFormat");
     public static string OcrHintFormat => Table.Get("OcrHintFormat");
     public static string OcrAnnounceStart => Table.Get("OcrAnnounceStart");
-    public static string OcrAnnounceStepFormat => Table.Get("OcrAnnounceStepFormat");
     public static string OcrAnnounceDoneFormat => Table.Get("OcrAnnounceDoneFormat");
     public static string OcrAnnounceCanceled => Table.Get("OcrAnnounceCanceled");
     public static string OcrAnnounceKeptFormat => Table.Get("OcrAnnounceKeptFormat");
@@ -1198,8 +1197,6 @@ internal static class PdfStrings
     public static string OcrKeepMessageFormat => Table.Get("OcrKeepMessageFormat");
     public static string OcrKeepKeepFormat => Table.Get("OcrKeepKeepFormat");
     public static string OcrKeepDiscard => Table.Get("OcrKeepDiscard");
-    public static string OcrHistoryFullTitle => Table.Get("OcrHistoryFullTitle");
-    public static string OcrHistoryFullMessageFormat => Table.Get("OcrHistoryFullMessageFormat");
     public static string OcrFailTitle => Table.Get("OcrFailTitle");
     public static string OcrFailLibraryUnusable => Table.Get("OcrFailLibraryUnusable");
     public static string OcrFailLanguageInvalid => Table.Get("OcrFailLanguageInvalid");
@@ -1208,7 +1205,6 @@ internal static class PdfStrings
     public static string OcrFailDataCorrupt => Table.Get("OcrFailDataCorrupt");
     public static string OcrFailFailed => Table.Get("OcrFailFailed");
     public static string OcrFailApply => Table.Get("OcrFailApply");
-    public static string OcrFailNotAdded => Table.Get("OcrFailNotAdded");
     public static string OcrReportTitle => Table.Get("OcrReportTitle");
     public static string OcrReportCanceledTitle => Table.Get("OcrReportCanceledTitle");
     public static string OcrReportSummaryFormat => Table.Get("OcrReportSummaryFormat");
@@ -1216,7 +1212,6 @@ internal static class PdfStrings
     public static string OcrReportLeftOutFormat => Table.Get("OcrReportLeftOutFormat");
     public static string OcrReportKeptLayerFormat => Table.Get("OcrReportKeptLayerFormat");
     public static string OcrReportNothingWritten => Table.Get("OcrReportNothingWritten");
-    public static string OcrReportSkippedHeading => Table.Get("OcrReportSkippedHeading");
     public static string OcrReportSkippedLineFormat => Table.Get("OcrReportSkippedLineFormat");
     public static string OcrReportLowFormat => Table.Get("OcrReportLowFormat");
     public static string OcrReportEmptyFormat => Table.Get("OcrReportEmptyFormat");
@@ -1233,6 +1228,9 @@ internal static class PdfStrings
     public static string OcrSkipTimeout => Table.Get("OcrSkipTimeout");
     public static string OcrSkipFailed => Table.Get("OcrSkipFailed");
     public static string OcrSkipNoSupportedCharacters => Table.Get("OcrSkipNoSupportedCharacters");
+    public static string OcrReportFileFormat => Table.Get("OcrReportFileFormat");
+    public static string OcrReportSkippedMoreFormat => Table.Get("OcrReportSkippedMoreFormat");
+    public static string OcrNotStartedReason => Table.Get("OcrNotStartedReason");
 
     /// <summary>The words of a refused language choice, in the UI language (one text per <see cref="Raffica.Pdf.Ocr.LanguageChoice"/> value other than Done).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

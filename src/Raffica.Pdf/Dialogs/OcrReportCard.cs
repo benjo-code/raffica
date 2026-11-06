@@ -17,13 +17,16 @@ namespace Raffica.Pdf.Dialogs;
 internal static class OcrReportCard
 {
     /// <param name="report">What the run says.</param>
+    /// <param name="fileName">The title of the document the run belongs to (no path); the card says which file it concerns.</param>
     /// <param name="done">Called when the card is closed.</param>
-    public static Dialog Create(OcrReportText report, Action done)
+    public static Dialog Create(OcrReportText report, string fileName, Action done)
     {
         ArgumentNullException.ThrowIfNull(report);
+        ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(done);
 
         var body = new StackPanel { Spacing = 8 };
+        body.Children.Add(new TextBlock { Name = "PART_File", Text = PdfStrings.Fill(PdfStrings.OcrReportFileFormat, fileName), TextWrapping = TextWrapping.Wrap });
         body.Children.Add(new TextBlock { Name = "PART_Summary", Text = report.Summary, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold });
         var lines = new StackPanel { Name = "PART_Lines", Spacing = 4 };
         foreach (var line in report.Lines)

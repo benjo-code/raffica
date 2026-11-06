@@ -60,18 +60,11 @@ public sealed class OcrRunFlowTests
     }
 
     [AvaloniaFact]
-    public async Task MissingRealLibraryFailsTheTestWhenRequired()
+    public void LibraryHelperFindsTheLibraryOrFailsWhenRequired()
     {
-        // The helper itself: a missing library is a failure with RAFFICA_REQUIRE_OCR=1 and a skip otherwise (here it is there, so Require returns).
-        if (OcrTestLibrary.Directory is null)
-        {
-            Assert.False(OcrTestLibrary.Required, "RAFFICA_REQUIRE_OCR=1 and the library is missing");
-            return;
-        }
-
+        // Require() fails with RAFFICA_REQUIRE_OCR=1 and skips without it when the library is missing; where it is there, it makes the library available.
         OcrTestLibrary.Require();
         Assert.True(TesseractEngineFactory.IsLibraryAvailable);
-        await Task.CompletedTask;
     }
 
     [AvaloniaFact]
@@ -222,7 +215,13 @@ public sealed class OcrRunFlowTests
         Assert.False(view.FirstSharpPageShown);
         Assert.Empty(calls);
         Assert.False(Command(f.Window, "ocr.run").IsEnabled);
-        await f.Window.StartOcrRunAsync(tab, Options());
+        var early = f.Window.StartOcrRunAsync(tab, Options());
+        await PrintHost.UntilAsync(() => f.Window.Host.ActiveDialog is not null);
+        // The window is not shown, so the card is not in the visual tree: read its parts directly.
+        var note = f.Window.Host.ActiveDialog!;
+        Assert.Equal(PdfStrings.OcrNotStartedReason, ((TextBlock)((StackPanel)note.Content!).Children[0]).Text);
+        ((Button)((StackPanel)note.Footer!).Children[0]).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await early;
         Assert.Null(tab.OcrIfCreated);
         Assert.False(f.Window.OcrFlowCreated);
 
@@ -403,5 +402,192 @@ public sealed class OcrRunFlowTests
         Assert.Null(tab.OcrIfCreated);
         Assert.False(f.Window.OcrFlowCreated);
         Assert.Null(f.Window.OcrBadgeOf(tab));
+    }
+
+    [AvaloniaFact]
+    public async Task CancelBeforeTheFirstPageKeepsNothingAndAsksNothing()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        var original = await File.ReadAllBytesAsync(rig.Path, Ct);
+        using var gate = new ManualResetEventSlim(false);
+        // The engines are not ready yet (the factory is made on a pool thread): Cancel arrives before any page was touched.
+        rig.Window.OcrEngineFactory = _ =>
+        {
+            gate.Wait(TimeSpan.FromSeconds(20));
+            return rig.Engines!;
+        };
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options());
+        await PrintHost.UntilAsync(() => rig.Tab.OcrIfCreated?.IsActive == true);
+        rig.Window.CancelOcr();
+        gate.Set();
+        await run;
+
+        Assert.Null(rig.Card);
+        Assert.False(rig.Tab.IsDirty);
+        Assert.False(rig.Tab.OcrIfCreated!.IsActive);
+        Assert.Equal(0, rig.Engines!.Calls);
+        Assert.Equal(original, await File.ReadAllBytesAsync(rig.Path, Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task CancelTwiceIsHarmlessAndAsksOnce()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        rig.Engines!.HoldAt(1);
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options());
+        await rig.UntilPagesAsync(1);
+        rig.Window.CancelOcr();
+        rig.Window.CancelOcr();
+        Command(rig.Window, "ocr.cancel").Run!();
+        rig.Engines.Release();
+
+        var card = await rig.CardWithAsync("PART_Keep");
+        OcrRig.Click(card, "PART_Discard");
+        await run;
+        // One question, no second one behind it.
+        Assert.Null(rig.Card);
+        Assert.False(rig.Tab.IsDirty);
+        Assert.False(rig.Window.OcrFlow.IsRunning);
+    }
+
+    [AvaloniaFact]
+    public async Task AbandonedRunDropsEverythingAndShowsNoCard()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        var original = await File.ReadAllBytesAsync(rig.Path, Ct);
+        rig.Engines!.HoldAt(1);
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options());
+        await rig.UntilPagesAsync(1);
+
+        // The window is going: the run is stopped, nothing of it is kept and no card is shown for it.
+        rig.Window.OcrFlow.Abandon();
+        rig.Engines.Release();
+        await run;
+        Assert.Null(rig.Card);
+        Assert.False(rig.Tab.IsDirty);
+        Assert.False(rig.Window.OcrFlow.IsRunning);
+        Assert.Equal(original, await File.ReadAllBytesAsync(rig.Path, Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task RedoReplacesTheLayerAndSkipPagesAreListed()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        await RunToTheEndAsync(rig, Options(jobs: 2));
+        Assert.Contains(FakeEngineFactory.Secret, await rig.PageTextAsync(0), StringComparison.Ordinal);
+
+        // Skip: the pages that have the layer are left alone, each with its reason in the report.
+        rig.Engines!.Behavior = _ => new OcrRecognition([new OcrWord("Quokkaone", 100, 100, 300, 150, 90)]);
+        var again = rig.Window.StartOcrRunAsync(rig.Tab, Options(jobs: 2));
+        var report = await rig.CardWithAsync("PART_Ok");
+        Assert.Equal(3, report.GetVisualDescendants().OfType<TextBlock>().Count(b => b.Name == "PART_Line" && b.Text!.StartsWith("Page ", StringComparison.Ordinal)));
+        OcrRig.Click(report, "PART_Ok");
+        await again;
+        Assert.DoesNotContain("Quokkaone", await rig.PageTextAsync(0), StringComparison.Ordinal);
+
+        // Redo: the layer of Raffica is replaced.
+        var redo = rig.Window.StartOcrRunAsync(rig.Tab, Options(jobs: 2, mode: OcrMode.Redo));
+        report = await rig.CardWithAsync("PART_Ok");
+        OcrRig.Click(report, "PART_Ok");
+        await redo;
+        var text = await rig.PageTextAsync(0);
+        Assert.Contains("Quokkaone", text, StringComparison.Ordinal);
+        Assert.DoesNotContain(FakeEngineFactory.Secret, text, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public async Task AnotherModeInTheWayEndsInANoteWithItsReason()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        Command(rig.Window, "redact.mode").Run!();
+        ViewFixture.Pump();
+        Assert.True(rig.Tab.Redact.IsActive);
+
+        var start = rig.Window.StartOcrRunAsync(rig.Tab, Options());
+        var card = await rig.CardWithAsync("PART_Ok");
+        Assert.Contains(PdfStrings.ModeRedactReason, OcrRig.TextsOf(card));
+        OcrRig.Click(card, "PART_Ok");
+        await start;
+        Assert.False(rig.Window.OcrFlowCreated);
+    }
+
+    [AvaloniaFact]
+    public async Task RecognizeCardDoesNotOpenWhileARunGoes()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        rig.Engines!.HoldAt(1);
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options());
+        await rig.UntilPagesAsync(1);
+        await rig.Window.RecognizeAsync();
+        Assert.Null(rig.Card);
+
+        rig.Engines.Release();
+        var report = await rig.CardWithAsync("PART_Ok");
+        OcrRig.Click(report, "PART_Ok");
+        await run;
+    }
+
+    [AvaloniaFact]
+    public async Task StatusHintOfAnotherOwnerIsLeftAlone()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        rig.Engines!.HoldAt(1);
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options());
+        await rig.UntilPagesAsync(1);
+        Assert.Equal(PdfStrings.Fill(PdfStrings.OcrHintFormat, 1, 3), rig.Window.Status.Hint);
+
+        // Somebody else (the field codes) took the cell: the end of the run does not clear what is not ours.
+        rig.Window.Status.Hint = "Another hint";
+        rig.Engines.Release();
+        var report = await rig.CardWithAsync("PART_Ok");
+        OcrRig.Click(report, "PART_Ok");
+        await run;
+        Assert.Equal("Another hint", rig.Window.Status.Hint);
+    }
+
+    [AvaloniaFact]
+    public async Task CancelAfterTheLastPageIsStillACancel()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        // The Cancel arrives after the runner returned its result and before the flow looks at it: the pages are asked about, never written silently.
+        rig.Window.OcrFlow.RunReturned = rig.Window.CancelOcr;
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options(jobs: 2));
+        var card = await rig.CardWithAsync("PART_Keep");
+        Assert.Equal(PdfStrings.OcrKeepTitle, card.Title);
+        Assert.False(rig.Tab.IsDirty);
+        OcrRig.Click(card, "PART_Discard");
+        await run;
+        Assert.Null(rig.Card);
+        Assert.False(rig.Tab.IsDirty);
+        Assert.DoesNotContain(FakeEngineFactory.Secret, await rig.PageTextAsync(0), StringComparison.Ordinal);
+
+        // Keep writes all three pages and says it was canceled.
+        var again = rig.Window.StartOcrRunAsync(rig.Tab, Options(jobs: 2));
+        card = await rig.CardWithAsync("PART_Keep");
+        OcrRig.Click(card, "PART_Keep");
+        var report = await rig.CardWithAsync("PART_Ok");
+        Assert.Equal(PdfStrings.OcrReportCanceledTitle, report.Title);
+        OcrRig.Click(report, "PART_Ok");
+        await again;
+        Assert.Contains(FakeEngineFactory.Secret, await rig.PageTextAsync(2), StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public async Task CardsNameTheDocument()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        var title = rig.Tab.Title;
+        Assert.False(string.IsNullOrEmpty(title));
+        rig.Window.OcrFlow.RunReturned = rig.Window.CancelOcr;
+        var run = rig.Window.StartOcrRunAsync(rig.Tab, Options(jobs: 2));
+        var keep = await rig.CardWithAsync("PART_Keep");
+        Assert.Contains(title, keep.GetVisualDescendants().OfType<TextBlock>().Single(b => b.Name == "PART_Message").Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(rig.Fixture.Folder, string.Join('\n', OcrRig.TextsOf(keep)), StringComparison.Ordinal);
+        OcrRig.Click(keep, "PART_Keep");
+        var report = await rig.CardWithAsync("PART_Ok");
+        Assert.Equal(PdfStrings.Fill(PdfStrings.OcrReportFileFormat, title), report.GetVisualDescendants().OfType<TextBlock>().Single(b => b.Name == "PART_File").Text);
+        Assert.DoesNotContain(rig.Fixture.Folder, string.Join('\n', OcrRig.TextsOf(report)), StringComparison.Ordinal);
+        OcrRig.Click(report, "PART_Ok");
+        await run;
     }
 }

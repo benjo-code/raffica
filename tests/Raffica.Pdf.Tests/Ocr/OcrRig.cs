@@ -21,6 +21,9 @@ internal sealed class FakeEngineFactory(Func<int, OcrRecognition>? behavior = nu
 
     private int _calls;
 
+    /// <summary>What a call answers (by its index over the whole run); null: one word, <see cref="Secret"/>. A test may change it between runs.</summary>
+    public Func<int, OcrRecognition>? Behavior { get; set; } = behavior;
+
     /// <summary>Calls from this index on wait for <see cref="Release"/> (-1: none waits).</summary>
     public int HoldFrom { get; set; } = -1;
 
@@ -54,7 +57,7 @@ internal sealed class FakeEngineFactory(Func<int, OcrRecognition>? behavior = nu
                 owner.Gate.Wait(TimeSpan.FromSeconds(20), cancellationToken);
             }
 
-            return (owner._behavior ?? (_ => One()))(index);
+            return (owner.Behavior ?? (_ => One()))(index);
         }
 
         public void Dispose()
@@ -62,7 +65,6 @@ internal sealed class FakeEngineFactory(Func<int, OcrRecognition>? behavior = nu
         }
     }
 
-    private Func<int, OcrRecognition>? _behavior = behavior;
 }
 
 /// <summary>A window with a copy of a test file open (the tests write only to their own folder), the fake engine in place and the library probe answering yes.</summary>

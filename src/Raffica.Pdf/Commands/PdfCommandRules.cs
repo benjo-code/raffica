@@ -99,7 +99,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.RedactApply => hasDocument() && _modes.IsActive(PdfMode.Redact) && Ask(redactMarked, false) && !Ask(saveRunning, false),
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
         PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
-        PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true) && Ask(pagesReady, true) && !Ask(ocrRunning, false) && !Ask(saveRunning, false),
+        PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true) && Ask(annotateAllowed, true) && Ask(pagesReady, true) && !Ask(ocrRunning, false) && !Ask(saveRunning, false),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
         PdfCommandIds.OcrLanguages => hasDocument() && !_modes.IsActive(PdfMode.Ocr),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
@@ -142,6 +142,12 @@ internal sealed class PdfCommandRules(
         if (id == PdfCommandIds.OcrRun && !Ask(ocrLibrary, true))
         {
             return PdfStrings.OcrNoLibraryReason;
+        }
+
+        // Recognition writes a text layer into the document: it needs the permission the annotate tools need, with the same reason.
+        if (id == PdfCommandIds.OcrRun && !Ask(annotateAllowed, true))
+        {
+            return PdfStrings.AnnotateLockedReason;
         }
 
         // A run that goes on (in this tab or in another one) holds the file: what would write to it or start another job waits, with the reason of the run.

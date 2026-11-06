@@ -58,8 +58,14 @@ internal sealed class OcrSession(PdfTab tab, SynchronizationContext ui) : IDispo
             return;
         }
 
+        var sentence = message ?? Message;
+        if (Progress == progress && sentence == Message)
+        {
+            return;
+        }
+
         Progress = progress;
-        Message = message ?? Message;
+        Message = sentence;
         Changed?.Invoke();
     }
 
