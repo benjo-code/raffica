@@ -125,7 +125,7 @@ internal sealed class RedactSession : IDisposable
             return RedactResult.Refused(RedactProblem.NotActive);
         }
 
-        if (page < 0 || Fit(page, area) is not { } fitted)
+        if (page < 0 || !PageExists(page) || Fit(page, area) is not { } fitted)
         {
             return RedactResult.Refused(RedactProblem.OutOfRange);
         }
@@ -237,6 +237,11 @@ internal sealed class RedactSession : IDisposable
             return RedactResult.Refused(RedactProblem.NotActive);
         }
 
+        if (marks.Any(m => !PageExists(m.Page)))
+        {
+            return RedactResult.Refused(RedactProblem.OutOfRange);
+        }
+
         var known = new HashSet<(int, string?, string)>(Plan.Marks.Where(m => m.Kind == RedactionKind.Hit).Select(KeyOf));
         var fresh = marks.Where(m => known.Add(KeyOf(m))).ToList();
         if (fresh.Count == 0)
@@ -260,6 +265,9 @@ internal sealed class RedactSession : IDisposable
         added = fresh.Count;
         return RedactResult.Done;
     }
+
+    // A page the open document lacks cannot carry a mark (a document that is not open has nothing to check against).
+    private bool PageExists(int page) => page >= 0 && (Tab.Session.Document is not { } document || page < document.PageCount);
 
     private static (int, string?, string) KeyOf(RedactionMark mark) =>
         (mark.Page, mark.Term, string.Join(';', mark.Areas.Select(a => FormattableString.Invariant($"{a.Left},{a.Top},{a.Right},{a.Bottom}"))));
