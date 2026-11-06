@@ -177,6 +177,11 @@
       "date": "2026-11-06",
       "context": "Milestone 2.5 (implementation)",
       "text": "What changed during implementation against the plan of Milestone 2.5 (details in the amendment of the entry \"Raffica PDF: redaction, OCR and text editing conventions (M2.5)\" in `Docs/DECISIONS.md`): `redact-structure` and `redact-objstm` are refused by Core for unremovable page keys and not redacted (the plan text listed them as redactable); the acceptance asserts the refusal. The rescue pages (page as image) join the plan after the picker and the plan-version re-check, not before. Text marks are built as `Kind.Text` marks directly. The retry for a full OCR history was dropped because Core writes the result anyway and reports `Undoable = false`; the app words OCR failures through the new Core type `OcrFailure` because it may not reference `Raffica.Ocr`. Ctrl+Shift+G toggles the whole-line switch of the text-edit field. `ocr.languages` is locked while a run goes, and the recognize card has a \"current page\" option. Added beyond the plan: `ModeExclusion.CanStart` (the one exception Annotate then Organize), the original-file arming for every alias of the open file, `SetOverlayStyle`, and `AnnotationHistory.HasLiveTextEdits` in Core."
+    },
+    {
+      "date": "2026-11-06",
+      "context": "Milestone 2.5 (size budgets)",
+      "text": "Published-size budgets of the PDF app raised (owner decision, 2026-11-06): the CI size check of the PR failed at 65.33 MiB on Windows and 64.65 MiB on Linux because the OCR library and the bundled English and German language data are now part of the package. The owner chose to count them: size 66 and zip 29 MiB on Windows, size 65 and zip 30 MiB on Linux (limits budget x 1.25); every other budget is unchanged. Entry \"Raffica PDF: published size budgets after the OCR payload (M2.5)\" in `Docs/DECISIONS.md`."
     }
   ],
   "subprojects": [
