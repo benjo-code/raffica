@@ -25,7 +25,7 @@ internal sealed class LanguageList
 {
     private readonly string _uiLanguage;
     private readonly List<string> _selected = [];
-    private IReadOnlyList<TessdataLanguage> _installed = [];
+    private readonly IReadOnlyList<TessdataLanguage> _installed;
 
     /// <param name="installed">The installed languages (<see cref="TessdataStore.List"/>).</param>
     /// <param name="uiLanguage">The two-letter code of the interface language.</param>
@@ -85,18 +85,6 @@ internal sealed class LanguageList
 
         _selected.Add(name);
         return LanguageChoice.Done;
-    }
-
-    /// <summary>Replaces the installed languages (after an import); the chosen ones that are still installed stay chosen.</summary>
-    public void Reload(IReadOnlyList<TessdataLanguage> installed)
-    {
-        ArgumentNullException.ThrowIfNull(installed);
-        _installed = installed;
-        _selected.RemoveAll(name => !IsInstalled(name));
-        if (_selected.Count == 0)
-        {
-            _selected.AddRange(DefaultNames());
-        }
     }
 
     private bool IsInstalled(string name) => _installed.Any(l => string.Equals(l.Name, name, StringComparison.Ordinal));

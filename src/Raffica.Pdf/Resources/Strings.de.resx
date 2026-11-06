@@ -2690,6 +2690,9 @@
   <data name="OcrPagesAll" xml:space="preserve">
     <value>Alle Seiten</value>
   </data>
+  <data name="OcrPagesCurrentFormat" xml:space="preserve">
+    <value>Aktuelle Seite ({0})</value>
+  </data>
   <data name="OcrPagesRange" xml:space="preserve">
     <value>Nur diese Seiten</value>
   </data>
@@ -2700,7 +2703,7 @@
     <value>Seiten, die schon Text haben</value>
   </data>
   <data name="OcrModeSkip" xml:space="preserve">
-    <value>Überspringen</value>
+    <value>Überspringen, es werden nur Seiten ohne Text erkannt</value>
   </data>
   <data name="OcrModeRedo" xml:space="preserve">
     <value>Die früher von Raffica erzeugte Textebene neu erstellen</value>

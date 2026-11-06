@@ -100,7 +100,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
         PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
-        PdfCommandIds.OcrLanguages => hasDocument(),
+        PdfCommandIds.OcrLanguages => hasDocument() && !_modes.IsActive(PdfMode.Ocr),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when PageEdits.Contains(id) => hasDocument() && PlanOpen() && Ask(pageSelection, false),
         PdfCommandIds.BlankPage or PdfCommandIds.InsertFile => hasDocument() && PlanOpen(),
@@ -141,6 +141,12 @@ internal sealed class PdfCommandRules(
         if (id == PdfCommandIds.OcrRun && !Ask(ocrLibrary, true))
         {
             return PdfStrings.OcrNoLibraryReason;
+        }
+
+        // The language files are read when an engine is made and a file in use cannot be replaced: no import while a recognition runs.
+        if (id == PdfCommandIds.OcrLanguages)
+        {
+            return _modes.ReasonWhileActive(PdfMode.Ocr);
         }
 
         if (PageOutputs.Contains(id) && OutputModeReason() is { } modeReason)

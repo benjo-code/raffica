@@ -2706,6 +2706,9 @@
   <data name="OcrPagesAll" xml:space="preserve">
     <value>All pages</value>
   </data>
+  <data name="OcrPagesCurrentFormat" xml:space="preserve">
+    <value>Current page ({0})</value>
+  </data>
   <data name="OcrPagesRange" xml:space="preserve">
     <value>Only these pages</value>
   </data>
@@ -2716,7 +2719,7 @@
     <value>Pages that already have text</value>
   </data>
   <data name="OcrModeSkip" xml:space="preserve">
-    <value>Skip them</value>
+    <value>Skip them, so only pages without text are recognized</value>
   </data>
   <data name="OcrModeRedo" xml:space="preserve">
     <value>Redo the text layer Raffica made earlier</value>

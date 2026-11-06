@@ -29,7 +29,8 @@ internal static class RecognizeCard
     /// <param name="languages">The installed and the chosen languages; the card changes the choice.</param>
     /// <param name="signedWithoutChangeRights">Whether the file carries a signature that allows no changes.</param>
     /// <param name="done">The options, or null when the user canceled.</param>
-    public static Dialog Create(string fileName, int pageCount, LanguageList languages, bool signedWithoutChangeRights, Action<OcrOptions?> done)
+    /// <param name="currentPage">The 0-based page that is shown when the card opens (the "current page" option keeps that page, whatever the view does later), or null for none: the option is off.</param>
+    public static Dialog Create(string fileName, int pageCount, LanguageList languages, bool signedWithoutChangeRights, Action<OcrOptions?> done, int? currentPage = null)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(languages);
@@ -91,6 +92,9 @@ internal static class RecognizeCard
         // Pages.
         body.Children.Add(Heading(PdfStrings.OcrPagesHeading));
         var all = Radio("PART_PagesAll", "OcrPages", PdfStrings.OcrPagesAll);
+        var hasCurrent = currentPage is { } shown && shown >= 0 && shown < pageCount;
+        var current = Radio("PART_PagesCurrent", "OcrPages", hasCurrent ? PdfStrings.Fill(PdfStrings.OcrPagesCurrentFormat, currentPage!.Value + 1) : PdfStrings.Fill(PdfStrings.OcrPagesCurrentFormat, "-"));
+        current.IsEnabled = hasCurrent;
         var some = Radio("PART_PagesRange", "OcrPages", PdfStrings.OcrPagesRange);
         all.IsChecked = true;
         var range = new TextBox { Name = "PART_Range", MinWidth = 240, Text = "1", IsEnabled = false, HorizontalAlignment = HorizontalAlignment.Left };
@@ -98,6 +102,7 @@ internal static class RecognizeCard
         var rangeHint = new TextBlock { Name = "PART_RangeHint", IsVisible = false, TextWrapping = TextWrapping.Wrap };
         rangeHint.Bind(TextBlock.ForegroundProperty, rangeHint.GetResourceObservable("Raffica.Brush.Danger"));
         body.Children.Add(all);
+        body.Children.Add(current);
         body.Children.Add(some);
         body.Children.Add(range);
         body.Children.Add(rangeHint);
@@ -165,7 +170,7 @@ internal static class RecognizeCard
             }
 
             finished = true;
-            IReadOnlySet<int>? pages = some.IsChecked == true ? new HashSet<int>(Raffica.Core.Pdf.PageRange.Parse(range.Text!, pageCount)) : null;
+            IReadOnlySet<int>? pages = current.IsChecked == true && hasCurrent ? new HashSet<int> { currentPage!.Value } : some.IsChecked == true ? new HashSet<int>(Raffica.Core.Pdf.PageRange.Parse(range.Text!, pageCount)) : null;
             var mode = redo.IsChecked == true ? OcrMode.Redo : force.IsChecked == true ? OcrMode.Force : OcrMode.Skip;
             var chosen = dpi.SelectedIndex > 0 && dpi.SelectedIndex <= Resolutions.Length ? Resolutions[dpi.SelectedIndex - 1] : 0;
             done(new OcrOptions(languages.Selection!, mode, chosen, pages));
@@ -184,6 +189,7 @@ internal static class RecognizeCard
 
         all.IsCheckedChanged += (_, _) => Validate();
         some.IsCheckedChanged += (_, _) => Validate();
+        current.IsCheckedChanged += (_, _) => Validate();
         range.GetObservable(TextBox.TextProperty).Subscribe(new Avalonia.Reactive.AnonymousObserver<string?>(_ => Validate()));
         range.KeyDown += (_, e) =>
         {

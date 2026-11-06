@@ -87,7 +87,9 @@ internal sealed partial class PdfWindow
             var languages = new LanguageList(installed, PdfStrings.Culture.TwoLetterISOLanguageName, Settings.App.OcrLanguages);
             var name = tab.Title;
             var count = document.PageCount;
-            var options = await Dialogs.ShowAsync<OcrOptions?>(done => RecognizeCard.Create(name, count, languages, signed, done));
+            // The page that is shown now; the card keeps it, whatever the view does while the card is open.
+            int? shown = _views.TryGetValue(tab, out var view) ? view.CurrentPage : null;
+            var options = await Dialogs.ShowAsync<OcrOptions?>(done => RecognizeCard.Create(name, count, languages, signed, done, shown));
 
             // The tab may be gone or the document replaced while the card was open: nothing starts for it then.
             if (options is null || !Workspace.Tabs.Contains(tab) || !ReferenceEquals(tab.Session.Document, document))

@@ -244,6 +244,84 @@ public sealed class OcrOptionsTests
     }
 
     [AvaloniaFact]
+    public void CurrentPageIsTheOneOfOpeningTimeAndSkipMeansOnlyPagesWithoutText()
+    {
+        var results = new List<OcrOptions?>();
+        var dialog = RecognizeCard.Create("scan.pdf", 6, ListOf("eng"), false, results.Add, currentPage: 3);
+        var window = Show(dialog);
+        var current = Find<RadioButton>(dialog, "PART_PagesCurrent");
+        Assert.True(current.IsEnabled);
+        Assert.Contains("4", (string)current.Content!, StringComparison.Ordinal);
+        Assert.Contains("without text", (string)Find<RadioButton>(dialog, "PART_ModeSkip").Content!, StringComparison.Ordinal);
+        Assert.Equal("Skip them, so only pages without text are recognized", Find<RadioButton>(dialog, "PART_ModeSkip").Content);
+
+        // The range field stays for "Only these pages" and is off for the current page.
+        current.IsChecked = true;
+        PrintHost.Pump();
+        Assert.False(Find<TextBox>(dialog, "PART_Range").IsEnabled);
+        Click(dialog, "PART_Recognize");
+        Assert.Equal(new HashSet<int> { 3 }, Assert.IsType<OcrOptions>(Assert.Single(results)).Pages);
+        window.Close();
+
+        // Without a page to name the option is off.
+        dialog = RecognizeCard.Create("scan.pdf", 6, ListOf("eng"), false, _ => { });
+        window = Show(dialog);
+        Assert.False(Find<RadioButton>(dialog, "PART_PagesCurrent").IsEnabled);
+        window.Close();
+
+        // A page beyond the document is no page: the option is off.
+        dialog = RecognizeCard.Create("scan.pdf", 6, ListOf("eng"), false, _ => { }, currentPage: 6);
+        window = Show(dialog);
+        Assert.False(Find<RadioButton>(dialog, "PART_PagesCurrent").IsEnabled);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task CurrentPageDoesNotFollowTheViewAfterTheCardOpened()
+    {
+        var (f, tab) = await OpenedAsync("eng");
+        using var _ = f;
+        await ViewFixture.WaitAsync(() => f.Window.ViewOf(tab)?.FirstSharpPageShown == true);
+        var started = new List<OcrOptions>();
+        f.Window.OcrLibraryProbe = () => true;
+        f.Window.OcrRunStarter = (_, o) => started.Add(o);
+        var view = f.Window.ViewOf(tab)!;
+        view.GoToPage(1);
+        ViewFixture.Pump();
+        var atOpening = view.CurrentPage;
+
+        var run = f.Window.RecognizeAsync();
+        await PrintHost.UntilAsync(() => f.Window.Host.ActiveDialog is { } d && d.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "PART_Recognize"));
+        var card = f.Window.Host.ActiveDialog!;
+        Assert.Contains((atOpening + 1).ToString(CultureInfo.CurrentCulture), (string)Find<RadioButton>(card, "PART_PagesCurrent").Content!, StringComparison.Ordinal);
+        Find<RadioButton>(card, "PART_PagesCurrent").IsChecked = true;
+        view.GoToPage(0);
+        ViewFixture.Pump();
+        Click(card, "PART_Recognize");
+        await PrintHost.UntilAsync(() => run.IsCompleted);
+
+        Assert.Equal(new HashSet<int> { atOpening }, Assert.Single(started).Pages);
+    }
+
+    [Fact]
+    public void LanguagesAreLockedWhileRecognitionRuns()
+    {
+        var running = false;
+        var rules = new PdfCommandRules(() => true, () => 1, () => null, modes: new ModeExclusion(mode => mode == PdfMode.Ocr && running));
+        Assert.True(rules.Allows("ocr.languages"));
+        Assert.Null(rules.ReasonFor("ocr.languages"));
+
+        running = true;
+        Assert.False(rules.Allows("ocr.languages"));
+        Assert.Equal(PdfStrings.ModeOcrReason, rules.ReasonFor("ocr.languages"));
+        PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
+        Assert.Equal("Warte, bis die Texterkennung fertig ist, oder brich sie ab.", rules.ReasonFor("ocr.languages"));
+
+        // Another mode in the way does not lock it; without a document nothing is on.
+        Assert.False(new PdfCommandRules(() => false, () => 0, () => null).Allows("ocr.languages"));
+    }
+
+    [AvaloniaFact]
     public void NoLanguageFilesMeansNothingToStart()
     {
         var results = new List<OcrOptions?>();

@@ -1144,6 +1144,7 @@ internal static class PdfStrings
     public static string OcrLanguageRefusalNotInstalled => Table.Get("OcrLanguageRefusalNotInstalled");
     public static string OcrPagesHeading => Table.Get("OcrPagesHeading");
     public static string OcrPagesAll => Table.Get("OcrPagesAll");
+    public static string OcrPagesCurrentFormat => Table.Get("OcrPagesCurrentFormat");
     public static string OcrPagesRange => Table.Get("OcrPagesRange");
     public static string OcrPagesRangeLabel => Table.Get("OcrPagesRangeLabel");
     public static string OcrModeHeading => Table.Get("OcrModeHeading");

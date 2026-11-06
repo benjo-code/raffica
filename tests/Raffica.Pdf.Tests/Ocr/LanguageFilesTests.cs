@@ -203,6 +203,39 @@ public sealed class LanguageFilesTests
     }
 
     [AvaloniaFact]
+    public async Task AnImporterThatThrowsIsAFailedImportWithWordingAndLeavesNothingBehind()
+    {
+        // The copy itself: an exception that is not out of memory becomes the Failed result, never an unhandled one.
+        var direct = await LanguageFilesCard.ImportAsync((_, _) => throw new InvalidOperationException("English text of the exception"), "deu.traineddata", replaceImported: false);
+        Assert.Equal(TessdataImportError.Failed, direct.Error);
+        Assert.DoesNotContain("exception", PdfStrings.OcrImportMessage(direct.Error, direct.Language), StringComparison.OrdinalIgnoreCase);
+
+        // Through the window: the card says it in the words of the app, and no file or temporary file is in the folder of the user.
+        using var f = await OpenedAsync();
+        var folder = Directory.CreateTempSubdirectory("raffica-throw-").FullName;
+        try
+        {
+            var source = Source(folder, "deu.traineddata");
+            f.Window.LanguageFilePicker = () => Task.FromResult<string?>(source);
+            f.Window.TessdataImporter = (_, _) => throw new InvalidOperationException("boom");
+            var run = f.Window.LanguagesAsync();
+            await PressAsync(f, "PART_Choose");
+            var card = await CardWithAsync(f, "PART_Ok");
+            Assert.Equal(PdfStrings.OcrImportFailed, PrintHost.Find<TextBlock>(card, "PART_Message").Text);
+            await PressAsync(f, "PART_Ok");
+            await PrintHost.UntilAsync(() => run.IsCompleted);
+
+            var user = Raffica.Pdf.Settings.PdfSettingsFiles.TessdataDirectoryFor(Path.Combine(f.Folder, "settings.json"));
+            Assert.Empty(Directory.Exists(user) ? Directory.GetFileSystemEntries(user) : []);
+            Assert.True(File.Exists(source));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task AFileThatWasAddedBeforeIsReplacedOnlyOnRequest()
     {
         using var f = await OpenedAsync();
