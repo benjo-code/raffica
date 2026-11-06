@@ -1706,4 +1706,94 @@
   <data name="ExportFailRender" xml:space="preserve">
     <value>Eine Seite konnte nicht gezeichnet werden.</value>
   </data>
+  <data name="TabRedact" xml:space="preserve">
+    <value>Schwärzen</value>
+  </data>
+  <data name="TabEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="GroupMark" xml:space="preserve">
+    <value>Markieren</value>
+  </data>
+  <data name="GroupLook" xml:space="preserve">
+    <value>Ansicht</value>
+  </data>
+  <data name="GroupScan" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="CmdRedactMode" xml:space="preserve">
+    <value>Schwärzen</value>
+  </data>
+  <data name="CmdRedactMarkSelection" xml:space="preserve">
+    <value>Auswahl markieren</value>
+  </data>
+  <data name="CmdRedactFind" xml:space="preserve">
+    <value>Suchen und markieren…</value>
+  </data>
+  <data name="CmdRedactRasterPage" xml:space="preserve">
+    <value>Seite in Bild umwandeln</value>
+  </data>
+  <data name="CmdRedactDeleteMarks" xml:space="preserve">
+    <value>Markierungen löschen</value>
+  </data>
+  <data name="CmdRedactDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="CmdRedactApply" xml:space="preserve">
+    <value>Schwärzungen anwenden…</value>
+  </data>
+  <data name="CmdOcrRun" xml:space="preserve">
+    <value>Text erkennen…</value>
+  </data>
+  <data name="CmdOcrLanguages" xml:space="preserve">
+    <value>Sprachen…</value>
+  </data>
+  <data name="CmdOcrCancel" xml:space="preserve">
+    <value>Erkennung abbrechen</value>
+  </data>
+  <data name="CmdTextEdit" xml:space="preserve">
+    <value>Text bearbeiten</value>
+  </data>
+  <data name="CmdTextEditDone" xml:space="preserve">
+    <value>Bearbeiten beenden</value>
+  </data>
+  <data name="ModeAnnotateReason" xml:space="preserve">
+    <value>Beende zuerst das Anmerken.</value>
+  </data>
+  <data name="ModeFormsReason" xml:space="preserve">
+    <value>Beende zuerst das Ausfüllen des Formulars.</value>
+  </data>
+  <data name="ModeRedactReason" xml:space="preserve">
+    <value>Wende die Schwärzungen zuerst an oder verwirf sie.</value>
+  </data>
+  <data name="ModeOcrReason" xml:space="preserve">
+    <value>Warte, bis die Texterkennung fertig ist, oder brich sie ab.</value>
+  </data>
+  <data name="ModeTextEditReason" xml:space="preserve">
+    <value>Beende zuerst das Bearbeiten des Textes.</value>
+  </data>
+  <data name="UnsavedRedactTitle" xml:space="preserve">
+    <value>Die Schwärzungen verwerfen?</value>
+  </data>
+  <data name="UnsavedRedactMessageFormat" xml:space="preserve">
+    <value>Die Schwärzungen von {0} sind markiert, aber noch nicht angewendet. Anwenden schreibt sie in eine Datei; Verwerfen löscht sie und lässt die Datei, wie sie ist.</value>
+  </data>
+  <data name="UnsavedRedactApply" xml:space="preserve">
+    <value>Anwenden…</value>
+  </data>
+  <data name="UnsavedRedactDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="UnsavedOcrTitle" xml:space="preserve">
+    <value>Die Texterkennung abbrechen?</value>
+  </data>
+  <data name="UnsavedOcrMessageFormat" xml:space="preserve">
+    <value>Die Texterkennung von {0} läuft noch. Wenn du sie beendest, bleibt die Datei, wie sie ist.</value>
+  </data>
+  <data name="UnsavedOcrStop" xml:space="preserve">
+    <value>Erkennung beenden</value>
+  </data>
+  <data name="UnsavedOcrKeep" xml:space="preserve">
+    <value>Weiterlaufen lassen</value>
+  </data>
 </root>

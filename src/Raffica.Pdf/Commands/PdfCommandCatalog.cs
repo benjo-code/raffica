@@ -178,6 +178,32 @@ internal static class PdfCommandCatalog
         pages.Group("GroupDelete", "6", destructive: true)
             .Add(PdfCommandIds.DeletePages, "CmdDeletePages", "X", "61");
 
+        // Letter R for the tab (free: the frame keeps Q, 6 and 7). Only the mode command is usable before the mode is on; the rest follow it.
+        // The Delete group (digit 5) holds the one command that removes marks and stays last. Icons are stand-ins as in the other tabs.
+        var redact = new CatalogTab("TabRedact", "R");
+        redact.Group("GroupMark", "1")
+            .Add(PdfCommandIds.RedactMode, "CmdRedactMode", "Plus", "11", Cmd(Key.P, "P", shift: true), CommandSize.Large)
+            .Add(PdfCommandIds.RedactMarkSelection, "CmdRedactMarkSelection", "Bold", "12");
+        redact.Group("GroupFind", "2")
+            .Add(PdfCommandIds.RedactFind, "CmdRedactFind", "Search", "21");
+        redact.Group("GroupLook", "3")
+            .Add(PdfCommandIds.RedactRasterPage, "CmdRedactRasterPage", "AlignCenter", "31");
+        redact.Group("GroupApply", "4")
+            .Add(PdfCommandIds.RedactApply, "CmdRedactApply", "Check", "41", size: CommandSize.Large)
+            .Add(PdfCommandIds.RedactDiscard, "CmdRedactDiscard", "X", "42");
+        redact.Group("GroupDelete", "5", destructive: true)
+            .Add(PdfCommandIds.RedactDeleteMarks, "CmdRedactDeleteMarks", "X", "51");
+
+        // Letter E for the tab. Editing the text of a page and recognizing text; the same stand-in icons.
+        var edit = new CatalogTab("TabEdit", "E");
+        edit.Group("GroupText", "1")
+            .Add(PdfCommandIds.TextEdit, "CmdTextEdit", "Italic", "11", Cmd(Key.W, "W", shift: true), CommandSize.Large)
+            .Add(PdfCommandIds.TextEditDone, "CmdTextEditDone", "Check", "12");
+        edit.Group("GroupScan", "2")
+            .Add(PdfCommandIds.OcrRun, "CmdOcrRun", "Search", "21", Cmd(Key.Q, "Q", shift: true), CommandSize.Large)
+            .Add(PdfCommandIds.OcrLanguages, "CmdOcrLanguages", "AlignLeft", "22")
+            .Add(PdfCommandIds.OcrCancel, "CmdOcrCancel", "X", "23");
+
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
             .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "Plus", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
@@ -196,7 +222,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "ChevronRight", "41", Cmd(Key.D1, "1", shift: true))
             .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "AlignLeft", "42", Cmd(Key.D2, "2", shift: true));
 
-        Tabs = [home, annotate, forms, pages, view];
+        Tabs = [home, annotate, forms, pages, redact, edit, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 

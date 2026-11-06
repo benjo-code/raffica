@@ -2,7 +2,10 @@ using Avalonia.Threading;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Forms;
+using Raffica.Pdf.Ocr;
 using Raffica.Pdf.Organizing;
+using Raffica.Pdf.Redacting;
+using Raffica.Pdf.TextEditing;
 using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf.Documents;
@@ -18,6 +21,9 @@ internal sealed class PdfTab : IDisposable
     private AnnotationSession? _annotations;
     private FormSession? _forms;
     private OrganizeSession? _organize;
+    private RedactSession? _redact;
+    private OcrSession? _ocr;
+    private TextEditSession? _textEdit;
 
     public PdfTab(ViewerSession session, string path)
     {
@@ -74,6 +80,24 @@ internal sealed class PdfTab : IDisposable
         }
     }
 
+    /// <summary>The redaction session of the tab, made on first use and disposed with the tab. UI thread.</summary>
+    public RedactSession Redact => _redact ??= new RedactSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+
+    /// <summary>The text recognition session of the tab, made on first use and disposed with the tab. UI thread.</summary>
+    public OcrSession Ocr => _ocr ??= new OcrSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+
+    /// <summary>The text editing session of the tab, made on first use and disposed with the tab. UI thread.</summary>
+    public TextEditSession TextEdit => _textEdit ??= new TextEditSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+
+    /// <summary>The redaction session if one was made, else null (whoever only asks must not make one).</summary>
+    public RedactSession? RedactIfCreated => _redact;
+
+    /// <summary>The text recognition session if one was made, else null.</summary>
+    public OcrSession? OcrIfCreated => _ocr;
+
+    /// <summary>The text editing session if one was made, else null.</summary>
+    public TextEditSession? TextEditIfCreated => _textEdit;
+
     /// <summary>Raised when the organize session is made (the pages pane, which must not make it, listens to it). UI thread.</summary>
     public event Action<OrganizeSession>? OrganizeCreated;
 
@@ -105,6 +129,12 @@ internal sealed class PdfTab : IDisposable
     {
         _organize?.Dispose();
         _organize = null;
+        _redact?.Dispose();
+        _redact = null;
+        _ocr?.Dispose();
+        _ocr = null;
+        _textEdit?.Dispose();
+        _textEdit = null;
         _forms?.Dispose();
         _forms = null;
         _annotations?.Dispose();
@@ -124,6 +154,9 @@ internal sealed class PdfTab : IDisposable
         }
 
         _organize?.Dispose();
+        _redact?.Dispose();
+        _ocr?.Dispose();
+        _textEdit?.Dispose();
         _forms?.Dispose();
         _annotations?.Dispose();
         Session.Dispose();

@@ -27,6 +27,10 @@
     <EmbeddedResource Update="Resources\Strings.en.resx" WithCulture="false" LogicalName="Raffica.Pdf.Strings.en.resources" />
     <EmbeddedResource Update="Resources\Strings.de.resx" WithCulture="false" LogicalName="Raffica.Pdf.Strings.de.resources" />
   </ItemGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != '' And Exists('$(MSBuildThisFileDirectory)..\..\artifacts\native\$(RuntimeIdentifier)')">
+    <!-- The OCR library and its tessdata, when tools/native-fetch.cs put them there; never required, a build without them stays valid and the app then offers no text recognition. -->
+    <None Include="..\..\artifacts\native\$(RuntimeIdentifier)\**\*" Link="%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <!-- Geist Regular (Core embeds the same file for the text box appearance): the font of the text box editing field, so the field shows what the page will. -->
     <AvaloniaResource Include="..\Raffica.Core\Assets\Fonts\Geist-Regular.ttf" Link="Assets\Fonts\Geist-Regular.ttf" />

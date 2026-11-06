@@ -23,6 +23,12 @@ internal enum UnsavedKind
 
     /// <summary>An open page plan: Apply…, Discard, Cancel.</summary>
     Plan,
+
+    /// <summary>Redactions marked and not applied: Apply…, Discard, Cancel.</summary>
+    Redact,
+
+    /// <summary>A text recognition that still runs: Stop recognition, Keep going.</summary>
+    Ocr,
 }
 
 internal static class UnsavedChangesCard
@@ -32,31 +38,38 @@ internal static class UnsavedChangesCard
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(chosen);
 
-        var locked = kind == UnsavedKind.Locked;
-        var plan = kind == UnsavedKind.Plan;
-        var format = plan ? PdfStrings.UnsavedPlanMessageFormat : locked ? PdfStrings.UnsavedLockedMessageFormat : PdfStrings.UnsavedMessageFormat;
+        // The recognition card has a single way forward besides Cancel, like the locked card, and shares its layout.
+        var locked = kind is UnsavedKind.Locked or UnsavedKind.Ocr;
+        var plan = kind is UnsavedKind.Plan or UnsavedKind.Redact;
+        var redact = kind == UnsavedKind.Redact;
+        var ocr = kind == UnsavedKind.Ocr;
+        var format = ocr ? PdfStrings.UnsavedOcrMessageFormat
+            : redact ? PdfStrings.UnsavedRedactMessageFormat
+            : plan ? PdfStrings.UnsavedPlanMessageFormat
+            : locked ? PdfStrings.UnsavedLockedMessageFormat
+            : PdfStrings.UnsavedMessageFormat;
         var message = new TextBlock { Text = format.Replace("{0}", fileName, StringComparison.Ordinal), TextWrapping = TextWrapping.Wrap };
-        var cancel = CreateButton("PART_Cancel", ShellStrings.Cancel, primary: locked);
+        var cancel = CreateButton("PART_Cancel", ocr ? PdfStrings.UnsavedOcrKeep : ShellStrings.Cancel, primary: locked);
 
         Dialog dialog;
         Button dangerous;
         if (locked)
         {
-            dangerous = CreateButton("PART_Discard", PdfStrings.UnsavedDiscard, primary: false);
+            dangerous = CreateButton("PART_Discard", ocr ? PdfStrings.UnsavedOcrStop : PdfStrings.UnsavedDiscard, primary: false);
             dialog = new Dialog
             {
-                Title = PdfStrings.UnsavedLockedTitle,
+                Title = ocr ? PdfStrings.UnsavedOcrTitle : PdfStrings.UnsavedLockedTitle,
                 Content = message,
                 Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, dangerous } },
             };
         }
         else
         {
-            var save = CreateButton(plan ? "PART_Apply" : "PART_Save", plan ? PdfStrings.UnsavedPlanApply : PdfStrings.UnsavedSave, primary: true);
-            dangerous = CreateButton(plan ? "PART_Discard" : "PART_DontSave", plan ? PdfStrings.UnsavedPlanDiscard : PdfStrings.UnsavedDontSave, primary: false);
+            var save = CreateButton(plan ? "PART_Apply" : "PART_Save", redact ? PdfStrings.UnsavedRedactApply : plan ? PdfStrings.UnsavedPlanApply : PdfStrings.UnsavedSave, primary: true);
+            dangerous = CreateButton(plan ? "PART_Discard" : "PART_DontSave", redact ? PdfStrings.UnsavedRedactDiscard : plan ? PdfStrings.UnsavedPlanDiscard : PdfStrings.UnsavedDontSave, primary: false);
             dialog = new Dialog
             {
-                Title = plan ? PdfStrings.UnsavedPlanTitle : PdfStrings.UnsavedTitle,
+                Title = redact ? PdfStrings.UnsavedRedactTitle : plan ? PdfStrings.UnsavedPlanTitle : PdfStrings.UnsavedTitle,
                 Content = message,
                 Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { save, dangerous, cancel } },
             };

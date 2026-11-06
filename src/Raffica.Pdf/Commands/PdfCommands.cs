@@ -73,7 +73,19 @@ internal sealed record PdfCommands(
     Action? DeletePages = null,
     Action? ExtractPages = null,
     Action? SplitDocument = null,
-    Action? ExportImages = null)
+    Action? ExportImages = null,
+    Action? RedactMode = null,
+    Action? RedactMarkSelection = null,
+    Action? RedactFind = null,
+    Action? RedactRasterPage = null,
+    Action? RedactDeleteMarks = null,
+    Action? RedactDiscard = null,
+    Action? RedactApply = null,
+    Action? OcrRun = null,
+    Action? OcrLanguages = null,
+    Action? OcrCancel = null,
+    Action? TextEdit = null,
+    Action? TextEditDone = null)
 {
     /// <summary>The action behind a command id of <see cref="PdfCommandIds"/>, or null when there is none.</summary>
     public Action? RunOf(string id) => id switch
@@ -146,6 +158,18 @@ internal sealed record PdfCommands(
         PdfCommandIds.ExtractPages => ExtractPages,
         PdfCommandIds.SplitDocument => SplitDocument,
         PdfCommandIds.ExportImages => ExportImages,
+        PdfCommandIds.RedactMode => RedactMode,
+        PdfCommandIds.RedactMarkSelection => RedactMarkSelection,
+        PdfCommandIds.RedactFind => RedactFind,
+        PdfCommandIds.RedactRasterPage => RedactRasterPage,
+        PdfCommandIds.RedactDeleteMarks => RedactDeleteMarks,
+        PdfCommandIds.RedactDiscard => RedactDiscard,
+        PdfCommandIds.RedactApply => RedactApply,
+        PdfCommandIds.OcrRun => OcrRun,
+        PdfCommandIds.OcrLanguages => OcrLanguages,
+        PdfCommandIds.OcrCancel => OcrCancel,
+        PdfCommandIds.TextEdit => TextEdit,
+        PdfCommandIds.TextEditDone => TextEditDone,
         _ => null,
     };
 }

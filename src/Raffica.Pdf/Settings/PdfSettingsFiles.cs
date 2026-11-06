@@ -37,6 +37,10 @@ internal static class PdfSettingsFiles
     public static string SignaturesDirectoryFor(string? settingsFile) =>
         FolderOf(settingsFile) is { } folder ? Path.Combine(folder, "signatures") : UserDataPaths.SignaturesDirectory();
 
+    /// <summary>The folder of the language models the user imported: <c>tessdata</c> next to the given shell settings file, else <see cref="UserDataPaths.TessdataDirectory()"/>.</summary>
+    public static string TessdataDirectoryFor(string? settingsFile) =>
+        FolderOf(settingsFile) is { } folder ? Path.Combine(folder, "tessdata") : UserDataPaths.TessdataDirectory();
+
     // A switch with a malformed path still must not send the files into the folder of the user: they go to the temp folder.
     private static string? FolderOf(string? settingsFile)
     {

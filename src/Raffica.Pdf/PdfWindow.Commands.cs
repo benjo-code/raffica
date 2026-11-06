@@ -75,7 +75,19 @@ internal sealed partial class PdfWindow
         planCanUndo: () => OpenPlan?.CanUndo == true,
         planCanRedo: () => OpenPlan?.CanRedo == true,
         planChanged: () => OpenPlan is { } plan && !plan.Plan.IsIdentity,
-        marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true);
+        marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true,
+        modes: new ModeExclusion(ModeIsOn));
+
+    // Which modes are on for the active tab: the annotate tool is the window's, the others are the sessions of the tab (none is made by asking).
+    private bool ModeIsOn(PdfMode mode) => mode switch
+    {
+        PdfMode.Annotate => Tools.Tool != AnnotateTool.None,
+        PdfMode.Organize => OpenPlan is not null,
+        PdfMode.Redact => Workspace.Active?.RedactIfCreated?.IsActive == true,
+        PdfMode.Ocr => Workspace.Active?.OcrIfCreated?.IsActive == true,
+        PdfMode.TextEdit => Workspace.Active?.TextEditIfCreated?.IsActive == true,
+        _ => false,
+    };
 
     // The rules ask for every tab, with or without a form: a document without an AcroForm creates no form session (and its subscription) for it.
     private static bool TabHasForm(PdfTab tab)

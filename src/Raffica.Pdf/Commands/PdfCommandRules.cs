@@ -32,8 +32,12 @@ internal sealed class PdfCommandRules(
     Func<bool>? planCanUndo = null,
     Func<bool>? planCanRedo = null,
     Func<bool>? planChanged = null,
-    Func<bool>? marksUnsaved = null)
+    Func<bool>? marksUnsaved = null,
+    ModeExclusion? modes = null)
 {
+    // Without the window's own exclusion the only mode known is the page plan, which organizeActive tells.
+    private readonly ModeExclusion _modes = modes ?? new ModeExclusion(mode => mode == PdfMode.Organize && organizeActive?.Invoke() == true);
+
     private static readonly HashSet<string> Tools =
     [
         PdfCommandIds.AnnotateMode, PdfCommandIds.Highlight, PdfCommandIds.Underline, PdfCommandIds.StrikeOut, PdfCommandIds.SelectMark,
@@ -56,6 +60,27 @@ internal sealed class PdfCommandRules(
     // Read the open document without the plan, so they need no open plan and no unsaved marks.
     private static readonly HashSet<string> PageOutputs = [PdfCommandIds.ExtractPages, PdfCommandIds.SplitDocument, PdfCommandIds.ExportImages];
 
+    // Run only while their mode is on (they end it or work inside it).
+    private static readonly Dictionary<string, PdfMode> InsideMode = new()
+    {
+        [PdfCommandIds.RedactMarkSelection] = PdfMode.Redact,
+        [PdfCommandIds.RedactFind] = PdfMode.Redact,
+        [PdfCommandIds.RedactRasterPage] = PdfMode.Redact,
+        [PdfCommandIds.RedactDeleteMarks] = PdfMode.Redact,
+        [PdfCommandIds.RedactDiscard] = PdfMode.Redact,
+        [PdfCommandIds.RedactApply] = PdfMode.Redact,
+        [PdfCommandIds.OcrCancel] = PdfMode.Ocr,
+        [PdfCommandIds.TextEditDone] = PdfMode.TextEdit,
+    };
+
+    // Start a mode: allowed when ModeExclusion lets the mode in (or it is on already, which the command then ends).
+    private static readonly Dictionary<string, PdfMode> StartsMode = new()
+    {
+        [PdfCommandIds.RedactMode] = PdfMode.Redact,
+        [PdfCommandIds.OcrRun] = PdfMode.Ocr,
+        [PdfCommandIds.TextEdit] = PdfMode.TextEdit,
+    };
+
     /// <summary>Whether the command may run now (not counting whether an action is wired behind it).</summary>
     public bool Allows(string id) => id switch
     {
@@ -67,6 +92,9 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false),
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
+        _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
+        _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
+        PdfCommandIds.OcrLanguages => hasDocument(),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when PageEdits.Contains(id) => hasDocument() && PlanOpen() && Ask(pageSelection, false),
         PdfCommandIds.BlankPage or PdfCommandIds.InsertFile => hasDocument() && PlanOpen(),
@@ -75,9 +103,9 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.ApplyPages => hasDocument() && PlanOpen() && Ask(planChanged, false) && !Ask(saveRunning, false),
         PdfCommandIds.DiscardPages => hasDocument() && PlanOpen(),
         _ when PageOutputs.Contains(id) => hasDocument() && !PlanOpen() && !Ask(marksUnsaved, false) && !Ask(saveRunning, false),
-        _ when Tools.Contains(id) => hasDocument() && !PlanOpen() && Ask(annotateAllowed, true),
-        PdfCommandIds.FormsNextRequired => hasDocument() && !PlanOpen() && FormsReady() && Ask(hasEmptyRequired, true),
-        _ when FormCommands.Contains(id) => hasDocument() && !PlanOpen() && FormsReady(),
+        _ when Tools.Contains(id) => hasDocument() && _modes.CanEnter(PdfMode.Annotate, out _) && Ask(annotateAllowed, true),
+        PdfCommandIds.FormsNextRequired => hasDocument() && _modes.CanEnter(PdfMode.Forms, out _) && FormsReady() && Ask(hasEmptyRequired, true),
+        _ when FormCommands.Contains(id) => hasDocument() && _modes.CanEnter(PdfMode.Forms, out _) && FormsReady(),
         _ => hasDocument(),
     };
 
@@ -91,9 +119,16 @@ internal sealed class PdfCommandRules(
 
         // While a plan is open the tools, Sign, the forms and the output commands are locked: the page view shows the document as it is, not
         // as the plan will leave it.
-        if ((Tools.Contains(id) || FormCommands.Contains(id) || PageOutputs.Contains(id)) && PlanOpen())
+        if (PageOutputs.Contains(id) && PlanOpen())
         {
             return PdfStrings.PageChangesLockedReason;
+        }
+
+        // A mode in the way gives its reason: the tools and Sign ask for the annotate mode, the form commands for the forms, the starting commands for theirs.
+        var entering = Tools.Contains(id) ? PdfMode.Annotate : FormCommands.Contains(id) ? PdfMode.Forms : StartsMode.TryGetValue(id, out var starts) ? starts : (PdfMode?)null;
+        if (entering is { } mode && !_modes.CanEnter(mode, out var inTheWay))
+        {
+            return inTheWay;
         }
 
         if (PageOutputs.Contains(id))
@@ -136,7 +171,7 @@ internal sealed class PdfCommandRules(
     }
 
     // The mode is on: the plan is open, identity or not (leaving an identity plan is one command, so the locks do not wait for the first change).
-    private bool PlanOpen() => Ask(organizeActive, false);
+    private bool PlanOpen() => _modes.IsActive(PdfMode.Organize);
 
     private static bool Ask(Func<bool>? question, bool unknown) => question is null ? unknown : question();
 

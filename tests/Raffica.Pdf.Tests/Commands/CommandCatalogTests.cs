@@ -140,7 +140,7 @@ public sealed class CommandCatalogTests
 
         // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
         Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
-        Assert.Equal(68, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(80, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -150,16 +150,16 @@ public sealed class CommandCatalogTests
         var blocked = PdfCommandCatalog.Commands.Where(c => !rules.Allows(c.Id)).Select(c => c.Id).ToArray();
 
         // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection, the form commands a form, the page commands the organize mode (and a selection or a changed plan).
-        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "forms.highlight", "forms.next", "forms.nextRequired", "forms.previous", "pages.apply", "pages.blank", "pages.delete", "pages.discard", "pages.duplicate", "pages.insertFile", "pages.moveDown", "pages.moveUp", "pages.redo", "pages.rotateLeft", "pages.rotateRight", "pages.undo", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
+        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "forms.highlight", "forms.next", "forms.nextRequired", "forms.previous", "ocr.cancel", "pages.apply", "pages.blank", "pages.delete", "pages.discard", "pages.duplicate", "pages.insertFile", "pages.moveDown", "pages.moveUp", "pages.redo", "pages.rotateLeft", "pages.rotateRight", "pages.undo", "redact.apply", "redact.deleteMarks", "redact.discard", "redact.find", "redact.markSelection", "redact.rasterPage", "tabs.next", "tabs.previous", "text.editDone"], blocked.Order(StringComparer.Ordinal).ToArray());
         Assert.True(new PdfCommandRules(() => true, () => 2, () => null).Allows("tabs.next"));
     }
 
     [Fact]
     public void CommandCountsAndGroupDigitsMatchTheCatalog()
     {
-        // 52 commands of the viewer, the annotate tools, the forms and 16 of the Pages tab.
-        Assert.Equal(68, PdfCommandCatalog.Commands.Count);
-        Assert.Equal(["Home", "Annotate", "Forms", "Pages", "View"], PdfCommandCatalog.Tabs.Select(t => t.Name).ToArray());
+        // 52 commands of the viewer, the annotate tools, the forms, 16 of the Pages tab and 12 of Redact and Edit.
+        Assert.Equal(80, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(["Home", "Annotate", "Forms", "Pages", "Redact", "Edit", "View"], PdfCommandCatalog.Tabs.Select(t => t.Name).ToArray());
 
         var pages = PdfCommandCatalog.Tabs.Single(t => t.Letter == "P");
         Assert.Equal(["1", "2", "3", "4", "5", "6"], pages.Groups.Select(g => g.Digit).ToArray());

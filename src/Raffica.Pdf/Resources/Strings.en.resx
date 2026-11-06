@@ -1722,4 +1722,94 @@
   <data name="ExportFailRender" xml:space="preserve">
     <value>A page could not be drawn.</value>
   </data>
+  <data name="TabRedact" xml:space="preserve">
+    <value>Redact</value>
+  </data>
+  <data name="TabEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="GroupMark" xml:space="preserve">
+    <value>Mark</value>
+  </data>
+  <data name="GroupLook" xml:space="preserve">
+    <value>Look</value>
+  </data>
+  <data name="GroupScan" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="CmdRedactMode" xml:space="preserve">
+    <value>Redact</value>
+  </data>
+  <data name="CmdRedactMarkSelection" xml:space="preserve">
+    <value>Mark selection</value>
+  </data>
+  <data name="CmdRedactFind" xml:space="preserve">
+    <value>Find and mark…</value>
+  </data>
+  <data name="CmdRedactRasterPage" xml:space="preserve">
+    <value>Turn page into image</value>
+  </data>
+  <data name="CmdRedactDeleteMarks" xml:space="preserve">
+    <value>Delete marks</value>
+  </data>
+  <data name="CmdRedactDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="CmdRedactApply" xml:space="preserve">
+    <value>Apply redactions…</value>
+  </data>
+  <data name="CmdOcrRun" xml:space="preserve">
+    <value>Recognize text…</value>
+  </data>
+  <data name="CmdOcrLanguages" xml:space="preserve">
+    <value>Languages…</value>
+  </data>
+  <data name="CmdOcrCancel" xml:space="preserve">
+    <value>Cancel recognition</value>
+  </data>
+  <data name="CmdTextEdit" xml:space="preserve">
+    <value>Edit text</value>
+  </data>
+  <data name="CmdTextEditDone" xml:space="preserve">
+    <value>Done editing</value>
+  </data>
+  <data name="ModeAnnotateReason" xml:space="preserve">
+    <value>Finish annotating first.</value>
+  </data>
+  <data name="ModeFormsReason" xml:space="preserve">
+    <value>Finish filling in the form first.</value>
+  </data>
+  <data name="ModeRedactReason" xml:space="preserve">
+    <value>Apply or discard the redactions first.</value>
+  </data>
+  <data name="ModeOcrReason" xml:space="preserve">
+    <value>Wait for the text recognition to finish, or cancel it.</value>
+  </data>
+  <data name="ModeTextEditReason" xml:space="preserve">
+    <value>Finish editing the text first.</value>
+  </data>
+  <data name="UnsavedRedactTitle" xml:space="preserve">
+    <value>Discard the redactions?</value>
+  </data>
+  <data name="UnsavedRedactMessageFormat" xml:space="preserve">
+    <value>The redactions of {0} are marked but not applied yet. Apply writes them to a file; Discard drops them and leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedRedactApply" xml:space="preserve">
+    <value>Apply…</value>
+  </data>
+  <data name="UnsavedRedactDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="UnsavedOcrTitle" xml:space="preserve">
+    <value>Cancel the text recognition?</value>
+  </data>
+  <data name="UnsavedOcrMessageFormat" xml:space="preserve">
+    <value>The text recognition of {0} is still running. Stopping it leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedOcrStop" xml:space="preserve">
+    <value>Stop recognition</value>
+  </data>
+  <data name="UnsavedOcrKeep" xml:space="preserve">
+    <value>Keep going</value>
+  </data>
 </root>
