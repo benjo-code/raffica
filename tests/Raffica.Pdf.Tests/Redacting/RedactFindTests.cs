@@ -401,7 +401,7 @@ public sealed class RedactFindTests
         Assert.True(await panel2.SearchAsync());
         ViewFixture.Pump();
         // No command is wired here, so the row carries the instruction.
-        Assert.Equal("1 page is a picture; text in pictures is not searched " + PdfStrings.FindPicturesInstruction, panel2.PictureText);
+        Assert.Equal("1 page is a picture; text in pictures is not searched. " + PdfStrings.FindPicturesInstruction, panel2.PictureText);
     }
 
     [AvaloniaFact]
@@ -418,7 +418,7 @@ public sealed class RedactFindTests
 
         // A command that cannot run offers no dead button: the row says what to do instead.
         Assert.False(panel.OcrButton.IsVisible);
-        Assert.Equal(PdfStrings.FindPictures(3) + " " + PdfStrings.FindPicturesInstruction, panel.PictureText);
+        Assert.Equal(PdfStrings.FindPictures(3) + ". " + PdfStrings.FindPicturesInstruction, panel.PictureText);
     }
 
     [AvaloniaFact]
@@ -437,7 +437,7 @@ public sealed class RedactFindTests
 
         Assert.False(panel.OcrButton.IsVisible);
         Assert.Equal(
-            "3 pages are pictures; text in pictures is not searched Recognize text first: leave Redact mode (apply or discard the marks), recognize the text, then search again.",
+            "3 pages are pictures; text in pictures is not searched. Recognize text first: leave Redact mode (apply or discard the marks), recognize the text, then search again.",
             panel.PictureText);
 
         PdfStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("de");
@@ -446,7 +446,7 @@ public sealed class RedactFindTests
         ViewFixture.Pump();
         Assert.False(panel.OcrButton.IsVisible);
         Assert.Contains("Erkennen Sie zuerst den Text", panel.PictureText, StringComparison.Ordinal);
-        Assert.Contains("Seiten sind Bilder", panel.PictureText, StringComparison.Ordinal);
+        Assert.Contains("Bildern wird nicht durchsucht. Erkennen Sie zuerst den Text", panel.PictureText, StringComparison.Ordinal);
     }
 
     [AvaloniaFact]

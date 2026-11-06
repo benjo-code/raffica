@@ -351,7 +351,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         _ocr.IsVisible = _offerOcr && usable;
         ToolTip.SetTip(_ocr, null);
         _pictures.Text = _offerOcr
-            ? PdfStrings.FindPictures(_find.PictureCount) + (usable ? string.Empty : " " + PdfStrings.FindPicturesInstruction)
+            ? PdfStrings.FindPictures(_find.PictureCount) + (usable ? string.Empty : ". " + PdfStrings.FindPicturesInstruction)
             : string.Empty;
     }
 

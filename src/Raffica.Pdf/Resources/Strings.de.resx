@@ -2502,7 +2502,7 @@
     <value>Die Schwärzungen konnten nicht angewendet werden.</value>
   </data>
   <data name="RedactFailAdoptFormat" xml:space="preserve">
-    <value>Die Schwärzungen wurden geschrieben, aber der Tab konnte die Datei nicht übernehmen. Die Datei unter {0} ist die geschwärzte: Öffne sie vom Datenträger, um weiterzumachen.</value>
+    <value>Die Schwärzungen wurden geschrieben, aber der Tab konnte die Datei nicht übernehmen. Die Datei unter {0} ist die geschwärzte: Öffnen Sie sie vom Datenträger, um weiterzumachen.</value>
   </data>
   <data name="RedactPlanChanged" xml:space="preserve">
     <value>Die Markierungen wurden bei geöffnetem Dateidialog bearbeitet, deshalb wurde nichts geschrieben. Wenden Sie erneut an, um die aktuellen Markierungen zu sehen.</value>
