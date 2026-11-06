@@ -32,7 +32,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.2 | Annotate | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | 2026-11-05 |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-3-forms-and-signing.md) | 2026-11-05 |
 | 2.4 | Organize pages | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | 2026-11-06 |
-| 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | – |
+| 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | – |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
@@ -327,7 +327,7 @@ Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and expo
 - Not an open item any more: the Linux CI run of the new tests passed after one test-only fix (`OrganizeThumbnailTests.RotatedThumbnailIsDrawnTurned` measured ink with a hard darkness threshold that thin Linux text never reached; it now weights darkness). `AnnotationSessionTests.BusyEditorCountsAsDirty` failed once on Linux and passed on the rerun, so it is a flake of the existing 2.2 test, not of this milestone.
 
 ## Milestone 2.5 – Redact, OCR and line editing
-**Status:** 🟡 planned · **Plan:** [2026-11-06-milestone-02-5-redact-ocr-line-editing.md](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.3, M2.4
+**Status:** 🔵 in progress · **Plan:** [2026-11-06-milestone-02-5-redact-ocr-line-editing.md](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.3, M2.4
 
 Goal: Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository.
 
