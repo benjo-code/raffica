@@ -63,9 +63,10 @@ internal enum RedactProblem
 
 /// <summary>
 /// The outcome of an operation: done (then <see cref="MarkId"/> names the mark an add made), or refused with the reason. For
-/// <see cref="RedactProblem.OverlayCharactersRefused"/> the <see cref="CharacterClass"/> names the kind of the first character that cannot be drawn.
+/// <see cref="RedactProblem.OverlayCharactersRefused"/> the <see cref="CharacterClass"/> names the kind of the first character that cannot be drawn; for
+/// <see cref="RedactProblem.OverlayRepeatsTerm"/> the <see cref="Pages"/> (0-based, ascending) are the pages of the marks whose text repeats a marked text.
 /// </summary>
-internal readonly record struct RedactResult(RedactProblem? Problem, Guid? MarkId = null, OverlayCharacterClass? CharacterClass = null)
+internal readonly record struct RedactResult(RedactProblem? Problem, Guid? MarkId = null, OverlayCharacterClass? CharacterClass = null, IReadOnlyList<int>? Pages = null)
 {
     public static RedactResult Done => default;
 

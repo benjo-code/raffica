@@ -9,10 +9,12 @@ namespace Raffica.Pdf.Redacting;
 internal static class RedactAppearance
 {
     /// <summary>The resolutions, in dots per inch, offered for pages turned into images (the plan starts at <see cref="DefaultDpi"/>).</summary>
-    public static IReadOnlyList<int> Dpis { get; } = [150, RedactionLimits.DefaultRasterDpi, 300];
+    private static readonly int[] s_dpis = [150, RedactionLimits.DefaultRasterDpi, 300];
+
+    public static IReadOnlyList<int> Dpis => s_dpis;
 
     /// <summary>The place of a resolution in <see cref="Dpis"/>; -1 if it is none of them.</summary>
-    public static int DpiIndex(int dpi) => Dpis.ToList().IndexOf(dpi);
+    public static int DpiIndex(int dpi) => Array.IndexOf(s_dpis, dpi);
 
     /// <summary>The resolution a plan starts with.</summary>
     public static int DefaultDpi => RedactionLimits.DefaultRasterDpi;
@@ -22,6 +24,13 @@ internal static class RedactAppearance
 
     /// <summary>Whether the pane says that a treatment keeps some of the picture (blurring and pixelating do, the solid fill does not).</summary>
     public static bool NeedsCaution(RedactionImageTreatment treatment) => treatment is RedactionImageTreatment.Pixelate or RedactionImageTreatment.Blur;
+
+    /// <summary>
+    /// The contrast as the warning prints it: cut down to one decimal, never rounded up, so a contrast under the threshold of 4.5 never reads as
+    /// 4.5.
+    /// </summary>
+    public static string FormatContrast(double contrast, System.Globalization.CultureInfo culture) =>
+        (Math.Floor(contrast * 10) / 10).ToString("0.0", culture);
 
     /// <summary>
     /// The contrast of the text colour the user chose against the fill when it is below the least the automatic colour reaches, else null. Only

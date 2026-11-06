@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
@@ -74,6 +75,10 @@ public sealed class RedactAppearanceTests
         Assert.Equal(fillBefore, f.Session.Plan.Fill);
         Assert.Equal(before, f.Session.Version);
         Assert.Equal(PdfStrings.RedactRefusal(RedactProblem.FillNotAColour), pane.NoteText);
+        Assert.Equal("#12AB9z", pane.FillBox.Text);   // what was typed stays, with the note, for the user to correct
+
+        // Esc brings the field back to the fill of the plan.
+        Press(pane.FillBox, Key.Escape);
         Assert.Equal(fillBefore.ToHex(), pane.FillBox.Text);
 
         Commit(pane.FillBox, "#12ab9f");
@@ -256,6 +261,9 @@ public sealed class RedactAppearanceTests
         Commit(pane.TextColorBox, "red");
         Assert.Equal(grey, f.Session.Plan.Overlay.TextColor);
         Assert.Equal(PdfStrings.RedactRefusal(RedactProblem.FillNotAColour), pane.NoteText);
+        Assert.Equal("red", pane.TextColorBox.Text);
+        Press(pane.TextColorBox, Key.Escape);
+        Assert.Equal("#333333", pane.TextColorBox.Text);
         Commit(pane.TextColorBox, string.Empty);
         Assert.Null(f.Session.Plan.Overlay.TextColor);
     }
@@ -373,27 +381,64 @@ public sealed class RedactAppearanceTests
     [AvaloniaFact]
     public async Task KeysTypedIntoTheLookFieldsAreTheirsAndNeverReachTheMarks()
     {
-        using var f = await RedactFixture.OpenAsync();
-        using var pane = new RedactPane(f.Session, f.View);
-        var id = Mark(f.Session);
-        f.Session.Selection.Select(id);
+        using var f = WindowFixture.Create();
+        var tab = await f.OpenAsync("pages-marked.pdf");
+        await ViewFixture.WaitAsync(() => f.Window.ViewOf(tab)?.FirstSharpPageShown == true);
+        var mode = f.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == "redact.mode");
+        mode.Run!();
+        await ViewFixture.WaitAsync(() => tab.RedactIfCreated is { IsActive: true });
+        var session = tab.Redact;
+        var pane = Assert.IsType<RedactPane>(f.Window.CommentsPane.Content);
+        var id = Mark(session, 0, 100);
+        Mark(session, 0, 200);
+        session.Selection.Select(id);
+        pane.LookToggle.IsChecked = true;
         ViewFixture.Pump();
 
         foreach (var box in new[] { pane.OverlayBox, pane.FillBox, pane.TextColorBox })
         {
-            foreach (var key in new[] { Key.Delete, Key.Back, Key.Left, Key.Escape })
-            {
-                // A key typed into the box goes up the pane's tree, never through the page view: the marks are not touched.
-                Press(box, key);
-            }
+            box.Focus();
+            ViewFixture.Pump();
+            Assert.True(box.IsFocused, box.Name);
+            box.CaretIndex = (box.Text ?? string.Empty).Length;
+            var version = session.Version;
 
-            Press(box, Key.Delete, KeyModifiers.Control);
+            // Typed text lands in the box.
+            f.Window.KeyTextInput("ab");
+            ViewFixture.Pump();
+            Assert.EndsWith("ab", box.Text, StringComparison.Ordinal);
+
+            // The keys that edit and move inside a field are the field's: the marks, the selection, the plan and the mode stay as they are.
+            f.Window.KeyPressQwerty(PhysicalKey.ArrowLeft, RawInputModifiers.None);
+            f.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            f.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            f.Window.KeyPressQwerty(PhysicalKey.Backspace, RawInputModifiers.None);
+            Assert.EndsWith("a", box.Text, StringComparison.Ordinal);
+            f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.Control);
+            f.Window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Control);
+            f.Window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+            f.Window.KeyPressQwerty(PhysicalKey.Y, RawInputModifiers.Control);
+            ViewFixture.Pump();
+            Assert.Equal(2, session.Plan.Marks.Count);
+            Assert.Contains(id, session.Selection.Ids);
+            Assert.Equal(version, session.Version);
+            Assert.True(session.IsActive);
+
+            // Esc brings the field back to what the plan holds; it does not end the mode.
+            f.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            ViewFixture.Pump();
+            Assert.True(session.IsActive);
+            Assert.Equal(2, session.Plan.Marks.Count);
+            Assert.False((box.Text ?? string.Empty).EndsWith('a'), box.Name);
+            Assert.Equal(version, session.Version);
         }
 
+        // Tab moves the focus on and leaves the marks alone.
+        pane.FillBox.Focus();
+        f.Window.KeyPressQwerty(PhysicalKey.Tab, RawInputModifiers.None);
         ViewFixture.Pump();
-        Assert.Single(f.Session.Plan.Marks);
-        Assert.True(f.Session.IsActive);
-        Assert.Contains(id, f.Session.Selection.Ids);
+        Assert.Equal(2, session.Plan.Marks.Count);
+        Assert.True(session.IsActive);
     }
 
     [Fact]
@@ -469,5 +514,102 @@ public sealed class RedactAppearanceTests
 
         Assert.Equal("FOR A", f.Session.Plan.Marks.First(m => m.Id == a).OverlayText);
         Assert.Null(f.Session.Plan.Marks.First(m => m.Id == b).OverlayText);
+    }
+
+    [AvaloniaFact]
+    public async Task ContrastIsFlooredToOneDecimalSoItNeverPrintsTheThreshold()
+    {
+        Assert.Equal("4.4", RedactAppearance.FormatContrast(4.46, CultureInfo.InvariantCulture));
+        Assert.Equal("1.6", RedactAppearance.FormatContrast(1.66, CultureInfo.InvariantCulture));
+        Assert.Equal("4,4", RedactAppearance.FormatContrast(4.4929, CultureInfo.GetCultureInfo("de")));
+
+        using var f = await RedactFixture.OpenAsync();
+        using var pane = new RedactPane(f.Session, f.View);
+        var id = Mark(f.Session);
+        var grey = new RedactionFill(116, 116, 116);   // 4.49:1 on black
+        Assert.InRange(RedactionOverlayColor.Contrast(grey, RedactionFill.Black), 4.45, 4.499);
+        Assert.True(f.Session.SetOverlay(new HashSet<Guid> { id }, "x", new RedactionOverlayStyle(false, true, grey)).IsDone);
+        Assert.Contains("4.4:1 with", pane.ContrastWarningText, StringComparison.Ordinal);
+        Assert.DoesNotContain("4.5:1 with", pane.ContrastWarningText, StringComparison.Ordinal);
+    }
+
+    private static (Guid A, Guid B) TwoOffendingMarks(RedactSession session)
+    {
+        var a = Mark(session, 1, 100);
+        var b = Mark(session, 2, 100);
+        var ids = new HashSet<Guid> { a, b };
+        Assert.True(session.SetOverlay(ids, "redacted", session.Plan.Overlay).IsDone);
+
+        // A term found later (a search) that both texts repeat: the plan takes it, the rule only runs on overlay edits.
+        TextMark(session, "redacted");
+        Assert.NotNull(RedactionOverlayRule.Refusal(session.Plan));
+        return (a, b);
+    }
+
+    [AvaloniaFact]
+    public async Task ClearingOverlayTextAlwaysWorksEvenWhenOtherMarksOffend()
+    {
+        using var f = await RedactFixture.OpenAsync();
+        var (a, b) = TwoOffendingMarks(f.Session);
+
+        Assert.True(f.Session.SetOverlay(new HashSet<Guid> { a }, null, f.Session.Plan.Overlay).IsDone);
+        Assert.Null(f.Session.Plan.Marks.First(m => m.Id == a).OverlayText);
+        Assert.Equal("redacted", f.Session.Plan.Marks.First(m => m.Id == b).OverlayText);
+        Assert.True(f.Session.SetOverlay(new HashSet<Guid> { b }, "  ", f.Session.Plan.Overlay).IsDone);
+        Assert.Null(f.Session.Plan.Marks.First(m => m.Id == b).OverlayText);
+    }
+
+    [AvaloniaFact]
+    public async Task FixingOneOffendingMarkIsAllowedWhileAnotherStillOffends()
+    {
+        using var f = await RedactFixture.OpenAsync();
+        var (a, b) = TwoOffendingMarks(f.Session);
+
+        Assert.True(f.Session.SetOverlay(new HashSet<Guid> { a }, "removed", f.Session.Plan.Overlay).IsDone);
+        Assert.Equal("removed", f.Session.Plan.Marks.First(m => m.Id == a).OverlayText);
+        Assert.Equal("redacted", f.Session.Plan.Marks.First(m => m.Id == b).OverlayText);
+
+        // The apply analysis (Task 7) still refuses the plan while B offends: Core's rule reads the whole plan.
+        Assert.Equal([2], RedactionOverlayRule.Refusal(f.Session.Plan)!.Pages);
+    }
+
+    [AvaloniaFact]
+    public async Task OffendingTextOnAMarkIsRefusedAndNamesThePage()
+    {
+        using var f = await RedactFixture.OpenAsync();
+        TextMark(f.Session, "Secret Value 4711");
+        var a = Mark(f.Session, 1, 100);
+        var version = f.Session.Version;
+
+        var result = f.Session.SetOverlay(new HashSet<Guid> { a }, "x secret value 4711", f.Session.Plan.Overlay);
+
+        Assert.Equal(RedactProblem.OverlayRepeatsTerm, result.Problem);
+        Assert.Equal([1], result.Pages);
+        Assert.Equal(version, f.Session.Version);
+        var en = PdfStrings.RedactRefusal(result);
+        Assert.Contains(" 2 ", en + " ", StringComparison.Ordinal);
+        Assert.DoesNotContain("ecret", en, StringComparison.Ordinal);
+        var de = CultureInfo.GetCultureInfo("de");
+        Assert.Contains("{0}", PdfStrings.GetIn("RedactRefusalOverlayRepeatsOneFormat", de), StringComparison.Ordinal);
+        Assert.Contains("{0}", PdfStrings.GetIn("RedactRefusalOverlayRepeatsManyFormat", de), StringComparison.Ordinal);
+        Assert.NotEqual(PdfStrings.Get("RedactRefusalOverlayRepeatsManyFormat"), PdfStrings.GetIn("RedactRefusalOverlayRepeatsManyFormat", de));
+
+        // Two pages are both named.
+        var b = Mark(f.Session, 2, 100);
+        var two = f.Session.SetOverlay(new HashSet<Guid> { a, b }, "x secret value 4711", f.Session.Plan.Overlay);
+        Assert.Equal([1, 2], two.Pages);
+        Assert.Contains("2, 3", PdfStrings.RedactRefusal(two), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HexColourWordingInGermanSaysHexadecimalDigits()
+    {
+        var de = CultureInfo.GetCultureInfo("de");
+        foreach (var key in new[] { "RedactFillName", "RedactTextColorName", "RedactRefusalFillNotColour" })
+        {
+            var text = PdfStrings.GetIn(key, de);
+            Assert.Contains("sechs Hexadezimalziffern", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("sechs Ziffern", text, StringComparison.Ordinal);
+        }
     }
 }

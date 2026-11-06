@@ -761,6 +761,8 @@ internal static class PdfStrings
     public static string RedactRefusalOverlaySymbols => Table.Get("RedactRefusalOverlaySymbols");
     public static string RedactRefusalOverlayCharacters => Table.Get("RedactRefusalOverlayCharacters");
     public static string RedactRefusalOverlayRepeats => Table.Get("RedactRefusalOverlayRepeats");
+    public static string RedactRefusalOverlayRepeatsOneFormat => Table.Get("RedactRefusalOverlayRepeatsOneFormat");
+    public static string RedactRefusalOverlayRepeatsManyFormat => Table.Get("RedactRefusalOverlayRepeatsManyFormat");
     public static string RedactRefusalDpiNotOffered => Table.Get("RedactRefusalDpiNotOffered");
     public static string RedactRefusalTooManyRasterFormat => Table.Get("RedactRefusalTooManyRasterFormat");
     public static string FindPanelName => Table.Get("FindPanelName");
@@ -935,6 +937,18 @@ internal static class PdfStrings
         if (result.Problem is not { } problem)
         {
             throw new ArgumentException("The result is not a refusal.", nameof(result));
+        }
+
+        if (problem == Raffica.Pdf.Redacting.RedactProblem.OverlayRepeatsTerm && result.Pages is { Count: > 0 } pages)
+        {
+            const int Shown = 10;
+            var named = string.Join(", ", pages.Take(Shown).Select(p => (p + 1).ToString(Culture)));
+            if (pages.Count > Shown)
+            {
+                named += ", …";
+            }
+
+            return (pages.Count == 1 ? RedactRefusalOverlayRepeatsOneFormat : RedactRefusalOverlayRepeatsManyFormat).Replace("{0}", named, StringComparison.Ordinal);
         }
 
         return problem == Raffica.Pdf.Redacting.RedactProblem.OverlayCharactersRefused && result.CharacterClass is { } kind

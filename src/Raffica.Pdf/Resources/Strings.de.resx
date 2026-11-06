@@ -2085,7 +2085,7 @@
     <value>Füllfarbe</value>
   </data>
   <data name="RedactFillName" xml:space="preserve">
-    <value>Füllfarbe als # und sechs Ziffern</value>
+    <value>Füllfarbe als # und sechs Hexadezimalziffern</value>
   </data>
   <data name="RedactFillPresetFormat" xml:space="preserve">
     <value>Füllfarbe {0}</value>
@@ -2133,7 +2133,7 @@
     <value>Textfarbe (leer: automatisch)</value>
   </data>
   <data name="RedactTextColorName" xml:space="preserve">
-    <value>Textfarbe als # und sechs Ziffern, leer für automatisch</value>
+    <value>Textfarbe als # und sechs Hexadezimalziffern, leer für automatisch</value>
   </data>
   <data name="RedactContrastWarningFormat" xml:space="preserve">
     <value>Diese Textfarbe hat zur Füllfarbe einen Kontrast von {0}:1, unter den 4,5:1, die gut lesbar sind. Sie wird trotzdem verwendet.</value>
@@ -2163,7 +2163,7 @@
     <value>Die Markierungen auf der Seite zeigen, wo die Füllfarbe hinkommt. Überlagerungstext und die genauen Pixel zeigen sie nicht; die prüfen Sie nach dem Anwenden.</value>
   </data>
   <data name="RedactRefusalFillNotColour" xml:space="preserve">
-    <value>Schreiben Sie die Farbe als # und sechs Ziffern, zum Beispiel #1F3A5F. Es wurde nichts geändert.</value>
+    <value>Schreiben Sie die Farbe als # und sechs Hexadezimalziffern, zum Beispiel #1F3A5F. Es wurde nichts geändert.</value>
   </data>
   <data name="RedactRefusalOverlayTooLongFormat" xml:space="preserve">
     <value>Der Text ist länger als {0} Zeichen. Es wurde nichts geändert.</value>
@@ -2188,5 +2188,11 @@
   </data>
   <data name="RedactRefusalTooManyRasterFormat" xml:space="preserve">
     <value>Höchstens {0} Seiten können zu Bildern werden. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsOneFormat" xml:space="preserve">
+    <value>Der Text auf einer Markierung auf Seite {0} wiederholt einen markierten Text und würde ihn auf der Seite wieder sichtbar machen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsManyFormat" xml:space="preserve">
+    <value>Der Text auf Markierungen auf den Seiten {0} wiederholt einen markierten Text und würde ihn auf der Seite wieder sichtbar machen. Es wurde nichts geändert.</value>
   </data>
 </root>

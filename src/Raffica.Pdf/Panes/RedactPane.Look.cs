@@ -36,6 +36,7 @@ internal sealed partial class RedactPane
     // The marks the text of the overlay field is for: the selection when the field was last in line with the plan, so a click on another row
     // between typing and committing does not move the text to other marks.
     private HashSet<Guid> _overlayFor = [];
+    private int _syncedPage = -1;
     private bool _forceFill;
     private bool _forceColor;
 
@@ -85,6 +86,15 @@ internal sealed partial class RedactPane
 
     private bool ColorDirty => (TextColorBox.Text ?? string.Empty) != _colorShown;
 
+    // The view reports every scroll; the Look rows only follow the page it shows.
+    private void OnViewChanged()
+    {
+        if (_view.CurrentPage != _syncedPage)
+        {
+            SyncLook();
+        }
+    }
+
     private void BuildLook()
     {
         _lookToggle = new ToggleButton { Name = "PART_LookToggle", Content = PdfStrings.RedactLookToggle, HorizontalAlignment = HorizontalAlignment.Left };
@@ -92,7 +102,7 @@ internal sealed partial class RedactPane
 
         FillBox = new TextBox { Name = "PART_FillBox", MaxLength = 16 };
         AutomationProperties.SetName(FillBox, PdfStrings.RedactFillName);
-        FillBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, CommitFill), Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        FillBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, FillDirty, CommitFill, RevertFill), Avalonia.Interactivity.RoutingStrategies.Tunnel);
         FillBox.LostFocus += (_, _) => CommitFillIfDirty();
         var presets = new WrapPanel { Orientation = Orientation.Horizontal };
         foreach (var fill in new[] { RedactionFill.Black, RedactionFill.White }.Concat(RedactionFill.Presets))
@@ -138,7 +148,7 @@ internal sealed partial class RedactPane
 
         OverlayBox = new TextBox { Name = "PART_OverlayBox", PlaceholderText = PdfStrings.RedactOverlayPlaceholder, IsEnabled = false };
         AutomationProperties.SetName(OverlayBox, PdfStrings.RedactOverlayName);
-        OverlayBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, CommitOverlay), Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        OverlayBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, OverlayDirty, CommitOverlay, RevertOverlay), Avalonia.Interactivity.RoutingStrategies.Tunnel);
         OverlayBox.LostFocus += (_, _) => CommitOverlayIfDirty();
         RepeatBox = new CheckBox { Name = "PART_OverlayRepeat", Content = PdfStrings.RedactOverlayRepeat };
         RepeatBox.IsCheckedChanged += (_, _) => OnStyleBoxChanged();
@@ -146,7 +156,7 @@ internal sealed partial class RedactPane
         AutoSizeBox.IsCheckedChanged += (_, _) => OnStyleBoxChanged();
         TextColorBox = new TextBox { Name = "PART_TextColorBox", MaxLength = 16, PlaceholderText = "#RRGGBB" };
         AutomationProperties.SetName(TextColorBox, PdfStrings.RedactTextColorName);
-        TextColorBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, CommitTextColor), Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        TextColorBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, ColorDirty, CommitTextColor, RevertTextColor), Avalonia.Interactivity.RoutingStrategies.Tunnel);
         TextColorBox.LostFocus += (_, _) => CommitTextColorIfDirty();
         _contrastWarning = new TextBlock { Name = "PART_ContrastWarning", TextWrapping = TextWrapping.Wrap, IsVisible = false };
         AutomationProperties.SetLiveSetting(_contrastWarning, AutomationLiveSetting.Polite);
@@ -194,13 +204,57 @@ internal sealed partial class RedactPane
         return label;
     }
 
-    private static void OnFieldKey(KeyEventArgs e, Action commit)
+    // Enter takes the text over; Esc brings a field that holds something not yet taken over back to what the plan holds (and is then the field's
+    // key, else it stays free for the window). Every other key is the field's own.
+    private static void OnFieldKey(KeyEventArgs e, bool dirty, Action commit, Action revert)
     {
-        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)
+        if (e.KeyModifiers != KeyModifiers.None)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Enter)
         {
             commit();
             e.Handled = true;
         }
+        else if (e.Key == Key.Escape && dirty)
+        {
+            revert();
+            e.Handled = true;
+        }
+    }
+
+    private void RevertFill()
+    {
+        _forceFill = true;
+        try
+        {
+            SyncLook();
+        }
+        finally
+        {
+            _forceFill = false;
+        }
+    }
+
+    private void RevertTextColor()
+    {
+        _forceColor = true;
+        try
+        {
+            SyncLook();
+        }
+        finally
+        {
+            _forceColor = false;
+        }
+    }
+
+    private void RevertOverlay()
+    {
+        OverlayBox.Text = _overlayShown;
+        SyncLook();
     }
 
     private void CommitFillIfDirty()
@@ -211,8 +265,18 @@ internal sealed partial class RedactPane
         }
     }
 
-    private void CommitFill() =>
-        ApplyFill(() => RedactAppearance.TryParseFill(FillBox.Text, out var fill) ? _session.SetFill(fill) : RedactResult.Refused(RedactProblem.FillNotAColour));
+    // A colour that is no #RRGGBB is refused with its note and the field keeps what was typed, so it can be corrected.
+    private void CommitFill()
+    {
+        if (RedactAppearance.TryParseFill(FillBox.Text, out var fill))
+        {
+            ApplyFill(() => _session.SetFill(fill));
+        }
+        else
+        {
+            Report(RedactResult.Refused(RedactProblem.FillNotAColour));
+        }
+    }
 
     private void ApplyFill(Func<RedactResult> change)
     {
@@ -239,6 +303,12 @@ internal sealed partial class RedactPane
     private void CommitTextColor()
     {
         var text = TextColorBox.Text?.Trim();
+        if (!string.IsNullOrEmpty(text) && !RedactAppearance.TryParseFill(text, out _))
+        {
+            Report(RedactResult.Refused(RedactProblem.FillNotAColour));
+            return;
+        }
+
         _forceColor = true;
         try
         {
@@ -249,10 +319,6 @@ internal sealed partial class RedactPane
             else if (RedactAppearance.TryParseFill(text, out var color))
             {
                 Report(_session.SetOverlayStyle(_session.Plan.Overlay with { TextColor = color }));
-            }
-            else
-            {
-                Report(RedactResult.Refused(RedactProblem.FillNotAColour));
             }
 
             SyncLook();
@@ -372,7 +438,7 @@ internal sealed partial class RedactPane
 
             if (RedactAppearance.LowContrast(plan) is { } contrast)
             {
-                _contrastWarning.Text = PdfStrings.RedactContrastWarningFormat.Replace("{0}", contrast.ToString("0.0", PdfStrings.Culture), StringComparison.Ordinal);
+                _contrastWarning.Text = PdfStrings.RedactContrastWarningFormat.Replace("{0}", RedactAppearance.FormatContrast(contrast, PdfStrings.Culture), StringComparison.Ordinal);
                 _contrastWarning.IsVisible = true;
             }
             else
@@ -381,6 +447,7 @@ internal sealed partial class RedactPane
             }
 
             var page = _view.CurrentPage;
+            _syncedPage = page;
             RasterPageBox.Content = PdfStrings.RedactRasterPageFormat.Replace("{0}", (page + 1).ToString(PdfStrings.Culture), StringComparison.Ordinal);
             RasterPageBox.IsChecked = plan.RasterPages.Contains(page);
             var count = plan.RasterPages.Count;

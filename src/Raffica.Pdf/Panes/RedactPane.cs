@@ -95,7 +95,7 @@ internal sealed partial class RedactPane : UserControl, IDisposable
         _note.Bind(TextBlock.ForegroundProperty, _note.GetResourceObservable("Raffica.Brush.Text.Primary"));
         session.Changed += OnSessionChanged;
         session.Selection.Changed += SyncLook;
-        view.ViewChanged += SyncLook;
+        view.ViewChanged += OnViewChanged;
         Refresh();
     }
 
@@ -202,7 +202,7 @@ internal sealed partial class RedactPane : UserControl, IDisposable
         _disposed = true;
         _session.Changed -= OnSessionChanged;
         _session.Selection.Changed -= SyncLook;
-        _view.ViewChanged -= SyncLook;
+        _view.ViewChanged -= OnViewChanged;
         if (_findPanel is { } panel)
         {
             CloseFind(panel);

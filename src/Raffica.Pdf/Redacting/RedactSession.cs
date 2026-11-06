@@ -427,9 +427,16 @@ internal sealed class RedactSession : IDisposable
             return RedactResult.Refused(ex.Error == RedactionError.LimitExceeded ? RedactProblem.OverlayTooLong : RedactProblem.OverlayCharactersRefused);
         }
 
-        if (RedactionOverlayRule.Refusal(next) is not null)
+        // Clearing a text always works. Otherwise only the marks being edited count: the rule reads the whole plan, so the texts of the other marks are
+        // left out of the check (a term found later can make several marks offend; each is fixed or cleared on its own). The apply analysis still
+        // refuses a plan in which any mark offends.
+        if (!string.IsNullOrWhiteSpace(text))
         {
-            return RedactResult.Refused(RedactProblem.OverlayRepeatsTerm);
+            var others = Plan.Marks.Where(m => !ids.Contains(m.Id)).Select(m => m.Id).ToHashSet();
+            if (RedactionOverlayRule.Refusal(next.WithOverlayText(others, null)) is { } refusal)
+            {
+                return new RedactResult(RedactProblem.OverlayRepeatsTerm, null, null, refusal.Pages);
+            }
         }
 
         return Replace(next);

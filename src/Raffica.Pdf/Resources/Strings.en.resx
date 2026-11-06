@@ -2205,4 +2205,10 @@
   <data name="RedactRefusalTooManyRasterFormat" xml:space="preserve">
     <value>At most {0} pages can become images. Nothing was changed.</value>
   </data>
+  <data name="RedactRefusalOverlayRepeatsOneFormat" xml:space="preserve">
+    <value>The text on a mark on page {0} repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsManyFormat" xml:space="preserve">
+    <value>The text on marks on pages {0} repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
+  </data>
 </root>
