@@ -28,7 +28,7 @@ $ninjaCommand = Get-Command ninja -ErrorAction SilentlyContinue
 $ninja = if ($ninjaCommand) { $ninjaCommand.Source } else { Join-Path $install 'Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe' }
 if (-not (Test-Path $cmake) -or -not (Test-Path $ninja)) { throw 'build-windows: cmake or ninja not found' }
 
-$work = Join-Path ([IO.Path]::GetTempPath()) ('pagewing-native-' + [Guid]::NewGuid().ToString('N'))
+$work = Join-Path ([IO.Path]::GetTempPath()) ('raffica-native-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $work | Out-Null
 
 function Run($exe, [string[]]$arguments) {
