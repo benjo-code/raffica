@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using Raffica.Core.Viewing;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Forms;
+using Raffica.Pdf.Organizing;
 using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf.Documents;
@@ -16,6 +17,7 @@ internal sealed class PdfTab : IDisposable
     private int _disposing;
     private AnnotationSession? _annotations;
     private FormSession? _forms;
+    private OrganizeSession? _organize;
 
     public PdfTab(ViewerSession session, string path)
     {
@@ -54,6 +56,30 @@ internal sealed class PdfTab : IDisposable
     /// </summary>
     public FormSession Forms => _forms ??= new FormSession(this, SynchronizationContext.Current ?? new DispatcherContext());
 
+    /// <summary>
+    /// The organize session of the tab (the page plan of the pages pane), made on first use and disposed with the tab; it reads and opens nothing
+    /// before its <c>Enter</c>. UI thread.
+    /// </summary>
+    public OrganizeSession Organize
+    {
+        get
+        {
+            if (_organize is null)
+            {
+                _organize = new OrganizeSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+                OrganizeCreated?.Invoke(_organize);
+            }
+
+            return _organize;
+        }
+    }
+
+    /// <summary>Raised when the organize session is made (the pages pane, which must not make it, listens to it). UI thread.</summary>
+    public event Action<OrganizeSession>? OrganizeCreated;
+
+    /// <summary>The organize session if one was made, else null (whoever only asks must not make one).</summary>
+    public OrganizeSession? OrganizeIfCreated => _organize;
+
     /// <summary>The form session if one was made, else null.</summary>
     public FormSession? FormsIfCreated => _forms;
 
@@ -70,6 +96,22 @@ internal sealed class PdfTab : IDisposable
         Tab.Path = Path;
     }
 
+    /// <summary>
+    /// The document was rewritten and the session adopted the written file: the annotation and form sessions belong to the old document, so they
+    /// and the organize session (its plan is applied) are disposed and forgotten (made anew on first use, over the adopted document, with an editor that starts clean) and the tab is clean.
+    /// The caller has unhooked its handlers from them first. UI thread.
+    /// </summary>
+    public void ResetForRewrittenDocument()
+    {
+        _organize?.Dispose();
+        _organize = null;
+        _forms?.Dispose();
+        _forms = null;
+        _annotations?.Dispose();
+        _annotations = null;
+        MarkClean();
+    }
+
     public void MarkDirty() => SetDirty(true);
 
     public void MarkClean() => SetDirty(false);
@@ -81,6 +123,7 @@ internal sealed class PdfTab : IDisposable
             Disposing?.Invoke();
         }
 
+        _organize?.Dispose();
         _forms?.Dispose();
         _annotations?.Dispose();
         Session.Dispose();

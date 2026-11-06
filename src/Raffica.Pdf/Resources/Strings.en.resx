@@ -1124,4 +1124,602 @@
   <data name="SignaturePlaceFailed" xml:space="preserve">
     <value>The signature could not be placed. Nothing was added to the document.</value>
   </data>
+  <data name="OrganizeListName" xml:space="preserve">
+    <value>Page plan</value>
+    <comment>Automation name of the list of the pages in organize mode.</comment>
+  </data>
+  <data name="OrganizeCounterChangedFormat" xml:space="preserve">
+    <value>{0} → {1} pages</value>
+    <comment>Counter above the organize list when the plan changes the page count; {0} pages before, {1} after (more than one).</comment>
+  </data>
+  <data name="OrganizeCounterChangedOneFormat" xml:space="preserve">
+    <value>{0} → 1 page</value>
+    <comment>Counter when the plan leaves one page; {0} pages before.</comment>
+  </data>
+  <data name="OrganizeCounterSameFormat" xml:space="preserve">
+    <value>{0} pages</value>
+    <comment>Counter when the plan keeps the page count; {0} is the count (more than one).</comment>
+  </data>
+  <data name="OrganizeCounterSameOne" xml:space="preserve">
+    <value>1 page</value>
+    <comment>Counter for a document of one page that the plan does not change in size.</comment>
+  </data>
+  <data name="OrganizeGoneFormat" xml:space="preserve">
+    <value>{0} removed</value>
+    <comment>Under the counter: how many pages of the document the plan removes.</comment>
+  </data>
+  <data name="OrganizeTurnedFormat" xml:space="preserve">
+    <value>Turned {0}°</value>
+    <comment>Pending state of a page in the plan: turned by {0} degrees.</comment>
+  </data>
+  <data name="OrganizeBlank" xml:space="preserve">
+    <value>New blank page</value>
+    <comment>Pending state of a blank page in the plan.</comment>
+  </data>
+  <data name="OrganizeBlankSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+    <comment>Size of a blank page in the plan: width and height in millimetres.</comment>
+  </data>
+  <data name="OrganizeFromFileFormat" xml:space="preserve">
+    <value>From {0}, page {1}</value>
+    <comment>Pending state of a page taken from another file; {0} is the file name, {1} the page number there.</comment>
+  </data>
+  <data name="OrganizeCopy" xml:space="preserve">
+    <value>Copy</value>
+    <comment>Pending state of a page that is a further copy of a page of the plan.</comment>
+  </data>
+  <data name="OrganizeLastPageRefused" xml:space="preserve">
+    <value>The last page cannot be deleted. Nothing was changed.</value>
+    <comment>Notice when the plan would be left without a page.</comment>
+  </data>
+  <data name="OrganizeLimitRefusedFormat" xml:space="preserve">
+    <value>A plan can hold at most {0} pages. Nothing was changed.</value>
+    <comment>Notice when the plan would grow beyond the limit; {0} is the limit.</comment>
+  </data>
+  <data name="TabPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="GroupOrganize" xml:space="preserve">
+    <value>Organize</value>
+  </data>
+  <data name="GroupApply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="GroupOutput" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="CmdOrganize" xml:space="preserve">
+    <value>Organize pages</value>
+  </data>
+  <data name="CmdRotateLeft" xml:space="preserve">
+    <value>Rotate left</value>
+  </data>
+  <data name="CmdRotateRight" xml:space="preserve">
+    <value>Rotate right</value>
+  </data>
+  <data name="CmdDuplicatePages" xml:space="preserve">
+    <value>Duplicate pages</value>
+  </data>
+  <data name="CmdBlankPage" xml:space="preserve">
+    <value>Insert blank page</value>
+  </data>
+  <data name="CmdInsertFile" xml:space="preserve">
+    <value>Insert pages from file…</value>
+  </data>
+  <data name="CmdMovePagesUp" xml:space="preserve">
+    <value>Move pages up</value>
+  </data>
+  <data name="CmdMovePagesDown" xml:space="preserve">
+    <value>Move pages down</value>
+  </data>
+  <data name="CmdPagesUndo" xml:space="preserve">
+    <value>Undo page change</value>
+  </data>
+  <data name="CmdPagesRedo" xml:space="preserve">
+    <value>Redo page change</value>
+  </data>
+  <data name="CmdApplyPages" xml:space="preserve">
+    <value>Apply page changes</value>
+  </data>
+  <data name="CmdDiscardPages" xml:space="preserve">
+    <value>Discard page changes</value>
+  </data>
+  <data name="CmdDeletePages" xml:space="preserve">
+    <value>Delete pages</value>
+  </data>
+  <data name="CmdExtractPages" xml:space="preserve">
+    <value>Extract pages…</value>
+  </data>
+  <data name="CmdSplitDocument" xml:space="preserve">
+    <value>Split document…</value>
+  </data>
+  <data name="CmdExportImages" xml:space="preserve">
+    <value>Export pages as images…</value>
+  </data>
+  <data name="PageChangesLockedReason" xml:space="preserve">
+    <value>Apply or discard the page changes first</value>
+  </data>
+  <data name="SaveMarksFirstReason" xml:space="preserve">
+    <value>Save the marks first</value>
+  </data>
+  <data name="InsertFileTitle" xml:space="preserve">
+    <value>Insert pages from a file</value>
+  </data>
+  <data name="InsertFilePickTitle" xml:space="preserve">
+    <value>Choose a PDF to insert</value>
+  </data>
+  <data name="InsertFileHeaderFormat" xml:space="preserve">
+    <value>{0} (pages: {1})</value>
+  </data>
+  <data name="InsertFileRangeLabel" xml:space="preserve">
+    <value>Pages to insert (for example 3, 2-5, 1,3,5-7 or all)</value>
+  </data>
+  <data name="InsertRangeInvalid" xml:space="preserve">
+    <value>Enter pages like 3, 2-5, 1,3,5-7 or all.</value>
+  </data>
+  <data name="InsertRangeOutsideFormat" xml:space="preserve">
+    <value>The file has only {0} pages.</value>
+  </data>
+  <data name="InsertPositionLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="InsertAfterFormat" xml:space="preserve">
+    <value>After the selected pages (after page {0})</value>
+  </data>
+  <data name="InsertAtEnd" xml:space="preserve">
+    <value>At the end</value>
+  </data>
+  <data name="InsertAtStart" xml:space="preserve">
+    <value>At the start</value>
+  </data>
+  <data name="InsertConfirm" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="InsertRefusedTitle" xml:space="preserve">
+    <value>Nothing was inserted</value>
+  </data>
+  <data name="InsertRefusedSameFile" xml:space="preserve">
+    <value>This is the open file itself. Pages of it cannot be inserted into it.</value>
+  </data>
+  <data name="InsertRefusedTooManyFormat" xml:space="preserve">
+    <value>Pages of at most {0} other files can be inserted before the changes are applied.</value>
+  </data>
+  <data name="InsertRefusedUnreadable" xml:space="preserve">
+    <value>The file cannot be read or is not a PDF.</value>
+  </data>
+  <data name="InsertRefusedNeedsPassword" xml:space="preserve">
+    <value>The file needs a password.</value>
+  </data>
+  <data name="InsertRefusedWrongPassword" xml:space="preserve">
+    <value>The password is wrong.</value>
+  </data>
+  <data name="InsertRefusedBadRange" xml:space="preserve">
+    <value>The page selection does not fit the pages of the file.</value>
+  </data>
+  <data name="InsertRefusedLimitFormat" xml:space="preserve">
+    <value>A document can have at most {0} pages.</value>
+  </data>
+  <data name="InsertRefusedNotActive" xml:space="preserve">
+    <value>The page changes were closed in the meantime.</value>
+  </data>
+  <data name="InsertRefusedOther" xml:space="preserve">
+    <value>The pages could not be inserted.</value>
+  </data>
+  <data name="ApplyTitle" xml:space="preserve">
+    <value>Apply page changes</value>
+  </data>
+  <data name="ApplyRefusedTitle" xml:space="preserve">
+    <value>Page changes cannot be applied</value>
+  </data>
+  <data name="ApplyRefusedIntro" xml:space="preserve">
+    <value>Nothing was written. These page changes cannot be applied:</value>
+  </data>
+  <data name="ApplySummaryPagesFormat" xml:space="preserve">
+    <value>{0} → {1} pages</value>
+  </data>
+  <data name="ApplySummaryTurnedFormat" xml:space="preserve">
+    <value>{0} turned</value>
+  </data>
+  <data name="ApplySummaryFileOne" xml:space="preserve">
+    <value>1 file inserted</value>
+  </data>
+  <data name="ApplySummaryFilesFormat" xml:space="preserve">
+    <value>{0} files inserted</value>
+  </data>
+  <data name="ApplySummaryBlankOne" xml:space="preserve">
+    <value>1 blank page</value>
+  </data>
+  <data name="ApplySummaryBlankFormat" xml:space="preserve">
+    <value>{0} blank pages</value>
+  </data>
+  <data name="ApplySummaryDuplicatedFormat" xml:space="preserve">
+    <value>{0} duplicated</value>
+  </data>
+  <data name="ApplyLossesHeading" xml:space="preserve">
+    <value>These things are lost or change:</value>
+  </data>
+  <data name="ApplyNoLosses" xml:space="preserve">
+    <value>Nothing but the page changes is affected.</value>
+  </data>
+  <data name="ApplyWarning" xml:space="preserve">
+    <value>The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use Save as.</value>
+  </data>
+  <data name="ApplySaveAs" xml:space="preserve">
+    <value>Save as…</value>
+  </data>
+  <data name="ApplyOriginal" xml:space="preserve">
+    <value>Save in the original file</value>
+  </data>
+  <data name="ApplyBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="ApplyOpenEdit" xml:space="preserve">
+    <value>Finish or discard the open edit first.</value>
+  </data>
+  <data name="ApplyJobTitleFormat" xml:space="preserve">
+    <value>Applying page changes to {0}</value>
+  </data>
+  <data name="ApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Checking page changes of {0}</value>
+  </data>
+  <data name="ApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-pages.pdf</value>
+  </data>
+  <data name="SaveFirstTitle" xml:space="preserve">
+    <value>Save the marks first?</value>
+  </data>
+  <data name="SaveFirstMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the page changes are applied.</value>
+  </data>
+  <data name="SaveFirstSaveAsMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the page changes are saved as a new file. Back leaves everything as it is.</value>
+  </data>
+  <data name="SaveFirstSave" xml:space="preserve">
+    <value>Save first</value>
+  </data>
+  <data name="ApplyFailedTitle" xml:space="preserve">
+    <value>Page changes not applied</value>
+  </data>
+  <data name="ApplyStays" xml:space="preserve">
+    <value>The file is unchanged and the page changes are still open.</value>
+  </data>
+  <data name="ApplyStaysAfterSave" xml:space="preserve">
+    <value>The marks are saved into the file, but the page changes were not applied and are still open.</value>
+  </data>
+  <data name="ApplyChangesOpen" xml:space="preserve">
+    <value>The page changes are still open.</value>
+  </data>
+  <data name="ApplyFailSourceModified" xml:space="preserve">
+    <value>The file changed on disk since it was opened, so its pages cannot be rewritten from here.</value>
+  </data>
+  <data name="ApplyFailInsertedModifiedFormat" xml:space="preserve">
+    <value>The inserted file {0} changed on disk since it was inserted.</value>
+  </data>
+  <data name="ApplyFailEncrypted" xml:space="preserve">
+    <value>An encrypted file cannot be inserted into a document that is not encrypted: its content would be written unprotected.</value>
+  </data>
+  <data name="ApplyFailPlan" xml:space="preserve">
+    <value>The page changes no longer fit the document.</value>
+  </data>
+  <data name="ApplyFailOpen" xml:space="preserve">
+    <value>A file of the page changes could not be opened.</value>
+  </data>
+  <data name="ApplyFailDamaged" xml:space="preserve">
+    <value>A page of one of the files is damaged and could not be copied.</value>
+  </data>
+  <data name="ApplyFailOther" xml:space="preserve">
+    <value>The page changes could not be applied.</value>
+  </data>
+  <data name="ApplyFailAdoptFormat" xml:space="preserve">
+    <value>The page changes were written, but the document could not be taken over. The file at {0} is the rewritten one: open it to continue.</value>
+  </data>
+  <data name="LossSignature" xml:space="preserve">
+    <value>This file is digitally signed. Programs that check signatures will report the signature as broken after the pages changed.</value>
+  </data>
+  <data name="LossSignatureLevelFormat" xml:space="preserve">
+    <value>The signature was made with change level {0}.</value>
+  </data>
+  <data name="LossLabelsShifted" xml:space="preserve">
+    <value>The file has page labels (such as "iv" or "A-3"). They follow the position, not the pages, so they will name other pages.</value>
+  </data>
+  <data name="LossLabelsSourceFormat" xml:space="preserve">
+    <value>The page labels of the inserted file {0} are not taken over.</value>
+  </data>
+  <data name="LossForeignOutlineFormat" xml:space="preserve">
+    <value>The bookmarks of the inserted file {0} are not taken over.</value>
+  </data>
+  <data name="LossBookmarkDeleted" xml:space="preserve">
+    <value>Bookmarks that point to deleted pages stay as entries without a target.</value>
+  </data>
+  <data name="LossFormInserted" xml:space="preserve">
+    <value>Inserted pages have form fields. They are not entered into the form of the file, so other programs may not let you fill them in.</value>
+  </data>
+  <data name="LossFormDuplicated" xml:space="preserve">
+    <value>Copied pages have form fields. A field then appears on more than one page and its value is shared.</value>
+  </data>
+  <data name="LossNameUnchecked" xml:space="preserve">
+    <value>There were too many form field names to check whether fields of the same name come from different files.</value>
+  </data>
+  <data name="LossNameCollision" xml:space="preserve">
+    <value>Form fields of the same name come from different files. They are read as one field.</value>
+  </data>
+  <data name="LossEncryptionBlocksFormat" xml:space="preserve">
+    <value>The inserted file {0} is encrypted, but the new file would not be. Its protected content would be written unprotected.</value>
+  </data>
+  <data name="LossEncryptionWarnFormat" xml:space="preserve">
+    <value>The inserted file {0} is encrypted. Its pages are protected by the password and permissions of the main file, not by their own.</value>
+  </data>
+  <data name="LossLinkCopied" xml:space="preserve">
+    <value>Internal links on copied pages lose their destination.</value>
+  </data>
+  <data name="LossLinkDeleted" xml:space="preserve">
+    <value>Internal links lose their target because the target page is deleted.</value>
+  </data>
+  <data name="LossOrphan" xml:space="preserve">
+    <value>Form fields on deleted pages stay in the form of the file without a page.</value>
+  </data>
+  <data name="LossOther" xml:space="preserve">
+    <value>The page changes lose something.</value>
+  </data>
+  <data name="LossPageResultFormat" xml:space="preserve">
+    <value> (page {0} of the new file)</value>
+  </data>
+  <data name="LossPagesResultFormat" xml:space="preserve">
+    <value> (pages {0} of the new file)</value>
+  </data>
+  <data name="LossPageOriginalFormat" xml:space="preserve">
+    <value> (original page {0})</value>
+  </data>
+  <data name="LossPagesOriginalFormat" xml:space="preserve">
+    <value> (original pages {0})</value>
+  </data>
+  <data name="LossListAnd" xml:space="preserve">
+    <value> and </value>
+  </data>
+  <data name="LossListMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
+  <data name="ApplyPlanChanged" xml:space="preserve">
+    <value>The page changes were edited while the file dialog was open, so nothing was written. Apply again to see the current list.</value>
+  </data>
+  <data name="UnsavedPlanTitle" xml:space="preserve">
+    <value>Discard the page changes?</value>
+  </data>
+  <data name="UnsavedPlanMessageFormat" xml:space="preserve">
+    <value>The page changes of {0} are not applied yet. Apply writes them to a file; Discard drops them and leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedPlanApply" xml:space="preserve">
+    <value>Apply…</value>
+  </data>
+  <data name="UnsavedPlanDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="ExtractTitle" xml:space="preserve">
+    <value>Extract pages</value>
+  </data>
+  <data name="ExtractHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} pages)</value>
+  </data>
+  <data name="ExtractRangeLabel" xml:space="preserve">
+    <value>Pages to extract (for example 3, 2-5, 1,3,5-7 or all)</value>
+  </data>
+  <data name="ExtractNameLabel" xml:space="preserve">
+    <value>The new file is suggested as</value>
+  </data>
+  <data name="ExtractConfirm" xml:space="preserve">
+    <value>Extract…</value>
+  </data>
+  <data name="ExtractGo" xml:space="preserve">
+    <value>Extract</value>
+  </data>
+  <data name="ExtractSaveTitle" xml:space="preserve">
+    <value>Save the extracted pages as</value>
+  </data>
+  <data name="ExtractSuggestedNameFormat" xml:space="preserve">
+    <value>{0}-pages-{1}</value>
+  </data>
+  <data name="ExtractConfirmTitle" xml:space="preserve">
+    <value>Extract pages</value>
+  </data>
+  <data name="ExtractConfirmIntroFormat" xml:space="preserve">
+    <value>Pages {0} of the document are written into a new file. The open file stays as it is.</value>
+  </data>
+  <data name="SplitTitle" xml:space="preserve">
+    <value>Split document</value>
+  </data>
+  <data name="SplitHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} pages)</value>
+  </data>
+  <data name="SplitModeLabel" xml:space="preserve">
+    <value>Split by</value>
+  </data>
+  <data name="SplitModeEvery" xml:space="preserve">
+    <value>Every n pages</value>
+  </data>
+  <data name="SplitEveryLabel" xml:space="preserve">
+    <value>Pages per file</value>
+  </data>
+  <data name="SplitModeRanges" xml:space="preserve">
+    <value>Page ranges, one file each</value>
+  </data>
+  <data name="SplitRangesLabel" xml:space="preserve">
+    <value>Ranges (for example 1-3,4-9)</value>
+  </data>
+  <data name="SplitModeBookmarks" xml:space="preserve">
+    <value>Top-level bookmarks</value>
+  </data>
+  <data name="SplitNoBookmarksReason" xml:space="preserve">
+    <value>This file has no bookmarks</value>
+  </data>
+  <data name="SplitFolderLabel" xml:space="preserve">
+    <value>Folder for the new files</value>
+  </data>
+  <data name="SplitFolderChoose" xml:space="preserve">
+    <value>Choose folder…</value>
+  </data>
+  <data name="SplitFolderNone" xml:space="preserve">
+    <value>No folder chosen yet</value>
+  </data>
+  <data name="SplitFolderPickTitle" xml:space="preserve">
+    <value>Choose the folder for the new files</value>
+  </data>
+  <data name="SplitPreviewHeading" xml:space="preserve">
+    <value>Files that will be written</value>
+  </data>
+  <data name="SplitPreviewItemFormat" xml:space="preserve">
+    <value>{0} (pages {1})</value>
+  </data>
+  <data name="SplitPreviewMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="SplitConfirm" xml:space="preserve">
+    <value>Split</value>
+  </data>
+  <data name="SplitEveryInvalid" xml:space="preserve">
+    <value>Enter a whole number of pages, 1 or more.</value>
+  </data>
+  <data name="SplitTooManyFormat" xml:space="preserve">
+    <value>A split can have at most {0} files.</value>
+  </data>
+  <data name="SplitConfirmIntroFormat" xml:space="preserve">
+    <value>The document is split into {0} new files. The open file stays as it is.</value>
+  </data>
+  <data name="OutputLossesHeading" xml:space="preserve">
+    <value>In the new files, these things are lost or change:</value>
+  </data>
+  <data name="OutputLossFilesFormat" xml:space="preserve">
+    <value>Files {0}: {1}</value>
+  </data>
+  <data name="OutputCheckingTitleFormat" xml:space="preserve">
+    <value>Checking {0}</value>
+  </data>
+  <data name="OutputJobTitleFormat" xml:space="preserve">
+    <value>Writing new files from {0}</value>
+  </data>
+  <data name="OutputNoSource" xml:space="preserve">
+    <value>The document is not available any more.</value>
+  </data>
+  <data name="OutputResultExtractTitle" xml:space="preserve">
+    <value>Pages extracted</value>
+  </data>
+  <data name="OutputResultSplitTitle" xml:space="preserve">
+    <value>Document split</value>
+  </data>
+  <data name="OutputWrittenOne" xml:space="preserve">
+    <value>1 file was written.</value>
+  </data>
+  <data name="OutputWrittenFormat" xml:space="preserve">
+    <value>{0} files were written.</value>
+  </data>
+  <data name="OutputNothingWritten" xml:space="preserve">
+    <value>Nothing was written.</value>
+  </data>
+  <data name="OutputCanceled" xml:space="preserve">
+    <value>Canceled.</value>
+  </data>
+  <data name="OutputWrittenBefore" xml:space="preserve">
+    <value>These files were written before it stopped and stay:</value>
+  </data>
+  <data name="OutputFolderLabel" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="OutputMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="OutputOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="OutputFailTargetExistsFormat" xml:space="preserve">
+    <value>A file with this name already exists: {0}. Nothing was replaced.</value>
+  </data>
+  <data name="OutputFailTargetIsSource" xml:space="preserve">
+    <value>A new file would replace the open document. Nothing was written.</value>
+  </data>
+  <data name="OutputFailDirectoryMissing" xml:space="preserve">
+    <value>The folder does not exist any more. Nothing was written.</value>
+  </data>
+  <data name="OutputFailNoBookmarks" xml:space="preserve">
+    <value>This file has no bookmarks. Nothing was written.</value>
+  </data>
+  <data name="OutputFailUnsafeName" xml:space="preserve">
+    <value>A file name cannot be used. Nothing was written.</value>
+  </data>
+  <data name="OutputFailPartFormat" xml:space="preserve">
+    <value>File {0} ({1}) could not be written: {2}</value>
+  </data>
+  <data name="OutputFailLimit" xml:space="preserve">
+    <value>The pages or files are more than a split may have. Nothing was written.</value>
+  </data>
+  <data name="OutputFailRange" xml:space="preserve">
+    <value>The pages do not fit this document. Nothing was written.</value>
+  </data>
+  <data name="OutputFailOther" xml:space="preserve">
+    <value>The files could not be written.</value>
+  </data>
+  <data name="OutputCauseOpen" xml:space="preserve">
+    <value>A file needed for this could not be opened.</value>
+  </data>
+  <data name="OutputCauseDamaged" xml:space="preserve">
+    <value>A page is damaged and could not be copied.</value>
+  </data>
+  <data name="FileJobBusy" xml:space="preserve">
+    <value>Another file job is already running.</value>
+  </data>
+  <data name="ExportTitle" xml:space="preserve">
+    <value>Export pages as images</value>
+  </data>
+  <data name="ExportRangeLabel" xml:space="preserve">
+    <value>Pages to export (for example 3, 2-5, 1,3,5-7 or all)</value>
+  </data>
+  <data name="ExportDpiLabel" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="ExportDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="ExportDpiCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="ExportDpiCustomLabel" xml:space="preserve">
+    <value>Custom resolution in dpi (1 to 1200)</value>
+  </data>
+  <data name="ExportDpiInvalid" xml:space="preserve">
+    <value>Enter a whole number from 1 to 1200.</value>
+  </data>
+  <data name="ExportMarks" xml:space="preserve">
+    <value>Include marks and form fields</value>
+  </data>
+  <data name="ExportLargestFormat" xml:space="preserve">
+    <value>Largest page: {0} × {1} pixels ({2} megapixels)</value>
+  </data>
+  <data name="ExportTooLargeFormat" xml:space="preserve">
+    <value>Page {0} would have {1} megapixels at this resolution; the limit is {2} megapixels. Choose a lower resolution or leave this page out.</value>
+  </data>
+  <data name="ExportTooLargeHugeFormat" xml:space="preserve">
+    <value>Page {0} would be far larger than the limit of {2} megapixels at this resolution. Choose a lower resolution or leave this page out.</value>
+  </data>
+  <data name="ExportFolderMissing" xml:space="preserve">
+    <value>This folder does not exist.</value>
+  </data>
+  <data name="ExportConfirm" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="ExportJobTitleFormat" xml:space="preserve">
+    <value>Exporting pages of {0}</value>
+  </data>
+  <data name="ExportResultTitle" xml:space="preserve">
+    <value>Pages exported</value>
+  </data>
+  <data name="ExportFailTooLargeFormat" xml:space="preserve">
+    <value>Page {0} is too large at this resolution. Nothing was written.</value>
+  </data>
+  <data name="ExportFailTooMany" xml:space="preserve">
+    <value>More pages were chosen than one export can write. Nothing was written.</value>
+  </data>
+  <data name="ExportFailWriteFormat" xml:space="preserve">
+    <value>The image of page {0} could not be written.</value>
+  </data>
+  <data name="ExportFailRender" xml:space="preserve">
+    <value>A page could not be drawn.</value>
+  </data>
 </root>

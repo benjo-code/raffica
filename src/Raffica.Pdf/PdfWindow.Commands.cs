@@ -12,6 +12,7 @@ using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Forms;
+using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
 using Raffica.Pdf.Signing;
@@ -59,15 +60,22 @@ internal sealed partial class PdfWindow
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
         PrintAvailable,
         isDirty: () => Workspace.Active is { IsDirty: true },
-        canUndo: () => Workspace.Active?.Annotations.CanUndo == true,
-        canRedo: () => Workspace.Active?.Annotations.CanRedo == true,
-        busySaving: () => _print.IsRunning || _saves.IsSaving,
+        canUndo: () => OpenPlan is { } plan ? plan.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
+        canRedo: () => OpenPlan is { } plan ? plan.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
+        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
-        saveRunning: () => _saves.IsSaving,
+        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         hasForm: () => Workspace.Active is { } active && TabHasForm(active),
         fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
-        hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0);
+        hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0,
+        pagesReady: () => Workspace.Active is { } active && _views.TryGetValue(active, out var view) && view.FirstSharpPageShown,
+        organizeActive: () => OpenPlan is not null,
+        pageSelection: () => OpenPlan is { } plan && plan.Selection.Count > 0,
+        planCanUndo: () => OpenPlan?.CanUndo == true,
+        planCanRedo: () => OpenPlan?.CanRedo == true,
+        planChanged: () => OpenPlan is { } plan && !plan.Plan.IsIdentity,
+        marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true);
 
     // The rules ask for every tab, with or without a form: a document without an AcroForm creates no form session (and its subscription) for it.
     private static bool TabHasForm(PdfTab tab)
@@ -191,7 +199,23 @@ internal sealed partial class PdfWindow
         FormsNext: () => MoveFormFocus(forward: true),
         FormsPrevious: () => MoveFormFocus(forward: false),
         FormsNextRequired: RunNextRequired,
-        FormsHighlight: ToggleFormHighlight);
+        FormsHighlight: ToggleFormHighlight,
+        Organize: ToggleOrganize,
+        RotateLeft: () => RunPageEdit(session => session.Rotate(-90)),
+        RotateRight: () => RunPageEdit(session => session.Rotate(90)),
+        DuplicatePages: () => RunPageEdit(session => session.Duplicate()),
+        BlankPage: InsertBlankPage,
+        InsertFile: InsertFile,
+        MovePagesUp: () => RunPageEdit(session => session.MoveBy(-1)),
+        MovePagesDown: () => RunPageEdit(session => session.MoveBy(1)),
+        PagesUndo: () => OpenPlan?.Undo(),
+        PagesRedo: () => OpenPlan?.Redo(),
+        ApplyPages: () => _ = GuardAsync(ApplyActiveAsync),
+        DiscardPages: DiscardPlan,
+        DeletePages: () => RunPageEdit(session => session.Delete()),
+        ExtractPages: ExtractPages,
+        SplitDocument: SplitDocument,
+        ExportImages: ExportImages);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
@@ -300,9 +324,28 @@ internal sealed partial class PdfWindow
         }
     }
 
-    private Task UndoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
+    // While the page plan is open Undo and Redo (the Home tab's and Ctrl+Z, Ctrl+Y) belong to its history; the marks are locked and clean then.
+    private Task UndoActiveAsync()
+    {
+        if (OpenPlan is { } plan)
+        {
+            plan.Undo();
+            return Task.CompletedTask;
+        }
 
-    private Task RedoActiveAsync() => Workspace.Active is { } tab ? tab.Annotations.RedoAsync() : Task.CompletedTask;
+        return Workspace.Active is { } tab ? tab.Annotations.UndoAsync() : Task.CompletedTask;
+    }
+
+    private Task RedoActiveAsync()
+    {
+        if (OpenPlan is { } plan)
+        {
+            plan.Redo();
+            return Task.CompletedTask;
+        }
+
+        return Workspace.Active is { } tab ? tab.Annotations.RedoAsync() : Task.CompletedTask;
+    }
 
     /// <summary>Indexes the commands of the ribbon by id and attaches the window-wide shortcuts. Called once, after the ribbon exists.</summary>
     private void AttachShortcuts(RibbonDefinition definition)
@@ -350,6 +393,13 @@ internal sealed partial class PdfWindow
             return;
         }
 
+        // Select all and Copy belong to the list of the organize mode while the focus is in it: Ctrl+A selects the pages there (the catalog command
+        // would select the text of the page view behind it). Undo and Redo stay with the window, which sends them to the plan.
+        if (entry.Id is PdfCommandIds.Copy or PdfCommandIds.SelectAll && FocusIsInOrganizeList())
+        {
+            return;
+        }
+
         e.Handled = true;
         if (isRepeat && entry.Shortcut is { AllowsRepeat: false })
         {
@@ -362,6 +412,11 @@ internal sealed partial class PdfWindow
             command.Run?.Invoke();
         }
     }
+
+    // True while a plan is open and the focus is on the organize list of the active tab's pages pane or inside it.
+    private bool FocusIsInOrganizeList() =>
+        OpenPlan is not null && NavigationPane.Content is PagesPane { Organize: { } list }
+        && FocusManager?.GetFocusedElement() is Visual focused && (ReferenceEquals(list, focused) || list.IsVisualAncestorOf(focused));
 
     // A text field (the comment, a text box editor, the search field) or anything in the search bar keeps its keys, Esc included.
     private bool KeyBelongsToTextOrSearch()
@@ -411,6 +466,13 @@ internal sealed partial class PdfWindow
 
     private void OnToolsChanged()
     {
+        // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a plan is open.
+        if (Tools.Tool != AnnotateTool.None && OpenPlan is not null)
+        {
+            Tools.End();
+            return;
+        }
+
         // The form markers are hidden while a tool is active.
         foreach (var parts in _formParts.Values)
         {

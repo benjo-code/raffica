@@ -4,7 +4,7 @@ using Raffica.Shell.Frame;
 namespace Raffica.Pdf;
 
 /// <summary>
-/// The ribbon of the PDF app: the tabs Home (letter H), Annotate (letter A), Forms (letter F) and View (letter V), built from <see cref="PdfCommandCatalog"/>. The field codes follow
+/// The ribbon of the PDF app: the tabs Home (letter H), Annotate (letter A), Forms (letter F), Pages (letter P) and View (letter V), built from <see cref="PdfCommandCatalog"/>. The field codes follow
 /// the scheme of the frame: the digit of the group plus the position in the group (13 is the third command of group 1), so the codes of a
 /// tab never begin one another. A command is enabled when an action is wired in <see cref="PdfCommands"/> and the rules allow it (see
 /// <see cref="PdfCommandRules"/>); a disabled command does nothing, is dimmed and is skipped by the field codes.
@@ -14,6 +14,7 @@ internal static class PdfRibbon
     public const string HomeLetter = "H";
     public const string AnnotateLetter = "A";
     public const string FormsLetter = "F";
+    public const string PagesLetter = "P";
     public const string ViewLetter = "V";
 
     /// <param name="commands">What the commands do.</param>

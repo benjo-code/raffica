@@ -83,6 +83,21 @@ public sealed class PaletteSourceTests
     }
 
     [AvaloniaFact]
+    public async Task PaletteListsThePagesCommands()
+    {
+        using var fixture = WindowFixture.Create();
+        await fixture.OpenAsync("text-rich.pdf");
+        var source = fixture.Window.TitleSearch.Source;
+        Assert.NotNull(source);
+        var tab = Assert.Single(source.Tabs, t => t.Letter == "P");
+        Assert.Equal("Pages", tab.Name);
+        var ids = tab.Groups.SelectMany(g => g.Commands).Select(c => c.Id).ToArray();
+        Assert.Equal(16, ids.Length);
+        Assert.Contains("pages.organize", ids);
+        Assert.Contains("pages.exportImages", ids);
+    }
+
+    [AvaloniaFact]
     public async Task DocumentInfoOpensTheCard()
     {
         using var fixture = WindowFixture.Create();

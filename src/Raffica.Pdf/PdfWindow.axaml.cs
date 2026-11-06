@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -75,6 +76,9 @@ internal sealed partial class PdfWindow : Window
     private readonly Dictionary<PdfTab, BadgeHost> _hosts = [];
     private readonly Dictionary<PdfTab, FormParts> _formParts = [];
     private readonly Dictionary<PdfTab, OutlineSource> _outlines = [];
+
+    // Where a tab starts when its view is made again after a rewrite (page, zoom, zoom mode, layout); used once by ApplyInitialView.
+    private readonly Dictionary<PdfTab, RememberedView> _rebuildViews = [];
     private readonly Action<Uri>? _launcher;
     private readonly TimeProvider? _time;
     private SearchBar? _searchBar;
@@ -109,7 +113,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync);
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -158,10 +162,11 @@ internal sealed partial class PdfWindow : Window
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
-            () => _saves.IsSaving);
+            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
+        _saves.ApplyPlan = (tab, saveAs) => Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -224,6 +229,9 @@ internal sealed partial class PdfWindow : Window
     {
         Step(_print.Cancel);
         Step(_saves.Cancel);
+        Step(() => _applyFlow?.Cancel());
+        Step(() => _outputFlow?.Cancel());
+        Step(() => _exportFlow?.Cancel());
         Step(_fieldCodes.Dispose);
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
@@ -454,7 +462,13 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
-    private async Task<string?> PickSavePathAsync(PdfTab tab)
+    private Task<string?> PickSavePathAsync(PdfTab tab) => PickPathAsync(tab, tab.Title);
+
+    // The target of an applied page plan: never the name of the open file, so that a quick Enter cannot replace it.
+    private Task<string?> PickApplyPathAsync(PdfTab tab) =>
+        PickPathAsync(tab, PdfStrings.Fill(PdfStrings.ApplySuggestedNameFormat, Path.GetFileNameWithoutExtension(tab.Title)));
+
+    private async Task<string?> PickPathAsync(PdfTab tab, string suggestedName, string? title = null)
     {
         if (_savePicker is { } picker)
         {
@@ -468,8 +482,8 @@ internal sealed partial class PdfWindow : Window
             var start = tab.Path is { } path && Path.GetDirectoryName(path) is { Length: > 0 } folder ? await StorageProvider.TryGetFolderFromPathAsync(folder) : null;
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = PdfStrings.SaveDialogTitle,
-                SuggestedFileName = tab.Title,
+                Title = title ?? PdfStrings.SaveDialogTitle,
+                SuggestedFileName = suggestedName,
                 DefaultExtension = "pdf",
                 ShowOverwritePrompt = true,
                 SuggestedStartLocation = start,
@@ -705,6 +719,7 @@ internal sealed partial class PdfWindow : Window
             var tab = (PdfTab)e.NewItems![0]!;
             tab.DirtyChanged += UpdateSaveState;
             tab.Annotations.StateChanged += RefreshCommandStates;
+            tab.OrganizeCreated += OnOrganizeCreated;
             if (tab.Path is { } opened)
             {
                 _recent.Touch(opened);
@@ -717,78 +732,136 @@ internal sealed partial class PdfWindow : Window
             var tab = (PdfTab)e.OldItems![0]!;
             tab.DirtyChanged -= UpdateSaveState;
             tab.Annotations.StateChanged -= RefreshCommandStates;
+            tab.OrganizeCreated -= OnOrganizeCreated;
             _printInfo.Remove(tab);
             _annotateAllowed.Remove(tab);
             _fillAllowed.Remove(tab);
             RememberView(tab);
-            if (_panes.Remove(tab, out var panes))
-            {
-                panes.Dispose();
-            }
-
-            // The marks pane listens to the select controller of the tab, so it goes first.
             _marksOpen.Remove(tab);
-            if (_marks.Remove(tab, out var marks))
-            {
-                DisposeMarks(marks);
-            }
-
-            if (_annotates.Remove(tab, out var annotate))
-            {
-                annotate.Dispose();
-            }
-
-            if (_hosts.Remove(tab, out var host))
-            {
-                host.Forms?.Dispose();
-                host.Dispose();
-            }
-
-            if (_badges.Remove(tab, out var badge))
-            {
-                badge.Dispose();
-            }
-
-            if (_formParts.Remove(tab, out var formParts))
-            {
-                DisposeFormParts(tab, formParts);
-            }
-
-            if (_texts.Remove(tab, out var text))
-            {
-                text.Dispose();
-            }
-
-            if (_outlines.Remove(tab, out var outline))
-            {
-                if (_views.TryGetValue(tab, out var outlined))
-                {
-                    outlined.FirstSharpPage -= outline.Start;
-                }
-
-                outline.Dispose();
-            }
-
-            if (_searches.Remove(tab, out var search))
-            {
-                search.Dispose();
-            }
-
-            if (_views.Remove(tab, out var view))
-            {
-                view.FirstSharpPage -= OnFirstSharpPageShown;
-                view.Search = null;
-                view.FormOverlay = null;
-                view.Tab = null;
-            }
+            _rebuildViews.Remove(tab);
+            DisposeTabPieces(tab);
 
             Tabs.Items.Remove(tab.Tab);
         }
     }
 
+    // The one cleanup of the per-tab pieces (panes, marks, interactions, badges, form parts, text, outline, search, view), for the close of a tab
+    // and for the rebuild after a rewrite. It leaves the dictionaries without the tab and the tab itself alone.
+    private void DisposeTabPieces(PdfTab tab)
+    {
+        if (_panes.Remove(tab, out var panes))
+        {
+            panes.Dispose();
+        }
+
+        // The marks pane listens to the select controller of the tab, so it goes first.
+        if (_marks.Remove(tab, out var marks))
+        {
+            DisposeMarks(marks);
+        }
+
+        if (_annotates.Remove(tab, out var annotate))
+        {
+            annotate.Dispose();
+        }
+
+        if (_hosts.Remove(tab, out var host))
+        {
+            host.Forms?.Dispose();
+            host.Dispose();
+        }
+
+        if (_badges.Remove(tab, out var badge))
+        {
+            badge.Dispose();
+        }
+
+        if (_formParts.Remove(tab, out var formParts))
+        {
+            DisposeFormParts(tab, formParts);
+        }
+
+        if (_texts.Remove(tab, out var text))
+        {
+            text.Dispose();
+        }
+
+        if (_outlines.Remove(tab, out var outline))
+        {
+            if (_views.TryGetValue(tab, out var outlined))
+            {
+                outlined.FirstSharpPage -= outline.Start;
+            }
+
+            outline.Dispose();
+        }
+
+        if (_searches.Remove(tab, out var search))
+        {
+            search.Dispose();
+        }
+
+        if (_views.Remove(tab, out var view))
+        {
+            view.FirstSharpPage -= OnFirstSharpPageShown;
+            view.Search = null;
+            view.FormOverlay = null;
+            view.Tab = null;
+        }
+    }
+
+    /// <summary>
+    /// The document of the tab was rewritten (page changes applied) and the session adopted the new file: every piece that is bound to the old
+    /// page list or the old page sizes goes (the same cleanup as the close of a tab) and is made anew over the adopted document, at
+    /// <paramref name="page"/> (0-based, limited to the new count) with the zoom, zoom mode and layout the tab had. The annotation and form
+    /// sessions are made anew too (the editor of a rewritten document starts clean) and the permissions are read again. A tab in the background
+    /// shows nothing until it is selected. UI thread; no edit may be open (the Apply flow asks for that first).
+    /// </summary>
+    internal void RebuildTab(PdfTab tab, int page)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!Workspace.Tabs.Contains(tab))
+        {
+            return;
+        }
+
+        Debug.Assert(tab.AnnotationsIfCreated is not { IsDirty: true }, "A rewritten document has no open edit.");
+        if (_views.TryGetValue(tab, out var view))
+        {
+            var kept = view.CaptureRemembered();
+            _rebuildViews[tab] = kept with { View = new ViewState(new PageAnchor(Math.Max(0, page), 0), 0) };
+        }
+
+        if (tab.AnnotationsIfCreated is { } old)
+        {
+            old.StateChanged -= RefreshCommandStates;
+        }
+
+        DisposeTabPieces(tab);
+        tab.ResetForRewrittenDocument();
+        tab.Annotations.StateChanged += RefreshCommandStates;
+        _printInfo.Remove(tab);
+        _annotateAllowed.Remove(tab);
+        _fillAllowed.Remove(tab);
+        if (ReferenceEquals(Workspace.Active, tab))
+        {
+            ShowActiveView();
+            EnforceAnnotatePermission(showCard: false);
+        }
+
+        UpdateSaveState();
+        RefreshCommandStates();
+    }
+
     private void OnWorkspaceActiveChanged()
     {
         Tabs.Selected = Workspace.Active?.Tab;
+        if (OpenPlan is not null)
+        {
+            // The tool is the window's, not the tab's: a tool left over from another tab does not run over an open plan.
+            Tools.End();
+        }
+
         UpdateSaveState();
         ShowActiveView();
         EnforceAnnotatePermission(showCard: false);
@@ -816,6 +889,9 @@ internal sealed partial class PdfWindow : Window
 
             // The permissions are read only once this tab has its first sharp page: nothing for the print command is asked before.
             view.FirstSharpPage += () => LoadPrintInfo(shownTab);
+
+            // The Pages commands wait for the first sharp page (nothing of the mode is read before it).
+            view.FirstSharpPage += RefreshCommandStates;
             var created = view;
             view.ViewChanged += () =>
             {
@@ -888,8 +964,8 @@ internal sealed partial class PdfWindow : Window
         var markers = new FormMarkers(tab.Forms, focus) { Suppressed = () => Tools.Tool != AnnotateTool.None };
         markers.Attach(view);
         view.FormOverlay = markers;
-        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab));
-        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab));
+        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab), () => PlanOpenOf(tab));
+        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab), () => PlanOpenOf(tab));
         _formParts[tab] = new FormParts(markers, focus, interaction, keys);
 
         // The commands of the Forms tab follow what the session knows: the fields, the required list, the highlight.
@@ -1178,6 +1254,12 @@ internal sealed partial class PdfWindow : Window
     private void ApplyInitialView(PageView view, PdfTab tab)
     {
         view.PageTheme = Settings.PageThemeForNewTab;
+        if (_rebuildViews.Remove(tab, out var rebuilt))
+        {
+            view.RestoreView(rebuilt.View, rebuilt.Zoom, rebuilt.ZoomMode, rebuilt.Layout);
+            return;
+        }
+
         if (tab.Path is { } path && _recent.ViewOf(path) is { } remembered && remembered.IsValid())
         {
             view.RestoreView(remembered.View, remembered.Zoom, remembered.ZoomMode, remembered.Layout);
@@ -1294,9 +1376,14 @@ internal sealed partial class PdfWindow : Window
     }
 
     // "Save" of the close prompt: when a refused field draft keeps the tab open after the save, the draft is shown so the user sees why.
-    private async Task<bool> SaveForCloseAsync(PdfTab tab)
+    private Task<bool> SaveForCloseAsync(PdfTab tab) => SaveForCloseCoreAsync(tab, marksOnly: false);
+
+    // The same, for a tab whose plan was discarded at the close question but is still open: only the marks are written, never the plan.
+    private Task<bool> SaveMarksForCloseAsync(PdfTab tab) => SaveForCloseCoreAsync(tab, marksOnly: true);
+
+    private async Task<bool> SaveForCloseCoreAsync(PdfTab tab, bool marksOnly)
     {
-        var saved = await _saves.SaveAsync(tab);
+        var saved = await (marksOnly ? _saves.SaveMarksAsync(tab) : _saves.SaveAsync(tab));
         if (tab.AnnotationsIfCreated is { HasUnresolved: true } && FormsOf(tab) is { } parts)
         {
             parts.Interaction.RevealDraft();
@@ -1315,7 +1402,12 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
-    private Task<CloseChoice> PromptAsync(PdfTab tab)
+    private Task<CloseChoice> PromptAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Save);
+
+    /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open answers Cancel.</summary>
+    internal Task<CloseChoice> AskPlanAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Plan);
+
+    private Task<CloseChoice> AskAsync(PdfTab tab, UnsavedKind kind)
     {
         if (Host.IsOpen)
         {
@@ -1328,9 +1420,12 @@ internal sealed partial class PdfWindow : Window
         {
             Host.Close();
             answer.TrySetResult(choice);
-        }));
+        }, kind, _time));
         return answer.Task;
     }
+
+    // "Apply…" of the close question: the Apply card flow; the tab closes only if the plan was written.
+    private Task<bool> ApplyForCloseAsync(PdfTab tab) => Applying.RunAsync(tab);
 
     /// <summary>Asks about every document with unsaved changes before the window closes; a Cancel keeps the window open.</summary>
     private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)

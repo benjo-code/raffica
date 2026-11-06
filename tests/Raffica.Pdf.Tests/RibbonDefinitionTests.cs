@@ -15,7 +15,7 @@ public sealed class RibbonDefinitionTests
     public void EveryCommandHasAFieldCodeAndAName()
     {
         var commands = Create().Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
-        Assert.Equal(52, commands.Count);
+        Assert.Equal(68, commands.Count);
         Assert.All(commands, c =>
         {
             Assert.False(string.IsNullOrWhiteSpace(c.FieldCode));
@@ -25,20 +25,40 @@ public sealed class RibbonDefinitionTests
     }
 
     [Fact]
-    public void TabsAreHomeAnnotateFormsAndViewWithLettersHAFAndV()
+    public void TabsAreHomeAnnotateFormsPagesAndViewWithLettersHAFPAndV()
     {
         var tabs = Create().Tabs;
-        Assert.Equal(["H", "A", "F", "V"], tabs.Select(t => t.Letter).ToArray());
-        Assert.Equal(["Home", "Annotate", "Forms", "View"], tabs.Select(t => t.Name).ToArray());
+        Assert.Equal(["H", "A", "F", "P", "V"], tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal(["Home", "Annotate", "Forms", "Pages", "View"], tabs.Select(t => t.Name).ToArray());
     }
 
     [Fact]
-    public void ExactlyOneGroupIsDestructiveAndItHoldsOnlyDelete()
+    public void PagesTabLettersAndFieldCodesAreUniqueAndPrefixFree()
     {
         var tabs = Create().Tabs;
-        var group = Assert.Single(tabs.SelectMany(t => t.Groups), g => g.Destructive);
-        Assert.Equal(["annotate.delete"], group.Commands.Select(c => c.Id).ToArray());
-        Assert.Equal("A", tabs.Single(t => t.Groups.Contains(group)).Letter);
+
+        // The tab letters are unique and none is one the frame keeps (Q for the search of the title bar, 6 and 7 for the panes).
+        var letters = tabs.Select(t => t.Letter).ToList();
+        Assert.Equal(letters.Count, letters.Distinct().Count());
+        Assert.DoesNotContain(letters, l => l is "Q" or "6" or "7");
+
+        var pages = tabs.Single(t => t.Letter == "P");
+        var codes = pages.Groups.SelectMany(g => g.Commands).Select(c => c.FieldCode).ToList();
+        Assert.Equal(codes.Count, codes.Distinct().Count());
+        Assert.All(codes, a => Assert.All(codes, b => Assert.True(a == b || !b.StartsWith(a, StringComparison.Ordinal), a + " begins " + b)));
+    }
+
+    [Fact]
+    public void TheDestructiveGroupsHoldOnlyDeleteAndAreLastInTheirTab()
+    {
+        var tabs = Create().Tabs;
+        var groups = tabs.SelectMany(t => t.Groups).Where(g => g.Destructive).ToList();
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(["annotate.delete"], groups[0].Commands.Select(c => c.Id).ToArray());
+        Assert.Equal("A", tabs.Single(t => t.Groups.Contains(groups[0])).Letter);
+        Assert.Equal(["pages.delete"], groups[1].Commands.Select(c => c.Id).ToArray());
+        Assert.Equal("P", tabs.Single(t => t.Groups.Contains(groups[1])).Letter);
+        Assert.All(tabs, t => Assert.All(t.Groups.Where(g => g.Destructive), g => Assert.Same(g, t.Groups[^1])));
     }
 
     [Fact]
@@ -70,8 +90,11 @@ public sealed class RibbonDefinitionTests
             tabs[1].Groups.Select(Describe).ToArray());
         Assert.Equal(["Fill:11,12,13,14"], tabs[2].Groups.Select(Describe).ToArray());
         Assert.Equal(
-            ["Zoom:11,12,13,14,15", "Layout:21,22,23,24", "Page:31", "Panes:41,42"],
+            ["Organize:11", "Edit:21,22,23,24,25,26,27", "History:31,32", "Apply:41,42", "Output:51,52,53", "Delete:61"],
             tabs[3].Groups.Select(Describe).ToArray());
+        Assert.Equal(
+            ["Zoom:11,12,13,14,15", "Layout:21,22,23,24", "Page:31", "Panes:41,42"],
+            tabs[4].Groups.Select(Describe).ToArray());
     }
 
     [Fact]

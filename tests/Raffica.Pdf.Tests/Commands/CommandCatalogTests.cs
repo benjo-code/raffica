@@ -140,7 +140,7 @@ public sealed class CommandCatalogTests
 
         // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
         Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
-        Assert.Equal(52, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(68, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -149,9 +149,35 @@ public sealed class CommandCatalogTests
         var rules = new PdfCommandRules(() => true, () => 1, () => new PdfPrintInfo(false, true));
         var blocked = PdfCommandCatalog.Commands.Where(c => !rules.Allows(c.Id)).Select(c => c.Id).ToArray();
 
-        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection, the form commands a form.
-        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "forms.highlight", "forms.next", "forms.nextRequired", "forms.previous", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
+        // Moving between tabs needs a second tab; Save needs a dirty tab, Undo and Redo a history, Delete a selection, the form commands a form, the page commands the organize mode (and a selection or a changed plan).
+        Assert.Equal(["annotate.delete", "edit.redo", "edit.undo", "file.save", "forms.highlight", "forms.next", "forms.nextRequired", "forms.previous", "pages.apply", "pages.blank", "pages.delete", "pages.discard", "pages.duplicate", "pages.insertFile", "pages.moveDown", "pages.moveUp", "pages.redo", "pages.rotateLeft", "pages.rotateRight", "pages.undo", "tabs.next", "tabs.previous"], blocked.Order(StringComparer.Ordinal).ToArray());
         Assert.True(new PdfCommandRules(() => true, () => 2, () => null).Allows("tabs.next"));
+    }
+
+    [Fact]
+    public void CommandCountsAndGroupDigitsMatchTheCatalog()
+    {
+        // 52 commands of the viewer, the annotate tools, the forms and 16 of the Pages tab.
+        Assert.Equal(68, PdfCommandCatalog.Commands.Count);
+        Assert.Equal(["Home", "Annotate", "Forms", "Pages", "View"], PdfCommandCatalog.Tabs.Select(t => t.Name).ToArray());
+
+        var pages = PdfCommandCatalog.Tabs.Single(t => t.Letter == "P");
+        Assert.Equal(["1", "2", "3", "4", "5", "6"], pages.Groups.Select(g => g.Digit).ToArray());
+        Assert.Equal(["Organize", "Edit", "History", "Apply", "Output", "Delete"], pages.Groups.Select(g => g.Label).ToArray());
+        Assert.Equal(16, pages.Groups.Sum(g => g.Commands.Count));
+        Assert.Equal(["pages.delete"], pages.Groups[^1].Commands.Select(c => c.Id).ToArray());
+        Assert.True(pages.Groups[^1].Destructive);
+        Assert.Equal(1, pages.Groups.Count(g => g.Destructive));
+        Assert.Equal(["pages.extract", "pages.split", "pages.exportImages"], pages.Groups[^2].Commands.Select(c => c.Id).ToArray());
+
+        // The field code of a command starts with the digit of its group.
+        foreach (var command in PdfCommandCatalog.Commands)
+        {
+            Assert.StartsWith(command.Group.Digit, command.FieldCode, StringComparison.Ordinal);
+        }
+
+        // None of the page commands has a shortcut: the keys of the mode belong to the list of the pane.
+        Assert.All(pages.Groups.SelectMany(g => g.Commands), c => Assert.Null(c.Shortcut));
     }
 
     [Fact]
