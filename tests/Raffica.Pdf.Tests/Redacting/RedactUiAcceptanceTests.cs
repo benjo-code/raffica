@@ -53,7 +53,7 @@ public sealed class RedactUiAcceptanceTests
         /// <summary>Control characters (codes 5 to 7, glyphs without a unicode value) that the fixture shows in its text before and that must be gone after.</summary>
         public bool ControlChars { get; init; }
 
-        /// <summary>A line the Removed section of the result card must have (for a fixture with no text to look for: what is observable).</summary>
+        /// <summary>A pattern for a line that the Removed section of the result card must have, with a count of at least 1 (for a fixture with no text to look for: what is observable).</summary>
         public string? CardHas { get; init; }
 
         /// <summary>A text of the page that must still be there (the redaction takes no more than the marks).</summary>
@@ -85,7 +85,7 @@ public sealed class RedactUiAcceptanceTests
         new() { File = "redact-objstm.pdf", Areas = [(0, new PageRect(15, 15, 200, 60))], Outcome = ApplyOutcomeKind.Refused },
         // The image fixture has no text (the labels are Helvetica, no term): what the redaction did is observable on the result card, which says how many images were
         // overwritten under the mark or removed as a whole, and the file is checked by the pixels of the images under the mark (the card's Checked section).
-        new() { File = "redact-image.pdf", Areas = [(0, new PageRect(10, 10, 100, 100))], CardHas = "Images " },
+        new() { File = "redact-image.pdf", Areas = [(0, new PageRect(10, 10, 100, 100))], CardHas = @"^• Page 1: .*Images (overwritten under a mark|removed as a whole): ([1-9]d*)" },
     ];
 
     public static TheoryData<string> Names() => [.. Cases.Select(c => c.File)];
@@ -319,7 +319,13 @@ public sealed class RedactUiAcceptanceTests
 
         if (item.CardHas is { } cardHas)
         {
-            Assert.Contains(outcome.Texts, text => text.Contains(cardHas, StringComparison.Ordinal));
+            // The line is in the Removed section: after its heading and before the next section's heading.
+            var texts = outcome.Texts.ToList();
+            var line = texts.FindIndex(text => System.Text.RegularExpressions.Regex.IsMatch(text, cardHas));
+            Assert.True(line >= 0, $"{file}: no line of the Removed section matches {cardHas}");
+            var from = texts.IndexOf(PdfStrings.RedactResRemovedHeading);
+            var next = texts.FindIndex(from + 1, text => text is "Image areas" or "Overlay text" or "Lost" or "Not cleaned" || text == PdfStrings.RedactResCleanedHeading);
+            Assert.True(from >= 0 && from < line && (next < 0 || line < next), $"{file}: the line is not under the heading Removed");
         }
 
         // What the report says stays does stay, and the report says so ("Not cleaned"), so the test does not hide a leak behind a wrong expectation.

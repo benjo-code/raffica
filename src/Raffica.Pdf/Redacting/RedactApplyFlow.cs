@@ -214,7 +214,7 @@ internal sealed class RedactApplyFlow(
             }
 
             targetPath = Path.GetFullPath(picked);
-            if (JobRunner.SamePath(targetPath, path)
+            if (await IsTheOpenFileAsync(targetPath, path)
                 && !await dialogs.ShowAsync<bool>(done => RedactOriginalCard.Create(tab.Title, done, time)))
             {
                 return false;
@@ -279,6 +279,11 @@ internal sealed class RedactApplyFlow(
         await ShowResultAsync(Path.GetFileName(targetPath), analysis, result.Check);
         return true;
     }
+
+    // The spelling says it for the same path; the file system says it for what a spelling cannot (links, hard links, 8.3 names, an extended-length path prefix). Off the UI thread.
+    // Anything that is not provably another file counts as the same one: a confirmation that is asked needlessly costs a click, a missing one costs the original.
+    private static async Task<bool> IsTheOpenFileAsync(string target, string open) =>
+        JobRunner.SamePath(target, open) || await Task.Run(() => FileIdentity.AreSameFile(target, open) != false);
 
     // The pages the analysis refuses as not redactable in place that are not images yet, ascending.
     private static List<int> RescuablePages(RedactionAnalysis analysis, RedactionPlan plan) =>

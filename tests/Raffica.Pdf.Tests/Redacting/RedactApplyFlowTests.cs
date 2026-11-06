@@ -391,10 +391,11 @@ public sealed class RedactApplyFlowTests
     public static TheoryData<string> OriginalSpellings()
     {
         // The same file, spelled differently: as it is, relative to the working folder, with a detour through a folder, and (on Windows) in capitals.
-        var data = new TheoryData<string> { "same", "relative", "detour" };
+        var data = new TheoryData<string> { "same", "relative", "detour", "symlink" };
         if (OperatingSystem.IsWindows())
         {
             data.Add("capitals");
+            data.Add("prefixed");
         }
 
         return data;
@@ -404,9 +405,27 @@ public sealed class RedactApplyFlowTests
     {
         "relative" => Path.GetRelativePath(Environment.CurrentDirectory, path),
         "detour" => Path.Combine(Path.GetDirectoryName(path)!, "detour", "..", Path.GetFileName(path)),
+        // A symbolic link and the extended-length spelling are other paths to the same file: only the file system can say so.
+        "symlink" => Link(path),
+        "prefixed" => @"\\?\" + path,
         "capitals" => Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileName(path).ToUpperInvariant()),
         _ => path,
     };
+
+    private static string Link(string path)
+    {
+        var link = Path.Combine(Path.GetDirectoryName(path)!, "link-to-" + Path.GetFileName(path));
+        try
+        {
+            File.CreateSymbolicLink(link, path);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Skip("This account or system may not create symbolic links: " + ex.GetType().Name);
+        }
+
+        return link;
+    }
 
     [AvaloniaTheory]
     [MemberData(nameof(OriginalSpellings))]
@@ -438,9 +457,20 @@ public sealed class RedactApplyFlowTests
         RedactApplyRig.Click(confirm, "PART_Original");
         RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
         Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        if (how == "symlink")
+        {
+            // The write replaces the link itself by the redacted file (the replace is atomic and does not follow a link); the file behind it stays as it was.
+            Assert.Equal(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+            return;
+        }
+
         Assert.NotEqual(before, await File.ReadAllBytesAsync(rig.Path, Ct));
-        Assert.Equal(rig.Path, rig.Tab.Path);
-        Assert.Empty(rig.PathChanges);
+        if (how != "prefixed")
+        {
+            // The extended-length spelling is another string for the path: the tab follows what was picked.
+            Assert.Equal(rig.Path, rig.Tab.Path);
+            Assert.Empty(rig.PathChanges);
+        }
     }
 
     [AvaloniaFact]
@@ -512,5 +542,25 @@ public sealed class RedactApplyFlowTests
         RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
         Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
         Assert.NotEqual(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task SaveAsToAnotherFileIsNotArmedAndWritesNormally()
+    {
+        using var rig = await RedactApplyRig.OpenAsync();
+        await rig.MarkTermAsync(Term);
+        var before = await File.ReadAllBytesAsync(rig.Path, Ct);
+        var other = rig.CopyOf("redact-covered.pdf", "another.pdf");
+        rig.Picks.Enqueue(other);
+
+        var run = rig.Flow.RunAsync(rig.Tab, ApplyTarget.SaveAs);
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+
+        // A file that exists but is another one: the system dialog confirmed replacing it, nothing more is asked.
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        Assert.Equal(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+        Assert.Equal(other, rig.Tab.Path);
+        Assert.NotEqual(before, await File.ReadAllBytesAsync(other, Ct));
     }
 }
