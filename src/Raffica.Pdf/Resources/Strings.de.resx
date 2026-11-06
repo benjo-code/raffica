@@ -1886,4 +1886,142 @@
   <data name="RedactRefusalBusy" xml:space="preserve">
     <value>Die Auswahl wird noch markiert.</value>
   </data>
+  <data name="RedactRefusalSearchIncomplete" xml:space="preserve">
+    <value>Bestätigen Sie zuerst, dass die Suche nicht alles abgedeckt hat.</value>
+  </data>
+  <data name="RedactRefusalNothingToMark" xml:space="preserve">
+    <value>Es gibt nichts zu markieren.</value>
+  </data>
+  <data name="RedactRefusalSearchRunning" xml:space="preserve">
+    <value>Eine Suche läuft noch.</value>
+  </data>
+  <data name="FindPanelName" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="FindTermName" xml:space="preserve">
+    <value>Gesuchter Text</value>
+  </data>
+  <data name="FindSearchButton" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="FindCancelButton" xml:space="preserve">
+    <value>Suche abbrechen</value>
+  </data>
+  <data name="FindMatchCase" xml:space="preserve">
+    <value>Groß-/Kleinschreibung beachten</value>
+  </data>
+  <data name="FindWholeWords" xml:space="preserve">
+    <value>Ganze Wörter</value>
+  </data>
+  <data name="FindPatternsMode" xml:space="preserve">
+    <value>Muster</value>
+  </data>
+  <data name="FindKindEmail" xml:space="preserve">
+    <value>E-Mail-Adressen</value>
+  </data>
+  <data name="FindKindIban" xml:space="preserve">
+    <value>IBANs</value>
+  </data>
+  <data name="FindKindPhone" xml:space="preserve">
+    <value>Telefonnummern</value>
+  </data>
+  <data name="FindKindCard" xml:space="preserve">
+    <value>Kartennummern</value>
+  </data>
+  <data name="FindKindCountFormat" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="FindCertaintyChecksumOk" xml:space="preserve">
+    <value>Prüfsumme stimmt</value>
+  </data>
+  <data name="FindCertaintyShapeOnly" xml:space="preserve">
+    <value>Nur die Form</value>
+  </data>
+  <data name="FindCertaintyChecksumFailed" xml:space="preserve">
+    <value>Prüfsumme falsch</value>
+  </data>
+  <data name="FindGroupFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FindPatternCaution" xml:space="preserve">
+    <value>Muster finden nur, was der Text zeigt. Sehen Sie die Liste selbst durch.</value>
+  </data>
+  <data name="FindEmptyTerm" xml:space="preserve">
+    <value>Geben Sie den gesuchten Text ein und drücken Sie die Eingabetaste.</value>
+  </data>
+  <data name="FindRunning" xml:space="preserve">
+    <value>Suche läuft …</value>
+  </data>
+  <data name="FindCanceled" xml:space="preserve">
+    <value>Die Suche wurde abgebrochen. Es wird kein Ergebnis angezeigt.</value>
+  </data>
+  <data name="FindFailed" xml:space="preserve">
+    <value>Die Suche ist fehlgeschlagen. Es wurde nichts markiert.</value>
+  </data>
+  <data name="FindNoMatches" xml:space="preserve">
+    <value>Keine Treffer.</value>
+  </data>
+  <data name="FindMatchesOne" xml:space="preserve">
+    <value>1 Treffer</value>
+  </data>
+  <data name="FindMatchesMany" xml:space="preserve">
+    <value>{0} Treffer</value>
+  </data>
+  <data name="FindIncompletePagesFormat" xml:space="preserve">
+    <value>Diese Seiten konnten nicht vollständig durchsucht werden: {0}. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
+  </data>
+  <data name="FindIncompleteLimitFormat" xml:space="preserve">
+    <value>Die Suche endete bei {0} Treffern; es kann weitere geben. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
+  </data>
+  <data name="FindAcknowledge" xml:space="preserve">
+    <value>Bestätigen und Markieren erlauben</value>
+  </data>
+  <data name="FindAcknowledged" xml:space="preserve">
+    <value>Für diese Suche bestätigt.</value>
+  </data>
+  <data name="FindPicturesOne" xml:space="preserve">
+    <value>1 Seite ist ein Bild; Text in Bildern wird nicht durchsucht</value>
+  </data>
+  <data name="FindPicturesManyFormat" xml:space="preserve">
+    <value>{0} Seiten sind Bilder; Text in Bildern wird nicht durchsucht</value>
+  </data>
+  <data name="FindMarkAll" xml:space="preserve">
+    <value>Alle markieren</value>
+  </data>
+  <data name="FindMarkTicked" xml:space="preserve">
+    <value>Angehakte markieren</value>
+  </data>
+  <data name="FindAddFailed" xml:space="preserve">
+    <value>Diese hinzufügen</value>
+  </data>
+  <data name="FindNotSearchedToggle" xml:space="preserve">
+    <value>Was wird nicht durchsucht?</value>
+  </data>
+  <data name="FindNotSearchedName" xml:space="preserve">
+    <value>Stellen, die die Suche nicht ansieht</value>
+  </data>
+  <data name="FindListName" xml:space="preserve">
+    <value>Treffer</value>
+  </data>
+  <data name="FindHitName" xml:space="preserve">
+    <value>Treffer, Seite {0}</value>
+  </data>
+  <data name="FindHitRowFormat" xml:space="preserve">
+    <value>Seite {0}: {1}</value>
+  </data>
+  <data name="FindHitHidden" xml:space="preserve">
+    <value>unsichtbarer Text</value>
+  </data>
+  <data name="FindHitNotMarkableFormat" xml:space="preserve">
+    <value>{0} (nicht markierbar: {1})</value>
+  </data>
+  <data name="FindMarkedOne" xml:space="preserve">
+    <value>1 Markierung hinzugefügt.</value>
+  </data>
+  <data name="FindMarkedManyFormat" xml:space="preserve">
+    <value>{0} Markierungen hinzugefügt.</value>
+  </data>
+  <data name="FindMarkedNone" xml:space="preserve">
+    <value>Diese Treffer sind schon markiert.</value>
+  </data>
 </root>

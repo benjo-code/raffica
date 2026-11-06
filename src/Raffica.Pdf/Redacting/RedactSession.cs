@@ -225,6 +225,46 @@ internal sealed class RedactSession : IDisposable
     }
 
     /// <summary>
+    /// Adds marks found by a search in one history step and selects them. A mark that is already in the plan (same page, places and text) is
+    /// not added twice. All or nothing: a plan that would overflow takes none. <paramref name="added"/> is how many marks were new.
+    /// </summary>
+    public RedactResult AddMarks(IReadOnlyList<RedactionMark> marks, out int added)
+    {
+        ArgumentNullException.ThrowIfNull(marks);
+        added = 0;
+        if (_history is null)
+        {
+            return RedactResult.Refused(RedactProblem.NotActive);
+        }
+
+        var known = new HashSet<(int, string?, string)>(Plan.Marks.Where(m => m.Kind == RedactionKind.Hit).Select(KeyOf));
+        var fresh = marks.Where(m => known.Add(KeyOf(m))).ToList();
+        if (fresh.Count == 0)
+        {
+            return RedactResult.Done;
+        }
+
+        RedactionPlan next;
+        try
+        {
+            next = Plan.WithRange(fresh);
+        }
+        catch (RedactionException ex)
+        {
+            return RedactResult.Refused(ex.Error == RedactionError.LimitExceeded ? RedactProblem.TooManyMarks : RedactProblem.TextNotMarkable);
+        }
+
+        _history.Do(next);
+        Selection.Set(fresh.Select(m => m.Id));
+        Raise();
+        added = fresh.Count;
+        return RedactResult.Done;
+    }
+
+    private static (int, string?, string) KeyOf(RedactionMark mark) =>
+        (mark.Page, mark.Term, string.Join(';', mark.Areas.Select(a => FormattableString.Invariant($"{a.Left},{a.Top},{a.Right},{a.Bottom}"))));
+
+    /// <summary>
     /// Marks the selected text: one mark per page, with one rectangle per line, the selected text as its term. All or nothing: a stretch that
     /// cannot become a mark, or a plan that would overflow, marks nothing. The text selection is cleared once it is marked.
     /// </summary>

@@ -32,6 +32,15 @@ internal enum RedactProblem
 
     /// <summary>The previous marking of the selection is still running.</summary>
     Busy,
+
+    /// <summary>The search did not cover everything (a page could not be read, or the limit was reached) and the user has not accepted that yet.</summary>
+    SearchIncomplete,
+
+    /// <summary>The search has no hit that could become a mark.</summary>
+    NothingToMark,
+
+    /// <summary>A search is still running, so its hits are not final.</summary>
+    SearchRunning,
 }
 
 /// <summary>The outcome of an operation: done (then <see cref="MarkId"/> names the mark an add made), or refused with the reason.</summary>

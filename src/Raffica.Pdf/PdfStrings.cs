@@ -722,6 +722,52 @@ internal static class PdfStrings
     public static string RedactRefusalTooManyLinesFormat => Table.Get("RedactRefusalTooManyLinesFormat");
     public static string RedactRefusalBusy => Table.Get("RedactRefusalBusy");
     public static string RedactRefusalNotActive => Table.Get("RedactRefusalNotActive");
+    public static string RedactRefusalSearchIncomplete => Table.Get("RedactRefusalSearchIncomplete");
+    public static string RedactRefusalNothingToMark => Table.Get("RedactRefusalNothingToMark");
+    public static string RedactRefusalSearchRunning => Table.Get("RedactRefusalSearchRunning");
+    public static string FindPanelName => Table.Get("FindPanelName");
+    public static string FindTermName => Table.Get("FindTermName");
+    public static string FindSearchButton => Table.Get("FindSearchButton");
+    public static string FindCancelButton => Table.Get("FindCancelButton");
+    public static string FindMatchCase => Table.Get("FindMatchCase");
+    public static string FindWholeWords => Table.Get("FindWholeWords");
+    public static string FindPatternsMode => Table.Get("FindPatternsMode");
+    public static string FindKindEmail => Table.Get("FindKindEmail");
+    public static string FindKindIban => Table.Get("FindKindIban");
+    public static string FindKindPhone => Table.Get("FindKindPhone");
+    public static string FindKindCard => Table.Get("FindKindCard");
+    public static string FindKindCountFormat => Table.Get("FindKindCountFormat");
+    public static string FindCertaintyChecksumOk => Table.Get("FindCertaintyChecksumOk");
+    public static string FindCertaintyShapeOnly => Table.Get("FindCertaintyShapeOnly");
+    public static string FindCertaintyChecksumFailed => Table.Get("FindCertaintyChecksumFailed");
+    public static string FindGroupFormat => Table.Get("FindGroupFormat");
+    public static string FindPatternCaution => Table.Get("FindPatternCaution");
+    public static string FindEmptyTerm => Table.Get("FindEmptyTerm");
+    public static string FindRunning => Table.Get("FindRunning");
+    public static string FindCanceled => Table.Get("FindCanceled");
+    public static string FindFailed => Table.Get("FindFailed");
+    public static string FindNoMatches => Table.Get("FindNoMatches");
+    public static string FindMatchesOne => Table.Get("FindMatchesOne");
+    public static string FindMatchesMany => Table.Get("FindMatchesMany");
+    public static string FindIncompletePagesFormat => Table.Get("FindIncompletePagesFormat");
+    public static string FindIncompleteLimitFormat => Table.Get("FindIncompleteLimitFormat");
+    public static string FindAcknowledge => Table.Get("FindAcknowledge");
+    public static string FindAcknowledged => Table.Get("FindAcknowledged");
+    public static string FindPicturesOne => Table.Get("FindPicturesOne");
+    public static string FindPicturesManyFormat => Table.Get("FindPicturesManyFormat");
+    public static string FindMarkAll => Table.Get("FindMarkAll");
+    public static string FindMarkTicked => Table.Get("FindMarkTicked");
+    public static string FindAddFailed => Table.Get("FindAddFailed");
+    public static string FindNotSearchedToggle => Table.Get("FindNotSearchedToggle");
+    public static string FindNotSearchedName => Table.Get("FindNotSearchedName");
+    public static string FindListName => Table.Get("FindListName");
+    public static string FindHitName => Table.Get("FindHitName");
+    public static string FindHitRowFormat => Table.Get("FindHitRowFormat");
+    public static string FindHitHidden => Table.Get("FindHitHidden");
+    public static string FindHitNotMarkableFormat => Table.Get("FindHitNotMarkableFormat");
+    public static string FindMarkedOne => Table.Get("FindMarkedOne");
+    public static string FindMarkedManyFormat => Table.Get("FindMarkedManyFormat");
+    public static string FindMarkedNone => Table.Get("FindMarkedNone");
 
     /// <summary>The counter of the redact pane: "4 marks on 2 pages", singular forms for one, and "No marks yet" for none.</summary>
     public static string RedactCounter(int marks, int pages)
@@ -735,6 +781,29 @@ internal static class PdfStrings
         var pageText = pages == 1 ? RedactCounterPagesOne : RedactCounterPagesMany.Replace("{0}", pages.ToString(Culture), StringComparison.Ordinal);
         return RedactCounterJoinFormat.Replace("{0}", markText, StringComparison.Ordinal).Replace("{1}", pageText, StringComparison.Ordinal);
     }
+
+    /// <summary>The certainty of a pattern hit in words.</summary>
+    public static string FindCertaintyText(Raffica.Core.Redaction.PatternCertainty certainty) => certainty switch
+    {
+        Raffica.Core.Redaction.PatternCertainty.ChecksumOk => FindCertaintyChecksumOk,
+        Raffica.Core.Redaction.PatternCertainty.ShapeOnly => FindCertaintyShapeOnly,
+        _ => FindCertaintyChecksumFailed,
+    };
+
+    /// <summary>The name of a kind of pattern.</summary>
+    public static string FindKindText(Raffica.Core.Redaction.RedactionPatternKind kind) => kind switch
+    {
+        Raffica.Core.Redaction.RedactionPatternKind.Email => FindKindEmail,
+        Raffica.Core.Redaction.RedactionPatternKind.Iban => FindKindIban,
+        Raffica.Core.Redaction.RedactionPatternKind.Phone => FindKindPhone,
+        _ => FindKindCard,
+    };
+
+    /// <summary>"1 page is a picture; ..." for the pages the search cannot read text from.</summary>
+    public static string FindPictures(int pages) => pages == 1 ? FindPicturesOne : FindPicturesManyFormat.Replace("{0}", pages.ToString(Culture), StringComparison.Ordinal);
+
+    /// <summary>"1 match" or "N matches".</summary>
+    public static string FindMatches(int count) => count == 1 ? FindMatchesOne : FindMatchesMany.Replace("{0}", count.ToString(Culture), StringComparison.Ordinal);
 
     /// <summary>Why the redact session refused an operation, in the UI language (one text per <see cref="Raffica.Pdf.Redacting.RedactProblem"/> value).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
@@ -750,6 +819,9 @@ internal static class PdfStrings
         Raffica.Pdf.Redacting.RedactProblem.TextUnavailable => RedactRefusalTextUnavailable,
         Raffica.Pdf.Redacting.RedactProblem.TooManyLines => RedactRefusalTooManyLinesFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxAreasPerMark.ToString("N0", Culture), StringComparison.Ordinal),
         Raffica.Pdf.Redacting.RedactProblem.Busy => RedactRefusalBusy,
+        Raffica.Pdf.Redacting.RedactProblem.SearchIncomplete => RedactRefusalSearchIncomplete,
+        Raffica.Pdf.Redacting.RedactProblem.NothingToMark => RedactRefusalNothingToMark,
+        Raffica.Pdf.Redacting.RedactProblem.SearchRunning => RedactRefusalSearchRunning,
         _ => throw new ArgumentOutOfRangeException(nameof(problem), problem, "This redact problem has no text."),
     };
 

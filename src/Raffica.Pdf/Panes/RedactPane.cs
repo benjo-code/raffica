@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Raffica.Core.Redaction;
 using Raffica.Pdf.Redacting;
 using Raffica.Pdf.Viewing;
+using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf.Panes;
 
@@ -15,8 +16,9 @@ namespace Raffica.Pdf.Panes;
 /// The pane of the redact mode, in the right slot instead of the marks pane while the mode is on: the counter ("4 marks on 2 pages"), the
 /// hint that nothing is removed until the marks are applied, the marks grouped by page (kind and term for the user, but the name for assistive
 /// technology is the page alone, never the marked text), a note for what was refused, and the primary button "Apply…" that appears with the
-/// first mark. A click, Enter or Space on a row selects the mark and shows it on the page; Delete removes the selected marks. The Find panel and
-/// the look of the plan come with later steps of the milestone. Used on the UI thread only.
+/// first mark. A click, Enter or Space on a row selects the mark and shows it on the page; Delete removes the selected marks. The Find panel
+/// (<see cref="RedactFindPanel"/>) is made when it is first opened by <see cref="ToggleFind"/> and dropped, with its search, when it is closed or
+/// the pane goes. The look of the plan comes with a later step of the milestone. Used on the UI thread only.
 /// </summary>
 internal sealed class RedactPane : UserControl, IDisposable
 {
@@ -28,6 +30,8 @@ internal sealed class RedactPane : UserControl, IDisposable
     private readonly TextBlock _counter;
     private readonly TextBlock _hint;
     private readonly TextBlock _note;
+    private readonly ScrollViewer _findHost;
+    private RedactFindPanel? _findPanel;
     private bool _syncing;
     private int _builtVersion = -1;
     private int _noteVersion;
@@ -73,11 +77,14 @@ internal sealed class RedactPane : UserControl, IDisposable
 
         var top = new StackPanel { Spacing = 6, Margin = new Thickness(12, 12, 12, 8), Children = { _counter, _hint } };
         var bottom = new StackPanel { Spacing = 8, Margin = new Thickness(12, 8, 12, 12), Children = { _note, ApplyButton } };
-        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
+        _findHost = new ScrollViewer { Name = "PART_FindHost", MaxHeight = 460, IsVisible = false, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
         Grid.SetRow(top, 0);
-        Grid.SetRow(_list, 1);
-        Grid.SetRow(bottom, 2);
+        Grid.SetRow(_findHost, 1);
+        Grid.SetRow(_list, 2);
+        Grid.SetRow(bottom, 3);
         grid.Children.Add(top);
+        grid.Children.Add(_findHost);
         grid.Children.Add(_list);
         grid.Children.Add(bottom);
         Content = grid;
@@ -89,6 +96,49 @@ internal sealed class RedactPane : UserControl, IDisposable
 
     /// <summary>Raised when the user asks to apply the marks. Nothing listens yet: the apply flow arrives with its own step.</summary>
     public event Action? ApplyRequested;
+
+    /// <summary>
+    /// The "Recognize text…" command of the ribbon, given by the window; the Find panel offers it when pages are pictures. It runs only when it is
+    /// wired and allowed, and the panel never starts it by itself.
+    /// </summary>
+    public Func<CommandDefinition?>? OcrCommand { get; set; }
+
+    /// <summary>Whether the Find panel is open.</summary>
+    public bool IsFindOpen => _findPanel is not null;
+
+    /// <summary>The Find panel while it is open, else null (nothing exists before the first toggle).</summary>
+    internal RedactFindPanel? FindPanel => _findPanel;
+
+    /// <summary>Opens the Find panel, or closes it (dropping its search and hits).</summary>
+    public void ToggleFind()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_findPanel is { } open)
+        {
+            CloseFind(open);
+            return;
+        }
+
+        var panel = new RedactFindPanel(new FindSession(_session), this);
+        _findPanel = panel;
+        _findHost.Content = panel;
+        _findHost.IsVisible = true;
+        panel.TermBox.Focus();
+    }
+
+    private void CloseFind(RedactFindPanel panel)
+    {
+        _findPanel = null;
+        _findHost.IsVisible = false;
+        _findHost.Content = null;
+        var find = panel.Find;
+        panel.Dispose();
+        find.Dispose();
+    }
 
     /// <summary>The primary button; visible once the plan has a mark.</summary>
     public Button ApplyButton { get; }
@@ -146,6 +196,10 @@ internal sealed class RedactPane : UserControl, IDisposable
 
         _disposed = true;
         _session.Changed -= OnSessionChanged;
+        if (_findPanel is { } panel)
+        {
+            CloseFind(panel);
+        }
     }
 
     private static TextBlock RowView(Row? row)

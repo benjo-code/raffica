@@ -232,6 +232,7 @@ internal sealed partial class PdfWindow
         ExportImages: ExportImages,
         RedactMode: ToggleRedact,
         RedactMarkSelection: MarkRedactSelection,
+        RedactFind: ToggleRedactFind,
         RedactDeleteMarks: DeleteRedactMarks,
         RedactDiscard: DiscardRedact);
 

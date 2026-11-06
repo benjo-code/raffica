@@ -4,13 +4,14 @@ using Raffica.Pdf.Documents;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Redacting;
 using Raffica.Pdf.Viewing;
+using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf;
 
 /// <summary>
 /// The commands of the Redact tab that act on the marks: they work on the redact session of the active tab (made by the first of them). The mode
 /// puts the redact pane into the right slot, the badge over the page area and the marks over the pages; leaving it with marks asks first
-/// (Discard, Cancel). The Find panel, the look of the plan and the apply flow arrive with their own steps and stay unwired until then.
+/// (Discard, Cancel). The Find panel opens with its own command; the look of the plan and the apply flow arrive with their own steps and stay unwired until then.
 /// </summary>
 internal sealed partial class PdfWindow
 {
@@ -140,6 +141,19 @@ internal sealed partial class PdfWindow
     internal Task MarkRedactSelectionAsync() =>
         Workspace.Active is { } tab && tab.RedactIfCreated is { IsActive: true } && _redacts.TryGetValue(tab, out var parts) ? parts.Interaction.MarkSelection() : Task.CompletedTask;
 
+    /// <summary>Opens the Find panel of the redact pane of the active tab, or closes it (the Find command). Nothing is made before the first toggle.</summary>
+    internal void ToggleRedactFind()
+    {
+        if (Workspace.Active is { } tab && tab.RedactIfCreated is { IsActive: true } && _redacts.TryGetValue(tab, out var parts))
+        {
+            parts.Pane.ToggleFind();
+        }
+    }
+
+    /// <summary>The ribbon command with an id (for the offers of the panes); null when the ribbon is not built.</summary>
+    private CommandDefinition? RibbonCommand(string id) =>
+        Ribbon.Definition?.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).FirstOrDefault(c => c.Id == id);
+
     /// <summary>Removes the selected marks of the active tab (the Delete marks command).</summary>
     internal void DeleteRedactMarks()
     {
@@ -155,7 +169,7 @@ internal sealed partial class PdfWindow
         var interaction = new RedactInteraction(tab, view, session, text.Selection, _time);
         var overlay = new RedactOverlay(session);
         var badge = new RedactModeBadge(session);
-        var pane = new RedactPane(session, view);
+        var pane = new RedactPane(session, view) { OcrCommand = () => RibbonCommand(PdfCommandIds.OcrRun) };
         view.ModeOverlay = overlay;
         if (_hosts.TryGetValue(tab, out var host))
         {
