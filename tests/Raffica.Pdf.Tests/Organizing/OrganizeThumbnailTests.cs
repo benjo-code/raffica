@@ -42,7 +42,8 @@ public sealed class OrganizeThumbnailTests
         return (pixels, size.Width, size.Height);
     }
 
-    // The share of the dark pixels (inside the frame of the thumbnail) that lies in each quadrant: top left, top right, bottom left, bottom right.
+    // The share of the ink (inside the frame of the thumbnail) that lies in each quadrant: top left, top right, bottom left, bottom right.
+    // Ink is the darkness below near-white, weighted, so thin antialiased strokes count however light the platform's text rendering leaves them.
     private static double[] Quadrants(byte[] pixels, int width, int height)
     {
         var mass = new double[4];
@@ -51,9 +52,10 @@ public sealed class OrganizeThumbnailTests
             for (var x = 4; x < width - 4; x++)
             {
                 var i = (y * width + x) * 4;
-                if (pixels[i] + pixels[i + 1] + pixels[i + 2] < 3 * 110)
+                var darkness = 3 * 235 - (pixels[i] + pixels[i + 1] + pixels[i + 2]);
+                if (darkness > 0)
                 {
-                    mass[(y < height / 2 ? 0 : 2) + (x < width / 2 ? 0 : 1)]++;
+                    mass[(y < height / 2 ? 0 : 2) + (x < width / 2 ? 0 : 1)] += darkness;
                 }
             }
         }
