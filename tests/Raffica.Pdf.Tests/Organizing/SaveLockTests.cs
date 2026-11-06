@@ -147,4 +147,78 @@ public sealed class SaveLockTests
             Assert.True(Command(window, PdfCommandIds.ApplyPages).IsEnabled);
         }
     }
+    [AvaloniaFact]
+    public async Task SaveWithRedactionPlanOpensTheApplyCard()
+    {
+        var (fixture, started, _) = CreateWindow();
+        using (fixture)
+        {
+            var window = fixture.Window;
+            var tab = await OpenAsync(fixture);
+            Assert.False(Command(window, PdfCommandIds.Save).IsEnabled);
+
+            window.ToggleRedact();
+            await ViewFixture.WaitAsync(() => tab.RedactIfCreated is { IsActive: true });
+            Assert.True(tab.Redact.AddArea(0, new Raffica.Core.Text.PageRect(50, 100, 150, 120)).IsDone);
+            ViewFixture.Pump();
+
+            // Marked redactions are no change of the file, but Save and Save as hand over to the redaction Apply: the incremental save never writes them.
+            Assert.True(Command(window, PdfCommandIds.Save).IsEnabled);
+            var save = window.SaveActiveAsync();
+            var card = await CardWithAsync(fixture, "PART_Original");
+            Assert.Equal("Apply redactions", card.Title);
+            Assert.Equal("Save in the original file", PrintHost.Find<Button>(card, "PART_Original").Content);
+            PrintHost.Find<Button>(card, "PART_Back").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.False(await save.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+
+            // Save as offers only Save as.
+            var saveAs = window.SaveActiveAsAsync();
+            card = await CardWithAsync(fixture, "PART_SaveAs");
+            Assert.Equal("Apply redactions", card.Title);
+            Assert.DoesNotContain(card.GetVisualDescendants().OfType<Control>(), c => c.Name == "PART_Original");
+            PrintHost.Find<Button>(card, "PART_Back").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.False(await saveAs.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+
+            Assert.False(started.Task.IsCompleted, "the incremental save did not run");
+            Assert.True(tab.RedactIfCreated is { IsActive: true });
+            Assert.False(tab.Redact.Plan.IsEmpty);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task RedactApplyWaitsForARunningSaveAndSaysSo()
+    {
+        var (fixture, started, gate) = CreateWindow();
+        using (fixture)
+        {
+            var window = fixture.Window;
+            var tab = await OpenAsync(fixture);
+
+            // Marks unsaved before the mode; redactions are marked; a save of the marks (the first step of an apply, or a close question) runs.
+            Assert.NotNull(await AnnotatedFile.HighlightAsync(tab.Annotations));
+            await tab.Annotations.FlushAsync();
+            window.ToggleRedact();
+            await ViewFixture.WaitAsync(() => tab.RedactIfCreated is { IsActive: true });
+            Assert.True(tab.Redact.AddArea(0, new Raffica.Core.Text.PageRect(50, 100, 150, 120)).IsDone);
+            ViewFixture.Pump();
+            Assert.True(Command(window, "redact.apply").IsEnabled);
+
+            var saving = window.Saves.SaveMarksAsync(tab);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+            ViewFixture.Pump();
+
+            // The command waits, with the reason; the flow, reached around it, says the busy sentence.
+            Assert.False(Command(window, "redact.apply").IsEnabled);
+            Assert.Equal(PdfStrings.SaveBusy, Command(window, "redact.apply").DisabledReason?.Invoke());
+            await ExpectBusyNoticeAsync(fixture, window.Redacting.RunAsync(tab));
+            Assert.False(window.Redacting.IsRunning);
+            Assert.True(tab.Redact.IsActive);
+            Assert.False(tab.Redact.Plan.IsEmpty);
+
+            gate.SetResult();
+            Assert.False(await saving.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+            ViewFixture.Pump();
+            Assert.True(Command(window, "redact.apply").IsEnabled);
+        }
+    }
 }
