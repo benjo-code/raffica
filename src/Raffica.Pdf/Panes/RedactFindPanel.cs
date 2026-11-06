@@ -36,6 +36,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
     private readonly Button _search;
     private readonly Button _cancel;
     private readonly TextBlock _status;
+    private readonly TextBlock _note;
     private readonly TextBlock _caution;
     private readonly Button _acknowledge;
     private readonly TextBlock _pictures;
@@ -77,12 +78,14 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
 
         _search = new Button { Name = "PART_FindSearch", Content = PdfStrings.FindSearchButton };
         _search.Classes.Add("primary");
-        _search.Click += (_, _) => _ = SearchAsync();
+        _search.Click += (_, _) => StartSearch();
         _cancel = new Button { Name = "PART_FindCancel", Content = PdfStrings.FindCancelButton, IsVisible = false };
         _cancel.Click += (_, _) => _find.Cancel();
 
         _status = new TextBlock { Name = "PART_FindStatus", TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
+        _note = new TextBlock { Name = "PART_FindNote", TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        AutomationProperties.SetLiveSetting(_note, AutomationLiveSetting.Polite);
         _caution = new TextBlock { Name = "PART_FindCaution", Text = PdfStrings.FindPatternCaution, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         _caution.Classes.Add("nav-hint");
         _acknowledge = new Button { Name = "PART_FindAcknowledge", Content = PdfStrings.FindAcknowledge, IsVisible = false };
@@ -121,7 +124,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         _notSearchedToggle.IsCheckedChanged += (_, _) => _notSearched!.IsVisible = _notSearchedToggle.IsChecked == true;
         _notSearched = new StackPanel { Name = "PART_FindNotSearched", Spacing = 4, IsVisible = false };
         AutomationProperties.SetName(_notSearched, PdfStrings.FindNotSearchedName);
-        foreach (var line in RedactionSearch.NotSearched)
+        foreach (var line in PdfStrings.FindNotSearchedLines())
         {
             var text = new TextBlock { Text = line, TextWrapping = TextWrapping.Wrap };
             text.Classes.Add("nav-hint");
@@ -141,7 +144,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
             Name = "PART_FindPanel",
             Spacing = 8,
             Margin = new Thickness(12, 4, 12, 8),
-            Children = { _term, _patterns, options, kindPanel, searchRow, _status, _caution, _acknowledge, _pictures, _ocr, _list, markRow, _notSearchedToggle, _notSearched },
+            Children = { _term, _patterns, options, kindPanel, searchRow, _status, _note, _caution, _acknowledge, _pictures, _ocr, _list, markRow, _notSearchedToggle, _notSearched },
         };
         _kindPanel = kindPanel;
         _options = options;
@@ -187,6 +190,9 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
 
     /// <summary>What the status line says now.</summary>
     public string StatusText => _status.Text ?? string.Empty;
+
+    /// <summary>The note under the status: why a term was refused, or what the last marking did; empty when there is none.</summary>
+    public string NoteText => _note.IsVisible ? _note.Text ?? string.Empty : string.Empty;
 
     /// <summary>The line about pages that are pictures; empty when there are none.</summary>
     public string PictureText => _pictures.IsVisible ? _pictures.Text ?? string.Empty : string.Empty;
@@ -271,9 +277,12 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         if (e.Key is Key.Enter or Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
             e.Handled = true;
-            _ = SearchAsync();
+            StartSearch();
         }
     }
+
+    // The search is started from an event handler: the guard of the window observes whatever escapes it (a search that ends after the pane went).
+    private void StartSearch() => _ = PdfWindow.GuardAsync(async () => await SearchAsync());
 
     private void RunOcr()
     {
@@ -297,6 +306,11 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
 
         var done = _find.State == FindState.Done;
         _status.Text = StatusOf();
+        var note = _find.Refusal == FindRefusal.TermTooLong
+            ? PdfStrings.FindTermTooLong()
+            : _find.HasMarkFeedback ? PdfStrings.FindMarked(_find.LastAdded, _find.LastNotMarkable) : string.Empty;
+        _note.Text = note;
+        _note.IsVisible = note.Length > 0;
         _acknowledge.IsVisible = _find.IsIncomplete && !_find.AcknowledgedIncomplete;
         _addFailed.IsVisible = done && _find.Hits.Any(h => h.Certainty == PatternCertainty.ChecksumFailed && h.Markable);
         _markAll.IsEnabled = _markTicked.IsEnabled = _addFailed.IsEnabled = done;
@@ -345,7 +359,9 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
             case FindState.Failed:
                 return PdfStrings.FindFailed;
             case FindState.Done:
-                var text = _find.Hits.Count == 0 ? PdfStrings.FindNoMatches : PdfStrings.FindMatches(_find.Hits.Count);
+                var text = _find.Hits.Count == 0
+                    ? _find.Report is { IsComplete: false } ? PdfStrings.FindNoMatchesIncomplete : PdfStrings.FindNoMatches
+                    : PdfStrings.FindMatches(_find.Hits.Count);
                 if (_find.Report is { IsComplete: false } report)
                 {
                     if (report.IncompletePages.Count > 0)
@@ -416,7 +432,7 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         {
             text = PdfStrings.FindHitNotMarkableFormat
                 .Replace("{0}", text, StringComparison.Ordinal)
-                .Replace("{1}", hit.NotMarkableReason ?? string.Empty, StringComparison.Ordinal);
+                .Replace("{1}", NotMarkableReasons.TextOf(hit), StringComparison.Ordinal);
         }
 
         var name = PdfStrings.FindHitName.Replace("{0}", (hit.Page + 1).ToString(PdfStrings.Culture), StringComparison.Ordinal);

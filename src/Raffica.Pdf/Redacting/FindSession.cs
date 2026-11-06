@@ -25,6 +25,19 @@ internal enum FindState
     Failed,
 }
 
+/// <summary>Why <see cref="FindSession"/> did not start a search.</summary>
+internal enum FindRefusal
+{
+    /// <summary>Nothing was refused.</summary>
+    None,
+
+    /// <summary>The term is empty or white space; the panel is reset.</summary>
+    EmptyTerm,
+
+    /// <summary>The term is longer than <see cref="RedactionLimits.MaxTermLength"/>; the previous result stays as it was.</summary>
+    TermTooLong,
+}
+
 /// <summary>
 /// One search of the Find panel of a redact session at a time: a term or the patterns, over Core's <see cref="RedactionSearch"/> and
 /// <see cref="RedactionPatternSearch"/>. The search runs on a pool thread and posts its hits to the UI thread in batches of
@@ -85,6 +98,15 @@ internal sealed class FindSession : IDisposable
     /// <summary>How many marks the last marking added.</summary>
     public int LastAdded { get; private set; }
 
+    /// <summary>How many hits the last marking left out because they cannot be marked.</summary>
+    public int LastNotMarkable { get; private set; }
+
+    /// <summary>Whether the last marking went through (even when it added nothing because the hits were marked already); false once anything else happens.</summary>
+    public bool HasMarkFeedback { get; private set; }
+
+    /// <summary>Why the last request for a search was refused; <see cref="FindRefusal.None"/> once a search starts.</summary>
+    public FindRefusal Refusal { get; private set; }
+
     /// <summary>Whether the finished search missed pages or stopped at the limit.</summary>
     public bool IsIncomplete => State == FindState.Done && Report is { IsComplete: false };
 
@@ -136,9 +158,18 @@ internal sealed class FindSession : IDisposable
     public Task<bool> RunAsync(string term, SearchOptions options)
     {
         ArgumentNullException.ThrowIfNull(term);
-        if (string.IsNullOrWhiteSpace(term) || term.Length > RedactionLimits.MaxTermLength)
+        if (term.Length > RedactionLimits.MaxTermLength)
+        {
+            // Refused with a reason; the result on screen stays as it was.
+            Refusal = FindRefusal.TermTooLong;
+            Changed?.Invoke();
+            return Task.FromResult(false);
+        }
+
+        if (string.IsNullOrWhiteSpace(term))
         {
             Reset();
+            Refusal = FindRefusal.EmptyTerm;
             return Task.FromResult(false);
         }
 
@@ -225,6 +256,7 @@ internal sealed class FindSession : IDisposable
         _generation++;
         _cts?.Cancel();
         ClearResult();
+        Refusal = FindRefusal.None;
         State = FindState.Idle;
         Changed?.Invoke();
     }
@@ -238,10 +270,13 @@ internal sealed class FindSession : IDisposable
         PictureCount = 0;
         AcknowledgedIncomplete = false;
         LastAdded = 0;
+        LastNotMarkable = 0;
+        HasMarkFeedback = false;
     }
 
     private RedactResult Mark(IEnumerable<int> indexes)
     {
+        HasMarkFeedback = false;
         if (State == FindState.Running)
         {
             return RedactResult.Refused(RedactProblem.SearchRunning);
@@ -259,8 +294,8 @@ internal sealed class FindSession : IDisposable
 
         var chosen = indexes.Select(i => _hits[i]).ToList();
         var marks = IsPatternSearch
-            ? RedactionSearch.ToMarks(chosen, out _)
-            : RedactionSearch.ToMarks(chosen, Term, everywhere: true, Options, out _);
+            ? RedactionSearch.ToMarks(chosen, out var notMarkable)
+            : RedactionSearch.ToMarks(chosen, Term, everywhere: true, Options, out notMarkable);
         if (marks.Count == 0)
         {
             return RedactResult.Refused(RedactProblem.NothingToMark);
@@ -268,6 +303,8 @@ internal sealed class FindSession : IDisposable
 
         var result = _redact.AddMarks(marks, out var added);
         LastAdded = result.IsDone ? added : 0;
+        LastNotMarkable = result.IsDone ? notMarkable : 0;
+        HasMarkFeedback = result.IsDone;
         Changed?.Invoke();
         return result;
     }
@@ -289,6 +326,7 @@ internal sealed class FindSession : IDisposable
         _cts = cts;
 
         ClearResult();
+        Refusal = FindRefusal.None;
         Term = term;
         Options = options;
         IsPatternSearch = patterns is not null;

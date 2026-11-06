@@ -267,11 +267,82 @@ public sealed class RedactFindTests
         Assert.False(find.IsTicked(index));
         Assert.False(find.SetTicked(index, true));
         Assert.False(find.IsTicked(index));
-        Assert.Contains(panel.RowTexts, t => t.Contains("cannot be marked", StringComparison.Ordinal) && t.Contains("nothing to mark", StringComparison.Ordinal));
+        var reason = PdfStrings.FindNotMarkableReason(NotMarkableKind.NoArea);
+        Assert.Contains(panel.RowTexts, t => t.Contains("cannot be marked", StringComparison.Ordinal) && t.Contains(reason, StringComparison.Ordinal));
+        Assert.DoesNotContain(panel.RowTexts, t => t.Contains(stuck.NotMarkableReason!, StringComparison.Ordinal));
         Assert.DoesNotContain(panel.RowNames, n => n.Contains("example", StringComparison.OrdinalIgnoreCase));
+
+        // The same row in German carries the German reason, never Core's English sentence.
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de");
+        try
+        {
+            PdfStrings.Culture = german;
+            using var gpane = new RedactPane(f.Session, f.View);
+            gpane.ToggleFind();
+            var gpanel = gpane.FindPanel!;
+            gpanel.TermBox.Text = "example";
+            await gpanel.SearchAsync();
+            gpanel.Find.Append([stuck], true);
+            ViewFixture.Pump();
+            Assert.Contains(gpanel.RowTexts, t => t.Contains("nicht markierbar", StringComparison.Ordinal) && t.Contains(PdfStrings.FindNotMarkableReason(NotMarkableKind.NoArea, german), StringComparison.Ordinal));
+            Assert.DoesNotContain(gpanel.RowTexts, t => t.Contains(stuck.NotMarkableReason!, StringComparison.Ordinal));
+        }
+        finally
+        {
+            PdfStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("en");
+        }
 
         Assert.True(find.MarkAll().IsDone);
         Assert.Equal(4, f.Session.Plan.Marks.Count);
+        Assert.Equal(1, find.LastNotMarkable);
+        Assert.Equal("4 marks added. 1 could not be marked.", panel.NoteText);
+    }
+
+    private static RedactionHit Hit(IReadOnlyList<PageRect> areas, string text) => new(RedactionHitSource.PageText, 0, areas, text, false) { Markable = false };
+
+    [Fact]
+    public void EveryNotMarkableClassIsClassifiedFromTheHitAndWordedInBothLanguages()
+    {
+        PageRect[] one = [new PageRect(0, 0, 10, 10)];
+        var many = Enumerable.Repeat(new PageRect(0, 0, 10, 10), RedactionLimits.MaxAreasPerMark + 1).ToArray();
+        var cases = new (RedactionHit Hit, NotMarkableKind Kind)[]
+        {
+            (Hit([], "word"), NotMarkableKind.NoArea),
+            (Hit(many, "word"), NotMarkableKind.TooManyLines),
+            (Hit(one, "   "), NotMarkableKind.WhiteSpace),
+            (Hit(one, new string('x', RedactionLimits.MaxTermLength + 1)), NotMarkableKind.TooLong),
+            (Hit(one, "word"), NotMarkableKind.NoBox),
+
+            // The order decides: no area wins over everything else, too many lines over white space.
+            (Hit([], "   "), NotMarkableKind.NoArea),
+            (Hit(many, "   "), NotMarkableKind.TooManyLines),
+            (Hit(one, new string(' ', RedactionLimits.MaxTermLength + 1)), NotMarkableKind.WhiteSpace),
+        };
+        foreach (var (hit, kind) in cases)
+        {
+            // Whatever English sentence Core attached is not looked at.
+            Assert.Equal(kind, NotMarkableReasons.Classify(hit with { NotMarkableReason = "Some other sentence." }));
+        }
+
+        var english = System.Globalization.CultureInfo.GetCultureInfo("en");
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de");
+        var kinds = Enum.GetValues<NotMarkableKind>();
+        Assert.Equal(5, kinds.Length);
+        foreach (var kind in kinds)
+        {
+            var en = PdfStrings.FindNotMarkableReason(kind, english);
+            var de = PdfStrings.FindNotMarkableReason(kind, german);
+            Assert.False(string.IsNullOrWhiteSpace(en), kind.ToString());
+            Assert.False(string.IsNullOrWhiteSpace(de), kind.ToString());
+            Assert.NotEqual(en, de);
+            Assert.DoesNotContain("{", en, StringComparison.Ordinal);
+            Assert.DoesNotContain("{", de, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(kinds.Length, kinds.Select(k => PdfStrings.FindNotMarkableReason(k, english)).Distinct().Count());
+        Assert.Equal(kinds.Length, kinds.Select(k => PdfStrings.FindNotMarkableReason(k, german)).Distinct().Count());
+        Assert.Contains("500", PdfStrings.FindNotMarkableReason(NotMarkableKind.TooManyLines, english), StringComparison.Ordinal);
+        Assert.Contains("1,000", PdfStrings.FindNotMarkableReason(NotMarkableKind.TooLong, english), StringComparison.Ordinal);
     }
 
     [AvaloniaFact]
@@ -361,10 +432,51 @@ public sealed class RedactFindTests
         ViewFixture.Pump();
 
         Assert.True(panel.NotSearchedVisible);
-        Assert.Equal(RedactionSearch.NotSearched, panel.NotSearchedLines);
+        Assert.Equal(PdfStrings.FindNotSearchedLines(), panel.NotSearchedLines);
 
         panel.NotSearchedToggle.IsChecked = false;
         Assert.False(panel.NotSearchedVisible);
+
+        // In German the panel shows the German table, never Core's English lines.
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de");
+        try
+        {
+            PdfStrings.Culture = german;
+            using var gpane = new RedactPane(f.Session, f.View);
+            gpane.ToggleFind();
+            Assert.Equal(PdfStrings.FindNotSearchedLines(german), gpane.FindPanel!.NotSearchedLines);
+            Assert.DoesNotContain(gpane.FindPanel.NotSearchedLines, line => RedactionSearch.NotSearched.Contains(line));
+        }
+        finally
+        {
+            PdfStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo("en");
+        }
+    }
+
+    [Fact]
+    public void TheNotSearchedTableHasOneLinePerCoreLineInBothLanguages()
+    {
+        var english = System.Globalization.CultureInfo.GetCultureInfo("en");
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de");
+        var en = PdfStrings.FindNotSearchedLines(english);
+        var de = PdfStrings.FindNotSearchedLines(german);
+
+        // Fails when Core adds or drops a line: the wording must follow.
+        Assert.Equal(RedactionSearch.NotSearched.Count, en.Count);
+        Assert.Equal(RedactionSearch.NotSearched.Count, de.Count);
+        for (var i = 0; i < en.Count; i++)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(en[i]));
+            Assert.False(string.IsNullOrWhiteSpace(de[i]));
+            Assert.NotEqual(en[i], de[i]);
+
+            // Same order as Core: the PDF names of a Core line appear in the same line of the table.
+            foreach (var token in Regex.Matches(RedactionSearch.NotSearched[i], "/[A-Za-z]+").Select(m => m.Value))
+            {
+                Assert.Contains(token, en[i], StringComparison.Ordinal);
+                Assert.Contains(token, de[i], StringComparison.Ordinal);
+            }
+        }
     }
 
     [AvaloniaFact]
@@ -404,6 +516,138 @@ public sealed class RedactFindTests
         ViewFixture.Pump();
 
         Assert.All(seen, text => Assert.DoesNotMatch(forbidden, text));
+    }
+
+    [AvaloniaFact]
+    public async Task ATermThatIsTooLongIsRefusedWithAReasonAndKeepsThePreviousResult()
+    {
+        using var f = await RedactFixture.OpenAsync("redact-patterns.pdf");
+        var (pane, panel) = OpenFind(f);
+        using var _ = pane;
+        panel.TermBox.Text = "example";
+        Assert.True(await panel.SearchAsync());
+        Assert.Equal(4, panel.Find.Hits.Count);
+
+        panel.TermBox.Text = new string('x', RedactionLimits.MaxTermLength + 1);
+        Assert.False(await panel.SearchAsync());
+        ViewFixture.Pump();
+
+        Assert.Equal(FindRefusal.TermTooLong, panel.Find.Refusal);
+        Assert.Equal(FindState.Done, panel.Find.State);
+        Assert.Equal(4, panel.Find.Hits.Count);
+        Assert.Equal("4 matches", panel.StatusText);
+        Assert.Equal("The term is too long: at most 1,000 characters. The previous result is unchanged.", panel.NoteText);
+        Assert.Equal(0, panel.TermBox.MaxLength);
+        Assert.Equal(RedactionLimits.MaxTermLength + 1, panel.TermBox.Text!.Length);
+
+        // The German note exists and differs.
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de");
+        Assert.NotEqual(PdfStrings.FindTermTooLong(german), PdfStrings.FindTermTooLong());
+
+        // A valid search clears the note.
+        panel.TermBox.Text = "DE89";
+        Assert.True(await panel.SearchAsync());
+        ViewFixture.Pump();
+        Assert.Equal(string.Empty, panel.NoteText);
+        Assert.Equal(FindRefusal.None, panel.Find.Refusal);
+    }
+
+    [AvaloniaFact]
+    public async Task MarkingSaysWhatWasAddedAndMarkingAgainSaysNothingWasAdded()
+    {
+        using var f = await RedactFixture.OpenAsync("redact-patterns.pdf");
+        var (pane, panel) = OpenFind(f);
+        using var _ = pane;
+        panel.TermBox.Text = "DE89";
+        await panel.SearchAsync();
+        Assert.Equal(string.Empty, panel.NoteText);
+
+        panel.MarkAllButton.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal("3 marks added.", panel.NoteText);
+        Assert.Equal(3, f.Session.Plan.Marks.Count);
+
+        panel.MarkAllButton.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal("These matches are marked already.", panel.NoteText);
+        Assert.Equal(3, f.Session.Plan.Marks.Count);
+
+        // One new mark reads in the singular.
+        f.Session.Delete(new HashSet<Guid> { f.Session.Plan.Marks[0].Id });
+        panel.MarkTickedButton.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        ViewFixture.Pump();
+        Assert.Equal("1 mark added.", panel.NoteText);
+
+        // A new search drops the old feedback.
+        panel.TermBox.Text = "example";
+        await panel.SearchAsync();
+        Assert.Equal(string.Empty, panel.NoteText);
+    }
+
+    [AvaloniaFact]
+    public async Task AMarkAllThatWouldOverflowThePlanChangesNothingAndSaysWhy()
+    {
+        using var f = await RedactFixture.OpenAsync("text-dense.pdf");
+        var (pane, panel) = OpenFind(f);
+        using var _ = pane;
+        Assert.True(f.Session.AddArea(0, new PageRect(50, 100, 150, 120)).IsDone);
+        var versionBefore = f.Session.Version;
+        var planBefore = f.Session.Plan;
+
+        panel.TermBox.Text = "e";
+        Assert.True(await panel.SearchAsync());
+        Assert.Equal(RedactionLimits.MaxMarks, panel.Find.Hits.Count);
+        panel.Find.Acknowledge();
+
+        panel.MarkAllButton.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        ViewFixture.Pump();
+
+        Assert.Same(planBefore, f.Session.Plan);
+        Assert.Equal(versionBefore, f.Session.Version);
+        Assert.Single(f.Session.Plan.Marks);
+        Assert.Equal(RedactProblem.TooManyMarks, panel.Find.MarkAll().Problem);
+        var reason = PdfStrings.RedactRefusal(RedactProblem.TooManyMarks);
+        Assert.Contains("10,000", reason, StringComparison.Ordinal);
+        Assert.Equal(reason, pane.NoteText);
+
+        // The history holds the one area mark only: one undo empties the plan.
+        f.Session.Undo();
+        Assert.Empty(f.Session.Plan.Marks);
+        Assert.False(f.Session.CanUndo);
+    }
+
+    private static void MarkIncomplete(FindSession find, int page) =>
+        typeof(RedactionSearchReport).GetMethod("MarkIncomplete", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(find.Report, [page]);
+
+    [AvaloniaFact]
+    public async Task AnIncompleteSearchNamesTheUnreadPagesAndNeverLeadsWithABareNoMatches()
+    {
+        using var f = await RedactFixture.OpenAsync("redact-patterns.pdf");
+        var (pane, panel) = OpenFind(f);
+        using var _ = pane;
+        panel.TermBox.Text = "zzzzqq";
+        Assert.True(await panel.SearchAsync());
+        Assert.Equal("No matches.", panel.StatusText);
+
+        // A fake report with unread pages, shown through the Append seam (it raises Changed without adding a hit).
+        MarkIncomplete(panel.Find, 2);
+        MarkIncomplete(panel.Find, 4);
+        panel.Find.Append([], true);
+        ViewFixture.Pump();
+
+        Assert.StartsWith("No matches in the pages searched.", panel.StatusText, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"^No matches\.", panel.StatusText);
+        Assert.Contains("could not be read in full: 3, 5.", panel.StatusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("searched completely", panel.StatusText, StringComparison.Ordinal);
+        Assert.True(panel.AcknowledgeButton.IsVisible);
+
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de");
+        Assert.NotEqual(PdfStrings.FindNoMatchesIncomplete, PdfStrings.GetIn("FindNoMatchesIncomplete", german));
+        Assert.DoesNotContain("vollständig durchsucht", PdfStrings.GetIn("FindIncompletePagesFormat", german), StringComparison.Ordinal);
+
+        panel.Find.Acknowledge();
+        ViewFixture.Pump();
+        Assert.Contains("Accepted for this search.", panel.StatusText, StringComparison.Ordinal);
     }
 
     [AvaloniaFact]

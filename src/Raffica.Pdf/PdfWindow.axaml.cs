@@ -520,7 +520,7 @@ internal sealed partial class PdfWindow : Window
     }
 
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
-    private static async Task GuardAsync(Func<Task> open)
+    internal static async Task GuardAsync(Func<Task> open)
     {
         try
         {

@@ -768,6 +768,23 @@ internal static class PdfStrings
     public static string FindMarkedOne => Table.Get("FindMarkedOne");
     public static string FindMarkedManyFormat => Table.Get("FindMarkedManyFormat");
     public static string FindMarkedNone => Table.Get("FindMarkedNone");
+    public static string FindNotSearched1 => Table.Get("FindNotSearched1");
+    public static string FindNotSearched2 => Table.Get("FindNotSearched2");
+    public static string FindNotSearched3 => Table.Get("FindNotSearched3");
+    public static string FindNotSearched4 => Table.Get("FindNotSearched4");
+    public static string FindNotSearched5 => Table.Get("FindNotSearched5");
+    public static string FindNotSearched6 => Table.Get("FindNotSearched6");
+    public static string FindNotSearched7 => Table.Get("FindNotSearched7");
+    public static string FindNotSearched8 => Table.Get("FindNotSearched8");
+    public static string FindNotMarkableNoArea => Table.Get("FindNotMarkableNoArea");
+    public static string FindNotMarkableTooManyLinesFormat => Table.Get("FindNotMarkableTooManyLinesFormat");
+    public static string FindNotMarkableWhiteSpace => Table.Get("FindNotMarkableWhiteSpace");
+    public static string FindNotMarkableTooLongFormat => Table.Get("FindNotMarkableTooLongFormat");
+    public static string FindNotMarkableNoBox => Table.Get("FindNotMarkableNoBox");
+    public static string FindTermTooLongFormat => Table.Get("FindTermTooLongFormat");
+    public static string FindNotMarkedOne => Table.Get("FindNotMarkedOne");
+    public static string FindNotMarkedManyFormat => Table.Get("FindNotMarkedManyFormat");
+    public static string FindNoMatchesIncomplete => Table.Get("FindNoMatchesIncomplete");
 
     /// <summary>The counter of the redact pane: "4 marks on 2 pages", singular forms for one, and "No marks yet" for none.</summary>
     public static string RedactCounter(int marks, int pages)
@@ -801,6 +818,46 @@ internal static class PdfStrings
 
     /// <summary>"1 page is a picture; ..." for the pages the search cannot read text from.</summary>
     public static string FindPictures(int pages) => pages == 1 ? FindPicturesOne : FindPicturesManyFormat.Replace("{0}", pages.ToString(Culture), StringComparison.Ordinal);
+
+    private static string Pick(string key, CultureInfo? culture) => culture is null ? Table.Get(key) : Table.GetIn(key, culture);
+
+    /// <summary>Why a hit cannot become a mark, in words (one text per <see cref="Raffica.Pdf.Redacting.NotMarkableKind"/>); the culture is the UI language when null.</summary>
+    public static string FindNotMarkableReason(Raffica.Pdf.Redacting.NotMarkableKind kind, CultureInfo? culture = null)
+    {
+        var format = culture ?? Culture;
+        return kind switch
+        {
+            Raffica.Pdf.Redacting.NotMarkableKind.NoArea => Pick("FindNotMarkableNoArea", culture),
+            Raffica.Pdf.Redacting.NotMarkableKind.TooManyLines => Pick("FindNotMarkableTooManyLinesFormat", culture).Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxAreasPerMark.ToString("N0", format), StringComparison.Ordinal),
+            Raffica.Pdf.Redacting.NotMarkableKind.WhiteSpace => Pick("FindNotMarkableWhiteSpace", culture),
+            Raffica.Pdf.Redacting.NotMarkableKind.TooLong => Pick("FindNotMarkableTooLongFormat", culture).Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxTermLength.ToString("N0", format), StringComparison.Ordinal),
+            Raffica.Pdf.Redacting.NotMarkableKind.NoBox => Pick("FindNotMarkableNoBox", culture),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "This reason has no text."),
+        };
+    }
+
+    /// <summary>The places the search never looks at, one line per line of <see cref="Raffica.Core.Redaction.RedactionSearch.NotSearched"/> in the same order.</summary>
+    public static IReadOnlyList<string> FindNotSearchedLines(CultureInfo? culture = null) =>
+        [.. Enumerable.Range(1, FindNotSearchedCount).Select(i => Pick("FindNotSearched" + i.ToString(CultureInfo.InvariantCulture), culture))];
+
+    /// <summary>The number of lines of the table behind <see cref="FindNotSearchedLines"/>.</summary>
+    public const int FindNotSearchedCount = 8;
+
+    /// <summary>The note for a term that is longer than a term can be.</summary>
+    public static string FindTermTooLong(CultureInfo? culture = null) =>
+        Pick("FindTermTooLongFormat", culture).Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxTermLength.ToString("N0", culture ?? Culture), StringComparison.Ordinal);
+
+    /// <summary>What a marking did: "N marks added." or "These matches are marked already.", then how many could not be marked.</summary>
+    public static string FindMarked(int added, int notMarkable)
+    {
+        var text = added == 0 ? FindMarkedNone : added == 1 ? FindMarkedOne : FindMarkedManyFormat.Replace("{0}", added.ToString(Culture), StringComparison.Ordinal);
+        if (notMarkable > 0)
+        {
+            text += " " + (notMarkable == 1 ? FindNotMarkedOne : FindNotMarkedManyFormat.Replace("{0}", notMarkable.ToString(Culture), StringComparison.Ordinal));
+        }
+
+        return text;
+    }
 
     /// <summary>"1 match" or "N matches".</summary>
     public static string FindMatches(int count) => count == 1 ? FindMatchesOne : FindMatchesMany.Replace("{0}", count.ToString(Culture), StringComparison.Ordinal);

@@ -1968,7 +1968,7 @@
     <value>{0} Treffer</value>
   </data>
   <data name="FindIncompletePagesFormat" xml:space="preserve">
-    <value>Diese Seiten konnten nicht vollständig durchsucht werden: {0}. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
+    <value>Diese Seiten konnten nicht vollständig gelesen werden: {0}. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
   </data>
   <data name="FindIncompleteLimitFormat" xml:space="preserve">
     <value>Die Suche endete bei {0} Treffern; es kann weitere geben. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
@@ -2023,5 +2023,56 @@
   </data>
   <data name="FindMarkedNone" xml:space="preserve">
     <value>Diese Treffer sind schon markiert.</value>
+  </data>
+  <data name="FindNotMarkableNoArea" xml:space="preserve">
+    <value>kein Bereich auf der Seite zum Markieren</value>
+  </data>
+  <data name="FindNotMarkableTooManyLinesFormat" xml:space="preserve">
+    <value>mehr als {0} Zeilen</value>
+  </data>
+  <data name="FindNotMarkableWhiteSpace" xml:space="preserve">
+    <value>nur Leerraum</value>
+  </data>
+  <data name="FindNotMarkableTooLongFormat" xml:space="preserve">
+    <value>länger als {0} Zeichen</value>
+  </data>
+  <data name="FindNotMarkableNoBox" xml:space="preserve">
+    <value>ein Buchstabe oder eine Ziffer hat keinen Bereich auf der Seite</value>
+  </data>
+  <data name="FindNotSearched1" xml:space="preserve">
+    <value>Antworten auf Anmerkungen (/IRT) und Popup-Notizen werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched2" xml:space="preserve">
+    <value>Autor (/T) und Betreff (/Subj) von Anmerkungen werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched3" xml:space="preserve">
+    <value>Kurzinfos (/TU) und Namen von Formularfeldern werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched4" xml:space="preserve">
+    <value>Der Rich-Text (/RV) von Anmerkungen und die Standardwerte (/DV) von Formularfeldern werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched5" xml:space="preserve">
+    <value>Text, der nur im Erscheinungsbild (/AP) einer Anmerkung steht, wird nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched6" xml:space="preserve">
+    <value>Unsichtbarer Text wird nur für den Darstellungsmodus 3 (unsichtbar) gekennzeichnet; Text, der von etwas anderem verdeckt ist, wird gefunden, aber nicht gekennzeichnet.</value>
+  </data>
+  <data name="FindNotSearched7" xml:space="preserve">
+    <value>Die Werte von Formularfeldern in einer Datei ohne Formular (Widgets ohne /AcroForm) werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched8" xml:space="preserve">
+    <value>Muster finden nur, was der Text zeigt und was ihre eingebauten Regeln kennen. Nicht gefunden werden: eine Nummer, die über einen Zeilenumbruch oder eine Seitengrenze geteilt ist; Ziffern, die von anderen Zeichen als den üblichen Trennzeichen unterbrochen werden; Nummern in Bildern; IBANs von Ländern außerhalb der eingebauten Tabelle; Telefonnummern, die nicht mit +, 0 oder ( beginnen; Ziffernketten aus mehr als 64 Gruppen; E-Mail-Adressen, deren lokaler Teil ungewöhnliche Zeichen (&amp; = * !) enthält; und Kartennummern in anderen Gruppierungen.</value>
+  </data>
+  <data name="FindTermTooLongFormat" xml:space="preserve">
+    <value>Der Begriff ist zu lang: höchstens {0} Zeichen. Das bisherige Ergebnis bleibt unverändert.</value>
+  </data>
+  <data name="FindNotMarkedOne" xml:space="preserve">
+    <value>1 Treffer konnte nicht markiert werden.</value>
+  </data>
+  <data name="FindNotMarkedManyFormat" xml:space="preserve">
+    <value>{0} Treffer konnten nicht markiert werden.</value>
+  </data>
+  <data name="FindNoMatchesIncomplete" xml:space="preserve">
+    <value>Keine Treffer in den durchsuchten Seiten.</value>
   </data>
 </root>

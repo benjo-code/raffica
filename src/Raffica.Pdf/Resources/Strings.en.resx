@@ -1984,7 +1984,7 @@
     <value>{0} matches</value>
   </data>
   <data name="FindIncompletePagesFormat" xml:space="preserve">
-    <value>These pages could not be searched completely: {0}. Marking stays off until you accept this.</value>
+    <value>These pages could not be read in full: {0}. Marking stays off until you accept this.</value>
   </data>
   <data name="FindIncompleteLimitFormat" xml:space="preserve">
     <value>The search stopped at {0} matches; more may exist. Marking stays off until you accept this.</value>
@@ -2039,5 +2039,56 @@
   </data>
   <data name="FindMarkedNone" xml:space="preserve">
     <value>These matches are marked already.</value>
+  </data>
+  <data name="FindNotMarkableNoArea" xml:space="preserve">
+    <value>no place on the page to mark</value>
+  </data>
+  <data name="FindNotMarkableTooManyLinesFormat" xml:space="preserve">
+    <value>more than {0} lines</value>
+  </data>
+  <data name="FindNotMarkableWhiteSpace" xml:space="preserve">
+    <value>only white space</value>
+  </data>
+  <data name="FindNotMarkableTooLongFormat" xml:space="preserve">
+    <value>longer than {0} characters</value>
+  </data>
+  <data name="FindNotMarkableNoBox" xml:space="preserve">
+    <value>a letter or digit has no box on the page</value>
+  </data>
+  <data name="FindNotSearched1" xml:space="preserve">
+    <value>Replies to annotations (/IRT) and popup notes are not searched.</value>
+  </data>
+  <data name="FindNotSearched2" xml:space="preserve">
+    <value>The author (/T) and the subject (/Subj) of annotations are not searched.</value>
+  </data>
+  <data name="FindNotSearched3" xml:space="preserve">
+    <value>The tooltips (/TU) and the names of form fields are not searched.</value>
+  </data>
+  <data name="FindNotSearched4" xml:space="preserve">
+    <value>The rich text (/RV) of annotations and the default values (/DV) of form fields are not searched.</value>
+  </data>
+  <data name="FindNotSearched5" xml:space="preserve">
+    <value>Text that exists only in the appearance (/AP) of an annotation is not searched.</value>
+  </data>
+  <data name="FindNotSearched6" xml:space="preserve">
+    <value>Invisible text is flagged only for the render mode 3 (invisible); text that is covered by something else is found but not flagged.</value>
+  </data>
+  <data name="FindNotSearched7" xml:space="preserve">
+    <value>The values of form fields in a file without a form (widgets without /AcroForm) are not searched.</value>
+  </data>
+  <data name="FindNotSearched8" xml:space="preserve">
+    <value>Patterns only find what the text shows and what their built-in rules know. Not found: a number split across a line break or a page boundary; digits interrupted by other characters than the usual separators; numbers inside images; IBANs of countries outside the built-in table; telephone numbers that do not start with +, 0 or (; digit chains of more than 64 groups; e-mail addresses whose local part has unusual characters (&amp; = * !); and card numbers grouped in other layouts.</value>
+  </data>
+  <data name="FindTermTooLongFormat" xml:space="preserve">
+    <value>The term is too long: at most {0} characters. The previous result is unchanged.</value>
+  </data>
+  <data name="FindNotMarkedOne" xml:space="preserve">
+    <value>1 could not be marked.</value>
+  </data>
+  <data name="FindNotMarkedManyFormat" xml:space="preserve">
+    <value>{0} could not be marked.</value>
+  </data>
+  <data name="FindNoMatchesIncomplete" xml:space="preserve">
+    <value>No matches in the pages searched.</value>
   </data>
 </root>
