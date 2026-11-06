@@ -315,16 +315,24 @@ internal sealed class TextEditInteraction : IDisposable
     {
         try
         {
-            if (_session.HasDraft && _session.DraftRun is { } open && !(open.Page == run.Page && open.ObjectIndex == run.ObjectIndex))
+            var onTheDraft = _session.DraftRun is { } open && open.Page == run.Page && open.ObjectIndex == run.ObjectIndex;
+            if (!onTheDraft)
             {
-                Completion = _session.CommitAsync();
-                await Completion;
+                // A draft on another line is written first. The write may also be through already (the focus loss of the field writes it at the press,
+                // before the release that brings the run here): either way the run is the one captured at the press, before the write.
+                if (_session.HasDraft)
+                {
+                    Completion = _session.CommitAsync();
+                    await Completion;
+                }
+
                 if (_session.HasDraft || _disposed || !_session.IsActive)
                 {
                     return;
                 }
 
-                // The write may have shifted the objects of the page (a line split into pieces): the line is found again in the lines read after it.
+                // The write may have shifted the objects of the page (a line split into pieces): the line is found again in the lines read after it,
+                // and the field never opens on the index of the press.
                 await _session.LoadPageAsync(run.Page);
                 if (!_session.IsActive || _disposed || Resolve(run) is not { } resolved)
                 {

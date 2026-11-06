@@ -303,6 +303,34 @@ public sealed class TextEditRobustnessTests
         Assert.Contains("Quarterly report 2026", await rig.PageTextAsync(), StringComparison.Ordinal);
     }
 
+    // The press captures the line before the write; when the write of the first line is through before the release (a slow runner, the focus loss
+    // writes it at the press), the release must open the field on the line as it stands after the re-read, never on the index of the press.
+    [AvaloniaFact]
+    public async Task AReleaseAfterTheWriteIsThroughOpensTheFieldOnTheMovedLine()
+    {
+        using var rig = await TextEditRig.OpenAsync("text-edit-subset.pdf");
+        await rig.EnterModeAsync();
+        var first = await rig.RunAsync("Invoice total: 1,250 EUR");
+        var second = await rig.RunAsync("Kontoauszug März");
+        var field = rig.OpenField(first);
+        await ViewFixture.WaitAsync(() => rig.FieldHasFocus);
+        TextEditRig.Type(field, "Invoice total: 1,259 EUR");
+
+        var at = rig.WindowPointOf(second);
+        rig.Window.MouseDown(at, MouseButton.Left);
+        var written = await rig.Session.CommitAsync();
+        Assert.Equal(TextEditCommitKind.Applied, written.Kind);
+        await rig.SettleAsync();
+        Assert.False(rig.Session.HasDraft);
+        rig.Window.MouseUp(at, MouseButton.Left);
+
+        await ViewFixture.WaitAsync(() => rig.Session.HasDraft);
+        await rig.SettleAsync();
+        var moved = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Kontoauszug März");
+        Assert.NotEqual(second.ObjectIndex, moved.ObjectIndex);
+        Assert.Equal(moved.ObjectIndex, rig.Session.DraftRun!.ObjectIndex);
+    }
+
     [AvaloniaFact]
     public async Task SwitchingFromOneLineToAnotherAfterTheFirstWasSplitFindsTheSecondAgain()
     {
