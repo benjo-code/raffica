@@ -182,4 +182,61 @@ public sealed class PagesPaneTests
         Assert.Equal("Seite 2", AutomationProperties.GetName(f.Pane.ContainerOf(1)!));
         Assert.Equal("Seite 1, aktuelle Seite", AutomationProperties.GetName(f.Pane.ContainerOf(0)!));
     }
+
+    [AvaloniaFact]
+    public async Task NavigationListIsUnchangedOutsideTheMode()
+    {
+        using var f = await OpenAsync("pages-marked.pdf");
+        await f.FirstSharpAsync();
+        var navigation = f.Pane.List;
+        Assert.Same(navigation, f.Pane.Content);
+        Assert.Null(f.Pane.Organize);
+
+        // Nothing of the mode exists before it starts; the session made by asking for it does not start it.
+        _ = f.Tab.Organize;
+        Assert.Same(navigation, f.Pane.Content);
+        f.Tab.Organize.Enter();
+        ViewFixture.Pump();
+        Assert.NotNull(f.Pane.Organize);
+        Assert.Same(f.Pane.Organize, f.Pane.Content);
+        Assert.Equal(6, f.Pane.Organize.Items.Count);
+        await ViewFixture.WaitAsync(() => f.Pane.LastPlan.Count == 0);
+
+        var organize = f.Pane.Organize;
+        f.Tab.Organize.End();
+        ViewFixture.Pump();
+        Assert.Null(f.Pane.Organize);
+        Assert.Same(navigation, f.Pane.Content);
+        Assert.True(organize.IsDisposed);
+        await ViewFixture.WaitAsync(() => f.Pane.LastPlan.Count > 0);
+        Assert.Equal(f.View.CurrentPage, f.Pane.List.SelectedIndex);
+    }
+
+    [AvaloniaFact]
+    public async Task OrganizeListGetsItsThumbnailsAfterTheNavigationListStopped()
+    {
+        // The navigation list requested first (it shares the tab's one thumbnail source with the organize list); then the mode starts.
+        using var f = await OpenAsync("pages-marked.pdf");
+        await f.FirstSharpAsync();
+        var thumbnails = f.Session.EnsureThumbnails()!;
+        await ViewFixture.WaitAsync(() => f.Pane.LastPlan.Count > 0 && thumbnails.Cache.Contains(new TileKey(0, TileKey.PreviewScaleKey, 0, 0)));
+
+        f.Tab.Organize.Enter();
+        ViewFixture.Pump();
+        var organize = f.Pane.Organize!;
+        Assert.Empty(f.Pane.LastPlan);
+
+        // The pictures come back for the organize list, drawn from its own conversion of the shared cache.
+        await ViewFixture.WaitAsync(() => organize.Thumbnails.PlanOf(default).Count > 0);
+        var first = f.Tab.Organize.Plan.Slots[0];
+        await ViewFixture.WaitAsync(() => organize.Thumbnails.BitmapFor(first) is not null);
+        Assert.NotEmpty(organize.Thumbnails.PlanOf(default));
+        Assert.True(thumbnails.Cache.Contains(new TileKey(0, TileKey.PreviewScaleKey, 0, 0)));
+
+        // And back: ending the mode gives the navigation list its pictures again.
+        f.Tab.Organize.End();
+        ViewFixture.Pump();
+        await ViewFixture.WaitAsync(() => f.Pane.LastPlan.Count > 0 && thumbnails.Cache.Contains(new TileKey(0, TileKey.PreviewScaleKey, 0, 0)));
+        Assert.NotNull(f.Pane.BitmapFor(0));
+    }
 }

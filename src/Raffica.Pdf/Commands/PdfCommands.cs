@@ -57,7 +57,23 @@ internal sealed record PdfCommands(
     Action? FormsNext = null,
     Action? FormsPrevious = null,
     Action? FormsNextRequired = null,
-    Action? FormsHighlight = null)
+    Action? FormsHighlight = null,
+    Action? Organize = null,
+    Action? RotateLeft = null,
+    Action? RotateRight = null,
+    Action? DuplicatePages = null,
+    Action? BlankPage = null,
+    Action? InsertFile = null,
+    Action? MovePagesUp = null,
+    Action? MovePagesDown = null,
+    Action? PagesUndo = null,
+    Action? PagesRedo = null,
+    Action? ApplyPages = null,
+    Action? DiscardPages = null,
+    Action? DeletePages = null,
+    Action? ExtractPages = null,
+    Action? SplitDocument = null,
+    Action? ExportImages = null)
 {
     /// <summary>The action behind a command id of <see cref="PdfCommandIds"/>, or null when there is none.</summary>
     public Action? RunOf(string id) => id switch
@@ -114,6 +130,22 @@ internal sealed record PdfCommands(
         PdfCommandIds.FormsPrevious => FormsPrevious,
         PdfCommandIds.FormsNextRequired => FormsNextRequired,
         PdfCommandIds.FormsHighlight => FormsHighlight,
+        PdfCommandIds.Organize => Organize,
+        PdfCommandIds.RotateLeft => RotateLeft,
+        PdfCommandIds.RotateRight => RotateRight,
+        PdfCommandIds.DuplicatePages => DuplicatePages,
+        PdfCommandIds.BlankPage => BlankPage,
+        PdfCommandIds.InsertFile => InsertFile,
+        PdfCommandIds.MovePagesUp => MovePagesUp,
+        PdfCommandIds.MovePagesDown => MovePagesDown,
+        PdfCommandIds.PagesUndo => PagesUndo,
+        PdfCommandIds.PagesRedo => PagesRedo,
+        PdfCommandIds.ApplyPages => ApplyPages,
+        PdfCommandIds.DiscardPages => DiscardPages,
+        PdfCommandIds.DeletePages => DeletePages,
+        PdfCommandIds.ExtractPages => ExtractPages,
+        PdfCommandIds.SplitDocument => SplitDocument,
+        PdfCommandIds.ExportImages => ExportImages,
         _ => null,
     };
 }

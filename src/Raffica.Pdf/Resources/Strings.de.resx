@@ -1121,4 +1121,589 @@
   <data name="SignaturePlaceFailed" xml:space="preserve">
     <value>Die Unterschrift konnte nicht eingesetzt werden. Dem Dokument wurde nichts hinzugefügt.</value>
   </data>
+  <data name="OrganizeListName" xml:space="preserve">
+    <value>Seitenplan</value>
+  </data>
+  <data name="OrganizeCounterChangedFormat" xml:space="preserve">
+    <value>{0} → {1} Seiten</value>
+  </data>
+  <data name="OrganizeCounterChangedOneFormat" xml:space="preserve">
+    <value>{0} → 1 Seite</value>
+  </data>
+  <data name="OrganizeCounterSameFormat" xml:space="preserve">
+    <value>{0} Seiten</value>
+  </data>
+  <data name="OrganizeCounterSameOne" xml:space="preserve">
+    <value>1 Seite</value>
+  </data>
+  <data name="OrganizeGoneFormat" xml:space="preserve">
+    <value>{0} entfernt</value>
+  </data>
+  <data name="OrganizeTurnedFormat" xml:space="preserve">
+    <value>Um {0}° gedreht</value>
+  </data>
+  <data name="OrganizeBlank" xml:space="preserve">
+    <value>Neue leere Seite</value>
+  </data>
+  <data name="OrganizeBlankSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+  </data>
+  <data name="OrganizeFromFileFormat" xml:space="preserve">
+    <value>Aus {0}, Seite {1}</value>
+  </data>
+  <data name="OrganizeCopy" xml:space="preserve">
+    <value>Kopie</value>
+  </data>
+  <data name="OrganizeLastPageRefused" xml:space="preserve">
+    <value>Die letzte Seite kann nicht gelöscht werden. Nichts wurde geändert.</value>
+  </data>
+  <data name="OrganizeLimitRefusedFormat" xml:space="preserve">
+    <value>Ein Plan kann höchstens {0} Seiten enthalten. Nichts wurde geändert.</value>
+  </data>
+  <data name="TabPages" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="GroupOrganize" xml:space="preserve">
+    <value>Organisieren</value>
+  </data>
+  <data name="GroupApply" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="GroupOutput" xml:space="preserve">
+    <value>Ausgabe</value>
+  </data>
+  <data name="CmdOrganize" xml:space="preserve">
+    <value>Seiten organisieren</value>
+  </data>
+  <data name="CmdRotateLeft" xml:space="preserve">
+    <value>Nach links drehen</value>
+  </data>
+  <data name="CmdRotateRight" xml:space="preserve">
+    <value>Nach rechts drehen</value>
+  </data>
+  <data name="CmdDuplicatePages" xml:space="preserve">
+    <value>Seiten duplizieren</value>
+  </data>
+  <data name="CmdBlankPage" xml:space="preserve">
+    <value>Leere Seite einfügen</value>
+  </data>
+  <data name="CmdInsertFile" xml:space="preserve">
+    <value>Seiten aus Datei einfügen …</value>
+  </data>
+  <data name="CmdMovePagesUp" xml:space="preserve">
+    <value>Seiten nach oben</value>
+  </data>
+  <data name="CmdMovePagesDown" xml:space="preserve">
+    <value>Seiten nach unten</value>
+  </data>
+  <data name="CmdPagesUndo" xml:space="preserve">
+    <value>Seitenänderung rückgängig</value>
+  </data>
+  <data name="CmdPagesRedo" xml:space="preserve">
+    <value>Seitenänderung wiederholen</value>
+  </data>
+  <data name="CmdApplyPages" xml:space="preserve">
+    <value>Seitenänderungen anwenden</value>
+  </data>
+  <data name="CmdDiscardPages" xml:space="preserve">
+    <value>Seitenänderungen verwerfen</value>
+  </data>
+  <data name="CmdDeletePages" xml:space="preserve">
+    <value>Seiten löschen</value>
+  </data>
+  <data name="CmdExtractPages" xml:space="preserve">
+    <value>Seiten extrahieren …</value>
+  </data>
+  <data name="CmdSplitDocument" xml:space="preserve">
+    <value>Dokument teilen …</value>
+  </data>
+  <data name="CmdExportImages" xml:space="preserve">
+    <value>Seiten als Bilder exportieren …</value>
+  </data>
+  <data name="PageChangesLockedReason" xml:space="preserve">
+    <value>Wenden Sie die Seitenänderungen zuerst an oder verwerfen Sie sie</value>
+  </data>
+  <data name="SaveMarksFirstReason" xml:space="preserve">
+    <value>Speichern Sie zuerst die Markierungen</value>
+  </data>
+  <data name="InsertFileTitle" xml:space="preserve">
+    <value>Seiten aus einer Datei einfügen</value>
+  </data>
+  <data name="InsertFilePickTitle" xml:space="preserve">
+    <value>PDF zum Einfügen wählen</value>
+  </data>
+  <data name="InsertFileHeaderFormat" xml:space="preserve">
+    <value>{0} (Seiten: {1})</value>
+  </data>
+  <data name="InsertFileRangeLabel" xml:space="preserve">
+    <value>Einzufügende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder all)</value>
+  </data>
+  <data name="InsertRangeInvalid" xml:space="preserve">
+    <value>Geben Sie Seiten an wie 3, 2-5, 1,3,5-7 oder all.</value>
+  </data>
+  <data name="InsertRangeOutsideFormat" xml:space="preserve">
+    <value>Die Datei hat nur {0} Seiten.</value>
+  </data>
+  <data name="InsertPositionLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="InsertAfterFormat" xml:space="preserve">
+    <value>Nach den markierten Seiten (nach Seite {0})</value>
+  </data>
+  <data name="InsertAtEnd" xml:space="preserve">
+    <value>Am Ende</value>
+  </data>
+  <data name="InsertAtStart" xml:space="preserve">
+    <value>Am Anfang</value>
+  </data>
+  <data name="InsertConfirm" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="InsertRefusedTitle" xml:space="preserve">
+    <value>Es wurde nichts eingefügt</value>
+  </data>
+  <data name="InsertRefusedSameFile" xml:space="preserve">
+    <value>Das ist die geöffnete Datei selbst. Ihre Seiten können nicht in sie eingefügt werden.</value>
+  </data>
+  <data name="InsertRefusedTooManyFormat" xml:space="preserve">
+    <value>Vor dem Anwenden der Änderungen können Seiten aus höchstens {0} weiteren Dateien eingefügt werden.</value>
+  </data>
+  <data name="InsertRefusedUnreadable" xml:space="preserve">
+    <value>Die Datei lässt sich nicht lesen oder ist keine PDF-Datei.</value>
+  </data>
+  <data name="InsertRefusedNeedsPassword" xml:space="preserve">
+    <value>Die Datei braucht ein Kennwort.</value>
+  </data>
+  <data name="InsertRefusedWrongPassword" xml:space="preserve">
+    <value>Das Kennwort ist falsch.</value>
+  </data>
+  <data name="InsertRefusedBadRange" xml:space="preserve">
+    <value>Die Seitenauswahl passt nicht zu den Seiten der Datei.</value>
+  </data>
+  <data name="InsertRefusedLimitFormat" xml:space="preserve">
+    <value>Ein Dokument kann höchstens {0} Seiten haben.</value>
+  </data>
+  <data name="InsertRefusedNotActive" xml:space="preserve">
+    <value>Die Seitenänderungen wurden inzwischen geschlossen.</value>
+  </data>
+  <data name="InsertRefusedOther" xml:space="preserve">
+    <value>Die Seiten konnten nicht eingefügt werden.</value>
+  </data>
+  <data name="ApplyTitle" xml:space="preserve">
+    <value>Seitenänderungen anwenden</value>
+  </data>
+  <data name="ApplyRefusedTitle" xml:space="preserve">
+    <value>Die Seitenänderungen lassen sich nicht anwenden</value>
+  </data>
+  <data name="ApplyRefusedIntro" xml:space="preserve">
+    <value>Es wurde nichts geschrieben. Diese Seitenänderungen lassen sich nicht anwenden:</value>
+  </data>
+  <data name="ApplySummaryPagesFormat" xml:space="preserve">
+    <value>{0} → {1} Seiten</value>
+  </data>
+  <data name="ApplySummaryTurnedFormat" xml:space="preserve">
+    <value>{0} gedreht</value>
+  </data>
+  <data name="ApplySummaryFileOne" xml:space="preserve">
+    <value>1 Datei eingefügt</value>
+  </data>
+  <data name="ApplySummaryFilesFormat" xml:space="preserve">
+    <value>{0} Dateien eingefügt</value>
+  </data>
+  <data name="ApplySummaryBlankOne" xml:space="preserve">
+    <value>1 leere Seite</value>
+  </data>
+  <data name="ApplySummaryBlankFormat" xml:space="preserve">
+    <value>{0} leere Seiten</value>
+  </data>
+  <data name="ApplySummaryDuplicatedFormat" xml:space="preserve">
+    <value>{0} dupliziert</value>
+  </data>
+  <data name="ApplyLossesHeading" xml:space="preserve">
+    <value>Das geht verloren oder ändert sich:</value>
+  </data>
+  <data name="ApplyNoLosses" xml:space="preserve">
+    <value>Außer den Seitenänderungen ist nichts betroffen.</value>
+  </data>
+  <data name="ApplyWarning" xml:space="preserve">
+    <value>Die Datei wird neu geschrieben. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt. Um das Original zu behalten, wähle Speichern unter.</value>
+  </data>
+  <data name="ApplySaveAs" xml:space="preserve">
+    <value>Speichern unter…</value>
+  </data>
+  <data name="ApplyOriginal" xml:space="preserve">
+    <value>In der Originaldatei speichern</value>
+  </data>
+  <data name="ApplyBack" xml:space="preserve">
+    <value>Zurück</value>
+  </data>
+  <data name="ApplyOpenEdit" xml:space="preserve">
+    <value>Beende oder verwirf zuerst die offene Bearbeitung.</value>
+  </data>
+  <data name="ApplyJobTitleFormat" xml:space="preserve">
+    <value>Seitenänderungen werden auf {0} angewendet</value>
+  </data>
+  <data name="ApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Seitenänderungen von {0} werden geprüft</value>
+  </data>
+  <data name="ApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-seiten.pdf</value>
+  </data>
+  <data name="SaveFirstTitle" xml:space="preserve">
+    <value>Markierungen zuerst speichern?</value>
+  </data>
+  <data name="SaveFirstMessage" xml:space="preserve">
+    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Seitenänderungen angewendet.</value>
+  </data>
+  <data name="SaveFirstSaveAsMessage" xml:space="preserve">
+    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach werden die Seitenänderungen als neue Datei gespeichert. Mit „Zurück“ bleibt alles, wie es ist.</value>
+  </data>
+  <data name="SaveFirstSave" xml:space="preserve">
+    <value>Zuerst speichern</value>
+  </data>
+  <data name="ApplyFailedTitle" xml:space="preserve">
+    <value>Seitenänderungen nicht angewendet</value>
+  </data>
+  <data name="ApplyStays" xml:space="preserve">
+    <value>Die Datei ist unverändert, und die Seitenänderungen sind weiterhin offen.</value>
+  </data>
+  <data name="ApplyStaysAfterSave" xml:space="preserve">
+    <value>Die Markierungen sind in der Datei gespeichert, die Seitenänderungen wurden aber nicht angewendet und sind weiterhin offen.</value>
+  </data>
+  <data name="ApplyChangesOpen" xml:space="preserve">
+    <value>Die Seitenänderungen sind weiterhin offen.</value>
+  </data>
+  <data name="ApplyFailSourceModified" xml:space="preserve">
+    <value>Die Datei hat sich seit dem Öffnen auf dem Datenträger geändert, deshalb lassen sich ihre Seiten von hier aus nicht neu schreiben.</value>
+  </data>
+  <data name="ApplyFailInsertedModifiedFormat" xml:space="preserve">
+    <value>Die eingefügte Datei {0} hat sich seit dem Einfügen auf dem Datenträger geändert.</value>
+  </data>
+  <data name="ApplyFailEncrypted" xml:space="preserve">
+    <value>Eine verschlüsselte Datei lässt sich nicht in ein unverschlüsseltes Dokument einfügen: Ihr Inhalt würde ungeschützt geschrieben.</value>
+  </data>
+  <data name="ApplyFailPlan" xml:space="preserve">
+    <value>Die Seitenänderungen passen nicht mehr zum Dokument.</value>
+  </data>
+  <data name="ApplyFailOpen" xml:space="preserve">
+    <value>Eine Datei der Seitenänderungen ließ sich nicht öffnen.</value>
+  </data>
+  <data name="ApplyFailDamaged" xml:space="preserve">
+    <value>Eine Seite einer der Dateien ist beschädigt und ließ sich nicht kopieren.</value>
+  </data>
+  <data name="ApplyFailOther" xml:space="preserve">
+    <value>Die Seitenänderungen ließen sich nicht anwenden.</value>
+  </data>
+  <data name="ApplyFailAdoptFormat" xml:space="preserve">
+    <value>Die Seitenänderungen wurden geschrieben, aber das Dokument ließ sich nicht übernehmen. Die Datei unter {0} ist die neu geschriebene: Öffne sie, um weiterzuarbeiten.</value>
+  </data>
+  <data name="LossSignature" xml:space="preserve">
+    <value>Diese Datei ist digital signiert. Programme, die Signaturen prüfen, melden die Signatur nach der Änderung der Seiten als gebrochen.</value>
+  </data>
+  <data name="LossSignatureLevelFormat" xml:space="preserve">
+    <value>Die Signatur wurde mit Änderungsstufe {0} erstellt.</value>
+  </data>
+  <data name="LossLabelsShifted" xml:space="preserve">
+    <value>Die Datei hat Seitenbezeichnungen (etwa „iv“ oder „A-3“). Sie folgen der Position, nicht den Seiten, und benennen danach andere Seiten.</value>
+  </data>
+  <data name="LossLabelsSourceFormat" xml:space="preserve">
+    <value>Die Seitenbezeichnungen der eingefügten Datei {0} werden nicht übernommen.</value>
+  </data>
+  <data name="LossForeignOutlineFormat" xml:space="preserve">
+    <value>Die Lesezeichen der eingefügten Datei {0} werden nicht übernommen.</value>
+  </data>
+  <data name="LossBookmarkDeleted" xml:space="preserve">
+    <value>Lesezeichen, die auf gelöschte Seiten zeigen, bleiben als Einträge ohne Ziel erhalten.</value>
+  </data>
+  <data name="LossFormInserted" xml:space="preserve">
+    <value>Eingefügte Seiten haben Formularfelder. Sie werden nicht in das Formular der Datei aufgenommen, daher lassen sie sich in anderen Programmen womöglich nicht ausfüllen.</value>
+  </data>
+  <data name="LossFormDuplicated" xml:space="preserve">
+    <value>Kopierte Seiten haben Formularfelder. Ein Feld erscheint dann auf mehreren Seiten, und sein Wert wird geteilt.</value>
+  </data>
+  <data name="LossNameUnchecked" xml:space="preserve">
+    <value>Es waren zu viele Formularfeldnamen, um zu prüfen, ob gleichnamige Felder aus verschiedenen Dateien stammen.</value>
+  </data>
+  <data name="LossNameCollision" xml:space="preserve">
+    <value>Gleichnamige Formularfelder stammen aus verschiedenen Dateien. Sie werden als ein Feld gelesen.</value>
+  </data>
+  <data name="LossEncryptionBlocksFormat" xml:space="preserve">
+    <value>Die eingefügte Datei {0} ist verschlüsselt, die neue Datei wäre es aber nicht. Ihr geschützter Inhalt würde ungeschützt geschrieben.</value>
+  </data>
+  <data name="LossEncryptionWarnFormat" xml:space="preserve">
+    <value>Die eingefügte Datei {0} ist verschlüsselt. Ihre Seiten sind durch das Kennwort und die Berechtigungen der Hauptdatei geschützt, nicht mehr durch ihre eigenen.</value>
+  </data>
+  <data name="LossLinkCopied" xml:space="preserve">
+    <value>Interne Links auf kopierten Seiten verlieren ihr Ziel.</value>
+  </data>
+  <data name="LossLinkDeleted" xml:space="preserve">
+    <value>Interne Links verlieren ihr Ziel, weil die Zielseite gelöscht wird.</value>
+  </data>
+  <data name="LossOrphan" xml:space="preserve">
+    <value>Formularfelder auf gelöschten Seiten bleiben ohne Seite im Formular der Datei.</value>
+  </data>
+  <data name="LossOther" xml:space="preserve">
+    <value>Die Seitenänderungen verlieren etwas.</value>
+  </data>
+  <data name="LossPageResultFormat" xml:space="preserve">
+    <value> (Seite {0} der neuen Datei)</value>
+  </data>
+  <data name="LossPagesResultFormat" xml:space="preserve">
+    <value> (Seiten {0} der neuen Datei)</value>
+  </data>
+  <data name="LossPageOriginalFormat" xml:space="preserve">
+    <value> (ursprüngliche Seite {0})</value>
+  </data>
+  <data name="LossPagesOriginalFormat" xml:space="preserve">
+    <value> (ursprüngliche Seiten {0})</value>
+  </data>
+  <data name="LossListAnd" xml:space="preserve">
+    <value> und </value>
+  </data>
+  <data name="LossListMoreFormat" xml:space="preserve">
+    <value>{0} und {1} weitere</value>
+  </data>
+  <data name="ApplyPlanChanged" xml:space="preserve">
+    <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wende sie erneut an, um die aktuelle Liste zu sehen.</value>
+  </data>
+  <data name="UnsavedPlanTitle" xml:space="preserve">
+    <value>Seitenänderungen verwerfen?</value>
+  </data>
+  <data name="UnsavedPlanMessageFormat" xml:space="preserve">
+    <value>Die Seitenänderungen von {0} sind noch nicht angewendet. „Anwenden“ schreibt sie in eine Datei; „Verwerfen“ wirft sie weg und lässt die Datei, wie sie ist.</value>
+  </data>
+  <data name="UnsavedPlanApply" xml:space="preserve">
+    <value>Anwenden…</value>
+  </data>
+  <data name="UnsavedPlanDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="ExtractTitle" xml:space="preserve">
+    <value>Seiten extrahieren</value>
+  </data>
+  <data name="ExtractHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} Seiten)</value>
+  </data>
+  <data name="ExtractRangeLabel" xml:space="preserve">
+    <value>Zu extrahierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder all)</value>
+  </data>
+  <data name="ExtractNameLabel" xml:space="preserve">
+    <value>Die neue Datei wird vorgeschlagen als</value>
+  </data>
+  <data name="ExtractConfirm" xml:space="preserve">
+    <value>Extrahieren…</value>
+  </data>
+  <data name="ExtractGo" xml:space="preserve">
+    <value>Extrahieren</value>
+  </data>
+  <data name="ExtractSaveTitle" xml:space="preserve">
+    <value>Extrahierte Seiten speichern unter</value>
+  </data>
+  <data name="ExtractSuggestedNameFormat" xml:space="preserve">
+    <value>{0}-seiten-{1}</value>
+  </data>
+  <data name="ExtractConfirmTitle" xml:space="preserve">
+    <value>Seiten extrahieren</value>
+  </data>
+  <data name="ExtractConfirmIntroFormat" xml:space="preserve">
+    <value>Die Seiten {0} des Dokuments werden in eine neue Datei geschrieben. Die geöffnete Datei bleibt unverändert.</value>
+  </data>
+  <data name="SplitTitle" xml:space="preserve">
+    <value>Dokument teilen</value>
+  </data>
+  <data name="SplitHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} Seiten)</value>
+  </data>
+  <data name="SplitModeLabel" xml:space="preserve">
+    <value>Teilen nach</value>
+  </data>
+  <data name="SplitModeEvery" xml:space="preserve">
+    <value>Alle n Seiten</value>
+  </data>
+  <data name="SplitEveryLabel" xml:space="preserve">
+    <value>Seiten pro Datei</value>
+  </data>
+  <data name="SplitModeRanges" xml:space="preserve">
+    <value>Seitenbereiche, je eine Datei</value>
+  </data>
+  <data name="SplitRangesLabel" xml:space="preserve">
+    <value>Bereiche (zum Beispiel 1-3,4-9)</value>
+  </data>
+  <data name="SplitModeBookmarks" xml:space="preserve">
+    <value>Lesezeichen der obersten Ebene</value>
+  </data>
+  <data name="SplitNoBookmarksReason" xml:space="preserve">
+    <value>Diese Datei hat keine Lesezeichen</value>
+  </data>
+  <data name="SplitFolderLabel" xml:space="preserve">
+    <value>Ordner für die neuen Dateien</value>
+  </data>
+  <data name="SplitFolderChoose" xml:space="preserve">
+    <value>Ordner wählen…</value>
+  </data>
+  <data name="SplitFolderNone" xml:space="preserve">
+    <value>Noch kein Ordner gewählt</value>
+  </data>
+  <data name="SplitFolderPickTitle" xml:space="preserve">
+    <value>Ordner für die neuen Dateien wählen</value>
+  </data>
+  <data name="SplitPreviewHeading" xml:space="preserve">
+    <value>Dateien, die geschrieben werden</value>
+  </data>
+  <data name="SplitPreviewItemFormat" xml:space="preserve">
+    <value>{0} (Seiten {1})</value>
+  </data>
+  <data name="SplitPreviewMoreFormat" xml:space="preserve">
+    <value>und {0} weitere</value>
+  </data>
+  <data name="SplitConfirm" xml:space="preserve">
+    <value>Teilen</value>
+  </data>
+  <data name="SplitEveryInvalid" xml:space="preserve">
+    <value>Geben Sie eine ganze Seitenzahl ein, mindestens 1.</value>
+  </data>
+  <data name="SplitTooManyFormat" xml:space="preserve">
+    <value>Ein Teilen kann höchstens {0} Dateien ergeben.</value>
+  </data>
+  <data name="SplitConfirmIntroFormat" xml:space="preserve">
+    <value>Das Dokument wird in {0} neue Dateien geteilt. Die geöffnete Datei bleibt unverändert.</value>
+  </data>
+  <data name="OutputLossesHeading" xml:space="preserve">
+    <value>In den neuen Dateien geht Folgendes verloren oder ändert sich:</value>
+  </data>
+  <data name="OutputLossFilesFormat" xml:space="preserve">
+    <value>Dateien {0}: {1}</value>
+  </data>
+  <data name="OutputCheckingTitleFormat" xml:space="preserve">
+    <value>{0} wird geprüft</value>
+  </data>
+  <data name="OutputJobTitleFormat" xml:space="preserve">
+    <value>Neue Dateien aus {0} werden geschrieben</value>
+  </data>
+  <data name="OutputNoSource" xml:space="preserve">
+    <value>Das Dokument ist nicht mehr verfügbar.</value>
+  </data>
+  <data name="OutputResultExtractTitle" xml:space="preserve">
+    <value>Seiten extrahiert</value>
+  </data>
+  <data name="OutputResultSplitTitle" xml:space="preserve">
+    <value>Dokument geteilt</value>
+  </data>
+  <data name="OutputWrittenOne" xml:space="preserve">
+    <value>1 Datei wurde geschrieben.</value>
+  </data>
+  <data name="OutputWrittenFormat" xml:space="preserve">
+    <value>{0} Dateien wurden geschrieben.</value>
+  </data>
+  <data name="OutputNothingWritten" xml:space="preserve">
+    <value>Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputCanceled" xml:space="preserve">
+    <value>Abgebrochen.</value>
+  </data>
+  <data name="OutputWrittenBefore" xml:space="preserve">
+    <value>Diese Dateien wurden vor dem Stopp geschrieben und bleiben bestehen:</value>
+  </data>
+  <data name="OutputFolderLabel" xml:space="preserve">
+    <value>Ordner</value>
+  </data>
+  <data name="OutputMoreFormat" xml:space="preserve">
+    <value>und {0} weitere</value>
+  </data>
+  <data name="OutputOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="OutputFailTargetExistsFormat" xml:space="preserve">
+    <value>Eine Datei mit diesem Namen gibt es schon: {0}. Es wurde nichts ersetzt.</value>
+  </data>
+  <data name="OutputFailTargetIsSource" xml:space="preserve">
+    <value>Eine neue Datei würde das geöffnete Dokument ersetzen. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailDirectoryMissing" xml:space="preserve">
+    <value>Der Ordner existiert nicht mehr. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailNoBookmarks" xml:space="preserve">
+    <value>Diese Datei hat keine Lesezeichen. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailUnsafeName" xml:space="preserve">
+    <value>Ein Dateiname ist nicht verwendbar. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailPartFormat" xml:space="preserve">
+    <value>Datei {0} ({1}) konnte nicht geschrieben werden: {2}</value>
+  </data>
+  <data name="OutputFailLimit" xml:space="preserve">
+    <value>Die Seiten oder Dateien übersteigen, was ein Teilen zulässt. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailRange" xml:space="preserve">
+    <value>Die Seiten passen nicht zu diesem Dokument. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="OutputFailOther" xml:space="preserve">
+    <value>Die Dateien konnten nicht geschrieben werden.</value>
+  </data>
+  <data name="OutputCauseOpen" xml:space="preserve">
+    <value>Eine dafür nötige Datei konnte nicht geöffnet werden.</value>
+  </data>
+  <data name="OutputCauseDamaged" xml:space="preserve">
+    <value>Eine Seite ist beschädigt und konnte nicht kopiert werden.</value>
+  </data>
+  <data name="FileJobBusy" xml:space="preserve">
+    <value>Es läuft bereits ein anderer Dateiauftrag.</value>
+  </data>
+  <data name="ExportTitle" xml:space="preserve">
+    <value>Seiten als Bilder exportieren</value>
+  </data>
+  <data name="ExportRangeLabel" xml:space="preserve">
+    <value>Zu exportierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder alle)</value>
+  </data>
+  <data name="ExportDpiLabel" xml:space="preserve">
+    <value>Auflösung</value>
+  </data>
+  <data name="ExportDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="ExportDpiCustom" xml:space="preserve">
+    <value>Eigene</value>
+  </data>
+  <data name="ExportDpiCustomLabel" xml:space="preserve">
+    <value>Eigene Auflösung in dpi (1 bis 1200)</value>
+  </data>
+  <data name="ExportDpiInvalid" xml:space="preserve">
+    <value>Gib eine ganze Zahl von 1 bis 1200 ein.</value>
+  </data>
+  <data name="ExportMarks" xml:space="preserve">
+    <value>Markierungen und Formularfelder einbeziehen</value>
+  </data>
+  <data name="ExportLargestFormat" xml:space="preserve">
+    <value>Größte Seite: {0} × {1} Pixel ({2} Megapixel)</value>
+  </data>
+  <data name="ExportTooLargeFormat" xml:space="preserve">
+    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+  </data>
+  <data name="ExportTooLargeHugeFormat" xml:space="preserve">
+    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+  </data>
+  <data name="ExportFolderMissing" xml:space="preserve">
+    <value>Dieser Ordner existiert nicht.</value>
+  </data>
+  <data name="ExportConfirm" xml:space="preserve">
+    <value>Exportieren</value>
+  </data>
+  <data name="ExportJobTitleFormat" xml:space="preserve">
+    <value>Seiten von {0} werden exportiert</value>
+  </data>
+  <data name="ExportResultTitle" xml:space="preserve">
+    <value>Seiten exportiert</value>
+  </data>
+  <data name="ExportFailTooLargeFormat" xml:space="preserve">
+    <value>Seite {0} ist bei dieser Auflösung zu groß. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="ExportFailTooMany" xml:space="preserve">
+    <value>Es wurden mehr Seiten gewählt, als ein Export schreiben kann. Es wurde nichts geschrieben.</value>
+  </data>
+  <data name="ExportFailWriteFormat" xml:space="preserve">
+    <value>Das Bild von Seite {0} konnte nicht geschrieben werden.</value>
+  </data>
+  <data name="ExportFailRender" xml:space="preserve">
+    <value>Eine Seite konnte nicht gezeichnet werden.</value>
+  </data>
 </root>

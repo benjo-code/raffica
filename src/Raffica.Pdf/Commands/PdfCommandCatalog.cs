@@ -151,6 +151,33 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.FormsNextRequired, "CmdFormsNextRequired", "TriangleAlert", "13")
             .Add(PdfCommandIds.FormsHighlight, "CmdFormsHighlight", "Bold", "14");
 
+        // Letter P for the tab (free: the frame keeps Q, 6 and 7). No command has a shortcut: the keys of the mode belong to the list of the pages pane
+        // (Alt+Up, Delete, [ and ] and so on), and Ctrl+Z and Ctrl+Y are the Home tab's, which go to the plan while the mode is on. The Output group
+        // (digit 5) sits before the destructive one (digit 6) so that stays last. The icons are stand-ins as in the other tabs.
+        var pages = new CatalogTab("TabPages", "P");
+        pages.Group("GroupOrganize", "1")
+            .Add(PdfCommandIds.Organize, "CmdOrganize", "AlignLeft", "11", size: CommandSize.Large);
+        pages.Group("GroupEdit", "2")
+            .Add(PdfCommandIds.RotateLeft, "CmdRotateLeft", "Undo", "21")
+            .Add(PdfCommandIds.RotateRight, "CmdRotateRight", "Redo", "22")
+            .Add(PdfCommandIds.DuplicatePages, "CmdDuplicatePages", "Plus", "23")
+            .Add(PdfCommandIds.BlankPage, "CmdBlankPage", "Plus", "24")
+            .Add(PdfCommandIds.InsertFile, "CmdInsertFile", "ChevronRight", "25")
+            .Add(PdfCommandIds.MovePagesUp, "CmdMovePagesUp", "Minus", "26")
+            .Add(PdfCommandIds.MovePagesDown, "CmdMovePagesDown", "ChevronDown", "27");
+        pages.Group("GroupHistory", "3")
+            .Add(PdfCommandIds.PagesUndo, "CmdPagesUndo", "Undo", "31")
+            .Add(PdfCommandIds.PagesRedo, "CmdPagesRedo", "Redo", "32");
+        pages.Group("GroupApply", "4")
+            .Add(PdfCommandIds.ApplyPages, "CmdApplyPages", "Check", "41", size: CommandSize.Large)
+            .Add(PdfCommandIds.DiscardPages, "CmdDiscardPages", "X", "42");
+        pages.Group("GroupOutput", "5")
+            .Add(PdfCommandIds.ExtractPages, "CmdExtractPages", "ChevronRight", "51")
+            .Add(PdfCommandIds.SplitDocument, "CmdSplitDocument", "AlignCenter", "52")
+            .Add(PdfCommandIds.ExportImages, "CmdExportImages", "AlignRight", "53");
+        pages.Group("GroupDelete", "6", destructive: true)
+            .Add(PdfCommandIds.DeletePages, "CmdDeletePages", "X", "61");
+
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
             .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "Plus", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
@@ -169,7 +196,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "ChevronRight", "41", Cmd(Key.D1, "1", shift: true))
             .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "AlignLeft", "42", Cmd(Key.D2, "2", shift: true));
 
-        Tabs = [home, annotate, forms, view];
+        Tabs = [home, annotate, forms, pages, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 

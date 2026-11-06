@@ -1,6 +1,8 @@
 using System.Globalization;
+using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
+using Raffica.Pdf.Organizing;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf;
@@ -314,12 +316,221 @@ internal static class PdfStrings
     public static string PrintFailedMoreFormat => Table.Get("PrintFailedMoreFormat");
     public static string HelpTitle => Table.Get("HelpTitle");
     public static string HelpListName => Table.Get("HelpListName");
+    public static string OrganizeListName => Table.Get("OrganizeListName");
+    public static string OrganizeCounterChangedFormat => Table.Get("OrganizeCounterChangedFormat");
+    public static string OrganizeCounterChangedOneFormat => Table.Get("OrganizeCounterChangedOneFormat");
+    public static string OrganizeCounterSameFormat => Table.Get("OrganizeCounterSameFormat");
+    public static string OrganizeCounterSameOne => Table.Get("OrganizeCounterSameOne");
+    public static string OrganizeGoneFormat => Table.Get("OrganizeGoneFormat");
+    public static string OrganizeTurnedFormat => Table.Get("OrganizeTurnedFormat");
+    public static string OrganizeBlank => Table.Get("OrganizeBlank");
+    public static string OrganizeBlankSizeFormat => Table.Get("OrganizeBlankSizeFormat");
+    public static string OrganizeFromFileFormat => Table.Get("OrganizeFromFileFormat");
+    public static string OrganizeCopy => Table.Get("OrganizeCopy");
+    public static string OrganizeLastPageRefused => Table.Get("OrganizeLastPageRefused");
+    public static string OrganizeLimitRefusedFormat => Table.Get("OrganizeLimitRefusedFormat");
+    public static string TabPages => Table.Get("TabPages");
+    public static string GroupOrganize => Table.Get("GroupOrganize");
+    public static string GroupApply => Table.Get("GroupApply");
+    public static string GroupOutput => Table.Get("GroupOutput");
+    public static string CmdOrganize => Table.Get("CmdOrganize");
+    public static string CmdRotateLeft => Table.Get("CmdRotateLeft");
+    public static string CmdRotateRight => Table.Get("CmdRotateRight");
+    public static string CmdDuplicatePages => Table.Get("CmdDuplicatePages");
+    public static string CmdBlankPage => Table.Get("CmdBlankPage");
+    public static string CmdInsertFile => Table.Get("CmdInsertFile");
+    public static string CmdMovePagesUp => Table.Get("CmdMovePagesUp");
+    public static string CmdMovePagesDown => Table.Get("CmdMovePagesDown");
+    public static string CmdPagesUndo => Table.Get("CmdPagesUndo");
+    public static string CmdPagesRedo => Table.Get("CmdPagesRedo");
+    public static string CmdApplyPages => Table.Get("CmdApplyPages");
+    public static string CmdDiscardPages => Table.Get("CmdDiscardPages");
+    public static string CmdDeletePages => Table.Get("CmdDeletePages");
+    public static string CmdExtractPages => Table.Get("CmdExtractPages");
+    public static string CmdSplitDocument => Table.Get("CmdSplitDocument");
+    public static string CmdExportImages => Table.Get("CmdExportImages");
+    public static string PageChangesLockedReason => Table.Get("PageChangesLockedReason");
+    public static string SaveMarksFirstReason => Table.Get("SaveMarksFirstReason");
+    public static string InsertFileTitle => Table.Get("InsertFileTitle");
+    public static string InsertFilePickTitle => Table.Get("InsertFilePickTitle");
+    public static string InsertFileHeaderFormat => Table.Get("InsertFileHeaderFormat");
+    public static string InsertFileRangeLabel => Table.Get("InsertFileRangeLabel");
+    public static string InsertRangeInvalid => Table.Get("InsertRangeInvalid");
+    public static string InsertRangeOutsideFormat => Table.Get("InsertRangeOutsideFormat");
+    public static string InsertPositionLabel => Table.Get("InsertPositionLabel");
+    public static string InsertAfterFormat => Table.Get("InsertAfterFormat");
+    public static string InsertAtEnd => Table.Get("InsertAtEnd");
+    public static string InsertAtStart => Table.Get("InsertAtStart");
+    public static string InsertConfirm => Table.Get("InsertConfirm");
+    public static string InsertRefusedTitle => Table.Get("InsertRefusedTitle");
+    public static string InsertRefusedSameFile => Table.Get("InsertRefusedSameFile");
+    public static string InsertRefusedTooManyFormat => Table.Get("InsertRefusedTooManyFormat");
+    public static string InsertRefusedUnreadable => Table.Get("InsertRefusedUnreadable");
+    public static string InsertRefusedNeedsPassword => Table.Get("InsertRefusedNeedsPassword");
+    public static string InsertRefusedWrongPassword => Table.Get("InsertRefusedWrongPassword");
+    public static string InsertRefusedBadRange => Table.Get("InsertRefusedBadRange");
+    public static string InsertRefusedLimitFormat => Table.Get("InsertRefusedLimitFormat");
+    public static string InsertRefusedNotActive => Table.Get("InsertRefusedNotActive");
+    public static string InsertRefusedOther => Table.Get("InsertRefusedOther");
+    public static string ApplyTitle => Table.Get("ApplyTitle");
+    public static string ApplyRefusedTitle => Table.Get("ApplyRefusedTitle");
+    public static string ApplyRefusedIntro => Table.Get("ApplyRefusedIntro");
+    public static string ApplySummaryPagesFormat => Table.Get("ApplySummaryPagesFormat");
+    public static string ApplySummaryTurnedFormat => Table.Get("ApplySummaryTurnedFormat");
+    public static string ApplySummaryFileOne => Table.Get("ApplySummaryFileOne");
+    public static string ApplySummaryFilesFormat => Table.Get("ApplySummaryFilesFormat");
+    public static string ApplySummaryBlankOne => Table.Get("ApplySummaryBlankOne");
+    public static string ApplySummaryBlankFormat => Table.Get("ApplySummaryBlankFormat");
+    public static string ApplySummaryDuplicatedFormat => Table.Get("ApplySummaryDuplicatedFormat");
+    public static string ApplyLossesHeading => Table.Get("ApplyLossesHeading");
+    public static string ApplyNoLosses => Table.Get("ApplyNoLosses");
+    public static string ApplyWarning => Table.Get("ApplyWarning");
+    public static string ApplySaveAs => Table.Get("ApplySaveAs");
+    public static string ApplyOriginal => Table.Get("ApplyOriginal");
+    public static string ApplyBack => Table.Get("ApplyBack");
+    public static string ApplyOpenEdit => Table.Get("ApplyOpenEdit");
+    public static string ApplyPlanChanged => Table.Get("ApplyPlanChanged");
+    public static string ApplyJobTitleFormat => Table.Get("ApplyJobTitleFormat");
+    public static string ApplyCheckingTitleFormat => Table.Get("ApplyCheckingTitleFormat");
+    public static string ApplySuggestedNameFormat => Table.Get("ApplySuggestedNameFormat");
+    public static string SaveFirstTitle => Table.Get("SaveFirstTitle");
+    public static string SaveFirstMessage => Table.Get("SaveFirstMessage");
+    public static string SaveFirstSaveAsMessage => Table.Get("SaveFirstSaveAsMessage");
+    public static string SaveFirstSave => Table.Get("SaveFirstSave");
+    public static string ApplyFailedTitle => Table.Get("ApplyFailedTitle");
+    public static string ApplyStays => Table.Get("ApplyStays");
+    public static string ApplyStaysAfterSave => Table.Get("ApplyStaysAfterSave");
+    public static string ApplyChangesOpen => Table.Get("ApplyChangesOpen");
+    public static string ApplyFailSourceModified => Table.Get("ApplyFailSourceModified");
+    public static string ApplyFailInsertedModifiedFormat => Table.Get("ApplyFailInsertedModifiedFormat");
+    public static string ApplyFailEncrypted => Table.Get("ApplyFailEncrypted");
+    public static string ApplyFailPlan => Table.Get("ApplyFailPlan");
+    public static string ApplyFailOpen => Table.Get("ApplyFailOpen");
+    public static string ApplyFailDamaged => Table.Get("ApplyFailDamaged");
+    public static string ApplyFailOther => Table.Get("ApplyFailOther");
+    public static string ApplyFailAdoptFormat => Table.Get("ApplyFailAdoptFormat");
+    public static string ExtractTitle => Table.Get("ExtractTitle");
+    public static string ExtractHeaderFormat => Table.Get("ExtractHeaderFormat");
+    public static string ExtractRangeLabel => Table.Get("ExtractRangeLabel");
+    public static string ExtractNameLabel => Table.Get("ExtractNameLabel");
+    public static string ExtractConfirm => Table.Get("ExtractConfirm");
+    public static string ExtractGo => Table.Get("ExtractGo");
+    public static string ExtractSaveTitle => Table.Get("ExtractSaveTitle");
+    public static string ExtractSuggestedNameFormat => Table.Get("ExtractSuggestedNameFormat");
+    public static string ExtractConfirmTitle => Table.Get("ExtractConfirmTitle");
+    public static string ExtractConfirmIntroFormat => Table.Get("ExtractConfirmIntroFormat");
+    public static string SplitTitle => Table.Get("SplitTitle");
+    public static string SplitHeaderFormat => Table.Get("SplitHeaderFormat");
+    public static string SplitModeLabel => Table.Get("SplitModeLabel");
+    public static string SplitModeEvery => Table.Get("SplitModeEvery");
+    public static string SplitEveryLabel => Table.Get("SplitEveryLabel");
+    public static string SplitModeRanges => Table.Get("SplitModeRanges");
+    public static string SplitRangesLabel => Table.Get("SplitRangesLabel");
+    public static string SplitModeBookmarks => Table.Get("SplitModeBookmarks");
+    public static string SplitNoBookmarksReason => Table.Get("SplitNoBookmarksReason");
+    public static string SplitFolderLabel => Table.Get("SplitFolderLabel");
+    public static string SplitFolderChoose => Table.Get("SplitFolderChoose");
+    public static string SplitFolderNone => Table.Get("SplitFolderNone");
+    public static string SplitFolderPickTitle => Table.Get("SplitFolderPickTitle");
+    public static string SplitPreviewHeading => Table.Get("SplitPreviewHeading");
+    public static string SplitPreviewItemFormat => Table.Get("SplitPreviewItemFormat");
+    public static string SplitPreviewMoreFormat => Table.Get("SplitPreviewMoreFormat");
+    public static string SplitConfirm => Table.Get("SplitConfirm");
+    public static string SplitEveryInvalid => Table.Get("SplitEveryInvalid");
+    public static string SplitTooManyFormat => Table.Get("SplitTooManyFormat");
+    public static string SplitConfirmIntroFormat => Table.Get("SplitConfirmIntroFormat");
+    public static string OutputLossesHeading => Table.Get("OutputLossesHeading");
+    public static string OutputLossFilesFormat => Table.Get("OutputLossFilesFormat");
+    public static string OutputCheckingTitleFormat => Table.Get("OutputCheckingTitleFormat");
+    public static string OutputJobTitleFormat => Table.Get("OutputJobTitleFormat");
+    public static string OutputNoSource => Table.Get("OutputNoSource");
+    public static string OutputResultExtractTitle => Table.Get("OutputResultExtractTitle");
+    public static string OutputResultSplitTitle => Table.Get("OutputResultSplitTitle");
+    public static string OutputWrittenOne => Table.Get("OutputWrittenOne");
+    public static string OutputWrittenFormat => Table.Get("OutputWrittenFormat");
+    public static string OutputNothingWritten => Table.Get("OutputNothingWritten");
+    public static string OutputCanceled => Table.Get("OutputCanceled");
+    public static string OutputWrittenBefore => Table.Get("OutputWrittenBefore");
+    public static string OutputFolderLabel => Table.Get("OutputFolderLabel");
+    public static string OutputMoreFormat => Table.Get("OutputMoreFormat");
+    public static string OutputOpen => Table.Get("OutputOpen");
+    public static string OutputFailTargetExistsFormat => Table.Get("OutputFailTargetExistsFormat");
+    public static string OutputFailTargetIsSource => Table.Get("OutputFailTargetIsSource");
+    public static string OutputFailDirectoryMissing => Table.Get("OutputFailDirectoryMissing");
+    public static string OutputFailNoBookmarks => Table.Get("OutputFailNoBookmarks");
+    public static string OutputFailUnsafeName => Table.Get("OutputFailUnsafeName");
+    public static string OutputFailPartFormat => Table.Get("OutputFailPartFormat");
+    public static string OutputFailLimit => Table.Get("OutputFailLimit");
+    public static string OutputFailRange => Table.Get("OutputFailRange");
+    public static string OutputFailOther => Table.Get("OutputFailOther");
+    public static string OutputCauseOpen => Table.Get("OutputCauseOpen");
+    public static string OutputCauseDamaged => Table.Get("OutputCauseDamaged");
+    public static string FileJobBusy => Table.Get("FileJobBusy");
+    public static string ExportTitle => Table.Get("ExportTitle");
+    public static string ExportRangeLabel => Table.Get("ExportRangeLabel");
+    public static string ExportDpiLabel => Table.Get("ExportDpiLabel");
+    public static string ExportDpiFormat => Table.Get("ExportDpiFormat");
+    public static string ExportDpiCustom => Table.Get("ExportDpiCustom");
+    public static string ExportDpiCustomLabel => Table.Get("ExportDpiCustomLabel");
+    public static string ExportDpiInvalid => Table.Get("ExportDpiInvalid");
+    public static string ExportMarks => Table.Get("ExportMarks");
+    public static string ExportLargestFormat => Table.Get("ExportLargestFormat");
+    public static string ExportTooLargeFormat => Table.Get("ExportTooLargeFormat");
+    public static string ExportTooLargeHugeFormat => Table.Get("ExportTooLargeHugeFormat");
+    public static string ExportFolderMissing => Table.Get("ExportFolderMissing");
+    public static string ExportConfirm => Table.Get("ExportConfirm");
+    public static string ExportJobTitleFormat => Table.Get("ExportJobTitleFormat");
+    public static string ExportResultTitle => Table.Get("ExportResultTitle");
+    public static string ExportFailTooLargeFormat => Table.Get("ExportFailTooLargeFormat");
+    public static string ExportFailTooMany => Table.Get("ExportFailTooMany");
+    public static string ExportFailWriteFormat => Table.Get("ExportFailWriteFormat");
+    public static string ExportFailRender => Table.Get("ExportFailRender");
+    public static string LossSignature => Table.Get("LossSignature");
+    public static string LossSignatureLevelFormat => Table.Get("LossSignatureLevelFormat");
+    public static string LossLabelsShifted => Table.Get("LossLabelsShifted");
+    public static string LossLabelsSourceFormat => Table.Get("LossLabelsSourceFormat");
+    public static string LossForeignOutlineFormat => Table.Get("LossForeignOutlineFormat");
+    public static string LossBookmarkDeleted => Table.Get("LossBookmarkDeleted");
+    public static string LossFormInserted => Table.Get("LossFormInserted");
+    public static string LossFormDuplicated => Table.Get("LossFormDuplicated");
+    public static string LossNameUnchecked => Table.Get("LossNameUnchecked");
+    public static string LossNameCollision => Table.Get("LossNameCollision");
+    public static string LossEncryptionBlocksFormat => Table.Get("LossEncryptionBlocksFormat");
+    public static string LossEncryptionWarnFormat => Table.Get("LossEncryptionWarnFormat");
+    public static string LossLinkCopied => Table.Get("LossLinkCopied");
+    public static string LossLinkDeleted => Table.Get("LossLinkDeleted");
+    public static string LossOrphan => Table.Get("LossOrphan");
+    public static string LossOther => Table.Get("LossOther");
+    public static string LossPageResultFormat => Table.Get("LossPageResultFormat");
+    public static string LossPagesResultFormat => Table.Get("LossPagesResultFormat");
+    public static string LossPageOriginalFormat => Table.Get("LossPageOriginalFormat");
+    public static string LossPagesOriginalFormat => Table.Get("LossPagesOriginalFormat");
+    public static string LossListAnd => Table.Get("LossListAnd");
+    public static string LossListMoreFormat => Table.Get("LossListMoreFormat");
+
+    /// <summary>The reason an insertion was refused, in the UI language (no raw exception text).</summary>
+    public static string InsertRefusal(OrganizeResult result) => result.Problem switch
+    {
+        OrganizeProblem.SameFile => InsertRefusedSameFile,
+        OrganizeProblem.TooManyFiles => Fill(InsertRefusedTooManyFormat, PageEditLimits.MaxInsertedFiles),
+        OrganizeProblem.Unreadable => InsertRefusedUnreadable,
+        OrganizeProblem.NeedsPassword => InsertRefusedNeedsPassword,
+        OrganizeProblem.WrongPassword => InsertRefusedWrongPassword,
+        OrganizeProblem.BadRange => InsertRefusedBadRange,
+        OrganizeProblem.LimitExceeded => Fill(InsertRefusedLimitFormat, PageEditLimits.MaxSlots),
+        OrganizeProblem.NotActive => InsertRefusedNotActive,
+        _ => InsertRefusedOther,
+    };
 
     /// <summary>Puts the values into the places {0} and {1} of a text of the table; numbers follow the UI language.</summary>
     public static string Fill(string template, object? first, object? second = null) =>
         template
             .Replace("{0}", Convert.ToString(first, Culture), StringComparison.Ordinal)
             .Replace("{1}", Convert.ToString(second, Culture), StringComparison.Ordinal);
+
+    /// <summary>Fills {0}, {1} and {2} of a template (numbers in the UI culture).</summary>
+    public static string Fill(string template, object? first, object? second, object? third) =>
+        Fill(template, first, second).Replace("{2}", Convert.ToString(third, Culture), StringComparison.Ordinal);
 
     /// <summary>The automation name of the thumbnail of a page (1-based number); the page shown in the document says so.</summary>
     public static string PageThumbnailName(int number, bool current) =>
@@ -401,6 +612,10 @@ internal static class PdfStrings
     public static string UnsavedLockedTitle => Table.Get("UnsavedLockedTitle");
     public static string UnsavedLockedMessageFormat => Table.Get("UnsavedLockedMessageFormat");
     public static string UnsavedDiscard => Table.Get("UnsavedDiscard");
+    public static string UnsavedPlanTitle => Table.Get("UnsavedPlanTitle");
+    public static string UnsavedPlanMessageFormat => Table.Get("UnsavedPlanMessageFormat");
+    public static string UnsavedPlanApply => Table.Get("UnsavedPlanApply");
+    public static string UnsavedPlanDiscard => Table.Get("UnsavedPlanDiscard");
     public static string SignatureNewTitle => Table.Get("SignatureNewTitle");
     public static string SignatureNewTabs => Table.Get("SignatureNewTabs");
     public static string SignatureNewTabDraw => Table.Get("SignatureNewTabDraw");

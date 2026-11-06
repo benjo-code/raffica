@@ -55,4 +55,20 @@ internal static class PdfCommandIds
     public const string FormsPrevious = "forms.previous";
     public const string FormsNextRequired = "forms.nextRequired";
     public const string FormsHighlight = "forms.highlight";
+    public const string Organize = "pages.organize";
+    public const string RotateLeft = "pages.rotateLeft";
+    public const string RotateRight = "pages.rotateRight";
+    public const string DuplicatePages = "pages.duplicate";
+    public const string BlankPage = "pages.blank";
+    public const string InsertFile = "pages.insertFile";
+    public const string MovePagesUp = "pages.moveUp";
+    public const string MovePagesDown = "pages.moveDown";
+    public const string PagesUndo = "pages.undo";
+    public const string PagesRedo = "pages.redo";
+    public const string ApplyPages = "pages.apply";
+    public const string DiscardPages = "pages.discard";
+    public const string DeletePages = "pages.delete";
+    public const string ExtractPages = "pages.extract";
+    public const string SplitDocument = "pages.split";
+    public const string ExportImages = "pages.exportImages";
 }

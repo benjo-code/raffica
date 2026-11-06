@@ -169,7 +169,7 @@ public sealed class SaveCardsTests
         }
 
         var locked = new List<CloseChoice>();
-        using (var s = Show(t => UnsavedChangesCard.Create("a.pdf", locked.Add, locked: true, time: t)))
+        using (var s = Show(t => UnsavedChangesCard.Create("a.pdf", locked.Add, kind: UnsavedKind.Locked, time: t)))
         {
             Assert.False(s.Button("PART_Discard").IsEnabled);
             s.Click("PART_Discard");
@@ -232,7 +232,7 @@ public sealed class SaveCardsTests
         var closes = new List<CloseChoice>();
         foreach (var locked in new[] { false, true })
         {
-            using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, locked, t));
+            using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, locked ? UnsavedKind.Locked : UnsavedKind.Save, t));
             s.Time.Advance(1000);
             s.Escape();
         }
@@ -257,7 +257,7 @@ public sealed class SaveCardsTests
     public void UnsavedChangesCardForAnUnsavableTabHasOnlyCloseAndCancel()
     {
         var closes = new List<CloseChoice>();
-        using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, locked: true, time: t));
+        using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, kind: UnsavedKind.Locked, time: t));
         Assert.Equal(PdfStrings.UnsavedLockedTitle, s.Card.Title);
         Assert.Equal(["PART_Cancel", "PART_Discard"], s.ButtonNames);
         Assert.Equal(PdfStrings.UnsavedDiscard, s.Button("PART_Discard").Content);

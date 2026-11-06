@@ -14,6 +14,7 @@ using Raffica.Core.Pdf;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Organizing;
 using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
 
@@ -185,7 +186,34 @@ internal sealed class MarksPane : UserControl, IDisposable
         _model.Changed += OnModelChanged;
         _select.SelectionChanged += OnDocumentSelectionChanged;
         _tab.Annotations.FlushRequested += OnFlushRequested;
+
+        // The comments are read-only while the page plan is open; the session is not made here (it is made on the first Pages command).
+        _tab.OrganizeCreated += AttachPlan;
+        if (_tab.OrganizeIfCreated is { } existing)
+        {
+            AttachPlan(existing);
+        }
+
         Rebuild();
+    }
+
+    private OrganizeSession? _plan;
+
+    // The page plan of the tab is open: the marks are shown but not changed (the plan owns Undo and Redo then).
+    private bool PlanLocked => _plan is { IsActive: true };
+
+    private void AttachPlan(OrganizeSession session)
+    {
+        _plan = session;
+        session.Changed += OnPlanChanged;
+    }
+
+    private void OnPlanChanged()
+    {
+        if (!_disposed && _comment.IsReadOnly != PlanLocked)
+        {
+            UpdateEditor();
+        }
     }
 
     /// <summary>The list of marks (for tests).</summary>
@@ -254,7 +282,7 @@ internal sealed class MarksPane : UserControl, IDisposable
         }
 
         _view.Reveal(entry.Page, entry.Annotation.SelectionShape?.Box ?? entry.Annotation.Bounds);
-        if (DrawingHitTest.IsSelectable(entry.Annotation) && _selectAllowed())
+        if (DrawingHitTest.IsSelectable(entry.Annotation) && _selectAllowed() && !PlanLocked)
         {
             if (_tools.Tool != AnnotateTool.Select)
             {
@@ -276,7 +304,7 @@ internal sealed class MarksPane : UserControl, IDisposable
     internal Task DeleteAsync(MarkEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
-        if (_disposed || _tools.Tool == AnnotateTool.None || !DrawingHitTest.IsSelectable(entry.Annotation))
+        if (_disposed || PlanLocked || _tools.Tool == AnnotateTool.None || !DrawingHitTest.IsSelectable(entry.Annotation))
         {
             return _work;
         }
@@ -300,7 +328,7 @@ internal sealed class MarksPane : UserControl, IDisposable
     /// <returns>The task that ends when the change is made.</returns>
     internal Task ApplyCommentAsync()
     {
-        if (_disposed || _editFor is not { } locator || !_comment.IsVisible)
+        if (_disposed || PlanLocked || _editFor is not { } locator || !_comment.IsVisible)
         {
             return _work;
         }
@@ -333,6 +361,12 @@ internal sealed class MarksPane : UserControl, IDisposable
         _model.Changed -= OnModelChanged;
         _select.SelectionChanged -= OnDocumentSelectionChanged;
         _tab.Annotations.FlushRequested -= OnFlushRequested;
+        _tab.OrganizeCreated -= AttachPlan;
+        if (_plan is not null)
+        {
+            _plan.Changed -= OnPlanChanged;
+        }
+
         UnhookDeactivated();
         ReleaseUnresolved();
     }
@@ -606,6 +640,7 @@ internal sealed class MarksPane : UserControl, IDisposable
     // so a change of the selection never drops it; if that cannot be done the card says so.
     private void UpdateEditor()
     {
+        _comment.IsReadOnly = PlanLocked;
         var entry = _list.SelectedItem is EntryRow row ? row.Entry : null;
         var stays = entry is { CanComment: true } && _editFor is { } current && entry.IsFor(current);
         if (!stays && HasUnappliedText)
@@ -624,7 +659,7 @@ internal sealed class MarksPane : UserControl, IDisposable
             return;
         }
 
-        var note = entry.LockReason ?? (entry.Annotation.Kind == AnnotationKind.TextBox && entry.Annotation.Editable ? PdfStrings.MarkTextBoxNote : null);
+        var note = PlanLocked && entry.CanComment ? PdfStrings.PageChangesLockedReason : entry.LockReason ?? (entry.Annotation.Kind == AnnotationKind.TextBox && entry.Annotation.Editable ? PdfStrings.MarkTextBoxNote : null);
         _note.Text = note;
         _note.IsVisible = note is not null;
         _comment.IsVisible = entry.CanComment;

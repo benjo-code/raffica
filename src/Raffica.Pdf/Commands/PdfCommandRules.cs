@@ -7,7 +7,9 @@ namespace Raffica.Pdf.Commands;
 /// second tab; Print is refused for a document whose permissions forbid printing, and where the system cannot print, each with its reason.
 /// Save needs a dirty tab and no running save or print, Undo and Redo a history, Delete a selection, and the annotate tools and Sign a document that
 /// allows changing annotations (with a reason when it does not; a permission not read yet does not refuse). The window gives the questions;
-/// the rules themselves know nothing of the UI.
+/// the rules themselves know nothing of the UI. The page commands follow the organize mode and its plan (the edits also a selection, apply a changed
+/// plan); the tools, Sign, the forms and the output commands (extract, split, export) are locked while the mode is on, and the output commands
+/// also while marks are unsaved. Entering the mode, Apply and the output commands also wait for a running save (or another file job), each with its reason.
 /// </summary>
 internal sealed class PdfCommandRules(
     Func<bool> hasDocument,
@@ -23,7 +25,14 @@ internal sealed class PdfCommandRules(
     Func<bool>? saveRunning = null,
     Func<bool>? hasForm = null,
     Func<bool?>? fillAllowed = null,
-    Func<bool>? hasEmptyRequired = null)
+    Func<bool>? hasEmptyRequired = null,
+    Func<bool>? pagesReady = null,
+    Func<bool>? organizeActive = null,
+    Func<bool>? pageSelection = null,
+    Func<bool>? planCanUndo = null,
+    Func<bool>? planCanRedo = null,
+    Func<bool>? planChanged = null,
+    Func<bool>? marksUnsaved = null)
 {
     private static readonly HashSet<string> Tools =
     [
@@ -37,6 +46,16 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.FormsNext, PdfCommandIds.FormsPrevious, PdfCommandIds.FormsNextRequired, PdfCommandIds.FormsHighlight,
     ];
 
+    // Needs the mode and at least one selected page.
+    private static readonly HashSet<string> PageEdits =
+    [
+        PdfCommandIds.RotateLeft, PdfCommandIds.RotateRight, PdfCommandIds.DuplicatePages, PdfCommandIds.MovePagesUp, PdfCommandIds.MovePagesDown,
+        PdfCommandIds.DeletePages,
+    ];
+
+    // Read the open document without the plan, so they need no open plan and no unsaved marks.
+    private static readonly HashSet<string> PageOutputs = [PdfCommandIds.ExtractPages, PdfCommandIds.SplitDocument, PdfCommandIds.ExportImages];
+
     /// <summary>Whether the command may run now (not counting whether an action is wired behind it).</summary>
     public bool Allows(string id) => id switch
     {
@@ -48,9 +67,17 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false),
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
-        _ when Tools.Contains(id) => hasDocument() && Ask(annotateAllowed, true),
-        PdfCommandIds.FormsNextRequired => hasDocument() && FormsReady() && Ask(hasEmptyRequired, true),
-        _ when FormCommands.Contains(id) => hasDocument() && FormsReady(),
+        PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (Ask(pagesReady, true) && !Ask(saveRunning, false))),
+        _ when PageEdits.Contains(id) => hasDocument() && PlanOpen() && Ask(pageSelection, false),
+        PdfCommandIds.BlankPage or PdfCommandIds.InsertFile => hasDocument() && PlanOpen(),
+        PdfCommandIds.PagesUndo => hasDocument() && PlanOpen() && Ask(planCanUndo, false),
+        PdfCommandIds.PagesRedo => hasDocument() && PlanOpen() && Ask(planCanRedo, false),
+        PdfCommandIds.ApplyPages => hasDocument() && PlanOpen() && Ask(planChanged, false) && !Ask(saveRunning, false),
+        PdfCommandIds.DiscardPages => hasDocument() && PlanOpen(),
+        _ when PageOutputs.Contains(id) => hasDocument() && !PlanOpen() && !Ask(marksUnsaved, false) && !Ask(saveRunning, false),
+        _ when Tools.Contains(id) => hasDocument() && !PlanOpen() && Ask(annotateAllowed, true),
+        PdfCommandIds.FormsNextRequired => hasDocument() && !PlanOpen() && FormsReady() && Ask(hasEmptyRequired, true),
+        _ when FormCommands.Contains(id) => hasDocument() && !PlanOpen() && FormsReady(),
         _ => hasDocument(),
     };
 
@@ -60,6 +87,24 @@ internal sealed class PdfCommandRules(
         if (!hasDocument())
         {
             return null;
+        }
+
+        // While a plan is open the tools, Sign, the forms and the output commands are locked: the page view shows the document as it is, not
+        // as the plan will leave it.
+        if ((Tools.Contains(id) || FormCommands.Contains(id) || PageOutputs.Contains(id)) && PlanOpen())
+        {
+            return PdfStrings.PageChangesLockedReason;
+        }
+
+        if (PageOutputs.Contains(id))
+        {
+            return Ask(marksUnsaved, false) ? PdfStrings.SaveMarksFirstReason : Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
+        }
+
+        // A save, an apply or an output job that runs holds the file: entering the mode and applying wait for it.
+        if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages)
+        {
+            return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
         }
 
         if (Tools.Contains(id))
@@ -89,6 +134,9 @@ internal sealed class PdfCommandRules(
 
         return PrintForbidden() ? PdfStrings.PrintLockedReason : NoPrinter() ? PdfStrings.PrintNoPrinter : null;
     }
+
+    // The mode is on: the plan is open, identity or not (leaving an identity plan is one command, so the locks do not wait for the first change).
+    private bool PlanOpen() => Ask(organizeActive, false);
 
     private static bool Ask(Func<bool>? question, bool unknown) => question is null ? unknown : question();
 

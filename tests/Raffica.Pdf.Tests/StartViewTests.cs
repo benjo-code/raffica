@@ -59,6 +59,6 @@ public sealed class StartViewTests
         var window = Show();
         Assert.Equal("Raffica PDF", window.Title);
         Assert.Equal("H", window.Ribbon.ActiveTab?.Letter);
-        Assert.Equal(4, window.Ribbon.Definition!.Tabs.Count);
+        Assert.Equal(5, window.Ribbon.Definition!.Tabs.Count);
     }
 }
