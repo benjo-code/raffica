@@ -233,6 +233,7 @@ internal sealed partial class PdfWindow
         RedactMode: ToggleRedact,
         RedactMarkSelection: MarkRedactSelection,
         RedactFind: ToggleRedactFind,
+        RedactRasterPage: ToggleRedactRasterPage,
         RedactDeleteMarks: DeleteRedactMarks,
         RedactDiscard: DiscardRedact);
 

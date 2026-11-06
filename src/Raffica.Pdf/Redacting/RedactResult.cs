@@ -41,10 +41,31 @@ internal enum RedactProblem
 
     /// <summary>A search is still running, so its hits are not final.</summary>
     SearchRunning,
+
+    /// <summary>The fill (or text colour) written in the colour field is not <c>#RRGGBB</c>.</summary>
+    FillNotAColour,
+
+    /// <summary>The overlay text is longer than <see cref="Raffica.Core.Redaction.RedactionLimits.MaxOverlayTextLength"/> characters.</summary>
+    OverlayTooLong,
+
+    /// <summary>The overlay text has a character the text box font cannot draw; <see cref="RedactResult.CharacterClass"/> says which kind.</summary>
+    OverlayCharactersRefused,
+
+    /// <summary>The overlay text of a mark contains a text that is marked, which would put it back on the page.</summary>
+    OverlayRepeatsTerm,
+
+    /// <summary>The resolution of the pages turned into images is none of the three offered.</summary>
+    DpiNotOffered,
+
+    /// <summary>The plan would turn more pages into images than <see cref="Raffica.Core.Redaction.RedactionLimits.MaxRasterPages"/>.</summary>
+    TooManyRasterPages,
 }
 
-/// <summary>The outcome of an operation: done (then <see cref="MarkId"/> names the mark an add made), or refused with the reason.</summary>
-internal readonly record struct RedactResult(RedactProblem? Problem, Guid? MarkId = null)
+/// <summary>
+/// The outcome of an operation: done (then <see cref="MarkId"/> names the mark an add made), or refused with the reason. For
+/// <see cref="RedactProblem.OverlayCharactersRefused"/> the <see cref="CharacterClass"/> names the kind of the first character that cannot be drawn.
+/// </summary>
+internal readonly record struct RedactResult(RedactProblem? Problem, Guid? MarkId = null, OverlayCharacterClass? CharacterClass = null)
 {
     public static RedactResult Done => default;
 

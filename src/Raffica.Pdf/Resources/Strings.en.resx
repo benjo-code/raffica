@@ -2091,4 +2091,118 @@
   <data name="FindNoMatchesIncomplete" xml:space="preserve">
     <value>No matches in the pages searched.</value>
   </data>
+  <data name="RedactLookToggle" xml:space="preserve">
+    <value>Look</value>
+  </data>
+  <data name="RedactLookName" xml:space="preserve">
+    <value>Look of the marks</value>
+  </data>
+  <data name="RedactFillLabel" xml:space="preserve">
+    <value>Fill colour</value>
+  </data>
+  <data name="RedactFillName" xml:space="preserve">
+    <value>Fill colour as # and six digits</value>
+  </data>
+  <data name="RedactFillPresetFormat" xml:space="preserve">
+    <value>Fill colour {0}</value>
+  </data>
+  <data name="RedactImageLabel" xml:space="preserve">
+    <value>Pictures under a mark</value>
+  </data>
+  <data name="RedactImageSolid" xml:space="preserve">
+    <value>Cover with the fill</value>
+  </data>
+  <data name="RedactImagePixelate" xml:space="preserve">
+    <value>Pixelate</value>
+  </data>
+  <data name="RedactImageBlur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="RedactStrengthLabel" xml:space="preserve">
+    <value>Strength</value>
+  </data>
+  <data name="RedactStrengthCoarse" xml:space="preserve">
+    <value>Coarse</value>
+  </data>
+  <data name="RedactStrengthVeryCoarse" xml:space="preserve">
+    <value>Very coarse</value>
+  </data>
+  <data name="RedactImageCaution" xml:space="preserve">
+    <value>Blurred or pixelated pictures keep a rough version of what was there, which can sometimes be made out. The solid fill removes the picture under the mark.</value>
+  </data>
+  <data name="RedactOverlayLabel" xml:space="preserve">
+    <value>Text on the marks</value>
+  </data>
+  <data name="RedactOverlayName" xml:space="preserve">
+    <value>Text on the selected marks</value>
+  </data>
+  <data name="RedactOverlayPlaceholder" xml:space="preserve">
+    <value>Text on the selected marks (optional)</value>
+  </data>
+  <data name="RedactOverlayRepeat" xml:space="preserve">
+    <value>Repeat the text</value>
+  </data>
+  <data name="RedactOverlayAutoSize" xml:space="preserve">
+    <value>Fit the text size to the mark</value>
+  </data>
+  <data name="RedactTextColorLabel" xml:space="preserve">
+    <value>Text colour (empty: automatic)</value>
+  </data>
+  <data name="RedactTextColorName" xml:space="preserve">
+    <value>Text colour as # and six digits, empty for automatic</value>
+  </data>
+  <data name="RedactContrastWarningFormat" xml:space="preserve">
+    <value>This text colour has a contrast of {0}:1 with the fill, below the 4.5:1 that reads well. It is still used.</value>
+  </data>
+  <data name="RedactRasterLabel" xml:space="preserve">
+    <value>Pages as images</value>
+  </data>
+  <data name="RedactRasterPageFormat" xml:space="preserve">
+    <value>Page {0} as image</value>
+  </data>
+  <data name="RedactRasterCountOne" xml:space="preserve">
+    <value>1 page becomes an image</value>
+  </data>
+  <data name="RedactRasterCountManyFormat" xml:space="preserve">
+    <value>{0} pages become images</value>
+  </data>
+  <data name="RedactRasterDpiLabel" xml:space="preserve">
+    <value>Resolution of the images</value>
+  </data>
+  <data name="RedactRasterDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="RedactRasterHint" xml:space="preserve">
+    <value>A page turned into an image loses its text, links and form fields.</value>
+  </data>
+  <data name="RedactPreviewNote" xml:space="preserve">
+    <value>The marks on the page show where the fill goes. They do not show overlay text or the exact pixels; you check those after applying.</value>
+  </data>
+  <data name="RedactRefusalFillNotColour" xml:space="preserve">
+    <value>Write the colour as # and six digits, for example #1F3A5F. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayTooLongFormat" xml:space="preserve">
+    <value>The text is longer than {0} characters. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayControl" xml:space="preserve">
+    <value>The text has a line break, a tab or another control character, which cannot be drawn. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayLetters" xml:space="preserve">
+    <value>The text has letters from a script the font does not cover (for example Greek, Cyrillic, Arabic or Asian letters). Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlaySymbols" xml:space="preserve">
+    <value>The text has a symbol or picture character (such as an emoji) that the font cannot draw. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayCharacters" xml:space="preserve">
+    <value>The text has a character that the font cannot draw. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeats" xml:space="preserve">
+    <value>The text on a mark repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalDpiNotOffered" xml:space="preserve">
+    <value>Choose 150, 200 or 300 dpi. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalTooManyRasterFormat" xml:space="preserve">
+    <value>At most {0} pages can become images. Nothing was changed.</value>
+  </data>
 </root>

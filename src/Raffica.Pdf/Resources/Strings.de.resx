@@ -2075,4 +2075,118 @@
   <data name="FindNoMatchesIncomplete" xml:space="preserve">
     <value>Keine Treffer in den durchsuchten Seiten.</value>
   </data>
+  <data name="RedactLookToggle" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="RedactLookName" xml:space="preserve">
+    <value>Darstellung der Markierungen</value>
+  </data>
+  <data name="RedactFillLabel" xml:space="preserve">
+    <value>Füllfarbe</value>
+  </data>
+  <data name="RedactFillName" xml:space="preserve">
+    <value>Füllfarbe als # und sechs Ziffern</value>
+  </data>
+  <data name="RedactFillPresetFormat" xml:space="preserve">
+    <value>Füllfarbe {0}</value>
+  </data>
+  <data name="RedactImageLabel" xml:space="preserve">
+    <value>Bilder unter einer Markierung</value>
+  </data>
+  <data name="RedactImageSolid" xml:space="preserve">
+    <value>Mit der Füllfarbe abdecken</value>
+  </data>
+  <data name="RedactImagePixelate" xml:space="preserve">
+    <value>Verpixeln</value>
+  </data>
+  <data name="RedactImageBlur" xml:space="preserve">
+    <value>Weichzeichnen</value>
+  </data>
+  <data name="RedactStrengthLabel" xml:space="preserve">
+    <value>Stärke</value>
+  </data>
+  <data name="RedactStrengthCoarse" xml:space="preserve">
+    <value>Grob</value>
+  </data>
+  <data name="RedactStrengthVeryCoarse" xml:space="preserve">
+    <value>Sehr grob</value>
+  </data>
+  <data name="RedactImageCaution" xml:space="preserve">
+    <value>Weichgezeichnete oder verpixelte Bilder behalten eine grobe Fassung dessen, was dort war, die sich manchmal erkennen lässt. Die volle Füllfarbe entfernt das Bild unter der Markierung.</value>
+  </data>
+  <data name="RedactOverlayLabel" xml:space="preserve">
+    <value>Text auf den Markierungen</value>
+  </data>
+  <data name="RedactOverlayName" xml:space="preserve">
+    <value>Text auf den ausgewählten Markierungen</value>
+  </data>
+  <data name="RedactOverlayPlaceholder" xml:space="preserve">
+    <value>Text auf den ausgewählten Markierungen (optional)</value>
+  </data>
+  <data name="RedactOverlayRepeat" xml:space="preserve">
+    <value>Text wiederholen</value>
+  </data>
+  <data name="RedactOverlayAutoSize" xml:space="preserve">
+    <value>Textgröße an die Markierung anpassen</value>
+  </data>
+  <data name="RedactTextColorLabel" xml:space="preserve">
+    <value>Textfarbe (leer: automatisch)</value>
+  </data>
+  <data name="RedactTextColorName" xml:space="preserve">
+    <value>Textfarbe als # und sechs Ziffern, leer für automatisch</value>
+  </data>
+  <data name="RedactContrastWarningFormat" xml:space="preserve">
+    <value>Diese Textfarbe hat zur Füllfarbe einen Kontrast von {0}:1, unter den 4,5:1, die gut lesbar sind. Sie wird trotzdem verwendet.</value>
+  </data>
+  <data name="RedactRasterLabel" xml:space="preserve">
+    <value>Seiten als Bild</value>
+  </data>
+  <data name="RedactRasterPageFormat" xml:space="preserve">
+    <value>Seite {0} als Bild</value>
+  </data>
+  <data name="RedactRasterCountOne" xml:space="preserve">
+    <value>1 Seite wird zum Bild</value>
+  </data>
+  <data name="RedactRasterCountManyFormat" xml:space="preserve">
+    <value>{0} Seiten werden zu Bildern</value>
+  </data>
+  <data name="RedactRasterDpiLabel" xml:space="preserve">
+    <value>Auflösung der Bilder</value>
+  </data>
+  <data name="RedactRasterDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="RedactRasterHint" xml:space="preserve">
+    <value>Eine Seite, die zum Bild wird, verliert ihren Text, ihre Links und ihre Formularfelder.</value>
+  </data>
+  <data name="RedactPreviewNote" xml:space="preserve">
+    <value>Die Markierungen auf der Seite zeigen, wo die Füllfarbe hinkommt. Überlagerungstext und die genauen Pixel zeigen sie nicht; die prüfen Sie nach dem Anwenden.</value>
+  </data>
+  <data name="RedactRefusalFillNotColour" xml:space="preserve">
+    <value>Schreiben Sie die Farbe als # und sechs Ziffern, zum Beispiel #1F3A5F. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayTooLongFormat" xml:space="preserve">
+    <value>Der Text ist länger als {0} Zeichen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayControl" xml:space="preserve">
+    <value>Der Text enthält einen Zeilenumbruch, einen Tabulator oder ein anderes Steuerzeichen, das sich nicht zeichnen lässt. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayLetters" xml:space="preserve">
+    <value>Der Text enthält Buchstaben einer Schrift, die die Schriftart nicht abdeckt (zum Beispiel griechische, kyrillische, arabische oder asiatische). Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlaySymbols" xml:space="preserve">
+    <value>Der Text enthält ein Symbol oder Bildzeichen (etwa ein Emoji), das die Schriftart nicht zeichnen kann. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayCharacters" xml:space="preserve">
+    <value>Der Text enthält ein Zeichen, das die Schriftart nicht zeichnen kann. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeats" xml:space="preserve">
+    <value>Der Text auf einer Markierung wiederholt einen markierten Text und würde ihn auf der Seite wieder sichtbar machen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalDpiNotOffered" xml:space="preserve">
+    <value>Wählen Sie 150, 200 oder 300 dpi. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalTooManyRasterFormat" xml:space="preserve">
+    <value>Höchstens {0} Seiten können zu Bildern werden. Es wurde nichts geändert.</value>
+  </data>
 </root>

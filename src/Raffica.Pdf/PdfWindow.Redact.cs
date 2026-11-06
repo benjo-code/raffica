@@ -11,7 +11,7 @@ namespace Raffica.Pdf;
 /// <summary>
 /// The commands of the Redact tab that act on the marks: they work on the redact session of the active tab (made by the first of them). The mode
 /// puts the redact pane into the right slot, the badge over the page area and the marks over the pages; leaving it with marks asks first
-/// (Discard, Cancel). The Find panel opens with its own command; the look of the plan and the apply flow arrive with their own steps and stay unwired until then.
+/// (Discard, Cancel). The Find panel opens with its own command, "Turn page into image" toggles the current page; the apply flow arrives with its own step and stays unwired until then.
 /// </summary>
 internal sealed partial class PdfWindow
 {
@@ -147,6 +147,16 @@ internal sealed partial class PdfWindow
         if (Workspace.Active is { } tab && tab.RedactIfCreated is { IsActive: true } && _redacts.TryGetValue(tab, out var parts))
         {
             parts.Pane.ToggleFind();
+        }
+    }
+
+    /// <summary>Turns the page the view shows into an image, or back (the Turn page into image command); a refusal ends in the note of the pane.</summary>
+    internal void ToggleRedactRasterPage()
+    {
+        if (Workspace.Active is { } tab && tab.RedactIfCreated is { IsActive: true } session && _redacts.TryGetValue(tab, out var parts) && _views.TryGetValue(tab, out var view))
+        {
+            var page = view.CurrentPage;
+            parts.Pane.Report(session.SetRasterPage(page, !session.Plan.RasterPages.Contains(page)));
         }
     }
 

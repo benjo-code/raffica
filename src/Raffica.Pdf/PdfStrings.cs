@@ -725,6 +725,44 @@ internal static class PdfStrings
     public static string RedactRefusalSearchIncomplete => Table.Get("RedactRefusalSearchIncomplete");
     public static string RedactRefusalNothingToMark => Table.Get("RedactRefusalNothingToMark");
     public static string RedactRefusalSearchRunning => Table.Get("RedactRefusalSearchRunning");
+    public static string RedactLookToggle => Table.Get("RedactLookToggle");
+    public static string RedactLookName => Table.Get("RedactLookName");
+    public static string RedactFillLabel => Table.Get("RedactFillLabel");
+    public static string RedactFillName => Table.Get("RedactFillName");
+    public static string RedactFillPresetFormat => Table.Get("RedactFillPresetFormat");
+    public static string RedactImageLabel => Table.Get("RedactImageLabel");
+    public static string RedactImageSolid => Table.Get("RedactImageSolid");
+    public static string RedactImagePixelate => Table.Get("RedactImagePixelate");
+    public static string RedactImageBlur => Table.Get("RedactImageBlur");
+    public static string RedactStrengthLabel => Table.Get("RedactStrengthLabel");
+    public static string RedactStrengthCoarse => Table.Get("RedactStrengthCoarse");
+    public static string RedactStrengthVeryCoarse => Table.Get("RedactStrengthVeryCoarse");
+    public static string RedactImageCaution => Table.Get("RedactImageCaution");
+    public static string RedactOverlayLabel => Table.Get("RedactOverlayLabel");
+    public static string RedactOverlayName => Table.Get("RedactOverlayName");
+    public static string RedactOverlayPlaceholder => Table.Get("RedactOverlayPlaceholder");
+    public static string RedactOverlayRepeat => Table.Get("RedactOverlayRepeat");
+    public static string RedactOverlayAutoSize => Table.Get("RedactOverlayAutoSize");
+    public static string RedactTextColorLabel => Table.Get("RedactTextColorLabel");
+    public static string RedactTextColorName => Table.Get("RedactTextColorName");
+    public static string RedactContrastWarningFormat => Table.Get("RedactContrastWarningFormat");
+    public static string RedactRasterLabel => Table.Get("RedactRasterLabel");
+    public static string RedactRasterPageFormat => Table.Get("RedactRasterPageFormat");
+    public static string RedactRasterCountOne => Table.Get("RedactRasterCountOne");
+    public static string RedactRasterCountManyFormat => Table.Get("RedactRasterCountManyFormat");
+    public static string RedactRasterDpiLabel => Table.Get("RedactRasterDpiLabel");
+    public static string RedactRasterDpiFormat => Table.Get("RedactRasterDpiFormat");
+    public static string RedactRasterHint => Table.Get("RedactRasterHint");
+    public static string RedactPreviewNote => Table.Get("RedactPreviewNote");
+    public static string RedactRefusalFillNotColour => Table.Get("RedactRefusalFillNotColour");
+    public static string RedactRefusalOverlayTooLongFormat => Table.Get("RedactRefusalOverlayTooLongFormat");
+    public static string RedactRefusalOverlayControl => Table.Get("RedactRefusalOverlayControl");
+    public static string RedactRefusalOverlayLetters => Table.Get("RedactRefusalOverlayLetters");
+    public static string RedactRefusalOverlaySymbols => Table.Get("RedactRefusalOverlaySymbols");
+    public static string RedactRefusalOverlayCharacters => Table.Get("RedactRefusalOverlayCharacters");
+    public static string RedactRefusalOverlayRepeats => Table.Get("RedactRefusalOverlayRepeats");
+    public static string RedactRefusalDpiNotOffered => Table.Get("RedactRefusalDpiNotOffered");
+    public static string RedactRefusalTooManyRasterFormat => Table.Get("RedactRefusalTooManyRasterFormat");
     public static string FindPanelName => Table.Get("FindPanelName");
     public static string FindTermName => Table.Get("FindTermName");
     public static string FindSearchButton => Table.Get("FindSearchButton");
@@ -879,8 +917,35 @@ internal static class PdfStrings
         Raffica.Pdf.Redacting.RedactProblem.SearchIncomplete => RedactRefusalSearchIncomplete,
         Raffica.Pdf.Redacting.RedactProblem.NothingToMark => RedactRefusalNothingToMark,
         Raffica.Pdf.Redacting.RedactProblem.SearchRunning => RedactRefusalSearchRunning,
+        Raffica.Pdf.Redacting.RedactProblem.FillNotAColour => RedactRefusalFillNotColour,
+        Raffica.Pdf.Redacting.RedactProblem.OverlayTooLong => RedactRefusalOverlayTooLongFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxOverlayTextLength.ToString("N0", Culture), StringComparison.Ordinal),
+        Raffica.Pdf.Redacting.RedactProblem.OverlayCharactersRefused => RedactRefusalOverlayCharacters,
+        Raffica.Pdf.Redacting.RedactProblem.OverlayRepeatsTerm => RedactRefusalOverlayRepeats,
+        Raffica.Pdf.Redacting.RedactProblem.DpiNotOffered => RedactRefusalDpiNotOffered,
+        Raffica.Pdf.Redacting.RedactProblem.TooManyRasterPages => RedactRefusalTooManyRasterFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxRasterPages.ToString("N0", Culture), StringComparison.Ordinal),
         _ => throw new ArgumentOutOfRangeException(nameof(problem), problem, "This redact problem has no text."),
     };
+
+    /// <summary>
+    /// Why the redact session refused an operation, in the UI language; a refusal of overlay characters names the kind of the character
+    /// (never the character or the text).
+    /// </summary>
+    internal static string RedactRefusal(Raffica.Pdf.Redacting.RedactResult result)
+    {
+        if (result.Problem is not { } problem)
+        {
+            throw new ArgumentException("The result is not a refusal.", nameof(result));
+        }
+
+        return problem == Raffica.Pdf.Redacting.RedactProblem.OverlayCharactersRefused && result.CharacterClass is { } kind
+            ? kind switch
+            {
+                Raffica.Pdf.Redacting.OverlayCharacterClass.Control => RedactRefusalOverlayControl,
+                Raffica.Pdf.Redacting.OverlayCharacterClass.Letters => RedactRefusalOverlayLetters,
+                _ => RedactRefusalOverlaySymbols,
+            }
+            : RedactRefusal(problem);
+    }
 
     /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

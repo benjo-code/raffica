@@ -18,9 +18,9 @@ namespace Raffica.Pdf.Panes;
 /// technology is the page alone, never the marked text), a note for what was refused, and the primary button "Apply…" that appears with the
 /// first mark. A click, Enter or Space on a row selects the mark and shows it on the page; Delete removes the selected marks. The Find panel
 /// (<see cref="RedactFindPanel"/>) is made when it is first opened by <see cref="ToggleFind"/> and dropped, with its search, when it is closed or
-/// the pane goes. The look of the plan comes with a later step of the milestone. Used on the UI thread only.
+/// the pane goes. The Look rows (fill, pictures, text on the marks, pages as images) are in <c>RedactPane.Look.cs</c>. Used on the UI thread only.
 /// </summary>
-internal sealed class RedactPane : UserControl, IDisposable
+internal sealed partial class RedactPane : UserControl, IDisposable
 {
     private const int TermPreviewLength = 40;
 
@@ -75,22 +75,27 @@ internal sealed class RedactPane : UserControl, IDisposable
         ApplyButton.Classes.Add("primary");
         ApplyButton.Click += (_, _) => ApplyRequested?.Invoke();
 
-        var top = new StackPanel { Spacing = 6, Margin = new Thickness(12, 12, 12, 8), Children = { _counter, _hint } };
+        BuildLook();
+        var top = new StackPanel { Spacing = 6, Margin = new Thickness(12, 12, 12, 8), Children = { _counter, _hint, _lookToggle } };
         var bottom = new StackPanel { Spacing = 8, Margin = new Thickness(12, 8, 12, 12), Children = { _note, ApplyButton } };
         _findHost = new ScrollViewer { Name = "PART_FindHost", MaxHeight = 460, IsVisible = false, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
         Grid.SetRow(top, 0);
         Grid.SetRow(_findHost, 1);
-        Grid.SetRow(_list, 2);
-        Grid.SetRow(bottom, 3);
+        Grid.SetRow(_lookScroll, 2);
+        Grid.SetRow(_list, 3);
+        Grid.SetRow(bottom, 4);
         grid.Children.Add(top);
         grid.Children.Add(_findHost);
+        grid.Children.Add(_lookScroll);
         grid.Children.Add(_list);
         grid.Children.Add(bottom);
         Content = grid;
 
         _note.Bind(TextBlock.ForegroundProperty, _note.GetResourceObservable("Raffica.Brush.Text.Primary"));
         session.Changed += OnSessionChanged;
+        session.Selection.Changed += SyncLook;
+        view.ViewChanged += SyncLook;
         Refresh();
     }
 
@@ -182,7 +187,7 @@ internal sealed class RedactPane : UserControl, IDisposable
             return;
         }
 
-        _note.Text = PdfStrings.RedactRefusal(result.Problem!.Value);
+        _note.Text = PdfStrings.RedactRefusal(result);
         _note.IsVisible = true;
         _noteVersion = _session.Version;
     }
@@ -196,6 +201,8 @@ internal sealed class RedactPane : UserControl, IDisposable
 
         _disposed = true;
         _session.Changed -= OnSessionChanged;
+        _session.Selection.Changed -= SyncLook;
+        _view.ViewChanged -= SyncLook;
         if (_findPanel is { } panel)
         {
             CloseFind(panel);
@@ -228,7 +235,7 @@ internal sealed class RedactPane : UserControl, IDisposable
     {
         var plan = _session.Plan;
         _counter.Text = PdfStrings.RedactCounter(plan.Marks.Count, plan.Pages.Count);
-        ApplyButton.IsVisible = plan.Marks.Count > 0;
+        ApplyButton.IsVisible = !plan.IsEmpty;
         if (_builtVersion != _session.Version)
         {
             _builtVersion = _session.Version;
@@ -245,6 +252,7 @@ internal sealed class RedactPane : UserControl, IDisposable
         }
 
         SyncSelection();
+        SyncLook();
     }
 
     private static List<Row> BuildRows(RedactionPlan plan)

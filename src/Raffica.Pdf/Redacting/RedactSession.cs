@@ -362,6 +362,113 @@ internal sealed class RedactSession : IDisposable
         return RedactResult.Done;
     }
 
+    /// <summary>Sets the colour of the areas (one history step).</summary>
+    public RedactResult SetFill(RedactionFill fill) => Replace(Plan.WithFill(fill));
+
+    /// <summary>Sets what happens to the part of a picture under a mark and how coarse it is (one history step).</summary>
+    public RedactResult SetImageTreatment(RedactionImageTreatment treatment, RedactionImageStrength strength)
+    {
+        if (!Enum.IsDefined(treatment) || !Enum.IsDefined(strength))
+        {
+            return RedactResult.Refused(RedactProblem.OutOfRange);
+        }
+
+        return Replace(Plan.WithImageTreatment(treatment).WithImageStrength(strength));
+    }
+
+    /// <summary>Sets how the overlay texts of all marks are drawn (repeat, size, colour); one history step, no text changes.</summary>
+    public RedactResult SetOverlayStyle(RedactionOverlayStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        return Replace(Plan.WithOverlayStyle(style));
+    }
+
+    /// <summary>
+    /// Gives the marks with these ids the overlay text (null or white space clears it) and the plan the style, in one history step. All or
+    /// nothing: a text that is too long, has a character the font cannot draw (the result names the kind, never the character) or repeats a
+    /// text that is marked is refused, and the plan stays as it was.
+    /// </summary>
+    public RedactResult SetOverlay(IReadOnlySet<Guid> ids, string? text, RedactionOverlayStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        ArgumentNullException.ThrowIfNull(style);
+        if (_history is null)
+        {
+            return RedactResult.Refused(RedactProblem.NotActive);
+        }
+
+        if (ids.Count == 0)
+        {
+            return RedactResult.Refused(RedactProblem.NothingSelected);
+        }
+
+        if (!Plan.Marks.Any(m => ids.Contains(m.Id)))
+        {
+            return RedactResult.Refused(RedactProblem.UnknownMark);
+        }
+
+        if (OverlayTextRule.IsTooLong(text))
+        {
+            return RedactResult.Refused(RedactProblem.OverlayTooLong);
+        }
+
+        if (OverlayTextRule.FirstRefused(text) is { } refused)
+        {
+            return new RedactResult(RedactProblem.OverlayCharactersRefused, null, refused);
+        }
+
+        RedactionPlan next;
+        try
+        {
+            next = Plan.WithOverlayText(ids, text).WithOverlayStyle(style);
+        }
+        catch (RedactionException ex)
+        {
+            return RedactResult.Refused(ex.Error == RedactionError.LimitExceeded ? RedactProblem.OverlayTooLong : RedactProblem.OverlayCharactersRefused);
+        }
+
+        if (RedactionOverlayRule.Refusal(next) is not null)
+        {
+            return RedactResult.Refused(RedactProblem.OverlayRepeatsTerm);
+        }
+
+        return Replace(next);
+    }
+
+    /// <summary>Turns a page into an image, or back (one history step). Any page of the document may be chosen, with or without a mark.</summary>
+    public RedactResult SetRasterPage(int page, bool on)
+    {
+        if (_history is null)
+        {
+            return RedactResult.Refused(RedactProblem.NotActive);
+        }
+
+        if (page < 0 || Tab.Session.Document is not { } document || page >= document.PageCount)
+        {
+            return RedactResult.Refused(RedactProblem.OutOfRange);
+        }
+
+        try
+        {
+            return Replace(Plan.WithRasterPage(page, on));
+        }
+        catch (RedactionException ex)
+        {
+            return RedactResult.Refused(ex.Error == RedactionError.LimitExceeded ? RedactProblem.TooManyRasterPages : RedactProblem.OutOfRange);
+        }
+    }
+
+    /// <summary>Sets the resolution of the pages turned into images; one of <see cref="RedactAppearance.Dpis"/> (one history step).</summary>
+    public RedactResult SetRasterDpi(int dpi)
+    {
+        if (_history is null)
+        {
+            return RedactResult.Refused(RedactProblem.NotActive);
+        }
+
+        return RedactAppearance.Dpis.Contains(dpi) ? Replace(Plan.WithRasterDpi(dpi)) : RedactResult.Refused(RedactProblem.DpiNotOffered);
+    }
+
     public void Dispose()
     {
         if (_disposed)
