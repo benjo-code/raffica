@@ -124,7 +124,7 @@ internal sealed partial class PageView
         }
     }
 
-    /// <summary>The layer of the redact mode (its marks), drawn after <see cref="Overlay"/>; the view draws again whenever it says it changed.</summary>
+    /// <summary>The layer of the redact mode (its marks) or of the text edit mode (the outlines of the lines), drawn after <see cref="Overlay"/>; the view draws again whenever it says it changed.</summary>
     internal IPageOverlay? ModeOverlay
     {
         get => _modeOverlay;

@@ -27,6 +27,7 @@ internal sealed class SaveController
     private readonly Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? _askRequired;
     private readonly TimeProvider? _time;
     private readonly ConditionalWeakTable<PdfTab, NotedDocument> _noted = [];
+    private readonly ConditionalWeakTable<PdfTab, object> _textNoted = [];
     private CancellationTokenSource? _running;
 
     /// <param name="dialogs">Where the cards appear.</param>
@@ -64,6 +65,12 @@ internal sealed class SaveController
 
     /// <summary>Raised on the UI thread after Save as gave a tab another path (the recent list follows).</summary>
     public event Action<PdfTab>? PathChanged;
+
+    /// <summary>
+    /// Raised on the UI thread after a save wrote an edited text of a tab for the first time (once per tab): the old text stays in earlier versions of the
+    /// file, and the window says so (the hint bar of the mode and the status bar).
+    /// </summary>
+    public event Action<PdfTab>? TextEditsSaved;
 
     /// <summary>Gets whether a save is running.</summary>
     public bool IsSaving { get; private set; }
@@ -247,6 +254,9 @@ internal sealed class SaveController
     {
         var overwrite = false;
         var before = tab.Session.Document;
+
+        // The history is empty after the write, so whether it held a text edit is read now.
+        var wroteText = tab.Annotations.Editor.HasTextEdits;
         while (true)
         {
             try
@@ -316,6 +326,13 @@ internal sealed class SaveController
 
         // The tab is clean unless the session still holds something unsaved (a text box draft that was refused stays dirty).
         Guarded(tab.Annotations.Refresh);
+
+        // The first save of an edited text tells where the old text stays; once per tab.
+        if (wroteText && !_textNoted.TryGetValue(tab, out _))
+        {
+            _textNoted.Add(tab, new object());
+            Guarded(() => TextEditsSaved?.Invoke(tab));
+        }
 
         // An open page plan keeps the tab dirty: the session of the marks cleared the state it had set, the plan has not been applied.
         Guarded(() =>

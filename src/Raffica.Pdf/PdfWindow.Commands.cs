@@ -243,7 +243,9 @@ internal sealed partial class PdfWindow
         RedactApply: ApplyRedact,
         OcrRun: RunOcrCommand,
         OcrLanguages: ShowLanguageFiles,
-        OcrCancel: CancelOcr);
+        OcrCancel: CancelOcr,
+        TextEdit: ToggleTextEdit,
+        TextEditDone: FinishTextEdit);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,

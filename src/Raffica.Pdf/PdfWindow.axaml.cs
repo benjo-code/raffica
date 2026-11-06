@@ -168,6 +168,7 @@ internal sealed partial class PdfWindow : Window
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
+        _saves.TextEditsSaved += OnTextEditsSaved;
         _saves.ApplyPlan = (tab, saveAs) => tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty
             ? Redacting.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose)
             : Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
@@ -247,6 +248,8 @@ internal sealed partial class PdfWindow : Window
         EachStep(Workspace.Tabs, RememberView);
         EachStep(_redacts, pair => DisposeRedactParts(pair.Key, pair.Value));
         _redacts.Clear();
+        EachStep(_textEdits, pair => DisposeTextEditParts(pair.Key, pair.Value));
+        _textEdits.Clear();
         EachStep(_panes.Values, panes => panes.Dispose());
         _panes.Clear();
         EachStep(_marks.Values, DisposeMarks);
@@ -764,6 +767,11 @@ internal sealed partial class PdfWindow : Window
             DisposeRedactParts(tab, redact);
         }
 
+        if (_textEdits.Remove(tab, out var textEdit))
+        {
+            DisposeTextEditParts(tab, textEdit);
+        }
+
         if (_panes.Remove(tab, out var panes))
         {
             panes.Dispose();
@@ -881,6 +889,7 @@ internal sealed partial class PdfWindow : Window
         ShowActiveView();
         EnforceAnnotatePermission(showCard: false);
         RefreshCommandStates();
+        ClearTextEditHint();
         UpdateOcrStatus();
     }
 
@@ -924,7 +933,7 @@ internal sealed partial class PdfWindow : Window
             var search = new SearchSession(active, () => view.CurrentPage);
             _searches[active] = search;
             view.Search = search;
-            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None || active.RedactIfCreated is { IsActive: true, Tool: RedactTool.Area });
+            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None || active.RedactIfCreated is { IsActive: true, Tool: RedactTool.Area } || active.TextEditIfCreated is { IsActive: true });
             _texts[active] = text;
             var annotate = new AnnotateInteraction(active, view, Tools, text.Selection, Dialogs, _time);
             _annotates[active] = annotate;

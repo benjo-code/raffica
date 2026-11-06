@@ -2967,4 +2967,106 @@
   <data name="OcrNotStartedReason" xml:space="preserve">
     <value>The text recognition could not start, because the document changed in the meantime. Try again.</value>
   </data>
+  <data name="TextEditBadgeText" xml:space="preserve">
+    <value>Edit text – Esc to finish</value>
+  </data>
+  <data name="TextEditHintLine" xml:space="preserve">
+    <value>Edit lines, not paragraphs. Characters the font lacks are set in a replacement font.</value>
+  </data>
+  <data name="TextEditWholeRunSwitch" xml:space="preserve">
+    <value>Whole line in replacement font</value>
+  </data>
+  <data name="TextEditBarName" xml:space="preserve">
+    <value>Text editing</value>
+  </data>
+  <data name="TextEditFieldName" xml:space="preserve">
+    <value>New text of the line</value>
+  </data>
+  <data name="TextEditRunNameFormat" xml:space="preserve">
+    <value>Line {0} of page {1}</value>
+  </data>
+  <data name="TextEditLockedRunNameFormat" xml:space="preserve">
+    <value>Locked line {0} of page {1}</value>
+  </data>
+  <data name="TextEditLockInvisibleText" xml:space="preserve">
+    <value>Locked: this text is invisible. In a scanned page the picture is what you see, and editing the hidden text would not change the picture.</value>
+  </data>
+  <data name="TextEditLockType3Font" xml:space="preserve">
+    <value>Locked: this page uses a font type (Type 3) that Raffica cannot write again, so no line of the page can be changed.</value>
+  </data>
+  <data name="TextEditLockVerticalWriting" xml:space="preserve">
+    <value>Locked: this line is written vertically.</value>
+  </data>
+  <data name="TextEditLockUnsupportedRenderMode" xml:space="preserve">
+    <value>Locked: this text is drawn as an outline or as a clipping shape, and writing it again would change the look of the page.</value>
+  </data>
+  <data name="TextEditLockFormXObject" xml:space="preserve">
+    <value>Locked: this text belongs to a shared page element (a header or footer, for example), and a change could reach other pages.</value>
+  </data>
+  <data name="TextEditLockMarkedContent" xml:space="preserve">
+    <value>Locked: this text carries its own replacement text or lies on a layer, so search and copy would go on giving the old words.</value>
+  </data>
+  <data name="TextEditLockNotSavable" xml:space="preserve">
+    <value>Locked: Raffica cannot save this file (it is encrypted, or it changed outside Raffica).</value>
+  </data>
+  <data name="TextEditLockPageNotRewritable" xml:space="preserve">
+    <value>Locked: writing this page again would change something else on it.</value>
+  </data>
+  <data name="TextEditLockLigature" xml:space="preserve">
+    <value>Locked: two characters of this line share one glyph (a ligature), and writing it again would draw them on top of each other.</value>
+  </data>
+  <data name="TextEditLockTooManyRunsFormat" xml:space="preserve">
+    <value>Locked: this page has more than {0} lines of text.</value>
+  </data>
+  <data name="TextEditLockRunTooLongFormat" xml:space="preserve">
+    <value>Locked: this line has more than {0} characters.</value>
+  </data>
+  <data name="TextEditRejectTooLongFormat" xml:space="preserve">
+    <value>Too long: a line takes at most {0} characters. Nothing was changed.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedFormat" xml:space="preserve">
+    <value>Not possible: neither the font of the line nor the replacement font has {0}. Nothing was changed.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedNone" xml:space="preserve">
+    <value>Not possible: the text has characters that neither the font of the line nor the replacement font has. Nothing was changed.</value>
+  </data>
+  <data name="TextEditNoteMissingFormat" xml:space="preserve">
+    <value>The font of the line lacks {0}. Only these characters are set in the replacement font.</value>
+  </data>
+  <data name="TextEditNoteWholeRun" xml:space="preserve">
+    <value>The whole line is set in the replacement font.</value>
+  </data>
+  <data name="TextEditNoteEmpty" xml:space="preserve">
+    <value>Empty: the line is taken away. Undo brings it back.</value>
+  </data>
+  <data name="TextEditNoteUnchanged" xml:space="preserve">
+    <value>The text is as it was; nothing changes.</value>
+  </data>
+  <data name="TextEditNoteOverlap" xml:space="preserve">
+    <value>The new text may reach over other text.</value>
+  </data>
+  <data name="TextEditNoteOutsidePage" xml:space="preserve">
+    <value>The new text may reach beyond the page edge.</value>
+  </data>
+  <data name="TextEditNoteDone" xml:space="preserve">
+    <value>Line changed. Undo brings the old text back.</value>
+  </data>
+  <data name="TextEditNoteStale" xml:space="preserve">
+    <value>The page changed after this line was read. Nothing was changed. Select the line again.</value>
+  </data>
+  <data name="TextEditNoteWriteFailed" xml:space="preserve">
+    <value>Writing the line failed, and the page may have changed. Look at the page; Undo goes back.</value>
+  </data>
+  <data name="TextEditNoteHistoryFull" xml:space="preserve">
+    <value>There is no room left for more undo steps. Save first. Nothing was changed.</value>
+  </data>
+  <data name="TextEditNoteFailed" xml:space="preserve">
+    <value>The line could not be changed. Nothing was changed.</value>
+  </data>
+  <data name="TextEditNotePageUnreadable" xml:space="preserve">
+    <value>The lines of this page could not be read, so none can be edited.</value>
+  </data>
+  <data name="TextEditOldTextNote" xml:space="preserve">
+    <value>The old text stays in earlier versions of the file. To remove it for real: Redact.</value>
+  </data>
 </root>

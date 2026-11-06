@@ -99,6 +99,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.RedactApply => hasDocument() && _modes.IsActive(PdfMode.Redact) && Ask(redactMarked, false) && !Ask(saveRunning, false),
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
         PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
+        PdfCommandIds.TextEdit => hasDocument() && (_modes.IsActive(PdfMode.TextEdit) || (_modes.CanEnter(PdfMode.TextEdit, out _) && Ask(pagesReady, true) && Ask(annotateAllowed, true) && !Ask(saveRunning, false))),
         PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true) && Ask(annotateAllowed, true) && Ask(pagesReady, true) && !Ask(ocrRunning, false) && !Ask(saveRunning, false),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
         PdfCommandIds.OcrLanguages => hasDocument() && !_modes.IsActive(PdfMode.Ocr),
@@ -159,6 +160,12 @@ internal sealed class PdfCommandRules(
         if (id is PdfCommandIds.Undo or PdfCommandIds.Redo && _modes.IsActive(PdfMode.Ocr))
         {
             return PdfStrings.ModeOcrReason;
+        }
+
+        // Editing a line writes into the document: it needs the permission the annotate tools need, with the same reason, and waits for a running save.
+        if (id == PdfCommandIds.TextEdit && !_modes.IsActive(PdfMode.TextEdit))
+        {
+            return !Ask(annotateAllowed, true) ? PdfStrings.AnnotateLockedReason : Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
         }
 
         if (id == PdfCommandIds.OcrRun)

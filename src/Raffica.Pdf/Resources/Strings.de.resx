@@ -2951,4 +2951,106 @@
   <data name="OcrNotStartedReason" xml:space="preserve">
     <value>Die Texterkennung konnte nicht beginnen, weil sich das Dokument inzwischen geändert hat. Versuche es noch einmal.</value>
   </data>
+  <data name="TextEditBadgeText" xml:space="preserve">
+    <value>Text bearbeiten – Esc zum Beenden</value>
+  </data>
+  <data name="TextEditHintLine" xml:space="preserve">
+    <value>Zeilen bearbeiten, keine Absätze. Fehlende Zeichen setzt Raffica in einer Ersatzschrift.</value>
+  </data>
+  <data name="TextEditWholeRunSwitch" xml:space="preserve">
+    <value>Ganze Zeile in Ersatzschrift</value>
+  </data>
+  <data name="TextEditBarName" xml:space="preserve">
+    <value>Textbearbeitung</value>
+  </data>
+  <data name="TextEditFieldName" xml:space="preserve">
+    <value>Neuer Text der Zeile</value>
+  </data>
+  <data name="TextEditRunNameFormat" xml:space="preserve">
+    <value>Zeile {0} auf Seite {1}</value>
+  </data>
+  <data name="TextEditLockedRunNameFormat" xml:space="preserve">
+    <value>Gesperrte Zeile {0} auf Seite {1}</value>
+  </data>
+  <data name="TextEditLockInvisibleText" xml:space="preserve">
+    <value>Gesperrt: Dieser Text ist unsichtbar. Bei einer gescannten Seite ist das Bild das, was du siehst; den versteckten Text zu ändern, ändert das Bild nicht.</value>
+  </data>
+  <data name="TextEditLockType3Font" xml:space="preserve">
+    <value>Gesperrt: Diese Seite benutzt eine Schriftart (Type 3), die Raffica nicht neu schreiben kann; deshalb lässt sich keine Zeile der Seite ändern.</value>
+  </data>
+  <data name="TextEditLockVerticalWriting" xml:space="preserve">
+    <value>Gesperrt: Diese Zeile ist senkrecht geschrieben.</value>
+  </data>
+  <data name="TextEditLockUnsupportedRenderMode" xml:space="preserve">
+    <value>Gesperrt: Dieser Text ist als Umriss oder als Schnittform gezeichnet; ihn neu zu schreiben, würde das Aussehen der Seite ändern.</value>
+  </data>
+  <data name="TextEditLockFormXObject" xml:space="preserve">
+    <value>Gesperrt: Dieser Text gehört zu einem geteilten Seitenelement (zum Beispiel einer Kopf- oder Fußzeile); eine Änderung könnte andere Seiten treffen.</value>
+  </data>
+  <data name="TextEditLockMarkedContent" xml:space="preserve">
+    <value>Gesperrt: Dieser Text trägt einen eigenen Ersatztext oder liegt auf einer Ebene; Suche und Kopieren würden weiter die alten Worte liefern.</value>
+  </data>
+  <data name="TextEditLockNotSavable" xml:space="preserve">
+    <value>Gesperrt: Raffica kann diese Datei nicht speichern (sie ist verschlüsselt oder wurde außerhalb von Raffica geändert).</value>
+  </data>
+  <data name="TextEditLockPageNotRewritable" xml:space="preserve">
+    <value>Gesperrt: Die Seite neu zu schreiben, würde etwas anderes auf ihr ändern.</value>
+  </data>
+  <data name="TextEditLockLigature" xml:space="preserve">
+    <value>Gesperrt: Zwei Zeichen dieser Zeile teilen sich ein Glyph (eine Ligatur); sie neu zu schreiben, würde sie übereinander zeichnen.</value>
+  </data>
+  <data name="TextEditLockTooManyRunsFormat" xml:space="preserve">
+    <value>Gesperrt: Diese Seite hat mehr als {0} Textzeilen.</value>
+  </data>
+  <data name="TextEditLockRunTooLongFormat" xml:space="preserve">
+    <value>Gesperrt: Diese Zeile hat mehr als {0} Zeichen.</value>
+  </data>
+  <data name="TextEditRejectTooLongFormat" xml:space="preserve">
+    <value>Zu lang: Eine Zeile nimmt höchstens {0} Zeichen auf. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedFormat" xml:space="preserve">
+    <value>Nicht möglich: Weder die Schrift der Zeile noch die Ersatzschrift hat {0}. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedNone" xml:space="preserve">
+    <value>Nicht möglich: Der Text hat Zeichen, die weder die Schrift der Zeile noch die Ersatzschrift hat. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditNoteMissingFormat" xml:space="preserve">
+    <value>In der Schrift der Zeile fehlt {0}. Nur diese Zeichen werden in der Ersatzschrift gesetzt.</value>
+  </data>
+  <data name="TextEditNoteWholeRun" xml:space="preserve">
+    <value>Die ganze Zeile wird in der Ersatzschrift gesetzt.</value>
+  </data>
+  <data name="TextEditNoteEmpty" xml:space="preserve">
+    <value>Leer: Die Zeile wird weggenommen. Mit Rückgängig kommt sie zurück.</value>
+  </data>
+  <data name="TextEditNoteUnchanged" xml:space="preserve">
+    <value>Der Text ist wie vorher; nichts ändert sich.</value>
+  </data>
+  <data name="TextEditNoteOverlap" xml:space="preserve">
+    <value>Der neue Text könnte über anderen Text reichen.</value>
+  </data>
+  <data name="TextEditNoteOutsidePage" xml:space="preserve">
+    <value>Der neue Text könnte über den Seitenrand hinausreichen.</value>
+  </data>
+  <data name="TextEditNoteDone" xml:space="preserve">
+    <value>Zeile geändert. Mit Rückgängig kommt der alte Text zurück.</value>
+  </data>
+  <data name="TextEditNoteStale" xml:space="preserve">
+    <value>Die Seite hat sich geändert, nachdem diese Zeile gelesen wurde. Nichts wurde geändert. Wähle die Zeile noch einmal.</value>
+  </data>
+  <data name="TextEditNoteWriteFailed" xml:space="preserve">
+    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sieh dir die Seite an; mit Rückgängig gehst du zurück.</value>
+  </data>
+  <data name="TextEditNoteHistoryFull" xml:space="preserve">
+    <value>Für weitere Rückgängig-Schritte ist kein Platz mehr. Speichere zuerst. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditNoteFailed" xml:space="preserve">
+    <value>Die Zeile konnte nicht geändert werden. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditNotePageUnreadable" xml:space="preserve">
+    <value>Die Zeilen dieser Seite konnten nicht gelesen werden; deshalb lässt sich keine bearbeiten.</value>
+  </data>
+  <data name="TextEditOldTextNote" xml:space="preserve">
+    <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: Schwärzen.</value>
+  </data>
 </root>
