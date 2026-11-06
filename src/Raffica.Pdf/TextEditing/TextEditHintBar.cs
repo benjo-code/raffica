@@ -59,7 +59,10 @@ internal sealed class TextEditHintBar : Border, IDisposable
     }
 
     /// <summary>The key that turns the switch on and off from the field (the command modifier is Cmd on a Mac): no Alt, so AltGr layouts are left alone.</summary>
-    internal static string WholeRunKeyName => Raffica.Shell.Localization.KeyNames.Format(OperatingSystem.IsMacOS() ? "Cmd+Shift+G" : "Ctrl+Shift+G", PdfStrings.Culture);
+    internal static string WholeRunKeyName => Raffica.Shell.Localization.KeyNames.Format(WholeRunShortcut(OperatingSystem.IsMacOS()), PdfStrings.Culture);
+
+    /// <summary>The shortcut as <c>KeyNames</c> reads it: the names in the order the glyphs are written on a Mac (⇧⌘G), Ctrl+Shift+G elsewhere.</summary>
+    internal static string WholeRunShortcut(bool macOs) => macOs ? "Shift+Cmd+G" : "Ctrl+Shift+G";
 
     internal static string WholeRunText() => PdfStrings.Fill(PdfStrings.TextEditWholeRunSwitch, WholeRunKeyName);
 

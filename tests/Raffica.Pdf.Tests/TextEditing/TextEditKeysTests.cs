@@ -105,6 +105,15 @@ public sealed class TextEditKeysTests
     }
 
     [AvaloniaFact]
+    public void TheWholeLineShortcutIsWrittenInTheOrderOfTheGlyphsOnAMac()
+    {
+        // KeyNames writes the parts in the order given: on a Mac the glyphs then read shift, command (the order of the system menus), elsewhere Ctrl+Shift.
+        Assert.Equal("Shift+Cmd+G", TextEditHintBar.WholeRunShortcut(macOs: true));
+        Assert.Equal("Ctrl+Shift+G", TextEditHintBar.WholeRunShortcut(macOs: false));
+        Assert.Equal("Ctrl+Shift+G", Raffica.Shell.Localization.KeyNames.Format(TextEditHintBar.WholeRunShortcut(macOs: false), System.Globalization.CultureInfo.GetCultureInfo("en")).Replace("Strg", "Ctrl", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
     public async Task TabAndArrowsWalkTheLinesAndTheWalkEndsWithoutTrapping()
     {
         using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
