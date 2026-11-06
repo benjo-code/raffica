@@ -85,6 +85,18 @@ internal sealed partial class PdfWindow
     // Which modes are on for the active tab: the annotate tool is the window's, the others are the sessions of the tab (none is made by asking).
     private bool ModeIsOn(PdfMode mode) => ModeIsOnFor(Workspace.Active, mode);
 
+    // Ends the annotate tool when the active tab's modes do not allow it (Organize, Redact, Edit text, a text recognition; forms may stay).
+    private bool EndToolAgainstTheModes()
+    {
+        if (Tools.Tool == AnnotateTool.None || new ModeExclusion(ModeIsOn).CanEnter(PdfMode.Annotate, out _))
+        {
+            return false;
+        }
+
+        Tools.End();
+        return true;
+    }
+
     private bool ModeIsOnFor(PdfTab? tab, PdfMode mode) => mode switch
     {
         PdfMode.Annotate => Tools.Tool != AnnotateTool.None,
@@ -518,10 +530,9 @@ internal sealed partial class PdfWindow
 
     private void OnToolsChanged()
     {
-        // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a plan is open.
-        if (Tools.Tool != AnnotateTool.None && (OpenPlan is not null || OpenRedact is not null))
+        // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a mode of the tab excludes it.
+        if (EndToolAgainstTheModes())
         {
-            Tools.End();
             return;
         }
 

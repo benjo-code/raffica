@@ -65,7 +65,8 @@ internal sealed class MarksPane : UserControl, IDisposable
     /// <param name="select">The select controller of the document (selection, delete).</param>
     /// <param name="dialogs">Where a failure is told on a card; <see langword="null"/>: nowhere (tests).</param>
     /// <param name="selectAllowed">Whether the document allows the annotate mode (null: yes); a click only reveals when it does not.</param>
-    public MarksPane(MarksModel model, PdfTab tab, PageView view, ToolState tools, SelectController select, DialogQueue? dialogs = null, Func<bool>? selectAllowed = null)
+    /// <param name="otherModeLock">The reason a mode of the tab that is not a plan or a recognition (Edit text) locks the marks, or null when none does (null: none).</param>
+    public MarksPane(MarksModel model, PdfTab tab, PageView view, ToolState tools, SelectController select, DialogQueue? dialogs = null, Func<bool>? selectAllowed = null, Func<string?>? otherModeLock = null)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(tab);
@@ -78,6 +79,7 @@ internal sealed class MarksPane : UserControl, IDisposable
         _tools = tools;
         _select = select;
         _dialogs = dialogs;
+        _otherModeLock = otherModeLock;
         _selectAllowed = selectAllowed ?? (() => true);
 
         _filter = new SelectBox
@@ -208,7 +210,9 @@ internal sealed class MarksPane : UserControl, IDisposable
     private OrganizeSession? _plan;
 
     // The page plan of the tab is open: the marks are shown but not changed (the plan owns Undo and Redo then).
-    private bool PlanLocked => _plan is { IsActive: true } || OcrLocked;
+    private bool PlanLocked => _plan is { IsActive: true } || OcrLocked || _otherModeLock?.Invoke() is not null;
+
+    private readonly Func<string?>? _otherModeLock;
 
     private OcrSession? _ocr;
 
@@ -684,7 +688,7 @@ internal sealed class MarksPane : UserControl, IDisposable
             return;
         }
 
-        var note = PlanLocked && entry.CanComment ? (OcrLocked ? PdfStrings.ModeOcrReason : PdfStrings.PageChangesLockedReason) : entry.LockReason ?? (entry.Annotation.Kind == AnnotationKind.TextBox && entry.Annotation.Editable ? PdfStrings.MarkTextBoxNote : null);
+        var note = PlanLocked && entry.CanComment ? (OcrLocked ? PdfStrings.ModeOcrReason : _otherModeLock?.Invoke() ?? PdfStrings.PageChangesLockedReason) : entry.LockReason ?? (entry.Annotation.Kind == AnnotationKind.TextBox && entry.Annotation.Editable ? PdfStrings.MarkTextBoxNote : null);
         _note.Text = note;
         _note.IsVisible = note is not null;
         _comment.IsVisible = entry.CanComment;

@@ -1,6 +1,7 @@
 using Avalonia.Platform.Storage;
 using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
+using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;
@@ -36,6 +37,13 @@ internal sealed partial class PdfWindow
 
         // A running save (the incremental one is not modal) holds the document: the mode starts after it.
         if (_saves.IsSaving && tab.OrganizeIfCreated is not { IsActive: true })
+        {
+            return;
+        }
+
+        // Another mode in the way refuses the start (the command is disabled then; this is for a path that gets around it). An open annotate tool is not in the way:
+        // starting ends it below.
+        if (tab.OrganizeIfCreated is not { IsActive: true } && !new ModeExclusion(mode => ModeIsOnFor(tab, mode)).CanStart(PdfMode.Organize, out _))
         {
             return;
         }

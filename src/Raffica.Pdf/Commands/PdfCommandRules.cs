@@ -165,12 +165,12 @@ internal sealed class PdfCommandRules(
         // Editing a line writes into the document: it needs the permission the annotate tools need, with the same reason, and waits for a running save.
         if (id == PdfCommandIds.TextEdit && !_modes.IsActive(PdfMode.TextEdit))
         {
-            return !Ask(annotateAllowed, true) ? PdfStrings.AnnotateLockedReason : Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
+            return !Ask(annotateAllowed, true) ? PdfStrings.AnnotateLockedReason : Ask(saveRunning, false) ? BusyReason() : null;
         }
 
         if (id == PdfCommandIds.OcrRun)
         {
-            return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
+            return Ask(saveRunning, false) ? BusyReason() : null;
         }
 
         // The language files are read when an engine is made and a file in use cannot be replaced: no import while a recognition runs.
@@ -191,13 +191,13 @@ internal sealed class PdfCommandRules(
 
         if (PageOutputs.Contains(id))
         {
-            return Ask(marksUnsaved, false) ? PdfStrings.SaveMarksFirstReason : Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
+            return Ask(marksUnsaved, false) ? PdfStrings.SaveMarksFirstReason : Ask(saveRunning, false) ? BusyReason() : null;
         }
 
         // A save, an apply or an output job that runs holds the file: entering the mode and applying wait for it.
         if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages || id == PdfCommandIds.RedactApply || (id == PdfCommandIds.RedactMode && !_modes.IsActive(PdfMode.Redact)))
         {
-            return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
+            return Ask(saveRunning, false) ? BusyReason() : null;
         }
 
         if (Tools.Contains(id))
@@ -233,6 +233,9 @@ internal sealed class PdfCommandRules(
     private string? OutputModeReason() => _modes.ReasonWhileActive(PdfMode.Redact, PdfMode.Ocr, PdfMode.TextEdit);
 
     private bool PlanOpen() => _modes.IsActive(PdfMode.Organize);
+
+    // The busy list of the window includes a text recognition (in any tab): when one goes, the reason names it, not a save.
+    private string BusyReason() => Ask(ocrRunning, false) ? PdfStrings.ModeOcrReason : PdfStrings.SaveBusy;
 
     private static bool Ask(Func<bool>? question, bool unknown) => question is null ? unknown : question();
 

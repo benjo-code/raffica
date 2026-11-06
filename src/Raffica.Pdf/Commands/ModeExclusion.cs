@@ -29,6 +29,8 @@ internal enum PdfMode
 /// </summary>
 internal sealed class ModeExclusion(Func<PdfMode, bool>? probe = null)
 {
+    private static readonly PdfMode[] s_modes = Enum.GetValues<PdfMode>();
+
     private readonly HashSet<PdfMode> _entered = [];
 
     /// <summary>Whether the mode is on now.</summary>
@@ -37,7 +39,7 @@ internal sealed class ModeExclusion(Func<PdfMode, bool>? probe = null)
     /// <summary>Whether <paramref name="mode"/> may start now; otherwise <paramref name="reason"/> tells why (a mode that is already on may be entered again).</summary>
     public bool CanEnter(PdfMode mode, out string? reason)
     {
-        foreach (var active in Enum.GetValues<PdfMode>())
+        foreach (var active in s_modes)
         {
             if (active != mode && IsActive(active) && !Together(active, mode))
             {
@@ -56,7 +58,7 @@ internal sealed class ModeExclusion(Func<PdfMode, bool>? probe = null)
     /// </summary>
     public bool CanStart(PdfMode mode, out string? reason)
     {
-        foreach (var active in Enum.GetValues<PdfMode>())
+        foreach (var active in s_modes)
         {
             if (active != mode && IsActive(active) && !Together(active, mode) && !EntryEndsTool(active, mode))
             {

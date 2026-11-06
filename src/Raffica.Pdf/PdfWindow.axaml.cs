@@ -879,12 +879,8 @@ internal sealed partial class PdfWindow : Window
     private void OnWorkspaceActiveChanged()
     {
         Tabs.Selected = Workspace.Active?.Tab;
-        if (OpenPlan is not null)
-        {
-            // The tool is the window's, not the tab's: a tool left over from another tab does not run over an open plan.
-            Tools.End();
-        }
-
+        // The tool is the window's, not the tab's: a tool left over from another tab does not run beside a mode of this one.
+        EndToolAgainstTheModes();
         UpdateSaveState();
         ShowActiveView();
         EnforceAnnotatePermission(showCard: false);
@@ -1083,7 +1079,7 @@ internal sealed partial class PdfWindow : Window
         if (!_marks.TryGetValue(active, out var marks))
         {
             var shown = active;
-            _marks[active] = marks = new MarksPane(new MarksModel(active, view), active, view, Tools, annotate.Select, Dialogs, () => AnnotateAllowedOf(shown) != false);
+            _marks[active] = marks = new MarksPane(new MarksModel(active, view), active, view, Tools, annotate.Select, Dialogs, () => AnnotateAllowedOf(shown) != false, () => new ModeExclusion(mode => ModeIsOnFor(shown, mode)).ReasonWhileActive(PdfMode.TextEdit));
         }
 
         CommentsPane.Content = marks;

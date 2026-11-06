@@ -97,4 +97,23 @@ public sealed class ModeLockRuleTests
         Assert.Null(new ModeExclusion(m => m == PdfMode.Annotate).RefusalFor(PdfMode.Forms));
         Assert.Null(new ModeExclusion().RefusalFor(PdfMode.Forms));
     }
+
+    // A run in another tab sets saveRunning too (the window's busy list includes OcrBusy): the reason names the run, not a save.
+    [Fact]
+    public void ARunInAnotherTabGivesTheRunAsTheReasonAndNeverASave()
+    {
+        var rules = new PdfCommandRules(() => true, () => 1, () => new PdfPrintInfo(false, true), pagesReady: () => true, hasForm: () => true,
+            saveRunning: () => true, ocrRunning: () => true, planChanged: () => true, redactMarked: () => true, modes: new ModeExclusion(mode => false));
+        foreach (var id in new[] { "pages.organize", "redact.mode", "text.edit", "pages.extract", "pages.split", "pages.exportImages", "redact.apply", "pages.apply" })
+        {
+            Assert.Equal(PdfStrings.ModeOcrReason, rules.ReasonFor(id));
+        }
+
+        // Without a run the same busy state is a save.
+        var saving = new PdfCommandRules(() => true, () => 1, () => new PdfPrintInfo(false, true), pagesReady: () => true, hasForm: () => true,
+            saveRunning: () => true, modes: new ModeExclusion(mode => false));
+        Assert.Equal(PdfStrings.SaveBusy, saving.ReasonFor("redact.mode"));
+        Assert.Equal(PdfStrings.SaveBusy, saving.ReasonFor("text.edit"));
+        Assert.Equal(PdfStrings.SaveBusy, saving.ReasonFor("pages.organize"));
+    }
 }
