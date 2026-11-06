@@ -14,6 +14,7 @@ using Raffica.Core.Pdf;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
+using Raffica.Pdf.Ocr;
 using Raffica.Pdf.Organizing;
 using Raffica.Pdf.Viewing;
 using Raffica.Shell.Controls;
@@ -194,13 +195,31 @@ internal sealed class MarksPane : UserControl, IDisposable
             AttachPlan(existing);
         }
 
+        // Likewise while a text recognition runs (its session is not made here either).
+        _tab.OcrCreated += AttachOcr;
+        if (_tab.OcrIfCreated is { } running)
+        {
+            AttachOcr(running);
+        }
+
         Rebuild();
     }
 
     private OrganizeSession? _plan;
 
     // The page plan of the tab is open: the marks are shown but not changed (the plan owns Undo and Redo then).
-    private bool PlanLocked => _plan is { IsActive: true };
+    private bool PlanLocked => _plan is { IsActive: true } || OcrLocked;
+
+    private OcrSession? _ocr;
+
+    // A text recognition runs: the same lock, with the reason of the run.
+    private bool OcrLocked => _ocr is { IsActive: true };
+
+    private void AttachOcr(OcrSession session)
+    {
+        _ocr = session;
+        session.Changed += OnPlanChanged;
+    }
 
     private void AttachPlan(OrganizeSession session)
     {
@@ -362,9 +381,15 @@ internal sealed class MarksPane : UserControl, IDisposable
         _select.SelectionChanged -= OnDocumentSelectionChanged;
         _tab.Annotations.FlushRequested -= OnFlushRequested;
         _tab.OrganizeCreated -= AttachPlan;
+        _tab.OcrCreated -= AttachOcr;
         if (_plan is not null)
         {
             _plan.Changed -= OnPlanChanged;
+        }
+
+        if (_ocr is not null)
+        {
+            _ocr.Changed -= OnPlanChanged;
         }
 
         UnhookDeactivated();
@@ -659,7 +684,7 @@ internal sealed class MarksPane : UserControl, IDisposable
             return;
         }
 
-        var note = PlanLocked && entry.CanComment ? PdfStrings.PageChangesLockedReason : entry.LockReason ?? (entry.Annotation.Kind == AnnotationKind.TextBox && entry.Annotation.Editable ? PdfStrings.MarkTextBoxNote : null);
+        var note = PlanLocked && entry.CanComment ? (OcrLocked ? PdfStrings.ModeOcrReason : PdfStrings.PageChangesLockedReason) : entry.LockReason ?? (entry.Annotation.Kind == AnnotationKind.TextBox && entry.Annotation.Editable ? PdfStrings.MarkTextBoxNote : null);
         _note.Text = note;
         _note.IsVisible = note is not null;
         _comment.IsVisible = entry.CanComment;

@@ -2,10 +2,12 @@ using Avalonia.Platform.Storage;
 using Raffica.Core.Ocr;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
+using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Ocr;
 using Raffica.Pdf.Settings;
+using Raffica.Pdf.Viewing;
 
 namespace Raffica.Pdf;
 
@@ -13,7 +15,10 @@ namespace Raffica.Pdf;
 /// The commands of the Edit tab that ask for text recognition: "Recognize text…" opens the options card (languages, pages, mode, resolution) and hands the
 /// choice to <see cref="OcrRunStarter"/>; "Languages…" opens the language files card (the trust warning first, then the file picker) and copies the chosen
 /// file into the folder of the user. Nothing is read from disk before one of the two is used: the tessdata folders are listed when a card opens, never at
-/// startup or at the first sharp page. The run itself and its cancel command arrive with the next task.
+/// startup or at the first sharp page. The run is <see cref="OcrRunFlow"/> (made on the first run, not before): it is not modal, its badge sits in the
+/// <c>Badge</c> slot of the page view, its progress is the hint of the status bar, and Cancel (the badge, the ribbon command, the close question) stops it.
+/// After the first sharp page of a document that looks like a scan the window offers <see cref="ScanHint"/>; the check is skipped in a measurement run and
+/// without the OCR library, and the hint never starts a run itself.
 /// </summary>
 internal sealed partial class PdfWindow
 {
@@ -22,6 +27,11 @@ internal sealed partial class PdfWindow
     private bool? _ocrLibraryKnown;
     private bool _recognizeRunning;
     private bool _languagesRunning;
+    private bool _ocrStarting;
+    private OcrRunFlow? _ocrFlow;
+    private readonly Dictionary<PdfTab, OcrParts> _ocrParts = [];
+    private readonly HashSet<PdfTab> _scanHintChecked = [];
+    private bool _ocrHintShown;
 
     /// <summary>
     /// What starts a run with the options of the card (the run flow of the next task). While it is null the Recognize command stays disabled, so the card
@@ -46,6 +56,41 @@ internal sealed partial class PdfWindow
             _ocrLibraryProbe = value;
             _ocrLibraryKnown = null;
             Ribbon?.RefreshCommandStates();
+        }
+    }
+
+    /// <summary>Replaces the engine factory of a run (tests: a fake engine); null: Tesseract over the language files of the window (<see cref="TessdataStoreOfWindow"/>). It runs on a pool thread.</summary>
+    internal Func<string, IOcrEngineFactory>? OcrEngineFactory { get; set; }
+
+    /// <summary>Replaces the question whether a page is a picture of text (tests: counts the calls); null: <see cref="ScanPageProbe.IsPictureAsync"/>.</summary>
+    internal Func<PdfDocument, int, CancellationToken, Task<bool>>? ScanProbe { get; set; }
+
+    /// <summary>Whether a text recognition runs in any tab (it holds the file: saving, printing and the other file jobs wait for it).</summary>
+    private bool OcrBusy => _ocrFlow?.IsRunning == true;
+
+    /// <summary>The run flow of the window, made on the first run (for tests).</summary>
+    internal OcrRunFlow OcrFlow => _ocrFlow ??= new OcrRunFlow(
+        Dialogs,
+        languages => OcrEngineFactory is { } custom ? custom(languages) : DefaultEngineFactory(languages),
+        tab => _saves.SaveMarksAsync(tab),
+        tab => Workspace.Tabs.Contains(tab),
+        RefreshCommandStates);
+
+    /// <summary>Whether the run flow exists (it is made by the first run; for tests).</summary>
+    internal bool OcrFlowCreated => _ocrFlow is not null;
+
+    private TesseractEngineFactory DefaultEngineFactory(string languages) =>
+        new TesseractEngineFactory(TessdataStoreOfWindow().ResolveFolder(OcrLanguages.Split(languages)));
+
+    /// <summary>The badge of the recognition of a tab once it ran (for tests); null before.</summary>
+    internal OcrRunBadge? OcrBadgeOf(PdfTab tab) => _ocrParts.GetValueOrDefault(tab)?.Badge;
+
+    /// <summary>The Cancel recognition command (the ribbon, the badge): the run of the active tab stops, then its finished pages are asked about.</summary>
+    internal void CancelOcr()
+    {
+        if (_ocrFlow is { RunningTab: { } running } flow && ReferenceEquals(running, Workspace.Active))
+        {
+            flow.Cancel();
         }
     }
 
@@ -147,6 +192,167 @@ internal sealed partial class PdfWindow
             _languagesRunning = false;
         }
     }
+
+    /// <summary>
+    /// Starts the run for the options of the card. An open field edit and a typed comment are written first (the tools that held them are locked from here on);
+    /// a value that is refused stays on screen with its reason and the run does not start. Waits for the first sharp page, a running job and another mode.
+    /// </summary>
+    internal async Task StartOcrRunAsync(PdfTab tab, OcrOptions options)
+    {
+        if (_ocrStarting || OcrBusy || !Workspace.Tabs.Contains(tab) || !_views.TryGetValue(tab, out var view) || !view.FirstSharpPageShown)
+        {
+            return;
+        }
+
+        var modes = new ModeExclusion(mode => ModeIsOnFor(tab, mode));
+        if (BusyWithFileJob() || !modes.CanEnter(PdfMode.Ocr, out _))
+        {
+            return;
+        }
+
+        var editing = FormsOf(tab)?.Interaction.IsEditing == true;
+        var typed = MarksOf(tab)?.HasUnappliedComment == true;
+        if (editing && !FormsOf(tab)!.Interaction.EndOrReveal())
+        {
+            return;
+        }
+
+        if (editing || typed)
+        {
+            _ocrStarting = true;
+            try
+            {
+                await tab.Annotations.FlushAsync();
+            }
+            finally
+            {
+                _ocrStarting = false;
+            }
+
+            if (!Workspace.Tabs.Contains(tab) || OcrBusy || BusyWithFileJob() || FormsOf(tab)?.Interaction.IsEditing == true || MarksOf(tab)?.HasUnappliedComment == true || !modes.CanEnter(PdfMode.Ocr, out _))
+            {
+                return;
+            }
+        }
+
+        // The badge and the hint of the status bar follow the session from here; the scan hint has served its purpose.
+        EnsureOcrParts(tab);
+        if (_hosts.TryGetValue(tab, out var host))
+        {
+            host.Hint?.End();
+        }
+
+        await OcrFlow.RunAsync(tab, options);
+        UpdateOcrStatus();
+    }
+
+    private bool BusyWithFileJob() =>
+        _saves.IsSaving || _print.IsRunning || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true;
+
+    // The badge of a tab is made with its first run and kept (hidden between runs) until the tab closes or is rebuilt.
+    private void EnsureOcrParts(PdfTab tab)
+    {
+        if (_ocrParts.ContainsKey(tab))
+        {
+            return;
+        }
+
+        var session = tab.Ocr;
+        var badge = new OcrRunBadge(session, CancelOcr);
+        void OnChanged()
+        {
+            RefreshCommandStates();
+            UpdateOcrStatus();
+        }
+
+        session.Changed += OnChanged;
+        _ocrParts[tab] = new OcrParts(session, badge, OnChanged);
+        if (_hosts.TryGetValue(tab, out var host))
+        {
+            host.Ocr = badge;
+        }
+    }
+
+    private void DisposeOcrParts(PdfTab tab)
+    {
+        if (!_ocrParts.Remove(tab, out var parts))
+        {
+            return;
+        }
+
+        parts.Session.Changed -= parts.Changed;
+        if (_hosts.TryGetValue(tab, out var host) && ReferenceEquals(host.Ocr, parts.Badge))
+        {
+            host.Ocr = null;
+        }
+
+        parts.Badge.Dispose();
+    }
+
+    // The status bar says how far the run of the active tab is ("3 of 12 pages") and gives the cell back when it is over; a hint of another owner is left alone.
+    private void UpdateOcrStatus()
+    {
+        if (Workspace.Active?.OcrIfCreated is { IsActive: true, Progress: { } progress })
+        {
+            Status.Hint = PdfStrings.Fill(PdfStrings.OcrHintFormat, progress.PagesDone, progress.PagesTotal);
+            _ocrHintShown = true;
+        }
+        else if (_ocrHintShown)
+        {
+            Status.Hint = null;
+            _ocrHintShown = false;
+        }
+    }
+
+    /// <summary>"Cancel the text recognition?" for a tab whose run still goes: Stop recognition is DontSave, Keep going is Cancel. A card that is already open answers Cancel.</summary>
+    internal Task<CloseChoice> AskOcrAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Ocr);
+
+    // The close of a tab or of the window stops the run and drops its pages.
+    private Task StopOcrForCloseAsync(PdfTab tab) => _ocrFlow?.StopAsync(tab) ?? Task.CompletedTask;
+
+    /// <summary>
+    /// After the first sharp page of a tab: when the page shown is a picture of text and the library is there, the hint offers to make the document searchable.
+    /// Asked once per tab and document (memory only); nothing is read in a measurement run or without the library, and nothing is made before the page is sharp.
+    /// </summary>
+    internal async Task OfferScanHintAsync(PdfTab tab)
+    {
+        if (_options.IsMeasuring || tab.OcrIfCreated is { ScanHintHandled: true } || _scanHintChecked.Contains(tab) || OcrRunStarter is null
+            || !_views.TryGetValue(tab, out var view) || !view.FirstSharpPageShown || tab.Session.Document is not { } document || !OcrLibraryAvailable())
+        {
+            return;
+        }
+
+        _scanHintChecked.Add(tab);
+        bool picture;
+        try
+        {
+            picture = await (ScanProbe ?? ScanPageProbe.IsPictureAsync)(document, view.CurrentPage, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A page that cannot be read gives no hint.
+            return;
+        }
+
+        if (!picture || !Workspace.Tabs.Contains(tab) || !ReferenceEquals(tab.Session.Document, document) || !_hosts.TryGetValue(tab, out var host) || ModeIsOnFor(tab, PdfMode.Ocr) || OcrBusy)
+        {
+            return;
+        }
+
+        tab.Ocr.ScanHintHandled = true;
+        var hint = new ScanHint(() => _ = GuardAsync(RecognizeAsync));
+        hint.Ended += () =>
+        {
+            if (ReferenceEquals(host.Hint, hint))
+            {
+                host.Hint = null;
+            }
+        };
+        host.Hint = hint;
+    }
+
+    /// <summary>The pieces of the recognition of one tab: the session it follows, its badge and the handler that keeps the commands and the status bar current.</summary>
+    private sealed record OcrParts(OcrSession Session, OcrRunBadge Badge, Action Changed);
 
     private async Task<string?> PickLanguageFileAsync()
     {

@@ -84,7 +84,22 @@ internal sealed class PdfTab : IDisposable
     public RedactSession Redact => _redact ??= new RedactSession(this, SynchronizationContext.Current ?? new DispatcherContext());
 
     /// <summary>The text recognition session of the tab, made on first use and disposed with the tab. UI thread.</summary>
-    public OcrSession Ocr => _ocr ??= new OcrSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+    public OcrSession Ocr
+    {
+        get
+        {
+            if (_ocr is null)
+            {
+                _ocr = new OcrSession(this, SynchronizationContext.Current ?? new DispatcherContext());
+                OcrCreated?.Invoke(_ocr);
+            }
+
+            return _ocr;
+        }
+    }
+
+    /// <summary>Raised when the text recognition session is made (the marks pane, which must not make it, listens to it). UI thread.</summary>
+    public event Action<OcrSession>? OcrCreated;
 
     /// <summary>The text editing session of the tab, made on first use and disposed with the tab. UI thread.</summary>
     public TextEditSession TextEdit => _textEdit ??= new TextEditSession(this, SynchronizationContext.Current ?? new DispatcherContext());

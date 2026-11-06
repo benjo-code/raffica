@@ -2798,4 +2798,163 @@
   <data name="OcrImportFailed" xml:space="preserve">
     <value>Die Datei konnte nicht gelesen oder kopiert werden. Es wurde nichts hinzugefügt.</value>
   </data>
+  <data name="OcrBadgeText" xml:space="preserve">
+    <value>Text wird erkannt</value>
+  </data>
+  <data name="OcrBadgeProgressFormat" xml:space="preserve">
+    <value>Text wird erkannt: {0} von {1} Seiten</value>
+  </data>
+  <data name="OcrHintFormat" xml:space="preserve">
+    <value>{0} von {1} Seiten</value>
+  </data>
+  <data name="OcrAnnounceStart" xml:space="preserve">
+    <value>Die Texterkennung hat begonnen.</value>
+  </data>
+  <data name="OcrAnnounceStepFormat" xml:space="preserve">
+    <value>{0} von {1} Seiten.</value>
+  </data>
+  <data name="OcrAnnounceDoneFormat" xml:space="preserve">
+    <value>Die Texterkennung ist beendet. {0} Seiten erkannt.</value>
+  </data>
+  <data name="OcrAnnounceCanceled" xml:space="preserve">
+    <value>Die Texterkennung wurde abgebrochen. Die Datei ist unverändert.</value>
+  </data>
+  <data name="OcrAnnounceKeptFormat" xml:space="preserve">
+    <value>Die Texterkennung wurde abgebrochen. Der Text von {0} Seiten wurde behalten.</value>
+  </data>
+  <data name="OcrAnnounceFailed" xml:space="preserve">
+    <value>Die Texterkennung wurde ohne Ergebnis beendet.</value>
+  </data>
+  <data name="OcrScanHintText" xml:space="preserve">
+    <value>Das sieht nach einem Scan aus. Durchsuchbar machen?</value>
+  </data>
+  <data name="OcrScanHintRecognize" xml:space="preserve">
+    <value>Erkennen…</value>
+  </data>
+  <data name="OcrScanHintNotNow" xml:space="preserve">
+    <value>Jetzt nicht</value>
+  </data>
+  <data name="OcrScanHintNever" xml:space="preserve">
+    <value>Für diese Datei nicht mehr fragen</value>
+  </data>
+  <data name="OcrScanHintName" xml:space="preserve">
+    <value>Hinweis auf einen Scan</value>
+  </data>
+  <data name="OcrKeepTitle" xml:space="preserve">
+    <value>Die fertigen Seiten behalten?</value>
+  </data>
+  <data name="OcrKeepMessageFormat" xml:space="preserve">
+    <value>Die Erkennung wurde nach {0} Seiten abgebrochen. Soll ihr Text behalten werden, oder soll er verworfen werden und die Datei bleibt, wie sie ist?</value>
+  </data>
+  <data name="OcrKeepKeepFormat" xml:space="preserve">
+    <value>{0} Seiten behalten</value>
+  </data>
+  <data name="OcrKeepDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="OcrHistoryFullTitle" xml:space="preserve">
+    <value>Zuerst die Änderungen speichern</value>
+  </data>
+  <data name="OcrHistoryFullMessageFormat" xml:space="preserve">
+    <value>Der erkannte Text von {0} passt neben den noch nicht gespeicherten Änderungen nicht in den Rückgängig-Verlauf. Speichere die Datei zuerst; danach wird der erkannte Text hinzugefügt.</value>
+  </data>
+  <data name="OcrFailTitle" xml:space="preserve">
+    <value>Texterkennung</value>
+  </data>
+  <data name="OcrFailLibraryUnusable" xml:space="preserve">
+    <value>Die Bibliothek der Texterkennung konnte nicht geladen werden.</value>
+  </data>
+  <data name="OcrFailLanguageInvalid" xml:space="preserve">
+    <value>Die Auswahl der Sprachen ist nicht brauchbar.</value>
+  </data>
+  <data name="OcrFailLanguageMissingFormat" xml:space="preserve">
+    <value>Diese Sprachdateien fehlen: {0}. Füge sie mit „Sprachen…“ hinzu oder wähle andere Sprachen.</value>
+  </data>
+  <data name="OcrFailLanguageMissingNone" xml:space="preserve">
+    <value>Eine Sprachdatei fehlt. Füge sie mit „Sprachen…“ hinzu oder wähle eine andere Sprache.</value>
+  </data>
+  <data name="OcrFailDataCorrupt" xml:space="preserve">
+    <value>Eine Sprachdatei konnte nicht gelesen werden. Sie ist vielleicht beschädigt oder für eine andere Version gemacht.</value>
+  </data>
+  <data name="OcrFailFailed" xml:space="preserve">
+    <value>Die Texterkennung wurde ohne Ergebnis beendet.</value>
+  </data>
+  <data name="OcrFailApply" xml:space="preserve">
+    <value>Der erkannte Text konnte nicht in die Datei geschrieben werden. Die Datei ist unverändert.</value>
+  </data>
+  <data name="OcrFailNotAdded" xml:space="preserve">
+    <value>Der erkannte Text wurde der Datei nicht hinzugefügt.</value>
+  </data>
+  <data name="OcrReportTitle" xml:space="preserve">
+    <value>Texterkennung</value>
+  </data>
+  <data name="OcrReportCanceledTitle" xml:space="preserve">
+    <value>Texterkennung abgebrochen</value>
+  </data>
+  <data name="OcrReportSummaryFormat" xml:space="preserve">
+    <value>{0} Seiten erkannt, {1} Wörter gefunden. Mittlere Konfidenz laut Erkennung: {2} %.</value>
+  </data>
+  <data name="OcrReportWrittenFormat" xml:space="preserve">
+    <value>{0} Wörter wurden in die Textebene von {1} Seiten geschrieben.</value>
+  </data>
+  <data name="OcrReportLeftOutFormat" xml:space="preserve">
+    <value>{0} Wörter wurden weggelassen, weil ein Zeichen davon in der Schrift der Textebene fehlt.</value>
+  </data>
+  <data name="OcrReportKeptLayerFormat" xml:space="preserve">
+    <value>Diese Seiten behielten die Textebene, die sie hatten: {0}.</value>
+  </data>
+  <data name="OcrReportNothingWritten" xml:space="preserve">
+    <value>Es wurde nichts in die Datei geschrieben.</value>
+  </data>
+  <data name="OcrReportSkippedHeading" xml:space="preserve">
+    <value>Seiten, die nicht erkannt wurden</value>
+  </data>
+  <data name="OcrReportSkippedLineFormat" xml:space="preserve">
+    <value>Seite {0}: {1}</value>
+  </data>
+  <data name="OcrReportLowFormat" xml:space="preserve">
+    <value>Seiten, die vielleicht gedreht oder schwer lesbar sind (niedrige Konfidenz): {0}.</value>
+  </data>
+  <data name="OcrReportEmptyFormat" xml:space="preserve">
+    <value>Seiten ohne ein erkanntes Wort: {0}.</value>
+  </data>
+  <data name="OcrReportLittleFormat" xml:space="preserve">
+    <value>Seiten, die schon etwas eigenen Text hatten, der unverändert bleibt: {0}.</value>
+  </data>
+  <data name="OcrReportLoweredFormat" xml:space="preserve">
+    <value>Seiten, die wegen ihrer Größe mit geringerer Auflösung erkannt wurden: {0}.</value>
+  </data>
+  <data name="OcrReportMoreFormat" xml:space="preserve">
+    <value>{0} und {1} weitere</value>
+  </data>
+  <data name="OcrReportUndoable" xml:space="preserve">
+    <value>Die Erkennung ist ein Schritt im Rückgängig-Verlauf. Speichere die Datei, um sie zu behalten.</value>
+  </data>
+  <data name="OcrReportNotUndoable" xml:space="preserve">
+    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließe ohne zu speichern, um ihn zu verwerfen.</value>
+  </data>
+  <data name="OcrSkipHasText" xml:space="preserve">
+    <value>Die Seite hat schon eigenen Text.</value>
+  </data>
+  <data name="OcrSkipAlreadyRecognized" xml:space="preserve">
+    <value>Die Seite hat schon eine Textebene von Raffica. Wähle die Option zum Neuerstellen, um sie zu ersetzen.</value>
+  </data>
+  <data name="OcrSkipTooLarge" xml:space="preserve">
+    <value>Die Seite ist zu groß oder hat mehr Wörter, als verarbeitet werden.</value>
+  </data>
+  <data name="OcrSkipResolutionTooLowFormat" xml:space="preserve">
+    <value>Die Auflösung von {0} dpi ist für die Erkennung zu niedrig.</value>
+  </data>
+  <data name="OcrSkipResolutionTooLow" xml:space="preserve">
+    <value>Die Auflösung ist für die Erkennung zu niedrig.</value>
+  </data>
+  <data name="OcrSkipTimeout" xml:space="preserve">
+    <value>Die Seite hat zu lange gebraucht.</value>
+  </data>
+  <data name="OcrSkipFailed" xml:space="preserve">
+    <value>Die Seite konnte nicht gelesen werden.</value>
+  </data>
+  <data name="OcrSkipNoSupportedCharacters" xml:space="preserve">
+    <value>Es konnte kein Wort geschrieben werden, weil dessen Zeichen in der Schrift der Textebene fehlen.</value>
+  </data>
 </root>

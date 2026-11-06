@@ -14,20 +14,35 @@ internal enum CloseChoice
 /// </summary>
 internal sealed record PlanClose(Func<PdfTab, Task<CloseChoice>> Prompt, Func<PdfTab, Task<bool>> Apply, Func<PdfTab, Task<bool>>? SaveMarks = null);
 
+/// <summary>The question of a tab with a text recognition that still runs: what the user chose (Stop recognition is <see cref="CloseChoice.DontSave"/>, Keep going is Cancel) and the stop that ends the run and waits for it.</summary>
+internal sealed record OcrClose(Func<PdfTab, Task<CloseChoice>> Prompt, Func<PdfTab, Task> Stop);
+
 /// <summary>
 /// Decides whether a tab may close: a clean tab closes at once, a dirty tab asks once. <c>Save</c> closes only if the save worked and no unresolved draft is left,
 /// <c>Cancel</c> keeps the tab. A tab with an open page plan that changes something asks its own question first (<paramref name="plan"/>, "Discard the page
 /// changes?"): <c>Save</c> is Apply and closes only if it succeeded, <c>DontSave</c> discards the plan, <c>Cancel</c> keeps tab and plan. Marks that are unsaved
 /// next to the plan (committed before the mode started) are never dropped with it: after the plan is dealt with, the normal question about them follows.
-/// A tab in the redact mode with marks that are not applied asks its own question first (<paramref name="redact"/>, "Discard the redactions?"): <c>Save</c> is Apply and closes only if the
+/// A tab whose text recognition still runs asks first of all (<paramref name="ocr"/>, "Cancel the text recognition?"): Stop recognition ends the run without keeping any page and goes on,
+/// Keep going keeps the tab. A tab in the redact mode with marks that are not applied asks its own question first (<paramref name="redact"/>, "Discard the redactions?"): <c>Save</c> is Apply and closes only if the
 /// redactions were written, <c>DontSave</c> (Discard) lets the tab close, <c>Cancel</c> keeps tab and marks. A plan that changes nothing and no unsaved marks leave silently. The guard never ends a plan itself: "Discard" is only remembered, so a Cancel at the
 /// question about the marks (or at a later tab of Close all) keeps the plan; the plan goes with the tab when the tab really closes.
 /// </summary>
-internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save, PlanClose? plan = null, PlanClose? redact = null)
+internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<PdfTab, Task<bool>> save, PlanClose? plan = null, PlanClose? redact = null, OcrClose? ocr = null)
 {
     public async Task<bool> CanCloseAsync(PdfTab tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
+
+        // A recognition that goes on is stopped (and its pages dropped) before anything else is asked; Keep going keeps the tab.
+        if (ocr is not null && tab.OcrIfCreated is { IsActive: true })
+        {
+            if (await ocr.Prompt(tab) != CloseChoice.DontSave)
+            {
+                return false;
+            }
+
+            await ocr.Stop(tab);
+        }
 
         // A mark that is still being made counts: wait for it, so the dirty state is current before it is read.
         if (tab.AnnotationsIfCreated is { } annotations)

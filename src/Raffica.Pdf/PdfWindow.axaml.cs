@@ -106,6 +106,7 @@ internal sealed partial class PdfWindow : Window
         ArgumentNullException.ThrowIfNull(settings);
         _launcher = launcher;
         _time = time;
+        _ocrRunStarter = (tab, options) => _ = GuardAsync(() => StartOcrRunAsync(tab, options));
         _options = options;
         var appDefaults = appSettings ?? AppSettings.Default;
         _recent = new RecentService(new RecentFilesStore(PdfSettingsFiles.RecentPathFor(options.SettingsFile)));
@@ -114,7 +115,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync), new PlanClose(AskRedactAsync, ApplyRedactForCloseAsync, SaveMarksForCloseAsync));
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync), new PlanClose(AskRedactAsync, ApplyRedactForCloseAsync, SaveMarksForCloseAsync), new OcrClose(AskOcrAsync, StopOcrForCloseAsync));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -163,7 +164,7 @@ internal sealed partial class PdfWindow : Window
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
-            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy);
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
@@ -234,6 +235,7 @@ internal sealed partial class PdfWindow : Window
         Step(_saves.Cancel);
         Step(() => _applyFlow?.Cancel());
         Step(() => _redactFlow?.Cancel());
+        Step(() => _ocrFlow?.Abandon());
         Step(() => _outputFlow?.Cancel());
         Step(() => _exportFlow?.Cancel());
         Step(_fieldCodes.Dispose);
@@ -755,6 +757,8 @@ internal sealed partial class PdfWindow : Window
     // and for the rebuild after a rewrite. It leaves the dictionaries without the tab and the tab itself alone.
     private void DisposeTabPieces(PdfTab tab)
     {
+        DisposeOcrParts(tab);
+        _scanHintChecked.Remove(tab);
         if (_redacts.Remove(tab, out var redact))
         {
             DisposeRedactParts(tab, redact);
@@ -877,6 +881,7 @@ internal sealed partial class PdfWindow : Window
         ShowActiveView();
         EnforceAnnotatePermission(showCard: false);
         RefreshCommandStates();
+        UpdateOcrStatus();
     }
 
     /// <summary>The document slot shows the page view of the active tab (made on first use); the others leave the screen and request nothing.</summary>
@@ -903,6 +908,9 @@ internal sealed partial class PdfWindow : Window
 
             // The Pages commands wait for the first sharp page (nothing of the mode is read before it).
             view.FirstSharpPage += RefreshCommandStates;
+
+            // The scan hint is asked once the first page is sharp (and not in a measurement run; OfferScanHintAsync checks).
+            view.FirstSharpPage += () => _ = GuardAsync(() => OfferScanHintAsync(shownTab));
             var created = view;
             view.ViewChanged += () =>
             {

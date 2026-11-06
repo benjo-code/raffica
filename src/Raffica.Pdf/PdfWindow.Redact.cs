@@ -144,7 +144,7 @@ internal sealed partial class PdfWindow
         RefreshCommandStates,
         () => _print.IsRunning,
         _time,
-        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy);
 
     /// <summary>Gets whether the redaction apply flow exists (it is made by the first Apply; for tests).</summary>
     internal bool RedactFlowCreated => _redactFlow is not null;

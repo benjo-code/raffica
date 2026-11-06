@@ -36,6 +36,7 @@ internal sealed class PdfCommandRules(
     Func<bool>? redactMarked = null,
     Func<bool>? ocrLibrary = null,
     Func<bool>? ocrStarter = null,
+    Func<bool>? ocrRunning = null,
     ModeExclusion? modes = null)
 {
     // Without the window's own exclusion the only mode known is the page plan, which organizeActive tells.
@@ -89,16 +90,16 @@ internal sealed class PdfCommandRules(
     {
         PdfCommandIds.Open or PdfCommandIds.Settings or PdfCommandIds.Help => true,
         PdfCommandIds.NextTab or PdfCommandIds.PreviousTab => tabCount() > 1,
-        PdfCommandIds.Print => hasDocument() && !PrintForbidden() && !NoPrinter() && !Ask(saveRunning, false),
-        PdfCommandIds.Save => hasDocument() && Ask(isDirty, false) && !Ask(busySaving, false),
-        PdfCommandIds.SaveAs => hasDocument() && !Ask(busySaving, false),
-        PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false),
-        PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
+        PdfCommandIds.Print => hasDocument() && !PrintForbidden() && !NoPrinter() && !Ask(saveRunning, false) && !Ask(ocrRunning, false),
+        PdfCommandIds.Save => hasDocument() && Ask(isDirty, false) && !Ask(busySaving, false) && !Ask(ocrRunning, false),
+        PdfCommandIds.SaveAs => hasDocument() && !Ask(busySaving, false) && !Ask(ocrRunning, false),
+        PdfCommandIds.Undo => hasDocument() && Ask(canUndo, false) && !_modes.IsActive(PdfMode.Ocr),
+        PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false) && !_modes.IsActive(PdfMode.Ocr),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
         PdfCommandIds.RedactApply => hasDocument() && _modes.IsActive(PdfMode.Redact) && Ask(redactMarked, false) && !Ask(saveRunning, false),
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
         PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
-        PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true),
+        PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true) && Ask(pagesReady, true) && !Ask(ocrRunning, false) && !Ask(saveRunning, false),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
         PdfCommandIds.OcrLanguages => hasDocument() && !_modes.IsActive(PdfMode.Ocr),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
@@ -141,6 +142,22 @@ internal sealed class PdfCommandRules(
         if (id == PdfCommandIds.OcrRun && !Ask(ocrLibrary, true))
         {
             return PdfStrings.OcrNoLibraryReason;
+        }
+
+        // A run that goes on (in this tab or in another one) holds the file: what would write to it or start another job waits, with the reason of the run.
+        if (Ask(ocrRunning, false) && id is PdfCommandIds.Save or PdfCommandIds.SaveAs or PdfCommandIds.Print or PdfCommandIds.OcrRun)
+        {
+            return PdfStrings.ModeOcrReason;
+        }
+
+        if (id is PdfCommandIds.Undo or PdfCommandIds.Redo && _modes.IsActive(PdfMode.Ocr))
+        {
+            return PdfStrings.ModeOcrReason;
+        }
+
+        if (id == PdfCommandIds.OcrRun)
+        {
+            return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
         }
 
         // The language files are read when an engine is made and a file in use cannot be replaced: no import while a recognition runs.
