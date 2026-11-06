@@ -93,6 +93,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.Redo => hasDocument() && Ask(canRedo, false),
         PdfCommandIds.DeleteMark => hasDocument() && Ask(hasSelection, false),
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
+        PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
         PdfCommandIds.OcrLanguages => hasDocument(),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
@@ -147,7 +148,7 @@ internal sealed class PdfCommandRules(
         }
 
         // A save, an apply or an output job that runs holds the file: entering the mode and applying wait for it.
-        if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages)
+        if ((id == PdfCommandIds.Organize && !PlanOpen()) || id == PdfCommandIds.ApplyPages || (id == PdfCommandIds.RedactMode && !_modes.IsActive(PdfMode.Redact)))
         {
             return Ask(saveRunning, false) ? PdfStrings.SaveBusy : null;
         }

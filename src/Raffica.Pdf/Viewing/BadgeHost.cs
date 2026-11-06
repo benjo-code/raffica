@@ -1,12 +1,13 @@
 using Avalonia.Controls;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Forms;
+using Raffica.Pdf.Redacting;
 
 namespace Raffica.Pdf.Viewing;
 
 /// <summary>
-/// The one control in the <c>Badge</c> slot of a page view: it shows the annotate badge while an annotate tool is active and the form badge
-/// otherwise, and nothing for a document without a form (no form badge exists then). It is a panel, so the page view measures and arranges
+/// The one control in the <c>Badge</c> slot of a page view: it shows the annotate badge while an annotate tool is active, the redact badge while
+/// the redact mode is on, and the form badge otherwise, and nothing for a document without a form (no form badge exists then). It is a panel, so the page view measures and arranges
 /// it like the annotate badge before, and <see cref="PageView.IsInBadge"/> finds the controls of both badges below it.
 /// </summary>
 internal sealed class BadgeHost : Panel, IDisposable
@@ -14,6 +15,7 @@ internal sealed class BadgeHost : Panel, IDisposable
     private readonly AnnotateBadge _annotate;
     private readonly ToolState _tools;
     private FormBadge? _forms;
+    private RedactModeBadge? _redact;
 
     public BadgeHost(AnnotateBadge annotate, FormBadge? forms, ToolState tools)
     {
@@ -53,6 +55,34 @@ internal sealed class BadgeHost : Panel, IDisposable
         }
     }
 
+    /// <summary>The badge of the redact mode; <see langword="null"/> while the mode is off (it is made when the mode starts and goes with it).</summary>
+    public RedactModeBadge? Redact
+    {
+        get => _redact;
+        set
+        {
+            if (ReferenceEquals(_redact, value))
+            {
+                return;
+            }
+
+            if (_redact is not null)
+            {
+                _redact.ActiveChanged -= Update;
+                Children.Remove(_redact);
+            }
+
+            _redact = value;
+            if (value is not null)
+            {
+                Children.Add(value);
+                value.ActiveChanged += Update;
+            }
+
+            Update();
+        }
+    }
+
     /// <summary>Whether the annotate badge is the one shown.</summary>
     public bool AnnotateVisible => _annotate.IsVisible;
 
@@ -61,13 +91,19 @@ internal sealed class BadgeHost : Panel, IDisposable
     private void Update()
     {
         var annotating = _tools.Tool != AnnotateTool.None;
+        var redacting = _redact?.Active == true && !annotating;
         _annotate.IsVisible = annotating;
-        if (_forms is not null)
+        if (_redact is not null)
         {
-            _forms.IsVisible = !annotating;
+            _redact.IsVisible = redacting;
         }
 
-        IsVisible = annotating || _forms is not null;
+        if (_forms is not null)
+        {
+            _forms.IsVisible = !annotating && !redacting;
+        }
+
+        IsVisible = annotating || redacting || _forms is not null;
         InvalidateMeasure();
     }
 }

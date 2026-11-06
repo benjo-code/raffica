@@ -31,6 +31,7 @@ internal sealed partial class PageView
     private SelectionController? _selection;
     private IPageOverlay? _overlay;
     private IPageOverlay? _formOverlay;
+    private IPageOverlay? _modeOverlay;
     private Control? _badge;
     private Control? _field;
     private Rect _fieldRect;
@@ -114,6 +115,32 @@ internal sealed partial class PageView
             }
 
             _formOverlay = value;
+            if (value is not null)
+            {
+                value.Changed += InvalidateVisual;
+            }
+
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>The layer of the redact mode (its marks), drawn after <see cref="Overlay"/>; the view draws again whenever it says it changed.</summary>
+    internal IPageOverlay? ModeOverlay
+    {
+        get => _modeOverlay;
+        set
+        {
+            if (ReferenceEquals(value, _modeOverlay))
+            {
+                return;
+            }
+
+            if (_modeOverlay is not null)
+            {
+                _modeOverlay.Changed -= InvalidateVisual;
+            }
+
+            _modeOverlay = value;
             if (value is not null)
             {
                 value.Changed += InvalidateVisual;

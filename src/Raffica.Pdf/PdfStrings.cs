@@ -692,6 +692,62 @@ internal static class PdfStrings
     public static string SignaturePlaceTitle => Table.Get("SignaturePlaceTitle");
     public static string SignaturePlaceHistoryFull => Table.Get("SignaturePlaceHistoryFull");
     public static string SignaturePlaceFailed => Table.Get("SignaturePlaceFailed");
+    public static string PaneRedact => Table.Get("PaneRedact");
+    public static string RedactHint => Table.Get("RedactHint");
+    public static string RedactCounterNone => Table.Get("RedactCounterNone");
+    public static string RedactCounterMarksOne => Table.Get("RedactCounterMarksOne");
+    public static string RedactCounterMarksMany => Table.Get("RedactCounterMarksMany");
+    public static string RedactCounterPagesOne => Table.Get("RedactCounterPagesOne");
+    public static string RedactCounterPagesMany => Table.Get("RedactCounterPagesMany");
+    public static string RedactCounterJoinFormat => Table.Get("RedactCounterJoinFormat");
+    public static string RedactApplyButton => Table.Get("RedactApplyButton");
+    public static string RedactListName => Table.Get("RedactListName");
+    public static string RedactPageHeaderFormat => Table.Get("RedactPageHeaderFormat");
+    public static string RedactMarkNameFormat => Table.Get("RedactMarkNameFormat");
+    public static string RedactKindArea => Table.Get("RedactKindArea");
+    public static string RedactKindText => Table.Get("RedactKindText");
+    public static string RedactKindHit => Table.Get("RedactKindHit");
+    public static string RedactRowTextFormat => Table.Get("RedactRowTextFormat");
+    public static string RedactBadgeText => Table.Get("RedactBadgeText");
+    public static string RedactToolsName => Table.Get("RedactToolsName");
+    public static string RedactToolArea => Table.Get("RedactToolArea");
+    public static string RedactToolText => Table.Get("RedactToolText");
+    public static string RedactRefusalNothingSelected => Table.Get("RedactRefusalNothingSelected");
+    public static string RedactRefusalTextNotMarkable => Table.Get("RedactRefusalTextNotMarkable");
+    public static string RedactRefusalTooManyFormat => Table.Get("RedactRefusalTooManyFormat");
+    public static string RedactRefusalNotArea => Table.Get("RedactRefusalNotArea");
+    public static string RedactRefusalOutOfRange => Table.Get("RedactRefusalOutOfRange");
+    public static string RedactRefusalUnknownMark => Table.Get("RedactRefusalUnknownMark");
+    public static string RedactRefusalTextUnavailable => Table.Get("RedactRefusalTextUnavailable");
+    public static string RedactRefusalNotActive => Table.Get("RedactRefusalNotActive");
+
+    /// <summary>The counter of the redact pane: "4 marks on 2 pages", singular forms for one, and "No marks yet" for none.</summary>
+    public static string RedactCounter(int marks, int pages)
+    {
+        if (marks <= 0)
+        {
+            return RedactCounterNone;
+        }
+
+        var markText = marks == 1 ? RedactCounterMarksOne : RedactCounterMarksMany.Replace("{0}", marks.ToString(Culture), StringComparison.Ordinal);
+        var pageText = pages == 1 ? RedactCounterPagesOne : RedactCounterPagesMany.Replace("{0}", pages.ToString(Culture), StringComparison.Ordinal);
+        return RedactCounterJoinFormat.Replace("{0}", markText, StringComparison.Ordinal).Replace("{1}", pageText, StringComparison.Ordinal);
+    }
+
+    /// <summary>Why the redact session refused an operation, in the UI language (one text per <see cref="Raffica.Pdf.Redacting.RedactProblem"/> value).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string RedactRefusal(Raffica.Pdf.Redacting.RedactProblem problem) => problem switch
+    {
+        Raffica.Pdf.Redacting.RedactProblem.NotActive => RedactRefusalNotActive,
+        Raffica.Pdf.Redacting.RedactProblem.NothingSelected => RedactRefusalNothingSelected,
+        Raffica.Pdf.Redacting.RedactProblem.TextNotMarkable => RedactRefusalTextNotMarkable,
+        Raffica.Pdf.Redacting.RedactProblem.TooManyMarks => RedactRefusalTooManyFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxMarks.ToString("N0", Culture), StringComparison.Ordinal),
+        Raffica.Pdf.Redacting.RedactProblem.NotAnArea => RedactRefusalNotArea,
+        Raffica.Pdf.Redacting.RedactProblem.OutOfRange => RedactRefusalOutOfRange,
+        Raffica.Pdf.Redacting.RedactProblem.UnknownMark => RedactRefusalUnknownMark,
+        Raffica.Pdf.Redacting.RedactProblem.TextUnavailable => RedactRefusalTextUnavailable,
+        _ => throw new ArgumentOutOfRangeException(nameof(problem), problem, "This redact problem has no text."),
+    };
 
     /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

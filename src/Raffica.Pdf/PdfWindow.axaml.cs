@@ -22,6 +22,7 @@ using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
+using Raffica.Pdf.Redacting;
 using Raffica.Pdf.Settings;
 using Raffica.Pdf.Signing;
 using Raffica.Pdf.Text;
@@ -113,7 +114,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync));
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync), AskRedactAsync);
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -239,6 +240,8 @@ internal sealed partial class PdfWindow : Window
 
         // The position of every open file is remembered, then the panes, the views and the texts let go of the sessions, then the sessions are disposed.
         EachStep(Workspace.Tabs, RememberView);
+        EachStep(_redacts, pair => DisposeRedactParts(pair.Key, pair.Value));
+        _redacts.Clear();
         EachStep(_panes.Values, panes => panes.Dispose());
         _panes.Clear();
         EachStep(_marks.Values, DisposeMarks);
@@ -749,6 +752,11 @@ internal sealed partial class PdfWindow : Window
     // and for the rebuild after a rewrite. It leaves the dictionaries without the tab and the tab itself alone.
     private void DisposeTabPieces(PdfTab tab)
     {
+        if (_redacts.Remove(tab, out var redact))
+        {
+            DisposeRedactParts(tab, redact);
+        }
+
         if (_panes.Remove(tab, out var panes))
         {
             panes.Dispose();
@@ -905,7 +913,7 @@ internal sealed partial class PdfWindow : Window
             var search = new SearchSession(active, () => view.CurrentPage);
             _searches[active] = search;
             view.Search = search;
-            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None);
+            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None || active.RedactIfCreated is { IsActive: true, Tool: RedactTool.Area });
             _texts[active] = text;
             var annotate = new AnnotateInteraction(active, view, Tools, text.Selection, Dialogs, _time);
             _annotates[active] = annotate;
@@ -1035,6 +1043,16 @@ internal sealed partial class PdfWindow : Window
     private void UpdateMarksPane()
     {
         var active = Workspace.Active;
+        if (active is not null && Tabs.Items.Count > 0 && _redacts.TryGetValue(active, out var redacting) && active.RedactIfCreated is { IsActive: true })
+        {
+            // The redact mode takes the right slot from the marks pane while it is on; the marks pane comes back with the mode's end.
+            CommentsPane.Title = PdfStrings.PaneRedact;
+            CommentsPane.Content = redacting.Pane;
+            CommentsPane.IsOpen = true;
+            return;
+        }
+
+        CommentsPane.Title = PdfStrings.PaneMarks;
         if (active is null || Tabs.Items.Count == 0 || !_marksOpen.Contains(active) || !_views.TryGetValue(active, out var view) || !_annotates.TryGetValue(active, out var annotate))
         {
             CommentsPane.IsOpen = false;
@@ -1405,6 +1423,9 @@ internal sealed partial class PdfWindow : Window
     }
 
     private Task<CloseChoice> PromptAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Save);
+
+    /// <summary>"Discard the redactions?" for a tab in the redact mode with marks: Discard is DontSave; Apply… (Save) and Cancel keep the tab. A card that is already open answers Cancel.</summary>
+    internal Task<CloseChoice> AskRedactAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Redact);
 
     /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open answers Cancel.</summary>
     internal Task<CloseChoice> AskPlanAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Plan);

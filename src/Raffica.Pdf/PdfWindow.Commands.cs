@@ -60,8 +60,8 @@ internal sealed partial class PdfWindow
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
         PrintAvailable,
         isDirty: () => Workspace.Active is { IsDirty: true },
-        canUndo: () => OpenPlan is { } plan ? plan.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
-        canRedo: () => OpenPlan is { } plan ? plan.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
+        canUndo: () => OpenPlan is { } plan ? plan.CanUndo : OpenRedact is { } redact ? redact.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
+        canRedo: () => OpenPlan is { } plan ? plan.CanRedo : OpenRedact is { } redact ? redact.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
         busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
@@ -229,7 +229,11 @@ internal sealed partial class PdfWindow
         DeletePages: () => RunPageEdit(session => session.Delete()),
         ExtractPages: ExtractPages,
         SplitDocument: SplitDocument,
-        ExportImages: ExportImages);
+        ExportImages: ExportImages,
+        RedactMode: ToggleRedact,
+        RedactMarkSelection: MarkRedactSelection,
+        RedactDeleteMarks: DeleteRedactMarks,
+        RedactDiscard: DiscardRedact);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
@@ -338,12 +342,18 @@ internal sealed partial class PdfWindow
         }
     }
 
-    // While the page plan is open Undo and Redo (the Home tab's and Ctrl+Z, Ctrl+Y) belong to its history; the marks are locked and clean then.
+    // While the page plan or the redact plan is open Undo and Redo (the Home tab's and Ctrl+Z, Ctrl+Y) belong to its history; the marks are locked and clean then.
     private Task UndoActiveAsync()
     {
         if (OpenPlan is { } plan)
         {
             plan.Undo();
+            return Task.CompletedTask;
+        }
+
+        if (OpenRedact is { } redact)
+        {
+            redact.Undo();
             return Task.CompletedTask;
         }
 
@@ -355,6 +365,12 @@ internal sealed partial class PdfWindow
         if (OpenPlan is { } plan)
         {
             plan.Redo();
+            return Task.CompletedTask;
+        }
+
+        if (OpenRedact is { } redact)
+        {
+            redact.Redo();
             return Task.CompletedTask;
         }
 
@@ -481,7 +497,7 @@ internal sealed partial class PdfWindow
     private void OnToolsChanged()
     {
         // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a plan is open.
-        if (Tools.Tool != AnnotateTool.None && OpenPlan is not null)
+        if (Tools.Tool != AnnotateTool.None && (OpenPlan is not null || OpenRedact is not null))
         {
             Tools.End();
             return;
