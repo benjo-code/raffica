@@ -221,7 +221,13 @@ static class Fetcher
             throw new InvalidOperationException($"the release has no asset {asset}");
         }
 
-        using var download = Api(HttpMethod.Get, assetUrl, "application/octet-stream", token);
+        // The token goes to api.github.com only: the address the answer names must be https on that host, or nothing is sent.
+        if (!Uri.TryCreate(assetUrl, UriKind.Absolute, out var assetUri) || assetUri.Scheme != Uri.UriSchemeHttps || !string.Equals(assetUri.Host, "api.github.com", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrEmpty(assetUri.UserInfo))
+        {
+            throw new InvalidOperationException($"the release names a download address outside https://api.github.com for {asset}; refused (the token is not sent there)");
+        }
+
+        using var download = Api(HttpMethod.Get, assetUri.AbsoluteUri, "application/octet-stream", token);
         using var response = client.SendAsync(download).GetAwaiter().GetResult();
         response.EnsureSuccessStatusCode();
         return response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
@@ -294,12 +300,20 @@ static class SelfTest
     {
         public List<HttpRequestMessage> Requests { get; } = [];
 
+        // When set, the release lookup names this URL as the download address of every asset.
+        public string? AssetUrl { get; init; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
             var path = request.RequestUri!.AbsoluteUri;
             if (path == "https://api.github.com/repos/benjo-code/raffica/releases/tags/native-tesseract-5.5.4-1")
             {
+                if (AssetUrl is not null)
+                {
+                    return Task.FromResult(new HttpResponseMessage { Content = new StringContent("{\"assets\":[{\"name\":\"tesseract.dll\",\"url\":\"" + AssetUrl + "\"}]}") });
+                }
+
                 const string Json = """{"assets":[{"name":"other.bin","url":"https://api.github.com/repos/benjo-code/raffica/releases/assets/1"},{"name":"tesseract.dll","url":"https://api.github.com/repos/benjo-code/raffica/releases/assets/2"}]}""";
                 return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Json) });
             }
@@ -335,6 +349,14 @@ static class SelfTest
         Expect("a URL that is no release asset is fetched as it is, without the token",
             Fetcher.Download("https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/eng.traineddata", "secret-token", other).Length, 0);
         Expect("a URL that is no release asset is not sent to the API", other.Requests.Count == 1 && other.Requests[0].Headers.Authorization is null, true);
+
+        // The token must never go anywhere but api.github.com: an address in the answer that points elsewhere (or is not https) is refused unused.
+        foreach (var foreign in new[] { "https://evil.example/repos/benjo-code/raffica/releases/assets/2", "http://api.github.com/repos/benjo-code/raffica/releases/assets/2", "https://api.github.com.evil.example/x", "https://user@evil.example/x", "not a url" })
+        {
+            var hostile = new FakeGitHub { AssetUrl = foreign };
+            Expect("a foreign asset address is refused: " + foreign, Throws(() => Fetcher.Download(ReleaseUrl, "secret-token", hostile)), true);
+            Expect("a foreign asset address is never requested: " + foreign, hostile.Requests.Count == 1, true);
+        }
 
         Expect("an asset the release lacks is an error", Throws(() => Fetcher.Download(ReleaseUrl.Replace("tesseract.dll", "missing.dll"), null, new FakeGitHub())), true);
     }
