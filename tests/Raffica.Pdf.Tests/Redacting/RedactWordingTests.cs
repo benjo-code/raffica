@@ -134,6 +134,15 @@ public sealed class RedactWordingTests
             {
                 var text = PdfStrings.GetIn(key, info);
                 Assert.False(string.IsNullOrWhiteSpace(text), $"{key} in {language}");
+
+                // The one allowed use of "error-free" is the negated sentence of the recognition card: "Recognition is not error-free" (and its German pair). Nothing else is let through.
+                if (key == "OcrAccuracyNote")
+                {
+                    var allowed = language == "de" ? "Die Erkennung ist nicht fehlerfrei" : "Recognition is not error-free";
+                    Assert.Contains(allowed, text, StringComparison.Ordinal);
+                    text = text.Replace(allowed, string.Empty, StringComparison.Ordinal);
+                }
+
                 Assert.False(Overpromise.IsMatch(text), $"{key} in {language}: {text}");
             }
         }

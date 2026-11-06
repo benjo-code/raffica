@@ -1134,4 +1134,72 @@ internal static class PdfStrings
         SaveFailureReason.Canceled => SaveFailCanceled,
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "This save failure has no text."),
     };
+
+    public static string OcrRecognizeTitle => Table.Get("OcrRecognizeTitle");
+    public static string OcrLanguagesHeading => Table.Get("OcrLanguagesHeading");
+    public static string OcrLanguageImportedFormat => Table.Get("OcrLanguageImportedFormat");
+    public static string OcrNoLanguages => Table.Get("OcrNoLanguages");
+    public static string OcrSlowWarning => Table.Get("OcrSlowWarning");
+    public static string OcrLanguageRefusalTooManyFormat => Table.Get("OcrLanguageRefusalTooManyFormat");
+    public static string OcrLanguageRefusalNotInstalled => Table.Get("OcrLanguageRefusalNotInstalled");
+    public static string OcrPagesHeading => Table.Get("OcrPagesHeading");
+    public static string OcrPagesAll => Table.Get("OcrPagesAll");
+    public static string OcrPagesRange => Table.Get("OcrPagesRange");
+    public static string OcrPagesRangeLabel => Table.Get("OcrPagesRangeLabel");
+    public static string OcrModeHeading => Table.Get("OcrModeHeading");
+    public static string OcrModeSkip => Table.Get("OcrModeSkip");
+    public static string OcrModeRedo => Table.Get("OcrModeRedo");
+    public static string OcrModeForce => Table.Get("OcrModeForce");
+    public static string OcrResolutionHeading => Table.Get("OcrResolutionHeading");
+    public static string OcrResolutionAuto => Table.Get("OcrResolutionAuto");
+    public static string OcrResolutionFormat => Table.Get("OcrResolutionFormat");
+    public static string OcrAccuracyNote => Table.Get("OcrAccuracyNote");
+    public static string OcrSignedChange => Table.Get("OcrSignedChange");
+    public static string OcrRecognizeConfirm => Table.Get("OcrRecognizeConfirm");
+    public static string OcrNoLibraryReason => Table.Get("OcrNoLibraryReason");
+    public static string OcrFilesTitle => Table.Get("OcrFilesTitle");
+    public static string OcrFilesTrustWarning => Table.Get("OcrFilesTrustWarning");
+    public static string OcrFilesCopyNote => Table.Get("OcrFilesCopyNote");
+    public static string OcrFilesInstalledHeading => Table.Get("OcrFilesInstalledHeading");
+    public static string OcrFilesNone => Table.Get("OcrFilesNone");
+    public static string OcrFilesShippedFormat => Table.Get("OcrFilesShippedFormat");
+    public static string OcrFilesImportedFormat => Table.Get("OcrFilesImportedFormat");
+    public static string OcrFilesChoose => Table.Get("OcrFilesChoose");
+    public static string OcrFilesPickTitle => Table.Get("OcrFilesPickTitle");
+    public static string OcrFilesFilter => Table.Get("OcrFilesFilter");
+    public static string OcrReplaceTitle => Table.Get("OcrReplaceTitle");
+    public static string OcrReplaceMessageFormat => Table.Get("OcrReplaceMessageFormat");
+    public static string OcrReplaceConfirm => Table.Get("OcrReplaceConfirm");
+    public static string OcrReplaceKeep => Table.Get("OcrReplaceKeep");
+    public static string OcrImportTitle => Table.Get("OcrImportTitle");
+    public static string OcrImportDoneFormat => Table.Get("OcrImportDoneFormat");
+    public static string OcrImportInvalidName => Table.Get("OcrImportInvalidName");
+    public static string OcrImportNotAFile => Table.Get("OcrImportNotAFile");
+    public static string OcrImportEmpty => Table.Get("OcrImportEmpty");
+    public static string OcrImportTooLargeFormat => Table.Get("OcrImportTooLargeFormat");
+    public static string OcrImportAlreadyAddedFormat => Table.Get("OcrImportAlreadyAddedFormat");
+    public static string OcrImportFailed => Table.Get("OcrImportFailed");
+
+    /// <summary>The words of a refused language choice, in the UI language (one text per <see cref="Raffica.Pdf.Ocr.LanguageChoice"/> value other than Done).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string OcrLanguageRefusal(Raffica.Pdf.Ocr.LanguageChoice choice) => choice switch
+    {
+        Raffica.Pdf.Ocr.LanguageChoice.TooMany => Fill(OcrLanguageRefusalTooManyFormat, Raffica.Core.Ocr.OcrLanguages.MaxLanguages),
+        Raffica.Pdf.Ocr.LanguageChoice.NotInstalled => OcrLanguageRefusalNotInstalled,
+        _ => throw new ArgumentOutOfRangeException(nameof(choice), choice, "This language choice has no text."),
+    };
+
+    /// <summary>The message of an import, in the UI language (one text per <see cref="Raffica.Core.Ocr.TessdataImportError"/> value; Core's English sentences are never shown).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string OcrImportMessage(Raffica.Core.Ocr.TessdataImportError error, string? language) => error switch
+    {
+        Raffica.Core.Ocr.TessdataImportError.None => Fill(OcrImportDoneFormat, language ?? string.Empty),
+        Raffica.Core.Ocr.TessdataImportError.InvalidName => OcrImportInvalidName,
+        Raffica.Core.Ocr.TessdataImportError.NotAFile => OcrImportNotAFile,
+        Raffica.Core.Ocr.TessdataImportError.Empty => OcrImportEmpty,
+        Raffica.Core.Ocr.TessdataImportError.TooLarge => Fill(OcrImportTooLargeFormat, Raffica.Core.Ocr.TessdataStore.FormatLength(Raffica.Core.Ocr.TessdataStore.MaxFileLength)),
+        Raffica.Core.Ocr.TessdataImportError.AlreadyImported => Fill(OcrImportAlreadyAddedFormat, language ?? string.Empty),
+        Raffica.Core.Ocr.TessdataImportError.Failed => OcrImportFailed,
+        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "This import result has no text."),
+    };
 }

@@ -2679,4 +2679,136 @@
   <data name="RedactFailedHint" xml:space="preserve">
     <value>To go on, mark the text that is left by area, or turn that page into an image.</value>
   </data>
+  <data name="OcrRecognizeTitle" xml:space="preserve">
+    <value>Recognize text</value>
+  </data>
+  <data name="OcrLanguagesHeading" xml:space="preserve">
+    <value>Languages</value>
+  </data>
+  <data name="OcrLanguageImportedFormat" xml:space="preserve">
+    <value>{0} (imported)</value>
+  </data>
+  <data name="OcrNoLanguages" xml:space="preserve">
+    <value>No language files are installed. Add one with Languages… on the Edit tab.</value>
+  </data>
+  <data name="OcrSlowWarning" xml:space="preserve">
+    <value>More than three languages make recognition slower and less accurate.</value>
+  </data>
+  <data name="OcrLanguageRefusalTooManyFormat" xml:space="preserve">
+    <value>At most {0} languages can be chosen.</value>
+  </data>
+  <data name="OcrLanguageRefusalNotInstalled" xml:space="preserve">
+    <value>That language file is not installed.</value>
+  </data>
+  <data name="OcrPagesHeading" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="OcrPagesAll" xml:space="preserve">
+    <value>All pages</value>
+  </data>
+  <data name="OcrPagesRange" xml:space="preserve">
+    <value>Only these pages</value>
+  </data>
+  <data name="OcrPagesRangeLabel" xml:space="preserve">
+    <value>Pages to recognize</value>
+  </data>
+  <data name="OcrModeHeading" xml:space="preserve">
+    <value>Pages that already have text</value>
+  </data>
+  <data name="OcrModeSkip" xml:space="preserve">
+    <value>Skip them</value>
+  </data>
+  <data name="OcrModeRedo" xml:space="preserve">
+    <value>Redo the text layer Raffica made earlier</value>
+  </data>
+  <data name="OcrModeForce" xml:space="preserve">
+    <value>Recognize every chosen page and keep the text that is there</value>
+  </data>
+  <data name="OcrResolutionHeading" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="OcrResolutionAuto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="OcrResolutionFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="OcrAccuracyNote" xml:space="preserve">
+    <value>Recognition is not error-free. Check the result, especially numbers and names.</value>
+  </data>
+  <data name="OcrSignedChange" xml:space="preserve">
+    <value>The recognized text counts as a change to the signed file.</value>
+  </data>
+  <data name="OcrRecognizeConfirm" xml:space="preserve">
+    <value>Recognize</value>
+  </data>
+  <data name="OcrNoLibraryReason" xml:space="preserve">
+    <value>Text recognition is not part of this installation.</value>
+  </data>
+  <data name="OcrFilesTitle" xml:space="preserve">
+    <value>Language files</value>
+  </data>
+  <data name="OcrFilesTrustWarning" xml:space="preserve">
+    <value>Only add language files from a source you trust. The program reads them with code that does not check them, so a damaged or manipulated file can make the recognition fail or stop the program.</value>
+  </data>
+  <data name="OcrFilesCopyNote" xml:space="preserve">
+    <value>The file you choose is copied. The original stays where it is.</value>
+  </data>
+  <data name="OcrFilesInstalledHeading" xml:space="preserve">
+    <value>Installed languages</value>
+  </data>
+  <data name="OcrFilesNone" xml:space="preserve">
+    <value>No language files are installed.</value>
+  </data>
+  <data name="OcrFilesShippedFormat" xml:space="preserve">
+    <value>{0}, included with Raffica</value>
+  </data>
+  <data name="OcrFilesImportedFormat" xml:space="preserve">
+    <value>{0}, added by you</value>
+  </data>
+  <data name="OcrFilesChoose" xml:space="preserve">
+    <value>Choose file…</value>
+  </data>
+  <data name="OcrFilesPickTitle" xml:space="preserve">
+    <value>Choose a language file</value>
+  </data>
+  <data name="OcrFilesFilter" xml:space="preserve">
+    <value>Language files</value>
+  </data>
+  <data name="OcrReplaceTitle" xml:space="preserve">
+    <value>Replace the added file?</value>
+  </data>
+  <data name="OcrReplaceMessageFormat" xml:space="preserve">
+    <value>A file for {0} was added before. Replace it with the one you chose?</value>
+  </data>
+  <data name="OcrReplaceConfirm" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="OcrReplaceKeep" xml:space="preserve">
+    <value>Keep the old one</value>
+  </data>
+  <data name="OcrImportTitle" xml:space="preserve">
+    <value>Language file</value>
+  </data>
+  <data name="OcrImportDoneFormat" xml:space="preserve">
+    <value>The language file {0} was added. The original was copied and stays where it is.</value>
+  </data>
+  <data name="OcrImportInvalidName" xml:space="preserve">
+    <value>The file name must be the language code followed by .traineddata, with letters and underscores only (for example deu.traineddata). Nothing was added.</value>
+  </data>
+  <data name="OcrImportNotAFile" xml:space="preserve">
+    <value>That is not a file, or it no longer exists. Nothing was added.</value>
+  </data>
+  <data name="OcrImportEmpty" xml:space="preserve">
+    <value>The file is empty. Nothing was added.</value>
+  </data>
+  <data name="OcrImportTooLargeFormat" xml:space="preserve">
+    <value>The file is larger than {0}. Nothing was added.</value>
+  </data>
+  <data name="OcrImportAlreadyAddedFormat" xml:space="preserve">
+    <value>A file for {0} was added before and was kept.</value>
+  </data>
+  <data name="OcrImportFailed" xml:space="preserve">
+    <value>The file could not be read or copied. Nothing was added.</value>
+  </data>
 </root>

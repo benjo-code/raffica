@@ -2663,4 +2663,136 @@
   <data name="RedactFailedHint" xml:space="preserve">
     <value>Um weiterzumachen, markieren Sie den übrigen Text als Bereich oder wandeln Sie die Seite in ein Bild um.</value>
   </data>
+  <data name="OcrRecognizeTitle" xml:space="preserve">
+    <value>Text erkennen</value>
+  </data>
+  <data name="OcrLanguagesHeading" xml:space="preserve">
+    <value>Sprachen</value>
+  </data>
+  <data name="OcrLanguageImportedFormat" xml:space="preserve">
+    <value>{0} (importiert)</value>
+  </data>
+  <data name="OcrNoLanguages" xml:space="preserve">
+    <value>Es sind keine Sprachdateien installiert. Fügen Sie eine mit „Sprachen…“ im Tab Bearbeiten hinzu.</value>
+  </data>
+  <data name="OcrSlowWarning" xml:space="preserve">
+    <value>Mehr als drei Sprachen machen die Erkennung langsamer und ungenauer.</value>
+  </data>
+  <data name="OcrLanguageRefusalTooManyFormat" xml:space="preserve">
+    <value>Es können höchstens {0} Sprachen gewählt werden.</value>
+  </data>
+  <data name="OcrLanguageRefusalNotInstalled" xml:space="preserve">
+    <value>Diese Sprachdatei ist nicht installiert.</value>
+  </data>
+  <data name="OcrPagesHeading" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="OcrPagesAll" xml:space="preserve">
+    <value>Alle Seiten</value>
+  </data>
+  <data name="OcrPagesRange" xml:space="preserve">
+    <value>Nur diese Seiten</value>
+  </data>
+  <data name="OcrPagesRangeLabel" xml:space="preserve">
+    <value>Zu erkennende Seiten</value>
+  </data>
+  <data name="OcrModeHeading" xml:space="preserve">
+    <value>Seiten, die schon Text haben</value>
+  </data>
+  <data name="OcrModeSkip" xml:space="preserve">
+    <value>Überspringen</value>
+  </data>
+  <data name="OcrModeRedo" xml:space="preserve">
+    <value>Die früher von Raffica erzeugte Textebene neu erstellen</value>
+  </data>
+  <data name="OcrModeForce" xml:space="preserve">
+    <value>Jede gewählte Seite erkennen, vorhandener Text bleibt erhalten</value>
+  </data>
+  <data name="OcrResolutionHeading" xml:space="preserve">
+    <value>Auflösung</value>
+  </data>
+  <data name="OcrResolutionAuto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="OcrResolutionFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="OcrAccuracyNote" xml:space="preserve">
+    <value>Die Erkennung ist nicht fehlerfrei. Prüfen Sie das Ergebnis, besonders Zahlen und Namen.</value>
+  </data>
+  <data name="OcrSignedChange" xml:space="preserve">
+    <value>Der erkannte Text zählt als Änderung an der signierten Datei.</value>
+  </data>
+  <data name="OcrRecognizeConfirm" xml:space="preserve">
+    <value>Erkennen</value>
+  </data>
+  <data name="OcrNoLibraryReason" xml:space="preserve">
+    <value>Die Texterkennung ist nicht Teil dieser Installation.</value>
+  </data>
+  <data name="OcrFilesTitle" xml:space="preserve">
+    <value>Sprachdateien</value>
+  </data>
+  <data name="OcrFilesTrustWarning" xml:space="preserve">
+    <value>Fügen Sie Sprachdateien nur aus einer Quelle hinzu, der Sie vertrauen. Das Programm liest sie mit Code, der sie nicht prüft; eine beschädigte oder manipulierte Datei kann die Erkennung stören oder das Programm beenden.</value>
+  </data>
+  <data name="OcrFilesCopyNote" xml:space="preserve">
+    <value>Die gewählte Datei wird kopiert. Das Original bleibt, wo es ist.</value>
+  </data>
+  <data name="OcrFilesInstalledHeading" xml:space="preserve">
+    <value>Installierte Sprachen</value>
+  </data>
+  <data name="OcrFilesNone" xml:space="preserve">
+    <value>Es sind keine Sprachdateien installiert.</value>
+  </data>
+  <data name="OcrFilesShippedFormat" xml:space="preserve">
+    <value>{0}, mit Raffica geliefert</value>
+  </data>
+  <data name="OcrFilesImportedFormat" xml:space="preserve">
+    <value>{0}, von Ihnen hinzugefügt</value>
+  </data>
+  <data name="OcrFilesChoose" xml:space="preserve">
+    <value>Datei wählen…</value>
+  </data>
+  <data name="OcrFilesPickTitle" xml:space="preserve">
+    <value>Sprachdatei wählen</value>
+  </data>
+  <data name="OcrFilesFilter" xml:space="preserve">
+    <value>Sprachdateien</value>
+  </data>
+  <data name="OcrReplaceTitle" xml:space="preserve">
+    <value>Die hinzugefügte Datei ersetzen?</value>
+  </data>
+  <data name="OcrReplaceMessageFormat" xml:space="preserve">
+    <value>Für {0} wurde schon eine Datei hinzugefügt. Durch die gewählte ersetzen?</value>
+  </data>
+  <data name="OcrReplaceConfirm" xml:space="preserve">
+    <value>Ersetzen</value>
+  </data>
+  <data name="OcrReplaceKeep" xml:space="preserve">
+    <value>Die alte behalten</value>
+  </data>
+  <data name="OcrImportTitle" xml:space="preserve">
+    <value>Sprachdatei</value>
+  </data>
+  <data name="OcrImportDoneFormat" xml:space="preserve">
+    <value>Die Sprachdatei {0} wurde hinzugefügt. Das Original wurde kopiert und bleibt, wo es ist.</value>
+  </data>
+  <data name="OcrImportInvalidName" xml:space="preserve">
+    <value>Der Dateiname muss der Sprachcode gefolgt von .traineddata sein, nur mit Buchstaben und Unterstrichen (zum Beispiel deu.traineddata). Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportNotAFile" xml:space="preserve">
+    <value>Das ist keine Datei oder sie existiert nicht mehr. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportEmpty" xml:space="preserve">
+    <value>Die Datei ist leer. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportTooLargeFormat" xml:space="preserve">
+    <value>Die Datei ist größer als {0}. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportAlreadyAddedFormat" xml:space="preserve">
+    <value>Für {0} wurde schon eine Datei hinzugefügt; sie wurde behalten.</value>
+  </data>
+  <data name="OcrImportFailed" xml:space="preserve">
+    <value>Die Datei konnte nicht gelesen oder kopiert werden. Es wurde nichts hinzugefügt.</value>
+  </data>
 </root>

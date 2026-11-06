@@ -34,6 +34,8 @@ internal sealed class PdfCommandRules(
     Func<bool>? planChanged = null,
     Func<bool>? marksUnsaved = null,
     Func<bool>? redactMarked = null,
+    Func<bool>? ocrLibrary = null,
+    Func<bool>? ocrStarter = null,
     ModeExclusion? modes = null)
 {
     // Without the window's own exclusion the only mode known is the page plan, which organizeActive tells.
@@ -96,6 +98,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.RedactApply => hasDocument() && _modes.IsActive(PdfMode.Redact) && Ask(redactMarked, false) && !Ask(saveRunning, false),
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
         PdfCommandIds.RedactMode => hasDocument() && (_modes.IsActive(PdfMode.Redact) || (_modes.CanEnter(PdfMode.Redact, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
+        PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
         PdfCommandIds.OcrLanguages => hasDocument(),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
@@ -132,6 +135,12 @@ internal sealed class PdfCommandRules(
         if (entering is { } mode && !_modes.CanEnter(mode, out var inTheWay))
         {
             return inTheWay;
+        }
+
+        // Without the OCR library next to the program recognition cannot run; the reason says so (a missing starter has none: it is not the user's to fix).
+        if (id == PdfCommandIds.OcrRun && !Ask(ocrLibrary, true))
+        {
+            return PdfStrings.OcrNoLibraryReason;
         }
 
         if (PageOutputs.Contains(id) && OutputModeReason() is { } modeReason)

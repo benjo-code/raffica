@@ -77,6 +77,8 @@ internal sealed partial class PdfWindow
         planChanged: () => OpenPlan is { } plan && !plan.Plan.IsIdentity,
         marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true,
         redactMarked: () => OpenRedact is { Plan.IsEmpty: false },
+        ocrLibrary: OcrLibraryAvailable,
+        ocrStarter: () => OcrRunStarter is not null,
         modes: new ModeExclusion(ModeIsOn));
 
     // Which modes are on for the active tab: the annotate tool is the window's, the others are the sessions of the tab (none is made by asking).
@@ -237,7 +239,9 @@ internal sealed partial class PdfWindow
         RedactRasterPage: ToggleRedactRasterPage,
         RedactDeleteMarks: DeleteRedactMarks,
         RedactDiscard: DiscardRedact,
-        RedactApply: ApplyRedact);
+        RedactApply: ApplyRedact,
+        OcrRun: RunOcrCommand,
+        OcrLanguages: ShowLanguageFiles);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
