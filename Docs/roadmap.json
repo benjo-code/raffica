@@ -167,6 +167,11 @@
       "date": "2026-11-06",
       "context": "Milestone 2.4",
       "text": "Changes while building, against the plan (details in the amendment of the entry \"Raffica PDF: page organizing conventions (M2.4)\" in `Docs/DECISIONS.md`): the organize mode itself counts as a plan open (also with an identity plan) and locks the annotate tools, Sign, form clicks, keys and commands, marks-pane comments and the output commands; a running save, extract, split or export locks the page commands and the other way round; Save and Save as with a changed plan hand over to the Apply flow through a delegate of `SaveController`; the analysis and rewrite job cards are modal and Apply, Extract, Split and Export images share one `JobRunner` class; closing or discarding a changed plan asks with its own card, and unsaved marks are asked afterwards (a Cancel keeps the plan); the plan version is re-checked before the write; at most 20 files can be inserted per organize session (every registered file counts); a file without pages is refused as unreadable; no `BlankPageCard` was built (a blank page takes the size of its neighbour). Added to earlier code: `OrganizeSession.Ending`, `OrganizeSession.Summarize`, `PdfTab.OrganizeCreated`, `PdfWindow.RebuildTab` and `PdfTab.ResetForRewrittenDocument`. Open: the manual check in an independent viewer and the points in the \"Open items\" block of milestone 2.4."
+    },
+    {
+      "date": "2026-11-06",
+      "context": "Milestone 2.5",
+      "text": "The ribbon gets two tabs: Redact (letter R, with the destructive group last) and Edit (letter E: edit text lines, recognize text, language files); the right pane shows the redact pane in the marks-pane slot while the mode is on. Pattern search names picture pages and offers OCR, it never starts it. The OCR run is not modal: an options card starts it, a run badge and the status bar show progress with Cancel, a finished run is one unsaved history step. Redaction cleanup stays \"not a switch\" (owner, 2026-11-06). The OCR library is built here by a dispatch-only workflow on hosted runners and published as the prerelease `native-tesseract-5.5.4-1` of this repository (running it is an owner gate); because the repository is private, `tools/native-fetch.cs` reads the release assets through the GitHub API with a token and keeps the pinned size and SHA-256 as the trust anchor. CodeQL returns, guarded for private repositories; the hardware-measure workflow is the existing `measure.yml` and is not added again. Decisions in `Docs/DECISIONS.md`, entry \"Raffica PDF: redaction, OCR and text editing conventions (M2.5)\"."
     }
   ],
   "subprojects": [
@@ -401,7 +406,8 @@
         {
           "id": "2.5",
           "title": "Redact, OCR and line editing",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["2.3", "2.4"],
           "goal": "Content can be redacted for real, scans made searchable and text lines corrected, with the OCR library built in this repository.",
