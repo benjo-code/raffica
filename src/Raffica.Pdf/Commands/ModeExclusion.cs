@@ -50,11 +50,49 @@ internal sealed class ModeExclusion(Func<PdfMode, bool>? probe = null)
         return true;
     }
 
+    /// <summary>
+    /// Whether <paramref name="mode"/> may start by a command now. The same as <see cref="CanEnter"/> with one documented exception: starting
+    /// Organize ends an active annotate tool (the 2.4 behaviour, <c>Tools.End()</c> on entry), so an annotate tool does not block it.
+    /// </summary>
+    public bool CanStart(PdfMode mode, out string? reason)
+    {
+        foreach (var active in Enum.GetValues<PdfMode>())
+        {
+            if (active != mode && IsActive(active) && !Together(active, mode) && !EntryEndsTool(active, mode))
+            {
+                reason = ReasonOf(active);
+                return false;
+            }
+        }
+
+        reason = null;
+        return true;
+    }
+
+    /// <summary>The reason <paramref name="mode"/> may not start (as <see cref="CanEnter"/>), or null when it may.</summary>
+    public string? RefusalFor(PdfMode mode) => CanEnter(mode, out var reason) ? null : reason;
+
+    /// <summary>The reason of the first of <paramref name="modes"/> that is on, or null when none is: for commands that only need those modes to be off.</summary>
+    public string? ReasonWhileActive(params PdfMode[] modes)
+    {
+        foreach (var mode in modes)
+        {
+            if (IsActive(mode))
+            {
+                return ReasonOf(mode);
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Marks the mode as on.</summary>
     public void Enter(PdfMode mode) => _entered.Add(mode);
 
     /// <summary>Marks the mode as off.</summary>
     public void Leave(PdfMode mode) => _entered.Remove(mode);
+
+    private static bool EntryEndsTool(PdfMode active, PdfMode entering) => active == PdfMode.Annotate && entering == PdfMode.Organize;
 
     private static bool Together(PdfMode a, PdfMode b) =>
         (a == PdfMode.Annotate && b == PdfMode.Forms) || (a == PdfMode.Forms && b == PdfMode.Annotate);

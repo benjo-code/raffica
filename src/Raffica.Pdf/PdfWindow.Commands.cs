@@ -79,13 +79,15 @@ internal sealed partial class PdfWindow
         modes: new ModeExclusion(ModeIsOn));
 
     // Which modes are on for the active tab: the annotate tool is the window's, the others are the sessions of the tab (none is made by asking).
-    private bool ModeIsOn(PdfMode mode) => mode switch
+    private bool ModeIsOn(PdfMode mode) => ModeIsOnFor(Workspace.Active, mode);
+
+    private bool ModeIsOnFor(PdfTab? tab, PdfMode mode) => mode switch
     {
         PdfMode.Annotate => Tools.Tool != AnnotateTool.None,
-        PdfMode.Organize => OpenPlan is not null,
-        PdfMode.Redact => Workspace.Active?.RedactIfCreated?.IsActive == true,
-        PdfMode.Ocr => Workspace.Active?.OcrIfCreated?.IsActive == true,
-        PdfMode.TextEdit => Workspace.Active?.TextEditIfCreated?.IsActive == true,
+        PdfMode.Organize => tab?.OrganizeIfCreated is { IsActive: true },
+        PdfMode.Redact => tab?.RedactIfCreated?.IsActive == true,
+        PdfMode.Ocr => tab?.OcrIfCreated?.IsActive == true,
+        PdfMode.TextEdit => tab?.TextEditIfCreated?.IsActive == true,
         _ => false,
     };
 

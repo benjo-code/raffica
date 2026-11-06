@@ -20,8 +20,6 @@ internal sealed partial class PdfWindow
     // The session of the active tab while its plan is open (the mode is on, whether the plan changes anything or not), else null.
     private OrganizeSession? OpenPlan => Workspace.Active?.OrganizeIfCreated is { IsActive: true } session ? session : null;
 
-    private static bool PlanOpenOf(PdfTab tab) => tab.OrganizeIfCreated is { IsActive: true };
-
     private bool _organizeStarting;
 
     private void OnOrganizeCreated(OrganizeSession session) => session.Changed += RefreshCommandStates;

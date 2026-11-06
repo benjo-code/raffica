@@ -95,14 +95,14 @@ internal sealed class PdfCommandRules(
         _ when InsideMode.TryGetValue(id, out var inside) => hasDocument() && _modes.IsActive(inside),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
         PdfCommandIds.OcrLanguages => hasDocument(),
-        PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (Ask(pagesReady, true) && !Ask(saveRunning, false))),
+        PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when PageEdits.Contains(id) => hasDocument() && PlanOpen() && Ask(pageSelection, false),
         PdfCommandIds.BlankPage or PdfCommandIds.InsertFile => hasDocument() && PlanOpen(),
         PdfCommandIds.PagesUndo => hasDocument() && PlanOpen() && Ask(planCanUndo, false),
         PdfCommandIds.PagesRedo => hasDocument() && PlanOpen() && Ask(planCanRedo, false),
         PdfCommandIds.ApplyPages => hasDocument() && PlanOpen() && Ask(planChanged, false) && !Ask(saveRunning, false),
         PdfCommandIds.DiscardPages => hasDocument() && PlanOpen(),
-        _ when PageOutputs.Contains(id) => hasDocument() && !PlanOpen() && !Ask(marksUnsaved, false) && !Ask(saveRunning, false),
+        _ when PageOutputs.Contains(id) => hasDocument() && !PlanOpen() && OutputModeReason() is null && !Ask(marksUnsaved, false) && !Ask(saveRunning, false),
         _ when Tools.Contains(id) => hasDocument() && _modes.CanEnter(PdfMode.Annotate, out _) && Ask(annotateAllowed, true),
         PdfCommandIds.FormsNextRequired => hasDocument() && _modes.CanEnter(PdfMode.Forms, out _) && FormsReady() && Ask(hasEmptyRequired, true),
         _ when FormCommands.Contains(id) => hasDocument() && _modes.CanEnter(PdfMode.Forms, out _) && FormsReady(),
@@ -129,6 +129,16 @@ internal sealed class PdfCommandRules(
         if (entering is { } mode && !_modes.CanEnter(mode, out var inTheWay))
         {
             return inTheWay;
+        }
+
+        if (PageOutputs.Contains(id) && OutputModeReason() is { } modeReason)
+        {
+            return modeReason;
+        }
+
+        if (id == PdfCommandIds.Organize && !PlanOpen() && !_modes.CanStart(PdfMode.Organize, out var organizeBlocked))
+        {
+            return organizeBlocked;
         }
 
         if (PageOutputs.Contains(id))
@@ -171,6 +181,9 @@ internal sealed class PdfCommandRules(
     }
 
     // The mode is on: the plan is open, identity or not (leaving an identity plan is one command, so the locks do not wait for the first change).
+    // The output commands read the open document without the plan; a redaction plan, a running recognition or a text edit holds it.
+    private string? OutputModeReason() => _modes.ReasonWhileActive(PdfMode.Redact, PdfMode.Ocr, PdfMode.TextEdit);
+
     private bool PlanOpen() => _modes.IsActive(PdfMode.Organize);
 
     private static bool Ask(Func<bool>? question, bool unknown) => question is null ? unknown : question();
