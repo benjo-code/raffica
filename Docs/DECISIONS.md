@@ -477,10 +477,7 @@ Exact tokens and measured contrast values go into the design system spec.
 **Rejected alternatives:** Requiring each matrix job by name; self-hosted runners for Windows (not known to exist for this repo).
 
 ## 2026-11-03 – OCR library: fetched from Pagewing's pinned release
-**Context:** The OCR tests need the Tesseract library. Pagewing builds it in its own workflow and publishes it as the prerelease `native-tesseract-5.5.4-1`; Raffica has no build for it yet.
-**Decision:** `tools/native-fetch.cs` downloads the pinned files (size and SHA-256 are checked, nothing is laid down if one fails) from that release and from `tessdata_fast` 4.1.0. Raffica builds the library itself later, when the suite ships OCR.
-**Rationale:** Reuses a built and verified binary; the pinned hash is trusted, not the place it comes from.
-**Rejected alternatives:** Skipping the OCR tests (weakens the checks); importing the Tesseract build workflow in M0 (out of scope).
+**Superseded** by "Raffica PDF: redaction, OCR and text editing conventions (M2.5)", item 13: the library is built in this repository and `tools/native-fetch.cs` reads it from there. Kept for the history: until M2.5 the pinned files came from the prerelease `native-tesseract-5.5.4-1` of the Pagewing repository (size and SHA-256 checked, `tessdata_fast` 4.1.0 for the language data).
 
 ## 2026-11-03 – Dependency and license guardrails
 **Context:** Raffica is GPL-3.0-or-later. Research on document libraries showed several popular .NET libraries with licenses that do not fit.
