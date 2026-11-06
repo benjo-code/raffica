@@ -1,5 +1,5 @@
-# Pinned sources of the native OCR library (read by build-windows.ps1, build-linux.sh and tools/package.cs selftest).
-# A change is an entry in Docs/DECISIONS.md and a new release "native-tesseract-<TESSERACT_TAG>-<n>" (tools/package.cs, NativeTesseract).
+# Pinned sources of the native OCR library (read by build-windows.ps1, build-linux.sh and the workflow native-tesseract.yml).
+# A change is an entry in Docs/DECISIONS.md and a new release "native-tesseract-<TESSERACT_TAG>-<n>" (Pins.Libraries in tools/native-fetch.cs).
 TESSERACT_URL=https://github.com/tesseract-ocr/tesseract
 TESSERACT_TAG=5.5.4
 TESSERACT_COMMIT=7e548e6eff172f38f97664afe7f7ce40db36c8d6
