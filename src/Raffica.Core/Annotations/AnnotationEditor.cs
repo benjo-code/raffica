@@ -209,6 +209,21 @@ public sealed class AnnotationEditor
         }
     }
 
+    /// <summary>
+    /// Gets whether the document holds an edited text now (<see cref="AnnotationHistory.HasLiveTextEdits"/>): a text edit that was undone since does not count,
+    /// so a save of it says nothing about old text staying in earlier versions.
+    /// </summary>
+    public bool HasLiveTextEdits
+    {
+        get
+        {
+            lock (gate)
+            {
+                return history.HasLiveTextEdits;
+            }
+        }
+    }
+
     /// <summary>Gets whether <see cref="UndoAsync"/> has something to undo.</summary>
     public bool CanUndo
     {

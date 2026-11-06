@@ -126,7 +126,9 @@ internal sealed class TextEditRig : IDisposable
 
     public void Press(Avalonia.Input.PhysicalKey key, RawInputModifiers modifiers = RawInputModifiers.None)
     {
+        // A key press is a down and an up, as a keyboard sends them; the up goes to whoever has the focus then.
         Window.KeyPressQwerty(key, modifiers);
+        Window.KeyReleaseQwerty(key, modifiers);
         ViewFixture.Pump();
     }
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Raffica.Core.TextEdit;
 
 namespace Raffica.Pdf.TextEditing;
@@ -120,6 +121,20 @@ internal static class TextEditWording
         return characters.Count > MaxNamedCharacters ? text + " …" : text;
     }
 
-    private static string Visible(string character) =>
-        character.Length > 0 && char.IsControl(character[0]) ? string.Create(CultureInfo.InvariantCulture, $"U+{(int)character[0]:X4}") : character;
+    // A character that cannot be seen (a control, a format character such as a zero width space, a joiner or a bidi mark, a line or paragraph separator,
+    // a private use or unassigned code point, a space that looks like nothing) is named by its code point, each part of an element by its own.
+    private static string Visible(string character)
+    {
+        if (!character.EnumerateRunes().Any(static r => IsInvisible(r)))
+        {
+            return character;
+        }
+
+        return string.Join(' ', character.EnumerateRunes().Select(static r => string.Create(CultureInfo.InvariantCulture, $"U+{r.Value:X4}")));
+    }
+
+    private static bool IsInvisible(Rune rune) => Rune.GetUnicodeCategory(rune) is
+        UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator
+        or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned or UnicodeCategory.Surrogate
+        || (Rune.GetUnicodeCategory(rune) == UnicodeCategory.SpaceSeparator && rune.Value != ' ');
 }

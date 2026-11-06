@@ -35,7 +35,9 @@ internal sealed class TextEditHintBar : Border, IDisposable
         _line = new TextBlock { Name = "PART_Line", TextWrapping = TextWrapping.Wrap, IsVisible = false };
         _note = new TextBlock { Name = "PART_Note", TextWrapping = TextWrapping.Wrap, IsVisible = false };
         _old = new TextBlock { Name = "PART_OldText", Text = PdfStrings.TextEditOldTextNote, TextWrapping = TextWrapping.Wrap, IsVisible = false };
-        _whole = new CheckBox { Name = "PART_Whole", Content = PdfStrings.TextEditWholeRunSwitch, IsVisible = false, IsChecked = false };
+        _whole = new CheckBox { Name = "PART_Whole", Content = WholeRunText(), IsVisible = false, IsChecked = false };
+        ToolTip.SetTip(_whole, WholeRunText());
+        AutomationProperties.SetName(_whole, WholeRunText());
         Child = new StackPanel { Spacing = 4, Children = { _sign, _limit, _line, _note, _whole, _old } };
         Padding = new Thickness(12, 6);
         BorderThickness = new Thickness(1);
@@ -55,6 +57,11 @@ internal sealed class TextEditHintBar : Border, IDisposable
         session.Changed += Update;
         Update();
     }
+
+    /// <summary>The key that turns the switch on and off from the field (the command modifier is Cmd on a Mac): no Alt, so AltGr layouts are left alone.</summary>
+    internal static string WholeRunKeyName => Raffica.Shell.Localization.KeyNames.Format(OperatingSystem.IsMacOS() ? "Cmd+Shift+G" : "Ctrl+Shift+G", PdfStrings.Culture);
+
+    internal static string WholeRunText() => PdfStrings.Fill(PdfStrings.TextEditWholeRunSwitch, WholeRunKeyName);
 
     /// <summary>Raised when <see cref="Active"/> changed (the host shows or hides the bar).</summary>
     public event Action? ActiveChanged;
@@ -79,6 +86,9 @@ internal sealed class TextEditHintBar : Border, IDisposable
 
     /// <summary>Whether the note about the old text in earlier versions is shown.</summary>
     public bool OldTextShown => _old.IsVisible;
+
+    /// <summary>The switch itself (tests click it through the window).</summary>
+    internal CheckBox WholeSwitch => _whole;
 
     /// <summary>Turns the switch on or off the way a click does.</summary>
     public void SetWholeSwitch(bool on) => _whole.IsChecked = on;
@@ -113,7 +123,7 @@ internal sealed class TextEditHintBar : Border, IDisposable
             var note = _session.Note;
             _note.Text = note ?? string.Empty;
             _note.IsVisible = !string.IsNullOrEmpty(note);
-            _whole.IsVisible = _session.HasDraft && (_session.Preview?.WholeRunOffered == true || _session.WholeRun);
+            _whole.IsVisible = _session.HasDraft && (_session.WholeRunOffered || _session.WholeRun);
             _whole.IsChecked = _session.WholeRun;
             _old.IsVisible = _session.OldTextNoteShown;
         }

@@ -78,4 +78,53 @@ public sealed class TextEditSaveNoteTests
         await ViewFixture.WaitAsync(() => !rig.Session.IsActive);
         Assert.True(string.IsNullOrEmpty(rig.Window.Status.Hint));
     }
+
+    [AvaloniaFact]
+    public async Task ANoteThatCouldNotBeShownIsOfferedAgainByTheNextSave()
+    {
+        using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
+
+        // The mode is off and the status cell is taken by another owner: the note is not shown, so its slot is not used up.
+        rig.Window.Status.Hint = "another owner";
+        var run = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Quarterly report 2026");
+        await rig.Tab.Annotations.Editor.ApplyTextEditAsync(run, "Quarterly report 2027", Raffica.Core.TextEdit.TextEditMode.KeepFont);
+        await rig.Tab.Annotations.FlushAsync();
+        await rig.SaveAsync();
+        Assert.Equal("another owner", rig.Window.Status.Hint);
+
+        // The cell is free at the next save of edited text: the note is shown then, once.
+        rig.Window.Status.Hint = null;
+        var again = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Dear customer, thank you");
+        await rig.Tab.Annotations.Editor.ApplyTextEditAsync(again, "Dear customer, thanks", Raffica.Core.TextEdit.TextEditMode.KeepFont);
+        await rig.Tab.Annotations.FlushAsync();
+        await rig.SaveAsync();
+        Assert.Equal(PdfStrings.TextEditOldTextNote, rig.Window.Status.Hint);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditThatWasUndoneBeforeTheSaveSaysNothingAndTheHintGoesWithTheNextChange()
+    {
+        using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
+        var run = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Quarterly report 2026");
+        await rig.Tab.Annotations.Editor.ApplyTextEditAsync(run, "Quarterly report 2027", Raffica.Core.TextEdit.TextEditMode.KeepFont);
+        await rig.Tab.Annotations.UndoAsync();
+        Assert.NotNull(await rig.Tab.Annotations.Editor.ApplyMarkupAsync(0, AnnotationKind.Highlight, [new PageRect(10, 10, 100, 30)], new AnnotationColor(255, 255, 0), null, null));
+        await rig.Tab.Annotations.FlushAsync();
+        Assert.True(rig.Tab.Annotations.Editor.HasTextEdits, "the history knows that a text was touched");
+        Assert.False(rig.Tab.Annotations.Editor.HasLiveTextEdits);
+        await rig.SaveAsync();
+        Assert.True(string.IsNullOrEmpty(rig.Window.Status.Hint), "no changed text was saved");
+
+        // A real edit is noted (the undone one did not use up the slot), and the next change of the tab takes the hint away again.
+        var real = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Quarterly report 2026");
+        await rig.Tab.Annotations.Editor.ApplyTextEditAsync(real, "Quarterly report 2029", Raffica.Core.TextEdit.TextEditMode.KeepFont);
+        await rig.Tab.Annotations.FlushAsync();
+        await rig.SaveAsync();
+        Assert.Equal(PdfStrings.TextEditOldTextNote, rig.Window.Status.Hint);
+        var next = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Dear customer, thank you");
+        await rig.Tab.Annotations.Editor.ApplyTextEditAsync(next, "Dear customer, thanks", Raffica.Core.TextEdit.TextEditMode.KeepFont);
+        await rig.Tab.Annotations.FlushAsync();
+        ViewFixture.Pump();
+        Assert.True(string.IsNullOrEmpty(rig.Window.Status.Hint), "the next change of the tab ends the hint");
+    }
 }

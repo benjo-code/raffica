@@ -13,7 +13,7 @@ namespace Raffica.Pdf.TextEditing;
 /// The field over a line of the page: one line of text in the size and the colour of the line on a field that contrasts with it (a light line gets a
 /// dark field, a dark one a light field, whichever reads better), the app ink as its edge. The field owns the keys of the draft: Enter writes (unless an
 /// IME composition is open, which Enter belongs to), Esc drops, Tab and Shift+Tab write and leave the field for the page (the focus is never trapped);
-/// everything else, the arrows, Ctrl+Z, Ctrl+A, AltGr combinations, stays with the <see cref="TextBox"/>. It decides nothing itself:
+/// Ctrl+Shift+G (Cmd+Shift+G) turns the whole-line switch on and off; everything else, the arrows, Ctrl+Z, Ctrl+A, AltGr combinations, stays with the <see cref="TextBox"/>. It decides nothing itself:
 /// <see cref="TextEditInteraction"/> reacts to the events. Used on the UI thread only.
 /// </summary>
 internal sealed class RunFieldEditor : UserControl
@@ -27,6 +27,8 @@ internal sealed class RunFieldEditor : UserControl
             AcceptsTab = false,
             TextWrapping = TextWrapping.NoWrap,
             Padding = new Thickness(2, 0),
+            // One more than a line may have, so a text over the limit still reaches the refusal with its note; a paste is cut at the same place.
+            MaxLength = Raffica.Core.TextEdit.TextEditLimits.MaxCharsPerRun + 1,
             VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
         };
         Field.Classes.Add("textbox-editor");
@@ -45,6 +47,9 @@ internal sealed class RunFieldEditor : UserControl
 
     /// <summary>Raised when the user leaves the field with Tab or Shift+Tab: the line is written and the page gets the focus.</summary>
     public event Action? LeaveRequested;
+
+    /// <summary>Raised when the user asks to turn the whole-line switch on or off (Ctrl+Shift+G, Cmd+Shift+G on a Mac).</summary>
+    public event Action? WholeRunToggleRequested;
 
     /// <summary>Raised when the field lost the keyboard focus (to the page, another control or a card).</summary>
     public event Action? FocusLeft;
@@ -108,10 +113,15 @@ internal sealed class RunFieldEditor : UserControl
             return;
         }
 
-        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !IsComposing())
         {
             e.Handled = true;
             DiscardRequested?.Invoke();
+        }
+        else if (e.Key == Key.G && e.KeyModifiers == (Raffica.Shell.Localization.KeyNames.CommandModifier | KeyModifiers.Shift))
+        {
+            e.Handled = true;
+            WholeRunToggleRequested?.Invoke();
         }
         else if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None && !IsComposing())
         {

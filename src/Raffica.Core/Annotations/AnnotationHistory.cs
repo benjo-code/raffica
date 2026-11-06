@@ -116,6 +116,7 @@ public sealed class AnnotationHistory
     private bool _otherSteps;
     private bool _ocrSteps;
     private bool _textSteps;
+    private bool _textWriteFailed;
 
     /// <summary>
     /// Gets the bytes of the packed images and the word lists of text recognition in both stacks (the memory the history holds for them).
@@ -172,6 +173,13 @@ public sealed class AnnotationHistory
     /// touched by it. Saving a signed document says then that text of the pages is changed.
     /// </summary>
     public bool HasTextEdits => _textSteps;
+
+    /// <summary>
+    /// Gets whether the document holds an edited text now: a text edit step that is still done (not undone, not forgotten), or a failed text write that
+    /// changed a page without a step (<see cref="MarkTextChanged"/>). Unlike <see cref="HasTextEdits"/> an edit that was undone does not count: a save then
+    /// writes no changed text.
+    /// </summary>
+    public bool HasLiveTextEdits => _textWriteFailed || _undo.Any(static command => command is AnnotationCommand.TextEdit);
 
     private static long ImageBytesOf(List<AnnotationCommand> commands)
     {
@@ -232,6 +240,7 @@ public sealed class AnnotationHistory
     public void MarkTextChanged()
     {
         _textSteps = true;
+        _textWriteFailed = true;
         Version++;
     }
 
@@ -315,6 +324,7 @@ public sealed class AnnotationHistory
         _otherSteps = false;
         _ocrSteps = false;
         _textSteps = false;
+        _textWriteFailed = false;
         Version++;
     }
 }

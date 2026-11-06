@@ -29,7 +29,10 @@ internal sealed class TextEditInteraction : IDisposable
     private bool _closingField;
     private Point _press;
     private TextRun? _pressed;
-    private bool _enterDown;
+    private bool _enterHeld;
+    private bool _badgePress;
+    private int _revealedPage = -1;
+    private int _revealedIndex = -1;
     private bool _disposed;
 
     public TextEditInteraction(PdfTab tab, PageView view, TextEditSession session)
@@ -46,7 +49,8 @@ internal sealed class TextEditInteraction : IDisposable
         view.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         view.AddHandler(InputElement.KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel);
         view.ViewChanged += OnViewChanged;
-        view.LostFocus += OnViewLostFocus;
+        view.AddHandler(InputElement.PointerPressedEvent, OnPressedTunnel, RoutingStrategies.Tunnel);
+        view.AddHandler(InputElement.PointerReleasedEvent, OnReleasedTunnel, RoutingStrategies.Tunnel);
         session.Changed += OnSessionChanged;
         session.RunsInvalidated += OnRunsInvalidated;
     }
@@ -93,7 +97,7 @@ internal sealed class TextEditInteraction : IDisposable
             return false;
         }
 
-        var used = KeyCore(e);
+        var used = KeyCore(e, repeat: false);
         if (used)
         {
             e.Handled = true;
@@ -128,14 +132,15 @@ internal sealed class TextEditInteraction : IDisposable
         _view.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
         _view.RemoveHandler(InputElement.KeyUpEvent, OnKeyUp);
         _view.ViewChanged -= OnViewChanged;
-        _view.LostFocus -= OnViewLostFocus;
+        _view.RemoveHandler(InputElement.PointerPressedEvent, OnPressedTunnel);
+        _view.RemoveHandler(InputElement.PointerReleasedEvent, OnReleasedTunnel);
         _session.Changed -= OnSessionChanged;
         _session.RunsInvalidated -= OnRunsInvalidated;
         CloseField(restoreFocus: false);
         ToolTip.SetTip(_view, null);
     }
 
-    private bool KeyCore(KeyEventArgs e)
+    private bool KeyCore(KeyEventArgs e, bool repeat)
     {
         var modifiers = e.KeyModifiers;
         switch (e.Key)
@@ -148,12 +153,11 @@ internal sealed class TextEditInteraction : IDisposable
 
                 return true;
             case Key.Enter when modifiers == KeyModifiers.None:
-                // A held key repeats the press: only the first one opens, the key going up re-arms it.
+                // A held key repeats the press: only the first one opens (a repeat is used up, so it does not reach the page view's own handling either).
                 if (_session.Focused is { } focused)
                 {
-                    if (!_enterDown)
+                    if (!repeat)
                     {
-                        _enterDown = true;
                         _ = OpenAsync(focused);
                     }
 
@@ -164,10 +168,11 @@ internal sealed class TextEditInteraction : IDisposable
             case Key.Tab when modifiers is KeyModifiers.None or KeyModifiers.Shift:
                 // Past the last line (or before the first) the key is not used, so the focus leaves the page instead of being trapped.
                 return _session.MoveFocus(forward: modifiers == KeyModifiers.None);
+            // The arrows walk the lines only once a line has the focus (by Tab, a click or Enter); before that, and past the first or last line, they scroll the page as always.
             case Key.Left or Key.Up when modifiers == KeyModifiers.None:
-                return _session.MoveFocus(forward: false);
+                return _session.HasFocus && _session.MoveFocus(forward: false);
             case Key.Right or Key.Down when modifiers == KeyModifiers.None:
-                return _session.MoveFocus(forward: true);
+                return _session.HasFocus && _session.MoveFocus(forward: true);
             default:
                 return false;
         }
@@ -175,29 +180,72 @@ internal sealed class TextEditInteraction : IDisposable
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        // The keys of the field and of the bar belong to them.
+        // Enter is held when its key-down comes again before its key-up (the key-up is seen here wherever the focus is, the field being a child of the view).
+        var repeat = false;
+        if (e.Key == Key.Enter)
+        {
+            repeat = _enterHeld;
+            _enterHeld = true;
+        }
+
+        // The keys of the field and of the bar belong to them; a repeated Enter is used up here, so a held key does not write the line again and again.
         if (_view.IsInField(e.Source) || _view.IsInBadge(e.Source))
+        {
+            if (repeat && _view.IsInField(e.Source))
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (!_session.IsActive || _disposed)
         {
             return;
         }
 
-        HandleKey(e);
+        if (KeyCore(e, repeat))
+        {
+            e.Handled = true;
+        }
     }
 
     // The key going up belongs to whoever has the focus then (the field that Enter just opened): a press that lost the page's focus is over.
-    private void OnViewLostFocus(object? sender, RoutedEventArgs e) => _enterDown = false;
-
     private void OnKeyUp(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
-            _enterDown = false;
+            _enterHeld = false;
         }
+    }
+
+    // A press on the hint bar (the switch) takes the focus from the field on its way, but it is no leaving of the line: the line stays open and gets the focus back.
+    private void OnPressedTunnel(object? sender, PointerPressedEventArgs e) => _badgePress = _field is not null && _view.IsInBadge(e.Source);
+
+    private void OnReleasedTunnel(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_badgePress)
+        {
+            return;
+        }
+
+        // The click of the switch is still on its way (it bubbles after this): the flag goes and the field gets the keyboard back once it is through.
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                _badgePress = false;
+                if (_session.HasDraft && !_disposed)
+                {
+                    FocusField();
+                }
+            },
+            DispatcherPriority.Input);
     }
 
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
         _pressed = null;
+        _enterHeld = false;
         if (!_session.IsActive || _disposed || _view.IsInField(e.Source) || _view.IsInBadge(e.Source))
         {
             return;
@@ -275,6 +323,15 @@ internal sealed class TextEditInteraction : IDisposable
                 {
                     return;
                 }
+
+                // The write may have shifted the objects of the page (a line split into pieces): the line is found again in the lines read after it.
+                await _session.LoadPageAsync(run.Page);
+                if (!_session.IsActive || _disposed || Resolve(run) is not { } resolved)
+                {
+                    return;
+                }
+
+                run = resolved;
             }
 
             _session.Focus(run);
@@ -289,11 +346,24 @@ internal sealed class TextEditInteraction : IDisposable
         }
     }
 
+    // The line as the session reads it now: the same text, font and place (the fingerprint and the box), whatever its index became.
+    private TextRun? Resolve(TextRun old) =>
+        _session.RunsOf(old.Page)
+            .Where(r => string.Equals(r.Fingerprint, old.Fingerprint, StringComparison.Ordinal) && string.Equals(r.Text, old.Text, StringComparison.Ordinal))
+            .OrderBy(r => Math.Abs(r.Bounds.Left - old.Bounds.Left) + Math.Abs(r.Bounds.Top - old.Bounds.Top))
+            .FirstOrDefault();
+
     private void OnSessionChanged()
     {
         if (_disposed)
         {
             return;
+        }
+
+        RevealFocused();
+        if (_field is { } open)
+        {
+            open.Field.IsReadOnly = _session.IsCommitting;
         }
 
         if (_session.HasDraft && _session.DraftRun is { } run)
@@ -307,6 +377,23 @@ internal sealed class TextEditInteraction : IDisposable
         else if (_field is not null)
         {
             CloseField(restoreFocus: true);
+        }
+    }
+
+    // The focused line is brought into view (nothing moves while it is inside); done once per line, so the view is not pulled back after the user scrolled away.
+    private void RevealFocused()
+    {
+        if (!_session.HasFocus)
+        {
+            _revealedPage = _revealedIndex = -1;
+            return;
+        }
+
+        if (_session.Focused is { } focused && (focused.Page != _revealedPage || focused.ObjectIndex != _revealedIndex))
+        {
+            _revealedPage = focused.Page;
+            _revealedIndex = focused.ObjectIndex;
+            _view.Reveal(focused.Page, focused.Bounds);
         }
     }
 
@@ -337,11 +424,11 @@ internal sealed class TextEditInteraction : IDisposable
         editor.SetStartText(_session.DraftText);
         _field = editor;
         _fieldRun = run;
-        _enterDown = false;
         editor.TextEdited += OnFieldTextEdited;
         editor.CommitRequested += OnFieldCommit;
         editor.DiscardRequested += OnFieldDiscard;
         editor.LeaveRequested += OnFieldLeave;
+        editor.WholeRunToggleRequested += OnFieldWholeRun;
         editor.FocusLeft += OnFieldFocusLeft;
         _view.Field = editor;
         Layout();
@@ -382,7 +469,8 @@ internal sealed class TextEditInteraction : IDisposable
         }
 
         editor.IsVisible = true;
-        var scale = rect.Width / run.Bounds.Width;
+        // The scale is the one of the page to the view (the same for both axes, whatever the rotation of the page), not a ratio of this line's own sides.
+        var scale = _view.PageBounds(run.Page) is { Width: > 0 } pageRect && _view.SizeOfPage(run.Page) is { Width: > 0 } pageSize ? pageRect.Width / pageSize.Width : rect.Width / run.Bounds.Width;
         var size = run.FontSize * scale;
         if (size < rect.Height / 4 || size > rect.Height * 4)
         {
@@ -406,7 +494,6 @@ internal sealed class TextEditInteraction : IDisposable
         }
 
         _closingField = true;
-        _enterDown = false;
         try
         {
             _field = null;
@@ -416,6 +503,7 @@ internal sealed class TextEditInteraction : IDisposable
             editor.CommitRequested -= OnFieldCommit;
             editor.DiscardRequested -= OnFieldDiscard;
             editor.LeaveRequested -= OnFieldLeave;
+            editor.WholeRunToggleRequested -= OnFieldWholeRun;
             editor.FocusLeft -= OnFieldFocusLeft;
             if (ReferenceEquals(_view.Field, editor))
             {
@@ -448,6 +536,8 @@ internal sealed class TextEditInteraction : IDisposable
 
     private void OnFieldLeave() => Completion = CommitAsync(leave: true);
 
+    private void OnFieldWholeRun() => _session.SetWholeRun(!_session.WholeRun);
+
     private void OnFieldDiscard()
     {
         _session.Discard();
@@ -457,7 +547,7 @@ internal sealed class TextEditInteraction : IDisposable
     // The user went elsewhere (a click, another control): the line is written; a refused text stays open as a parked draft with its reason.
     private void OnFieldFocusLeft()
     {
-        if (_closingField || _disposed || !_session.HasDraft)
+        if (_closingField || _disposed || _badgePress || !_session.HasDraft)
         {
             return;
         }

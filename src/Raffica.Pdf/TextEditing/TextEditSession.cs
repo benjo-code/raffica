@@ -78,6 +78,8 @@ internal sealed class TextEditSession : IDisposable
     private string? _note;
     private CancellationTokenSource? _previewCancel;
     private Task<TextEditCommitResult>? _commit;
+    private bool _wholeRunOffered;
+    private bool _committing;
     private IDisposable? _discardRegistration;
     private bool _oldTextNote;
     private bool _active;
@@ -118,6 +120,18 @@ internal sealed class TextEditSession : IDisposable
     /// <summary>How the runs of a page are read (tests count the reads); the default asks the document.</summary>
     internal Func<PdfDocument, int, CancellationToken, Task<IReadOnlyList<TextRun>>> ReadRuns { get; set; } = static (document, page, token) => document.GetTextRunsAsync(page, token);
 
+    /// <summary>Awaited by a commit after its decision and before it writes (tests hold it to type, press Esc or leave the mode while the write waits).</summary>
+    internal Func<Task>? BeforeWrite { get; set; }
+
+    /// <summary>Whether a commit runs now (the field is read-only meanwhile).</summary>
+    public bool IsCommitting => _committing;
+
+    /// <summary>
+    /// Whether the switch for the whole line is on offer: the last decision offered it, and it stays on offer until the next decision says otherwise (no
+    /// flicker while a key waits for its decision).
+    /// </summary>
+    public bool WholeRunOffered => _wholeRunOffered;
+
     /// <summary>How many page reads were started since the session was made.</summary>
     public int RunReads { get; private set; }
 
@@ -141,6 +155,9 @@ internal sealed class TextEditSession : IDisposable
 
     /// <summary>Whether the note about the old text in earlier versions is on (after the first save of edited text of this tab).</summary>
     public bool OldTextNoteShown => _oldTextNote;
+
+    /// <summary>Whether a line has the focus (also while its page is being read again).</summary>
+    public bool HasFocus => _focus is not null;
 
     /// <summary>The run that has the focus, or <see langword="null"/>.</summary>
     public TextRun? Focused => _focus is { } key && _runs.TryGetValue(key.Page, out var runs) ? runs.FirstOrDefault(r => r.ObjectIndex == key.Index) : null;
@@ -320,6 +337,7 @@ internal sealed class TextEditSession : IDisposable
         _focus = (run.Page, run.ObjectIndex);
         _draft = new Draft(run);
         _preview = null;
+        _wholeRunOffered = false;
         _note = null;
         Changed?.Invoke();
         return true;
@@ -347,7 +365,7 @@ internal sealed class TextEditSession : IDisposable
     /// <param name="value">Whether the whole line goes to the replacement font.</param>
     public void SetWholeRun(bool value)
     {
-        if (_draft is not { } draft || draft.WholeRun == value || (value && _preview?.WholeRunOffered != true))
+        if (_draft is not { } draft || draft.WholeRun == value || (value && !_wholeRunOffered))
         {
             return;
         }
@@ -392,6 +410,7 @@ internal sealed class TextEditSession : IDisposable
                 }
 
                 _preview = preview;
+                _wholeRunOffered = preview.WholeRunOffered;
                 _note = TextEditWording.Note(preview);
                 Changed?.Invoke();
             }
@@ -428,7 +447,9 @@ internal sealed class TextEditSession : IDisposable
 
         // The handle that makes a flush wait is taken before the first await: a save that asked for it right now waits for the write.
         var pending = Tab.Annotations.BeginPending();
+        _committing = true;
         _commit = CommitCoreAsync(_draft, pending);
+        Changed?.Invoke();
         return _commit;
     }
 
@@ -466,6 +487,11 @@ internal sealed class TextEditSession : IDisposable
     /// <summary>Drops every read run; whoever shows pages reads the visible ones again (<see cref="RunsInvalidated"/>).</summary>
     public void InvalidateRuns()
     {
+        if (!_active || _disposed)
+        {
+            return;
+        }
+
         _generation++;
         _runs.Clear();
         _loading.Clear();
@@ -569,6 +595,7 @@ internal sealed class TextEditSession : IDisposable
     {
         _previewCancel?.Cancel();
         _preview = null;
+        _wholeRunOffered = false;
         if (_draft is { } draft)
         {
             _draft = null;
@@ -718,9 +745,20 @@ internal sealed class TextEditSession : IDisposable
                     return Refuse(draft, decision);
             }
 
+            if (BeforeWrite is { } hold)
+            {
+                await hold();
+                if (!ReferenceEquals(_draft, draft))
+                {
+                    // Esc, undo or the end of the mode came while the write waited: nothing is written.
+                    return new TextEditCommitResult(TextEditCommitKind.NoDraft, decision, null, string.Empty);
+                }
+            }
+
+            TextReplaceResult? replaced;
             try
             {
-                await Tab.Annotations.Editor.ApplyTextEditAsync(run, text, whole ? TextEditMode.WholeRunInGeist : TextEditMode.KeepFont);
+                replaced = await Tab.Annotations.Editor.ApplyTextEditAsync(run, text, whole ? TextEditMode.WholeRunInGeist : TextEditMode.KeepFont);
             }
             catch (TextEditRejectedException ex)
             {
@@ -733,7 +771,17 @@ internal sealed class TextEditSession : IDisposable
 
             if (ReferenceEquals(_draft, draft))
             {
-                DropDraft();
+                if (!string.Equals(draft.Text, text, StringComparison.Ordinal) && replaced?.After is { } after)
+                {
+                    // The text changed while the line was written: the line as it stands now is the base of the draft, and the new text stays in the field.
+                    draft.Run = after;
+                    draft.Others = null;
+                    SyncUnresolved(draft);
+                }
+                else
+                {
+                    DropDraft();
+                }
             }
 
             InvalidateRuns();
@@ -744,6 +792,8 @@ internal sealed class TextEditSession : IDisposable
         finally
         {
             pending.Dispose();
+            _committing = false;
+            Changed?.Invoke();
         }
     }
 
@@ -864,7 +914,7 @@ internal sealed class TextEditSession : IDisposable
 
     private sealed class Draft(TextRun run)
     {
-        public TextRun Run { get; } = run;
+        public TextRun Run { get; set; } = run;
 
         public string Text { get; set; } = run.Text;
 

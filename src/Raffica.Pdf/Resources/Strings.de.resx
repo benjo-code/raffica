@@ -2958,7 +2958,7 @@
     <value>Zeilen bearbeiten, keine Absätze. Fehlende Zeichen setzt Raffica in einer Ersatzschrift.</value>
   </data>
   <data name="TextEditWholeRunSwitch" xml:space="preserve">
-    <value>Ganze Zeile in Ersatzschrift</value>
+    <value>Ganze Zeile in Ersatzschrift ({0})</value>
   </data>
   <data name="TextEditBarName" xml:space="preserve">
     <value>Textbearbeitung</value>

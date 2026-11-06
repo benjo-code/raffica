@@ -67,10 +67,21 @@ internal sealed class SaveController
     public event Action<PdfTab>? PathChanged;
 
     /// <summary>
-    /// Raised on the UI thread after a save wrote an edited text of a tab for the first time (once per tab): the old text stays in earlier versions of the
-    /// file, and the window says so (the hint bar of the mode and the status bar).
+    /// Raised on the UI thread after a save wrote an edited text of a tab (one that is still done in the history, not one undone since) while the note about
+    /// the old text was not shown for the tab yet: the old text stays in earlier versions of the file, and the window says so (the hint bar of the mode and the
+    /// status bar) and then calls <see cref="MarkTextNoted"/>. A note that could not be shown (the cell of the status bar is taken) is offered again by the next such save.
     /// </summary>
     public event Action<PdfTab>? TextEditsSaved;
+
+    /// <summary>The window showed the note about the old text for a tab: it is not offered again (once per tab).</summary>
+    public void MarkTextNoted(PdfTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!_textNoted.TryGetValue(tab, out _))
+        {
+            _textNoted.Add(tab, new object());
+        }
+    }
 
     /// <summary>Gets whether a save is running.</summary>
     public bool IsSaving { get; private set; }
@@ -256,7 +267,7 @@ internal sealed class SaveController
         var before = tab.Session.Document;
 
         // The history is empty after the write, so whether it held a text edit is read now.
-        var wroteText = tab.Annotations.Editor.HasTextEdits;
+        var wroteText = tab.Annotations.Editor.HasLiveTextEdits;
         while (true)
         {
             try
@@ -330,7 +341,6 @@ internal sealed class SaveController
         // The first save of an edited text tells where the old text stays; once per tab.
         if (wroteText && !_textNoted.TryGetValue(tab, out _))
         {
-            _textNoted.Add(tab, new object());
             Guarded(() => TextEditsSaved?.Invoke(tab));
         }
 

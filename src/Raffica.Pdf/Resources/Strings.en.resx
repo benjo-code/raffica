@@ -2974,7 +2974,7 @@
     <value>Edit lines, not paragraphs. Characters the font lacks are set in a replacement font.</value>
   </data>
   <data name="TextEditWholeRunSwitch" xml:space="preserve">
-    <value>Whole line in replacement font</value>
+    <value>Whole line in replacement font ({0})</value>
   </data>
   <data name="TextEditBarName" xml:space="preserve">
     <value>Text editing</value>

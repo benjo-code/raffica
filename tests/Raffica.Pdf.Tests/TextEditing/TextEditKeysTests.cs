@@ -20,6 +20,12 @@ public sealed class TextEditKeysTests
         return e.Handled;
     }
 
+    private static void KeyUp(Avalonia.Interactivity.Interactive source, Key key)
+    {
+        source.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = key, Source = source });
+        ViewFixture.Pump();
+    }
+
     // Whether the mode takes the key (the keys it leaves are handled by the focus navigation and the scrolling of the page, which a routed press would show as handled).
     private static bool Used(TextEditRig rig, Key key, KeyModifiers modifiers = KeyModifiers.None) =>
         rig.Interaction.HandleKey(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers, Source = rig.View });
@@ -31,8 +37,10 @@ public sealed class TextEditKeysTests
         rig.Session.Focus(run);
         ViewFixture.Pump();
         Assert.True(PressInView(rig, Key.Enter), "Enter on the focused line opens the field");
-        // No key-up reaches the page view: the field that Enter opened has the focus when the key goes up, so the next Enter on the page must still open a field.
         await ViewFixture.WaitAsync(() => rig.Interaction.Field is not null && rig.FieldHasFocus);
+
+        // The key goes up while the field that Enter opened has the focus: the page view still sees it (the field is its child), so the next Enter is a new press.
+        KeyUp(rig.Interaction.Field!.Field, Key.Enter);
         return rig.Interaction.Field!;
     }
 
@@ -200,6 +208,7 @@ public sealed class TextEditKeysTests
         presenter.PreeditText = "あ";
         var enter = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter, Source = field.Field };
         field.Field.RaiseEvent(enter);
+        KeyUp(field.Field, Key.Enter);
         ViewFixture.Pump();
         Assert.False(enter.Handled);
         Assert.True(rig.Session.HasDraft);

@@ -1401,7 +1401,13 @@ internal sealed partial class PdfWindow : Window
     }
 
     /// <summary>The save cell of the status bar shows "Unsaved changes" while the active document is dirty, else nothing.</summary>
-    private void UpdateSaveState() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
+    private void UpdateSaveState()
+    {
+        ClearTextEditHint();
+        UpdateSaveStateCore();
+    }
+
+    private void UpdateSaveStateCore() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
 
     // The card about empty required fields; "go to first empty field" takes the same path as the ribbon command and the badge counter.
     private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab, IReadOnlyList<string> names)

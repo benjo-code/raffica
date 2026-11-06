@@ -163,13 +163,26 @@ internal sealed partial class PdfWindow
     }
 
     // The first save of edited text of a tab: the hint bar says where the old text stays, and so does the status bar (once per tab). A hint of another owner is never overwritten.
+    // The slot of the tab is used up only when the note was really shown (in the hint bar of the mode, or in the free cell of the status bar of the active tab).
     private void OnTextEditsSaved(PdfTab tab)
     {
-        tab.TextEditIfCreated?.ShowOldTextNote();
+        var shown = false;
+        if (tab.TextEditIfCreated is { IsActive: true } session)
+        {
+            session.ShowOldTextNote();
+            shown = true;
+        }
+
         if (ReferenceEquals(Workspace.Active, tab) && string.IsNullOrEmpty(Status.Hint))
         {
             Status.Hint = TextEditWording.OldText;
             _textEditHintText = TextEditWording.OldText;
+            shown = true;
+        }
+
+        if (shown)
+        {
+            _saves.MarkTextNoted(tab);
         }
     }
 
