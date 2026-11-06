@@ -316,12 +316,19 @@ public sealed class TextEditRobustnessTests
         await ViewFixture.WaitAsync(() => rig.FieldHasFocus);
         TextEditRig.Type(field, "Invoice total: 1,259 EUR");
 
+        // The press takes the focus from the field, and that writes the first line. The write is held, so the order is fixed: the press has
+        // captured the line, then the write goes through, then the release comes.
+        var hold = new TaskCompletionSource();
+        rig.Session.BeforeWrite = () => hold.Task;
         var at = rig.WindowPointOf(second);
         rig.Window.MouseDown(at, MouseButton.Left);
-        var written = await rig.Session.CommitAsync();
-        Assert.Equal(TextEditCommitKind.Applied, written.Kind);
+        await ViewFixture.WaitAsync(() => rig.Session.IsCommitting);
+        rig.Session.BeforeWrite = null;
+        hold.SetResult();
+        await rig.Interaction.Completion;
         await rig.SettleAsync();
         Assert.False(rig.Session.HasDraft);
+        Assert.Contains("Invoice total: 1,259 EUR", await rig.PageTextAsync(), StringComparison.Ordinal);
         rig.Window.MouseUp(at, MouseButton.Left);
 
         await ViewFixture.WaitAsync(() => rig.Session.HasDraft);
