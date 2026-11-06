@@ -31,7 +31,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.1 | Viewer | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) | 2026-11-04 |
 | 2.2 | Annotate | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-04-milestone-02-2-annotate.md) | 2026-11-05 |
 | 2.3 | Forms and signing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-3-forms-and-signing.md) | 2026-11-05 |
-| 2.4 | Organize pages | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | – |
+| 2.4 | Organize pages | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | 2026-11-06 |
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ⬜ open | – | – |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ⬜ open | – | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
@@ -296,7 +296,7 @@ Goal: AcroForm fields can be filled and a visible signature placed and saved.
 - The automation name of the field editor is fixed when the editor opens.
 
 ## Milestone 2.4 – Organize pages
-**Status:** 🔵 in progress · **Plan:** [2026-11-05-milestone-02-4-organize-pages.md](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
+**Status:** ✅ done (2026-11-06) · **Plan:** [2026-11-05-milestone-02-4-organize-pages.md](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.2
 
 Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and exported from the pages pane.
 
@@ -311,7 +311,9 @@ Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and expo
 - [ ] Merge and split results open with the right page count (test and a manual check in an independent viewer)
 
 **Open items**
-**Why criterion 2 is not ticked:** the test half is done (`OrganizeAcceptanceTests`: merge through Insert file across three files, split every n pages, by ranges and by bookmarks, extract, rotate/delete/move/duplicate/blank in one apply, signed and encrypted files, all reopened with Core as an independent reader and checked for page count, order, bookmarks and encryption). The manual half (an independent viewer) was not made; it is a backlog entry with its steps ("Manual check: independent viewer for merged and split files (2.4)"). The milestone stays `in-progress` until the owner decides, as 2.1 to 2.3 were closed only on the owner's instruction.
+**Why 2.4 is `done` with open points:** closed on 2026-11-06 on the owner's instruction, on the same footing as 2.1 to 2.3 (the owner will make the manual checks together once Raffica PDF is done). Criterion 1 is verified, and CI on the pull request was green on Linux and Windows (`build-linux`, `build-windows`, `roadmap`).
+
+**Why criterion 2 is not ticked:** the test half is done (`OrganizeAcceptanceTests`: merge through Insert file across three files, split every n pages, by ranges and by bookmarks, extract, rotate/delete/move/duplicate/blank in one apply, signed and encrypted files, all reopened with Core as an independent reader and checked for page count, order, bookmarks and encryption). The manual half (an independent viewer) was not made; it is a backlog entry with its steps ("Manual check: independent viewer for merged and split files (2.4)"). It stays unticked because it was not done.
 
 **Independent viewer (criterion 2).** In Raffica PDF insert a second file into a copy of `testdata/pdfs/pages-marked.pdf` and Save as; split another copy every 2 pages into a folder; open the merged file and one part in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect the page count, the page order and the bookmarks of the main file. Record the viewer's name and version here and tick the criterion.
 
@@ -321,7 +323,7 @@ Goal: Pages can be reordered, rotated, deleted, inserted, merged, split and expo
 - Real pens and touch for dragging pages, high-DPI looks and German widths of the cards, and a screen reader on the organize list, the pending-change marks and the loss list of the Apply card.
 - The organize mode with real thumbnails on a 1000-page file on the two binding machines; the measurement is one run on one development machine and sets no budget (`RAFFICA_MEASURE_OUT=<folder> dotnet test tests/Raffica.Pdf.Tests -c Release --filter-class "*OrganizeMeasurementTests"`).
 - A signed file after Apply opened in Acrobat Reader, and Linux and macOS window managers and folder pickers.
-- The Linux CI run of the new tests (`SplitCardTests` use Windows-style paths in a fake picker).
+- Not an open item any more: the Linux CI run of the new tests passed after one test-only fix (`OrganizeThumbnailTests.RotatedThumbnailIsDrawnTurned` measured ink with a hard darkness threshold that thin Linux text never reached; it now weights darkness). `AnnotationSessionTests.BusyEditorCountsAsDirty` failed once on Linux and passed on the rerun, so it is a flake of the existing 2.2 test, not of this milestone.
 
 ## Milestone 2.5 – Redact, OCR and line editing
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.3, M2.4
