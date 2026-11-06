@@ -34,10 +34,9 @@ static class Pins
 
     public static readonly PinnedFile[] Libraries =
     [
-        // PLACEHOLDERS (size 0, all-zero hash) until the workflow native-tesseract.yml has built the release: the size and
-        // SHA-256 of each file come from its job summary. A placeholder pin is refused by the fetch.
-        new("win-x64", "tesseract.dll", "tesseract.dll", 0, Placeholder, TesseractRelease + "tesseract.dll"),
-        new("linux-x64", "libtesseract.so", "libtesseract.so", 0, Placeholder, TesseractRelease + "libtesseract.so"),
+        // Size and SHA-256 from the job summary of the workflow native-tesseract.yml (run 42198001684); they equal the release digests.
+        new("win-x64", "tesseract.dll", "tesseract.dll", 3684864, "24fc074bfefba19dfe566b54604fcf1fcbdeef85080acb461d866bb0ebecd86c", TesseractRelease + "tesseract.dll"),
+        new("linux-x64", "libtesseract.so", "libtesseract.so", 6948376, "b3d19bbabb63f8af6e13728aa74940b8c6b1138cd078d9fef346adb5ac75adc4", TesseractRelease + "libtesseract.so"),
     ];
 
     // tessdata_fast 4.1.0 (Apache-2.0).
@@ -144,7 +143,10 @@ static class Fetcher
         }
         catch (Exception e) when (e is HttpRequestException or InvalidOperationException or System.Text.Json.JsonException or IOException or TaskCanceledException or UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"native-fetch: {e.Message}");
+            var hint = e is HttpRequestException && TokenFromEnvironment() is null
+                ? " (no GITHUB_TOKEN or GH_TOKEN is set; a private repository needs one, for example GH_TOKEN=$(gh auth token))"
+                : "";
+            Console.Error.WriteLine($"native-fetch: {e.Message}{hint}");
             return 1;
         }
         finally
@@ -269,6 +271,7 @@ static class SelfTest
             Expect("a missing source file is refused", Fetcher.Fetch(good, Path.Combine(root, "out-missing"), Path.Combine(root, "nope")), 1);
             Expect("an unknown RID gives 2", Cli.Run(["--rid", "mac", "--out", Path.Combine(root, "x")]), 2);
             Expect("missing arguments give 2", Cli.Run(["--rid", "win-x64"]), 2);
+            Expect("no pin is a placeholder (size 0 or an all-zero SHA-256)", Pins.Libraries.Concat(Pins.Tessdata).All(f => f.Size > 0 && f.Sha256 != Pins.Placeholder), true);
             Expect("every pin is a lower-case SHA-256", Pins.Libraries.Concat(Pins.Tessdata).All(f => f.Sha256.Length == 64 && f.Sha256.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'))), true);
         }
         finally
@@ -278,7 +281,7 @@ static class SelfTest
 
         AssetLookupUsesTheApiWithToken();
         WrongHashLaysNothingDown();
-        NoPagewingInTheSource();
+        NoPredecessorNameInTheSource();
 
         Console.WriteLine(s_failures == 0 ? "selftest passed" : $"selftest: {s_failures} failure(s)");
         return s_failures == 0 ? 0 : 1;
@@ -373,12 +376,10 @@ static class SelfTest
         }
     }
 
-    private static void NoPagewingInTheSource([CallerFilePath] string path = "")
+    private static void NoPredecessorNameInTheSource([CallerFilePath] string path = "")
     {
         var word = "Page" + "wing"; // spelled in two pieces so this test does not trip itself
-        // The lines that name this test (its declaration and its call) are the only place the word may stand.
-        var rest = File.ReadLines(path).Where(line => !line.Contains("No" + word + "InTheSource", StringComparison.Ordinal));
-        Expect("the tool's own source does not name the predecessor", rest.Any(line => line.Contains(word, StringComparison.OrdinalIgnoreCase)), false);
+        Expect("the tool's own source does not name the predecessor", File.ReadAllText(path).Contains(word, StringComparison.OrdinalIgnoreCase), false);
     }
 
     private static void Expect<T>(string what, T actual, T expected)
