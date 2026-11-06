@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Raffica.Core.Tests" />
+    <InternalsVisibleTo Include="Raffica.Pdf.Tests" />
   </ItemGroup>
   <!--
     Test build of the updater (Milestone 8.1, packaging/README.md, section "Update prüfen"). A normal build, and so every

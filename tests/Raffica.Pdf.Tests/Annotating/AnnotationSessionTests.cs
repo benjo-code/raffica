@@ -149,11 +149,15 @@ public sealed class AnnotationSessionTests
         var session = file.Tab.Annotations;
         Assert.False(session.IsDirty);
 
-        // The task is started and not awaited: the editor is busy from the call on.
+        // The operation is held before it touches the document, so it is in flight for as long as the test says (IsBusy is only guaranteed while it
+        // runs: without the hold it can end before the assertion on a loaded machine).
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Editor.BeforeOperation = () => release.Task;
         var apply = AnnotatedFile.HighlightAsync(session);
         Assert.True(session.Editor.IsBusy);
         Assert.True(session.IsDirty);
 
+        release.SetResult();
         await apply;
         await session.FlushAsync();
         Assert.True(session.IsDirty);
