@@ -16,7 +16,8 @@ internal static class RedactRefusedCard
     /// <param name="intro">The sentence before the reasons (what happened to the file and the marks).</param>
     /// <param name="reasons">The reasons, one sentence each.</param>
     /// <param name="done">Raised when the card is closed.</param>
-    public static Dialog Create(string fileName, string title, string intro, IReadOnlyList<string> reasons, Action done)
+    /// <param name="hint">One sentence that names the ways out (shown after the reasons), or null.</param>
+    public static Dialog Create(string fileName, string title, string intro, IReadOnlyList<string> reasons, Action done, string? hint = null)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(title);
@@ -33,6 +34,11 @@ internal static class RedactRefusedCard
             var line = new TextBlock { Name = "PART_Reason", Text = "• " + reason, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
             Avalonia.Automation.AutomationProperties.SetName(line, reason);
             body.Children.Add(line);
+        }
+
+        if (hint is not null)
+        {
+            body.Children.Add(new TextBlock { Name = "PART_Hint", Text = hint, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontWeight = Avalonia.Media.FontWeight.SemiBold });
         }
 
         var back = new Button { Name = "PART_Back", Content = PdfStrings.ApplyBack };

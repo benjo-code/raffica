@@ -2670,4 +2670,13 @@
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
     <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. Back leaves everything as it is.</value>
   </data>
+  <data name="RedactOriginalTitle" xml:space="preserve">
+    <value>Replace the original file?</value>
+  </data>
+  <data name="RedactOriginalMessageFormat" xml:space="preserve">
+    <value>You chose the file that is open, {0}. The redacted file replaces it. This cannot be undone, and no backup copy is made.</value>
+  </data>
+  <data name="RedactFailedHint" xml:space="preserve">
+    <value>To go on, mark the text that is left by area, or turn that page into an image.</value>
+  </data>
 </root>

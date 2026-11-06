@@ -195,6 +195,8 @@ public sealed class RedactApplyFailureTests
         Assert.Equal("The written file did not pass the check, so nothing was written. The file is unchanged and the marks are still open.", PrintHost.Find<TextBlock>(card, "PART_Intro").Text);
         Assert.Equal("• A removed text is still in the page text of the result (page 1).", PrintHost.Find<TextBlock>(card, "PART_Reason").Text);
         Assert.DoesNotContain("Zephyr", string.Join('\n', RedactApplyRig.TextsOf(card)), StringComparison.Ordinal);
+        // The way out is named: mark the leftover by area, or turn the page into an image.
+        Assert.Equal("To go on, mark the text that is left by area, or turn that page into an image.", PrintHost.Find<TextBlock>(card, "PART_Hint").Text);
         RedactApplyRig.Click(card, "PART_Back");
         Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
         await AssertKeptAsync(rig, bytes, version, marks);
@@ -217,6 +219,7 @@ public sealed class RedactApplyFailureTests
 
         Assert.Equal("The check of the written file could not be finished, so nothing was written. The file is unchanged and the marks are still open.", PrintHost.Find<TextBlock>(card, "PART_Intro").Text);
         Assert.Empty(Reasons(card));
+        Assert.False(RedactApplyRig.Has(card, "PART_Hint"), "no finding, no hint");
         RedactApplyRig.Click(card, "PART_Back");
         Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
         await AssertKeptAsync(rig, bytes, version, marks);

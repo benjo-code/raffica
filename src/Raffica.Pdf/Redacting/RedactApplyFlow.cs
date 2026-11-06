@@ -197,20 +197,14 @@ internal sealed class RedactApplyFlow(
             return false;
         }
 
-        if (!ReferenceEquals(shown, plan))
+        if (!ReferenceEquals(shown, plan) && !rescue.All(info => decision.TurnIntoImages.Contains(info.Page)))
         {
-            // The pages the user agreed to turn into images join the plan (one history step); it is the plan that was analysed and shown.
-            if (!rescue.All(info => decision.TurnIntoImages.Contains(info.Page)))
-            {
-                return false;
-            }
-
-            session.Replace(shown);
-            version = session.Version;
+            return false;
         }
 
         // (5) The target. "Save as" never preselects the name of the open file; the system dialog confirms replacing another file, so the request
-        // keeps ReplaceExisting at its default (true) and nothing here asks again.
+        // keeps ReplaceExisting at its default (true). A pick that is the open file itself is the original: it gets the same armed confirmation as
+        // "Save in the original file" (Back there ends the apply, nothing changes).
         var targetPath = path;
         if (decision.Choice == ApplyChoice.SaveAs)
         {
@@ -220,13 +214,30 @@ internal sealed class RedactApplyFlow(
             }
 
             targetPath = Path.GetFullPath(picked);
+            if (JobRunner.SamePath(targetPath, path)
+                && !await dialogs.ShowAsync<bool>(done => RedactOriginalCard.Create(tab.Title, done, time)))
+            {
+                return false;
+            }
         }
 
         if (!session.IsActive || session.Version != version)
         {
-            // The marks were edited while the picker was open: nothing is written for a plan the user has not seen.
+            // The marks were edited while the picker or the confirmation was open: nothing is written for a plan the user has not seen.
             await Tell(PdfStrings.RedactPlanChanged);
             return false;
+        }
+
+        if (!ReferenceEquals(shown, plan))
+        {
+            // The pages the user agreed to turn into images join the plan (one history step) only now, with the path chosen and the write next: a cancelled
+            // picker leaves the plan exactly as it was. It is the plan that was analysed and shown.
+            var joined = session.Replace(shown);
+            if (!joined.IsDone)
+            {
+                await Tell(joined.Problem is { } problem ? PdfStrings.RedactRefusal(problem) : PdfStrings.RedactFailOther);
+                return false;
+            }
         }
 
         // (6) The write. The app never sets OverwriteChangedOriginal: a file that changed on disk is a failure with its card.
@@ -323,7 +334,7 @@ internal sealed class RedactApplyFlow(
         var findings = check?.Findings ?? [];
         IReadOnlyList<string> reasons = [.. findings.Select(RedactWording.Text).Distinct()];
         var intro = reasons.Count == 0 ? PdfStrings.RedactFailedNoCheck : PdfStrings.RedactFailedIntro;
-        await dialogs.ShowAsync<bool>(done => RedactRefusedCard.Create(tab.Title, PdfStrings.RedactFailedTitle, intro, reasons, () => done(true)));
+        await dialogs.ShowAsync<bool>(done => RedactRefusedCard.Create(tab.Title, PdfStrings.RedactFailedTitle, intro, reasons, () => done(true), hint: reasons.Count > 0 ? PdfStrings.RedactFailedHint : null));
         return false;
     }
 

@@ -915,6 +915,9 @@ internal static class PdfStrings
     public static string RedactNcImageTextFormat => Table.Get("RedactNcImageTextFormat");
     public static string RedactNcOverlayNotRead => Table.Get("RedactNcOverlayNotRead");
     public static string RedactNcNoTermFormat => Table.Get("RedactNcNoTermFormat");
+    public static string RedactOriginalTitle => Table.Get("RedactOriginalTitle");
+    public static string RedactOriginalMessageFormat => Table.Get("RedactOriginalMessageFormat");
+    public static string RedactFailedHint => Table.Get("RedactFailedHint");
     public static string RedactMarksOpen => Table.Get("RedactMarksOpen");
     public static string RedactSaveFirstMessage => Table.Get("RedactSaveFirstMessage");
     public static string RedactSaveFirstSaveAsMessage => Table.Get("RedactSaveFirstSaveAsMessage");

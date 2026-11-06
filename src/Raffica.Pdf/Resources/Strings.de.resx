@@ -2654,4 +2654,13 @@
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
     <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. Zurück lässt alles, wie es ist.</value>
   </data>
+  <data name="RedactOriginalTitle" xml:space="preserve">
+    <value>Originaldatei ersetzen?</value>
+  </data>
+  <data name="RedactOriginalMessageFormat" xml:space="preserve">
+    <value>Sie haben die geöffnete Datei {0} gewählt. Die geschwärzte Datei ersetzt sie. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt.</value>
+  </data>
+  <data name="RedactFailedHint" xml:space="preserve">
+    <value>Um weiterzumachen, markieren Sie den übrigen Text als Bereich oder wandeln Sie die Seite in ein Bild um.</value>
+  </data>
 </root>

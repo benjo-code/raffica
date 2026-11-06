@@ -388,4 +388,129 @@ public sealed class RedactApplyFlowTests
         RedactApplyRig.Click(apply, "PART_Back");
         Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
     }
+    public static TheoryData<string> OriginalSpellings()
+    {
+        // The same file, spelled differently: as it is, relative to the working folder, with a detour through a folder, and (on Windows) in capitals.
+        var data = new TheoryData<string> { "same", "relative", "detour" };
+        if (OperatingSystem.IsWindows())
+        {
+            data.Add("capitals");
+        }
+
+        return data;
+    }
+
+    private static string Spell(string how, string path) => how switch
+    {
+        "relative" => Path.GetRelativePath(Environment.CurrentDirectory, path),
+        "detour" => Path.Combine(Path.GetDirectoryName(path)!, "detour", "..", Path.GetFileName(path)),
+        "capitals" => Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileName(path).ToUpperInvariant()),
+        _ => path,
+    };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(OriginalSpellings))]
+    public async Task SaveAsToTheOriginalPathIsArmed(string how)
+    {
+        using var rig = await RedactApplyRig.OpenAsync();
+        await rig.MarkTermAsync(Term);
+        var before = await File.ReadAllBytesAsync(rig.Path, Ct);
+        rig.Picks.Enqueue(Spell(how, rig.Path));
+
+        var run = rig.Flow.RunAsync(rig.Tab, ApplyTarget.SaveAs);
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+
+        // The pick is the open file: the armed confirmation stands in front of the write, Back is the default.
+        var confirm = await rig.CardWithAsync("PART_Original");
+        Assert.Equal("Replace the original file?", confirm.Title);
+        Assert.Contains("primary", PrintHost.Find<Button>(confirm, "PART_Back").Classes);
+        Assert.DoesNotContain("primary", PrintHost.Find<Button>(confirm, "PART_Original").Classes);
+        Assert.False(PrintHost.Find<Button>(confirm, "PART_Original").IsEnabled);
+        RedactApplyRig.Click(confirm, "PART_Original");
+        PrintHost.Pump();
+        rig.Time.Advance(ArmingLock.DelayMilliseconds - 50);
+        RedactApplyRig.Click(confirm, "PART_Original");
+        PrintHost.Pump();
+        Assert.Same(confirm, rig.Host.ActiveDialog);
+        Assert.Equal(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+
+        rig.Time.Advance(100);
+        RedactApplyRig.Click(confirm, "PART_Original");
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        Assert.NotEqual(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+        Assert.Equal(rig.Path, rig.Tab.Path);
+        Assert.Empty(rig.PathChanges);
+    }
+
+    [AvaloniaFact]
+    public async Task CancellingTheOriginalConfirmationLeavesFileAndPlanUnchanged()
+    {
+        using var rig = await RedactApplyRig.OpenAsync();
+        await rig.MarkTermAsync(Term);
+        var before = await File.ReadAllBytesAsync(rig.Path, Ct);
+        var version = rig.Session.Version;
+        rig.Picks.Enqueue(rig.Path);
+
+        var run = rig.Flow.RunAsync(rig.Tab, ApplyTarget.SaveAs);
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_Original"), "PART_Back");
+
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        PrintHost.Pump();
+        Assert.Null(rig.Host.ActiveDialog);
+        Assert.Equal(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+        Assert.Equal(version, rig.Session.Version);
+        Assert.True(rig.Session.IsActive);
+        Assert.Empty(rig.Rebuilds);
+        Assert.Equal([rig.Path], Directory.GetFiles(rig.Folder));
+    }
+
+    [AvaloniaFact]
+    public async Task ACancelledPickerAfterARescueTickLeavesThePlanAsItWas()
+    {
+        using var rig = await RedactApplyRig.OpenAsync("redact-everywhere.pdf");
+        rig.MarkArea(0, HarmlessArea);
+        var version = rig.Session.Version;
+        var plan = rig.Session.Plan;
+
+        var run = rig.Flow.RunAsync(rig.Tab);
+        var card = await rig.CardWithAsync("PART_Rescue_0");
+        PrintHost.Find<CheckBox>(card, "PART_Rescue_0").IsChecked = true;
+        PrintHost.Pump();
+        RedactApplyRig.Click(card, "PART_SaveAs"); // the picker is cancelled: no path is queued
+
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Equal(version, rig.Session.Version);
+        Assert.Same(plan, rig.Session.Plan);
+        Assert.Empty(rig.Session.Plan.RasterPages);
+        Assert.Equal([rig.Path], Directory.GetFiles(rig.Folder));
+    }
+
+    [AvaloniaFact]
+    public async Task TheOriginalOfTheRescueCardIsArmedFromTheTickNotFromTheCard()
+    {
+        using var rig = await RedactApplyRig.OpenAsync("redact-everywhere.pdf");
+        rig.MarkArea(0, HarmlessArea);
+        var before = await File.ReadAllBytesAsync(rig.Path, Ct);
+
+        var run = rig.Flow.RunAsync(rig.Tab);
+        var card = await rig.CardWithAsync("PART_Rescue_0");
+
+        // The card is old by now; the ways out were blocked meanwhile.
+        rig.Time.Advance(5000);
+        PrintHost.Find<CheckBox>(card, "PART_Rescue_0").IsChecked = true;
+        PrintHost.Pump();
+        Assert.False(PrintHost.Find<Button>(card, "PART_Original").IsEnabled);
+        RedactApplyRig.Click(card, "PART_Original");
+        PrintHost.Pump();
+        Assert.Same(card, rig.Host.ActiveDialog);
+        Assert.False(run.IsCompleted);
+
+        rig.Time.Advance(ArmingLock.DelayMilliseconds + 50);
+        RedactApplyRig.Click(card, "PART_Original");
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        Assert.NotEqual(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+    }
 }

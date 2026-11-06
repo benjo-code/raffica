@@ -40,6 +40,7 @@ internal static class RedactApplyCard
         ArgumentNullException.ThrowIfNull(done);
 
         var finished = false;
+        ArmingLock? arming = null;
         var ticked = new HashSet<int>();
         bool AllTicked() => rescue.All(info => ticked.Contains(info.Page));
         void Finish(ApplyChoice choice)
@@ -113,7 +114,14 @@ internal static class RedactApplyCard
                         ticked.Remove(info.Page);
                     }
 
-                    ways.IsEnabled = AllTicked();
+                    var all = AllTicked();
+                    if (all && !ways.IsEnabled)
+                    {
+                        // The original is reachable only now: its delay starts now, not when the card was made.
+                        arming?.Rearm();
+                    }
+
+                    ways.IsEnabled = all;
                     blocked.IsVisible = !AllTicked();
                 };
                 offer.Children.Add(box);
@@ -137,10 +145,11 @@ internal static class RedactApplyCard
         var dialog = new Dialog { Title = PdfStrings.RedactApplyTitle, Content = body, Footer = buttons };
         if (original is not null)
         {
-            var arming = new ArmingLock(time, dialog, original);
+            var lockNow = new ArmingLock(time, dialog, original);
+            arming = lockNow;
             original.Click += (_, _) =>
             {
-                if (arming.IsArmed)
+                if (lockNow.IsArmed && AllTicked())
                 {
                     Finish(ApplyChoice.Original);
                 }

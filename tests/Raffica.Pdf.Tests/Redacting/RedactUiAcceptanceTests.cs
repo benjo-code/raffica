@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using Avalonia.Headless.XUnit;
 using Raffica.Core.Pdf;
@@ -46,6 +47,15 @@ public sealed class RedactUiAcceptanceTests
         /// <summary>The pages that cannot be redacted in place and are turned into images with a tick on the Apply card (0-based).</summary>
         public int[] Rescued { get; init; } = [];
 
+        /// <summary>The pages (0-based) that must have no text at all afterwards (a page turned into an image).</summary>
+        public int[] EmptyPages { get; init; } = [];
+
+        /// <summary>Control characters (codes 5 to 7, glyphs without a unicode value) that the fixture shows in its text before and that must be gone after.</summary>
+        public bool ControlChars { get; init; }
+
+        /// <summary>A line the Removed section of the result card must have (for a fixture with no text to look for: what is observable).</summary>
+        public string? CardHas { get; init; }
+
         /// <summary>A text of the page that must still be there (the redaction takes no more than the marks).</summary>
         public string? Kept { get; init; }
 
@@ -54,7 +64,7 @@ public sealed class RedactUiAcceptanceTests
 
     private static readonly Case[] Cases =
     [
-        new() { File = "redact-control.pdf", Areas = [(0, new PageRect(15, 40, 200, 80))], Kept = "Public line stays" },
+        new() { File = "redact-control.pdf", Areas = [(0, new PageRect(15, 40, 200, 80))], ControlChars = true, Kept = "Public line stays" },
         new() { File = "redact-covered.pdf", Search = Term, GoneText = [Term], GoneBytes = [Term], Kept = "Public line stays visible" },
         new()
         {
@@ -69,11 +79,13 @@ public sealed class RedactUiAcceptanceTests
         new() { File = "redact-fonts.pdf", Search = Term, Areas = [(0, new PageRect(15, 130, 300, 160))], GoneText = [Term], GoneBytes = [Term] },
         new() { File = "redact-ligature.pdf", Search = "Zephyr", GoneText = ["Zephyr"], Kept = "Ligature fixture" },
         new() { File = "redact-rotated.pdf", Search = Term, GoneText = [Term], GoneBytes = [Term], Kept = "Top line" },
-        new() { File = "redact-hidden.pdf", Areas = [(0, new PageRect(15, 15, 200, 75))], GoneBytes = [Term], Rescued = [0] },
-        new() { File = "redact-everywhere.pdf", Search = Term, GoneText = [Term], GoneBytes = [Term], Rescued = [0] },
+        new() { File = "redact-hidden.pdf", Areas = [(0, new PageRect(15, 15, 200, 75))], GoneBytes = [Term], Rescued = [0], EmptyPages = [0] },
+        new() { File = "redact-everywhere.pdf", Search = Term, GoneText = [Term], GoneBytes = [Term], Rescued = [0], EmptyPages = [0] },
         new() { File = "redact-structure.pdf", Search = Term, Outcome = ApplyOutcomeKind.Refused },
         new() { File = "redact-objstm.pdf", Areas = [(0, new PageRect(15, 15, 200, 60))], Outcome = ApplyOutcomeKind.Refused },
-        new() { File = "redact-image.pdf", Areas = [(0, new PageRect(10, 10, 100, 100))] },
+        // The image fixture has no text (the labels are Helvetica, no term): what the redaction did is observable on the result card, which says how many images were
+        // overwritten under the mark or removed as a whole, and the file is checked by the pixels of the images under the mark (the card's Checked section).
+        new() { File = "redact-image.pdf", Areas = [(0, new PageRect(10, 10, 100, 100))], CardHas = "Images " },
     ];
 
     public static TheoryData<string> Names() => [.. Cases.Select(c => c.File)];
@@ -90,6 +102,81 @@ public sealed class RedactUiAcceptanceTests
             var scanned = RawContentScanner.Count(stream, term, RawScanLimits.Default, out _, Ct);
             var plain = new[] { Encoding.Latin1, Encoding.UTF8, Encoding.Unicode, Encoding.BigEndianUnicode }.Sum(e => Count(Bytes, e.GetBytes(term)));
             return scanned + plain;
+        }
+
+        /// <summary>
+        /// The places the text occurs in the inflated content of the streams, found by an inflate of our own (every <c>stream</c> to <c>endstream</c> range that is a zlib
+        /// stream, at most 64 MB each), so this reading does not rest on <see cref="RawContentScanner"/> alone.
+        /// </summary>
+        public int InInflated(string term) => InflatedContents(Bytes).Sum(content => Encodings.Sum(e => Count(content, e.GetBytes(term))));
+
+        private static readonly Encoding[] Encodings = [Encoding.Latin1, Encoding.UTF8, Encoding.Unicode, Encoding.BigEndianUnicode];
+
+        /// <summary>The inflated content of every stream of a file that is a zlib stream (Flate); streams of other filters are skipped.</summary>
+        internal static IEnumerable<byte[]> InflatedContents(byte[] file)
+        {
+            var stream = Encoding.ASCII.GetBytes("stream");
+            var end = Encoding.ASCII.GetBytes("endstream");
+            var from = 0;
+            while (from < file.Length)
+            {
+                var at = file.AsSpan(from).IndexOf(stream);
+                if (at < 0)
+                {
+                    yield break;
+                }
+
+                var start = from + at + stream.Length;
+                if (start < file.Length && file[start] == (byte)'\r')
+                {
+                    start++;
+                }
+
+                if (start < file.Length && file[start] == (byte)'\n')
+                {
+                    start++;
+                }
+
+                var stop = file.AsSpan(start).IndexOf(end);
+                if (stop < 0)
+                {
+                    yield break;
+                }
+
+                if (Inflate(file.AsSpan(start, stop)) is { } content)
+                {
+                    yield return content;
+                }
+
+                from = start + stop + end.Length;
+            }
+        }
+
+        private static byte[]? Inflate(ReadOnlySpan<byte> data)
+        {
+            const int Limit = 64 * 1024 * 1024;
+            try
+            {
+                using var input = new MemoryStream(data.ToArray());
+                using var zlib = new ZLibStream(input, CompressionMode.Decompress);
+                using var output = new MemoryStream();
+                var buffer = new byte[81920];
+                int read;
+                while ((read = zlib.Read(buffer)) > 0)
+                {
+                    output.Write(buffer, 0, read);
+                    if (output.Length > Limit)
+                    {
+                        return null;
+                    }
+                }
+
+                return output.ToArray();
+            }
+            catch (InvalidDataException)
+            {
+                return null;
+            }
         }
 
         private static int Count(byte[] haystack, byte[] needle)
@@ -110,6 +197,25 @@ public sealed class RedactUiAcceptanceTests
 
             return count;
         }
+    }
+
+    private static int ControlCount(string text) => text.Count(c => c < 32 && c is not ('\r' or '\n' or '\t' or '\f'));
+
+    [Fact]
+    public void TheOwnInflateFindsTextInsideACompressedStream()
+    {
+        // The inflate of this test is its own: it must see what the scanner of Core is not asked about, text inside a Flate stream.
+        using var packed = new MemoryStream();
+        using (var zlib = new ZLibStream(packed, CompressionMode.Compress, true))
+        {
+            zlib.Write(Encoding.Latin1.GetBytes("BT (Secret value) Tj ET"));
+        }
+
+        var file = Encoding.ASCII.GetBytes("%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n").Concat(packed.ToArray()).Concat(Encoding.ASCII.GetBytes("\nendstream\nendobj\n")).ToArray();
+        var reading = new Reading(1, [string.Empty], file);
+
+        Assert.True(reading.InInflated("Secret value") > 0);
+        Assert.Equal(0, reading.InInflated("Other value"));
     }
 
     internal static async Task<Reading> ReadAsync(string path)
@@ -143,6 +249,11 @@ public sealed class RedactUiAcceptanceTests
         foreach (var bytes in item.GoneBytes.Concat(item.StaysInBytes))
         {
             Assert.True(before.InBytes(bytes) > 0, $"{file}: the fixture must hold {bytes} in its bytes before");
+        }
+
+        if (item.ControlChars)
+        {
+            Assert.True(ControlCount(before.AllText) > 0, $"{file}: the fixture must show control characters before");
         }
 
         await rig.EnterModeAsync();
@@ -193,6 +304,22 @@ public sealed class RedactUiAcceptanceTests
         foreach (var bytes in item.GoneBytes)
         {
             Assert.Equal(0, after.InBytes(bytes));
+            Assert.Equal(0, after.InInflated(bytes));
+        }
+
+        if (item.ControlChars)
+        {
+            Assert.Equal(0, ControlCount(after.AllText));
+        }
+
+        foreach (var page in item.EmptyPages)
+        {
+            Assert.Equal(string.Empty, after.PageTexts[page].Trim());
+        }
+
+        if (item.CardHas is { } cardHas)
+        {
+            Assert.Contains(outcome.Texts, text => text.Contains(cardHas, StringComparison.Ordinal));
         }
 
         // What the report says stays does stay, and the report says so ("Not cleaned"), so the test does not hide a leak behind a wrong expectation.
@@ -238,6 +365,7 @@ public sealed class RedactUiAcceptanceTests
         {
             Assert.DoesNotContain(match, after.AllText, StringComparison.Ordinal);
             Assert.Equal(0, after.InBytes(match));
+            Assert.Equal(0, after.InInflated(match));
             if (RemovedText.RawFormOf(match) is { } raw)
             {
                 Assert.Equal(0, after.InBytes(raw));
@@ -267,6 +395,7 @@ public sealed class RedactUiAcceptanceTests
         Assert.Equal(before.Pages, after.Pages);
         Assert.Equal(string.Empty, after.AllText.Trim());
         Assert.Equal(0, after.InBytes(Term));
+        Assert.Equal(0, after.InInflated(Term));
         await using var document = await new PdfEngine().OpenAsync(output, null, Ct);
         Assert.Equal(new PageObjectSummary(Images: 1, Paths: 0, Texts: 0, Others: 0, Annotations: 0), await document.GetPageObjectSummaryAsync(0, Ct));
     }
