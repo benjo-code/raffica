@@ -26,6 +26,12 @@ internal enum RedactProblem
 
     /// <summary>The text of a page could not be read, so the selection cannot be marked.</summary>
     TextUnavailable,
+
+    /// <summary>One mark would need more lines than <see cref="Raffica.Core.Redaction.RedactionLimits.MaxAreasPerMark"/>; select less text.</summary>
+    TooManyLines,
+
+    /// <summary>The previous marking of the selection is still running.</summary>
+    Busy,
 }
 
 /// <summary>The outcome of an operation: done (then <see cref="MarkId"/> names the mark an add made), or refused with the reason.</summary>

@@ -719,6 +719,8 @@ internal static class PdfStrings
     public static string RedactRefusalOutOfRange => Table.Get("RedactRefusalOutOfRange");
     public static string RedactRefusalUnknownMark => Table.Get("RedactRefusalUnknownMark");
     public static string RedactRefusalTextUnavailable => Table.Get("RedactRefusalTextUnavailable");
+    public static string RedactRefusalTooManyLinesFormat => Table.Get("RedactRefusalTooManyLinesFormat");
+    public static string RedactRefusalBusy => Table.Get("RedactRefusalBusy");
     public static string RedactRefusalNotActive => Table.Get("RedactRefusalNotActive");
 
     /// <summary>The counter of the redact pane: "4 marks on 2 pages", singular forms for one, and "No marks yet" for none.</summary>
@@ -746,6 +748,8 @@ internal static class PdfStrings
         Raffica.Pdf.Redacting.RedactProblem.OutOfRange => RedactRefusalOutOfRange,
         Raffica.Pdf.Redacting.RedactProblem.UnknownMark => RedactRefusalUnknownMark,
         Raffica.Pdf.Redacting.RedactProblem.TextUnavailable => RedactRefusalTextUnavailable,
+        Raffica.Pdf.Redacting.RedactProblem.TooManyLines => RedactRefusalTooManyLinesFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxAreasPerMark.ToString("N0", Culture), StringComparison.Ordinal),
+        Raffica.Pdf.Redacting.RedactProblem.Busy => RedactRefusalBusy,
         _ => throw new ArgumentOutOfRangeException(nameof(problem), problem, "This redact problem has no text."),
     };
 

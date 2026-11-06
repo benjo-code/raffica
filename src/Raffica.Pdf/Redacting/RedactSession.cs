@@ -22,6 +22,7 @@ internal sealed class RedactSession : IDisposable
     private RedactTool _tool;
     private int _versionBase;
     private int _generation;
+    private bool _marking;
     private bool _disposed;
 
     public RedactSession(PdfTab tab, SynchronizationContext ui)
@@ -178,7 +179,8 @@ internal sealed class RedactSession : IDisposable
         var next = Plan.Without(ids);
         if (ReferenceEquals(next, Plan))
         {
-            return RedactResult.Refused(RedactProblem.NothingSelected);
+            // Ids the plan does not have (a stale selection): the marks are gone already.
+            return RedactResult.Refused(RedactProblem.UnknownMark);
         }
 
         _history.Do(next);
@@ -233,6 +235,30 @@ internal sealed class RedactSession : IDisposable
             return RedactResult.Refused(RedactProblem.NotActive);
         }
 
+        // One marking at a time: the same selection would otherwise be marked twice.
+        if (_marking)
+        {
+            return RedactResult.Refused(RedactProblem.Busy);
+        }
+
+        _marking = true;
+        try
+        {
+            return await MarkSelectionCoreAsync();
+        }
+        finally
+        {
+            _marking = false;
+        }
+    }
+
+    private async Task<RedactResult> MarkSelectionCoreAsync()
+    {
+        if (_history is null)
+        {
+            return RedactResult.Refused(RedactProblem.NotActive);
+        }
+
         var controller = SelectionSource?.Invoke();
         if (controller?.Selection is not { IsEmpty: false } selection || PageTexts.SourceOf(Tab) is not { } source)
         {
@@ -268,7 +294,7 @@ internal sealed class RedactSession : IDisposable
 
             if (!hit.Markable)
             {
-                return RedactResult.Refused(hit.Areas.Count > RedactionLimits.MaxAreasPerMark ? RedactProblem.TooManyMarks : RedactProblem.TextNotMarkable);
+                return RedactResult.Refused(hit.Areas.Count > RedactionLimits.MaxAreasPerMark ? RedactProblem.TooManyLines : RedactProblem.TextNotMarkable);
             }
 
             marks.Add(new RedactionMark(Guid.NewGuid(), RedactionKind.Text, page, [.. hit.Areas], hit.Text, false));

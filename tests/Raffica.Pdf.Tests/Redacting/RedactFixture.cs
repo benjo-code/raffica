@@ -51,11 +51,11 @@ internal sealed class RedactFixture : IDisposable
 
     public string Path => _copy.Path;
 
-    public static async Task<RedactFixture> OpenAsync(string file = "pages-marked.pdf", double width = 800, double height = 900, bool enter = true)
+    public static async Task<RedactFixture> OpenAsync(string file = "pages-marked.pdf", double width = 800, double height = 900, bool enter = true, double? zoom = null)
     {
         var copy = new TempCopy(file);
         RedactSession? session = null;
-        var text = await TextFixture.OpenAsync(copy.Path, width, height, null, () => session is { IsActive: true, Tool: RedactTool.Area });
+        var text = await TextFixture.OpenAsync(copy.Path, width, height, zoom, () => session is { IsActive: true, Tool: RedactTool.Area });
         session = text.Tab.Redact;
         var time = new ManualTimers();
         var interaction = new RedactInteraction(text.Tab, text.View, session, text.Text.Selection, time);
@@ -95,6 +95,21 @@ internal sealed class RedactFixture : IDisposable
         var used = Interaction.HandleKey(e);
         ViewFixture.Pump();
         return used;
+    }
+
+    /// <summary>Raises a key on the page view the way the window does for the focused element (tunnel, then bubble, so the view's own scrolling runs too); returns whether it was handled.</summary>
+    public bool PressInView(Key key, KeyModifiers modifiers = KeyModifiers.None)
+    {
+        var e = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers, Source = View };
+        View.RaiseEvent(e);
+        ViewFixture.Pump();
+        return e.Handled;
+    }
+
+    public void ReleaseInView(Key key)
+    {
+        View.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = key, Source = View });
+        ViewFixture.Pump();
     }
 
     /// <summary>Selects the text between two characters of a page with the text interaction (the text tool).</summary>

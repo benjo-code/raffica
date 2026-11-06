@@ -1896,4 +1896,10 @@
   <data name="RedactRefusalNotActive" xml:space="preserve">
     <value>The redact mode is off.</value>
   </data>
+  <data name="RedactRefusalTooManyLinesFormat" xml:space="preserve">
+    <value>This selection spans more than {0} lines, more than one mark can hold. Select less text.</value>
+  </data>
+  <data name="RedactRefusalBusy" xml:space="preserve">
+    <value>The selection is still being marked.</value>
+  </data>
 </root>

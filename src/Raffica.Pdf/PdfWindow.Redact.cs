@@ -83,6 +83,17 @@ internal sealed partial class PdfWindow
         BuildRedactParts(tab, view, session);
         UpdateMarksPane();
         RefreshCommandStates();
+
+        // The sign says "Esc to finish", and the keys of the marks work on the page view: it gets the keyboard now (not a window-wide key capture).
+        // The click on the ribbon button may take the focus after this runs, so it is asked once more when the click is over.
+        view.Focus();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (tab.RedactIfCreated is { IsActive: true } && ReferenceEquals(Workspace.Active, tab))
+            {
+                view.Focus();
+            }
+        }, Avalonia.Threading.DispatcherPriority.Input);
     }
 
     /// <summary>Drops the redactions of the active tab and leaves the mode (the Discard command): the question when marks are not applied.</summary>

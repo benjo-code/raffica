@@ -278,4 +278,44 @@ public sealed class RedactWiringTests
         Command(f.Window, "redact.mode").Run!();
         Assert.NotNull(tab.RedactIfCreated);
     }
+
+    [AvaloniaFact]
+    public async Task KeysWorkRightAfterEnteringThroughTheRibbon()
+    {
+        using var f = WindowFixture.Create();
+        var tab = await OpenReadyAsync(f);
+        var window = f.Window;
+        var view = window.ViewOf(tab)!;
+
+        // The focus is on a control outside the page, as after a click on the ribbon button (the headless ribbon has no focusable button of its own).
+        var button = window.GetVisualDescendants().OfType<InputElement>().First(b => b.Focusable && b.IsEffectivelyEnabled && b.IsEffectivelyVisible && !ReferenceEquals(b, view) && !view.IsVisualAncestorOf(b));
+        Assert.NotNull(button);
+        button.Focus();
+        PrintHost.Pump();
+        Assert.False(view.IsFocused);
+
+        Command(window, "redact.mode").Run!();
+        await ViewFixture.WaitAsync(() => tab.Redact.IsActive);
+        PrintHost.Pump();
+        Assert.True(view.IsFocused, "the mode hands the keyboard to the page");
+
+        Mark(tab.Redact, 0, 100);
+        Mark(tab.Redact, 0, 200);
+        tab.Redact.Selection.Clear();
+        var focused = window.FocusManager!.GetFocusedElement()!;
+        void Key(Key key)
+        {
+            ((Interactive)focused).RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, Source = focused });
+            PrintHost.Pump();
+        }
+
+        Key(Avalonia.Input.Key.Tab);
+        Assert.Equal(1, tab.Redact.Selection.Count);
+        Key(Avalonia.Input.Key.Delete);
+        Assert.Single(tab.Redact.Plan.Marks);
+        Key(Avalonia.Input.Key.Escape);
+        await CardWithAsync(f, "PART_Discard");
+        await PressAsync(f, "PART_Cancel");
+        Assert.True(tab.Redact.IsActive);
+    }
 }

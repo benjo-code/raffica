@@ -191,7 +191,7 @@ public sealed class RedactSessionTests
         Assert.True(f.Session.Delete(new HashSet<Guid> { textMark.Id, area }).IsDone);
         Assert.Empty(f.Session.Plan.Marks);
         Assert.Equal(0, f.Session.Selection.Count);
-        Assert.Equal(RedactProblem.NothingSelected, f.Session.Delete(new HashSet<Guid> { area }).Problem);
+        Assert.Equal(RedactProblem.UnknownMark, f.Session.Delete(new HashSet<Guid> { area }).Problem);
     }
 
     [AvaloniaFact]
@@ -231,5 +231,73 @@ public sealed class RedactSessionTests
         f.Session.Undo();
         Assert.Empty(f.Session.Plan.Marks);
         Assert.False(f.Session.CanUndo);
+    }
+
+    [AvaloniaFact]
+    public async Task ASelectionOverTwoPagesMakesOneMarkPerPage()
+    {
+        using var f = await RedactFixture.OpenAsync(zoom: 1.0);
+        await f.Text.Text.Selection.EnsureVisibleTextAsync();
+        var (first, last) = f.View.VisiblePages;
+        Assert.True(last > first, "the fixture needs two visible pages");
+        f.Session.Tool = RedactTool.Text;
+        f.Text.Text.Selection.SelectAll();
+        ViewFixture.Pump();
+
+        var result = await f.Session.MarkSelectionAsync();
+
+        Assert.True(result.IsDone, result.Problem?.ToString());
+        Assert.Equal(last - first + 1, f.Session.Plan.Marks.Count);
+        Assert.Equal(Enumerable.Range(first, last - first + 1), f.Session.Plan.Marks.Select(m => m.Page));
+        Assert.All(f.Session.Plan.Marks, m => Assert.NotEmpty(m.Areas));
+        Assert.Equal(last - first + 1, f.Session.Plan.Pages.Count);
+        f.Session.Undo();
+        Assert.Empty(f.Session.Plan.Marks);
+    }
+
+    [AvaloniaFact]
+    public async Task AGoodPageFollowedByABadPageMarksNothing()
+    {
+        using var f = await RedactFixture.OpenAsync("text-dense.pdf", zoom: 0.5);
+        await f.Text.Text.Selection.EnsureVisibleTextAsync();
+        var first = await f.Text.TextOfAsync(0);
+        var second = await f.Text.TextOfAsync(1);
+        Assert.True(second.Chars.Count > RedactionLimits.MaxTermLength, "page 2 must be too long for a term");
+        var tail = Enumerable.Range(0, first.Chars.Count).Last(i => !first.Chars[i].IsGenerated && first.Chars[i].Box.Right > first.Chars[i].Box.Left) - 3;
+        var end = Enumerable.Range(0, second.Chars.Count).Last(i => !second.Chars[i].IsGenerated && second.Chars[i].Box.Right > second.Chars[i].Box.Left);
+        f.Session.Tool = RedactTool.Text;
+        var selection = f.Text.Text.Selection;
+        selection.Press(f.Text.CharPoint(first, tail, right: false), 1);
+        selection.Drag(f.Text.CharPoint(second, end, right: true));
+        selection.Release();
+        ViewFixture.Pump();
+        Assert.Equal(1, selection.Selection!.Value.End.Page);
+        var versionBefore = f.Session.Version;
+
+        var result = await f.Session.MarkSelectionAsync();
+
+        Assert.Equal(RedactProblem.TextNotMarkable, result.Problem);
+        Assert.Empty(f.Session.Plan.Marks);
+        Assert.Equal(versionBefore, f.Session.Version);
+    }
+
+    [Fact]
+    public void RefusalsHaveTheirOwnWordingInBothLanguages()
+    {
+        var de = System.Globalization.CultureInfo.GetCultureInfo("de");
+        var all = Enum.GetValues<RedactProblem>();
+        Assert.Equal(all.Length, all.Select(p => PdfStrings.RedactRefusal(p)).Distinct().Count());
+        foreach (var problem in all)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(PdfStrings.RedactRefusal(problem)), problem.ToString());
+        }
+
+        // Too many lines in one mark is not "too many marks", and a stale delete is not "select some text".
+        var lines = PdfStrings.RedactRefusal(RedactProblem.TooManyLines);
+        Assert.DoesNotContain("10", lines, StringComparison.Ordinal);
+        Assert.Contains(RedactionLimits.MaxAreasPerMark.ToString(PdfStrings.Culture), lines, StringComparison.Ordinal);
+        Assert.DoesNotContain("Select some text", PdfStrings.RedactRefusal(RedactProblem.UnknownMark), StringComparison.Ordinal);
+        Assert.NotEqual(PdfStrings.GetIn("RedactRefusalTooManyLinesFormat", de), PdfStrings.GetIn("RedactRefusalTooManyFormat", de));
+        Assert.Contains("{0}", PdfStrings.GetIn("RedactRefusalTooManyLinesFormat", de), StringComparison.Ordinal);
     }
 }

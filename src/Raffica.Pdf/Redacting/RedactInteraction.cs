@@ -45,6 +45,7 @@ internal sealed class RedactInteraction : IDisposable
     private long _lastNudge;
     private Guid _nudgeId;
     private int _nudgeVersion = -1;
+    private bool _markKeyDown;
     private bool _disposed;
 
     private enum Gesture
@@ -72,7 +73,9 @@ internal sealed class RedactInteraction : IDisposable
         view.AddHandler(InputElement.PointerMovedEvent, OnMoved, RoutingStrategies.Bubble);
         view.AddHandler(InputElement.PointerReleasedEvent, OnReleased, RoutingStrategies.Bubble);
         view.AddHandler(InputElement.PointerCaptureLostEvent, OnCaptureLost, RoutingStrategies.Bubble);
-        view.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Bubble);
+        // Tunnel, not bubble: the page view's own handler scrolls with the arrows and marks them handled, so the keys of the marks must come first.
+        view.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        view.AddHandler(InputElement.KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel);
     }
 
     /// <summary>Raised when Esc found nothing left to drop: the user asks to leave the mode (the window asks about the marks).</summary>
@@ -95,8 +98,9 @@ internal sealed class RedactInteraction : IDisposable
     }
 
     /// <summary>
-    /// Drops what Esc may drop: a running drag (and the mark or step it made), then the selected marks. Returns whether something was dropped;
-    /// when nothing was, the same Esc asks to leave the mode.
+    /// Drops what Esc may drop, in this order: a running drag (and the mark or step it made), the selected marks, an open text selection. Returns
+    /// whether something was dropped; when nothing was, the same Esc asks to leave the mode. The step of a cancelled drag is undone but stays on
+    /// the redo list (Core's history cannot drop it), so a Redo brings the cancelled drag back.
     /// </summary>
     public bool Cancel()
     {
@@ -115,6 +119,12 @@ internal sealed class RedactInteraction : IDisposable
         if (_session.Selection.Count > 0)
         {
             _session.Selection.Clear();
+            return true;
+        }
+
+        if (_selection.HasSelection)
+        {
+            _selection.Clear();
             return true;
         }
 
@@ -153,6 +163,7 @@ internal sealed class RedactInteraction : IDisposable
         _view.RemoveHandler(InputElement.PointerReleasedEvent, OnReleased);
         _view.RemoveHandler(InputElement.PointerCaptureLostEvent, OnCaptureLost);
         _view.RemoveHandler(InputElement.KeyDownEvent, OnKeyDown);
+        _view.RemoveHandler(InputElement.KeyUpEvent, OnKeyUp);
         if (ReferenceEquals(_view.Cursor, s_cross))
         {
             _view.Cursor = null;
@@ -175,7 +186,13 @@ internal sealed class RedactInteraction : IDisposable
 
                 return true;
             case Key.Enter when (modifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0:
-                _ = MarkSelection();
+                // A held key repeats the press: only the first one marks, the key going up re-arms it.
+                if (!_markKeyDown)
+                {
+                    _markKeyDown = true;
+                    _ = MarkSelection();
+                }
+
                 return true;
             case Key.Delete or Key.Back when modifiers == KeyModifiers.None && _session.Selection.Count > 0:
                 Report(_session.Delete(new HashSet<Guid>(_session.Selection.Ids)));
@@ -218,12 +235,18 @@ internal sealed class RedactInteraction : IDisposable
         var now = _time.GetTimestamp();
         var continuing = _nudgeId == id && _nudgeVersion == _session.Version && _time.GetElapsedTime(_lastNudge, now) <= NudgeRun;
         var area = mark.Areas[0];
+        var versionBefore = _session.Version;
         var result = resize
             ? _session.ResizeArea(id, new PageRect(area.Left, area.Top, area.Right + dx, area.Bottom + dy), continuing)
             : _session.MoveArea(id, dx, dy, continuing);
-        _lastNudge = now;
-        _nudgeId = id;
-        _nudgeVersion = _session.Version;
+        if (_session.Version != versionBefore)
+        {
+            // Only a change starts or continues a run: a nudge that was clamped to nothing must not let the next one amend an unrelated step.
+            _lastNudge = now;
+            _nudgeId = id;
+            _nudgeVersion = _session.Version;
+        }
+
         Report(result);
         return true;
     }
@@ -236,7 +259,8 @@ internal sealed class RedactInteraction : IDisposable
 
     private void Report(RedactResult result)
     {
-        if (!result.IsDone)
+        // A second marking while one runs is a repeat of the same request, not something to tell the user.
+        if (!result.IsDone && result.Problem != RedactProblem.Busy)
         {
             Refused?.Invoke(result);
         }
@@ -244,9 +268,18 @@ internal sealed class RedactInteraction : IDisposable
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (!e.Handled && !_view.IsInBadge(e.Source))
+        // The keys of a text field in the view (the editing field), of the badge's buttons and of any other text box are theirs.
+        if (!e.Handled && !_view.IsInBadge(e.Source) && !_view.IsInField(e.Source) && e.Source is not Avalonia.Controls.TextBox)
         {
             HandleKey(e);
+        }
+    }
+
+    private void OnKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Enter or Key.LeftCtrl or Key.RightCtrl or Key.LWin or Key.RWin)
+        {
+            _markKeyDown = false;
         }
     }
 

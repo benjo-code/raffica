@@ -1880,4 +1880,10 @@
   <data name="RedactRefusalNotActive" xml:space="preserve">
     <value>Der Schwärzen-Modus ist aus.</value>
   </data>
+  <data name="RedactRefusalTooManyLinesFormat" xml:space="preserve">
+    <value>Diese Auswahl umfasst mehr als {0} Zeilen, mehr als eine Markierung fassen kann. Wähle weniger Text aus.</value>
+  </data>
+  <data name="RedactRefusalBusy" xml:space="preserve">
+    <value>Die Auswahl wird noch markiert.</value>
+  </data>
 </root>
