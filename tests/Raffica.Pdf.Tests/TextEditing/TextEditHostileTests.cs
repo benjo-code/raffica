@@ -15,15 +15,28 @@ namespace Raffica.Pdf.Tests.TextEditing;
 public sealed class TextEditHostileTests
 {
     [AvaloniaFact]
-    public async Task AFormFileOfHostileFieldsEndsEveryLineInAnEditOrAReasonAndChangesNothing()
+    public async Task AFormFileOfHostileFieldsEndsEveryLineInAnEditOrAReasonAndChangesNothing() =>
+        await CheckAsync("forms-hostile.pdf", expectLocked: false);
+
+    // text-edit-hostile.pdf page 1 has more runs than a page may offer, so every run of it is locked: the loop cannot pass without a reason.
+    [AvaloniaFact]
+    public async Task AFileOfTooManyRunsLocksEveryLineWithItsReasonAndChangesNothing() =>
+        await CheckAsync("text-edit-hostile.pdf", expectLocked: true);
+
+    private static async Task CheckAsync(string file, bool expectLocked)
     {
-        using var rig = await TextEditRig.OpenAsync("forms-hostile.pdf");
+        using var rig = await TextEditRig.OpenAsync(file);
         await rig.EnterModeAsync();
         var original = await File.ReadAllBytesAsync(rig.Path, TestContext.Current.CancellationToken);
 
         await rig.Session.LoadPageAsync(0);
         var runs = rig.Session.RunsOf(0);
         Assert.NotEmpty(runs);
+        if (expectLocked)
+        {
+            Assert.Contains(runs, r => r.Lock is not null);
+        }
+
         foreach (var run in runs)
         {
             rig.Session.Focus(run);

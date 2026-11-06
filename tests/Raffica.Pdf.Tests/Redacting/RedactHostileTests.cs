@@ -41,6 +41,8 @@ public sealed class RedactHostileTests
             ("an overlay text of 201 characters", f.Session.SetOverlay(new HashSet<Guid> { id }, new string('x', RedactionLimits.MaxOverlayTextLength + 1), plan.Overlay)),
             ("a page the document lacks", f.Session.AddArea(999, new PageRect(10, 10, 60, 40))),
             ("a negative page", f.Session.AddArea(-1, new PageRect(10, 10, 60, 40))),
+            ("a hit on a page the document lacks", f.Session.AddMarks([Hit(999, "x", new PageRect(1, 1, 5, 5))], out _)),
+            ("a batch with one valid hit and one on a page the document lacks", f.Session.AddMarks([Hit(0, "y", new PageRect(1, 1, 5, 5)), Hit(999, "z", new PageRect(1, 1, 5, 5))], out _)),
         };
 
         foreach (var (name, result) in refusals)

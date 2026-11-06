@@ -35,7 +35,7 @@ public sealed class StartupCreatesNoRedactOcrOrEditWorkTests
 
     // The same with the real types of the OCR side present: a scan, the library "present" and the scan hint armed. Nothing of the recognition runs
     // at the start (no engine, no run flow, no session, no badge, no language folder made); the one thing that is allowed is the probe of the scan
-    // hint after the first sharp page, once, and only when the library is there. No text run is read and no mark, find or look row exists.
+    // hint after the first sharp page, once, and only when the library is there. The redact, OCR and text-edit sessions are not made at all, so none of their reads can happen (the text-edit read counter is pinned in TextEditModeTests.NothingIsReadAtStartOrBeforeTheFirstUse).
     [AvaloniaFact]
     public async Task OnlyTheScanHintProbeRunsAfterTheFirstSharpPageAndOnlyWithTheLibrary()
     {
