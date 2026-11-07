@@ -2546,6 +2546,7 @@ static partial class Deb
         files.Add(Source(repo, "packaging/linux/raffica-pdf.desktop", "usr/share/applications/raffica-pdf.desktop"));
         files.Add(Source(repo, "packaging/linux/copyright.template", "usr/share/doc/raffica-pdf/copyright"));
         files.Add(new DebEntry("usr/bin/raffica", DebEntryKind.Symlink, 0x1FF, null, "../lib/raffica-pdf/cli/raffica"));
+        files.Add(new DebEntry("usr/bin/raffica-pdf", DebEntryKind.Symlink, 0x1FF, null, "../lib/raffica-pdf/RafficaPdf"));
         return Tree.WithParents(files);
     }
 
@@ -2757,6 +2758,7 @@ static partial class DebSmoke
             var lines = listing.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => ListingLine().Match(l)).ToList();
             Check(lines.Count > 0 && lines.All(m => m.Success && m.Groups["owner"].Value == "root/root"), "all entries belong to root:root");
             Check(lines.Any(m => m.Success && m.Groups["path"].Value.StartsWith("./usr/bin/raffica -> ", StringComparison.Ordinal)), "/usr/bin/raffica is a symlink");
+            Check(lines.Any(m => m.Success && m.Groups["path"].Value.StartsWith("./usr/bin/raffica-pdf -> ", StringComparison.Ordinal)), "/usr/bin/raffica-pdf is a symlink");
             Check(lines.Any(m => m.Success && m.Groups["path"].Value == "./usr/share/doc/raffica-pdf/copyright"), "copyright present");
 
             var root = Path.Combine(work, "root");
@@ -2778,6 +2780,13 @@ static partial class DebSmoke
             var linkTarget = new FileInfo(link).LinkTarget;
             var resolved = linkTarget is null ? null : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(link)!, linkTarget));
             Check(resolved is not null && resolved.StartsWith(root + "/", StringComparison.Ordinal) && File.Exists(resolved), $"/usr/bin/raffica resolves inside the package ({linkTarget})");
+
+            var appLink = Path.Combine(root, "usr", "bin", "raffica-pdf");
+            var appLinkTarget = new FileInfo(appLink).LinkTarget;
+            var appResolved = appLinkTarget is null ? null : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(appLink)!, appLinkTarget));
+            Check(
+                appResolved == Path.Combine(root, "usr", "lib", "raffica-pdf", "RafficaPdf") && File.Exists(appResolved) && (File.GetUnixFileMode(appResolved) & UnixFileMode.UserExecute) != 0,
+                $"/usr/bin/raffica-pdf resolves to the executable program inside /usr/lib/raffica-pdf ({appLinkTarget})");
 
             var pdf = Path.Combine(repo, "testdata", "pdfs", "text-basic.pdf");
             if (File.Exists(pdf))
@@ -3900,6 +3909,10 @@ static class SelfTest
             Expect("deb: /usr/bin/raffica is a symlink", link?.Kind, DebEntryKind.Symlink);
             Expect("deb: symlink points relatively to the CLI", link?.LinkTarget, "../lib/raffica-pdf/cli/raffica");
             Expect("deb: symlink resolves to the CLI", link is null ? null : PosixPath.Resolve("/usr/bin", link.LinkTarget!), "/usr/lib/raffica-pdf/cli/raffica");
+            var appLink = Find("usr/bin/raffica-pdf");
+            Expect("deb: /usr/bin/raffica-pdf is a symlink", appLink?.Kind, DebEntryKind.Symlink);
+            Expect("deb: raffica-pdf link points relatively to the program", appLink?.LinkTarget, "../lib/raffica-pdf/RafficaPdf");
+            Expect("deb: raffica-pdf link resolves to the program", appLink is null ? null : PosixPath.Resolve("/usr/bin", appLink.LinkTarget!), "/usr/lib/raffica-pdf/RafficaPdf");
             Expect("PosixPath: relative with ..", PosixPath.Resolve("/usr/bin", "../lib/a/./b"), "/usr/lib/a/b");
             Expect("PosixPath: absolute target", PosixPath.Resolve("/usr/bin", "/etc/x"), "/etc/x");
             Expect("PosixPath: .. beyond the root", PosixPath.Resolve("/a", "../../b"), "/b");
@@ -3918,6 +3931,7 @@ static class SelfTest
                 Expect("deb: staging directory 0755", File.GetUnixFileMode(Path.Combine(stage, "usr/lib/raffica-pdf/cli")), (UnixFileMode)0x1ED);
                 Expect("deb: Staging DEBIAN 0755", File.GetUnixFileMode(Path.Combine(stage, "DEBIAN")), (UnixFileMode)0x1ED);
                 Expect("deb: Staging control 0644", File.GetUnixFileMode(Path.Combine(stage, "DEBIAN", "control")), (UnixFileMode)0x1A4);
+                Expect("deb: Staging raffica-pdf Symlink", new FileInfo(Path.Combine(stage, "usr/bin/raffica-pdf")).LinkTarget, "../lib/raffica-pdf/RafficaPdf");
                 Expect("deb: Staging Symlink", new FileInfo(Path.Combine(stage, "usr/bin/raffica")).LinkTarget, "../lib/raffica-pdf/cli/raffica");
                 Expect("deb: staging fixed time", File.GetLastWriteTimeUtc(Path.Combine(stage, "usr/lib/raffica-pdf/RafficaPdf")), Deb.FixedTime.UtcDateTime);
                 Expect("deb: staging fixed time of the directories", Directory.GetLastWriteTimeUtc(Path.Combine(stage, "usr/lib/raffica-pdf")), Deb.FixedTime.UtcDateTime);
