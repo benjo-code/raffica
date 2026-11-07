@@ -3125,4 +3125,91 @@
   <data name="CmdAbout" xml:space="preserve">
     <value>Über Raffica PDF</value>
   </data>
+  <data name="UpdateTitle" xml:space="preserve">
+    <value>Update verfügbar</value>
+  </data>
+  <data name="UpdateMessageFormat" xml:space="preserve">
+    <value>Raffica PDF {0} ist verfügbar. Sie verwenden Version {1}.</value>
+  </data>
+  <data name="UpdateCheckedNote" xml:space="preserve">
+    <value>Bevor etwas installiert wird, prüft Raffica die Signatur der Version sowie Größe und SHA-256 der heruntergeladenen Datei.</value>
+  </data>
+  <data name="UpdateRestartNote" xml:space="preserve">
+    <value>Raffica fragt zuerst nach ungespeicherten Änderungen und öffnet Ihre Tabs nach dem Neustart wieder.</value>
+  </data>
+  <data name="UpdateManualMessage" xml:space="preserve">
+    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite.</value>
+  </data>
+  <data name="UpdateInstall" xml:space="preserve">
+    <value>Installieren und neu starten</value>
+  </data>
+  <data name="UpdateLater" xml:space="preserve">
+    <value>Später</value>
+  </data>
+  <data name="UpdateOpenPage" xml:space="preserve">
+    <value>Download-Seite öffnen</value>
+  </data>
+  <data name="UpdateProgressTitle" xml:space="preserve">
+    <value>Raffica PDF wird aktualisiert</value>
+  </data>
+  <data name="UpdateStepDownload" xml:space="preserve">
+    <value>Herunterladen</value>
+  </data>
+  <data name="UpdateStepCheck" xml:space="preserve">
+    <value>Prüfen</value>
+  </data>
+  <data name="UpdateStepInstall" xml:space="preserve">
+    <value>Installieren</value>
+  </data>
+  <data name="UpdateStepRestart" xml:space="preserve">
+    <value>Neu starten</value>
+  </data>
+  <data name="UpdateStepDone" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="UpdateProgressBytesFormat" xml:space="preserve">
+    <value>{0} von {1}</value>
+  </data>
+  <data name="UpdateFailedTitle" xml:space="preserve">
+    <value>Update fehlgeschlagen</value>
+  </data>
+  <data name="UpdateTryAgain" xml:space="preserve">
+    <value>Erneut versuchen</value>
+  </data>
+  <data name="UpdateCheckTitle" xml:space="preserve">
+    <value>Nach Updates suchen</value>
+  </data>
+  <data name="UpdateUpToDateFormat" xml:space="preserve">
+    <value>Raffica PDF ist auf dem neuesten Stand (Version {0}).</value>
+  </data>
+  <data name="UpdateCouldNotCheck" xml:space="preserve">
+    <value>Die Suche nach Updates war nicht möglich. Prüfen Sie Ihre Verbindung und versuchen Sie es später erneut.</value>
+  </data>
+  <data name="CmdCheckForUpdates" xml:space="preserve">
+    <value>Nach Updates suchen</value>
+  </data>
+  <data name="UpdateFailureUnreachable" xml:space="preserve">
+    <value>Das Update konnte nicht heruntergeladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</value>
+  </data>
+  <data name="UpdateFailureWithdrawn" xml:space="preserve">
+    <value>Dieses Update wird nicht mehr angeboten. Es wurde nichts geändert.</value>
+  </data>
+  <data name="UpdateFailureSuperseded" xml:space="preserve">
+    <value>Inzwischen ist eine neuere Version erschienen. Es wurde nichts installiert; schließen Sie diese Meldung, um sie zu sehen.</value>
+  </data>
+  <data name="UpdateFailureRejected" xml:space="preserve">
+    <value>Die Versionsinformationen haben die Signaturprüfung nicht bestanden. Es wurde nichts installiert.</value>
+  </data>
+  <data name="UpdateFailureChecksum" xml:space="preserve">
+    <value>Die heruntergeladene Datei stimmt nicht mit Größe und SHA-256 der signierten Versionsinformation überein. Sie wurde gelöscht, nichts wurde installiert.</value>
+  </data>
+  <data name="UpdateFailureStorage" xml:space="preserve">
+    <value>Das Update konnte nicht auf diesem Computer gespeichert werden (Datenträger voll oder kein Zugriff). Es wurde nichts geändert.</value>
+  </data>
+  <data name="UpdateFailureNoInstaller" xml:space="preserve">
+    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite.</value>
+  </data>
+  <data name="UpdateFailureInstallFailed" xml:space="preserve">
+    <value>Die Installation wurde nicht abgeschlossen. Die laufende Version ist unverändert.</value>
+  </data>
 </root>

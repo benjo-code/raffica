@@ -5,6 +5,7 @@ using Avalonia.VisualTree;
 using Raffica.Core.Settings;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Tests.Viewing;
+using Raffica.Pdf.Updating;
 using Raffica.Shell;
 using Xunit;
 
@@ -30,13 +31,22 @@ public sealed class StartupCreatesNoPackagingWorkTests
             await Task.Delay(300, TestContext.Current.CancellationToken);
             ViewFixture.Pump();
             Assert.False(bare.Window.DefaultAppFlowCreated);
+            Assert.False(bare.Window.UpdateFlowCreated);
         }
 
         // With a factory but a window that has no page yet (and after the window went idle): the factory is not called.
         var made = 0;
         var fake = new FakeDefaultAppService { Status = Raffica.Core.Distribution.DefaultAppStatus.IsDefault };
+        using var updates = new Updating.UpdateKit();
+        var clients = GitHubUpdateSource.ClientsCreated;
+        var updateFlows = 0;
         using (var idle = WindowFixture.Create())
         {
+            idle.Window.UpdateFlows = _ =>
+            {
+                updateFlows++;
+                return updates.Flow();
+            };
             idle.Window.DefaultAppServices = () =>
             {
                 made++;
@@ -48,10 +58,20 @@ public sealed class StartupCreatesNoPackagingWorkTests
             Assert.Equal(0, made);
             Assert.False(idle.Window.DefaultAppFlowCreated);
 
+            // The updater is not made before the first sharp page either: no flow, no source, no HTTP client, no connection.
+            Assert.Equal(0, updateFlows);
+            Assert.False(idle.Window.UpdateFlowCreated);
+            Assert.Equal(clients, GitHubUpdateSource.ClientsCreated);
+            Assert.Equal(0, updates.Source.FetchCalls);
+
             // The first sharp page makes the flow, once, and a machine where Raffica is the default asks nothing more.
             var tab = await idle.OpenAsync("pages-marked.pdf");
             await ViewFixture.WaitAsync(() => idle.Window.ViewOf(tab)!.FirstSharpPageShown);
             await ViewFixture.WaitAsync(() => fake.StatusCalls == 1);
+            await ViewFixture.WaitAsync(() => updates.Source.FetchCalls == 1);
+            Assert.Equal(1, updateFlows);
+            Assert.True(idle.Window.UpdateFlowCreated);
+            Assert.Equal(clients, GitHubUpdateSource.ClientsCreated);
             Assert.Equal(1, made);
             Assert.True(idle.Window.DefaultAppFlowCreated);
             Assert.False(idle.Window.Host.IsOpen);
@@ -62,12 +82,25 @@ public sealed class StartupCreatesNoPackagingWorkTests
             await Task.Delay(300, TestContext.Current.CancellationToken);
             Assert.Equal(1, made);
             Assert.Equal(1, fake.StatusCalls);
+            Assert.Equal(1, updateFlows);
+            Assert.Equal(1, updates.Source.FetchCalls);
         }
 
         // "Don't ask again" stored: not even the factory is called.
         made = 0;
-        using (var never = WindowFixture.Create(Prompt(DefaultAppPromptSetting.Never)))
+        using (var never = WindowFixture.Create(folder =>
         {
+            Prompt(DefaultAppPromptSetting.Never)(folder);
+
+            // The update check is switched off too: not even its factory is called, so no flow, no source and no connection exist.
+            Assert.True(new SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(AppSettings.Default with { DefaultAppPrompt = DefaultAppPromptSetting.Never, UpdateCheck = false }));
+        }))
+        {
+            never.Window.UpdateFlows = _ =>
+            {
+                updateFlows++;
+                return updates.Flow();
+            };
             never.Window.DefaultAppServices = () =>
             {
                 made++;
@@ -79,6 +112,9 @@ public sealed class StartupCreatesNoPackagingWorkTests
             ViewFixture.Pump();
             Assert.Equal(0, made);
             Assert.False(never.Window.DefaultAppFlowCreated);
+            Assert.Equal(1, updateFlows);
+            Assert.False(never.Window.UpdateFlowCreated);
+            Assert.Equal(clients, GitHubUpdateSource.ClientsCreated);
         }
     }
 

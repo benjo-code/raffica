@@ -118,4 +118,104 @@ internal sealed class CloseGuard(Func<PdfTab, Task<CloseChoice>> prompt, Func<Pd
 
         return true;
     }
+
+    /// <summary>
+    /// The question before an update restarts the app: asks the same per-tab questions as <see cref="CanCloseAsync"/> for every tab in turn, but never closes a
+    /// tab and writes nothing while it asks. The answers are only collected; a Cancel anywhere ends the question at once with <see langword="false"/> and nothing
+    /// was saved, applied or stopped. Once every tab is answered, what the answers chose runs in the order of the tabs (a recognition that runs is stopped, Save
+    /// and Apply… write, Don't save and Discard do nothing, since the tab goes with the restart); <see langword="false"/> as soon as one of them does not work.
+    /// </summary>
+    public async Task<bool> AskForUpdateAsync(IReadOnlyList<PdfTab> tabs)
+    {
+        ArgumentNullException.ThrowIfNull(tabs);
+        var actions = new List<Func<Task<bool>>>();
+        foreach (var tab in tabs)
+        {
+            if (!await CollectForUpdateAsync(tab, actions))
+            {
+                return false;
+            }
+        }
+
+        foreach (var action in actions)
+        {
+            if (!await action())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // The questions of CanCloseAsync in the same order and wording, with the answer turned into an action to run after the last answer.
+    private async Task<bool> CollectForUpdateAsync(PdfTab tab, List<Func<Task<bool>>> actions)
+    {
+        if (ocr is not null && tab.OcrIfCreated is { IsActive: true })
+        {
+            if (await ocr.Prompt(tab) != CloseChoice.DontSave)
+            {
+                return false;
+            }
+
+            actions.Add(async () =>
+            {
+                await ocr.Stop(tab);
+                return true;
+            });
+        }
+
+        if (tab.AnnotationsIfCreated is { } annotations)
+        {
+            await annotations.FlushAsync();
+        }
+
+        var planDiscarded = false;
+        if (redact is not null && tab.RedactIfCreated is { IsActive: true } marking && !marking.Plan.IsEmpty)
+        {
+            switch (await redact.Prompt(tab))
+            {
+                case CloseChoice.Save:
+                    actions.Add(() => redact.Apply(tab));
+                    return true;
+                case CloseChoice.DontSave:
+                    planDiscarded = true;
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        if (plan is not null && tab.OrganizeIfCreated is { IsActive: true } open && !open.Plan.IsIdentity)
+        {
+            switch (await plan.Prompt(tab))
+            {
+                case CloseChoice.Save:
+                    actions.Add(() => plan.Apply(tab));
+                    return true;
+                case CloseChoice.DontSave:
+                    planDiscarded = true;
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        if (planDiscarded ? tab.AnnotationsIfCreated is not { IsDirty: true } : !tab.IsDirty)
+        {
+            return true;
+        }
+
+        var saveNow = planDiscarded && (plan?.SaveMarks ?? redact?.SaveMarks) is { } marksOnly ? marksOnly : save;
+        switch (await prompt(tab))
+        {
+            case CloseChoice.Save:
+                actions.Add(async () => await saveNow(tab) && !HoldsUnresolvedEdit(tab));
+                return true;
+            case CloseChoice.DontSave:
+                return true;
+            default:
+                return false;
+        }
+    }
 }

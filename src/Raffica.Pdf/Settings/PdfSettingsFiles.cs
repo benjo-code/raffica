@@ -33,6 +33,12 @@ internal static class PdfSettingsFiles
     public static string RecentPathFor(string? settingsFile) =>
         FolderOf(settingsFile) is { } folder ? Path.Combine(folder, RecentName) : RecentPath;
 
+    /// <summary>
+    /// The config folder of the update files (<c>update.json</c>, the <c>updates</c> staging folder, <c>session.json</c>): the folder of the given shell settings file, else
+    /// <see cref="UserDataPaths.ConfigDirectory()"/>, so measurement runs and tests never touch the folders of the user.
+    /// </summary>
+    public static string ConfigDirectoryFor(string? settingsFile) => FolderOf(settingsFile) ?? UserDataPaths.ConfigDirectory();
+
     /// <summary>The folder of the saved signatures: <c>signatures</c> next to the given shell settings file, else <see cref="UserDataPaths.SignaturesDirectory()"/>.</summary>
     public static string SignaturesDirectoryFor(string? settingsFile) =>
         FolderOf(settingsFile) is { } folder ? Path.Combine(folder, "signatures") : UserDataPaths.SignaturesDirectory();

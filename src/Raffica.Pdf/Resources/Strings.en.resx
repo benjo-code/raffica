@@ -3141,4 +3141,91 @@
   <data name="CmdAbout" xml:space="preserve">
     <value>About Raffica PDF</value>
   </data>
+  <data name="UpdateTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateMessageFormat" xml:space="preserve">
+    <value>Raffica PDF {0} is available. You have version {1}.</value>
+  </data>
+  <data name="UpdateCheckedNote" xml:space="preserve">
+    <value>Before anything is installed, Raffica checks the signature of the release and the size and SHA-256 of the downloaded file.</value>
+  </data>
+  <data name="UpdateRestartNote" xml:space="preserve">
+    <value>Raffica asks about unsaved changes first and opens your tabs again after the restart.</value>
+  </data>
+  <data name="UpdateManualMessage" xml:space="preserve">
+    <value>This installation cannot update itself. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateInstall" xml:space="preserve">
+    <value>Install and restart</value>
+  </data>
+  <data name="UpdateLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="UpdateOpenPage" xml:space="preserve">
+    <value>Open download page</value>
+  </data>
+  <data name="UpdateProgressTitle" xml:space="preserve">
+    <value>Updating Raffica PDF</value>
+  </data>
+  <data name="UpdateStepDownload" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="UpdateStepCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="UpdateStepInstall" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="UpdateStepRestart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="UpdateStepDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="UpdateProgressBytesFormat" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="UpdateFailedTitle" xml:space="preserve">
+    <value>Update failed</value>
+  </data>
+  <data name="UpdateTryAgain" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="UpdateCheckTitle" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdateUpToDateFormat" xml:space="preserve">
+    <value>Raffica PDF is up to date (version {0}).</value>
+  </data>
+  <data name="UpdateCouldNotCheck" xml:space="preserve">
+    <value>Could not check for updates. Check your connection and try again later.</value>
+  </data>
+  <data name="CmdCheckForUpdates" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdateFailureUnreachable" xml:space="preserve">
+    <value>The update could not be downloaded. Check your connection and try again.</value>
+  </data>
+  <data name="UpdateFailureWithdrawn" xml:space="preserve">
+    <value>This update is not offered any more. Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureSuperseded" xml:space="preserve">
+    <value>A newer version was released in the meantime. Nothing was installed; close this message to see it.</value>
+  </data>
+  <data name="UpdateFailureRejected" xml:space="preserve">
+    <value>The release information did not pass the signature check. Nothing was installed.</value>
+  </data>
+  <data name="UpdateFailureChecksum" xml:space="preserve">
+    <value>The downloaded file does not match the size and SHA-256 of the signed release information. It was deleted and nothing was installed.</value>
+  </data>
+  <data name="UpdateFailureStorage" xml:space="preserve">
+    <value>The update could not be saved on this computer (disk full or no access). Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureNoInstaller" xml:space="preserve">
+    <value>This installation cannot update itself. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateFailureInstallFailed" xml:space="preserve">
+    <value>The installer did not finish. The version you are running is unchanged.</value>
+  </data>
 </root>

@@ -240,6 +240,7 @@ internal sealed partial class PdfWindow : Window
         Step(() => _outputFlow?.Cancel());
         Step(() => _exportFlow?.Cancel());
         Step(() => _defaultAppCancel?.Cancel());
+        Step(EndUpdates);
         Step(_fieldCodes.Dispose);
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
@@ -920,6 +921,9 @@ internal sealed partial class PdfWindow : Window
 
             // The default app offer (M2.6) waits for the first sharp page too (OfferDefaultAppAsync checks the setting, the service and the run).
             view.FirstSharpPage += () => _ = GuardAsync(OfferDefaultAppAsync);
+
+            // The update check (M2.6) waits for the first sharp page as well: nothing of it exists before (CheckForUpdateAtStartAsync checks the setting, the factory and the run).
+            view.FirstSharpPage += () => _ = GuardAsync(CheckForUpdateAtStartAsync);
             var created = view;
             view.ViewChanged += () =>
             {
@@ -1388,6 +1392,7 @@ internal sealed partial class PdfWindow : Window
         ShowDocumentInfo = () => _ = GuardAsync(ShowDocumentInfoAsync),
         MakeDefaultApp = MakeDefaultApp,
         ShowAbout = () => _ = GuardAsync(ShowAboutAsync),
+        CheckForUpdates = CheckForUpdates,
     };
 
     /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>

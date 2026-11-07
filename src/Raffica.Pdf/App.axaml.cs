@@ -53,6 +53,9 @@ internal sealed partial class App : Application
             // The system's default app service is made on first use (the offer after the first sharp page, the command); a measurement run has none.
             window.DefaultAppServices = _options.IsMeasuring ? null : Platform.PlatformDefaultAppServices.Create;
 
+            // The update flow is made on first use (the check after the first sharp page, the command); a measurement run has none, so it opens no connection.
+            window.UpdateFlows = _options.IsMeasuring ? null : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled);
+
             desktop.MainWindow = window;
             if (_options.IsMeasuring)
             {
