@@ -3,6 +3,8 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>RafficaPdf</AssemblyName>
     <RootNamespace>Raffica.Pdf</RootNamespace>
+    <!-- The placeholder icon (see Docs/design/icons/README.md) is the icon of the exe: the file icon, the taskbar and the Start menu; FileTypeRegistration writes DefaultIcon "exe,0". -->
+    <ApplicationIcon>Assets/raffica-pdf.ico</ApplicationIcon>
     <PublishAot>true</PublishAot>
     <IsAotCompatible>true</IsAotCompatible>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
