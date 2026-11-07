@@ -274,6 +274,55 @@
       ]
     },
     {
+      "id": "AppImage runtime type2-runtime (AppImage only)",
+      "kind": "runtime",
+      "version": "20251108",
+      "license": "MIT",
+      "licenseFile": "third-party/appimage-runtime/LICENSE"
+    },
+    {
+      "id": "AppImage runtime libfuse (AppImage only)",
+      "kind": "runtime",
+      "version": "3.15.0",
+      "license": "LGPL-2.1-only",
+      "licenseFile": "third-party/appimage-runtime/libfuse-LGPL-2.1.txt"
+    },
+    {
+      "id": "AppImage runtime squashfuse (AppImage only)",
+      "kind": "runtime",
+      "version": "0.5.2",
+      "license": "BSD-2-Clause",
+      "licenseFile": "third-party/appimage-runtime/squashfuse-LICENSE"
+    },
+    {
+      "id": "AppImage runtime zstd (AppImage only)",
+      "kind": "runtime",
+      "version": "1.5.6",
+      "license": "BSD-3-Clause",
+      "licenseFile": "third-party/appimage-runtime/zstd-LICENSE"
+    },
+    {
+      "id": "AppImage runtime zlib (AppImage only)",
+      "kind": "runtime",
+      "version": "1.3.1",
+      "license": "Zlib",
+      "licenseFile": "third-party/appimage-runtime/zlib-LICENSE"
+    },
+    {
+      "id": "AppImage runtime musl libc (AppImage only)",
+      "kind": "runtime",
+      "version": "Alpine 3.21 (musl 1.2.5)",
+      "license": "MIT",
+      "licenseFile": "third-party/appimage-runtime/musl-COPYRIGHT"
+    },
+    {
+      "id": "AppImage runtime mimalloc (AppImage only)",
+      "kind": "runtime",
+      "version": "Alpine 3.21 (mimalloc 2.1.7)",
+      "license": "MIT",
+      "licenseFile": "third-party/appimage-runtime/mimalloc-LICENSE"
+    },
+    {
       "id": "Geist",
       "kind": "asset",
       "version": "1.8.1",
