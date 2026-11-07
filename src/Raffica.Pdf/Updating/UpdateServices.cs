@@ -9,6 +9,19 @@ namespace Raffica.Pdf.Updating;
 internal static class UpdateServices
 {
     /// <summary>
+    /// Whether a measurement run (<see cref="PdfOptions.IsMeasuring"/>) keeps the update flow off. It does in every build that can reach the real release
+    /// storage: a measurement must not open a connection. Only a TEST BUILD of the updater (<c>-p:RafficaUpdateTestBuild=true</c>, whose compiled-in addresses are
+    /// the loopback server <c>http://127.0.0.1:&lt;port&gt;</c> of <c>tools/update-testserver.cs</c>, see <see cref="UpdateTrust"/>) lets a measurement run
+    /// keep it on, so the cost of the check can be measured against a server on this machine. This is derived from the compiled addresses alone: no switch, no
+    /// environment variable and no setting is added, and a release build (https GitHub addresses) behaves as before.
+    /// </summary>
+    public static bool MeasurementKeepsUpdatesOff(PdfOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.IsMeasuring && !UpdateTrust.ReleasesLatestUrl.StartsWith("http://127.0.0.1:", StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Creates the flow: the source of the project's release storage (no connection yet), the checker over it with the keys compiled into
     /// <see cref="UpdateTrust"/>, the installation form of the running program and the applier for it. Nothing in the environment or the
     /// command line changes an address or a key.

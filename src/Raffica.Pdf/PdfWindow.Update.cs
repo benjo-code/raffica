@@ -76,7 +76,7 @@ internal sealed partial class PdfWindow
     /// </summary>
     internal async Task CheckForUpdateAtStartAsync()
     {
-        if (_updateCheckStarted || _options.IsMeasuring || UpdateFlows is null || !Settings.App.UpdateCheck)
+        if (_updateCheckStarted || UpdateServices.MeasurementKeepsUpdatesOff(_options) || UpdateFlows is null || !Settings.App.UpdateCheck)
         {
             return;
         }
@@ -97,7 +97,7 @@ internal sealed partial class PdfWindow
     /// </summary>
     internal void CheckForUpdates()
     {
-        if (_options.IsMeasuring || UpdateFlows is null || _updateBusy)
+        if (UpdateServices.MeasurementKeepsUpdatesOff(_options) || UpdateFlows is null || _updateBusy)
         {
             return;
         }

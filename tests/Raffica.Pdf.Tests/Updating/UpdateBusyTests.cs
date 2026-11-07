@@ -120,6 +120,20 @@ public sealed class UpdateBusyTests
 
         rig.Window.CancelOcr();
         rig.Engines.Release();
-        await run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        // Whether the first page was finished before the cancel was seen decides if the keep-or-discard card comes: answer it when it does.
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!run.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            if (rig.Window.Host.ActiveDialog is { } card && card.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Name == "PART_Discard") is { } discard)
+            {
+                Click(discard);
+            }
+
+            ViewFixture.Pump();
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+
+        await run.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 }
