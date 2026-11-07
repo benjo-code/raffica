@@ -1387,6 +1387,7 @@ internal sealed partial class PdfWindow : Window
         GoToPage = page => ActiveView?.GoToPage(page),
         ShowDocumentInfo = () => _ = GuardAsync(ShowDocumentInfoAsync),
         MakeDefaultApp = MakeDefaultApp,
+        ShowAbout = () => _ = GuardAsync(ShowAboutAsync),
     };
 
     /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>

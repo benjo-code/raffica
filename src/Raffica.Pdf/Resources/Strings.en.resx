@@ -3117,4 +3117,28 @@
   <data name="SettingsDefaultAppNow" xml:space="preserve">
     <value>Make Raffica the default app for PDFs when I click OK</value>
   </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
+  <data name="AboutName" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="AboutVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="AboutLicenseFormat" xml:space="preserve">
+    <value>License: {0}</value>
+  </data>
+  <data name="AboutProjectFormat" xml:space="preserve">
+    <value>Project: {0}</value>
+  </data>
+  <data name="AboutNoticesHeading" xml:space="preserve">
+    <value>Third-party notices</value>
+  </data>
+  <data name="AboutNoticesName" xml:space="preserve">
+    <value>Third-party notices, scrollable text</value>
+  </data>
+  <data name="CmdAbout" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
 </root>

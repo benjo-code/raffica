@@ -684,6 +684,14 @@ internal static class PdfStrings
     public static string DefaultAppFailed => Table.Get("DefaultAppFailed");
     public static string CmdMakeDefaultApp => Table.Get("CmdMakeDefaultApp");
     public static string PaletteGroupApp => Table.Get("PaletteGroupApp");
+    public static string AboutTitle => Table.Get("AboutTitle");
+    public static string AboutName => Table.Get("AboutName");
+    public static string AboutVersionFormat => Table.Get("AboutVersionFormat");
+    public static string AboutLicenseFormat => Table.Get("AboutLicenseFormat");
+    public static string AboutProjectFormat => Table.Get("AboutProjectFormat");
+    public static string AboutNoticesHeading => Table.Get("AboutNoticesHeading");
+    public static string AboutNoticesName => Table.Get("AboutNoticesName");
+    public static string CmdAbout => Table.Get("CmdAbout");
     public static string SettingsDefaultApp => Table.Get("SettingsDefaultApp");
     public static string SettingsDefaultAppAsk => Table.Get("SettingsDefaultAppAsk");
     public static string SettingsDefaultAppNow => Table.Get("SettingsDefaultAppNow");

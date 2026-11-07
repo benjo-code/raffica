@@ -1,5 +1,8 @@
+using Raffica.Core;
 using Raffica.Core.Distribution;
 using Raffica.Core.Settings;
+using Raffica.Core.Updates;
+using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Packaging;
 
 namespace Raffica.Pdf;
@@ -47,6 +50,20 @@ internal sealed partial class PdfWindow
         {
             await flow.OfferAtStartAsync(DefaultAppToken);
         }
+    }
+
+    /// <summary>
+    /// Where the About card gets the notices text. It is read when the card opens and never before (a test replaces it to see that);
+    /// the default reads the text embedded in the assembly.
+    /// </summary>
+    internal Func<string> NoticesSource { get; set; } = ThirdPartyNotices.Read;
+
+    /// <summary>The About card (the palette, the help card): the notices are read now, when it opens, and the card returns when it is closed.</summary>
+    internal Task ShowAboutAsync()
+    {
+        var notices = NoticesSource();
+        return Dialogs.ShowAsync<bool>(done => AboutCard.Create(
+            AppInfo.Version, UpdateTrust.TestBuildNote(PdfStrings.Culture), notices, () => done(true)));
     }
 
     /// <summary>The command "Make Raffica the default app for PDFs" (the palette, the settings dialog).</summary>

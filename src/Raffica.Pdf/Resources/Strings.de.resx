@@ -3101,4 +3101,28 @@
   <data name="SettingsDefaultAppNow" xml:space="preserve">
     <value>Raffica nach Klick auf OK zur Standard-App für PDFs machen</value>
   </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>Über Raffica PDF</value>
+  </data>
+  <data name="AboutName" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="AboutVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="AboutLicenseFormat" xml:space="preserve">
+    <value>Lizenz: {0}</value>
+  </data>
+  <data name="AboutProjectFormat" xml:space="preserve">
+    <value>Projekt: {0}</value>
+  </data>
+  <data name="AboutNoticesHeading" xml:space="preserve">
+    <value>Hinweise zu Drittsoftware</value>
+  </data>
+  <data name="AboutNoticesName" xml:space="preserve">
+    <value>Hinweise zu Drittsoftware, scrollbarer Text</value>
+  </data>
+  <data name="CmdAbout" xml:space="preserve">
+    <value>Über Raffica PDF</value>
+  </data>
 </root>

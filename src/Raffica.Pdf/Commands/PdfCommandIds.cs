@@ -11,6 +11,9 @@ internal static class PdfCommandIds
     /// <summary>Make Raffica the default app for PDFs: a palette entry and a settings row, no ribbon button (so it is not in the catalog).</summary>
     public const string MakeDefaultApp = "app.default";
 
+    /// <summary>The About card (version, license, third-party notices): a palette entry and a button of the help card, no ribbon button (so it is not in the catalog).</summary>
+    public const string About = "app.about";
+
     public const string Search = "find.search";
     public const string SearchNext = "find.next";
     public const string SearchPrevious = "find.previous";

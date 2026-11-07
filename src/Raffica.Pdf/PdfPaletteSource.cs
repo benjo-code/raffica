@@ -38,6 +38,9 @@ internal sealed class PaletteContext
 
     /// <summary>Makes Raffica the default app for PDF files (the command <c>app.default</c>); null: no entry.</summary>
     public Action? MakeDefaultApp { get; init; }
+
+    /// <summary>Shows the About card (the command <c>app.about</c>); null: no entry.</summary>
+    public Action? ShowAbout { get; init; }
 }
 
 /// <summary>
@@ -75,6 +78,7 @@ internal sealed class PdfPaletteSource(PaletteContext context)
             Section(entries, () => OpenDocuments(text));
             Section(entries, () => DocumentInfo(text));
             Section(entries, () => DefaultApp(text));
+            Section(entries, () => About(text));
             Section(entries, () => Outline(text));
             Section(entries, () => RecentFiles(text));
             return entries;
@@ -152,6 +156,14 @@ internal sealed class PdfPaletteSource(PaletteContext context)
         if (context.MakeDefaultApp is { } run && PaletteMatcher.Score(text, PdfStrings.CmdMakeDefaultApp) >= 0)
         {
             yield return new SearchEntry(PdfStrings.PaletteGroupApp, PdfStrings.CmdMakeDefaultApp, Safe(run));
+        }
+    }
+
+    private IEnumerable<SearchEntry> About(string text)
+    {
+        if (context.ShowAbout is { } run && PaletteMatcher.Score(text, PdfStrings.CmdAbout) >= 0)
+        {
+            yield return new SearchEntry(PdfStrings.PaletteGroupApp, PdfStrings.CmdAbout, Safe(run));
         }
     }
 

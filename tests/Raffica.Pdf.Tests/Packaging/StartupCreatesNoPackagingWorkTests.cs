@@ -82,6 +82,51 @@ public sealed class StartupCreatesNoPackagingWorkTests
         }
     }
 
+    // The notices (about 400 KB of text) are read from the assembly when the About card opens, not at startup, not when the palette
+    // is searched and not when the help card opens.
+    [AvaloniaFact]
+    public async Task TheAboutCardReadsTheNoticesOnlyWhenItOpens()
+    {
+        var reads = 0;
+        using var f = WindowFixture.Create();
+        f.Window.NoticesSource = () =>
+        {
+            reads++;
+            return "NOTICES";
+        };
+        var tab = await f.OpenAsync("pages-marked.pdf");
+        await ViewFixture.WaitAsync(() => f.Window.ViewOf(tab)!.FirstSharpPageShown);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+        Assert.Equal(0, reads);
+
+        // No ribbon button: the command is not in the catalog; searching the palette finds it without reading anything.
+        Assert.DoesNotContain(PdfCommandCatalog.Commands, c => c.Id == PdfCommandIds.About);
+        Assert.Equal("app.about", PdfCommandIds.About);
+        var entry = Assert.Single(f.Window.TitleSearch.ExtraResults!("about"), e => e.Group == PdfStrings.PaletteGroupApp);
+        Assert.Equal(PdfStrings.CmdAbout, entry.Name);
+        Assert.Equal(0, reads);
+
+        // Opening the help card reads nothing either; its About button opens the About card, which reads the text once.
+        _ = f.Window.ShowHelpAsync();
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen);
+        Assert.Equal(PdfStrings.HelpTitle, f.Window.Host.ActiveDialog!.Title);
+        Assert.Equal(0, reads);
+        f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_About")
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.AboutTitle);
+        Assert.Equal(1, reads);
+        f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Ok")
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await ViewFixture.WaitAsync(() => !f.Window.Host.IsOpen);
+
+        // The palette entry opens it as well.
+        entry.Run();
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen);
+        Assert.Equal(PdfStrings.AboutTitle, f.Window.Host.ActiveDialog!.Title);
+        Assert.Equal(2, reads);
+    }
+
     [AvaloniaFact]
     public async Task AnOfferAtStartShowsTheCardOnlyAfterTheFirstSharpPage()
     {
