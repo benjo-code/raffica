@@ -20,7 +20,7 @@ public sealed class ReleaseToolTests
     [
         new UpdateKey(
             "release-tool-vector",
-            Convert.FromBase64String("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVGEaB2tM9QGYYXRzYKahe4NY8Ca6LlRHniX7jcpKfS6ZEyOVixDR7mppT/mXvOGQH+RVAm7rTPg3oXT8aKGxPQ==")),
+            Convert.FromBase64String("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIs1BJ9DNry+vMtFEZSmNg5vnR6iVtUCRJOcO8ktGqjNNKRgmd8H+Ar7Z3qHd/vumiKaTsTNuO1ael55uh2FqNw==")),
     ];
 
     private static byte[] Manifest() => File.ReadAllBytes(Path.Combine(TestData.Root, "testdata", "updates", "update-manifest.json"));
@@ -37,10 +37,10 @@ public sealed class ReleaseToolTests
         Assert.Equal("0.2.0", manifest.Version);
         Assert.Equal(
             [
-                (UpdateFileKinds.WindowsSetup, "Pagewing-0.2.0-win-x64-setup.exe", 41_234_567L),
-                (UpdateFileKinds.WindowsPortable, "Pagewing-0.2.0-win-x64-portable.zip", 43_210_987L),
-                (UpdateFileKinds.LinuxAppImage, "Pagewing-0.2.0-x86_64.AppImage", 52_345_678L),
-                (UpdateFileKinds.LinuxDeb, "pagewing_0.2.0_amd64.deb", 38_765_432L),
+                (UpdateFileKinds.WindowsSetup, "RafficaPdf-0.2.0-win-x64-setup.exe", 41_234_567L),
+                (UpdateFileKinds.WindowsPortable, "RafficaPdf-0.2.0-win-x64-portable.zip", 43_210_987L),
+                (UpdateFileKinds.LinuxAppImage, "RafficaPdf-0.2.0-x86_64.AppImage", 52_345_678L),
+                (UpdateFileKinds.LinuxDeb, "raffica-pdf_0.2.0_amd64.deb", 38_765_432L),
             ],
             manifest.Files.Select(file => (file.Kind, file.Name, file.Size)).ToList());
         Assert.All(manifest.Files, file => Assert.Equal(64, file.Sha256.Length));

@@ -5,7 +5,7 @@ namespace Raffica.Core.Tests;
 
 /// <summary>
 /// The code was imported from Pagewing and renamed. Text files must not mention the old name, except where the fixtures
-/// do: PDFs and the signed update test vector are binary or signed and cannot be renamed, so the tests that read the
+/// do: PDFs are binary and cannot be renamed, so the tests that read the
 /// text drawn into them and the word lists that describe them still say "Pagewing". Documentation (<c>Docs</c>, <c>README.md</c>, <c>CLAUDE.md</c>) is not scanned.
 /// </summary>
 public sealed class NoPagewingLeftoverTests
@@ -25,7 +25,6 @@ public sealed class NoPagewingLeftoverTests
         "testdata/pdfs/LICENSES.md",
         "testdata/pdfs/ocr-words.tsv",
         "testdata/pdfs/text-edit-runs.tsv",
-        "testdata/updates/update-manifest.json",
         "tests/Raffica.Core.Tests/Annotations/AnnotationEditorTests.cs",
         "tests/Raffica.Core.Tests/Annotations/InteropSampleTests.cs",
         "tests/Raffica.Core.Tests/Annotations/MarkupRoundTripTests.cs",
@@ -53,7 +52,6 @@ public sealed class NoPagewingLeftoverTests
         "tests/Raffica.Core.Tests/Text/TextFlowDocumentTests.cs",
         "tests/Raffica.Core.Tests/TextEdit/PdfDocumentTextEditTests.cs",
         "tests/Raffica.Core.Tests/TextEdit/TextEditSpikeTests.cs",
-        "tests/Raffica.Core.Tests/Updates/ReleaseToolTests.cs",
         "tests/Raffica.Core.Tests/Updates/UpdateTrustTests.cs",
         "third-party/geist/README.md",
     ];
