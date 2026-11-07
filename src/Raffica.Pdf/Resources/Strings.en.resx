@@ -3228,4 +3228,7 @@
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>The installer did not finish. The version you are running is unchanged.</value>
   </data>
+  <data name="UpdateBusyNote" xml:space="preserve">
+    <value>A file is being saved, printed or processed. Wait until it has finished, then choose Install again. Nothing was changed.</value>
+  </data>
 </root>

@@ -3212,4 +3212,7 @@
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>Die Installation wurde nicht abgeschlossen. Die laufende Version ist unverändert.</value>
   </data>
+  <data name="UpdateBusyNote" xml:space="preserve">
+    <value>Eine Datei wird gerade gespeichert, gedruckt oder verarbeitet. Warten Sie, bis das beendet ist, und wählen Sie dann erneut Installieren. Es wurde nichts geändert.</value>
+  </data>
 </root>

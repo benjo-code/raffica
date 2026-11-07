@@ -53,6 +53,14 @@ internal sealed partial class PdfWindow
         }
     }
 
+    /// <summary>
+    /// Whether a job that works on a file runs (a save, a print, Apply, Redact, Extract, Split, Export images or a recognition): an update does not start the
+    /// installer meanwhile. Tests replace it; null asks the window's own jobs.
+    /// </summary>
+    internal Func<bool>? UpdateBusy { get; set; }
+
+    private bool FileJobRunning() => UpdateBusy?.Invoke() ?? (BusyWithFileJob() || OcrBusy);
+
     private CancellationToken UpdateToken => (_updateCancel ??= new CancellationTokenSource()).Token;
 
     /// <summary>Ends what runs of the update flow when the window closes: a check or download is cancelled and a staged update nobody installed is deleted.</summary>
@@ -161,6 +169,13 @@ internal sealed partial class PdfWindow
     /// </summary>
     private async Task InstallUpdateAsync(UpdateFlow flow)
     {
+        // A running save, print or other file job is not cut off by the restart: nothing is downloaded or asked while one runs.
+        if (FileJobRunning())
+        {
+            await ShowUpdateNoteAsync(PdfStrings.UpdateBusyNote);
+            return;
+        }
+
         while (true)
         {
             var failedWith = await DownloadWithCardAsync(flow);
@@ -185,9 +200,24 @@ internal sealed partial class PdfWindow
                 return;
             }
 
+            // A job may have started during the download: asked again before anything is written.
+            if (FileJobRunning())
+            {
+                await ShowUpdateNoteAsync(PdfStrings.UpdateBusyNote);
+                return;
+            }
+
             // The question, with nothing written before its last answer; the session of the restart is written right after it.
             if (!await guard.AskAllTabsAsync(Workspace.Tabs.ToList(), WriteSession))
             {
+                return;
+            }
+
+            // And once more right before the installer (a job may have started while the questions were open or the saves ran): the session is taken back, the staged file stays.
+            if (FileJobRunning())
+            {
+                new SessionStore(SessionPath()).Delete();
+                await ShowUpdateNoteAsync(PdfStrings.UpdateBusyNote);
                 return;
             }
 
@@ -281,6 +311,8 @@ internal sealed partial class PdfWindow
         }
     }
 
+    private string SessionPath() => Path.Combine(PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile), SessionStore.FileName);
+
     // The session of the restart: the open files with their view, the active tab. Written only after the last answer of the question about unsaved tabs.
     private void WriteSession()
     {
@@ -292,8 +324,7 @@ internal sealed partial class PdfWindow
 
         var entries = tabs.Select(tab => new SessionTab(tab.Path!, ViewOf(tab)?.CaptureRemembered())).ToList();
         var active = Math.Max(0, tabs.IndexOf(Workspace.Active!));
-        var path = Path.Combine(PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile), SessionStore.FileName);
-        _ = new SessionStore(path).TrySave(new SessionSnapshot([new SessionWindow(entries, active)]));
+        _ = new SessionStore(SessionPath()).TrySave(new SessionSnapshot([new SessionWindow(entries, active)]));
     }
 
     // The download page opens only after the card that shows the address in full (the same card as for a link in a document).

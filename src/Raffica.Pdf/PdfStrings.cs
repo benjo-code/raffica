@@ -699,6 +699,7 @@ internal static class PdfStrings
     public static string UpdateMessageFormat => Table.Get("UpdateMessageFormat");
     public static string UpdateCheckedNote => Table.Get("UpdateCheckedNote");
     public static string UpdateRestartNote => Table.Get("UpdateRestartNote");
+    public static string UpdateBusyNote => Table.Get("UpdateBusyNote");
     public static string UpdateManualMessage => Table.Get("UpdateManualMessage");
     public static string UpdateInstall => Table.Get("UpdateInstall");
     public static string UpdateLater => Table.Get("UpdateLater");
