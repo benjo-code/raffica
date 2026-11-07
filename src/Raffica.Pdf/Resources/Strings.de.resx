@@ -3056,4 +3056,49 @@
   <data name="TextEditOldTextNote" xml:space="preserve">
     <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: Schwärzen.</value>
   </data>
+  <data name="DefaultAppTitle" xml:space="preserve">
+    <value>Standard-App für PDFs</value>
+  </data>
+  <data name="DefaultAppMessage" xml:space="preserve">
+    <value>Soll Raffica PDF-Dateien standardmäßig öffnen? Das lässt sich später in den Systemeinstellungen ändern.</value>
+  </data>
+  <data name="DefaultAppSet" xml:space="preserve">
+    <value>Als Standard festlegen</value>
+  </data>
+  <data name="DefaultAppNotNow" xml:space="preserve">
+    <value>Jetzt nicht</value>
+  </data>
+  <data name="DefaultAppDontAsk" xml:space="preserve">
+    <value>Nicht mehr fragen</value>
+  </data>
+  <data name="DefaultAppResultTitle" xml:space="preserve">
+    <value>Standard-App</value>
+  </data>
+  <data name="DefaultAppDone" xml:space="preserve">
+    <value>Raffica öffnet PDF-Dateien jetzt standardmäßig.</value>
+  </data>
+  <data name="DefaultAppOpenedSettings" xml:space="preserve">
+    <value>Die Systemeinstellungen für Standard-Apps sind geöffnet. Wählen Sie dort Raffica für .pdf-Dateien aus; das System überlässt diese Wahl Ihnen.</value>
+  </data>
+  <data name="DefaultAppNotAvailable" xml:space="preserve">
+    <value>Auf diesem System lässt sich die Standard-App von hier aus nicht festlegen. Es wurde nichts geändert. Sie können sie in den Systemeinstellungen wählen.</value>
+  </data>
+  <data name="DefaultAppFailed" xml:space="preserve">
+    <value>Die Standard-App konnte nicht festgelegt werden. Es wurde nichts geändert. Sie können sie in den Systemeinstellungen wählen.</value>
+  </data>
+  <data name="CmdMakeDefaultApp" xml:space="preserve">
+    <value>Raffica zur Standard-App für PDFs machen</value>
+  </data>
+  <data name="PaletteGroupApp" xml:space="preserve">
+    <value>App</value>
+  </data>
+  <data name="SettingsDefaultApp" xml:space="preserve">
+    <value>Standard-App</value>
+  </data>
+  <data name="SettingsDefaultAppAsk" xml:space="preserve">
+    <value>Beim Start anbieten, Raffica zur Standard-App zu machen</value>
+  </data>
+  <data name="SettingsDefaultAppNow" xml:space="preserve">
+    <value>Raffica nach Klick auf OK zur Standard-App für PDFs machen</value>
+  </data>
 </root>

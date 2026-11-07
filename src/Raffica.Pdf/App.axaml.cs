@@ -50,6 +50,9 @@ internal sealed partial class App : Application
                 window.Listen(_instance);
             }
 
+            // The system's default app service is made on first use (the offer after the first sharp page, the command); a measurement run has none.
+            window.DefaultAppServices = _options.IsMeasuring ? null : Platform.PlatformDefaultAppServices.Create;
+
             desktop.MainWindow = window;
             if (_options.IsMeasuring)
             {

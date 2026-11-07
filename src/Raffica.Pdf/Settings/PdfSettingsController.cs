@@ -32,6 +32,7 @@ internal sealed class PdfSettingsController
     private readonly DialogHost _host;
     private readonly Action<bool> _setCompact;
     private readonly Action<PageTheme> _setPageTheme;
+    private readonly Action? _makeDefaultApp;
     private readonly CoalescingWriter _appWriter = new();
     private ShellSettings _shell;
 
@@ -41,7 +42,8 @@ internal sealed class PdfSettingsController
     /// <param name="app">The viewer settings read once at startup.</param>
     /// <param name="setCompact">Applies the compact command bar to the frame and the ribbon.</param>
     /// <param name="setPageTheme">Gives the pages of every open tab a theme.</param>
-    public PdfSettingsController(PdfOptions options, DialogHost host, ShellSettings shell, AppSettings app, Action<bool> setCompact, Action<PageTheme> setPageTheme)
+    /// <param name="makeDefaultApp">Makes Raffica the default app for PDFs (the "Default app" row of the dialog); null: no such row.</param>
+    public PdfSettingsController(PdfOptions options, DialogHost host, ShellSettings shell, AppSettings app, Action<bool> setCompact, Action<PageTheme> setPageTheme, Action? makeDefaultApp = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(host);
@@ -55,6 +57,7 @@ internal sealed class PdfSettingsController
         App = app;
         _setCompact = setCompact;
         _setPageTheme = setPageTheme;
+        _makeDefaultApp = makeDefaultApp;
     }
 
     /// <summary>The viewer settings in force: what the file said at startup, then what the user confirmed. A new tab starts from them.</summary>
@@ -142,15 +145,26 @@ internal sealed class PdfSettingsController
         };
         AutomationProperties.SetName(author, PdfStrings.SettingsAuthorName);
 
-        var options = new SettingsDialogOptions(
-            ShowAutosave: false,
-            ExtraRows:
-            [
-                new SettingsExtraRow(PdfStrings.SettingsPageAppearance, appearance),
-                new SettingsExtraRow(PdfStrings.SettingsDefaultLayout, layout),
-                new SettingsExtraRow(PdfStrings.SettingsDefaultZoom, zoom),
-                new SettingsExtraRow(PdfStrings.SettingsAuthorName, author),
-            ]);
+        // The "Default app" row (M2.6): the offer at start is a state, saved on OK; making Raffica the default is an action that runs once the
+        // dialog is closed, so its result card is not queued behind the dialog.
+        var askAtStart = new CheckBox { Name = "PART_DefaultAppAsk", Content = PdfStrings.SettingsDefaultAppAsk, IsChecked = App.DefaultAppPrompt == DefaultAppPromptSetting.Ask };
+        var makeNow = new CheckBox { Name = "PART_DefaultAppNow", Content = PdfStrings.SettingsDefaultAppNow, IsChecked = false };
+        var defaultApp = new StackPanel { Spacing = 6, Children = { askAtStart, makeNow } };
+        AutomationProperties.SetName(defaultApp, PdfStrings.SettingsDefaultApp);
+
+        var rows = new List<SettingsExtraRow>
+        {
+            new(PdfStrings.SettingsPageAppearance, appearance),
+            new(PdfStrings.SettingsDefaultLayout, layout),
+            new(PdfStrings.SettingsDefaultZoom, zoom),
+            new(PdfStrings.SettingsAuthorName, author),
+        };
+        if (_makeDefaultApp is not null)
+        {
+            rows.Add(new SettingsExtraRow(PdfStrings.SettingsDefaultApp, defaultApp));
+        }
+
+        var options = new SettingsDialogOptions(ShowAutosave: false, ExtraRows: rows);
 
         _host.Show(SettingsDialog.Create(
             _shell,
@@ -165,7 +179,12 @@ internal sealed class PdfSettingsController
                         DefaultLayout = Layouts[Math.Max(0, layout.SelectedIndex)],
                         DefaultZoomMode = Zooms[Math.Max(0, zoom.SelectedIndex)],
                         AuthorName = string.IsNullOrWhiteSpace(author.Text) ? null : author.Text.Trim(),
+                        DefaultAppPrompt = _makeDefaultApp is null ? App.DefaultAppPrompt : askAtStart.IsChecked == true ? DefaultAppPromptSetting.Ask : DefaultAppPromptSetting.Never,
                     });
+                if (makeNow.IsChecked == true)
+                {
+                    _makeDefaultApp?.Invoke();
+                }
             },
             _host.Close,
             options));
