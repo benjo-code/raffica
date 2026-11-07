@@ -10,6 +10,7 @@ namespace Raffica.Core.Tests.Redaction;
 /// The layout of the overlay text on an area (milestone 14.1, task 14), with made-up glyph widths: every glyph 0.5 em wide, ascent 1.0
 /// and descent 0.3 em (so a line is 1.3 em high). The layout never reaches outside the area it is given.
 /// </summary>
+[Collection(ProcessWideMeasurementGroup.Name)]
 public sealed class RedactionOverlayLayoutTests
 {
     private static readonly FakeMetrics Metrics = new();

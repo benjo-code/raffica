@@ -49,6 +49,7 @@ public sealed class KeyNamesTests
         foreach (var culture in new[] { En, De })
         {
             Assert.Equal("⌘K", KeyNames.Format("Meta+K", culture, macOs: true));
+            Assert.Equal("⇧⌘G", KeyNames.Format("Shift+Cmd+G", culture, macOs: true));
             Assert.Equal("⌥⌘X", KeyNames.Format(new KeyGesture(Key.X, KeyModifiers.Meta | KeyModifiers.Alt), culture, macOs: true));
         }
     }

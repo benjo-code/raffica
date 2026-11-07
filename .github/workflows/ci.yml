@@ -136,6 +136,8 @@ jobs:
       # The OCR tests need the real library (SHA-256 pinned in tools/native-fetch.cs); without it they would only report
       # themselves as skipped, which RAFFICA_REQUIRE_OCR below turns into a failure.
       - name: Fetch the OCR library and the language data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: dotnet run tools/native-fetch.cs -- --rid ${{ matrix.rid }} --out artifacts/native/${{ matrix.rid }}
 
       # One test module at a time: the PDFium-heavy Core tests starve each other's timing on a machine with few cores.

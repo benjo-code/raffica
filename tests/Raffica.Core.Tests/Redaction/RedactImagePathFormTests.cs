@@ -16,6 +16,7 @@ namespace Raffica.Core.Tests.Redaction;
 /// Redacting images, paths and form objects, and the render check of the written page (milestone 14, task 5), on copies of the redaction
 /// fixtures and on small synthetic files for the cases no fixture has (turned images, nesting, huge images).
 /// </summary>
+[Collection(ProcessWideMeasurementGroup.Name)]
 public sealed class RedactImagePathFormTests
 {
     private const string Term = "Zephyrstraße 17";

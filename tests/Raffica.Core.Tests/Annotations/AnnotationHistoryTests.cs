@@ -98,6 +98,50 @@ public sealed class AnnotationHistoryTests
         Assert.Null(history.TakeUndo());
     }
 
+    private static AnnotationCommand.TextEdit TextStep() => new(
+        0,
+        new Raffica.Core.TextEdit.TextRun(0, 0, 1, "a", new PageRect(0, 0, 1, 1), "Helvetica", Raffica.Core.TextEdit.TextRunFontKind.Standard14, 10, new AnnotationColor(0, 0, 0), "f", null),
+        null);
+
+    [Fact]
+    public void ALiveTextEditSurvivesTrimmingOfItsStep()
+    {
+        var history = new AnnotationHistory();
+        Assert.False(history.HasLiveTextEdits);
+        history.Push(TextStep());
+        Assert.True(history.HasLiveTextEdits);
+
+        // The step is the oldest and is trimmed away by later steps: the document still holds the edited text.
+        for (var i = 0; i < AnnotationHistory.MaxCommands + 3; i++)
+        {
+            history.Push(Command(i));
+        }
+
+        Assert.False(history.TakeUndo() is AnnotationCommand.TextEdit);
+        Assert.True(history.HasLiveTextEdits);
+        history.Clear();
+        Assert.False(history.HasLiveTextEdits);
+    }
+
+    [Fact]
+    public void AnUndoneTextEditIsNotLiveButADiscardedOneIs()
+    {
+        var history = new AnnotationHistory();
+        var step = TextStep();
+        history.Push(step);
+        Assert.Same(step, history.TakeUndo());
+        Assert.False(history.HasLiveTextEdits, "undone");
+
+        // An undo that could not be applied: the step is forgotten and the edit may still be on the page.
+        history.Clear();
+        history.Push(step);
+        Assert.Same(step, history.TakeUndo());
+        Assert.True(history.Discard(step));
+        Assert.True(history.HasLiveTextEdits);
+        history.Clear();
+        Assert.False(history.HasLiveTextEdits);
+    }
+
     [Fact]
     public void HistoryKeepsAtMostMaxCommandsAndDropsTheOldest()
     {

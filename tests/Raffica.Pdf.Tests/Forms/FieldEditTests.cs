@@ -480,6 +480,23 @@ public sealed class FieldEditTests
         }
     }
 
+    [AvaloniaFact]
+    public async Task AFieldIsLeftAloneWhileAnotherModeLocksTheFields()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+        var name = f.Field("Name");
+        var locked = new FormInteraction(f.Tab, f.View, f.Window.Tools, f.Forms, new FormFocus(), new Raffica.Pdf.Dialogs.DialogQueue(f.Window.Host), () => true, () => PdfStrings.ModeRedactReason);
+        f.Interaction.Dispose();
+        using (locked)
+        {
+            f.Click(name);
+
+            Assert.False(locked.IsEditing);
+            Assert.False(f.Window.Host.IsOpen);
+            Assert.False(f.Tab.IsDirty);
+        }
+    }
+
     private static string AllText(object? dialog) =>
         dialog is Raffica.Shell.Controls.Dialog { Content: Panel panel } ? string.Join(' ', panel.Children.OfType<TextBlock>().Select(t => t.Text)) : string.Empty;
 

@@ -81,6 +81,23 @@ public sealed class TextEditEditorTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUndoneEditIsNoLiveTextEditAnymoreAndARedoIs()
+    {
+        using var session = await OpenAsync("text-edit-standard.pdf");
+        var editor = new AnnotationEditor(session);
+        var run = await RunAsync(session, 0, "Quarterly report 2026");
+        Assert.False(editor.HasLiveTextEdits);
+
+        _ = await editor.ApplyTextEditAsync(run, "Quarterly report 2027", TextEditMode.KeepFont);
+        Assert.True(editor.HasLiveTextEdits);
+        await editor.UndoAsync();
+        Assert.False(editor.HasLiveTextEdits);
+        Assert.True(editor.HasTextEdits, "the page was touched for good until the next save");
+        await editor.RedoAsync();
+        Assert.True(editor.HasLiveTextEdits);
+    }
+
+    [Fact]
     public async Task UnchangedTextAddsNoStep()
     {
         using var session = await OpenAsync("text-edit-standard.pdf");

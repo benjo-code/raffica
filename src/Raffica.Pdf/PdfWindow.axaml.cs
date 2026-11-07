@@ -22,6 +22,7 @@ using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Printing;
+using Raffica.Pdf.Redacting;
 using Raffica.Pdf.Settings;
 using Raffica.Pdf.Signing;
 using Raffica.Pdf.Text;
@@ -105,6 +106,7 @@ internal sealed partial class PdfWindow : Window
         ArgumentNullException.ThrowIfNull(settings);
         _launcher = launcher;
         _time = time;
+        _ocrRunStarter = (tab, options) => _ = GuardAsync(() => StartOcrRunAsync(tab, options));
         _options = options;
         var appDefaults = appSettings ?? AppSettings.Default;
         _recent = new RecentService(new RecentFilesStore(PdfSettingsFiles.RecentPathFor(options.SettingsFile)));
@@ -113,7 +115,7 @@ internal sealed partial class PdfWindow : Window
 
         // The Save choice of the close question saves through the controller and closes only if that worked.
         _savePicker = savePicker;
-        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync));
+        _closeGuard = new CloseGuard(PromptAsync, SaveForCloseAsync, new PlanClose(AskPlanAsync, ApplyForCloseAsync, SaveMarksForCloseAsync), new PlanClose(AskRedactAsync, ApplyRedactForCloseAsync, SaveMarksForCloseAsync), new OcrClose(AskOcrAsync, StopOcrForCloseAsync));
         Workspace = new Workspace(_closeGuard);
 
         Frame = new AppFrame();
@@ -162,11 +164,14 @@ internal sealed partial class PdfWindow : Window
             Settings.RememberPrinter,
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
-            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true);
+            () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy);
         _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
-        _saves.ApplyPlan = (tab, saveAs) => Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
+        _saves.TextEditsSaved += OnTextEditsSaved;
+        _saves.ApplyPlan = (tab, saveAs) => tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty
+            ? Redacting.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose)
+            : Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -230,6 +235,8 @@ internal sealed partial class PdfWindow : Window
         Step(_print.Cancel);
         Step(_saves.Cancel);
         Step(() => _applyFlow?.Cancel());
+        Step(() => _redactFlow?.Cancel());
+        Step(() => _ocrFlow?.Abandon());
         Step(() => _outputFlow?.Cancel());
         Step(() => _exportFlow?.Cancel());
         Step(_fieldCodes.Dispose);
@@ -239,6 +246,10 @@ internal sealed partial class PdfWindow : Window
 
         // The position of every open file is remembered, then the panes, the views and the texts let go of the sessions, then the sessions are disposed.
         EachStep(Workspace.Tabs, RememberView);
+        EachStep(_redacts, pair => DisposeRedactParts(pair.Key, pair.Value));
+        _redacts.Clear();
+        EachStep(_textEdits, pair => DisposeTextEditParts(pair.Key, pair.Value));
+        _textEdits.Clear();
         EachStep(_panes.Values, panes => panes.Dispose());
         _panes.Clear();
         EachStep(_marks.Values, DisposeMarks);
@@ -517,7 +528,7 @@ internal sealed partial class PdfWindow : Window
     }
 
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
-    private static async Task GuardAsync(Func<Task> open)
+    internal static async Task GuardAsync(Func<Task> open)
     {
         try
         {
@@ -749,6 +760,18 @@ internal sealed partial class PdfWindow : Window
     // and for the rebuild after a rewrite. It leaves the dictionaries without the tab and the tab itself alone.
     private void DisposeTabPieces(PdfTab tab)
     {
+        DisposeOcrParts(tab);
+        _scanHintChecked.Remove(tab);
+        if (_redacts.Remove(tab, out var redact))
+        {
+            DisposeRedactParts(tab, redact);
+        }
+
+        if (_textEdits.Remove(tab, out var textEdit))
+        {
+            DisposeTextEditParts(tab, textEdit);
+        }
+
         if (_panes.Remove(tab, out var panes))
         {
             panes.Dispose();
@@ -856,16 +879,14 @@ internal sealed partial class PdfWindow : Window
     private void OnWorkspaceActiveChanged()
     {
         Tabs.Selected = Workspace.Active?.Tab;
-        if (OpenPlan is not null)
-        {
-            // The tool is the window's, not the tab's: a tool left over from another tab does not run over an open plan.
-            Tools.End();
-        }
-
+        // The tool is the window's, not the tab's: a tool left over from another tab does not run beside a mode of this one.
+        EndToolAgainstTheModes();
         UpdateSaveState();
         ShowActiveView();
         EnforceAnnotatePermission(showCard: false);
         RefreshCommandStates();
+        ClearTextEditHint();
+        UpdateOcrStatus();
     }
 
     /// <summary>The document slot shows the page view of the active tab (made on first use); the others leave the screen and request nothing.</summary>
@@ -892,6 +913,9 @@ internal sealed partial class PdfWindow : Window
 
             // The Pages commands wait for the first sharp page (nothing of the mode is read before it).
             view.FirstSharpPage += RefreshCommandStates;
+
+            // The scan hint is asked once the first page is sharp (and not in a measurement run; OfferScanHintAsync checks).
+            view.FirstSharpPage += () => _ = GuardAsync(() => OfferScanHintAsync(shownTab));
             var created = view;
             view.ViewChanged += () =>
             {
@@ -905,7 +929,7 @@ internal sealed partial class PdfWindow : Window
             var search = new SearchSession(active, () => view.CurrentPage);
             _searches[active] = search;
             view.Search = search;
-            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None);
+            var text = new TextInteraction(active, view, Dialogs, _launcher, _time, () => Tools.Tool != AnnotateTool.None || active.RedactIfCreated is { IsActive: true, Tool: RedactTool.Area } || active.TextEditIfCreated is { IsActive: true });
             _texts[active] = text;
             var annotate = new AnnotateInteraction(active, view, Tools, text.Selection, Dialogs, _time);
             _annotates[active] = annotate;
@@ -964,8 +988,10 @@ internal sealed partial class PdfWindow : Window
         var markers = new FormMarkers(tab.Forms, focus) { Suppressed = () => Tools.Tool != AnnotateTool.None };
         markers.Attach(view);
         view.FormOverlay = markers;
-        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab), () => PlanOpenOf(tab));
-        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab), () => PlanOpenOf(tab));
+        // Another mode of the tab (a page plan, a redaction plan, a recognition, a text edit) leaves the fields alone; annotating does not.
+        var tabModes = new ModeExclusion(mode => ModeIsOnFor(tab, mode));
+        var interaction = new FormInteraction(tab, view, Tools, tab.Forms, focus, Dialogs, () => FillAllowedOf(tab), () => tabModes.RefusalFor(PdfMode.Forms));
+        var keys = new FormKeys(view, Tools, tab.Forms, focus, interaction, Dialogs, () => FillAllowedOf(tab), () => tabModes.RefusalFor(PdfMode.Forms));
         _formParts[tab] = new FormParts(markers, focus, interaction, keys);
 
         // The commands of the Forms tab follow what the session knows: the fields, the required list, the highlight.
@@ -1033,6 +1059,16 @@ internal sealed partial class PdfWindow : Window
     private void UpdateMarksPane()
     {
         var active = Workspace.Active;
+        if (active is not null && Tabs.Items.Count > 0 && _redacts.TryGetValue(active, out var redacting) && active.RedactIfCreated is { IsActive: true })
+        {
+            // The redact mode takes the right slot from the marks pane while it is on; the marks pane comes back with the mode's end.
+            CommentsPane.Title = PdfStrings.PaneRedact;
+            CommentsPane.Content = redacting.Pane;
+            CommentsPane.IsOpen = true;
+            return;
+        }
+
+        CommentsPane.Title = PdfStrings.PaneMarks;
         if (active is null || Tabs.Items.Count == 0 || !_marksOpen.Contains(active) || !_views.TryGetValue(active, out var view) || !_annotates.TryGetValue(active, out var annotate))
         {
             CommentsPane.IsOpen = false;
@@ -1043,7 +1079,7 @@ internal sealed partial class PdfWindow : Window
         if (!_marks.TryGetValue(active, out var marks))
         {
             var shown = active;
-            _marks[active] = marks = new MarksPane(new MarksModel(active, view), active, view, Tools, annotate.Select, Dialogs, () => AnnotateAllowedOf(shown) != false);
+            _marks[active] = marks = new MarksPane(new MarksModel(active, view), active, view, Tools, annotate.Select, Dialogs, () => AnnotateAllowedOf(shown) != false, () => new ModeExclusion(mode => ModeIsOnFor(shown, mode)).ReasonWhileActive(PdfMode.TextEdit));
         }
 
         CommentsPane.Content = marks;
@@ -1361,7 +1397,13 @@ internal sealed partial class PdfWindow : Window
     }
 
     /// <summary>The save cell of the status bar shows "Unsaved changes" while the active document is dirty, else nothing.</summary>
-    private void UpdateSaveState() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
+    private void UpdateSaveState()
+    {
+        ClearTextEditHint();
+        UpdateSaveStateCore();
+    }
+
+    private void UpdateSaveStateCore() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
 
     // The card about empty required fields; "go to first empty field" takes the same path as the ribbon command and the badge counter.
     private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab, IReadOnlyList<string> names)
@@ -1404,6 +1446,9 @@ internal sealed partial class PdfWindow : Window
 
     private Task<CloseChoice> PromptAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Save);
 
+    /// <summary>"Discard the redactions?" for a tab in the redact mode with marks: Discard is DontSave; Apply… (Save) and Cancel keep the tab. A card that is already open answers Cancel.</summary>
+    internal Task<CloseChoice> AskRedactAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Redact);
+
     /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open answers Cancel.</summary>
     internal Task<CloseChoice> AskPlanAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Plan);
 
@@ -1426,6 +1471,9 @@ internal sealed partial class PdfWindow : Window
 
     // "Apply…" of the close question: the Apply card flow; the tab closes only if the plan was written.
     private Task<bool> ApplyForCloseAsync(PdfTab tab) => Applying.RunAsync(tab);
+
+    // "Apply…" of the close question of the redactions: the redaction Apply card flow; the tab closes only if the redactions were written.
+    private Task<bool> ApplyRedactForCloseAsync(PdfTab tab) => Redacting.RunAsync(tab);
 
     /// <summary>Asks about every document with unsaved changes before the window closes; a Cancel keeps the window open.</summary>
     private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)

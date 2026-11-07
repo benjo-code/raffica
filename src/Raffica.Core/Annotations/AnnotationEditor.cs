@@ -209,6 +209,21 @@ public sealed class AnnotationEditor
         }
     }
 
+    /// <summary>
+    /// Gets whether the document holds an edited text now (<see cref="AnnotationHistory.HasLiveTextEdits"/>): a text edit that was undone since does not count,
+    /// so a save of it says nothing about old text staying in earlier versions.
+    /// </summary>
+    public bool HasLiveTextEdits
+    {
+        get
+        {
+            lock (gate)
+            {
+                return history.HasLiveTextEdits;
+            }
+        }
+    }
+
     /// <summary>Gets whether <see cref="UndoAsync"/> has something to undo.</summary>
     public bool CanUndo
     {
@@ -574,15 +589,14 @@ public sealed class AnnotationEditor
     /// the history (undo takes the layers out, redo writes them again; saving it is the saving of the document, incremental like any annotation).
     /// With <paramref name="replace"/> the layer a page already has is replaced (undo brings it back); without it a page that already has a layer
     /// keeps it, is not written a second time and is listed in <see cref="OcrApplyResult.AlreadyRecognized"/>. A page without a usable word is
-    /// left alone. If the step would not fit into the budget of the history, <see cref="AnnotationHistoryFullException"/> comes <i>before</i> the
-    /// document changes; if PDFium fails part-way, the pages already written are taken back and nothing is left.
+    /// left alone. A step that does not fit into the budget of the history is written all the same, as an unsaved change that cannot be undone
+    /// (<see cref="OcrApplyResult.Undoable"/> is <see langword="false"/>); if PDFium fails part-way, the pages already written are taken back and nothing is left.
     /// </summary>
     /// <param name="result">The result of a run of <see cref="OcrRunner"/>.</param>
     /// <param name="replace">Whether Raffica's layer of a page is replaced.</param>
     /// <returns>What was written, or <see langword="null"/> when there was nothing to write (no step then).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="result"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A page of the result is not a page of the document (nothing changes).</exception>
-    /// <exception cref="AnnotationHistoryFullException">The step does not fit into the history any more; nothing changes (save first).</exception>
     /// <exception cref="InvalidOperationException">The session has no ready document, or PDFium refused (nothing is left of the run).</exception>
     public Task<OcrApplyResult?> ApplyOcrAsync(OcrRunResult result, bool replace)
     {

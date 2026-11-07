@@ -116,6 +116,8 @@ public sealed class AnnotationHistory
     private bool _otherSteps;
     private bool _ocrSteps;
     private bool _textSteps;
+    private bool _textWriteFailed;
+    private bool _textTrimmed;
 
     /// <summary>
     /// Gets the bytes of the packed images and the word lists of text recognition in both stacks (the memory the history holds for them).
@@ -173,6 +175,14 @@ public sealed class AnnotationHistory
     /// </summary>
     public bool HasTextEdits => _textSteps;
 
+    /// <summary>
+    /// Gets whether the document holds an edited text now: a text edit step that is still done (not undone, not forgotten), or a failed text write that
+    /// changed a page without a step (<see cref="MarkTextChanged"/>), or a text edit step that left the stacks while its edit stays on the page (trimmed as
+    /// the oldest of <see cref="MaxCommands"/>, or forgotten after an undo that could not be applied). Unlike <see cref="HasTextEdits"/> an edit that was
+    /// undone does not count: a save then writes no changed text.
+    /// </summary>
+    public bool HasLiveTextEdits => _textWriteFailed || _textTrimmed || _undo.Any(static command => command is AnnotationCommand.TextEdit);
+
     private static long ImageBytesOf(List<AnnotationCommand> commands)
     {
         long bytes = 0;
@@ -218,6 +228,11 @@ public sealed class AnnotationHistory
         _redo.Clear();
         if (_undo.Count >= MaxCommands)
         {
+            if (_undo[0] is AnnotationCommand.TextEdit)
+            {
+                _textTrimmed = true;
+            }
+
             _undo.RemoveAt(0);
         }
 
@@ -232,6 +247,7 @@ public sealed class AnnotationHistory
     public void MarkTextChanged()
     {
         _textSteps = true;
+        _textWriteFailed = true;
         Version++;
     }
 
@@ -281,6 +297,12 @@ public sealed class AnnotationHistory
         {
             if (stack.Count > 0 && ReferenceEquals(stack[^1], command))
             {
+                // An undo that could not be applied leaves its step on the redo stack and its edit on the page; a redo that could not be applied leaves neither.
+                if (command is AnnotationCommand.TextEdit && ReferenceEquals(stack, _redo))
+                {
+                    _textTrimmed = true;
+                }
+
                 stack.RemoveAt(stack.Count - 1);
                 Version++;
                 return true;
@@ -315,6 +337,8 @@ public sealed class AnnotationHistory
         _otherSteps = false;
         _ocrSteps = false;
         _textSteps = false;
+        _textWriteFailed = false;
+        _textTrimmed = false;
         Version++;
     }
 }

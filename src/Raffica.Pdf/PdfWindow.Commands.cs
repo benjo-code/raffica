@@ -59,13 +59,13 @@ internal sealed partial class PdfWindow
         () => Workspace.Tabs.Count,
         () => Workspace.Active is { } active && _printInfo.TryGetValue(active, out var info) ? info : null,
         PrintAvailable,
-        isDirty: () => Workspace.Active is { IsDirty: true },
-        canUndo: () => OpenPlan is { } plan ? plan.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
-        canRedo: () => OpenPlan is { } plan ? plan.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
-        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
+        isDirty: () => Workspace.Active is { IsDirty: true } || OpenRedact is { Plan.IsEmpty: false },
+        canUndo: () => OpenPlan is { } plan ? plan.CanUndo : OpenRedact is { } redact ? redact.CanUndo : Workspace.Active?.Annotations.CanUndo == true,
+        canRedo: () => OpenPlan is { } plan ? plan.CanRedo : OpenRedact is { } redact ? redact.CanRedo : Workspace.Active?.Annotations.CanRedo == true,
+        busySaving: () => _print.IsRunning || _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy,
         annotateAllowed: () => Workspace.Active is not { } active || AnnotateAllowedOf(active) != false,
         hasSelection: () => Workspace.Active is { } active && AnnotateOf(active)?.Select.HasSelection == true,
-        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true,
+        saveRunning: () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy,
         hasForm: () => Workspace.Active is { } active && TabHasForm(active),
         fillAllowed: () => Workspace.Active is { } active ? FillAllowedOf(active) : null,
         hasEmptyRequired: () => Workspace.Active is not { } active || active.FormsIfCreated is not { } forms || !forms.RequiredKnown || forms.EmptyRequired.Count > 0,
@@ -75,7 +75,37 @@ internal sealed partial class PdfWindow
         planCanUndo: () => OpenPlan?.CanUndo == true,
         planCanRedo: () => OpenPlan?.CanRedo == true,
         planChanged: () => OpenPlan is { } plan && !plan.Plan.IsIdentity,
-        marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true);
+        marksUnsaved: () => Workspace.Active?.AnnotationsIfCreated?.IsDirty == true,
+        redactMarked: () => OpenRedact is { Plan.IsEmpty: false },
+        ocrLibrary: OcrLibraryAvailable,
+        ocrStarter: () => OcrRunStarter is not null,
+        ocrRunning: () => OcrBusy,
+        modes: new ModeExclusion(ModeIsOn));
+
+    // Which modes are on for the active tab: the annotate tool is the window's, the others are the sessions of the tab (none is made by asking).
+    private bool ModeIsOn(PdfMode mode) => ModeIsOnFor(Workspace.Active, mode);
+
+    // Ends the annotate tool when the active tab's modes do not allow it (Organize, Redact, Edit text, a text recognition; forms may stay).
+    private bool EndToolAgainstTheModes()
+    {
+        if (Tools.Tool == AnnotateTool.None || new ModeExclusion(ModeIsOn).CanEnter(PdfMode.Annotate, out _))
+        {
+            return false;
+        }
+
+        Tools.End();
+        return true;
+    }
+
+    private bool ModeIsOnFor(PdfTab? tab, PdfMode mode) => mode switch
+    {
+        PdfMode.Annotate => Tools.Tool != AnnotateTool.None,
+        PdfMode.Organize => tab?.OrganizeIfCreated is { IsActive: true },
+        PdfMode.Redact => tab?.RedactIfCreated?.IsActive == true,
+        PdfMode.Ocr => tab?.OcrIfCreated?.IsActive == true,
+        PdfMode.TextEdit => tab?.TextEditIfCreated?.IsActive == true,
+        _ => false,
+    };
 
     // The rules ask for every tab, with or without a form: a document without an AcroForm creates no form session (and its subscription) for it.
     private static bool TabHasForm(PdfTab tab)
@@ -215,7 +245,19 @@ internal sealed partial class PdfWindow
         DeletePages: () => RunPageEdit(session => session.Delete()),
         ExtractPages: ExtractPages,
         SplitDocument: SplitDocument,
-        ExportImages: ExportImages);
+        ExportImages: ExportImages,
+        RedactMode: ToggleRedact,
+        RedactMarkSelection: MarkRedactSelection,
+        RedactFind: ToggleRedactFind,
+        RedactRasterPage: ToggleRedactRasterPage,
+        RedactDeleteMarks: DeleteRedactMarks,
+        RedactDiscard: DiscardRedact,
+        RedactApply: ApplyRedact,
+        OcrRun: RunOcrCommand,
+        OcrLanguages: ShowLanguageFiles,
+        OcrCancel: CancelOcr,
+        TextEdit: ToggleTextEdit,
+        TextEditDone: FinishTextEdit);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
@@ -324,12 +366,23 @@ internal sealed partial class PdfWindow
         }
     }
 
-    // While the page plan is open Undo and Redo (the Home tab's and Ctrl+Z, Ctrl+Y) belong to its history; the marks are locked and clean then.
+    // While the page plan or the redact plan is open Undo and Redo (the Home tab's and Ctrl+Z, Ctrl+Y) belong to its history; the marks are locked and clean then.
     private Task UndoActiveAsync()
     {
+        if (ModeIsOn(PdfMode.Ocr))
+        {
+            return Task.CompletedTask;
+        }
+
         if (OpenPlan is { } plan)
         {
             plan.Undo();
+            return Task.CompletedTask;
+        }
+
+        if (OpenRedact is { } redact)
+        {
+            redact.Undo();
             return Task.CompletedTask;
         }
 
@@ -338,9 +391,20 @@ internal sealed partial class PdfWindow
 
     private Task RedoActiveAsync()
     {
+        if (ModeIsOn(PdfMode.Ocr))
+        {
+            return Task.CompletedTask;
+        }
+
         if (OpenPlan is { } plan)
         {
             plan.Redo();
+            return Task.CompletedTask;
+        }
+
+        if (OpenRedact is { } redact)
+        {
+            redact.Redo();
             return Task.CompletedTask;
         }
 
@@ -466,10 +530,9 @@ internal sealed partial class PdfWindow
 
     private void OnToolsChanged()
     {
-        // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a plan is open.
-        if (Tools.Tool != AnnotateTool.None && OpenPlan is not null)
+        // A tool chosen by a path around the disabled commands (a card, the marks pane) is ended again while a mode of the tab excludes it.
+        if (EndToolAgainstTheModes())
         {
-            Tools.End();
             return;
         }
 

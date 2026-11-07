@@ -1706,4 +1706,1354 @@
   <data name="ExportFailRender" xml:space="preserve">
     <value>Eine Seite konnte nicht gezeichnet werden.</value>
   </data>
+  <data name="TabRedact" xml:space="preserve">
+    <value>Schwärzen</value>
+  </data>
+  <data name="TabEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="GroupMark" xml:space="preserve">
+    <value>Markieren</value>
+  </data>
+  <data name="GroupLook" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="GroupScan" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="CmdRedactMode" xml:space="preserve">
+    <value>Schwärzen</value>
+  </data>
+  <data name="CmdRedactMarkSelection" xml:space="preserve">
+    <value>Auswahl markieren</value>
+  </data>
+  <data name="CmdRedactFind" xml:space="preserve">
+    <value>Suchen und markieren…</value>
+  </data>
+  <data name="CmdRedactRasterPage" xml:space="preserve">
+    <value>Seite in Bild umwandeln</value>
+  </data>
+  <data name="CmdRedactDeleteMarks" xml:space="preserve">
+    <value>Markierungen löschen</value>
+  </data>
+  <data name="CmdRedactDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="CmdRedactApply" xml:space="preserve">
+    <value>Schwärzungen anwenden…</value>
+  </data>
+  <data name="CmdOcrRun" xml:space="preserve">
+    <value>Text erkennen…</value>
+  </data>
+  <data name="CmdOcrLanguages" xml:space="preserve">
+    <value>Sprachen…</value>
+  </data>
+  <data name="CmdOcrCancel" xml:space="preserve">
+    <value>Erkennung abbrechen</value>
+  </data>
+  <data name="CmdTextEdit" xml:space="preserve">
+    <value>Text bearbeiten</value>
+  </data>
+  <data name="CmdTextEditDone" xml:space="preserve">
+    <value>Bearbeiten beenden</value>
+  </data>
+  <data name="ModeAnnotateReason" xml:space="preserve">
+    <value>Beenden Sie zuerst das Anmerken.</value>
+  </data>
+  <data name="ModeFormsReason" xml:space="preserve">
+    <value>Beenden Sie zuerst das Ausfüllen des Formulars.</value>
+  </data>
+  <data name="ModeRedactReason" xml:space="preserve">
+    <value>Wenden Sie die Schwärzungen zuerst an oder verwerfen Sie sie.</value>
+  </data>
+  <data name="ModeOcrReason" xml:space="preserve">
+    <value>Warten Sie, bis die Texterkennung fertig ist, oder brechen Sie sie ab.</value>
+  </data>
+  <data name="ModeTextEditReason" xml:space="preserve">
+    <value>Beenden Sie zuerst das Bearbeiten des Textes.</value>
+  </data>
+  <data name="UnsavedRedactTitle" xml:space="preserve">
+    <value>Die Schwärzungen verwerfen?</value>
+  </data>
+  <data name="UnsavedRedactMessageFormat" xml:space="preserve">
+    <value>Die Schwärzungen von {0} sind markiert, aber noch nicht angewendet. Anwenden schreibt sie in eine Datei; Verwerfen löscht sie und lässt die Datei, wie sie ist.</value>
+  </data>
+  <data name="UnsavedRedactApply" xml:space="preserve">
+    <value>Anwenden…</value>
+  </data>
+  <data name="UnsavedRedactDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="UnsavedOcrTitle" xml:space="preserve">
+    <value>Die Texterkennung abbrechen?</value>
+  </data>
+  <data name="UnsavedOcrMessageFormat" xml:space="preserve">
+    <value>Die Texterkennung von {0} läuft noch. Wenn Sie sie beenden, bleibt die Datei, wie sie ist.</value>
+  </data>
+  <data name="UnsavedOcrStop" xml:space="preserve">
+    <value>Erkennung beenden</value>
+  </data>
+  <data name="UnsavedOcrKeep" xml:space="preserve">
+    <value>Weiterlaufen lassen</value>
+  </data>
+  <data name="PaneRedact" xml:space="preserve">
+    <value>Schwärzen</value>
+  </data>
+  <data name="RedactHint" xml:space="preserve">
+    <value>Es wird nichts entfernt, bevor Sie die Markierungen anwenden.</value>
+  </data>
+  <data name="RedactCounterNone" xml:space="preserve">
+    <value>Noch keine Markierungen</value>
+  </data>
+  <data name="RedactCounterMarksOne" xml:space="preserve">
+    <value>1 Markierung</value>
+  </data>
+  <data name="RedactCounterMarksMany" xml:space="preserve">
+    <value>{0} Markierungen</value>
+  </data>
+  <data name="RedactCounterPagesOne" xml:space="preserve">
+    <value>1 Seite</value>
+  </data>
+  <data name="RedactCounterPagesMany" xml:space="preserve">
+    <value>{0} Seiten</value>
+  </data>
+  <data name="RedactCounterJoinFormat" xml:space="preserve">
+    <value>{0} auf {1}</value>
+  </data>
+  <data name="RedactApplyButton" xml:space="preserve">
+    <value>Anwenden…</value>
+  </data>
+  <data name="RedactListName" xml:space="preserve">
+    <value>Markierungen zum Schwärzen</value>
+  </data>
+  <data name="RedactPageHeaderFormat" xml:space="preserve">
+    <value>Seite {0}</value>
+  </data>
+  <data name="RedactMarkNameFormat" xml:space="preserve">
+    <value>Zum Schwärzen markiert, Seite {0}</value>
+  </data>
+  <data name="RedactKindArea" xml:space="preserve">
+    <value>Bereich</value>
+  </data>
+  <data name="RedactKindText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="RedactKindHit" xml:space="preserve">
+    <value>Treffer</value>
+  </data>
+  <data name="RedactRowTextFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="RedactBadgeText" xml:space="preserve">
+    <value>Schwärzen – Esc zum Beenden</value>
+  </data>
+  <data name="RedactToolsName" xml:space="preserve">
+    <value>Markierwerkzeug</value>
+  </data>
+  <data name="RedactToolArea" xml:space="preserve">
+    <value>Bereich</value>
+  </data>
+  <data name="RedactToolText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="RedactRefusalNothingSelected" xml:space="preserve">
+    <value>Wählen Sie zuerst Text aus.</value>
+  </data>
+  <data name="RedactRefusalTextNotMarkable" xml:space="preserve">
+    <value>Dieser Text lässt sich nicht markieren, darum wurde nichts markiert.</value>
+  </data>
+  <data name="RedactRefusalTooManyFormat" xml:space="preserve">
+    <value>Ein Dokument kann höchstens {0} Markierungen enthalten.</value>
+  </data>
+  <data name="RedactRefusalNotArea" xml:space="preserve">
+    <value>Nur Bereiche lassen sich verschieben oder in der Größe ändern. Löschen Sie die Markierung und markieren Sie den Text neu.</value>
+  </data>
+  <data name="RedactRefusalOutOfRange" xml:space="preserve">
+    <value>Dieser Bereich liegt nicht auf der Seite.</value>
+  </data>
+  <data name="RedactRefusalUnknownMark" xml:space="preserve">
+    <value>Diese Markierung gibt es nicht mehr.</value>
+  </data>
+  <data name="RedactRefusalTextUnavailable" xml:space="preserve">
+    <value>Der Text der Seite konnte nicht gelesen werden.</value>
+  </data>
+  <data name="RedactRefusalNotActive" xml:space="preserve">
+    <value>Der Schwärzen-Modus ist aus.</value>
+  </data>
+  <data name="RedactRefusalTooManyLinesFormat" xml:space="preserve">
+    <value>Diese Auswahl umfasst mehr als {0} Zeilen, mehr als eine Markierung fassen kann. Wählen Sie weniger Text aus.</value>
+  </data>
+  <data name="RedactRefusalBusy" xml:space="preserve">
+    <value>Die Auswahl wird noch markiert.</value>
+  </data>
+  <data name="RedactRefusalSearchIncomplete" xml:space="preserve">
+    <value>Bestätigen Sie zuerst, dass die Suche nicht alles abgedeckt hat.</value>
+  </data>
+  <data name="RedactRefusalNothingToMark" xml:space="preserve">
+    <value>Es gibt nichts zu markieren.</value>
+  </data>
+  <data name="RedactRefusalSearchRunning" xml:space="preserve">
+    <value>Eine Suche läuft noch.</value>
+  </data>
+  <data name="FindPanelName" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="FindTermName" xml:space="preserve">
+    <value>Gesuchter Text</value>
+  </data>
+  <data name="FindSearchButton" xml:space="preserve">
+    <value>Suchen</value>
+  </data>
+  <data name="FindCancelButton" xml:space="preserve">
+    <value>Suche abbrechen</value>
+  </data>
+  <data name="FindMatchCase" xml:space="preserve">
+    <value>Groß-/Kleinschreibung beachten</value>
+  </data>
+  <data name="FindWholeWords" xml:space="preserve">
+    <value>Ganze Wörter</value>
+  </data>
+  <data name="FindPatternsMode" xml:space="preserve">
+    <value>Muster</value>
+  </data>
+  <data name="FindKindEmail" xml:space="preserve">
+    <value>E-Mail-Adressen</value>
+  </data>
+  <data name="FindKindIban" xml:space="preserve">
+    <value>IBANs</value>
+  </data>
+  <data name="FindKindPhone" xml:space="preserve">
+    <value>Telefonnummern</value>
+  </data>
+  <data name="FindKindCard" xml:space="preserve">
+    <value>Kartennummern</value>
+  </data>
+  <data name="FindKindCountFormat" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="FindCertaintyChecksumOk" xml:space="preserve">
+    <value>Prüfsumme stimmt</value>
+  </data>
+  <data name="FindCertaintyShapeOnly" xml:space="preserve">
+    <value>Nur die Form</value>
+  </data>
+  <data name="FindCertaintyChecksumFailed" xml:space="preserve">
+    <value>Prüfsumme falsch</value>
+  </data>
+  <data name="FindGroupFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FindPatternCaution" xml:space="preserve">
+    <value>Muster finden nur, was der Text zeigt. Sehen Sie die Liste selbst durch.</value>
+  </data>
+  <data name="FindEmptyTerm" xml:space="preserve">
+    <value>Geben Sie den gesuchten Text ein und drücken Sie die Eingabetaste.</value>
+  </data>
+  <data name="FindRunning" xml:space="preserve">
+    <value>Suche läuft …</value>
+  </data>
+  <data name="FindCanceled" xml:space="preserve">
+    <value>Die Suche wurde abgebrochen. Es wird kein Ergebnis angezeigt.</value>
+  </data>
+  <data name="FindFailed" xml:space="preserve">
+    <value>Die Suche ist fehlgeschlagen. Es wurde nichts markiert.</value>
+  </data>
+  <data name="FindNoMatches" xml:space="preserve">
+    <value>Keine Treffer.</value>
+  </data>
+  <data name="FindMatchesOne" xml:space="preserve">
+    <value>1 Treffer</value>
+  </data>
+  <data name="FindMatchesMany" xml:space="preserve">
+    <value>{0} Treffer</value>
+  </data>
+  <data name="FindIncompletePagesFormat" xml:space="preserve">
+    <value>Diese Seiten konnten nur teilweise gelesen werden: {0}. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
+  </data>
+  <data name="FindIncompleteLimitFormat" xml:space="preserve">
+    <value>Die Suche endete bei {0} Treffern; es kann weitere geben. Das Markieren bleibt aus, bis Sie das bestätigen.</value>
+  </data>
+  <data name="FindAcknowledge" xml:space="preserve">
+    <value>Bestätigen und Markieren erlauben</value>
+  </data>
+  <data name="FindAcknowledged" xml:space="preserve">
+    <value>Für diese Suche bestätigt.</value>
+  </data>
+  <data name="FindPicturesOne" xml:space="preserve">
+    <value>1 Seite ist ein Bild; Text in Bildern wird nicht durchsucht</value>
+  </data>
+  <data name="FindPicturesManyFormat" xml:space="preserve">
+    <value>{0} Seiten sind Bilder; Text in Bildern wird nicht durchsucht</value>
+  </data>
+  <data name="FindPicturesInstruction" xml:space="preserve">
+    <value>Erkennen Sie zuerst den Text: Verlassen Sie den Schwärzen-Modus (Markierungen anwenden oder verwerfen), erkennen Sie den Text und suchen Sie dann erneut.</value>
+  </data>
+  <data name="FindMarkAll" xml:space="preserve">
+    <value>Alle markieren</value>
+  </data>
+  <data name="FindMarkTicked" xml:space="preserve">
+    <value>Angehakte markieren</value>
+  </data>
+  <data name="FindAddFailed" xml:space="preserve">
+    <value>Diese hinzufügen</value>
+  </data>
+  <data name="FindNotSearchedToggle" xml:space="preserve">
+    <value>Was wird nicht durchsucht?</value>
+  </data>
+  <data name="FindNotSearchedName" xml:space="preserve">
+    <value>Stellen, die die Suche nicht ansieht</value>
+  </data>
+  <data name="FindListName" xml:space="preserve">
+    <value>Treffer</value>
+  </data>
+  <data name="FindHitName" xml:space="preserve">
+    <value>Treffer, Seite {0}</value>
+  </data>
+  <data name="FindHitRowFormat" xml:space="preserve">
+    <value>Seite {0}: {1}</value>
+  </data>
+  <data name="FindHitHidden" xml:space="preserve">
+    <value>unsichtbarer Text</value>
+  </data>
+  <data name="FindHitNotMarkableFormat" xml:space="preserve">
+    <value>{0} (nicht markierbar: {1})</value>
+  </data>
+  <data name="FindMarkedOne" xml:space="preserve">
+    <value>1 Markierung hinzugefügt.</value>
+  </data>
+  <data name="FindMarkedManyFormat" xml:space="preserve">
+    <value>{0} Markierungen hinzugefügt.</value>
+  </data>
+  <data name="FindMarkedNone" xml:space="preserve">
+    <value>Diese Treffer sind schon markiert.</value>
+  </data>
+  <data name="FindNotMarkableNoArea" xml:space="preserve">
+    <value>kein Bereich auf der Seite zum Markieren</value>
+  </data>
+  <data name="FindNotMarkableTooManyLinesFormat" xml:space="preserve">
+    <value>mehr als {0} Zeilen</value>
+  </data>
+  <data name="FindNotMarkableWhiteSpace" xml:space="preserve">
+    <value>nur Leerraum</value>
+  </data>
+  <data name="FindNotMarkableTooLongFormat" xml:space="preserve">
+    <value>länger als {0} Zeichen</value>
+  </data>
+  <data name="FindNotMarkableNoBox" xml:space="preserve">
+    <value>ein Buchstabe oder eine Ziffer hat keinen Bereich auf der Seite</value>
+  </data>
+  <data name="FindNotSearched1" xml:space="preserve">
+    <value>Antworten auf Anmerkungen (/IRT) und Popup-Notizen werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched2" xml:space="preserve">
+    <value>Autor (/T) und Betreff (/Subj) von Anmerkungen werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched3" xml:space="preserve">
+    <value>Kurzinfos (/TU) und Namen von Formularfeldern werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched4" xml:space="preserve">
+    <value>Der Rich-Text (/RV) von Anmerkungen und die Standardwerte (/DV) von Formularfeldern werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched5" xml:space="preserve">
+    <value>Text, der nur im Erscheinungsbild (/AP) einer Anmerkung steht, wird nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched6" xml:space="preserve">
+    <value>Unsichtbarer Text wird nur für den Darstellungsmodus 3 (unsichtbar) gekennzeichnet; Text, der von etwas anderem verdeckt ist, wird gefunden, aber nicht gekennzeichnet.</value>
+  </data>
+  <data name="FindNotSearched7" xml:space="preserve">
+    <value>Die Werte von Formularfeldern in einer Datei ohne Formular (Widgets ohne /AcroForm) werden nicht durchsucht.</value>
+  </data>
+  <data name="FindNotSearched8" xml:space="preserve">
+    <value>Muster finden nur, was der Text zeigt und was ihre eingebauten Regeln kennen. Nicht gefunden werden: eine Nummer, die über einen Zeilenumbruch oder eine Seitengrenze geteilt ist; Ziffern, die von anderen Zeichen als den üblichen Trennzeichen unterbrochen werden; Nummern in Bildern; IBANs von Ländern außerhalb der eingebauten Tabelle; Telefonnummern, die nicht mit +, 0 oder ( beginnen; Ziffernketten aus mehr als 64 Gruppen; E-Mail-Adressen, deren lokaler Teil ungewöhnliche Zeichen (&amp; = * !) enthält; und Kartennummern in anderen Gruppierungen.</value>
+  </data>
+  <data name="FindTermTooLongFormat" xml:space="preserve">
+    <value>Der Begriff ist zu lang: höchstens {0} Zeichen. Das bisherige Ergebnis bleibt unverändert.</value>
+  </data>
+  <data name="FindNotMarkedOne" xml:space="preserve">
+    <value>1 Treffer konnte nicht markiert werden.</value>
+  </data>
+  <data name="FindNotMarkedManyFormat" xml:space="preserve">
+    <value>{0} Treffer konnten nicht markiert werden.</value>
+  </data>
+  <data name="FindNoMatchesIncomplete" xml:space="preserve">
+    <value>Keine Treffer in den durchsuchten Seiten.</value>
+  </data>
+  <data name="RedactLookToggle" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="RedactLookName" xml:space="preserve">
+    <value>Darstellung der Markierungen</value>
+  </data>
+  <data name="RedactFillLabel" xml:space="preserve">
+    <value>Füllfarbe</value>
+  </data>
+  <data name="RedactFillName" xml:space="preserve">
+    <value>Füllfarbe als # und sechs Hexadezimalziffern</value>
+  </data>
+  <data name="RedactFillPresetFormat" xml:space="preserve">
+    <value>Füllfarbe {0}</value>
+  </data>
+  <data name="RedactImageLabel" xml:space="preserve">
+    <value>Bilder unter einer Markierung</value>
+  </data>
+  <data name="RedactImageSolid" xml:space="preserve">
+    <value>Mit der Füllfarbe abdecken</value>
+  </data>
+  <data name="RedactImagePixelate" xml:space="preserve">
+    <value>Verpixeln</value>
+  </data>
+  <data name="RedactImageBlur" xml:space="preserve">
+    <value>Weichzeichnen</value>
+  </data>
+  <data name="RedactStrengthLabel" xml:space="preserve">
+    <value>Stärke</value>
+  </data>
+  <data name="RedactStrengthCoarse" xml:space="preserve">
+    <value>Grob</value>
+  </data>
+  <data name="RedactStrengthVeryCoarse" xml:space="preserve">
+    <value>Sehr grob</value>
+  </data>
+  <data name="RedactImageCaution" xml:space="preserve">
+    <value>Weichgezeichnete oder verpixelte Bilder behalten eine grobe Fassung dessen, was dort war, die sich manchmal erkennen lässt. Die volle Füllfarbe entfernt das Bild unter der Markierung.</value>
+  </data>
+  <data name="RedactOverlayLabel" xml:space="preserve">
+    <value>Text auf den Markierungen</value>
+  </data>
+  <data name="RedactOverlayName" xml:space="preserve">
+    <value>Text auf den ausgewählten Markierungen</value>
+  </data>
+  <data name="RedactOverlayPlaceholder" xml:space="preserve">
+    <value>Text auf den ausgewählten Markierungen (optional)</value>
+  </data>
+  <data name="RedactOverlayRepeat" xml:space="preserve">
+    <value>Text wiederholen</value>
+  </data>
+  <data name="RedactOverlayAutoSize" xml:space="preserve">
+    <value>Textgröße an die Markierung anpassen</value>
+  </data>
+  <data name="RedactTextColorLabel" xml:space="preserve">
+    <value>Textfarbe (leer: automatisch)</value>
+  </data>
+  <data name="RedactTextColorName" xml:space="preserve">
+    <value>Textfarbe als # und sechs Hexadezimalziffern, leer für automatisch</value>
+  </data>
+  <data name="RedactContrastWarningFormat" xml:space="preserve">
+    <value>Diese Textfarbe hat zur Füllfarbe einen Kontrast von {0}:1, unter den 4,5:1, die gut lesbar sind. Sie wird trotzdem verwendet.</value>
+  </data>
+  <data name="RedactRasterLabel" xml:space="preserve">
+    <value>Seiten als Bild</value>
+  </data>
+  <data name="RedactRasterPageFormat" xml:space="preserve">
+    <value>Seite {0} als Bild</value>
+  </data>
+  <data name="RedactRasterCountOne" xml:space="preserve">
+    <value>1 Seite wird zum Bild</value>
+  </data>
+  <data name="RedactRasterCountManyFormat" xml:space="preserve">
+    <value>{0} Seiten werden zu Bildern</value>
+  </data>
+  <data name="RedactRasterDpiLabel" xml:space="preserve">
+    <value>Auflösung der Bilder</value>
+  </data>
+  <data name="RedactRasterDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="RedactRasterHint" xml:space="preserve">
+    <value>Eine Seite, die zum Bild wird, verliert ihren Text, ihre Links und ihre Formularfelder.</value>
+  </data>
+  <data name="RedactPreviewNote" xml:space="preserve">
+    <value>Die Markierungen auf der Seite zeigen, wo die Füllfarbe hinkommt. Überlagerungstext und die genauen Pixel zeigen sie nicht; die prüfen Sie nach dem Anwenden.</value>
+  </data>
+  <data name="RedactRefusalFillNotColour" xml:space="preserve">
+    <value>Schreiben Sie die Farbe als # und sechs Hexadezimalziffern, zum Beispiel #1F3A5F. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayTooLongFormat" xml:space="preserve">
+    <value>Der Text ist länger als {0} Zeichen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayControl" xml:space="preserve">
+    <value>Der Text enthält einen Zeilenumbruch, einen Tabulator oder ein anderes Steuerzeichen, das sich nicht zeichnen lässt. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayLetters" xml:space="preserve">
+    <value>Der Text enthält Buchstaben einer Schrift, die die Schriftart nicht abdeckt (zum Beispiel griechische, kyrillische, arabische oder asiatische). Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlaySymbols" xml:space="preserve">
+    <value>Der Text enthält ein Symbol oder Bildzeichen (etwa ein Emoji), das die Schriftart nicht zeichnen kann. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayCharacters" xml:space="preserve">
+    <value>Der Text enthält ein Zeichen, das die Schriftart nicht zeichnen kann. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeats" xml:space="preserve">
+    <value>Der Text auf einer Markierung wiederholt einen markierten Text und würde ihn auf der Seite wieder sichtbar machen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalDpiNotOffered" xml:space="preserve">
+    <value>Wählen Sie 150, 200 oder 300 dpi. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalTooManyRasterFormat" xml:space="preserve">
+    <value>Höchstens {0} Seiten können zu Bildern werden. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsOneFormat" xml:space="preserve">
+    <value>Der Text auf einer Markierung auf Seite {0} wiederholt einen markierten Text und würde ihn auf der Seite wieder sichtbar machen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsManyFormat" xml:space="preserve">
+    <value>Der Text auf Markierungen auf den Seiten {0} wiederholt einen markierten Text und würde ihn auf der Seite wieder sichtbar machen. Es wurde nichts geändert.</value>
+  </data>
+  <data name="RedactApplyTitle" xml:space="preserve">
+    <value>Schwärzungen anwenden</value>
+  </data>
+  <data name="RedactApplyJobTitleFormat" xml:space="preserve">
+    <value>Schwärzungen in {0} anwenden</value>
+  </data>
+  <data name="RedactApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Schwärzungen von {0} prüfen</value>
+  </data>
+  <data name="RedactApplyRemovedHeading" xml:space="preserve">
+    <value>Was entfernt wird</value>
+  </data>
+  <data name="RedactApplyWholeHeading" xml:space="preserve">
+    <value>Als Ganzes statt genau entfernt</value>
+  </data>
+  <data name="RedactApplyRasterHeading" xml:space="preserve">
+    <value>In Bilder umgewandelte Seiten</value>
+  </data>
+  <data name="RedactApplyImageHeading" xml:space="preserve">
+    <value>Bildbereiche</value>
+  </data>
+  <data name="RedactApplyOverlayHeading" xml:space="preserve">
+    <value>Überlagerungstext</value>
+  </data>
+  <data name="RedactApplyCleanedHeading" xml:space="preserve">
+    <value>Außerdem aus der ganzen Datei entfernt, jedes Mal</value>
+  </data>
+  <data name="RedactApplyLostHeading" xml:space="preserve">
+    <value>Was das Neuschreiben verliert</value>
+  </data>
+  <data name="RedactApplyNotCleanedHeading" xml:space="preserve">
+    <value>Nicht bereinigt</value>
+  </data>
+  <data name="RedactCountChars" xml:space="preserve">
+    <value>Entfernte Zeichen: {0}</value>
+  </data>
+  <data name="RedactCountSplit" xml:space="preserve">
+    <value>Geteilte Textobjekte: {0}</value>
+  </data>
+  <data name="RedactCountTextWhole" xml:space="preserve">
+    <value>Als Ganzes entfernte Textobjekte: {0}</value>
+  </data>
+  <data name="RedactCountImagesOver" xml:space="preserve">
+    <value>Unter einer Markierung überschriebene Bilder: {0}</value>
+  </data>
+  <data name="RedactCountImagesWhole" xml:space="preserve">
+    <value>Als Ganzes entfernte Bilder: {0}</value>
+  </data>
+  <data name="RedactCountPathsCut" xml:space="preserve">
+    <value>Beschnittene Pfade: {0}</value>
+  </data>
+  <data name="RedactCountPathsWhole" xml:space="preserve">
+    <value>Als Ganzes entfernte Pfade: {0}</value>
+  </data>
+  <data name="RedactCountForms" xml:space="preserve">
+    <value>Zerlegte oder entfernte Formularobjekte: {0}</value>
+  </data>
+  <data name="RedactCountAnnots" xml:space="preserve">
+    <value>Entfernte Anmerkungen samt Popups und Antworten: {0}</value>
+  </data>
+  <data name="RedactPageLineFormat" xml:space="preserve">
+    <value>Seite {0}: {1}</value>
+  </data>
+  <data name="RedactPageNothingFormat" xml:space="preserve">
+    <value>Seite {0}: Unter den Markierungen lag kein Inhalt; die Flächen werden gezeichnet.</value>
+  </data>
+  <data name="RedactFallbackTextObject" xml:space="preserve">
+    <value>ein Textobjekt mit Zeichen unter einer Markierung</value>
+  </data>
+  <data name="RedactFallbackImage" xml:space="preserve">
+    <value>ein Bild unter einer Markierung</value>
+  </data>
+  <data name="RedactFallbackPath" xml:space="preserve">
+    <value>ein Pfad unter einer Markierung</value>
+  </data>
+  <data name="RedactFallbackForm" xml:space="preserve">
+    <value>ein Formularobjekt unter einer Markierung</value>
+  </data>
+  <data name="RedactCleanAuthor" xml:space="preserve">
+    <value>Informationsfeld Autor</value>
+  </data>
+  <data name="RedactCleanTitle" xml:space="preserve">
+    <value>Informationsfeld Titel</value>
+  </data>
+  <data name="RedactCleanSubject" xml:space="preserve">
+    <value>Informationsfeld Thema</value>
+  </data>
+  <data name="RedactCleanKeywords" xml:space="preserve">
+    <value>Informationsfeld Stichwörter</value>
+  </data>
+  <data name="RedactCleanCreator" xml:space="preserve">
+    <value>Informationsfeld Ersteller</value>
+  </data>
+  <data name="RedactCleanProducer" xml:space="preserve">
+    <value>Informationsfeld PDF-Erzeuger</value>
+  </data>
+  <data name="RedactCleanXmpFormat" xml:space="preserve">
+    <value>XMP-Metadaten: bis zu {0}</value>
+  </data>
+  <data name="RedactCleanBookmarksFormat" xml:space="preserve">
+    <value>Lesezeichen: bis zu {0}</value>
+  </data>
+  <data name="RedactCleanAttachmentsFormat" xml:space="preserve">
+    <value>Angehängte Dateien: {0}</value>
+  </data>
+  <data name="RedactCleanJavaScriptFormat" xml:space="preserve">
+    <value>JavaScript: bis zu {0}</value>
+  </data>
+  <data name="RedactCleanLabelsFormat" xml:space="preserve">
+    <value>Seitenbezeichnungen: {0}</value>
+  </data>
+  <data name="RedactCleanNone" xml:space="preserve">
+    <value>Die Datei hat keine der Daten auf Dokumentebene, die das Bereinigen entfernt.</value>
+  </data>
+  <data name="RedactCleanIncomplete" xml:space="preserve">
+    <value>Der Scan der Datei konnte nicht jeden Datenstrom lesen, es kann also mehr geben.</value>
+  </data>
+  <data name="RedactLossLinksFormat" xml:space="preserve">
+    <value>Interne Links verlieren ihr Ziel und führen ins Leere ({0}).</value>
+  </data>
+  <data name="RedactLossFormsFormat" xml:space="preserve">
+    <value>Formularfelder sind nicht mehr zuverlässig ausfüllbar ({0}); ihre Felder bleiben als Anmerkungen auf den Seiten.</value>
+  </data>
+  <data name="RedactLossRgbFormat" xml:space="preserve">
+    <value>Unter einer Markierung überschriebene Bilder werden neu als RGB geschrieben; Farben von CMYK- oder indizierten Bildern können in anderen Programmen anders aussehen ({0}).</value>
+  </data>
+  <data name="RedactLossSignatureFormat" xml:space="preserve">
+    <value>Die Datei ist digital signiert ({0}). Programme, die Signaturen prüfen, melden die Signatur nach dieser Änderung als gebrochen; ihre Daten bleiben in der Datei.</value>
+  </data>
+  <data name="RedactNotCleanedMeta" xml:space="preserve">
+    <value>Metadaten und private Daten (/Metadata, /PieceInfo) von Formular- und Bildobjekten, die mit den Seiten kommen.</value>
+  </data>
+  <data name="RedactNotCleanedActions" xml:space="preserve">
+    <value>Aktionen von Anmerkungen (Links und andere Aktionen), die mit den Seiten kommen.</value>
+  </data>
+  <data name="RedactNotCleanedAnnots" xml:space="preserve">
+    <value>Anmerkungen außerhalb der markierten Bereiche (Kommentartexte, Autoren, Antworten, Popups, Notizen) bleiben unverändert; nur eine Anmerkung unter einer Markierung wird entfernt.</value>
+  </data>
+  <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
+    <value>Dateianhänge von Anmerkungen (Büroklammer-Notizen): bis zu {0}. Ihre eingebetteten Dateien kommen mit den Seiten und bleiben in der Datei.</value>
+  </data>
+  <data name="RedactNotCleanedFormValues" xml:space="preserve">
+    <value>Die Werte von Formularfeldern bleiben an ihren Feldern in der Datei; ein markierter Text darin wird von der Prüfung der Datei gefunden, und dann wird nichts geschrieben.</value>
+  </data>
+  <data name="RedactNotCleanedSignature" xml:space="preserve">
+    <value>Die Daten einer digitalen Signatur (Zertifikatsname, Inhalt) bleiben in der Datei.</value>
+  </data>
+  <data name="RedactImgPixelatedFormat" xml:space="preserve">
+    <value>Verpixelte Bildbereiche: {0}</value>
+  </data>
+  <data name="RedactImgBlurredFormat" xml:space="preserve">
+    <value>Weichgezeichnete Bildbereiche: {0}</value>
+  </data>
+  <data name="RedactImgSolidFormat" xml:space="preserve">
+    <value>Stattdessen deckend gefüllte Bildbereiche ({0}): {1}</value>
+  </data>
+  <data name="RedactSolidTooSmall" xml:space="preserve">
+    <value>der Bereich ist kleiner als 2 x 2 Blöcke zu 8 Pixeln</value>
+  </data>
+  <data name="RedactSolidTurned" xml:space="preserve">
+    <value>das Bild ist gedreht oder geschert</value>
+  </data>
+  <data name="RedactSolidClipped" xml:space="preserve">
+    <value>das Bild wird von einem Beschneidungspfad abgeschnitten</value>
+  </data>
+  <data name="RedactSolidOverlapping" xml:space="preserve">
+    <value>mehrere Bereiche überlappen auf demselben Bild</value>
+  </data>
+  <data name="RedactSolidUnreadable" xml:space="preserve">
+    <value>die Pixel des Bildes konnten nicht zuverlässig gelesen oder geschrieben werden</value>
+  </data>
+  <data name="RedactSolidTooMany" xml:space="preserve">
+    <value>zu viele behandelte Bilder liegen unter einem Bereich</value>
+  </data>
+  <data name="RedactOverlayNotShownFormat" xml:space="preserve">
+    <value>Bereiche ohne Überlagerungstext, weil ein verpixeltes oder weichgezeichnetes Bild darunter liegt: {0}</value>
+  </data>
+  <data name="RedactOverlayNotFitFormat" xml:space="preserve">
+    <value>Bereiche, deren Überlagerungstext nicht passt und die ohne Text gefüllt bleiben: {0}</value>
+  </data>
+  <data name="RedactOverlayLimitFormat" xml:space="preserve">
+    <value>Davon wegen des Limits für Überlagerungstext ausgelassene Bereiche: {0}</value>
+  </data>
+  <data name="RedactRasterInfoFormat" xml:space="preserve">
+    <value>Seite {0}: wird bei {1} dpi zu einem Bild ({2} x {3} Pixel, bis zu {4} MB). Nur das Bild der Seite bleibt; Text, Links, Kommentare und Formularfelder bleiben nicht erhalten.</value>
+  </data>
+  <data name="RedactRasterLowered" xml:space="preserve">
+    <value>Die Auflösung ist niedriger als gewünscht, weil die Seite groß ist.</value>
+  </data>
+  <data name="RedactRasterInfoPlainFormat" xml:space="preserve">
+    <value>Seite {0}: wird zu einem Bild. Nur das Bild der Seite bleibt; Text, Links, Kommentare und Formularfelder bleiben nicht erhalten.</value>
+  </data>
+  <data name="RedactRescueHeading" xml:space="preserve">
+    <value>Seiten, die sich nicht an Ort und Stelle schwärzen lassen</value>
+  </data>
+  <data name="RedactRescueIntro" xml:space="preserve">
+    <value>Das Schwärzen dieser Seiten würde Inhalt außerhalb der Markierungen verändern. Wandeln Sie jede in ein Bild um, um fortzufahren, oder gehen Sie zurück und entfernen Sie ihre Markierungen.</value>
+  </data>
+  <data name="RedactRescueTickFormat" xml:space="preserve">
+    <value>Seite {0}: in ein Bild umwandeln ({1} dpi, {2} x {3} Pixel, bis zu {4} MB)</value>
+  </data>
+  <data name="RedactRescueBlocked" xml:space="preserve">
+    <value>Haken Sie jede Seite oben ab oder gehen Sie zurück. Bis dahin wartet das Anwenden.</value>
+  </data>
+  <data name="RedactRefusedTitle" xml:space="preserve">
+    <value>Schwärzen nicht möglich</value>
+  </data>
+  <data name="RedactRefusedIntro" xml:space="preserve">
+    <value>Es wurde nichts geschrieben. Die Datei ist unverändert und die Markierungen sind weiterhin offen.</value>
+  </data>
+  <data name="RedactRefusedEncrypted" xml:space="preserve">
+    <value>Die Datei ist verschlüsselt. Raffica entfernt einen Schutz nicht stillschweigend, deshalb wird die Datei nicht geschwärzt.</value>
+  </data>
+  <data name="RedactRefusedKeysFormat" xml:space="preserve">
+    <value>Auf {0} liegen eine Vorschau, private Daten, Metadaten oder Aktionen, die Raffica nicht entfernen kann, deshalb wird die Datei nicht geschwärzt.</value>
+  </data>
+  <data name="RedactRefusedKeysUnverified" xml:space="preserve">
+    <value>Die Seitenschlüssel der Datei konnten nicht geprüft werden, deshalb wird die Datei nicht geschwärzt: Eine Seite kann Daten tragen, die Raffica nicht entfernen kann.</value>
+  </data>
+  <data name="RedactRefusedNotRedactableFormat" xml:space="preserve">
+    <value>Das Schwärzen von {0} würde Inhalt außerhalb der markierten Bereiche verändern, deshalb wird die Datei nicht geschwärzt. Wandeln Sie die Seite in ein Bild um oder entfernen Sie ihre Markierungen.</value>
+  </data>
+  <data name="RedactRefusedOverlayFormat" xml:space="preserve">
+    <value>Der Text auf den Flächen von {0} enthält einen geschwärzten Text und würde ihn auf die Seite zurückbringen, deshalb wird die Datei nicht geschwärzt. Ändern Sie den Text auf den Flächen.</value>
+  </data>
+  <data name="RedactPageOneFormat" xml:space="preserve">
+    <value>Seite {0}</value>
+  </data>
+  <data name="RedactPageManyFormat" xml:space="preserve">
+    <value>den Seiten {0}</value>
+  </data>
+  <data name="RedactPagesNone" xml:space="preserve">
+    <value>der Datei</value>
+  </data>
+  <data name="RedactFailedTitle" xml:space="preserve">
+    <value>Die Prüfung hat das Schwärzen gestoppt</value>
+  </data>
+  <data name="RedactFailedIntro" xml:space="preserve">
+    <value>Die geschriebene Datei hat die Prüfung nicht bestanden, deshalb wurde nichts geschrieben. Die Datei ist unverändert und die Markierungen sind weiterhin offen.</value>
+  </data>
+  <data name="RedactFailedNoCheck" xml:space="preserve">
+    <value>Die Prüfung der geschriebenen Datei konnte nicht beendet werden, deshalb wurde nichts geschrieben. Die Datei ist unverändert und die Markierungen sind weiterhin offen.</value>
+  </data>
+  <data name="RedactFailUnremovableFormat" xml:space="preserve">
+    <value>Entfernter Text steht noch in der Datei an einer Stelle, die kein Seitenobjekt ist (zum Beispiel eine Type-3-Schrift, ein Muster oder ein Datenstrom eines Formulars), und Raffica kann ihn nicht entfernen ({0}).</value>
+  </data>
+  <data name="RedactFailTextFormat" xml:space="preserve">
+    <value>Ein entfernter Text steht noch im Seitentext des Ergebnisses ({0}).</value>
+  </data>
+  <data name="RedactFailCharFormat" xml:space="preserve">
+    <value>Zeichen des Ergebnisses liegen in einem markierten Bereich ({0}).</value>
+  </data>
+  <data name="RedactFailPixelFormat" xml:space="preserve">
+    <value>Pixel eines Bildes unter einem markierten Bereich wurden nicht überschrieben ({0}).</value>
+  </data>
+  <data name="RedactFailUnreadableFormat" xml:space="preserve">
+    <value>Ein Teil der Datei konnte nicht gelesen werden ({0}), deshalb lässt sich nicht zeigen, dass nichts vom entfernten Text darin übrig ist.</value>
+  </data>
+  <data name="RedactFailKeysFormat" xml:space="preserve">
+    <value>Eine Seite trägt noch eine Vorschau, private Daten, Metadaten oder Aktionen, die Raffica nicht entfernen kann, oder die Schlüssel konnten nicht geprüft werden ({0}).</value>
+  </data>
+  <data name="RedactFailOutsideFormat" xml:space="preserve">
+    <value>Eine Seite sieht außerhalb der markierten Bereiche anders aus ({0}).</value>
+  </data>
+  <data name="RedactFailUnverifiableFormat" xml:space="preserve">
+    <value>Nach einem entfernten Text konnte nicht gesucht werden ({0}), deshalb lässt sich das Ergebnis nicht prüfen.</value>
+  </data>
+  <data name="RedactFailCleanupFormat" xml:space="preserve">
+    <value>Etwas, das das Bereinigen aus der ganzen Datei hätte entfernen sollen, ist noch da ({0}).</value>
+  </data>
+  <data name="RedactFailRasterFormat" xml:space="preserve">
+    <value>Eine Seite, die in ein Bild umgewandelt wurde, ist nicht nur ein Bild oder konnte nicht geprüft werden ({0}).</value>
+  </data>
+  <data name="RedactFailTreatmentFormat" xml:space="preserve">
+    <value>Ein Bildbereich, der verpixelt oder weichgezeichnet sein sollte, ist weder deckend gefüllt noch die Blockmittel des Originals ({0}).</value>
+  </data>
+  <data name="RedactFailedWriteTitle" xml:space="preserve">
+    <value>Schwärzungen nicht angewendet</value>
+  </data>
+  <data name="RedactStays" xml:space="preserve">
+    <value>Die Datei ist unverändert und die Markierungen sind weiterhin offen.</value>
+  </data>
+  <data name="RedactStaysAfterSave" xml:space="preserve">
+    <value>Die Anmerkungen sind in der Datei gespeichert, die Schwärzungen wurden aber nicht angewendet und sind weiterhin offen.</value>
+  </data>
+  <data name="RedactFailSourceModified" xml:space="preserve">
+    <value>Die Datei hat sich auf dem Datenträger geändert, seit sie geöffnet wurde, deshalb lässt sie sich von hier aus nicht schwärzen.</value>
+  </data>
+  <data name="RedactFailEncrypted" xml:space="preserve">
+    <value>Die Datei ist verschlüsselt, deshalb wird sie nicht geschwärzt.</value>
+  </data>
+  <data name="RedactFailMarks" xml:space="preserve">
+    <value>Eine Markierung passt nicht mehr zum Dokument.</value>
+  </data>
+  <data name="RedactFailOpen" xml:space="preserve">
+    <value>Die Datei konnte für das Schwärzen nicht geöffnet werden.</value>
+  </data>
+  <data name="RedactFailDamaged" xml:space="preserve">
+    <value>Eine Seite der Datei ist beschädigt und konnte nicht gelesen werden.</value>
+  </data>
+  <data name="RedactFailOther" xml:space="preserve">
+    <value>Die Schwärzungen konnten nicht angewendet werden.</value>
+  </data>
+  <data name="RedactFailAdoptFormat" xml:space="preserve">
+    <value>Die Schwärzungen wurden geschrieben, aber der Tab konnte die Datei nicht übernehmen. Die Datei unter {0} ist die geschwärzte: Öffnen Sie sie vom Datenträger, um weiterzumachen.</value>
+  </data>
+  <data name="RedactPlanChanged" xml:space="preserve">
+    <value>Die Markierungen wurden bei geöffnetem Dateidialog bearbeitet, deshalb wurde nichts geschrieben. Wenden Sie erneut an, um die aktuellen Markierungen zu sehen.</value>
+  </data>
+  <data name="RedactApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-geschwaerzt.pdf</value>
+  </data>
+  <data name="RedactResultTitle" xml:space="preserve">
+    <value>Schwärzungen angewendet</value>
+  </data>
+  <data name="RedactResultIntroFormat" xml:space="preserve">
+    <value>Die geschwärzte Datei {0} wurde geschrieben und zurückgelesen. Unten: was entfernt wurde, was die Prüfung abgedeckt hat und was nicht.</value>
+  </data>
+  <data name="RedactResRemovedHeading" xml:space="preserve">
+    <value>Entfernt</value>
+  </data>
+  <data name="RedactResCleanedHeading" xml:space="preserve">
+    <value>Bereinigt, aus der geschriebenen Datei zurückgelesen</value>
+  </data>
+  <data name="RedactResLostHeading" xml:space="preserve">
+    <value>Verloren</value>
+  </data>
+  <data name="RedactResCheckedHeading" xml:space="preserve">
+    <value>Geprüft</value>
+  </data>
+  <data name="RedactResNotCheckedHeading" xml:space="preserve">
+    <value>Nicht geprüft</value>
+  </data>
+  <data name="RedactChkPageText" xml:space="preserve">
+    <value>Seitentext: Jeder entfernte Text kommt im Seitentext der geschriebenen Datei höchstens so oft vor wie vorher, abzüglich der entfernten Stellen (nie, wenn der Text überall markiert wurde).</value>
+  </data>
+  <data name="RedactChkBytes" xml:space="preserve">
+    <value>Dateibytes: Die Datei wurde nach jedem entfernten Text von mindestens 4 Zeichen durchsucht, mit dekodierten Zeichenketten und entpackten Datenströmen, auch in älteren Fassungen, Metadaten und Anhängen.</value>
+  </data>
+  <data name="RedactChkAreasSolid" xml:space="preserve">
+    <value>Markierte Bereiche: Kein Zeichen der geschriebenen Datei liegt in einem markierten Bereich, und die Pixel von Bildern darunter haben die Farbe des Bereichs.</value>
+  </data>
+  <data name="RedactChkAreasTreated" xml:space="preserve">
+    <value>Markierte Bereiche: Kein Zeichen der geschriebenen Datei liegt in einem markierten Bereich, und die Pixel von Bildern darunter haben entweder die Farbe des Bereichs oder genau die aus dem Original errechneten Blockmittel.</value>
+  </data>
+  <data name="RedactChkPagesAll" xml:space="preserve">
+    <value>Seiten: Jede geschwärzte Seite wurde aus der geschriebenen Datei gerendert und sieht außerhalb der markierten Bereiche aus wie das Original.</value>
+  </data>
+  <data name="RedactChkPagesInPlace" xml:space="preserve">
+    <value>Seiten: Jede an Ort und Stelle geschwärzte Seite wurde aus der geschriebenen Datei gerendert und sieht außerhalb der markierten Bereiche aus wie das Original.</value>
+  </data>
+  <data name="RedactChkRasterFormat" xml:space="preserve">
+    <value>In Bilder umgewandelte Seiten ({0}): Jede hat genau ein Bild und keinen Text, kein anderes Objekt, keine Anmerkung, keinen Link und kein Formularfeld, und die Pixel unter den Markierungen haben die Farbe des Bereichs. Diese Seiten werden nicht mit dem Original verglichen.</value>
+  </data>
+  <data name="RedactChkKeys" xml:space="preserve">
+    <value>Seitenschlüssel: Keine Seite der geschriebenen Datei trägt /Thumb, /PieceInfo, /Metadata oder /AA.</value>
+  </data>
+  <data name="RedactChkCleanup" xml:space="preserve">
+    <value>Bereinigung: Das Informationsverzeichnis, Lesezeichen, der Namensbaum (Anhänge, Skripte), Seitenbezeichnungen, die Öffnen-Aktion, Aktionen, Formular und Berechtigungen wurden aus der geschriebenen Datei zurückgelesen; nichts davon ist übrig.</value>
+  </data>
+  <data name="RedactNcOther" xml:space="preserve">
+    <value>Weitere Grenzen der Prüfung gelten.</value>
+  </data>
+  <data name="RedactNcBlankFormat" xml:space="preserve">
+    <value>Entfernte Texte, die nur aus Leerraum bestehen: {0}. Nach ihnen wird nicht gesucht.</value>
+  </data>
+  <data name="RedactNcUnreadableCharsFormat" xml:space="preserve">
+    <value>Entfernte Texte mit einem Zeichen, das nicht genau gelesen werden konnte: {0}. Nach ihnen wird nicht gesucht.</value>
+  </data>
+  <data name="RedactNcTruncatedFormat" xml:space="preserve">
+    <value>Entfernte Texte, die länger als das Limit sind: {0}. Nur ihr Anfang wird gesucht.</value>
+  </data>
+  <data name="RedactNcFurtherFormat" xml:space="preserve">
+    <value>Weitere entfernte Texte über dem Limit von {1}: {0}. Nach ihnen wird nicht gesucht.</value>
+  </data>
+  <data name="RedactNcRawShortFormat" xml:space="preserve">
+    <value>Entfernte Texte mit weniger als {1} Zeichen: {0}. Nach ihnen wird in den Dateibytes nicht gesucht.</value>
+  </data>
+  <data name="RedactNcRawNothing" xml:space="preserve">
+    <value>Es wurde kein Text entfernt, deshalb wurden die Dateibytes nicht durchsucht.</value>
+  </data>
+  <data name="RedactNcRawStillOccurFormat" xml:space="preserve">
+    <value>Entfernte Texte, die noch im Seitentext vorkommen: {0} (an {1} Stellen), deshalb lässt sich eine durchgesickerte Kopie in den Dateibytes nicht von ihnen unterscheiden.</value>
+  </data>
+  <data name="RedactNcRawFilterFormat" xml:space="preserve">
+    <value>Datenströme mit einem Filter, der nicht entpackt wird: {0}. Sie werden nur als Bytes durchsucht.</value>
+  </data>
+  <data name="RedactNcRawImageStreamsFormat" xml:space="preserve">
+    <value>Datenströme mit Bilddaten: {0}. Sie werden nur als Bytes durchsucht.</value>
+  </data>
+  <data name="RedactNcRawUnreadableFormat" xml:space="preserve">
+    <value>Datenströme, die nicht entpackt werden konnten: {0}.</value>
+  </data>
+  <data name="RedactNcRawTooLargeFormat" xml:space="preserve">
+    <value>Datenströme, die zu mehr als dem Limit eines Datenstroms entpackt werden: {0}.</value>
+  </data>
+  <data name="RedactNcRawTotalFormat" xml:space="preserve">
+    <value>Datenströme, die nicht entpackt wurden, weil die Datei das Gesamtlimit erreicht hat: {0}.</value>
+  </data>
+  <data name="RedactNcRawPredictorFormat" xml:space="preserve">
+    <value>Datenströme mit einem Prädiktor, der nicht rückgängig gemacht wird: {0}.</value>
+  </data>
+  <data name="RedactNcRawEncrypted" xml:space="preserve">
+    <value>Die Datei hat einen Verschlüsselungseintrag, deshalb lassen sich ihre Datenströme nicht lesen.</value>
+  </data>
+  <data name="RedactNcRawFontMapping" xml:space="preserve">
+    <value>Schriften mit eigener Zeichenzuordnung: Der Text ist in den Datenströmen nicht lesbar.</value>
+  </data>
+  <data name="RedactNcRawEncodings" xml:space="preserve">
+    <value>Es werden nur gängige Kodierungen des Textes durchsucht; andere werden nicht gefunden.</value>
+  </data>
+  <data name="RedactNcRawSplit" xml:space="preserve">
+    <value>Ein auf Textobjekte verteilter Text, XML-Entitäten und andere Schreibweisen der Groß- und Kleinschreibung werden nicht gefunden.</value>
+  </data>
+  <data name="RedactNcRawImageAttachments" xml:space="preserve">
+    <value>Bilddaten werden nur als Bytes durchsucht, und in angehängte Dateien wird nicht hineingeschaut.</value>
+  </data>
+  <data name="RedactNcPixelsBeyondFormat" xml:space="preserve">
+    <value>Markierte Bereiche über dem Limit von {1} wurden nicht zurückgelesen: {0}.</value>
+  </data>
+  <data name="RedactNcPixelsOnlyImages" xml:space="preserve">
+    <value>Es werden nur Bilder zurückgelesen, die einen markierten Bereich berühren.</value>
+  </data>
+  <data name="RedactNcOtherViewer" xml:space="preserve">
+    <value>Ein anderes Programm kann die Datei anders lesen.</value>
+  </data>
+  <data name="RedactNcApplyRender" xml:space="preserve">
+    <value>Renderingvergleich: Nur die an Ort und Stelle geschwärzten Seiten werden außerhalb der markierten Bereiche und der Stellen, an denen Inhalt entfernt wurde, mit dem Original verglichen; Seiten ohne Markierung werden nicht verglichen, und bei einem Dokument mit Formular bleiben die Anmerkungen in beiden Darstellungen außen vor.</value>
+  </data>
+  <data name="RedactNcApplyRenderRasterFormat" xml:space="preserve">
+    <value>Renderingvergleich: Nur die an Ort und Stelle geschwärzten Seiten werden außerhalb der markierten Bereiche und der Stellen, an denen Inhalt entfernt wurde, mit dem Original verglichen; Seiten ohne Markierung und die in Bilder umgewandelten Seiten ({0}) werden nicht verglichen, und bei einem Dokument mit Formular bleiben die Anmerkungen in beiden Darstellungen außen vor.</value>
+  </data>
+  <data name="RedactNcApplyPageKeys" xml:space="preserve">
+    <value>Seitenschlüssel: Gesucht wird nur nach /Thumb, /PieceInfo, /Metadata und /AA in den Seitenverzeichnissen; dieselben Schlüssel von Formularobjekten, Bildobjekten und Anmerkungen werden nicht gesucht.</value>
+  </data>
+  <data name="RedactNcApplyXmp" xml:space="preserve">
+    <value>XMP-Metadaten und JavaScript wurden durch das Neuaufbauen der Datei von der Dokumentebene entfernt; die Einträge in Objekten auf Seitenebene werden nicht zurückgelesen.</value>
+  </data>
+  <data name="RedactNcRasterOutsideFormat" xml:space="preserve">
+    <value>In Bilder umgewandelte Seiten ({0}): Ein sichtbares Vorkommen eines entfernten Textes außerhalb der markierten Bereiche bleibt im Bild und ist ohne Texterkennung nicht zu finden.</value>
+  </data>
+  <data name="RedactNcImageTextFormat" xml:space="preserve">
+    <value>Verpixelte oder weichgezeichnete Bildbereiche: {0}, deckend gefüllt: {1}. Ob Text in einem solchen Bild lesbar bleibt, wird nicht geprüft.</value>
+  </data>
+  <data name="RedactNcOverlayNotRead" xml:space="preserve">
+    <value>Überlagerungstext wird als Formen auf die Bereiche gezeichnet und nicht aus der geschriebenen Datei zurückgelesen.</value>
+  </data>
+  <data name="RedactNcNoTermFormat" xml:space="preserve">
+    <value>Markierungen ohne Text (auf der Seite aufgezogene Rechtecke): {0}. Der Text darunter wird entfernt, aber für sie wird in den Dateibytes kein Text gesucht; gesucht wird nur nach den Zeichen in den Bereichen.</value>
+  </data>
+  <data name="RedactMarksOpen" xml:space="preserve">
+    <value>Die Markierungen sind weiterhin offen.</value>
+  </data>
+  <data name="RedactSaveFirstMessage" xml:space="preserve">
+    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Schwärzungen angewendet.</value>
+  </data>
+  <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
+    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. Zurück lässt alles, wie es ist.</value>
+  </data>
+  <data name="RedactOriginalTitle" xml:space="preserve">
+    <value>Originaldatei ersetzen?</value>
+  </data>
+  <data name="RedactOriginalMessageFormat" xml:space="preserve">
+    <value>Sie haben die geöffnete Datei {0} gewählt. Die geschwärzte Datei ersetzt sie. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt.</value>
+  </data>
+  <data name="RedactFailedHint" xml:space="preserve">
+    <value>Um weiterzumachen, markieren Sie den übrigen Text als Bereich oder wandeln Sie die Seite in ein Bild um.</value>
+  </data>
+  <data name="OcrRecognizeTitle" xml:space="preserve">
+    <value>Text erkennen</value>
+  </data>
+  <data name="OcrLanguagesHeading" xml:space="preserve">
+    <value>Sprachen</value>
+  </data>
+  <data name="OcrLanguageImportedFormat" xml:space="preserve">
+    <value>{0} (importiert)</value>
+  </data>
+  <data name="OcrNoLanguages" xml:space="preserve">
+    <value>Es sind keine Sprachdateien installiert. Fügen Sie eine mit „Sprachen…“ im Tab Bearbeiten hinzu.</value>
+  </data>
+  <data name="OcrSlowWarning" xml:space="preserve">
+    <value>Mehr als drei Sprachen machen die Erkennung langsamer und ungenauer.</value>
+  </data>
+  <data name="OcrLanguageRefusalTooManyFormat" xml:space="preserve">
+    <value>Es können höchstens {0} Sprachen gewählt werden.</value>
+  </data>
+  <data name="OcrLanguageRefusalNotInstalled" xml:space="preserve">
+    <value>Diese Sprachdatei ist nicht installiert.</value>
+  </data>
+  <data name="OcrPagesHeading" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="OcrPagesAll" xml:space="preserve">
+    <value>Alle Seiten</value>
+  </data>
+  <data name="OcrPagesCurrentFormat" xml:space="preserve">
+    <value>Aktuelle Seite ({0})</value>
+  </data>
+  <data name="OcrPagesRange" xml:space="preserve">
+    <value>Nur diese Seiten</value>
+  </data>
+  <data name="OcrPagesRangeLabel" xml:space="preserve">
+    <value>Zu erkennende Seiten</value>
+  </data>
+  <data name="OcrModeHeading" xml:space="preserve">
+    <value>Seiten, die schon Text haben</value>
+  </data>
+  <data name="OcrModeSkip" xml:space="preserve">
+    <value>Überspringen, es werden nur Seiten ohne Text erkannt</value>
+  </data>
+  <data name="OcrModeRedo" xml:space="preserve">
+    <value>Die früher von Raffica erzeugte Textebene neu erstellen</value>
+  </data>
+  <data name="OcrModeForce" xml:space="preserve">
+    <value>Jede gewählte Seite erkennen, vorhandener Text bleibt erhalten</value>
+  </data>
+  <data name="OcrResolutionHeading" xml:space="preserve">
+    <value>Auflösung</value>
+  </data>
+  <data name="OcrResolutionAuto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="OcrResolutionFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="OcrAccuracyNote" xml:space="preserve">
+    <value>Die Erkennung ist nicht fehlerfrei. Prüfen Sie das Ergebnis, besonders Zahlen und Namen.</value>
+  </data>
+  <data name="OcrSignedChange" xml:space="preserve">
+    <value>Der erkannte Text zählt als Änderung an der signierten Datei.</value>
+  </data>
+  <data name="OcrRecognizeConfirm" xml:space="preserve">
+    <value>Erkennen</value>
+  </data>
+  <data name="OcrNoLibraryReason" xml:space="preserve">
+    <value>Die Texterkennung ist nicht Teil dieser Installation.</value>
+  </data>
+  <data name="OcrFilesTitle" xml:space="preserve">
+    <value>Sprachdateien</value>
+  </data>
+  <data name="OcrFilesTrustWarning" xml:space="preserve">
+    <value>Fügen Sie Sprachdateien nur aus einer Quelle hinzu, der Sie vertrauen. Das Programm liest sie mit Code, der sie nicht prüft; eine beschädigte oder manipulierte Datei kann die Erkennung stören oder das Programm beenden.</value>
+  </data>
+  <data name="OcrFilesCopyNote" xml:space="preserve">
+    <value>Die gewählte Datei wird kopiert. Das Original bleibt, wo es ist.</value>
+  </data>
+  <data name="OcrFilesInstalledHeading" xml:space="preserve">
+    <value>Installierte Sprachen</value>
+  </data>
+  <data name="OcrFilesNone" xml:space="preserve">
+    <value>Es sind keine Sprachdateien installiert.</value>
+  </data>
+  <data name="OcrFilesShippedFormat" xml:space="preserve">
+    <value>{0}, mit Raffica geliefert</value>
+  </data>
+  <data name="OcrFilesImportedFormat" xml:space="preserve">
+    <value>{0}, von Ihnen hinzugefügt</value>
+  </data>
+  <data name="OcrFilesChoose" xml:space="preserve">
+    <value>Datei wählen…</value>
+  </data>
+  <data name="OcrFilesPickTitle" xml:space="preserve">
+    <value>Sprachdatei wählen</value>
+  </data>
+  <data name="OcrFilesFilter" xml:space="preserve">
+    <value>Sprachdateien</value>
+  </data>
+  <data name="OcrReplaceTitle" xml:space="preserve">
+    <value>Die hinzugefügte Datei ersetzen?</value>
+  </data>
+  <data name="OcrReplaceMessageFormat" xml:space="preserve">
+    <value>Für {0} wurde schon eine Datei hinzugefügt. Durch die gewählte ersetzen?</value>
+  </data>
+  <data name="OcrReplaceConfirm" xml:space="preserve">
+    <value>Ersetzen</value>
+  </data>
+  <data name="OcrReplaceKeep" xml:space="preserve">
+    <value>Die alte behalten</value>
+  </data>
+  <data name="OcrImportTitle" xml:space="preserve">
+    <value>Sprachdatei</value>
+  </data>
+  <data name="OcrImportDoneFormat" xml:space="preserve">
+    <value>Die Sprachdatei {0} wurde hinzugefügt. Das Original wurde kopiert und bleibt, wo es ist.</value>
+  </data>
+  <data name="OcrImportInvalidName" xml:space="preserve">
+    <value>Der Dateiname muss der Sprachcode gefolgt von .traineddata sein, nur mit Buchstaben und Unterstrichen (zum Beispiel deu.traineddata). Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportNotAFile" xml:space="preserve">
+    <value>Das ist keine Datei oder sie existiert nicht mehr. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportEmpty" xml:space="preserve">
+    <value>Die Datei ist leer. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportTooLargeFormat" xml:space="preserve">
+    <value>Die Datei ist größer als {0}. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrImportAlreadyAddedFormat" xml:space="preserve">
+    <value>Für {0} wurde schon eine Datei hinzugefügt; sie wurde behalten.</value>
+  </data>
+  <data name="OcrImportFailed" xml:space="preserve">
+    <value>Die Datei konnte nicht gelesen oder kopiert werden. Es wurde nichts hinzugefügt.</value>
+  </data>
+  <data name="OcrBadgeText" xml:space="preserve">
+    <value>Text wird erkannt</value>
+  </data>
+  <data name="OcrBadgeProgressFormat" xml:space="preserve">
+    <value>Text wird erkannt: {0} von {1} Seiten</value>
+  </data>
+  <data name="OcrHintFormat" xml:space="preserve">
+    <value>{0} von {1} Seiten</value>
+  </data>
+  <data name="OcrAnnounceStart" xml:space="preserve">
+    <value>Die Texterkennung hat begonnen.</value>
+  </data>
+  <data name="OcrAnnounceDoneFormat" xml:space="preserve">
+    <value>Die Texterkennung ist beendet. {0} Seiten erkannt.</value>
+  </data>
+  <data name="OcrAnnounceCanceled" xml:space="preserve">
+    <value>Die Texterkennung wurde abgebrochen. Die Datei ist unverändert.</value>
+  </data>
+  <data name="OcrAnnounceKeptFormat" xml:space="preserve">
+    <value>Die Texterkennung wurde abgebrochen. Der Text von {0} Seiten wurde behalten.</value>
+  </data>
+  <data name="OcrAnnounceFailed" xml:space="preserve">
+    <value>Die Texterkennung wurde ohne Ergebnis beendet.</value>
+  </data>
+  <data name="OcrScanHintText" xml:space="preserve">
+    <value>Das sieht nach einem Scan aus. Durchsuchbar machen?</value>
+  </data>
+  <data name="OcrScanHintRecognize" xml:space="preserve">
+    <value>Erkennen…</value>
+  </data>
+  <data name="OcrScanHintNotNow" xml:space="preserve">
+    <value>Jetzt nicht</value>
+  </data>
+  <data name="OcrScanHintNever" xml:space="preserve">
+    <value>Für diese Datei nicht mehr fragen</value>
+  </data>
+  <data name="OcrScanHintName" xml:space="preserve">
+    <value>Hinweis auf einen Scan</value>
+  </data>
+  <data name="OcrKeepTitle" xml:space="preserve">
+    <value>Die fertigen Seiten behalten?</value>
+  </data>
+  <data name="OcrKeepMessageFormat" xml:space="preserve">
+    <value>Die Erkennung von {1} wurde nach {0} Seiten abgebrochen. Soll ihr Text behalten werden, oder soll er verworfen werden und die Datei bleibt, wie sie ist?</value>
+  </data>
+  <data name="OcrKeepKeepFormat" xml:space="preserve">
+    <value>{0} Seiten behalten</value>
+  </data>
+  <data name="OcrKeepDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="OcrFailTitle" xml:space="preserve">
+    <value>Texterkennung</value>
+  </data>
+  <data name="OcrFailLibraryUnusable" xml:space="preserve">
+    <value>Die Bibliothek der Texterkennung konnte nicht geladen werden.</value>
+  </data>
+  <data name="OcrFailLanguageInvalid" xml:space="preserve">
+    <value>Die Auswahl der Sprachen ist nicht brauchbar.</value>
+  </data>
+  <data name="OcrFailLanguageMissingFormat" xml:space="preserve">
+    <value>Diese Sprachdateien fehlen: {0}. Fügen Sie sie mit „Sprachen…“ hinzu oder wählen Sie andere Sprachen.</value>
+  </data>
+  <data name="OcrFailLanguageMissingNone" xml:space="preserve">
+    <value>Eine Sprachdatei fehlt. Fügen Sie sie mit „Sprachen…“ hinzu oder wählen Sie eine andere Sprache.</value>
+  </data>
+  <data name="OcrFailDataCorrupt" xml:space="preserve">
+    <value>Eine Sprachdatei konnte nicht gelesen werden. Sie ist vielleicht beschädigt oder für eine andere Version gemacht.</value>
+  </data>
+  <data name="OcrFailFailed" xml:space="preserve">
+    <value>Die Texterkennung wurde ohne Ergebnis beendet.</value>
+  </data>
+  <data name="OcrFailApply" xml:space="preserve">
+    <value>Der erkannte Text konnte nicht in die Datei geschrieben werden. Die Datei ist unverändert.</value>
+  </data>
+  <data name="OcrReportTitle" xml:space="preserve">
+    <value>Texterkennung</value>
+  </data>
+  <data name="OcrReportCanceledTitle" xml:space="preserve">
+    <value>Texterkennung abgebrochen</value>
+  </data>
+  <data name="OcrReportSummaryFormat" xml:space="preserve">
+    <value>{0} Seiten erkannt, {1} Wörter gefunden. Mittlere Konfidenz laut Erkennung: {2} %.</value>
+  </data>
+  <data name="OcrReportWrittenFormat" xml:space="preserve">
+    <value>{0} Wörter wurden in die Textebene von {1} Seiten geschrieben.</value>
+  </data>
+  <data name="OcrReportLeftOutFormat" xml:space="preserve">
+    <value>{0} Wörter wurden weggelassen, weil ein Zeichen davon in der Schrift der Textebene fehlt.</value>
+  </data>
+  <data name="OcrReportKeptLayerFormat" xml:space="preserve">
+    <value>Diese Seiten behielten die Textebene, die sie hatten: {0}.</value>
+  </data>
+  <data name="OcrReportNothingWritten" xml:space="preserve">
+    <value>Es wurde nichts in die Datei geschrieben.</value>
+  </data>
+  <data name="OcrReportSkippedLineFormat" xml:space="preserve">
+    <value>Seite {0}: {1}</value>
+  </data>
+  <data name="OcrReportLowFormat" xml:space="preserve">
+    <value>Seiten, die vielleicht gedreht oder schwer lesbar sind (niedrige Konfidenz): {0}.</value>
+  </data>
+  <data name="OcrReportEmptyFormat" xml:space="preserve">
+    <value>Seiten ohne ein erkanntes Wort: {0}.</value>
+  </data>
+  <data name="OcrReportLittleFormat" xml:space="preserve">
+    <value>Seiten, die schon etwas eigenen Text hatten, der unverändert bleibt: {0}.</value>
+  </data>
+  <data name="OcrReportLoweredFormat" xml:space="preserve">
+    <value>Seiten, die wegen ihrer Größe mit geringerer Auflösung erkannt wurden: {0}.</value>
+  </data>
+  <data name="OcrReportMoreFormat" xml:space="preserve">
+    <value>{0} und {1} weitere</value>
+  </data>
+  <data name="OcrReportUndoable" xml:space="preserve">
+    <value>Die Erkennung ist ein Schritt im Rückgängig-Verlauf. Speichern Sie die Datei, um sie zu behalten.</value>
+  </data>
+  <data name="OcrReportNotUndoable" xml:space="preserve">
+    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließen Sie ohne zu speichern, um ihn zu verwerfen.</value>
+  </data>
+  <data name="OcrSkipHasText" xml:space="preserve">
+    <value>Die Seite hat schon eigenen Text.</value>
+  </data>
+  <data name="OcrSkipAlreadyRecognized" xml:space="preserve">
+    <value>Die Seite hat schon eine Textebene von Raffica. Wählen Sie die Option zum Neuerstellen, um sie zu ersetzen.</value>
+  </data>
+  <data name="OcrSkipTooLarge" xml:space="preserve">
+    <value>Die Seite ist zu groß oder hat mehr Wörter, als verarbeitet werden.</value>
+  </data>
+  <data name="OcrSkipResolutionTooLowFormat" xml:space="preserve">
+    <value>Die Auflösung von {0} dpi ist für die Erkennung zu niedrig.</value>
+  </data>
+  <data name="OcrSkipResolutionTooLow" xml:space="preserve">
+    <value>Die Auflösung ist für die Erkennung zu niedrig.</value>
+  </data>
+  <data name="OcrSkipTimeout" xml:space="preserve">
+    <value>Die Seite hat zu lange gebraucht.</value>
+  </data>
+  <data name="OcrSkipFailed" xml:space="preserve">
+    <value>Die Seite konnte nicht gelesen werden.</value>
+  </data>
+  <data name="OcrSkipNoSupportedCharacters" xml:space="preserve">
+    <value>Es konnte kein Wort geschrieben werden, weil dessen Zeichen in der Schrift der Textebene fehlen.</value>
+  </data>
+  <data name="OcrReportFileFormat" xml:space="preserve">
+    <value>Dokument: {0}</value>
+  </data>
+  <data name="OcrReportSkippedMoreFormat" xml:space="preserve">
+    <value>und {0} weitere Seiten, die nicht erkannt wurden</value>
+  </data>
+  <data name="OcrNotStartedReason" xml:space="preserve">
+    <value>Die Texterkennung konnte nicht beginnen, weil sich das Dokument inzwischen geändert hat. Versuchen Sie es noch einmal.</value>
+  </data>
+  <data name="TextEditBadgeText" xml:space="preserve">
+    <value>Text bearbeiten – Esc zum Beenden</value>
+  </data>
+  <data name="TextEditHintLine" xml:space="preserve">
+    <value>Zeilen bearbeiten, keine Absätze. Fehlende Zeichen setzt Raffica in einer Ersatzschrift.</value>
+  </data>
+  <data name="TextEditWholeRunSwitch" xml:space="preserve">
+    <value>Ganze Zeile in Ersatzschrift ({0})</value>
+  </data>
+  <data name="TextEditBarName" xml:space="preserve">
+    <value>Textbearbeitung</value>
+  </data>
+  <data name="TextEditFieldName" xml:space="preserve">
+    <value>Neuer Text der Zeile</value>
+  </data>
+  <data name="TextEditRunNameFormat" xml:space="preserve">
+    <value>Zeile {0} auf Seite {1}</value>
+  </data>
+  <data name="TextEditLockedRunNameFormat" xml:space="preserve">
+    <value>Gesperrte Zeile {0} auf Seite {1}</value>
+  </data>
+  <data name="TextEditLockInvisibleText" xml:space="preserve">
+    <value>Gesperrt: Dieser Text ist unsichtbar. Bei einer gescannten Seite ist das Bild das, was Sie sehen; den versteckten Text zu ändern, ändert das Bild nicht.</value>
+  </data>
+  <data name="TextEditLockType3Font" xml:space="preserve">
+    <value>Gesperrt: Diese Seite benutzt eine Schriftart (Type 3), die Raffica nicht neu schreiben kann; deshalb lässt sich keine Zeile der Seite ändern.</value>
+  </data>
+  <data name="TextEditLockVerticalWriting" xml:space="preserve">
+    <value>Gesperrt: Diese Zeile ist senkrecht geschrieben.</value>
+  </data>
+  <data name="TextEditLockUnsupportedRenderMode" xml:space="preserve">
+    <value>Gesperrt: Dieser Text ist als Umriss oder als Schnittform gezeichnet; ihn neu zu schreiben, würde das Aussehen der Seite ändern.</value>
+  </data>
+  <data name="TextEditLockFormXObject" xml:space="preserve">
+    <value>Gesperrt: Dieser Text gehört zu einem geteilten Seitenelement (zum Beispiel einer Kopf- oder Fußzeile); eine Änderung könnte andere Seiten treffen.</value>
+  </data>
+  <data name="TextEditLockMarkedContent" xml:space="preserve">
+    <value>Gesperrt: Dieser Text trägt einen eigenen Ersatztext oder liegt auf einer Ebene; Suche und Kopieren würden weiter die alten Worte liefern.</value>
+  </data>
+  <data name="TextEditLockNotSavable" xml:space="preserve">
+    <value>Gesperrt: Raffica kann diese Datei nicht speichern (sie ist verschlüsselt oder wurde außerhalb von Raffica geändert).</value>
+  </data>
+  <data name="TextEditLockPageNotRewritable" xml:space="preserve">
+    <value>Gesperrt: Die Seite neu zu schreiben, würde etwas anderes auf ihr ändern.</value>
+  </data>
+  <data name="TextEditLockLigature" xml:space="preserve">
+    <value>Gesperrt: Zwei Zeichen dieser Zeile teilen sich ein Glyph (eine Ligatur); sie neu zu schreiben, würde sie übereinander zeichnen.</value>
+  </data>
+  <data name="TextEditLockTooManyRunsFormat" xml:space="preserve">
+    <value>Gesperrt: Diese Seite hat mehr als {0} Textzeilen.</value>
+  </data>
+  <data name="TextEditLockRunTooLongFormat" xml:space="preserve">
+    <value>Gesperrt: Diese Zeile hat mehr als {0} Zeichen.</value>
+  </data>
+  <data name="TextEditRejectTooLongFormat" xml:space="preserve">
+    <value>Zu lang: Eine Zeile nimmt höchstens {0} Zeichen auf. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedFormat" xml:space="preserve">
+    <value>Nicht möglich: Weder die Schrift der Zeile noch die Ersatzschrift hat {0}. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedNone" xml:space="preserve">
+    <value>Nicht möglich: Der Text hat Zeichen, die weder die Schrift der Zeile noch die Ersatzschrift hat. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditNoteMissingFormat" xml:space="preserve">
+    <value>In der Schrift der Zeile fehlt {0}. Nur diese Zeichen werden in der Ersatzschrift gesetzt.</value>
+  </data>
+  <data name="TextEditNoteWholeRun" xml:space="preserve">
+    <value>Die ganze Zeile wird in der Ersatzschrift gesetzt.</value>
+  </data>
+  <data name="TextEditNoteEmpty" xml:space="preserve">
+    <value>Leer: Die Zeile wird weggenommen. Mit Rückgängig kommt sie zurück.</value>
+  </data>
+  <data name="TextEditNoteUnchanged" xml:space="preserve">
+    <value>Der Text ist wie vorher; nichts ändert sich.</value>
+  </data>
+  <data name="TextEditNoteOverlap" xml:space="preserve">
+    <value>Der neue Text könnte über anderen Text reichen.</value>
+  </data>
+  <data name="TextEditNoteOutsidePage" xml:space="preserve">
+    <value>Der neue Text könnte über den Seitenrand hinausreichen.</value>
+  </data>
+  <data name="TextEditNoteDone" xml:space="preserve">
+    <value>Zeile geändert. Mit Rückgängig kommt der alte Text zurück.</value>
+  </data>
+  <data name="TextEditNoteStale" xml:space="preserve">
+    <value>Die Seite hat sich geändert, nachdem diese Zeile gelesen wurde. Nichts wurde geändert. Wählen Sie die Zeile noch einmal.</value>
+  </data>
+  <data name="TextEditNoteWriteFailed" xml:space="preserve">
+    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sehen Sie sich die Seite an; mit Rückgängig gehen Sie zurück.</value>
+  </data>
+  <data name="TextEditNoteHistoryFull" xml:space="preserve">
+    <value>Für weitere Rückgängig-Schritte ist kein Platz mehr. Speichern Sie zuerst. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditNoteFailed" xml:space="preserve">
+    <value>Die Zeile konnte nicht geändert werden. Nichts wurde geändert.</value>
+  </data>
+  <data name="TextEditNotePageUnreadable" xml:space="preserve">
+    <value>Die Zeilen dieser Seite konnten nicht gelesen werden; deshalb lässt sich keine bearbeiten.</value>
+  </data>
+  <data name="TextEditOldTextNote" xml:space="preserve">
+    <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: Schwärzen.</value>
+  </data>
 </root>

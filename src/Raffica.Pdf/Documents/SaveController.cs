@@ -27,6 +27,7 @@ internal sealed class SaveController
     private readonly Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? _askRequired;
     private readonly TimeProvider? _time;
     private readonly ConditionalWeakTable<PdfTab, NotedDocument> _noted = [];
+    private readonly ConditionalWeakTable<PdfTab, object> _textNoted = [];
     private CancellationTokenSource? _running;
 
     /// <param name="dialogs">Where the cards appear.</param>
@@ -65,6 +66,23 @@ internal sealed class SaveController
     /// <summary>Raised on the UI thread after Save as gave a tab another path (the recent list follows).</summary>
     public event Action<PdfTab>? PathChanged;
 
+    /// <summary>
+    /// Raised on the UI thread after a save wrote an edited text of a tab (one that is still done in the history, not one undone since) while the note about
+    /// the old text was not shown for the tab yet: the old text stays in earlier versions of the file, and the window says so (the hint bar of the mode and the
+    /// status bar) and then calls <see cref="MarkTextNoted"/>. A note that could not be shown (the cell of the status bar is taken) is offered again by the next such save.
+    /// </summary>
+    public event Action<PdfTab>? TextEditsSaved;
+
+    /// <summary>The window showed the note about the old text for a tab: it is not offered again (once per tab).</summary>
+    public void MarkTextNoted(PdfTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!_textNoted.TryGetValue(tab, out _))
+        {
+            _textNoted.Add(tab, new object());
+        }
+    }
+
     /// <summary>Gets whether a save is running.</summary>
     public bool IsSaving { get; private set; }
 
@@ -82,8 +100,8 @@ internal sealed class SaveController
     }
 
     /// <summary>
-    /// Hands Save and Save as of a tab with an open page plan that changes something to the Apply flow (the second argument says it is Save as): a page
-    /// plan is written by the rewrite of Apply, never by the incremental save. A tab without such a plan saves as before. Set by the window (the flow
+    /// Hands Save and Save as of a tab with an open page plan that changes something, or with marked redactions, to the Apply flow (the second argument says it
+    /// is Save as): a page plan or redactions are written by the rewrite of Apply, never by the incremental save. A tab without such a plan saves as before. Set by the window (the flow
     /// itself uses <see cref="SaveMarksAsync"/>, so this class does not know it).
     /// </summary>
     public Func<PdfTab, bool, Task<bool>>? ApplyPlan { get; set; }
@@ -100,8 +118,11 @@ internal sealed class SaveController
     /// </summary>
     public Task<bool> SaveMarksAsync(PdfTab tab) => RunAsync(tab, askForTarget: false);
 
+    // A page plan that changes something, or redactions that are marked: both are written by their own apply, never by the incremental save.
     private bool HasPlan(PdfTab tab) =>
-        ApplyPlan is not null && tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity;
+        ApplyPlan is not null
+        && ((tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity)
+            || (tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty));
 
     private async Task<bool> RunAsync(PdfTab tab, bool askForTarget)
     {
@@ -244,6 +265,9 @@ internal sealed class SaveController
     {
         var overwrite = false;
         var before = tab.Session.Document;
+
+        // The history is empty after the write, so whether it held a text edit is read now.
+        var wroteText = tab.Annotations.Editor.HasLiveTextEdits;
         while (true)
         {
             try
@@ -313,6 +337,12 @@ internal sealed class SaveController
 
         // The tab is clean unless the session still holds something unsaved (a text box draft that was refused stays dirty).
         Guarded(tab.Annotations.Refresh);
+
+        // The first save of an edited text tells where the old text stays; once per tab.
+        if (wroteText && !_textNoted.TryGetValue(tab, out _))
+        {
+            Guarded(() => TextEditsSaved?.Invoke(tab));
+        }
 
         // An open page plan keeps the tab dirty: the session of the marks cleared the state it had set, the plan has not been applied.
         Guarded(() =>

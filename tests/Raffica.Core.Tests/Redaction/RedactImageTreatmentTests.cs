@@ -16,6 +16,7 @@ namespace Raffica.Core.Tests.Redaction;
 /// small synthetic pages (turned page, CropBox, crowded areas, a huge image): the pixels in the box are exactly the blocks the calculation
 /// gives, the pixels outside are untouched, and the opaque area is only drawn where no treated image shows.
 /// </summary>
+[Collection(ProcessWideMeasurementGroup.Name)]
 public sealed class RedactImageTreatmentTests
 {
     // redact-image-blocks.pdf: 440 x 330 pt. Pixel rows are counted from the top of the image.

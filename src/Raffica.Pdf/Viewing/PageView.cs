@@ -699,6 +699,7 @@ internal sealed partial class PageView : Control
 
             _formOverlay?.Render(context, this);
             _overlay?.Render(context, this);
+            _modeOverlay?.Render(context, this);
         }
 
         if (sharp && !FirstSharpPageShown)
