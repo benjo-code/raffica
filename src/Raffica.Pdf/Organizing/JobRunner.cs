@@ -103,6 +103,9 @@ internal sealed class JobRunner(DialogQueue dialogs)
     /// <summary>Takes the progress from the PDFium thread and hands it to the card on the UI thread.</summary>
     private sealed class UiProgress(SaveJobCard card) : IProgress<double>
     {
+        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one.
+        private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+
         private double _last;
 
         public void Report(double value)
@@ -114,7 +117,7 @@ internal sealed class JobRunner(DialogQueue dialogs)
                 shown = _last = Math.Max(_last, value);
             }
 
-            Dispatcher.UIThread.Post(() => card.Report(shown));
+            _dispatcher.Post(() => card.Report(shown));
         }
     }
 }

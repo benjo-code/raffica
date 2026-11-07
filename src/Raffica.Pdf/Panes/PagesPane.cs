@@ -326,7 +326,7 @@ internal sealed class PagesPane : UserControl, IDisposable
     {
         if (Interlocked.Exchange(ref _syncPosted, 1) == 0)
         {
-            Dispatcher.UIThread.Post(SyncSizes, DispatcherPriority.Normal);
+            Dispatcher.Post(SyncSizes, DispatcherPriority.Normal);
         }
     }
 
@@ -354,7 +354,7 @@ internal sealed class PagesPane : UserControl, IDisposable
 
     // Any thread: only posts.
     private void OnPagesInvalidated(IReadOnlySet<int> pages) =>
-        Dispatcher.UIThread.Post(
+        Dispatcher.Post(
             () =>
             {
                 if (_disposed)
@@ -381,7 +381,7 @@ internal sealed class PagesPane : UserControl, IDisposable
             _readyPosted = true;
         }
 
-        Dispatcher.UIThread.Post(
+        Dispatcher.Post(
             () =>
             {
                 lock (_readyGate)

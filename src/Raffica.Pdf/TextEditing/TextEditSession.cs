@@ -860,13 +860,13 @@ internal sealed class TextEditSession : IDisposable
             return;
         }
 
-        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        if (SynchronizationContext.Current == Ui)
         {
             FlushDraft();
         }
         else
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(FlushDraft);
+            Ui.Post(static state => ((TextEditSession)state!).FlushDraft(), this);
         }
     }
 

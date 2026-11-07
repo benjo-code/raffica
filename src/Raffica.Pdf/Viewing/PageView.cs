@@ -849,13 +849,13 @@ internal sealed partial class PageView : Control
     {
         if (Interlocked.Exchange(ref _syncPosted, 1) == 0)
         {
-            Dispatcher.UIThread.Post(SyncFromSession, DispatcherPriority.Normal);
+            Dispatcher.Post(SyncFromSession, DispatcherPriority.Normal);
         }
     }
 
     // Any thread: only posts. The images of these pages are gone from the cache; the converted bitmaps go too and the pages are planned again.
     private void OnPagesInvalidated(IReadOnlySet<int> pages) =>
-        Dispatcher.UIThread.Post(
+        Dispatcher.Post(
             () =>
             {
                 _bitmaps.Evict(pages);
@@ -878,7 +878,7 @@ internal sealed partial class PageView : Control
             _flushPosted = true;
         }
 
-        Dispatcher.UIThread.Post(FlushReady, DispatcherPriority.Render);
+        Dispatcher.Post(FlushReady, DispatcherPriority.Render);
     }
 
     private void FlushReady()

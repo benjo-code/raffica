@@ -302,6 +302,9 @@ internal sealed class PrintCommand
     /// </summary>
     private sealed class JobProgress(PrintJobCard card) : IProgress<PrintProgress>
     {
+        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one.
+        private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+
         private IReadOnlyList<int> _failed = [];
 
         public IReadOnlyList<int> FailedPages => Volatile.Read(ref _failed);
@@ -309,7 +312,7 @@ internal sealed class PrintCommand
         public void Report(PrintProgress value)
         {
             Volatile.Write(ref _failed, value.FailedPages);
-            Dispatcher.UIThread.Post(() => card.Report(value));
+            _dispatcher.Post(() => card.Report(value));
         }
     }
 }

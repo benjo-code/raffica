@@ -27,6 +27,9 @@ internal sealed class OrganizeThumbnails : IDisposable
     // The stand-in for the size of a page that is not known yet (A4 in points).
     private static readonly PdfPageSize FallbackPageSize = new(595.28, 841.89);
 
+    // The dispatcher of the UI thread this was made on: callbacks that arrive on pool threads post through it, never through the static
+    // Dispatcher.UIThread (which may not exist, or be half made, when the UI thread is gone).
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
     private readonly PdfTab _tab;
     private readonly OrganizeSession _session;
     private readonly Action _redraw;
@@ -277,7 +280,7 @@ internal sealed class OrganizeThumbnails : IDisposable
         try
         {
             var sizes = await file.Document.GetPageSizesAsync(0, file.PageCount, PdfPriority.Background).ConfigureAwait(false);
-            Dispatcher.UIThread.Post(
+            _dispatcher.Post(
                 () =>
                 {
                     if (route.Source is null || _disposed)
@@ -314,7 +317,7 @@ internal sealed class OrganizeThumbnails : IDisposable
             route.ReadyPosted = true;
         }
 
-        Dispatcher.UIThread.Post(
+        _dispatcher.Post(
             () =>
             {
                 lock (route)

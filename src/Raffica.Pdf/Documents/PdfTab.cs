@@ -180,7 +180,9 @@ internal sealed class PdfTab : IDisposable
     /// <summary>The fallback when no context is installed on the calling thread: posts to the UI thread.</summary>
     private sealed class DispatcherContext : SynchronizationContext
     {
-        public override void Post(SendOrPostCallback d, object? state) => Dispatcher.UIThread.Post(() => d(state));
+        private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+
+        public override void Post(SendOrPostCallback d, object? state) => _dispatcher.Post(() => d(state));
     }
 
     private void SetDirty(bool dirty)

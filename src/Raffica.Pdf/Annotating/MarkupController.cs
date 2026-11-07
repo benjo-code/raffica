@@ -26,6 +26,9 @@ internal sealed class MarkupController : IToolController
     private const double ClickSlop = 4;
     private static readonly TimeSpan DefaultDoubleClick = TimeSpan.FromMilliseconds(500);
 
+    // The dispatcher of the UI thread this was made on: callbacks that arrive on pool threads post through it, never through the static
+    // Dispatcher.UIThread (which may not exist, or be half made, when the UI thread is gone).
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
     private readonly PdfTab _tab;
     private readonly PageView _view;
     private readonly ToolState _tools;
@@ -155,7 +158,7 @@ internal sealed class MarkupController : IToolController
         var generation = ++_generation;
         _waitTimer?.Dispose();
         _waitTimer = _time.CreateTimer(
-            _ => Dispatcher.UIThread.Post(() => OnWaitElapsed(generation)),
+            _ => _dispatcher.Post(() => OnWaitElapsed(generation)),
             null,
             DoubleClickTime(),
             Timeout.InfiniteTimeSpan);

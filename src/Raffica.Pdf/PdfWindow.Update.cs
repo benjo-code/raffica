@@ -366,7 +366,7 @@ internal sealed partial class PdfWindow
     {
         ArgumentNullException.ThrowIfNull(shutdown);
         _closeConfirmed = true;
-        Dispatcher.UIThread.Post(shutdown);
+        Dispatcher.Post(shutdown);
     }
 
     private string SessionPath() => Path.Combine(PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile), SessionStore.FileName);

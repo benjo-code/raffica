@@ -618,7 +618,7 @@ internal sealed partial class PdfWindow : Window
     {
         try
         {
-            Dispatcher.UIThread.Post(() => HandoverArrived?.Invoke());
+            Dispatcher.Post(() => HandoverArrived?.Invoke());
             if (_closeConfirmed)
             {
                 return;
@@ -632,7 +632,7 @@ internal sealed partial class PdfWindow : Window
                     rejected.Add(path.Length > MaxShownNameLength ? path[..MaxShownNameLength] : path);
                 }
             });
-            Dispatcher.UIThread.Post(() => ShowHandover(accepted, rejected));
+            Dispatcher.Post(() => ShowHandover(accepted, rejected));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
