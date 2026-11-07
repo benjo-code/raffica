@@ -3979,6 +3979,15 @@ static class SelfTest
         Expect("appimage: AppRun starts with #!/bin/sh", appRunText.StartsWith("#!/bin/sh\n", StringComparison.Ordinal), true);
         Expect("appimage: AppRun without CR", appRunText.Contains('\r', StringComparison.Ordinal), false);
         Expect("appimage: AppRun startet usr/lib/raffica-pdf/RafficaPdf", AppImage.AppRunTarget(appRunText), "usr/lib/raffica-pdf/RafficaPdf");
+        // The detector in Core must agree with the layout: DebDirectory is the install folder, the AppRun target the AppImage path.
+        const string detectorFile = "src/Raffica.Core/Updates/PackageForm.cs";
+        var detector = File.Exists(detectorFile) ? File.ReadAllText(detectorFile) : string.Empty;
+        Expect("layout: PackageFormDetector.DebDirectory is /usr/lib/raffica-pdf/", detector.Contains("DebDirectory = \"/usr/lib/raffica-pdf/\"", StringComparison.Ordinal), true);
+        Expect("layout: AppRun target lies below the detector's folder", "/" + AppImage.AppRunTarget(appRunText), "/usr/lib/raffica-pdf/RafficaPdf");
+        var desktopLines = File.ReadAllLines(Path.Combine("packaging", "linux", "raffica-pdf.desktop"));
+        Expect("desktop: MimeType is application/pdf;", desktopLines.Contains("MimeType=application/pdf;"), true);
+        Expect("desktop: Icon is raffica-pdf", desktopLines.Contains("Icon=raffica-pdf"), true);
+        Expect("desktop: StartupWMClass is RafficaPdf", desktopLines.Contains("StartupWMClass=RafficaPdf"), true);
         Expect("appimage: target without an exec line is null", AppImage.AppRunTarget("#!/bin/sh\necho x\n"), null);
 
         // .desktop inside the image: only Exec differs from the template.

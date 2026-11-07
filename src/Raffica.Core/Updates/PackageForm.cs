@@ -26,7 +26,7 @@ public static class PackageFormDetector
     public const string UninstallerName = "unins000.exe";
 
     /// <summary>The folder the Debian package installs the program into.</summary>
-    public const string DebDirectory = "/usr/lib/raffica/";
+    public const string DebDirectory = "/usr/lib/raffica-pdf/";
 
     /// <summary>Detects the form.</summary>
     /// <param name="isWindows">Whether the system is Windows (otherwise Linux is assumed).</param>
@@ -48,7 +48,7 @@ public static class PackageFormDetector
 
         // Every child of an AppImage inherits APPIMAGE and APPDIR (a mail client or file manager that opens a PDF with a
         // deb-installed or unpacked Raffica), so the variables alone prove nothing: this program must run from inside
-        // the mounted image, whose AppRun starts $APPDIR/usr/lib/raffica/Raffica.
+        // the mounted image, whose AppRun starts $APPDIR/usr/lib/raffica-pdf/RafficaPdf.
         if (!string.IsNullOrEmpty(env("APPIMAGE")) && IsInsideAppDir(processPath, env("APPDIR")))
         {
             return PackageForm.AppImage;
