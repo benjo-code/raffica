@@ -1,5 +1,5 @@
 // Smoke test for the published (Native AOT) CLI binary.
-//   dotnet run tools/smoke-cli.cs -- <path-to-pagewing-binary>
+//   dotnet run tools/smoke-cli.cs -- <path-to-raffica-binary>
 // Run from the repository root: the test PDF is testdata/pdfs/text-basic.pdf relative to the current directory.
 // Checks `--version`, the usage message, and `info`, `render` and `text` against the test PDF. The last three
 // need the native PDFium library next to the binary, so they prove the published package is complete.
@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 
 if (args.Length != 1)
 {
-    Console.Error.WriteLine("Aufruf: dotnet run tools/smoke-cli.cs -- <Pfad zum pagewing-Binary>");
+    Console.Error.WriteLine("Usage: dotnet run tools/smoke-cli.cs -- <path to the raffica binary>");
     return 2;
 }
 
@@ -26,7 +26,7 @@ var binary = Path.GetFullPath(args[0]);
 var pdf = Path.GetFullPath(Path.Combine("testdata", "pdfs", "text-basic.pdf"));
 if (!File.Exists(pdf))
 {
-    Console.Error.WriteLine($"Test-PDF nicht gefunden: {pdf}. Das Skript muss im Repo-Root laufen.");
+    Console.Error.WriteLine($"Test PDF not found: {pdf}. The script must run in the repository root.");
     return 2;
 }
 
@@ -35,22 +35,22 @@ var failures = new List<string>();
 var version = Run(binary, "--version");
 if (version.ExitCode != 0 || !Regex.IsMatch(version.Output.Trim(), @"^\d+\.\d+\.\d+"))
 {
-    failures.Add($"--version: erwartet Exit 0 und eine Version, erhalten Exit {version.ExitCode} mit '{version.Output.Trim()}'");
+    failures.Add($"--version: expected exit 0 and a version, got exit {version.ExitCode} with '{version.Output.Trim()}'");
 }
 
 var usage = Run(binary);
 if (usage.ExitCode != 2 || !usage.Error.Contains("Usage", StringComparison.Ordinal))
 {
-    failures.Add($"ohne Argumente: erwartet Exit 2 und 'Usage' auf stderr, erhalten Exit {usage.ExitCode} mit '{usage.Error.Trim()}'");
+    failures.Add($"without arguments: expected exit 2 and 'Usage' on stderr, got exit {usage.ExitCode} with '{usage.Error.Trim()}'");
 }
 
 var info = Run(binary, "info", pdf);
 if (info.ExitCode != 0 || !info.Output.Contains("Pages: 2", StringComparison.Ordinal))
 {
-    failures.Add($"info: erwartet Exit 0 und 'Pages: 2', erhalten Exit {info.ExitCode} mit '{info.Output.Trim()}' / '{info.Error.Trim()}'");
+    failures.Add($"info: expected exit 0 and 'Pages: 2', got exit {info.ExitCode} with '{info.Output.Trim()}' / '{info.Error.Trim()}'");
 }
 
-var outputDirectory = Path.Combine(Path.GetTempPath(), "pagewing-smoke-" + Guid.NewGuid().ToString("N"));
+var outputDirectory = Path.Combine(Path.GetTempPath(), "raffica-smoke-" + Guid.NewGuid().ToString("N"));
 try
 {
     var render = Run(binary, "render", pdf, "--pages", "1", "--output", outputDirectory);
@@ -58,11 +58,11 @@ try
     byte[] signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
     if (render.ExitCode != 0 || !File.Exists(png))
     {
-        failures.Add($"render: erwartet Exit 0 und {png}, erhalten Exit {render.ExitCode} mit '{render.Output.Trim()}' / '{render.Error.Trim()}'");
+        failures.Add($"render: expected exit 0 and {png}, got exit {render.ExitCode} with '{render.Output.Trim()}' / '{render.Error.Trim()}'");
     }
     else if (!File.ReadAllBytes(png).AsSpan().StartsWith(signature))
     {
-        failures.Add($"render: {png} beginnt nicht mit der PNG-Signatur");
+        failures.Add($"render: {png} does not start with the PNG signature");
     }
 }
 finally
@@ -74,15 +74,15 @@ finally
 }
 
 var text = Run(binary, "text", pdf);
-if (text.ExitCode != 0 || !text.Output.Contains("Hello, Pagewing", StringComparison.Ordinal))
+if (text.ExitCode != 0 || !text.Output.Contains("Hello,", StringComparison.Ordinal))
 {
-    failures.Add($"text: erwartet Exit 0 und 'Hello, Pagewing', erhalten Exit {text.ExitCode} mit '{text.Output.Trim()}' / '{text.Error.Trim()}'");
+    failures.Add($"text: expected exit 0 and 'Hello,', got exit {text.ExitCode} with '{text.Output.Trim()}' / '{text.Error.Trim()}'");
 }
 
 // redact: the term sits in the page text, a form object, invisible text, a note and its reply, a form field, a bookmark, the
 // information dictionary, the XMP and an attachment; the area over the note and its reply is part of the call (replies are not searched).
 var redactSource = Path.GetFullPath(Path.Combine("testdata", "pdfs", "redact-everywhere-nopattern.pdf"));
-var redactDirectory = Path.Combine(Path.GetTempPath(), "pagewing-smoke-redact-" + Guid.NewGuid().ToString("N"));
+var redactDirectory = Path.Combine(Path.GetTempPath(), "raffica-smoke-redact-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(redactDirectory);
 try
 {
@@ -93,19 +93,19 @@ try
     var redact = Run(binary, "redact", redactInput, "--output", redactedFile, "--text", "Zephyrstraße 17", "--rect", "1:248,40,42,22");
     if (redact.ExitCode != 0 || !File.Exists(redactedFile) || !string.Equals(redact.Output.Trim(), redactedFile, StringComparison.OrdinalIgnoreCase))
     {
-        failures.Add($"redact: erwartet Exit 0, {redactedFile} und den Pfad auf stdout, erhalten Exit {redact.ExitCode} mit '{redact.Output.Trim()}' / '{redact.Error.Trim()}'");
+        failures.Add($"redact: expected exit 0, {redactedFile} and the path on stdout, got exit {redact.ExitCode} with '{redact.Output.Trim()}' / '{redact.Error.Trim()}'");
     }
     else
     {
         if (!redact.Error.Contains("Cleaned (read back", StringComparison.Ordinal) || !redact.Error.Contains("Not checked:", StringComparison.Ordinal))
         {
-            failures.Add($"redact: der Bericht auf stderr nennt 'Cleaned (read back' und 'Not checked:' nicht: '{redact.Error.Trim()}'");
+            failures.Add($"redact: the report on stderr does not name 'Cleaned (read back' and 'Not checked:': '{redact.Error.Trim()}'");
         }
 
         var redactedText = Run(binary, "text", redactedFile);
         if (redactedText.ExitCode != 0 || redactedText.Output.Contains("Zephyr", StringComparison.Ordinal) || !redactedText.Output.Contains("Seite zwei", StringComparison.Ordinal))
         {
-            failures.Add($"redact: 'text' der Ausgabe soll 'Zephyr' nicht und 'Seite zwei' enthalten, erhalten Exit {redactedText.ExitCode} mit '{redactedText.Output.Trim()}' / '{redactedText.Error.Trim()}'");
+            failures.Add($"redact: 'text' of the output must not contain 'Zephyr' and must contain 'Seite zwei', got exit {redactedText.ExitCode} with '{redactedText.Output.Trim()}' / '{redactedText.Error.Trim()}'");
         }
     }
 
@@ -113,14 +113,14 @@ try
     var dryRun = Run(binary, "redact", redactInput, "--output", dryRunFile, "--text", "Zephyr", "--rect", "1:248,40,42,22", "--dry-run");
     if (dryRun.ExitCode != 0 || File.Exists(dryRunFile))
     {
-        failures.Add($"redact --dry-run: erwartet Exit 0 und keine Ausgabedatei, erhalten Exit {dryRun.ExitCode}, Datei vorhanden: {File.Exists(dryRunFile)}, '{dryRun.Error.Trim()}'");
+        failures.Add($"redact --dry-run: expected exit 0 and no output file, got exit {dryRun.ExitCode}, file present: {File.Exists(dryRunFile)}, '{dryRun.Error.Trim()}'");
     }
 
     var noMatchFile = Path.Combine(redactDirectory, "nomatch.pdf");
-    var noMatch = Run(binary, "redact", redactInput, "--output", noMatchFile, "--text", "gibt es nicht");
+    var noMatch = Run(binary, "redact", redactInput, "--output", noMatchFile, "--text", "no such text");
     if (noMatch.ExitCode != 1 || File.Exists(noMatchFile))
     {
-        failures.Add($"redact ohne Treffer: erwartet Exit 1 und keine Ausgabedatei, erhalten Exit {noMatch.ExitCode}, Datei vorhanden: {File.Exists(noMatchFile)}, '{noMatch.Error.Trim()}'");
+        failures.Add($"redact without a match: expected exit 1 and no output file, got exit {noMatch.ExitCode}, file present: {File.Exists(noMatchFile)}, '{noMatch.Error.Trim()}'");
     }
 
     // --pattern iban: the valid IBANs of the fixture go (the one split across two lines is not found), the card number stays.
@@ -130,7 +130,7 @@ try
     var pattern = Run(binary, "redact", patternInput, "--output", patternFile, "--pattern", "iban");
     if (pattern.ExitCode != 0 || !File.Exists(patternFile))
     {
-        failures.Add($"redact --pattern iban: erwartet Exit 0 und {patternFile}, erhalten Exit {pattern.ExitCode} mit '{pattern.Output.Trim()}' / '{pattern.Error.Trim()}'");
+        failures.Add($"redact --pattern iban: expected exit 0 and {patternFile}, got exit {pattern.ExitCode} with '{pattern.Output.Trim()}' / '{pattern.Error.Trim()}'");
     }
     else
     {
@@ -138,7 +138,7 @@ try
         var flat = patternText.Output.Replace(" ", string.Empty, StringComparison.Ordinal);
         if (patternText.ExitCode != 0 || flat.Contains("DE89370400440532013000", StringComparison.Ordinal) || !flat.Contains("4111111111111111", StringComparison.Ordinal))
         {
-            failures.Add($"redact --pattern iban: 'text' der Ausgabe soll die IBAN nicht und die Kartennummer noch enthalten, erhalten Exit {patternText.ExitCode} mit '{patternText.Output.Trim()}' / '{patternText.Error.Trim()}'");
+            failures.Add($"redact --pattern iban: 'text' of the output must not contain the IBAN but still the card number, got exit {patternText.ExitCode} with '{patternText.Output.Trim()}' / '{patternText.Error.Trim()}'");
         }
     }
 
@@ -149,14 +149,14 @@ try
     var pixelate = Run(binary, "redact", imageInput, "--output", imageFile, "--rect", "1:46,56,72,72", "--image-fill", "pixelate", "--image-strength", "coarse");
     if (pixelate.ExitCode != 0 || !File.Exists(imageFile) || !pixelate.Error.Contains("Image areas", StringComparison.Ordinal) || !pixelate.Error.Contains("pixelated", StringComparison.Ordinal))
     {
-        failures.Add($"redact --image-fill pixelate: erwartet Exit 0, {imageFile} und 'Image areas' / 'pixelated' im Bericht, erhalten Exit {pixelate.ExitCode} mit '{pixelate.Output.Trim()}' / '{pixelate.Error.Trim()}'");
+        failures.Add($"redact --image-fill pixelate: expected exit 0, {imageFile} and 'Image areas' / 'pixelated' in the report, got exit {pixelate.ExitCode} with '{pixelate.Output.Trim()}' / '{pixelate.Error.Trim()}'");
     }
     else
     {
         var imageInfo = Run(binary, "info", imageFile);
         if (imageInfo.ExitCode != 0 || !imageInfo.Output.Contains("Pages: 1", StringComparison.Ordinal))
         {
-            failures.Add($"redact --image-fill pixelate: das Ergebnis lässt sich nicht öffnen, erhalten Exit {imageInfo.ExitCode} mit '{imageInfo.Output.Trim()}' / '{imageInfo.Error.Trim()}'");
+            failures.Add($"redact --image-fill pixelate: the result cannot be opened, got exit {imageInfo.ExitCode} with '{imageInfo.Output.Trim()}' / '{imageInfo.Error.Trim()}'");
         }
     }
 
@@ -164,21 +164,21 @@ try
     var overlayDry = Run(binary, "redact", redactInput, "--rect", "1:20,275,180,25", "--overlay-text", "REDACTED", "--dry-run");
     if (overlayDry.ExitCode != 0 || !overlayDry.Error.Contains("Overlay text: 1 area gets the overlay text", StringComparison.Ordinal))
     {
-        failures.Add($"redact --overlay-text --dry-run: erwartet Exit 0 und 'Overlay text: 1 area gets the overlay text', erhalten Exit {overlayDry.ExitCode} mit '{overlayDry.Error.Trim()}'");
+        failures.Add($"redact --overlay-text --dry-run: expected exit 0 and 'Overlay text: 1 area gets the overlay text', got exit {overlayDry.ExitCode} with '{overlayDry.Error.Trim()}'");
     }
 
     var overlayFile = Path.Combine(redactDirectory, "overlay-out.pdf");
     var overlay = Run(binary, "redact", redactInput, "--output", overlayFile, "--rect", "1:20,275,180,25", "--overlay-text", "REDACTED");
     if (overlay.ExitCode != 0 || !File.Exists(overlayFile))
     {
-        failures.Add($"redact --overlay-text: erwartet Exit 0 und {overlayFile}, erhalten Exit {overlay.ExitCode} mit '{overlay.Output.Trim()}' / '{overlay.Error.Trim()}'");
+        failures.Add($"redact --overlay-text: expected exit 0 and {overlayFile}, got exit {overlay.ExitCode} with '{overlay.Output.Trim()}' / '{overlay.Error.Trim()}'");
     }
     else
     {
         var overlayText = Run(binary, "text", overlayFile);
         if (overlayText.ExitCode != 0 || overlayText.Output.Contains("REDACTED", StringComparison.Ordinal))
         {
-            failures.Add($"redact --overlay-text: der Text darf in 'text' der Ausgabe nicht stehen (er wird als Formen gezeichnet), erhalten Exit {overlayText.ExitCode} mit '{overlayText.Output.Trim()}'");
+            failures.Add($"redact --overlay-text: the text must not appear in 'text' of the output (it is drawn as shapes), got exit {overlayText.ExitCode} with '{overlayText.Output.Trim()}'");
         }
     }
 
@@ -189,20 +189,20 @@ try
     var rasterRefused = Run(binary, "redact", rasterInput, "--output", Path.Combine(redactDirectory, "refused.pdf"), "--text", "Zephyrstraße 17");
     if (rasterRefused.ExitCode != 1 || File.Exists(Path.Combine(redactDirectory, "refused.pdf")))
     {
-        failures.Add($"redact ohne --rasterize-unredactable: die Seite mit Muster soll abgelehnt werden (Exit 1, keine Ausgabedatei), erhalten Exit {rasterRefused.ExitCode} mit '{rasterRefused.Error.Trim()}'");
+        failures.Add($"redact without --rasterize-unredactable: the page with a pattern must be refused (exit 1, no output file), got exit {rasterRefused.ExitCode} with '{rasterRefused.Error.Trim()}'");
     }
 
     var raster = Run(binary, "redact", rasterInput, "--output", rasterFile, "--text", "Zephyrstraße 17", "--rasterize-unredactable");
     if (raster.ExitCode != 0 || !File.Exists(rasterFile) || !raster.Error.Contains("Pages turned into images", StringComparison.Ordinal))
     {
-        failures.Add($"redact --rasterize-unredactable: erwartet Exit 0, {rasterFile} und 'Pages turned into images', erhalten Exit {raster.ExitCode} mit '{raster.Output.Trim()}' / '{raster.Error.Trim()}'");
+        failures.Add($"redact --rasterize-unredactable: expected exit 0, {rasterFile} and 'Pages turned into images', got exit {raster.ExitCode} with '{raster.Output.Trim()}' / '{raster.Error.Trim()}'");
     }
     else
     {
         var rasterText = Run(binary, "text", rasterFile);
         if (rasterText.ExitCode != 0 || rasterText.Output.Contains("Zephyr", StringComparison.Ordinal) || !rasterText.Output.Contains("Seite zwei", StringComparison.Ordinal))
         {
-            failures.Add($"redact --rasterize-unredactable: 'text' der Ausgabe soll 'Zephyr' nicht und 'Seite zwei' enthalten, erhalten Exit {rasterText.ExitCode} mit '{rasterText.Output.Trim()}' / '{rasterText.Error.Trim()}'");
+            failures.Add($"redact --rasterize-unredactable: 'text' of the output must not contain 'Zephyr' and must contain 'Seite zwei', got exit {rasterText.ExitCode} with '{rasterText.Output.Trim()}' / '{rasterText.Error.Trim()}'");
         }
     }
 }
@@ -212,7 +212,7 @@ finally
 }
 
 // ocr: the dry run lists what would be recognized (it loads no library, so the language folder only has to exist).
-var ocrDirectory = Path.Combine(Path.GetTempPath(), "pagewing-smoke-ocr-" + Guid.NewGuid().ToString("N"));
+var ocrDirectory = Path.Combine(Path.GetTempPath(), "raffica-smoke-ocr-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(ocrDirectory);
 try
 {
@@ -223,7 +223,7 @@ try
     var ocrDry = Run(binary, "ocr", ocrMixed, "--dry-run", "--tessdata", dummyData, "--language", "eng");
     if (ocrDry.ExitCode != 0 || !ocrDry.Output.Contains("page 1: skip (has text of its own)", StringComparison.Ordinal) || !ocrDry.Output.Contains("would recognize 2 pages", StringComparison.Ordinal))
     {
-        failures.Add($"ocr --dry-run: erwartet Exit 0, 'page 1: skip (has text of its own)' und 'would recognize 2 pages', erhalten Exit {ocrDry.ExitCode} mit '{ocrDry.Output.Trim()}' / '{ocrDry.Error.Trim()}'");
+        failures.Add($"ocr --dry-run: expected exit 0, 'page 1: skip (has text of its own)' and 'would recognize 2 pages', got exit {ocrDry.ExitCode} with '{ocrDry.Output.Trim()}' / '{ocrDry.Error.Trim()}'");
     }
 
     // A real run, when the package has the library and the language data next to the binary.
@@ -238,20 +238,20 @@ try
         var ocr = Run(binary, "ocr", ocrInput, "--output", ocrFile, "--pages", "1", "--language", "eng");
         if (ocr.ExitCode != 0 || !File.Exists(ocrFile) || !ocr.Error.Contains("Recognized 1 page", StringComparison.Ordinal))
         {
-            failures.Add($"ocr: erwartet Exit 0, {ocrFile} und 'Recognized 1 page', erhalten Exit {ocr.ExitCode} mit '{ocr.Output.Trim()}' / '{ocr.Error.Trim()}'");
+            failures.Add($"ocr: expected exit 0, {ocrFile} and 'Recognized 1 page', got exit {ocr.ExitCode} with '{ocr.Output.Trim()}' / '{ocr.Error.Trim()}'");
         }
         else
         {
             var ocrText = Run(binary, "text", ocrFile, "--pages", "1");
             if (ocrText.ExitCode != 0 || !ocrText.Output.Contains("Invoice", StringComparison.Ordinal))
             {
-                failures.Add($"ocr: 'text' der Ausgabe soll 'Invoice' enthalten, erhalten Exit {ocrText.ExitCode} mit '{ocrText.Output.Trim()}' / '{ocrText.Error.Trim()}'");
+                failures.Add($"ocr: 'text' of the output must contain 'Invoice', got exit {ocrText.ExitCode} with '{ocrText.Output.Trim()}' / '{ocrText.Error.Trim()}'");
             }
         }
     }
     else
     {
-        Console.WriteLine($"ocr: ohne Bibliothek und Sprachdaten neben dem Binary nur der Trockenlauf geprüft ({libraryName} fehlt).");
+        Console.WriteLine($"ocr: without the library and language data next to the binary only the dry run was checked ({libraryName} is missing).");
     }
 }
 finally
@@ -264,7 +264,7 @@ foreach (var failure in failures)
     Console.Error.WriteLine(failure);
 }
 
-Console.WriteLine(failures.Count == 0 ? $"Smoke-Test bestanden ({version.Output.Trim()})." : "Smoke-Test fehlgeschlagen.");
+Console.WriteLine(failures.Count == 0 ? $"Smoke test passed ({version.Output.Trim()})." : "Smoke test failed.");
 return failures.Count == 0 ? 0 : 1;
 
 static (int ExitCode, string Output, string Error) Run(string file, params string[] arguments)
@@ -276,7 +276,7 @@ static (int ExitCode, string Output, string Error) Run(string file, params strin
         StandardOutputEncoding = new UTF8Encoding(false),
         StandardErrorEncoding = new UTF8Encoding(false),
     };
-    using var process = Process.Start(info) ?? throw new InvalidOperationException($"{file} konnte nicht gestartet werden.");
+    using var process = Process.Start(info) ?? throw new InvalidOperationException($"{file} could not be started.");
 
     // Read both streams at the same time so a full pipe cannot block the process.
     var errorTask = process.StandardError.ReadToEndAsync();

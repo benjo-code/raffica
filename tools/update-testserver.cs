@@ -1,6 +1,6 @@
 #:property PublishAot=false
 
-// Test server for the test build of the updater (Milestone 8.1; packaging/README.md, section "Update prüfen").
+// Test server for the test build of the updater (Milestone 8.1; packaging/README.md, section "Manual update check").
 //   dotnet run tools/update-testserver.cs -- prepare --version <x.y.z> --key <test-key.txt> --out <folder> <file>... [--id test-1] [--tamper signature|checksum]
 //   dotnet run tools/update-testserver.cs -- serve --root <folder> --port <port>
 //   dotnet run tools/update-testserver.cs -- selftest
@@ -28,11 +28,11 @@ return Cli.Run(args);
 static class Cli
 {
     private const string Usage =
-        "Aufruf: dotnet run tools/update-testserver.cs -- <Befehl>\n" +
-        "  prepare --version <x.y.z> --key <Testschluessel.txt> --out <Ordner> <Datei>... [--id test-1] [--tamper signature|checksum]\n" +
-        "          legt den Ordner des Testservers an: Dateien, update-manifest.json (signiert), latest.json\n" +
-        "  serve --root <Ordner> --port <Port>     beantwortet Anfragen nur auf 127.0.0.1, bis Strg+C\n" +
-        "  selftest                                prueft Routen, Pfadtraversal und prepare";
+        "Usage: dotnet run tools/update-testserver.cs -- <command>\n" +
+        "  prepare --version <x.y.z> --key <test-key.txt> --out <dir> <file>... [--id test-1] [--tamper signature|checksum]\n" +
+        "          creates the folder of the test server: files, update-manifest.json (signed), latest.json\n" +
+        "  serve --root <dir> --port <port>        answers requests on 127.0.0.1 only, until Ctrl+C\n" +
+        "  selftest                                checks routes, path traversal and prepare";
 
     public static int Run(string[] args)
     {
@@ -53,7 +53,7 @@ static class Cli
 
     private static int Unknown(string command)
     {
-        Console.Error.WriteLine($"unbekannter Befehl: {command}");
+        Console.Error.WriteLine($"unknown command: {command}");
         Console.Error.WriteLine(Usage);
         return 2;
     }
@@ -88,7 +88,7 @@ static class Cli
     }
 }
 
-// The manifest of the release job (tools/package.cs, UpdateManifestRules; Pagewing.Core.Updates.UpdateManifest) for the
+// The manifest of the release job (tools/package.cs, UpdateManifestRules; Raffica.Core.Updates.UpdateManifest) for the
 // files given; only the kinds the app knows, each named exactly as the release names it.
 static partial class Prepare
 {
@@ -103,10 +103,10 @@ static partial class Prepare
     // The kinds in the order of the release manifest, with the release file name of a version.
     public static readonly (string Kind, Func<string, string> Name)[] Kinds =
     [
-        ("win-x64-setup", v => $"Pagewing-{v}-win-x64-setup.exe"),
-        ("win-x64-portable", v => $"Pagewing-{v}-win-x64-portable.zip"),
-        ("linux-appimage", v => $"Pagewing-{v}-x86_64.AppImage"),
-        ("linux-deb", v => $"pagewing_{v}_amd64.deb"),
+        ("win-x64-setup", v => $"RafficaPdf-{v}-win-x64-setup.exe"),
+        ("win-x64-portable", v => $"RafficaPdf-{v}-win-x64-portable.zip"),
+        ("linux-appimage", v => $"RafficaPdf-{v}-x86_64.AppImage"),
+        ("linux-deb", v => $"raffica-pdf_{v}_amd64.deb"),
     ];
 
     public static int Run(string[] args)
@@ -116,13 +116,13 @@ static partial class Prepare
             !p.Named.TryGetValue("--key", out var keyFile) || !p.Named.TryGetValue("--out", out var output) ||
             p.Named.GetValueOrDefault("--tamper", "none") is not ("none" or "signature" or "checksum"))
         {
-            Console.Error.WriteLine("Aufruf: prepare --version <x.y.z> --key <Testschluessel.txt> --out <Ordner> <Datei>... [--id test-1] [--tamper signature|checksum]");
+            Console.Error.WriteLine("Usage: prepare --version <x.y.z> --key <test-key.txt> --out <dir> <file>... [--id test-1] [--tamper signature|checksum]");
             return 2;
         }
 
         if (!StableVersion().IsMatch(version))
         {
-            Console.Error.WriteLine($"prepare: '{version}' ist keine Version X.Y.Z (die App liest nur stabile Versionen)");
+            Console.Error.WriteLine($"prepare: '{version}' is not a version X.Y.Z (the app reads only stable versions)");
             return 2;
         }
 
@@ -132,23 +132,23 @@ static partial class Prepare
         {
             if (!File.Exists(file))
             {
-                problems.Add($"Datei fehlt: {file}");
+                problems.Add($"File missing: {file}");
             }
             else if (!Kinds.Any(k => k.Name(version) == Path.GetFileName(file)))
             {
-                problems.Add($"{Path.GetFileName(file)} ist keine Release-Datei der Version {version} ({string.Join(", ", Kinds.Select(k => k.Name(version)))})");
+                problems.Add($"{Path.GetFileName(file)} is not a release file of version {version} ({string.Join(", ", Kinds.Select(k => k.Name(version)))})");
             }
         }
 
         if (files.Select(Path.GetFileName).Distinct(StringComparer.Ordinal).Count() != files.Count)
         {
-            problems.Add("eine Datei steht doppelt");
+            problems.Add("a file appears twice");
         }
 
         var root = Path.GetFullPath(output);
         if (File.Exists(root) || (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any()))
         {
-            problems.Add($"{root} gibt es schon und ist nicht leer; prepare legt immer einen neuen Ordner an");
+            problems.Add($"{root} already exists and is not empty; prepare always creates a new folder");
         }
 
         if (problems.Count > 0)
@@ -160,7 +160,7 @@ static partial class Prepare
         using var key = ReadKey(File.Exists(keyFile) ? File.ReadAllText(keyFile) : string.Empty);
         if (key is null)
         {
-            Console.Error.WriteLine($"prepare: {keyFile} enthaelt keinen privaten P-256-Schluessel (Base64 wie von package.cs update-keygen, oder PEM)");
+            Console.Error.WriteLine($"prepare: {keyFile} contains no private P-256 key (Base64 as written by package.cs update-keygen, or PEM)");
             return 1;
         }
 
@@ -184,8 +184,8 @@ static partial class Prepare
         File.WriteAllText(Path.Combine(root, SignatureName), signature, new UTF8Encoding(false));
         File.WriteAllText(Path.Combine(root, LatestName), Latest(version), new UTF8Encoding(false));
 
-        Console.WriteLine($"prepare: {version} mit {entries.Count} Datei(en) in {root}, signiert mit {id}{(tamper == "none" ? string.Empty : $", absichtlich falsch ({tamper})")}");
-        Console.WriteLine($"prepare: oeffentlicher Testschluessel (muss PagewingUpdateTestKey des Testaufbaus sein): {Convert.ToBase64String(key.ExportSubjectPublicKeyInfo())}");
+        Console.WriteLine($"prepare: {version} with {entries.Count} file(s) in {root}, signed with {id}{(tamper == "none" ? string.Empty : $", deliberately wrong ({tamper})")}");
+        Console.WriteLine($"prepare: public test key (must be the RafficaUpdateTestKey of the test build): {Convert.ToBase64String(key.ExportSubjectPublicKeyInfo())}");
         return 0;
     }
 
@@ -209,7 +209,7 @@ static partial class Prepare
 
     // What api.github.com answers at releases/latest, as far as the app reads it (tag_name).
     public static string Latest(string version) =>
-        "{\"tag_name\":\"v" + version + "\",\"name\":\"Pagewing " + version + " (Testserver)\",\"draft\":false,\"prerelease\":false}";
+        "{\"tag_name\":\"v" + version + "\",\"name\":\"Raffica PDF " + version + " (Testserver)\",\"draft\":false,\"prerelease\":false}";
 
     private static string Flip(string hex) => (hex[0] == '0' ? '1' : '0') + hex[1..];
 
@@ -267,14 +267,14 @@ static partial class Serve
             !p.Named.TryGetValue("--port", out var portText) ||
             !int.TryParse(portText, NumberStyles.None, CultureInfo.InvariantCulture, out var port) || port is < 1 or > 65535)
         {
-            Console.Error.WriteLine("Aufruf: serve --root <Ordner> --port <1..65535>");
+            Console.Error.WriteLine("Usage: serve --root <dir> --port <1..65535>");
             return 2;
         }
 
         var root = Path.GetFullPath(rootArg);
         if (!File.Exists(Path.Combine(root, Prepare.LatestName)))
         {
-            Console.Error.WriteLine($"serve: {Path.Combine(root, Prepare.LatestName)} fehlt; den Ordner mit prepare anlegen");
+            Console.Error.WriteLine($"serve: {Path.Combine(root, Prepare.LatestName)} is missing; create the folder with prepare");
             return 1;
         }
 
@@ -292,21 +292,21 @@ static partial class Serve
         }
         catch (SocketException e)
         {
-            Console.Error.WriteLine($"serve: 127.0.0.1:{port} ist nicht frei ({e.SocketErrorCode})");
+            Console.Error.WriteLine($"serve: 127.0.0.1:{port} is not free ({e.SocketErrorCode})");
             return 1;
         }
 
         using (server)
         {
             server.Log = Console.WriteLine;
-            Console.WriteLine($"serve: {root} auf http://127.0.0.1:{server.Port}/ (nur 127.0.0.1), Ende mit Strg+C");
+            Console.WriteLine($"serve: {root} on http://127.0.0.1:{server.Port}/ (127.0.0.1 only), end with Ctrl+C");
             try
             {
                 Task.Delay(Timeout.Infinite, stop.Token).GetAwaiter().GetResult();
             }
             catch (OperationCanceledException)
             {
-                Console.WriteLine("serve: beendet");
+                Console.WriteLine("serve: ended");
             }
         }
 
@@ -332,7 +332,7 @@ static partial class Serve
         if (target == "/")
         {
             var names = Directory.EnumerateFiles(root).Select(Path.GetFileName).Order(StringComparer.Ordinal);
-            var page = "Pagewing update test server (test build only)\n\n" + string.Join("\n", names) + "\n";
+            var page = "Raffica PDF update test server (test build only)\n\n" + string.Join("\n", names) + "\n";
             return new Reply(200, Body: Encoding.UTF8.GetBytes(page), ContentType: "text/plain; charset=utf-8");
         }
 
@@ -526,13 +526,13 @@ static class SelfTest
         _checks++;
         if (!EqualityComparer<T>.Default.Equals(actual, expected))
         {
-            Failures.Add($"{name}: erwartet {expected}, erhalten {actual}");
+            Failures.Add($"{name}: expected {expected}, got {actual}");
         }
     }
 
     public static int Run()
     {
-        var temp = Path.Combine(Path.GetTempPath(), "pagewing-update-testserver-selftest-" + Guid.NewGuid().ToString("N"));
+        var temp = Path.Combine(Path.GetTempPath(), "raffica-update-testserver-selftest-" + Guid.NewGuid().ToString("N"));
         try
         {
             Directory.CreateDirectory(temp);
@@ -548,11 +548,11 @@ static class SelfTest
         if (Failures.Count > 0)
         {
             Failures.ForEach(f => Console.Error.WriteLine($"selftest: {f}"));
-            Console.Error.WriteLine($"selftest: {Failures.Count} von {_checks} Pruefungen fehlgeschlagen");
+            Console.Error.WriteLine($"selftest: {Failures.Count} of {_checks} checks failed");
             return 1;
         }
 
-        Console.WriteLine($"selftest: {_checks} Pruefungen bestanden");
+        Console.WriteLine($"selftest: {_checks} checks passed");
         return 0;
     }
 
@@ -562,25 +562,25 @@ static class SelfTest
         var root = Path.Combine(temp, "routes");
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, Prepare.LatestName), Prepare.Latest("0.0.2"));
-        File.WriteAllText(Path.Combine(root, "Pagewing-0.0.2-win-x64-setup.exe"), "setup");
+        File.WriteAllText(Path.Combine(root, "RafficaPdf-0.0.2-win-x64-setup.exe"), "setup");
         File.WriteAllText(Path.Combine(temp, "secret.txt"), "secret");
 
         Expect("Route: releases/latest", Serve.Route(root, 8765, "GET", "/releases/latest").File, Path.Combine(root, Prepare.LatestName));
-        var redirect = Serve.Route(root, 8765, "GET", "/download/v0.0.2/Pagewing-0.0.2-win-x64-setup.exe");
-        Expect("Route: download leitet um (302)", redirect.Status, 302);
-        Expect("Route: Umleitung auf 127.0.0.1 und den eigenen Port", redirect.Location, "http://127.0.0.1:8765/assets/Pagewing-0.0.2-win-x64-setup.exe");
-        Expect("Route: assets liefert die Datei", Serve.Route(root, 8765, "GET", "/assets/Pagewing-0.0.2-win-x64-setup.exe").File, Path.Combine(root, "Pagewing-0.0.2-win-x64-setup.exe"));
-        Expect("Route: HEAD wie GET", Serve.Route(root, 8765, "HEAD", "/assets/Pagewing-0.0.2-win-x64-setup.exe").Status, 200);
-        Expect("Route: Startseite", Serve.Route(root, 8765, "GET", "/").Status, 200);
-        Expect("Route: POST nicht erlaubt", Serve.Route(root, 8765, "POST", "/releases/latest").Status, 405);
+        var redirect = Serve.Route(root, 8765, "GET", "/download/v0.0.2/RafficaPdf-0.0.2-win-x64-setup.exe");
+        Expect("Route: download redirects (302)", redirect.Status, 302);
+        Expect("Route: redirect to 127.0.0.1 and the own port", redirect.Location, "http://127.0.0.1:8765/assets/RafficaPdf-0.0.2-win-x64-setup.exe");
+        Expect("Route: assets serves the file", Serve.Route(root, 8765, "GET", "/assets/RafficaPdf-0.0.2-win-x64-setup.exe").File, Path.Combine(root, "RafficaPdf-0.0.2-win-x64-setup.exe"));
+        Expect("Route: HEAD like GET", Serve.Route(root, 8765, "HEAD", "/assets/RafficaPdf-0.0.2-win-x64-setup.exe").Status, 200);
+        Expect("Route: start page", Serve.Route(root, 8765, "GET", "/").Status, 200);
+        Expect("Route: POST not allowed", Serve.Route(root, 8765, "POST", "/releases/latest").Status, 405);
         foreach (var target in new[]
         {
-            "/download/v0.0.2/missing.exe", "/download/0.0.2/Pagewing-0.0.2-win-x64-setup.exe", "/download/v0.0.2/../secret.txt",
+            "/download/v0.0.2/missing.exe", "/download/0.0.2/RafficaPdf-0.0.2-win-x64-setup.exe", "/download/v0.0.2/../secret.txt",
             "/assets/../secret.txt", "/assets/..", "/assets/.", "/assets/%2e%2e/secret.txt", "/assets/%2e%2e%2fsecret.txt",
             "/assets/..%2Fsecret.txt", "/assets/..\\secret.txt", "/assets/sub/secret.txt", "/../secret.txt", "/secret.txt",
             "/assets/" + Path.Combine(temp, "secret.txt"), "/" + Path.Combine(temp, "secret.txt").Replace('\\', '/'),
-            "http://127.0.0.1/assets/Pagewing-0.0.2-win-x64-setup.exe", "*", "/assets//Pagewing-0.0.2-win-x64-setup.exe",
-            "/assets/Pagewing-0.0.2-win-x64-setup.exe?x=1", "/assets/C:secret.txt", "/releases/latest/", "/releases",
+            "http://127.0.0.1/assets/RafficaPdf-0.0.2-win-x64-setup.exe", "*", "/assets//RafficaPdf-0.0.2-win-x64-setup.exe",
+            "/assets/RafficaPdf-0.0.2-win-x64-setup.exe?x=1", "/assets/C:secret.txt", "/releases/latest/", "/releases",
         })
         {
             Expect($"Route: {target} -> 404", Serve.Route(root, 8765, "GET", target).Status, 404);
@@ -593,23 +593,23 @@ static class SelfTest
         var root = Path.Combine(temp, "served");
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, Prepare.LatestName), Prepare.Latest("0.0.2"));
-        File.WriteAllBytes(Path.Combine(root, "Pagewing-0.0.2-win-x64-setup.exe"), [1, 2, 3, 4]);
+        File.WriteAllBytes(Path.Combine(root, "RafficaPdf-0.0.2-win-x64-setup.exe"), [1, 2, 3, 4]);
         File.WriteAllText(Path.Combine(temp, "outside.txt"), "outside");
 
         int port;
         using (var server = Server.Start(root, 0))
         {
             port = server.Port;
-            Expect("TestserverServesOnlyTheGivenFolder: lauscht nur auf 127.0.0.1", server.Endpoint.Address.Equals(IPAddress.Loopback), true);
+            Expect("TestserverServesOnlyTheGivenFolder: listens on 127.0.0.1 only", server.Endpoint.Address.Equals(IPAddress.Loopback), true);
 
-            var (status, headers, body) = Request(port, "GET /assets/Pagewing-0.0.2-win-x64-setup.exe HTTP/1.1");
-            Expect("TestserverServesOnlyTheGivenFolder: Datei des Ordners (200)", status, 200);
-            Expect("TestserverServesOnlyTheGivenFolder: Inhalt der Datei", Convert.ToHexString(body), "01020304");
-            Expect("TestserverServesOnlyTheGivenFolder: Laenge der Datei", headers.Contains("Content-Length: 4\r\n", StringComparison.Ordinal), true);
+            var (status, headers, body) = Request(port, "GET /assets/RafficaPdf-0.0.2-win-x64-setup.exe HTTP/1.1");
+            Expect("TestserverServesOnlyTheGivenFolder: file of the folder (200)", status, 200);
+            Expect("TestserverServesOnlyTheGivenFolder: content of the file", Convert.ToHexString(body), "01020304");
+            Expect("TestserverServesOnlyTheGivenFolder: length of the file", headers.Contains("Content-Length: 4\r\n", StringComparison.Ordinal), true);
 
-            (status, headers, _) = Request(port, "GET /download/v0.0.2/Pagewing-0.0.2-win-x64-setup.exe HTTP/1.1");
-            Expect("TestserverServesOnlyTheGivenFolder: Download leitet um (302)", status, 302);
-            Expect("TestserverServesOnlyTheGivenFolder: Ziel auf 127.0.0.1", headers.Contains($"Location: http://127.0.0.1:{port}/assets/Pagewing-0.0.2-win-x64-setup.exe\r\n", StringComparison.Ordinal), true);
+            (status, headers, _) = Request(port, "GET /download/v0.0.2/RafficaPdf-0.0.2-win-x64-setup.exe HTTP/1.1");
+            Expect("TestserverServesOnlyTheGivenFolder: download redirects (302)", status, 302);
+            Expect("TestserverServesOnlyTheGivenFolder: target on 127.0.0.1", headers.Contains($"Location: http://127.0.0.1:{port}/assets/RafficaPdf-0.0.2-win-x64-setup.exe\r\n", StringComparison.Ordinal), true);
 
             (status, _, body) = Request(port, "GET /releases/latest HTTP/1.1");
             Expect("TestserverServesOnlyTheGivenFolder: releases/latest", (status, Encoding.UTF8.GetString(body)), (200, Prepare.Latest("0.0.2")));
@@ -623,11 +623,11 @@ static class SelfTest
             {
                 (status, _, body) = Request(port, $"GET {target} HTTP/1.1");
                 Expect($"TestserverServesOnlyTheGivenFolder: {target} -> 404", status, 404);
-                Expect($"TestserverServesOnlyTheGivenFolder: {target} liefert nichts von aussen", Encoding.UTF8.GetString(body).Contains("outside", StringComparison.Ordinal), false);
+                Expect($"TestserverServesOnlyTheGivenFolder: {target} serves nothing from outside", Encoding.UTF8.GetString(body).Contains("outside", StringComparison.Ordinal), false);
             }
 
             (status, _, _) = Request(port, "garbage");
-            Expect("TestserverServesOnlyTheGivenFolder: kaputte Anfrage (400)", status, 400);
+            Expect("TestserverServesOnlyTheGivenFolder: broken request (400)", status, 400);
         }
 
         // Stopped: the port no longer answers.
@@ -642,7 +642,7 @@ static class SelfTest
             refused = true;
         }
 
-        Expect("TestserverServesOnlyTheGivenFolder: nach dem Ende lauscht nichts mehr", refused, true);
+        Expect("TestserverServesOnlyTheGivenFolder: nothing listens after the end", refused, true);
     }
 
     private static (int Status, string Headers, byte[] Body) Request(int port, string requestLine)
@@ -675,9 +675,9 @@ static class SelfTest
         File.WriteAllText(keyFile, Convert.ToBase64String(key.ExportPkcs8PrivateKey()) + "\n");
         var input = Path.Combine(temp, "in");
         Directory.CreateDirectory(input);
-        var setup = Path.Combine(input, "Pagewing-0.0.2-win-x64-setup.exe");
+        var setup = Path.Combine(input, "RafficaPdf-0.0.2-win-x64-setup.exe");
         File.WriteAllBytes(setup, [9, 8, 7]);
-        var appImage = Path.Combine(input, "Pagewing-0.0.2-x86_64.AppImage");
+        var appImage = Path.Combine(input, "RafficaPdf-0.0.2-x86_64.AppImage");
         File.WriteAllBytes(appImage, [1]);
 
         bool Verifies(string folder) =>
@@ -687,31 +687,31 @@ static class SelfTest
 
         var good = Path.Combine(temp, "good");
         Expect("prepare: Exit 0", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", good, setup, appImage])), 0);
-        Expect("prepare: Signatur passt (Kennung test-1)", Verifies(good), true);
+        Expect("prepare: signature matches (id test-1)", Verifies(good), true);
         var sha = Convert.ToHexStringLower(SHA256.HashData(new byte[] { 9, 8, 7 }));
-        Expect("prepare: Manifest wie das des Release-Jobs", File.ReadAllText(Path.Combine(good, Prepare.ManifestName)),
-            "{\"format\":1,\"version\":\"0.0.2\",\"files\":[{\"kind\":\"win-x64-setup\",\"name\":\"Pagewing-0.0.2-win-x64-setup.exe\",\"size\":3,\"sha256\":\"" + sha +
-            "\"},{\"kind\":\"linux-appimage\",\"name\":\"Pagewing-0.0.2-x86_64.AppImage\",\"size\":1,\"sha256\":\"" + Convert.ToHexStringLower(SHA256.HashData(new byte[] { 1 })) + "\"}]}");
-        Expect("prepare: latest.json nennt den Tag", File.ReadAllText(Path.Combine(good, Prepare.LatestName)).Contains("\"tag_name\":\"v0.0.2\"", StringComparison.Ordinal), true);
-        Expect("prepare: Dateien kopiert", File.Exists(Path.Combine(good, "Pagewing-0.0.2-win-x64-setup.exe")) && File.Exists(Path.Combine(good, "Pagewing-0.0.2-x86_64.AppImage")), true);
+        Expect("prepare: manifest like that of the release job", File.ReadAllText(Path.Combine(good, Prepare.ManifestName)),
+            "{\"format\":1,\"version\":\"0.0.2\",\"files\":[{\"kind\":\"win-x64-setup\",\"name\":\"RafficaPdf-0.0.2-win-x64-setup.exe\",\"size\":3,\"sha256\":\"" + sha +
+            "\"},{\"kind\":\"linux-appimage\",\"name\":\"RafficaPdf-0.0.2-x86_64.AppImage\",\"size\":1,\"sha256\":\"" + Convert.ToHexStringLower(SHA256.HashData(new byte[] { 1 })) + "\"}]}");
+        Expect("prepare: latest.json names the tag", File.ReadAllText(Path.Combine(good, Prepare.LatestName)).Contains("\"tag_name\":\"v0.0.2\"", StringComparison.Ordinal), true);
+        Expect("prepare: files copied", File.Exists(Path.Combine(good, "RafficaPdf-0.0.2-win-x64-setup.exe")) && File.Exists(Path.Combine(good, "RafficaPdf-0.0.2-x86_64.AppImage")), true);
 
         var badSignature = Path.Combine(temp, "bad-signature");
         Expect("prepare --tamper signature: Exit 0", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", badSignature, "--tamper", "signature", setup])), 0);
-        Expect("prepare --tamper signature: Signatur passt nicht", Verifies(badSignature), false);
+        Expect("prepare --tamper signature: signature does not match", Verifies(badSignature), false);
 
         var badChecksum = Path.Combine(temp, "bad-checksum");
         Expect("prepare --tamper checksum: Exit 0", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", badChecksum, "--tamper", "checksum", setup])), 0);
-        Expect("prepare --tamper checksum: Signatur passt", Verifies(badChecksum), true);
-        Expect("prepare --tamper checksum: SHA-256 falsch", File.ReadAllText(Path.Combine(badChecksum, Prepare.ManifestName)).Contains(sha, StringComparison.Ordinal), false);
+        Expect("prepare --tamper checksum: signature matches", Verifies(badChecksum), true);
+        Expect("prepare --tamper checksum: SHA-256 wrong", File.ReadAllText(Path.Combine(badChecksum, Prepare.ManifestName)).Contains(sha, StringComparison.Ordinal), false);
 
-        Expect("prepare: vorhandener Ordner wird nie ueberschrieben", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", good, setup])), 1);
-        Expect("prepare: Datei einer anderen Version", Quiet(() => Prepare.Run(["--version", "0.0.3", "--key", keyFile, "--out", Path.Combine(temp, "x"), setup])), 1);
-        Expect("prepare: Vorabversion", Quiet(() => Prepare.Run(["--version", "0.0.2-rc.1", "--key", keyFile, "--out", Path.Combine(temp, "y"), setup])), 2);
-        Expect("prepare: oeffentlicher statt privater Schluessel", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", setup, "--out", Path.Combine(temp, "z"), setup])), 1);
-        Expect("prepare: ohne Datei", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", Path.Combine(temp, "w")])), 2);
-        Expect("prepare: nichts angelegt nach Fehlern", Directory.Exists(Path.Combine(temp, "x")) || Directory.Exists(Path.Combine(temp, "z")), false);
-        Expect("serve: falscher Port", Quiet(() => Serve.Run(["--root", good, "--port", "0"])), 2);
-        Expect("serve: Ordner ohne latest.json", Quiet(() => Serve.Run(["--root", input, "--port", "8765"])), 1);
+        Expect("prepare: an existing folder is never overwritten", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", good, setup])), 1);
+        Expect("prepare: file of another version", Quiet(() => Prepare.Run(["--version", "0.0.3", "--key", keyFile, "--out", Path.Combine(temp, "x"), setup])), 1);
+        Expect("prepare: prerelease", Quiet(() => Prepare.Run(["--version", "0.0.2-rc.1", "--key", keyFile, "--out", Path.Combine(temp, "y"), setup])), 2);
+        Expect("prepare: public instead of private key", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", setup, "--out", Path.Combine(temp, "z"), setup])), 1);
+        Expect("prepare: without a file", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", Path.Combine(temp, "w")])), 2);
+        Expect("prepare: nothing created after errors", Directory.Exists(Path.Combine(temp, "x")) || Directory.Exists(Path.Combine(temp, "z")), false);
+        Expect("serve: wrong port", Quiet(() => Serve.Run(["--root", good, "--port", "0"])), 2);
+        Expect("serve: folder without latest.json", Quiet(() => Serve.Run(["--root", input, "--port", "8765"])), 1);
     }
 
     private static int Quiet(Func<int> action)

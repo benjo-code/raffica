@@ -1,13 +1,13 @@
 [Desktop Entry]
 Type=Application
-Name=Pagewing
+Name=Raffica PDF
 GenericName=PDF Viewer
 GenericName[de]=PDF-Betrachter
 Comment=Fast, offline PDF viewer
 Comment[de]=Schneller PDF-Betrachter ohne Netzwerk
-Exec=/usr/lib/pagewing/Pagewing %F
-Icon=pagewing
+Exec=/usr/lib/raffica-pdf/RafficaPdf %F
+Icon=raffica-pdf
 Terminal=false
 Categories=Office;Viewer;
 MimeType=application/pdf;
-StartupWMClass=Pagewing
+StartupWMClass=RafficaPdf

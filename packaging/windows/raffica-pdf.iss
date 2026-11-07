@@ -1,4 +1,4 @@
-; Windows installer of Pagewing (Inno Setup 6, pinned version in tools/package.cs).
+; Windows installer of Raffica PDF (Inno Setup 6, pinned version in tools/package.cs).
 ; Built by: dotnet run tools/package.cs -- installer --layout <dir> --version <x.y.z> --out <file>
 ; which passes the defines below (/D...) plus the output folder and name (/O, /F) to iscc.exe.
 ; Keep this file ASCII: translated texts come from the .isl files of Inno Setup.
@@ -19,17 +19,17 @@
 
 [Setup]
 ; Generated once, never change it: it identifies the installation for updates and the uninstaller.
-AppId={{472398B4-29BA-4DDB-8475-7928DA355D74}
-AppName=Pagewing
+AppId={{E2602600-DBDA-4741-8773-A1D1284E2562}
+AppName=Raffica PDF
 AppVersion={#AppVersion}
-AppPublisher=Pagewing
+AppPublisher=Raffica
 VersionInfoVersion={#NumericVersion}
 VersionInfoProductTextVersion={#AppVersion}
 ; User install by default (no elevation); the user may choose all users in a dialog or with /ALLUSERS.
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline dialog
 ; {autopf} is Program Files for all users and %LOCALAPPDATA%\Programs for the current user.
-DefaultDirName={autopf}\Pagewing
+DefaultDirName={autopf}\Raffica PDF
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -38,8 +38,8 @@ LicenseFile={#LayoutDir}\LICENSE
 CloseApplications=yes
 ChangesAssociations=yes
 SetupIconFile={#IconFile}
-UninstallDisplayIcon={app}\Pagewing.exe
-UninstallDisplayName=Pagewing
+UninstallDisplayIcon={app}\RafficaPdf.exe
+UninstallDisplayName=Raffica PDF
 WizardStyle=modern dynamic
 ShowLanguageDialog=auto
 Compression=lzma2/max
@@ -53,16 +53,16 @@ Name: "de"; MessagesFile: "compiler:Languages\German.isl"
 Source: "{#LayoutDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Pagewing"; Filename: "{app}\Pagewing.exe"
+Name: "{autoprograms}\Raffica PDF"; Filename: "{app}\RafficaPdf.exe"
 
 [Run]
-; Registers Pagewing for PDF files (ProgId, "Open with"); the default app question is asked by the app itself.
-Filename: "{app}\Pagewing.exe"; Parameters: "--register-file-types={code:FileTypeScope}"; Flags: runhidden
-Filename: "{app}\Pagewing.exe"; Description: "{cm:LaunchProgram,Pagewing}"; Flags: postinstall nowait skipifsilent
+; Registers Raffica PDF for PDF files (ProgId, "Open with"); the default app question is asked by the app itself.
+Filename: "{app}\RafficaPdf.exe"; Parameters: "--register-file-types={code:FileTypeScope}"; Flags: runhidden
+Filename: "{app}\RafficaPdf.exe"; Description: "{cm:LaunchProgram,Raffica PDF}"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
-; Runs as the first step of the uninstallation, before any file is removed. The settings in %APPDATA%\Pagewing stay.
-Filename: "{app}\Pagewing.exe"; Parameters: "--unregister-file-types={code:FileTypeScope}"; Flags: runhidden; RunOnceId: "UnregisterFileTypes"
+; Runs as the first step of the uninstallation, before any file is removed. The settings in %APPDATA%\Raffica stay.
+Filename: "{app}\RafficaPdf.exe"; Parameters: "--unregister-file-types={code:FileTypeScope}"; Flags: runhidden; RunOnceId: "UnregisterFileTypes"
 
 [Code]
 // Scope of the file type registration: HKLM for an installation for all users, HKCU otherwise.

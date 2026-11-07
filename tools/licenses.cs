@@ -1,6 +1,6 @@
 #:property PublishAot=false
 
-// Licence inventory of Pagewing (third-party components, their licence texts and the generated notices file).
+// Licence inventory of Raffica PDF (third-party components, their licence texts and the generated notices file).
 //   dotnet run tools/licenses.cs -- generate [--root <dir>]
 //   dotnet run tools/licenses.cs -- check [--publish-dir <dir>]... [--root <dir>]
 //   dotnet run tools/licenses.cs -- selftest
@@ -19,10 +19,10 @@ return Cli.Run(args);
 static class Cli
 {
     private const string Usage =
-        "Aufruf: dotnet run tools/licenses.cs -- <Befehl>\n" +
-        "  generate [--root <Ordner>]                         schreibt src/Pagewing.App/Resources/ThirdPartyNotices.txt\n" +
-        "  check [--publish-dir <Ordner>]... [--root <Ordner>] prueft Manifest, Lizenzdateien, Publish-Ordner, PDFium, Hinweisdatei\n" +
-        "  selftest                                           prueft die Werkzeugteile";
+        "Usage: dotnet run tools/licenses.cs -- <command>\n" +
+        "  generate [--root <dir>]                            writes src/Raffica.Pdf/Resources/ThirdPartyNotices.txt\n" +
+        "  check [--publish-dir <dir>]... [--root <dir>]       checks manifest, licence files, publish folders, PDFium, notices file\n" +
+        "  selftest                                           checks the parts of the tool";
 
     // Command name -> handler (receives the arguments after the command name). Add new subcommands here.
     private static readonly Dictionary<string, Func<string[], int>> Commands = new(StringComparer.Ordinal)
@@ -42,7 +42,7 @@ static class Cli
 
         if (!Commands.TryGetValue(args[0], out var handler))
         {
-            Console.Error.WriteLine($"unbekannter Befehl: {args[0]}");
+            Console.Error.WriteLine($"unknown command: {args[0]}");
             Console.Error.WriteLine(Usage);
             return 2;
         }
@@ -73,7 +73,7 @@ static class Cli
             }
             else
             {
-                Console.Error.WriteLine($"unbekannte Option: {args[i]}");
+                Console.Error.WriteLine($"unknown option: {args[i]}");
                 return null;
             }
         }
@@ -105,7 +105,7 @@ static class Cli
 
         Directory.CreateDirectory(Path.GetDirectoryName(paths.Notices)!);
         File.WriteAllText(paths.Notices, text, new UTF8Encoding(false));
-        Console.WriteLine($"{paths.Display(paths.Notices)} geschrieben.");
+        Console.WriteLine($"{paths.Display(paths.Notices)} written.");
         return 0;
     }
 
@@ -162,7 +162,7 @@ sealed class Paths(string root)
 
     public string Manifest => Path.Combine(Root, "third-party", "licenses.json");
 
-    public string Notices => Path.Combine(Root, "src", "Pagewing.App", "Resources", "ThirdPartyNotices.txt");
+    public string Notices => Path.Combine(Root, "src", "Raffica.Pdf", "Resources", "ThirdPartyNotices.txt");
 
     public string PackageProps => Path.Combine(Root, "Directory.Packages.props");
 
@@ -190,7 +190,7 @@ sealed record Inputs(Paths Paths, List<Package> Packages, string NuGetCache, Lis
 
 static class PackageList
 {
-    private static readonly string[] Projects = ["src/Pagewing.App/Pagewing.App.csproj", "src/Pagewing.Cli/Pagewing.Cli.csproj"];
+    private static readonly string[] Projects = ["src/Raffica.Pdf/Raffica.Pdf.csproj", "src/Raffica.Cli/Raffica.Cli.csproj"];
 
     public static List<Package> FromDotnet(Paths paths, List<string> errors)
     {
@@ -217,13 +217,13 @@ static class PackageList
             }
             catch (System.ComponentModel.Win32Exception ex)
             {
-                errors.Add($"{project}: dotnet nicht gefunden ({ex.Message})");
+                errors.Add($"{project}: dotnet not found ({ex.Message})");
                 return all;
             }
 
             if (exit != 0)
             {
-                errors.Add($"{project}: dotnet list package fehlgeschlagen (zuerst dotnet restore): {stderr.Trim()} {stdout.Trim()}");
+                errors.Add($"{project}: dotnet list package failed (run dotnet restore first): {stderr.Trim()} {stdout.Trim()}");
                 continue;
             }
 
@@ -240,7 +240,7 @@ static class PackageList
         var start = json.IndexOf('{', StringComparison.Ordinal);
         if (start < 0)
         {
-            errors.Add($"{source}: keine JSON-Ausgabe von dotnet list package");
+            errors.Add($"{source}: no JSON output of dotnet list package");
             return result;
         }
 
@@ -249,7 +249,7 @@ static class PackageList
             using var doc = JsonDocument.Parse(json[start..]);
             if (!doc.RootElement.TryGetProperty("projects", out var projects))
             {
-                errors.Add($"{source}: JSON ohne \"projects\"");
+                errors.Add($"{source}: JSON without \"projects\"");
                 return result;
             }
 
@@ -279,7 +279,7 @@ static class PackageList
         }
         catch (JsonException ex)
         {
-            errors.Add($"{source}: JSON nicht lesbar: {ex.Message}");
+            errors.Add($"{source}: JSON not readable: {ex.Message}");
         }
 
         return result;
@@ -303,15 +303,17 @@ static partial class Inventory
     private static bool IsIgnoredPublishFile(string name) =>
         name.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase) ||
         name.EndsWith(".dbg", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("pagewing", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("pagewing.exe", StringComparison.OrdinalIgnoreCase);
+        name.Equals("raffica", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("raffica.exe", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("RafficaPdf", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("RafficaPdf.exe", StringComparison.OrdinalIgnoreCase);
 
     public static List<Entry>? LoadManifest(Paths paths, List<string> errors)
     {
         var where = paths.Display(paths.Manifest);
         if (!File.Exists(paths.Manifest))
         {
-            errors.Add($"{where}: Datei fehlt");
+            errors.Add($"{where}: file missing");
             return null;
         }
 
@@ -328,13 +330,13 @@ static partial class Inventory
                 var kind = Str(e, "kind");
                 if (id.Length == 0 || Str(e, "version").Length == 0 || Str(e, "license").Length == 0 || Str(e, "licenseFile").Length == 0)
                 {
-                    errors.Add($"{label}: id, version, license und licenseFile sind Pflicht");
+                    errors.Add($"{label}: id, version, license and licenseFile are required");
                     continue;
                 }
 
                 if (!Kinds.Contains(kind, StringComparer.Ordinal))
                 {
-                    errors.Add($"{label}: unbekannte kind \"{kind}\" (erlaubt: {string.Join(", ", Kinds)})");
+                    errors.Add($"{label}: unknown kind \"{kind}\" (allowed: {string.Join(", ", Kinds)})");
                     continue;
                 }
 
@@ -349,7 +351,7 @@ static partial class Inventory
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            errors.Add($"{where}: nicht lesbar: {ex.Message}");
+            errors.Add($"{where}: not readable: {ex.Message}");
             return null;
         }
     }
@@ -376,7 +378,7 @@ static partial class Inventory
                     : [];
                 if (files.Count == 0)
                 {
-                    errors.Add($"{where}: Eintrag {entry.Id}: Lizenzordner {spec} fehlt oder ist leer");
+                    errors.Add($"{where}: entry {entry.Id}: licence folder {spec} is missing or empty");
                 }
 
                 result.AddRange(files);
@@ -386,7 +388,7 @@ static partial class Inventory
             var full = paths.Resolve(spec);
             if (!File.Exists(full) || new FileInfo(full).Length == 0)
             {
-                errors.Add($"{where}: Eintrag {entry.Id}: Lizenzdatei {spec} fehlt oder ist leer");
+                errors.Add($"{where}: entry {entry.Id}: licence file {spec} is missing or empty");
                 continue;
             }
 
@@ -435,7 +437,7 @@ static partial class Inventory
         {
             if (!nuget.TryAdd(e.Id, e))
             {
-                errors.Add($"{where}: Eintrag {e.Id} kommt mehrfach vor");
+                errors.Add($"{where}: entry {e.Id} appears several times");
             }
         }
 
@@ -443,13 +445,13 @@ static partial class Inventory
         {
             if (!nuget.TryGetValue(package.Id, out var entry))
             {
-                errors.Add($"{where}: Paket {package.Id} {package.Version} fehlt im Manifest");
+                errors.Add($"{where}: package {package.Id} {package.Version} is missing in the manifest");
                 continue;
             }
 
             if (!VersionMatches(entry, package.Version))
             {
-                errors.Add($"{where}: Paket {package.Id}: Manifest hat Version {entry.Version}, das Projekt {package.Version}");
+                errors.Add($"{where}: package {package.Id}: manifest has version {entry.Version}, the project {package.Version}");
             }
 
             CheckNuspec(input.NuGetCache, package, entry, where, errors);
@@ -459,7 +461,7 @@ static partial class Inventory
         {
             if (!input.Packages.Any(p => string.Equals(p.Id, e.Id, StringComparison.OrdinalIgnoreCase)))
             {
-                errors.Add($"{where}: Eintrag {e.Id} gehoert zu keinem Paket von App oder CLI");
+                errors.Add($"{where}: entry {e.Id} belongs to no package of the app or the CLI");
             }
         }
 
@@ -478,14 +480,14 @@ static partial class Inventory
 
         foreach (var (file, ids) in owners.Where(o => o.Value.Count > 1))
         {
-            errors.Add($"{where}: Datei {file} gehoert zu mehreren Eintraegen: {string.Join(", ", ids)}");
+            errors.Add($"{where}: file {file} belongs to several entries: {string.Join(", ", ids)}");
         }
 
         foreach (var dir in input.PublishDirs)
         {
             if (!Directory.Exists(dir))
             {
-                errors.Add($"{dir}: Publish-Ordner nicht gefunden");
+                errors.Add($"{dir}: publish folder not found");
                 continue;
             }
 
@@ -494,7 +496,7 @@ static partial class Inventory
                 var relative = Path.GetRelativePath(dir, full).Replace('\\', '/');
                 if (!IsIgnoredPublishFile(Path.GetFileName(full)) && !owners.ContainsKey(relative))
                 {
-                    errors.Add($"{dir.TrimEnd('/', '\\')}/{relative}: Datei gehoert zu keinem Eintrag in {where} (files)");
+                    errors.Add($"{dir.TrimEnd('/', '\\')}/{relative}: file belongs to no entry in {where} (files)");
                 }
             }
         }
@@ -508,11 +510,11 @@ static partial class Inventory
         {
             if (!File.Exists(paths.Notices))
             {
-                errors.Add($"{notices}: fehlt (dotnet run tools/licenses.cs -- generate)");
+                errors.Add($"{notices}: missing (dotnet run tools/licenses.cs -- generate)");
             }
             else if (File.ReadAllText(paths.Notices).Replace("\r\n", "\n", StringComparison.Ordinal) != text)
             {
-                errors.Add($"{notices}: veraltet (dotnet run tools/licenses.cs -- generate)");
+                errors.Add($"{notices}: outdated (dotnet run tools/licenses.cs -- generate)");
             }
         }
 
@@ -525,7 +527,7 @@ static partial class Inventory
         var nuspec = Path.Combine(cache, id, package.Version.ToLowerInvariant(), id + ".nuspec");
         if (!File.Exists(nuspec))
         {
-            errors.Add($"{nuspec}: nuspec nicht gefunden (dotnet restore?), SPDX von {package.Id} nicht pruefbar");
+            errors.Add($"{nuspec}: nuspec not found (dotnet restore?), SPDX of {package.Id} cannot be checked");
             return;
         }
 
@@ -535,12 +537,12 @@ static partial class Inventory
         {
             if (expression.Groups[1].Value != entry.License)
             {
-                errors.Add($"{where}: Paket {package.Id}: Manifest hat Lizenz {entry.License}, die nuspec {expression.Groups[1].Value}");
+                errors.Add($"{where}: package {package.Id}: manifest has licence {entry.License}, the nuspec {expression.Groups[1].Value}");
             }
         }
         else if (!NuspecFile().IsMatch(xml))
         {
-            errors.Add($"{nuspec}: weder SPDX-Ausdruck noch Lizenzdatei in der nuspec, Lizenz von {package.Id} bitte pruefen");
+            errors.Add($"{nuspec}: neither an SPDX expression nor a licence file in the nuspec, please check the licence of {package.Id}");
         }
 
         // A nuspec with type="file" has no SPDX expression to compare; the manifest value stands (see third-party/*/README.md).
@@ -551,7 +553,7 @@ static partial class Inventory
         var props = paths.Display(paths.PackageProps);
         if (!File.Exists(paths.PackageProps))
         {
-            errors.Add($"{props}: Datei fehlt");
+            errors.Add($"{props}: file missing");
             return;
         }
 
@@ -559,7 +561,7 @@ static partial class Inventory
             .ToDictionary(m => m.Groups["id"].Value, m => m.Groups["v"].Value, StringComparer.OrdinalIgnoreCase);
         if (versions.Count < 2 || versions.Values.Distinct().Count() != 1)
         {
-            errors.Add($"{props}: die bblanchon.PDFium.*-Pakete brauchen dieselbe Version ({string.Join(", ", versions.Select(v => $"{v.Key} {v.Value}"))})");
+            errors.Add($"{props}: the bblanchon.PDFium.* packages need the same version ({string.Join(", ", versions.Select(v => $"{v.Key} {v.Value}"))})");
             return;
         }
 
@@ -569,11 +571,11 @@ static partial class Inventory
             var entry = manifest.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));
             if (entry is null)
             {
-                errors.Add($"{where}: Eintrag {id} fehlt");
+                errors.Add($"{where}: entry {id} is missing");
             }
             else if (entry.Version != expected)
             {
-                errors.Add($"{where}: Eintrag {id} hat Version {entry.Version}, {props} hat {expected}");
+                errors.Add($"{where}: entry {id} has version {entry.Version}, {props} has {expected}");
             }
         }
     }
@@ -602,18 +604,18 @@ static partial class Inventory
         var before = errors.Count;
         var sb = new StringBuilder();
         sb.Append("Hinweise zu Drittsoftware / Third-party notices\n\n");
-        sb.Append("Pagewing steht unter der GPL-3.0-or-later. Es enthaelt oder nutzt die folgenden Komponenten unter ihren eigenen Lizenzen.\n");
-        sb.Append("Pagewing is licensed under the GPL-3.0-or-later. It includes or uses the following components under their own licences.\n\n");
+        sb.Append("Raffica PDF steht unter der GPL-3.0-or-later. Es enthaelt oder nutzt die folgenden Komponenten unter ihren eigenen Lizenzen.\n");
+        sb.Append("Raffica PDF is licensed under the GPL-3.0-or-later. It includes or uses the following components under their own licences.\n\n");
 
         sb.Append("====\n");
-        sb.Append("Pagewing\nGPL-3.0-or-later\n\n");
+        sb.Append("Raffica PDF\nGPL-3.0-or-later\n\n");
         if (File.Exists(paths.OwnLicense) && new FileInfo(paths.OwnLicense).Length > 0)
         {
             sb.Append(ReadText(paths.OwnLicense));
         }
         else
         {
-            errors.Add($"{paths.Display(paths.OwnLicense)}: Datei fehlt oder ist leer");
+            errors.Add($"{paths.Display(paths.OwnLicense)}: file missing or empty");
         }
 
         // Entries sharing SPDX and licence files form one section: the text appears once, with all members above it.
@@ -665,7 +667,7 @@ static class SelfTest
     {
         public Fixture()
         {
-            Dir = Path.Combine(Path.GetTempPath(), "pagewing-licenses-selftest-" + Guid.NewGuid().ToString("N"));
+            Dir = Path.Combine(Path.GetTempPath(), "raffica-licenses-selftest-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Dir);
             Write("LICENSE", "GPL TEXT\nline two\n");
             Write("third-party/lib/LICENSE", "MIT TEXT\n");
@@ -677,8 +679,8 @@ static class SelfTest
             Write("cache/bar.native/2.0.0/bar.native.nuspec", NuspecFile);
             Write("cache/bblanchon.pdfium.linux/1.2.3/bblanchon.pdfium.linux.nuspec", NuspecApache);
             Write("cache/bblanchon.pdfium.win32/1.2.3/bblanchon.pdfium.win32.nuspec", NuspecApache);
-            Write("publish/Pagewing", "exe");
-            Write("publish/Pagewing.pdb", "pdb");
+            Write("publish/RafficaPdf", "exe");
+            Write("publish/RafficaPdf.pdb", "pdb");
             Write("publish/libbar.so", "native");
             Write("publish/libpdfium.so", "native");
             WriteManifest(Manifest());
@@ -745,97 +747,97 @@ static class SelfTest
         _ = args;
         using (var f = new Fixture())
         {
-            Expect("vollstaendiger Satz: keine Fehler", string.Join(" | ", f.Check()), string.Empty);
-            Expect("ohne Publish-Ordner (anderes OS) keine Fehler", f.Check(false).Count, 0);
-            Expect("Paketnamen ohne Beachtung der Schreibung", f.Check().Count, 0);
+            Expect("complete set: no errors", string.Join(" | ", f.Check()), string.Empty);
+            Expect("without a publish folder (another OS) no errors", f.Check(false).Count, 0);
+            Expect("package names are case-insensitive", f.Check().Count, 0);
         }
 
-        Case("fehlender Manifest-Eintrag nennt Manifest und Paket", f =>
+        Case("missing manifest entry names manifest and package", f =>
         {
             f.WriteManifest(Fixture.Manifest(withBar: false));
             f.Generate();
-        }, "third-party/licenses.json: Paket Bar.Native 2.0.0 fehlt im Manifest");
+        }, "third-party/licenses.json: package Bar.Native 2.0.0 is missing in the manifest");
 
-        Case("falsche Version nennt beide Versionen", f =>
+        Case("wrong version names both versions", f =>
         {
             f.WriteManifest(Fixture.Manifest(fooVersion: "0.9.0"));
             f.Generate();
-        }, "Paket Foo: Manifest hat Version 0.9.0, das Projekt 1.0.0");
+        }, "package Foo: manifest has version 0.9.0, the project 1.0.0");
 
         using (var f = new Fixture())
         {
             f.WriteManifest(Fixture.Manifest(fooVersion: "1.0.5").Replace("\"id\": \"Foo\", ", "\"id\": \"Foo\", \"sdkVersion\": true, ", StringComparison.Ordinal));
             f.Generate();
-            Expect("sdkVersion: anderer Patchstand ist erlaubt", string.Join(" | ", f.Check()), string.Empty);
+            Expect("sdkVersion: another patch level is allowed", string.Join(" | ", f.Check()), string.Empty);
         }
 
-        Case("sdkVersion: andere Nebenversion faellt durch", f =>
+        Case("sdkVersion: another minor version fails", f =>
         {
             f.WriteManifest(Fixture.Manifest(fooVersion: "1.1.0").Replace("\"id\": \"Foo\", ", "\"id\": \"Foo\", \"sdkVersion\": true, ", StringComparison.Ordinal));
             f.Generate();
-        }, "Paket Foo: Manifest hat Version 1.1.0, das Projekt 1.0.0");
+        }, "package Foo: manifest has version 1.1.0, the project 1.0.0");
 
-        Case("SPDX-Abweichung zur nuspec", f =>
+        Case("SPDX mismatch with the nuspec", f =>
         {
             f.WriteManifest(Fixture.Manifest(fooLicense: "Apache-2.0"));
             f.Generate();
-        }, "Paket Foo: Manifest hat Lizenz Apache-2.0, die nuspec MIT");
+        }, "package Foo: manifest has licence Apache-2.0, the nuspec MIT");
 
-        Case("native Datei ohne Besitzer nennt Publish-Pfad", f => f.Write("publish/libnew.so", "x"),
-            "publish/libnew.so: Datei gehoert zu keinem Eintrag");
+        Case("native file without an owner names the publish path", f => f.Write("publish/libnew.so", "x"),
+            "publish/libnew.so: file belongs to no entry");
 
-        Case("native Datei in Unterordner ohne Besitzer", f => f.Write("publish/sub/libnew.so", "x"),
-            "publish/sub/libnew.so: Datei gehoert zu keinem Eintrag");
+        Case("native file in a subfolder without an owner", f => f.Write("publish/sub/libnew.so", "x"),
+            "publish/sub/libnew.so: file belongs to no entry");
 
-        Case("veraltete Hinweisdatei", f => File.AppendAllText(f.Paths.Notices, "x"),
-            "src/Pagewing.App/Resources/ThirdPartyNotices.txt: veraltet");
+        Case("outdated notices file", f => File.AppendAllText(f.Paths.Notices, "x"),
+            "src/Raffica.Pdf/Resources/ThirdPartyNotices.txt: outdated");
 
-        Case("fehlende Hinweisdatei", f => File.Delete(f.Paths.Notices),
-            "src/Pagewing.App/Resources/ThirdPartyNotices.txt: fehlt");
+        Case("missing notices file", f => File.Delete(f.Paths.Notices),
+            "src/Raffica.Pdf/Resources/ThirdPartyNotices.txt: missing");
 
-        Case("Hinweisdatei mit CRLF gilt als aktuell", f => File.WriteAllText(f.Paths.Notices, File.ReadAllText(f.Paths.Notices).Replace("\n", "\r\n", StringComparison.Ordinal)),
+        Case("notices file with CRLF counts as up to date", f => File.WriteAllText(f.Paths.Notices, File.ReadAllText(f.Paths.Notices).Replace("\n", "\r\n", StringComparison.Ordinal)),
             null);
 
-        Case("leere Lizenzdatei", f => f.Write("third-party/lib/LICENSE", string.Empty),
-            "Lizenzdatei third-party/lib/LICENSE fehlt oder ist leer");
+        Case("empty licence file", f => f.Write("third-party/lib/LICENSE", string.Empty),
+            "licence file third-party/lib/LICENSE is missing or empty");
 
-        Case("fehlende Lizenzdatei", f => File.Delete(Path.Combine(f.Dir, "third-party", "lib", "LICENSE")),
-            "Lizenzdatei third-party/lib/LICENSE fehlt oder ist leer");
+        Case("missing licence file", f => File.Delete(Path.Combine(f.Dir, "third-party", "lib", "LICENSE")),
+            "licence file third-party/lib/LICENSE is missing or empty");
 
-        Case("PDFium-Version im Manifest weicht ab", f =>
+        Case("PDFium version in the manifest differs", f =>
         {
             f.WriteManifest(Fixture.Manifest(pdfiumWin: "1.2.2"));
             f.Generate();
-        }, "Eintrag bblanchon.PDFium.Win32 hat Version 1.2.2, Directory.Packages.props hat 1.2.3");
+        }, "entry bblanchon.PDFium.Win32 has version 1.2.2, Directory.Packages.props has 1.2.3");
 
-        Case("PDFium-Pakete mit verschiedenen Versionen", f => f.Write("Directory.Packages.props", Fixture.Props("1.2.3", "1.2.4")),
-            "Directory.Packages.props: die bblanchon.PDFium.*-Pakete brauchen dieselbe Version");
+        Case("PDFium packages with different versions", f => f.Write("Directory.Packages.props", Fixture.Props("1.2.3", "1.2.4")),
+            "Directory.Packages.props: the bblanchon.PDFium.* packages need the same version");
 
-        Case("Datei gehoert zwei Eintraegen", f =>
+        Case("file belongs to two entries", f =>
         {
             f.WriteManifest(Fixture.Manifest().Replace("\"files\": [\"pdfium.dll\"]", "\"files\": [\"pdfium.dll\", \"libbar.so\"]", StringComparison.Ordinal));
             f.Generate();
-        }, "Datei libbar.so gehoert zu mehreren Eintraegen: Bar.Native, bblanchon.PDFium.Win32");
+        }, "file libbar.so belongs to several entries: Bar.Native, bblanchon.PDFium.Win32");
 
-        Case("nuspec fehlt im Cache", f => Directory.Delete(Path.Combine(f.Cache, "foo"), true),
-            "foo.nuspec: nuspec nicht gefunden");
+        Case("nuspec missing in the cache", f => Directory.Delete(Path.Combine(f.Cache, "foo"), true),
+            "foo.nuspec: nuspec not found");
 
-        Case("Eintrag ohne Paket", f => f.Packages.RemoveAt(0),
-            "Eintrag Foo gehoert zu keinem Paket von App oder CLI");
+        Case("entry without a package", f => f.Packages.RemoveAt(0),
+            "entry Foo belongs to no package of the app or the CLI");
 
-        Case("Manifest fehlt", f => File.Delete(Path.Combine(f.Dir, "third-party", "licenses.json")),
-            "third-party/licenses.json: Datei fehlt");
+        Case("manifest missing", f => File.Delete(Path.Combine(f.Dir, "third-party", "licenses.json")),
+            "third-party/licenses.json: file missing");
 
-        Case("unbekannte kind", f => f.WriteManifest(Fixture.Manifest().Replace("\"runtime\"", "\"magic\"", StringComparison.Ordinal)),
-            "unbekannte kind \"magic\"");
+        Case("unknown kind", f => f.WriteManifest(Fixture.Manifest().Replace("\"runtime\"", "\"magic\"", StringComparison.Ordinal)),
+            "unknown kind \"magic\"");
 
         Rendering();
         PackageJson();
         EndToEnd();
 
         Console.WriteLine(s_failures == 0
-            ? $"selftest: {s_checks} Pruefungen bestanden."
-            : $"selftest: {s_failures} von {s_checks} Pruefungen fehlgeschlagen.");
+            ? $"selftest: {s_checks} checks passed."
+            : $"selftest: {s_failures} of {s_checks} checks failed.");
         return s_failures == 0 ? 0 : 1;
     }
 
@@ -854,7 +856,7 @@ static class SelfTest
             Expect(name, errors.Any(e => e.Contains(expected, StringComparison.Ordinal)), true);
             if (!errors.Any(e => e.Contains(expected, StringComparison.Ordinal)))
             {
-                Console.Error.WriteLine($"  Fehler waren: {string.Join(" | ", errors)}");
+                Console.Error.WriteLine($"  Errors were: {string.Join(" | ", errors)}");
             }
         }
     }
@@ -864,31 +866,31 @@ static class SelfTest
         using var f = new Fixture();
         var text = File.ReadAllText(f.Paths.Notices);
         var firstSection = text.IndexOf("====\n", StringComparison.Ordinal);
-        Expect("Pagewing steht als erster Abschnitt", text[firstSection..].StartsWith("====\nPagewing\nGPL-3.0-or-later\n", StringComparison.Ordinal), true);
-        Expect("Lizenztext von Pagewing enthalten", text.Contains("GPL TEXT", StringComparison.Ordinal), true);
-        Expect("Ordner-Lizenzen (a.txt, b.txt) enthalten", text.Contains("ALPHA", StringComparison.Ordinal) && text.Contains("BETA", StringComparison.Ordinal), true);
-        Expect("gleiche Lizenz erscheint einmal (PDFium Linux und Win32)", text.Split("PDFIUM BUILD LICENSE").Length - 1, 1);
-        Expect("beide PDFium-Pakete stehen im Abschnitt", text.Contains("bblanchon.PDFium.Linux 1.2.3\nbblanchon.PDFium.Win32 1.2.3\nApache-2.0", StringComparison.Ordinal), true);
-        Expect("shipped=false steht nicht in den Hinweisen", text.Contains("BuildOnly", StringComparison.Ordinal), false);
-        Expect("Hinweisdatei endet mit Trenner", text.EndsWith("====\n", StringComparison.Ordinal), true);
+        Expect("Raffica PDF is the first section", text[firstSection..].StartsWith("====\nRaffica PDF\nGPL-3.0-or-later\n", StringComparison.Ordinal), true);
+        Expect("licence text of Raffica PDF included", text.Contains("GPL TEXT", StringComparison.Ordinal), true);
+        Expect("folder licences (a.txt, b.txt) included", text.Contains("ALPHA", StringComparison.Ordinal) && text.Contains("BETA", StringComparison.Ordinal), true);
+        Expect("the same licence appears once (PDFium Linux and Win32)", text.Split("PDFIUM BUILD LICENSE").Length - 1, 1);
+        Expect("both PDFium packages are in the section", text.Contains("bblanchon.PDFium.Linux 1.2.3\nbblanchon.PDFium.Win32 1.2.3\nApache-2.0", StringComparison.Ordinal), true);
+        Expect("shipped=false is not in the notices", text.Contains("BuildOnly", StringComparison.Ordinal), false);
+        Expect("notices file ends with a separator", text.EndsWith("====\n", StringComparison.Ordinal), true);
 
         // Latin-1 licence text (FreeType in the PDFium archive) is decoded, not turned into U+FFFD.
         File.WriteAllBytes(Path.Combine(f.Dir, "third-party", "pdfium", "licenses", "a.txt"), [0x4D, 0xFC, 0x6C, 0x6C, 0x65, 0x72, 0x0A]);
         var errors = new List<string>();
         var rendered = Inventory.Render(f.Paths, Inventory.LoadManifest(f.Paths, errors)!, errors);
-        Expect("ISO-8859-1-Lizenz wird gelesen", rendered?.Contains("Müller", StringComparison.Ordinal) ?? false, true);
-        Expect("Ausgabe ohne Ersatzzeichen", rendered?.Contains('\uFFFD') ?? true, false);
+        Expect("ISO-8859-1 licence is read", rendered?.Contains("Müller", StringComparison.Ordinal) ?? false, true);
+        Expect("output without replacement characters", rendered?.Contains('\uFFFD') ?? true, false);
     }
 
     private static void PackageJson()
     {
         var errors = new List<string>();
-        var json = "Warnung\n{ \"projects\": [ { \"frameworks\": [ { \"topLevelPackages\": [ { \"id\": \"A\", \"resolvedVersion\": \"1\" } ], " +
+        var json = "Warning\n{ \"projects\": [ { \"frameworks\": [ { \"topLevelPackages\": [ { \"id\": \"A\", \"resolvedVersion\": \"1\" } ], " +
                    "\"transitivePackages\": [ { \"id\": \"B\", \"resolvedVersion\": \"2\" } ] } ] } ] }";
         var packages = PackageList.Parse(json, "x", errors);
-        Expect("dotnet-list-JSON: oberste und transitive Pakete", string.Join(",", packages.Select(p => $"{p.Id} {p.Version}")), "A 1,B 2");
-        PackageList.Parse("kein json", "quelle.json", errors);
-        Expect("dotnet-list-JSON: Fehler nennt die Quelle", errors.Count == 1 && errors[0].StartsWith("quelle.json:", StringComparison.Ordinal), true);
+        Expect("dotnet-list JSON: top-level and transitive packages", string.Join(",", packages.Select(p => $"{p.Id} {p.Version}")), "A 1,B 2");
+        PackageList.Parse("no json", "source.json", errors);
+        Expect("dotnet-list JSON: the error names the source", errors.Count == 1 && errors[0].StartsWith("source.json:", StringComparison.Ordinal), true);
     }
 
     // The real commands on the fixture: exit codes and the written file.
@@ -907,23 +909,23 @@ static class SelfTest
         try
         {
             string[] common = ["--root", f.Dir, "--packages-json", json];
-            Expect("check Exit 0 auf dem vollstaendigen Satz", Cli.Run(["check", .. common, "--publish-dir", f.Publish]), 0);
+            Expect("check exit 0 on the complete set", Cli.Run(["check", .. common, "--publish-dir", f.Publish]), 0);
             File.Delete(f.Paths.Notices);
-            Expect("check Exit 1 ohne Hinweisdatei", Cli.Run(["check", .. common]), 1);
+            Expect("check exit 1 without a notices file", Cli.Run(["check", .. common]), 1);
             Expect("generate Exit 0", Cli.Run(["generate", "--root", f.Dir]), 0);
-            Expect("check Exit 0 nach generate", Cli.Run(["check", .. common, "--publish-dir", f.Publish]), 0);
+            Expect("check exit 0 after generate", Cli.Run(["check", .. common, "--publish-dir", f.Publish]), 0);
             f.Write("publish/libnew.so", "x");
-            Expect("check Exit 1 mit unbekannter nativer Datei", Cli.Run(["check", .. common, "--publish-dir", f.Publish]), 1);
-            Expect("check Exit 1 bei fehlendem Publish-Ordner", Cli.Run(["check", .. common, "--publish-dir", Path.Combine(f.Dir, "gibt-es-nicht")]), 1);
+            Expect("check exit 1 with an unknown native file", Cli.Run(["check", .. common, "--publish-dir", f.Publish]), 1);
+            Expect("check exit 1 with a missing publish folder", Cli.Run(["check", .. common, "--publish-dir", Path.Combine(f.Dir, "does-not-exist")]), 1);
         }
         finally
         {
             Environment.SetEnvironmentVariable("NUGET_PACKAGES", previous);
         }
 
-        Expect("unbekannter Befehl liefert 2", Cli.Run(["gibt-es-nicht"]), 2);
-        Expect("unbekannte Option liefert 2", Cli.Run(["check", "--nope"]), 2);
-        Expect("ohne Argumente liefert 2", Cli.Run([]), 2);
+        Expect("unknown command returns 2", Cli.Run(["does-not-exist"]), 2);
+        Expect("unknown option returns 2", Cli.Run(["check", "--nope"]), 2);
+        Expect("without arguments returns 2", Cli.Run([]), 2);
     }
 
     private static void Expect<T>(string name, T actual, T expected)
@@ -932,7 +934,7 @@ static class SelfTest
         if (!EqualityComparer<T>.Default.Equals(actual, expected))
         {
             s_failures++;
-            Console.Error.WriteLine($"selftest: {name}: erwartet {expected}, erhalten {actual}");
+            Console.Error.WriteLine($"selftest: {name}: expected {expected}, got {actual}");
         }
     }
 }

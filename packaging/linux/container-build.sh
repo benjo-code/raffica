@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds, packages and smoke-tests the Linux release files inside ubuntu:22.04, so that the binaries link against
-# glibc 2.35 (Docs/DECISIONS.md, entry "Mindest-glibc 2.35 und Bauweise der Linux-Pakete"). Called by release.yml:
+# glibc 2.35 (Docs/DECISIONS.md, entry "Raffica PDF: packaging and release (M2.6)"). Called by release.yml:
 #
 #   docker run --rm -v "$PWD:/work" -v "$DOTNET_INSTALL_DIR:/dotnet:ro" -w /work \
 #     -e VERSION -e DEBVERSION -e HOST_UID -e HOST_GID ubuntu:22.04 bash packaging/linux/container-build.sh
@@ -36,40 +36,41 @@ dotnet --version
 # that its reproducibility checks assume.
 dotnet run tools/licenses.cs -- selftest
 
-dotnet publish src/Pagewing.Cli -c Release -r linux-x64 -p:Version="$VERSION" -o out/cli
-dotnet publish src/Pagewing.App -c Release -r linux-x64 -p:Version="$VERSION" -o out/app
+dotnet publish src/Raffica.Cli -c Release -r linux-x64 -p:Version="$VERSION" -o out/cli
+dotnet publish src/Raffica.Pdf -c Release -r linux-x64 -p:Version="$VERSION" -o out/app
 
-dotnet run tools/smoke-cli.cs -- out/cli/pagewing
+dotnet run tools/smoke-cli.cs -- out/cli/raffica
 dotnet run tools/licenses.cs -- check --publish-dir out/app --publish-dir out/cli
 
-# The OCR library and the language data (SHA-256 pinned in tools/package.cs); the library is checked against the glibc floor like the rest.
-dotnet run tools/package.cs -- native-fetch --rid linux-x64 --out out/native
+# The OCR library and the language data were fetched on the host (release.yml, SHA-256 pinned in tools/native-fetch.cs); the
+# library is checked against the glibc floor like the rest.
+test -f out/native/libtesseract.so && test -f out/native/tessdata/eng.traineddata || { echo 'out/native is missing: run tools/native-fetch.cs on the host first' >&2; exit 1; }
 
 # Blocking: a binary that needs a newer glibc or libstdc++ than Ubuntu 22.04 offers must not be shipped.
-files=$(find out/app out/cli out/native -maxdepth 1 -type f \( -name Pagewing -o -name pagewing -o -name '*.so' -o -name '*.so.*' \) | sort)
+files=$(find out/app out/cli out/native -maxdepth 1 -type f \( -name RafficaPdf -o -name raffica -o -name '*.so' -o -name '*.so.*' \) | sort)
 echo "$files"
 # shellcheck disable=SC2086
-dotnet run tools/package.cs -- check-binary $files --max-glibc 2.35
+dotnet run tools/check-binary.cs -- $files --max-glibc 2.35
 
 dotnet run tools/package.cs -- layout --rid linux-x64 --app out/app --cli out/cli --out out/layout --native out/native
 
 # The first smoke test above has no OCR library next to the binary and only runs `ocr --dry-run`; the layout has the library and
 # tessdata/ as shipped, so this run does the real `ocr` on ocr-scan.pdf (a package whose library does not load fails here, not at the user).
-dotnet run tools/smoke-cli.cs -- out/layout/cli/pagewing
+dotnet run tools/smoke-cli.cs -- out/layout/cli/raffica
 
-dotnet run tools/package.cs -- deb --layout out/layout --version "$VERSION" --out "out/release/pagewing_${DEBVERSION}_amd64.deb"
-dotnet run tools/package.cs -- deb-smoke "out/release/pagewing_${DEBVERSION}_amd64.deb"
+dotnet run tools/package.cs -- deb --layout out/layout --version "$VERSION" --out "out/release/raffica-pdf_${DEBVERSION}_amd64.deb"
+dotnet run tools/package.cs -- deb-smoke "out/release/raffica-pdf_${DEBVERSION}_amd64.deb"
 
 dotnet run tools/package.cs -- runtime-fetch
-dotnet run tools/package.cs -- appimage --layout out/layout --version "$VERSION" --out "out/release/Pagewing-$VERSION-x86_64.AppImage"
-xvfb-run -a dotnet run tools/package.cs -- appimage-smoke "out/release/Pagewing-$VERSION-x86_64.AppImage"
+dotnet run tools/package.cs -- appimage --layout out/layout --version "$VERSION" --out "out/release/RafficaPdf-$VERSION-x86_64.AppImage"
+xvfb-run -a dotnet run tools/package.cs -- appimage-smoke "out/release/RafficaPdf-$VERSION-x86_64.AppImage"
 
 # libfuse inside the AppImage runtime is LGPL-2.1: its source and the runtime's build scripts go to the release too.
 dotnet run tools/package.cs -- runtime-sources --out out/release
 
 dotnet run tools/package.cs -- sums \
-  "out/release/pagewing_${DEBVERSION}_amd64.deb" \
-  "out/release/Pagewing-$VERSION-x86_64.AppImage" \
+  "out/release/raffica-pdf_${DEBVERSION}_amd64.deb" \
+  "out/release/RafficaPdf-$VERSION-x86_64.AppImage" \
   out/release/fuse-3.15.0.tar.xz \
   out/release/type2-runtime-20251108.tar.gz \
   --out out/release/SHA256SUMS-linux.txt

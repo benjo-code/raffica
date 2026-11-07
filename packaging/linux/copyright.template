@@ -1,21 +1,21 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Pagewing
-Source: https://github.com/benjo-code/Pagewing
+Upstream-Name: Raffica
+Source: https://github.com/benjo-code/raffica
 Comment: The program binaries bundle third-party components (the .NET runtime,
  Avalonia, SkiaSharp, HarfBuzz, PDFium with FreeType, ICU, libjpeg-turbo and
- others). Their licence texts are in /usr/lib/pagewing/THIRD-PARTY-NOTICES.txt.
+ others). Their licence texts are in /usr/lib/raffica-pdf/THIRD-PARTY-NOTICES.txt.
 
 Files: *
-Copyright: 2026 Pagewing contributors
+Copyright: 2026 Raffica contributors
 License: GPL-3+
 
-Files: usr/lib/pagewing/*
-Copyright: 2026 Pagewing contributors
+Files: usr/lib/raffica-pdf/*
+Copyright: 2026 Raffica contributors
  Copyright holders of the bundled third-party components
 License: GPL-3+ and Bundled-third-party
-Comment: Pagewing itself is GPL-3.0-or-later. The bundled components keep their
+Comment: Raffica PDF itself is GPL-3.0-or-later. The bundled components keep their
  own licences, mainly MIT, BSD-3-Clause, Apache-2.0 and OFL-1.1 (for the
- Geist font).
+ bundled fonts).
 
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify it
@@ -32,6 +32,6 @@ License: GPL-3+
  version 3 can be found in /usr/share/common-licenses/GPL-3.
 
 License: Bundled-third-party
- The third-party components bundled in /usr/lib/pagewing are distributed
+ The third-party components bundled in /usr/lib/raffica-pdf are distributed
  under their own licences. The complete licence texts and copyright notices
- are in /usr/lib/pagewing/THIRD-PARTY-NOTICES.txt.
+ are in /usr/lib/raffica-pdf/THIRD-PARTY-NOTICES.txt.

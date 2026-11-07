@@ -1,4 +1,4 @@
-Package: pagewing
+Package: raffica-pdf
 Version: @VERSION@
 Architecture: amd64
 Maintainer: @MAINTAINER@
@@ -7,10 +7,10 @@ Depends: libc6 (>= 2.35), libfontconfig1, libx11-6, libice6, libsm6, libssl3 | l
 Recommends: libcups2, xdg-utils
 Section: graphics
 Priority: optional
-Homepage: https://github.com/benjo-code/Pagewing
+Homepage: https://github.com/benjo-code/raffica
 Description: Fast, offline PDF viewer
- Pagewing is a fast, open-source PDF viewer. It works offline and collects
+ Raffica PDF is a fast, open-source PDF viewer. It works offline and collects
  no telemetry; the only network access is an update check against the
  project's GitHub releases, which can be switched off in the settings.
  .
- The package also installs the pagewing command-line tool.
+ The package also installs the raffica command-line tool.
