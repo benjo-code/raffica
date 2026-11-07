@@ -311,6 +311,17 @@ internal sealed partial class PdfWindow
         }
     }
 
+    /// <summary>
+    /// Ends the app for an installer that took over (the update flow asked about every unsaved tab before it called the installer): the window will not ask again, and
+    /// <paramref name="shutdown"/> ends the application on the UI thread. Never throws.
+    /// </summary>
+    internal void EndForUpdate(Action shutdown)
+    {
+        ArgumentNullException.ThrowIfNull(shutdown);
+        _closeConfirmed = true;
+        Dispatcher.UIThread.Post(shutdown);
+    }
+
     private string SessionPath() => Path.Combine(PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile), SessionStore.FileName);
 
     // The session of the restart: the open files with their view, the active tab. Written only after the last answer of the question about unsaved tabs.
@@ -319,6 +330,8 @@ internal sealed partial class PdfWindow
         var tabs = Workspace.Tabs.Where(tab => !string.IsNullOrEmpty(tab.Path)).ToList();
         if (tabs.Count == 0)
         {
+            // Nothing to restore: a session file of an earlier attempt must not come back.
+            new SessionStore(SessionPath()).Delete();
             return;
         }
 

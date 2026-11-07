@@ -32,6 +32,18 @@ internal sealed class PdfOptions
     public RegistrationScope? UnregisterFileTypes { get; private init; }
 
     /// <summary>
+    /// The staging folder of an update (<c>--finish-update &lt;staging&gt;</c>): this process is the helper of the Windows updater, which installs the update from that folder,
+    /// shows its progress and ends; it runs before the instance check and never opens the normal window.
+    /// </summary>
+    public string? FinishUpdate { get; private init; }
+
+    /// <summary>The process to wait for before anything else (<c>--after-process &lt;id&gt;</c>): the app that started the helper or the new program after an update.</summary>
+    public int? AfterProcess { get; private init; }
+
+    /// <summary>True for <c>--restore-session</c>: the start after an update opens the tabs of the session file once and deletes the file.</summary>
+    public bool RestoreSession { get; private init; }
+
+    /// <summary>
     /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
     /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll …</c>) or
     /// <c>--measure-memory</c> (also <c>memory-bytes …</c>); null for a normal run. See <see cref="Measurement"/>.
@@ -40,6 +52,28 @@ internal sealed class PdfOptions
 
     /// <summary>True for a measurement run.</summary>
     public bool IsMeasuring => MeasureSwitch is not null;
+
+    /// <summary>The same options with other files to open (the session of an update restarts the tabs this way).</summary>
+    public PdfOptions WithFiles(IReadOnlyList<string> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return new PdfOptions
+        {
+            MeasureSwitch = MeasureSwitch,
+            Files = files,
+            Lang = Lang,
+            Theme = Theme,
+            ThemeGiven = ThemeGiven,
+            HighContrast = HighContrast,
+            SettingsFile = SettingsFile,
+            PrintString = PrintString,
+            RegisterFileTypes = RegisterFileTypes,
+            UnregisterFileTypes = UnregisterFileTypes,
+            FinishUpdate = FinishUpdate,
+            AfterProcess = AfterProcess,
+            RestoreSession = RestoreSession,
+        };
+    }
 
     public static PdfOptions Parse(string[] args)
     {
@@ -53,6 +87,9 @@ internal sealed class PdfOptions
         string? printString = null;
         RegistrationScope? register = null;
         RegistrationScope? unregister = null;
+        string? finishUpdate = null;
+        int? afterProcess = null;
+        var restoreSession = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -84,6 +121,22 @@ internal sealed class PdfOptions
                     break;
                 case "--print-string":
                     printString = Value(args, ref i);
+                    break;
+                case "--finish-update":
+                    finishUpdate = Value(args, ref i);
+                    if (string.IsNullOrWhiteSpace(finishUpdate))
+                    {
+                        throw new ArgumentException("the switch '--finish-update' needs the staging folder");
+                    }
+
+                    break;
+                case "--after-process":
+                    afterProcess = int.TryParse(Value(args, ref i), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var processId) && processId > 0
+                        ? processId
+                        : throw new ArgumentException("the switch '--after-process' needs a process id");
+                    break;
+                case "--restore-session":
+                    restoreSession = true;
                     break;
                 case var other when other.StartsWith("--register-file-types", StringComparison.Ordinal):
                     register = Scope(other, "--register-file-types");
@@ -138,6 +191,9 @@ internal sealed class PdfOptions
             PrintString = printString,
             RegisterFileTypes = register,
             UnregisterFileTypes = unregister,
+            FinishUpdate = finishUpdate,
+            AfterProcess = afterProcess,
+            RestoreSession = restoreSession,
         };
     }
 

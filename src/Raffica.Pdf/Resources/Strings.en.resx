@@ -3231,4 +3231,16 @@
   <data name="UpdateBusyNote" xml:space="preserve">
     <value>A file is being saved, printed or processed. Wait until it has finished, then choose Install again. Nothing was changed.</value>
   </data>
+  <data name="UpdateFailureFolderWriteProtectedFormat" xml:space="preserve">
+    <value>The folder {0} is write-protected, so Raffica cannot replace itself there. Nothing was changed. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateFailureNotStarted" xml:space="preserve">
+    <value>The new version is installed, but it could not be started. It starts the next time you open Raffica.</value>
+  </data>
+  <data name="UpdateFailureVersionMismatch" xml:space="preserve">
+    <value>The installer finished, but the installed program is not the new version yet. Files may have been replaced. Try again, or restart your computer and open Raffica.</value>
+  </data>
+  <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
+    <value>The installer did not finish, or the permission prompt was declined. Files may have been replaced. Try again, or get the new version from the download page.</value>
+  </data>
 </root>

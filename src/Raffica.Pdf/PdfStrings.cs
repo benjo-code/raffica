@@ -725,6 +725,10 @@ internal static class PdfStrings
     public static string UpdateFailureStorage => Table.Get("UpdateFailureStorage");
     public static string UpdateFailureNoInstaller => Table.Get("UpdateFailureNoInstaller");
     public static string UpdateFailureInstallFailed => Table.Get("UpdateFailureInstallFailed");
+    public static string UpdateFailureFolderWriteProtectedFormat => Table.Get("UpdateFailureFolderWriteProtectedFormat");
+    public static string UpdateFailureNotStarted => Table.Get("UpdateFailureNotStarted");
+    public static string UpdateFailureVersionMismatch => Table.Get("UpdateFailureVersionMismatch");
+    public static string UpdateFailureHelperInstallFailed => Table.Get("UpdateFailureHelperInstallFailed");
     public static string UnsavedRedactTitle => Table.Get("UnsavedRedactTitle");
     public static string UnsavedRedactMessageFormat => Table.Get("UnsavedRedactMessageFormat");
     public static string UnsavedRedactApply => Table.Get("UnsavedRedactApply");
