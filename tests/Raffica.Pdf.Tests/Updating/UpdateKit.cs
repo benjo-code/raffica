@@ -47,6 +47,36 @@ internal sealed class ThrowingSource : IUpdateSource
     }
 }
 
+/// <summary>
+/// A release source whose download writes the .part file and then waits until its token is cancelled (a download that hangs or is cancelled), removing the .part
+/// file before it throws, as <see cref="IUpdateSource"/> promises. The manifests come from the fake source.
+/// </summary>
+internal sealed class HangingDownloadSource(IUpdateSource manifests) : IUpdateSource
+{
+    private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Completes when the download has begun and its .part file exists.</summary>
+    public Task Entered => _entered.Task;
+
+    public Task<UpdateDocuments?> FetchManifestAsync(CancellationToken ct) => manifests.FetchManifestAsync(ct);
+
+    public async Task<bool> DownloadAsync(UpdateVersion version, UpdateFile file, string destinationPath, IProgress<long> bytesReceived, CancellationToken ct)
+    {
+        var part = destinationPath + ".part";
+        await File.WriteAllBytesAsync(part, new byte[100], ct);
+        _entered.TrySetResult();
+        try
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            return false;
+        }
+        finally
+        {
+            File.Delete(part);
+        }
+    }
+}
+
 /// <summary>A config folder, a fake release source with a manual clock, and flows over them.</summary>
 internal sealed class UpdateKit : IDisposable
 {

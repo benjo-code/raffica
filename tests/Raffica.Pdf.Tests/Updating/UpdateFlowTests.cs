@@ -351,6 +351,57 @@ public sealed class UpdateFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task CancelStopsTheDownloadAndRemovesTheStagingFolderAndThePartFile()
+    {
+        _kit.Release("0.2.0");
+        var source = new HangingDownloadSource(_kit.Source);
+        using var flow = _kit.Flow(source: source);
+        await flow.CheckNowAsync(Ct);
+
+        var staging = _kit.StagingOf("0.2.0");
+        var download = flow.DownloadAndStageAsync(Ct);
+        await source.Entered.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.True(Directory.Exists(staging));
+        Assert.Single(Directory.EnumerateFiles(staging), path => path.EndsWith(".part", StringComparison.Ordinal));
+        Assert.Equal(UpdateStage.Downloading, flow.State.Stage);
+
+        flow.Cancel();
+        await download.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        // Back to the offer: nothing staged, no folder, no .part, the running version never touched.
+        Assert.Equal(UpdateStage.Available, flow.State.Stage);
+        Assert.Equal(new UpdateVersion(0, 2, 0), flow.State.Version);
+        Assert.Null(flow.Staged);
+        Assert.False(Directory.Exists(staging));
+        Assert.Equal(0, _kit.Applier.Calls);
+    }
+
+    [Fact]
+    public async Task ADownloadWithoutABytePastTheStallTimeoutFailsAsUnreachableAndLeavesNothing()
+    {
+        _kit.Release("0.2.0");
+        var source = new HangingDownloadSource(_kit.Source);
+        using var flow = _kit.Flow(source: source);
+        await flow.CheckNowAsync(Ct);
+        var staging = _kit.StagingOf("0.2.0");
+
+        var download = flow.DownloadAndStageAsync(Ct);
+        await source.Entered.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        // The clock of the flow drives the limit: just under it nothing happens, past it the download counts as failed.
+        _kit.Clock.Advance(UpdateFlow.DownloadStallTimeout - TimeSpan.FromSeconds(1));
+        await Task.Delay(100, Ct);
+        Assert.False(download.IsCompleted);
+        _kit.Clock.Advance(TimeSpan.FromSeconds(2));
+        await download.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.Equal(UpdateStage.Failed, flow.State.Stage);
+        Assert.Equal(UpdateFailure.Unreachable, flow.State.Error);
+        Assert.True(flow.CanRetry);
+        Assert.False(Directory.Exists(staging));
+    }
+
+    [Fact]
     public async Task DisposingTheFlowDeletesAStagedUpdateNobodyInstalled()
     {
         _kit.Release("0.2.0");

@@ -175,6 +175,69 @@ public sealed class GitHubUpdateSourceTests : IDisposable
         Assert.Empty(Directory.EnumerateFileSystemEntries(_folder));
     }
 
+    [Fact]
+    public async Task CancellingMidStreamLeavesNoPartFileAndNoFile()
+    {
+        var file = new UpdateFile(UpdateFileKinds.WindowsSetup, "RafficaPdf-0.2.0-win-x64-setup.exe", 5000, new string('a', 64));
+        var target = Path.Combine(_folder, file.Name);
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+
+        // 1000 bytes arrive, then the stream waits until it is cancelled.
+        using var source = Source(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StallingStream(1000)) });
+        var progress = new Progress<long>(bytes =>
+        {
+            if (bytes >= 1000)
+            {
+                cancel.Cancel();
+            }
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => source.DownloadAsync(new UpdateVersion(0, 2, 0), file, target, progress, cancel.Token));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder));
+    }
+
+    private sealed class StallingStream(int first) : Stream
+    {
+        private bool _gave;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!_gave)
+            {
+                _gave = true;
+                var n = Math.Min(first, buffer.Length);
+                buffer.Span[..n].Clear();
+                return n;
+            }
+
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     // A readable stream of the given length whose content length is not known to the HTTP content (a chunked answer).
     private sealed class LimitlessStream(long length) : Stream
     {
