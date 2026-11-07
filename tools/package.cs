@@ -3690,6 +3690,9 @@ static class SelfTest
             Regex.IsMatch(File.ReadAllText(container), @"\|\s*head\b"), false);
         Expect("container: container-build.sh does not start the self-test of the packaging tool",
             File.ReadAllText(container).Contains("package.cs -- selftest", StringComparison.Ordinal), false);
+        // libSkiaSharp.so needs libfontconfig.so.1 (as ElfRules.AllowedNeeded says); tools/check-binary.cs has a shorter allow-list.
+        Expect("container: the check-binary call allows libfontconfig.so.1 (libSkiaSharp.so needs it)",
+            Regex.IsMatch(File.ReadAllText(container), @"check-binary\.cs -- .*--allow-needed libfontconfig\.so\.1"), true);
     }
 
     private static void PackagingCommands()

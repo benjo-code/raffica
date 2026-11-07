@@ -49,8 +49,9 @@ test -f out/native/libtesseract.so && test -f out/native/tessdata/eng.traineddat
 # Blocking: a binary that needs a newer glibc or libstdc++ than Ubuntu 22.04 offers must not be shipped.
 files=$(find out/app out/cli out/native -maxdepth 1 -type f \( -name RafficaPdf -o -name raffica -o -name '*.so' -o -name '*.so.*' \) | sort)
 echo "$files"
+# libSkiaSharp.so needs libfontconfig.so.1: the .deb depends on libfontconfig1 and the AppImage takes it from the host (same exception as ElfRules in tools/package.cs).
 # shellcheck disable=SC2086
-dotnet run tools/check-binary.cs -- $files --max-glibc 2.35
+dotnet run tools/check-binary.cs -- $files --max-glibc 2.35 --allow-needed libfontconfig.so.1
 
 dotnet run tools/package.cs -- layout --rid linux-x64 --app out/app --cli out/cli --out out/layout --native out/native
 

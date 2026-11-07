@@ -1,7 +1,8 @@
 #:property PublishAot=false
 
 // Checks the dependencies of a Linux shared library: the highest GLIBC and GLIBCXX version it needs and its NEEDED libraries.
-//   dotnet run tools/check-binary.cs -- <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30]
+//   dotnet run tools/check-binary.cs -- <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]...
+// --allow-needed adds one NEEDED library to the allow-list for this run (the release build allows libfontconfig.so.1 of Skia).
 // Reads the dynamic symbols and the program headers with objdump (package binutils). Used by the workflow native-tesseract.yml.
 using System.Diagnostics;
 using System.Globalization;
@@ -104,7 +105,7 @@ static partial class ElfRules
 
     // Returns the violations for one file, given the objdump -T and objdump -p outputs.
     public static List<string> Violations(string dynamicSymbols, string programHeaders, int[] max, string maxText,
-        string maxGlibcxxText = DefaultMaxGlibcxx)
+        string maxGlibcxxText = DefaultMaxGlibcxx, IReadOnlyCollection<string>? extraAllowedNeeded = null)
     {
         var problems = new List<string>();
         var highest = HighestGlibc(dynamicSymbols, out var version);
@@ -121,7 +122,7 @@ static partial class ElfRules
 
         foreach (var name in Needed(programHeaders))
         {
-            if (!AllowedNeeded.Contains(name, StringComparer.Ordinal))
+            if (!AllowedNeeded.Contains(name, StringComparer.Ordinal) && extraAllowedNeeded?.Contains(name, StringComparer.Ordinal) != true)
             {
                 problems.Add($"NEEDED library not allowed: {name}");
             }
@@ -136,6 +137,7 @@ static class CheckBinary
     public static int Run(string[] args)
     {
         var files = new List<string>();
+        var extraAllowed = new List<string>();
         var maxText = ElfRules.DefaultMaxGlibc;
         var maxCxxText = ElfRules.DefaultMaxGlibcxx;
         for (var i = 0; i < args.Length; i++)
@@ -147,6 +149,10 @@ static class CheckBinary
             else if (args[i] == "--max-glibcxx" && i + 1 < args.Length)
             {
                 maxCxxText = args[++i];
+            }
+            else if (args[i] == "--allow-needed" && i + 1 < args.Length)
+            {
+                extraAllowed.Add(args[++i]);
             }
             else if (args[i].StartsWith("--", StringComparison.Ordinal))
             {
@@ -161,7 +167,7 @@ static class CheckBinary
 
         if (files.Count == 0 || !ElfRules.TryParseVersion(maxText, out var max) || !ElfRules.TryParseVersion(maxCxxText, out _))
         {
-            Console.Error.WriteLine("usage: check-binary <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30]");
+            Console.Error.WriteLine("usage: check-binary <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]...");
             return 2;
         }
 
@@ -183,7 +189,7 @@ static class CheckBinary
                 continue;
             }
 
-            var problems = ElfRules.Violations(symbols, headers, max, maxText, maxCxxText);
+            var problems = ElfRules.Violations(symbols, headers, max, maxText, maxCxxText, extraAllowed);
             if (problems.Count == 0)
             {
                 Console.WriteLine($"{file}: ok");
