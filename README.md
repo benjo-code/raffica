@@ -2,7 +2,7 @@
 
 Raffica ("gust" in Italian) is a fast, open-source office suite for Windows, Linux and macOS: Raffica Office with Write, Sheets, Slides and PDF. It grows out of the PDF editor [Pagewing](https://github.com/benjo-code/Pagewing); speed (startup, opening, scrolling) is the core promise.
 
-**Status:** in development. The first app, **Raffica PDF**, is feature-complete on Windows and Linux: view, search, print, annotate, fill forms, add a visible signature, organize pages, redact, recognize text in scans (OCR) and correct lines of text; English and German. Write, Sheets and Slides do not exist yet. See [Docs/ROADMAP.md](Docs/ROADMAP.md). **No release has been published yet**, so there is nothing to download today; the sections below describe what the first release will contain.
+**Status:** in development. The first app, **Raffica PDF**, is feature-complete in the code for Windows and Linux: view, search, print, annotate, fill forms, add a visible signature, organize pages, redact, recognize text in scans (OCR) and correct lines of text; English and German. Write, Sheets and Slides do not exist yet. See [Docs/ROADMAP.md](Docs/ROADMAP.md). **No release has been published yet**, so there is nothing to download today; the sections below describe what the first release will contain. The Windows installer and ZIP were built and smoke-tested on one development machine; the Linux packages (`.deb`, AppImage) are described from the build scripts and have **not been built or smoke-tested yet** (open items in [packaging/README.md](packaging/README.md)).
 
 ## Install (Raffica PDF)
 
