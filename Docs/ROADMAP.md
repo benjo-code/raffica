@@ -33,7 +33,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.3 | Forms and signing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-3-forms-and-signing.md) | 2026-11-05 |
 | 2.4 | Organize pages | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | 2026-11-06 |
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | 2026-11-06 |
-| 2.6 | Packaging and release | 3 – Raffica PDF | ⬜ open | – | – |
+| 2.6 | Packaging and release | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -367,7 +367,7 @@ Goal: Content can be redacted for real, scans made searchable and text lines cor
 **Verified in the final review (2026-11-06, Windows):** `dotnet publish src/Raffica.Pdf/Raffica.Pdf.csproj -c Release -r win-x64 -p:NuGetAudit=false -o <empty folder>` ends with 0 warnings (Native AOT, the ILCompiler step compiled everything added in 2.5); the output is 68.5 MB without the `.pdb` files (`RafficaPdf.exe` 32.8 MB); `tesseract.dll`, `tessdata/eng.traineddata` and `tessdata/deu.traineddata` landed next to the exe; `RafficaPdf.exe --print-string TabView --lang de` printed `Ansicht` and `--lang en` printed `View`, both exit 0.
 
 ## Milestone 2.6 – Packaging and release
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.5
+**Status:** 🔵 in progress · **Plan:** [2026-11-07-milestone-02-6-packaging-and-release.md](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.5
 
 Goal: Installers, default-app registration and the updater exist for Windows and Linux, and the first release can be published on the owner's instruction.
 
