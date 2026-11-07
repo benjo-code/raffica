@@ -28,9 +28,9 @@ public sealed class SaveCardsTests
         "UnsavedLockedTitle", "UnsavedLockedMessageFormat", "UnsavedDiscard",
     ];
 
-    // Every text of the new-signature card and its hint (M2.3): found by name, so a new string is covered without a list to keep.
+    // Every text of the new-signature card and its hint (M2.3) and of the redaction (M2.5): found by name, so a new string is covered without a list to keep.
     private static readonly string[] SignatureKeys =
-        [.. typeof(PdfStrings).GetProperties().Where(p => p.PropertyType == typeof(string) && p.Name.StartsWith("Signature", StringComparison.Ordinal)).Select(p => p.Name)];
+        [.. typeof(PdfStrings).GetProperties().Where(p => p.PropertyType == typeof(string) && (p.Name.StartsWith("Signature", StringComparison.Ordinal) || p.Name.StartsWith("Redact", StringComparison.Ordinal))).Select(p => p.Name)];
 
     private sealed class Shown(Window window, Dialog card, ManualTime time) : IDisposable
     {
@@ -251,6 +251,30 @@ public sealed class SaveCardsTests
         Assert.True(s.Button("PART_Ok").IsFocused);
         s.Click("PART_Ok");
         Assert.Equal(1, done);
+    }
+
+    [AvaloniaFact]
+    public void TheRedactionCardAsksToApplyOrDiscard()
+    {
+        var closes = new List<CloseChoice>();
+        using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, kind: UnsavedKind.Redact, time: t));
+        Assert.Equal(PdfStrings.UnsavedRedactTitle, s.Card.Title);
+        Assert.Equal(["PART_Apply", "PART_Discard", "PART_Cancel"], s.ButtonNames);
+        Assert.Contains(PdfStrings.UnsavedRedactMessageFormat.Replace("{0}", "a.pdf", StringComparison.Ordinal), s.Texts);
+        s.Click("PART_Apply");
+        Assert.Equal([CloseChoice.Save], closes);
+    }
+
+    [AvaloniaFact]
+    public void TheRecognitionCardAsksToStopOrKeepGoing()
+    {
+        var closes = new List<CloseChoice>();
+        using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, kind: UnsavedKind.Ocr, time: t));
+        Assert.Equal(PdfStrings.UnsavedOcrTitle, s.Card.Title);
+        Assert.Equal(["PART_Cancel", "PART_Discard"], s.ButtonNames);
+        s.Time.Advance(400);
+        s.Click("PART_Discard");
+        Assert.Equal([CloseChoice.DontSave], closes);
     }
 
     [AvaloniaFact]

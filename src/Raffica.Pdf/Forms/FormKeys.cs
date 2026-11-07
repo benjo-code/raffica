@@ -22,14 +22,14 @@ internal sealed class FormKeys : IDisposable
     private readonly FormInteraction _interaction;
     private readonly DialogQueue _dialogs;
     private readonly Func<bool?> _fillAllowed;
-    private readonly Func<bool> _planOpen;
+    private readonly Func<string?> _lockReason;
     private readonly HashSet<Key> _down = [];
     private bool _disposed;
 
     /// <summary>Whether the handler took the last key it saw (it set <c>Handled</c> itself); a key it leaves alone is passed on. For tests.</summary>
     internal bool TookLastKey { get; private set; }
 
-    public FormKeys(PageView view, ToolState tools, FormSession forms, FormFocus focus, FormInteraction interaction, DialogQueue dialogs, Func<bool?>? fillAllowed = null, Func<bool>? planOpen = null)
+    public FormKeys(PageView view, ToolState tools, FormSession forms, FormFocus focus, FormInteraction interaction, DialogQueue dialogs, Func<bool?>? fillAllowed = null, Func<string?>? lockReason = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(tools);
@@ -44,7 +44,7 @@ internal sealed class FormKeys : IDisposable
         _interaction = interaction;
         _dialogs = dialogs;
         _fillAllowed = fillAllowed ?? (() => null);
-        _planOpen = planOpen ?? (() => false);
+        _lockReason = lockReason ?? (() => null);
 
         // Tunnel, so the keys are seen before the scrolling of the view (Space) and the focus navigation of the window (Tab); handled events too,
         // so a key another handler took still counts as down.
@@ -71,7 +71,7 @@ internal sealed class FormKeys : IDisposable
         _view.FocusedFieldName = null;
     }
 
-    private bool Live => !_disposed && _tools.Tool == AnnotateTool.None && _forms.HasForm && !_dialogs.IsOpen && _fillAllowed() != false && !_planOpen();
+    private bool Live => !_disposed && _tools.Tool == AnnotateTool.None && _forms.HasForm && !_dialogs.IsOpen && _fillAllowed() != false && _lockReason() is null;
 
     private void OnKeyUp(object? sender, KeyEventArgs e) => _down.Remove(e.Key);
 

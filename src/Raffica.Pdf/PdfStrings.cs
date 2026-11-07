@@ -616,6 +616,70 @@ internal static class PdfStrings
     public static string UnsavedPlanMessageFormat => Table.Get("UnsavedPlanMessageFormat");
     public static string UnsavedPlanApply => Table.Get("UnsavedPlanApply");
     public static string UnsavedPlanDiscard => Table.Get("UnsavedPlanDiscard");
+    public static string TabRedact => Table.Get("TabRedact");
+    public static string TabEdit => Table.Get("TabEdit");
+    public static string GroupMark => Table.Get("GroupMark");
+    public static string GroupLook => Table.Get("GroupLook");
+    public static string GroupScan => Table.Get("GroupScan");
+    public static string CmdRedactMode => Table.Get("CmdRedactMode");
+    public static string CmdRedactMarkSelection => Table.Get("CmdRedactMarkSelection");
+    public static string CmdRedactFind => Table.Get("CmdRedactFind");
+    public static string CmdRedactRasterPage => Table.Get("CmdRedactRasterPage");
+    public static string CmdRedactDeleteMarks => Table.Get("CmdRedactDeleteMarks");
+    public static string CmdRedactDiscard => Table.Get("CmdRedactDiscard");
+    public static string CmdRedactApply => Table.Get("CmdRedactApply");
+    public static string CmdOcrRun => Table.Get("CmdOcrRun");
+    public static string CmdOcrLanguages => Table.Get("CmdOcrLanguages");
+    public static string CmdOcrCancel => Table.Get("CmdOcrCancel");
+    public static string CmdTextEdit => Table.Get("CmdTextEdit");
+    public static string CmdTextEditDone => Table.Get("CmdTextEditDone");
+    public static string ModeAnnotateReason => Table.Get("ModeAnnotateReason");
+    public static string ModeFormsReason => Table.Get("ModeFormsReason");
+    public static string ModeRedactReason => Table.Get("ModeRedactReason");
+    public static string ModeOcrReason => Table.Get("ModeOcrReason");
+    public static string ModeTextEditReason => Table.Get("ModeTextEditReason");
+    public static string TextEditBadgeText => Table.Get("TextEditBadgeText");
+    public static string TextEditHintLine => Table.Get("TextEditHintLine");
+    public static string TextEditWholeRunSwitch => Table.Get("TextEditWholeRunSwitch");
+    public static string TextEditBarName => Table.Get("TextEditBarName");
+    public static string TextEditFieldName => Table.Get("TextEditFieldName");
+    public static string TextEditRunNameFormat => Table.Get("TextEditRunNameFormat");
+    public static string TextEditLockedRunNameFormat => Table.Get("TextEditLockedRunNameFormat");
+    public static string TextEditLockInvisibleText => Table.Get("TextEditLockInvisibleText");
+    public static string TextEditLockType3Font => Table.Get("TextEditLockType3Font");
+    public static string TextEditLockVerticalWriting => Table.Get("TextEditLockVerticalWriting");
+    public static string TextEditLockUnsupportedRenderMode => Table.Get("TextEditLockUnsupportedRenderMode");
+    public static string TextEditLockFormXObject => Table.Get("TextEditLockFormXObject");
+    public static string TextEditLockMarkedContent => Table.Get("TextEditLockMarkedContent");
+    public static string TextEditLockNotSavable => Table.Get("TextEditLockNotSavable");
+    public static string TextEditLockPageNotRewritable => Table.Get("TextEditLockPageNotRewritable");
+    public static string TextEditLockLigature => Table.Get("TextEditLockLigature");
+    public static string TextEditLockTooManyRunsFormat => Table.Get("TextEditLockTooManyRunsFormat");
+    public static string TextEditLockRunTooLongFormat => Table.Get("TextEditLockRunTooLongFormat");
+    public static string TextEditRejectTooLongFormat => Table.Get("TextEditRejectTooLongFormat");
+    public static string TextEditRejectUnsupportedFormat => Table.Get("TextEditRejectUnsupportedFormat");
+    public static string TextEditRejectUnsupportedNone => Table.Get("TextEditRejectUnsupportedNone");
+    public static string TextEditNoteMissingFormat => Table.Get("TextEditNoteMissingFormat");
+    public static string TextEditNoteWholeRun => Table.Get("TextEditNoteWholeRun");
+    public static string TextEditNoteEmpty => Table.Get("TextEditNoteEmpty");
+    public static string TextEditNoteUnchanged => Table.Get("TextEditNoteUnchanged");
+    public static string TextEditNoteOverlap => Table.Get("TextEditNoteOverlap");
+    public static string TextEditNoteOutsidePage => Table.Get("TextEditNoteOutsidePage");
+    public static string TextEditNoteDone => Table.Get("TextEditNoteDone");
+    public static string TextEditNoteStale => Table.Get("TextEditNoteStale");
+    public static string TextEditNoteWriteFailed => Table.Get("TextEditNoteWriteFailed");
+    public static string TextEditNoteHistoryFull => Table.Get("TextEditNoteHistoryFull");
+    public static string TextEditNoteFailed => Table.Get("TextEditNoteFailed");
+    public static string TextEditNotePageUnreadable => Table.Get("TextEditNotePageUnreadable");
+    public static string TextEditOldTextNote => Table.Get("TextEditOldTextNote");
+    public static string UnsavedRedactTitle => Table.Get("UnsavedRedactTitle");
+    public static string UnsavedRedactMessageFormat => Table.Get("UnsavedRedactMessageFormat");
+    public static string UnsavedRedactApply => Table.Get("UnsavedRedactApply");
+    public static string UnsavedRedactDiscard => Table.Get("UnsavedRedactDiscard");
+    public static string UnsavedOcrTitle => Table.Get("UnsavedOcrTitle");
+    public static string UnsavedOcrMessageFormat => Table.Get("UnsavedOcrMessageFormat");
+    public static string UnsavedOcrStop => Table.Get("UnsavedOcrStop");
+    public static string UnsavedOcrKeep => Table.Get("UnsavedOcrKeep");
     public static string SignatureNewTitle => Table.Get("SignatureNewTitle");
     public static string SignatureNewTabs => Table.Get("SignatureNewTabs");
     public static string SignatureNewTabDraw => Table.Get("SignatureNewTabDraw");
@@ -662,6 +726,431 @@ internal static class PdfStrings
     public static string SignaturePlaceTitle => Table.Get("SignaturePlaceTitle");
     public static string SignaturePlaceHistoryFull => Table.Get("SignaturePlaceHistoryFull");
     public static string SignaturePlaceFailed => Table.Get("SignaturePlaceFailed");
+    public static string PaneRedact => Table.Get("PaneRedact");
+    public static string RedactHint => Table.Get("RedactHint");
+    public static string RedactCounterNone => Table.Get("RedactCounterNone");
+    public static string RedactCounterMarksOne => Table.Get("RedactCounterMarksOne");
+    public static string RedactCounterMarksMany => Table.Get("RedactCounterMarksMany");
+    public static string RedactCounterPagesOne => Table.Get("RedactCounterPagesOne");
+    public static string RedactCounterPagesMany => Table.Get("RedactCounterPagesMany");
+    public static string RedactCounterJoinFormat => Table.Get("RedactCounterJoinFormat");
+    public static string RedactApplyButton => Table.Get("RedactApplyButton");
+    public static string RedactListName => Table.Get("RedactListName");
+    public static string RedactPageHeaderFormat => Table.Get("RedactPageHeaderFormat");
+    public static string RedactMarkNameFormat => Table.Get("RedactMarkNameFormat");
+    public static string RedactKindArea => Table.Get("RedactKindArea");
+    public static string RedactKindText => Table.Get("RedactKindText");
+    public static string RedactKindHit => Table.Get("RedactKindHit");
+    public static string RedactRowTextFormat => Table.Get("RedactRowTextFormat");
+    public static string RedactBadgeText => Table.Get("RedactBadgeText");
+    public static string RedactToolsName => Table.Get("RedactToolsName");
+    public static string RedactToolArea => Table.Get("RedactToolArea");
+    public static string RedactToolText => Table.Get("RedactToolText");
+    public static string RedactRefusalNothingSelected => Table.Get("RedactRefusalNothingSelected");
+    public static string RedactRefusalTextNotMarkable => Table.Get("RedactRefusalTextNotMarkable");
+    public static string RedactRefusalTooManyFormat => Table.Get("RedactRefusalTooManyFormat");
+    public static string RedactRefusalNotArea => Table.Get("RedactRefusalNotArea");
+    public static string RedactRefusalOutOfRange => Table.Get("RedactRefusalOutOfRange");
+    public static string RedactRefusalUnknownMark => Table.Get("RedactRefusalUnknownMark");
+    public static string RedactRefusalTextUnavailable => Table.Get("RedactRefusalTextUnavailable");
+    public static string RedactRefusalTooManyLinesFormat => Table.Get("RedactRefusalTooManyLinesFormat");
+    public static string RedactRefusalBusy => Table.Get("RedactRefusalBusy");
+    public static string RedactRefusalNotActive => Table.Get("RedactRefusalNotActive");
+    public static string RedactRefusalSearchIncomplete => Table.Get("RedactRefusalSearchIncomplete");
+    public static string RedactRefusalNothingToMark => Table.Get("RedactRefusalNothingToMark");
+    public static string RedactRefusalSearchRunning => Table.Get("RedactRefusalSearchRunning");
+    public static string RedactLookToggle => Table.Get("RedactLookToggle");
+    public static string RedactLookName => Table.Get("RedactLookName");
+    public static string RedactFillLabel => Table.Get("RedactFillLabel");
+    public static string RedactFillName => Table.Get("RedactFillName");
+    public static string RedactFillPresetFormat => Table.Get("RedactFillPresetFormat");
+    public static string RedactImageLabel => Table.Get("RedactImageLabel");
+    public static string RedactImageSolid => Table.Get("RedactImageSolid");
+    public static string RedactImagePixelate => Table.Get("RedactImagePixelate");
+    public static string RedactImageBlur => Table.Get("RedactImageBlur");
+    public static string RedactStrengthLabel => Table.Get("RedactStrengthLabel");
+    public static string RedactStrengthCoarse => Table.Get("RedactStrengthCoarse");
+    public static string RedactStrengthVeryCoarse => Table.Get("RedactStrengthVeryCoarse");
+    public static string RedactImageCaution => Table.Get("RedactImageCaution");
+    public static string RedactOverlayLabel => Table.Get("RedactOverlayLabel");
+    public static string RedactOverlayName => Table.Get("RedactOverlayName");
+    public static string RedactOverlayPlaceholder => Table.Get("RedactOverlayPlaceholder");
+    public static string RedactOverlayRepeat => Table.Get("RedactOverlayRepeat");
+    public static string RedactOverlayAutoSize => Table.Get("RedactOverlayAutoSize");
+    public static string RedactTextColorLabel => Table.Get("RedactTextColorLabel");
+    public static string RedactTextColorName => Table.Get("RedactTextColorName");
+    public static string RedactContrastWarningFormat => Table.Get("RedactContrastWarningFormat");
+    public static string RedactRasterLabel => Table.Get("RedactRasterLabel");
+    public static string RedactRasterPageFormat => Table.Get("RedactRasterPageFormat");
+    public static string RedactRasterCountOne => Table.Get("RedactRasterCountOne");
+    public static string RedactRasterCountManyFormat => Table.Get("RedactRasterCountManyFormat");
+    public static string RedactRasterDpiLabel => Table.Get("RedactRasterDpiLabel");
+    public static string RedactRasterDpiFormat => Table.Get("RedactRasterDpiFormat");
+    public static string RedactRasterHint => Table.Get("RedactRasterHint");
+    public static string RedactPreviewNote => Table.Get("RedactPreviewNote");
+    public static string RedactRefusalFillNotColour => Table.Get("RedactRefusalFillNotColour");
+    public static string RedactRefusalOverlayTooLongFormat => Table.Get("RedactRefusalOverlayTooLongFormat");
+    public static string RedactRefusalOverlayControl => Table.Get("RedactRefusalOverlayControl");
+    public static string RedactRefusalOverlayLetters => Table.Get("RedactRefusalOverlayLetters");
+    public static string RedactRefusalOverlaySymbols => Table.Get("RedactRefusalOverlaySymbols");
+    public static string RedactRefusalOverlayCharacters => Table.Get("RedactRefusalOverlayCharacters");
+    public static string RedactRefusalOverlayRepeats => Table.Get("RedactRefusalOverlayRepeats");
+    public static string RedactRefusalOverlayRepeatsOneFormat => Table.Get("RedactRefusalOverlayRepeatsOneFormat");
+    public static string RedactRefusalOverlayRepeatsManyFormat => Table.Get("RedactRefusalOverlayRepeatsManyFormat");
+    public static string RedactRefusalDpiNotOffered => Table.Get("RedactRefusalDpiNotOffered");
+    public static string RedactRefusalTooManyRasterFormat => Table.Get("RedactRefusalTooManyRasterFormat");
+    public static string RedactApplyTitle => Table.Get("RedactApplyTitle");
+    public static string RedactApplyJobTitleFormat => Table.Get("RedactApplyJobTitleFormat");
+    public static string RedactApplyCheckingTitleFormat => Table.Get("RedactApplyCheckingTitleFormat");
+    public static string RedactApplyRemovedHeading => Table.Get("RedactApplyRemovedHeading");
+    public static string RedactApplyWholeHeading => Table.Get("RedactApplyWholeHeading");
+    public static string RedactApplyRasterHeading => Table.Get("RedactApplyRasterHeading");
+    public static string RedactApplyImageHeading => Table.Get("RedactApplyImageHeading");
+    public static string RedactApplyOverlayHeading => Table.Get("RedactApplyOverlayHeading");
+    public static string RedactApplyCleanedHeading => Table.Get("RedactApplyCleanedHeading");
+    public static string RedactApplyLostHeading => Table.Get("RedactApplyLostHeading");
+    public static string RedactApplyNotCleanedHeading => Table.Get("RedactApplyNotCleanedHeading");
+    public static string RedactCountChars => Table.Get("RedactCountChars");
+    public static string RedactCountSplit => Table.Get("RedactCountSplit");
+    public static string RedactCountTextWhole => Table.Get("RedactCountTextWhole");
+    public static string RedactCountImagesOver => Table.Get("RedactCountImagesOver");
+    public static string RedactCountImagesWhole => Table.Get("RedactCountImagesWhole");
+    public static string RedactCountPathsCut => Table.Get("RedactCountPathsCut");
+    public static string RedactCountPathsWhole => Table.Get("RedactCountPathsWhole");
+    public static string RedactCountForms => Table.Get("RedactCountForms");
+    public static string RedactCountAnnots => Table.Get("RedactCountAnnots");
+    public static string RedactPageLineFormat => Table.Get("RedactPageLineFormat");
+    public static string RedactPageNothingFormat => Table.Get("RedactPageNothingFormat");
+    public static string RedactFallbackTextObject => Table.Get("RedactFallbackTextObject");
+    public static string RedactFallbackImage => Table.Get("RedactFallbackImage");
+    public static string RedactFallbackPath => Table.Get("RedactFallbackPath");
+    public static string RedactFallbackForm => Table.Get("RedactFallbackForm");
+    public static string RedactCleanAuthor => Table.Get("RedactCleanAuthor");
+    public static string RedactCleanTitle => Table.Get("RedactCleanTitle");
+    public static string RedactCleanSubject => Table.Get("RedactCleanSubject");
+    public static string RedactCleanKeywords => Table.Get("RedactCleanKeywords");
+    public static string RedactCleanCreator => Table.Get("RedactCleanCreator");
+    public static string RedactCleanProducer => Table.Get("RedactCleanProducer");
+    public static string RedactCleanXmpFormat => Table.Get("RedactCleanXmpFormat");
+    public static string RedactCleanBookmarksFormat => Table.Get("RedactCleanBookmarksFormat");
+    public static string RedactCleanAttachmentsFormat => Table.Get("RedactCleanAttachmentsFormat");
+    public static string RedactCleanJavaScriptFormat => Table.Get("RedactCleanJavaScriptFormat");
+    public static string RedactCleanLabelsFormat => Table.Get("RedactCleanLabelsFormat");
+    public static string RedactCleanNone => Table.Get("RedactCleanNone");
+    public static string RedactCleanIncomplete => Table.Get("RedactCleanIncomplete");
+    public static string RedactLossLinksFormat => Table.Get("RedactLossLinksFormat");
+    public static string RedactLossFormsFormat => Table.Get("RedactLossFormsFormat");
+    public static string RedactLossRgbFormat => Table.Get("RedactLossRgbFormat");
+    public static string RedactLossSignatureFormat => Table.Get("RedactLossSignatureFormat");
+    public static string RedactNotCleanedMeta => Table.Get("RedactNotCleanedMeta");
+    public static string RedactNotCleanedActions => Table.Get("RedactNotCleanedActions");
+    public static string RedactNotCleanedAnnots => Table.Get("RedactNotCleanedAnnots");
+    public static string RedactNotCleanedAttachFormat => Table.Get("RedactNotCleanedAttachFormat");
+    public static string RedactNotCleanedFormValues => Table.Get("RedactNotCleanedFormValues");
+    public static string RedactNotCleanedSignature => Table.Get("RedactNotCleanedSignature");
+    public static string RedactImgPixelatedFormat => Table.Get("RedactImgPixelatedFormat");
+    public static string RedactImgBlurredFormat => Table.Get("RedactImgBlurredFormat");
+    public static string RedactImgSolidFormat => Table.Get("RedactImgSolidFormat");
+    public static string RedactSolidTooSmall => Table.Get("RedactSolidTooSmall");
+    public static string RedactSolidTurned => Table.Get("RedactSolidTurned");
+    public static string RedactSolidClipped => Table.Get("RedactSolidClipped");
+    public static string RedactSolidOverlapping => Table.Get("RedactSolidOverlapping");
+    public static string RedactSolidUnreadable => Table.Get("RedactSolidUnreadable");
+    public static string RedactSolidTooMany => Table.Get("RedactSolidTooMany");
+    public static string RedactOverlayNotShownFormat => Table.Get("RedactOverlayNotShownFormat");
+    public static string RedactOverlayNotFitFormat => Table.Get("RedactOverlayNotFitFormat");
+    public static string RedactOverlayLimitFormat => Table.Get("RedactOverlayLimitFormat");
+    public static string RedactRasterInfoFormat => Table.Get("RedactRasterInfoFormat");
+    public static string RedactRasterLowered => Table.Get("RedactRasterLowered");
+    public static string RedactRasterInfoPlainFormat => Table.Get("RedactRasterInfoPlainFormat");
+    public static string RedactRescueHeading => Table.Get("RedactRescueHeading");
+    public static string RedactRescueIntro => Table.Get("RedactRescueIntro");
+    public static string RedactRescueTickFormat => Table.Get("RedactRescueTickFormat");
+    public static string RedactRescueBlocked => Table.Get("RedactRescueBlocked");
+    public static string RedactRefusedTitle => Table.Get("RedactRefusedTitle");
+    public static string RedactRefusedIntro => Table.Get("RedactRefusedIntro");
+    public static string RedactRefusedEncrypted => Table.Get("RedactRefusedEncrypted");
+    public static string RedactRefusedKeysFormat => Table.Get("RedactRefusedKeysFormat");
+    public static string RedactRefusedKeysUnverified => Table.Get("RedactRefusedKeysUnverified");
+    public static string RedactRefusedNotRedactableFormat => Table.Get("RedactRefusedNotRedactableFormat");
+    public static string RedactRefusedOverlayFormat => Table.Get("RedactRefusedOverlayFormat");
+    public static string RedactPageOneFormat => Table.Get("RedactPageOneFormat");
+    public static string RedactPageManyFormat => Table.Get("RedactPageManyFormat");
+    public static string RedactPagesNone => Table.Get("RedactPagesNone");
+    public static string RedactFailedTitle => Table.Get("RedactFailedTitle");
+    public static string RedactFailedIntro => Table.Get("RedactFailedIntro");
+    public static string RedactFailedNoCheck => Table.Get("RedactFailedNoCheck");
+    public static string RedactFailUnremovableFormat => Table.Get("RedactFailUnremovableFormat");
+    public static string RedactFailTextFormat => Table.Get("RedactFailTextFormat");
+    public static string RedactFailCharFormat => Table.Get("RedactFailCharFormat");
+    public static string RedactFailPixelFormat => Table.Get("RedactFailPixelFormat");
+    public static string RedactFailUnreadableFormat => Table.Get("RedactFailUnreadableFormat");
+    public static string RedactFailKeysFormat => Table.Get("RedactFailKeysFormat");
+    public static string RedactFailOutsideFormat => Table.Get("RedactFailOutsideFormat");
+    public static string RedactFailUnverifiableFormat => Table.Get("RedactFailUnverifiableFormat");
+    public static string RedactFailCleanupFormat => Table.Get("RedactFailCleanupFormat");
+    public static string RedactFailRasterFormat => Table.Get("RedactFailRasterFormat");
+    public static string RedactFailTreatmentFormat => Table.Get("RedactFailTreatmentFormat");
+    public static string RedactFailedWriteTitle => Table.Get("RedactFailedWriteTitle");
+    public static string RedactStays => Table.Get("RedactStays");
+    public static string RedactStaysAfterSave => Table.Get("RedactStaysAfterSave");
+    public static string RedactFailSourceModified => Table.Get("RedactFailSourceModified");
+    public static string RedactFailEncrypted => Table.Get("RedactFailEncrypted");
+    public static string RedactFailMarks => Table.Get("RedactFailMarks");
+    public static string RedactFailOpen => Table.Get("RedactFailOpen");
+    public static string RedactFailDamaged => Table.Get("RedactFailDamaged");
+    public static string RedactFailOther => Table.Get("RedactFailOther");
+    public static string RedactFailAdoptFormat => Table.Get("RedactFailAdoptFormat");
+    public static string RedactPlanChanged => Table.Get("RedactPlanChanged");
+    public static string RedactApplySuggestedNameFormat => Table.Get("RedactApplySuggestedNameFormat");
+    public static string RedactResultTitle => Table.Get("RedactResultTitle");
+    public static string RedactResultIntroFormat => Table.Get("RedactResultIntroFormat");
+    public static string RedactResRemovedHeading => Table.Get("RedactResRemovedHeading");
+    public static string RedactResCleanedHeading => Table.Get("RedactResCleanedHeading");
+    public static string RedactResLostHeading => Table.Get("RedactResLostHeading");
+    public static string RedactResCheckedHeading => Table.Get("RedactResCheckedHeading");
+    public static string RedactResNotCheckedHeading => Table.Get("RedactResNotCheckedHeading");
+    public static string RedactChkPageText => Table.Get("RedactChkPageText");
+    public static string RedactChkBytes => Table.Get("RedactChkBytes");
+    public static string RedactChkAreasSolid => Table.Get("RedactChkAreasSolid");
+    public static string RedactChkAreasTreated => Table.Get("RedactChkAreasTreated");
+    public static string RedactChkPagesAll => Table.Get("RedactChkPagesAll");
+    public static string RedactChkPagesInPlace => Table.Get("RedactChkPagesInPlace");
+    public static string RedactChkRasterFormat => Table.Get("RedactChkRasterFormat");
+    public static string RedactChkKeys => Table.Get("RedactChkKeys");
+    public static string RedactChkCleanup => Table.Get("RedactChkCleanup");
+    public static string RedactNcOther => Table.Get("RedactNcOther");
+    public static string RedactNcBlankFormat => Table.Get("RedactNcBlankFormat");
+    public static string RedactNcUnreadableCharsFormat => Table.Get("RedactNcUnreadableCharsFormat");
+    public static string RedactNcTruncatedFormat => Table.Get("RedactNcTruncatedFormat");
+    public static string RedactNcFurtherFormat => Table.Get("RedactNcFurtherFormat");
+    public static string RedactNcRawShortFormat => Table.Get("RedactNcRawShortFormat");
+    public static string RedactNcRawNothing => Table.Get("RedactNcRawNothing");
+    public static string RedactNcRawStillOccurFormat => Table.Get("RedactNcRawStillOccurFormat");
+    public static string RedactNcRawFilterFormat => Table.Get("RedactNcRawFilterFormat");
+    public static string RedactNcRawImageStreamsFormat => Table.Get("RedactNcRawImageStreamsFormat");
+    public static string RedactNcRawUnreadableFormat => Table.Get("RedactNcRawUnreadableFormat");
+    public static string RedactNcRawTooLargeFormat => Table.Get("RedactNcRawTooLargeFormat");
+    public static string RedactNcRawTotalFormat => Table.Get("RedactNcRawTotalFormat");
+    public static string RedactNcRawPredictorFormat => Table.Get("RedactNcRawPredictorFormat");
+    public static string RedactNcRawEncrypted => Table.Get("RedactNcRawEncrypted");
+    public static string RedactNcRawFontMapping => Table.Get("RedactNcRawFontMapping");
+    public static string RedactNcRawEncodings => Table.Get("RedactNcRawEncodings");
+    public static string RedactNcRawSplit => Table.Get("RedactNcRawSplit");
+    public static string RedactNcRawImageAttachments => Table.Get("RedactNcRawImageAttachments");
+    public static string RedactNcPixelsBeyondFormat => Table.Get("RedactNcPixelsBeyondFormat");
+    public static string RedactNcPixelsOnlyImages => Table.Get("RedactNcPixelsOnlyImages");
+    public static string RedactNcOtherViewer => Table.Get("RedactNcOtherViewer");
+    public static string RedactNcApplyRender => Table.Get("RedactNcApplyRender");
+    public static string RedactNcApplyRenderRasterFormat => Table.Get("RedactNcApplyRenderRasterFormat");
+    public static string RedactNcApplyPageKeys => Table.Get("RedactNcApplyPageKeys");
+    public static string RedactNcApplyXmp => Table.Get("RedactNcApplyXmp");
+    public static string RedactNcRasterOutsideFormat => Table.Get("RedactNcRasterOutsideFormat");
+    public static string RedactNcImageTextFormat => Table.Get("RedactNcImageTextFormat");
+    public static string RedactNcOverlayNotRead => Table.Get("RedactNcOverlayNotRead");
+    public static string RedactNcNoTermFormat => Table.Get("RedactNcNoTermFormat");
+    public static string RedactOriginalTitle => Table.Get("RedactOriginalTitle");
+    public static string RedactOriginalMessageFormat => Table.Get("RedactOriginalMessageFormat");
+    public static string RedactFailedHint => Table.Get("RedactFailedHint");
+    public static string RedactMarksOpen => Table.Get("RedactMarksOpen");
+    public static string RedactSaveFirstMessage => Table.Get("RedactSaveFirstMessage");
+    public static string RedactSaveFirstSaveAsMessage => Table.Get("RedactSaveFirstSaveAsMessage");
+    public static string FindPanelName => Table.Get("FindPanelName");
+    public static string FindTermName => Table.Get("FindTermName");
+    public static string FindSearchButton => Table.Get("FindSearchButton");
+    public static string FindCancelButton => Table.Get("FindCancelButton");
+    public static string FindMatchCase => Table.Get("FindMatchCase");
+    public static string FindWholeWords => Table.Get("FindWholeWords");
+    public static string FindPatternsMode => Table.Get("FindPatternsMode");
+    public static string FindKindEmail => Table.Get("FindKindEmail");
+    public static string FindKindIban => Table.Get("FindKindIban");
+    public static string FindKindPhone => Table.Get("FindKindPhone");
+    public static string FindKindCard => Table.Get("FindKindCard");
+    public static string FindKindCountFormat => Table.Get("FindKindCountFormat");
+    public static string FindCertaintyChecksumOk => Table.Get("FindCertaintyChecksumOk");
+    public static string FindCertaintyShapeOnly => Table.Get("FindCertaintyShapeOnly");
+    public static string FindCertaintyChecksumFailed => Table.Get("FindCertaintyChecksumFailed");
+    public static string FindGroupFormat => Table.Get("FindGroupFormat");
+    public static string FindPatternCaution => Table.Get("FindPatternCaution");
+    public static string FindEmptyTerm => Table.Get("FindEmptyTerm");
+    public static string FindRunning => Table.Get("FindRunning");
+    public static string FindCanceled => Table.Get("FindCanceled");
+    public static string FindFailed => Table.Get("FindFailed");
+    public static string FindNoMatches => Table.Get("FindNoMatches");
+    public static string FindMatchesOne => Table.Get("FindMatchesOne");
+    public static string FindMatchesMany => Table.Get("FindMatchesMany");
+    public static string FindIncompletePagesFormat => Table.Get("FindIncompletePagesFormat");
+    public static string FindIncompleteLimitFormat => Table.Get("FindIncompleteLimitFormat");
+    public static string FindAcknowledge => Table.Get("FindAcknowledge");
+    public static string FindAcknowledged => Table.Get("FindAcknowledged");
+    public static string FindPicturesOne => Table.Get("FindPicturesOne");
+    public static string FindPicturesInstruction => Table.Get("FindPicturesInstruction");
+    public static string FindPicturesManyFormat => Table.Get("FindPicturesManyFormat");
+    public static string FindMarkAll => Table.Get("FindMarkAll");
+    public static string FindMarkTicked => Table.Get("FindMarkTicked");
+    public static string FindAddFailed => Table.Get("FindAddFailed");
+    public static string FindNotSearchedToggle => Table.Get("FindNotSearchedToggle");
+    public static string FindNotSearchedName => Table.Get("FindNotSearchedName");
+    public static string FindListName => Table.Get("FindListName");
+    public static string FindHitName => Table.Get("FindHitName");
+    public static string FindHitRowFormat => Table.Get("FindHitRowFormat");
+    public static string FindHitHidden => Table.Get("FindHitHidden");
+    public static string FindHitNotMarkableFormat => Table.Get("FindHitNotMarkableFormat");
+    public static string FindMarkedOne => Table.Get("FindMarkedOne");
+    public static string FindMarkedManyFormat => Table.Get("FindMarkedManyFormat");
+    public static string FindMarkedNone => Table.Get("FindMarkedNone");
+    public static string FindNotSearched1 => Table.Get("FindNotSearched1");
+    public static string FindNotSearched2 => Table.Get("FindNotSearched2");
+    public static string FindNotSearched3 => Table.Get("FindNotSearched3");
+    public static string FindNotSearched4 => Table.Get("FindNotSearched4");
+    public static string FindNotSearched5 => Table.Get("FindNotSearched5");
+    public static string FindNotSearched6 => Table.Get("FindNotSearched6");
+    public static string FindNotSearched7 => Table.Get("FindNotSearched7");
+    public static string FindNotSearched8 => Table.Get("FindNotSearched8");
+    public static string FindNotMarkableNoArea => Table.Get("FindNotMarkableNoArea");
+    public static string FindNotMarkableTooManyLinesFormat => Table.Get("FindNotMarkableTooManyLinesFormat");
+    public static string FindNotMarkableWhiteSpace => Table.Get("FindNotMarkableWhiteSpace");
+    public static string FindNotMarkableTooLongFormat => Table.Get("FindNotMarkableTooLongFormat");
+    public static string FindNotMarkableNoBox => Table.Get("FindNotMarkableNoBox");
+    public static string FindTermTooLongFormat => Table.Get("FindTermTooLongFormat");
+    public static string FindNotMarkedOne => Table.Get("FindNotMarkedOne");
+    public static string FindNotMarkedManyFormat => Table.Get("FindNotMarkedManyFormat");
+    public static string FindNoMatchesIncomplete => Table.Get("FindNoMatchesIncomplete");
+
+    /// <summary>The counter of the redact pane: "4 marks on 2 pages", singular forms for one, and "No marks yet" for none.</summary>
+    public static string RedactCounter(int marks, int pages)
+    {
+        if (marks <= 0)
+        {
+            return RedactCounterNone;
+        }
+
+        var markText = marks == 1 ? RedactCounterMarksOne : RedactCounterMarksMany.Replace("{0}", marks.ToString(Culture), StringComparison.Ordinal);
+        var pageText = pages == 1 ? RedactCounterPagesOne : RedactCounterPagesMany.Replace("{0}", pages.ToString(Culture), StringComparison.Ordinal);
+        return RedactCounterJoinFormat.Replace("{0}", markText, StringComparison.Ordinal).Replace("{1}", pageText, StringComparison.Ordinal);
+    }
+
+    /// <summary>The certainty of a pattern hit in words.</summary>
+    public static string FindCertaintyText(Raffica.Core.Redaction.PatternCertainty certainty) => certainty switch
+    {
+        Raffica.Core.Redaction.PatternCertainty.ChecksumOk => FindCertaintyChecksumOk,
+        Raffica.Core.Redaction.PatternCertainty.ShapeOnly => FindCertaintyShapeOnly,
+        _ => FindCertaintyChecksumFailed,
+    };
+
+    /// <summary>The name of a kind of pattern.</summary>
+    public static string FindKindText(Raffica.Core.Redaction.RedactionPatternKind kind) => kind switch
+    {
+        Raffica.Core.Redaction.RedactionPatternKind.Email => FindKindEmail,
+        Raffica.Core.Redaction.RedactionPatternKind.Iban => FindKindIban,
+        Raffica.Core.Redaction.RedactionPatternKind.Phone => FindKindPhone,
+        _ => FindKindCard,
+    };
+
+    /// <summary>"1 page is a picture; ..." for the pages the search cannot read text from.</summary>
+    public static string FindPictures(int pages) => pages == 1 ? FindPicturesOne : FindPicturesManyFormat.Replace("{0}", pages.ToString(Culture), StringComparison.Ordinal);
+
+    private static string Pick(string key, CultureInfo? culture) => culture is null ? Table.Get(key) : Table.GetIn(key, culture);
+
+    /// <summary>Why a hit cannot become a mark, in words (one text per <see cref="Raffica.Pdf.Redacting.NotMarkableKind"/>); the culture is the UI language when null.</summary>
+    public static string FindNotMarkableReason(Raffica.Pdf.Redacting.NotMarkableKind kind, CultureInfo? culture = null)
+    {
+        var format = culture ?? Culture;
+        return kind switch
+        {
+            Raffica.Pdf.Redacting.NotMarkableKind.NoArea => Pick("FindNotMarkableNoArea", culture),
+            Raffica.Pdf.Redacting.NotMarkableKind.TooManyLines => Pick("FindNotMarkableTooManyLinesFormat", culture).Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxAreasPerMark.ToString("N0", format), StringComparison.Ordinal),
+            Raffica.Pdf.Redacting.NotMarkableKind.WhiteSpace => Pick("FindNotMarkableWhiteSpace", culture),
+            Raffica.Pdf.Redacting.NotMarkableKind.TooLong => Pick("FindNotMarkableTooLongFormat", culture).Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxTermLength.ToString("N0", format), StringComparison.Ordinal),
+            Raffica.Pdf.Redacting.NotMarkableKind.NoBox => Pick("FindNotMarkableNoBox", culture),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "This reason has no text."),
+        };
+    }
+
+    /// <summary>The places the search never looks at, one line per line of <see cref="Raffica.Core.Redaction.RedactionSearch.NotSearched"/> in the same order.</summary>
+    public static IReadOnlyList<string> FindNotSearchedLines(CultureInfo? culture = null) =>
+        [.. Enumerable.Range(1, FindNotSearchedCount).Select(i => Pick("FindNotSearched" + i.ToString(CultureInfo.InvariantCulture), culture))];
+
+    /// <summary>The number of lines of the table behind <see cref="FindNotSearchedLines"/>.</summary>
+    public const int FindNotSearchedCount = 8;
+
+    /// <summary>The note for a term that is longer than a term can be.</summary>
+    public static string FindTermTooLong(CultureInfo? culture = null) =>
+        Pick("FindTermTooLongFormat", culture).Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxTermLength.ToString("N0", culture ?? Culture), StringComparison.Ordinal);
+
+    /// <summary>What a marking did: "N marks added." or "These matches are marked already.", then how many could not be marked.</summary>
+    public static string FindMarked(int added, int notMarkable)
+    {
+        var text = added == 0 ? FindMarkedNone : added == 1 ? FindMarkedOne : FindMarkedManyFormat.Replace("{0}", added.ToString(Culture), StringComparison.Ordinal);
+        if (notMarkable > 0)
+        {
+            text += " " + (notMarkable == 1 ? FindNotMarkedOne : FindNotMarkedManyFormat.Replace("{0}", notMarkable.ToString(Culture), StringComparison.Ordinal));
+        }
+
+        return text;
+    }
+
+    /// <summary>"1 match" or "N matches".</summary>
+    public static string FindMatches(int count) => count == 1 ? FindMatchesOne : FindMatchesMany.Replace("{0}", count.ToString(Culture), StringComparison.Ordinal);
+
+    /// <summary>Why the redact session refused an operation, in the UI language (one text per <see cref="Raffica.Pdf.Redacting.RedactProblem"/> value).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string RedactRefusal(Raffica.Pdf.Redacting.RedactProblem problem) => problem switch
+    {
+        Raffica.Pdf.Redacting.RedactProblem.NotActive => RedactRefusalNotActive,
+        Raffica.Pdf.Redacting.RedactProblem.NothingSelected => RedactRefusalNothingSelected,
+        Raffica.Pdf.Redacting.RedactProblem.TextNotMarkable => RedactRefusalTextNotMarkable,
+        Raffica.Pdf.Redacting.RedactProblem.TooManyMarks => RedactRefusalTooManyFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxMarks.ToString("N0", Culture), StringComparison.Ordinal),
+        Raffica.Pdf.Redacting.RedactProblem.NotAnArea => RedactRefusalNotArea,
+        Raffica.Pdf.Redacting.RedactProblem.OutOfRange => RedactRefusalOutOfRange,
+        Raffica.Pdf.Redacting.RedactProblem.UnknownMark => RedactRefusalUnknownMark,
+        Raffica.Pdf.Redacting.RedactProblem.TextUnavailable => RedactRefusalTextUnavailable,
+        Raffica.Pdf.Redacting.RedactProblem.TooManyLines => RedactRefusalTooManyLinesFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxAreasPerMark.ToString("N0", Culture), StringComparison.Ordinal),
+        Raffica.Pdf.Redacting.RedactProblem.Busy => RedactRefusalBusy,
+        Raffica.Pdf.Redacting.RedactProblem.SearchIncomplete => RedactRefusalSearchIncomplete,
+        Raffica.Pdf.Redacting.RedactProblem.NothingToMark => RedactRefusalNothingToMark,
+        Raffica.Pdf.Redacting.RedactProblem.SearchRunning => RedactRefusalSearchRunning,
+        Raffica.Pdf.Redacting.RedactProblem.FillNotAColour => RedactRefusalFillNotColour,
+        Raffica.Pdf.Redacting.RedactProblem.OverlayTooLong => RedactRefusalOverlayTooLongFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxOverlayTextLength.ToString("N0", Culture), StringComparison.Ordinal),
+        Raffica.Pdf.Redacting.RedactProblem.OverlayCharactersRefused => RedactRefusalOverlayCharacters,
+        Raffica.Pdf.Redacting.RedactProblem.OverlayRepeatsTerm => RedactRefusalOverlayRepeats,
+        Raffica.Pdf.Redacting.RedactProblem.DpiNotOffered => RedactRefusalDpiNotOffered,
+        Raffica.Pdf.Redacting.RedactProblem.TooManyRasterPages => RedactRefusalTooManyRasterFormat.Replace("{0}", Raffica.Core.Redaction.RedactionLimits.MaxRasterPages.ToString("N0", Culture), StringComparison.Ordinal),
+        _ => throw new ArgumentOutOfRangeException(nameof(problem), problem, "This redact problem has no text."),
+    };
+
+    /// <summary>
+    /// Why the redact session refused an operation, in the UI language; a refusal of overlay characters names the kind of the character
+    /// (never the character or the text).
+    /// </summary>
+    internal static string RedactRefusal(Raffica.Pdf.Redacting.RedactResult result)
+    {
+        if (result.Problem is not { } problem)
+        {
+            throw new ArgumentException("The result is not a refusal.", nameof(result));
+        }
+
+        if (problem == Raffica.Pdf.Redacting.RedactProblem.OverlayRepeatsTerm && result.Pages is { Count: > 0 } pages)
+        {
+            const int Shown = 10;
+            var named = string.Join(", ", pages.Take(Shown).Select(p => (p + 1).ToString(Culture)));
+            if (pages.Count > Shown)
+            {
+                named += ", …";
+            }
+
+            return (pages.Count == 1 ? RedactRefusalOverlayRepeatsOneFormat : RedactRefusalOverlayRepeatsManyFormat).Replace("{0}", named, StringComparison.Ordinal);
+        }
+
+        return problem == Raffica.Pdf.Redacting.RedactProblem.OverlayCharactersRefused && result.CharacterClass is { } kind
+            ? kind switch
+            {
+                Raffica.Pdf.Redacting.OverlayCharacterClass.Control => RedactRefusalOverlayControl,
+                Raffica.Pdf.Redacting.OverlayCharacterClass.Letters => RedactRefusalOverlayLetters,
+                _ => RedactRefusalOverlaySymbols,
+            }
+            : RedactRefusal(problem);
+    }
 
     /// <summary>The reason a save failed, in the UI language (one text per <see cref="SaveFailureReason"/> value); every text says the original file is unchanged.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
@@ -679,5 +1168,125 @@ internal static class PdfStrings
         SaveFailureReason.WriterNotSupported => SaveFailWriterNotSupported,
         SaveFailureReason.Canceled => SaveFailCanceled,
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "This save failure has no text."),
+    };
+
+    public static string OcrRecognizeTitle => Table.Get("OcrRecognizeTitle");
+    public static string OcrLanguagesHeading => Table.Get("OcrLanguagesHeading");
+    public static string OcrLanguageImportedFormat => Table.Get("OcrLanguageImportedFormat");
+    public static string OcrNoLanguages => Table.Get("OcrNoLanguages");
+    public static string OcrSlowWarning => Table.Get("OcrSlowWarning");
+    public static string OcrLanguageRefusalTooManyFormat => Table.Get("OcrLanguageRefusalTooManyFormat");
+    public static string OcrLanguageRefusalNotInstalled => Table.Get("OcrLanguageRefusalNotInstalled");
+    public static string OcrPagesHeading => Table.Get("OcrPagesHeading");
+    public static string OcrPagesAll => Table.Get("OcrPagesAll");
+    public static string OcrPagesCurrentFormat => Table.Get("OcrPagesCurrentFormat");
+    public static string OcrPagesRange => Table.Get("OcrPagesRange");
+    public static string OcrPagesRangeLabel => Table.Get("OcrPagesRangeLabel");
+    public static string OcrModeHeading => Table.Get("OcrModeHeading");
+    public static string OcrModeSkip => Table.Get("OcrModeSkip");
+    public static string OcrModeRedo => Table.Get("OcrModeRedo");
+    public static string OcrModeForce => Table.Get("OcrModeForce");
+    public static string OcrResolutionHeading => Table.Get("OcrResolutionHeading");
+    public static string OcrResolutionAuto => Table.Get("OcrResolutionAuto");
+    public static string OcrResolutionFormat => Table.Get("OcrResolutionFormat");
+    public static string OcrAccuracyNote => Table.Get("OcrAccuracyNote");
+    public static string OcrSignedChange => Table.Get("OcrSignedChange");
+    public static string OcrRecognizeConfirm => Table.Get("OcrRecognizeConfirm");
+    public static string OcrNoLibraryReason => Table.Get("OcrNoLibraryReason");
+    public static string OcrFilesTitle => Table.Get("OcrFilesTitle");
+    public static string OcrFilesTrustWarning => Table.Get("OcrFilesTrustWarning");
+    public static string OcrFilesCopyNote => Table.Get("OcrFilesCopyNote");
+    public static string OcrFilesInstalledHeading => Table.Get("OcrFilesInstalledHeading");
+    public static string OcrFilesNone => Table.Get("OcrFilesNone");
+    public static string OcrFilesShippedFormat => Table.Get("OcrFilesShippedFormat");
+    public static string OcrFilesImportedFormat => Table.Get("OcrFilesImportedFormat");
+    public static string OcrFilesChoose => Table.Get("OcrFilesChoose");
+    public static string OcrFilesPickTitle => Table.Get("OcrFilesPickTitle");
+    public static string OcrFilesFilter => Table.Get("OcrFilesFilter");
+    public static string OcrReplaceTitle => Table.Get("OcrReplaceTitle");
+    public static string OcrReplaceMessageFormat => Table.Get("OcrReplaceMessageFormat");
+    public static string OcrReplaceConfirm => Table.Get("OcrReplaceConfirm");
+    public static string OcrReplaceKeep => Table.Get("OcrReplaceKeep");
+    public static string OcrImportTitle => Table.Get("OcrImportTitle");
+    public static string OcrImportDoneFormat => Table.Get("OcrImportDoneFormat");
+    public static string OcrImportInvalidName => Table.Get("OcrImportInvalidName");
+    public static string OcrImportNotAFile => Table.Get("OcrImportNotAFile");
+    public static string OcrImportEmpty => Table.Get("OcrImportEmpty");
+    public static string OcrImportTooLargeFormat => Table.Get("OcrImportTooLargeFormat");
+    public static string OcrImportAlreadyAddedFormat => Table.Get("OcrImportAlreadyAddedFormat");
+    public static string OcrImportFailed => Table.Get("OcrImportFailed");
+    public static string OcrBadgeText => Table.Get("OcrBadgeText");
+    public static string OcrBadgeProgressFormat => Table.Get("OcrBadgeProgressFormat");
+    public static string OcrHintFormat => Table.Get("OcrHintFormat");
+    public static string OcrAnnounceStart => Table.Get("OcrAnnounceStart");
+    public static string OcrAnnounceDoneFormat => Table.Get("OcrAnnounceDoneFormat");
+    public static string OcrAnnounceCanceled => Table.Get("OcrAnnounceCanceled");
+    public static string OcrAnnounceKeptFormat => Table.Get("OcrAnnounceKeptFormat");
+    public static string OcrAnnounceFailed => Table.Get("OcrAnnounceFailed");
+    public static string OcrScanHintText => Table.Get("OcrScanHintText");
+    public static string OcrScanHintRecognize => Table.Get("OcrScanHintRecognize");
+    public static string OcrScanHintNotNow => Table.Get("OcrScanHintNotNow");
+    public static string OcrScanHintNever => Table.Get("OcrScanHintNever");
+    public static string OcrScanHintName => Table.Get("OcrScanHintName");
+    public static string OcrKeepTitle => Table.Get("OcrKeepTitle");
+    public static string OcrKeepMessageFormat => Table.Get("OcrKeepMessageFormat");
+    public static string OcrKeepKeepFormat => Table.Get("OcrKeepKeepFormat");
+    public static string OcrKeepDiscard => Table.Get("OcrKeepDiscard");
+    public static string OcrFailTitle => Table.Get("OcrFailTitle");
+    public static string OcrFailLibraryUnusable => Table.Get("OcrFailLibraryUnusable");
+    public static string OcrFailLanguageInvalid => Table.Get("OcrFailLanguageInvalid");
+    public static string OcrFailLanguageMissingFormat => Table.Get("OcrFailLanguageMissingFormat");
+    public static string OcrFailLanguageMissingNone => Table.Get("OcrFailLanguageMissingNone");
+    public static string OcrFailDataCorrupt => Table.Get("OcrFailDataCorrupt");
+    public static string OcrFailFailed => Table.Get("OcrFailFailed");
+    public static string OcrFailApply => Table.Get("OcrFailApply");
+    public static string OcrReportTitle => Table.Get("OcrReportTitle");
+    public static string OcrReportCanceledTitle => Table.Get("OcrReportCanceledTitle");
+    public static string OcrReportSummaryFormat => Table.Get("OcrReportSummaryFormat");
+    public static string OcrReportWrittenFormat => Table.Get("OcrReportWrittenFormat");
+    public static string OcrReportLeftOutFormat => Table.Get("OcrReportLeftOutFormat");
+    public static string OcrReportKeptLayerFormat => Table.Get("OcrReportKeptLayerFormat");
+    public static string OcrReportNothingWritten => Table.Get("OcrReportNothingWritten");
+    public static string OcrReportSkippedLineFormat => Table.Get("OcrReportSkippedLineFormat");
+    public static string OcrReportLowFormat => Table.Get("OcrReportLowFormat");
+    public static string OcrReportEmptyFormat => Table.Get("OcrReportEmptyFormat");
+    public static string OcrReportLittleFormat => Table.Get("OcrReportLittleFormat");
+    public static string OcrReportLoweredFormat => Table.Get("OcrReportLoweredFormat");
+    public static string OcrReportMoreFormat => Table.Get("OcrReportMoreFormat");
+    public static string OcrReportUndoable => Table.Get("OcrReportUndoable");
+    public static string OcrReportNotUndoable => Table.Get("OcrReportNotUndoable");
+    public static string OcrSkipHasText => Table.Get("OcrSkipHasText");
+    public static string OcrSkipAlreadyRecognized => Table.Get("OcrSkipAlreadyRecognized");
+    public static string OcrSkipTooLarge => Table.Get("OcrSkipTooLarge");
+    public static string OcrSkipResolutionTooLowFormat => Table.Get("OcrSkipResolutionTooLowFormat");
+    public static string OcrSkipResolutionTooLow => Table.Get("OcrSkipResolutionTooLow");
+    public static string OcrSkipTimeout => Table.Get("OcrSkipTimeout");
+    public static string OcrSkipFailed => Table.Get("OcrSkipFailed");
+    public static string OcrSkipNoSupportedCharacters => Table.Get("OcrSkipNoSupportedCharacters");
+    public static string OcrReportFileFormat => Table.Get("OcrReportFileFormat");
+    public static string OcrReportSkippedMoreFormat => Table.Get("OcrReportSkippedMoreFormat");
+    public static string OcrNotStartedReason => Table.Get("OcrNotStartedReason");
+
+    /// <summary>The words of a refused language choice, in the UI language (one text per <see cref="Raffica.Pdf.Ocr.LanguageChoice"/> value other than Done).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string OcrLanguageRefusal(Raffica.Pdf.Ocr.LanguageChoice choice) => choice switch
+    {
+        Raffica.Pdf.Ocr.LanguageChoice.TooMany => Fill(OcrLanguageRefusalTooManyFormat, Raffica.Core.Ocr.OcrLanguages.MaxLanguages),
+        Raffica.Pdf.Ocr.LanguageChoice.NotInstalled => OcrLanguageRefusalNotInstalled,
+        _ => throw new ArgumentOutOfRangeException(nameof(choice), choice, "This language choice has no text."),
+    };
+
+    /// <summary>The message of an import, in the UI language (one text per <see cref="Raffica.Core.Ocr.TessdataImportError"/> value; Core's English sentences are never shown).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string OcrImportMessage(Raffica.Core.Ocr.TessdataImportError error, string? language) => error switch
+    {
+        Raffica.Core.Ocr.TessdataImportError.None => Fill(OcrImportDoneFormat, language ?? string.Empty),
+        Raffica.Core.Ocr.TessdataImportError.InvalidName => OcrImportInvalidName,
+        Raffica.Core.Ocr.TessdataImportError.NotAFile => OcrImportNotAFile,
+        Raffica.Core.Ocr.TessdataImportError.Empty => OcrImportEmpty,
+        Raffica.Core.Ocr.TessdataImportError.TooLarge => Fill(OcrImportTooLargeFormat, Raffica.Core.Ocr.TessdataStore.FormatLength(Raffica.Core.Ocr.TessdataStore.MaxFileLength)),
+        Raffica.Core.Ocr.TessdataImportError.AlreadyImported => Fill(OcrImportAlreadyAddedFormat, language ?? string.Empty),
+        Raffica.Core.Ocr.TessdataImportError.Failed => OcrImportFailed,
+        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "This import result has no text."),
     };
 }

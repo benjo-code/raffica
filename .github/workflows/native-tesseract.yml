@@ -4,7 +4,7 @@ name: Native Tesseract
 # this repository named native-tesseract-<Tesseract version>-<build number>. Started by hand only:
 #   gh workflow run native-tesseract.yml --ref dev -f build=1
 # The tag never starts with "v": the update check reads releases/latest and release.yml accepts SemVer tags only, so this
-# prerelease can never be mistaken for an app release (Docs/DECISIONS.md, entry "OCR library: built in this repository (M2.5)").
+# prerelease can never be mistaken for an app release (Docs/DECISIONS.md, "Raffica PDF: redaction, OCR and text editing conventions (M2.5)", item 13).
 # After the run, Pins.Libraries in tools/native-fetch.cs gets the size and SHA-256 of each file from the job summary; `native-fetch`
 # checks them. GitHub-hosted runners only: nothing here needs the own runners, and the build runs third-party source code.
 
@@ -84,7 +84,7 @@ jobs:
           gh release upload $env:TAG artifacts/native/win-x64/tesseract.dll --clobber
           $file = Get-Item artifacts/native/win-x64/tesseract.dll
           $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          "| tesseract.dll | $($file.Length) | $hash |" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "| file | size | sha256 |`n| --- | --- | --- |`n| tesseract.dll | $($file.Length) | $hash |" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
   linux:
     needs: prepare
@@ -115,4 +115,6 @@ jobs:
         run: |
           gh release upload "$TAG" artifacts/native/linux-x64/libtesseract.so --clobber
           f=artifacts/native/linux-x64/libtesseract.so
+          echo '| file | size | sha256 |' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '| --- | --- | --- |' | tee -a "$GITHUB_STEP_SUMMARY"
           echo "| libtesseract.so | $(stat -c %s "$f") | $(sha256sum "$f" | cut -d' ' -f1) |" | tee -a "$GITHUB_STEP_SUMMARY"

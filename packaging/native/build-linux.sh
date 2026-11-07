@@ -19,12 +19,12 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# PAGEWING_NATIVE_SOURCES=<dir with leptonica/ and tesseract/ checkouts> skips the clone (a machine whose container cannot reach GitHub);
+# RAFFICA_NATIVE_SOURCES=<dir with leptonica/ and tesseract/ checkouts> skips the clone (a machine whose container cannot reach GitHub);
 # the commit is checked either way.
 fetch() { # url tag commit dir
   name=$(basename "$4")
-  if [ -n "${PAGEWING_NATIVE_SOURCES:-}" ] && [ -d "$PAGEWING_NATIVE_SOURCES/$name" ]; then
-    cp -r "$PAGEWING_NATIVE_SOURCES/$name" "$4"
+  if [ -n "${RAFFICA_NATIVE_SOURCES:-}" ] && [ -d "$RAFFICA_NATIVE_SOURCES/$name" ]; then
+    cp -r "$RAFFICA_NATIVE_SOURCES/$name" "$4"
   else
     git clone --quiet --depth 1 --branch "$2" "$1" "$4"
   fi

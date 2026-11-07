@@ -1185,12 +1185,13 @@ static class CheckCommand
     // default (M2.1 follow-up)" re-derived from the software rendering medians (rendering/software), rounded up as in M1 (time to 10 ms,
     // memory to 5 MiB, size to 1 MiB); the limit is
     // budget x 1.25 once (Stats.Limit). "scroll" is the median of the p99 of the frame gaps. "zip" has a budget like the gallery's
-    // (the size check judges size and zip together; a metric without a budget would be "unrecorded" and fail). Never loosen a number
+    // (the size check judges size and zip together; a metric without a budget would be "unrecorded" and fail). Size and zip are the ones of the entry
+    // "Raffica PDF: published size budgets after the OCR payload (M2.5)" (the owner chose to count the OCR library and its language data). Never loosen a number
     // here to make a check pass; a change is a new decisions entry. macOS has none (indicative only).
     private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
     {
-        ["windows"] = new() { ["cold"] = 200, ["warm"] = 210, ["thousand"] = 200, ["second"] = 20, ["scroll"] = 20, ["memory"] = 40, ["size"] = 51, ["zip"] = 22 },
-        ["linux"] = new() { ["cold"] = 230, ["warm"] = 230, ["thousand"] = 220, ["second"] = 40, ["scroll"] = 40, ["memory"] = 155, ["size"] = 48, ["zip"] = 22 },
+        ["windows"] = new() { ["cold"] = 200, ["warm"] = 210, ["thousand"] = 200, ["second"] = 20, ["scroll"] = 20, ["memory"] = 40, ["size"] = 66, ["zip"] = 29 },
+        ["linux"] = new() { ["cold"] = 230, ["warm"] = 230, ["thousand"] = 220, ["second"] = 40, ["scroll"] = 40, ["memory"] = 155, ["size"] = 65, ["zip"] = 30 },
         ["macos"] = [],
     };
 
@@ -1689,11 +1690,11 @@ static class SelfTest
         Expect("pdf run: an unknown case is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--case", "input", "--out", csvPath], out _)!), 2);
         Expect("pdf run: a missing test folder is a usage error", RunCommand.Execute(Options.Parse(["--target", "pdf", "--exe", fake, "--case", "warm", "--testdata", Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "nope"), "--out", csvPath], out _)!), 2);
 
-        // The production table holds the budgets recorded from the owner's runs of 2026-11-04 (DECISIONS.md, "Raffica PDF speed budgets (M2.1)"): pinned value by value.
+        // The production table holds the budgets recorded from the owner's runs of 2026-11-04 (DECISIONS.md, "Raffica PDF speed budgets (M2.1)"), except size and zip, which "Raffica PDF: published size budgets after the OCR payload (M2.5)" replaced: pinned value by value.
         (string Platform, string Key, double Budget)[] recorded =
         [
-            ("windows", "cold", 200), ("windows", "warm", 210), ("windows", "thousand", 200), ("windows", "second", 20), ("windows", "scroll", 20), ("windows", "memory", 40), ("windows", "size", 51), ("windows", "zip", 22),
-            ("linux", "cold", 230), ("linux", "warm", 230), ("linux", "thousand", 220), ("linux", "second", 40), ("linux", "scroll", 40), ("linux", "memory", 155), ("linux", "size", 48), ("linux", "zip", 22),
+            ("windows", "cold", 200), ("windows", "warm", 210), ("windows", "thousand", 200), ("windows", "second", 20), ("windows", "scroll", 20), ("windows", "memory", 40), ("windows", "size", 66), ("windows", "zip", 29),
+            ("linux", "cold", 230), ("linux", "warm", 230), ("linux", "thousand", 220), ("linux", "second", 40), ("linux", "scroll", 40), ("linux", "memory", 155), ("linux", "size", 65), ("linux", "zip", 30),
         ];
         foreach (var (platform, key, budget) in recorded)
         {
@@ -1919,12 +1920,12 @@ static class SelfTest
         Expect("size --check pdf: an empty table exits 2 on Linux", Check("linux-x64", 10), 2);
         Expect("size --check pdf: macOS stays indicative", Check("osx-x64", 10), 0);
 
-        // The recorded table: 51 MiB x 1.25 = 63.75 MiB on Windows, 48 MiB x 1.25 = 60 MiB on Linux (the zip of the stand-in file is far below 27.5 MiB).
+        // The recorded table: 66 MiB x 1.25 = 82.5 MiB on Windows, 65 MiB x 1.25 = 81.25 MiB on Linux (the zip of the stand-in file is far below 36.25 MiB).
         CheckCommand.PdfTableForTests = null;
-        Expect("size --check pdf (recorded): windows exactly at 63.75 MiB passes", Check("win-x64", 63 * 1024 * 1024 + 768 * 1024), 0);
-        Expect("size --check pdf (recorded): windows one byte above 63.75 MiB fails", Check("win-x64", 63 * 1024 * 1024 + 768 * 1024 + 1), 1);
-        Expect("size --check pdf (recorded): linux exactly at 60 MiB passes", Check("linux-x64", 60 * 1024 * 1024), 0);
-        Expect("size --check pdf (recorded): linux one byte above 60 MiB fails", Check("linux-x64", 60 * 1024 * 1024 + 1), 1);
+        Expect("size --check pdf (recorded): windows exactly at 82.5 MiB passes", Check("win-x64", 82 * 1024 * 1024 + 512 * 1024), 0);
+        Expect("size --check pdf (recorded): windows one byte above 82.5 MiB fails", Check("win-x64", 82 * 1024 * 1024 + 512 * 1024 + 1), 1);
+        Expect("size --check pdf (recorded): linux exactly at 81.25 MiB passes", Check("linux-x64", 81 * 1024 * 1024 + 256 * 1024), 0);
+        Expect("size --check pdf (recorded): linux one byte above 81.25 MiB fails", Check("linux-x64", 81 * 1024 * 1024 + 256 * 1024 + 1), 1);
         Expect("size --check pdf (recorded): macOS stays indicative", Check("osx-x64", 200 * 1024 * 1024), 0);
         CheckCommand.PdfTableForTests = PdfTestTable();
         Directory.Delete(root, recursive: true);

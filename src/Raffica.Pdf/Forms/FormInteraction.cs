@@ -35,7 +35,7 @@ internal sealed class FormInteraction : IDisposable
     private readonly FormFocus _focus;
     private readonly DialogQueue _dialogs;
     private readonly Func<bool?> _fillAllowed;
-    private readonly Func<bool> _planOpen;
+    private readonly Func<string?> _lockReason;
     private readonly IDisposable _discardRegistration;
     private Task _chain = Task.CompletedTask;
     private Draft? _draft;
@@ -44,8 +44,8 @@ internal sealed class FormInteraction : IDisposable
     private bool _disposed;
 
     /// <param name="fillAllowed">Whether the permissions of the document allow filling; <see langword="null"/> while they are not read (nothing is refused yet).</param>
-    /// <param name="planOpen">Whether the page plan of the tab is open: the fields are then left alone (a press does nothing, the hover text says why), which keeps the marks clean for the plan's history.</param>
-    public FormInteraction(PdfTab tab, PageView view, ToolState tools, FormSession forms, FormFocus focus, DialogQueue dialogs, Func<bool?>? fillAllowed = null, Func<bool>? planOpen = null)
+    /// <param name="lockReason">Why the fields are locked by another mode (a page plan, a redaction plan, a recognition, a text edit), or null: the fields are then left alone (a press does nothing, the hover text says why), which keeps the marks clean for the plan's history.</param>
+    public FormInteraction(PdfTab tab, PageView view, ToolState tools, FormSession forms, FormFocus focus, DialogQueue dialogs, Func<bool?>? fillAllowed = null, Func<string?>? lockReason = null)
     {
         ArgumentNullException.ThrowIfNull(tab);
         ArgumentNullException.ThrowIfNull(view);
@@ -60,7 +60,7 @@ internal sealed class FormInteraction : IDisposable
         _focus = focus;
         _dialogs = dialogs;
         _fillAllowed = fillAllowed ?? (() => null);
-        _planOpen = planOpen ?? (() => false);
+        _lockReason = lockReason ?? (() => null);
         Mover = new FormMover(view, forms, focus);
         view.AddHandler(InputElement.PointerPressedEvent, OnPressed, RoutingStrategies.Tunnel);
         view.AddHandler(InputElement.PointerMovedEvent, OnMoved, RoutingStrategies.Bubble);
@@ -101,7 +101,7 @@ internal sealed class FormInteraction : IDisposable
         }
 
         // Checked before the permission: the document may well allow filling, the plan is what stands in the way (the hover text says so, no card).
-        if (_planOpen())
+        if (_lockReason() is not null)
         {
             return true;
         }
@@ -334,9 +334,9 @@ internal sealed class FormInteraction : IDisposable
             return locked;
         }
 
-        if (_planOpen() && IsEditableKind(field.Kind))
+        if (_lockReason() is { } modeLock && IsEditableKind(field.Kind))
         {
-            return PdfStrings.PageChangesLockedReason;
+            return modeLock;
         }
 
         if (_fillAllowed() == false && IsEditableKind(field.Kind))

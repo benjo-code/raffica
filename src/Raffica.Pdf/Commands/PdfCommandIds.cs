@@ -71,4 +71,16 @@ internal static class PdfCommandIds
     public const string ExtractPages = "pages.extract";
     public const string SplitDocument = "pages.split";
     public const string ExportImages = "pages.exportImages";
+    public const string RedactMode = "redact.mode";
+    public const string RedactMarkSelection = "redact.markSelection";
+    public const string RedactFind = "redact.find";
+    public const string RedactRasterPage = "redact.rasterPage";
+    public const string RedactDeleteMarks = "redact.deleteMarks";
+    public const string RedactDiscard = "redact.discard";
+    public const string RedactApply = "redact.apply";
+    public const string OcrRun = "ocr.run";
+    public const string OcrLanguages = "ocr.languages";
+    public const string OcrCancel = "ocr.cancel";
+    public const string TextEdit = "text.edit";
+    public const string TextEditDone = "text.editDone";
 }
