@@ -3378,8 +3378,8 @@ static partial class AppImageSmoke
                 var label = extract ? "without FUSE (APPIMAGE_EXTRACT_AND_RUN=1)"
                     : fuse ? "without environment variable (through FUSE)"
                         : "without environment variable (no FUSE on the machine: the runtime says so and does not start)";
-                var ok = extract ? code == 0 && HasFirstSharp(output) : SecondRunIsAcceptable(fuse, code, output);
-                Check(ok, $"App starts {label} and draws text-basic.pdf (first-sharp, code {code})");
+                var ok = extract ? code == 0 && HasFirstPage(output) : SecondRunIsAcceptable(fuse, code, output);
+                Check(ok, $"App starts {label} and draws text-basic.pdf (first-page, code {code})");
                 if (code != 0)
                 {
                     Console.Write(output);
@@ -3405,12 +3405,12 @@ static partial class AppImageSmoke
             ? ["--measure-startup", "--settings-file", settingsFile, pdf]
             : ["-a", appImage, "--measure-startup", "--settings-file", settingsFile, pdf];
 
-    private static bool HasFirstSharp(string output) => output.Split('\n').Any(l => l.Trim() == "first-sharp");
+    private static bool HasFirstPage(string output) => output.Split('\n').Any(l => l.Trim() == "first-page");
 
     // The start as a user does it. With FUSE it must work. Without FUSE the static runtime refuses with a message about
     // fusermount (that is the expected result in a container); it counts as fine, any other failure does not.
     public static bool SecondRunIsAcceptable(bool fuseAvailable, int code, string output) =>
-        code == 0 ? HasFirstSharp(output) : !fuseAvailable && output.Contains("fusermount", StringComparison.Ordinal);
+        code == 0 ? HasFirstPage(output) : !fuseAvailable && output.Contains("fusermount", StringComparison.Ordinal);
 
     private static int Finish(List<string> failures)
     {
@@ -3980,12 +3980,12 @@ static class SelfTest
     private static void AppImageParts()
     {
         const string noFuse = "Error: No suitable fusermount binary found on the $PATH\nfuse: device not found";
-        Expect("smoke: with FUSE and a start is ok", AppImageSmoke.SecondRunIsAcceptable(true, 0, "first-sharp\n"), true);
+        Expect("smoke: with FUSE and a start is ok", AppImageSmoke.SecondRunIsAcceptable(true, 0, "first-page\n"), true);
         Expect("smoke: with FUSE and a failed start fails", AppImageSmoke.SecondRunIsAcceptable(true, 127, noFuse), false);
         Expect("smoke: without FUSE the runtime says so clearly and does not start (ok)", AppImageSmoke.SecondRunIsAcceptable(false, 127, noFuse), true);
         Expect("smoke: without FUSE but another crash fails", AppImageSmoke.SecondRunIsAcceptable(false, 139, "Segmentation fault"), false);
-        Expect("smoke: without FUSE and started anyway is ok", AppImageSmoke.SecondRunIsAcceptable(false, 0, "first-sharp\n"), true);
-        Expect("smoke: a start without first-sharp fails", AppImageSmoke.SecondRunIsAcceptable(true, 0, "nothing\n"), false);
+        Expect("smoke: without FUSE and started anyway is ok", AppImageSmoke.SecondRunIsAcceptable(false, 0, "first-page\n"), true);
+        Expect("smoke: a start without first-page fails", AppImageSmoke.SecondRunIsAcceptable(true, 0, "nothing\n"), false);
         Expect("smoke: the start passes --settings-file (a measurement run needs it)",
             AppImageSmoke.StartArguments(true, "a.AppImage", "t.pdf", "s.json").SequenceEqual(["--measure-startup", "--settings-file", "s.json", "t.pdf"]), true);
         Expect("smoke: the xvfb start passes --settings-file as well",
