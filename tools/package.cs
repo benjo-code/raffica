@@ -4075,7 +4075,7 @@ static class SelfTest
             {
                 // AppRun keeps every argument as it is, also with spaces in APPDIR and in the arguments.
                 var appDir = Path.Combine(dir, "App Dir");
-                var program = Path.Combine(appDir, "usr", "lib", "raffica-pdf", "Raffica PDF");
+                var program = Path.Combine(appDir, (AppImage.AppRunTarget(appRunText) ?? "usr/lib/raffica-pdf/RafficaPdf").Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(program)!);
                 File.WriteAllText(program, "#!/bin/sh\nfor a in \"$@\"; do printf '<%s>' \"$a\"; done\n");
                 File.SetUnixFileMode(program, (UnixFileMode)0x1ED);
