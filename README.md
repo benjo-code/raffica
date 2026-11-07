@@ -9,7 +9,7 @@ Raffica ("gust" in Italian) is a fast, open-source office suite for Windows, Lin
 | Platform | Package | Notes |
 | --- | --- | --- |
 | Windows (x64) | `RafficaPdf-<version>-win-x64-setup.exe` | Per-user installer (no administrator rights needed), English and German. Registers Raffica PDF for PDF files; your settings stay when you uninstall. |
-| Windows (x64) | `RafficaPdf-<version>-win-x64-portable.zip` | Unpack anywhere and run `RafficaPdf.exe`. Nothing is registered. |
+| Windows (x64) | `RafficaPdf-<version>-win-x64-portable.zip` | Unpack anywhere and run `RafficaPdf.exe`. Nothing is registered until you accept the default-app card ("Set as default"); then entries under `HKCU` point at the unpacked folder, and deleting the folder does not remove them. Run `RafficaPdf.exe --unregister-file-types=user` before you delete it. |
 | Linux (x86_64) | `raffica-pdf_<version>_amd64.deb` | Needs glibc 2.35 or newer (Ubuntu 22.04 or newer, current Debian) and `libfontconfig1`, `libx11-6`, `libice6`, `libsm6` and `libssl3`, which `apt` installs; `libcups2` (printing) and `xdg-utils` are recommended. Installs to `/usr/lib/raffica-pdf` and adds the commands `raffica-pdf` and `raffica`. |
 | Linux (x86_64) | `RafficaPdf-<version>-x86_64.AppImage` | One file; `chmod +x` it and run it. Needs no `libfuse2`. |
 | macOS | none yet | macOS comes after the PDF app; there is no package. |
@@ -18,13 +18,13 @@ The files come from the [releases page](https://github.com/benjo-code/raffica/re
 
 **Windows.** The files are not signed with a code-signing certificate (Authenticode), so Windows SmartScreen shows "Windows protected your PC" when you start the installer or the program for the first time. Choose "More info", then "Run anyway". Only do this for a file you downloaded from the releases page above.
 
-**Linux.** The AppImage is not integrated into the desktop by itself; on its first start Raffica PDF offers to make itself the default PDF viewer, which also writes a menu entry and icons into your user folder. Other desktops may need `chmod +x` in the file properties first. Printing uses CUPS.
+**Linux.** The AppImage is not integrated into the desktop by itself; when it starts, Raffica PDF offers to make itself the default PDF viewer (until you choose "Don't ask again"), which also writes a menu entry and icons into your user folder. Other desktops may need `chmod +x` in the file properties first. Printing uses CUPS.
 
-**Default PDF viewer.** On the first start Raffica PDF asks once whether it should be your default viewer for PDF files (also under Settings and in the command palette, "Make Raffica the default app for PDFs"). Windows does not allow a program to choose for you: the app registers itself and opens the "Default apps" page of the system settings where you confirm. On Linux it uses `xdg-mime`.
+**Default PDF viewer.** When it starts and another program is the default, Raffica PDF asks whether it should be your default viewer for PDF files, at most once per start; "Not now" asks again at the next start, "Don't ask again" stops the question (also under Settings and in the command palette, "Make Raffica the default app for PDFs"). Windows does not allow a program to choose for you: the app registers itself and opens the "Default apps" page of the system settings where you confirm. On Linux it uses `xdg-mime`.
 
 ## Updates
 
-Raffica PDF looks for a new version at most every 24 hours, after the first page is on screen. It makes one connection, to the release address of this repository that is compiled into the program; there is no other network use and no telemetry. Switch it off under Settings, "Check for updates automatically"; with the switch off the program opens no connection at all (the command "Check for updates" in the command palette still checks on request).
+Raffica PDF looks for a new version at most every 24 hours, after the first page is on screen. It talks only to GitHub: the program asks `api.github.com` for the latest release of this repository and fetches the release information and files from `github.com`, which hands them over from GitHub's release storage. The addresses are fixed in the program; there is no other network use and no telemetry. Switch it off under Settings, "Check for updates automatically"; with the switch off the program opens no connection at all (the command "Check for updates" in the command palette still checks on request).
 
 - **Installer and AppImage:** a button "Update available" appears in the title bar. After you confirm, the program downloads the new version, checks it and installs it; it asks about unsaved changes in every tab first and restarts with your tabs.
 - **`.deb` and portable ZIP:** these forms cannot update themselves. The program only points you to the download page.

@@ -8,7 +8,7 @@ Open item for the owner: draw the real mark and replace the files below before t
 
 | File | Used by |
 | --- | --- |
-| `src/Raffica.Pdf/Assets/raffica-pdf.ico` | the Windows installer (`SetupIconFile` in `packaging/windows/raffica-pdf.iss`, passed as `/DIconFile` by `tools/package.cs installer`) |
+| `src/Raffica.Pdf/Assets/raffica-pdf.ico` | the Windows installer (`SetupIconFile` in `packaging/windows/raffica-pdf.iss`, passed as `/DIconFile` by `tools/package.cs installer`) and `RafficaPdf.exe` itself (`<ApplicationIcon>` in `src/Raffica.Pdf/Raffica.Pdf.csproj`: file icon, taskbar, Start menu, PDF file icon) |
 | `Docs/design/icons/linux/hicolor/<n>x<n>/apps/raffica-pdf.png` | the Debian package (`/usr/share/icons/hicolor`) and the AppImage (the 256x256 file is also the root icon); sizes 16, 24, 32, 48, 64, 128, 256 and 512 |
 
 The `.ico` holds the sizes 16, 24, 32, 48, 64, 128 and 256 (PNG entries).
