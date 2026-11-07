@@ -3,6 +3,7 @@ using System.Text;
 using Avalonia;
 using Raffica.Core.Hosting;
 using Raffica.Pdf.Hosting;
+using Raffica.Pdf.Platform;
 
 namespace Raffica.Pdf;
 
@@ -33,6 +34,12 @@ internal static class Program
             return PrintStringCommand.Run(options, Console.Out, Console.Error);
         }
 
+        // The installer's registration runs and ends here: no instance lock, no hand-over, no window.
+        if (RegistrationCommand.Applies(options))
+        {
+            return RunRegistration(options);
+        }
+
         // The first instance keeps the lock; a later one hands its files over and ends before any Avalonia start. If the first one
         // does not answer within a second, this process starts as an ordinary window.
         var name = InstanceName(options);
@@ -52,6 +59,19 @@ internal static class Program
             Console.Error.WriteLine($"error: the window could not be shown: {ex.GetType().Name}: {ex.Message}");
             return UsageError;
         }
+    }
+
+    private static int RunRegistration(PdfOptions options)
+    {
+        var writer = RegistrationCommand.CreateWriter();
+        var exe = Environment.ProcessPath;
+        if (writer is null || string.IsNullOrEmpty(exe))
+        {
+            Console.Error.WriteLine("error: the file type registration is only available on Windows");
+            return UsageError;
+        }
+
+        return RegistrationCommand.Run(options, writer, exe);
     }
 
     // Whatever goes wrong with the hand-over, this process starts as an ordinary window instead of failing without one.

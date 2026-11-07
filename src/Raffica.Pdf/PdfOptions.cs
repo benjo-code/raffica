@@ -1,3 +1,4 @@
+using Raffica.Core.Distribution;
 using Raffica.Shell;
 
 namespace Raffica.Pdf;
@@ -24,6 +25,12 @@ internal sealed class PdfOptions
     /// <summary>Prints the value of this string key and exits before any window exists (the CI smoke test).</summary>
     public string? PrintString { get; private init; }
 
+    /// <summary>Registers the app for PDF files in this scope (<c>--register-file-types=user|machine</c>, run by the installer) and exits before any window exists.</summary>
+    public RegistrationScope? RegisterFileTypes { get; private init; }
+
+    /// <summary>Removes that registration (<c>--unregister-file-types=user|machine</c>, run by the uninstaller) and exits before any window exists.</summary>
+    public RegistrationScope? UnregisterFileTypes { get; private init; }
+
     /// <summary>
     /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
     /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll …</c>) or
@@ -44,6 +51,8 @@ internal sealed class PdfOptions
         var highContrast = false;
         string? settingsFile = null;
         string? printString = null;
+        RegistrationScope? register = null;
+        RegistrationScope? unregister = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -76,6 +85,12 @@ internal sealed class PdfOptions
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
+                case var other when other.StartsWith("--register-file-types", StringComparison.Ordinal):
+                    register = Scope(other, "--register-file-types");
+                    break;
+                case var other when other.StartsWith("--unregister-file-types", StringComparison.Ordinal):
+                    unregister = Scope(other, "--unregister-file-types");
+                    break;
                 case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory":
                     if (measure is not null)
                     {
@@ -90,6 +105,11 @@ internal sealed class PdfOptions
                     files.Add(args[i]);
                     break;
             }
+        }
+
+        if (register is not null && unregister is not null)
+        {
+            throw new ArgumentException("'--register-file-types' and '--unregister-file-types' cannot be combined");
         }
 
         if (measure is not null)
@@ -116,6 +136,20 @@ internal sealed class PdfOptions
             HighContrast = highContrast,
             SettingsFile = settingsFile,
             PrintString = printString,
+            RegisterFileTypes = register,
+            UnregisterFileTypes = unregister,
+        };
+    }
+
+    // The scope is part of the argument (<name>=user|machine), as the installer passes it.
+    private static RegistrationScope Scope(string arg, string name)
+    {
+        var value = arg.StartsWith(name + "=", StringComparison.Ordinal) ? arg[(name.Length + 1)..] : null;
+        return value switch
+        {
+            "user" => RegistrationScope.User,
+            "machine" => RegistrationScope.Machine,
+            _ => throw new ArgumentException($"'{name}' needs =user or =machine"),
         };
     }
 
