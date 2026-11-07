@@ -3372,7 +3372,7 @@ static partial class AppImageSmoke
             {
                 var env = extract ? new Dictionary<string, string> { ["APPIMAGE_EXTRACT_AND_RUN"] = "1" } : new Dictionary<string, string>();
                 var command = display ? appImage : "xvfb-run";
-                string[] arguments = display ? ["--measure-startup", pdf] : ["-a", appImage, "--measure-startup", pdf];
+                var arguments = StartArguments(display, appImage, pdf, Path.Combine(work, "smoke-settings.json"));
                 var code = Tool.Run(command, arguments, out var output, workingDirectory: work, env: env);
                 var fuse = File.Exists("/dev/fuse") && (Tool.Run("fusermount3", ["--version"], out _) != -1 || Tool.Run("fusermount", ["--version"], out _) != -1);
                 var label = extract ? "without FUSE (APPIMAGE_EXTRACT_AND_RUN=1)"
@@ -3397,6 +3397,13 @@ static partial class AppImageSmoke
             }
         }
     }
+
+    // A measurement run refuses to start without --settings-file (it never touches the settings of the user), so the smoke passes a
+    // file inside its own work folder.
+    public static string[] StartArguments(bool display, string appImage, string pdf, string settingsFile) =>
+        display
+            ? ["--measure-startup", "--settings-file", settingsFile, pdf]
+            : ["-a", appImage, "--measure-startup", "--settings-file", settingsFile, pdf];
 
     private static bool HasFirstSharp(string output) => output.Split('\n').Any(l => l.Trim() == "first-sharp");
 
@@ -3979,6 +3986,10 @@ static class SelfTest
         Expect("smoke: without FUSE but another crash fails", AppImageSmoke.SecondRunIsAcceptable(false, 139, "Segmentation fault"), false);
         Expect("smoke: without FUSE and started anyway is ok", AppImageSmoke.SecondRunIsAcceptable(false, 0, "first-sharp\n"), true);
         Expect("smoke: a start without first-sharp fails", AppImageSmoke.SecondRunIsAcceptable(true, 0, "nothing\n"), false);
+        Expect("smoke: the start passes --settings-file (a measurement run needs it)",
+            AppImageSmoke.StartArguments(true, "a.AppImage", "t.pdf", "s.json").SequenceEqual(["--measure-startup", "--settings-file", "s.json", "t.pdf"]), true);
+        Expect("smoke: the xvfb start passes --settings-file as well",
+            AppImageSmoke.StartArguments(false, "a.AppImage", "t.pdf", "s.json").SequenceEqual(["-a", "a.AppImage", "--measure-startup", "--settings-file", "s.json", "t.pdf"]), true);
 
         Expect("appimage: runtime checksum is pinned", Pinned.PinProblem(AppImageRuntime.Sha256, "AppImageRuntime.Sha256"), null);
         Expect("appimage: runtime address names the version", AppImageRuntime.Url,
