@@ -52,7 +52,9 @@ internal sealed class JobRunner(DialogQueue dialogs)
         tab.Disposing += OnTabDisposing;
         try
         {
-            return await Task.Run(() => work(new UiProgress(card), cancellation.Token));
+            // Made here, on the UI thread: it captures the dispatcher of the thread it is made on.
+            var progress = new UiProgress(card);
+            return await Task.Run(() => work(progress, cancellation.Token));
         }
         finally
         {

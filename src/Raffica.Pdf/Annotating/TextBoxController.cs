@@ -30,6 +30,9 @@ internal sealed class TextBoxController : IToolController
     /// <summary>The smallest side, in points, of a box that was dragged; a smaller drag is a click.</summary>
     public const double MinDragSide = 16;
 
+    // The dispatcher of the UI thread this was made on: the flush may be requested from any thread, so the check and the post use it, never
+    // the static Dispatcher.UIThread.
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
     private readonly PdfTab _tab;
     private readonly PageView _view;
     private readonly ToolState _tools;
@@ -490,13 +493,13 @@ internal sealed class TextBoxController : IToolController
 
     private void OnFlushRequested()
     {
-        if (Dispatcher.UIThread.CheckAccess())
+        if (_dispatcher.CheckAccess())
         {
             CommitOrDrop();
         }
         else
         {
-            Dispatcher.UIThread.Post(CommitOrDrop);
+            _dispatcher.Post(CommitOrDrop);
         }
     }
 

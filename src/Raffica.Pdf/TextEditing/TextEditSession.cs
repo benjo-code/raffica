@@ -68,6 +68,9 @@ internal sealed class TextEditSession : IDisposable
     // The hint bar waits this long after the last key before it asks for the decision.
     private static readonly TimeSpan DefaultDebounce = TimeSpan.FromMilliseconds(120);
 
+    // The dispatcher of the UI thread this was made on: the flush may be requested from any thread, so the check and the post use it, never
+    // the static Dispatcher.UIThread.
+    private readonly Avalonia.Threading.Dispatcher _dispatcher = Avalonia.Threading.Dispatcher.UIThread;
     private readonly Dictionary<int, IReadOnlyList<TextRun>> _runs = [];
     private readonly Dictionary<int, Task> _loading = [];
     private readonly HashSet<int> _failed = [];
@@ -860,13 +863,13 @@ internal sealed class TextEditSession : IDisposable
             return;
         }
 
-        if (SynchronizationContext.Current == Ui)
+        if (_dispatcher.CheckAccess())
         {
             FlushDraft();
         }
         else
         {
-            Ui.Post(static state => ((TextEditSession)state!).FlushDraft(), this);
+            _dispatcher.Post(FlushDraft);
         }
     }
 

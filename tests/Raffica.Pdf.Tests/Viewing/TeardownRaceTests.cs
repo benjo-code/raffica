@@ -13,7 +13,8 @@ namespace Raffica.Pdf.Tests.Viewing;
 /// dispatcher; the end of one clears the static UI dispatcher until the next test makes its own). A handler that posts through the static
 /// <c>Dispatcher.UIThread</c> then makes a new dispatcher on the pool thread, which is published before its platform part is set: a second pool thread
 /// that posts at that moment throws a NullReferenceException in <c>Dispatcher.RequestProcessing</c> and takes the test host down. The handlers must post
-/// to the dispatcher their owner was made on.
+/// to the dispatcher their owner was made on. This test raises TileReady, PagesInvalidated and Changed, which covers PagesPane, PageView and OrganizeList only;
+/// the other pool-thread sites (marks, select, markup, thumbnails of inserted files, progress reporters) are fixed by the same pattern without a test of their own.
 /// </summary>
 public sealed class TeardownRaceTests
 {

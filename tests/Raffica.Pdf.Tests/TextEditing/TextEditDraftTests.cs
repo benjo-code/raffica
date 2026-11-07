@@ -65,6 +65,43 @@ public sealed class TextEditDraftTests
     }
 
     [AvaloniaFact]
+    public async Task FlushOnTheUiThreadRunsSynchronouslyWhateverContextIsCurrent()
+    {
+        // Avalonia runs each job under a synchronization context of its own priority, so the context current on the UI thread is often not the one the session
+        // captured. The flush must still end the draft before FlushAsync returns its task (Save and Print inspect the pending drafts right after it).
+        using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
+        await rig.EnterModeAsync();
+        var run = await rig.RunAsync("Quarterly report 2026");
+        TextEditRig.Type(rig.OpenField(run), "Quarterly report 2031");
+        Assert.True(rig.Session.HasDraft);
+
+        Task flush;
+        var previous = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new ForwardingContext());
+        try
+        {
+            flush = rig.Tab.Annotations.FlushAsync();
+
+            // Written on the spot: the commit holds a pending handle already, so the flush has to wait for it. A posted flush would return a finished task.
+            Assert.False(flush.IsCompleted, "the draft was committed on the spot, not posted");
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        await flush;
+        await rig.SettleAsync();
+        Assert.True(rig.Tab.Annotations.Editor.HasTextEdits);
+    }
+
+    // Another context than the one the session captured; it hands the continuations of FlushAsync back to the UI thread.
+    private sealed class ForwardingContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state) => Avalonia.Threading.Dispatcher.UIThread.Post(() => d(state));
+    }
+
+    [AvaloniaFact]
     public async Task CloseAsksAndFlushes()
     {
         using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
