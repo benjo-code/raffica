@@ -39,7 +39,7 @@ public sealed class UpdateTrustTests
     /// Armed only in the signing job of the release workflow (<c>RAFFICA_REQUIRE_RELEASE_KEY=1</c>, job
     /// <c>manifest</c> in <c>.github/workflows/release.yml</c>): a release must never ship the placeholder as its only
     /// trust. Everywhere else it passes, because the placeholder stays until the owner enters the real key
-    /// (<c>packaging/README.md</c>, section "Signaturschlüssel für Updates").
+    /// (<c>packaging/README.md</c>, section "Signing key for updates").
     /// </summary>
     [Fact]
     public void ReleaseKeysAreNotThePlaceholderWhenReleasing()

@@ -2735,7 +2735,7 @@ static partial class DebSmoke
         var failures = new List<string>();
         void Check(bool ok, string what)
         {
-            Console.WriteLine($"{(ok ? "ok    " : "FEHLER")} {what}");
+            Console.WriteLine($"{(ok ? "ok    " : "FAILED")} {what}");
             if (!ok)
             {
                 failures.Add(what);
@@ -3288,7 +3288,7 @@ static partial class AppImageSmoke
         var failures = new List<string>();
         void Check(bool ok, string what)
         {
-            Console.WriteLine($"{(ok ? "ok    " : "FEHLER")} {what}");
+            Console.WriteLine($"{(ok ? "ok    " : "FAILED")} {what}");
             if (!ok)
             {
                 failures.Add(what);

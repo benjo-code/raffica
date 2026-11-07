@@ -1,10 +1,10 @@
 name: Release
 
-# Builds the release files (Milestone 8) on the owner's self-hosted runners and uploads them to the GitHub release.
+# Builds the release files on the owner's self-hosted runners and uploads them to the GitHub release.
 # The release itself is created by the owner (gh release create vX.Y.Z --target main ...); this workflow only
 # attaches files to it. Each job uploads its own files directly (no artifact up- or download between the jobs).
 #
-# Started by hand only (M12.1): the owner runs it after creating the release,
+# Started by hand only: the owner runs it after creating the release,
 #   gh workflow run release.yml --ref main -f tag=vX.Y.Z -f upload=true
 # Dispatch only, because the workflow ref of a release event is a tag, and the runner-group restriction can name
 # branch refs only (refs/heads/main, refs/heads/dev). The job that signs the update manifest runs on a GitHub-hosted
@@ -15,7 +15,7 @@ name: Release
 #   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f ref=<branch> -f upload=false
 # (ref builds that branch, because the tag does not exist before the release; with ref set nothing is uploaded, the
 # key check of the preflight job is skipped, and the job that signs the update manifest does not run at all).
-# This workflow never runs for pull requests or forks (CLAUDE.md, section CI).
+# This workflow never runs for pull requests or forks.
 
 on:
   workflow_dispatch:
@@ -421,9 +421,9 @@ jobs:
           echo "sums_sha256=$hash" >> "$GITHUB_OUTPUT"
           echo "SHA256SUMS-linux.txt: $hash"
 
-  # The signed update manifest (Milestone 8.1): built from the checksums and the file sizes of the release, signed with
+  # The signed update manifest: built from the checksums and the file sizes of the release, signed with
   # the secret RAFFICA_UPDATE_SIGNING_KEY, verified with the keys compiled into the app, and uploaded. Runs only after
-  # both build jobs have uploaded their files. Since M12.1 this is the only job on a GitHub-hosted, ephemeral runner,
+  # both build jobs have uploaded their files. This is the only job on a GitHub-hosted, ephemeral runner,
   # and it waits for the approval of the environment release-signing (branches main and dev, owner as reviewer); the
   # key is a secret of that environment. It appears in exactly one place, the env of the step "Sign the update
   # manifest", which runs nothing but the signing command of the tool that an earlier step built from the tag's

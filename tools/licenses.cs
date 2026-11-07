@@ -325,7 +325,7 @@ static partial class Inventory
             foreach (var e in doc.RootElement.GetProperty("entries").EnumerateArray())
             {
                 var id = Str(e, "id");
-                var label = $"{where}: entries[{index}] ({(id.Length == 0 ? "ohne id" : id)})";
+                var label = $"{where}: entries[{index}] ({(id.Length == 0 ? "without id" : id)})";
                 index++;
                 var kind = Str(e, "kind");
                 if (id.Length == 0 || Str(e, "version").Length == 0 || Str(e, "license").Length == 0 || Str(e, "licenseFile").Length == 0)
