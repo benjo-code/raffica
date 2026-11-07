@@ -11,7 +11,7 @@ namespace Raffica.Core.Tests.Updates;
 
 /// <summary>
 /// What the program trusts for updates. The normal run checks the release build (the build of every release); the test
-/// build (<c>-p:RafficaUpdateTestBuild=true</c>, packaging/README.md, section "Update prüfen") is checked by running
+/// build (<c>-p:RafficaUpdateTestBuild=true</c>, packaging/README.md, section "Manual update check") is checked by running
 /// these tests once with the property:
 /// <c>dotnet test --project tests/Raffica.Core.Tests -p:RafficaUpdateTestBuild=true -p:RafficaUpdateTestPort=&lt;port&gt; -p:RafficaUpdateTestKey=&lt;Base64&gt; -- --filter-class "*UpdateTrustTests"</c>.
 /// </summary>

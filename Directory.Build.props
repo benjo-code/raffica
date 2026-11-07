@@ -12,7 +12,7 @@
   </PropertyGroup>
   <!--
     Test build of the updater (-p:RafficaUpdateTestBuild=true, see Raffica.Core.csproj and packaging/README.md, section
-    "Update prüfen"; never set by a release). Only an explicit -p: on the command line switches it on: MSBuild also turns
+    "Manual update check"; never set by a release). Only an explicit -p: on the command line switches it on: MSBuild also turns
     environment variables into properties (names ignore case), and a release job inherits the environment of its runner.
     A command-line property is global and ignores the assignments below; one from the environment (or anything else) is
     overwritten here, before any project reads it, and CheckRafficaUpdateTestBuildSource then fails the build. The guard

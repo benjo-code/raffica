@@ -6,7 +6,7 @@ namespace Raffica.Core.Updates;
 /// What the program trusts for updates: the public keys and the addresses, compiled in with no way to override them
 /// (no environment variable, no switch). This file is the release build. A test build swaps it for
 /// <c>UpdateTrust.TestBuild.cs</c> only with the build property <c>RafficaUpdateTestBuild=true</c>, which no release
-/// sets (Raffica.Core.csproj; packaging/README.md, section "Update prüfen"); both files declare the same members.
+/// sets (Raffica.Core.csproj; packaging/README.md, section "Manual update check"); both files declare the same members.
 /// </summary>
 public static class UpdateTrust
 {
