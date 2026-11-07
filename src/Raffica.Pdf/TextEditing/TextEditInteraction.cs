@@ -29,6 +29,8 @@ internal sealed class TextEditInteraction : IDisposable
     private bool _closingField;
     private Point _press;
     private TextRun? _pressed;
+    private PageSpot? _pressSpot;
+    private bool _pressSawLines;
     private bool _enterHeld;
     private bool _badgePress;
     private int _revealedPage = -1;
@@ -245,6 +247,7 @@ internal sealed class TextEditInteraction : IDisposable
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
         _pressed = null;
+        _pressSpot = null;
         _enterHeld = false;
         if (!_session.IsActive || _disposed || _view.IsInField(e.Source) || _view.IsInBadge(e.Source))
         {
@@ -258,13 +261,17 @@ internal sealed class TextEditInteraction : IDisposable
         }
 
         _press = point;
+        _pressSpot = spot;
+        _pressSawLines = _session.IsLoaded(spot.Page);
         _pressed = _session.RunAt(spot.Page, spot.X, spot.Y);
     }
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)
     {
         var run = _pressed;
+        var spot = _pressSpot;
         _pressed = null;
+        _pressSpot = null;
         if (!_session.IsActive || _disposed)
         {
             return;
@@ -273,6 +280,14 @@ internal sealed class TextEditInteraction : IDisposable
         var point = e.GetPosition(_view);
         if (Math.Abs(point.X - _press.X) > ClickSlop || Math.Abs(point.Y - _press.Y) > ClickSlop)
         {
+            return;
+        }
+
+        if (run is null && spot is { } pressed && !_pressSawLines)
+        {
+            // The press came while the lines of the page were being read again (just after a write), so it found none: the line under the point is
+            // looked up once they are there (whether they are back by the release or not).
+            _ = OpenAtAsync(pressed);
             return;
         }
 
@@ -307,6 +322,37 @@ internal sealed class TextEditInteraction : IDisposable
         if (!string.Equals(ToolTip.GetTip(_view) as string, tip, StringComparison.Ordinal))
         {
             ToolTip.SetTip(_view, tip);
+        }
+    }
+
+    private async Task OpenAtAsync(PageSpot spot)
+    {
+        try
+        {
+            if (_session.HasDraft && _session.IsCommitting)
+            {
+                await _session.CommitAsync();
+            }
+
+            await _session.LoadPageAsync(spot.Page);
+            if (!_session.IsActive || _disposed)
+            {
+                return;
+            }
+
+            if (_session.RunAt(spot.Page, spot.X, spot.Y) is { } run)
+            {
+                await OpenAsync(run);
+            }
+            else if (!_session.HasDraft)
+            {
+                // No line under the point after all: a click away, as in OnReleased.
+                _session.Focus(null);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The session reports its own refusals as notes; nothing more to do for an exception of the task.
         }
     }
 

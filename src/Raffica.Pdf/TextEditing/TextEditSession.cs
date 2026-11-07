@@ -198,21 +198,25 @@ internal sealed class TextEditSession : IDisposable
 
     /// <summary>Reads the runs of a page (once; one job on the PDFium thread, off the UI thread). A page that cannot be read is remembered and not read again.</summary>
     /// <param name="page">The 0-based page.</param>
-    public Task LoadPageAsync(int page)
+    public async Task LoadPageAsync(int page)
     {
-        if (!_active || _disposed || page < 0 || _runs.ContainsKey(page) || _failed.Contains(page))
+        // A read that was started before the runs were dropped again ends without storing anything (its generation is stale), and a caller that
+        // waited for it would find no runs: it asks again for the current generation (bounded; the pages in view are read again by the window too).
+        for (var attempt = 0; attempt < 5; attempt++)
         {
-            return Task.CompletedTask;
-        }
+            if (!_active || _disposed || page < 0 || _runs.ContainsKey(page) || _failed.Contains(page))
+            {
+                return;
+            }
 
-        if (_loading.TryGetValue(page, out var running))
-        {
-            return running;
-        }
+            if (!_loading.TryGetValue(page, out var load))
+            {
+                load = LoadCoreAsync(page, _generation);
+                _loading[page] = load;
+            }
 
-        var load = LoadCoreAsync(page, _generation);
-        _loading[page] = load;
-        return load;
+            await load;
+        }
     }
 
     /// <summary>The runs of a page that were read, in the order of the page; empty before the read and for a page that failed.</summary>

@@ -338,6 +338,109 @@ public sealed class TextEditRobustnessTests
         Assert.Equal(moved.ObjectIndex, rig.Session.DraftRun!.ObjectIndex);
     }
 
+    // A quick click: the release comes while the write of the first line (started by the focus loss at the press) is still running. The field still opens
+    // on the second line, found again after the write, and the first line is written once.
+    [AvaloniaFact]
+    public async Task AReleaseWhileTheWriteIsRunningOpensTheFieldOnTheMovedLineAfterIt()
+    {
+        using var rig = await TextEditRig.OpenAsync("text-edit-subset.pdf");
+        await rig.EnterModeAsync();
+        var first = await rig.RunAsync("Invoice total: 1,250 EUR");
+        var second = await rig.RunAsync("Kontoauszug März");
+        var field = rig.OpenField(first);
+        await ViewFixture.WaitAsync(() => rig.FieldHasFocus);
+        TextEditRig.Type(field, "Invoice total: 1,259 EUR");
+
+        var hold = new TaskCompletionSource();
+        rig.Session.BeforeWrite = () => hold.Task;
+        var at = rig.WindowPointOf(second);
+        rig.Window.MouseDown(at, MouseButton.Left);
+        await ViewFixture.WaitAsync(() => rig.Session.IsCommitting);
+        rig.Window.MouseUp(at, MouseButton.Left);
+        ViewFixture.Pump();
+        Assert.True(rig.Session.IsCommitting, "the write is still held");
+
+        rig.Session.BeforeWrite = null;
+        hold.SetResult();
+        await ViewFixture.WaitAsync(() => !rig.Session.IsCommitting);
+        await rig.SettleAsync();
+        var moved = (await rig.DocumentRunsAsync()).Single(r => r.Text.TrimEnd() == "Kontoauszug März");
+        Assert.NotEqual(second.ObjectIndex, moved.ObjectIndex);
+        Assert.Contains("Invoice total: 1,259 EUR", await rig.PageTextAsync(), StringComparison.Ordinal);
+
+        // The field opens on the second line as found after the write; it is not left on the first line and not lost.
+        await ViewFixture.WaitAsync(() => rig.Interaction.Field is not null && rig.Session.DraftRun?.ObjectIndex == moved.ObjectIndex);
+        Assert.Equal("Kontoauszug März", rig.Session.DraftRun!.Text.TrimEnd());
+        Assert.False(rig.Session.IsCommitting);
+    }
+
+    // A read that was started before the runs were dropped again ends without storing anything. A caller that waited for it (the field that opens on the
+    // line after a write) must wait for the read of the current generation, not go on with no lines and give up silently.
+    [AvaloniaFact]
+    public async Task ALoadThatOutlivedAnInvalidationWaitsForTheCurrentRead()
+    {
+        using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
+        await rig.EnterModeAsync();
+        var gates = new[] { new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously), new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
+        var reads = 0;
+        rig.Session.ReadRuns = async (document, page, token) =>
+        {
+            var n = Interlocked.Increment(ref reads) - 1;
+            if (n < gates.Length)
+            {
+                await gates[n].Task;
+            }
+
+            return await document.GetTextRunsAsync(page, token);
+        };
+
+        rig.Session.InvalidateRuns();
+        var stale = rig.Session.LoadPageAsync(0);
+        await ViewFixture.WaitAsync(() => Volatile.Read(ref reads) >= 1);
+        rig.Session.InvalidateRuns();
+        var current = rig.Session.LoadPageAsync(0);
+        await ViewFixture.WaitAsync(() => Volatile.Read(ref reads) >= 2);
+
+        gates[0].SetResult();
+        await Task.WhenAny(stale, Task.Delay(300, TestContext.Current.CancellationToken));
+        ViewFixture.Pump();
+        Assert.False(rig.Session.IsLoaded(0), "the read of the old generation stores nothing");
+        Assert.False(stale.IsCompleted, "the caller waits for the read of the current generation");
+
+        gates[1].SetResult();
+        await stale;
+        await current;
+        Assert.True(rig.Session.IsLoaded(0));
+    }
+
+    // The press found no line because the lines of the page were being read again after a write (the focus loss at the press had written the first line);
+    // the line under the point is looked up when the release comes, once they are back.
+    [AvaloniaFact]
+    public async Task APressWhileTheLinesAreReadAgainStillOpensTheLineAtTheRelease()
+    {
+        using var rig = await TextEditRig.OpenAsync("text-edit-standard.pdf");
+        await rig.EnterModeAsync();
+        var run = await rig.RunAsync("Dear customer, thank you");
+        var at = rig.WindowPointOf(run);
+
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        rig.Session.ReadRuns = async (document, page, token) =>
+        {
+            await gate.Task;
+            return await document.GetTextRunsAsync(page, token);
+        };
+        rig.Session.InvalidateRuns();
+        Assert.False(rig.Session.IsLoaded(0));
+
+        rig.Window.MouseDown(at, MouseButton.Left);
+        gate.SetResult();
+        await ViewFixture.WaitAsync(() => rig.Session.IsLoaded(0));
+        rig.Window.MouseUp(at, MouseButton.Left);
+
+        await ViewFixture.WaitAsync(() => rig.Interaction.Field is not null);
+        Assert.Equal(run.Text, rig.Session.DraftText);
+    }
+
     [AvaloniaFact]
     public async Task SwitchingFromOneLineToAnotherAfterTheFirstWasSplitFindsTheSecondAgain()
     {
