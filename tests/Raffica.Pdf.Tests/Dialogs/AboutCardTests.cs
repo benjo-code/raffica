@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -131,9 +132,60 @@ public sealed class AboutCardTests : IDisposable
 
         Assert.Contains("GPL-3.0-or-later", text, StringComparison.Ordinal);
 
-        // The card puts that same text into its box.
+        // The card shows that same text: the part before the first separator in its first box, each component in its own section once opened.
         using var s = Show("en", "1.2.3", null, text, () => { });
-        Assert.Equal(text, s.Find<TextBox>("PART_Notices").Text);
+        var (intro, sections) = AboutCard.SplitNotices(text);
+        Assert.Equal(intro, s.Find<TextBox>("PART_Notices").Text);
+        Assert.True(sections.Count >= 20, sections.Count.ToString(CultureInfo.InvariantCulture));
+        var rebuilt = new System.Text.StringBuilder(intro);
+        for (var i = 0; i < sections.Count; i++)
+        {
+            s.Find<ToggleButton>("PART_NoticeToggle" + i).IsChecked = true;
+            Pump();
+            rebuilt.Append("====\n").Append(s.Find<TextBox>("PART_Notice" + i).Text);
+        }
+
+        rebuilt.Append("====\n");
+        Assert.Equal(text, rebuilt.ToString());
+    }
+
+    // The reason for the sections: a box with all of the text freezes the card for a second. Nothing of a section is laid out before it is opened.
+    [AvaloniaFact]
+    public void OnlyAnOpenedSectionHoldsItsText()
+    {
+        using var s = Show("en", "1.2.3", null, ThirdPartyNotices.Read(), () => { });
+        Assert.False(s.Has("PART_Notice0"));
+        Assert.False(s.Find<ContentControl>("PART_NoticeBody0").IsVisible);
+        Assert.True(s.Find<TextBox>("PART_Notices").Text!.Length < 1000);
+
+        var toggle = s.Find<ToggleButton>("PART_NoticeToggle1");
+        toggle.IsChecked = true;
+        Pump();
+        Assert.True(s.Find<ContentControl>("PART_NoticeBody1").IsVisible);
+        Assert.False(string.IsNullOrWhiteSpace(s.Find<TextBox>("PART_Notice1").Text));
+        Assert.False(s.Has("PART_Notice0"));
+        Assert.False(s.Has("PART_Notice2"));
+
+        // Closing hides it again; opening again does not make a second box.
+        toggle.IsChecked = false;
+        Pump();
+        Assert.False(s.Find<ContentControl>("PART_NoticeBody1").IsVisible);
+        toggle.IsChecked = true;
+        Pump();
+        Assert.Single(s.Card.GetVisualDescendants().OfType<TextBox>(), b => b.Name == "PART_Notice1");
+    }
+
+    [AvaloniaFact]
+    public void SplittingKeepsTheTextAndIgnoresLongerRulesInsideALicence()
+    {
+        var (intro, sections) = AboutCard.SplitNotices("head\n====\nA\nMIT\n\n=============================\nstill A\n====\nB\nISC\n====\n");
+        Assert.Equal("head\n", intro);
+        Assert.Equal(["A\nMIT\n\n=============================\nstill A\n", "B\nISC\n"], sections);
+
+        // Plain text is all intro.
+        var plain = AboutCard.SplitNotices("NOTICES TEXT\nline two");
+        Assert.Equal("NOTICES TEXT\nline two", plain.Intro);
+        Assert.Empty(plain.Sections);
     }
 
     [AvaloniaFact]
