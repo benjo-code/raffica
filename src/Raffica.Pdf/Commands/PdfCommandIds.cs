@@ -7,6 +7,16 @@ internal static class PdfCommandIds
     public const string Print = "file.print";
     public const string CloseTab = "file.close";
     public const string Settings = "file.settings";
+
+    /// <summary>Make Raffica the default app for PDFs: a palette entry and a settings row, no ribbon button (so it is not in the catalog).</summary>
+    public const string MakeDefaultApp = "app.default";
+
+    /// <summary>The About card (version, license, third-party notices): a palette entry and a button of the help card, no ribbon button (so it is not in the catalog).</summary>
+    public const string About = "app.about";
+
+    /// <summary>"Check for updates" (a palette entry; the title bar button of an offer opens the same flow): checks now and offers the update. No ribbon button (so it is not in the catalog).</summary>
+    public const string Update = "app.update";
+
     public const string Search = "find.search";
     public const string SearchNext = "find.next";
     public const string SearchPrevious = "find.previous";

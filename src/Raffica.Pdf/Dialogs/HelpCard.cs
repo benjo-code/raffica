@@ -18,7 +18,10 @@ internal static class HelpCard
     private const double ListWidth = 380;
     private const double ListMaxHeight = 380;
 
-    public static Dialog Create(IReadOnlyList<HelpEntry> entries, Action done)
+    /// <param name="entries">The shortcuts.</param>
+    /// <param name="done">Called when the card is closed.</param>
+    /// <param name="about">When given, the card has a second button "About Raffica PDF" that calls it.</param>
+    public static Dialog Create(IReadOnlyList<HelpEntry> entries, Action done, Action? about = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(done);
@@ -63,6 +66,14 @@ internal static class HelpCard
             Content = scroll,
             Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
         };
+        if (about is not null)
+        {
+            var aboutButton = new Button { Name = "PART_About", Content = PdfStrings.CmdAbout };
+            aboutButton.Classes.Add("boxed");
+            aboutButton.Click += (_, _) => about();
+            ((StackPanel)dialog.Footer!).Children.Insert(0, aboutButton);
+        }
+
         ok.Click += (_, _) => done();
         dialog.CancelRequested += (_, _) => done();
         return dialog;

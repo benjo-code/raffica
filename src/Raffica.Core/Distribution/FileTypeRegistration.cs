@@ -32,7 +32,7 @@ public static class FileTypeRegistration
     public const string ProgId = "Raffica.PDF";
 
     private const string ProgIdKey = @"Software\Classes\" + ProgId;
-    private const string ApplicationKey = @"Software\Classes\Applications\Raffica.exe";
+    private const string ApplicationKey = @"Software\Classes\Applications\RafficaPdf.exe";
     private const string CapabilitiesKey = @"Software\Raffica\Capabilities";
     private const string RegisteredApplicationsKey = @"Software\RegisteredApplications";
     private const string OpenWithProgidsKey = @"Software\Classes\.pdf\OpenWithProgids";

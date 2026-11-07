@@ -3072,4 +3072,190 @@
   <data name="TextEditOldTextNote" xml:space="preserve">
     <value>The old text stays in earlier versions of the file. To remove it for real: Redact.</value>
   </data>
+  <data name="DefaultAppTitle" xml:space="preserve">
+    <value>Default app for PDFs</value>
+  </data>
+  <data name="DefaultAppMessage" xml:space="preserve">
+    <value>Do you want Raffica to open PDF files by default? You can change this later in your system settings.</value>
+  </data>
+  <data name="DefaultAppSet" xml:space="preserve">
+    <value>Set as default</value>
+  </data>
+  <data name="DefaultAppNotNow" xml:space="preserve">
+    <value>Not now</value>
+  </data>
+  <data name="DefaultAppDontAsk" xml:space="preserve">
+    <value>Don&apos;t ask again</value>
+  </data>
+  <data name="DefaultAppResultTitle" xml:space="preserve">
+    <value>Default app</value>
+  </data>
+  <data name="DefaultAppDone" xml:space="preserve">
+    <value>Raffica now opens PDF files by default.</value>
+  </data>
+  <data name="DefaultAppOpenedSettings" xml:space="preserve">
+    <value>The system settings for default apps are open. Choose Raffica for .pdf files there; the system leaves that choice to you.</value>
+  </data>
+  <data name="DefaultAppNotAvailable" xml:space="preserve">
+    <value>This system offers no way to set the default app from here. Nothing was changed. You can choose it in your system settings.</value>
+  </data>
+  <data name="DefaultAppFailed" xml:space="preserve">
+    <value>The default app could not be set. Nothing was changed. You can choose it in your system settings.</value>
+  </data>
+  <data name="CmdMakeDefaultApp" xml:space="preserve">
+    <value>Make Raffica the default app for PDFs</value>
+  </data>
+  <data name="PaletteGroupApp" xml:space="preserve">
+    <value>App</value>
+  </data>
+  <data name="SettingsDefaultApp" xml:space="preserve">
+    <value>Default app</value>
+  </data>
+  <data name="SettingsDefaultAppAsk" xml:space="preserve">
+    <value>Offer at start to make Raffica the default app</value>
+  </data>
+  <data name="SettingsDefaultAppNow" xml:space="preserve">
+    <value>Make Raffica the default app for PDFs when I click OK</value>
+  </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
+  <data name="AboutName" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="AboutVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="AboutLicenseFormat" xml:space="preserve">
+    <value>License: {0}</value>
+  </data>
+  <data name="AboutProjectFormat" xml:space="preserve">
+    <value>Project: {0}</value>
+  </data>
+  <data name="AboutNoticesHeading" xml:space="preserve">
+    <value>Third-party notices</value>
+  </data>
+  <data name="AboutNoticesName" xml:space="preserve">
+    <value>Third-party notices, scrollable text</value>
+  </data>
+  <data name="CmdAbout" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
+  <data name="UpdateTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateMessageFormat" xml:space="preserve">
+    <value>Raffica PDF {0} is available. You have version {1}.</value>
+  </data>
+  <data name="UpdateCheckedNote" xml:space="preserve">
+    <value>Before anything is installed, Raffica checks the signature of the release and the size and SHA-256 of the downloaded file.</value>
+  </data>
+  <data name="UpdateRestartNote" xml:space="preserve">
+    <value>Raffica asks about unsaved changes first and opens your tabs again after the restart.</value>
+  </data>
+  <data name="UpdateManualMessage" xml:space="preserve">
+    <value>This installation cannot update itself. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateInstall" xml:space="preserve">
+    <value>Install and restart</value>
+  </data>
+  <data name="UpdateLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="UpdateOpenPage" xml:space="preserve">
+    <value>Open download page</value>
+  </data>
+  <data name="UpdateProgressTitle" xml:space="preserve">
+    <value>Updating Raffica PDF</value>
+  </data>
+  <data name="UpdateStepDownload" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="UpdateStepCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="UpdateStepInstall" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="UpdateStepRestart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="UpdateStepDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="UpdateProgressBytesFormat" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="UpdateFailedTitle" xml:space="preserve">
+    <value>Update failed</value>
+  </data>
+  <data name="UpdateTryAgain" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="UpdateCheckTitle" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdateUpToDateFormat" xml:space="preserve">
+    <value>Raffica PDF is up to date (version {0}).</value>
+  </data>
+  <data name="UpdateCouldNotCheck" xml:space="preserve">
+    <value>Could not check for updates. Check your connection and try again later.</value>
+  </data>
+  <data name="CmdCheckForUpdates" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdateFailureUnreachable" xml:space="preserve">
+    <value>The update could not be downloaded. Check your connection and try again.</value>
+  </data>
+  <data name="UpdateFailureWithdrawn" xml:space="preserve">
+    <value>This update is not offered any more. Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureSuperseded" xml:space="preserve">
+    <value>A newer version was released in the meantime. Nothing was installed; close this message to see it.</value>
+  </data>
+  <data name="UpdateFailureRejected" xml:space="preserve">
+    <value>The release information was not accepted. Nothing was installed.</value>
+  </data>
+  <data name="UpdateFailureChecksum" xml:space="preserve">
+    <value>The downloaded file does not match the size and SHA-256 of the signed release information. It was deleted and nothing was installed.</value>
+  </data>
+  <data name="UpdateFailureStorage" xml:space="preserve">
+    <value>The update could not be saved on this computer (disk full or no access). Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureNoInstaller" xml:space="preserve">
+    <value>This installation cannot update itself. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateFailureInstallFailed" xml:space="preserve">
+    <value>The installer did not finish. The version you are running is unchanged.</value>
+  </data>
+  <data name="UpdateBusyNote" xml:space="preserve">
+    <value>A file is being saved, printed or processed. Wait until it has finished, then choose Install again. Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureFolderWriteProtectedFormat" xml:space="preserve">
+    <value>The folder {0} is write-protected, so Raffica cannot replace itself there. Nothing was changed. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateFailureNotStarted" xml:space="preserve">
+    <value>The new version is installed, but it could not be started. It starts the next time you open Raffica.</value>
+  </data>
+  <data name="UpdateFailureVersionMismatch" xml:space="preserve">
+    <value>The installer finished, but the installed program is not the new version yet. Files may have been replaced. Try again, or restart your computer and open Raffica.</value>
+  </data>
+  <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
+    <value>The installer did not finish, or the permission prompt was declined. Files may have been replaced. Try again, or get the new version from the download page.</value>
+  </data>
+  <data name="UpdateButton" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateButtonNameFormat" xml:space="preserve">
+    <value>Update available: Raffica PDF {0}</value>
+  </data>
+  <data name="UpdateStepCurrent" xml:space="preserve">
+    <value>In progress</value>
+  </data>
+  <data name="SettingsUpdates" xml:space="preserve">
+    <value>Updates</value>
+  </data>
+  <data name="SettingsUpdateCheck" xml:space="preserve">
+    <value>Check for updates automatically</value>
+  </data>
 </root>

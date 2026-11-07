@@ -31,6 +31,7 @@ public class TitleBar : TemplatedControl
     private const double MacInset = 80;
 
     public static readonly StyledProperty<object?> MarkProperty = AvaloniaProperty.Register<TitleBar, object?>(nameof(Mark));
+    public static readonly StyledProperty<object?> TrailingProperty = AvaloniaProperty.Register<TitleBar, object?>(nameof(Trailing));
     public static readonly StyledProperty<bool> ShowCaptionButtonsProperty = AvaloniaProperty.Register<TitleBar, bool>(nameof(ShowCaptionButtons), !OperatingSystem.IsMacOS());
     public static readonly StyledProperty<double> LeadingInsetProperty = AvaloniaProperty.Register<TitleBar, double>(nameof(LeadingInset), OperatingSystem.IsMacOS() ? MacInset : 0);
 
@@ -40,6 +41,7 @@ public class TitleBar : TemplatedControl
     private readonly ColumnDefinition _insetColumn = new(0, GridUnitType.Pixel);
     private readonly ColumnDefinition _searchColumn = new(SearchMax, GridUnitType.Pixel);
     private readonly ContentPresenter _mark = new() { Name = "PART_Mark", VerticalAlignment = VerticalAlignment.Center };
+    private readonly ContentPresenter _trailing = new() { Name = "PART_Trailing", VerticalAlignment = VerticalAlignment.Center };
     private readonly StackPanel _caption = new() { Name = "PART_Caption", Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
     private readonly Button _minimize;
     private readonly Button _maximize;
@@ -51,6 +53,11 @@ public class TitleBar : TemplatedControl
     static TitleBar()
     {
         MarkProperty.Changed.AddClassHandler<TitleBar>((bar, e) => bar._mark.Content = e.NewValue);
+        TrailingProperty.Changed.AddClassHandler<TitleBar>((bar, e) =>
+        {
+            bar._trailing.Content = e.NewValue;
+            bar.InvalidateMeasure();
+        });
         ShowCaptionButtonsProperty.Changed.AddClassHandler<TitleBar>((bar, e) =>
         {
             bar._caption.IsVisible = e.GetNewValue<bool>();
@@ -93,6 +100,12 @@ public class TitleBar : TemplatedControl
     /// <summary>The app mark at the left edge (an icon or a logo).</summary>
     public object? Mark { get => GetValue(MarkProperty); set => SetValue(MarkProperty, value); }
 
+    /// <summary>
+    /// Optional content between the search field and the caption buttons (an app's status button, for example). Empty by default,
+    /// in which case the slot takes no room and the bar looks as it did without it.
+    /// </summary>
+    public object? Trailing { get => GetValue(TrailingProperty); set => SetValue(TrailingProperty, value); }
+
     /// <summary>Whether the minimize, maximize and close buttons are drawn: yes on Windows and Linux, no on macOS.</summary>
     public bool ShowCaptionButtons { get => GetValue(ShowCaptionButtonsProperty); set => SetValue(ShowCaptionButtonsProperty, value); }
 
@@ -117,7 +130,7 @@ public class TitleBar : TemplatedControl
             return;
         }
 
-        var grid = new Grid { ColumnDefinitions = [_insetColumn, new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), _searchColumn, new ColumnDefinition(GridLength.Auto)] };
+        var grid = new Grid { ColumnDefinitions = [_insetColumn, new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), _searchColumn, new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Auto)] };
         _mark.Margin = new Thickness(12, 0, 8, 0);
         _mark.Content = Mark;
         Place(grid, _mark, 1);
@@ -125,7 +138,9 @@ public class TitleBar : TemplatedControl
         Place(grid, Tabs, 2);
         Search.Margin = new Thickness(0, 0, 8, 0);
         Place(grid, Search, 3);
-        Place(grid, _caption, 4);
+        _trailing.Content = Trailing;
+        Place(grid, _trailing, 4);
+        Place(grid, _caption, 5);
         _host.Child = grid;
         WindowDecorationProperties.SetElementRole(_host, WindowDecorationsElementRole.TitleBar);
     }
@@ -136,7 +151,8 @@ public class TitleBar : TemplatedControl
         if (_host?.Child is not null && !double.IsInfinity(availableSize.Width))
         {
             _mark.Measure(new Size(double.PositiveInfinity, availableSize.Height));
-            var taken = LeadingInset + _mark.DesiredSize.Width + (ShowCaptionButtons ? 3 * 46 : 0) + 28 + TabsRoom + Search.Margin.Right + Tabs.Margin.Right;
+            _trailing.Measure(new Size(double.PositiveInfinity, availableSize.Height));
+            var taken = LeadingInset + _mark.DesiredSize.Width + _trailing.DesiredSize.Width + (ShowCaptionButtons ? 3 * 46 : 0) + 28 + TabsRoom + Search.Margin.Right + Tabs.Margin.Right;
             _searchColumn.Width = new GridLength(Math.Clamp(availableSize.Width - taken, SearchMin, SearchMax));
         }
 

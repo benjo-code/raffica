@@ -1,3 +1,4 @@
+using Raffica.Core.Distribution;
 using Raffica.Shell;
 
 namespace Raffica.Pdf;
@@ -24,6 +25,24 @@ internal sealed class PdfOptions
     /// <summary>Prints the value of this string key and exits before any window exists (the CI smoke test).</summary>
     public string? PrintString { get; private init; }
 
+    /// <summary>Registers the app for PDF files in this scope (<c>--register-file-types=user|machine</c>, run by the installer) and exits before any window exists.</summary>
+    public RegistrationScope? RegisterFileTypes { get; private init; }
+
+    /// <summary>Removes that registration (<c>--unregister-file-types=user|machine</c>, run by the uninstaller) and exits before any window exists.</summary>
+    public RegistrationScope? UnregisterFileTypes { get; private init; }
+
+    /// <summary>
+    /// The staging folder of an update (<c>--finish-update &lt;staging&gt;</c>): this process is the helper of the Windows updater, which installs the update from that folder,
+    /// shows its progress and ends; it runs before the instance check and never opens the normal window.
+    /// </summary>
+    public string? FinishUpdate { get; private init; }
+
+    /// <summary>The process to wait for before anything else (<c>--after-process &lt;id&gt;</c>): the app that started the helper or the new program after an update.</summary>
+    public int? AfterProcess { get; private init; }
+
+    /// <summary>True for <c>--restore-session</c>: the start after an update opens the tabs of the session file once and deletes the file.</summary>
+    public bool RestoreSession { get; private init; }
+
     /// <summary>
     /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
     /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll …</c>) or
@@ -33,6 +52,28 @@ internal sealed class PdfOptions
 
     /// <summary>True for a measurement run.</summary>
     public bool IsMeasuring => MeasureSwitch is not null;
+
+    /// <summary>The same options with other files to open (the session of an update restarts the tabs this way).</summary>
+    public PdfOptions WithFiles(IReadOnlyList<string> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return new PdfOptions
+        {
+            MeasureSwitch = MeasureSwitch,
+            Files = files,
+            Lang = Lang,
+            Theme = Theme,
+            ThemeGiven = ThemeGiven,
+            HighContrast = HighContrast,
+            SettingsFile = SettingsFile,
+            PrintString = PrintString,
+            RegisterFileTypes = RegisterFileTypes,
+            UnregisterFileTypes = UnregisterFileTypes,
+            FinishUpdate = FinishUpdate,
+            AfterProcess = AfterProcess,
+            RestoreSession = RestoreSession,
+        };
+    }
 
     public static PdfOptions Parse(string[] args)
     {
@@ -44,6 +85,11 @@ internal sealed class PdfOptions
         var highContrast = false;
         string? settingsFile = null;
         string? printString = null;
+        RegistrationScope? register = null;
+        RegistrationScope? unregister = null;
+        string? finishUpdate = null;
+        int? afterProcess = null;
+        var restoreSession = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -76,6 +122,28 @@ internal sealed class PdfOptions
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
+                case "--finish-update":
+                    finishUpdate = Value(args, ref i);
+                    if (string.IsNullOrWhiteSpace(finishUpdate))
+                    {
+                        throw new ArgumentException("the switch '--finish-update' needs the staging folder");
+                    }
+
+                    break;
+                case "--after-process":
+                    afterProcess = int.TryParse(Value(args, ref i), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var processId) && processId > 0
+                        ? processId
+                        : throw new ArgumentException("the switch '--after-process' needs a process id");
+                    break;
+                case "--restore-session":
+                    restoreSession = true;
+                    break;
+                case var other when other.StartsWith("--register-file-types", StringComparison.Ordinal):
+                    register = Scope(other, "--register-file-types");
+                    break;
+                case var other when other.StartsWith("--unregister-file-types", StringComparison.Ordinal):
+                    unregister = Scope(other, "--unregister-file-types");
+                    break;
                 case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory":
                     if (measure is not null)
                     {
@@ -90,6 +158,11 @@ internal sealed class PdfOptions
                     files.Add(args[i]);
                     break;
             }
+        }
+
+        if (register is not null && unregister is not null)
+        {
+            throw new ArgumentException("'--register-file-types' and '--unregister-file-types' cannot be combined");
         }
 
         if (measure is not null)
@@ -116,6 +189,23 @@ internal sealed class PdfOptions
             HighContrast = highContrast,
             SettingsFile = settingsFile,
             PrintString = printString,
+            RegisterFileTypes = register,
+            UnregisterFileTypes = unregister,
+            FinishUpdate = finishUpdate,
+            AfterProcess = afterProcess,
+            RestoreSession = restoreSession,
+        };
+    }
+
+    // The scope is part of the argument (<name>=user|machine), as the installer passes it.
+    private static RegistrationScope Scope(string arg, string name)
+    {
+        var value = arg.StartsWith(name + "=", StringComparison.Ordinal) ? arg[(name.Length + 1)..] : null;
+        return value switch
+        {
+            "user" => RegistrationScope.User,
+            "machine" => RegistrationScope.Machine,
+            _ => throw new ArgumentException($"'{name}' needs =user or =machine"),
         };
     }
 

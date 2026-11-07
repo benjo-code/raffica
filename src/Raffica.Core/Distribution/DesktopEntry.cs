@@ -20,7 +20,7 @@ public static class DesktopEntry
         return new StringBuilder()
             .Append("[Desktop Entry]\n")
             .Append("Type=Application\n")
-            .Append("Name=Raffica\n")
+            .Append("Name=Raffica PDF\n")
             .Append("GenericName=PDF Viewer\n")
             .Append("GenericName[de]=PDF-Betrachter\n")
             .Append("Comment=Fast, offline PDF viewer\n")
@@ -30,7 +30,7 @@ public static class DesktopEntry
             .Append("Terminal=false\n")
             .Append("Categories=Office;Viewer;\n")
             .Append("MimeType=application/pdf;\n")
-            .Append("StartupWMClass=Raffica\n")
+            .Append("StartupWMClass=RafficaPdf\n")
             .ToString();
     }
 

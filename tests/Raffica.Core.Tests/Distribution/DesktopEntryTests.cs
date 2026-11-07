@@ -53,7 +53,7 @@ public sealed class DesktopEntryTests
 
         Assert.Contains("[Desktop Entry]", lines);
         Assert.Contains("MimeType=application/pdf;", lines);
-        Assert.Contains("StartupWMClass=Raffica", lines);
+        Assert.Contains("StartupWMClass=RafficaPdf", lines);
         Assert.Contains("Icon=raffica", lines);
         Assert.Contains("Exec=/opt/Raffica %F", lines);
         Assert.EndsWith("\n", DesktopEntry.Render("/opt/Raffica", "raffica"), StringComparison.Ordinal);
@@ -62,7 +62,13 @@ public sealed class DesktopEntryTests
     [Fact]
     public void WindowClassIsTheOneAvaloniaSetsOnX11()
     {
-        // Verified with xprop on the Native AOT build under Xvfb: WM_CLASS(STRING) = "Raffica", "Raffica".
-        Assert.Contains("StartupWMClass=Raffica", DesktopEntry.Render("/opt/Raffica", "raffica").Split('\n'));
+        // Open item: the class is checked with xprop WM_CLASS on a Linux desktop (M2.6 Task 6); RafficaPdf is the assembly name.
+        Assert.Contains("StartupWMClass=RafficaPdf", DesktopEntry.Render("/opt/Raffica", "raffica").Split('\n'));
+    }
+
+    [Fact]
+    public void NameIsRafficaPdf()
+    {
+        Assert.Contains("Name=Raffica PDF", DesktopEntry.Render("/opt/RafficaPdf", "raffica-pdf").Split('\n'));
     }
 }

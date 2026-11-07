@@ -7,7 +7,7 @@ namespace Raffica.Core.Updates;
 /// The TEST BUILD of <see cref="UpdateTrust"/>: compiled instead of <c>UpdateTrust.cs</c> only with the build property
 /// <c>RafficaUpdateTestBuild=true</c> (Raffica.Core.csproj), never in a release. It trusts exactly one test key and
 /// fetches only from the test server on 127.0.0.1 (<c>tools/update-testserver.cs</c>), both given at build time as
-/// <c>RafficaUpdateTestKey</c> and <c>RafficaUpdateTestPort</c> (packaging/README.md, section "Update prüfen"). The
+/// <c>RafficaUpdateTestKey</c> and <c>RafficaUpdateTestPort</c> (packaging/README.md, section "Manual update check"). The
 /// values are read from the assembly metadata of this build, which the property alone adds; nothing at run time (no
 /// environment variable, no switch) can change them, as in the release build.
 /// </summary>

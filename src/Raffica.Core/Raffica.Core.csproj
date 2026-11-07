@@ -20,7 +20,7 @@
     <InternalsVisibleTo Include="Raffica.Pdf.Tests" />
   </ItemGroup>
   <!--
-    Test build of the updater (Milestone 8.1, packaging/README.md, section "Update prüfen"). A normal build, and so every
+    Test build of the updater (Milestone 8.1, packaging/README.md, section "Manual update check"). A normal build, and so every
     release, compiles Updates\UpdateTrust.cs: the real keys and GitHub, with no way to override them. Only
     -p:RafficaUpdateTestBuild=true swaps it for Updates\UpdateTrust.TestBuild.cs, which trusts the one test key
     RafficaUpdateTestKey and the test server on 127.0.0.1:RafficaUpdateTestPort (tools/update-testserver.cs); the two

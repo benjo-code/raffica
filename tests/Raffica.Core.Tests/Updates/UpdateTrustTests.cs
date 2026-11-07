@@ -11,7 +11,7 @@ namespace Raffica.Core.Tests.Updates;
 
 /// <summary>
 /// What the program trusts for updates. The normal run checks the release build (the build of every release); the test
-/// build (<c>-p:RafficaUpdateTestBuild=true</c>, packaging/README.md, section "Update prüfen") is checked by running
+/// build (<c>-p:RafficaUpdateTestBuild=true</c>, packaging/README.md, section "Manual update check") is checked by running
 /// these tests once with the property:
 /// <c>dotnet test --project tests/Raffica.Core.Tests -p:RafficaUpdateTestBuild=true -p:RafficaUpdateTestPort=&lt;port&gt; -p:RafficaUpdateTestKey=&lt;Base64&gt; -- --filter-class "*UpdateTrustTests"</c>.
 /// </summary>
@@ -39,7 +39,7 @@ public sealed class UpdateTrustTests
     /// Armed only in the signing job of the release workflow (<c>RAFFICA_REQUIRE_RELEASE_KEY=1</c>, job
     /// <c>manifest</c> in <c>.github/workflows/release.yml</c>): a release must never ship the placeholder as its only
     /// trust. Everywhere else it passes, because the placeholder stays until the owner enters the real key
-    /// (<c>packaging/README.md</c>, section "Signaturschlüssel für Updates").
+    /// (<c>packaging/README.md</c>, section "Signing key for updates").
     /// </summary>
     [Fact]
     public void ReleaseKeysAreNotThePlaceholderWhenReleasing()

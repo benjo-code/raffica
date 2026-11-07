@@ -152,7 +152,7 @@ internal sealed partial class PdfWindow : Window
         Host = new DialogHost { Content = new DockPanel { Children = { printSlot, Frame } } };
         Content = Host;
         Dialogs = new DialogQueue(Host);
-        Settings = new PdfSettingsController(options, Host, settings, appDefaults, SetCompact, SetPageThemeOfAllTabs);
+        Settings = new PdfSettingsController(options, Host, settings, appDefaults, SetCompact, SetPageThemeOfAllTabs, MakeDefaultApp);
         Tools = new ToolState(() => Settings.App, Settings.Update);
         Tools.Changed += OnToolsChanged;
         _printService = printService;
@@ -239,6 +239,8 @@ internal sealed partial class PdfWindow : Window
         Step(() => _ocrFlow?.Abandon());
         Step(() => _outputFlow?.Cancel());
         Step(() => _exportFlow?.Cancel());
+        Step(() => _defaultAppCancel?.Cancel());
+        Step(EndUpdates);
         Step(_fieldCodes.Dispose);
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
@@ -916,6 +918,12 @@ internal sealed partial class PdfWindow : Window
 
             // The scan hint is asked once the first page is sharp (and not in a measurement run; OfferScanHintAsync checks).
             view.FirstSharpPage += () => _ = GuardAsync(() => OfferScanHintAsync(shownTab));
+
+            // The default app offer (M2.6) waits for the first sharp page too (OfferDefaultAppAsync checks the setting, the service and the run).
+            view.FirstSharpPage += () => _ = GuardAsync(OfferDefaultAppAsync);
+
+            // The update check (M2.6) waits for the first sharp page as well: nothing of it exists before (CheckForUpdateAtStartAsync checks the setting, the factory and the run).
+            view.FirstSharpPage += () => _ = GuardAsync(CheckForUpdateAtStartAsync);
             var created = view;
             view.ViewChanged += () =>
             {
@@ -1382,6 +1390,9 @@ internal sealed partial class PdfWindow : Window
         PageCount = () => ActiveView?.PageCount ?? 0,
         GoToPage = page => ActiveView?.GoToPage(page),
         ShowDocumentInfo = () => _ = GuardAsync(ShowDocumentInfoAsync),
+        MakeDefaultApp = MakeDefaultApp,
+        ShowAbout = () => _ = GuardAsync(ShowAboutAsync),
+        CheckForUpdates = CheckForUpdates,
     };
 
     /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>

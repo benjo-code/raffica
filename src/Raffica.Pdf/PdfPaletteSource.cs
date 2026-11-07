@@ -35,6 +35,15 @@ internal sealed class PaletteContext
 
     /// <summary>Shows the card with the facts about the active document.</summary>
     public required Action ShowDocumentInfo { get; init; }
+
+    /// <summary>Makes Raffica the default app for PDF files (the command <c>app.default</c>); null: no entry.</summary>
+    public Action? MakeDefaultApp { get; init; }
+
+    /// <summary>Shows the About card (the command <c>app.about</c>); null: no entry.</summary>
+    public Action? ShowAbout { get; init; }
+
+    /// <summary>Checks for updates and offers one (the command <c>app.update</c>); null: no entry.</summary>
+    public Action? CheckForUpdates { get; init; }
 }
 
 /// <summary>
@@ -71,6 +80,9 @@ internal sealed class PdfPaletteSource(PaletteContext context)
             Section(entries, () => GoToPage(text));
             Section(entries, () => OpenDocuments(text));
             Section(entries, () => DocumentInfo(text));
+            Section(entries, () => DefaultApp(text));
+            Section(entries, () => About(text));
+            Section(entries, () => Updates(text));
             Section(entries, () => Outline(text));
             Section(entries, () => RecentFiles(text));
             return entries;
@@ -140,6 +152,30 @@ internal sealed class PdfPaletteSource(PaletteContext context)
         if (context.ActiveTab() is not null && PaletteMatcher.Score(text, PdfStrings.InfoTitle) >= 0)
         {
             yield return new SearchEntry(PdfStrings.PaletteGroupDocument, PdfStrings.InfoTitle, Safe(context.ShowDocumentInfo));
+        }
+    }
+
+    private IEnumerable<SearchEntry> DefaultApp(string text)
+    {
+        if (context.MakeDefaultApp is { } run && PaletteMatcher.Score(text, PdfStrings.CmdMakeDefaultApp) >= 0)
+        {
+            yield return new SearchEntry(PdfStrings.PaletteGroupApp, PdfStrings.CmdMakeDefaultApp, Safe(run));
+        }
+    }
+
+    private IEnumerable<SearchEntry> Updates(string text)
+    {
+        if (context.CheckForUpdates is { } run && PaletteMatcher.Score(text, PdfStrings.CmdCheckForUpdates) >= 0)
+        {
+            yield return new SearchEntry(PdfStrings.PaletteGroupApp, PdfStrings.CmdCheckForUpdates, Safe(run));
+        }
+    }
+
+    private IEnumerable<SearchEntry> About(string text)
+    {
+        if (context.ShowAbout is { } run && PaletteMatcher.Score(text, PdfStrings.CmdAbout) >= 0)
+        {
+            yield return new SearchEntry(PdfStrings.PaletteGroupApp, PdfStrings.CmdAbout, Safe(run));
         }
     }
 

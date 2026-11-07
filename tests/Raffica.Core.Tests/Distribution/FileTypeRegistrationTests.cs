@@ -15,7 +15,7 @@ public sealed class FileTypeRegistrationTests
         var progId = Assert.Single(entries, e => e.KeyPath == @"Software\Classes\Raffica.PDF\shell\open\command");
         Assert.Null(progId.ValueName);
         Assert.Equal("\"C:\\Apps\\Raffica\\Raffica.exe\" \"%1\"", progId.Value);
-        Assert.Contains(entries, e => e.KeyPath == @"Software\Classes\Applications\Raffica.exe\shell\open\command" && e.Value == progId.Value);
+        Assert.Contains(entries, e => e.KeyPath == @"Software\Classes\Applications\RafficaPdf.exe\shell\open\command" && e.Value == progId.Value);
         Assert.Contains(entries, e => e.KeyPath == @"Software\Classes\Raffica.PDF\DefaultIcon" && e.Value == "\"C:\\Apps\\Raffica\\Raffica.exe\",0");
         Assert.Contains(entries, e => e.KeyPath == @"Software\Classes\.pdf\OpenWithProgids" && e.ValueName == "Raffica.PDF" && e.Value.Length == 0);
         Assert.Contains(entries, e => e.KeyPath == @"Software\Raffica\Capabilities" && e.ValueName == "ApplicationName");
@@ -56,5 +56,27 @@ public sealed class FileTypeRegistrationTests
 
         Assert.DoesNotContain(paths, p => p.Contains("UserChoice", StringComparison.OrdinalIgnoreCase)
             || p.Contains("FileExts", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void CommandQuotesAPathWithSpacesAndNonAscii()
+    {
+        const string Path = @"C:\Users\Zoë Müller\AppData\Local\Programs\Raffica PDF\RafficaPdf.exe";
+
+        var command = Assert.Single(FileTypeRegistration.Entries(Path), e => e.KeyPath == @"Software\Classes\Raffica.PDF\shell\open\command");
+
+        Assert.StartsWith("\"" + Path + "\"", command.Value, StringComparison.Ordinal);
+        Assert.EndsWith("\"%1\"", command.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplicationKeyNamesTheRealExecutable()
+    {
+        var entries = FileTypeRegistration.Entries(@"C:\Apps\Raffica PDF\RafficaPdf.exe");
+
+        Assert.Contains(entries, e => e.KeyPath == @"Software\Classes\Applications\RafficaPdf.exe\shell\open\command");
+        Assert.DoesNotContain(entries, e => e.KeyPath.Contains(@"Applications\Raffica.exe", StringComparison.Ordinal));
+        Assert.Contains(FileTypeRegistration.Removals(), r => r.KeyPath == @"Software\Classes\Applications\RafficaPdf.exe");
+        Assert.Contains(entries, e => e.Value == "Raffica PDF Document");
     }
 }

@@ -38,10 +38,10 @@ public sealed class PackageFormTests
             PackageFormDetector.Detect(isWindows: true, processPath: null, _ => true, _ => null));
 
     [Theory]
-    [InlineData("/tmp/.mount_x/usr/lib/raffica/Raffica", "/home/u/Raffica.AppImage", "/tmp/.mount_x", PackageForm.AppImage)]
-    [InlineData("/tmp/.mount_x/usr/lib/raffica/Raffica", "/home/u/Raffica.AppImage", "/tmp/.mount_x/", PackageForm.AppImage)]
-    [InlineData("/usr/lib/raffica/Raffica", "", null, PackageForm.Deb)]
-    [InlineData("/usr/lib/raffica/Raffica", null, null, PackageForm.Deb)]
+    [InlineData("/tmp/.mount_x/usr/lib/raffica-pdf/RafficaPdf", "/home/u/Raffica.AppImage", "/tmp/.mount_x", PackageForm.AppImage)]
+    [InlineData("/tmp/.mount_x/usr/lib/raffica-pdf/RafficaPdf", "/home/u/Raffica.AppImage", "/tmp/.mount_x/", PackageForm.AppImage)]
+    [InlineData("/usr/lib/raffica-pdf/RafficaPdf", "", null, PackageForm.Deb)]
+    [InlineData("/usr/lib/raffica-pdf/RafficaPdf", null, null, PackageForm.Deb)]
     [InlineData("/usr/lib/raffica-other/Raffica", null, null, PackageForm.Unknown)]
     [InlineData("/opt/raffica/Raffica", null, null, PackageForm.Unknown)]
     [InlineData("/opt/raffica/Raffica", "", null, PackageForm.Unknown)]
@@ -51,13 +51,13 @@ public sealed class PackageFormTests
 
     // Every child of an AppImage inherits APPIMAGE (and APPDIR): a Raffica that was started by one is not that AppImage.
     [Theory]
-    [InlineData("/usr/lib/raffica/Raffica", null, PackageForm.Deb)]
-    [InlineData("/usr/lib/raffica/Raffica", "/tmp/.mount_other", PackageForm.Deb)]
+    [InlineData("/usr/lib/raffica-pdf/RafficaPdf", null, PackageForm.Deb)]
+    [InlineData("/usr/lib/raffica-pdf/RafficaPdf", "/tmp/.mount_other", PackageForm.Deb)]
     [InlineData("/opt/raffica/Raffica", null, PackageForm.Unknown)]
     [InlineData("/opt/raffica/Raffica", "", PackageForm.Unknown)]
     [InlineData("/opt/raffica/Raffica", "/tmp/.mount_other", PackageForm.Unknown)]
-    [InlineData("/tmp/.mount_abc/usr/lib/raffica/Raffica", "/tmp/.mount_ab", PackageForm.Unknown)]
-    [InlineData("/tmp/.mount_ab/usr/lib/raffica/Raffica", "/tmp/.mount_abc", PackageForm.Unknown)]
+    [InlineData("/tmp/.mount_abc/usr/lib/raffica-pdf/RafficaPdf", "/tmp/.mount_ab", PackageForm.Unknown)]
+    [InlineData("/tmp/.mount_ab/usr/lib/raffica-pdf/RafficaPdf", "/tmp/.mount_abc", PackageForm.Unknown)]
     [InlineData("/tmp/.mount_x/../evil/Raffica", "/tmp/.mount_x", PackageForm.Unknown)]
     [InlineData("/opt/raffica/Raffica", "/", PackageForm.Unknown)]
     [InlineData("/tmp/.mount_x", "/tmp/.mount_x", PackageForm.Unknown)]
@@ -66,8 +66,21 @@ public sealed class PackageFormTests
         Assert.Equal(expected, Linux(processPath, "/home/u/Other.AppImage", appDir));
 
     [Fact]
+    public void DebDirectoryIsTheRafficaPdfFolder() =>
+        Assert.Equal("/usr/lib/raffica-pdf/", PackageFormDetector.DebDirectory);
+
+    // The old folder of the predecessor layout is no deb install any more.
+    [Fact]
+    public void TheOldRafficaFolderIsNotTheDeb() =>
+        Assert.Equal(PackageForm.Unknown, Linux("/usr/lib/raffica/Raffica", null));
+
+    [Fact]
+    public void AnAppImageChildStartedFromTheDebIsDeb() =>
+        Assert.Equal(PackageForm.Deb, Linux("/usr/lib/raffica-pdf/RafficaPdf", "/home/u/Other.AppImage", "/tmp/.mount_other"));
+
+    [Fact]
     public void AnAppDirWithoutTheAppImageVariableIsNotTheAppImage() =>
-        Assert.Equal(PackageForm.Unknown, Linux("/tmp/.mount_x/usr/lib/raffica/Raffica", null, "/tmp/.mount_x"));
+        Assert.Equal(PackageForm.Unknown, Linux("/tmp/.mount_x/usr/lib/raffica-pdf/RafficaPdf", null, "/tmp/.mount_x"));
 
     private static UpdateManifest ManifestWithAllKinds() =>
         new(

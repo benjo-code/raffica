@@ -525,8 +525,14 @@ internal sealed partial class PdfWindow
     }
 
     /// <summary>Shows the list of keyboard shortcuts and returns when it is closed.</summary>
-    internal Task ShowHelpAsync() =>
-        Dialogs.ShowAsync<bool>(done => HelpCard.Create(PdfCommandCatalog.HelpEntries(), () => done(true)));
+    internal async Task ShowHelpAsync()
+    {
+        var about = await Dialogs.ShowAsync<bool>(done => HelpCard.Create(PdfCommandCatalog.HelpEntries(), () => done(false), () => done(true)));
+        if (about)
+        {
+            await ShowAboutAsync();
+        }
+    }
 
     private void OnToolsChanged()
     {
