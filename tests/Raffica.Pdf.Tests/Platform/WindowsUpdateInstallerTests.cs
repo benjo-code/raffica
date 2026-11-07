@@ -174,7 +174,7 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
             Helper = new WindowsUpdateHelper(new WindowsUpdateHelperSetup(Staged.Directory, kit.Config, kit.Keys, ApplierKit.RunningVersion, Starter, Runner, () => Ended++)
             {
                 AfterProcess = 777,
-                ProductVersionOf = _ => ProductVersion,
+                ProductVersionOf = _ => ProductVersionThrows is { } exception ? throw exception : ProductVersion,
             });
         }
 
@@ -191,6 +191,8 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
         public WindowsUpdateHelper Helper { get; }
 
         public string? ProductVersion { get; set; } = "0.2.0+abc";
+
+        public Exception? ProductVersionThrows { get; set; }
 
         public int Ended { get; private set; }
 
@@ -234,6 +236,41 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
             Assert.True(Directory.Exists(rig.Staged.Directory));
             Assert.Equal(tamper == "file" ? UpdateFailure.Checksum : UpdateFailure.Rejected, rig.Helper.State.Error);
         }
+    }
+
+    [Fact]
+    public async Task AnUnexpectedExceptionAfterTheSetupProgramEndsInTheWordedFailure()
+    {
+        // The reader of the product version throws a type nobody planned for: the task of the helper must not fault (the caller discards it),
+        // the installed version starts again and the window shows the failure with "Try again".
+        using var rig = new HelperRig(_kit, withSession: true) { ProductVersionThrows = new InvalidOperationException("unplanned") };
+        rig.Runner.Outcomes.Enqueue(new ProcessOutcome(0, string.Empty));
+
+        await rig.Helper.RunAsync();
+
+        Assert.Equal(UpdateStage.Failed, rig.Helper.State.Stage);
+        Assert.True(rig.Helper.CanRetry);
+        Assert.Equal(UpdateWording.ForApplier(UpdateApplyProblem.HelperInstallFailed, PdfStrings.Culture), rig.Helper.FailureMessage);
+        var restart = Assert.Single(rig.Starter.Starts);
+        Assert.Equal(rig.Installed, restart.File);
+        Assert.Equal(["--restore-session"], restart.Arguments);
+        Assert.Equal(0, rig.Ended);
+    }
+
+    [Fact]
+    public async Task AnUnexpectedExceptionWhileWaitingForTheAppEndsInTheWordedFailureToo()
+    {
+        using var rig = new HelperRig(_kit);
+        rig.Starter.WaitThrows = new InvalidOperationException("unplanned");
+
+        await rig.Helper.RunAsync();
+
+        // Nothing was installed; the old version runs again and the window says so.
+        Assert.Empty(rig.Runner.Runs);
+        Assert.Equal(UpdateStage.Failed, rig.Helper.State.Stage);
+        Assert.Equal(rig.Installed, Assert.Single(rig.Starter.Starts).File);
+        Assert.NotNull(rig.Helper.FailureMessage);
+        Assert.Equal(0, rig.Ended);
     }
 
     [Fact]

@@ -7,6 +7,7 @@ using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Settings;
 using Raffica.Pdf.Text;
 using Raffica.Pdf.Updating;
+using Raffica.Shell.Frame;
 
 namespace Raffica.Pdf;
 
@@ -22,6 +23,7 @@ internal sealed partial class PdfWindow
     private CancellationTokenSource? _updateCancel;
     private bool _updateCheckStarted;
     private bool _updateBusy;
+    private UpdateButton? _updateButton;
 
     /// <summary>
     /// What makes the update flow (it gets "is the background check switched on"). The app sets it (<see cref="UpdateServices.Create"/>, not in a measurement run);
@@ -31,6 +33,9 @@ internal sealed partial class PdfWindow
 
     /// <summary>Raised when the state of the update flow changed (the title bar button follows it).</summary>
     internal event Action<UpdateState>? UpdateStateChanged;
+
+    /// <summary>The title bar button of an offer, made together with the flow (null before the first check or command); tests click it.</summary>
+    internal UpdateButton? UpdateButton => _updateButton;
 
     /// <summary>Whether the flow exists (it is made by the first check or command; for tests).</summary>
     internal bool UpdateFlowCreated => _updateFlow is not null;
@@ -47,6 +52,18 @@ internal sealed partial class PdfWindow
                 _updateFlow = make(() => Settings.App.UpdateCheck);
                 _updateFlow.Changed += state => UpdateStateChanged?.Invoke(state);
                 _updateGuard = new UpdateInstallGuard(_closeGuard);
+
+                // The helper window of the installer opens where this window is (a maximized or minimized window is no place for a small one: it centres itself).
+                _updateFlow.ProgressWindowBounds = () => WindowState == Avalonia.Controls.WindowState.Normal ? (Position.X, Position.Y, ClientSize.Width, ClientSize.Height) : null;
+
+                // The title bar button follows the flow; it is made now because the flow is, never at startup.
+                _updateButton = new UpdateButton(OpenUpdateOffer);
+                _updateButton.Apply(_updateFlow.State);
+                _updateFlow.Changed += _updateButton.Apply;
+                if (Frame.TitleBar is TitleBar bar)
+                {
+                    bar.Trailing = _updateButton;
+                }
             }
 
             return _updateFlow;
@@ -103,6 +120,15 @@ internal sealed partial class PdfWindow
         }
 
         _ = GuardAsync(CheckForUpdatesAsync);
+    }
+
+    // A click on the title bar button: the card of the offer that is known (it does not ask the network again).
+    private void OpenUpdateOffer()
+    {
+        if (_updateFlow is { State.Stage: UpdateStage.Available or UpdateStage.Ready })
+        {
+            CheckForUpdates();
+        }
     }
 
     internal async Task CheckForUpdatesAsync()
@@ -242,25 +268,53 @@ internal sealed partial class PdfWindow
         }
     }
 
-    // The download and its check with the progress card. Returns null when the update is ready (or the user cancelled), else what the user chose after a failure.
-    private async Task<UpdateProgressChoice?> DownloadWithCardAsync(UpdateFlow flow)
+    // The progress card in the queue of cards. Closing it is asked through the returned callback at any time: when the flow ends while the card still waits behind
+    // another card, the request is kept and applied the moment the card is shown, so no card is left on screen with Cancel disabled and no way out.
+    private (UpdateProgressCard Card, Task<UpdateProgressChoice> Shown, Action<UpdateProgressChoice> Close, Action Detach) ShowProgressCard(UpdateFlow flow)
     {
         Action<UpdateProgressChoice>? close = null;
-        var card = new UpdateProgressCard(flow.Cancel, choice => close?.Invoke(choice));
+        UpdateProgressChoice? requested = null;
+
+        void RequestClose(UpdateProgressChoice choice)
+        {
+            if (close is { } done)
+            {
+                done(choice);
+            }
+            else
+            {
+                requested ??= choice;
+            }
+        }
+
+        var card = new UpdateProgressCard(flow.Cancel, RequestClose);
         void Follow(UpdateState state) => card.Apply(state, flow.FailureMessage, flow.CanRetry, flow.FailureOffersDownloadPage);
         card.Apply(flow.State, flow.FailureMessage, flow.CanRetry, flow.FailureOffersDownloadPage);
         var shown = Dialogs.ShowAsync<UpdateProgressChoice>(done =>
         {
             close = done;
+            if (requested is { } early)
+            {
+                // Shown first, closed right after: the queue shows a card by handing it to the host, so the answer comes in the next turn.
+                Dispatcher.UIThread.Post(() => done(early));
+            }
+
             return card.Dialog;
         });
         flow.Changed += Follow;
+        return (card, shown, RequestClose, () => flow.Changed -= Follow);
+    }
+
+    // The download and its check with the progress card. Returns null when the update is ready (or the user cancelled), else what the user chose after a failure.
+    private async Task<UpdateProgressChoice?> DownloadWithCardAsync(UpdateFlow flow)
+    {
+        var (_, shown, close, detach) = ShowProgressCard(flow);
         try
         {
             await flow.DownloadAndStageAsync(UpdateToken);
             if (flow.State.Stage != UpdateStage.Failed)
             {
-                close?.Invoke(UpdateProgressChoice.Close);
+                close(UpdateProgressChoice.Close);
                 await shown;
                 return null;
             }
@@ -270,23 +324,14 @@ internal sealed partial class PdfWindow
         }
         finally
         {
-            flow.Changed -= Follow;
+            detach();
         }
     }
 
     // The installer's step with the progress card; null when it took over (the app ends) or failed without anything to choose.
     private async Task<UpdateProgressChoice?> InstallWithCardAsync(UpdateFlow flow)
     {
-        Action<UpdateProgressChoice>? close = null;
-        var card = new UpdateProgressCard(flow.Cancel, choice => close?.Invoke(choice));
-        void Follow(UpdateState state) => card.Apply(state, flow.FailureMessage, flow.CanRetry, flow.FailureOffersDownloadPage);
-        card.Apply(flow.State, flow.FailureMessage, flow.CanRetry, flow.FailureOffersDownloadPage);
-        var shown = Dialogs.ShowAsync<UpdateProgressChoice>(done =>
-        {
-            close = done;
-            return card.Dialog;
-        });
-        flow.Changed += Follow;
+        var (_, shown, close, detach) = ShowProgressCard(flow);
         try
         {
             var result = await flow.InstallAsync(UpdateToken);
@@ -296,9 +341,11 @@ internal sealed partial class PdfWindow
                 return null;
             }
 
+            // The app goes on running: the session written for the restart must not stay behind for a later restart to find.
+            new SessionStore(SessionPath()).Delete();
             if (flow.State.Stage != UpdateStage.Failed)
             {
-                close?.Invoke(UpdateProgressChoice.Close);
+                close(UpdateProgressChoice.Close);
                 await shown;
                 return null;
             }
@@ -307,7 +354,7 @@ internal sealed partial class PdfWindow
         }
         finally
         {
-            flow.Changed -= Follow;
+            detach();
         }
     }
 
@@ -335,6 +382,8 @@ internal sealed partial class PdfWindow
             return;
         }
 
+        // Replaced or removed, never left from an earlier attempt: if this write fails, an old file must not be restored by mistake.
+        new SessionStore(SessionPath()).Delete();
         var entries = tabs.Select(tab => new SessionTab(tab.Path!, ViewOf(tab)?.CaptureRemembered())).ToList();
         var active = Math.Max(0, tabs.IndexOf(Workspace.Active!));
         _ = new SessionStore(SessionPath()).TrySave(new SessionSnapshot([new SessionWindow(entries, active)]));

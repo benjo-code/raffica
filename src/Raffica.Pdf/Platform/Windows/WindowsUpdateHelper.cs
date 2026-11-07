@@ -128,7 +128,7 @@ internal sealed class WindowsUpdateHelper : IDisposable
     private string SessionPath => UpdateApplierSupport.SessionPath(_setup.ConfigDirectory);
 
     /// <summary>Waits for the app, then verifies and installs (see the class). Once: a second call gets the running one. Never throws.</summary>
-    public Task RunAsync() => _running ??= RunCoreAsync();
+    public Task RunAsync() => _running ??= GuardedAsync(RunCoreAsync);
 
     /// <summary>
     /// "Cancel" (also closing the window) while the helper waits for the app or verifies: the installed version starts again, the update goes and the helper ends, at once
@@ -144,7 +144,7 @@ internal sealed class WindowsUpdateHelper : IDisposable
     }
 
     /// <summary>"Try again": the setup program once more, after verifying again.</summary>
-    public Task RetryAsync() => CanRetry ? _running = AttemptAsync() : Task.CompletedTask;
+    public Task RetryAsync() => CanRetry ? _running = GuardedAsync(AttemptAsync) : Task.CompletedTask;
 
     /// <summary>"Close" after a failure: deletes the update and ends the helper (the installed version runs already).</summary>
     public void Dismiss()
@@ -175,6 +175,29 @@ internal sealed class WindowsUpdateHelper : IDisposable
             && string.Equals(Path.GetFileName(exe), WindowsUpdateInstaller.ExeName, comparison)
             && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(exe) ?? string.Empty), Path.TrimEndingDirectorySeparator(target), comparison);
         return usable ? version : null;
+    }
+
+    // The callers discard the task, so nothing may escape it: an exception no step plans for (a failing file system call in the check, a starter that throws) ends like any
+    // other failure of the setup program: the installed version starts again, and the window shows the sentence with "Try again". Never throws.
+    private async Task GuardedAsync(Func<Task> step)
+    {
+        try
+        {
+            await step().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            try
+            {
+                StartInstalled();
+            }
+            catch (Exception again) when (again is not OutOfMemoryException)
+            {
+                // The old version could not be started either: the window still says what happened.
+            }
+
+            Fail(UpdateFailure.InstallFailed, retryable: true, message: UpdateWording.ForApplier(UpdateApplyProblem.HelperInstallFailed, PdfStrings.Culture));
+        }
     }
 
     private async Task RunCoreAsync()

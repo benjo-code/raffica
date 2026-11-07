@@ -112,6 +112,10 @@ internal sealed class UpdateKit : IDisposable
     public UpdateFlow Flow(PackageForm form = PackageForm.WindowsInstaller, bool enabled = true, bool withApplier = true, IUpdateSource? source = null) =>
         new(Checker(source), source ?? Source, withApplier ? Applier : null, form, () => enabled, Clock, Directory);
 
+    /// <summary>Makes a flow whose "background check is on" answer is <paramref name="enabled"/>, asked at every check (the window passes the setting in force).</summary>
+    public UpdateFlow Flow(Func<bool> enabled, PackageForm form = PackageForm.WindowsInstaller) =>
+        new(Checker(), Source, Applier, form, enabled, Clock, Directory);
+
     /// <summary>Announces a correctly signed release of <paramref name="version"/> whose Windows installer is <paramref name="payload"/> (default 2000 bytes), and prepares the download.</summary>
     public void Release(string version, byte[]? payload = null, byte[]? download = null)
     {

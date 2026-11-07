@@ -697,6 +697,11 @@ internal static class PdfStrings
     public static string SettingsDefaultAppNow => Table.Get("SettingsDefaultAppNow");
     public static string UpdateTitle => Table.Get("UpdateTitle");
     public static string UpdateMessageFormat => Table.Get("UpdateMessageFormat");
+    public static string UpdateButton => Table.Get("UpdateButton");
+    public static string UpdateButtonNameFormat => Table.Get("UpdateButtonNameFormat");
+    public static string UpdateStepCurrent => Table.Get("UpdateStepCurrent");
+    public static string SettingsUpdates => Table.Get("SettingsUpdates");
+    public static string SettingsUpdateCheck => Table.Get("SettingsUpdateCheck");
     public static string UpdateCheckedNote => Table.Get("UpdateCheckedNote");
     public static string UpdateRestartNote => Table.Get("UpdateRestartNote");
     public static string UpdateBusyNote => Table.Get("UpdateBusyNote");

@@ -118,6 +118,42 @@ public sealed class StartupCreatesNoPackagingWorkTests
         }
     }
 
+    // The fake factory of the test above cannot make an HTTP client, so its counter proves little. This one uses the app's own factory.
+    [AvaloniaFact]
+    public async Task TheRealFactoryMakesNoHttpClientWhileTheCheckIsOff()
+    {
+        var clients = GitHubUpdateSource.ClientsCreated;
+        var factoryCalls = 0;
+        using var f = WindowFixture.Create(folder =>
+            Assert.True(new SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(AppSettings.Default with { UpdateCheck = false, DefaultAppPrompt = DefaultAppPromptSetting.Never })));
+        var settingsFile = Path.Combine(f.Folder, "settings.json");
+        f.Window.UpdateFlows = enabled =>
+        {
+            factoryCalls++;
+            return UpdateServices.Create(settingsFile, enabled);
+        };
+        var tab = await f.OpenAsync("pages-marked.pdf");
+        await ViewFixture.WaitAsync(() => f.Window.ViewOf(tab)!.FirstSharpPageShown);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+        Assert.Equal(0, factoryCalls);
+        Assert.False(f.Window.UpdateFlowCreated);
+        Assert.Equal(clients, GitHubUpdateSource.ClientsCreated);
+
+        // Even a flow that exists (the user asked once) opens nothing while its check is off, and making it creates no client by itself.
+        var flow = UpdateServices.Create(settingsFile, () => false);
+        try
+        {
+            await flow.CheckOnStartAsync(CancellationToken.None);
+            Assert.Equal(clients, GitHubUpdateSource.ClientsCreated);
+            Assert.Equal(Raffica.Core.Updates.UpdateStage.None, flow.State.Stage);
+        }
+        finally
+        {
+            flow.Dispose();
+        }
+    }
+
     // The notices (about 400 KB of text) are read from the assembly when the About card opens, not at startup, not when the palette
     // is searched and not when the help card opens.
     [AvaloniaFact]

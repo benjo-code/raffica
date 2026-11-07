@@ -152,6 +152,10 @@ internal sealed class PdfSettingsController
         var defaultApp = new StackPanel { Spacing = 6, Children = { askAtStart, makeNow } };
         AutomationProperties.SetName(defaultApp, PdfStrings.SettingsDefaultApp);
 
+        // The only setting of the updater (M2.6): whether the app asks the release server once a day. Off, the app opens no connection at all; the command "Check for updates"
+        // still asks when the user does. It is read live for every check, so switching it off stops later checks of the running app.
+        var updateCheck = new CheckBox { Name = "PART_UpdateCheck", Content = PdfStrings.SettingsUpdateCheck, IsChecked = App.UpdateCheck };
+
         var rows = new List<SettingsExtraRow>
         {
             new(PdfStrings.SettingsPageAppearance, appearance),
@@ -163,6 +167,8 @@ internal sealed class PdfSettingsController
         {
             rows.Add(new SettingsExtraRow(PdfStrings.SettingsDefaultApp, defaultApp));
         }
+
+        rows.Add(new SettingsExtraRow(PdfStrings.SettingsUpdates, updateCheck));
 
         var options = new SettingsDialogOptions(ShowAutosave: false, ExtraRows: rows);
 
@@ -179,6 +185,7 @@ internal sealed class PdfSettingsController
                         DefaultLayout = Layouts[Math.Max(0, layout.SelectedIndex)],
                         DefaultZoomMode = Zooms[Math.Max(0, zoom.SelectedIndex)],
                         AuthorName = string.IsNullOrWhiteSpace(author.Text) ? null : author.Text.Trim(),
+                        UpdateCheck = updateCheck.IsChecked == true,
                         DefaultAppPrompt = _makeDefaultApp is null ? App.DefaultAppPrompt : askAtStart.IsChecked == true ? DefaultAppPromptSetting.Ask : DefaultAppPromptSetting.Never,
                     });
                 if (makeNow.IsChecked == true)

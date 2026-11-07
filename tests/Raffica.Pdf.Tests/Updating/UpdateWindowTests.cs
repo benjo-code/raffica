@@ -190,5 +190,114 @@ public sealed class UpdateWindowTests
         await ViewFixture.WaitAsync(() => f.Window.UpdateState.Stage == UpdateStage.Available);
     }
 
+    [AvaloniaFact]
+    public async Task ACardQueuedBehindAnotherDialogClosesWhenTheFlowIsAlreadyDone()
+    {
+        using var kit = new UpdateKit();
+        kit.Release("0.2.0");
+        using var f = WindowFixture.Create(UpdateCheck(false));
+        f.Window.UpdateFlows = _ => kit.Flow();
+        _ = f.Window.CheckForUpdatesAsync();
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
+        await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+        Click(Find(f, "PART_Install"));
+
+        // Another card takes the host before the progress card can: the progress card waits in the queue while the download runs and ends.
+        var blocker = f.Window.Dialogs.ShowAsync<bool>(done => NoticeCard.Create("Blocker", "Something else", () => done(true)));
+        await ViewFixture.WaitAsync(() => f.Window.UpdateState.Stage == UpdateStage.Ready);
+        Assert.Equal("Blocker", f.Window.Host.ActiveDialog!.Title);
+
+        // Once the other card is closed the queued card shows, finds the work done and goes by itself: the installer is reached (no tab asks anything).
+        Click(Find(f, "PART_Ok"));
+        await blocker;
+        await ViewFixture.WaitAsync(() => kit.Applier.Calls == 1);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailedInstallTakesBackTheSessionOfTheRestart()
+    {
+        using var kit = new UpdateKit();
+        kit.Release("0.2.0");
+        kit.Applier.Result = ApplyResult.Failed();
+        using var f = WindowFixture.Create(UpdateCheck(false));
+        f.Window.UpdateFlows = _ => kit.Flow();
+        var session = Path.Combine(PdfSettingsFilesFolder(f), SessionStore.FileName);
+
+        // A session file of an earlier attempt must not come back, whatever this attempt does: with no tab to restore it is removed before the installer runs ...
+        await File.WriteAllTextAsync(session, "{\"windows\":[]}", TestContext.Current.CancellationToken);
+        var sawSession = false;
+        kit.Applier.OnApply = () => sawSession = File.Exists(session);
+        _ = f.Window.CheckForUpdatesAsync();
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
+        await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+        Click(Find(f, "PART_Install"));
+
+        // ... and when the installer fails the app goes on running: no session file stays behind for a later restart to find.
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateProgressTitle
+            && f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Name == "PART_Failure" && t.IsVisible));
+        Assert.Equal(1, kit.Applier.Calls);
+        Assert.False(sawSession, "with no tab to restore the old file is removed before the installer runs");
+        Assert.False(File.Exists(session));
+        Click(Find(f, "PART_Dismiss"));
+        await ViewFixture.WaitAsync(() => !f.Window.Host.IsOpen);
+        Assert.False(File.Exists(session));
+    }
+
+    [AvaloniaFact]
+    public async Task AFailedInstallWithTabsAlsoTakesBackTheSession()
+    {
+        using var kit = new UpdateKit();
+        kit.Release("0.2.0");
+        kit.Applier.Result = ApplyResult.Failed();
+        using var f = WindowFixture.Create(UpdateCheck(false));
+        f.Window.UpdateFlows = _ => kit.Flow();
+        var session = Path.Combine(PdfSettingsFilesFolder(f), SessionStore.FileName);
+        await f.OpenAsync("pages-marked.pdf");
+        var sawSession = false;
+        kit.Applier.OnApply = () => sawSession = File.Exists(session);
+
+        _ = f.Window.CheckForUpdatesAsync();
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
+        await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+        Click(Find(f, "PART_Install"));
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateProgressTitle
+            && f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Name == "PART_Failure" && t.IsVisible));
+
+        // The installer saw the session (it needs it for the restart); after its failure the file is gone.
+        Assert.True(sawSession);
+        Assert.False(File.Exists(session));
+        Click(Find(f, "PART_Dismiss"));
+        await ViewFixture.WaitAsync(() => !f.Window.Host.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task TheInstallerGetsTheBoundsOfTheWindowWhileItIsNormal()
+    {
+        using var kit = new UpdateKit();
+        kit.Release("0.2.0");
+        using var f = WindowFixture.Create(UpdateCheck(false), width: 900, height: 600);
+        UpdateFlow? made = null;
+        f.Window.UpdateFlows = _ => made = kit.Flow();
+        _ = f.Window.CheckForUpdatesAsync();
+        await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen);
+
+        var bounds = made!.ProgressWindowBounds!()!.Value;
+        Assert.Equal(f.Window.Position.X, bounds.Left);
+        Assert.Equal(f.Window.Position.Y, bounds.Top);
+        Assert.True(bounds.Width > 0 && bounds.Height > 0);
+        Assert.Equal(f.Window.ClientSize.Width, bounds.Width, 1);
+        Assert.Equal(f.Window.ClientSize.Height, bounds.Height, 1);
+
+        // A maximized or minimized window is not a place for a small progress window: the helper centres itself.
+        f.Window.WindowState = Avalonia.Controls.WindowState.Maximized;
+        Assert.Null(made.ProgressWindowBounds!());
+        f.Window.WindowState = Avalonia.Controls.WindowState.Normal;
+        Click(Find(f, "PART_Later"));
+        await ViewFixture.WaitAsync(() => !f.Window.Host.IsOpen);
+    }
+
     private static string PdfSettingsFilesFolder(WindowFixture f) => f.Folder;
 }

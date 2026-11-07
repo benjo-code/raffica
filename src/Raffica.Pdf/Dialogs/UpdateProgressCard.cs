@@ -24,7 +24,7 @@ internal enum UpdateProgressChoice
 
 /// <summary>
 /// The card of a running update: the four steps Download, Check, Install and Restart, the current one in bold with its progress (the megabytes
-/// received while downloading), the finished ones marked Done, and Cancel while a download or the check of the file can still be stopped. After a
+/// received while downloading, else "In progress"), the finished ones marked Done, and Cancel while a download or the check of the file can still be stopped. After a
 /// failure it shows what went wrong in the app's words (<see cref="UpdateWording"/>) with Try again (where it can help), Open download page (where the
 /// user solves it by hand) and Close. The owner calls <see cref="Apply"/> with every new state; the card never decides anything itself.
 /// </summary>
@@ -155,7 +155,8 @@ internal sealed class UpdateProgressCard
         {
             _labels[i].FontWeight = i == step ? FontWeight.SemiBold : FontWeight.Normal;
             _labels[i].Opacity = i <= step ? 1 : 0.6;
-            _status[i].Text = i < step ? PdfStrings.UpdateStepDone : string.Empty;
+            // The state of every step is a word next to it (Done, In progress), so the progress never rests on weight or colour alone.
+            _status[i].Text = i < step ? PdfStrings.UpdateStepDone : i == step ? PdfStrings.UpdateStepCurrent : string.Empty;
         }
 
         if (step == 0 && state.File is { Size: > 0 } file)

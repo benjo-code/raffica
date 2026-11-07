@@ -3214,7 +3214,7 @@
     <value>A newer version was released in the meantime. Nothing was installed; close this message to see it.</value>
   </data>
   <data name="UpdateFailureRejected" xml:space="preserve">
-    <value>The release information did not pass the signature check. Nothing was installed.</value>
+    <value>The release information was not accepted. Nothing was installed.</value>
   </data>
   <data name="UpdateFailureChecksum" xml:space="preserve">
     <value>The downloaded file does not match the size and SHA-256 of the signed release information. It was deleted and nothing was installed.</value>
@@ -3242,5 +3242,20 @@
   </data>
   <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
     <value>The installer did not finish, or the permission prompt was declined. Files may have been replaced. Try again, or get the new version from the download page.</value>
+  </data>
+  <data name="UpdateButton" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateButtonNameFormat" xml:space="preserve">
+    <value>Update available: Raffica PDF {0}</value>
+  </data>
+  <data name="UpdateStepCurrent" xml:space="preserve">
+    <value>In progress</value>
+  </data>
+  <data name="SettingsUpdates" xml:space="preserve">
+    <value>Updates</value>
+  </data>
+  <data name="SettingsUpdateCheck" xml:space="preserve">
+    <value>Check for updates automatically</value>
   </data>
 </root>

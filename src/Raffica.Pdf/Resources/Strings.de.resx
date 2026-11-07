@@ -3198,7 +3198,7 @@
     <value>Inzwischen ist eine neuere Version erschienen. Es wurde nichts installiert; schließen Sie diese Meldung, um sie zu sehen.</value>
   </data>
   <data name="UpdateFailureRejected" xml:space="preserve">
-    <value>Die Versionsinformationen haben die Signaturprüfung nicht bestanden. Es wurde nichts installiert.</value>
+    <value>Die Versionsinformationen wurden nicht akzeptiert. Es wurde nichts installiert.</value>
   </data>
   <data name="UpdateFailureChecksum" xml:space="preserve">
     <value>Die heruntergeladene Datei stimmt nicht mit Größe und SHA-256 der signierten Versionsinformation überein. Sie wurde gelöscht, nichts wurde installiert.</value>
@@ -3226,5 +3226,20 @@
   </data>
   <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
     <value>Die Installation wurde nicht abgeschlossen, oder die Rückfrage zur Berechtigung wurde abgelehnt. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder laden Sie die neue Version von der Download-Seite.</value>
+  </data>
+  <data name="UpdateButton" xml:space="preserve">
+    <value>Update verfügbar</value>
+  </data>
+  <data name="UpdateButtonNameFormat" xml:space="preserve">
+    <value>Update verfügbar: Raffica PDF {0}</value>
+  </data>
+  <data name="UpdateStepCurrent" xml:space="preserve">
+    <value>Läuft</value>
+  </data>
+  <data name="SettingsUpdates" xml:space="preserve">
+    <value>Updates</value>
+  </data>
+  <data name="SettingsUpdateCheck" xml:space="preserve">
+    <value>Automatisch nach Updates suchen</value>
   </data>
 </root>

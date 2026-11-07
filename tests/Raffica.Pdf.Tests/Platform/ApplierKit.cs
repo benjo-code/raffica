@@ -16,6 +16,9 @@ internal sealed class FakeStarter : IUpdateProcessStarter
 
     public bool StartResult { get; set; } = true;
 
+    /// <summary>Gets or sets an exception the wait for the app throws (an unexpected one, to see that the helper still ends in its worded failure).</summary>
+    public Exception? WaitThrows { get; set; }
+
     public bool Start(string file, IReadOnlyList<string> arguments)
     {
         Starts.Add((file, arguments.ToArray()));
@@ -25,6 +28,11 @@ internal sealed class FakeStarter : IUpdateProcessStarter
     public Task WaitForExitAsync(int processId, TimeSpan timeout, CancellationToken cancellationToken)
     {
         Waits.Add(processId);
+        if (WaitThrows is { } exception)
+        {
+            throw exception;
+        }
+
         return Task.CompletedTask;
     }
 }

@@ -43,6 +43,19 @@ public sealed class UpdateWordingTests
     }
 
     [Fact]
+    public void TheRejectedSentenceDoesNotBlameTheSignatureAlone()
+    {
+        // "Rejected" is also a malformed, unsupported or unsafe-named manifest after a good signature: the sentence says what happened, not which check.
+        foreach (var language in Languages)
+        {
+            var text = UpdateWording.ForFailure(UpdateFailure.Rejected, CultureInfo.GetCultureInfo(language));
+            Assert.DoesNotContain("signature", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("signatur", text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(language == "en" ? "not accepted" : "nicht akzeptiert", text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void ThePhraseOfTheApplierWinsOverTheSentenceOfTheCode()
     {
         var failed = new UpdateState(UpdateStage.Failed, new UpdateVersion(0, 2, 0), null, 0, UpdateFailure.InstallFailed);
