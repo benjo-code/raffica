@@ -1,8 +1,9 @@
 name: Roadmap
 
 # Runs only when a pull request (not a draft) touches the roadmap files, or on a push to main; otherwise the job
-# reports success at once, so the required status check "roadmap" never waits. A pull request from a fork goes to a
-# GitHub-hosted runner, everything else to the owner's self-hosted runner.
+# reports success at once, so the required status check "roadmap" never waits. Once the repository is public, or for a
+# pull request from a fork, the job goes to a GitHub-hosted runner, otherwise to the owner's self-hosted runner. The
+# routing is a convenience; the boundary is the runner group (packaging/README.md, "Making the repository public").
 on:
   pull_request:
     branches: [dev, main]
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   roadmap:
     name: roadmap
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
+    runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

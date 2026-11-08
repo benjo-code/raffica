@@ -75,7 +75,12 @@ Settings → Actions → Runners and `./config.sh remove` with a new token.
 
 ## Recommended repository setting
 
-The repository is public. In Settings → Actions → General → "Fork pull request workflows from outside collaborators",
+Once the repository is public: in Settings → Actions → General → "Fork pull request workflows from outside collaborators",
 choose "Require approval for all outside collaborators". `measure.yml` cannot be started from a pull request in any case
 (it has `workflow_dispatch` only), but the setting keeps fork workflows of other files off any self-hosted runner. This
 is a GitHub settings change that only the owner makes.
+
+This approval setting only gates a run (somebody must click); it is not the boundary. The boundary is the runner group:
+a group that is restricted to named workflows (`release.yml` on `main` and `dev` for `raffica-ci`) cannot be reached by a
+fork pull request at all, because a fork controls the workflow file of its own pull request and can name any
+`runs-on`. See `packaging/README.md`, "Making the repository public", for the settings in order.

@@ -3,8 +3,9 @@
 # glibc 2.35 (Docs/DECISIONS.md, entry "Raffica PDF: packaging and release (M2.6)"). Called by release.yml:
 #
 #   docker run --rm -v "$PWD:/work" -v "$DOTNET_INSTALL_DIR:/dotnet:ro" -w /work \
-#     -e VERSION -e DEBVERSION -e HOST_UID -e HOST_GID ubuntu:22.04 bash packaging/linux/container-build.sh
+#     -e VERSION -e DEBVERSION -e HOST_UID -e HOST_GID "$UBUNTU_IMAGE" bash packaging/linux/container-build.sh
 #
+# UBUNTU_IMAGE is ubuntu:22.04 pinned by digest (the value in release.yml, Docs/DECISIONS.md says how to update it).
 # The container has no GH_TOKEN and uploads nothing; the workflow uploads from the host. Files end up in out/release.
 set -euo pipefail
 

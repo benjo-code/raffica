@@ -6,8 +6,10 @@ name: CI
 # - A pull request that changes only documentation (Docs/, Markdown in the root and in bench/, LICENSE) skips the build;
 #   the required status check "ci" still reports, so the branch protection never waits.
 # - Stale runs of the same ref are cancelled.
-# Everything runs on the owner's self-hosted runners, except pull requests from a fork: those go to GitHub-hosted
-# runners, so that no foreign code reaches the owner's machines.
+# While the repository is private everything runs on the owner's self-hosted runners; once it is public (or for a pull
+# request from a fork) every job goes to GitHub-hosted runners. This routing is a convenience: the boundary that keeps
+# foreign code off the owner's machines is the runner group (restricted to release.yml on main and dev), because a fork
+# controls the workflow file of its own pull request (packaging/README.md, "Making the repository public").
 on:
   pull_request:
     branches: [dev, main]
@@ -28,10 +30,10 @@ env:
   AVALONIA_TELEMETRY_OPTOUT: '1'
 
 jobs:
-  # Decides whether the build runs and where. A pull request from a fork is the only case for the hosted runners.
+  # Decides whether the build runs and where (hosted runners: public repository or a pull request from a fork).
   changes:
     name: changes
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
+    runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
     timeout-minutes: 5
     outputs:
       code: ${{ steps.diff.outputs.code }}
@@ -49,7 +51,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           DRAFT: ${{ github.event.pull_request.draft }}
           BASE: ${{ github.base_ref }}
-          FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          FORK: ${{ (github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) }}
         run: |
           echo "hosted=$FORK" >> "$GITHUB_OUTPUT"
           if [ "$EVENT" = pull_request ] && [ "$DRAFT" = true ]; then
@@ -113,7 +115,7 @@ jobs:
         if: runner.os == 'Windows'
         run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
-      # Only on a GitHub-hosted runner (a pull request from a fork): the image has most of this, but it is not guaranteed.
+      # Only on a GitHub-hosted runner (public repository or fork pull request): the image has most of this, but it is not guaranteed.
       - name: Install the Native AOT prerequisites (Linux, hosted runner)
         if: runner.os == 'Linux' && needs.changes.outputs.hosted == 'true'
         run: |
@@ -278,7 +280,7 @@ jobs:
     name: ci
     if: always()
     needs: [changes, build]
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
+    runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
     timeout-minutes: 5
     steps:
       - name: All build jobs passed
