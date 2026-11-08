@@ -114,7 +114,14 @@ internal static unsafe class PdfiumPageText
     /// in the text. Areas of a web address that overlap a link annotation are dropped (the annotation wins); a web
     /// address without areas left is dropped.
     /// </summary>
-    public static PdfiumLink[] ReadLinks(PdfiumDocument document, PdfiumPage page, PdfiumTextPage text)
+    public static PdfiumLink[] ReadLinks(PdfiumDocument document, PdfiumPage page, PdfiumTextPage text, int pageIndex = -1) =>
+        ReadLinks(document, page, text, pageIndex, onTargetPageLoad: null);
+
+    /// <summary>
+    /// Like <see cref="ReadLinks(PdfiumDocument, PdfiumPage, PdfiumTextPage, int)"/>; <paramref name="onTargetPageLoad"/> (tests) is told the index of
+    /// every target page loaded to convert a destination.
+    /// </summary>
+    internal static PdfiumLink[] ReadLinks(PdfiumDocument document, PdfiumPage page, PdfiumTextPage text, int pageIndex, Action<int>? onTargetPageLoad)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(page);
@@ -125,7 +132,10 @@ internal static unsafe class PdfiumPageText
         var transform = new PageTransform(pageValue, page.Width, page.Height);
 
         var anchors = new List<PdfiumLink>();
-        ReadAnnotationLinks(documentValue, pageValue, transform, anchors);
+        using (var targets = new TargetPages(documentValue, pageIndex, pageValue, page.Width, page.Height, onTargetPageLoad))
+        {
+            ReadAnnotationLinks(documentValue, pageValue, transform, targets, anchors);
+        }
 
         var webLinks = new List<PdfiumLink>();
         var linkPage = Fpdf.FPDFLink_LoadWebLinks(textPage);
@@ -316,7 +326,7 @@ internal static unsafe class PdfiumPageText
         return false;
     }
 
-    private static void ReadAnnotationLinks(nint document, nint page, PageTransform transform, List<PdfiumLink> links)
+    private static void ReadAnnotationLinks(nint document, nint page, PageTransform transform, TargetPages targets, List<PdfiumLink> links)
     {
         var pageCount = Fpdf.FPDF_GetPageCount(document);
         var position = 0;
@@ -340,7 +350,7 @@ internal static unsafe class PdfiumPageText
                 continue;
             }
 
-            links.Add(ReadTarget(document, pageCount, link, [area]));
+            links.Add(ReadTarget(document, pageCount, link, [area], targets));
         }
     }
 
@@ -351,7 +361,7 @@ internal static unsafe class PdfiumPageText
     /// <c>FPDFLink_GetDest</c> also returns the <c>/D</c> of GoToR and GoToE actions, which name a page of another
     /// file. Destinations outside the document are unsupported as well.
     /// </summary>
-    private static PdfiumLink ReadTarget(nint document, int pageCount, nint link, (double, double, double, double)[] rects)
+    private static PdfiumLink ReadTarget(nint document, int pageCount, nint link, (double, double, double, double)[] rects, TargetPages targets)
     {
         var unsupported = new PdfiumLink(rects, PdfiumLinkKind.Unsupported, -1, null, null);
         nint dest;
@@ -386,16 +396,16 @@ internal static unsafe class PdfiumPageText
             return unsupported;
         }
 
-        return new PdfiumLink(rects, PdfiumLinkKind.Page, pageIndex, ReadTargetTop(document, pageIndex, dest), null);
+        return new PdfiumLink(rects, PdfiumLinkKind.Page, pageIndex, ReadTargetTop(targets, pageIndex, dest), null);
     }
 
     /// <summary>
     /// The y of an <c>/XYZ</c> destination in points from the top of the displayed target page, clamped to the page, or
-    /// <see langword="null"/> without y. The target page is loaded briefly and converted with its own
-    /// <see cref="PageTransform"/>, so its CropBox and <c>/Rotate</c> count (without x, the left edge is taken, which only
-    /// matters on a rotated page). A target page that cannot be loaded gives <see langword="null"/>.
+    /// <see langword="null"/> without y. The point is converted with the target page's own <see cref="PageTransform"/>, so its CropBox
+    /// and <c>/Rotate</c> count (without x, the left edge is taken, which only matters on a rotated page). A target page that cannot be
+    /// loaded gives <see langword="null"/>.
     /// </summary>
-    private static double? ReadTargetTop(nint document, int pageIndex, nint dest)
+    private static double? ReadTargetTop(TargetPages targets, int pageIndex, nint dest)
     {
         int hasX, hasY, hasZoom;
         float x, y, zoom;
@@ -404,26 +414,63 @@ internal static unsafe class PdfiumPageText
             return null;
         }
 
-        var target = Fpdf.FPDF_LoadPage(document, pageIndex);
-        if (target == 0)
+        if (targets.Get(pageIndex) is not { } target)
         {
             return null;
         }
 
-        try
+        return target.Transform.TryToPage(hasX != 0 && float.IsFinite(x) ? x : 0, y, out _, out var top)
+            ? Math.Clamp(top, 0, target.Height)
+            : null;
+    }
+
+    /// <summary>
+    /// The pages the destinations of one <see cref="ReadLinks(PdfiumDocument, PdfiumPage, PdfiumTextPage, int, Action{int}?)"/> call point to, each loaded
+    /// at most once (a table of contents points to many links at few pages) and closed together at the end. The page being read is used as it is.
+    /// </summary>
+    private sealed class TargetPages(nint document, int currentIndex, nint current, double currentWidth, double currentHeight, Action<int>? onLoad) : IDisposable
+    {
+        private readonly Dictionary<int, (nint Page, PageTransform Transform, double Height)?> _pages = [];
+
+        public (PageTransform Transform, double Height)? Get(int pageIndex)
         {
-            var height = Fpdf.FPDF_GetPageHeightF(target);
-            var transform = new PageTransform(target, Fpdf.FPDF_GetPageWidthF(target), height);
-            if (!transform.TryToPage(hasX != 0 && float.IsFinite(x) ? x : 0, y, out _, out var top))
+            if (pageIndex == currentIndex)
             {
-                return null;
+                return (new PageTransform(current, currentWidth, currentHeight), currentHeight);
             }
 
-            return Math.Clamp(top, 0, height);
+            if (!_pages.TryGetValue(pageIndex, out var entry))
+            {
+                onLoad?.Invoke(pageIndex);
+                var page = Fpdf.FPDF_LoadPage(document, pageIndex);
+                if (page == 0)
+                {
+                    entry = null;
+                }
+                else
+                {
+                    double width = Fpdf.FPDF_GetPageWidthF(page);
+                    double height = Fpdf.FPDF_GetPageHeightF(page);
+                    entry = (page, new PageTransform(page, width, height), height);
+                }
+
+                _pages[pageIndex] = entry;
+            }
+
+            return entry is { } found ? (found.Transform, found.Height) : null;
         }
-        finally
+
+        public void Dispose()
         {
-            Fpdf.FPDF_ClosePage(target);
+            foreach (var entry in _pages.Values)
+            {
+                if (entry is { } loaded)
+                {
+                    Fpdf.FPDF_ClosePage(loaded.Page);
+                }
+            }
+
+            _pages.Clear();
         }
     }
 

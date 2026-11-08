@@ -246,7 +246,7 @@ public sealed partial class PdfDocument : IDisposable, IAsyncDisposable
                 using var page = document.LoadPage(pageIndex);
                 using var textPage = page.LoadTextPage();
                 var chars = PdfiumPageText.ReadChars(page, textPage, geometry: true, style: true);
-                var links = PdfiumPageText.ReadLinks(document, page, textPage);
+                var links = PdfiumPageText.ReadLinks(document, page, textPage, pageIndex);
                 return PageText.FromPdfium(pageIndex, page.Width, page.Height, chars, links);
             },
             priority == PdfPriority.Background ? PdfiumPriority.Background : PdfiumPriority.Interactive,
