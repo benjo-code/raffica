@@ -118,6 +118,35 @@ public sealed class PageLinksTests
         }
     }
 
+    [Fact]
+    public async Task DestinationPositionUsesTheTransformOfTheTargetPage()
+    {
+        // Target 1: CropBox [0 36 612 828] on a 864 high MediaBox, so the top of the page lies at y = 828 and /XYZ y = 400 is 428 down.
+        // Target 2: /Rotate 90 turns the page, so the displayed top is the left edge: /XYZ x = 50 is 50 down.
+        using var folder = new Annotations.TempFolder();
+        var path = Annotations.AnnotationTestFiles.WritePdf(
+            folder,
+            "targets.pdf",
+            [
+                "<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Annots [6 0 R 7 0 R] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 864] /CropBox [0 36 612 828] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 600] /Rotate 90 >>",
+                "<< /Type /Annot /Subtype /Link /Rect [40 340 140 360] /Dest [4 0 R /XYZ 100 400 null] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [40 300 140 320] /Dest [5 0 R /XYZ 50 300 null] >>",
+            ]);
+        var ct = TestContext.Current.CancellationToken;
+        await using var document = await engine.OpenAsync(path, cancellationToken: ct);
+
+        var text = await document.GetPageTextAsync(0, ct);
+
+        var targets = text.Links.Select(l => l.Target).OfType<PageTarget>().OrderBy(t => t.PageIndex).ToArray();
+        Assert.Equal([1, 2], targets.Select(t => t.PageIndex));
+        Assert.Equal(428, targets[0].Top!.Value, 0.1);
+        Assert.Equal(50, targets[1].Top!.Value, 0.1);
+    }
+
     private static (double X, double Y) Centre(PageRect rect) => ((rect.Left + rect.Right) / 2, (rect.Top + rect.Bottom) / 2);
 
     // The link rectangle covers the line of the written text: it reaches at least from its first to its last character.

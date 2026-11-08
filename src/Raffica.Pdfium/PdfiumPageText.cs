@@ -390,26 +390,41 @@ internal static unsafe class PdfiumPageText
     }
 
     /// <summary>
-    /// The y of an <c>/XYZ</c> destination in points from the top of the target page, clamped to the page, or
-    /// <see langword="null"/> without y. The target page is not loaded: the value assumes the page is not rotated
-    /// and its CropBox starts at the bottom of the MediaBox (<c>FPDF_PageToDevice</c> would need a loaded page).
+    /// The y of an <c>/XYZ</c> destination in points from the top of the displayed target page, clamped to the page, or
+    /// <see langword="null"/> without y. The target page is loaded briefly and converted with its own
+    /// <see cref="PageTransform"/>, so its CropBox and <c>/Rotate</c> count (without x, the left edge is taken, which only
+    /// matters on a rotated page). A target page that cannot be loaded gives <see langword="null"/>.
     /// </summary>
     private static double? ReadTargetTop(nint document, int pageIndex, nint dest)
     {
         int hasX, hasY, hasZoom;
         float x, y, zoom;
-        if (Fpdf.FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &zoom) == 0 || hasY == 0)
+        if (Fpdf.FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &zoom) == 0 || hasY == 0 || !float.IsFinite(y))
         {
             return null;
         }
 
-        FsSizeF size;
-        if (Fpdf.FPDF_GetPageSizeByIndexF(document, pageIndex, &size) == 0 || !float.IsFinite(y))
+        var target = Fpdf.FPDF_LoadPage(document, pageIndex);
+        if (target == 0)
         {
             return null;
         }
 
-        return Math.Clamp(size.Height - y, 0, size.Height);
+        try
+        {
+            var height = Fpdf.FPDF_GetPageHeightF(target);
+            var transform = new PageTransform(target, Fpdf.FPDF_GetPageWidthF(target), height);
+            if (!transform.TryToPage(hasX != 0 && float.IsFinite(x) ? x : 0, y, out _, out var top))
+            {
+                return null;
+            }
+
+            return Math.Clamp(top, 0, height);
+        }
+        finally
+        {
+            Fpdf.FPDF_ClosePage(target);
+        }
     }
 
     /// <summary>Reads the URI of a URI action (bytes, decoded as UTF-8); <see langword="null"/> when empty.</summary>
