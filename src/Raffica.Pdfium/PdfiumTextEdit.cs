@@ -101,6 +101,9 @@ internal static unsafe class PdfiumTextEdit
     /// <summary>The longest side, in pixels, of the renders of the check on the copy.</summary>
     private const double MaxCheckPixels = 4_000_000;
 
+    /// <summary>The longest side of the picture of the check in pixels; a thinner and longer page is refused (the area budget alone allows a one-pixel-high picture of millions of pixels).</summary>
+    private const double MaxCheckSide = 32_768;
+
     private static readonly string[] Standard14Prefixes = ["courier", "helvetica", "times-", "symbol", "zapfdingbats"];
 
     // ---------------------------------------------------------------------------------------------------------------- reading
@@ -902,8 +905,8 @@ internal static unsafe class PdfiumTextEdit
 
     /// <summary>
     /// The size of the picture of the check: the page scaled to <see cref="MaxCheckPixels"/>, at least one pixel on each side. A thin page keeps
-    /// one side at one pixel and the other at its full length, so the area rule alone does not bound the picture: each side and the area are
-    /// held to <see cref="PdfiumRenderWork.MaxPixels"/> (computed in <see langword="double"/> and <see langword="long"/>, never in <see langword="int"/>),
+    /// one side at one pixel and the other at its full length, so the area rule alone does not bound the picture: each side is held to
+    /// <see cref="MaxCheckSide"/> (32,768 px) and the area to <see cref="PdfiumRenderWork.MaxPixels"/> (computed in <see langword="double"/> and <see langword="long"/>, never in <see langword="int"/>),
     /// and a page beyond that is refused: the edit is not possible.
     /// </summary>
     /// <exception cref="PdfiumTextEditException">The page is not a finite size or its picture would be beyond the render limit (<see cref="PdfiumTextEditFailure.NotRewritable"/>).</exception>
@@ -917,7 +920,7 @@ internal static unsafe class PdfiumTextEdit
         var scale = Math.Min(1.0, Math.Sqrt(MaxCheckPixels / Math.Max(1.0, width * height)));
         var pixelWidth = Math.Max(1.0, Math.Ceiling(width * scale));
         var pixelHeight = Math.Max(1.0, Math.Ceiling(height * scale));
-        if (pixelWidth > PdfiumRenderWork.MaxPixels || pixelHeight > PdfiumRenderWork.MaxPixels || (long)pixelWidth * (long)pixelHeight > PdfiumRenderWork.MaxPixels)
+        if (pixelWidth > MaxCheckSide || pixelHeight > MaxCheckSide || pixelWidth > PdfiumRenderWork.MaxPixels || pixelHeight > PdfiumRenderWork.MaxPixels || (long)pixelWidth * (long)pixelHeight > PdfiumRenderWork.MaxPixels)
         {
             throw TooLargeToCheck();
         }
