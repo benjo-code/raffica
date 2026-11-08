@@ -543,13 +543,13 @@
         {
           "id": "2.7",
           "title": "Release readiness",
-          "status": "planned",
+          "status": "in-progress",
           "plan": "superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md",
           "spec": "superpowers/specs/2026-11-04-raffica-pdf-design.md",
           "prerequisites": ["2.6"],
           "goal": "The repository can be made public and v0.1.0 released: no fork can reach the owner's runners, redaction removes what it reports, no control is dead or hidden at the default window size, the German UI reads as one product, a crash never ends the app without a word, and the start-time regression of 2026-11-08 is explained and fixed.",
           "tasks": [
-            { "text": "Repository and CI ready to be public: hosted CI once public, `release.yml` accepts only refs on `main` or `dev` and builds from fresh package and SDK folders, digest-pinned image, `SECURITY.md`, `CONTRIBUTING.md`, issue template config, docs without \"private\", the owner's checklist for the flip (plan Task 1)", "done": false },
+            { "text": "Repository and CI ready to be public: hosted CI once public, `release.yml` accepts only refs on `main` or `dev` and builds from fresh package and SDK folders, digest-pinned image, `SECURITY.md`, `CONTRIBUTING.md`, issue template config, docs without \"private\", the owner's checklist for the flip (plan Task 1)", "done": true },
             { "text": "Redaction removes page attachments (`/AF`) and article threads (`/B`) and lists as cleaned only what the read-back confirmed (Task 2)", "done": false },
             { "text": "Extract and Split name the document-level content every part keeps; cleaned parts go to the backlog (Task 3)", "done": false },
             { "text": "No write onto a file that another tab has open (Save as, Apply, Redact Apply, Extract); a save while a save runs says so (Task 4)", "done": false },

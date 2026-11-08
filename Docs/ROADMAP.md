@@ -34,7 +34,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.4 | Organize pages | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-05-milestone-02-4-organize-pages.md) | 2026-11-06 |
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | 2026-11-06 |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | 2026-11-08 |
-| 2.7 | Release readiness | 3 – Raffica PDF | 🟡 planned | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | – |
+| 2.7 | Release readiness | 3 – Raffica PDF | 🔵 in progress | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | – |
 | 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -425,12 +425,12 @@ Goal: Installers, default-app registration and the updater exist for Windows and
 - **l. Flaky tests seen in CI (each green on re-run; watch).** (1) The test host crash with a `NullReferenceException` in `Avalonia.Threading.Dispatcher.RequestProcessing`, called from a scheduler or session callback on a pool thread (`PageView.OnPagesInvalidated`, `PagesPane.OnTileReady`; once in CI, run 42419846708). Addressed in PR #38 (merged): handlers and timer or progress callbacks that run on pool threads no longer touch the static `Dispatcher.UIThread`, they post through the dispatcher their owner captured on the UI thread, and `TextEditSession` keeps its flush synchronous on the UI thread. The cause was derived from the stack trace and the Avalonia 12.1.5 source and not reproduced (every headless test has its own dispatcher and the end of a test clears the static one; a late callback of a leftover window would make a new dispatcher on the pool thread, published before its platform part is set, and a second poster would throw); `TeardownRaceTests` pins only PagesPane, PageView and OrganizeList. Confirm by watching CI; the real app is not affected. (2) `Raffica.Core.Tests.Ocr.OcrRunnerTests.PdfiumThreadIsNeverBlockedByRecognition` failed once on the shared Windows runner (`Assert.True(clock.ElapsedMilliseconds < 200 ...)` with 667 ms): a timing assertion on a loaded runner; Core code was untouched by that PR and the check was not changed. The owner decides whether to leave it, widen it or move it to the measurement-only tests.
 
 ## Milestone 2.7 – Release readiness
-**Status:** 🟡 planned · **Plan:** [2026-11-08-milestone-02-7-release-readiness.md](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.6
+**Status:** 🔵 in progress · **Plan:** [2026-11-08-milestone-02-7-release-readiness.md](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2.6
 
 Goal: The repository can be made public and v0.1.0 released: no fork can reach the owner's runners, redaction removes what it reports, no control is dead or hidden at the default window size, the German UI reads as one product, a crash never ends the app without a word, and the start-time regression of 2026-11-08 is explained and fixed.
 
 **Tasks**
-- [ ] Repository and CI ready to be public: hosted CI once public, `release.yml` accepts only refs on `main` or `dev` and builds from fresh package and SDK folders, digest-pinned image, `SECURITY.md`, `CONTRIBUTING.md`, issue template config, docs without "private", the owner's checklist for the flip (plan Task 1)
+- [x] Repository and CI ready to be public: hosted CI once public, `release.yml` accepts only refs on `main` or `dev` and builds from fresh package and SDK folders, digest-pinned image, `SECURITY.md`, `CONTRIBUTING.md`, issue template config, docs without "private", the owner's checklist for the flip (plan Task 1)
 - [ ] Redaction removes page attachments (`/AF`) and article threads (`/B`) and lists as cleaned only what the read-back confirmed (Task 2)
 - [ ] Extract and Split name the document-level content every part keeps; cleaned parts go to the backlog (Task 3)
 - [ ] No write onto a file that another tab has open (Save as, Apply, Redact Apply, Extract); a save while a save runs says so (Task 4)
