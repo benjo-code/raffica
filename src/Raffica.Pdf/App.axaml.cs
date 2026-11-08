@@ -94,10 +94,11 @@ internal sealed partial class App : Application
     {
         var ui = Dispatcher.UIThread;
         var folder = PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile);
-        var guard = new Hosting.CrashGuard(
+        Hosting.CrashGuard? guard = null;
+        guard = new Hosting.CrashGuard(
             folder,
             TimeProvider.System,
-            _ => ui.Post(() => window.ShowCrashCard(folder)),
+            _ => ui.Post(() => window.ShowCrashCard(folder, closed: () => guard!.CardClosed())),
             () => ui.Post(() => desktop.Shutdown(1)));
         _crashSubscriptions =
         [

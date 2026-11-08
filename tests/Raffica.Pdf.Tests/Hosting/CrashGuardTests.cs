@@ -25,7 +25,20 @@ public sealed class CrashGuardTests : IDisposable
     {
         public DateTimeOffset Now { get; set; } = new(2026, 11, 9, 12, 0, 0, TimeSpan.Zero);
 
+        public DateTimeOffset Mono { get; set; } = new(2026, 11, 9, 12, 0, 0, TimeSpan.Zero);
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
         public override DateTimeOffset GetUtcNow() => Now;
+
+        public override long GetTimestamp() => Mono.Ticks;
+
+        // Time moves on for both clocks; the wall clock alone may jump (see TheWindowOfTenSecondsUsesTheMonotonicClock).
+        public void Advance(TimeSpan span)
+        {
+            Now += span;
+            Mono += span;
+        }
     }
 
     private sealed class Probe
@@ -85,16 +98,22 @@ public sealed class CrashGuardTests : IDisposable
         for (var i = 0; i < 3; i++)
         {
             guard.OnUiException(Throw("x"), out var handled);
+            guard.CardClosed();
             Assert.True(handled);
-            clock.Now += TimeSpan.FromSeconds(2);
+            clock.Advance(TimeSpan.FromSeconds(2));
         }
 
         Assert.Equal(0, probe.Exits);
         Assert.Equal(3, probe.Cards);
 
         guard.OnUiException(Throw("fourth"), out _);
+        guard.OnUiException(Throw("fifth"), out var handledAfterExit);
 
         Assert.Equal(1, probe.Exits);
+        Assert.Equal(3, probe.Cards);
+        Assert.True(handledAfterExit);
+        guard.CardClosed();
+        guard.OnUiException(Throw("sixth"), out _);
         Assert.Equal(3, probe.Cards);
         Assert.Contains("fourth", File.ReadAllText(Log), StringComparison.Ordinal);
     }
@@ -109,11 +128,112 @@ public sealed class CrashGuardTests : IDisposable
         for (var i = 0; i < 8; i++)
         {
             guard.OnUiException(Throw("x"), out _);
-            clock.Now += TimeSpan.FromSeconds(4);
+            guard.CardClosed();
+            clock.Advance(TimeSpan.FromSeconds(4));
         }
 
         Assert.Equal(0, probe.Exits);
         Assert.Equal(8, probe.Cards);
+    }
+
+    [Fact]
+    public void RepeatsWhileACardShowsAreOnlyLoggedAndANewCardComesAfterTheDismiss()
+    {
+        var probe = new Probe();
+        var clock = new Clock();
+        var guard = Make(probe, clock);
+
+        guard.OnUiException(Throw("first"), out _);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        guard.OnUiException(Throw("second"), out var handled);
+
+        Assert.True(handled);
+        Assert.Equal(1, probe.Cards);
+        Assert.Contains("second", File.ReadAllText(Log), StringComparison.Ordinal);
+
+        guard.CardClosed();
+        clock.Advance(TimeSpan.FromSeconds(20));
+        guard.OnUiException(Throw("third"), out _);
+
+        Assert.Equal(2, probe.Cards);
+    }
+
+    [Fact]
+    public void ACardThatCannotBeShownDoesNotBlockTheNextOne()
+    {
+        var shown = 0;
+        var fail = true;
+        var guard = new CrashGuard(_folder, new Clock(), _ => { if (fail) { throw new InvalidOperationException("no host"); } shown++; }, () => { });
+        guard.OnUiException(Throw("a"), out var handled);
+        Assert.True(handled);
+
+        fail = false;
+        guard.OnUiException(Throw("b"), out _);
+        Assert.Equal(1, shown);
+    }
+
+    [Fact]
+    public void TheWindowOfTenSecondsUsesTheMonotonicClock()
+    {
+        var probe = new Probe();
+        var clock = new Clock();
+        var guard = Make(probe, clock);
+
+        for (var i = 0; i < 3; i++)
+        {
+            guard.OnUiException(Throw("x"), out _);
+            guard.CardClosed();
+
+            // The wall clock jumps an hour forward each time; the monotonic clock moves one second.
+            clock.Now += TimeSpan.FromHours(1);
+            clock.Mono += TimeSpan.FromSeconds(1);
+        }
+
+        guard.OnUiException(Throw("fourth"), out _);
+
+        Assert.Equal(1, probe.Exits);
+    }
+
+    [Theory]
+    [InlineData(@"gone: 'C:\Users\Jane\O'Brien\secret.pdf' end", "Brien")]
+    [InlineData(@"gone: 'C:\Users\Jane\O'Brien\secret.pdf' end", "secret")]
+    [InlineData("see ~/Documents/secret.pdf now", "secret")]
+    [InlineData(@"see ..\..\secret.pdf now", "secret")]
+    [InlineData("see ../../secret.pdf now", "secret")]
+    [InlineData("in /opt/app/secret.pdf", "secret")]
+    [InlineData("in /srv/x/secret.pdf", "secret")]
+    [InlineData("in /data/x/secret.pdf", "secret")]
+    [InlineData("in /mnt/x/secret.pdf", "secret")]
+    [InlineData("in /media/x/secret.pdf", "secret")]
+    [InlineData("in /var/x/secret.pdf", "secret")]
+    [InlineData("in /tmp/x/secret.pdf", "secret")]
+    [InlineData("in /root/secret.pdf", "secret")]
+    [InlineData(@"in \\host\share\secret.pdf", "secret")]
+    public void PathsAreScrubbed(string message, string leak)
+    {
+        Assert.DoesNotContain(leak, CrashGuard.Scrub(message), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("fetch http://host/x/y failed")]
+    [InlineData("resource avares://RafficaPdf/Styles/a.axaml missing")]
+    [InlineData("Page 3 of 5: file")]
+    public void AddressesAndPlainTextAreNotMangled(string message)
+    {
+        Assert.Equal(message, CrashGuard.Scrub(message));
+    }
+
+    [Fact]
+    public void ALongMessageIsCutAndOneEntryNeverPassesTheCap()
+    {
+        var probe = new Probe();
+        var guard = Make(probe);
+
+        guard.OnBackgroundException(Throw(new string('m', 2_000_000)));
+
+        var text = File.ReadAllText(Log);
+        Assert.True(text.Length < 70_000, "length " + text.Length);
+        Assert.Contains("truncated", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,16 +280,16 @@ public sealed class CrashGuardTests : IDisposable
         var guard = Make(probe, clock);
         var big = new string('x', 20_000);
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 300; i++)
         {
             guard.OnBackgroundException(Throw("entry-" + i + " " + big));
-            clock.Now += TimeSpan.FromMinutes(1);
+            clock.Advance(TimeSpan.FromMinutes(1));
         }
 
         var length = new FileInfo(Log).Length;
         Assert.True(length <= 1024 * 1024, "length " + length);
         var text = File.ReadAllText(Log);
-        Assert.Contains("entry-119", text, StringComparison.Ordinal);
+        Assert.Contains("entry-299", text, StringComparison.Ordinal);
         Assert.DoesNotContain("entry-0 ", text, StringComparison.Ordinal);
     }
 
@@ -196,11 +316,12 @@ public sealed class CrashGuardTests : IDisposable
 
         Assert.NotNull(info);
         Assert.False(info.UseShellExecute);
+        Assert.True(!OperatingSystem.IsWindows() || Path.IsPathRooted(info.FileName));
         Assert.Equal([Path.GetFullPath(_folder)], info.ArgumentList);
     }
 
     [AvaloniaFact]
-    public async Task ACommandThatThrowsLeavesTheWindowOpenAndTheOtherTabDirty()
+    public async Task AFailingUiThreadDelegateLeavesTheWindowOpenTheOtherTabDirtyAndShowsOneCard()
     {
         using var window = WindowFixture.Create();
         var dirty = await window.OpenAsync("hello_world.pdf");
@@ -208,23 +329,31 @@ public sealed class CrashGuardTests : IDisposable
         await window.OpenAsync("outline.pdf");
         var probe = new Probe();
         var ui = Dispatcher.UIThread;
-        var guard = new CrashGuard(_folder, new Clock(), _ => ui.Post(() => window.Window.ShowCrashCard(_folder, _ => { })), () => probe.Exits++);
+        CrashGuard? guard = null;
+        guard = new CrashGuard(
+            _folder,
+            new Clock(),
+            _ =>
+            {
+                probe.Cards++;
+                ui.Post(() => window.Window.ShowCrashCard(_folder, _ => { }, () => guard!.CardClosed()));
+            },
+            () => probe.Exits++);
         using var attached = CrashGuardHost.AttachUi(guard, ui);
 
-        // The same path a ribbon click takes: a delegate the dispatcher runs; the one that throws is a real ribbon command made to fail.
-        var command = window.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).First(c => c.Run is not null && c.IsEnabled);
-        ui.Post(() =>
-        {
-            _ = command;
-            throw new InvalidOperationException(@"command failed for C:\Users\x\y.pdf");
-        });
+        // The path a ribbon click takes: a delegate the dispatcher runs. No ribbon command throws on demand, so the delegate fails by itself.
+        ui.Post(() => throw new InvalidOperationException(@"command failed for C:\Users\x\y.pdf"));
+        ui.Post(() => throw new InvalidOperationException("second failure"));
         ViewFixture.Pump();
 
         Assert.True(window.Window.IsVisible);
         Assert.True(dirty.IsDirty);
         Assert.True(window.Window.Host.IsOpen);
+        Assert.Equal(1, probe.Cards);
         Assert.Equal(2, window.Window.Workspace.Tabs.Count);
-        Assert.DoesNotContain("y.pdf", File.ReadAllText(Log), StringComparison.Ordinal);
+        var log = File.ReadAllText(Log);
+        Assert.DoesNotContain("y.pdf", log, StringComparison.Ordinal);
+        Assert.Contains("second failure", log, StringComparison.Ordinal);
         Assert.Equal(0, probe.Exits);
     }
 }

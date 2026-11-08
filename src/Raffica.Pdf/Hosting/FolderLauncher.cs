@@ -45,7 +45,7 @@ internal static class FolderLauncher
             return null;
         }
 
-        var info = new ProcessStartInfo(OperatingSystem.IsWindows() ? "explorer.exe" : OperatingSystem.IsMacOS() ? "open" : "xdg-open") { UseShellExecute = false };
+        var info = new ProcessStartInfo(OperatingSystem.IsWindows() ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe") : OperatingSystem.IsMacOS() ? "open" : "xdg-open") { UseShellExecute = false };
         info.ArgumentList.Add(full);
         return info;
     }

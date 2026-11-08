@@ -21,6 +21,8 @@ internal sealed partial class CrashGuard
 
     private const int MaxUiExceptions = 3;
     private const int InnerDepth = 5;
+    private const int MaxTextChars = 8 * 1024;
+    private const int MaxEntryChars = 64 * 1024;
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(10);
 
     private readonly string _logDirectory;
@@ -28,8 +30,9 @@ internal sealed partial class CrashGuard
     private readonly Action<Exception> _showCard;
     private readonly Action _exit;
     private readonly object _gate = new();
-    private readonly Queue<DateTimeOffset> _recent = new();
+    private readonly Queue<long> _recent = new();
     private bool _exiting;
+    private bool _cardShowing;
 
     public CrashGuard(string logDirectory, TimeProvider clock, Action<Exception> showCard, Action exit)
     {
@@ -46,27 +49,34 @@ internal sealed partial class CrashGuard
     /// <summary>The log file this guard writes (it may not exist yet).</summary>
     public string LogPath => Path.Combine(_logDirectory, LogFileName);
 
-    /// <summary>An exception of the UI thread: logged, then answered with a card (<paramref name="handled"/> true) or, in a loop, the end of the app.</summary>
+    /// <summary>
+    /// An exception of the UI thread: logged, then answered with one card (<paramref name="handled"/> true) or, in a loop, the end of the app.
+    /// While a card shows (until <see cref="CardClosed"/>) repeats are only logged, and no card follows the decision to end the app.
+    /// </summary>
     public void OnUiException(Exception ex, out bool handled)
     {
         ArgumentNullException.ThrowIfNull(ex);
-        var now = _clock.GetUtcNow();
-        bool loop;
-        bool alreadyExiting;
+        var wall = _clock.GetUtcNow();
+        var stamp = _clock.GetTimestamp();
+        bool endNow;
+        bool showCard;
         lock (_gate)
         {
-            while (_recent.Count > 0 && now - _recent.Peek() > Window)
+            // The ten seconds run on the monotonic clock: a change of the wall clock must neither hide a loop nor invent one.
+            while (_recent.Count > 0 && _clock.GetElapsedTime(_recent.Peek(), stamp) > Window)
             {
                 _recent.Dequeue();
             }
 
-            _recent.Enqueue(now);
-            loop = _recent.Count > MaxUiExceptions;
-            alreadyExiting = _exiting;
+            _recent.Enqueue(stamp);
+            var loop = _recent.Count > MaxUiExceptions;
+            endNow = loop && !_exiting;
+            showCard = !loop && !_exiting && !_cardShowing && ex is not OutOfMemoryException;
             _exiting |= loop;
+            _cardShowing |= showCard;
         }
 
-        Write(ex, now);
+        Write(ex, wall);
         if (ex is OutOfMemoryException)
         {
             handled = false;
@@ -74,26 +84,31 @@ internal sealed partial class CrashGuard
         }
 
         handled = true;
-        if (alreadyExiting)
-        {
-            return;
-        }
-
         try
         {
-            if (loop)
+            if (endNow)
             {
                 _exit();
             }
-            else
+            else if (showCard)
             {
                 _showCard(ex);
             }
         }
         catch (Exception inner) when (inner is not OutOfMemoryException)
         {
-            // The answer failed too; it is in the count, and a loop ends the app.
-            Write(inner, now);
+            // The answer failed too: the next exception may try a card again (a loop still ends the app).
+            CardClosed();
+            Write(inner, wall);
+        }
+    }
+
+    /// <summary>Tells the guard that the crash card is gone (dismissed, or it could not be shown), so the next exception may show one again.</summary>
+    public void CardClosed()
+    {
+        lock (_gate)
+        {
+            _cardShowing = false;
         }
     }
 
@@ -144,16 +159,22 @@ internal sealed partial class CrashGuard
         var text = new StringBuilder();
         text.Append("=== ").Append(now.ToString("O", CultureInfo.InvariantCulture)).Append(" ===\n");
         Append(text, ex, 0);
+        if (text.Length > MaxEntryChars)
+        {
+            text.Length = MaxEntryChars;
+            text.Append("\n[truncated]");
+        }
+
         text.Append('\n');
         return text.ToString();
     }
 
     private static void Append(StringBuilder text, Exception ex, int depth)
     {
-        text.Append(depth == 0 ? string.Empty : "--- inner: ").Append(ex.GetType().FullName).Append(": ").Append(Scrub(ex.Message)).Append('\n');
+        text.Append(depth == 0 ? string.Empty : "--- inner: ").Append(ex.GetType().FullName).Append(": ").Append(Cut(Scrub(ex.Message))).Append('\n');
         if (ex.StackTrace is { } stack)
         {
-            text.Append(Scrub(stack)).Append('\n');
+            text.Append(Cut(Scrub(stack))).Append('\n');
         }
 
         if (depth + 1 >= InnerDepth)
@@ -174,12 +195,17 @@ internal sealed partial class CrashGuard
         }
     }
 
+    // One message or stack never passes 8 KiB, so no entry can fill the log.
+    private static string Cut(string text) => text.Length <= MaxTextChars ? text : text[..MaxTextChars] + " [truncated]";
+
     /// <summary>
     /// Replaces every absolute path in a text by <c>&lt;path&gt;</c>: a drive path, a UNC path and the common roots of a user's files. A path
-    /// may contain spaces, so it runs to the next quote or the end of the line (a little text after it is lost, which is the safe side).
+    /// may contain spaces, so it runs to the next double quote or the end of the line (a little text after it is lost, which is the safe side).
     /// </summary>
     internal static string Scrub(string text) => text.Length == 0 ? text : PathPattern().Replace(text, "<path>");
 
-    [GeneratedRegex(@"(?:[A-Za-z]:[\\/]|\\\\|/(?:home|Users|root|Volumes|mnt|media|tmp|var|private|run)/)[^'""\r\n<>|]*", RegexOptions.CultureInvariant)]
+    // A path may hold spaces and apostrophes (O'Brien), so it runs to the next double quote or the end of the line. A drive letter needs a boundary and no
+    // second slash after the colon (http://host/x and avares://app/x are addresses, not paths); relative starts (~/, ../, ..\) and the usual roots count.
+    [GeneratedRegex(@"(?:(?<![A-Za-z0-9])[A-Za-z]:(?:\\|/(?!/))|\\\\|(?<![A-Za-z0-9.~])~/|(?<![A-Za-z0-9])\.\.[\\/]|/(?:home|Users|root|opt|srv|data|mnt|media|tmp|var|Volumes|private|run)/)[^""\r\n]*", RegexOptions.CultureInvariant)]
     private static partial Regex PathPattern();
 }
