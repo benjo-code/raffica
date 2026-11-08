@@ -89,7 +89,7 @@ jobs:
       # out this id, never the tag name again (a tag can be moved after the check).
       - name: Check that the tag is on main or dev
         id: ontag
-        if: env.UPLOAD == 'true'
+        if: env.UPLOAD == 'true' || inputs.ref == ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

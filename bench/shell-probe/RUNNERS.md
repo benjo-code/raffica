@@ -75,8 +75,8 @@ Settings → Actions → Runners and `./config.sh remove` with a new token.
 
 ## Recommended repository setting
 
-Once the repository is public: in Settings → Actions → General → "Fork pull request workflows from outside collaborators",
-choose "Require approval for all outside collaborators". `measure.yml` cannot be started from a pull request in any case
+Once the repository is public: in Settings → Actions → General → "Fork pull request workflows from all external contributors",
+choose "Require approval for all external contributors". `measure.yml` cannot be started from a pull request in any case
 (it has `workflow_dispatch` only), but the setting keeps fork workflows of other files off any self-hosted runner. This
 is a GitHub settings change that only the owner makes.
 
