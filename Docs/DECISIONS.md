@@ -15,6 +15,15 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-08 – Raffica: leftover path of the save fallback, CLI console encoding, text-edit check size (M2.7)
+**Context:** Three small limits that come with the Core fixes of M2.7 and are worth knowing later.
+**Decision:**
+- `SaveResult.LeftoverPath` (the `.pw-<12 hex>.old` file the Windows fallback replace could not delete, after four attempts over 300 ms) is shown by Save, the page-organizer Apply and the redaction Apply. It is not shown by Extract and Split, image export and `ocr --force` of the CLI. The risk is low: such a file holds the previous content of a file the user chose to overwrite (for a redaction the card names the unredacted original; Extract, Split and OCR write other files than the open original).
+- The CLI sets `Console.OutputEncoding` to UTF-8 without BOM when it writes to an unredirected Windows console and does not restore it on exit; this also changes how `Console.Error` is encoded for the rest of that console session (the other direction, the ANSI or OEM code page, showed umlauts as mojibake). Redirected output is untouched.
+- The picture of the text-edit check is held to 32,768 px per side and `PdfiumRenderWork.MaxPixels` in area on top of the 4 Mpx scaling budget; a thinner page is refused as "not rewritable" (the edit is not possible).
+**Rationale:** Each is the smallest change that closes the finding; none changes a file format or a public contract.
+**Rejected alternatives:** Restoring the console encoding on exit (the process ends right after the output, and a Ctrl+C path would need the same handler); wiring the leftover card into Extract/Split (they never replace the user's open file).
+
 ## 2026-11-08 – Raffica: saving through a symbolic link (M2.7)
 **Context:** `DocumentSaver` wrote a temporary file next to the target path and renamed it over that path. For a target that is a symbolic link the rename replaced the link by a regular file and left the file behind it unchanged (the "known limit" of M2.1 and of "Raffica PDF: no write onto a file another tab has open", call 8). For a redaction that is a trap: the link was gone and the linked original still held the unredacted content.
 **Decision:** `DocumentSaver.RunAsync` resolves the target with `FileInfo.ResolveLinkTarget(returnFinalTarget: true)` before anything is written; the temporary file lives next to the final target and replaces it, so the link stays a link and the file behind it is what is saved. This holds for every chain of the saver (incremental save, rewrite, redaction apply). The "original changed" comparison of the target with the original compares the resolved paths; the stamp of the original is still taken at the path it was opened by.
