@@ -222,7 +222,7 @@ jobs:
           }
           if ($sha -cnotmatch '^[0-9a-f]{40}$') { throw "Unexpected commit id for ref '$env:REF_INPUT': '$sha'" }
           foreach ($branch in @('main', 'dev')) {
-            $status = (gh api "repos/$env:GH_REPO/compare/$branch...$sha" --jq .status 2>$null)
+            $status = (gh api "repos/$env:GH_REPO/compare/$branch...$sha" --jq .status)
             if ($LASTEXITCODE -eq 0 -and ($status -ceq 'identical' -or $status -ceq 'behind')) {
               Write-Host "Ref $env:REF_INPUT ($sha) is on $branch ($status)"
               return
