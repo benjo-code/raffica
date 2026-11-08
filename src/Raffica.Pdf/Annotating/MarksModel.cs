@@ -24,6 +24,9 @@ internal sealed class MarksModel : IDisposable
 
     private static readonly HashSet<string> s_unlisted = new(StringComparer.Ordinal) { "Link", "Widget", "Popup" };
 
+    // The dispatcher of the UI thread this was made on: events that arrive on pool threads post through it, never through the static
+    // Dispatcher.UIThread (which may not exist, or be half made, when the UI thread is gone).
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
     private readonly PdfTab _tab;
     private readonly PageView? _view;
     private readonly Func<PdfDocument, int, Task<IReadOnlyList<PdfAnnotation>>>? _read;
@@ -253,7 +256,7 @@ internal sealed class MarksModel : IDisposable
     private void OnPagesInvalidated(IReadOnlySet<int> pages)
     {
         var copy = pages.ToHashSet();
-        Dispatcher.UIThread.Post(() =>
+        _dispatcher.Post(() =>
         {
             if (!_disposed)
             {
@@ -271,7 +274,7 @@ internal sealed class MarksModel : IDisposable
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
+        _dispatcher.Post(() =>
         {
             Volatile.Write(ref _changePosted, 0);
             if (!_disposed && _started && _tab.Session.Document is { } document && !ReferenceEquals(document, _current))

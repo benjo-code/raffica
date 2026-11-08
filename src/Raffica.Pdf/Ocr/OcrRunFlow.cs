@@ -261,7 +261,10 @@ internal sealed class OcrRunFlow
 
     private sealed class UiProgress(OcrRunFlow flow, Run run) : IProgress<OcrProgress>
     {
-        public void Report(OcrProgress value) => Dispatcher.UIThread.Post(() => flow.OnProgress(run, value));
+        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one.
+        private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+
+        public void Report(OcrProgress value) => _dispatcher.Post(() => flow.OnProgress(run, value));
     }
 
     private sealed record Applied(OcrApplyResult? Result, bool Failed);

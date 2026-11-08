@@ -36,6 +36,9 @@ internal sealed class SelectController : IToolController
     private const int CacheLimit = 32;
     private static readonly Dictionary<StandardCursorType, Cursor> s_cursors = [];
 
+    // The dispatcher of the UI thread this was made on: events that arrive on pool threads post through it, never through the static
+    // Dispatcher.UIThread (which may not exist, or be half made, when the UI thread is gone).
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
     private readonly PdfTab _tab;
     private readonly PageView _view;
     private readonly ToolState _tools;
@@ -664,7 +667,7 @@ internal sealed class SelectController : IToolController
         nudge.Shape = DrawingTransform.Move(nudge.Shape, dx, dy, page);
         nudge.Timer?.Dispose();
         nudge.Timer = _time.CreateTimer(
-            _ => Dispatcher.UIThread.Post(() =>
+            _ => _dispatcher.Post(() =>
             {
                 if (ReferenceEquals(_nudge, nudge))
                 {
@@ -902,7 +905,7 @@ internal sealed class SelectController : IToolController
     private void OnPagesInvalidated(IReadOnlySet<int> pages)
     {
         var copy = pages.ToArray();
-        Dispatcher.UIThread.Post(() =>
+        _dispatcher.Post(() =>
         {
             if (_disposed)
             {

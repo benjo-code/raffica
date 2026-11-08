@@ -423,6 +423,9 @@ internal sealed class SaveController
     /// <summary>Takes the progress from the PDFium thread and hands it to the card on the UI thread.</summary>
     private sealed class UiProgress(SaveJobCard card) : IProgress<double>
     {
-        public void Report(double value) => Dispatcher.UIThread.Post(() => card.Report(value));
+        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one.
+        private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+
+        public void Report(double value) => _dispatcher.Post(() => card.Report(value));
     }
 }

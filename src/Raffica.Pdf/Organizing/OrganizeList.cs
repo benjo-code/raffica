@@ -247,7 +247,7 @@ internal sealed class OrganizeList : UserControl, IDisposable
     private void OnViewerSessionChanged()
     {
         // Any thread (the theme of the pages, the sizes of the pages): only posts.
-        Dispatcher.UIThread.Post(
+        Dispatcher.Post(
             () =>
             {
                 if (!_disposed)

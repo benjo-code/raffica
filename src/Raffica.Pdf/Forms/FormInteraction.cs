@@ -28,6 +28,9 @@ namespace Raffica.Pdf.Forms;
 /// </remarks>
 internal sealed class FormInteraction : IDisposable
 {
+    // The dispatcher of the UI thread this was made on: the flush may be requested from any thread, so the check and the post use it, never
+    // the static Dispatcher.UIThread.
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
     private readonly PdfTab _tab;
     private readonly PageView _view;
     private readonly ToolState _tools;
@@ -679,13 +682,13 @@ internal sealed class FormInteraction : IDisposable
 
     private void OnFlushRequested()
     {
-        if (Dispatcher.UIThread.CheckAccess())
+        if (_dispatcher.CheckAccess())
         {
             CommitOrPark();
         }
         else
         {
-            Dispatcher.UIThread.Post(CommitOrPark);
+            _dispatcher.Post(CommitOrPark);
         }
     }
 
