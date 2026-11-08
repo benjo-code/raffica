@@ -28,5 +28,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF Extract pages and Split document: the confirm card now says what every new file keeps from the document level (attached files, scripts, form fields and bookmarks of other pages, each only when the document has them) and points to Redact for content that must not be passed on. The new files stay working PDFs.
 - Raffica PDF: Save as, Apply (page organizer and redaction) with Save as and Extract pages no longer write onto a file that another tab has open (also under another spelling, link or short name): they say "<name> is open in another tab. Close it first." and write nothing, so two tabs can no longer end up with one path. Save in the close question now says that a save is already running instead of doing nothing.
 - Raffica PDF: saving a file with more than 10,000 annotations in total no longer fails the check of the written file with "annotations instead of" on a page that was edited after other pages were listed.
+- Raffica PDF: a date written with an offset that ends after the hours (`+01'`) is now read instead of being treated as missing.
 
 ### Removed
