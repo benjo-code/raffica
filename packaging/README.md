@@ -75,32 +75,35 @@ key and a server on `127.0.0.1`. No release build sets these properties (`packag
 
 ## Dry run of the release workflow
 
-Not run yet (open). It builds the Windows and Linux files, runs every smoke test (installer, `.deb`, AppImage, CLI,
-licenses) and uploads nothing; with `ref` set the key check is skipped and the job `manifest` does not run.
+Run green on 2026-11-08 (run 42422270038, `dev` commit 4a31a74b81563f6015dc773ebe07a7b12ab16ca9; the first run, 42418844306,
+had failed in the Linux part of the packaging selftest and was fixed by PR #37). It builds the Windows and Linux files,
+runs every smoke test (installer, `.deb`, AppImage, CLI, licenses) and uploads nothing; with `upload=false` the key check
+is skipped and the job `release-manifest` does not run.
 
-1. Push the branch you want to build.
-2. Start it:
+1. Push the branch you want to build. The workflow file must exist on `dev` (a workflow can only be dispatched when the
+   default branch has it).
+2. Start it from `dev`, with the branch or the 40-character commit SHA as `ref` (with a PR branch use its commit SHA):
 
    ```
-   gh workflow run release.yml --ref <branch> -f tag=v0.1.0 -f ref=<branch> -f upload=false
+   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f ref=<branch or 40-hex commit> -f upload=false
    ```
 
-   If the runner group only accepts `main` and `dev` (the workflow header says it names branch refs only), merge the
-   branch into `dev` first and use `--ref dev -f ref=<branch>` instead.
-3. Watch it: `gh run watch`. Check that the jobs `preflight`, `windows` and `linux` are green. The `linux` job runs the
-   container build (`packaging/linux/container-build.sh`, Ubuntu 22.04) with `deb-smoke` and `appimage-smoke`; this is the
-   first time those run, because they could not be run on the development machine.
+   Dispatching with `--ref dev` and a commit SHA as `ref` is verified to work.
+3. Watch it: `gh run watch`. Check that the jobs `release-preflight`, `release-windows` and `release-linux` are green and
+   `release-manifest` is skipped. The Linux job runs the container build (`packaging/linux/container-build.sh`,
+   Ubuntu 22.04) with `deb-smoke` and `appimage-smoke`.
 
 ## Open checks on real machines
 
-Each item below was not verified during Milestone 2.6; the command or step says how to check it.
+Each item below was not verified during Milestone 2.6; the command or step says how to check it. Done and not listed any
+more: the release dry run, the container build with `deb-smoke` and `appimage-smoke`, `desktop-file-validate` and
+`StartupWMClass=RafficaPdf` on X11 (see `Docs/DECISIONS.md`, "Raffica PDF: packaging and release (M2.6)", "Dry run and Linux build").
 
 | Item | Check |
 | --- | --- |
-| Linux packages build and pass their smokes | the dry run above, or on a Linux host with Docker, the .NET SDK installed in `$DOTNET_INSTALL_DIR` (for example `export DOTNET_INSTALL_DIR=$HOME/.dotnet` and a `dotnet-install` of the version in `global.json`) and `GITHUB_TOKEN` or `GH_TOKEN` set while the repository is private: `dotnet run tools/native-fetch.cs -- --rid linux-x64 --out out/native`, then the `docker run` of the header of `packaging/linux/container-build.sh` (mount `/work`, the SDK at `/dotnet:ro`, explicit `HOST_UID` and `HOST_GID`) with `VERSION=0.1.0 DEBVERSION=0.1.0` |
-| `StartupWMClass=RafficaPdf` matches the window | on a Linux desktop run `RafficaPdf`, run `xprop WM_CLASS` and click its window; the second string must be `RafficaPdf`, otherwise fix `packaging/linux/raffica-pdf.desktop` and `src/Raffica.Core/Distribution/DesktopEntry.cs` |
-| Desktop file is valid | `desktop-file-validate packaging/linux/raffica-pdf.desktop` |
-| AppImage update | step 4 of "Manual update check" |
+| `StartupWMClass=RafficaPdf` matches the window on Wayland | on a Wayland desktop run `RafficaPdf` and look up the window's `app_id` with the compositor's tool; it must be `RafficaPdf` (X11 is confirmed: `xprop WM_CLASS` returned "RafficaPdf", "RafficaPdf"), otherwise fix `packaging/linux/raffica-pdf.desktop` and `src/Raffica.Core/Distribution/DesktopEntry.cs` |
+| AppImage on a real desktop (FUSE mount) and its update | run the AppImage without `APPIMAGE_EXTRACT_AND_RUN`, then step 4 of "Manual update check" (the updater's unit tests passed 10 of 10 on real Linux) |
+| `.deb` on a real Debian or Ubuntu machine | `sudo apt install ./raffica-pdf_<v>_amd64.deb`, open a PDF with `raffica-pdf`, `sudo apt remove raffica-pdf`; check the menu entry and icon |
 | Per-machine install through the helper (real UAC prompt, declined prompt) | install the older setup for all users, run the update, accept and then decline the prompt |
 | Default app on real desktops | Windows: the first-start card, "Set as default", the system page opens; Linux: `xdg-mime query default application/pdf` prints `raffica-pdf.desktop` |
 | Printing on real printers | Windows print dialog and a CUPS printer (`RAFFICA_TEST_CUPS_PRINTER=<name> dotnet test tests/Raffica.Pdf.Tests -c Release --filter-namespace "*Platform*"`) |
