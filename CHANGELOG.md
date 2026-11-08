@@ -19,6 +19,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Changed
 
+- Raffica PDF: the app icon is now the Raffica PDF mark (plum square with `Pd` and wind streaks) in the installer, on the exe and in the Linux packages, replacing the placeholder.
 - Raffica PDF: faster start on Windows and a third of the idle memory through software rendering; set `RAFFICA_RENDERING=default` to use the GPU path instead.
 
 ### Fixed
