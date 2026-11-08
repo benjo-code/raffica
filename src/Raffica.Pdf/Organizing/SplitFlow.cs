@@ -60,6 +60,9 @@ internal sealed class SplitFlow(
     /// <summary>Replaces the write of Core (tests make a part fail, or cancel between parts); null: Core's.</summary>
     internal PartsWriter? Writer { get; set; }
 
+    /// <summary>Replaces the read of what the parts keep (<see cref="DocumentLevelContent.ReadAsync"/>); tests make it fail or count calls; null: Core's.</summary>
+    internal Func<PdfDocument, string, IReadOnlyList<SplitPart>, CancellationToken, Task<DocumentLevelContent>>? KeptReader { get; set; }
+
     /// <summary>Replaces the dialog around the job card (tests); null: the normal dialog.</summary>
     internal Func<SaveJobCard, Dialog>? JobDialog
     {
@@ -230,7 +233,7 @@ internal sealed class SplitFlow(
         }
 
         var part = DocumentSplitter.Extract(pageCount, range, stem);
-        if (!await ConfirmLossesAsync(tab, source, [part], lines => done => ExtractCard.CreateConfirm(range, lines, done)) || !await StillAllowedAsync(tab))
+        if (!await ConfirmLossesAsync(tab, source, [part], (lines, stays) => done => ExtractCard.CreateConfirm(range, lines, done, stays)) || !await StillAllowedAsync(tab))
         {
             return false;
         }
@@ -292,7 +295,7 @@ internal sealed class SplitFlow(
             return false;
         }
 
-        if (!await ConfirmLossesAsync(tab, source, parts, lines => done => SplitCard.CreateConfirm(parts.Count, lines, done)))
+        if (!await ConfirmLossesAsync(tab, source, parts, (lines, stays) => done => SplitCard.CreateConfirm(parts.Count, lines, done, stays)))
         {
             return false;
         }
@@ -301,9 +304,11 @@ internal sealed class SplitFlow(
     }
 
     // The report of Core for the parts (a cancelable job); the card with the loss list only when there is something to say. Returns whether to go on.
-    private async Task<bool> ConfirmLossesAsync(PdfTab tab, SplitSource source, IReadOnlyList<SplitPart> parts, Func<IReadOnlyList<string>, Func<Action<bool>, Dialog>> confirm)
+    private async Task<bool> ConfirmLossesAsync(PdfTab tab, SplitSource source, IReadOnlyList<SplitPart> parts, Func<IReadOnlyList<string>, IReadOnlyList<string>, Func<Action<bool>, Dialog>> confirm)
     {
-        var reports = await _jobs.RunAsync(tab, _jobTitle, PdfStrings.OutputCheckingTitleFormat, (_, token) => DocumentSplitter.AnalyzeAsync(source.Document, parts, token));
+        // The same job reads what every part keeps from the document level (only now, when the card is about to open; nothing of it exists before).
+        var (reports, content) = await _jobs.RunAsync(tab, _jobTitle, PdfStrings.OutputCheckingTitleFormat, async (_, token) =>
+            (await DocumentSplitter.AnalyzeAsync(source.Document, parts, token), await ReadKeptAsync(source, parts, token)));
 
         // Nothing is written for a part that Core refuses (it takes no pages from other files, so none does today).
         if (reports.Any(static report => report.IsRefused))
@@ -313,7 +318,21 @@ internal sealed class SplitFlow(
         }
 
         var lines = PageLossWording.DescribeParts(reports);
-        return lines.Count == 0 || await dialogs.ShowAsync<bool>(done => confirm(lines)(done));
+        var stays = DocumentLevelWording.Lines(content);
+        return lines.Count + stays.Count == 0 || await dialogs.ShowAsync<bool>(done => confirm(lines, stays)(done));
+    }
+
+    // What the parts keep from the document level; a read that fails says nothing (the card then shows the losses as before), a cancel is the user's.
+    private async Task<DocumentLevelContent> ReadKeptAsync(SplitSource source, IReadOnlyList<SplitPart> parts, CancellationToken token)
+    {
+        try
+        {
+            return await (KeptReader ?? DocumentLevelContent.ReadAsync)(source.Document, source.File.Path, parts, token);
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            return DocumentLevelContent.None;
+        }
     }
 
     private async Task<bool> WriteAsync(PdfTab tab, SplitSource source, IReadOnlyList<SplitPart> parts, string folder, bool overwrite, string title, bool canOpen)

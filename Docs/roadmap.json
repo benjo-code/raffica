@@ -666,6 +666,10 @@
   ],
   "backlog": [
     {
+      "title": "Extract and Split write cleaned parts",
+      "text": "Today a part of Extract or Split is the working copy minus the dropped pages, so the information dictionary, the XMP, the whole outline, the names tree (attached files, document scripts) and the form with the values of fields on dropped pages stay in it; the cards of 2.7 name what stays and point to Redact. A cleaned part would import the chosen pages into a new document and carry over only a filtered outline and the fields of the kept pages. Left out of 2.7 because rebuilding the parts in an empty document would break their forms (field trees, calculation order, appearance streams) and needs its own design and tests."
+    },
+    {
       "title": "Manual check: independent viewer for merged and split files (2.4)",
       "text": "In Raffica PDF open a temp copy of `testdata/pdfs/pages-marked.pdf`, insert a second file with Insert file in the Pages tab and Save as; split another copy every 2 pages into a folder; open the merged file and one part in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect the page count, the page order and the bookmarks of the main file. Record the viewer's name and version in the \"Open items\" block of milestone 2.4 and tick its second criterion. The other points not verified here are listed there."
     },

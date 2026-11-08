@@ -440,6 +440,16 @@ internal static class PdfStrings
     public static string SplitTooManyFormat => Table.Get("SplitTooManyFormat");
     public static string SplitConfirmIntroFormat => Table.Get("SplitConfirmIntroFormat");
     public static string OutputLossesHeading => Table.Get("OutputLossesHeading");
+    public static string StaysHeadingExtract => Table.Get("StaysHeadingExtract");
+    public static string StaysHeadingSplit => Table.Get("StaysHeadingSplit");
+    public static string StaysAttachedOne => Table.Get("StaysAttachedOne");
+    public static string StaysAttachedManyFormat => Table.Get("StaysAttachedManyFormat");
+    public static string StaysScripts => Table.Get("StaysScripts");
+    public static string StaysFieldsOne => Table.Get("StaysFieldsOne");
+    public static string StaysFieldsManyFormat => Table.Get("StaysFieldsManyFormat");
+    public static string StaysBookmarksOne => Table.Get("StaysBookmarksOne");
+    public static string StaysBookmarksManyFormat => Table.Get("StaysBookmarksManyFormat");
+    public static string StaysRedactHint => Table.Get("StaysRedactHint");
     public static string OutputLossFilesFormat => Table.Get("OutputLossFilesFormat");
     public static string OutputCheckingTitleFormat => Table.Get("OutputCheckingTitleFormat");
     public static string OutputJobTitleFormat => Table.Get("OutputJobTitleFormat");
