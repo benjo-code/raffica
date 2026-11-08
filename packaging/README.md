@@ -74,8 +74,9 @@ key and a server on `127.0.0.1`. No release build sets these properties (`packag
    Start the runner in the desktop session (`./run.sh` in `~/actions-runner`), install `squashfs-tools`, `clang` and the .NET SDK,
    then `gh workflow run linux-update-check.yml --ref dev` (`-f ref=<branch>` for the code of a branch). By hand, without the
    workflow: copy the older AppImage somewhere writable,
-   run it, and check that the title bar shows "Update available", that "Install" replaces the file (`ls -l` shows the new
-   timestamp, the mode stays executable) and that the new version starts with the tabs back. The `.deb` and the portable
+   run it without `--settings-file` (the restarted program does not get it and would not find the saved tabs; to keep your own
+   settings out of it set `XDG_CONFIG_HOME` and `XDG_DATA_HOME` to empty folders instead), and check that the title bar shows "Update available", that "Install" replaces the file (`ls -l` shows the new
+   timestamp, the mode stays executable) and that the new version starts with the tabs back (Ctrl+K opens the command search: "Check for updates" asks again, "About" shows the version). The `.deb` and the portable
    ZIP only point to the download page; check that "Install" is absent there.
 5. Delete the test key file afterwards.
 
