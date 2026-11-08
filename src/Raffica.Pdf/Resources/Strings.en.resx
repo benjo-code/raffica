@@ -1588,25 +1588,28 @@
     <value>In the new files, these things are lost or change:</value>
   </data>
   <data name="StaysHeadingExtract" xml:space="preserve">
-    <value>The new file also keeps these parts of the document:</value>
+    <value>Parts of the document that stay in the new file:</value>
   </data>
   <data name="StaysHeadingSplit" xml:space="preserve">
-    <value>Every new file also keeps these parts of the document (for fields and bookmarks, the highest count of any file):</value>
+    <value>Parts of the document that stay in every new file (for fields and bookmarks, the highest count of any file):</value>
   </data>
   <data name="StaysAttachedOne" xml:space="preserve">
-    <value>1 attached file</value>
+    <value>Up to 1 attached file</value>
   </data>
   <data name="StaysAttachedManyFormat" xml:space="preserve">
-    <value>{0} attached files</value>
+    <value>Up to {0} attached files</value>
   </data>
   <data name="StaysScripts" xml:space="preserve">
-    <value>Scripts of the document (JavaScript)</value>
+    <value>Possibly scripts (JavaScript) in the document</value>
+  </data>
+  <data name="StaysIncomplete" xml:space="preserve">
+    <value>The file could not be read completely, so more may stay than is listed.</value>
   </data>
   <data name="StaysFieldsOne" xml:space="preserve">
-    <value>1 form field from another page, with its value</value>
+    <value>1 form field from another page</value>
   </data>
   <data name="StaysFieldsManyFormat" xml:space="preserve">
-    <value>{0} form fields from other pages, with their values</value>
+    <value>{0} form fields from other pages</value>
   </data>
   <data name="StaysBookmarksOne" xml:space="preserve">
     <value>1 bookmark that points to another page</value>
@@ -1615,7 +1618,7 @@
     <value>{0} bookmarks that point to other pages</value>
   </data>
   <data name="StaysRedactHint" xml:space="preserve">
-    <value>Content that must not be passed on belongs in Redact: use it before you extract or split.</value>
+    <value>Content that must not be passed on: redact it first in the Redact tab.</value>
   </data>
   <data name="OutputLossFilesFormat" xml:space="preserve">
     <value>Files {0}: {1}</value>

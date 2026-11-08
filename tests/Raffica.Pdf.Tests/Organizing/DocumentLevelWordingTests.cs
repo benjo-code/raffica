@@ -41,10 +41,19 @@ public sealed class DocumentLevelWordingTests
         var one = InEachLanguage(() => DocumentLevelWording.Lines(new DocumentLevelContent(1, true, 1, 1))).ToList();
         var many = InEachLanguage(() => DocumentLevelWording.Lines(new DocumentLevelContent(2, true, 3, 4))).ToList();
 
-        Assert.Equal(["1 attached file", "Scripts of the document (JavaScript)", "1 form field from another page, with its value", "1 bookmark that points to another page"], one[0]);
-        Assert.Equal(["2 attached files", "Scripts of the document (JavaScript)", "3 form fields from other pages, with their values", "4 bookmarks that point to other pages"], many[0]);
-        Assert.Equal(["1 angehängte Datei", "Skripte des Dokuments (JavaScript)", "1 Formularfeld von einer anderen Seite, mit seinem Wert", "1 Lesezeichen, das auf eine andere Seite zeigt"], one[1]);
-        Assert.Equal(["2 angehängte Dateien", "Skripte des Dokuments (JavaScript)", "3 Formularfelder von anderen Seiten, mit ihren Werten", "4 Lesezeichen, die auf andere Seiten zeigen"], many[1]);
+        Assert.Equal(["Up to 1 attached file", "Possibly scripts (JavaScript) in the document", "1 form field from another page", "1 bookmark that points to another page"], one[0]);
+        Assert.Equal(["Up to 2 attached files", "Possibly scripts (JavaScript) in the document", "3 form fields from other pages", "4 bookmarks that point to other pages"], many[0]);
+        Assert.Equal(["Bis zu 1 angehängte Datei", "Möglicherweise Skripte (JavaScript) im Dokument", "1 Formularfeld von einer anderen Seite", "1 Lesezeichen, das auf eine andere Seite zeigt"], one[1]);
+        Assert.Equal(["Bis zu 2 angehängte Dateien", "Möglicherweise Skripte (JavaScript) im Dokument", "3 Formularfelder von anderen Seiten", "4 Lesezeichen, die auf andere Seiten zeigen"], many[1]);
+    }
+
+    [AvaloniaFact]
+    public void AnIncompleteReadAddsOneNoteLine()
+    {
+        var lines = InEachLanguage(() => DocumentLevelWording.Lines(new DocumentLevelContent(0, false, 0, 0, ReadCompletely: false))).ToList();
+
+        Assert.Equal(["The file could not be read completely, so more may stay than is listed."], lines[0]);
+        Assert.Single(lines[1]);
     }
 
     [AvaloniaFact]
@@ -59,7 +68,7 @@ public sealed class DocumentLevelWordingTests
     [AvaloniaFact]
     public void NoTextClaimsRemovalOrSafety()
     {
-        string[] keys = ["StaysHeadingExtract", "StaysHeadingSplit", "StaysAttachedOne", "StaysAttachedManyFormat", "StaysScripts", "StaysFieldsOne", "StaysFieldsManyFormat", "StaysBookmarksOne", "StaysBookmarksManyFormat", "StaysRedactHint"];
+        string[] keys = ["StaysHeadingExtract", "StaysHeadingSplit", "StaysAttachedOne", "StaysAttachedManyFormat", "StaysScripts", "StaysIncomplete", "StaysFieldsOne", "StaysFieldsManyFormat", "StaysBookmarksOne", "StaysBookmarksManyFormat", "StaysRedactHint"];
         foreach (var language in new[] { "en", "de" })
         {
             foreach (var key in keys)

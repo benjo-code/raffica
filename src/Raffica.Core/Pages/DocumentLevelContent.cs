@@ -9,11 +9,12 @@ namespace Raffica.Core.Pages;
 /// the form with the values of the fields of the dropped pages stay in it. This counts the items a reader can act on; the cards of the
 /// app name them. Read once per card from the open document.
 /// </summary>
-/// <param name="AttachedFiles">The files of the names tree (the files of paperclip annotations belong to their pages and are not counted).</param>
-/// <param name="HasScripts">Whether the document has a script (<c>/JS</c> entry).</param>
-/// <param name="FieldsOnOtherPages">The form fields (by name) that have a widget on a page outside the part, with their values; for several parts the highest count of any part.</param>
+/// <param name="AttachedFiles">The files of the names tree (the files of paperclip annotations belong to their pages and are not counted). A raw scan of the file: it can overstate (superseded objects of earlier revisions, files that only a dropped page refers to).</param>
+/// <param name="HasScripts">Whether the raw scan found a script (<c>/JS</c> entry); it can overstate as <paramref name="AttachedFiles"/> does (a script that only a dropped page carries).</param>
+/// <param name="FieldsOnOtherPages">The form fields (by name) that have a widget on a page outside the part and none on a page of the part; for several parts the highest count of any part.</param>
 /// <param name="BookmarksToOtherPages">The bookmarks that point to a page outside the part; for several parts the highest count of any part.</param>
-public sealed record DocumentLevelContent(int AttachedFiles, bool HasScripts, int FieldsOnOtherPages, int BookmarksToOtherPages)
+/// <param name="ReadCompletely">Whether the file could be read at all; when not, more may stay than is counted. The scanner's own "complete" flag is not used: it is about text that could hide in a stream, and it is false for ordinary files with one unusual stream, so the card would warn for almost every document.</param>
+public sealed record DocumentLevelContent(int AttachedFiles, bool HasScripts, int FieldsOnOtherPages, int BookmarksToOtherPages, bool ReadCompletely = true)
 {
     /// <summary>Nothing of it (also the answer when it could not be read).</summary>
     public static DocumentLevelContent None { get; } = new(0, false, 0, 0);
@@ -51,20 +52,7 @@ public sealed record DocumentLevelContent(int AttachedFiles, bool HasScripts, in
             }
         }
 
-        var worstFields = 0;
-        foreach (var pages in inside)
-        {
-            var outside = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var (page, fieldNames) in fieldsByPage)
-            {
-                if (!pages.Contains(page))
-                {
-                    outside.UnionWith(fieldNames);
-                }
-            }
-
-            worstFields = Math.Max(worstFields, outside.Count);
-        }
+        var worstFields = inside.Max(pages => FieldsOnlyOutside(fieldsByPage, pages));
 
         // Bookmarks: every entry with a target outside the part.
         var targets = new List<int>();
@@ -84,20 +72,34 @@ public sealed record DocumentLevelContent(int AttachedFiles, bool HasScripts, in
         }
 
         var worstBookmarks = inside.Max(pages => targets.Count(target => !pages.Contains(target)));
-        return new DocumentLevelContent(names.AttachedFiles, names.HasScripts, worstFields, worstBookmarks);
+        return new DocumentLevelContent(names.AttachedFiles, names.HasScripts, worstFields, worstBookmarks, names.Complete);
     }
 
-    private static (int AttachedFiles, bool HasScripts) ReadNames(string path, CancellationToken cancellationToken)
+    /// <summary>Counts the fields (by name) with a widget outside <paramref name="pages"/> and none inside: a field that also sits on a page of the part is part of it.</summary>
+    internal static int FieldsOnlyOutside(IReadOnlyDictionary<int, HashSet<string>> fieldsByPage, IReadOnlySet<int> pages)
+    {
+        var outside = new HashSet<string>(StringComparer.Ordinal);
+        var inside = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (page, names) in fieldsByPage)
+        {
+            (pages.Contains(page) ? inside : outside).UnionWith(names);
+        }
+
+        outside.ExceptWith(inside);
+        return outside.Count;
+    }
+
+    private static (int AttachedFiles, bool HasScripts, bool Complete) ReadNames(string path, CancellationToken cancellationToken)
     {
         try
         {
             using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.SequentialScan);
             var inventory = RawContentScanner.Inventory(file, cancellationToken);
-            return (Math.Max(0, inventory.EmbeddedFiles - inventory.AttachmentAnnotations), inventory.JavaScriptActions > 0);
+            return (Math.Max(0, inventory.EmbeddedFiles - inventory.AttachmentAnnotations), inventory.JavaScriptActions > 0, true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return (0, false);
+            return (0, false, false);
         }
     }
 }

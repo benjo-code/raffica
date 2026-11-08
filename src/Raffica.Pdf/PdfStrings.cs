@@ -445,6 +445,7 @@ internal static class PdfStrings
     public static string StaysAttachedOne => Table.Get("StaysAttachedOne");
     public static string StaysAttachedManyFormat => Table.Get("StaysAttachedManyFormat");
     public static string StaysScripts => Table.Get("StaysScripts");
+    public static string StaysIncomplete => Table.Get("StaysIncomplete");
     public static string StaysFieldsOne => Table.Get("StaysFieldsOne");
     public static string StaysFieldsManyFormat => Table.Get("StaysFieldsManyFormat");
     public static string StaysBookmarksOne => Table.Get("StaysBookmarksOne");

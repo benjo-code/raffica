@@ -72,4 +72,31 @@ public sealed class DocumentLevelContentTests
         Assert.True(content.IsEmpty);
         Assert.Equal(DocumentLevelContent.None, content);
     }
+
+    [Fact]
+    public void AFieldWithAWidgetInThePartIsNotCountedAsOnOtherPages()
+    {
+        // "total" has widgets on pages 0 and 1, "name" only on page 1, "tax" only on page 2.
+        var byPage = new Dictionary<int, HashSet<string>>
+        {
+            [0] = ["total"],
+            [1] = ["total", "name"],
+            [2] = ["tax"],
+        };
+
+        Assert.Equal(2, DocumentLevelContent.FieldsOnlyOutside(byPage, new HashSet<int> { 0 }));
+        Assert.Equal(1, DocumentLevelContent.FieldsOnlyOutside(byPage, new HashSet<int> { 0, 1 }));
+        Assert.Equal(0, DocumentLevelContent.FieldsOnlyOutside(byPage, new HashSet<int> { 0, 1, 2 }));
+    }
+
+    [Fact]
+    public async Task AFileThatCannotBeReadSaysSoInsteadOfCountingNothing()
+    {
+        await using var document = await engine.OpenAsync(TestData.Pdf("hello_world.pdf"), cancellationToken: Ct);
+
+        var content = await DocumentLevelContent.ReadAsync(document, Path.Combine(Path.GetTempPath(), "raffica-missing-" + Guid.NewGuid().ToString("N") + ".pdf"), [new SplitPart("p", [0])], Ct);
+
+        Assert.False(content.ReadCompletely);
+        Assert.False(content.IsEmpty);
+    }
 }

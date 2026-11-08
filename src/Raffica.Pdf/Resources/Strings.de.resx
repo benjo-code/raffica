@@ -1572,25 +1572,28 @@
     <value>In den neuen Dateien geht Folgendes verloren oder ändert sich:</value>
   </data>
   <data name="StaysHeadingExtract" xml:space="preserve">
-    <value>Die neue Datei behält außerdem diese Teile des Dokuments:</value>
+    <value>Teile des Dokuments, die in der neuen Datei bleiben:</value>
   </data>
   <data name="StaysHeadingSplit" xml:space="preserve">
-    <value>Jede neue Datei behält außerdem diese Teile des Dokuments (bei Feldern und Lesezeichen die höchste Zahl einer Datei):</value>
+    <value>Teile des Dokuments, die in jeder neuen Datei bleiben (bei Feldern und Lesezeichen die höchste Zahl einer Datei):</value>
   </data>
   <data name="StaysAttachedOne" xml:space="preserve">
-    <value>1 angehängte Datei</value>
+    <value>Bis zu 1 angehängte Datei</value>
   </data>
   <data name="StaysAttachedManyFormat" xml:space="preserve">
-    <value>{0} angehängte Dateien</value>
+    <value>Bis zu {0} angehängte Dateien</value>
   </data>
   <data name="StaysScripts" xml:space="preserve">
-    <value>Skripte des Dokuments (JavaScript)</value>
+    <value>Möglicherweise Skripte (JavaScript) im Dokument</value>
+  </data>
+  <data name="StaysIncomplete" xml:space="preserve">
+    <value>Die Datei konnte nicht vollständig gelesen werden, daher bleibt möglicherweise mehr erhalten als aufgelistet.</value>
   </data>
   <data name="StaysFieldsOne" xml:space="preserve">
-    <value>1 Formularfeld von einer anderen Seite, mit seinem Wert</value>
+    <value>1 Formularfeld von einer anderen Seite</value>
   </data>
   <data name="StaysFieldsManyFormat" xml:space="preserve">
-    <value>{0} Formularfelder von anderen Seiten, mit ihren Werten</value>
+    <value>{0} Formularfelder von anderen Seiten</value>
   </data>
   <data name="StaysBookmarksOne" xml:space="preserve">
     <value>1 Lesezeichen, das auf eine andere Seite zeigt</value>
@@ -1599,7 +1602,7 @@
     <value>{0} Lesezeichen, die auf andere Seiten zeigen</value>
   </data>
   <data name="StaysRedactHint" xml:space="preserve">
-    <value>Inhalte, die nicht weitergegeben werden dürfen, gehören in Schwärzen: Nutzen Sie es, bevor Sie Seiten extrahieren oder teilen.</value>
+    <value>Inhalte, die nicht weitergegeben werden dürfen, schwärzen Sie vorher im Reiter Schwärzen.</value>
   </data>
   <data name="OutputLossFilesFormat" xml:space="preserve">
     <value>Dateien {0}: {1}</value>

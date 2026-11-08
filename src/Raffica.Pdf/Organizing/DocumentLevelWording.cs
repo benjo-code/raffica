@@ -4,12 +4,13 @@ namespace Raffica.Pdf.Organizing;
 
 /// <summary>
 /// Words what every part of an extract or split keeps from the document level (<see cref="DocumentLevelContent"/>): one line per item that is
-/// there, singular and plural in both languages. The lines count and name things; they never say that anything is removed or safe, because the
+/// there, singular and plural in both languages. The counts of attached files and scripts come from a raw scan that can overstate, so they read "up to" and
+/// "possibly". The lines count and name things; they never say that anything is removed or safe, because the
 /// parts keep it and the way to leave it out is the Redact tab.
 /// </summary>
 internal static class DocumentLevelWording
 {
-    /// <summary>The lines of the items that are there, in a fixed order (attached files, scripts, fields, bookmarks); empty when there are none.</summary>
+    /// <summary>The lines of the items that are there, in a fixed order (attached files, scripts, fields, bookmarks, the note that the file was not read completely); empty when there are none.</summary>
     public static IReadOnlyList<string> Lines(DocumentLevelContent content)
     {
         ArgumentNullException.ThrowIfNull(content);
@@ -32,6 +33,11 @@ internal static class DocumentLevelWording
         if (content.BookmarksToOtherPages > 0)
         {
             lines.Add(content.BookmarksToOtherPages == 1 ? PdfStrings.StaysBookmarksOne : PdfStrings.Fill(PdfStrings.StaysBookmarksManyFormat, content.BookmarksToOtherPages));
+        }
+
+        if (!content.ReadCompletely)
+        {
+            lines.Add(PdfStrings.StaysIncomplete);
         }
 
         return lines;
