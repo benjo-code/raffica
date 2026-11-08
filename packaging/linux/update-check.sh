@@ -12,10 +12,11 @@
 #   3. Starts the test server of tools/update-testserver.cs on 127.0.0.1 with the new AppImage (signed with the test key).
 #   4. Starts the OLD AppImage the way a user does, through the FUSE mount (APPIMAGE_EXTRACT_AND_RUN is never set), on the
 #      real display, with its own settings and data folders, and WAITS for you: "Update available" must show in the title
-#      bar; click "Install" (if nothing shows after a minute: command palette, "Check for updates").
+#      bar; click "Install" (if nothing shows after a minute: Ctrl+K, type "Check for updates", Enter).
 #   5. Checks what the updater did to the file: it is now the new AppImage (SHA-256), still mode 755, no leftover file next
 #      to it, a new process started from it, and the new file starts through FUSE as well. You check by eye that the new
-#      version is open (About card) and the document is back; closing the window ends the run.
+#      version is open (Ctrl+K, type "About", Enter: the card shows the version) and the document is back; closing the
+#      window ends the run.
 #
 # SECURITY: this runs repository code with the rights of the user who started the runner. It uses no secret and no
 # network except the downloads of the pinned AppImage runtime and of the NuGet packages. The server answers on
@@ -71,10 +72,25 @@ app_pids() {
   [ -n "$user_appimage" ] || return 0
   local dir
   for dir in /proc/[0-9]*; do
-    if [ -r "$dir/environ" ] && tr '\0' '\n' <"$dir/environ" 2>/dev/null | grep -qxF "APPIMAGE=$user_appimage"; then
+    # Processes of other users cannot be read; the error messages of those reads are not wanted.
+    if { tr '\0' '\n' <"$dir/environ" | grep -qxF "APPIMAGE=$user_appimage"; } 2>/dev/null; then
       echo "${dir#/proc/}"
     fi
   done
+}
+
+# What is running and what the app wrote, for a failure that is hard to understand afterwards.
+diagnostics() {
+  echo "--- diagnostics"
+  echo "processes that look like the app (pid ppid seconds-running command):"
+  ps -eo pid,ppid,etimes,args | grep -E 'RafficaPdf|\.mount_' | grep -v grep || true
+  echo "the folder of the AppImage under test (inode, mode, name):"
+  ls -ldi "$work/user" "$work/user"/* "$work/user"/.[!.]* 2>/dev/null || true
+  echo "output of the app (last lines):"
+  tail -n 30 "$work/app.log" 2>/dev/null || true
+  echo "session files:"
+  find "$work/xdg" -name 'session.json*' 2>/dev/null || true
+  echo "--- end of diagnostics"
 }
 
 cleanup() {
@@ -138,21 +154,23 @@ done
 $ready || { cat "$work/server.log"; fail "the test server does not answer on port $port"; }
 
 note "The old AppImage starts through the FUSE mount"
-# Own settings and data folders: the restarted new version inherits the environment, so the user's real settings stay untouched.
+# Own settings and data folders through XDG_*: the restarted new version inherits the environment, so the user's real settings stay
+# untouched. No --settings-file on purpose: the restarted program is started without it and would look for the session of the
+# update (session.json) in the default folder, not next to that file, so the document would not come back.
 export XDG_CONFIG_HOME="$work/xdg/config" XDG_DATA_HOME="$work/xdg/data" XDG_CACHE_HOME="$work/xdg/cache"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
 probe="$("$user_appimage" --print-string TabView --lang en)" || fail "the old AppImage does not start (FUSE mount): see above"
 [ -n "$probe" ] || fail "the old AppImage printed nothing for --print-string TabView"
 echo "AppImage answered through FUSE: TabView = $probe"
 
-"$user_appimage" --settings-file "$work/settings.json" "$repo/testdata/pdfs/text-basic.pdf" >"$work/app.log" 2>&1 &
+"$user_appimage" "$repo/testdata/pdfs/text-basic.pdf" >"$work/app.log" 2>&1 &
 sleep 15
 before="$(app_pids | sort -n | tr '\n' ' ')"
 [ -n "$before" ] || { cat "$work/app.log"; fail "the old version did not stay open"; }
 echo "The old version ($OLD_VERSION) is open (processes: $before)"
 
 old_inode="$(stat -c %i "$user_appimage")"
-msg="Raffica update check: in the Raffica window ($OLD_VERSION) the title bar shows 'Update available'. Click it, then 'Install'. If it does not show within a minute: Ctrl+Shift+P, 'Check for updates'."
+msg="Raffica update check: in the Raffica window ($OLD_VERSION) the title bar shows 'Update available'. Click it, then 'Install'. If it does not show within a minute: Ctrl+K, type 'Check for updates', Enter. Afterwards: Ctrl+K, type 'About', Enter shows the version; the PDF must be open again."
 echo "::notice title=Your turn::$msg"
 echo "$msg"
 command -v notify-send >/dev/null 2>&1 && notify-send -u critical "Raffica update check" "Click 'Update available', then 'Install' in the Raffica window." || true
@@ -164,10 +182,15 @@ changed=false
 while [ "$(date +%s)" -lt "$deadline" ]; do
   if [ "$(stat -c %i "$user_appimage" 2>/dev/null || echo 0)" != "$old_inode" ]; then changed=true; break; fi
   if [ -z "$(app_pids)" ]; then gone=$((gone + 1)); else gone=0; fi
-  [ "$gone" -lt 3 ] || { cat "$work/app.log"; fail "the app was closed (or crashed) before the update was installed"; }
+  if [ "$gone" -ge 3 ]; then
+    # one more look at the file: the app may have swapped it and ended in between
+    if [ "$(stat -c %i "$user_appimage" 2>/dev/null || echo 0)" != "$old_inode" ]; then changed=true; break; fi
+    diagnostics
+    fail "the app was closed (or crashed) before the update was installed (the file was not replaced)"
+  fi
   sleep 2
 done
-$changed || fail "no install within $WAIT_MINUTES minutes: the file was not replaced"
+$changed || { diagnostics; fail "no install within $WAIT_MINUTES minutes: the file was not replaced"; }
 
 note "What the updater did"
 failures=0
@@ -188,15 +211,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 check "a new process started from the updated file" "$restarted"
-if ! $restarted; then
-  echo "Processes that look like the app (pid ppid seconds-running command, then APPIMAGE of its environment):"
-  ps -eo pid,ppid,etimes,args | grep -E 'RafficaPdf|\.mount_' | grep -v grep || true
-  for dir in /proc/[0-9]*; do
-    if [ -r "$dir/cmdline" ] && tr '\0' ' ' <"$dir/cmdline" 2>/dev/null | grep -qE 'RafficaPdf|\.mount_'; then
-      echo "  ${dir#/proc/}: $(tr '\0' '\n' <"$dir/environ" 2>/dev/null | grep -E '^APPIMAGE=' || echo 'no APPIMAGE')"
-    fi
-  done
-fi
+if ! $restarted; then diagnostics; fi
 
 # unset again: the new file is also started through FUSE by a user
 probe_new="$("$user_appimage" --print-string TabView --lang en 2>/dev/null || true)"
@@ -212,8 +227,8 @@ fi
 [ "$failures" -eq 0 ] || fail "$failures check(s) failed (see above)"
 
 echo
-echo "All automatic checks passed. Look at the screen now: the new version ($NEW_VERSION, About card) is open and the"
-echo "document is back. Close the Raffica window to end the run (it is closed after $HOLD_MINUTES minutes in any case)."
+echo "All automatic checks passed. Look at the screen now: Ctrl+K, type About, Enter: the card shows $NEW_VERSION; and the"
+echo "document (text-basic.pdf) is open again. Close the Raffica window to end the run (it is closed after $HOLD_MINUTES minutes in any case)."
 hold_deadline=$(($(date +%s) + HOLD_MINUTES * 60))
 while [ "$(date +%s)" -lt "$hold_deadline" ] && [ -n "$(app_pids)" ]; do sleep 2; done
 note "Done"
