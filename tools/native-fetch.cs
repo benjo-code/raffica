@@ -188,9 +188,43 @@ static class Fetcher
 
     // Returns the bytes behind url. A release asset is looked up through the API (the repository may be private); the token, when
     // given, is sent to api.github.com only. Any other URL is fetched as it is, without the token.
+    // Attempts and the wait before the second one (it triples after each failure). The servers of the language data answer
+    // 502/503/504 now and then for minutes at a time; the selftest sets the wait to zero.
+    public const int MaxAttempts = 4;
+    public static TimeSpan RetryDelay { get; set; } = TimeSpan.FromSeconds(10);
+
+    // A try that failed for a reason that may pass: a server error, a rate limit or a timeout, a broken connection.
+    // Anything else (a missing file, a refused address, a bad answer) is final and is not repeated.
+    public static bool IsTransient(Exception e) => e switch
+    {
+        HttpRequestException { StatusCode: null } => true,
+        HttpRequestException { StatusCode: var code } => (int)code! >= 500 || code is System.Net.HttpStatusCode.RequestTimeout or System.Net.HttpStatusCode.TooManyRequests,
+        TaskCanceledException => true,
+        IOException => true,
+        _ => false,
+    };
+
     public static byte[] Download(string url, string? token, HttpMessageHandler? handler = null)
     {
-        using var client = handler is null ? new HttpClient { Timeout = TimeSpan.FromMinutes(10) } : new HttpClient(handler);
+        var delay = RetryDelay;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return DownloadOnce(url, token, handler);
+            }
+            catch (Exception e) when (attempt < MaxAttempts && IsTransient(e))
+            {
+                Console.Error.WriteLine($"native-fetch: attempt {attempt} of {MaxAttempts} failed ({e.Message}); trying again in {delay.TotalSeconds:0} s");
+                Thread.Sleep(delay);
+                delay *= 3;
+            }
+        }
+    }
+
+    private static byte[] DownloadOnce(string url, string? token, HttpMessageHandler? handler)
+    {
+        using var client = handler is null ? new HttpClient { Timeout = TimeSpan.FromMinutes(3) } : new HttpClient(handler);
         var match = s_releaseAsset.Match(url);
         if (!match.Success)
         {
@@ -286,6 +320,7 @@ static class SelfTest
         }
 
         AssetLookupUsesTheApiWithToken();
+        TransientFailuresAreRepeated();
         WrongHashLaysNothingDown();
         NoPredecessorNameInTheSource();
 
@@ -359,6 +394,51 @@ static class SelfTest
         }
 
         Expect("an asset the release lacks is an error", Throws(() => Fetcher.Download(ReleaseUrl.Replace("tesseract.dll", "missing.dll"), null, new FakeGitHub())), true);
+    }
+
+    // Answers with the given codes in turn, then with the bytes "ok".
+    private sealed class FlakyServer(params System.Net.HttpStatusCode[] failures) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var code = Calls < failures.Length ? failures[Calls] : System.Net.HttpStatusCode.OK;
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(code) { Content = new ByteArrayContent("ok"u8.ToArray()) });
+        }
+    }
+
+    // A 5xx answer, a rate limit and a timeout are repeated (at most four tries); a missing file, a refusal and the last
+    // failed try are not hidden or repeated.
+    private static void TransientFailuresAreRepeated()
+    {
+        const string Url = "https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/eng.traineddata";
+        var before = Fetcher.RetryDelay;
+        Fetcher.RetryDelay = TimeSpan.Zero;
+        try
+        {
+            var flaky = new FlakyServer(System.Net.HttpStatusCode.GatewayTimeout, System.Net.HttpStatusCode.BadGateway, System.Net.HttpStatusCode.TooManyRequests);
+            Expect("retry: the fourth try gets the bytes", System.Text.Encoding.UTF8.GetString(Fetcher.Download(Url, null, flaky)), "ok");
+            Expect("retry: it took four calls", flaky.Calls, 4);
+
+            var down = new FlakyServer(Enumerable.Repeat(System.Net.HttpStatusCode.ServiceUnavailable, 10).ToArray());
+            Expect("retry: a server that stays down is an error after four tries", Throws(() => Fetcher.Download(Url, null, down)), true);
+            Expect("retry: it was asked four times, not more", down.Calls, Fetcher.MaxAttempts);
+
+            var missing = new FlakyServer(System.Net.HttpStatusCode.NotFound);
+            Expect("retry: a missing file is an error at once", Throws(() => Fetcher.Download(Url, null, missing)), true);
+            Expect("retry: a missing file is asked once", missing.Calls, 1);
+
+            Expect("retry: 503 is transient", Fetcher.IsTransient(new HttpRequestException("x", null, System.Net.HttpStatusCode.ServiceUnavailable)), true);
+            Expect("retry: 403 is not", Fetcher.IsTransient(new HttpRequestException("x", null, System.Net.HttpStatusCode.Forbidden)), false);
+            Expect("retry: no status (connection broke) is transient", Fetcher.IsTransient(new HttpRequestException("x")), true);
+            Expect("retry: a refused address is not", Fetcher.IsTransient(new InvalidOperationException("x")), false);
+        }
+        finally
+        {
+            Fetcher.RetryDelay = before;
+        }
     }
 
     private static bool Throws(Action action)
