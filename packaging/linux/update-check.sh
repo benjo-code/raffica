@@ -188,6 +188,15 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 check "a new process started from the updated file" "$restarted"
+if ! $restarted; then
+  echo "Processes that look like the app (pid ppid seconds-running command, then APPIMAGE of its environment):"
+  ps -eo pid,ppid,etimes,args | grep -E 'RafficaPdf|\.mount_' | grep -v grep || true
+  for dir in /proc/[0-9]*; do
+    if [ -r "$dir/cmdline" ] && tr '\0' ' ' <"$dir/cmdline" 2>/dev/null | grep -qE 'RafficaPdf|\.mount_'; then
+      echo "  ${dir#/proc/}: $(tr '\0' '\n' <"$dir/environ" 2>/dev/null | grep -E '^APPIMAGE=' || echo 'no APPIMAGE')"
+    fi
+  done
+fi
 
 # unset again: the new file is also started through FUSE by a user
 probe_new="$("$user_appimage" --print-string TabView --lang en 2>/dev/null || true)"
