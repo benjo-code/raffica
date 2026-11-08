@@ -782,6 +782,8 @@ internal static unsafe class PdfiumTextEdit
     /// <summary>Rewrites the page on a copy in a scratch document and refuses when anything outside the run would change.</summary>
     private static void CheckOnCopy(PdfiumDocument document, int pageIndex, double width, double height, int index, string fingerprint, IReadOnlyList<PdfiumSegment> segments, Func<byte[]> loadGeist, PdfiumTextArea boxBefore)
     {
+        // Refused before anything is copied or drawn when the picture of the check would be beyond the render limit.
+        var pixels = CheckPixels(width, height);
         var scratch = Fpdf.FPDF_CreateNewDocument();
         if (scratch == 0)
         {
@@ -805,7 +807,6 @@ internal static unsafe class PdfiumTextEdit
 
             PageRead before;
             byte[] imageBefore;
-            var pixels = CheckPixels(width, height);
             List<string> others;
             try
             {
@@ -897,21 +898,44 @@ internal static unsafe class PdfiumTextEdit
         }
     }
 
-    private readonly record struct CheckSize(int Width, int Height, double Scale);
+    internal readonly record struct CheckSize(int Width, int Height, double Scale);
 
-    private static CheckSize CheckPixels(double width, double height)
+    /// <summary>
+    /// The size of the picture of the check: the page scaled to <see cref="MaxCheckPixels"/>, at least one pixel on each side. A thin page keeps
+    /// one side at one pixel and the other at its full length, so the area rule alone does not bound the picture: each side and the area are
+    /// held to <see cref="PdfiumRenderWork.MaxPixels"/> (computed in <see langword="double"/> and <see langword="long"/>, never in <see langword="int"/>),
+    /// and a page beyond that is refused: the edit is not possible.
+    /// </summary>
+    /// <exception cref="PdfiumTextEditException">The page is not a finite size or its picture would be beyond the render limit (<see cref="PdfiumTextEditFailure.NotRewritable"/>).</exception>
+    internal static CheckSize CheckPixels(double width, double height)
     {
+        if (!double.IsFinite(width) || !double.IsFinite(height))
+        {
+            throw TooLargeToCheck();
+        }
+
         var scale = Math.Min(1.0, Math.Sqrt(MaxCheckPixels / Math.Max(1.0, width * height)));
-        return new CheckSize(Math.Max(1, (int)Math.Ceiling(width * scale)), Math.Max(1, (int)Math.Ceiling(height * scale)), scale);
+        var pixelWidth = Math.Max(1.0, Math.Ceiling(width * scale));
+        var pixelHeight = Math.Max(1.0, Math.Ceiling(height * scale));
+        if (pixelWidth > PdfiumRenderWork.MaxPixels || pixelHeight > PdfiumRenderWork.MaxPixels || (long)pixelWidth * (long)pixelHeight > PdfiumRenderWork.MaxPixels)
+        {
+            throw TooLargeToCheck();
+        }
+
+        return new CheckSize((int)pixelWidth, (int)pixelHeight, scale);
     }
+
+    private static PdfiumTextEditException TooLargeToCheck() =>
+        new(PdfiumTextEditFailure.NotRewritable, PdfiumTextLock.None, "The page is too large to check the rewrite.");
 
     private static byte[] Render(nint page, int width, int height)
     {
-        var buffer = new byte[width * height * 4];
+        // The sides are held to MaxPixels each and their product too (CheckPixels), so 4 bytes per pixel and the stride fit an int; the arithmetic is long all the same.
+        var buffer = new byte[checked((int)((long)width * height * 4))];
         Array.Fill(buffer, (byte)0xFF);
         fixed (byte* pixels = buffer)
         {
-            var bitmap = Fpdf.FPDFBitmap_CreateEx(width, height, FpdfConstants.BitmapBgra, pixels, width * 4);
+            var bitmap = Fpdf.FPDFBitmap_CreateEx(width, height, FpdfConstants.BitmapBgra, pixels, checked((int)((long)width * 4)));
             if (bitmap == 0)
             {
                 throw new InvalidOperationException("PDFium could not create the bitmap of the check.");
@@ -947,7 +971,7 @@ internal static unsafe class PdfiumTextEdit
                     continue;
                 }
 
-                var i = ((y * size.Width) + x) * 4;
+                var i = (((long)y * size.Width) + x) * 4;
                 if (Math.Abs(a[i] - b[i]) > 24 || Math.Abs(a[i + 1] - b[i + 1]) > 24 || Math.Abs(a[i + 2] - b[i + 2]) > 24)
                 {
                     different++;
