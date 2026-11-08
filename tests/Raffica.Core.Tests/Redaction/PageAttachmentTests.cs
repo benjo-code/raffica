@@ -172,4 +172,41 @@ public sealed class PageAttachmentTests : IDisposable
         Assert.Equal(1, analysis.MediaAnnotations);
         Assert.Contains("Sound and video annotations", RedactionReportText.Of(analysis), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ABlendModeOrActionNamedLikeMediaIsNoMediaAnnotation()
+    {
+        var file = new VerifierPdf("BT /F1 12 Tf 20 150 Td (secret value) Tj ET");
+        var state = file.Add("<< /Type /ExtGState /BM /Screen /AIS false >>");
+        file.ResourceEntries = $"/ExtGState << /G1 {state} 0 R >>";
+        file.PageEntries = "/AA << /O << /S /Movie /T (x) >> >>";
+        var path = Write("blend.pdf", file.Build());
+
+        var analysis = await new RedactionExecutor(engine).AnalyzeAsync(Plan(), path, null, Ct);
+
+        Assert.Equal(0, analysis.MediaAnnotations);
+        Assert.DoesNotContain("Sound and video", RedactionReportText.Of(analysis), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnAssociatedFileOfAnAnnotationIsPreviewedAsNotCleanedAndNeverAsAnAttachmentThatGoes()
+    {
+        var path = AnnotationFile(paperclip: false);
+
+        var analysis = await new RedactionExecutor(engine).AnalyzeAsync(Plan(), path, null, Ct);
+
+        Assert.Equal(1, analysis.OtherAttachments);
+        Assert.DoesNotContain(analysis.Cleanup, static item => item.Kind == CleanupKind.Attachments);
+        var report = RedactionReportText.Of(analysis);
+        Assert.DoesNotContain("Attached files", report, StringComparison.Ordinal);
+        Assert.Contains("Files attached to other objects", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task APaperclipAloneIsNoOtherAttachment()
+    {
+        var analysis = await new RedactionExecutor(engine).AnalyzeAsync(Plan(), AnnotationFile(paperclip: true), null, Ct);
+
+        Assert.Equal(0, analysis.OtherAttachments);
+    }
 }

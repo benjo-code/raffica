@@ -2339,6 +2339,9 @@
   <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
     <value>Dateianhänge von Anmerkungen (Büroklammer-Notizen): bis zu {0}. Ihre eingebetteten Dateien kommen mit den Seiten und bleiben in der Datei.</value>
   </data>
+  <data name="RedactNotCleanedOtherAttachFormat" xml:space="preserve">
+    <value>An andere Objekte angehängte Dateien (zugeordnete Dateien von Anmerkungen und Ähnliches): bis zu {0}. Sie kommen mit den Seiten; die Prüfung der geschriebenen Datei stoppt das Speichern, solange eine übrig ist.</value>
+  </data>
   <data name="RedactNotCleanedMediaFormat" xml:space="preserve">
     <value>Ton, Video und andere Medien von Anmerkungen: bis zu {0}. Sie kommen mit den Seiten und bleiben in der Datei.</value>
   </data>

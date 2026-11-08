@@ -200,6 +200,7 @@ public sealed record RedactionLoss(RedactionLossKind Kind, int Count);
 /// <param name="MarksWithoutTerm">The number of marks without a term (a rectangle dragged on the page): the text under them is removed, but the check has no text to search for.</param>
 /// <param name="AttachmentAnnotations">How many paperclip annotations (<c>/FileAttachment</c>) the file has: up to that many embedded files come with the pages and stay in the file (not cleaned).</param>
 /// <param name="MediaAnnotations">How many names of sound, movie, screen, 3D and rich media annotations the file has: up to that many come with the pages and are not cleaned.</param>
+/// <param name="OtherAttachments">How many objects other than pages, the catalog and paperclip annotations carry associated files: they come with the pages, no attached files are claimed as cleaned, and the check of the written file stops the save while one is left.</param>
 /// <param name="Raster">What turning the pages of <see cref="RedactionPlan.RasterPages"/> into images costs, one entry per page in page order; <see langword="null"/> when the plan has none.</param>
 /// <param name="ImageTreatment">What the plan does with the image areas (<see cref="RedactionPlan.ImageTreatment"/>): the report words its counts and its caution about text in images by it.</param>
 public sealed record RedactionAnalysis(
@@ -214,7 +215,8 @@ public sealed record RedactionAnalysis(
     int AttachmentAnnotations = 0,
     IReadOnlyList<RasterPageInfo>? Raster = null,
     RedactionImageTreatment ImageTreatment = RedactionImageTreatment.Solid,
-    int MediaAnnotations = 0)
+    int MediaAnnotations = 0,
+    int OtherAttachments = 0)
 {
     /// <summary>Gets whether the file must not be redacted (any refusal).</summary>
     public bool IsRefused => Refusals.Count > 0;
@@ -276,4 +278,5 @@ public sealed record RasterPageInfo(
 /// <param name="Complete">Whether the scan of the file could read every stream; <see langword="false"/> means the cleanup list may miss entries (the card must not say "nothing else").</param>
 /// <param name="AttachmentAnnotations">How many paperclip annotations (<c>/FileAttachment</c>) the file has: up to that many embedded files come with the pages and are not cleaned.</param>
 /// <param name="MediaAnnotations">How many names of sound, movie, screen, 3D and rich media annotations the file has: up to that many come with the pages and are not cleaned.</param>
-public sealed record RedactionInventory(IReadOnlyList<CleanupItem> Cleanup, IReadOnlyList<RedactionLoss> Losses, bool Complete, int AttachmentAnnotations = 0, int MediaAnnotations = 0);
+/// <param name="OtherAttachments">How many objects other than pages, the catalog and paperclip annotations carry associated files (<c>/AF</c>, an annotation with an attached file, for example): their files come with the pages, so the cleanup claims no attached files and the check of the written file stops the save while one is left. Zero when the file could not be checked for it (it has object streams).</param>
+public sealed record RedactionInventory(IReadOnlyList<CleanupItem> Cleanup, IReadOnlyList<RedactionLoss> Losses, bool Complete, int AttachmentAnnotations = 0, int MediaAnnotations = 0, int OtherAttachments = 0);

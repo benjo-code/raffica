@@ -64,8 +64,8 @@ public static class CliApp
                    written file is read back and checked: if the check finds anything, the command fails
                    (exit 1) and no output file exists. The report on stderr says what was removed, cleaned,
                    lost, not searched, checked and NOT checked, and never contains a removed text. A file
-                   that cannot be redacted safely (encrypted, a page with /Thumb, /PieceInfo, /Metadata or
-                   /AA, a page that cannot be written again unchanged outside the marks) is refused with
+                   that cannot be redacted safely (encrypted, a page with /Thumb, /PieceInfo, /Metadata,
+                   /AA, /AF or /B, a page that cannot be written again unchanged outside the marks) is refused with
                    the reason and the pages. A digitally signed input is announced with a warning; the
                    signature is shown as invalid afterwards. The input is never changed. A page can also
                    be turned into an image (--rasterize-pages, --rasterize-unredactable): see there.

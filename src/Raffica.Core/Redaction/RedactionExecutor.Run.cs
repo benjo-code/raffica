@@ -184,7 +184,8 @@ public sealed partial class RedactionExecutor
             inventory.AttachmentAnnotations,
             plan.RasterPages.Count > 0 ? pass.Raster : null,
             plan.ImageTreatment,
-            inventory.MediaAnnotations);
+            inventory.MediaAnnotations,
+            inventory.OtherAttachments);
     }
 
     /// <summary>

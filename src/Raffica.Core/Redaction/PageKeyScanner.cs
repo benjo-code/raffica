@@ -14,13 +14,14 @@ public sealed record PageKeyFinding(int Page, IReadOnlyList<string> Keys);
 /// </summary>
 public sealed record PageKeyScan
 {
-    internal PageKeyScan(IReadOnlyList<PageKeyFinding> findings, string? notChecked, IReadOnlyList<string>? documentKeys = null, int embeddedFiles = 0, int attachmentAnnotations = 0)
+    internal PageKeyScan(IReadOnlyList<PageKeyFinding> findings, string? notChecked, IReadOnlyList<string>? documentKeys = null, int embeddedFiles = 0, int attachmentAnnotations = 0, int associatedFileHolders = 0)
     {
         Findings = findings;
         NotChecked = notChecked;
         DocumentKeys = documentKeys ?? [];
         EmbeddedFiles = embeddedFiles;
         AttachmentAnnotations = attachmentAnnotations;
+        AssociatedFileHolders = associatedFileHolders;
     }
 
     /// <summary>
@@ -28,6 +29,12 @@ public sealed record PageKeyScan
     /// with <c>/EF</c> (the type of the stream is optional), anywhere in the file. Zero when the file was not checked.
     /// </summary>
     public int EmbeddedFiles { get; }
+
+    /// <summary>
+    /// Gets how many objects other than pages, the catalog and paperclip annotations carry <c>/AF</c> (an annotation with associated files, for
+    /// example): their files come with the pages through the rebuild. Only objects that are plain objects in the file are seen.
+    /// </summary>
+    public int AssociatedFileHolders { get; }
 
     /// <summary>Gets how many paperclip annotations (<c>/Subtype /FileAttachment</c> objects) the scanned file has: their files come with the pages and may stay.</summary>
     public int AttachmentAnnotations { get; }
@@ -265,6 +272,7 @@ public static class PageKeyScanner
         private int embeddedFileStreams;
         private int fileSpecsWithEmbeddedFile;
         private int attachmentAnnotations;
+        private int associatedFileHolders;
 
         public PageKeyReader(Stream stream, bool allowCrossReferenceStream, CancellationToken cancellation)
         {
@@ -458,6 +466,10 @@ public static class PageKeyScanner
             {
                 attachmentAnnotations++;
             }
+            else if ((dictionary.Mask & 2048) != 0 && type is not ("Page" or "Catalog"))
+            {
+                associatedFileHolders++;
+            }
 
             objects[number] = Describe(dictionary, type);
         }
@@ -623,7 +635,7 @@ public static class PageKeyScanner
                 }
             }
 
-            return new PageKeyScan(findings, null, documentKeys, Math.Max(embeddedFileStreams, fileSpecsWithEmbeddedFile), attachmentAnnotations);
+            return new PageKeyScan(findings, null, documentKeys, Math.Max(embeddedFileStreams, fileSpecsWithEmbeddedFile), attachmentAnnotations, associatedFileHolders);
         }
 
         // ------------------------------------------------------------------ values

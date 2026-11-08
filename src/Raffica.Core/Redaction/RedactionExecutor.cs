@@ -66,11 +66,15 @@ public sealed partial class RedactionExecutor(PdfEngine engine)
         ArgumentNullException.ThrowIfNull(shown);
         ArgumentException.ThrowIfNullOrEmpty(path);
         var metadata = await shown.GetMetadataAsync(cancellationToken).ConfigureAwait(false);
-        var scan = await Task.Run(
+        var pageCount = shown.PageCount;
+        var (scan, holders) = await Task.Run(
             () =>
             {
                 using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.SequentialScan);
-                return RawContentScanner.Inventory(file, cancellationToken);
+                var inventory = RawContentScanner.Inventory(file, cancellationToken);
+                // Objects with associated files other than pages, the catalog and paperclips (an annotation /AF): the tokenizer sees plain objects only.
+                var keys = PageKeyScanner.Scan(file, pageCount, cancellationToken);
+                return (inventory, keys.WasChecked ? keys.AssociatedFileHolders : 0);
             },
             cancellationToken).ConfigureAwait(false);
 
@@ -84,7 +88,8 @@ public sealed partial class RedactionExecutor(PdfEngine engine)
         AddCount(cleanup, CleanupKind.Xmp, scan.MetadataKeys);
         AddCount(cleanup, CleanupKind.Bookmarks, scan.OutlineItems);
         // The files of paperclip annotations come with the pages and stay; only the rest is the names tree the rebuild drops.
-        AddCount(cleanup, CleanupKind.Attachments, Math.Max(0, scan.EmbeddedFiles - scan.AttachmentAnnotations));
+        // With an associated file on another object the inventory cannot tell it from a file of the names tree: nothing is claimed then.
+        AddCount(cleanup, CleanupKind.Attachments, holders > 0 ? 0 : Math.Max(0, scan.EmbeddedFiles - scan.AttachmentAnnotations));
         AddCount(cleanup, CleanupKind.JavaScript, scan.JavaScriptActions);
         AddCount(cleanup, CleanupKind.PageLabels, scan.PageLabelKeys);
 
@@ -108,7 +113,7 @@ public sealed partial class RedactionExecutor(PdfEngine engine)
             losses.Add(new RedactionLoss(RedactionLossKind.SignatureInvalidated, signatures.SignatureCount));
         }
 
-        return new RedactionInventory(cleanup, losses, scan.Complete, scan.AttachmentAnnotations, scan.MediaAnnotations);
+        return new RedactionInventory(cleanup, losses, scan.Complete, scan.AttachmentAnnotations, scan.MediaAnnotations, holders);
     }
 
     /// <summary>

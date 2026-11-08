@@ -40,6 +40,7 @@ internal sealed class RawSyntaxScanner
     private bool textObject;
     private bool previousGreater;
     private bool previousNameWasType;
+    private bool previousNameWasSubtype;
     private Escape escape;
     private int octalValue;
     private int octalDigits;
@@ -97,6 +98,7 @@ internal sealed class RawSyntaxScanner
         textObject = false;
         previousGreater = false;
         previousNameWasType = false;
+        previousNameWasSubtype = false;
         escape = Escape.None;
         hexHigh = -1;
         streamStart = false;
@@ -249,6 +251,7 @@ internal sealed class RawSyntaxScanner
         }
 
         previousNameWasType = false;
+        previousNameWasSubtype = false;
         if (length == 2 && token[0] == (byte)'B' && token[1] == (byte)'T')
         {
             textObject = true;
@@ -277,6 +280,7 @@ internal sealed class RawSyntaxScanner
         {
             case (byte)'(':
                 previousNameWasType = false;
+                previousNameWasSubtype = false;
                 mode = Mode.Literal;
                 parenDepth = 1;
                 escape = Escape.None;
@@ -350,6 +354,7 @@ internal sealed class RawSyntaxScanner
     private void StartHex()
     {
         previousNameWasType = false;
+        previousNameWasSubtype = false;
         mode = Mode.Hex;
         hexHigh = -1;
         stringChannel?.Reset();
@@ -525,7 +530,7 @@ internal sealed class RawSyntaxScanner
         }
 
         var span = decodedName.AsSpan(0, decoded);
-        tally.OnName(span, previousNameWasType);
+        tally.OnName(span, previousNameWasType, previousNameWasSubtype);
         if (dictDepth is > 0 and <= DictFlagDepth)
         {
             if (span.SequenceEqual("Title"u8))
@@ -548,6 +553,7 @@ internal sealed class RawSyntaxScanner
         }
 
         previousNameWasType = span.SequenceEqual("Type"u8);
+        previousNameWasSubtype = span.SequenceEqual("Subtype"u8);
         nameLength = 0;
     }
 }
