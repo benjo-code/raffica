@@ -89,6 +89,8 @@ internal sealed partial class PdfWindow : Window
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
+    private WindowPlacement? _restoreBounds;
+    private bool _maximized;
     private SaveController _saves = null!; // made in the constructor, after the dialog queue it needs
     private readonly Func<PdfTab, Task<string?>>? _savePicker;
 
@@ -182,6 +184,14 @@ internal sealed partial class PdfWindow : Window
         AddHandler(DragDrop.DropEvent, OnDrop);
         Opened += OnOpened;
         SetCompact(settings.CompactCommandBar);
+
+        // The window fits the work area and goes where it closed last; a measurement run keeps the fixed size of the window.
+        if (!options.IsMeasuring)
+        {
+            ApplyPlacement(settings.WindowPlacement);
+            TrackPlacement();
+        }
+
         Refresh();
 
         // Window-wide keys: Ctrl+K, F6 / Shift+F6, the shortcuts of the command catalog and the Alt field codes (Q the search field, 6 the pages pane, 7 the marks pane).
@@ -224,6 +234,93 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
+    // The window before it is shown: the size is shrunk to the work area of the screen it goes to (less a margin) and the position moved inside it.
+    // Everything comes from the settings that were read at startup: no file and no extra work. A screen that cannot be asked leaves the xaml size.
+    private void ApplyPlacement(WindowPlacement? stored)
+    {
+        try
+        {
+            var screens = Screens;
+            var primary = screens.Primary ?? (screens.All.Count > 0 ? screens.All[0] : null);
+            if (primary is null)
+            {
+                return;
+            }
+
+            var target = primary;
+            if (stored is { IsUsable: true })
+            {
+                // The screen under the top left corner of the stored window (a little inside it); the primary one when that screen is gone.
+                var corner = new PixelPoint((int)Math.Clamp(stored.X + 40, int.MinValue, int.MaxValue), (int)Math.Clamp(stored.Y + 40, int.MinValue, int.MaxValue));
+                target = screens.ScreenFromPoint(corner) ?? primary;
+            }
+
+            var fit = WindowPlacement.FitTo(target.WorkingArea, target.Scaling, stored, new Size(Width, Height));
+            Width = fit.Width;
+            Height = fit.Height;
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new PixelPoint((int)fit.X, (int)fit.Y);
+            _restoreBounds = fit with { Maximized = false };
+            if (fit.Maximized)
+            {
+                WindowState = WindowState.Maximized;
+                _maximized = true;
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The window stays where the system puts it.
+        }
+    }
+
+    // The restore bounds are the last ones seen in the normal state; a maximized or minimized window keeps them, and a window that is minimized when it closes
+    // is stored as it was before.
+    private void TrackPlacement()
+    {
+        PositionChanged += (_, _) => TrackBounds();
+        Resized += (_, _) => TrackBounds();
+        this.GetObservable(WindowStateProperty).Subscribe(new WindowStateObserver(this));
+    }
+
+    private void TrackBounds()
+    {
+        if (WindowState == WindowState.Normal && IsVisible && ClientSize.Width > 0 && ClientSize.Height > 0)
+        {
+            _restoreBounds = new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, false);
+        }
+    }
+
+    private void TrackState(WindowState state)
+    {
+        if (state != WindowState.Minimized)
+        {
+            _maximized = state is WindowState.Maximized or WindowState.FullScreen;
+        }
+
+        TrackBounds();
+    }
+
+    private void RememberPlacement()
+    {
+        if (!_options.IsMeasuring && _restoreBounds is { } bounds)
+        {
+            Settings.RememberWindow(bounds with { Maximized = _maximized });
+        }
+    }
+
+    private sealed class WindowStateObserver(PdfWindow window) : IObserver<WindowState>
+    {
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(WindowState value) => window.TrackState(value);
+    }
+
     private void FlushWriters()
     {
         _recent.Flush(FlushTimeout);
@@ -245,6 +342,7 @@ internal sealed partial class PdfWindow : Window
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
         Step(() => AppDomain.CurrentDomain.ProcessExit -= _processExit);
+        Step(RememberPlacement);
 
         // The position of every open file is remembered, then the panes, the views and the texts let go of the sessions, then the sessions are disposed.
         EachStep(Workspace.Tabs, RememberView);

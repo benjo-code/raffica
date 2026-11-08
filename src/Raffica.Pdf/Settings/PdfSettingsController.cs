@@ -92,6 +92,25 @@ internal sealed class PdfSettingsController
         SaveApp(app);
     }
 
+    /// <summary>The shell settings in force (what the file said at startup, then what the user confirmed and where the window closed).</summary>
+    public ShellSettings Shell => _shell;
+
+    /// <summary>
+    /// Remembers where the window was when it closed: sets <see cref="ShellSettings.WindowPlacement"/> and writes the shell file once, at once (the window
+    /// is closing). Nothing is written when the placement is the one already stored. A file that cannot be written leaves it for this run only; never throws.
+    /// </summary>
+    public void RememberWindow(WindowPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        if (!placement.IsUsable || Equals(_shell.WindowPlacement, placement))
+        {
+            return;
+        }
+
+        _shell = _shell with { WindowPlacement = placement };
+        _ = new ShellSettingsStore(PdfSettingsFiles.ShellPathFor(_options.SettingsFile)).TrySave(_shell);
+    }
+
     /// <summary>Completes when the viewer file has been written (tests wait for it instead of sleeping).</summary>
     public Task FlushAsync() => _appWriter.FlushAsync();
 
