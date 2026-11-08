@@ -27,7 +27,7 @@ namespace Raffica.Core.Saving;
 /// <param name="ExpectedPageCount">The number of pages the written file must have.</param>
 /// <param name="ExpectedAnnotationCounts">
 /// The changed pages (0-based index) and the number of annotations each must list, as
-/// <see cref="PdfDocument.GetAnnotationsAsync"/> counts them (without popups and replies).
+/// <see cref="PdfDocument.CountAnnotationsForCheckAsync"/> counts them (without popups and replies, without the listing limit).
 /// </param>
 /// <param name="OverwriteChangedOriginal">
 /// Whether the user confirmed overwriting the path of the original although another file now stands there (the stamp at
@@ -748,7 +748,7 @@ public static class DocumentSaver
             var options = new RenderOptions { Priority = PdfPriority.Background };
             foreach (var (page, expected) in request.ExpectedAnnotationCounts)
             {
-                var count = (await reopened.GetAnnotationsAsync(page, cancellationToken).ConfigureAwait(false)).Count;
+                var count = await reopened.CountAnnotationsForCheckAsync(page, cancellationToken).ConfigureAwait(false);
                 if (count != expected)
                 {
                     throw new SaveFailureException(SaveFailureReason.VerificationFailed, $"Page {page + 1} of the saved file has {count} annotations instead of {expected}.");

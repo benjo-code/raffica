@@ -823,6 +823,40 @@ public sealed class AnnotationEditorTests : IDisposable
         Assert.Equal(PdfDocument.MaxAnnotations, (await session.Document!.GetAnnotationsAsync(0, Ct)).Count);
     }
 
+    [Fact]
+    public async Task SaveChecksAPageBeyondTheListingLimitWithAnUncappedCount()
+    {
+        // Pages 0 and 1 list 9,998 entries together, so page 2 (a highlight and four links) is listed with room for two only.
+        // The reopened file lists page 2 alone and sees all five: both sides of the check must count without the limit.
+        const string Link = "<< /Type /Annot /Subtype /Link /Rect [10 10 20 20] >> ";
+        var first = string.Concat(Enumerable.Repeat(Link, 6_000));
+        var second = string.Concat(Enumerable.Repeat(Link, 3_998));
+        var highlight = "<< /Type /Annot /Subtype /Highlight /Rect [10 10 100 30] /QuadPoints [10 30 100 30 10 10 100 10] /C [1 1 0] /NM (h-1) /Contents (old) /F 4 >> ";
+        var last = highlight + string.Concat(Enumerable.Repeat(Link, 4));
+        var path = WritePdf(folder, "many.pdf",
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
+            $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Annots [{first}] >>",
+            $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Annots [{second}] >>",
+            $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Annots [{last}] >>",
+        ]);
+        using var session = await OpenSessionAsync(path);
+        var document = session.Document!;
+        Assert.Equal(6_000, (await document.GetAnnotationsAsync(0, Ct)).Count);
+        Assert.Equal(3_998, (await document.GetAnnotationsAsync(1, Ct)).Count);
+        var listed = await document.GetAnnotationsAsync(2, Ct);
+        Assert.Equal(2, listed.Count);
+        var editor = new AnnotationEditor(session);
+
+        await editor.UpdateAsync(new AnnotationLocator(2, listed[0].Index, listed[0].Name), new AnnotationEdit(Contents: "new"));
+        var saved = await editor.SaveAsync(engine, Path.Combine(folder.Path, "saved.pdf"), overwriteChangedOriginal: false, progress: null, Ct);
+
+        Assert.True(saved.Adopted);
+        Assert.False(editor.IsDirty);
+        Assert.Equal(5, await session.Document!.CountAnnotationsForCheckAsync(2, Ct));
+    }
+
     private static readonly AnnotationColor Red = new(220, 30, 30);
 
     private static void AssertSameShape(DrawingGeometry expected, DrawingGeometry actual, double tolerance)

@@ -109,7 +109,7 @@ internal static class OcrCommand
             var counts = new Dictionary<int, int>(plan.After.Count);
             foreach (var page in plan.After.Keys)
             {
-                counts[page] = (await document.GetAnnotationsAsync(page, ct).ConfigureAwait(false)).Count;
+                counts[page] = await document.CountAnnotationsForCheckAsync(page, ct).ConfigureAwait(false);
             }
 
             var request = new SaveRequest(
