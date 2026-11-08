@@ -61,8 +61,15 @@ key and a server on `127.0.0.1`. No release build sets these properties (`packag
 2. Build the release files of the newer version, then `dotnet run tools/update-testserver.cs -- prepare --version 0.0.2
    --key <test key file> --out <new folder> <release files...>` and `... -- serve --root <folder> --port <port>`.
    `--tamper signature` and `--tamper checksum` produce the error cases.
-3. Windows: start the older version (installed from its setup) and check that it offers, downloads and verifies the newer
-   one, then "Install" restarts into the new version with the tabs back. The helper mode can also be driven without the
+3. Windows: the workflow `windows-update-check.yml` does the setup for you (`packaging/windows/update-check.ps1`): it builds two test
+   installers with a throw-away key, serves the new one on 127.0.0.1, installs the old one into a test folder (below HKCU, as
+   installer-smoke does, and removed again at the end; it refuses to run when Raffica PDF is installed), starts it on the desktop
+   with its own `APPDATA` and `LOCALAPPDATA` and waits for your click on "Install"; then it checks the version of the exe, that the
+   staging folder is gone and that the new version runs. Start the runner in the logged-in desktop (`run.cmd`; it needs the .NET SDK
+   and the Visual Studio C++ build tools for Native AOT), then `gh workflow run windows-update-check.yml --ref dev` (`-f ref=<branch>`
+   for the code of a branch). The script was tried on the development machine with the install done by hand. By hand, without the
+   workflow: start the older version (installed from its setup) and check that it offers, downloads and verifies the newer
+   one, then "Install" restarts into the new version with the tabs back (Ctrl+K, "About" shows the version). The helper mode can also be driven without the
    interface: `dotnet run tools/package.cs -- update-smoke <RafficaPdf-0.0.1-win-x64-setup.exe> <RafficaPdf-0.0.2-win-x64-setup.exe> --key <test key file>`
    (per-user, in isolated folders; it passed once on the development machine). Limits: it does not exercise a real UAC
    prompt (a per-machine install), and the helper does not hand `--settings-file` on, so a run started with that switch
