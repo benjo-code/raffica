@@ -35,7 +35,8 @@ internal sealed partial class PdfWindow
             : tab.Session.Document is { } document ? document.GetOutlineAsync(token) : Task.FromResult<IReadOnlyList<PdfOutlineItem>>([]),
         path => Flow.OpenAsync(path),
         RefreshCommandStates,
-        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy);
+        () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy,
+        Workspace);
 
     /// <summary>Extracts pages of the active document into a new file (the Extract pages command).</summary>
     internal void ExtractPages() => _ = GuardAsync(ExtractPagesAsync);

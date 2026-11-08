@@ -26,6 +26,7 @@ internal sealed class SaveController
     private readonly Func<bool>? _printRunning;
     private readonly Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? _askRequired;
     private readonly TimeProvider? _time;
+    private readonly Workspace? _workspace;
     private readonly ConditionalWeakTable<PdfTab, NotedDocument> _noted = [];
     private readonly ConditionalWeakTable<PdfTab, object> _textNoted = [];
     private CancellationTokenSource? _running;
@@ -38,6 +39,7 @@ internal sealed class SaveController
     /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
     /// <param name="askRequired">Asks about the empty required fields of a form that is saved (the names are passed); null: never asked.</param>
     /// <param name="runner">Replaces the save of Core (tests); null: <see cref="AnnotationEditor.SaveAsync"/> of the tab.</param>
+    /// <param name="workspace">The open tabs: a picked target that another tab has open is refused (<see cref="OpenTargetGuard"/>); null: never checked.</param>
     public SaveController(
         DialogQueue dialogs,
         Func<PdfTab, Task<string?>> pickSavePath,
@@ -46,7 +48,8 @@ internal sealed class SaveController
         Func<bool>? printRunning = null,
         TimeProvider? time = null,
         SaveRunner? runner = null,
-        Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? askRequired = null)
+        Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? askRequired = null,
+        Workspace? workspace = null)
     {
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(pickSavePath);
@@ -57,6 +60,7 @@ internal sealed class SaveController
         _printRunning = printRunning;
         _time = time;
         _askRequired = askRequired;
+        _workspace = workspace;
         _runner = runner ?? ((tab, target, overwrite, progress, token) => tab.Annotations.Editor.SaveAsync(engine(), target, overwrite, progress, token));
     }
 
@@ -129,6 +133,8 @@ internal sealed class SaveController
         ArgumentNullException.ThrowIfNull(tab);
         if (IsSaving)
         {
+            // Told, not silent: the close question asks Save while a save of the tab runs.
+            _ = Tell(PdfStrings.SaveBusy);
             return false;
         }
 
@@ -192,6 +198,10 @@ internal sealed class SaveController
                 }
 
                 target = Path.GetFullPath(target);
+                if (!await TargetFreeAsync(tab, target))
+                {
+                    return false;
+                }
             }
 
             if (target is null)
@@ -296,6 +306,11 @@ internal sealed class SaveController
                     }
 
                     target = Path.GetFullPath(other);
+                    if (!await TargetFreeAsync(tab, target))
+                    {
+                        return false;
+                    }
+
                     saveAs = true;
                 }
                 else
@@ -407,6 +422,18 @@ internal sealed class SaveController
 
         // The original is unchanged, the tab is still dirty with its history; the card is only the news.
         return _dialogs.ShowAsync<bool>(done => SaveFailedCard.Create(name, reason, () => done(true)));
+    }
+
+    // A picked target that another tab has open is never written: the replace would succeed under that tab.
+    private async Task<bool> TargetFreeAsync(PdfTab tab, string target)
+    {
+        if (_workspace is null || await OpenTargetGuard.FindOtherTabAsync(_workspace, tab, target, CancellationToken.None) is null)
+        {
+            return true;
+        }
+
+        await Tell(OpenTargetGuard.NoteFor(target));
+        return false;
     }
 
     private Task<bool> Tell(string message) =>

@@ -1698,6 +1698,9 @@
   <data name="FileJobBusy" xml:space="preserve">
     <value>Another file job is already running.</value>
   </data>
+  <data name="TargetOpenInOtherTabFormat" xml:space="preserve">
+    <value>{0} is open in another tab. Close it first.</value>
+  </data>
   <data name="ExportTitle" xml:space="preserve">
     <value>Export pages as images</value>
   </data>

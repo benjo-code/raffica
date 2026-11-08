@@ -34,6 +34,7 @@ namespace Raffica.Pdf.Redacting;
 /// <param name="busy">Whether a print job runs (an apply is then refused); null: never.</param>
 /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
 /// <param name="otherJob">Whether another file job of the window runs (a save, a page apply, extract, split, export): an apply is then refused; null: never.</param>
+/// <param name="workspace">The open tabs: a picked target that another tab has open is refused (<see cref="OpenTargetGuard"/>); null: never checked.</param>
 internal sealed class RedactApplyFlow(
     DialogQueue dialogs,
     Func<PdfTab, Task<bool>> saveMarks,
@@ -45,7 +46,8 @@ internal sealed class RedactApplyFlow(
     Action? changed = null,
     Func<bool>? busy = null,
     TimeProvider? time = null,
-    Func<bool>? otherJob = null)
+    Func<bool>? otherJob = null,
+    Workspace? workspace = null)
 {
     private readonly JobRunner _jobs = new(dialogs);
 
@@ -228,6 +230,12 @@ internal sealed class RedactApplyFlow(
             return false;
         }
 
+        // Immediately before the write (and before the rescue pages join the plan): no other tab has the picked target open.
+        if (decision.Choice == ApplyChoice.SaveAs && !await TargetFreeAsync(tab, targetPath))
+        {
+            return false;
+        }
+
         if (!ReferenceEquals(shown, plan))
         {
             // The pages the user agreed to turn into images join the plan (one history step) only now, with the path chosen and the write next: a cancelled
@@ -371,6 +379,17 @@ internal sealed class RedactApplyFlow(
             _ => PdfStrings.RedactFailOther + stays,
         };
         return (PdfStrings.RedactFailedWriteTitle, message);
+    }
+
+    private async Task<bool> TargetFreeAsync(PdfTab tab, string target)
+    {
+        if (workspace is null || await OpenTargetGuard.FindOtherTabAsync(workspace, tab, target, CancellationToken.None) is null)
+        {
+            return true;
+        }
+
+        await Tell(OpenTargetGuard.NoteFor(target));
+        return false;
     }
 
     private Task<bool> Tell(string message) =>

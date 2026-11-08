@@ -1682,6 +1682,9 @@
   <data name="FileJobBusy" xml:space="preserve">
     <value>Es läuft bereits ein anderer Dateiauftrag.</value>
   </data>
+  <data name="TargetOpenInOtherTabFormat" xml:space="preserve">
+    <value>{0} ist in einem anderen Tab geöffnet. Schließen Sie ihn zuerst.</value>
+  </data>
   <data name="ExportTitle" xml:space="preserve">
     <value>Seiten als Bilder exportieren</value>
   </data>

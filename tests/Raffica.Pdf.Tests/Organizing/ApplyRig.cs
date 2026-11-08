@@ -47,7 +47,18 @@ internal sealed class ApplyRig : IDisposable
             t => PathChanges.Add(t.Path!),
             null,
             null,
-            Time);
+            Time,
+            workspace: Workspace);
+    }
+
+    public Workspace Workspace { get; } = new(new CloseGuard(_ => Task.FromResult(CloseChoice.DontSave), _ => Task.FromResult(true)));
+
+    /// <summary>Opens a file as another tab of the rig's workspace (the tab of the rig itself is not in it).</summary>
+    public async Task<PdfTab> AddOtherAsync(string path)
+    {
+        var session = new ViewerSession(new PdfEngine());
+        await session.OpenAsync(path, null);
+        return Workspace.Add(session, path);
     }
 
     public PdfTab Tab { get; }
@@ -131,6 +142,11 @@ internal sealed class ApplyRig : IDisposable
 
     public void Dispose()
     {
+        foreach (var other in Workspace.Tabs.ToList())
+        {
+            other.Dispose();
+        }
+
         _host.Dispose();
         Tab.Dispose();
         _copy.Dispose();

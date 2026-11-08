@@ -30,6 +30,7 @@ internal sealed record SplitPlan(IReadOnlyList<SplitPart>? Parts, string? Proble
 /// <param name="open">Opens a written file as a tab (the open flow).</param>
 /// <param name="changed">Called when the flow starts or ends (the command states refresh); null: nothing.</param>
 /// <param name="otherJob">Whether another file job of the window runs (a save, an apply, an export): extract and split are then refused; null: never.</param>
+/// <param name="workspace">The open tabs: an extract target that another tab has open is refused (<see cref="OpenTargetGuard"/>); null: never checked.</param>
 internal sealed class SplitFlow(
     DialogQueue dialogs,
     Func<PdfTab, string, Task<string?>> pickSavePath,
@@ -39,7 +40,8 @@ internal sealed class SplitFlow(
     Func<PdfTab, CancellationToken, Task<IReadOnlyList<PdfOutlineItem>>> readOutline,
     Func<string, Task> open,
     Action? changed = null,
-    Func<bool>? otherJob = null)
+    Func<bool>? otherJob = null,
+    Workspace? workspace = null)
 {
     private readonly JobRunner _jobs = new(dialogs);
     private string _jobTitle = string.Empty;
@@ -250,6 +252,14 @@ internal sealed class SplitFlow(
         var named = new SplitPart(Path.GetFileNameWithoutExtension(chosen), part.Pages);
         var target = DocumentSplitter.TargetPaths([named], folder)[0];
         var overwrite = JobRunner.SamePath(target, chosen);
+
+        // Immediately before the write (the locks were read again after the picker above): the file Core writes is not open in another tab.
+        if (workspace is not null && await OpenTargetGuard.FindOtherTabAsync(workspace, tab, target, CancellationToken.None) is not null)
+        {
+            await Tell(_title, OpenTargetGuard.NoteFor(target));
+            return false;
+        }
+
         return await WriteAsync(tab, SourceOf(tab), [named], folder, overwrite, PdfStrings.OutputResultExtractTitle, canOpen: true);
     }
 

@@ -165,7 +165,7 @@ internal sealed partial class PdfWindow : Window
             () => ActiveView?.CurrentPage ?? 0,
             () => TryGetPlatformHandle()?.Handle ?? 0,
             () => _saves.IsSaving || _applyFlow?.IsRunning == true || _redactFlow?.IsRunning == true || _outputFlow?.IsRunning == true || _exportFlow?.IsRunning == true || OcrBusy);
-        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync);
+        _saves = new SaveController(Dialogs, PickSavePathAsync, () => _engine ??= new PdfEngine(), card => printSlot.Content = card, () => _print.IsRunning, time, saveRunner, AskRequiredAsync, Workspace);
         _saves.Changed += RefreshCommandStates;
         _saves.PathChanged += OnSavedUnderNewPath;
         _saves.TextEditsSaved += OnTextEditsSaved;

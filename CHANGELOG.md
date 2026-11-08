@@ -26,5 +26,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 - Raffica PDF redaction: a page that carries attached files (`/AF`, for example the XML of a PDF/A-3 invoice) or an article thread (`/B`, with its title and author) no longer keeps them silently: the file is refused like a page with a thumbnail, and the check of the written file also fails when an embedded file other than a paperclip note is left. The report lists "Attached files" as cleaned only after the written file was read back, and names sound, video and other media of annotations under "Not cleaned".
 - Raffica PDF Extract pages and Split document: the confirm card now says what every new file keeps from the document level (attached files, scripts, form fields and bookmarks of other pages, each only when the document has them) and points to Redact for content that must not be passed on. The new files stay working PDFs.
+- Raffica PDF: Save as, Apply (page organizer and redaction) with Save as and Extract pages no longer write onto a file that another tab has open (also under another spelling, link or short name): they say "<name> is open in another tab. Close it first." and write nothing, so two tabs can no longer end up with one path. Save in the close question now says that a save is already running instead of doing nothing.
 
 ### Removed

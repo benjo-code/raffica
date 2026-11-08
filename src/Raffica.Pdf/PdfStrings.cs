@@ -477,6 +477,9 @@ internal static class PdfStrings
     public static string OutputCauseOpen => Table.Get("OutputCauseOpen");
     public static string OutputCauseDamaged => Table.Get("OutputCauseDamaged");
     public static string FileJobBusy => Table.Get("FileJobBusy");
+
+    /// <summary>The note when the chosen target is open in another tab ({0} is the file name).</summary>
+    public static string TargetOpenInOtherTabFormat => Table.Get("TargetOpenInOtherTabFormat");
     public static string ExportTitle => Table.Get("ExportTitle");
     public static string ExportRangeLabel => Table.Get("ExportRangeLabel");
     public static string ExportDpiLabel => Table.Get("ExportDpiLabel");
