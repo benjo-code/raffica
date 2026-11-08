@@ -7,8 +7,8 @@ the workflow are described in their own headers: `tools/package.cs`, `tools/upda
 ## Signing key for updates
 
 The update manifest of a release is signed with an ECDSA P-256 key. The app trusts only the public keys compiled into
-`src/Raffica.Core/Updates/UpdateTrust.cs`; until the first release that file holds a placeholder key whose private half
-was discarded, so no manifest verifies and no update is accepted.
+`src/Raffica.Core/Updates/UpdateTrust.cs`; it holds the public half of the key `release-1` (the private half is the secret
+of the environment `release-signing`). Before the key was entered it held a placeholder key whose private half was discarded.
 
 1. Create the key outside every Git working tree (the tool refuses a path inside one and never overwrites a file):
 
