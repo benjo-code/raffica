@@ -272,13 +272,16 @@ public static class DocumentSaver
     private static async Task<SaveResult> RunAsync(PdfDocument document, PdfEngine engine, Job job, IProgress<double>? progress, SaveFaults? faults, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // A target that is a symbolic link is saved through: the temporary file is written next to the file the link points to
+        // and replaces that file, so the link stays a link. (A hard link is another name of the file's content; the replace gives
+        // the saved name a new file and leaves the other names with the old one.)
         var original = Path.GetFullPath(job.OriginalPath);
-        var target = Path.GetFullPath(job.TargetPath);
+        var target = ResolveLink(Path.GetFullPath(job.TargetPath));
         var folder = Path.GetDirectoryName(target)
             ?? throw new SaveFailureException(SaveFailureReason.NotWritable, "The target has no folder.");
 
         var sourceLength = CheckSources(document, job);
-        if (job.OriginalStamp is { } stamp && FileStamp.Of(original) != stamp && SamePath(original, target) && !job.OverwriteChangedOriginal)
+        if (job.OriginalStamp is { } stamp && FileStamp.Of(original) != stamp && SamePath(ResolveLink(original), target) && !job.OverwriteChangedOriginal)
         {
             throw new SaveFailureException(SaveFailureReason.OriginalChanged, "Another file stands at the path of the original since it was opened.");
         }
@@ -372,6 +375,23 @@ public static class DocumentSaver
     {
         const int FacilityWin32 = 7;
         return ((hresult >> 16) & 0x1FFF) == FacilityWin32 ? hresult & 0xFFFF : -1;
+    }
+
+    /// <summary>
+    /// The file a symbolic link at <paramref name="path"/> finally points to (a full path), or <paramref name="path"/> itself when
+    /// it is no link, the chain cannot be followed or the system refuses to look.
+    /// </summary>
+    private static string ResolveLink(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.LinkTarget is not null && info.ResolveLinkTarget(returnFinalTarget: true) is { } final ? final.FullName : path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return path;
+        }
     }
 
     private static bool SamePath(string a, string b) =>

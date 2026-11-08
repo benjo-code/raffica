@@ -425,11 +425,12 @@ public sealed class DocumentSaverTests : IDisposable
             Assert.Single(await result.Reopened.GetAnnotationsAsync(0, Ct));
         }
 
-        // Known limit: the rename replaces the link by a regular file; the file it pointed to stays as it was.
-        Assert.Null(new FileInfo(link).LinkTarget);
-        Assert.Equal(before, await File.ReadAllBytesAsync(real, Ct));
-        var saved = await File.ReadAllBytesAsync(link, Ct);
+        // The save writes the file the link points to and keeps the link.
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+        var saved = await File.ReadAllBytesAsync(real, Ct);
+        Assert.True(saved.Length > before.Length);
         Assert.Equal(before, saved.AsSpan(0, before.Length).ToArray());
+        Assert.Equal(saved, await File.ReadAllBytesAsync(link, Ct));
         AssertOnlyFiles(real, link);
     }
 

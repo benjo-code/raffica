@@ -459,8 +459,8 @@ public sealed class RedactApplyFlowTests
         Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
         if (how == "symlink")
         {
-            // The write replaces the link itself by the redacted file (the replace is atomic and does not follow a link); the file behind it stays as it was.
-            Assert.Equal(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+            // The write goes through the link: the file behind it holds the redacted content and the link stays a link.
+            Assert.NotEqual(before, await File.ReadAllBytesAsync(rig.Path, Ct));
             return;
         }
 

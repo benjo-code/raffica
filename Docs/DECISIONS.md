@@ -15,6 +15,13 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-08 – Raffica: saving through a symbolic link (M2.7)
+**Context:** `DocumentSaver` wrote a temporary file next to the target path and renamed it over that path. For a target that is a symbolic link the rename replaced the link by a regular file and left the file behind it unchanged (the "known limit" of M2.1 and of "Raffica PDF: no write onto a file another tab has open", call 8). For a redaction that is a trap: the link was gone and the linked original still held the unredacted content.
+**Decision:** `DocumentSaver.RunAsync` resolves the target with `FileInfo.ResolveLinkTarget(returnFinalTarget: true)` before anything is written; the temporary file lives next to the final target and replaces it, so the link stays a link and the file behind it is what is saved. This holds for every chain of the saver (incremental save, rewrite, redaction apply). The "original changed" comparison of the target with the original compares the resolved paths; the stamp of the original is still taken at the path it was opened by.
+**Known limits:** a hard link is another name of the same content, not a pointer: the replace gives the saved name a new file and the other names keep the old one (no cheap, portable way to tell the user's intent; writing in place would give up the atomic replace). A dangling link is written through (the file at its destination appears). A link that cannot be followed (a cycle, no access) is treated as a plain path, as before.
+**Rationale:** The link was the user's way to name the file; saving through it keeps what they set up and never leaves old content behind a name that looked saved.
+**Rejected alternatives:** Refusing a link target (a save would fail where it worked); writing in place (loses the atomic replace and the checked-then-moved guarantee).
+
 ## 2026-11-08 – Raffica PDF: no write onto a file another tab has open (M2.7)
 **Context:** PDFium opens files share-delete, so the atomic replace of a save succeeds under a tab that has the target open. Save as, Apply (page organizer and redaction) with Save as and Extract never asked the other tabs; two tabs could end with one path, and a stale one could later write old (for example unredacted) content back.
 **Decision:**
