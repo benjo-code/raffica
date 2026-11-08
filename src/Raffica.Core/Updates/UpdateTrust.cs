@@ -14,16 +14,15 @@ public static class UpdateTrust
     public const string PlaceholderKeyId = "placeholder";
 
     /// <summary>
-    /// The accepted public keys, any of which may have signed a manifest. Until the first release this is the
-    /// placeholder, whose private half was discarded, so no manifest verifies and no update is accepted. The real
-    /// release key is created and entered on the owner's instruction at the first release milestone; a new key is
-    /// added next to the old one first (key rotation).
+    /// The accepted public keys, any of which may have signed a manifest. This is the public half of the release key
+    /// <c>release-1</c> (its private half is the environment secret <c>RAFFICA_UPDATE_SIGNING_KEY</c> of
+    /// <c>release-signing</c>); a new key is added next to the old one first (key rotation).
     /// </summary>
     public static IReadOnlyList<UpdateKey> Keys { get; } =
     [
         new UpdateKey(
-            PlaceholderKeyId,
-            Convert.FromBase64String("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfEyCOMU4IJ14osOpBY3eFP4/fxK726BrpSdQoUOGeMJ+2DsQaDm4maWvFaZ22iI1oti6dIVOk7thJ8J5Lkp59Q==")),
+            "release-1",
+            Convert.FromBase64String("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEO13/2Mf7aZsR+S3guOS0mnDoMUFkeYyawV5GPXGnKZl8v52pOcClpjbqorNKOUp/lsf14s/aAGvoU1TLt8u1ew==")),
     ];
 
     /// <summary>
