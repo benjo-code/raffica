@@ -3290,4 +3290,13 @@
   <data name="SettingsUpdateCheck" xml:space="preserve">
     <value>Automatisch nach Updates suchen</value>
   </data>
+  <data name="CrashTitle" xml:space="preserve">
+    <value>Etwas ist schiefgelaufen</value>
+  </data>
+  <data name="CrashMessage" xml:space="preserve">
+    <value>Speichern Sie Ihre Arbeit unter einem neuen Namen und starten Sie Raffica PDF neu. Details stehen in crash.log.</value>
+  </data>
+  <data name="CrashOpenFolder" xml:space="preserve">
+    <value>Ordner öffnen</value>
+  </data>
 </root>

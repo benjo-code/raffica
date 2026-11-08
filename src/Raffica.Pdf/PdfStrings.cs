@@ -732,6 +732,9 @@ internal static class PdfStrings
     public static string UpdateStepDone => Table.Get("UpdateStepDone");
     public static string UpdateProgressBytesFormat => Table.Get("UpdateProgressBytesFormat");
     public static string UpdateFailedTitle => Table.Get("UpdateFailedTitle");
+    public static string CrashTitle => Table.Get("CrashTitle");
+    public static string CrashMessage => Table.Get("CrashMessage");
+    public static string CrashOpenFolder => Table.Get("CrashOpenFolder");
     public static string UpdateTryAgain => Table.Get("UpdateTryAgain");
     public static string UpdateCheckTitle => Table.Get("UpdateCheckTitle");
     public static string UpdateUpToDateFormat => Table.Get("UpdateUpToDateFormat");

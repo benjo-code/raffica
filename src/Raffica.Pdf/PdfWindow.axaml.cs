@@ -529,6 +529,16 @@ internal sealed partial class PdfWindow : Window
         return mark;
     }
 
+    /// <summary>The card of the crash guard (an unexpected error was logged): what to do, and a button for the folder of the log. Call it on the UI thread.</summary>
+    /// <param name="logDirectory">The folder of <c>crash.log</c>; the button hands over only this directory.</param>
+    /// <param name="openFolder">Opens a folder; null takes <see cref="FolderLauncher.Open"/>.</param>
+    internal void ShowCrashCard(string logDirectory, Action<string>? openFolder = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(logDirectory);
+        var open = openFolder ?? FolderLauncher.Open;
+        _ = Dialogs.ShowAsync<bool>(done => CrashCard.Create(() => open(logDirectory), () => done(true)));
+    }
+
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
     internal static async Task GuardAsync(Func<Task> open)
     {
