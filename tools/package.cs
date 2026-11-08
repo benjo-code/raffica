@@ -4934,8 +4934,8 @@ static class SelfTest
         var preflightOnBranch = preflightSteps.FindIndex(x => Name(x) == onBranchName);
         ExpectOnBranchStep(preflightOnBranch >= 0 ? preflightSteps[preflightOnBranch] : string.Empty, "preflight");
         Expect("release.yml: preflight checks the tag directly after the tag rule", preflightTagCheck >= 0 && preflightOnBranch == preflightTagCheck + 1, true);
-        Expect("release.yml: preflight checks the tag only when uploading", preflightOnBranch >= 0 &&
-            preflightSteps[preflightOnBranch].Contains("        if: env.UPLOAD == 'true'\n", StringComparison.Ordinal), true);
+        Expect("release.yml: preflight checks the tag when uploading and when no ref is given", preflightOnBranch >= 0 &&
+            preflightSteps[preflightOnBranch].Contains("        if: env.UPLOAD == 'true' || inputs.ref == ''\n", StringComparison.Ordinal), true);
         Expect("release.yml: preflight checks out the tag only after the branch check",
             preflightOnBranch >= 0 && preflightOnBranch < preflightSteps.FindIndex(x => x.Contains("actions/checkout@", StringComparison.Ordinal)), true);
         // No checkout by tag name on the upload path (the tag could move after the check): preflight and manifest check out

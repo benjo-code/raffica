@@ -1,7 +1,7 @@
 ---
 name: Idea
-about: A thought for this project, worked through later with /ideen
+about: A thought for the project; the maintainer reviews ideas and adopts, schedules or declines them
 labels: idee
 ---
 
-<!-- The title is the idea in one sentence. Details are optional here. -->
+<!-- The title is the idea in one sentence. Details are optional: what would you do with it, and what do you do today? -->

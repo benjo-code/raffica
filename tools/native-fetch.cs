@@ -8,10 +8,10 @@
 // The pinned SHA-256 is what is trusted, not the place the files come from.
 //
 // The Tesseract library comes from the prerelease native-tesseract-5.5.4-1 of benjo-code/raffica, built by the workflow
-// native-tesseract.yml (the tag never starts with "v", so it is no release of any update check). The repository is private,
-// so a release asset is read through the GitHub API (releases/tags/<tag>, then assets[].url with
+// native-tesseract.yml (the tag never starts with "v", so it is no release of any update check). While the repository is private,
+// a release asset is read through the GitHub API (releases/tags/<tag>, then assets[].url with
 // "Accept: application/octet-stream"); the token comes from GITHUB_TOKEN or GH_TOKEN when one is set. Without a token the same
-// calls are made anonymously (that works once the repository is public). The token goes to api.github.com only, never to
+// calls are made anonymously (that works once the repository is public, within the unauthenticated limit of 60 API calls per hour). The token goes to api.github.com only, never to
 // the tessdata host.
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;

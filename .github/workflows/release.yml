@@ -12,8 +12,9 @@ name: Release
 #
 # Dry run (build and all smoke tests, no upload):
 #   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f upload=false
-#   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f ref=<branch> -f upload=false
-# (ref builds that branch, because the tag does not exist before the release; with ref set nothing is uploaded, the
+#   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f ref=<main, dev or a commit id on one of them> -f upload=false
+# (ref builds that commit, because the tag does not exist before the release; a branch other than main and dev and a
+# commit that is on neither is refused before anything is checked out; with ref set nothing is uploaded, the
 # key check of the preflight job is skipped, and the job that signs the update manifest does not run at all).
 # This workflow never runs for pull requests or forks.
 
@@ -25,7 +26,7 @@ on:
         required: true
         type: string
       ref:
-        description: 'Branch or commit to build instead of the tag (dry run before the tag exists; no upload then)'
+        description: 'main, dev or a commit id on one of them, built instead of the tag (dry run before the tag exists; no upload then)'
         required: false
         default: ''
         type: string
@@ -88,7 +89,7 @@ jobs:
       # out this id, never the tag name again (a tag can be moved after the check).
       - name: Check that the tag is on main or dev
         id: ontag
-        if: env.UPLOAD == 'true'
+        if: env.UPLOAD == 'true' || inputs.ref == ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -108,6 +109,37 @@ jobs:
           echo "Tag $TAG ($sha) is on neither main nor dev: uploading and signing only for commits of these branches." >&2
           exit 1
 
+      # The ref input is built on runners that also build the release, so it must be a commit of main or dev (the same
+      # rule as for the tag above): a plain branch name must be main or dev, a commit id must be the head of main or dev
+      # or an ancestor of it (compare status identical or behind). A commit of a fork, of a pull request or of any other
+      # branch is refused before anything is checked out or run.
+      - name: Check that the ref is on main or dev
+        if: inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          r="${REF_INPUT#refs/heads/}"
+          if [[ "$r" =~ ^[0-9a-f]{40}$ ]]; then
+            sha="$r"
+          elif [[ "$r" == main || "$r" == dev ]]; then
+            sha="$(gh api "repos/$GH_REPO/commits/refs/heads/$r" --jq .sha)" || { echo "Branch '$r' not found" >&2; exit 1; }
+          else
+            echo "ref '$REF_INPUT' is not allowed: a branch name must be main or dev, otherwise a commit id of main or dev" >&2
+            exit 1
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Unexpected commit id for ref '$REF_INPUT': '$sha'" >&2; exit 1; }
+          for branch in main dev; do
+            status="$(gh api "repos/$GH_REPO/compare/$branch...$sha" --jq .status || true)"
+            if [[ "$status" == identical || "$status" == behind ]]; then
+              echo "Ref $REF_INPUT ($sha) is on $branch ($status)"
+              exit 0
+            fi
+          done
+          echo "Ref $REF_INPUT ($sha) is on neither main nor dev: only commits of these branches are built on this runner." >&2
+          exit 1
+
       # A branch build is a dry run: what is uploaded must be built from the tag.
       - name: Refuse to upload a branch build
         if: env.UPLOAD == 'true' && inputs.ref != ''
@@ -121,9 +153,14 @@ jobs:
           ref: ${{ steps.ontag.outputs.sha }}
           persist-credentials: false
 
-      - name: Set DOTNET_INSTALL_DIR (no root on the runner)
+      # Fresh folders for the SDK and the NuGet packages in every build job: nothing that an earlier run (a pull request, a
+      # measurement) left in ~/.dotnet or ~/.nuget on the persistent runner is trusted by a release build; the runner
+      # empties RUNNER_TEMP for every job.
+      - name: Use fresh SDK and package folders (no root on the runner)
         if: env.UPLOAD == 'true'
-        run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
+        run: |
+          echo "DOTNET_INSTALL_DIR=$RUNNER_TEMP/dotnet" >> "$GITHUB_ENV"
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget" >> "$GITHUB_ENV"
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         if: env.UPLOAD == 'true'
@@ -165,6 +202,34 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
           Write-Host "Tag $env:TAG, version $version, upload: $env:UPLOAD"
 
+      # The ref input is built on runners that also build the release, so it must be a commit of main or dev (see the
+      # bash jobs): a plain branch name must be main or dev, a commit id must be the head of main or dev or an ancestor
+      # of it (compare status identical or behind). Refused before anything is checked out or run.
+      - name: Check that the ref is on main or dev
+        if: inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $r = ([string]$env:REF_INPUT) -replace '^refs/heads/', ''
+          if ($r -cmatch '^[0-9a-f]{40}$') {
+            $sha = $r
+          } elseif ($r -ceq 'main' -or $r -ceq 'dev') {
+            $sha = (gh api "repos/$env:GH_REPO/commits/refs/heads/$r" --jq .sha)
+            if ($LASTEXITCODE -ne 0) { throw "Branch '$r' not found" }
+          } else {
+            throw "ref '$env:REF_INPUT' is not allowed: a branch name must be main or dev, otherwise a commit id of main or dev"
+          }
+          if ($sha -cnotmatch '^[0-9a-f]{40}$') { throw "Unexpected commit id for ref '$env:REF_INPUT': '$sha'" }
+          foreach ($branch in @('main', 'dev')) {
+            $status = (gh api "repos/$env:GH_REPO/compare/$branch...$sha" --jq .status)
+            if ($LASTEXITCODE -eq 0 -and ($status -ceq 'identical' -or $status -ceq 'behind')) {
+              Write-Host "Ref $env:REF_INPUT ($sha) is on $branch ($status)"
+              return
+            }
+          }
+          throw "Ref $env:REF_INPUT ($sha) is on neither main nor dev: only commits of these branches are built on this runner."
+
       # A branch build is a dry run: what is uploaded must be built from the tag.
       - name: Refuse to upload a branch build
         if: env.UPLOAD == 'true' && inputs.ref != ''
@@ -200,8 +265,11 @@ jobs:
           if ($after -le $before) { throw "tools/package.cs could not be updated (before $before, after $after)" }
           if ($skipped -gt 0) { Write-Host "$skipped file(s) could not be touched (read-only or locked), skipped" }
 
-      - name: Set DOTNET_INSTALL_DIR (no root on the runner)
-        run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:USERPROFILE\.dotnet"
+      # Fresh folders, see the preflight job.
+      - name: Use fresh SDK and package folders (no root on the runner)
+        run: |
+          Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:RUNNER_TEMP\dotnet"
+          Add-Content -Path $env:GITHUB_ENV -Value "NUGET_PACKAGES=$env:RUNNER_TEMP\nuget"
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -307,6 +375,8 @@ jobs:
       # inputs.ref reaches the shell only through the environment; the first step of the job rejects foreign refs.
       REF_INPUT: ${{ inputs.ref }}
       UPLOAD: ${{ inputs.upload }}
+      # ubuntu:22.04 pinned by digest (Docs/DECISIONS.md, "CI on hosted runners once public (M2.7)", says how to update it).
+      UBUNTU_IMAGE: ubuntu:22.04@sha256:076e7bf82319619f28dd0aa9c02ab34b055ad37100395b4f49a2ffba04fb5e11
     steps:
       - name: Check the tag and derive the version
         run: |
@@ -326,6 +396,37 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "DEBVERSION=${version/-/\~}" >> "$GITHUB_ENV"
           echo "Tag $TAG, version $version, upload: $UPLOAD"
+
+      # The ref input is built on runners that also build the release, so it must be a commit of main or dev (the same
+      # rule as for the tag above): a plain branch name must be main or dev, a commit id must be the head of main or dev
+      # or an ancestor of it (compare status identical or behind). A commit of a fork, of a pull request or of any other
+      # branch is refused before anything is checked out or run.
+      - name: Check that the ref is on main or dev
+        if: inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          r="${REF_INPUT#refs/heads/}"
+          if [[ "$r" =~ ^[0-9a-f]{40}$ ]]; then
+            sha="$r"
+          elif [[ "$r" == main || "$r" == dev ]]; then
+            sha="$(gh api "repos/$GH_REPO/commits/refs/heads/$r" --jq .sha)" || { echo "Branch '$r' not found" >&2; exit 1; }
+          else
+            echo "ref '$REF_INPUT' is not allowed: a branch name must be main or dev, otherwise a commit id of main or dev" >&2
+            exit 1
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Unexpected commit id for ref '$REF_INPUT': '$sha'" >&2; exit 1; }
+          for branch in main dev; do
+            status="$(gh api "repos/$GH_REPO/compare/$branch...$sha" --jq .status || true)"
+            if [[ "$status" == identical || "$status" == behind ]]; then
+              echo "Ref $REF_INPUT ($sha) is on $branch ($status)"
+              exit 0
+            fi
+          done
+          echo "Ref $REF_INPUT ($sha) is on neither main nor dev: only commits of these branches are built on this runner." >&2
+          exit 1
 
       # A branch build is a dry run: what is uploaded must be built from the tag.
       - name: Refuse to upload a branch build
@@ -347,8 +448,11 @@ jobs:
           ref: ${{ inputs.ref || needs.preflight.outputs.tag_sha || format('refs/tags/{0}', inputs.tag) }}
           persist-credentials: false
 
-      - name: Set DOTNET_INSTALL_DIR (no root on the runner)
-        run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
+      # Fresh folders, see the preflight job.
+      - name: Use fresh SDK and package folders (no root on the runner)
+        run: |
+          echo "DOTNET_INSTALL_DIR=$RUNNER_TEMP/dotnet" >> "$GITHUB_ENV"
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget" >> "$GITHUB_ENV"
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -386,7 +490,7 @@ jobs:
           docker run --rm --name raffica-release-build \
             -v "$PWD:/work" -v "$DOTNET_INSTALL_DIR:/dotnet:ro" -w /work \
             -e VERSION -e DEBVERSION -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)" \
-            ubuntu:22.04 bash packaging/linux/container-build.sh
+            "$UBUNTU_IMAGE" bash packaging/linux/container-build.sh
 
       # The container builds as root. If the run is cancelled or times out, the trap in container-build.sh does not
       # run and the checkout would stay root-owned, which breaks the next checkout of any workflow on this runner.
@@ -394,7 +498,7 @@ jobs:
         if: always()
         run: |
           docker rm -f raffica-release-build >/dev/null 2>&1 || true
-          docker run --rm -v "$PWD:/work" ubuntu:22.04 chown -R "$(id -u):$(id -g)" /work
+          docker run --rm -v "$PWD:/work" "$UBUNTU_IMAGE" chown -R "$(id -u):$(id -g)" /work
 
       # Only with upload=true; otherwise build and smoke tests only.
       - name: Upload to the release

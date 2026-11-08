@@ -42,12 +42,34 @@ the repository settings (Settings, Environments):
 
 The updater and the download links use `https://github.com/benjo-code/raffica/releases`, which anonymous users can read
 only when the repository is public. The OCR library is fetched from a prerelease of the same repository
-(`tools/native-fetch.cs`), which needs a token as long as the repository is private.
+(`tools/native-fetch.cs`), which needs a token as long as the repository is private (anonymous calls are limited to 60 API
+calls per hour once it is public).
+
+The boundary that keeps a fork pull request off the owner's machines is the runner group setting, not a workflow
+expression: a fork controls the workflow file of its own pull request and can name any `runs-on`. The routing of `ci.yml`
+and `roadmap.yml` to hosted runners (public repository or fork) is a convenience on top of it. `release.yml` refuses any
+`ref` that is not `main`, `dev` or a commit on one of them. None of the settings below is changed by a commit; the owner
+applies them, in this order:
 
 1. Make the signing key and the environment ready (the two sections above) and enter the public key in `UpdateTrust.cs`.
-2. Change the visibility in the repository settings (Settings, General, Danger Zone). This is a decision of the owner.
-3. Check: `gh repo view benjo-code/raffica --json visibility` prints `PUBLIC`, and
-   `curl -sI https://api.github.com/repos/benjo-code/raffica/releases/latest` answers without a token.
+2. Runner group `raffica-ci` (organisation settings, Actions, Runner groups): restrict the workflows to
+   `benjo-code/raffica/.github/workflows/release.yml@refs/heads/main` and `benjo-code/raffica/.github/workflows/release.yml@refs/heads/dev`.
+   The group `Default` stays private-only (no access for public repositories).
+3. Repository settings, Actions, General, "Fork pull request workflows from outside collaborators": "Require approval for
+   all external contributors".
+4. Turn the wiki and projects off (Settings, General, Features).
+5. Change the visibility (Settings, General, Danger Zone). This is a decision of the owner.
+6. Right after the flip: turn on private vulnerability reporting (Settings, Code security), Dependabot alerts and
+   Dependabot security updates, secret scanning and push protection.
+7. Tag ruleset for `v*` (Settings, Rules, Rulesets): no update, no deletion, creation only by administrators.
+8. Actions policy (Settings, Actions, General): "Require actions to be pinned to a full-length commit SHA".
+9. Required reviewer on the environment `release-signing` (see "Environment release-signing"; protection rules need a
+   public repository or a paid plan).
+10. Open a test pull request from a fork (or a branch of another account) and check that `ci`, `changes` and `roadmap`
+    ran on GitHub-hosted runners (`gh run view <id> --json jobs --jq '.jobs[].runnerName'` shows `GitHub Actions N`, not a
+    machine of the owner).
+11. Check: `gh repo view benjo-code/raffica --json visibility` prints `PUBLIC`, and
+    `curl -sI https://api.github.com/repos/benjo-code/raffica/releases/latest` answers without a token.
 
 ## Manual update check
 
@@ -99,10 +121,12 @@ is skipped and the job `release-manifest` does not run.
 2. Start it from `dev`, with the branch or the 40-character commit SHA as `ref` (with a PR branch use its commit SHA):
 
    ```
-   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f ref=<branch or 40-hex commit> -f upload=false
+   gh workflow run release.yml --ref dev -f tag=v0.1.0 -f ref=<40-hex commit on dev or main> -f upload=false
    ```
 
-   Dispatching with `--ref dev` and a commit SHA as `ref` is verified to work.
+   Dispatching with `--ref dev` and a commit SHA as `ref` is verified to work. Since M2.7 the preflight, Windows and
+   Linux jobs refuse a `ref` that is neither `main`, `dev` nor a commit on one of them (a commit of a PR branch that is not
+   merged yet is refused too), so merge to `dev` first and pass its head.
 3. Watch it: `gh run watch`. Check that the jobs `release-preflight`, `release-windows` and `release-linux` are green and
    `release-manifest` is skipped. The Linux job runs the container build (`packaging/linux/container-build.sh`,
    Ubuntu 22.04) with `deb-smoke` and `appimage-smoke`.
@@ -128,8 +152,9 @@ in the repository root on a Linux host with Docker, and export `GITHUB_TOKEN` fi
 
 ```
 export DOTNET_INSTALL_DIR=$HOME/.dotnet      # the .NET SDK of global.json must be installed there
+export UBUNTU_IMAGE=ubuntu:22.04@sha256:076e7bf82319619f28dd0aa9c02ab34b055ad37100395b4f49a2ffba04fb5e11   # the digest of release.yml
 dotnet run tools/native-fetch.cs -- --rid linux-x64 --out out/native
-docker run --rm --name raffica-release-build   -v "$PWD:/work" -v "$DOTNET_INSTALL_DIR:/dotnet:ro" -w /work   -e VERSION=0.1.0 -e DEBVERSION=0.1.0 -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)"   ubuntu:22.04 bash packaging/linux/container-build.sh
+docker run --rm --name raffica-release-build   -v "$PWD:/work" -v "$DOTNET_INSTALL_DIR:/dotnet:ro" -w /work   -e VERSION=0.1.0 -e DEBVERSION=0.1.0 -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)"   "$UBUNTU_IMAGE" bash packaging/linux/container-build.sh
 ```
 
 The files end up in `out/release`.

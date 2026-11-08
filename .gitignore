@@ -17,6 +17,11 @@ TestResults/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.snk
 
 # Benchmarks
 BenchmarkDotNet.Artifacts/

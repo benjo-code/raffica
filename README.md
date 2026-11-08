@@ -43,12 +43,14 @@ Prerequisite: the .NET 10 SDK (`global.json` pins the version). On Linux, Native
 
 ```
 dotnet build Raffica.slnx -c Release
-dotnet run tools/native-fetch.cs -- --rid win-x64 --out artifacts/native/win-x64     # linux-x64 on Linux; fetches the OCR library (needs GH_TOKEN while the repository is private)
+dotnet run tools/native-fetch.cs -- --rid win-x64 --out artifacts/native/win-x64     # linux-x64 on Linux; fetches the OCR library (no token needed)
 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1         # set RAFFICA_REQUIRE_OCR=1 to fail instead of skip without the OCR library
 dotnet format Raffica.slnx --verify-no-changes
 dotnet publish src/Raffica.Pdf -c Release -r win-x64 -o out/pdf                      # the PDF app, Native AOT (linux-x64 on Linux)
 dotnet publish src/Raffica.Cli -c Release -r win-x64 -o out/cli                      # the command line tool, Native AOT
 ```
+
+The OCR library comes from a release of this repository and needs no token. Without a token GitHub allows 60 API calls per hour per address, which is plenty for this step; set `GH_TOKEN` only if you run it many times.
 
 The packages are built by `tools/package.cs` and the workflow `.github/workflows/release.yml`; the owner's steps for a release are in [packaging/README.md](packaging/README.md). Decisions are in [Docs/DECISIONS.md](Docs/DECISIONS.md), the change history in [CHANGELOG.md](CHANGELOG.md).
 
