@@ -2355,6 +2355,9 @@
   <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
     <value>File attachments of annotations (paperclip notes): up to {0}. Their embedded files come with the pages and stay in the file.</value>
   </data>
+  <data name="RedactNotCleanedMediaFormat" xml:space="preserve">
+    <value>Sound, video and other media of annotations: up to {0}. They come with the pages and stay in the file.</value>
+  </data>
   <data name="RedactNotCleanedFormValues" xml:space="preserve">
     <value>The values of form fields stay on their widgets in the file; a marked text inside them is found by the check of the file, and then nothing is written.</value>
   </data>
@@ -2428,7 +2431,7 @@
     <value>The file is encrypted. Raffica does not remove protection silently, so the file is not redacted.</value>
   </data>
   <data name="RedactRefusedKeysFormat" xml:space="preserve">
-    <value>A thumbnail, private data, metadata or actions that Raffica cannot remove are on {0}, so the file is not redacted.</value>
+    <value>A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on {0}, so the file is not redacted.</value>
   </data>
   <data name="RedactRefusedKeysUnverified" xml:space="preserve">
     <value>The page keys of the file could not be checked, so the file is not redacted: a page may carry data that Raffica cannot remove.</value>

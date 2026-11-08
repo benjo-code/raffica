@@ -278,7 +278,7 @@ public sealed class RedactCommandTests : CliTestBase
         var result = await RunAsync([.. args]);
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Contains("A thumbnail, private data, metadata or actions that Raffica cannot remove are on page 2, so the file is not redacted.", result.Error, StringComparison.Ordinal);
+        Assert.Contains("A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on page 2, so the file is not redacted.", result.Error, StringComparison.Ordinal);
         Assert.Contains("/Thumb", result.Error, StringComparison.Ordinal);
         Assert.False(File.Exists(Output));
         Assert.Empty(TemporaryFiles());

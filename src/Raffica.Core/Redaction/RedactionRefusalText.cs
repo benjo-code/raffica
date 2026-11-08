@@ -65,10 +65,10 @@ public static class RedactionRefusalText
                 return "The file is encrypted. Redacting it would write it without its protection, and Raffica does not remove protection silently, so the file is not redacted.";
 
             case RedactionRefusalKind.UnremovablePageKeys when refusal.PageKeysUnverified:
-                return "The page keys of the file could not be checked, so the file is not redacted: a page may carry a thumbnail, private data, metadata or actions that Raffica cannot remove.";
+                return "The page keys of the file could not be checked, so the file is not redacted: a page may carry a thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove.";
 
             case RedactionRefusalKind.UnremovablePageKeys:
-                return $"A thumbnail, private data, metadata or actions that Raffica cannot remove are on {PageList(refusal.Pages)}, so the file is not redacted. {refusal.Reason}";
+                return $"A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on {PageList(refusal.Pages)}, so the file is not redacted. {refusal.Reason}";
 
             case RedactionRefusalKind.PageNotRedactable:
                 return $"Redacting {PageList(refusal.Pages)} would change content outside the marked areas, so the file is not redacted. {refusal.Reason}";
@@ -139,7 +139,7 @@ public static class RedactionRefusalText
             RedactionFailureKind.UnreadableStream =>
                 $"Part of the file could not be read{where}, so it cannot be shown that nothing of the removed text is left in it, and the file was not written.",
             RedactionFailureKind.PageKeysStillPresent =>
-                $"A page still carries a thumbnail, private data, metadata or actions that Raffica cannot remove, or the keys could not be checked{where}, so the file was not written.",
+                $"A page still carries a thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove, or the keys could not be checked{where}, so the file was not written.",
             RedactionFailureKind.PageChangedOutsideAreas =>
                 $"A page looks different outside the marked areas{where}, so the file was not written.",
             RedactionFailureKind.RasterPageInvalid =>

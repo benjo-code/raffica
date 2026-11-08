@@ -908,6 +908,7 @@ internal static class PdfStrings
     public static string RedactNotCleanedActions => Table.Get("RedactNotCleanedActions");
     public static string RedactNotCleanedAnnots => Table.Get("RedactNotCleanedAnnots");
     public static string RedactNotCleanedAttachFormat => Table.Get("RedactNotCleanedAttachFormat");
+    public static string RedactNotCleanedMediaFormat => Table.Get("RedactNotCleanedMediaFormat");
     public static string RedactNotCleanedFormValues => Table.Get("RedactNotCleanedFormValues");
     public static string RedactNotCleanedSignature => Table.Get("RedactNotCleanedSignature");
     public static string RedactImgPixelatedFormat => Table.Get("RedactImgPixelatedFormat");

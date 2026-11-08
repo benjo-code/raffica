@@ -2339,6 +2339,9 @@
   <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
     <value>Dateianhänge von Anmerkungen (Büroklammer-Notizen): bis zu {0}. Ihre eingebetteten Dateien kommen mit den Seiten und bleiben in der Datei.</value>
   </data>
+  <data name="RedactNotCleanedMediaFormat" xml:space="preserve">
+    <value>Ton, Video und andere Medien von Anmerkungen: bis zu {0}. Sie kommen mit den Seiten und bleiben in der Datei.</value>
+  </data>
   <data name="RedactNotCleanedFormValues" xml:space="preserve">
     <value>Die Werte von Formularfeldern bleiben an ihren Feldern in der Datei; ein markierter Text darin wird von der Prüfung der Datei gefunden, und dann wird nichts geschrieben.</value>
   </data>
@@ -2412,7 +2415,7 @@
     <value>Die Datei ist verschlüsselt. Raffica entfernt einen Schutz nicht stillschweigend, deshalb wird die Datei nicht geschwärzt.</value>
   </data>
   <data name="RedactRefusedKeysFormat" xml:space="preserve">
-    <value>Auf {0} liegen eine Vorschau, private Daten, Metadaten oder Aktionen, die Raffica nicht entfernen kann, deshalb wird die Datei nicht geschwärzt.</value>
+    <value>Auf {0} liegen eine Vorschau, private Daten, Metadaten, Aktionen, angehängte Dateien oder Artikelverknüpfungen, die Raffica nicht entfernen kann, deshalb wird die Datei nicht geschwärzt.</value>
   </data>
   <data name="RedactRefusedKeysUnverified" xml:space="preserve">
     <value>Die Seitenschlüssel der Datei konnten nicht geprüft werden, deshalb wird die Datei nicht geschwärzt: Eine Seite kann Daten tragen, die Raffica nicht entfernen kann.</value>

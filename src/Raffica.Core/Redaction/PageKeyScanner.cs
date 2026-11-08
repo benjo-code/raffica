@@ -5,7 +5,7 @@ namespace Raffica.Core.Redaction;
 
 /// <summary>A page that carries keys PDFium cannot remove, found in the bytes of a written file.</summary>
 /// <param name="Page">The 0-based page, in the order of the page tree.</param>
-/// <param name="Keys">The keys of its page dictionary, in a fixed order: <c>/Thumb</c>, <c>/PieceInfo</c>, <c>/Metadata</c>, <c>/AA</c>.</param>
+/// <param name="Keys">The keys of its page dictionary, in a fixed order: <c>/Thumb</c>, <c>/PieceInfo</c>, <c>/Metadata</c>, <c>/AA</c>, <c>/AF</c> (associated files), <c>/B</c> (article beads).</param>
 public sealed record PageKeyFinding(int Page, IReadOnlyList<string> Keys);
 
 /// <summary>
@@ -14,12 +14,23 @@ public sealed record PageKeyFinding(int Page, IReadOnlyList<string> Keys);
 /// </summary>
 public sealed record PageKeyScan
 {
-    internal PageKeyScan(IReadOnlyList<PageKeyFinding> findings, string? notChecked, IReadOnlyList<string>? documentKeys = null)
+    internal PageKeyScan(IReadOnlyList<PageKeyFinding> findings, string? notChecked, IReadOnlyList<string>? documentKeys = null, int embeddedFiles = 0, int attachmentAnnotations = 0)
     {
         Findings = findings;
         NotChecked = notChecked;
         DocumentKeys = documentKeys ?? [];
+        EmbeddedFiles = embeddedFiles;
+        AttachmentAnnotations = attachmentAnnotations;
     }
+
+    /// <summary>
+    /// Gets how many embedded files the scanned file has: the larger of the streams with <c>/Type /EmbeddedFile</c> and the file specifications
+    /// with <c>/EF</c> (the type of the stream is optional), anywhere in the file. Zero when the file was not checked.
+    /// </summary>
+    public int EmbeddedFiles { get; }
+
+    /// <summary>Gets how many paperclip annotations (<c>/Subtype /FileAttachment</c> objects) the scanned file has: their files come with the pages and may stay.</summary>
+    public int AttachmentAnnotations { get; }
 
     /// <summary>
     /// Gets the keys of the catalog and the trailer that the cleaning rebuild must have left behind (<see cref="PageKeyScanner.DocumentKeys"/>: the
@@ -74,7 +85,7 @@ public sealed record PageKeyScan
 }
 
 /// <summary>
-/// Finds the page keys that PDFium cannot remove (<c>/Thumb</c>, <c>/PieceInfo</c>, <c>/Metadata</c>, <c>/AA</c> in a page dictionary)
+/// Finds the page keys that PDFium cannot remove (<c>/Thumb</c>, <c>/PieceInfo</c>, <c>/Metadata</c>, <c>/AA</c>, <c>/AF</c> and <c>/B</c> in a page dictionary)
 /// in the bytes PDFium wrote. It tokenizes the file (strings, comments and stream data are skipped as the syntax says, names are
 /// decoded) and looks only at the top-level keys of the dictionaries of the objects in the page tree: a name like
 /// <c>/AAAAAA+Geist</c> or a <c>/Thumb</c> in an annotation or a resource dictionary is no finding. It never reads the original file
@@ -93,7 +104,7 @@ public static class PageKeyScanner
     public const string UnverifiedReason = "The page keys could not be checked.";
 
     /// <summary>Gets the keys that are looked for, in the order a finding lists them.</summary>
-    public static IReadOnlyList<string> Keys { get; } = ["/Thumb", "/PieceInfo", "/Metadata", "/AA"];
+    public static IReadOnlyList<string> Keys { get; } = ["/Thumb", "/PieceInfo", "/Metadata", "/AA", "/AF", "/B"];
 
     /// <summary>
     /// Gets the keys of the catalog (and, for <c>/Info</c>, the trailer) that hold what the cleaning rebuild removes; a scan of the rebuilt
@@ -222,6 +233,10 @@ public static class PageKeyScanner
         public Value? Length { get; set; }
 
         public Value? Root { get; set; }
+
+        public Value? Subtype { get; set; }
+
+        public bool HasEmbeddedFile { get; set; }
     }
 
     private readonly record struct ObjectInfo(ObjectType Type, ushort Mask, int PagesReference, int[]? Kids);
@@ -247,6 +262,9 @@ public static class PageKeyScanner
         private int rootReference = -1;
         private ushort trailerMask;
         private int pageTypedObjects;
+        private int embeddedFileStreams;
+        private int fileSpecsWithEmbeddedFile;
+        private int attachmentAnnotations;
 
         public PageKeyReader(Stream stream, bool allowCrossReferenceStream, CancellationToken cancellation)
         {
@@ -267,7 +285,10 @@ public static class PageKeyScanner
 
         private static Unverifiable Fail(string reason) => new(reason);
 
-        private const ushort PageKeyBits = 15;
+        // Bits of the keys of a page in Keys order; the bits 16 to 1024 belong to the document keys below.
+        private static readonly ushort[] PageKeyBitOf = [1, 2, 4, 8, 2048, 4096];
+
+        private const ushort PageKeyBits = 1 | 2 | 4 | 8 | 2048 | 4096;
 
         private static ushort MaskOf(string name) => name switch
         {
@@ -282,6 +303,8 @@ public static class PageKeyScanner
             "AcroForm" => 256,
             "Perms" => 512,
             "Info" => 1024,
+            "AF" => 2048,
+            "B" => 4096,
             _ => 0,
         };
 
@@ -292,7 +315,7 @@ public static class PageKeyScanner
             var keys = new List<string>(4);
             for (var i = 0; i < Keys.Count; i++)
             {
-                if ((mask & (1 << i)) != 0)
+                if ((mask & PageKeyBitOf[i]) != 0)
                 {
                     keys.Add(Keys[i]);
                 }
@@ -419,6 +442,21 @@ public static class PageKeyScanner
                     // its dictionary is the trailer. Were objects hidden in object streams, the ObjStm above would have failed the scan.
                     TakeRoot(dictionary);
                 }
+            }
+
+            if (type == "EmbeddedFile")
+            {
+                embeddedFileStreams++;
+            }
+
+            if (dictionary.HasEmbeddedFile)
+            {
+                fileSpecsWithEmbeddedFile++;
+            }
+
+            if (dictionary.Subtype is { Kind: ValueKind.Name, Text: "FileAttachment" })
+            {
+                attachmentAnnotations++;
             }
 
             objects[number] = Describe(dictionary, type);
@@ -585,7 +623,7 @@ public static class PageKeyScanner
                 }
             }
 
-            return new PageKeyScan(findings, null, documentKeys);
+            return new PageKeyScan(findings, null, documentKeys, Math.Max(embeddedFileStreams, fileSpecsWithEmbeddedFile), attachmentAnnotations);
         }
 
         // ------------------------------------------------------------------ values
@@ -612,10 +650,14 @@ public static class PageKeyScanner
                 }
 
                 var name = key.Text;
-                var keep = top && name is "Type" or "Kids" or "Pages" or "Length" or "Root";
+                var keep = top && name is "Type" or "Kids" or "Pages" or "Length" or "Root" or "Subtype";
                 if (top)
                 {
                     info.Mask |= MaskOf(name);
+                    if (name == "EF")
+                    {
+                        info.HasEmbeddedFile = true;
+                    }
                 }
 
                 var value = ParseValue(Next(), depth + 1, keep);
@@ -637,6 +679,9 @@ public static class PageKeyScanner
                             break;
                         case "Root":
                             info.Root = value;
+                            break;
+                        case "Subtype":
+                            info.Subtype = value;
                             break;
                     }
                 }

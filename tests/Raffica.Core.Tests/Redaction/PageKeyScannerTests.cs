@@ -355,11 +355,29 @@ public sealed class PageKeyScannerTests
         Assert.Equal(["/Thumb", "/PieceInfo"], finding.Keys);
     }
 
+    [Fact]
+    public void ScanCountsEmbeddedFilesAndPaperclipsAnywhereInTheFile()
+    {
+        var extra = "7 0 obj\n<< /Type /EmbeddedFile /Length 0 >>\nstream\n\nendstream\nendobj\n"
+            + "8 0 obj\n<< /Type /Filespec /F (a) /EF << /F 7 0 R >> >>\nendobj\n"
+            + "9 0 obj\n<< /Type /Annot /Subtype /FileAttachment /FS 8 0 R >>\nendobj\n"
+            + "10 0 obj\n<< /Type /Annot /Subtype /Link /AF [8 0 R] >>\nendobj\n";
+
+        var scan = Scan(TwoPages(extraObjects: extra), 2);
+
+        Assert.True(scan.WasChecked, scan.NotChecked);
+        Assert.Equal(1, scan.EmbeddedFiles);
+        Assert.Equal(1, scan.AttachmentAnnotations);
+        Assert.Equal(0, Scan(TwoPages(), 2).EmbeddedFiles);
+    }
+
     [Theory]
     [InlineData("/Thumb 5 0 R", "/Thumb")]
     [InlineData("/PieceInfo << /Raffica << /Private (x) >> >>", "/PieceInfo")]
     [InlineData("/Metadata 5 0 R", "/Metadata")]
     [InlineData("/AA << /O << /S /JavaScript /JS (x) >> >>", "/AA")]
+    [InlineData("/AF [5 0 R]", "/AF")]
+    [InlineData("/B [5 0 R]", "/B")]
     public void PageKeyScanFindsEachKeyWithItsPageNumber(string entry, string key)
     {
         var scan = Scan(TwoPages(secondPage: entry), 2);

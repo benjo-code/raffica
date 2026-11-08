@@ -191,6 +191,8 @@ internal sealed class NameTally
 
     public int AttachmentAnnotations { get; private set; }
 
+    public int MediaAnnotations { get; private set; }
+
     public int OutlineItems { get; private set; }
 
     public int PageLabelKeys { get; private set; }
@@ -206,6 +208,15 @@ internal sealed class NameTally
         {
             case 2 when name.SequenceEqual("JS"u8):
                 JavaScriptActions++;
+                break;
+            case 2 when name.SequenceEqual("3D"u8):
+                MediaAnnotations++;
+                break;
+            case 5 when name.SequenceEqual("Sound"u8) || name.SequenceEqual("Movie"u8):
+            case 6 when name.SequenceEqual("Screen"u8):
+            case 9 when name.SequenceEqual("RichMedia"u8):
+                // Sound, video, 3D and rich media come with their pages; a count of names, so "up to".
+                MediaAnnotations++;
                 break;
             case 7 when name.SequenceEqual("Encrypt"u8):
                 EncryptSeen = true;

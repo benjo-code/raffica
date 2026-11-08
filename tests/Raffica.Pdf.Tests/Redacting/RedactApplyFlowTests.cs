@@ -304,7 +304,7 @@ public sealed class RedactApplyFlowTests
             var card = await rig.CardWithAsync("PART_Reason");
 
             Assert.False(card.GetVisualDescendants().OfType<CheckBox>().Any());
-            Assert.Equal("• A thumbnail, private data, metadata or actions that Raffica cannot remove are on page 2, so the file is not redacted.", PrintHost.Find<TextBlock>(card, "PART_Reason").Text);
+            Assert.Equal("• A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on page 2, so the file is not redacted.", PrintHost.Find<TextBlock>(card, "PART_Reason").Text);
             Assert.Equal("Nothing was written. The file is unchanged and the marks are still open.", PrintHost.Find<TextBlock>(card, "PART_Intro").Text);
             RedactApplyRig.Click(card, "PART_Back");
             Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));

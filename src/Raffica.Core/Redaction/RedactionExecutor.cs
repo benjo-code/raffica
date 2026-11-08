@@ -108,7 +108,7 @@ public sealed partial class RedactionExecutor(PdfEngine engine)
             losses.Add(new RedactionLoss(RedactionLossKind.SignatureInvalidated, signatures.SignatureCount));
         }
 
-        return new RedactionInventory(cleanup, losses, scan.Complete, scan.AttachmentAnnotations);
+        return new RedactionInventory(cleanup, losses, scan.Complete, scan.AttachmentAnnotations, scan.MediaAnnotations);
     }
 
     /// <summary>

@@ -24,4 +24,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF redaction: a page that carries attached files (`/AF`, for example the XML of a PDF/A-3 invoice) or an article thread (`/B`, with its title and author) no longer keeps them silently: the file is refused like a page with a thumbnail, and the check of the written file also fails when an embedded file other than a paperclip note is left. The report lists "Attached files" as cleaned only after the written file was read back, and names sound, video and other media of annotations under "Not cleaned".
+
 ### Removed

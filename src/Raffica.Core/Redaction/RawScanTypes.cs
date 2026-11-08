@@ -105,4 +105,5 @@ public sealed class RawScanNotes
 /// <param name="PageLabelKeys">The <c>/PageLabels</c> entries.</param>
 /// <param name="Complete">Whether every stream could be read; <see langword="false"/> means the counts may be too low.</param>
 /// <param name="AttachmentAnnotations">The <c>/FileAttachment</c> names (paperclip annotations): their files come with the pages and are not cleaned, so only the rest of <paramref name="EmbeddedFiles"/> counts as cleaned.</param>
-public sealed record CleanupInventory(int MetadataKeys, int JavaScriptActions, int EmbeddedFiles, int OutlineItems, int PageLabelKeys, bool Complete, int AttachmentAnnotations = 0);
+/// <param name="MediaAnnotations">The names of sound, movie, screen, 3D and rich media annotations: they come with the pages and are not cleaned.</param>
+public sealed record CleanupInventory(int MetadataKeys, int JavaScriptActions, int EmbeddedFiles, int OutlineItems, int PageLabelKeys, bool Complete, int AttachmentAnnotations = 0, int MediaAnnotations = 0);
