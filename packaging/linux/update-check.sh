@@ -72,10 +72,25 @@ app_pids() {
   [ -n "$user_appimage" ] || return 0
   local dir
   for dir in /proc/[0-9]*; do
-    if [ -r "$dir/environ" ] && tr '\0' '\n' <"$dir/environ" 2>/dev/null | grep -qxF "APPIMAGE=$user_appimage"; then
+    # Processes of other users cannot be read; the error messages of those reads are not wanted.
+    if { tr '\0' '\n' <"$dir/environ" | grep -qxF "APPIMAGE=$user_appimage"; } 2>/dev/null; then
       echo "${dir#/proc/}"
     fi
   done
+}
+
+# What is running and what the app wrote, for a failure that is hard to understand afterwards.
+diagnostics() {
+  echo "--- diagnostics"
+  echo "processes that look like the app (pid ppid seconds-running command):"
+  ps -eo pid,ppid,etimes,args | grep -E 'RafficaPdf|\.mount_' | grep -v grep || true
+  echo "the folder of the AppImage under test (inode, mode, name):"
+  ls -ldi "$work/user" "$work/user"/* "$work/user"/.[!.]* 2>/dev/null || true
+  echo "output of the app (last lines):"
+  tail -n 30 "$work/app.log" 2>/dev/null || true
+  echo "session files:"
+  find "$work/xdg" -name 'session.json*' 2>/dev/null || true
+  echo "--- end of diagnostics"
 }
 
 cleanup() {
@@ -167,10 +182,15 @@ changed=false
 while [ "$(date +%s)" -lt "$deadline" ]; do
   if [ "$(stat -c %i "$user_appimage" 2>/dev/null || echo 0)" != "$old_inode" ]; then changed=true; break; fi
   if [ -z "$(app_pids)" ]; then gone=$((gone + 1)); else gone=0; fi
-  [ "$gone" -lt 3 ] || { cat "$work/app.log"; fail "the app was closed (or crashed) before the update was installed"; }
+  if [ "$gone" -ge 3 ]; then
+    # one more look at the file: the app may have swapped it and ended in between
+    if [ "$(stat -c %i "$user_appimage" 2>/dev/null || echo 0)" != "$old_inode" ]; then changed=true; break; fi
+    diagnostics
+    fail "the app was closed (or crashed) before the update was installed (the file was not replaced)"
+  fi
   sleep 2
 done
-$changed || fail "no install within $WAIT_MINUTES minutes: the file was not replaced"
+$changed || { diagnostics; fail "no install within $WAIT_MINUTES minutes: the file was not replaced"; }
 
 note "What the updater did"
 failures=0
@@ -191,15 +211,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 check "a new process started from the updated file" "$restarted"
-if ! $restarted; then
-  echo "Processes that look like the app (pid ppid seconds-running command, then APPIMAGE of its environment):"
-  ps -eo pid,ppid,etimes,args | grep -E 'RafficaPdf|\.mount_' | grep -v grep || true
-  for dir in /proc/[0-9]*; do
-    if [ -r "$dir/cmdline" ] && tr '\0' ' ' <"$dir/cmdline" 2>/dev/null | grep -qE 'RafficaPdf|\.mount_'; then
-      echo "  ${dir#/proc/}: $(tr '\0' '\n' <"$dir/environ" 2>/dev/null | grep -E '^APPIMAGE=' || echo 'no APPIMAGE')"
-    fi
-  done
-fi
+if ! $restarted; then diagnostics; fi
 
 # unset again: the new file is also started through FUSE by a user
 probe_new="$("$user_appimage" --print-string TabView --lang en 2>/dev/null || true)"
