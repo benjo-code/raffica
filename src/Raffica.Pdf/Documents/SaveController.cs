@@ -284,11 +284,12 @@ internal sealed class SaveController
 
         // The history is empty after the write, so whether it held a text edit is read now.
         var wroteText = tab.Annotations.Editor.HasLiveTextEdits;
+        string? leftover;
         while (true)
         {
             try
             {
-                await RunJobAsync(tab, target, overwrite);
+                leftover = await RunJobAsync(tab, target, overwrite);
                 break;
             }
             catch (OperationCanceledException)
@@ -374,6 +375,20 @@ internal sealed class SaveController
             }
         });
         Guarded(() => Changed?.Invoke());
+
+        // The replace had to move the old file aside and could not delete it: the user is told where it is.
+        if (leftover is not null)
+        {
+            try
+            {
+                await Tell(PdfStrings.Fill(PdfStrings.SaveLeftoverFormat, leftover));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // The file is saved; a card that cannot be shown is no save failure.
+            }
+        }
+
         return true;
     }
 
@@ -389,7 +404,7 @@ internal sealed class SaveController
         }
     }
 
-    private async Task RunJobAsync(PdfTab tab, string target, bool overwrite)
+    private async Task<string?> RunJobAsync(PdfTab tab, string target, bool overwrite)
     {
         using var cancellation = new CancellationTokenSource();
         _running = cancellation;
@@ -412,7 +427,7 @@ internal sealed class SaveController
         tab.Disposing += OnTabDisposing;
         try
         {
-            await _runner(tab, target, overwrite, new UiProgress(card), cancellation.Token);
+            return (await _runner(tab, target, overwrite, new UiProgress(card), cancellation.Token)).Saved.LeftoverPath;
         }
         finally
         {

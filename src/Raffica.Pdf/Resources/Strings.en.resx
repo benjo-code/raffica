@@ -500,6 +500,9 @@
   <data name="SaveBusy" xml:space="preserve">
     <value>A save is running.</value>
   </data>
+  <data name="SaveLeftoverFormat" xml:space="preserve">
+    <value>The file was saved. The old version is still at {0}. You can delete it.</value>
+  </data>
   <data name="SaveJobTitleFormat" xml:space="preserve">
     <value>Saving {0}</value>
   </data>
@@ -2558,6 +2561,9 @@
   </data>
   <data name="RedactFailOther" xml:space="preserve">
     <value>The redactions could not be applied.</value>
+  </data>
+  <data name="RedactLeftoverFormat" xml:space="preserve">
+    <value>The redacted file was written. The unredacted original is still at {0}; delete it.</value>
   </data>
   <data name="RedactFailAdoptFormat" xml:space="preserve">
     <value>The redactions were written, but the tab could not take the file over. The file at {0} is the redacted one: open it from disk to continue.</value>

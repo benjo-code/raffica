@@ -354,6 +354,32 @@ public sealed class RedactApplyFlowTests
     }
 
     [AvaloniaFact]
+    public async Task AnUnredactedOriginalThatCouldNotBeDeletedIsNamedAfterTheResult()
+    {
+        using var rig = await RedactApplyRig.OpenAsync();
+        await rig.MarkTermAsync(Term);
+        var target = Path.Combine(rig.Folder, "copy.pdf");
+        var leftover = Path.Combine(rig.Folder, ".pw-0123456789ab.old");
+        rig.Picks.Enqueue(target);
+        rig.Flow.Applier = async (session, engine, request, progress, token) =>
+        {
+            var applied = await Raffica.Core.Redaction.RedactionApplier.ApplyAsync(session, engine, request, progress, token);
+            return applied with { Saved = applied.Saved with { LeftoverPath = leftover } };
+        };
+
+        var run = rig.Flow.RunAsync(rig.Tab);
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
+
+        // After the result card, a warning that names the path and says to delete it.
+        var warning = await rig.CardWithAsync("PART_Message");
+        Assert.Equal($"The redacted file was written. The unredacted original is still at {leftover}; delete it.", PrintHost.Find<TextBlock>(warning, "PART_Message").Text);
+        RedactApplyRig.Click(warning, "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        Assert.Equal(target, rig.Tab.Path);
+    }
+
+    [AvaloniaFact]
     public async Task MarksSavedFirstOnAgreementAndNotWhenTheUserSaysBack()
     {
         using var rig = await RedactApplyRig.OpenAsync();

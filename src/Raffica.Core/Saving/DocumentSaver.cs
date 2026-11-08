@@ -61,7 +61,12 @@ public sealed record SaveRequest(
 /// <summary>A successful save.</summary>
 /// <param name="Reopened">The written file, opened and checked; the caller owns it and disposes it.</param>
 /// <param name="NewStamp">The stamp of the written file, read through the handle of <paramref name="Reopened"/>.</param>
-public sealed record SaveResult(PdfDocument Reopened, FileStamp NewStamp);
+/// <param name="LeftoverPath">
+/// The full path of the old file when the Windows fallback of the replace (<c>.pw-&lt;12 hex&gt;.old</c>) moved it aside and could
+/// not delete it afterwards, otherwise <see langword="null"/>. It holds the content the target had before the save (for a
+/// redaction: the unredacted original), so the caller tells the user where it is.
+/// </param>
+public sealed record SaveResult(PdfDocument Reopened, FileStamp NewStamp, string? LeftoverPath = null);
 
 /// <summary>Hooks into a save, for tests only.</summary>
 internal sealed class SaveFaults
@@ -83,6 +88,12 @@ internal sealed class SaveFaults
 
     /// <summary>Gets the action run in the Windows fallback after the open target was moved aside, before the temporary file takes its name.</summary>
     public Action? AfterTargetMovedAside { get; init; }
+
+    /// <summary>Gets the stand-in for deleting the moved-aside old file in the Windows fallback (the path; throws like <see cref="File.Delete(string)"/>).</summary>
+    public Action<string>? DeleteAside { get; init; }
+
+    /// <summary>Gets the pause between the attempts to delete the moved-aside file; the default is 100 ms.</summary>
+    public TimeSpan? DeleteAsideDelay { get; init; }
 }
 
 /// <summary>
@@ -314,7 +325,7 @@ public static class DocumentSaver
             cancellationToken.ThrowIfCancellationRequested();
 
             CheckSources(document, job);
-            Replace(temporary, target, folder, job.ReplaceExisting, faults);
+            var leftover = Replace(temporary, target, folder, job.ReplaceExisting, faults);
             committed = true;
             if (lateAccessList is not null && OperatingSystem.IsWindows())
             {
@@ -322,7 +333,7 @@ public static class DocumentSaver
                 WriteAccessList(target, lateAccessList);
             }
 
-            return new SaveResult(reopened, StampOf(reopened));
+            return new SaveResult(reopened, StampOf(reopened), leftover);
         }
         finally
         {
@@ -841,16 +852,17 @@ public static class DocumentSaver
     /// tab always has it open. Only when the file system does not offer the POSIX rename (FAT, exFAT, some SMB servers) is
     /// the ordinary rename tried, and if the open target blocks it, the target is moved aside to <c>.pw-&lt;12 hex&gt;.old</c>
     /// (renaming a file opened shared for deleting is allowed), the temporary file takes its name and the old file is
-    /// deleted. If that second move fails, the old file is moved back.
+    /// deleted (four attempts, 100 ms apart). If that second move fails, the old file is moved back.
     /// </summary>
-    private static void Replace(string temporary, string target, string folder, bool replaceExisting, SaveFaults? faults)
+    /// <returns>The path of the old file when the fallback could not delete it, otherwise <see langword="null"/>.</returns>
+    private static string? Replace(string temporary, string target, string folder, bool replaceExisting, SaveFaults? faults)
     {
         if (OperatingSystem.IsWindows())
         {
             var error = faults?.AtomicReplace is { } replace ? replace(temporary, target) : WindowsFileRename.ReplaceAtomically(temporary, target, replaceExisting);
             if (error == 0)
             {
-                return;
+                return null;
             }
 
             if (!replaceExisting && error is WindowsFileRename.ErrorAlreadyExists or WindowsFileRename.ErrorFileExists)
@@ -871,7 +883,7 @@ public static class DocumentSaver
             try
             {
                 File.Move(temporary, target, overwrite: false);
-                return;
+                return null;
             }
             catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
             {
@@ -884,7 +896,7 @@ public static class DocumentSaver
         try
         {
             File.Move(temporary, target, overwrite: true);
-            return;
+            return null;
         }
         catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows() && File.Exists(target))
         {
@@ -929,7 +941,7 @@ public static class DocumentSaver
             throw FailureOf(ex, "The file could not be replaced.");
         }
 
-        TryDelete(aside);
+        return DeleteAside(aside, faults);
     }
 
     /// <summary>
@@ -943,10 +955,44 @@ public static class DocumentSaver
     /// <param name="replaceExisting">Whether an existing target may be replaced.</param>
     /// <exception cref="SaveFailureException">The move failed; with <see cref="SaveFailureReason.TargetExists"/> a file stands at the target and was not replaced.</exception>
     internal static void MoveIntoPlace(string temporary, string target, bool replaceExisting) =>
-        Replace(temporary, target, Path.GetDirectoryName(target) ?? string.Empty, replaceExisting, faults: null);
+        _ = Replace(temporary, target, Path.GetDirectoryName(target) ?? string.Empty, replaceExisting, faults: null);
 
     /// <summary>A short temporary name independent of the target's name (<c>.pw-&lt;12 hex&gt;.tmp</c>), so a long target name never makes it too long.</summary>
     internal static string TemporaryName() => ShortName(".tmp");
+
+    /// <summary>
+    /// Deletes the old file the Windows fallback moved aside: one attempt and three more, 100 ms apart (a virus scanner or an
+    /// indexer may still hold it for a moment).
+    /// </summary>
+    /// <returns>The path when the file is still there after the last attempt, otherwise <see langword="null"/>.</returns>
+    private static string? DeleteAside(string path, SaveFaults? faults)
+    {
+        const int Retries = 3;
+        var delete = faults?.DeleteAside ?? File.Delete;
+        var delay = faults?.DeleteAsideDelay ?? TimeSpan.FromMilliseconds(100);
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                delete(path);
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Tried again below; the last answer is the existence of the file.
+            }
+
+            if (attempt == Retries)
+            {
+                return File.Exists(path) ? path : null;
+            }
+
+            Thread.Sleep(delay);
+        }
+    }
 
     private static SaveFailureException TargetExists(Exception inner) =>
         new(SaveFailureReason.TargetExists, "A file already exists at the target.", inner);

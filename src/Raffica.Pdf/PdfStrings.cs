@@ -310,6 +310,7 @@ internal static class PdfStrings
     public static string PrintJobCancelling => Table.Get("PrintJobCancelling");
     public static string PrintBusy => Table.Get("PrintBusy");
     public static string SaveBusy => Table.Get("SaveBusy");
+    public static string SaveLeftoverFormat => Table.Get("SaveLeftoverFormat");
     public static string SaveJobTitleFormat => Table.Get("SaveJobTitleFormat");
     public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
     public static string PrintFailedPagesFormat => Table.Get("PrintFailedPagesFormat");
@@ -979,6 +980,7 @@ internal static class PdfStrings
     public static string RedactFailDamaged => Table.Get("RedactFailDamaged");
     public static string RedactFailOther => Table.Get("RedactFailOther");
     public static string RedactFailAdoptFormat => Table.Get("RedactFailAdoptFormat");
+    public static string RedactLeftoverFormat => Table.Get("RedactLeftoverFormat");
     public static string RedactPlanChanged => Table.Get("RedactPlanChanged");
     public static string RedactApplySuggestedNameFormat => Table.Get("RedactApplySuggestedNameFormat");
     public static string RedactResultTitle => Table.Get("RedactResultTitle");

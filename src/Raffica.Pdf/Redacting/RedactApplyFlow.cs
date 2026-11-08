@@ -285,6 +285,7 @@ internal sealed class RedactApplyFlow(
         // (7) The redactions are applied: the tab follows the file and the result is told.
         Completed(tab, targetPath);
         await ShowResultAsync(Path.GetFileName(targetPath), analysis, result.Check);
+        await WarnLeftoverAsync(result.Saved.LeftoverPath);
         return true;
     }
 
@@ -331,6 +332,25 @@ internal sealed class RedactApplyFlow(
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // The file is written and the tab follows it; a card that cannot be shown must not turn into "not applied".
+        }
+    }
+
+    // The replace had to move the old file aside and could not delete it: it is the unredacted original, so the user is told where it is. The file is
+    // written and the tab follows it; a card that cannot be shown must not turn into "not applied".
+    private async Task WarnLeftoverAsync(string? leftover)
+    {
+        if (leftover is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Tell(PdfStrings.Fill(PdfStrings.RedactLeftoverFormat, leftover));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // See above.
         }
     }
 

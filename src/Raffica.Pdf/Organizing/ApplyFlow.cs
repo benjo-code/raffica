@@ -212,6 +212,7 @@ internal sealed class ApplyFlow(
 
                 // (7) The plan is applied.
                 Completed(tab, session, plan, targetPath);
+                await WarnLeftoverAsync(result.Saved.LeftoverPath);
                 return true;
             }
             catch (SaveFailureException ex) when (ex.Reason == SaveFailureReason.OriginalChanged && !overwrite && choice == ApplyChoice.Original)
@@ -271,6 +272,25 @@ internal sealed class ApplyFlow(
         if (renamed)
         {
             JobRunner.Guarded(() => pathChanged?.Invoke(tab));
+        }
+    }
+
+    // The replace had to move the old file aside and could not delete it: the user is told where it is. The file is written; a card that cannot be shown
+    // must not turn into "not applied".
+    private async Task WarnLeftoverAsync(string? leftover)
+    {
+        if (leftover is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Tell(PdfStrings.Fill(PdfStrings.SaveLeftoverFormat, leftover));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // See above.
         }
     }
 

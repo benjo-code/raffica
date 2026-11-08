@@ -769,6 +769,74 @@ public sealed class DocumentSaverTests : IDisposable
     }
 
     [Fact]
+    public async Task AnOldFileThatCannotBeDeletedAfterTheFallbackIsNamedInTheResult()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows needs the fallback.");
+        var path = Copy("text-basic.pdf");
+        var before = await File.ReadAllBytesAsync(path, Ct);
+        await using var document = await OpenAsync(path);
+        var request = await MarkAsync(document, path, path);
+        var attempts = 0;
+        var faults = new SaveFaults
+        {
+            AtomicReplace = (_, _) => 50,
+            DeleteAside = _ =>
+            {
+                attempts++;
+                throw new IOException("held by another program");
+            },
+            DeleteAsideDelay = TimeSpan.FromMilliseconds(1),
+        };
+
+        var result = await DocumentSaver.SaveAsync(document, engine, request, null, faults, Ct);
+        await using (result.Reopened)
+        {
+            // The save itself succeeded; the old content stays under the named path and the delete was tried four times.
+            Assert.Equal(4, attempts);
+            var leftover = Assert.IsType<string>(result.LeftoverPath);
+            Assert.Equal(folder.Path, Path.GetDirectoryName(leftover));
+            Assert.Matches(@"^\.pw-[0-9a-f]{12}\.old$", Path.GetFileName(leftover));
+            Assert.Equal(before, await File.ReadAllBytesAsync(leftover, Ct));
+            Assert.Single(await result.Reopened.GetAnnotationsAsync(0, Ct));
+        }
+
+        Assert.True((await File.ReadAllBytesAsync(path, Ct)).Length > before.Length);
+    }
+
+    [Fact]
+    public async Task AnOldFileThatIsDeletedOnARetryLeavesNothing()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows needs the fallback.");
+        var path = Copy("text-basic.pdf");
+        await using var document = await OpenAsync(path);
+        var request = await MarkAsync(document, path, path);
+        var attempts = 0;
+        var faults = new SaveFaults
+        {
+            AtomicReplace = (_, _) => 50,
+            DeleteAside = aside =>
+            {
+                if (++attempts < 3)
+                {
+                    throw new IOException("held by another program");
+                }
+
+                File.Delete(aside);
+            },
+            DeleteAsideDelay = TimeSpan.FromMilliseconds(1),
+        };
+
+        var result = await DocumentSaver.SaveAsync(document, engine, request, null, faults, Ct);
+        await using (result.Reopened)
+        {
+            Assert.Equal(3, attempts);
+            Assert.Null(result.LeftoverPath);
+        }
+
+        AssertOnlyFiles(path);
+    }
+
+    [Fact]
     public void RequestTextHidesThePassword()
     {
         var request = new SaveRequest("a.pdf", "b.pdf", null, "s3cret-hôtel", 1, new Dictionary<int, int> { [0] = 1 }, false);

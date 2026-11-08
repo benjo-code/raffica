@@ -497,6 +497,9 @@
   <data name="SaveBusy" xml:space="preserve">
     <value>Es läuft bereits ein Speichervorgang.</value>
   </data>
+  <data name="SaveLeftoverFormat" xml:space="preserve">
+    <value>Die Datei wurde gespeichert. Die alte Fassung liegt noch unter {0}. Sie können sie löschen.</value>
+  </data>
   <data name="SaveJobTitleFormat" xml:space="preserve">
     <value>{0} wird gespeichert</value>
   </data>
@@ -2542,6 +2545,9 @@
   </data>
   <data name="RedactFailOther" xml:space="preserve">
     <value>Die Schwärzungen konnten nicht angewendet werden.</value>
+  </data>
+  <data name="RedactLeftoverFormat" xml:space="preserve">
+    <value>Die geschwärzte Datei wurde geschrieben. Das ungeschwärzte Original liegt noch unter {0}; löschen Sie es.</value>
   </data>
   <data name="RedactFailAdoptFormat" xml:space="preserve">
     <value>Die Schwärzungen wurden geschrieben, aber der Tab konnte die Datei nicht übernehmen. Die Datei unter {0} ist die geschwärzte: Öffnen Sie sie vom Datenträger, um weiterzumachen.</value>
