@@ -181,7 +181,7 @@ internal sealed class ApplyFlow(
             return false;
         }
 
-        // Immediately before the write: no other tab has the picked target open.
+        // Immediately before the write: no other tab has the picked target open. Only Save as is asked: the original is the tab's own path.
         if (choice == ApplyChoice.SaveAs && !await TargetFreeAsync(tab, targetPath))
         {
             return false;

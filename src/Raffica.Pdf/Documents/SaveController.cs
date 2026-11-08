@@ -230,6 +230,12 @@ internal sealed class SaveController
             decided = true;
         }
 
+        // The signed-file card (or the picker behind it) can take long: a tab may have opened the target meanwhile. Asked again, immediately before the write.
+        if (askForTarget && !await TargetFreeAsync(tab, target))
+        {
+            return false;
+        }
+
         return await WriteAsync(tab, target, askForTarget);
     }
 

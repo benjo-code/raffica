@@ -230,7 +230,7 @@ internal sealed class RedactApplyFlow(
             return false;
         }
 
-        // Immediately before the write (and before the rescue pages join the plan): no other tab has the picked target open.
+        // Immediately before the write (and before the rescue pages join the plan): no other tab has the picked target open. Only Save as is asked: the original is the tab's own path.
         if (decision.Choice == ApplyChoice.SaveAs && !await TargetFreeAsync(tab, targetPath))
         {
             return false;

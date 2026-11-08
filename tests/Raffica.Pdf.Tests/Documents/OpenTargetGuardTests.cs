@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
 using Raffica.Core.Viewing;
@@ -11,6 +12,7 @@ using Raffica.Pdf.Tests.Annotating;
 using Raffica.Pdf.Tests.Organizing;
 using Raffica.Pdf.Tests.Printing;
 using Raffica.Pdf.Tests.Redacting;
+using Raffica.Pdf.Tests.Text;
 using Raffica.Pdf.Tests.Viewing;
 using Raffica.Shell.Controls;
 using Raffica.TestSupport;
@@ -245,6 +247,90 @@ public sealed class OpenTargetGuardTests : IDisposable
         Assert.Equal(aBytes, await File.ReadAllBytesAsync(a.Path, Ct));
         Assert.Equal(a.Path, tabA.Path);
         Assert.False(controller.IsSaving);
+    }
+
+    [Fact]
+    public async Task ANullAnswerOnAnUnsupportedOsMeansAnotherFile()
+    {
+        var workspace = NewWorkspace();
+        var self = await AddAsync(workspace, Copy().Path);
+        var other = await AddAsync(workspace, Copy().Path);
+        var elsewhere = Path.Combine(Copy().Folder, "elsewhere.pdf");
+
+        // No identity call exists there (macOS): null is the answer for every pair, so only the spelling decides.
+        Assert.Null(await OpenTargetGuard.FindOtherTabAsync(workspace, self, elsewhere, Ct, (_, _) => null, identitySupported: false));
+        Assert.Same(other, await OpenTargetGuard.FindOtherTabAsync(workspace, self, other.Path!, Ct, (_, _) => null, identitySupported: false));
+
+        // A definite answer is used on every OS.
+        Assert.Same(other, await OpenTargetGuard.FindOtherTabAsync(workspace, self, elsewhere, Ct, (_, _) => true, identitySupported: false));
+        Assert.Same(other, await OpenTargetGuard.FindOtherTabAsync(workspace, self, elsewhere, Ct, (_, _) => null, identitySupported: true));
+    }
+
+    [AvaloniaFact]
+    public async Task SaveAsOntoAFreePathStillWorksWithAnotherTabOpen()
+    {
+        using var a = new TempCopy("text-rich.pdf");
+        using var b = new TempCopy("hello_world.pdf");
+        using var windows = WindowFixture.Create();
+        var tabA = await windows.Window.Flow.OpenAsync(a.Path) ?? throw new InvalidOperationException("did not open");
+        ViewFixture.Pump();
+        Assert.NotNull(await AnnotatedFile.HighlightAsync(tabA.Annotations));
+        await tabA.Annotations.FlushAsync();
+        Assert.NotNull(await windows.Window.Flow.OpenAsync(b.Path));
+        var free = Path.Combine(a.Folder, "free-copy.pdf");
+        var engine = new PdfEngine();
+        var controller = new SaveController(
+            new DialogQueue(windows.Window.Host),
+            _ => Task.FromResult<string?>(free),
+            () => engine,
+            workspace: windows.Window.Workspace);
+
+        Assert.True(await controller.SaveAsAsync(tabA).WaitAsync(TimeSpan.FromSeconds(60), Ct));
+
+        Assert.True(File.Exists(free));
+        Assert.Equal(free, tabA.Path);
+        Assert.Null(windows.Window.Host.ActiveDialog);
+    }
+
+    [AvaloniaFact]
+    public async Task ATabThatOpensTheTargetWhileTheSignedCardIsUpIsRefused()
+    {
+        using var a = new TempCopy("signed-docmdp-1.pdf");
+        using var b = new TempCopy("hello_world.pdf");
+        var bBytes = await File.ReadAllBytesAsync(b.Path, Ct);
+        var time = new ManualTime();
+        using var windows = WindowFixture.Create(time: time);
+        var tabA = await windows.Window.Flow.OpenAsync(a.Path) ?? throw new InvalidOperationException("did not open");
+        var calls = 0;
+        var controller = new SaveController(
+            new DialogQueue(windows.Window.Host),
+            _ => Task.FromResult<string?>(b.Path),
+            () => new PdfEngine(),
+            time: time,
+            runner: (_, _, _, _, _) =>
+            {
+                calls++;
+                throw new InvalidOperationException("must not write");
+            },
+            workspace: windows.Window.Workspace);
+
+        // b.pdf is not open when the picker returns; the signed-file card is up.
+        var save = controller.SaveAsAsync(tabA);
+        await PrintHost.UntilAsync(() => windows.Window.Host.ActiveDialog is { } d && d.GetVisualDescendants().OfType<Button>().Any(x => x.Name == "PART_SaveAnyway"));
+        var signed = windows.Window.Host.ActiveDialog!;
+
+        // While the card is up, a tab opens on the target.
+        Assert.NotNull(await windows.Window.Flow.OpenAsync(b.Path));
+        time.Advance(500);
+        Click(signed, "PART_SaveAnyway");
+
+        await PrintHost.UntilAsync(() => windows.Window.Host.ActiveDialog is { } d && d != signed && d.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Name == "PART_Message"));
+        var note = windows.Window.Host.ActiveDialog!;
+        Assert.Equal("hello_world.pdf is open in another tab. Close it first.", NoteText(note));
+        Click(note, "PART_Ok");
+        Assert.False(await save.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        Assert.Equal(0, calls);
+        Assert.Equal(bBytes, await File.ReadAllBytesAsync(b.Path, Ct));
     }
 
     [AvaloniaFact]
