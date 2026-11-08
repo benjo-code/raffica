@@ -66,6 +66,16 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
 
+      # The newest SDK of the 10.0 band, as in release.yml: the SDK that came with Visual Studio may be older, and its Native
+      # AOT compiler package 10.0.10 fails the restore with NU1903 (GHSA-p3jp-9v83-76w9, fixed in 10.0.14; warnings are errors).
+      - name: Set DOTNET_INSTALL_DIR (no root on the runner)
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:USERPROFILE\.dotnet"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Build, serve, install the old version and wait for the update
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\update-check.ps1 -WaitMinutes ([int]$env:WAIT_MINUTES)
