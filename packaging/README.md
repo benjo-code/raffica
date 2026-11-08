@@ -67,7 +67,13 @@ key and a server on `127.0.0.1`. No release build sets these properties (`packag
    (per-user, in isolated folders; it passed once on the development machine). Limits: it does not exercise a real UAC
    prompt (a per-machine install), and the helper does not hand `--settings-file` on, so a run started with that switch
    cannot complete an update.
-4. Linux: the AppImage updater has only been unit-tested. On a Linux desktop copy the older AppImage somewhere writable,
+4. Linux: the AppImage updater has been unit-tested; the script below was tried in a container with a virtual display and FUSE, with
+   the install done by hand, so the real click and the restart need a desktop. On the owner's laptop the workflow `linux-update-check.yml` does the setup for you (`packaging/linux/update-check.sh`): it builds
+   two test AppImages with a throw-away key, serves the new one on 127.0.0.1, starts the old one through the real FUSE mount
+   and waits for your click on "Install"; then it checks the file (SHA-256, mode, no `.part` leftover, a new process, FUSE start).
+   Start the runner in the desktop session (`./run.sh` in `~/actions-runner`), install `squashfs-tools`, `clang` and the .NET SDK,
+   then `gh workflow run linux-update-check.yml --ref dev` (`-f ref=<branch>` for the code of a branch). By hand, without the
+   workflow: copy the older AppImage somewhere writable,
    run it, and check that the title bar shows "Update available", that "Install" replaces the file (`ls -l` shows the new
    timestamp, the mode stays executable) and that the new version starts with the tabs back. The `.deb` and the portable
    ZIP only point to the download page; check that "Install" is absent there.
