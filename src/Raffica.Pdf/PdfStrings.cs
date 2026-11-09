@@ -37,6 +37,7 @@ internal static class PdfStrings
     public static string OutlineCollapsed => Table.Get("OutlineCollapsed");
     public static string OutlineUntitled => Table.Get("OutlineUntitled");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
+    public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
     public static string TabHome => Table.Get("TabHome");
     public static string TabView => Table.Get("TabView");
     public static string GroupFile => Table.Get("GroupFile");
@@ -570,6 +571,13 @@ internal static class PdfStrings
 
     /// <summary>The automation name of the page view of a document, so a screen reader tells the tabs apart.</summary>
     public static string PageViewName(string title) => PageViewNameFormat.Replace("{0}", title, StringComparison.Ordinal);
+
+    /// <summary>The automation name of the page view with its pages known: the file name, the page the view counts as current (from 1) and the page count.</summary>
+    public static string PageViewName(string title, int page, int pageCount) =>
+        PageViewPageNameFormat
+            .Replace("{0}", title, StringComparison.Ordinal)
+            .Replace("{1}", page.ToString(Culture), StringComparison.Ordinal)
+            .Replace("{2}", pageCount.ToString(Culture), StringComparison.Ordinal);
 
     /// <summary>The reason a file could not be opened, in the UI language (one text per <see cref="PdfOpenError"/> value, no raw exception text).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

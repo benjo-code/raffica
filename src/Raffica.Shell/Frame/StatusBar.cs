@@ -10,7 +10,7 @@ namespace Raffica.Shell.Frame;
 /// <summary>
 /// The cells of the status bar (section 4.4 of the design spec), left to right: save state, position, count, the focus cell (F6
 /// pane navigation; the Alt hint takes the same slot and wins when both are set), the language and, on the right, the zoom cluster
-/// (minus, slider, plus, value). Cells have a fixed width and change in place. The texts come from the app, the bar only lays
+/// (minus, slider, plus, value). The save state and language cells have a set width and change in place, the focus cell takes the free room; the position and count cells size to their text with a minimum (M2.7). The texts come from the app, the bar only lays
 /// them out. <see cref="Zoom"/> is a percentage.
 /// </summary>
 public class StatusBar : TemplatedControl
@@ -45,6 +45,9 @@ public class StatusBar : TemplatedControl
     /// </summary>
     public static readonly DirectProperty<StatusBar, bool> IsFocusTextShownProperty =
         AvaloniaProperty.RegisterDirect<StatusBar, bool>(nameof(IsFocusTextShown), b => b._isFocusTextShown);
+
+    private static readonly string[] TextCells =
+        ["PART_SaveState", "PART_Position", "PART_Count", "PART_FocusText", "PART_HintText", "PART_LanguageText", "PART_Zoom"];
 
     private Slider? _slider;
     private bool _syncing;
@@ -102,8 +105,34 @@ public class StatusBar : TemplatedControl
             ToolTip.SetTip(_slider, new TooltipContent { Title = ShellStrings.ZoomLevel });
         }
 
+        foreach (var name in TextCells)
+        {
+            if (e.NameScope.Find<TextBlock>(name) is { } cell)
+            {
+                ExposeToAssistiveTechnology(cell);
+            }
+        }
+
         Hook(e, "PART_ZoomOut", ShellStrings.ZoomOut, -ZoomStep);
         Hook(e, "PART_ZoomIn", ShellStrings.ZoomIn, ZoomStep);
+    }
+
+    // A TextBlock is plain text for assistive technology and left out of the control view. A cell with a text is a control element named by that
+    // text (the peer of a TextBlock names it by its text), so a screen reader finds the save state, the position, the count and the zoom value;
+    // an empty cell is left out again. The cells change in place and are not live regions: nothing is read out on its own while the user scrolls.
+    private static void ExposeToAssistiveTechnology(TextBlock cell)
+    {
+        AutomationProperties.SetLiveSetting(cell, AutomationLiveSetting.Off);
+        Sync();
+        cell.PropertyChanged += (_, args) =>
+        {
+            if (args.Property == TextBlock.TextProperty)
+            {
+                Sync();
+            }
+        };
+
+        void Sync() => AutomationProperties.SetAccessibilityView(cell, string.IsNullOrEmpty(cell.Text) ? AccessibilityView.Raw : AccessibilityView.Control);
     }
 
     private void Hook(TemplateAppliedEventArgs e, string name, string label, double delta)

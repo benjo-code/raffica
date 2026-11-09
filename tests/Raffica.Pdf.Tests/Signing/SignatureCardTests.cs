@@ -203,7 +203,9 @@ public sealed class SignatureCardTests : IDisposable
             var bottom = hint.TranslatePoint(new Point(0, hint.Bounds.Height), s.Card)!.Value.Y;
             Assert.True(bottom <= s.Card.Bounds.Height, $"tab {tab}: the hint ends at {bottom}, the card at {s.Card.Bounds.Height}");
             Assert.True(s.Card.TranslatePoint(new Point(0, s.Card.Bounds.Height), s.Window)!.Value.Y <= s.Window.ClientSize.Height);
-            Assert.DoesNotContain(s.Card.GetVisualDescendants().OfType<ScrollViewer>(), v => v.FindAncestorOfType<TextBox>() is null); // the name field has its own, inside its template
+            // The name field has its own scroll viewer inside its template; the dialog's body scroll viewer (M2.7) has nothing to scroll here.
+            var scrollers = s.Card.GetVisualDescendants().OfType<ScrollViewer>().Where(v => v.FindAncestorOfType<TextBox>() is null).ToList();
+            Assert.All(scrollers, v => Assert.True(v.Name == "PART_BodyScroll" && v.Extent.Height <= v.Viewport.Height + 0.5, "a scroll viewer in the card that scrolls"));
         }
 
         PdfStrings.Culture = CultureInfo.GetCultureInfo("en");

@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
@@ -68,6 +70,47 @@ public sealed class StatusBarTests
         ControlHarness.Settle(window);
         Assert.Equal(128, Part(bar, "PART_Position").Bounds.Width, 0.01);
         Assert.Equal(144, Part(bar, "PART_Count").Bounds.Width, 0.01);
+    }
+
+    [AvaloniaFact]
+    public void TheCellsWithATextAreControlElementsNamedByTheirText()
+    {
+        var (window, bar) = Show();
+        bar.FocusPane = "Focus: Comments";
+        bar.Language = "German (DE)";
+        ControlHarness.Settle(window);
+
+        foreach (var (name, text) in new[]
+        {
+            ("PART_SaveState", "Saved"), ("PART_Position", "Page 1 of 3"), ("PART_Count", "120 words"), ("PART_FocusText", "Focus: Comments"),
+            ("PART_LanguageText", "German (DE)"), ("PART_Zoom", "100%"),
+        })
+        {
+            var cell = ControlHarness.Part<TextBlock>(bar, name);
+            var peer = ControlAutomationPeer.CreatePeerForElement(cell);
+            Assert.True(peer.IsControlElement(), $"{name} is a control element");
+            Assert.Equal(text, peer.GetName());
+            Assert.Equal(AutomationControlType.Text, peer.GetAutomationControlType());
+
+            // A cell that changes in place is not announced on its own: a screen reader reads it when the user goes there.
+            Assert.Equal(AutomationLiveSetting.Off, AutomationProperties.GetLiveSetting(cell));
+        }
+
+        // The name follows the text.
+        bar.Position = "Page 2 of 3";
+        ControlHarness.Settle(window);
+        Assert.Equal("Page 2 of 3", ControlAutomationPeer.CreatePeerForElement(ControlHarness.Part<TextBlock>(bar, "PART_Position")).GetName());
+    }
+
+    [AvaloniaFact]
+    public void AnEmptyCellIsNotAControlElement()
+    {
+        var (window, bar) = Show();
+        bar.SaveState = null;
+        ControlHarness.Settle(window);
+
+        var peer = ControlAutomationPeer.CreatePeerForElement(ControlHarness.Part<TextBlock>(bar, "PART_SaveState"));
+        Assert.False(peer.IsControlElement(), "an empty cell would be an unnamed element");
     }
 
     [AvaloniaFact]
