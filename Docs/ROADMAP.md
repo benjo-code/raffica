@@ -431,12 +431,12 @@ Goal: The repository can be made public and v0.1.0 released: no fork can reach t
 
 **Tasks**
 - [x] Repository and CI ready to be public: hosted CI once public, `release.yml` accepts only refs on `main` or `dev` and builds from fresh package and SDK folders, digest-pinned image, `SECURITY.md`, `CONTRIBUTING.md`, issue template config, docs without "private", the owner's checklist for the flip (plan Task 1)
-- [ ] Redaction removes page attachments (`/AF`) and article threads (`/B`) and lists as cleaned only what the read-back confirmed (Task 2)
-- [ ] Extract and Split name the document-level content every part keeps; cleaned parts go to the backlog (Task 3)
-- [ ] No write onto a file that another tab has open (Save as, Apply, Redact Apply, Extract); a save while a save runs says so (Task 4)
-- [ ] Core fixes: save check beyond 10,000 annotations, `PdfDate` with `+HH'`, link targets on rotated and cropped pages, saving through file symlinks, the `.old` leftover of the fallback replace, the text-edit check render size, UTF-8 in the Windows console of the CLI (Task 5)
-- [ ] Crash handling: `crash.log` without paths, the window stays open with one card, no loop (Task 6)
-- [ ] Window placement fitted and remembered; single-instance listener from the start; hand-over and close question queued behind an open card; one summary card for many bad files; active tab after an update; End shows the last page (Task 7)
+- [x] Redaction removes page attachments (`/AF`) and article threads (`/B`) and lists as cleaned only what the read-back confirmed (Task 2)
+- [x] Extract and Split name the document-level content every part keeps; cleaned parts go to the backlog (Task 3)
+- [x] No write onto a file that another tab has open (Save as, Apply, Redact Apply, Extract); a save while a save runs says so (Task 4)
+- [x] Core fixes: save check beyond 10,000 annotations, `PdfDate` with `+HH'`, link targets on rotated and cropped pages, saving through file symlinks, the `.old` leftover of the fallback replace, the text-edit check render size, UTF-8 in the Windows console of the CLI (Task 5)
+- [x] Crash handling: `crash.log` without paths, the window stays open with one card, no loop (Task 6)
+- [x] Window placement fitted and remembered; single-instance listener from the start; hand-over and close question queued behind an open card; one summary card for many bad files; active tab after an update; End shows the last page (Task 7)
 - [ ] Start view with one working "Open PDF" tile, the "+" opens a file, the title-bar field is named "Search commands" and can search the document (Task 8)
 - [ ] One Lucide icon per meaning for every command, pinned by `CommandIconTests` (Task 9)
 - [ ] The ribbon switches to compact and scrolls instead of clipping, shows toggle states, shorter German labels, aligned group labels and key tips (Task 10)
