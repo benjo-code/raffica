@@ -146,9 +146,10 @@ public sealed class DocumentTabsOverflowTests
         ControlHarness.Settle(window);
         var all = Part<Button>(tabs, "PART_AllTabs");
 
-        var flyout = Assert.IsAssignableFrom<MenuFlyout>(all.Flyout);
-        flyout.ShowAt(all);
+        var flyout = tabs.TabList;
+        all.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         ControlHarness.Settle(window);
+        Assert.True(flyout.IsOpen);
         var items = flyout.Items.OfType<MenuItem>().ToList();
         Assert.Equal(30, items.Count);
         Assert.Equal(tabs.Items.Select(t => t.Title), items.Select(i => (string)i.Header!));
@@ -163,6 +164,29 @@ public sealed class DocumentTabsOverflowTests
         Assert.Same(tabs.Items[17], tabs.Selected);
         var view = DocumentTabsTests.Views(tabs).First(v => v.Model == tabs.Items[17]);
         Assert.False(AutomationOf(view).IsOffscreen());
+    }
+
+    // The Native AOT build showed an empty menu when the items were added from the Opening event, so the items are there before the menu is asked to open.
+    [AvaloniaFact]
+    public void TheListHoldsEveryTabBeforeTheMenuOpens()
+    {
+        var (window, tabs) = ShowMany(14);
+        tabs.Selected = tabs.Items[3];
+        ControlHarness.Settle(window);
+        var all = Part<Button>(tabs, "PART_AllTabs");
+        var flyout = tabs.TabList;
+        var countWhenOpening = -1;
+        flyout.Opening += (_, _) => countWhenOpening = flyout.Items.Count;
+
+        Assert.Null(all.Flyout);
+        all.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        ControlHarness.Settle(window);
+
+        Assert.Equal(14, countWhenOpening);
+        Assert.All(flyout.Items.OfType<MenuItem>(), item => Assert.IsType<string>(item.Header));
+        Assert.True(flyout.IsOpen);
+        flyout.Hide();
+        ControlHarness.Settle(window);
     }
 
     private static AutomationPeer AutomationOf(Control control) => ControlAutomationPeer.CreatePeerForElement(control);

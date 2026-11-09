@@ -32,6 +32,7 @@ public class DocumentTabs : TemplatedControl
     private readonly Button _scrollLeft;
     private readonly Button _scrollRight;
     private readonly Button _allTabs;
+    private readonly MenuFlyout _list;
     private readonly TabsLayout _layout;
     private Border? _host;
     private string _newLabel = string.Empty;
@@ -68,10 +69,8 @@ public class DocumentTabs : TemplatedControl
 
         _scrollLeft = ScrollButton("PART_ScrollLeft", "Raffica.Icon.ChevronLeft", ShellStrings.TabsScrollLeft, () => ScrollToNext(-1));
         _scrollRight = ScrollButton("PART_ScrollRight", "Raffica.Icon.ChevronRight", ShellStrings.TabsScrollRight, () => ScrollToNext(1));
-        _allTabs = ScrollButton("PART_AllTabs", "Raffica.Icon.ChevronDown", ShellStrings.TabsAll, null);
-        var list = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
-        list.Opening += (_, _) => RebuildList(list);
-        _allTabs.Flyout = list;
+        _list = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        _allTabs = ScrollButton("PART_AllTabs", "Raffica.Icon.ChevronDown", ShellStrings.TabsAll, ShowList);
         _scroll.ScrollChanged += (_, _) => UpdateScrollButtons();
 
         _layout = new TabsLayout(_scroll, _plus, _strip, _scrollLeft, _scrollRight, _allTabs, UpdateScrollButtons);
@@ -139,7 +138,16 @@ public class DocumentTabs : TemplatedControl
         _scrollRight.IsEnabled = _scroll.Offset.X < max - 0.5;
     }
 
-    // Built when it opens: the names are the titles of the open tabs now, the selected one is marked.
+    // The items are in the menu before it is shown: the names are the titles of the open tabs now, the selected one is marked. Filling the menu from its Opening event
+    // left the menu empty in the Native AOT build (the presenter was measured without items), so the button does not own the flyout: its click builds the list and shows it.
+    internal MenuFlyout TabList => _list;
+
+    private void ShowList()
+    {
+        RebuildList(_list);
+        _list.ShowAt(_allTabs);
+    }
+
     private void RebuildList(MenuFlyout list)
     {
         list.Items.Clear();
