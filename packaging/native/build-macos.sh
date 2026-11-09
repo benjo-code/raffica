@@ -39,14 +39,21 @@ fetch() { # url tag commit dir
 fetch "$LEPTONICA_URL" "$LEPTONICA_TAG" "$LEPTONICA_COMMIT" "$work/leptonica"
 fetch "$TESSERACT_URL" "$TESSERACT_TAG" "$TESSERACT_COMMIT" "$work/tesseract"
 
-# Cross build pitfall (the x86_64 library is built on an arm64 runner): CMake sets CMAKE_SYSTEM_PROCESSOR from the HOST (arm64), and
-# Tesseract's CMakeLists.txt reads it to choose the SIMD sources (it takes CMAKE_OSX_ARCHITECTURES only when the variable is empty).
-# On the arm64 host it would enable NEON and the link of an x86_64 library fails (tesseract::DotProductNEON undefined).
-# So the target processor is set explicitly. With x86_64 Tesseract then compiles the AVX, AVX2, AVX512F, FMA and SSE4.1 sources with
-# their own per-file -m flags and picks one at run time (simddetect); -march=native only exists behind ENABLE_NATIVE, which is OFF
-# (also passed explicitly, a -march flag would crash the library on an older Intel Mac).
+# Cross build pitfall (the x86_64 library is built on an arm64 runner): Tesseract's CMakeLists.txt chooses the SIMD sources from
+# CMAKE_SYSTEM_PROCESSOR, and CMake sets that from the HOST (arm64) whenever CMAKE_SYSTEM_NAME is not given, so a -D on the command line
+# is overwritten by CMakeDetermineSystem (seen in CI: "CMAKE_SYSTEM_PROCESSOR=<arm64>", HAVE_NEON TRUE, the link of the x86_64 library
+# fails on tesseract::DotProductNEON). Setting CMAKE_SYSTEM_NAME instead would turn the configure into a cross compile (try_run is no
+# longer run and needs preset results, find roots and tool lookup change) for both projects. So the build stays native and a small file,
+# included by CMAKE_PROJECT_INCLUDE as the last step of project(), sets CMAKE_SYSTEM_PROCESSOR to the target; the Tesseract
+# configure output is checked for it. With x86_64 Tesseract then compiles the AVX, AVX2, AVX512F, FMA and SSE4.1 sources with their own
+# per-file -m flags and picks one at run time (simddetect); -march=native only exists behind ENABLE_NATIVE, which is OFF (also passed
+# explicitly: a -march flag would crash the library on an older Intel Mac). Leptonica reads no processor variable and is left alone.
+cat > "$work/target-processor.cmake" <<CMAKE
+set(CMAKE_SYSTEM_PROCESSOR "$arch")
+message(STATUS "build-macos: CMAKE_SYSTEM_PROCESSOR set to $arch for the target")
+CMAKE
 common=(-G Ninja -DCMAKE_BUILD_TYPE=Release
-  "-DCMAKE_OSX_ARCHITECTURES=$arch" "-DCMAKE_SYSTEM_PROCESSOR=$arch" -DENABLE_NATIVE=OFF "-DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_DEPLOYMENT_TARGET"
+  "-DCMAKE_OSX_ARCHITECTURES=$arch" -DENABLE_NATIVE=OFF "-DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_DEPLOYMENT_TARGET"
   "-DCMAKE_IGNORE_PREFIX_PATH=/opt/homebrew;/usr/local")
 
 cmake -S "$work/leptonica" -B "$work/lept-build" "${common[@]}" \
@@ -55,12 +62,14 @@ cmake -S "$work/leptonica" -B "$work/lept-build" "${common[@]}" \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 cmake --build "$work/lept-build" --target install
 
-cmake -S "$work/tesseract" -B "$work/tess-build" "${common[@]}" \
+cmake -S "$work/tesseract" -B "$work/tess-build" "${common[@]}" "-DCMAKE_PROJECT_INCLUDE=$work/target-processor.cmake" \
   -DBUILD_SHARED_LIBS=ON -DSW_BUILD=OFF -DOPENMP_BUILD=OFF -DDISABLE_CURL=ON -DDISABLE_ARCHIVE=ON \
   -DBUILD_TRAINING_TOOLS=OFF -DBUILD_TESTS=OFF -DGRAPHICS_DISABLED=ON -DENABLE_LTO=OFF \
   -DLeptonica_DIR="$work/prefix/lib/cmake/leptonica" \
   -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON -DCMAKE_INSTALL_NAME_DIR=@loader_path \
-  "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-headerpad_max_install_names -Wl,-dead_strip"
+  "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-headerpad_max_install_names -Wl,-dead_strip" | tee "$work/tess-configure.log"
+# The SIMD choice must follow the target: Tesseract prints the processor it read.
+grep -q "CMAKE_SYSTEM_PROCESSOR=<$arch>" "$work/tess-configure.log" || { echo "build-macos: Tesseract configured for another processor than $arch" >&2; exit 1; }
 cmake --build "$work/tess-build" --target libtesseract
 
 lib=$(find "$work/tess-build" -maxdepth 1 -name 'libtesseract*.dylib' -type f | head -1)
