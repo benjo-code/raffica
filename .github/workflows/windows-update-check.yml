@@ -61,6 +61,31 @@ jobs:
           if (-not $refOk) { throw "ref '$r' is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)" }
           if ($env:WAIT_MINUTES -cnotmatch '^[0-9]{1,3}$' -or [int]$env:WAIT_MINUTES -lt 1 -or [int]$env:WAIT_MINUTES -gt 120) { throw 'wait_minutes must be 1 to 120' }
 
+      # The `ref` input is built and run on the owner's own machine, so it must be code of this repository and never code of a fork
+      # or a pull request: a branch name must exist in this repository, a commit id must be the head of main or dev or an ancestor
+      # of it (compare status identical or behind, the rule of release.yml). Refused before anything is fetched. No `gh` is needed.
+      - name: Check that the ref is code of this repository
+        if: inputs.ref != ''
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $r = ([string]$env:REF_INPUT) -replace '^refs/heads/', ''
+          if ($r -cmatch '^[0-9a-f]{40}$') {
+            foreach ($branch in @('main', 'dev')) {
+              try { $status = (Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$env:GH_REPO/compare/$branch...$r").status } catch { $status = '' }
+              if ($status -ceq 'identical' -or $status -ceq 'behind') { Write-Host "Ref is on $branch ($status)"; exit 0 }
+            }
+            throw 'the commit is on neither main nor dev: only commits of these branches are built on this runner'
+          }
+          try { $null = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$env:GH_REPO/branches/$r" } catch {
+            throw 'the ref is not a branch of this repository and not a 40-character commit id'
+          }
+          Write-Host 'Ref is a branch of this repository'
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}

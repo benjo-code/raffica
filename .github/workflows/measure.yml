@@ -142,6 +142,58 @@ jobs:
           [[ "$ref_ok" == true ]] || { echo '::error title=Measure::ref is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)'; exit 1; }
           if [[ -n "$REF_INPUT" && "$TARGET" == reference ]]; then echo '::error title=Measure::ref is not for the target reference (it takes reference_ref)'; exit 1; fi
 
+      # The `ref` input is built and run on the owner's own machine, so it must be code of this repository and never code of a fork
+      # or a pull request (the head commit of a fork's pull request can be fetched by its id): a branch name must exist in this
+      # repository (a fork cannot create one), a commit id must be the head of main or dev or an ancestor of it (compare status
+      # identical or behind, the rule of release.yml). Refused before anything is fetched. No `gh` is needed on the runner.
+      - name: Check that the ref is code of this repository (Windows)
+        if: inputs.ref != '' && inputs.target != 'reference' && runner.os == 'Windows'
+        shell: powershell
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $r = ([string]$env:REF_INPUT) -replace '^refs/heads/', ''
+          if ($r -cmatch '^[0-9a-f]{40}$') {
+            foreach ($branch in @('main', 'dev')) {
+              try { $status = (Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$env:GH_REPO/compare/$branch...$r").status } catch { $status = '' }
+              if ($status -ceq 'identical' -or $status -ceq 'behind') { Write-Host "Ref is on $branch ($status)"; exit 0 }
+            }
+            Write-Host '::error title=Measure::the commit is on neither main nor dev: only commits of these branches are built on this runner'
+            exit 1
+          }
+          try { $null = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$env:GH_REPO/branches/$r" } catch {
+            Write-Host '::error title=Measure::the ref is not a branch of this repository and not a 40-character commit id'
+            exit 1
+          }
+          Write-Host 'Ref is a branch of this repository'
+          exit 0
+
+      - name: Check that the ref is code of this repository (Linux, macOS)
+        if: inputs.ref != '' && inputs.target != 'reference' && runner.os != 'Windows'
+        shell: bash
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          r="${REF_INPUT#refs/heads/}"
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$GH_REPO/$1"; }
+          if [[ "$r" =~ ^[0-9a-f]{40}$ ]]; then
+            for branch in main dev; do
+              status="$(api "compare/$branch...$r" 2>/dev/null | grep -m1 -E '^  "status":' | sed -E 's/.*: *"([a-z]+)".*/\1/' || true)"
+              if [[ "$status" == identical || "$status" == behind ]]; then echo "Ref is on $branch ($status)"; exit 0; fi
+            done
+            echo '::error title=Measure::the commit is on neither main nor dev: only commits of these branches are built on this runner'
+            exit 1
+          fi
+          api "branches/$r" >/dev/null 2>&1 || { echo '::error title=Measure::the ref is not a branch of this repository and not a 40-character commit id'; exit 1; }
+          echo 'Ref is a branch of this repository'
+
       # Target reference: the inputs are checked before anything is fetched or run. The values travel in environment
       # variables, never inside the script text, and are not echoed (a value could carry a workflow command).
       - name: Validate the reference inputs (Windows)
