@@ -27,6 +27,8 @@ namespace Raffica.Pdf.Commands;
  *   text.selectall -> text-select
  *   text.copy -> copy
  *   help.shortcuts -> circle-help
+ *   doc.info -> info
+ *   app.update -> refresh-cw
  *   edit.undo -> undo
  *   edit.redo -> redo
  *   annotate.highlight -> highlighter
@@ -84,7 +86,7 @@ namespace Raffica.Pdf.Commands;
  *   layout.continuous -> gallery-vertical
  *   layout.single -> file
  *   layout.two -> book-open
- *   layout.twocover -> book-open-text
+ *   layout.twocover -> book-copy
  *   page.dark -> moon
  *   panes.pages -> panel-left
  *   panes.outline -> list-tree
@@ -202,7 +204,9 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.SelectAll, "CmdSelectAll", "TextSelect", "61", Cmd(Key.A, "A"))
             .Add(PdfCommandIds.Copy, "CmdCopy", "Copy", "62", Cmd(Key.C, "C"));
         home.Group("GroupHelp", "7")
-            .Add(PdfCommandIds.Help, "CmdHelp", "CircleHelp", "71", Plain(Key.F1, "F1"));
+            .Add(PdfCommandIds.Help, "CmdHelp", "CircleHelp", "71", Plain(Key.F1, "F1"))
+            .Add(PdfCommandIds.DocumentInfo, "CmdDocumentInfo", "Info", "72")
+            .Add(PdfCommandIds.Update, "CmdCheckForUpdates", "RefreshCw", "73");
         home.Group("GroupHistory", "8")
             .Add(PdfCommandIds.Undo, "CmdUndo", "Undo", "81", Cmd(Key.Z, "Z", repeat: true))
             .Add(PdfCommandIds.Redo, "CmdRedo", "Redo", "82", Cmd(Key.Z, "Z", shift: true, repeat: true, also: Cmd(Key.Y, "Y", repeat: true)));
@@ -304,7 +308,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.Continuous, "CmdContinuous", "GalleryVertical", "21", toggle: true)
             .Add(PdfCommandIds.SinglePage, "CmdSinglePage", "File", "22", toggle: true)
             .Add(PdfCommandIds.TwoPages, "CmdTwoPages", "BookOpen", "23", toggle: true)
-            .Add(PdfCommandIds.TwoPagesCover, "CmdTwoPagesCover", "BookOpenText", "24", toggle: true);
+            .Add(PdfCommandIds.TwoPagesCover, "CmdTwoPagesCover", "BookCopy", "24", toggle: true);
         view.Group("GroupPage", "3")
             .Add(PdfCommandIds.DarkPage, "CmdDarkPage", "Moon", "31", Cmd(Key.D, "D", shift: true), CommandSize.Large, toggle: true);
         view.Group("GroupPanes", "4")

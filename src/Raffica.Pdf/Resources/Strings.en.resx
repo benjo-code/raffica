@@ -3264,6 +3264,9 @@
   <data name="UpdateCouldNotCheck" xml:space="preserve">
     <value>Could not check for updates. Check your connection and try again later.</value>
   </data>
+  <data name="CmdDocumentInfo" xml:space="preserve">
+    <value>Document info</value>
+  </data>
   <data name="CmdCheckForUpdates" xml:space="preserve">
     <value>Check for updates</value>
   </data>

@@ -3248,6 +3248,9 @@
   <data name="UpdateCouldNotCheck" xml:space="preserve">
     <value>Die Suche nach Updates war nicht möglich. Prüfen Sie Ihre Verbindung und versuchen Sie es später erneut.</value>
   </data>
+  <data name="CmdDocumentInfo" xml:space="preserve">
+    <value>Dokumentinfo</value>
+  </data>
   <data name="CmdCheckForUpdates" xml:space="preserve">
     <value>Nach Updates suchen</value>
   </data>

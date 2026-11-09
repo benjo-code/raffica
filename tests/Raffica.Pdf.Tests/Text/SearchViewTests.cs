@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Raffica.Core.Text;
 using Raffica.Pdf.Tests.Viewing;
@@ -303,5 +304,27 @@ public sealed class SearchViewTests
 
         Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(bar.Input)));
         Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(bar.MatchCaseToggle)));
+    }
+
+    [AvaloniaFact]
+    public async Task TheFindBarUsesTheArrowsOfTheCatalogForPreviousAndNext()
+    {
+        using var window = WindowFixture.Create();
+        await window.OpenAsync("text-rich.pdf");
+        window.Window.ShowSearchBar();
+        ViewFixture.Pump();
+        var bar = window.Window.ShownSearchBar!;
+
+        Geometry Icon(string name)
+        {
+            var icon = bar.GetVisualDescendants().OfType<Raffica.Shell.Controls.StrokeIcon>().First(i => i.FindAncestorOfType<Button>()?.Name == name);
+            Assert.Null(icon.RenderTransform);
+            return icon.Data!;
+        }
+
+        var up = Application.Current!.FindResource("Raffica.Icon.ArrowUp");
+        var down = Application.Current!.FindResource("Raffica.Icon.ArrowDown");
+        Assert.Same(up, Icon("PART_Previous"));
+        Assert.Same(down, Icon("PART_Next"));
     }
 }

@@ -745,6 +745,7 @@ internal static class PdfStrings
     public static string UpdateUpToDateFormat => Table.Get("UpdateUpToDateFormat");
     public static string UpdateCouldNotCheck => Table.Get("UpdateCouldNotCheck");
     public static string CmdCheckForUpdates => Table.Get("CmdCheckForUpdates");
+    public static string CmdDocumentInfo => Table.Get("CmdDocumentInfo");
     public static string UpdateFailureUnreachable => Table.Get("UpdateFailureUnreachable");
     public static string UpdateFailureWithdrawn => Table.Get("UpdateFailureWithdrawn");
     public static string UpdateFailureSuperseded => Table.Get("UpdateFailureSuperseded");

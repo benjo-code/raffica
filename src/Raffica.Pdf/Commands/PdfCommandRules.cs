@@ -88,7 +88,7 @@ internal sealed class PdfCommandRules(
     /// <summary>Whether the command may run now (not counting whether an action is wired behind it).</summary>
     public bool Allows(string id) => id switch
     {
-        PdfCommandIds.Open or PdfCommandIds.Settings or PdfCommandIds.Help => true,
+        PdfCommandIds.Open or PdfCommandIds.Settings or PdfCommandIds.Help or PdfCommandIds.Update => true,
         PdfCommandIds.NextTab or PdfCommandIds.PreviousTab => tabCount() > 1,
         PdfCommandIds.Print => hasDocument() && !PrintForbidden() && !NoPrinter() && !Ask(saveRunning, false) && !Ask(ocrRunning, false),
         PdfCommandIds.Save => hasDocument() && Ask(isDirty, false) && !Ask(busySaving, false) && !Ask(ocrRunning, false),

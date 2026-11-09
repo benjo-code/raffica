@@ -1,6 +1,6 @@
 # Lucide – third-party license
 
-Raffica draws its icons from **Lucide**. The path data of 88 icons lies in `src/Raffica.Shell/Styles/Icons.axaml` (resource keys `Raffica.Icon.<Name>`); `StrokeIcon` draws them at 16 or 20 px with a 1.5 px stroke.
+Raffica draws its icons from **Lucide**. The path data of 89 icons lies in `src/Raffica.Shell/Styles/Icons.axaml` (resource keys `Raffica.Icon.<Name>`); `StrokeIcon` draws them at 16 or 20 px with a 1.5 px stroke.
 
 ## Source and license
 

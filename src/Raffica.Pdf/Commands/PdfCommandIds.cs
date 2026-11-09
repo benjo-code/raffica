@@ -14,8 +14,11 @@ internal static class PdfCommandIds
     /// <summary>The About card (version, license, third-party notices): a palette entry and a button of the help card, no ribbon button (so it is not in the catalog).</summary>
     public const string About = "app.about";
 
-    /// <summary>"Check for updates" (a palette entry; the title bar button of an offer opens the same flow): checks now and offers the update. No ribbon button (so it is not in the catalog).</summary>
+    /// <summary>"Check for updates" (a button of the Help group of the Home tab and a palette entry; the title bar button of an offer opens the same flow): checks now and offers the update.</summary>
     public const string Update = "app.update";
+
+    /// <summary>"Document info" (a button of the Help group of the Home tab and a palette entry): the card with the facts about the open document.</summary>
+    public const string DocumentInfo = "doc.info";
 
     public const string Search = "find.search";
     public const string SearchNext = "find.next";

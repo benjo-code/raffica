@@ -257,7 +257,9 @@ internal sealed partial class PdfWindow
         OcrLanguages: ShowLanguageFiles,
         OcrCancel: CancelOcr,
         TextEdit: ToggleTextEdit,
-        TextEditDone: FinishTextEdit);
+        TextEditDone: FinishTextEdit,
+        DocumentInfo: () => _ = GuardAsync(ShowDocumentInfoAsync),
+        CheckForUpdates: CheckForUpdates);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,

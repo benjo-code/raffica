@@ -41,9 +41,9 @@ internal sealed class SearchBar : Border
         _summary.Classes.Add("search-summary");
         AutomationProperties.SetName(_summary, PdfStrings.SearchBarName);
         AutomationProperties.SetLiveSetting(_summary, AutomationLiveSetting.Polite);
-        _previous = CreateIconButton("PART_Previous", "Raffica.Icon.ChevronDown", PdfStrings.SearchPreviousHit, rotate: true);
-        _next = CreateIconButton("PART_Next", "Raffica.Icon.ChevronDown", PdfStrings.SearchNextHit, rotate: false);
-        _close = CreateIconButton("PART_Close", "Raffica.Icon.X", PdfStrings.SearchCloseBar, rotate: false);
+        _previous = CreateIconButton("PART_Previous", "Raffica.Icon.ArrowUp", PdfStrings.SearchPreviousHit);
+        _next = CreateIconButton("PART_Next", "Raffica.Icon.ArrowDown", PdfStrings.SearchNextHit);
+        _close = CreateIconButton("PART_Close", "Raffica.Icon.X", PdfStrings.SearchCloseBar);
 
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(_input);
@@ -197,15 +197,10 @@ internal sealed class SearchBar : Border
         return toggle;
     }
 
-    private static Button CreateIconButton(string name, string iconKey, string accessibleName, bool rotate)
+    private static Button CreateIconButton(string name, string iconKey, string accessibleName)
     {
         var icon = new StrokeIcon { Size = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         icon.Bind(StrokeIcon.DataProperty, icon.GetResourceObservable(iconKey, value => value as Geometry));
-        if (rotate)
-        {
-            icon.RenderTransform = new RotateTransform(180);
-        }
-
         var button = new Button { Name = name, Content = icon, VerticalAlignment = VerticalAlignment.Center };
         button.Classes.Add("icon");
         AutomationProperties.SetName(button, accessibleName);

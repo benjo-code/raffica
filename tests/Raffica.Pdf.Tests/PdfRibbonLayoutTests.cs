@@ -84,6 +84,7 @@ public sealed class PdfRibbonLayoutTests
     private static bool Reveal(PdfWindow window, RibbonButton button)
     {
         var scroller = Scroller(window);
+        Assert.True(button.Bounds.Width > 0, $"{button.Definition.Id} has no size: a button that is not laid out cannot count as reachable");
         for (var i = 0; i < 60 && !FullyVisible(button, scroller); i++)
         {
             var bounds = BoundsIn(button, scroller);

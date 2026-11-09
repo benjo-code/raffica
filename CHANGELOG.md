@@ -33,6 +33,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF: a ribbon label breaks only at a space or hyphen and never in the middle of a word, and the German names are shorter ("Anmerken", "Änderungen anwenden", "Felder hervorheben", "Rückgängig", "Wiederholen", "Verwerfen", "Als Bilder exportieren …", "Aus Datei einfügen …").
 - Raffica PDF: the View tab buttons now show what is on: the zoom fit mode (page width, whole page, actual size), the page layout, the dark page and the pane that is open are drawn pressed, and assistive technology reads them as switches that are on or off; the ribbon tabs report which one is selected.
 - Raffica PDF: the group names of the ribbon now sit on one row in every group, the key tip of a command (Alt) hangs below its button instead of covering its text, the zoom buttons and slider of the status bar have tooltips, scrolling the ribbon works with a horizontal wheel too, and the search results no longer list an entry twice that is also a ribbon command.
+- Raffica PDF: the Help group of the Home tab now also holds "Document info" and "Check for updates"; the close button of the form notice can be reached with the keyboard and Esc closes the notice; the two-page-with-cover layout and the find bar previous and next buttons have their own icons.
 
 ### Fixed
 

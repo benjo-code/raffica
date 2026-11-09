@@ -1,5 +1,11 @@
 using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
+using Raffica.Pdf.Commands;
+using Raffica.Pdf.Tests.Viewing;
+using Raffica.Shell.Frame;
 using Raffica.Shell.Tests.Frame;
 using Xunit;
 
@@ -56,5 +62,59 @@ public sealed class PdfRibbonLabelTests
         }
 
         Assert.True(clipped.Count == 0, $"[{language} {width}] clipped:{Environment.NewLine}{string.Join(Environment.NewLine, clipped)}");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public async Task TheGroupLabelsOfEveryTabSitOnOneBottomRow(string language)
+    {
+        using var f = await PdfRibbonLayoutTests.ShowWithDocumentAsync(language, 1920);
+        var window = f.Window;
+        foreach (var tab in window.Ribbon.Definition!.Tabs)
+        {
+            window.Ribbon.ActiveTab = tab;
+            PdfRibbonLayoutTests.Layout(window);
+            Assert.False(window.Ribbon.IsEffectivelyCompact, $"{tab.Name} is compact at 1920");
+            var labels = window.Ribbon.Band.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("ribbon-group-label")).ToList();
+            Assert.Equal(tab.Groups.Count, labels.Count);
+            var tops = labels.Select(l => l.TranslatePoint(default, window)!.Value.Y).ToList();
+            Assert.True(tops.Max() - tops.Min() < 0.5, $"[{language}] {tab.Name}: the group labels sit at different heights: {string.Join(", ", tops.Select(t => $"{t:F1}"))}");
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void TheHomeHelpGroupHoldsHelpDocumentInfoAndCheckForUpdates(string language)
+    {
+        var culture = CultureInfo.GetCultureInfo(language);
+        Raffica.Shell.Localization.ShellStrings.Culture = culture;
+        PdfStrings.Culture = culture;
+        using var f = WindowFixture.Create(width: 1920, height: 700);
+
+        var home = f.Window.Ribbon.Definition!.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter);
+        var help = home.Groups.Single(g => g.Digit == "7");
+        Assert.Equal(["help.shortcuts", "doc.info", "app.update"], help.Commands.Select(c => c.Id));
+        Assert.Equal(["71", "72", "73"], help.Commands.Select(c => c.FieldCode));
+        Assert.Equal(PdfStrings.GetIn("CmdHelp", culture), help.Commands[0].Name);
+        Assert.Equal(PdfStrings.GetIn("InfoTitle", culture), help.Commands[1].Name);
+        Assert.Equal(PdfStrings.GetIn("CmdCheckForUpdates", culture), help.Commands[2].Name);
+        Assert.All(help.Commands, c => Assert.NotNull(c.Run));
+    }
+
+    [AvaloniaFact]
+    public async Task DocumentInfoNeedsADocumentAndCheckForUpdatesDoesNot()
+    {
+        using var f = WindowFixture.Create(width: 1920, height: 700);
+        CommandDefinition Command(string id) =>
+            f.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == id);
+
+        Assert.False(Command("doc.info").IsEnabled);
+        Assert.True(Command("app.update").IsEnabled);
+
+        await f.OpenAsync("text-rich.pdf");
+        Assert.True(Command("doc.info").IsEnabled);
+        Assert.True(Command("app.update").IsEnabled);
     }
 }
