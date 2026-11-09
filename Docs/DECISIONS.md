@@ -15,6 +15,24 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-09 – Raffica PDF: Windows start time at the final head and before the ribbon work (M2.7)
+**Context:** The final review of M2.7 asked whether the Windows excess over the budgets (see "Raffica PDF: release readiness measurements (M2.7)") comes from the ribbon work of this milestone (the full band is built once and then the compact one at the default width), and noted that those numbers were taken at `1db9043`, not at the final head.
+**Decision:** Two more `measure.yml` runs on the Windows PC (target `pdf`, 10 runs per case, `check` passes in both): the final dev head `3bf52c8` (run 42625828393) and `d77e784` (the merge of #50, the last commit before any ribbon change of M2.7; run 42625887333, input `ref`).
+
+| Case | `d77e784` (before the ribbon work) | `3bf52c8` (final head) | Budget / limit |
+|---|---|---|---|
+| Cold start (ms) | 225.33 | 218.24 | 200 / 250 |
+| Warm start (ms) | 219.09 | 225.47 | 210 / 262.5 |
+| 1000-page file (ms) | 213.9 | 217.45 | 200 / 250 |
+| Second file (ms) | 19.08 | 19.3 | 20 / 25 |
+| Scroll p99 (ms) | 18.05 | 18.1 | 20 / 25 |
+| Idle memory (MiB) | 39.63 | 41.79 | 40 / 50 |
+| Published size (MiB) | 59.87 | 60.09 | 66 / 82.5 |
+
+The start rows are the same before and after the ribbon work, inside the run-to-run spread of about 15 ms: the ribbon change costs no measurable start time, and the excess over the budgets (cold 195 ms, warm 202 ms and 1000 pages 191 ms at M2.1) was already there at `d77e784`, so it comes from M2.2 to M2.6 and the first part of M2.7 (not bisected further because no limit is exceeded). Idle memory grows by 2.2 MiB through the work of #51 to #53 (39.63 to 41.79 MiB, budget 40 MiB, limit 50 MiB): the ribbon with its icons, the status bar and the cards are the candidates; this was not narrowed down. The size is under its budget in both.
+**Rationale:** One run before and one after the suspected change, on the same machine and the same day, separates the change from the drift. The result is a finding for the owner, not a loosened budget: if the budgets are to be met again, bisect from M2.1 (`measure.yml ... -f ref=<40-hex sha>` over the merge commits of `dev`).
+**Rejected alternatives:** choosing the layout before the first ribbon build (it would fix a cost that was not measured); raising the budgets.
+
 ## 2026-11-09 – Raffica PDF: release readiness measurements (M2.7)
 **Context:** The review of 2026-11-08 found the Linux measurement run 42502138965 red (cold start 334 ms against the limit of 287.5 ms, second file 58 ms against 50 ms) and a control run of the predecessor (42503638604) that suggested the laptop was 31 to 37 % slower than on 2026-11-04. Milestone 2.7 therefore had to answer: is that a regression of the app, or of the machine? `measure.yml` got the input `ref` (a commit or branch to measure, validated like the update-check workflows) so that a bisect would have been possible.
 **Decision:** On 2026-11-09 `measure.yml` ran on `dev` (head `1db9043`, the state with Tasks 1 to 14 merged) on the two binding machines (Windows: `runner-dotnet-windows-gpu`, Linux: the HP ProBook `runner-probook-benni`), target `pdf` and the predecessor Pagewing v1.0.0 (pinned by SHA) as the control, each with 10 runs per case and the machines idle. Result of `check --target pdf`: **every case is `ok` (inside its limit) on both machines.** No bisect was needed and none was run.
