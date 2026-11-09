@@ -54,5 +54,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF: when Windows keeps the old file after a save that replaced a file in use (an old copy named `.pw-...old`), a card now names that path; for a redaction it says the unredacted original is still there and must be deleted.
 - Raffica PDF text editing: a page of extreme size (a few billion points on one side) is refused with the note that the page cannot be rewritten, instead of asking for a picture of a billion pixels for the check.
 - Raffica command line on Windows: text with umlauts and other non-ASCII characters now shows correctly in a console (redirected output stays UTF-8 as before).
+- Raffica PDF forms: an editable combo box (a choice list that also takes your own text) can now be typed into; before, the field opened without a text box. A value that is already there is shown when the editor opens.
 
 ### Removed

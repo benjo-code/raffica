@@ -7,7 +7,9 @@
     text.secondary), open (edge text.primary) and disabled (surface.band, text.disabled) states as the text field. The popup is a
     menu-style list: surface.page, 1 px border.control, 3 px radius, 4 px above and below, 32 px rows, no shadow (the popup
     window asks for no system shadow either). The selected row is a list row: selection.tint with the 3 px ink edge on the left
-    and weight 600; hover is state.hover. An editable select is not part of this milestone, so the template has no text box.
+    and weight 600; hover is state.hover. An editable select (IsEditable, used by the editable combo boxes of PDF forms) shows
+    PART_EditableTextBox instead of the selection box item: the shell text field without its own edge and fill, so the box edge
+    is the combo box's and turns text.primary while the text box has the focus. Without IsEditable the text box is hidden.
     Enter, Space, F4 and Alt+Down open the list in the framework; the framework's Down and Up change the selection, so the
     SelectBox control (same theme) opens the list on them instead.
   -->
@@ -49,11 +51,28 @@
                        Foreground="{TemplateBinding PlaceholderForeground}"
                        IsVisible="{TemplateBinding SelectionBoxItem, Converter={x:Static ObjectConverters.IsNull}}" />
             <ContentControl x:Name="ContentPresenter"
+                            IsVisible="{TemplateBinding IsEditable, Converter={x:Static BoolConverters.Not}}"
                             Content="{TemplateBinding SelectionBoxItem}"
                             ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                             Margin="{TemplateBinding Padding}"
                             HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                             VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <TextBox x:Name="PART_EditableTextBox"
+                     IsVisible="{TemplateBinding IsEditable}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     MinHeight="0"
+                     MinWidth="0"
+                     Padding="{TemplateBinding Padding}"
+                     Foreground="{TemplateBinding Foreground}"
+                     FontSize="{TemplateBinding FontSize}"
+                     FontFamily="{TemplateBinding FontFamily}"
+                     FontWeight="{TemplateBinding FontWeight}"
+                     VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                     VerticalAlignment="Stretch"
+                     PlaceholderText="{TemplateBinding PlaceholderText}"
+                     Text="{TemplateBinding Text, Mode=TwoWay}"
+                     DataValidationErrors.Errors="{TemplateBinding (DataValidationErrors.Errors)}" />
             <controls:StrokeIcon x:Name="DropDownGlyph"
                                  Grid.Column="1"
                                  Size="16"
@@ -90,6 +109,9 @@
 
     <Style Selector="^:pointerover /template/ Border#Background">
       <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+    </Style>
+    <Style Selector="^:focus-within /template/ Border#Background">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
     </Style>
     <Style Selector="^:dropdownopen /template/ Border#Background">
       <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />

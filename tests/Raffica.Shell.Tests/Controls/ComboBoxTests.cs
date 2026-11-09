@@ -191,4 +191,22 @@ public sealed class ComboBoxTests
         var selected = Assert.Single(selection.GetSelection());
         Assert.Equal("Beta", selected.GetName());
     }
+
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light)]
+    [InlineData(ThemeMode.Dark)]
+    public void TheEditableTextBoxIsThereOnlyForAnEditableCombo(ThemeMode mode)
+    {
+        var (window, combo) = Host(mode);
+        var box = ControlHarness.Part<TextBox>(combo, "PART_EditableTextBox");
+        Assert.False(box.IsVisible);
+
+        combo.IsEditable = true;
+        combo.Text = "Custom";
+        ControlHarness.Settle(window);
+
+        Assert.True(box.IsVisible);
+        Assert.Equal("Custom", box.Text);
+        Assert.Equal(0, box.BorderThickness.Left);
+    }
 }
