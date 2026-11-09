@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
+using Raffica.Pdf.Dialogs;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Localization;
 
@@ -109,7 +110,7 @@ internal static class PrintCard
         AutomationProperties.SetName(orientation, PdfStrings.PrintCardOrientation);
 
         var hint = new TextBlock { Name = "PART_Hint", IsVisible = false, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
 
         var name = new TextBlock { Text = input.DocumentName, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
         var body = new StackPanel

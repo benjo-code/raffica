@@ -43,7 +43,7 @@ internal static class ExtractCard
         var field = new TextBox { Name = "PART_Range", MinWidth = 280, Text = Math.Clamp(currentPage, 1, pageCount).ToString(System.Globalization.CultureInfo.InvariantCulture) };
         AutomationProperties.SetName(field, PdfStrings.ExtractRangeLabel);
         var hint = new TextBlock { Name = "PART_Hint", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
         var nameLabel = new TextBlock { Text = PdfStrings.ExtractNameLabel, TextWrapping = TextWrapping.Wrap };
         var name = new TextBlock { Name = "PART_Name", TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
 

@@ -38,7 +38,7 @@ internal static class GoToPageCard
             IsVisible = false,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
 
         var ok = CreateButton("PART_Ok", ShellStrings.Ok, primary: true);
         var cancel = CreateButton("PART_Cancel", ShellStrings.Cancel, primary: false);

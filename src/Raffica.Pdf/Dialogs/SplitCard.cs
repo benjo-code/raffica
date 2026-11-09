@@ -88,7 +88,7 @@ internal static class SplitCard
         var folderRow = new StackPanel { Spacing = 4, Children = { new TextBlock { Text = PdfStrings.SplitFolderLabel, FontWeight = FontWeight.SemiBold }, folderText, choose } };
 
         var problem = new TextBlock { Name = "PART_PreviewProblem", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        problem.Bind(TextBlock.ForegroundProperty, problem.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(problem);
         var preview = new StackPanel { Name = "PART_Preview", Spacing = 2 };
         var more = new TextBlock { Name = "PART_PreviewMore", IsVisible = false };
         var previewBox = new StackPanel

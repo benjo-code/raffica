@@ -45,7 +45,7 @@ public sealed class CardFooterTests : IDisposable
 
     private static string Root() => Directory.CreateTempSubdirectory("raffica-footer-").FullName;
 
-    private static IEnumerable<(string Key, Func<Dialog> Make)> Entries()
+    internal static IEnumerable<(string Key, Func<Dialog> Make)> Entries()
     {
         var empty = new RedactionAnalysis([], [], true, [], [], true, 0, 0);
         var raster = new RasterPageInfo(0, 150, 1240, 1754, false, 4_000_000);

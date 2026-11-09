@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Raffica.Core.Annotations;
 using Raffica.Core.Signatures;
+using Raffica.Pdf.Dialogs;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Localization;
 
@@ -140,8 +141,7 @@ internal static class NewSignatureCard
             nameRow.Children.Add(_name);
 
             _message = new TextBlock { Name = "PART_Message", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-            _message.Bind(TextBlock.ForegroundProperty, _message.GetResourceObservable("Raffica.Brush.Danger"));
-            AutomationProperties.SetLiveSetting(_message, AutomationLiveSetting.Polite);
+            ValidationHint.Mark(_message);
 
             var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintText(), TextWrapping = TextWrapping.Wrap };
             hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Text.Secondary"));

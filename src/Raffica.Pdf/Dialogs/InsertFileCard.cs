@@ -54,7 +54,7 @@ internal static class InsertFileCard
         var field = new TextBox { Name = "PART_Range", MinWidth = 280, Text = PdfStrings.PageKeywordAll };
         AutomationProperties.SetName(field, PdfStrings.InsertFileRangeLabel);
         var hint = new TextBlock { Name = "PART_Hint", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
 
         var positionLabel = new TextBlock { Text = PdfStrings.InsertPositionLabel };
         var group = new StackPanel { Spacing = 4 };

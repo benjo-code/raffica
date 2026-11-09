@@ -191,7 +191,7 @@ internal static class ExportImagesCard
     private static TextBlock Hint(string name)
     {
         var hint = new TextBlock { Name = name, IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
         return hint;
     }
 }

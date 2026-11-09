@@ -44,7 +44,7 @@ internal static class RecognizeCard
         // Languages.
         body.Children.Add(Heading(PdfStrings.OcrLanguagesHeading));
         var languageHint = new TextBlock { Name = "PART_LanguageHint", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        languageHint.Bind(TextBlock.ForegroundProperty, languageHint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(languageHint);
         var slow = new TextBlock { Name = "PART_SlowWarning", Text = PdfStrings.OcrSlowWarning, IsVisible = false, TextWrapping = TextWrapping.Wrap };
         var boxes = new StackPanel { Name = "PART_Languages", Spacing = 2 };
         var ok = new Button { Name = "PART_Recognize", Content = PdfStrings.OcrRecognizeConfirm };
@@ -100,7 +100,7 @@ internal static class RecognizeCard
         var range = new TextBox { Name = "PART_Range", MinWidth = 240, Text = "1", IsEnabled = false, HorizontalAlignment = HorizontalAlignment.Left };
         AutomationProperties.SetName(range, PdfStrings.OcrPagesRangeLabel);
         var rangeHint = new TextBlock { Name = "PART_RangeHint", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        rangeHint.Bind(TextBlock.ForegroundProperty, rangeHint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(rangeHint);
         body.Children.Add(all);
         body.Children.Add(current);
         body.Children.Add(some);

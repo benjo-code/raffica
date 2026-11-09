@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using Raffica.Core.Signatures;
+using Raffica.Pdf.Dialogs;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Localization;
 
@@ -89,8 +90,7 @@ internal static class SignaturePickerCard
             AutomationProperties.SetLiveSetting(_confirm, AutomationLiveSetting.Polite);
 
             _message = new TextBlock { Name = "PART_Message", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-            _message.Bind(TextBlock.ForegroundProperty, _message.GetResourceObservable("Raffica.Brush.Danger"));
-            AutomationProperties.SetLiveSetting(_message, AutomationLiveSetting.Polite);
+            ValidationHint.Mark(_message);
 
             var hint = new TextBlock { Name = "PART_Hint", Text = PdfStrings.SignatureHintText(), TextWrapping = TextWrapping.Wrap };
             hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Text.Secondary"));
