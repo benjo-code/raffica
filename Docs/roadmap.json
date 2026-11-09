@@ -588,14 +588,16 @@
     {
       "number": 4,
       "name": "macOS",
-      "spec": { "text": "not written yet (created in its first milestone)" },
+      "spec": { "text": "Raffica on macOS design, approved 2026-11-09", "link": "superpowers/specs/2026-11-09-raffica-macos-design.md" },
       "milestones": [
         {
           "id": "3",
           "title": "Create spec for macOS",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-09-milestone-03-macos-spec.md",
+          "spec": "superpowers/specs/2026-11-09-raffica-macos-design.md",
           "prerequisites": ["2.6"],
-          "goal": "The build, ad-hoc signing and `.dmg` packaging for macOS are specified.",
+          "goal": "The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, updates, CI) is specified and split into milestones.",
           "tasks": [
             { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
           ],

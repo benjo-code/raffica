@@ -35,7 +35,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | 2026-11-06 |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | 2026-11-08 |
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
-| 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
+| 3 | Create spec for macOS | 4 – macOS | 🟡 planned | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
 | 6 | Create spec for Raffica Slides | 7 – Raffica Slides | ⬜ open | – | – |
@@ -462,12 +462,12 @@ Goal: The repository can be made public and v0.1.0 released: no fork can reach t
 
 # Subproject 4 – macOS
 
-**Spec:** not written yet (created in its first milestone)
+**Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) Raffica on macOS design, approved 2026-11-09
 
 ## Milestone 3 – Create spec for macOS
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M2.6
+**Status:** 🟡 planned · **Plan:** [2026-11-09-milestone-03-macos-spec.md](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M2.6
 
-Goal: The build, ad-hoc signing and `.dmg` packaging for macOS are specified.
+Goal: The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, updates, CI) is specified and split into milestones.
 
 **Tasks**
 - [ ] Create the spec (brainstorming) and enter its milestones
