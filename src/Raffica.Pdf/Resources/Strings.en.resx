@@ -1565,7 +1565,7 @@
     <value>Page ranges, one file each</value>
   </data>
   <data name="SplitRangesLabel" xml:space="preserve">
-    <value>Ranges (for example 1-3,4-9)</value>
+    <value>Ranges (for example 1-3,4-9 or "all")</value>
   </data>
   <data name="SplitModeBookmarks" xml:space="preserve">
     <value>Top-level bookmarks</value>
@@ -2564,7 +2564,7 @@
     <value>The file is unchanged and the marks are still open.</value>
   </data>
   <data name="RedactStaysAfterSave" xml:space="preserve">
-    <value>The marks are saved into the file, but the redactions were not applied and are still open.</value>
+    <value>The annotations are saved into the file, but the redactions were not applied and are still open.</value>
   </data>
   <data name="RedactFailSourceModified" xml:space="preserve">
     <value>The file changed on disk since it was opened, so it cannot be redacted from here.</value>
@@ -2738,10 +2738,10 @@
     <value>The marks are still open.</value>
   </data>
   <data name="RedactSaveFirstMessage" xml:space="preserve">
-    <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the redactions are applied.</value>
+    <value>The annotations and form values of {0} are not saved yet. They are saved into the file first, then the redactions are applied.</value>
   </data>
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
-    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. "Back" leaves everything as it is.</value>
+    <value>The annotations and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. "Back" leaves everything as it is.</value>
   </data>
   <data name="RedactOriginalTitle" xml:space="preserve">
     <value>Replace the original file?</value>

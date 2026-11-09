@@ -72,7 +72,7 @@
     <value>Suchen</value>
   </data>
   <data name="GroupGoTo" xml:space="preserve">
-    <value>Gehe zu</value>
+    <value>Springen</value>
   </data>
   <data name="GroupPages" xml:space="preserve">
     <value>Seiten</value>
@@ -105,7 +105,7 @@
     <value>Vorheriger Treffer</value>
   </data>
   <data name="CmdGoToPage" xml:space="preserve">
-    <value>Gehe zu Seite</value>
+    <value>Zu Seite springen</value>
   </data>
   <data name="CmdPreviousPage" xml:space="preserve">
     <value>Vorherige Seite</value>
@@ -234,7 +234,7 @@
     <value>{0} × {1} mm</value>
   </data>
   <data name="GoToPageTitle" xml:space="preserve">
-    <value>Gehe zu Seite</value>
+    <value>Zu Seite springen</value>
   </data>
   <data name="GoToPageLabelFormat" xml:space="preserve">
     <value>Seitenzahl (1 bis {0})</value>
@@ -327,7 +327,7 @@
     <value>Prüfen Sie diese Adresse. Die Domain enthält Sonderzeichen und kann einen anderen Namen vortäuschen. Entschlüsselte Domain: {0}</value>
   </data>
   <data name="PaletteGroupGoTo" xml:space="preserve">
-    <value>Gehe zu</value>
+    <value>Springen</value>
   </data>
   <data name="OpenFileButton" xml:space="preserve">
     <value>Datei öffnen</value>
@@ -336,7 +336,7 @@
     <value>Im Dokument nach „{0}“ suchen</value>
   </data>
   <data name="PaletteGoToPageFormat" xml:space="preserve">
-    <value>Gehe zu Seite {0}</value>
+    <value>Zu Seite {0} springen</value>
   </data>
   <data name="PaletteGoToPageDetailFormat" xml:space="preserve">
     <value>von {0}</value>
@@ -1548,7 +1548,7 @@
     <value>Seitenbereiche, je eine Datei</value>
   </data>
   <data name="SplitRangesLabel" xml:space="preserve">
-    <value>Bereiche (zum Beispiel 1-3,4-9)</value>
+    <value>Bereiche (zum Beispiel 1-3,4-9 oder „alle“)</value>
   </data>
   <data name="SplitModeBookmarks" xml:space="preserve">
     <value>Lesezeichen der obersten Ebene</value>
@@ -2547,7 +2547,7 @@
     <value>Die Datei ist unverändert und die Markierungen sind weiterhin offen.</value>
   </data>
   <data name="RedactStaysAfterSave" xml:space="preserve">
-    <value>Die Markierungen sind in der Datei gespeichert, die Schwärzungen wurden aber nicht angewendet und sind weiterhin offen.</value>
+    <value>Die Anmerkungen sind in der Datei gespeichert, die Schwärzungen wurden aber nicht angewendet und sind weiterhin offen.</value>
   </data>
   <data name="RedactFailSourceModified" xml:space="preserve">
     <value>Die Datei hat sich auf dem Datenträger geändert, seit sie geöffnet wurde, deshalb lässt sie sich von hier aus nicht schwärzen.</value>
@@ -2721,10 +2721,10 @@
     <value>Die Markierungen sind weiterhin offen.</value>
   </data>
   <data name="RedactSaveFirstMessage" xml:space="preserve">
-    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Schwärzungen angewendet.</value>
+    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Schwärzungen angewendet.</value>
   </data>
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
-    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. „Zurück“ lässt alles, wie es ist.</value>
+    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. „Zurück“ lässt alles, wie es ist.</value>
   </data>
   <data name="RedactOriginalTitle" xml:space="preserve">
     <value>Originaldatei ersetzen?</value>

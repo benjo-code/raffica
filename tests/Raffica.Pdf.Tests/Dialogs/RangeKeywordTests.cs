@@ -41,10 +41,12 @@ public sealed class RangeKeywordTests
     [InlineData("en", "InsertRangeInvalid", "\"all\"")]
     [InlineData("en", "ExtractRangeLabel", "\"all\"")]
     [InlineData("en", "ExportRangeLabel", "\"all\"")]
+    [InlineData("en", "SplitRangesLabel", "\"all\"")]
     [InlineData("de", "InsertFileRangeLabel", "„alle“")]
     [InlineData("de", "InsertRangeInvalid", "„alle“")]
     [InlineData("de", "ExtractRangeLabel", "„alle“")]
     [InlineData("de", "ExportRangeLabel", "„alle“")]
+    [InlineData("de", "SplitRangesLabel", "„alle“")]
     public void TheLabelsNameTheKeywordInQuotes(string language, string key, string quoted) =>
         Assert.Contains(quoted, PdfStrings.GetIn(key, CultureInfo.GetCultureInfo(language)), StringComparison.Ordinal);
 

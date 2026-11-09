@@ -162,9 +162,9 @@ public sealed class PaletteSourceTests
         PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
         var source = new PdfPaletteSource(Context(pages: 9));
         var go = Assert.Single(source.Find("3"));
-        Assert.Equal("Gehe zu Seite 3", go.Name);
+        Assert.Equal("Zu Seite 3 springen", go.Name);
         Assert.Equal("von 9", go.Detail);
-        Assert.Equal("Gehe zu", go.Group);
+        Assert.Equal("Springen", go.Group);
     }
 
     [AvaloniaFact]

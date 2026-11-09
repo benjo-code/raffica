@@ -108,10 +108,15 @@ public sealed class WordingStyleTests
     [InlineData("RedactStaysAfterSave")]
     [InlineData("RedactSaveFirstMessage")]
     [InlineData("RedactSaveFirstSaveAsMessage")]
-    public void TheRedactCardsCallTheMarksOfAnnotatingMarksInGerman(string key)
+    public void TheRedactCardsCallTheMarksOfAnnotatingAnnotationsInBothLanguages(string key)
     {
-        var text = Value("de", key);
-        Assert.Contains("Markierungen", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("Anmerkungen", text, StringComparison.Ordinal);
+        // On the redact cards "marks" means the pending redaction marks, so the marks of annotating are "annotations".
+        var english = Value("en", key);
+        Assert.Contains("annotations", english, StringComparison.Ordinal);
+        Assert.DoesNotContain("marks are", english, StringComparison.Ordinal);
+        Assert.DoesNotContain("marks and", english, StringComparison.Ordinal);
+        var german = Value("de", key);
+        Assert.Contains("Anmerkungen", german, StringComparison.Ordinal);
+        Assert.DoesNotContain("Markierungen", german, StringComparison.Ordinal);
     }
 }

@@ -8,7 +8,7 @@ namespace Raffica.Pdf.Tests;
 public sealed class GermanRegisterTests
 {
     private static readonly Regex s_duForm = new(
-        @"\b(du|dich|dir|dein\w*)\b|\b(wähle|gib|öffne|beende|verwirf|wende|lass|klicke|drücke|schließe|speichere|prüfe|versuche)\b",
+        @"\b(du|dich|dir|dein\w*)\b|\b(wähle|gib|öffne|beende|verwirf|wende|lass|klicke|drücke|schließe|speichere|prüfe|versuche|gehe|starte|markiere|zeige)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static TheoryData<string> Projects => new() { "Raffica.Pdf", "Raffica.Shell" };
