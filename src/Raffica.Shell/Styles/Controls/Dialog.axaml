@@ -7,7 +7,9 @@
     shadow (the dialog sits over the scrim). Header 44 px with the title (15 px, 600) and an icon close button, separated by a
     1 px rule; body padding 16; footer 52 px on surface.band with a 1 px rule above it (its bottom corners follow the 2 px inside radius of the frame), the action buttons on the right, 16 px from
     the edge. Buttons in the footer are 28 px high and at least 96 px wide (the Button theme has no minimum width by decision).
-    The host layers the content, the scrim (Raffica.Brush.Scrim) and the dialog; while a dialog is open the content takes no
+    The body scrolls (vertical on demand, never horizontal) and the
+    host caps the card at its own height less 48 DIP (M2.7), so the header and the footer stay in view in a small window or at a
+    large display scaling. The host layers the content, the scrim (Raffica.Brush.Scrim) and the dialog; while a dialog is open the content takes no
     pointer input (the scrim above it would catch it anyway) and is not restyled.
   -->
   <ControlTheme x:Key="{x:Type controls:Dialog}" TargetType="controls:Dialog">
@@ -47,13 +49,18 @@
                            TextTrimming="CharacterEllipsis" />
               </DockPanel>
             </Border>
-            <ContentPresenter x:Name="PART_ContentPresenter"
-                              Grid.Row="1"
-                              Content="{TemplateBinding Content}"
-                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                              Padding="{TemplateBinding Padding}"
-                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <ScrollViewer x:Name="PART_BodyScroll"
+                          Grid.Row="1"
+                          Focusable="False"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ContentPresenter x:Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Padding="{TemplateBinding Padding}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ScrollViewer>
             <Border x:Name="PART_FooterBar"
                     Grid.Row="2"
                     Height="{DynamicResource Raffica.Size.DialogFooter}"

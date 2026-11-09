@@ -19,15 +19,15 @@ public sealed class SettingsDialogTests
     {
         private readonly CultureInfo _previous = ShellStrings.Culture;
 
-        public Fixture(ShellSettings current, string running = "en", SettingsDialogOptions? options = null)
+        public Fixture(ShellSettings current, string running = "en", SettingsDialogOptions? options = null, int width = 800, int height = 600)
         {
             ShellStrings.Culture = CultureInfo.GetCultureInfo(running);
             Opener = new Button { Content = "Settings" };
             Host = new DialogHost { Content = new StackPanel { Margin = new Thickness(20), Children = { Opener } } };
             Dialog = SettingsDialog.Create(current, ok => { Saved.Add(ok); Host.Close(); }, () => { Cancels++; Host.Close(); }, options);
             Window = ControlHarness.Show(Host, ThemeMode.Light);
-            Window.Width = 800;
-            Window.Height = 600;
+            Window.Width = width;
+            Window.Height = height;
             ControlHarness.Settle(Window);
             Opener.Focus(NavigationMethod.Tab);
             ControlHarness.Settle(Window);
@@ -220,6 +220,44 @@ public sealed class SettingsDialogTests
         Assert.Same(first, one.Children[1]);
         Assert.Equal("Second extra", Assert.IsType<TextBlock>(two.Children[0]).Text);
         Assert.Same(second, two.Children[1]);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void InASmallHostTheBodyScrollsAndTabReachesTheLastRow(string lang)
+    {
+        // The shape of the PDF app's dialog: the shared rows plus five extra rows, the last one "Updates" (M2.7 Task 11 step 2).
+        var rows = new List<SettingsExtraRow>();
+        foreach (var name in new[] { "Page appearance", "Default layout", "Default zoom", "Author name", "Default app" })
+        {
+            rows.Add(new SettingsExtraRow(name, new CheckBox { Content = name }));
+        }
+
+        var updates = new CheckBox { Name = "PART_UpdateCheck", Content = "Check for updates once a day" };
+        rows.Add(new SettingsExtraRow("Updates", updates));
+        using var f = new Fixture(new ShellSettings(), lang, new SettingsDialogOptions(ShowAutosave: false, ExtraRows: rows), width: 1024, height: 480);
+
+        var scroll = f.Dialog.GetVisualDescendants().OfType<ScrollViewer>().First(s => s.Name == "PART_BodyScroll");
+        Assert.True(f.Dialog.Bounds.Height <= 480 - 48 + 0.5, $"the card is {f.Dialog.Bounds.Height} DIP high in a 480 DIP host");
+        Assert.True(scroll.Extent.Height > scroll.Viewport.Height, "the body is taller than its viewport, so it must scroll");
+
+        for (var i = 0; i < 30 && !ReferenceEquals(f.Window.FocusManager!.GetFocusedElement(), updates); i++)
+        {
+            f.Window.KeyPressQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+            f.Window.KeyReleaseQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+            ControlHarness.Settle(f.Window);
+        }
+
+        Assert.Same(updates, f.Window.FocusManager!.GetFocusedElement());
+        var row = updates.TranslatePoint(default, scroll)!.Value;
+        Assert.True(row.Y >= -0.5 && row.Y + updates.Bounds.Height <= scroll.Viewport.Height + 0.5, $"the Updates row sits at {row.Y}..{row.Y + updates.Bounds.Height} of a {scroll.Viewport.Height} DIP viewport");
+        Assert.True(scroll.Offset.Y > 0, "the body scrolled");
+
+        // The footer stays in view: the buttons are inside the card, which is inside the host.
+        var ok = f.Part<Button>("PART_Ok");
+        var at = ok.TranslatePoint(default, f.Window)!.Value;
+        Assert.True(at.Y + ok.Bounds.Height <= 480 + 0.5, "OK stays in the window");
     }
 
     [AvaloniaFact]

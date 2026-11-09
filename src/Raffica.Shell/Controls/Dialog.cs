@@ -52,6 +52,7 @@ public class Dialog : ContentControl
         var candidates = FocusableControls();
         var first = candidates.FirstOrDefault(c => !ReferenceEquals(c, _close)) ?? candidates.FirstOrDefault();
         first?.Focus(NavigationMethod.Tab);
+        (first as Control)?.BringIntoView();
     }
 
     internal void RaiseCancelRequested() => CancelRequested?.Invoke(this, EventArgs.Empty);
@@ -123,6 +124,9 @@ public class Dialog : ContentControl
             ? (backwards ? candidates.Count - 1 : 0)
             : (index + (backwards ? candidates.Count - 1 : 1)) % candidates.Count;
         candidates[next].Focus(NavigationMethod.Tab);
+
+        // The body scrolls: the control that got the focus must be in view (the layout may be stale after a content change).
+        (candidates[next] as Control)?.BringIntoView();
     }
 
     /// <summary>The controls Tab can reach inside the dialog, in visual order.</summary>

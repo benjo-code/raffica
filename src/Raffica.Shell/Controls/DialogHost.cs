@@ -19,6 +19,9 @@ public class DialogHost : ContentControl
     public static readonly StyledProperty<Dialog?> ActiveDialogProperty =
         AvaloniaProperty.Register<DialogHost, Dialog?>(nameof(ActiveDialog));
 
+    /// <summary>The room kept free around a card: it is at most the host's height less this (24 DIP above and below).</summary>
+    public const double CardMargin = 48;
+
     private InputElement? _opener;
 
     public DialogHost()
@@ -40,6 +43,7 @@ public class DialogHost : ContentControl
         }
 
         _opener = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as InputElement;
+        CapHeight(dialog, Bounds.Height);
         SetValue(ActiveDialogProperty, dialog);
         PseudoClasses.Set(":open", true);
 
@@ -78,6 +82,19 @@ public class DialogHost : ContentControl
             opener.Focus(NavigationMethod.Unspecified);
         }
     }
+
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    {
+        base.OnSizeChanged(e);
+        if (ActiveDialog is { } dialog)
+        {
+            CapHeight(dialog, e.NewSize.Height);
+        }
+    }
+
+    // The card never grows past the host (less the margin): its body scrolls instead. A host that is not laid out yet has no height to cap by.
+    private static void CapHeight(Dialog dialog, double hostHeight) =>
+        dialog.MaxHeight = hostHeight > CardMargin ? hostHeight - CardMargin : double.PositiveInfinity;
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {

@@ -37,6 +37,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF: cards and dialogs scroll when the window is small or the display scaling is large (Settings, for example, was cut off at 150% scaling): the card is never taller than the window less 48 px, its body scrolls and the focused control is brought into view with Tab.
 - Raffica PDF: the status bar no longer cuts its cells: the save state says "Unsaved" ("Nicht gespeichert"), and the page count with its size ("128 pages · 210 × 297 mm") and the position ("Page 1000 of 1000") grow with their text, in English and German.
 - Raffica PDF: the start view now shows one tile, "Open PDF" (the Write, Sheets and Slides tiles that did nothing are gone), and it and the "+" of the tab strip (now named "Open file") open the file picker. The search field in the title bar says "Search commands", and the palette offers "Search the document for ..." as its last result when a document is open.
 - Raffica PDF redaction: a page that carries attached files (`/AF`, for example the XML of a PDF/A-3 invoice) or an article thread (`/B`, with its title and author) no longer keeps them silently: the file is refused like a page with a thumbnail, and the check of the written file also fails when an embedded file other than a paperclip note is left. The report lists "Attached files" as cleaned only after the written file was read back, and names sound, video and other media of annotations under "Not cleaned".
