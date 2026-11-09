@@ -32,6 +32,7 @@ Raffica is a fast, open-source office suite for Windows, Linux and macOS, growin
 ### macOS
 
 - No paid Apple account: no notarization, no Developer ID. Ad-hoc signing only (required on Apple Silicon; sign again after assembling the `.app` bundle). The README documents the first launch ("Open Anyway" in System Settings → Privacy & Security).
+- Spec: `Docs/superpowers/specs/2026-11-09-raffica-macos-design.md` (milestones 3.1 to 3.3); decisions "Raffica on macOS: scope and Mac conventions (M3)" and "... speed checks and CI (M3)" in `Docs/DECISIONS.md`.
 
 ### Shell
 
