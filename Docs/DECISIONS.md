@@ -15,6 +15,34 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-09 – Raffica on macOS: speed checks and CI (M3)
+**Context:** Speed is the core promise, so the Mac build must be measured like the other two. But the only Mac the owner can test by hand is an Intel MacBook Pro 2016, hosted macOS runners are VMs whose timings vary too much, and the owner wants as few macOS CI runs as possible without losing a check. The repository is public, so standard hosted runners cost nothing.
+**Decision:**
+- **Size budgets are binding** and come from hosted-runner measurements (the size of the app, the `.app` and each `.dmg` does not depend on the machine), by the M1 rule (median rounded up, limit = budget × 1.25 once), in `s_pdfBudgets` of `measure.cs`.
+- **Time and memory budgets are binding for the owner's Intel Mac only,** measured through `measure.yml` (`target=pdf`, `platform=macos`, the owner's self-hosted runner) when the owner dispatches it. The same runs decide the Mac rendering default (Avalonia's own path or software, as for Windows); `RAFFICA_RENDERING` stays the opt-out.
+- **Apple silicon is recorded without a limit** in `Docs/DECISIONS.md`; the CI and release smokes carry a coarse start ceiling (a few seconds, value set in 3.3) that catches gross faults such as the x64 build running under Rosetta.
+- **`ci.yml` gets a `build-macos` job on `macos-15`** that runs only on pull requests into `main`, on pull requests that touch platform-near paths, and on pull requests with the label `ci:macos`; the aggregate `ci` check counts a skipped macOS job as passed. `release.yml` builds, signs and smokes both architectures on a hosted macOS runner.
+- Standard hosted runners are used (free in the public repository); larger runners are never used.
+- A miss against a budget is a finding for the owner; budgets are never loosened to make a check pass.
+**Rationale:** Only what a machine-independent number can bind is bound everywhere; time and memory bind where the machine is known and stable enough. A sparse CI job keeps the quality gate for platform code and for releases without a macOS queue on every pull request.
+**Rejected alternatives:** macOS on every pull request (slow queue, little gain for changes that cannot touch the Mac build); binding time budgets from hosted VMs (they vary too much); loosening a budget to pass.
+
+## 2026-11-09 – Raffica on macOS: scope and Mac conventions (M3)
+**Context:** Raffica PDF `v0.1.0` ships for Windows and Linux. Subproject 4 brings it to macOS before Write, so every later app inherits the platform work. Spec: `Docs/superpowers/specs/2026-11-09-raffica-macos-design.md`. It builds on the existing decision "macOS without paid Apple account" (ad-hoc signing, `.dmg`, documented first launch).
+**Decision:**
+- **Scope:** parity with `v0.1.0` on `osx-x64` and `osx-arm64`. Apple silicon is released with automatic checks only and marked "not tested by hand" in the README.
+- **Packaging:** two `.dmg` files (one per architecture), bundle id `io.github.benjo-code.raffica.pdf`, the CLI `raffica` inside the bundle (not on `PATH`).
+- **Menu bar:** a native menu bar bound to the command catalog, next to the ribbon.
+- **Keyboard:** no ribbon key tips and no ⌥ capture on macOS (this decides the backlog entry "Option key handling on macOS"); every command stays reachable through the menu bar, ⌘K and Tab through the ribbon.
+- **Life cycle:** the app outlives its last window; Dock reopen shows a new window; the close questions run on window close and on ⌘Q. Files from the Finder arrive through activation events, not `argv`.
+- **Data:** settings, recent files, signatures, the crash log and update staging live under `~/Library/Application Support/Raffica`, caches under `~/Library/Caches/Raffica`.
+- **Paths:** on macOS two spellings of one file are the same file (case-insensitive volumes); `FileIdentity.AreSameFile` answers from device and inode.
+- **Printing:** over CUPS with the app's own print card, as on Linux; the native print panel goes to the backlog ("macOS print panel").
+- **Default app:** offered through LaunchServices for `com.adobe.pdf`.
+- **Updates:** the app swaps its own `.app` from the downloaded `.dmg` after the signature, size and SHA-256 checks, with the download page as fallback when it cannot write next to its bundle or runs translocated.
+**Rationale:** Mac users expect a menu bar, Finder and Dock integration and ⌘ shortcuts, and the German Mac layout types characters on ⌥ (@ on ⌥L, € on ⌥E), so taking it would break typing. One build per architecture keeps each download small.
+**Rejected alternatives:** a universal binary (doubles the download for every user); the native macOS print panel (needs Objective-C interop for NSPrintOperation, backlog); ⌥ key tips (break typing on the German Mac layout); quitting with the last window (not Mac-like, Preview does not).
+
 ## 2026-11-09 – Raffica PDF: Windows start time at the final head and before the ribbon work (M2.7)
 **Context:** The final review of M2.7 asked whether the Windows excess over the budgets (see "Raffica PDF: release readiness measurements (M2.7)") comes from the ribbon work of this milestone (the full band is built once and then the compact one at the default width), and noted that those numbers were taken at `1db9043`, not at the final head.
 **Decision:** Two more `measure.yml` runs on the Windows PC (target `pdf`, 10 runs per case, `check` passes in both): the final dev head `3bf52c8` (run 42625828393) and `d77e784` (the merge of #50, the last commit before any ribbon change of M2.7; run 42625887333, input `ref`).

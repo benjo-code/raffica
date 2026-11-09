@@ -35,7 +35,10 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | 2026-11-06 |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | 2026-11-08 |
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
-| 3 | Create spec for macOS | 4 – macOS | ⬜ open | – | – |
+| 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
+| 3.1 | Runs on the Mac | 4 – macOS | ⬜ open | – | – |
+| 3.2 | Feels like a Mac app | 4 – macOS | ⬜ open | – | – |
+| 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
 | 6 | Create spec for Raffica Slides | 7 – Raffica Slides | ⬜ open | – | – |
@@ -91,6 +94,9 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-07 (Milestone 2.6 (About card)):** The About card shows the notices in sections (one toggle per component, text created on first open) instead of one text box: the single 467,290-character box froze the card for 0.4 to 1.4 s.
 - **2026-11-07 (Milestone 2.6 (updater busy guard)):** An install refuses with a worded note (`UpdateBusyNote`, `PdfWindow.InstallUpdateAsync`) while a file job runs, and asks about unsaved changes in every tab first (`UpdateInstallGuard`); the progress card names each step in words and offers Cancel only up to the check step.
 - **2026-11-09 (Milestone 2.7):** The card "Set Raffica as default for PDFs?" remembers "Not now" for 30 days (`AppSettings.DefaultAppPromptSnoozedUntil`, `DefaultAppFlow`) instead of returning at every start; the card is offered again on the first start after that day. "Don't ask again" stays permanent. This changes the behavior of Milestone 2.6 (once per start), found as a repeated nuisance in the review of 2026-11-08 (08-UI-16).
+- **2026-11-09 (Milestone 3):** Milestones 3.1 "Runs on the Mac", 3.2 "Feels like a Mac app" and 3.3 "Package and release" are added under the macOS spec. They cover both `osx-x64` and `osx-arm64`; Apple silicon is released with automatic checks only and marked "not tested by hand" in the README. Decisions: "Raffica on macOS: scope and Mac conventions (M3)" and "Raffica on macOS: speed checks and CI (M3)" in `Docs/DECISIONS.md`.
+- **2026-11-09 (Milestone 3):** Milestone 4 (Spikes & spec for Raffica Write) now depends on 3.3 instead of 3, so that "macOS before Write" stays true after the macOS spec milestone.
+- **2026-11-09 (Milestone 3):** The backlog entry "Option key handling on macOS" is decided (no key tips and no Option capture on macOS, see "Raffica on macOS: scope and Mac conventions (M3)") and moves into milestone 3.2. The backlog entry "macOS print panel" is added; printing on macOS uses the own print card over CUPS.
 
 ---
 
@@ -203,7 +209,7 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 - [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
+- [x] The spec is approved and linked here – The spec is written and its milestones 3.1 "Runs on the Mac", 3.2 "Feels like a Mac app" and 3.3 "Package and release" are entered. The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
 
 ## Milestone 2.1 – Viewer
 **Status:** ✅ done (2026-11-04) · **Plan:** [2026-11-04-milestone-02-1-viewer.md](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
@@ -462,18 +468,84 @@ Goal: The repository can be made public and v0.1.0 released: no fork can reach t
 
 # Subproject 4 – macOS
 
-**Spec:** not written yet (created in its first milestone)
+**Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) Raffica on macOS design, approved 2026-11-09
 
 ## Milestone 3 – Create spec for macOS
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M2.6
+**Status:** ✅ done (2026-11-09) · **Plan:** [2026-11-09-milestone-03-macos-spec.md](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M2.6
 
-Goal: The build, ad-hoc signing and `.dmg` packaging for macOS are specified.
+Goal: The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, updates, CI) is specified and split into milestones.
 
 **Tasks**
-- [ ] Create the spec (brainstorming) and enter its milestones
+- [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [ ] The spec is approved and linked here
+- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-09 ("ja passt"); it is linked as `superpowers/specs/2026-11-09-raffica-macos-design.md`. On the tree of this branch (documents only; two foreign, unstaged changes in `src/Raffica.Shell/Frame/SettingsStore.cs` and `tests/Raffica.Pdf.Tests/Panes/NavListSelectionTests.cs` were in the working tree and not part of this work): `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`: 6258 total, 0 failed, 6227 passed, 31 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; `dotnet run tools/roadmap.cs -- check` valid.
+
+## Milestone 3.1 – Runs on the Mac
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3
+
+Goal: Raffica PDF builds, passes its tests and opens PDFs from the Finder on Intel and Apple-silicon Macs, checked by a sparse macOS CI job.
+
+**Tasks**
+- [ ] PDFium for `osx-x64` and `osx-arm64`: the `bblanchon.PDFium.macOS` package (same version as the Windows and Linux packages) and its entry in `third-party/licenses.json`
+- [ ] Tesseract: a macOS job in `native-tesseract.yml` builds `libtesseract.dylib` for both RIDs as a new prerelease, `tools/native-fetch.cs` pins size and SHA-256 per RID, `TesseractLibrary.FileName` and `OcrTestLibrary` learn the `.dylib`, and a Mach-O check (counterpart of `check-binary`'s ELF rules) allows only system libraries and files inside the bundle
+- [ ] Paths under `~/Library/Application Support/Raffica` and `~/Library/Caches/Raffica` (`UserDataPaths`, `ShellSettingsStore`); `--settings-file` still redirects everything
+- [ ] Case-insensitive path identity on macOS (workspace, save and job paths, `RecentFiles`, CLI `OutputGuard`) and `FileIdentity.AreSameFile` from device and inode instead of null
+- [ ] Single-instance pipe checked on macOS (socket path length) and Finder and Dock file activation through `IActivatableLifetime`, at first start and while the app runs
+- [ ] `build-macos` job in `ci.yml` on `macos-15` with its path filter and the label `ci:macos` (spec section 7); the aggregate `ci` check treats a skipped macOS job as passed
+- [ ] Every test passes on macOS or is skipped there with a named reason
+
+**Acceptance criteria**
+- [ ] `build-macos` is green on a pull request that carries the label `ci:macos` (run id in the evidence)
+- [ ] The identity tests for `Bericht.pdf` and `bericht.pdf` on a case-insensitive volume, and for `FileIdentity.AreSameFile` from device and inode, pass in the `build-macos` job (test names in the evidence)
+- [ ] The `build-macos` job runs the full test suite with `RAFFICA_REQUIRE_OCR=1`: 0 failed, and every skipped test has a named macOS reason (result line in the evidence)
+- [ ] On the owner's Mac a published `osx-x64` build opens a PDF by double-click in the Finder and by `open -a` (manual check, recorded)
+- [ ] On the owner's Mac the same build recognizes text with OCR (manual check, recorded)
+
+## Milestone 3.2 – Feels like a Mac app
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
+
+Goal: Raffica PDF behaves like a Mac app: menu bar, ⌘ shortcuts without key tips, life cycle without windows, trackpad, Retina and printing.
+
+**Tasks**
+- [ ] Native menu bar (Avalonia `NativeMenu`) with all items of spec section 5.2, bound to the command catalog with the same enabled and checked state; items without a catalog command are wired directly
+- [ ] German and English menu wording: Apple's own terms for the system items, the command's existing label for every item that runs an app command
+- [ ] Reserved-shortcut audit of every ⌘ shortcut against the macOS reserved list (⌘H, ⌥⌘H, ⌘M, ⌘Q, ⌘Tab, ⌘Space, ⌘`, ⌃⌘F, ⇧⌘3/4/5); a clash is moved on macOS only and a test pins the result
+- [ ] No ribbon key tips and no ⌥ capture on macOS, and no key-tip table in the F1 help card; this decides the backlog entry "Option key handling on macOS"
+- [ ] App life cycle without windows (spec 5.3): the single-instance listener, the update flow and the dialog queue move off `PdfWindow`, the app outlives its last window, Dock reopen shows a new window, ⌘Q and window close run the close questions
+- [ ] Pinch zoom around the pointer with the zoom steps and limits of the zoom commands, sharp pages on Retina (render at the window's scaling), title bar with the 80 px inset, full screen
+- [ ] Printing over CUPS on macOS: the print service binds `libcups.2.dylib` and `PlatformPrintServices.Create` returns it, with the Linux print rules unchanged
+
+**Acceptance criteria**
+- [ ] Tests pin that every menu item runs its command catalog command with the same enabled and checked state, and that the English and German menu strings exist (test names in the evidence)
+- [ ] A test pins the result of the reserved-shortcut audit, and a test pins that no ⌥ key tip capture exists on macOS while Windows and Linux are unchanged (test names in the evidence)
+- [ ] On the owner's Mac the menu bar acts on the document and on a focused text box, and ⌘Q with unsaved marks asks the close questions (manual checks, recorded)
+- [ ] On the owner's Mac a Dock click with no window open shows a new window, and a Finder file opened with no window creates one (manual checks, recorded)
+- [ ] On the owner's Mac pinch zoom works, pages are sharp at 2×, and the title bar, its inset and full screen look right (manual checks, recorded)
+- [ ] On the owner's Mac a page prints through the own print card with a real or a PDF printer (manual check, recorded)
+
+## Milestone 3.3 – Package and release
+**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.2
+
+Goal: Signed `.app` bundles ship as two `.dmg` files with default-app offer, self-update, release workflow, README and recorded speed budgets.
+
+**Tasks**
+- [ ] `Raffica PDF.app` with `Info.plist` (bundle id `io.github.benjo-code.raffica.pdf`, PDF document type, `LSMinimumSystemVersion` from the .NET 10 and Avalonia 12 minimums), the `.icns` from the PDF brand master and the ad-hoc signature; the CLI `raffica` inside the bundle
+- [ ] Two `.dmg` files `RafficaPdf-<v>-macos-arm64.dmg` and `RafficaPdf-<v>-macos-x64.dmg` (the app and an `/Applications` link) made by `tools/package.cs`
+- [ ] Default-app offer through LaunchServices for `com.adobe.pdf`; the plan names the API used
+- [ ] Self-update with the `.dmg` and its fallbacks (download page when the bundle is not writable or runs translocated), worded in both languages
+- [ ] macOS job in `release.yml`, `SHA256SUMS-macos.txt`, the new file kinds in `update-manifest`, the release smokes (`codesign --verify --deep --strict`, Mach-O check, architecture, mount, copy, start and string check) and the README macOS section
+- [ ] Size budgets from the hosted runner, Intel time and memory budgets and the Mac rendering default from `measure.yml`, the Apple-silicon record without a limit, and the coarse start ceiling of the smokes
+- [ ] Owner checks that only a real Mac answers (first launch through "Open Anyway", default app, update without a Gatekeeper prompt, quarantine attribute of a self-downloaded update) and the amendment of the M2.6 entry "x86_64 only" in a new `Docs/DECISIONS.md` entry
+
+**Acceptance criteria**
+- [ ] The `release.yml` dry run is green with the macOS job (run id in the evidence)
+- [ ] The release smokes pass for both architectures: `codesign --verify --deep --strict`, the Mach-O check, the architecture of each binary, and mount, copy, start and string check (job log in the evidence)
+- [ ] On the owner's Mac the first launch through System Settings → Privacy & Security → "Open Anyway" works as the README says (manual check, recorded)
+- [ ] On the owner's Mac the default-app card sets Raffica as the default for PDFs and a Finder double-click opens Raffica (manual check, recorded)
+- [ ] On the owner's Mac an update from one test build to the next completes without a Gatekeeper prompt, and the quarantine attribute result is recorded (manual check, recorded)
+- [ ] `dotnet run bench/shell-probe/measure.cs -- check ... --target pdf` passes for the size budgets and, on the owner's Intel Mac through `measure.yml`, for the time and memory budgets (run ids in the evidence)
+- [ ] `Docs/DECISIONS.md` amends "x86_64 only" (macOS ships `arm64` as well) and records the Apple-silicon measurement without a limit (entry titles in the evidence)
 
 ---
 
@@ -482,7 +554,7 @@ Goal: The build, ad-hoc signing and `.dmg` packaging for macOS are specified.
 **Spec:** not written yet (created in its first milestone)
 
 ## Milestone 4 – Spikes & spec for Raffica Write
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M3
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M3.3
 
 Goal: The layout engine decision for Write rests on measurements and the spec is written.
 
@@ -549,7 +621,7 @@ Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, o
 - **German wording for "System" in the settings dialog:** The German label "Wie System" (`SettingsThemeSystem`, the follow-the-system theme choice) needs the owner's decision on the wording.
 - **Ctrl+K and hyperlinks in Write:** The frame binds Ctrl+K to the search field. Word and other editors use Ctrl+K for inserting a hyperlink; settle this in the Write spec (note for the Write spec).
 - **Accessibility items deferred from the frame:** Not done in milestone 1.2: the selected state of ribbon tabs is not exposed to assistive technology (only a style class; the document tabs expose it since milestone 2.1), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button).
-- **Option key handling on macOS:** A bare Option tap enters field-code mode and takes the next letter; there is no platform gating. Decide the macOS behaviour when the macOS subproject is specified, after checking it on a Mac.
+- **macOS print panel:** Print through the native macOS print panel (Preview, PDF export, presets) instead of the app's own CUPS print card. Left out of subproject 4 because it needs Objective-C interop for NSPrintOperation; the own card over CUPS is the decided path (spec 5.6).
 - **Tabs between windows and open in a new window:** Pagewing 1.0 let a tab be moved to its own window (menu "Open in new window", M4) and dragged between windows (M4.1, Windows only). Raffica PDF 2.1 has one window with tabs; the frame's `DocumentTabs` has no drag-out. Revisit after 2.6 or when the owner asks.
 - **Setting "reduce animations":** Pagewing 1.0 had it in the settings (M6, because Avalonia had no system setting for it). Raffica's shell has no such setting; add it as an extra row of the settings dialog or as a shell setting once the shell has animations that matter.
 - **Remove the overlap between Core and Shell settings:** Core's `AppSettings` still has `Theme`, `Language` and `Density`, which the shell settings (`ShellSettings`) own; the PDF app does not read them. Remove the fields or migrate them so that two files cannot disagree.
