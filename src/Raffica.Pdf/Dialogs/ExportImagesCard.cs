@@ -78,7 +78,7 @@ internal static class ExportImagesCard
         {
             Title = PdfStrings.ExportTitle,
             Content = new ScrollViewer { Content = new StackPanel { Spacing = 12, Children = { header, rangeLabel, range, rangeHint, resolution, marks, largest, sizeHint, folderRow } } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { export, cancel } },
+            Footer = CardFooter.Build(export, null, cancel),
         };
 
         string? folder = null;

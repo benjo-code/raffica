@@ -85,7 +85,7 @@ public sealed class SaveCardsTests
 
         Assert.Equal(PdfStrings.SignedWarnTitle, s.Card.Title);
         Assert.Contains(PdfStrings.SignedWarnText, s.Texts);
-        Assert.Equal(["PART_Cancel", "PART_SaveAs", "PART_SaveAnyway"], s.ButtonNames);
+        Assert.Equal(["PART_SaveAs", "PART_SaveAnyway", "PART_Cancel"], s.ButtonNames);
         Assert.True(s.Button("PART_Cancel").IsFocused);
         Assert.False(s.Button("PART_SaveAnyway").IsFocused);
 
@@ -105,7 +105,7 @@ public sealed class SaveCardsTests
         Assert.DoesNotContain(PdfStrings.SignedWarnText, s.Texts);
         Assert.Contains("form fields", PdfStrings.SignedFormsText, StringComparison.Ordinal);
         Assert.Contains("cannot check", PdfStrings.SignedFormsText, StringComparison.Ordinal);
-        Assert.Equal(["PART_Cancel", "PART_SaveAs", "PART_SaveAnyway"], s.ButtonNames);
+        Assert.Equal(["PART_SaveAs", "PART_SaveAnyway", "PART_Cancel"], s.ButtonNames);
         Assert.True(s.Button("PART_Cancel").IsFocused);
         Assert.False(s.Button("PART_SaveAnyway").IsEnabled);
 
@@ -271,7 +271,7 @@ public sealed class SaveCardsTests
         var closes = new List<CloseChoice>();
         using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, kind: UnsavedKind.Ocr, time: t));
         Assert.Equal(PdfStrings.UnsavedOcrTitle, s.Card.Title);
-        Assert.Equal(["PART_Cancel", "PART_Discard"], s.ButtonNames);
+        Assert.Equal(["PART_Discard", "PART_Cancel"], s.ButtonNames);
         s.Time.Advance(400);
         s.Click("PART_Discard");
         Assert.Equal([CloseChoice.DontSave], closes);
@@ -283,7 +283,7 @@ public sealed class SaveCardsTests
         var closes = new List<CloseChoice>();
         using var s = Show(t => UnsavedChangesCard.Create("a.pdf", closes.Add, kind: UnsavedKind.Locked, time: t));
         Assert.Equal(PdfStrings.UnsavedLockedTitle, s.Card.Title);
-        Assert.Equal(["PART_Cancel", "PART_Discard"], s.ButtonNames);
+        Assert.Equal(["PART_Discard", "PART_Cancel"], s.ButtonNames);
         Assert.Equal(PdfStrings.UnsavedDiscard, s.Button("PART_Discard").Content);
         Assert.True(s.Button("PART_Cancel").IsFocused);
         s.Click("PART_Cancel");

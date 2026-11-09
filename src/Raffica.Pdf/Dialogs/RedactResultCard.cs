@@ -56,7 +56,7 @@ internal static class RedactResultCard
         {
             Title = PdfStrings.RedactResultTitle,
             Content = body,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+            Footer = CardFooter.Only(ok),
         };
         var finished = false;
         void Finish()

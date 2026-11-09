@@ -86,11 +86,15 @@ internal sealed class UpdateProgressCard
         _close = new Button { Name = "PART_Dismiss", Content = ShellStrings.Close, IsVisible = false };
         _close.Classes.Add("boxed");
 
+        // Two states share the footer: while it runs only Cancel shows; after a failure Try again (primary), the download page and Close (the cancel) do.
+        var footer = CardFooter.Build(_retry, [_page], _cancelButton);
+        footer.Children.Add(_close);
+        _close.IsCancel = true;
         Dialog = new Dialog
         {
             Title = PdfStrings.UpdateProgressTitle,
             Content = new StackPanel { Spacing = 8, Children = { rows, _track, _failure } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _cancelButton, _close, _page, _retry } },
+            Footer = footer,
         };
 
         _cancelButton.Click += (_, _) => RequestCancel();
@@ -142,6 +146,8 @@ internal sealed class UpdateProgressCard
         _track.IsVisible = true;
         _retry.IsVisible = _page.IsVisible = _close.IsVisible = false;
         _cancelButton.IsVisible = true;
+        _cancelButton.IsDefault = true;
+        _retry.IsDefault = _close.IsDefault = false;
         var step = state.Stage switch
         {
             UpdateStage.Verifying => 1,
@@ -188,6 +194,9 @@ internal sealed class UpdateProgressCard
         _failure.IsVisible = true;
         _track.IsVisible = false;
         _cancelButton.IsVisible = false;
+        _cancelButton.IsDefault = false;
+        _retry.IsDefault = canRetry;
+        _close.IsDefault = !canRetry;
         _retry.IsVisible = canRetry;
         _page.IsVisible = offersDownloadPage;
         _close.IsVisible = true;

@@ -103,7 +103,7 @@ internal static class SplitCard
         {
             Title = PdfStrings.SplitTitle,
             Content = new ScrollViewer { Content = new StackPanel { Spacing = 12, Children = { header, modes, folderRow, previewBox } } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { split, cancel } },
+            Footer = CardFooter.Build(split, null, cancel),
         };
 
         string? folder = null;
@@ -203,7 +203,7 @@ internal static class SplitCard
         {
             Title = PdfStrings.SplitTitle,
             Content = ExtractCard.LossBody(PdfStrings.Fill(PdfStrings.SplitConfirmIntroFormat, partCount), losses, stays, PdfStrings.StaysHeadingSplit),
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { go, back } },
+            Footer = CardFooter.Build(go, null, back),
         };
         go.Click += (_, _) => done(true);
         back.Click += (_, _) => done(false);

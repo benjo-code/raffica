@@ -154,7 +154,7 @@ internal static class NewSignatureCard
             {
                 Title = PdfStrings.SignatureNewTitle,
                 Content = new StackPanel { Spacing = 10, Children = { _tabs, _drawPanel, _imagePanel, _preview, nameRow, _message, hint } },
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _cancel, _save } },
+                Footer = CardFooter.Build(_save, null, _cancel),
             };
 
             _tabs.SelectionChanged += (_, _) => OnTabChanged();

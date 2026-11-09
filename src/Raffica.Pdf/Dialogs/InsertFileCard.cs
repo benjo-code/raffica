@@ -76,7 +76,7 @@ internal static class InsertFileCard
         {
             Title = PdfStrings.InsertFileTitle,
             Content = new StackPanel { Spacing = 12, Children = { header, label, field, hint, positionLabel, group } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
 
         void Validate()

@@ -32,7 +32,7 @@ internal static class PasswordCard
         {
             Title = PdfStrings.PasswordTitle,
             Content = new StackPanel { Spacing = 12, Children = { message, field, hint } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
         ok.Click += (_, _) => done(field.Text ?? string.Empty);
         cancel.Click += (_, _) => done(null);

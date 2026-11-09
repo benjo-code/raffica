@@ -55,7 +55,7 @@ internal static class RequiredFieldsCard
         {
             Title = PdfStrings.RequiredTitle,
             Content = new StackPanel { Spacing = 8, Children = { message, list, hint } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { first, anyway } },
+            Footer = CardFooter.Build(first, [anyway], null),
         };
         first.Click += (_, _) => Finish(RequiredChoice.GoToFirst);
         anyway.Click += (_, _) => Finish(RequiredChoice.SaveAnyway);

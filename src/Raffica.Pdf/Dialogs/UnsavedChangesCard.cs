@@ -60,7 +60,7 @@ internal static class UnsavedChangesCard
             {
                 Title = ocr ? PdfStrings.UnsavedOcrTitle : PdfStrings.UnsavedLockedTitle,
                 Content = message,
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, dangerous } },
+                Footer = CardFooter.Build(null, [dangerous], cancel),
             };
         }
         else
@@ -71,7 +71,7 @@ internal static class UnsavedChangesCard
             {
                 Title = redact ? PdfStrings.UnsavedRedactTitle : plan ? PdfStrings.UnsavedPlanTitle : PdfStrings.UnsavedTitle,
                 Content = message,
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { save, dangerous, cancel } },
+                Footer = CardFooter.Build(save, [dangerous], cancel),
             };
             save.Click += (_, _) => chosen(CloseChoice.Save);
         }

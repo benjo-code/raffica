@@ -44,14 +44,8 @@ internal static class UpdateCard
         var page = CreateButton("PART_Page", PdfStrings.UpdateOpenPage, primary: !canInstall);
         var install = CreateButton("PART_Install", PdfStrings.UpdateInstall, primary: true);
 
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        footer.Children.Add(later);
-        footer.Children.Add(page);
-        if (canInstall)
-        {
-            footer.Children.Add(install);
-        }
-
+        // Install is the primary where the app can update itself, else the download page is.
+        var footer = canInstall ? CardFooter.Build(install, [page], later) : CardFooter.Build(page, null, later);
         var dialog = new Dialog { Title = PdfStrings.UpdateTitle, Content = lines, Footer = footer };
         var arming = new ArmingLock(time, dialog, canInstall ? [install] : []);
         var finished = false;

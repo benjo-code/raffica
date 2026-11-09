@@ -87,7 +87,7 @@ internal static class AboutCard
         {
             Title = PdfStrings.AboutTitle,
             Content = new StackPanel { Spacing = 4, Children = { name, versionLine, license, project, heading, scroll } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+            Footer = CardFooter.Only(ok),
         };
         ok.Click += (_, _) => done();
         projectLink.Click += (_, _) =>

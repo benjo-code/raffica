@@ -31,7 +31,7 @@ internal static class SaveFirstCard
         {
             Title = PdfStrings.SaveFirstTitle,
             Content = message,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { save, back } },
+            Footer = CardFooter.Build(save, null, back),
         };
         var finished = false;
         void Finish(bool answer)

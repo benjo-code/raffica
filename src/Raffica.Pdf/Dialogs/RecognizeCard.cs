@@ -142,7 +142,7 @@ internal static class RecognizeCard
         {
             Title = PdfStrings.OcrRecognizeTitle,
             Content = new ScrollViewer { MaxHeight = 460, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = body },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
 
         string? RangeProblem() => some.IsChecked == true ? InsertFileCard.Problem(range.Text, pageCount) : null;

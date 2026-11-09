@@ -102,7 +102,7 @@ internal static class SignaturePickerCard
             {
                 Title = PdfStrings.SignaturePickerTitle,
                 Content = new StackPanel { Spacing = 10, MinWidth = 360, Children = { _list, _empty, _confirm, _message, hint } },
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _new, _cancel } },
+                Footer = CardFooter.Build(_new, null, _cancel),
             };
 
             _yes.Click += async (_, _) => await DeleteAsync();

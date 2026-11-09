@@ -75,14 +75,25 @@ internal static class RedactApplyCard
         back.Classes.Add("boxed");
         back.Click += (_, _) => Finish(ApplyChoice.Back);
 
-        var ways = new StackPanel { Name = "PART_Ways", Orientation = Orientation.Horizontal, Spacing = 8, Children = { saveAs } };
         Button? original = null;
         if (target == ApplyTarget.Choose)
         {
             original = new Button { Name = "PART_Original", Content = PdfStrings.ApplyOriginal };
             original.Classes.Add("boxed");
-            ways.Children.Add(original);
         }
+
+        // The ways out of the card (Save as and the original) come first, the cancel last; the ways are locked together until every rescue page is ticked.
+        var buttons = CardFooter.Build(saveAs, original is null ? null : [original], back);
+        var ways = new StackPanel { Name = "PART_Ways", Orientation = Orientation.Horizontal, Spacing = CardFooter.Spacing };
+        buttons.Children.Remove(back);
+        foreach (var way in buttons.Children.ToList())
+        {
+            buttons.Children.Remove(way);
+            ways.Children.Add(way);
+        }
+
+        buttons.Children.Add(ways);
+        buttons.Children.Add(back);
 
         // The pages that cannot be redacted in place: a tick each, and the way out waits for all of them.
         var blocked = new TextBlock { Name = "PART_RescueBlocked", Text = PdfStrings.RedactRescueBlocked, TextWrapping = TextWrapping.Wrap };
@@ -141,7 +152,6 @@ internal static class RedactApplyCard
         body.Children.Insert(0, RedactCardParts.Name(fileName));
         body.Children.Add(new TextBlock { Name = "PART_Warning", Text = PdfStrings.ApplyWarning, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 4, 0, 0) });
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ways, back } };
         var dialog = new Dialog { Title = PdfStrings.RedactApplyTitle, Content = body, Footer = buttons };
         if (original is not null)
         {

@@ -47,7 +47,7 @@ internal static class RedactRefusedCard
         {
             Title = title,
             Content = RedactCardParts.Scroll(body),
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { back } },
+            Footer = CardFooter.Only(back),
         };
         var finished = false;
         void Finish()

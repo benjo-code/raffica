@@ -38,7 +38,7 @@ internal static class DefaultAppCard
         {
             Title = PdfStrings.DefaultAppTitle,
             Content = message,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { notNow, dontAsk, set } },
+            Footer = CardFooter.Build(set, [dontAsk], notNow),
         };
 
         var arming = new ArmingLock(time, dialog, set, dontAsk);

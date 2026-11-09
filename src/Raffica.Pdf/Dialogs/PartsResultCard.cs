@@ -69,17 +69,16 @@ internal static class PartsResultCard
         var ok = new Button { Name = "PART_Ok", Content = Raffica.Shell.Localization.ShellStrings.Ok };
         ok.Classes.Add(report.CanOpen ? "boxed" : "primary");
         ok.Click += (_, _) => done(false);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        Button? open = null;
         if (report.CanOpen)
         {
-            var open = new Button { Name = "PART_Open", Content = PdfStrings.OutputOpen };
+            open = new Button { Name = "PART_Open", Content = PdfStrings.OutputOpen };
             open.Classes.Add("primary");
             open.Click += (_, _) => done(true);
-            buttons.Children.Add(open);
         }
 
-        buttons.Children.Add(ok);
-        var dialog = new Dialog { Title = report.Title, Content = body, Footer = buttons };
+        // With a file to open that is the primary action and OK dismisses; otherwise OK is the only button.
+        var dialog = new Dialog { Title = report.Title, Content = body, Footer = open is null ? CardFooter.Only(ok) : CardFooter.Build(open, null, ok) };
         dialog.CancelRequested += (_, _) => done(false);
         return dialog;
     }

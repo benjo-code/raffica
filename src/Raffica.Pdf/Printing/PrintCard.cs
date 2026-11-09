@@ -139,7 +139,7 @@ internal static class PrintCard
         {
             Title = PdfStrings.PrintCardTitle,
             Content = body,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { print, cancel } },
+            Footer = CardFooter.Build(print, null, cancel),
         };
 
         // Whether the printer can print on both sides is asked in the background: the row appears when the answer is yes. A late answer for

@@ -46,7 +46,7 @@ internal static class GoToPageCard
         {
             Title = PdfStrings.GoToPageTitle,
             Content = new StackPanel { Spacing = 12, Children = { label, field, hint } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
 
         void Confirm()

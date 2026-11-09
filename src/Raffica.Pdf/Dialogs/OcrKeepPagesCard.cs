@@ -22,16 +22,11 @@ internal static class OcrKeepPagesCard
         discard.Classes.Add("primary");
         var keep = new Button { Name = "PART_Keep", Content = PdfStrings.Fill(PdfStrings.OcrKeepKeepFormat, pages) };
         keep.Classes.Add("boxed");
-        return Build(PdfStrings.OcrKeepTitle, message, [discard, keep], keep, discard, done);
-    }
-
-    private static Dialog Build(string title, TextBlock message, Button[] buttons, Button yes, Button no, Action<bool> done)
-    {
         var dialog = new Dialog
         {
-            Title = title,
+            Title = PdfStrings.OcrKeepTitle,
             Content = message,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { buttons[0], buttons[1] } },
+            Footer = CardFooter.Build(discard, [keep], null),
         };
         var finished = false;
         void Finish(bool answer)
@@ -43,8 +38,8 @@ internal static class OcrKeepPagesCard
             }
         }
 
-        yes.Click += (_, _) => Finish(true);
-        no.Click += (_, _) => Finish(false);
+        keep.Click += (_, _) => Finish(true);
+        discard.Click += (_, _) => Finish(false);
         dialog.CancelRequested += (_, _) => Finish(false);
         return dialog;
     }

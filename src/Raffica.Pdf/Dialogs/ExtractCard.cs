@@ -53,7 +53,7 @@ internal static class ExtractCard
         {
             Title = PdfStrings.ExtractTitle,
             Content = new StackPanel { Spacing = 12, Children = { header, label, field, hint, nameLabel, name } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
 
         void Validate()
@@ -108,7 +108,7 @@ internal static class ExtractCard
         {
             Title = PdfStrings.ExtractConfirmTitle,
             Content = LossBody(PdfStrings.Fill(PdfStrings.ExtractConfirmIntroFormat, range), losses, stays, PdfStrings.StaysHeadingExtract),
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { go, back } },
+            Footer = CardFooter.Build(go, null, back),
         };
         go.Click += (_, _) => done(true);
         back.Click += (_, _) => done(false);

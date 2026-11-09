@@ -22,7 +22,7 @@ internal static class CrashCard
         {
             Title = PdfStrings.CrashTitle,
             Content = new StackPanel { Spacing = 8, Children = { text } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { folder, ok } },
+            Footer = CardFooter.Build(ok, [folder], null),
         };
         folder.Click += (_, _) => openFolder();
         ok.Click += (_, _) => done();

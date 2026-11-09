@@ -92,7 +92,7 @@ public sealed class DefaultAppFlowTests : IDisposable
         using var asks = new Rig(new FakeDefaultAppService());
         var offer = asks.Flow.OfferAtStartAsync(TestContext.Current.CancellationToken);
         await asks.WaitForCardAsync();
-        Assert.Equal(["PART_NotNow", "PART_DontAsk", "PART_Set"], asks.ButtonNames);
+        Assert.Equal(["PART_Set", "PART_DontAsk", "PART_NotNow"], asks.ButtonNames);
         Assert.Equal(PdfStrings.DefaultAppTitle, asks.Host.ActiveDialog!.Title);
         asks.Click("PART_NotNow");
         await offer;
