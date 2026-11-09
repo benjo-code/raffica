@@ -249,6 +249,14 @@ internal sealed partial class PageView : Control
                 return navigated;
             }
 
+            // Scrolled to the very end (the End key, the scroll bar, a wheel that arrives): the last page is the current one, also when several short pages share
+            // the last screen and an earlier one has more of it. A document that fits the window has no end to scroll to.
+            var maxOffset = MaxOffsetY;
+            if (maxOffset > 0 && _offsetY >= maxOffset - 0.5)
+            {
+                return _layout.PageCount - 1;
+            }
+
             return Math.Max(0, _layout.GetMostVisiblePage(_offsetY, _offsetY + _viewport.Height));
         }
     }
