@@ -6,6 +6,8 @@ name: CI
 # - A pull request that changes only documentation (Docs/, Markdown in the root and in bench/, LICENSE) skips the build;
 #   the required status check "ci" still reports, so the branch protection never waits.
 # - Stale runs of the same ref are cancelled.
+# - The macOS job (hosted runner, there is no self-hosted Mac) runs for pull requests into main, pushes to main, a pull
+#   request with the label ci:macos and a pull request that touches platform-near files (.github/scripts/macos-paths.sh).
 # While the repository is private everything runs on the owner's self-hosted runners; once it is public (or for a pull
 # request from a fork) every job goes to GitHub-hosted runners. This routing is a convenience: the boundary that keeps
 # foreign code off the owner's machines is the runner group (restricted to release.yml on main and dev), because a fork
@@ -13,7 +15,7 @@ name: CI
 on:
   pull_request:
     branches: [dev, main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   push:
     branches: [main]
 
@@ -38,11 +40,16 @@ jobs:
     outputs:
       code: ${{ steps.diff.outputs.code }}
       hosted: ${{ steps.diff.outputs.hosted }}
+      macos: ${{ steps.diff.outputs.macos }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
+
+      - name: Test of the macOS path filter
+        shell: bash
+        run: bash .github/scripts/macos-paths.test.sh
 
       - name: Decide
         id: diff
@@ -51,17 +58,20 @@ jobs:
           EVENT: ${{ github.event_name }}
           DRAFT: ${{ github.event.pull_request.draft }}
           BASE: ${{ github.base_ref }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
           FORK: ${{ (github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) }}
         run: |
           echo "hosted=$FORK" >> "$GITHUB_OUTPUT"
           if [ "$EVENT" = pull_request ] && [ "$DRAFT" = true ]; then
             echo "A draft pull request is not built."
             echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "macos=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # Pushes to main and pull requests into main (releases) are always built in full.
           if [ "$EVENT" != pull_request ] || [ "$BASE" = main ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "macos=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # The checkout of a pull request is the merge commit; its first parent is the tip of the base branch.
@@ -79,6 +89,16 @@ jobs:
           done <<< "$files"
           echo "Changed files:"; echo "$files"
           echo "code=$code" >> "$GITHUB_OUTPUT"
+          # The macOS job: only with code to build, then on the label ci:macos or a platform-near file.
+          macos=false
+          if [ "$code" = true ]; then
+            case ",$LABELS," in *,ci:macos,*) macos=true ;; esac
+            if hit=$(printf '%s\n' "$files" | bash .github/scripts/macos-paths.sh); then
+              echo "Platform-near file: $hit"
+              macos=true
+            fi
+          fi
+          echo "macos=$macos" >> "$GITHUB_OUTPUT"
 
   build:
     name: build-${{ matrix.name }}
@@ -274,12 +294,145 @@ jobs:
           }
           Write-Host 'the published PDF app prints German and English strings'
 
+  # macOS (spec 2026-11-09-raffica-macos-design.md, section 7): the build, the tests, the Native AOT publish for both architectures
+  # and the smoke tests, the Intel build through Rosetta. Hosted runner only. It is part of the required check "ci" only when the
+  # "changes" job asked for it.
+  build-macos:
+    name: build-macos
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.macos == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The runner is Apple Silicon: the osx-x64 binaries run through Rosetta 2.
+      - name: Check Rosetta
+        run: arch -x86_64 /usr/bin/true || sudo softwareupdate --install-rosetta --agree-to-license
+
+      - name: Restore
+        run: dotnet restore Raffica.slnx
+
+      - name: Build
+        run: dotnet build Raffica.slnx -c Release --no-restore
+
+      - name: Fetch the OCR library and the language data (arm64)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: dotnet run tools/native-fetch.cs -- --rid osx-arm64 --out artifacts/native/osx-arm64
+
+      - name: Test
+        env:
+          RAFFICA_REQUIRE_OCR: '1'
+        run: dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1
+
+      - name: Upload the render diffs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: render-diff-macos
+          path: tests/Raffica.Render.Tests/**/render-diff/**
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Self-test of the OCR library fetch
+        run: dotnet run tools/native-fetch.cs -- selftest
+
+      - name: Self-test of the binary check
+        run: dotnet run tools/check-binary.cs -- selftest
+
+      # The x64 OCR files are fetched first so that the x64 publish folder carries them.
+      - name: Fetch the OCR library and the language data (x64)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: dotnet run tools/native-fetch.cs -- --rid osx-x64 --out artifacts/native/osx-x64
+
+      - name: Publish the PDF app and the CLI (Native AOT, both architectures)
+        run: |
+          set -e
+          for rid in osx-arm64 osx-x64; do
+            dotnet publish src/Raffica.Pdf -c Release -r "$rid" -o "out/pdf-$rid"
+            dotnet publish src/Raffica.Cli -c Release -r "$rid" -o "out/cli-$rid"
+          done
+
+      - name: Check the architecture of the executables
+        run: |
+          set -e
+          for pair in osx-arm64:arm64 osx-x64:x86_64; do
+            rid=${pair%%:*}; want=${pair##*:}
+            for exe in "out/pdf-$rid/RafficaPdf" "out/cli-$rid/raffica"; do
+              got=$(lipo -archs "$exe")
+              [ "$got" = "$want" ] || { echo "$exe: expected '$want', lipo says '$got'" >&2; exit 1; }
+              echo "$exe: $got"
+            done
+          done
+
+      # --print-string runs before any window exists, so no display is needed. The Intel build runs through Rosetta (arch -x86_64).
+      - name: Smoke test of the PDF app binary
+        run: |
+          set -e
+          for pair in osx-arm64: osx-x64:"arch -x86_64"; do
+            rid=${pair%%:*}; runner=${pair#*:}
+            exe="out/pdf-$rid/RafficaPdf"
+            de=$($runner "$exe" --print-string TabView --lang de)
+            [ "$de" = "Ansicht" ] || { echo "$rid: expected 'Ansicht' with --lang de, got: $de" >&2; exit 1; }
+            en=$($runner "$exe" --print-string TabView --lang en)
+            [ "$en" = "View" ] || { echo "$rid: expected 'View' with --lang en, got: $en" >&2; exit 1; }
+            echo "$rid: the published PDF app prints German and English strings"
+          done
+
+      - name: Smoke test of the CLI binary
+        run: |
+          set -e
+          for pair in osx-arm64: osx-x64:"arch -x86_64"; do
+            rid=${pair%%:*}; runner=${pair#*:}
+            exe="out/cli-$rid/raffica"
+            $runner "$exe" --help > /dev/null
+            text=$($runner "$exe" text testdata/pdfs/text-basic.pdf)
+            case "$text" in *"Hello,"*) echo "$rid: text extraction works" ;; *) echo "$rid: unexpected output: $text" >&2; exit 1 ;; esac
+          done
+
+      # The default macOS volume ignores case: Bericht.pdf and bericht.pdf are one file. The CLI must see that (FileIdentity, stat$INODE64
+      # under Rosetta) and refuse, not overwrite its own input.
+      - name: Smoke test of the same-file guard
+        run: |
+          for pair in osx-arm64: osx-x64:"arch -x86_64"; do
+            rid=${pair%%:*}; runner=${pair#*:}
+            exe="out/cli-$rid/raffica"
+            dir="$RUNNER_TEMP/samefile-$rid"
+            mkdir -p "$dir"
+            cp testdata/pdfs/text-basic.pdf "$dir/Bericht.pdf"
+            code=0
+            out=$($runner "$exe" rotate "$dir/Bericht.pdf" --pages all --angle 90 --output "$dir/bericht.pdf" 2>&1) || code=$?
+            echo "$out"
+            [ "$code" -ne 0 ] || { echo "$rid: rotate onto the same file exited 0" >&2; exit 1; }
+            case "$out" in *"same file"*) echo "$rid: the same file is refused" ;; *) echo "$rid: the refusal does not say 'same file'" >&2; exit 1 ;; esac
+          done
+
+      # tar keeps the executable bit, which the artifact zip would lose. For the owner's manual check on an Intel Mac.
+      - name: Pack the Intel PDF app
+        run: tar czf "$RUNNER_TEMP/raffica-pdf-osx-x64.tar.gz" -C out pdf-osx-x64
+
+      - name: Upload the Intel PDF app
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: raffica-pdf-osx-x64
+          path: ${{ runner.temp }}/raffica-pdf-osx-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+
   # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
   # draft), so the matrix can change without touching the branch protection.
   ci:
     name: ci
     if: always()
-    needs: [changes, build]
+    needs: [changes, build, build-macos]
     runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
     timeout-minutes: 5
     steps:
@@ -288,7 +441,11 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           CODE: ${{ needs.changes.outputs.code }}
           BUILD: ${{ needs.build.result }}
+          MACOS_WANTED: ${{ needs.changes.outputs.macos }}
+          MACOS: ${{ needs['build-macos'].result }}
         run: |
-          echo "changes: $CHANGES, code: $CODE, build: $BUILD"
+          echo "changes: $CHANGES, code: $CODE, build: $BUILD, macos: $MACOS_WANTED/$MACOS"
           test "$CHANGES" = success
           if [ "$CODE" = true ]; then test "$BUILD" = success; else echo "nothing to build"; fi
+          # Skipped (not asked for) counts as passed; asked for, it must have succeeded.
+          if [ "$MACOS_WANTED" = true ]; then test "$MACOS" = success; else echo "no macOS build asked for"; fi
