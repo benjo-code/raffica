@@ -169,7 +169,9 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
-          source <(grep -E '^[A-Z_]+=' packaging/native/versions.txt)
+          # eval, not source <(...): the bash 3.2 of macOS reads nothing from a process substitution and does not fail.
+          eval "$(grep -E '^[A-Z_]+=' packaging/native/versions.txt)"
+          : "${MACOS_DEPLOYMENT_TARGET:?MACOS_DEPLOYMENT_TARGET is not set in versions.txt}"
           dir="artifacts/native/macos-$ARCH"
           f="$dir/libtesseract.dylib"
           dotnet run tools/check-binary.cs -- "$f" --arch "$ARCH" --max-macos "$MACOS_DEPLOYMENT_TARGET" --bundle "$dir"

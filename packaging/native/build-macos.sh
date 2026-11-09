@@ -12,8 +12,8 @@ case "$arch" in
   x86_64|arm64) ;;
   *) echo "build-macos: architecture must be x86_64 or arm64, not '$arch'" >&2; exit 1 ;;
 esac
-# shellcheck disable=SC1091
-source <(grep -E '^[A-Z_]+=' "$repo/packaging/native/versions.txt")
+# eval, not source <(...): the bash 3.2 of macOS reads nothing from a process substitution and does not fail.
+eval "$(grep -E '^[A-Z_]+=' "$repo/packaging/native/versions.txt")"
 : "${MACOS_DEPLOYMENT_TARGET:?MACOS_DEPLOYMENT_TARGET is not set in versions.txt}"
 
 # cmake and ninja come with the runner image; Homebrew only fills a gap.
