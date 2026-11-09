@@ -249,12 +249,17 @@ internal sealed partial class PageView : Control
                 return navigated;
             }
 
-            // Scrolled to the very end (the End key, the scroll bar, a wheel that arrives): the last page is the current one, also when several short pages share
-            // the last screen and an earlier one has more of it. A document that fits the window has no end to scroll to.
+            // Scrolled to the very end (the End key, the scroll bar, a wheel that arrives): the last page that is on screen is the current one, also when several short
+            // pages share the last screen and an earlier one has more of it. In the continuous and the two-page layouts that is the last page of the document; in the single
+            // page layout the content is only the shown page, so it is that page. A document that fits the window has no end to scroll to.
             var maxOffset = MaxOffsetY;
             if (maxOffset > 0 && _offsetY >= maxOffset - 0.5)
             {
-                return _layout.PageCount - 1;
+                var (first, last) = VisiblePages;
+                if (last >= first)
+                {
+                    return last;
+                }
             }
 
             return Math.Max(0, _layout.GetMostVisiblePage(_offsetY, _offsetY + _viewport.Height));

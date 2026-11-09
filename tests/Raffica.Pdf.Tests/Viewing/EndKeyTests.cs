@@ -1,7 +1,7 @@
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Threading;
+using Raffica.Core.Viewing;
 using Xunit;
 
 namespace Raffica.Pdf.Tests.Viewing;
@@ -43,5 +43,62 @@ public sealed class EndKeyTests
         view.Offset = new Avalonia.Vector(0, view.MaxOffsetY - 300);
         ViewFixture.Pump();
         Assert.True(view.CurrentPage < 999);
+    }
+
+    [AvaloniaFact]
+    public async Task InTheSinglePageLayoutTheBottomOfAPageIsThatPageNotTheLastOfTheDocument()
+    {
+        using var fixture = await ViewFixture.OpenAsync("pages-marked.pdf", 800, 400);
+        var view = fixture.View;
+        Assert.True(view.PageCount >= 4);
+        view.SetLayout(PageLayoutMode.SinglePage);
+        view.SetZoom(3);
+        view.GoToPage(2);
+        ViewFixture.Pump();
+        Assert.True(view.MaxOffsetY > 0, "the page must be taller than the window");
+
+        view.Offset = new Avalonia.Vector(0, view.MaxOffsetY);
+        ViewFixture.Pump();
+
+        Assert.Equal(2, view.CurrentPage);
+        Assert.Equal($"Page 3 of {view.PageCount}", Raffica.Pdf.Viewing.ViewCommands.PositionText(view.CurrentPage + 1, view.PageCount));
+    }
+
+    [AvaloniaFact]
+    public async Task ARestoredSinglePageViewAtTheBottomOfAMiddlePageKeepsThatPage()
+    {
+        using var fixture = await ViewFixture.OpenAsync("pages-marked.pdf", 800, 400);
+        var view = fixture.View;
+        view.SetLayout(PageLayoutMode.SinglePage);
+        view.SetZoom(3);
+        view.GoToPage(2);
+        ViewFixture.Pump();
+        view.Offset = new Avalonia.Vector(0, view.MaxOffsetY);
+        ViewFixture.Pump();
+        var kept = view.CaptureRemembered();
+
+        view.RestoreView(kept.View, kept.Zoom, kept.ZoomMode, kept.Layout);
+        ViewFixture.Pump();
+
+        Assert.Equal(2, view.CurrentPage);
+    }
+
+    [AvaloniaFact]
+    public async Task InTheTwoPageLayoutTheEndIsTheLastPageAndAHigherOffsetIsNot()
+    {
+        using var fixture = await ViewFixture.OpenAsync("pages-marked.pdf", 800, 400);
+        var view = fixture.View;
+        view.SetLayout(PageLayoutMode.TwoPages);
+        view.SetZoom(2);
+        ViewFixture.Pump();
+        Assert.True(view.MaxOffsetY > 0);
+
+        view.Offset = new Avalonia.Vector(0, view.MaxOffsetY);
+        ViewFixture.Pump();
+        Assert.Equal(view.PageCount - 1, view.CurrentPage);
+
+        view.Offset = new Avalonia.Vector(0, 0);
+        ViewFixture.Pump();
+        Assert.True(view.CurrentPage < view.PageCount - 1);
     }
 }
