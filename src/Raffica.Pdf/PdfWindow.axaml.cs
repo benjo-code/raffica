@@ -1732,7 +1732,7 @@ internal sealed partial class PdfWindow : Window
         UpdateSaveStateCore();
     }
 
-    private void UpdateSaveStateCore() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.TabUnsavedChanges : null;
+    private void UpdateSaveStateCore() => Status.SaveState = Workspace.Active is { IsDirty: true } ? ShellStrings.StatusUnsaved : null;
 
     // The card about empty required fields; "go to first empty field" takes the same path as the ribbon command and the badge counter.
     private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab, IReadOnlyList<string> names)

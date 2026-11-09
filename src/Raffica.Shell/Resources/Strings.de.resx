@@ -72,6 +72,9 @@
   <data name="TabUnsavedChanges" xml:space="preserve">
     <value>Ungespeicherte Änderungen</value>
   </data>
+  <data name="StatusUnsaved" xml:space="preserve">
+    <value>Nicht gespeichert</value>
+  </data>
   <data name="Minimize" xml:space="preserve">
     <value>Minimieren</value>
   </data>

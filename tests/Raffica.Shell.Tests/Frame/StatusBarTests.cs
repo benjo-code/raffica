@@ -34,7 +34,8 @@ public sealed class StatusBarTests
         var (window, bar) = Show();
         var before = Cells.ToDictionary(n => n, n => X(bar, n));
 
-        bar.Position = "Page 1234567 of 99999999 in a very long section name";
+        // The position and count cells size to their text with a minimum (M2.7): a text that fits the minimum moves nothing.
+        bar.Position = "Page 123 of 999";
         bar.Count = "1";
         bar.FocusPane = "Comments, a pane with a rather long name";
         bar.SaveState = "Not saved";
@@ -44,6 +45,29 @@ public sealed class StatusBarTests
         {
             Assert.Equal(before[name], X(bar, name), 0.01);
         }
+    }
+
+    [AvaloniaFact]
+    public void PositionAndCountGrowWithTheirTextAndTakeTheRoomFromTheFreeColumn()
+    {
+        var (window, bar) = Show();
+        var before = Cells.ToDictionary(n => n, n => X(bar, n));
+        var zoomRight = Part(bar, "PART_Zoom").Bounds.Right;
+
+        bar.Position = "Page 1234567 of 99999999 in a very long section name";
+        ControlHarness.Settle(window);
+
+        Assert.True(Part(bar, "PART_Position").Bounds.Width > 128, "the position cell grows past its minimum");
+        Assert.Equal(Part(bar, "PART_Position").Bounds.Width, ControlHarness.Part<TextBlock>(bar, "PART_Position").DesiredSize.Width, 0.5);
+        Assert.Equal(before["PART_SaveState"], X(bar, "PART_SaveState"), 0.01);
+        Assert.Equal(before["PART_Position"], X(bar, "PART_Position"), 0.01);
+        Assert.True(X(bar, "PART_Count") > before["PART_Count"], "the cells right of it move over");
+        Assert.Equal(zoomRight, Part(bar, "PART_Zoom").Bounds.Right, 0.01);
+
+        bar.Position = "Page 1 of 3";
+        ControlHarness.Settle(window);
+        Assert.Equal(128, Part(bar, "PART_Position").Bounds.Width, 0.01);
+        Assert.Equal(144, Part(bar, "PART_Count").Bounds.Width, 0.01);
     }
 
     [AvaloniaFact]

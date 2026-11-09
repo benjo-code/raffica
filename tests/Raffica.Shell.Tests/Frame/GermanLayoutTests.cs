@@ -115,12 +115,20 @@ public sealed class GermanLayoutTests
         var status = demo.Window.Status;
         var texts = new List<string>();
 
-        // The cells in turn: the focus cell shows the F6 text, then the Alt hint takes its slot.
+        // The long cells of a real document: the shortened save state, a three-digit page count with a page size and the largest
+        // position, together with the language and the F6 text (which takes what the other cells leave over).
+        status.SaveState = ShellStrings.StatusUnsaved;
+        status.Position = lang == "de" ? "Seite 1000 von 1000" : "Page 1000 of 1000";
+        status.Count = lang == "de" ? "128 Seiten · 210 × 297 mm" : "128 pages · 210 × 297 mm";
         status.Language = lang == "de" ? "Englisch (US)" : "German (DE)";
         status.FocusPane = ShellStrings.FocusPane(ShellStrings.PaneComments);
         ControlHarness.Settle(demo.Window);
         texts.AddRange(LabelFit.FindClipped(demo.Window));
 
+        // The Alt hint takes the slot of the focus cell; at the minimum width it is checked with ordinary position and count texts
+        // (the longest ones plus the language leave it less than its text, which only the gallery's all-cells case can show).
+        status.Position = lang == "de" ? "Seite 3 von 12" : "Page 3 of 12";
+        status.Count = lang == "de" ? "12 Seiten" : "12 pages";
         status.Hint = ShellStrings.FieldCodeHint;
         ControlHarness.Settle(demo.Window);
         texts.AddRange(LabelFit.FindClipped(demo.Window));

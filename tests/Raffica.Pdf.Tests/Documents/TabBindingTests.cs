@@ -43,7 +43,7 @@ public sealed class TabBindingTests
 
         tab.MarkDirty();
         Assert.True(tab.Tab.IsDirty);
-        Assert.Equal("Unsaved changes", window.Status.SaveState);
+        Assert.Equal("Unsaved", window.Status.SaveState);
 
         tab.MarkClean();
         Assert.False(tab.Tab.IsDirty);
@@ -64,8 +64,9 @@ public sealed class TabBindingTests
 
         window.Tabs.Selected = first.Tab;
         Assert.Same(first, window.Workspace.Active);
-        Assert.Equal(ShellStrings.TabUnsavedChanges, window.Status.SaveState);
-        Assert.NotEqual("Unsaved changes", window.Status.SaveState);
+        Assert.Equal(ShellStrings.StatusUnsaved, window.Status.SaveState);
+        Assert.Equal("Nicht gespeichert", window.Status.SaveState);
+        Assert.NotEqual("Unsaved", window.Status.SaveState);
 
         window.Tabs.Selected = second.Tab;
         Assert.Null(window.Status.SaveState);
