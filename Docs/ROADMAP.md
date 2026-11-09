@@ -90,6 +90,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-07 (Milestone 2.6 (measurement seam)):** `UpdateServices.MeasurementKeepsUpdatesOff` keeps the update check and the default-app offer off in the measurement runs (`--measure-*`), so the numbers of 2.1 stay comparable.
 - **2026-11-07 (Milestone 2.6 (About card)):** The About card shows the notices in sections (one toggle per component, text created on first open) instead of one text box: the single 467,290-character box froze the card for 0.4 to 1.4 s.
 - **2026-11-07 (Milestone 2.6 (updater busy guard)):** An install refuses with a worded note (`UpdateBusyNote`, `PdfWindow.InstallUpdateAsync`) while a file job runs, and asks about unsaved changes in every tab first (`UpdateInstallGuard`); the progress card names each step in words and offers Cancel only up to the check step.
+- **2026-11-09 (Milestone 2.7):** The card "Set Raffica as default for PDFs?" remembers "Not now" for 30 days (`AppSettings.DefaultAppPromptSnoozedUntil`, `DefaultAppFlow`) instead of returning at every start; the card is offered again on the first start after that day. "Don't ask again" stays permanent. This changes the behavior of Milestone 2.6 (once per start), found as a repeated nuisance in the review of 2026-11-08 (08-UI-16).
 
 ---
 

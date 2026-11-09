@@ -242,6 +242,11 @@
       "date": "2026-11-07",
       "context": "Milestone 2.6 (updater busy guard)",
       "text": "An install refuses with a worded note (`UpdateBusyNote`, `PdfWindow.InstallUpdateAsync`) while a file job runs, and asks about unsaved changes in every tab first (`UpdateInstallGuard`); the progress card names each step in words and offers Cancel only up to the check step."
+    },
+    {
+      "date": "2026-11-09",
+      "context": "Milestone 2.7",
+      "text": "The card \"Set Raffica as default for PDFs?\" remembers \"Not now\" for 30 days (`AppSettings.DefaultAppPromptSnoozedUntil`, `DefaultAppFlow`) instead of returning at every start; the card is offered again on the first start after that day. \"Don't ask again\" stays permanent. This changes the behavior of Milestone 2.6 (once per start), found as a repeated nuisance in the review of 2026-11-08 (08-UI-16)."
     }
   ],
   "subprojects": [

@@ -37,6 +37,10 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF: "Not now" on the card that offers to make Raffica the default PDF app is remembered for 30 days instead of asking at every start; "Don't ask again" still stays permanent.
+- Raffica PDF on Windows: an installation for all users is recognized as registered for PDF files, so the app no longer asks to be made the default again and writes no second registration for your account.
+- Raffica PDF on Linux: an `APPIMAGE` variable inherited from another program no longer points the desktop file at a foreign AppImage; it counts only while Raffica itself runs from inside that AppImage.
+- Raffica PDF: the language files command is locked while a text recognition runs in any tab, not only in the active one.
 - Raffica PDF: with many open files the tabs no longer cut the file name in the middle of ".pdf": the name is shortened before its extension and the extension goes first when there is little room; when the tabs do not fit, arrows scroll the strip, a list button names every open document and selects the one you click, and assistive technology knows which tabs are out of view. The language cell of the status bar takes no room while it is empty, and a dialog in a very small window keeps room for a few rows instead of shrinking to a sliver.
 - Raffica PDF: in German the check boxes, buttons and toggles of the redact pane and its Find panel (256 px wide) break their labels into lines instead of cutting them off (for example "Textgröße an die Markierung anpassen"), and the text box for the text on the marks has the short hint "Optionaler Text" / "Optional text".
 - Raffica PDF: the About card fits its card (the notices list is no longer wider than the card, the intro wraps), the component rows open and close like a disclosure instead of turning pink, each row names the component and its licence, the project address is a link that asks before it opens, and the German notice text says "enthält" with its umlaut.
