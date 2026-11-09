@@ -3,6 +3,11 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>RafficaPdf</AssemblyName>
     <RootNamespace>Raffica.Pdf</RootNamespace>
+    <!-- The name the system shows for the program (the version resource of the exe: the print dialogs and queue, Task Manager, notifications): "Raffica PDF", not the assembly name. -->
+    <Product>Raffica PDF</Product>
+    <Company>Raffica</Company>
+    <AssemblyTitle>Raffica PDF</AssemblyTitle>
+    <Description>Raffica PDF</Description>
     <!-- The placeholder icon (see Docs/design/icons/README.md) is the icon of the exe: the file icon, the taskbar and the Start menu; FileTypeRegistration writes DefaultIcon "exe,0". -->
     <ApplicationIcon>Assets/raffica-pdf.ico</ApplicationIcon>
     <PublishAot>true</PublishAot>

@@ -119,7 +119,7 @@ public sealed class TextEditWordingTests
 
         // The note about the old text says where it stays and how to remove it for real, and never that it is gone.
         Assert.Equal(
-            "The old text stays in earlier versions of the file. To remove it for real: Redact.",
+            "The old text stays in earlier versions of the file. To remove it for real: \"Redact\".",
             PdfStrings.GetIn("TextEditOldTextNote", CultureInfo.GetCultureInfo("en")));
         var german = PdfStrings.GetIn("TextEditOldTextNote", CultureInfo.GetCultureInfo("de"));
         Assert.Contains("früheren Fassungen", german, StringComparison.Ordinal);
@@ -129,8 +129,8 @@ public sealed class TextEditWordingTests
         Assert.Matches(Claim, "The old text is removed.");
         Assert.Matches(Claim, "Der alte Text ist entfernt.");
         Assert.Matches(Claim, "The change is safe.");
-        Assert.DoesNotMatch(Claim, "To remove it for real: Redact.");
-        Assert.DoesNotMatch(Claim, "Zum echten Entfernen: Schwärzen.");
+        Assert.DoesNotMatch(Claim, "To remove it for real: \"Redact\".");
+        Assert.DoesNotMatch(Claim, "Zum echten Entfernen: „Schwärzen“.");
     }
 
     [AvaloniaFact]

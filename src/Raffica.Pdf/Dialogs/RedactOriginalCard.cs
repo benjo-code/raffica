@@ -38,7 +38,7 @@ internal static class RedactOriginalCard
         {
             Title = PdfStrings.RedactOriginalTitle,
             Content = message,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { back, original } },
+            Footer = CardFooter.Build(back, [original], null),
         };
         var arming = new ArmingLock(time, dialog, original);
         original.Click += (_, _) =>

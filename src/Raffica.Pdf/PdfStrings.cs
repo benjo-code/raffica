@@ -37,6 +37,7 @@ internal static class PdfStrings
     public static string OutlineCollapsed => Table.Get("OutlineCollapsed");
     public static string OutlineUntitled => Table.Get("OutlineUntitled");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
+    public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
     public static string TabHome => Table.Get("TabHome");
     public static string TabView => Table.Get("TabView");
     public static string GroupFile => Table.Get("GroupFile");
@@ -133,6 +134,8 @@ internal static class PdfStrings
     public static string LinkWarningUserInfo => Table.Get("LinkWarningUserInfo");
     public static string LinkWarningPunycodeFormat => Table.Get("LinkWarningPunycodeFormat");
     public static string PaletteGroupGoTo => Table.Get("PaletteGroupGoTo");
+    public static string OpenFileButton => Table.Get("OpenFileButton");
+    public static string PaletteSearchDocumentFormat => Table.Get("PaletteSearchDocumentFormat");
     public static string PaletteGoToPageFormat => Table.Get("PaletteGoToPageFormat");
     public static string PaletteGoToPageDetailFormat => Table.Get("PaletteGoToPageDetailFormat");
     public static string PaletteGroupTabs => Table.Get("PaletteGroupTabs");
@@ -485,6 +488,8 @@ internal static class PdfStrings
     /// <summary>The note when the chosen target is open in another tab ({0} is the file name).</summary>
     public static string TargetOpenInOtherTabFormat => Table.Get("TargetOpenInOtherTabFormat");
     public static string ExportTitle => Table.Get("ExportTitle");
+    /// <summary>The keyword that selects every page in a page-range field ("all", "alle"); <see cref="Raffica.Core.Pdf.PageRange"/> knows both.</summary>
+    public static string PageKeywordAll => Table.Get("PageKeywordAll");
     public static string ExportRangeLabel => Table.Get("ExportRangeLabel");
     public static string ExportDpiLabel => Table.Get("ExportDpiLabel");
     public static string ExportDpiFormat => Table.Get("ExportDpiFormat");
@@ -568,6 +573,13 @@ internal static class PdfStrings
 
     /// <summary>The automation name of the page view of a document, so a screen reader tells the tabs apart.</summary>
     public static string PageViewName(string title) => PageViewNameFormat.Replace("{0}", title, StringComparison.Ordinal);
+
+    /// <summary>The automation name of the page view with its pages known: the file name, the page the view counts as current (from 1) and the page count.</summary>
+    public static string PageViewName(string title, int page, int pageCount) =>
+        PageViewPageNameFormat
+            .Replace("{0}", title, StringComparison.Ordinal)
+            .Replace("{1}", page.ToString(Culture), StringComparison.Ordinal)
+            .Replace("{2}", pageCount.ToString(Culture), StringComparison.Ordinal);
 
     /// <summary>The reason a file could not be opened, in the UI language (one text per <see cref="PdfOpenError"/> value, no raw exception text).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
@@ -656,6 +668,37 @@ internal static class PdfStrings
     public static string ModeRedactReason => Table.Get("ModeRedactReason");
     public static string ModeOcrReason => Table.Get("ModeOcrReason");
     public static string ModeTextEditReason => Table.Get("ModeTextEditReason");
+    public static string HelpGroupNavigation => Table.Get("HelpGroupNavigation");
+    public static string HelpNavSearch => Table.Get("HelpNavSearch");
+    public static string HelpNavPanes => Table.Get("HelpNavPanes");
+    public static string HelpNavFieldCodes => Table.Get("HelpNavFieldCodes");
+    public static string HelpNavSearchNext => Table.Get("HelpNavSearchNext");
+    public static string HelpNavSearchPrevious => Table.Get("HelpNavSearchPrevious");
+    public static string HelpNavOrganizeMove => Table.Get("HelpNavOrganizeMove");
+    public static string HelpNavOrganizeEnds => Table.Get("HelpNavOrganizeEnds");
+    public static string HelpNavOrganizeRotate => Table.Get("HelpNavOrganizeRotate");
+    public static string HelpNavOrganizeDuplicate => Table.Get("HelpNavOrganizeDuplicate");
+    public static string HelpNavOrganizeSelectAll => Table.Get("HelpNavOrganizeSelectAll");
+    public static string HelpNavOrganizeDelete => Table.Get("HelpNavOrganizeDelete");
+    public static string HelpNavFormWalk => Table.Get("HelpNavFormWalk");
+    public static string HelpNavFormFill => Table.Get("HelpNavFormFill");
+    public static string HelpNavFormLeave => Table.Get("HelpNavFormLeave");
+    public static string HelpNavTextFinish => Table.Get("HelpNavTextFinish");
+    public static string HelpNavWholeLine => Table.Get("HelpNavWholeLine");
+    public static string HelpKeyHome => Table.Get("HelpKeyHome");
+    public static string HelpKeyEnd => Table.Get("HelpKeyEnd");
+    public static string HelpKeySpace => Table.Get("HelpKeySpace");
+    public static string ReasonTurnOnFirstFormat => Table.Get("ReasonTurnOnFirstFormat");
+    public static string ReasonNoRecognitionRunning => Table.Get("ReasonNoRecognitionRunning");
+    public static string ReasonOnlyOneDocument => Table.Get("ReasonOnlyOneDocument");
+    public static string ReasonNothingToSave => Table.Get("ReasonNothingToSave");
+    public static string ReasonNothingToUndo => Table.Get("ReasonNothingToUndo");
+    public static string ReasonNothingToRedo => Table.Get("ReasonNothingToRedo");
+    public static string ReasonSelectMarkFirst => Table.Get("ReasonSelectMarkFirst");
+    public static string ReasonSelectPagesFirst => Table.Get("ReasonSelectPagesFirst");
+    public static string ReasonNoPageChanges => Table.Get("ReasonNoPageChanges");
+    public static string ReasonNothingMarkedToRedact => Table.Get("ReasonNothingMarkedToRedact");
+    public static string ReasonPagesNotReady => Table.Get("ReasonPagesNotReady");
     public static string TextEditBadgeText => Table.Get("TextEditBadgeText");
     public static string TextEditHintLine => Table.Get("TextEditHintLine");
     public static string TextEditWholeRunSwitch => Table.Get("TextEditWholeRunSwitch");
@@ -707,6 +750,8 @@ internal static class PdfStrings
     public static string AboutVersionFormat => Table.Get("AboutVersionFormat");
     public static string AboutLicenseFormat => Table.Get("AboutLicenseFormat");
     public static string AboutProjectFormat => Table.Get("AboutProjectFormat");
+    public static string AboutProjectLabel => Table.Get("AboutProjectLabel");
+    public static string AboutNoticeTitleMoreFormat => Table.Get("AboutNoticeTitleMoreFormat");
     public static string AboutNoticesHeading => Table.Get("AboutNoticesHeading");
     public static string AboutNoticesName => Table.Get("AboutNoticesName");
     public static string CmdAbout => Table.Get("CmdAbout");
@@ -743,6 +788,28 @@ internal static class PdfStrings
     public static string UpdateUpToDateFormat => Table.Get("UpdateUpToDateFormat");
     public static string UpdateCouldNotCheck => Table.Get("UpdateCouldNotCheck");
     public static string CmdCheckForUpdates => Table.Get("CmdCheckForUpdates");
+    public static string CmdDocumentInfo => Table.Get("CmdDocumentInfo");
+    public static string DescAnnotateMode => Table.Get("DescAnnotateMode");
+    public static string DescFormsHighlight => Table.Get("DescFormsHighlight");
+    public static string DescOrganize => Table.Get("DescOrganize");
+    public static string DescRotateLeft => Table.Get("DescRotateLeft");
+    public static string DescRotateRight => Table.Get("DescRotateRight");
+    public static string DescDuplicatePages => Table.Get("DescDuplicatePages");
+    public static string DescBlankPage => Table.Get("DescBlankPage");
+    public static string DescInsertFile => Table.Get("DescInsertFile");
+    public static string DescMovePagesUp => Table.Get("DescMovePagesUp");
+    public static string DescMovePagesDown => Table.Get("DescMovePagesDown");
+    public static string DescPagesUndo => Table.Get("DescPagesUndo");
+    public static string DescPagesRedo => Table.Get("DescPagesRedo");
+    public static string DescApplyPages => Table.Get("DescApplyPages");
+    public static string DescDiscardPages => Table.Get("DescDiscardPages");
+    public static string DescExtractPages => Table.Get("DescExtractPages");
+    public static string DescSplitDocument => Table.Get("DescSplitDocument");
+    public static string DescExportImages => Table.Get("DescExportImages");
+    public static string DescDeletePages => Table.Get("DescDeletePages");
+    public static string DescRedactDiscard => Table.Get("DescRedactDiscard");
+    public static string DescUndo => Table.Get("DescUndo");
+    public static string DescRedo => Table.Get("DescRedo");
     public static string UpdateFailureUnreachable => Table.Get("UpdateFailureUnreachable");
     public static string UpdateFailureWithdrawn => Table.Get("UpdateFailureWithdrawn");
     public static string UpdateFailureSuperseded => Table.Get("UpdateFailureSuperseded");

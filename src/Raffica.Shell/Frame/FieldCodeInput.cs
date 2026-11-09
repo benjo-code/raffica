@@ -415,7 +415,7 @@ public sealed class FieldCodeInput : IDisposable
         flyout.ShowAt(button);
         foreach (var item in flyout.Items.OfType<MenuItem>())
         {
-            if (item.Tag is CommandDefinition command && FieldCodeBadge.Show(item, command.FieldCode, inside: true) is { } badge)
+            if (item.Tag is CommandDefinition command && FieldCodeBadge.Show(item, command.FieldCode, BadgePlacement.InsideRight) is { } badge)
             {
                 _menuBadges.Add(badge);
             }

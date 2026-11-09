@@ -35,7 +35,7 @@ internal static class ExportImagesCard
 
         var header = new TextBlock { Name = "PART_File", Text = PdfStrings.Fill(PdfStrings.ExtractHeaderFormat, fileName, sizes.Count), FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
         var rangeLabel = new TextBlock { Text = PdfStrings.ExportRangeLabel, TextWrapping = TextWrapping.Wrap };
-        var range = new TextBox { Name = "PART_Range", MinWidth = 280, Text = "all" };
+        var range = new TextBox { Name = "PART_Range", MinWidth = 280, Text = PdfStrings.PageKeywordAll };
         AutomationProperties.SetName(range, PdfStrings.ExportRangeLabel);
         var rangeHint = Hint("PART_RangeHint");
 
@@ -78,7 +78,7 @@ internal static class ExportImagesCard
         {
             Title = PdfStrings.ExportTitle,
             Content = new ScrollViewer { Content = new StackPanel { Spacing = 12, Children = { header, rangeLabel, range, rangeHint, resolution, marks, largest, sizeHint, folderRow } } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { export, cancel } },
+            Footer = CardFooter.Build(export, null, cancel),
         };
 
         string? folder = null;
@@ -191,7 +191,7 @@ internal static class ExportImagesCard
     private static TextBlock Hint(string name)
     {
         var hint = new TextBlock { Name = name, IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
         return hint;
     }
 }

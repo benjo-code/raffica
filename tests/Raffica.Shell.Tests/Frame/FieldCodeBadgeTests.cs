@@ -68,7 +68,7 @@ public sealed class FieldCodeBadgeTests
     }
 
     [AvaloniaFact]
-    public void BadgesAreAtTheBottomRightOfTheirControl()
+    public void TabsSearchAndPanesHaveTheirBadgeAtTheBottomRight()
     {
         var f = FieldCodeFixture.Create();
         f.Alt();
@@ -80,13 +80,12 @@ public sealed class FieldCodeBadgeTests
         AssertBottomRight(f, f.Right);
 
         f.TypeCode("H");
+
+        // The badges of the commands and the groups sit elsewhere (NoKeyTipOfTheBandCoversTextOrLeavesTheBand); each command still has its own.
         foreach (var button in RibbonViewTests.Buttons(f.Ribbon))
         {
-            AssertBottomRight(f, button);
+            Assert.Equal(button.Definition.FieldCode, FieldCodeFixture.BadgeFor(button).Text);
         }
-
-        var group = (TextBlock)Assert.Single(ControlHarness.Descendants(f.Ribbon.Band).OfType<TextBlock>(), t => t.Text == "Clipboard");
-        AssertBottomRight(f, group);
     }
 
     [AvaloniaFact]
@@ -198,6 +197,26 @@ public sealed class FieldCodeBadgeTests
         finally
         {
             ShellStrings.Culture = previous;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NoKeyTipOfTheBandCoversTextOrLeavesTheBand(bool compact)
+    {
+        var (window, frame, ribbon) = RibbonViewTests.Show(compact: compact);
+        Assert.NotNull(frame);
+        ribbon.ShowFieldCodes = true;
+        foreach (var tab in ribbon.Definition!.Tabs)
+        {
+            ribbon.ActiveTab = tab;
+            ribbon.FieldCodeTabLetter = tab.Letter;
+            ControlHarness.Settle(window);
+            Assert.Equal(compact, ribbon.IsEffectivelyCompact);
+
+            var offenders = BadgeFit.Find(window, ribbon.Band);
+            Assert.True(offenders.Count == 0, $"{tab.Name} (compact {compact}):{Environment.NewLine}{string.Join(Environment.NewLine, offenders.Distinct())}");
         }
     }
 }

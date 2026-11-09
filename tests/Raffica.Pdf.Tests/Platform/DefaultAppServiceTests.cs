@@ -31,19 +31,24 @@ public sealed class DefaultAppServiceTests : IDisposable
         }
     }
 
-    private LinuxDefaultAppService Linux(FakeRunner runner, bool hasXdgMime = true, string? appImage = null, string? appDir = null) =>
+    private const string AppDirOfAppImage = "/tmp/.mount_RafficaAbc";
+    private const string ProcessOfAppImage = AppDirOfAppImage + "/usr/bin/RafficaPdf";
+
+    // appImage given without an explicit appDir/process: this program runs from inside the AppImage (the normal case).
+    private LinuxDefaultAppService Linux(FakeRunner runner, bool hasXdgMime = true, string? appImage = null, string? appDir = null, string? processPath = null) =>
         new(
             name => name switch
             {
                 "XDG_DATA_HOME" => Path.Combine(_folder, "data"),
                 "XDG_DATA_DIRS" => Path.Combine(_folder, "system"),
                 "APPIMAGE" => appImage,
-                "APPDIR" => appDir,
+                "APPDIR" => appDir ?? (appImage is null ? null : AppDirOfAppImage),
                 _ => null,
             },
             runner,
             TimeSpan.FromSeconds(5),
-            program => hasXdgMime && program == "xdg-mime" ? "/usr/bin/xdg-mime" : null);
+            program => hasXdgMime && program == "xdg-mime" ? "/usr/bin/xdg-mime" : null,
+            processPath ?? (appImage is null ? null : ProcessOfAppImage));
 
     private string DesktopFile => Path.Combine(_folder, "data", "applications", LinuxDefaultAppService.DesktopFileName);
 
@@ -121,6 +126,32 @@ public sealed class DefaultAppServiceTests : IDisposable
         var query = new FakeRunner(new ProcessOutcome(0, "raffica-pdf.desktop\n"));
         Assert.Equal(DefaultAppStatus.IsDefault, await Linux(query, appImage: AppImage).GetStatusAsync(ct));
         Assert.Equal(DefaultAppStatus.NotDefault, await Linux(query, appImage: "/home/ada/Elsewhere/Raffica.AppImage").GetStatusAsync(ct));
+    }
+
+    // 01-S2: APPIMAGE/APPDIR inherited from a parent AppImage while this program runs from somewhere else must not be trusted.
+    [Fact]
+    public async Task LinuxIgnoresAnInheritedAppImageThatIsNotThisProgram()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        const string foreign = "/home/mallory/Foreign.AppImage";
+        const string foreignDir = "/tmp/.mount_Foreign";
+        const string mine = "/opt/raffica/RafficaPdf";
+
+        // Set: no desktop file is written for the foreign file; with none installed the result is the non-AppImage one.
+        var runner = new FakeRunner();
+        Assert.Equal(DefaultAppResult.NotAvailable, await Linux(runner, appImage: foreign, appDir: foreignDir, processPath: mine).MakeDefaultAsync(ct));
+        Assert.False(File.Exists(DesktopFile));
+        Assert.Empty(runner.Calls);
+
+        // With a desktop file of a package installed, the plain path sets the default and still writes nothing of the foreign file.
+        InstallDesktopFile();
+        var set = new FakeRunner();
+        Assert.Equal(DefaultAppResult.Done, await Linux(set, appImage: foreign, appDir: foreignDir, processPath: mine).MakeDefaultAsync(ct));
+        Assert.DoesNotContain(foreign, await File.ReadAllTextAsync(DesktopFile, ct), StringComparison.Ordinal);
+
+        // Status: the foreign variable does not make the choice stale.
+        var query = new FakeRunner(new ProcessOutcome(0, "raffica-pdf.desktop\n"));
+        Assert.Equal(DefaultAppStatus.IsDefault, await Linux(query, appImage: foreign, appDir: foreignDir, processPath: mine).GetStatusAsync(ct));
     }
 
     [Fact]
@@ -205,6 +236,77 @@ public sealed class DefaultAppServiceTests : IDisposable
             var moved = new WindowsDefaultAppService(root, @"D:\Moved\RafficaPdf.exe", _ => Task.CompletedTask, () => { });
             Assert.Equal(DefaultAppStatus.NotDefault, await moved.GetStatusAsync(ct));
             Assert.Equal("Raffica.PDF", root.OpenSubKey(userChoice)?.GetValue("ProgId"));
+        }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(name, throwOnMissingSubKey: false);
+        }
+    }
+
+    // 06-B-2: an installation for all users registers below HKLM; the user's HKCU has nothing, and nothing may be written there.
+    [Fact]
+    public async Task WindowsAllUsersRegistrationIsReadAndNotCopiedToTheUser()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The registry is Windows only.");
+            return;
+        }
+
+        await RunWindowsAllUsersAsync(TestContext.Current.CancellationToken);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static async Task RunWindowsAllUsersAsync(CancellationToken ct)
+    {
+        const string exe = @"C:\Program Files\Raffica PDF\RafficaPdf.exe";
+        const string command = @"Software\Classes\Raffica.PDF\shell\open\command";
+        const string userChoice = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf\UserChoice";
+        var name = @"Software\RafficaTests\" + Guid.NewGuid().ToString("N");
+        using var user = Registry.CurrentUser.CreateSubKey(name + @"\user");
+        using var machine = Registry.CurrentUser.CreateSubKey(name + @"\machine");
+        try
+        {
+            var notified = 0;
+            var opened = new List<string>();
+            var service = new WindowsDefaultAppService(user, exe, uri =>
+            {
+                opened.Add(uri);
+                return Task.CompletedTask;
+            }, () => notified++, machine);
+            new WindowsFileTypeRegistry(machine).Write(RegistrationScope.Machine, FileTypeRegistration.Entries(exe));
+            using (var key = user.CreateSubKey(userChoice))
+            {
+                key.SetValue("ProgId", "Raffica.PDF");
+            }
+
+            // The all-users registration counts: the app is the default once the user chose it.
+            Assert.Equal(DefaultAppStatus.IsDefault, await service.GetStatusAsync(ct));
+
+            // Making it the default opens the settings page and writes nothing below the user's root.
+            Assert.Equal(DefaultAppResult.OpenedSystemSettings, await service.MakeDefaultAsync(ct));
+            Assert.Null(user.OpenSubKey(command));
+            Assert.Equal(0, notified);
+
+            // The registration is the machine's, so the settings page is asked for the machine's app (registeredAppMachine).
+            Assert.Equal(["ms-settings:defaultapps?registeredAppMachine=Raffica"], opened);
+
+            // An all-users registration of another path does not count: the user's registration is written as before.
+            const string otherExe = @"D:\Other\RafficaPdf.exe";
+            var other = new WindowsDefaultAppService(user, otherExe, uri =>
+            {
+                opened.Add(uri);
+                return Task.CompletedTask;
+            }, () => notified++, machine);
+            Assert.Equal(DefaultAppStatus.NotDefault, await other.GetStatusAsync(ct));
+            Assert.Equal(DefaultAppResult.OpenedSystemSettings, await other.MakeDefaultAsync(ct));
+            using (var written = user.OpenSubKey(command))
+            {
+                Assert.Equal($"\"{otherExe}\" \"%1\"", written?.GetValue(null));
+            }
+
+            Assert.Equal(1, notified);
+            Assert.Equal("ms-settings:defaultapps?registeredAppUser=Raffica", opened[^1]);
         }
         finally
         {

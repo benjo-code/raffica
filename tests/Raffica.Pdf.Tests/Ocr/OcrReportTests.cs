@@ -152,7 +152,7 @@ public sealed class OcrReportTests
             Assert.DoesNotMatch(Forbidden, PdfStrings.OcrReportNotUndoable);
         });
 
-        Assert.Equal("This step is too large for the undo history, so Undo cannot take it back. It counts as an unsaved change; close without saving to drop it.", PdfStrings.OcrReportNotUndoable);
+        Assert.Equal("This step is too large for the undo history, so \"Undo\" cannot take it back. It counts as an unsaved change; close without saving to drop it.", PdfStrings.OcrReportNotUndoable);
         var undoable = OcrWording.Report(report, applied with { Undoable = true }, canceled: false).Lines;
         Assert.Contains(PdfStrings.OcrReportUndoable, undoable);
         Assert.DoesNotContain(PdfStrings.OcrReportNotUndoable, undoable);

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -92,6 +93,7 @@ internal sealed partial class PageView : Control
     private string? _focusedFieldName;
     private bool _arranging;
     private bool _raising;
+    private (int Page, int Count) _namedFor;
     private bool _viewChangedPosted;
     private double _wheelZoomRemainder;
 
@@ -487,9 +489,56 @@ internal sealed partial class PageView : Control
         }
     }
 
-    // Computed when the tab is set (the language is fixed for a run), so a screen reader tells the tabs apart.
-    private void UpdateAutomationName() =>
-        AutomationProperties.SetName(this, _focusedFieldName ?? (Tab is { } tab ? PdfStrings.PageViewName(tab.Title) : null));
+    // The name of the view: the form field that has the form focus, else "<file>, page <n> of <m>" (just the document once its pages are not known yet).
+    // Computed when the tab is set, the focused field changes or the current page or the page count changes; a change is announced through the peer.
+    private void UpdateAutomationName()
+    {
+        _namedFor = (CurrentPage, PageCount);
+        var name = _focusedFieldName ?? (Tab is { } tab
+            ? (PageCount > 0 ? PdfStrings.PageViewName(tab.Title, CurrentPage + 1, PageCount) : PdfStrings.PageViewName(tab.Title))
+            : null);
+        var old = AutomationProperties.GetName(this);
+        if (name == old)
+        {
+            return;
+        }
+
+        AutomationProperties.SetName(this, name);
+        (ControlAutomationPeer.FromElement(this) as PageViewAutomationPeer)?.NameChanged(old, name);
+    }
+
+    // Called with every change of the view: only a new page or page count builds the name again, scrolling inside a page costs nothing.
+    private void RefreshAutomationName()
+    {
+        if (Tab is not null && _namedFor != (CurrentPage, PageCount))
+        {
+            UpdateAutomationName();
+        }
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new PageViewAutomationPeer(this);
+
+    /// <summary>
+    /// The page view as a document for assistive technology: a control and content element of type Document, focusable, named after the file and the
+    /// page. The text of the pages is not exposed (a text pattern is a backlog item).
+    /// </summary>
+    private sealed class PageViewAutomationPeer(PageView owner) : ControlAutomationPeer(owner)
+    {
+        /// <summary>How many times the name was announced as changed (the platform bridge is not there in a headless run; tests read it).</summary>
+        internal int NameChanges { get; private set; }
+
+        internal void NameChanged(string? oldName, string? newName)
+        {
+            NameChanges++;
+            RaisePropertyChangedEvent(AutomationElementIdentifiers.NameProperty, oldName, newName);
+        }
+
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Document;
+
+        protected override bool IsControlElementCore() => true;
+
+        protected override bool IsContentElementCore() => true;
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -1041,6 +1090,7 @@ internal sealed partial class PageView : Control
         _raising = true;
         try
         {
+            RefreshAutomationName();
             ViewChanged?.Invoke();
         }
         finally

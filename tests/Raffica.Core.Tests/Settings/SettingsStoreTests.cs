@@ -49,12 +49,27 @@ public sealed class SettingsStoreTests : IDisposable
             LastPrinter = "Büro Drucker",
             PrintScaling = PrintScaling.ActualSize,
             DefaultAppPrompt = DefaultAppPromptSetting.Never,
+            DefaultAppPromptSnoozedUntil = new DateOnly(2026, 12, 9),
         };
         var store = new SettingsStore(FilePath);
 
         Assert.True(store.TrySave(settings));
 
         Assert.Equal(settings, new SettingsStore(FilePath).Load());
+    }
+
+    [Fact]
+    public void AFileWithoutTheSnoozeDateLoadsWithNoSnooze()
+    {
+        // A file of version 2.6 has no DefaultAppPromptSnoozedUntil: it loads, nothing is snoozed and the file is not set aside.
+        File.WriteAllText(FilePath, "{ \"Theme\": \"Dark\", \"DefaultAppPrompt\": \"Ask\" }");
+
+        var loaded = new SettingsStore(FilePath).Load();
+
+        Assert.Null(loaded.DefaultAppPromptSnoozedUntil);
+        Assert.Equal(ThemeSetting.Dark, loaded.Theme);
+        Assert.False(File.Exists(FilePath + ".bad"));
+        Assert.Null(AppSettings.Default.DefaultAppPromptSnoozedUntil);
     }
 
     [Fact]

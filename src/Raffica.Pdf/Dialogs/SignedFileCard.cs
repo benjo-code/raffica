@@ -64,7 +64,7 @@ internal static class SignedFileCard
             {
                 Title = PdfStrings.SignedNoteTitle,
                 Content = new StackPanel { Spacing = 8, Children = { name, note } },
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+                Footer = CardFooter.Only(ok),
             };
             ok.Click += (_, _) => Finish(SignedChoice.Continue);
             noteDialog.CancelRequested += (_, _) => Finish(SignedChoice.Cancel);
@@ -83,7 +83,7 @@ internal static class SignedFileCard
         {
             Title = onlyFormChanges ? PdfStrings.SignedFormsTitle : PdfStrings.SignedWarnTitle,
             Content = new StackPanel { Spacing = 8, Children = { name, message } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, saveAs, anyway } },
+            Footer = CardFooter.Build(null, [saveAs, anyway], cancel),
         };
         var arming = new ArmingLock(time, dialog, anyway);
         cancel.Click += (_, _) => Finish(SignedChoice.Cancel);

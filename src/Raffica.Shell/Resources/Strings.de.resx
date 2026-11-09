@@ -30,8 +30,8 @@
   <data name="NotificationError" xml:space="preserve">
     <value>Fehler</value>
   </data>
-  <data name="Search" xml:space="preserve">
-    <value>Suchen</value>
+  <data name="SearchCommands" xml:space="preserve">
+    <value>Befehle suchen</value>
   </data>
   <data name="More" xml:space="preserve">
     <value>Mehr</value>
@@ -51,6 +51,12 @@
   <data name="RibbonGroupMore" xml:space="preserve">
     <value>Weitere Befehle in {0}</value>
   </data>
+  <data name="RibbonScrollLeft" xml:space="preserve">
+    <value>Befehle nach links scrollen</value>
+  </data>
+  <data name="RibbonScrollRight" xml:space="preserve">
+    <value>Befehle nach rechts scrollen</value>
+  </data>
   <data name="SearchTooltip" xml:space="preserve">
     <value>Suchen ({0})</value>
   </data>
@@ -63,8 +69,20 @@
   <data name="CloseDocument" xml:space="preserve">
     <value>Dokument schließen</value>
   </data>
+  <data name="TabsScrollLeft" xml:space="preserve">
+    <value>Tabs nach links verschieben</value>
+  </data>
+  <data name="TabsScrollRight" xml:space="preserve">
+    <value>Tabs nach rechts verschieben</value>
+  </data>
+  <data name="TabsAll" xml:space="preserve">
+    <value>Alle Dokumente</value>
+  </data>
   <data name="TabUnsavedChanges" xml:space="preserve">
     <value>Ungespeicherte Änderungen</value>
+  </data>
+  <data name="StatusUnsaved" xml:space="preserve">
+    <value>Nicht gespeichert</value>
   </data>
   <data name="Minimize" xml:space="preserve">
     <value>Minimieren</value>
@@ -103,7 +121,7 @@
     <value>Zuletzt verwendet</value>
   </data>
   <data name="StartBrowse" xml:space="preserve">
-    <value>Durchsuchen …</value>
+    <value>Durchsuchen…</value>
   </data>
   <data name="StartRecentEmpty" xml:space="preserve">
     <value>Noch keine zuletzt verwendeten Dateien.</value>

@@ -11,7 +11,7 @@ namespace Raffica.Shell.Controls;
 
 /// <summary>
 /// A modal dialog (section 6 of the design spec): a header with the title and a close button, the body (the content) and a
-/// footer on the band surface with the action buttons. Show it in a <see cref="DialogHost"/>. The dialog never closes itself:
+/// footer on the band surface with the action buttons (build it with <see cref="CardFooter"/>). Show it in a <see cref="DialogHost"/>. The dialog never closes itself:
 /// Esc and the close button raise <see cref="CancelRequested"/>, and the app decides. Tab and Shift+Tab cycle inside the dialog.
 /// </summary>
 public class Dialog : ContentControl
@@ -20,15 +20,19 @@ public class Dialog : ContentControl
     public static readonly StyledProperty<string?> TitleProperty =
         AvaloniaProperty.Register<Dialog, string?>(nameof(Title));
 
-    /// <summary>The action buttons in the footer, usually a horizontal stack with the cancel and the primary button on the right. Null hides the footer.</summary>
+    /// <summary>The action buttons in the footer, build it with <see cref="CardFooter.Build"/> (primary first, cancel last, right-aligned). Null hides the footer.</summary>
     public static readonly StyledProperty<object?> FooterProperty =
         AvaloniaProperty.Register<Dialog, object?>(nameof(Footer));
 
     private Button? _close;
+    private Control? _footerBar;
+    private readonly HashSet<Key> _down = [];
 
     public Dialog()
     {
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, (_, e) => _down.Remove(e.Key), RoutingStrategies.Tunnel);
+        DetachedFromVisualTree += (_, _) => _down.Clear();
     }
 
     /// <summary>Raised by Esc and by the close button.</summary>
@@ -46,12 +50,20 @@ public class Dialog : ContentControl
         set => SetValue(FooterProperty, value);
     }
 
-    /// <summary>Moves the focus to the first control of the body, else of the footer, else to the close button.</summary>
+    /// <summary>
+    /// Moves the focus to the first control of the body, else to the default button of the footer (the card's safe or primary answer, wherever the
+    /// footer order puts it), else to the first control of the footer, else to the close button.
+    /// </summary>
     internal void FocusFirst()
     {
         var candidates = FocusableControls();
-        var first = candidates.FirstOrDefault(c => !ReferenceEquals(c, _close)) ?? candidates.FirstOrDefault();
+        bool InFooter(InputElement c) => _footerBar is not null && _footerBar.IsVisualAncestorOf(c);
+        var first = candidates.FirstOrDefault(c => !ReferenceEquals(c, _close) && !InFooter(c))
+            ?? candidates.OfType<Button>().FirstOrDefault(b => b.IsDefault && InFooter(b))
+            ?? candidates.FirstOrDefault(c => !ReferenceEquals(c, _close))
+            ?? candidates.FirstOrDefault();
         first?.Focus(NavigationMethod.Tab);
+        (first as Control)?.BringIntoView();
     }
 
     internal void RaiseCancelRequested() => CancelRequested?.Invoke(this, EventArgs.Empty);
@@ -65,6 +77,7 @@ public class Dialog : ContentControl
             _close.Click -= OnCloseClick;
         }
 
+        _footerBar = e.NameScope.Find<Control>("PART_FooterBar");
         _close = e.NameScope.Find<Button>("PART_Close");
         if (_close is not null)
         {
@@ -88,6 +101,14 @@ public class Dialog : ContentControl
     {
         if (e.Handled)
         {
+            return;
+        }
+
+        // A held Enter must not press a button again and again, nor the default button of the card: only the key going down counts (the key-up
+        // clears it). Avalonia has no repeat flag on the event, so the dialog remembers which keys are down.
+        if (e.Key == Key.Enter && !_down.Add(e.Key))
+        {
+            e.Handled = true;
             return;
         }
 
@@ -123,6 +144,9 @@ public class Dialog : ContentControl
             ? (backwards ? candidates.Count - 1 : 0)
             : (index + (backwards ? candidates.Count - 1 : 1)) % candidates.Count;
         candidates[next].Focus(NavigationMethod.Tab);
+
+        // The body scrolls: the control that got the focus must be in view (the layout may be stale after a content change).
+        (candidates[next] as Control)?.BringIntoView();
     }
 
     /// <summary>The controls Tab can reach inside the dialog, in visual order.</summary>

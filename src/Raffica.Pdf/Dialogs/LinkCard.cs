@@ -66,7 +66,7 @@ internal static class LinkCard
         {
             Title = PdfStrings.LinkTitle,
             Content = body,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancelButton, openButton } },
+            Footer = CardFooter.Build(openButton, null, cancelButton),
         };
 
         var finished = false;

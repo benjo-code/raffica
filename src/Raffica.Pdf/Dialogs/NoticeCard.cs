@@ -22,7 +22,7 @@ internal static class NoticeCard
         {
             Title = title,
             Content = new StackPanel { Spacing = 8, Children = { text } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+            Footer = CardFooter.Only(ok),
         };
         ok.Click += (_, _) => done();
         dialog.CancelRequested += (_, _) => done();

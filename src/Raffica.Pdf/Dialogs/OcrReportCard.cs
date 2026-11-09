@@ -44,7 +44,7 @@ internal static class OcrReportCard
         {
             Title = report.Title,
             Content = body,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+            Footer = CardFooter.Only(ok),
         };
         var finished = false;
         void Finish()

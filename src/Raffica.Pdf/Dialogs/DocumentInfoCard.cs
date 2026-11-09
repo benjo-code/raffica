@@ -66,7 +66,7 @@ internal static class DocumentInfoCard
         {
             Title = PdfStrings.InfoTitle,
             Content = grid,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { close } },
+            Footer = CardFooter.Only(close),
         };
         close.Click += (_, _) => done();
         dialog.CancelRequested += (_, _) => done();

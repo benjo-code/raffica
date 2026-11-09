@@ -18,6 +18,9 @@
   <data name="AppMarkName" xml:space="preserve">
     <value>Raffica PDF</value>
   </data>
+  <data name="PageViewPageNameFormat" xml:space="preserve">
+    <value>{0}, Seite {1} von {2}</value>
+  </data>
   <data name="PageViewNameFormat" xml:space="preserve">
     <value>{0}, PDF-Dokument</value>
     <comment>Automation name of the page view; {0} is the file name of the document.</comment>
@@ -69,7 +72,7 @@
     <value>Suchen</value>
   </data>
   <data name="GroupGoTo" xml:space="preserve">
-    <value>Gehe zu</value>
+    <value>Springen</value>
   </data>
   <data name="GroupPages" xml:space="preserve">
     <value>Seiten</value>
@@ -102,7 +105,7 @@
     <value>Vorheriger Treffer</value>
   </data>
   <data name="CmdGoToPage" xml:space="preserve">
-    <value>Gehe zu Seite</value>
+    <value>Zu Seite springen</value>
   </data>
   <data name="CmdPreviousPage" xml:space="preserve">
     <value>Vorherige Seite</value>
@@ -231,7 +234,7 @@
     <value>{0} × {1} mm</value>
   </data>
   <data name="GoToPageTitle" xml:space="preserve">
-    <value>Gehe zu Seite</value>
+    <value>Zu Seite springen</value>
   </data>
   <data name="GoToPageLabelFormat" xml:space="preserve">
     <value>Seitenzahl (1 bis {0})</value>
@@ -303,7 +306,7 @@
     <value>Mehr als {0} Treffer</value>
   </data>
   <data name="SearchSearching" xml:space="preserve">
-    <value>Suche läuft …</value>
+    <value>Suche läuft…</value>
   </data>
   <data name="LinkTitle" xml:space="preserve">
     <value>Diesen Link öffnen?</value>
@@ -324,10 +327,16 @@
     <value>Prüfen Sie diese Adresse. Die Domain enthält Sonderzeichen und kann einen anderen Namen vortäuschen. Entschlüsselte Domain: {0}</value>
   </data>
   <data name="PaletteGroupGoTo" xml:space="preserve">
-    <value>Gehe zu</value>
+    <value>Springen</value>
+  </data>
+  <data name="OpenFileButton" xml:space="preserve">
+    <value>Datei öffnen</value>
+  </data>
+  <data name="PaletteSearchDocumentFormat" xml:space="preserve">
+    <value>Im Dokument nach „{0}“ suchen</value>
   </data>
   <data name="PaletteGoToPageFormat" xml:space="preserve">
-    <value>Gehe zu Seite {0}</value>
+    <value>Zu Seite {0} springen</value>
   </data>
   <data name="PaletteGoToPageDetailFormat" xml:space="preserve">
     <value>von {0}</value>
@@ -395,6 +404,66 @@
   <data name="PrintNoPrinter" xml:space="preserve">
     <value>Es wurde kein Drucker gefunden.</value>
   </data>
+  <data name="HelpGroupNavigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="HelpNavSearch" xml:space="preserve">
+    <value>Zum Suchfeld springen</value>
+  </data>
+  <data name="HelpNavPanes" xml:space="preserve">
+    <value>Zwischen den Bereichen wechseln</value>
+  </data>
+  <data name="HelpNavFieldCodes" xml:space="preserve">
+    <value>Feldcodes anzeigen, dann einen eintippen</value>
+  </data>
+  <data name="HelpNavSearchNext" xml:space="preserve">
+    <value>Suchfeld: nächster Treffer</value>
+  </data>
+  <data name="HelpNavSearchPrevious" xml:space="preserve">
+    <value>Suchfeld: vorheriger Treffer</value>
+  </data>
+  <data name="HelpNavOrganizeMove" xml:space="preserve">
+    <value>Seiten organisieren: markierte Seiten um eine Stelle verschieben</value>
+  </data>
+  <data name="HelpNavOrganizeEnds" xml:space="preserve">
+    <value>Seiten organisieren: an den Anfang oder ans Ende verschieben</value>
+  </data>
+  <data name="HelpNavOrganizeRotate" xml:space="preserve">
+    <value>Seiten organisieren: nach links oder rechts drehen</value>
+  </data>
+  <data name="HelpNavOrganizeDuplicate" xml:space="preserve">
+    <value>Seiten organisieren: duplizieren</value>
+  </data>
+  <data name="HelpNavOrganizeSelectAll" xml:space="preserve">
+    <value>Seiten organisieren: alle Seiten auswählen</value>
+  </data>
+  <data name="HelpNavOrganizeDelete" xml:space="preserve">
+    <value>Seiten organisieren: löschen</value>
+  </data>
+  <data name="HelpNavFormWalk" xml:space="preserve">
+    <value>Formulare: nächstes oder vorheriges Feld</value>
+  </data>
+  <data name="HelpNavFormFill" xml:space="preserve">
+    <value>Formulare: das Feld mit dem Fokus ausfüllen</value>
+  </data>
+  <data name="HelpNavFormLeave" xml:space="preserve">
+    <value>Formulare: das Feld verlassen</value>
+  </data>
+  <data name="HelpNavTextFinish" xml:space="preserve">
+    <value>Textfeld oder Kommentar abschließen</value>
+  </data>
+  <data name="HelpNavWholeLine" xml:space="preserve">
+    <value>Text bearbeiten: ganze Zeile in Ersatzschrift</value>
+  </data>
+  <data name="HelpKeyHome" xml:space="preserve">
+    <value>Pos1</value>
+  </data>
+  <data name="HelpKeyEnd" xml:space="preserve">
+    <value>Ende</value>
+  </data>
+  <data name="HelpKeySpace" xml:space="preserve">
+    <value>Leertaste</value>
+  </data>
   <data name="HelpTitle" xml:space="preserve">
     <value>Tastenkürzel</value>
   </data>
@@ -408,7 +477,7 @@
     <value>Hell</value>
   </data>
   <data name="SettingsPageFollowTheme" xml:space="preserve">
-    <value>Wie das Design</value>
+    <value>Wie die Darstellung</value>
   </data>
   <data name="SettingsDefaultLayout" xml:space="preserve">
     <value>Standardlayout</value>
@@ -552,7 +621,7 @@
     <value>Wiederholen</value>
   </data>
   <data name="CmdAnnotateMode" xml:space="preserve">
-    <value>Anmerkungsmodus</value>
+    <value>Anmerken</value>
   </data>
   <data name="CmdHighlight" xml:space="preserve">
     <value>Hervorheben</value>
@@ -798,7 +867,7 @@
     <value>Das Speichern wurde abgebrochen. Die Originaldatei ist unverändert.</value>
   </data>
   <data name="UnsavedLockedTitle" xml:space="preserve">
-    <value>Schließen ohne zu speichern?</value>
+    <value>Schließen, ohne zu speichern?</value>
   </data>
   <data name="UnsavedLockedMessageFormat" xml:space="preserve">
     <value>{0} hat Änderungen, die hier nicht gespeichert werden können. Wenn Sie es schließen, gehen sie verloren.</value>
@@ -918,7 +987,7 @@
     <value>Nächstes Pflichtfeld</value>
   </data>
   <data name="CmdFormsHighlight" xml:space="preserve">
-    <value>Feldhervorhebung ein- oder ausblenden</value>
+    <value>Felder hervorheben</value>
   </data>
   <data name="FormsNoFormReason" xml:space="preserve">
     <value>Dieses Dokument hat keine Formularfelder zum Ausfüllen.</value>
@@ -1101,7 +1170,7 @@
     <value>Gespeicherte Unterschriften</value>
   </data>
   <data name="SignaturePickerNew" xml:space="preserve">
-    <value>Neue Unterschrift …</value>
+    <value>Neue Unterschrift…</value>
   </data>
   <data name="SignaturePickerDelete" xml:space="preserve">
     <value>Löschen</value>
@@ -1200,7 +1269,7 @@
     <value>Leere Seite einfügen</value>
   </data>
   <data name="CmdInsertFile" xml:space="preserve">
-    <value>Seiten aus Datei einfügen …</value>
+    <value>Aus Datei einfügen…</value>
   </data>
   <data name="CmdMovePagesUp" xml:space="preserve">
     <value>Seiten nach oben</value>
@@ -1209,28 +1278,28 @@
     <value>Seiten nach unten</value>
   </data>
   <data name="CmdPagesUndo" xml:space="preserve">
-    <value>Seitenänderung rückgängig</value>
+    <value>Rückgängig</value>
   </data>
   <data name="CmdPagesRedo" xml:space="preserve">
-    <value>Seitenänderung wiederholen</value>
+    <value>Wiederholen</value>
   </data>
   <data name="CmdApplyPages" xml:space="preserve">
-    <value>Seitenänderungen anwenden</value>
+    <value>Änderungen anwenden</value>
   </data>
   <data name="CmdDiscardPages" xml:space="preserve">
-    <value>Seitenänderungen verwerfen</value>
+    <value>Verwerfen</value>
   </data>
   <data name="CmdDeletePages" xml:space="preserve">
     <value>Seiten löschen</value>
   </data>
   <data name="CmdExtractPages" xml:space="preserve">
-    <value>Seiten extrahieren …</value>
+    <value>Seiten extrahieren…</value>
   </data>
   <data name="CmdSplitDocument" xml:space="preserve">
-    <value>Dokument teilen …</value>
+    <value>Dokument teilen…</value>
   </data>
   <data name="CmdExportImages" xml:space="preserve">
-    <value>Seiten als Bilder exportieren …</value>
+    <value>Als Bilder exportieren…</value>
   </data>
   <data name="PageChangesLockedReason" xml:space="preserve">
     <value>Wenden Sie die Seitenänderungen zuerst an oder verwerfen Sie sie</value>
@@ -1248,10 +1317,10 @@
     <value>{0} (Seiten: {1})</value>
   </data>
   <data name="InsertFileRangeLabel" xml:space="preserve">
-    <value>Einzufügende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder all)</value>
+    <value>Einzufügende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder „alle“)</value>
   </data>
   <data name="InsertRangeInvalid" xml:space="preserve">
-    <value>Geben Sie Seiten an wie 3, 2-5, 1,3,5-7 oder all.</value>
+    <value>Geben Sie Seiten an wie 3, 2-5, 1,3,5-7 oder „alle“.</value>
   </data>
   <data name="InsertRangeOutsideFormat" xml:space="preserve">
     <value>Die Datei hat nur {0} Seiten.</value>
@@ -1338,7 +1407,7 @@
     <value>Außer den Seitenänderungen ist nichts betroffen.</value>
   </data>
   <data name="ApplyWarning" xml:space="preserve">
-    <value>Die Datei wird neu geschrieben. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt. Um das Original zu behalten, wähle Speichern unter.</value>
+    <value>Die Datei wird neu geschrieben. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt. Um das Original zu behalten, wählen Sie „Speichern unter“.</value>
   </data>
   <data name="ApplySaveAs" xml:space="preserve">
     <value>Speichern unter…</value>
@@ -1350,7 +1419,7 @@
     <value>Zurück</value>
   </data>
   <data name="ApplyOpenEdit" xml:space="preserve">
-    <value>Beende oder verwirf zuerst die offene Bearbeitung.</value>
+    <value>Beenden oder verwerfen Sie zuerst die offene Bearbeitung.</value>
   </data>
   <data name="ApplyJobTitleFormat" xml:space="preserve">
     <value>Seitenänderungen werden auf {0} angewendet</value>
@@ -1407,7 +1476,7 @@
     <value>Die Seitenänderungen ließen sich nicht anwenden.</value>
   </data>
   <data name="ApplyFailAdoptFormat" xml:space="preserve">
-    <value>Die Seitenänderungen wurden geschrieben, aber das Dokument ließ sich nicht übernehmen. Die Datei unter {0} ist die neu geschriebene: Öffne sie, um weiterzuarbeiten.</value>
+    <value>Die Seitenänderungen wurden geschrieben, aber das Dokument ließ sich nicht übernehmen. Die Datei unter {0} ist die neu geschriebene: Öffnen Sie sie, um weiterzuarbeiten.</value>
   </data>
   <data name="LossSignature" xml:space="preserve">
     <value>Diese Datei ist digital signiert. Programme, die Signaturen prüfen, melden die Signatur nach der Änderung der Seiten als gebrochen.</value>
@@ -1476,7 +1545,7 @@
     <value>{0} und {1} weitere</value>
   </data>
   <data name="ApplyPlanChanged" xml:space="preserve">
-    <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wende sie erneut an, um die aktuelle Liste zu sehen.</value>
+    <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wenden Sie sie erneut an, um die aktuelle Liste zu sehen.</value>
   </data>
   <data name="UnsavedPlanTitle" xml:space="preserve">
     <value>Seitenänderungen verwerfen?</value>
@@ -1497,7 +1566,7 @@
     <value>{0} ({1} Seiten)</value>
   </data>
   <data name="ExtractRangeLabel" xml:space="preserve">
-    <value>Zu extrahierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder all)</value>
+    <value>Zu extrahierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder „alle“)</value>
   </data>
   <data name="ExtractNameLabel" xml:space="preserve">
     <value>Die neue Datei wird vorgeschlagen als</value>
@@ -1539,7 +1608,7 @@
     <value>Seitenbereiche, je eine Datei</value>
   </data>
   <data name="SplitRangesLabel" xml:space="preserve">
-    <value>Bereiche (zum Beispiel 1-3,4-9)</value>
+    <value>Bereiche (zum Beispiel 1-3,4-9 oder „alle“)</value>
   </data>
   <data name="SplitModeBookmarks" xml:space="preserve">
     <value>Lesezeichen der obersten Ebene</value>
@@ -1614,7 +1683,7 @@
     <value>{0} Lesezeichen, die auf andere Seiten zeigen</value>
   </data>
   <data name="StaysRedactHint" xml:space="preserve">
-    <value>Inhalte, die nicht weitergegeben werden dürfen, schwärzen Sie vorher im Reiter Schwärzen.</value>
+    <value>Inhalte, die nicht weitergegeben werden dürfen, schwärzen Sie vorher im Reiter „Schwärzen“.</value>
   </data>
   <data name="OutputLossFilesFormat" xml:space="preserve">
     <value>Dateien {0}: {1}</value>
@@ -1700,8 +1769,11 @@
   <data name="ExportTitle" xml:space="preserve">
     <value>Seiten als Bilder exportieren</value>
   </data>
+  <data name="PageKeywordAll" xml:space="preserve">
+    <value>alle</value>
+  </data>
   <data name="ExportRangeLabel" xml:space="preserve">
-    <value>Zu exportierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder alle)</value>
+    <value>Zu exportierende Seiten (zum Beispiel 3, 2-5, 1,3,5-7 oder „alle“)</value>
   </data>
   <data name="ExportDpiLabel" xml:space="preserve">
     <value>Auflösung</value>
@@ -1716,7 +1788,7 @@
     <value>Eigene Auflösung in dpi (1 bis 1200)</value>
   </data>
   <data name="ExportDpiInvalid" xml:space="preserve">
-    <value>Gib eine ganze Zahl von 1 bis 1200 ein.</value>
+    <value>Geben Sie eine ganze Zahl von 1 bis 1200 ein.</value>
   </data>
   <data name="ExportMarks" xml:space="preserve">
     <value>Markierungen und Formularfelder einbeziehen</value>
@@ -1725,10 +1797,10 @@
     <value>Größte Seite: {0} × {1} Pixel ({2} Megapixel)</value>
   </data>
   <data name="ExportTooLargeFormat" xml:space="preserve">
-    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wählen Sie eine niedrigere Auflösung oder lassen Sie diese Seite weg.</value>
   </data>
   <data name="ExportTooLargeHugeFormat" xml:space="preserve">
-    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wählen Sie eine niedrigere Auflösung oder lassen Sie diese Seite weg.</value>
   </data>
   <data name="ExportFolderMissing" xml:space="preserve">
     <value>Dieser Ordner existiert nicht.</value>
@@ -1820,11 +1892,44 @@
   <data name="ModeTextEditReason" xml:space="preserve">
     <value>Beenden Sie zuerst das Bearbeiten des Textes.</value>
   </data>
+  <data name="ReasonTurnOnFirstFormat" xml:space="preserve">
+    <value>Schalten Sie zuerst „{0}“ ein</value>
+  </data>
+  <data name="ReasonNoRecognitionRunning" xml:space="preserve">
+    <value>Es läuft keine Texterkennung.</value>
+  </data>
+  <data name="ReasonOnlyOneDocument" xml:space="preserve">
+    <value>Es ist nur ein Dokument geöffnet.</value>
+  </data>
+  <data name="ReasonNothingToSave" xml:space="preserve">
+    <value>Es gibt keine Änderungen zu speichern.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>Es gibt nichts rückgängig zu machen.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>Es gibt nichts zu wiederholen.</value>
+  </data>
+  <data name="ReasonSelectMarkFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst eine Markierung aus</value>
+  </data>
+  <data name="ReasonSelectPagesFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst Seiten aus</value>
+  </data>
+  <data name="ReasonNoPageChanges" xml:space="preserve">
+    <value>Es gibt keine Seitenänderungen zum Anwenden.</value>
+  </data>
+  <data name="ReasonNothingMarkedToRedact" xml:space="preserve">
+    <value>Markieren Sie zuerst etwas zum Schwärzen</value>
+  </data>
+  <data name="ReasonPagesNotReady" xml:space="preserve">
+    <value>Die Seiten werden noch geladen.</value>
+  </data>
   <data name="UnsavedRedactTitle" xml:space="preserve">
     <value>Die Schwärzungen verwerfen?</value>
   </data>
   <data name="UnsavedRedactMessageFormat" xml:space="preserve">
-    <value>Die Schwärzungen von {0} sind markiert, aber noch nicht angewendet. Anwenden schreibt sie in eine Datei; Verwerfen löscht sie und lässt die Datei, wie sie ist.</value>
+    <value>Die Schwärzungen von {0} sind markiert, aber noch nicht angewendet. „Anwenden“ schreibt sie in eine Datei; „Verwerfen“ löscht sie und lässt die Datei, wie sie ist.</value>
   </data>
   <data name="UnsavedRedactApply" xml:space="preserve">
     <value>Anwenden…</value>
@@ -1998,7 +2103,7 @@
     <value>Geben Sie den gesuchten Text ein und drücken Sie die Eingabetaste.</value>
   </data>
   <data name="FindRunning" xml:space="preserve">
-    <value>Suche läuft …</value>
+    <value>Suche läuft…</value>
   </data>
   <data name="FindCanceled" xml:space="preserve">
     <value>Die Suche wurde abgebrochen. Es wird kein Ergebnis angezeigt.</value>
@@ -2172,7 +2277,7 @@
     <value>Text auf den ausgewählten Markierungen</value>
   </data>
   <data name="RedactOverlayPlaceholder" xml:space="preserve">
-    <value>Text auf den ausgewählten Markierungen (optional)</value>
+    <value>Optionaler Text</value>
   </data>
   <data name="RedactOverlayRepeat" xml:space="preserve">
     <value>Text wiederholen</value>
@@ -2712,7 +2817,7 @@
     <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Schwärzungen angewendet.</value>
   </data>
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
-    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. Zurück lässt alles, wie es ist.</value>
+    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. „Zurück“ lässt alles, wie es ist.</value>
   </data>
   <data name="RedactOriginalTitle" xml:space="preserve">
     <value>Originaldatei ersetzen?</value>
@@ -2733,7 +2838,7 @@
     <value>{0} (importiert)</value>
   </data>
   <data name="OcrNoLanguages" xml:space="preserve">
-    <value>Es sind keine Sprachdateien installiert. Fügen Sie eine mit „Sprachen…“ im Tab Bearbeiten hinzu.</value>
+    <value>Es sind keine Sprachdateien installiert. Fügen Sie eine mit „Sprachen…“ im Reiter „Bearbeiten“ hinzu.</value>
   </data>
   <data name="OcrSlowWarning" xml:space="preserve">
     <value>Mehr als drei Sprachen machen die Erkennung langsamer und ungenauer.</value>
@@ -2976,7 +3081,7 @@
     <value>Die Erkennung ist ein Schritt im Rückgängig-Verlauf. Speichern Sie die Datei, um sie zu behalten.</value>
   </data>
   <data name="OcrReportNotUndoable" xml:space="preserve">
-    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließen Sie ohne zu speichern, um ihn zu verwerfen.</value>
+    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließen Sie, ohne zu speichern, um ihn zu verwerfen.</value>
   </data>
   <data name="OcrSkipHasText" xml:space="preserve">
     <value>Die Seite hat schon eigenen Text.</value>
@@ -3081,7 +3186,7 @@
     <value>Die ganze Zeile wird in der Ersatzschrift gesetzt.</value>
   </data>
   <data name="TextEditNoteEmpty" xml:space="preserve">
-    <value>Leer: Die Zeile wird weggenommen. Mit Rückgängig kommt sie zurück.</value>
+    <value>Leer: Die Zeile wird weggenommen. Mit „Rückgängig“ kommt sie zurück.</value>
   </data>
   <data name="TextEditNoteUnchanged" xml:space="preserve">
     <value>Der Text ist wie vorher; nichts ändert sich.</value>
@@ -3093,13 +3198,13 @@
     <value>Der neue Text könnte über den Seitenrand hinausreichen.</value>
   </data>
   <data name="TextEditNoteDone" xml:space="preserve">
-    <value>Zeile geändert. Mit Rückgängig kommt der alte Text zurück.</value>
+    <value>Zeile geändert. Mit „Rückgängig“ kommt der alte Text zurück.</value>
   </data>
   <data name="TextEditNoteStale" xml:space="preserve">
     <value>Die Seite hat sich geändert, nachdem diese Zeile gelesen wurde. Nichts wurde geändert. Wählen Sie die Zeile noch einmal.</value>
   </data>
   <data name="TextEditNoteWriteFailed" xml:space="preserve">
-    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sehen Sie sich die Seite an; mit Rückgängig gehen Sie zurück.</value>
+    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sehen Sie sich die Seite an; mit „Rückgängig“ gehen Sie zurück.</value>
   </data>
   <data name="TextEditNoteHistoryFull" xml:space="preserve">
     <value>Für weitere Rückgängig-Schritte ist kein Platz mehr. Speichern Sie zuerst. Nichts wurde geändert.</value>
@@ -3111,7 +3216,7 @@
     <value>Die Zeilen dieser Seite konnten nicht gelesen werden; deshalb lässt sich keine bearbeiten.</value>
   </data>
   <data name="TextEditOldTextNote" xml:space="preserve">
-    <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: Schwärzen.</value>
+    <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: „Schwärzen“.</value>
   </data>
   <data name="DefaultAppTitle" xml:space="preserve">
     <value>Standard-App für PDFs</value>
@@ -3173,6 +3278,12 @@
   <data name="AboutProjectFormat" xml:space="preserve">
     <value>Projekt: {0}</value>
   </data>
+  <data name="AboutProjectLabel" xml:space="preserve">
+    <value>Projekt:</value>
+  </data>
+  <data name="AboutNoticeTitleMoreFormat" xml:space="preserve">
+    <value>{0} und {1} weitere - {2}</value>
+  </data>
   <data name="AboutNoticesHeading" xml:space="preserve">
     <value>Hinweise zu Drittsoftware</value>
   </data>
@@ -3195,7 +3306,7 @@
     <value>Raffica fragt zuerst nach ungespeicherten Änderungen und öffnet Ihre Tabs nach dem Neustart wieder.</value>
   </data>
   <data name="UpdateManualMessage" xml:space="preserve">
-    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite.</value>
+    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateInstall" xml:space="preserve">
     <value>Installieren und neu starten</value>
@@ -3242,6 +3353,9 @@
   <data name="UpdateCouldNotCheck" xml:space="preserve">
     <value>Die Suche nach Updates war nicht möglich. Prüfen Sie Ihre Verbindung und versuchen Sie es später erneut.</value>
   </data>
+  <data name="CmdDocumentInfo" xml:space="preserve">
+    <value>Dokumentinfo</value>
+  </data>
   <data name="CmdCheckForUpdates" xml:space="preserve">
     <value>Nach Updates suchen</value>
   </data>
@@ -3264,16 +3378,16 @@
     <value>Das Update konnte nicht auf diesem Computer gespeichert werden (Datenträger voll oder kein Zugriff). Es wurde nichts geändert.</value>
   </data>
   <data name="UpdateFailureNoInstaller" xml:space="preserve">
-    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite.</value>
+    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>Die Installation wurde nicht abgeschlossen. Die laufende Version ist unverändert.</value>
   </data>
   <data name="UpdateBusyNote" xml:space="preserve">
-    <value>Eine Datei wird gerade gespeichert, gedruckt oder verarbeitet. Warten Sie, bis das beendet ist, und wählen Sie dann erneut Installieren. Es wurde nichts geändert.</value>
+    <value>Eine Datei wird gerade gespeichert, gedruckt oder verarbeitet. Warten Sie, bis das beendet ist, und wählen Sie dann erneut „Installieren“. Es wurde nichts geändert.</value>
   </data>
   <data name="UpdateFailureFolderWriteProtectedFormat" xml:space="preserve">
-    <value>Der Ordner {0} ist schreibgeschützt, daher kann sich Raffica dort nicht ersetzen. Es wurde nichts geändert. Laden Sie die neue Version von der Download-Seite.</value>
+    <value>Der Ordner {0} ist schreibgeschützt, daher kann sich Raffica dort nicht ersetzen. Es wurde nichts geändert. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateFailureNotStarted" xml:space="preserve">
     <value>Die neue Version ist installiert, konnte aber nicht gestartet werden. Sie startet beim nächsten Öffnen von Raffica.</value>
@@ -3282,7 +3396,7 @@
     <value>Die Installation wurde beendet, aber das installierte Programm ist noch nicht die neue Version. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder starten Sie den Computer neu und öffnen Sie Raffica.</value>
   </data>
   <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
-    <value>Die Installation wurde nicht abgeschlossen, oder die Rückfrage zur Berechtigung wurde abgelehnt. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder laden Sie die neue Version von der Download-Seite.</value>
+    <value>Die Installation wurde nicht abgeschlossen, oder die Rückfrage zur Berechtigung wurde abgelehnt. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateButton" xml:space="preserve">
     <value>Update verfügbar</value>
@@ -3307,5 +3421,68 @@
   </data>
   <data name="CrashOpenFolder" xml:space="preserve">
     <value>Ordner öffnen</value>
+  </data>
+  <data name="DescAnnotateMode" xml:space="preserve">
+    <value>Anmerkungsmodus ein- oder ausschalten</value>
+  </data>
+  <data name="DescFormsHighlight" xml:space="preserve">
+    <value>Hervorhebung der Formularfelder ein- oder ausblenden</value>
+  </data>
+  <data name="DescOrganize" xml:space="preserve">
+    <value>Seitenorganisation öffnen oder schließen</value>
+  </data>
+  <data name="DescRotateLeft" xml:space="preserve">
+    <value>Ausgewählte Seiten um 90° nach links drehen</value>
+  </data>
+  <data name="DescRotateRight" xml:space="preserve">
+    <value>Ausgewählte Seiten um 90° nach rechts drehen</value>
+  </data>
+  <data name="DescDuplicatePages" xml:space="preserve">
+    <value>Ausgewählte Seiten duplizieren</value>
+  </data>
+  <data name="DescBlankPage" xml:space="preserve">
+    <value>Eine leere Seite einfügen</value>
+  </data>
+  <data name="DescInsertFile" xml:space="preserve">
+    <value>Seiten aus einer anderen PDF-Datei einfügen</value>
+  </data>
+  <data name="DescMovePagesUp" xml:space="preserve">
+    <value>Ausgewählte Seiten nach oben verschieben</value>
+  </data>
+  <data name="DescMovePagesDown" xml:space="preserve">
+    <value>Ausgewählte Seiten nach unten verschieben</value>
+  </data>
+  <data name="DescPagesUndo" xml:space="preserve">
+    <value>Letzte Seitenänderung rückgängig machen</value>
+  </data>
+  <data name="DescPagesRedo" xml:space="preserve">
+    <value>Rückgängig gemachte Seitenänderung wiederholen</value>
+  </data>
+  <data name="DescApplyPages" xml:space="preserve">
+    <value>Seitenänderungen in die Datei schreiben</value>
+  </data>
+  <data name="DescDiscardPages" xml:space="preserve">
+    <value>Seitenänderungen verwerfen</value>
+  </data>
+  <data name="DescExtractPages" xml:space="preserve">
+    <value>Seiten als neue PDF-Datei speichern</value>
+  </data>
+  <data name="DescSplitDocument" xml:space="preserve">
+    <value>Dokument in mehrere Dateien teilen</value>
+  </data>
+  <data name="DescExportImages" xml:space="preserve">
+    <value>Seiten als PNG-Bilder exportieren</value>
+  </data>
+  <data name="DescDeletePages" xml:space="preserve">
+    <value>Ausgewählte Seiten löschen</value>
+  </data>
+  <data name="DescRedactDiscard" xml:space="preserve">
+    <value>Schwärzungsmarkierungen verwerfen</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Letzte Änderung rückgängig machen</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Rückgängig gemachte Änderung wiederholen</value>
   </data>
 </root>

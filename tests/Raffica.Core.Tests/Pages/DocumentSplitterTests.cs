@@ -74,6 +74,8 @@ public sealed class DocumentSplitterTests
         Assert.Equal(4, overlapping.Select(p => p.Stem).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
         Assert.Single(DocumentSplitter.Plan(4, SplitMode.Ranges("all")));
+        Assert.Single(DocumentSplitter.Plan(4, SplitMode.Ranges("alle")));
+        Assert.Equal([0, 1, 2, 3], DocumentSplitter.Extract(4, "Alle", "doc").Pages);
     }
 
     [Theory]

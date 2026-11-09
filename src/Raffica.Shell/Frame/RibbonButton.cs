@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -77,11 +79,36 @@ public class RibbonButton : Button
 
     protected override Type StyleKeyOverride => typeof(Button);
 
-    /// <summary>Takes over the enabled state of the definition: the button is dimmed and inert while it is disabled, and the tooltip names the reason.</summary>
+    /// <summary>Whether a switch or choice command is on (drawn pressed, exposed as a toggle); always false for a plain command.</summary>
+    internal bool IsOn { get; private set; }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => Definition.IsToggle ? new RibbonToggleAutomationPeer(this) : base.OnCreateAutomationPeer();
+
+    /// <summary>Runs the command as a click does (the toggle pattern of assistive technology).</summary>
+    internal void Activate()
+    {
+        if (IsEnabled)
+        {
+            RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(ClickEvent));
+        }
+    }
+
+    /// <summary>Takes over the enabled and the checked state of the definition: the button is dimmed and inert while it is disabled, and the tooltip names the reason; a command that is on is drawn pressed.</summary>
     internal void RefreshState()
     {
         var enabled = Definition.IsEnabled;
         IsEnabled = enabled;
+        if (Definition.IsToggle)
+        {
+            var on = Definition.IsChecked;
+            if (on != IsOn)
+            {
+                IsOn = on;
+                Classes.Set("checked", on);
+                (ControlAutomationPeer.FromElement(this) as RibbonToggleAutomationPeer)?.StateChanged(!on, on);
+            }
+        }
+
         if (ToolTip.GetTip(this) is TooltipContent tip)
         {
             tip.Description = enabled ? Definition.Description : Definition.CurrentDisabledReason ?? Definition.Description;
@@ -93,7 +120,7 @@ public class RibbonButton : Button
         }
     }
 
-    /// <summary>Updates the enabled state of menu items made by <see cref="CreateMenuItem"/> (their command rides in the tag).</summary>
+    /// <summary>Updates the enabled and the checked state of menu items made by <see cref="CreateMenuItem"/> (their command rides in the tag).</summary>
     internal static void RefreshItems(IEnumerable<object?> items)
     {
         foreach (var item in items)
@@ -101,6 +128,11 @@ public class RibbonButton : Button
             if (item is MenuItem { Tag: CommandDefinition command } menuItem)
             {
                 menuItem.IsEnabled = command.IsEnabled;
+                if (command.IsToggle)
+                {
+                    menuItem.IsChecked = command.IsChecked;
+                }
+
                 RefreshItems(menuItem.Items.Cast<object?>());
             }
         }
@@ -110,6 +142,12 @@ public class RibbonButton : Button
     internal static MenuItem CreateMenuItem(CommandDefinition command, Action<CommandDefinition> invoked)
     {
         var item = new MenuItem { Header = command.Name, Tag = command, IsEnabled = command.IsEnabled };
+        if (command.IsToggle)
+        {
+            item.ToggleType = MenuItemToggleType.CheckBox;
+            item.IsChecked = command.IsChecked;
+        }
+
         AutomationProperties.SetName(item, command.Name);
         if (!string.IsNullOrEmpty(command.Shortcut))
         {
@@ -171,9 +209,10 @@ public class RibbonButton : Button
         }
     }
 
-    private static TextBlock Label(CommandDefinition definition, TextAlignment alignment, bool wrap)
+    private static RibbonLabel Label(CommandDefinition definition, TextAlignment alignment, bool wrap)
     {
-        var label = new TextBlock
+        // A wrapping (tile) label is capped by RibbonLabel itself so that it can step over the cap for a long word.
+        var label = new RibbonLabel(wrap ? TileLabelMaxWidth : double.PositiveInfinity)
         {
             Text = definition.Name,
             FontSize = 12,
@@ -182,10 +221,100 @@ public class RibbonButton : Button
             TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = wrap ? 2 : 1,
-            MaxWidth = wrap ? TileLabelMaxWidth : SmallLabelMaxWidth,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        if (!wrap)
+        {
+            label.MaxWidth = SmallLabelMaxWidth;
+        }
+
         label.Classes.Add("ribbon-label");
         return label;
+    }
+
+    /// <summary>The button of a switch or choice command as an automation button with the toggle pattern, so assistive technology hears whether it is on.</summary>
+    private sealed class RibbonToggleAutomationPeer(RibbonButton owner) : ControlAutomationPeer(owner), IToggleProvider
+    {
+        public ToggleState ToggleState => owner.IsOn ? ToggleState.On : ToggleState.Off;
+
+        public void Toggle() => owner.Activate();
+
+        public void StateChanged(bool oldValue, bool newValue) =>
+            RaisePropertyChangedEvent(TogglePatternIdentifiers.ToggleStateProperty, oldValue ? ToggleState.On : ToggleState.Off, newValue ? ToggleState.On : ToggleState.Off);
+
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
+    }
+
+    /// <summary>
+    /// The label of a tile: it wraps at spaces and hyphens only. Up to <c>wrapWidth</c> it wraps like any text; a word (or the part
+    /// between two hyphens) that is wider than that is never cut in the middle, the label takes the width of that word instead and the
+    /// tile grows with it (the text engine would otherwise break the word at any character).
+    /// </summary>
+    private sealed class RibbonLabel(double wrapWidth) : TextBlock
+    {
+        private double _widest = -1;
+        private string? _measuredText;
+
+        protected override Type StyleKeyOverride => typeof(TextBlock);
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (TextWrapping == TextWrapping.NoWrap || string.IsNullOrEmpty(Text))
+            {
+                return base.MeasureOverride(availableSize);
+            }
+
+            var cap = Math.Max(wrapWidth, WidestSegment());
+            return base.MeasureOverride(new Size(Math.Min(availableSize.Width, cap), availableSize.Height));
+        }
+
+        // The width of the widest piece the text may be broken into; kept for one text and font.
+        private double WidestSegment()
+        {
+            var key = $"{Text}|{FontSize}|{FontFamily}|{FontWeight}";
+            if (_widest >= 0 && key == _measuredText)
+            {
+                return _widest;
+            }
+
+            _widest = 0;
+            _measuredText = key;
+            foreach (var segment in Segments(Text!))
+            {
+                var probe = new TextBlock { Text = segment, FontFamily = FontFamily, FontSize = FontSize, FontWeight = FontWeight, FontStyle = FontStyle, TextWrapping = TextWrapping.NoWrap };
+                probe.Measure(Size.Infinity);
+                _widest = Math.Max(_widest, probe.DesiredSize.Width);
+            }
+
+            return _widest;
+        }
+
+        // The pieces between the break opportunities: split at a space (it is dropped) and after a hyphen (it stays with its piece).
+        private static IEnumerable<string> Segments(string text)
+        {
+            var start = 0;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (text[i] == ' ')
+                {
+                    if (i > start)
+                    {
+                        yield return text[start..i];
+                    }
+
+                    start = i + 1;
+                }
+                else if (text[i] is '-' or '‐' && i + 1 < text.Length && text[i + 1] != ' ')
+                {
+                    yield return text[start..(i + 1)];
+                    start = i + 1;
+                }
+            }
+
+            if (start < text.Length)
+            {
+                yield return text[start..];
+            }
+        }
     }
 }

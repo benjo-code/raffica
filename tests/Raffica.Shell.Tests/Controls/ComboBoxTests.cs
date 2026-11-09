@@ -191,4 +191,69 @@ public sealed class ComboBoxTests
         var selected = Assert.Single(selection.GetSelection());
         Assert.Equal("Beta", selected.GetName());
     }
+
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light)]
+    [InlineData(ThemeMode.Dark)]
+    public void TheEditableTextBoxIsThereOnlyForAnEditableCombo(ThemeMode mode)
+    {
+        var (window, combo) = Host(mode);
+        var box = ControlHarness.Part<TextBox>(combo, "PART_EditableTextBox");
+        Assert.False(box.IsVisible);
+
+        combo.IsEditable = true;
+        combo.Text = "Custom";
+        ControlHarness.Settle(window);
+
+        Assert.True(box.IsVisible);
+        Assert.Equal("Custom", box.Text);
+        Assert.Equal(0, box.BorderThickness.Left);
+    }
+
+    private static Point ChevronCenter(Window window, ComboBox combo)
+    {
+        var glyph = combo.GetVisualDescendants().OfType<StrokeIcon>().Single();
+        return glyph.TranslatePoint(new Point(glyph.Bounds.Width / 2, glyph.Bounds.Height / 2), window)!.Value;
+    }
+
+    // An editable combo box opens its list with the mouse on the chevron, while the text box takes the click for the caret.
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light)]
+    [InlineData(ThemeMode.Dark)]
+    public void ClickOnTheChevronOfAnEditableComboOpensTheListAndAClickOnTheTextDoesNot(ThemeMode mode)
+    {
+        var (window, combo) = Host(mode);
+        combo.IsEditable = true;
+        combo.Text = "Custom";
+        ControlHarness.Settle(window);
+        var box = ControlHarness.Part<TextBox>(combo, "PART_EditableTextBox");
+
+        var text = box.TranslatePoint(new Point(10, box.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(text, MouseButton.Left);
+        window.MouseUp(text, MouseButton.Left);
+        ControlHarness.Settle(window);
+        Assert.False(combo.IsDropDownOpen);
+
+        var chevron = ChevronCenter(window, combo);
+        window.MouseDown(chevron, MouseButton.Left);
+        window.MouseUp(chevron, MouseButton.Left);
+        ControlHarness.Settle(window);
+        Assert.True(combo.IsDropDownOpen);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ThemeMode.Light, false)]
+    [InlineData(ThemeMode.Dark, true)]
+    public void TheTypingEdgeIsOnlyForAnEditableCombo(ThemeMode mode, bool selectBox)
+    {
+        var (window, combo) = Host(mode, selectBox: selectBox);
+        ControlHarness.KeyboardFocus(window, combo);
+        ControlHarness.AssertToken("Raffica.Brush.Border.Control", BoxEdge(combo).BorderBrush, "non-editable focused edge");
+
+        var (window2, editable) = Host(mode);
+        editable.IsEditable = true;
+        ControlHarness.Settle(window2);
+        ControlHarness.KeyboardFocus(window2, ControlHarness.Part<TextBox>(editable, "PART_EditableTextBox"));
+        ControlHarness.AssertToken("Raffica.Brush.Text.Primary", BoxEdge(editable).BorderBrush, "editable typing edge");
+    }
 }

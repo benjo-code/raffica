@@ -232,6 +232,35 @@ public sealed class FieldEditTests
         Assert.False(f.Tab.Annotations.CanUndo);
     }
 
+    // 07-UI-02: the shell's ComboBox theme had no text box, so an editable combo box took no typing. The text goes in as key events.
+    [AvaloniaFact]
+    public async Task EditableComboTakesTypedKeysCommitsThemAndShowsAnExistingValue()
+    {
+        using var f = await FormEditFixture.OpenAsync();
+
+        var combo = Assert.IsType<ComboBox>(f.Open(f.Field("Frei")));
+        ViewFixture.Pump();
+        var box = combo.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PART_EditableTextBox");
+        Assert.True(box.IsVisible);
+        Assert.True(box.IsFocused, "focused: " + f.Window.FocusManager?.GetFocusedElement());
+
+        f.Window.KeyTextInput("Other value");
+        ViewFixture.Pump();
+        Assert.Equal("Other value", box.Text);
+        Assert.Equal("Other value", combo.Text);
+
+        f.PressKey(PhysicalKey.Enter, RawInputModifiers.None);
+        await f.SettleAsync();
+        Assert.Equal("Other value", (await f.FromDocumentAsync("Frei")).State.Text);
+
+        // The editor opens again over the custom value: it is shown in the text box, not lost.
+        var again = Assert.IsType<ComboBox>(f.Open(f.Field("Frei")));
+        ViewFixture.Pump();
+        var againBox = again.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PART_EditableTextBox");
+        Assert.True(againBox.IsVisible);
+        Assert.Equal("Other value", againBox.Text);
+    }
+
     [AvaloniaFact]
     public async Task ComboAndListCommitTheChoice()
     {

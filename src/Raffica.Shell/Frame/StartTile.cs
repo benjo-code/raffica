@@ -23,6 +23,9 @@ public sealed record StartTile(StartApp App, string Label)
         new(StartApp.Pdf, ShellStrings.StartOpenPdf),
     ];
 
+    /// <summary>The one tile "Open PDF" for an app of its own that offers nothing else to start (the PDF app).</summary>
+    public static IReadOnlyList<StartTile> OpenPdfOnly() => [new(StartApp.Pdf, ShellStrings.StartOpenPdf)];
+
     /// <summary>The app mark shown in the corner of the tile (not translated).</summary>
     internal string Mark => App switch
     {

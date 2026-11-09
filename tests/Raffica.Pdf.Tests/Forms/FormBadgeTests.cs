@@ -329,4 +329,49 @@ public sealed class FormBadgeTests
 
         return [.. result];
     }
+
+    [AvaloniaFact]
+    public async Task TheDismissButtonCanTakeTheFocusAndEscClosesTheNotice()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-calc.pdf");
+        var badge = await BadgeAsync(f);
+        Assert.True(badge.NoticeVisible);
+        Assert.True(badge.DismissButton.Focusable, "the dismiss button cannot be reached with the keyboard");
+
+        badge.DismissButton.Focus();
+        ViewFixture.Pump();
+        Assert.Same(badge.DismissButton, f.Window.FocusManager!.GetFocusedElement());
+
+        f.PressKey(PhysicalKey.Escape, RawInputModifiers.None);
+
+        Assert.False(badge.NoticeVisible);
+        Assert.Same(f.View, f.Window.FocusManager!.GetFocusedElement());
+    }
+
+    [AvaloniaFact]
+    public async Task EnterOnTheFocusedDismissButtonClosesTheNoticeAndTheFocusGoesBackToThePage()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-calc.pdf");
+        var badge = await BadgeAsync(f);
+
+        badge.DismissButton.Focus();
+        ViewFixture.Pump();
+        f.PressKey(PhysicalKey.Enter, RawInputModifiers.None);
+
+        Assert.False(badge.NoticeVisible);
+        Assert.Same(f.View, f.Window.FocusManager!.GetFocusedElement());
+    }
+
+    [AvaloniaFact]
+    public async Task EscOnTheBadgeDoesNothingWhileThereIsNoNotice()
+    {
+        using var f = await FormEditFixture.OpenAsync("forms-basic.pdf");
+        var badge = await BadgeAsync(f);
+        Assert.False(badge.NoticeVisible);
+
+        badge.DismissButton.Focus();
+        f.PressKey(PhysicalKey.Escape, RawInputModifiers.None);
+
+        Assert.False(badge.NoticeVisible);
+    }
 }

@@ -389,10 +389,12 @@ internal sealed partial class PdfWindow
         _ = new SessionStore(SessionPath()).TrySave(new SessionSnapshot([new SessionWindow(entries, active)]));
     }
 
-    // The download page opens only after the card that shows the address in full (the same card as for a link in a document).
-    private async Task OpenDownloadPageAsync()
+    private Task OpenDownloadPageAsync() => OpenAddressAfterConfirmationAsync(UpdateTrust.ReleasesPageUrl);
+
+    // An address of the app (the download page, the project page of the About card) opens only after the card that shows it in full (the same card as for a link in a document).
+    internal async Task OpenAddressAfterConfirmationAsync(string address)
     {
-        if (!ExternalLink.TryParse(UpdateTrust.ReleasesPageUrl, out var link))
+        if (!ExternalLink.TryParse(address, out var link))
         {
             return;
         }

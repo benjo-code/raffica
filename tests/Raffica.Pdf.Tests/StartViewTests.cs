@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Raffica.Shell;
@@ -37,6 +38,57 @@ public sealed class StartViewTests
         window.Tabs.Items.Remove(tab);
         Assert.Same(window.Start, window.Frame.Document);
         Assert.Null(window.Frame.StatusBar);
+    }
+
+    private static Button[] ButtonsOf(Avalonia.Visual root, string cls) =>
+        [.. Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(root).OfType<Button>().Where(b => b.Classes.Contains(cls))];
+
+    private static void Click(Button button) => button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+
+    [AvaloniaFact]
+    public void TheStartViewHasOneTileOpenPdfThatOpensThePicker()
+    {
+        var window = Show();
+        var tile = Assert.Single(ButtonsOf(window.Start, "start-tile"));
+        Assert.Equal(Raffica.Shell.Localization.ShellStrings.StartOpenPdf, Avalonia.Automation.AutomationProperties.GetName(tile));
+
+        var calls = 0;
+        var gate = new TaskCompletionSource<IReadOnlyList<string>>();
+        window.FilePicker = () =>
+        {
+            calls++;
+            return gate.Task;
+        };
+        Click(tile);
+        Assert.Equal(1, calls);
+
+        // A second click while the picker is open does not start another one.
+        Click(tile);
+        Assert.Equal(1, calls);
+        gate.SetResult([]);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void ThePlusOfTheTabStripIsNamedOpenFileAndOpensThePicker()
+    {
+        var window = Show();
+        var plus = Assert.Single(ButtonsOf(window.Tabs, "document-tab-new"));
+        Assert.Equal(PdfStrings.OpenFileButton, Avalonia.Automation.AutomationProperties.GetName(plus));
+        Assert.Equal("Open file", PdfStrings.OpenFileButton);
+
+        var calls = 0;
+        var gate = new TaskCompletionSource<IReadOnlyList<string>>();
+        window.FilePicker = () =>
+        {
+            calls++;
+            return gate.Task;
+        };
+        Click(plus);
+        Click(plus);
+        Assert.Equal(1, calls);
+        gate.SetResult([]);
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]

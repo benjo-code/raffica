@@ -66,6 +66,29 @@ public sealed class DialogTests
         ControlHarness.Settle(window);
     }
 
+    [AvaloniaFact]
+    public void AHeldEnterActsOnceUntilItIsReleased()
+    {
+        var f = Create(ThemeMode.Light);
+        var clicks = 0;
+        f.Body.Click += (_, _) => clicks++;
+        Assert.True(f.Body.IsFocused);
+
+        // Enter goes down and stays down: the repeats of a held key must not press the focused or the default button again.
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(1, clicks);
+
+        // Released and pressed again it is a new press.
+        f.Window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(2, clicks);
+    }
+
     private static Point Centre(Window window, Control control) =>
         control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
 
@@ -253,5 +276,135 @@ public sealed class DialogTests
         f.Host.Close();
         f.Host.Close();
         Assert.False(f.Host.IsOpen);
+    }
+
+    // A card taller than a 320 DIP host: a text box first, 30 buttons below, the footer with a default and a cancel button.
+    private sealed record Tall(Window Window, DialogHost Host, Dialog Dialog, TextBox Input, Button Last, Button Ok, Counter Cancels, Counter OkClicks)
+    {
+        public ScrollViewer Scroll => ControlHarness.Part<ScrollViewer>(Dialog, "PART_BodyScroll");
+    }
+
+    private static Tall CreateTall()
+    {
+        var input = new TextBox { Text = "line one", AcceptsReturn = false };
+        var body = new StackPanel { Spacing = 4, Children = { input } };
+        Button? last = null;
+        for (var i = 0; i < 30; i++)
+        {
+            last = new Button { Content = "Row " + i, HorizontalAlignment = HorizontalAlignment.Left };
+            body.Children.Add(last);
+        }
+
+        var okClicks = new Counter();
+        var cancels = new Counter();
+        var ok = new Button { Content = "OK", IsDefault = true };
+        ok.Click += (_, _) => okClicks.Count++;
+        var dialog = new Dialog { Title = "Tall", Content = body, Footer = new StackPanel { Orientation = Orientation.Horizontal, Children = { ok } } };
+        dialog.CancelRequested += (_, _) => cancels.Count++;
+        var host = new DialogHost { Content = new Button { Content = "Behind" } };
+        var window = ControlHarness.Show(host, ThemeMode.Light);
+        window.Width = 600;
+        window.Height = 320;
+        ControlHarness.Settle(window);
+        host.Show(dialog);
+        ControlHarness.Settle(window);
+        return new Tall(window, host, dialog, input, last!, ok, cancels, okClicks);
+    }
+
+    [AvaloniaFact]
+    public void ACardTallerThanTheHostIsCappedAndItsBodyScrolls()
+    {
+        var f = CreateTall();
+
+        Assert.Equal(320 - DialogHost.CardMargin, f.Dialog.Bounds.Height, 1);
+        Assert.True(f.Scroll.Extent.Height > f.Scroll.Viewport.Height);
+        Assert.True(f.Ok.IsEffectivelyVisible && f.Ok.TranslatePoint(default, f.Window)!.Value.Y + f.Ok.Bounds.Height <= 320, "the footer stays in the window");
+
+        // Growing the host lifts the cap again.
+        f.Window.Height = 1200;
+        ControlHarness.Settle(f.Window);
+        Assert.True(f.Dialog.Bounds.Height > 320, "the card follows a taller host");
+    }
+
+    // A host of 100 DIP would cap the card at 52 (a header and no body at all): the cap has a minimum, so the margin gives way in a small host and a few rows stay in view.
+    [AvaloniaFact]
+    public void ASmallHostGivesTheCardRoomForAFewRowsInsteadOfASliver()
+    {
+        var f = CreateTall();
+
+        f.Window.Height = 200;
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(DialogHost.MinCardHeight, f.Dialog.MaxHeight, 0.01);
+        Assert.Equal(200, f.Dialog.Bounds.Height, 1);
+        Assert.True(f.Scroll.Viewport.Height >= 3 * 26, $"the body shows {f.Scroll.Viewport.Height} DIP");
+        Assert.True(f.Scroll.Extent.Height > f.Scroll.Viewport.Height);
+
+        // Below the minimum the card is as tall as the host (not host less the margin: 52, or 2 in a 50 DIP host).
+        f.Window.Height = 100;
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(DialogHost.MinCardHeight, f.Dialog.MaxHeight, 0.01);
+        Assert.Equal(100, f.Dialog.Bounds.Height, 1);
+
+        // A roomy host is capped at its height less the margin again.
+        f.Window.Height = 320;
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(320 - DialogHost.CardMargin, f.Dialog.MaxHeight, 0.01);
+        Assert.Equal(320 - DialogHost.CardMargin, f.Dialog.Bounds.Height, 1);
+    }
+
+    [AvaloniaFact]
+    public void ACardThatFitsIsNotChangedByTheScrollViewer()
+    {
+        var f = Create(ThemeMode.Light);
+        var scroll = ControlHarness.Part<ScrollViewer>(f.Dialog, "PART_BodyScroll");
+
+        Assert.True(scroll.Extent.Height <= scroll.Viewport.Height + 0.5);
+        Assert.Equal(0, scroll.Offset.Y);
+        Assert.True(f.Dialog.Bounds.Height < 600 - DialogHost.CardMargin);
+    }
+
+    [AvaloniaFact]
+    public void TabBringsTheFocusedRowIntoViewAndShiftTabWrapsToTheFooter()
+    {
+        var f = CreateTall();
+        Assert.Same(f.Input, Focused(f.Window));
+
+        Press(f.Window, PhysicalKey.Tab, RawInputModifiers.Shift);
+        Assert.Same(ControlHarness.Part<Button>(f.Dialog, "PART_Close"), Focused(f.Window));
+        Press(f.Window, PhysicalKey.Tab, RawInputModifiers.Shift);
+        Assert.Same(f.Ok, Focused(f.Window));
+        Press(f.Window, PhysicalKey.Tab, RawInputModifiers.Shift);
+        Assert.Same(f.Last, Focused(f.Window));
+
+        var at = f.Last.TranslatePoint(default, f.Scroll)!.Value;
+        Assert.True(at.Y >= -0.5 && at.Y + f.Last.Bounds.Height <= f.Scroll.Viewport.Height + 0.5, "the last row is in view");
+
+        // Tab from the footer's OK button goes on to the close button, then back to the top of the body, which scrolls back.
+        f.Ok.Focus(NavigationMethod.Tab);
+        Press(f.Window, PhysicalKey.Tab);
+        Press(f.Window, PhysicalKey.Tab);
+        Assert.Same(f.Input, Focused(f.Window));
+        var top = f.Input.TranslatePoint(default, f.Scroll)!.Value;
+        Assert.True(top.Y >= -0.5 && top.Y + f.Input.Bounds.Height <= f.Scroll.Viewport.Height + 0.5, "the first row is back in view");
+    }
+
+    [AvaloniaFact]
+    public void TheScrollViewerStealsNoKeyFromTheCard()
+    {
+        var f = CreateTall();
+        Assert.Same(f.Input, Focused(f.Window));
+
+        // Arrow keys and Home and End in a text box belong to the text box, and the body does not move.
+        foreach (var key in new[] { PhysicalKey.ArrowDown, PhysicalKey.ArrowUp, PhysicalKey.ArrowRight, PhysicalKey.Home, PhysicalKey.End })
+        {
+            Press(f.Window, key);
+            Assert.Equal(0, f.Scroll.Offset.Y);
+        }
+
+        // Enter reaches the default button, Esc the card.
+        Press(f.Window, PhysicalKey.Enter);
+        Assert.Equal(1, f.OkClicks.Count);
+        Press(f.Window, PhysicalKey.Escape);
+        Assert.Equal(1, f.Cancels.Count);
     }
 }

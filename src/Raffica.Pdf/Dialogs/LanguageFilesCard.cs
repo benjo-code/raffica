@@ -71,7 +71,7 @@ internal static class LanguageFilesCard
         {
             Title = PdfStrings.OcrFilesTitle,
             Content = body,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { choose, close } },
+            Footer = CardFooter.Build(choose, null, close),
         };
         dialog.CancelRequested += (_, _) => Finish(false);
         return dialog;
@@ -106,7 +106,7 @@ internal static class LanguageFilesCard
         {
             Title = PdfStrings.OcrReplaceTitle,
             Content = new TextBlock { Name = "PART_Message", Text = PdfStrings.Fill(PdfStrings.OcrReplaceMessageFormat, language), TextWrapping = TextWrapping.Wrap },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { keep, replace } },
+            Footer = CardFooter.Build(keep, [replace], null),
         };
         dialog.CancelRequested += (_, _) => Finish(false);
         return dialog;

@@ -38,7 +38,7 @@ internal static class GoToPageCard
             IsVisible = false,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
 
         var ok = CreateButton("PART_Ok", ShellStrings.Ok, primary: true);
         var cancel = CreateButton("PART_Cancel", ShellStrings.Cancel, primary: false);
@@ -46,7 +46,7 @@ internal static class GoToPageCard
         {
             Title = PdfStrings.GoToPageTitle,
             Content = new StackPanel { Spacing = 12, Children = { label, field, hint } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
 
         void Confirm()

@@ -26,12 +26,14 @@ public static class ShellStrings
     public static string NotificationInfo => Table.Get("NotificationInfo");
     public static string NotificationWarning => Table.Get("NotificationWarning");
     public static string NotificationError => Table.Get("NotificationError");
-    public static string Search => Table.Get("Search");
+    public static string SearchCommands => Table.Get("SearchCommands");
     public static string More => Table.Get("More");
     public static string ZoomOut => Table.Get("ZoomOut");
     public static string ZoomIn => Table.Get("ZoomIn");
     public static string ZoomLevel => Table.Get("ZoomLevel");
     public static string RibbonMore => Table.Get("RibbonMore");
+    public static string RibbonScrollLeft => Table.Get("RibbonScrollLeft");
+    public static string RibbonScrollRight => Table.Get("RibbonScrollRight");
     public static string ContextCut => Table.Get("ContextCut");
     public static string ContextCopy => Table.Get("ContextCopy");
     public static string ContextPaste => Table.Get("ContextPaste");
@@ -41,7 +43,11 @@ public static class ShellStrings
     public static string SearchNoResults => Table.Get("SearchNoResults");
     public static string NewDocument => Table.Get("NewDocument");
     public static string CloseDocument => Table.Get("CloseDocument");
+    public static string TabsScrollLeft => Table.Get("TabsScrollLeft");
+    public static string TabsScrollRight => Table.Get("TabsScrollRight");
+    public static string TabsAll => Table.Get("TabsAll");
     public static string TabUnsavedChanges => Table.Get("TabUnsavedChanges");
+    public static string StatusUnsaved => Table.Get("StatusUnsaved");
     public static string Minimize => Table.Get("Minimize");
     public static string Maximize => Table.Get("Maximize");
     public static string Restore => Table.Get("Restore");

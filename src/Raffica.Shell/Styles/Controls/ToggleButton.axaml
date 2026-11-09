@@ -2,7 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <!--
     Toggle, row "Toggle" of the state table: as the button, and on (checked) = fill ink with text.onInk, also under the
-    pointer. It has no switch form; a ToggleButton is the toggle. The button theme is merged here because a StaticResource
+    pointer. It has no switch form; a ToggleButton is the toggle. The class disclosure is a row that opens and closes a part of a
+    page (a chevron and a title): it grows with a wrapping title, has no checked fill (the chevron shows the state), and keeps the
+    hover fill and the focus ring. The button theme is merged here because a StaticResource
     cannot see the dictionary of a sibling include.
   -->
   <ResourceDictionary.MergedDictionaries>
@@ -19,6 +21,33 @@
       <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
       <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+
+    <!-- Disclosure row: no fill when checked, the page text colour, a wrapping title sets the height -->
+    <Style Selector="^.disclosure">
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+      <Setter Property="Padding" Value="5,3" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="^.disclosure:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="^.disclosure:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+    </Style>
+    <Style Selector="^.disclosure:checked:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+    <Style Selector="^.disclosure:checked:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
     </Style>
   </ControlTheme>
 </ResourceDictionary>

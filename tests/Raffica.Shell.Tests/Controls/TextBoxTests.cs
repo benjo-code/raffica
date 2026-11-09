@@ -113,7 +113,7 @@ public sealed class TextBoxTests
     [AvaloniaTheory]
     [InlineData(ThemeMode.Light)]
     [InlineData(ThemeMode.Dark)]
-    public void TextSelectionUsesTheSelectionTint(ThemeMode mode)
+    public void TextSelectionUsesTheSelectionFieldToken(ThemeMode mode)
     {
         var (window, box) = Host(mode, "Hello world");
         box.Focus();
@@ -121,9 +121,9 @@ public sealed class TextBoxTests
         ControlHarness.Settle(window);
 
         var presenter = ControlHarness.Part<TextPresenter>(box, "PART_TextPresenter");
-        ControlHarness.AssertToken("Raffica.Brush.Selection.Tint", box.SelectionBrush, "box selection");
-        ControlHarness.AssertToken("Raffica.Brush.Selection.Tint", presenter.SelectionBrush, "presenter selection");
-        ControlHarness.AssertToken("Raffica.Brush.Text.Primary", presenter.SelectionForegroundBrush, "selected text");
+        ControlHarness.AssertToken("Raffica.Brush.Selection.Field", box.SelectionBrush, "box selection");
+        ControlHarness.AssertToken("Raffica.Brush.Selection.Field", presenter.SelectionBrush, "presenter selection");
+        ControlHarness.AssertToken("Raffica.Brush.Text.OnInk", presenter.SelectionForegroundBrush, "selected text");
     }
 
     [AvaloniaTheory]

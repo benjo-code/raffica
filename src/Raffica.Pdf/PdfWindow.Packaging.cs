@@ -27,12 +27,14 @@ internal sealed partial class PdfWindow
     internal bool DefaultAppFlowCreated => _defaultAppFlow is not null;
 
     private DefaultAppFlow? DefaultAppFlow => _defaultAppFlow ??= DefaultAppServices is { } make
-        ? new DefaultAppFlow(make(), () => Settings.App, ChooseDefaultAppPrompt, Dialogs)
+        ? new DefaultAppFlow(make(), () => Settings.App, ChooseDefaultAppPrompt, Dialogs, snooze: SnoozeDefaultAppPrompt)
         : null;
 
     private CancellationToken DefaultAppToken => (_defaultAppCancel ??= new CancellationTokenSource()).Token;
 
     private void ChooseDefaultAppPrompt(DefaultAppPromptSetting prompt) => Settings.Update(Settings.App with { DefaultAppPrompt = prompt });
+
+    private void SnoozeDefaultAppPrompt(DateOnly until) => Settings.Update(Settings.App with { DefaultAppPromptSnoozedUntil = until });
 
     /// <summary>
     /// After the first sharp page of a tab: offers once per run to make Raffica the default app. Nothing is made while the setting is "never", in a
@@ -40,7 +42,7 @@ internal sealed partial class PdfWindow
     /// </summary>
     internal async Task OfferDefaultAppAsync()
     {
-        if (_defaultAppOfferStarted || _options.IsMeasuring || DefaultAppServices is null || Settings.App.DefaultAppPrompt != DefaultAppPromptSetting.Ask)
+        if (_defaultAppOfferStarted || _options.IsMeasuring || DefaultAppServices is null || Settings.App.DefaultAppPrompt != DefaultAppPromptSetting.Ask || DefaultAppFlow.IsSnoozed(Settings.App, null))
         {
             return;
         }
@@ -63,7 +65,9 @@ internal sealed partial class PdfWindow
     {
         var notices = NoticesSource();
         return Dialogs.ShowAsync<bool>(done => AboutCard.Create(
-            AppInfo.Version, UpdateTrust.TestBuildNote(PdfStrings.Culture), notices, () => done(true)));
+            AppInfo.Version, UpdateTrust.TestBuildNote(PdfStrings.Culture), notices, () => done(true),
+            // The link closes the card first; the confirmation card then waits in the queue behind it for a moment and shows.
+            () => _ = GuardAsync(() => OpenAddressAfterConfirmationAsync(AboutCard.ProjectAddress))));
     }
 
     /// <summary>The command "Make Raffica the default app for PDFs" (the palette, the settings dialog).</summary>

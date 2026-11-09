@@ -84,7 +84,7 @@ internal static class ApplyCard
             {
                 Title = PdfStrings.ApplyRefusedTitle,
                 Content = new StackPanel { Spacing = 8, Children = { Name(fileName), intro, reasons } },
-                Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { back } },
+                Footer = CardFooter.Only(back),
             };
         }
         else
@@ -122,17 +122,14 @@ internal static class ApplyCard
             var saveAs = new Button { Name = "PART_SaveAs", Content = PdfStrings.ApplySaveAs };
             saveAs.Classes.Add("primary");
             saveAs.Click += (_, _) => Finish(ApplyChoice.SaveAs);
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { saveAs } };
             Button? original = null;
             if (target == ApplyTarget.Choose)
             {
                 original = new Button { Name = "PART_Original", Content = PdfStrings.ApplyOriginal };
                 original.Classes.Add("boxed");
-                buttons.Children.Add(original);
             }
 
-            buttons.Children.Add(back);
-            dialog = new Dialog { Title = PdfStrings.ApplyTitle, Content = body, Footer = buttons };
+            dialog = new Dialog { Title = PdfStrings.ApplyTitle, Content = body, Footer = CardFooter.Build(saveAs, original is null ? null : [original], back) };
             if (original is not null)
             {
                 var arming = new ArmingLock(time, dialog, original);

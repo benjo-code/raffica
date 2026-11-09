@@ -138,9 +138,9 @@ public sealed class CommandCatalogTests
         var rules = new PdfCommandRules(() => false, () => 0, () => null);
         var allowed = PdfCommandCatalog.Commands.Where(c => rules.Allows(c.Id)).Select(c => c.Id).Order().ToArray();
 
-        // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma); nothing else does.
-        Assert.Equal(["file.open", "file.settings", "help.shortcuts"], allowed);
-        Assert.Equal(80, PdfCommandCatalog.Commands.Count);
+        // Help and Settings need no document either (the start view has them behind F1 and Ctrl+Comma), nor does Check for updates; nothing else does.
+        Assert.Equal(["app.update", "file.open", "file.settings", "help.shortcuts"], allowed);
+        Assert.Equal(82, PdfCommandCatalog.Commands.Count);
     }
 
     [Fact]
@@ -157,8 +157,8 @@ public sealed class CommandCatalogTests
     [Fact]
     public void CommandCountsAndGroupDigitsMatchTheCatalog()
     {
-        // 52 commands of the viewer, the annotate tools, the forms, 16 of the Pages tab and 12 of Redact and Edit.
-        Assert.Equal(80, PdfCommandCatalog.Commands.Count);
+        // 54 commands of the viewer (with Document info and Check for updates), the annotate tools, the forms, 16 of the Pages tab and 12 of Redact and Edit.
+        Assert.Equal(82, PdfCommandCatalog.Commands.Count);
         Assert.Equal(["Home", "Annotate", "Forms", "Pages", "Redact", "Edit", "View"], PdfCommandCatalog.Tabs.Select(t => t.Name).ToArray());
 
         var pages = PdfCommandCatalog.Tabs.Single(t => t.Letter == "P");
@@ -246,7 +246,7 @@ public sealed class CommandCatalogTests
     {
         var entries = PdfCommandCatalog.HelpEntries();
         var withShortcut = PdfCommandCatalog.Commands.Where(c => c.Shortcut is not null).ToList();
-        Assert.Equal(withShortcut.Count, entries.Count);
+        Assert.Equal(withShortcut.Count, entries.Count(e => e.Group != PdfStrings.HelpGroupNavigation));
         foreach (var command in withShortcut)
         {
             var shortcut = KeyNames.Format(command.Shortcut!.Text(OperatingSystem.IsMacOS()), PdfStrings.Culture);

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -21,6 +22,8 @@ public sealed class AboutCardTests : IDisposable
 
     private sealed class Shown(Window window, Dialog card) : IDisposable
     {
+        public Window Window => window;
+
         public Dialog Card { get; } = card;
 
         public T Find<T>(string name) where T : Control => Card.GetVisualDescendants().OfType<T>().Single(c => c.Name == name);
@@ -44,10 +47,10 @@ public sealed class AboutCardTests : IDisposable
         }
     }
 
-    private static Shown Show(string culture, string version, string? note, string notices, Action done)
+    private static Shown Show(string culture, string version, string? note, string notices, Action done, Action? openProject = null)
     {
         PdfStrings.Culture = CultureInfo.GetCultureInfo(culture);
-        var card = AboutCard.Create(version, note, notices, done);
+        var card = AboutCard.Create(version, note, notices, done, openProject);
         var host = new DialogHost { Content = new Border() };
         var window = new Window { Content = host, Width = 800, Height = 600 };
         window.Show();
@@ -75,7 +78,7 @@ public sealed class AboutCardTests : IDisposable
         Assert.Equal("Raffica PDF", s.Find<TextBlock>("PART_Name").Text);
         Assert.Equal("Version 1.2.3", s.Find<TextBlock>("PART_Version").Text);
         Assert.Contains("GPL-3.0-or-later", s.Find<TextBlock>("PART_License").Text);
-        Assert.Contains("https://github.com/benjo-code/raffica", s.Find<TextBlock>("PART_Project").Text);
+        Assert.Equal("https://github.com/benjo-code/raffica", ((TextBlock)s.Find<Button>("PART_ProjectLink").Content!).Text);
         Assert.Equal("NOTICES TEXT\nline two", s.Find<TextBox>("PART_Notices").Text);
         Assert.True(s.Find<TextBox>("PART_Notices").IsReadOnly);
 
@@ -193,5 +196,129 @@ public sealed class AboutCardTests : IDisposable
     {
         var source = File.ReadAllText(RepoPaths.Combine("src", "Raffica.Pdf", "Dialogs", "AboutCard.cs"));
         Assert.DoesNotContain("#", source.Replace("#region", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    // 08-UI-09: the notices box was 560 wide in a 520 card, the intro did not wrap, the section toggles took the checked fill of a toggle.
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void TheNoticesFitTheCardWidthAndTheIntroWraps(string culture)
+    {
+        using var s = Show(culture, "1.2.3", null, ThirdPartyNotices.Read(), () => { });
+        var scroll = s.Find<ScrollViewer>("PART_NoticesScroll");
+        var list = (Control)scroll.Content!;
+        Assert.True(list.Bounds.Width <= scroll.Viewport.Width + 0.5, $"list {list.Bounds.Width}, viewport {scroll.Viewport.Width}");
+
+        var origin = ((Visual)scroll).TranslatePoint(default, s.Card)!.Value;
+        var contentRight = s.Card.Bounds.Width - s.Card.Padding.Right - s.Card.BorderThickness.Right;
+        Assert.True(origin.X + scroll.Bounds.Width <= contentRight + 0.5, $"scroll right {origin.X + scroll.Bounds.Width}, card content right {contentRight}");
+
+        Assert.Equal(Avalonia.Media.TextWrapping.Wrap, s.Find<TextBox>("PART_Notices").TextWrapping);
+        Assert.True(s.Find<TextBox>("PART_Notices").Bounds.Width <= scroll.Viewport.Width + 0.5);
+
+        // Every section row fits the list and wraps its title instead of cutting it; an opened section's box fits too.
+        s.Find<ToggleButton>("PART_NoticeToggle0").IsChecked = true;
+        Pump();
+        foreach (var toggle in s.Card.GetVisualDescendants().OfType<ToggleButton>())
+        {
+            Assert.True(toggle.Bounds.Width <= scroll.Viewport.Width + 0.5, toggle.Name);
+            var title = toggle.GetVisualDescendants().OfType<TextBlock>().Single();
+            Assert.Equal(Avalonia.Media.TextWrapping.Wrap, title.TextWrapping);
+            Assert.True(title.Bounds.Right <= toggle.Bounds.Width + 0.5, title.Text);
+        }
+
+        Assert.True(s.Find<TextBox>("PART_Notice0").Bounds.Width <= scroll.Viewport.Width + 0.5);
+
+        // Everything outside the scrolling list: no text is clipped (the rows inside it are checked above).
+        scroll.IsVisible = false;
+        Pump();
+        Assert.Empty(Raffica.Shell.Tests.Frame.LabelFit.FindClipped(s.Window));
+    }
+
+    [AvaloniaFact]
+    public void TheSectionRowsAreDisclosureRows()
+    {
+        using var s = Show("en", "1.2.3", null, ThirdPartyNotices.Read(), () => { });
+        var toggle = s.Find<ToggleButton>("PART_NoticeToggle1");
+        toggle.IsChecked = true;
+        Pump();
+        Assert.Contains("disclosure", toggle.Classes);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("A 1.0\nMIT\n\ntext", "en", "A 1.0 - MIT")]
+    [InlineData("A 1.0\nB 2.0\nC 3.0\nApache-2.0\n\n--- f ---", "en", "A 1.0 and 2 more - Apache-2.0")]
+    [InlineData("A 1.0\nB 2.0\nApache-2.0\n\n--- f ---", "de", "A 1.0 und 1 weitere - Apache-2.0")]
+    public void ASectionTitleNamesTheComponentAndItsLicense(string section, string culture, string expected)
+    {
+        PdfStrings.Culture = CultureInfo.GetCultureInfo(culture);
+        Assert.Equal(expected, AboutCard.SectionTitle(section));
+    }
+
+    [AvaloniaFact]
+    public void EveryShippedSectionTitleEndsWithItsLicense()
+    {
+        var (_, sections) = AboutCard.SplitNotices(ThirdPartyNotices.Read());
+        Assert.NotEmpty(sections);
+        foreach (var section in sections)
+        {
+            var lines = section.Split('\n');
+            var license = lines.TakeWhile(l => l.Length > 0).Last();
+            Assert.EndsWith(" - " + license, AboutCard.SectionTitle(section), StringComparison.Ordinal);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheNoticesSayEnthaeltWithTheUmlaut()
+    {
+        var text = ThirdPartyNotices.Read();
+        Assert.Contains("Es enth\u00E4lt oder nutzt", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("enthaelt", text, StringComparison.Ordinal);
+        Assert.DoesNotContain('\uFFFD', text);
+
+        // The file is UTF-8 without a BOM, so the umlaut is the two bytes C3 A4 on every platform.
+        var bytes = File.ReadAllBytes(RepoPaths.Combine("src", "Raffica.Pdf", "Resources", "ThirdPartyNotices.txt"));
+        Assert.NotEqual(0xEF, bytes[0]);
+        Assert.True(bytes.AsSpan().IndexOf(System.Text.Encoding.UTF8.GetBytes("enth\u00E4lt")) >= 0);
+    }
+
+    [AvaloniaFact]
+    public void TheProjectAddressIsALinkThatClosesTheCardAndAsksTheWindow()
+    {
+        var closed = 0;
+        var opened = 0;
+        using var s = Show("en", "1.2.3", null, "x", () => closed++, () => opened++);
+        var link = s.Find<Button>("PART_ProjectLink");
+        Assert.Equal(AboutCard.ProjectAddress, ((TextBlock)link.Content!).Text);
+        Assert.Equal("Project: " + AboutCard.ProjectAddress, Avalonia.Automation.AutomationProperties.GetName(link));
+        Assert.Contains("link", link.Classes);
+        link.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal(1, closed);
+        Assert.Equal(1, opened);
+    }
+
+    // The link goes through the card that shows the address in full (the one of a link in a document); only its Open button, after the delay, launches it.
+    [AvaloniaFact]
+    public async Task TheProjectLinkOpensOnlyAfterTheConfirmationCard()
+    {
+        var launched = new List<Uri>();
+        var time = new Raffica.Pdf.Tests.Text.ManualTime();
+        using var f = Raffica.Pdf.Tests.Viewing.WindowFixture.Create(launcher: launched.Add, time: time);
+        f.Window.NoticesSource = () => "NOTICES";
+        _ = f.Window.ShowAboutAsync();
+        await Raffica.Pdf.Tests.Viewing.ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.AboutTitle);
+
+        f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_ProjectLink")
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await Raffica.Pdf.Tests.Viewing.ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title != PdfStrings.AboutTitle);
+        Assert.Empty(launched);
+        var card = f.Window.Host.ActiveDialog!;
+        Assert.Contains(AboutCard.ProjectAddress, card.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+
+        time.Advance(LinkCard.ArmingDelayMilliseconds);
+        card.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Open").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await Raffica.Pdf.Tests.Viewing.ViewFixture.WaitAsync(() => launched.Count > 0);
+        Assert.False(f.Window.Host.IsOpen);
+        Assert.Equal(AboutCard.ProjectAddress, Assert.Single(launched).OriginalString);
     }
 }

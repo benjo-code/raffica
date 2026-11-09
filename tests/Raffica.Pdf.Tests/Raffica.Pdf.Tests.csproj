@@ -15,6 +15,9 @@
   <ItemGroup>
     <Compile Include="..\Shared\TestData.cs" Link="Shared\TestData.cs" />
     <Compile Include="..\Shared\OcrFixtures.cs" Link="Shared\OcrFixtures.cs" />
+    <!-- The label-fit check of the shell tests (internal type), reused for the labels of the ribbon of the app. -->
+    <Compile Include="..\Raffica.Shell.Tests\Frame\LabelFit.cs" Link="Shared\LabelFit.cs" />
+    <Compile Include="..\Raffica.Shell.Tests\Frame\BadgeFit.cs" Link="Shared\BadgeFit.cs" />
     <!-- The fake release source and the manual clock of the update tests of Core, reused as they are (internal types of that test project). -->
     <Compile Include="..\Raffica.Core.Tests\Updates\FakeUpdateSource.cs" Link="Shared\FakeUpdateSource.cs" />
   </ItemGroup>

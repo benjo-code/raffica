@@ -64,23 +64,23 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         _term = new TextBox { Name = "PART_FindTerm", PlaceholderText = PdfStrings.FindTermName };
         AutomationProperties.SetName(_term, PdfStrings.FindTermName);
         _term.AddHandler(KeyDownEvent, OnTermKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        _matchCase = new CheckBox { Name = "PART_FindMatchCase", Content = PdfStrings.FindMatchCase };
-        _wholeWords = new CheckBox { Name = "PART_FindWholeWords", Content = PdfStrings.FindWholeWords };
-        _patterns = new ToggleButton { Name = "PART_FindPatterns", Content = PdfStrings.FindPatternsMode, HorizontalAlignment = HorizontalAlignment.Left };
+        _matchCase = new CheckBox { Name = "PART_FindMatchCase", Content = PdfStrings.FindMatchCase, Classes = { "wrap" } };
+        _wholeWords = new CheckBox { Name = "PART_FindWholeWords", Content = PdfStrings.FindWholeWords, Classes = { "wrap" } };
+        _patterns = new ToggleButton { Name = "PART_FindPatterns", Content = PdfStrings.FindPatternsMode, HorizontalAlignment = HorizontalAlignment.Left, Classes = { "wrap" } };
         _patterns.IsCheckedChanged += (_, _) => Refresh();
 
         var kindPanel = new StackPanel { Spacing = 2 };
         foreach (var kind in s_kinds)
         {
-            var box = new CheckBox { Name = "PART_FindKind" + kind, Content = PdfStrings.FindKindText(kind), IsChecked = true };
+            var box = new CheckBox { Name = "PART_FindKind" + kind, Content = PdfStrings.FindKindText(kind), IsChecked = true, Classes = { "wrap" } };
             _kindBoxes[kind] = box;
             kindPanel.Children.Add(box);
         }
 
-        _search = new Button { Name = "PART_FindSearch", Content = PdfStrings.FindSearchButton };
+        _search = new Button { Name = "PART_FindSearch", Content = PdfStrings.FindSearchButton, Classes = { "wrap" } };
         _search.Classes.Add("primary");
         _search.Click += (_, _) => StartSearch();
-        _cancel = new Button { Name = "PART_FindCancel", Content = PdfStrings.FindCancelButton, IsVisible = false };
+        _cancel = new Button { Name = "PART_FindCancel", Content = PdfStrings.FindCancelButton, IsVisible = false, Classes = { "wrap" } };
         _cancel.Click += (_, _) => _find.Cancel();
 
         _status = new TextBlock { Name = "PART_FindStatus", TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold };
@@ -89,10 +89,10 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
         AutomationProperties.SetLiveSetting(_note, AutomationLiveSetting.Polite);
         _caution = new TextBlock { Name = "PART_FindCaution", Text = PdfStrings.FindPatternCaution, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         _caution.Classes.Add("nav-hint");
-        _acknowledge = new Button { Name = "PART_FindAcknowledge", Content = PdfStrings.FindAcknowledge, IsVisible = false };
+        _acknowledge = new Button { Name = "PART_FindAcknowledge", Content = PdfStrings.FindAcknowledge, IsVisible = false, Classes = { "wrap" } };
         _acknowledge.Click += (_, _) => _find.Acknowledge();
         _pictures = new TextBlock { Name = "PART_FindPictures", TextWrapping = TextWrapping.Wrap, IsVisible = false };
-        _ocr = new Button { Name = "PART_FindOcr", Content = PdfStrings.CmdOcrRun, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Left };
+        _ocr = new Button { Name = "PART_FindOcr", Content = PdfStrings.CmdOcrRun, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Left, Classes = { "wrap" } };
         _ocr.Click += (_, _) => RunOcr();
 
         _list = new ListBox
@@ -114,14 +114,14 @@ internal sealed class RedactFindPanel : UserControl, IDisposable
             }
         };
 
-        _markAll = new Button { Name = "PART_FindMarkAll", Content = PdfStrings.FindMarkAll };
+        _markAll = new Button { Name = "PART_FindMarkAll", Content = PdfStrings.FindMarkAll, Classes = { "wrap" } };
         _markAll.Click += (_, _) => _pane.Report(_find.MarkAll());
-        _markTicked = new Button { Name = "PART_FindMarkTicked", Content = PdfStrings.FindMarkTicked };
+        _markTicked = new Button { Name = "PART_FindMarkTicked", Content = PdfStrings.FindMarkTicked, Classes = { "wrap" } };
         _markTicked.Click += (_, _) => _pane.Report(_find.MarkTicked());
-        _addFailed = new Button { Name = "PART_FindAddFailed", Content = PdfStrings.FindAddFailed, IsVisible = false };
+        _addFailed = new Button { Name = "PART_FindAddFailed", Content = PdfStrings.FindAddFailed, IsVisible = false, Classes = { "wrap" } };
         _addFailed.Click += (_, _) => _pane.Report(_find.AddFailed());
 
-        _notSearchedToggle = new ToggleButton { Name = "PART_FindNotSearchedToggle", Content = PdfStrings.FindNotSearchedToggle, HorizontalAlignment = HorizontalAlignment.Left };
+        _notSearchedToggle = new ToggleButton { Name = "PART_FindNotSearchedToggle", Content = PdfStrings.FindNotSearchedToggle, HorizontalAlignment = HorizontalAlignment.Left, Classes = { "wrap" } };
         _notSearchedToggle.IsCheckedChanged += (_, _) => _notSearched!.IsVisible = _notSearchedToggle.IsChecked == true;
         _notSearched = new StackPanel { Name = "PART_FindNotSearched", Spacing = 4, IsVisible = false };
         AutomationProperties.SetName(_notSearched, PdfStrings.FindNotSearchedName);

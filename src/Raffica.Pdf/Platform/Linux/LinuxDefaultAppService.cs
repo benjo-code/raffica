@@ -1,4 +1,5 @@
 using Raffica.Core.Distribution;
+using Raffica.Core.Updates;
 
 namespace Raffica.Pdf.Platform.Linux;
 
@@ -21,6 +22,7 @@ internal sealed class LinuxDefaultAppService : IDefaultAppService
     private readonly IProcessRunner _runner;
     private readonly TimeSpan _timeout;
     private readonly Func<string, string?> _findProgram;
+    private readonly string? _processPath;
 
     public LinuxDefaultAppService()
         : this(Environment.GetEnvironmentVariable, new SystemProcessRunner(), TimeSpan.FromSeconds(5))
@@ -32,7 +34,8 @@ internal sealed class LinuxDefaultAppService : IDefaultAppService
     /// <param name="runner">Starts programs.</param>
     /// <param name="timeout">How long one program may run.</param>
     /// <param name="findProgram">Finds a program by name (tests); null searches <c>PATH</c> for an executable file.</param>
-    public LinuxDefaultAppService(Func<string, string?> environment, IProcessRunner runner, TimeSpan timeout, Func<string, string?>? findProgram = null)
+    /// <param name="processPath">The path of this program (tests); null reads <see cref="Environment.ProcessPath"/>.</param>
+    public LinuxDefaultAppService(Func<string, string?> environment, IProcessRunner runner, TimeSpan timeout, Func<string, string?>? findProgram = null, string? processPath = null)
     {
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(runner);
@@ -40,6 +43,7 @@ internal sealed class LinuxDefaultAppService : IDefaultAppService
         _runner = runner;
         _timeout = timeout;
         _findProgram = findProgram ?? FindOnPath;
+        _processPath = processPath ?? Environment.ProcessPath;
     }
 
     public bool IsSupported => OperatingSystem.IsLinux();
@@ -94,7 +98,7 @@ internal sealed class LinuxDefaultAppService : IDefaultAppService
         // From an AppImage the choice is only good while the user's desktop file starts this very file: after the
         // AppImage was moved or renamed, the old Exec= points nowhere. NotDefault brings the card back; setting the
         // default again writes the file anew (TryInstallDesktopFile).
-        var appImage = _environment("APPIMAGE");
+        var appImage = OwnAppImage();
         var dataHome = DataHome();
         return string.IsNullOrEmpty(appImage) || dataHome is null || DesktopFileStartsAppImage(Path.Combine(dataHome, "applications", DesktopFileName), appImage)
             ? DefaultAppStatus.IsDefault
@@ -111,7 +115,7 @@ internal sealed class LinuxDefaultAppService : IDefaultAppService
 
         var dataHome = DataHome();
         var applications = dataHome is null ? null : Path.Combine(dataHome, "applications");
-        var appImage = _environment("APPIMAGE");
+        var appImage = OwnAppImage();
         if (!string.IsNullOrEmpty(appImage))
         {
             if (dataHome is null || applications is null || !TryInstallDesktopFile(appImage, dataHome, applications))
@@ -141,6 +145,14 @@ internal sealed class LinuxDefaultAppService : IDefaultAppService
         }
 
         return DefaultAppResult.Done;
+    }
+
+    // APPIMAGE is inherited by every child of an AppImage: it names this program only while this program runs from inside the
+    // APPDIR of that AppImage. A foreign value must never put its file into the user's desktop file (the launcher would start it).
+    private string? OwnAppImage()
+    {
+        var appImage = _environment("APPIMAGE");
+        return !string.IsNullOrEmpty(appImage) && PackageFormDetector.IsInsideAppDir(_processPath, _environment("APPDIR")) ? appImage : null;
     }
 
     private string? DataHome()

@@ -8,7 +8,7 @@
     <Setter Property="Padding" Value="0" />
   </Style>
   <Style Selector="ListBox.nav-list > ListBoxItem">
-    <Setter Property="Padding" Value="6,6" />
+    <Setter Property="Padding" Value="4,6,6,6" />
     <Setter Property="Margin" Value="0,0,0,2" />
     <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
@@ -24,6 +24,19 @@
   <Style Selector="ListBox.nav-list > ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <!-- The selection is not carried by the tint alone (1.2 : 1 on the pane): the selected item has a 2 px edge bar on the left in text.primary,
+       like the edge of a mark in the marks list. The 2 px are always there (transparent when not selected) so the content does not move. -->
+  <Style Selector="ListBox.nav-list > ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="2,0,0,0" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.nav-list > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <!-- The marks list has its own edge bar (mark-edge) and its own padding: no second bar and no 2 px shift. -->
+  <Style Selector="ListBox.nav-list.marks-list > ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="0" />
   </Style>
   <Style Selector="ListBox.nav-list > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />

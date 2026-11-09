@@ -20,6 +20,9 @@ public enum ContrastKind
 
     /// <summary>Checked on its own pairing only (appendix A section 2.3).</summary>
     Fill,
+
+    /// <summary>Drawn over white paper (an editor over a page) in every theme: same value everywhere, checked against white, not against the five backgrounds.</summary>
+    OnPaper,
 }
 
 /// <summary>Classifies every token once. A token or an entry that is missing here fails <c>EveryTokenIsClassified</c>.</summary>
@@ -51,6 +54,15 @@ public static class ContrastPolicy
             ["Button.Primary.Hover"] = (ContrastKind.Fill, null),
             ["Scrim"] = (ContrastKind.Fill, null),
 
+            // The selected text of a text field (M2.7): checked against the field backgrounds and with Text.OnInk on it in FilledPairingsMeetTheirThreshold.
+            ["Selection.Field"] = (ContrastKind.Fill, null),
+
+            // On paper (M2.7): caret, edge and selection of the editors over a page. The page paper is white in every theme, so these do not follow the theme.
+            ["Paper.Caret"] = (ContrastKind.OnPaper, null),
+            ["Paper.Edge"] = (ContrastKind.OnPaper, null),
+            ["Paper.Selection"] = (ContrastKind.OnPaper, null),
+            ["Paper.OnSelection"] = (ContrastKind.OnPaper, null),
+
             // Text.OnInk is the text drawn on a fill; it is checked against every fill in FilledPairingsMeetTheirThreshold.
             ["Text.OnInk"] = (ContrastKind.Fill, null),
         };
@@ -70,6 +82,9 @@ public static class ContrastPolicy
     [
         ("Border.Control", "Selection.Tint", "selection is carried by the 3 px ink edge"),
     ];
+
+    /// <summary>The paper of an editor over a page.</summary>
+    public const string PaperWhite = "#FFFFFF";
 
     public static double Threshold(ContrastKind kind) => kind == ContrastKind.Ui ? 3.0 : 4.5;
 

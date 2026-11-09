@@ -10,8 +10,8 @@ using Raffica.Shell.Localization;
 namespace Raffica.Pdf.Dialogs;
 
 /// <summary>
-/// The About card: the name, the version (with the note of a test build when there is one), the license, the project address and the
-/// notices of the third-party components, one section per component that fills only when it is opened (the whole text in one box froze the card for a second).
+/// The About card: the name, the version (with the note of a test build when there is one), the license, the project address (a link button: the
+/// window asks first, like for a link in a document) and the notices of the third-party components, one section per component that fills only when it is opened (the whole text in one box froze the card for a second).
 /// Nothing in it is destructive, so one Close button closes it; Esc does too.
 /// The notices text is handed in by the caller, who reads it when the card is opened.
 /// </summary>
@@ -20,17 +20,17 @@ internal static class AboutCard
     /// <summary>The license of the app.</summary>
     public const string License = "GPL-3.0-or-later";
 
-    /// <summary>The address of the project, shown as text (the card opens nothing).</summary>
+    /// <summary>The address of the project (the link button of the card hands it to the window, which asks before it opens it).</summary>
     public const string ProjectAddress = "https://github.com/benjo-code/raffica";
 
-    private const double BoxWidth = 560;
     private const double BoxHeight = 260;
 
     /// <param name="version">The version of the app.</param>
     /// <param name="testBuildNote">The note after the version of a test build, or null in a release.</param>
     /// <param name="notices">The notices text of the third-party components.</param>
     /// <param name="done">Called once when the card is closed.</param>
-    public static Dialog Create(string version, string? testBuildNote, string notices, Action done)
+    /// <param name="openProject">Called after the card was closed by a click on the project address; the window then shows the confirmation of the address. Null: the link does nothing more than close the card.</param>
+    public static Dialog Create(string version, string? testBuildNote, string notices, Action done, Action? openProject = null)
     {
         ArgumentNullException.ThrowIfNull(version);
         ArgumentNullException.ThrowIfNull(notices);
@@ -45,20 +45,26 @@ internal static class AboutCard
             Text = string.IsNullOrEmpty(testBuildNote) ? versionText : versionText + " " + testBuildNote,
         };
         var license = new TextBlock { Name = "PART_License", Text = PdfStrings.Fill(PdfStrings.AboutLicenseFormat, License) };
-        var project = new TextBlock
+        var projectLabel = new TextBlock { Text = PdfStrings.AboutProjectLabel, VerticalAlignment = VerticalAlignment.Center };
+        var linkText = new TextBlock { Text = ProjectAddress };
+        linkText.Classes.Add("link");
+        var projectLink = new Button
         {
-            Name = "PART_Project",
-            Text = PdfStrings.Fill(PdfStrings.AboutProjectFormat, ProjectAddress),
-            TextWrapping = TextWrapping.Wrap,
+            Name = "PART_ProjectLink",
+            Content = linkText,
+            HorizontalAlignment = HorizontalAlignment.Left,
         };
+        projectLink.Classes.Add("link");
+        AutomationProperties.SetName(projectLink, PdfStrings.Fill(PdfStrings.AboutProjectFormat, ProjectAddress));
+        var project = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { projectLabel, projectLink } };
         var heading = new TextBlock { Text = PdfStrings.AboutNoticesHeading, Margin = new Thickness(0, 8, 0, 0) };
         heading.Classes.Add("secondary");
 
         // The notices are about 450 KB: one box with all of it takes the text engine a second or more to lay out, so the card would freeze when it opens. They are cut
         // into their sections (the separator lines of tools/licenses.cs) and each section's text goes into its box only when the user opens it.
         var (intro, sections) = SplitNotices(notices);
-        var list = new StackPanel { Spacing = 2, Width = BoxWidth - 20, Margin = new Thickness(2) };
-        list.Children.Add(CreateBox("PART_Notices", intro));
+        var list = new StackPanel { Spacing = 2, Margin = new Thickness(2, 2, 6, 2) };
+        list.Children.Add(CreateBox("PART_Notices", intro, wrap: true));
         for (var i = 0; i < sections.Count; i++)
         {
             list.Children.Add(CreateSection(i, sections[i]));
@@ -67,7 +73,7 @@ internal static class AboutCard
         var scroll = new ScrollViewer
         {
             Name = "PART_NoticesScroll",
-            Width = BoxWidth,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Height = BoxHeight,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
@@ -81,9 +87,14 @@ internal static class AboutCard
         {
             Title = PdfStrings.AboutTitle,
             Content = new StackPanel { Spacing = 4, Children = { name, versionLine, license, project, heading, scroll } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+            Footer = CardFooter.Only(ok),
         };
         ok.Click += (_, _) => done();
+        projectLink.Click += (_, _) =>
+        {
+            done();
+            openProject?.Invoke();
+        };
         dialog.CancelRequested += (_, _) => done();
         return dialog;
     }
@@ -130,7 +141,8 @@ internal static class AboutCard
         return icon;
     }
 
-    private static TextBox CreateBox(string name, string text)
+    // The licence texts are fixed-width columns: they scroll sideways inside their box. The intro is prose and wraps.
+    private static TextBox CreateBox(string name, string text, bool wrap = false)
     {
         var box = new TextBox
         {
@@ -138,40 +150,54 @@ internal static class AboutCard
             Text = text,
             IsReadOnly = true,
             AcceptsReturn = true,
-            TextWrapping = TextWrapping.NoWrap,
+            TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             MaxHeight = BoxHeight - 40,
         };
-        ScrollViewer.SetHorizontalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
+        ScrollViewer.SetHorizontalScrollBarVisibility(box, wrap ? Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled : Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         ScrollViewer.SetVerticalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         AutomationProperties.SetName(box, PdfStrings.AboutNoticesName);
         return box;
     }
 
-    // One component: a toggle with its name and licence (the first two lines of the section) and, below it, the text, put into its box on the first open.
+    /// <summary>
+    /// The title of a section: the first component (name and version) and, when the section holds more, how many more, then the licence. The head of a section is
+    /// the lines up to the first blank line: the components, one per line, and the licence as the last of them (<c>tools/licenses.cs</c> writes it so).
+    /// </summary>
+    internal static string SectionTitle(string section)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        var head = section.Split('\n').TakeWhile(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).ToList();
+        return head.Count switch
+        {
+            0 => PdfStrings.AboutNoticesName,
+            1 => head[0],
+            2 => head[0] + " - " + head[1],
+            _ => PdfStrings.Fill(PdfStrings.AboutNoticeTitleMoreFormat, head[0], head.Count - 2, head[^1]),
+        };
+    }
+
+    // One component: a disclosure row with its name and licence and, below it, the text, put into its box on the first open.
     private static StackPanel CreateSection(int index, string text)
     {
-        var lines = text.Split('\n', 3);
-        var title = string.IsNullOrWhiteSpace(lines[0]) ? PdfStrings.AboutNoticesName : lines[0].Trim();
-        if (lines.Length > 1 && !string.IsNullOrWhiteSpace(lines[0]) && !string.IsNullOrWhiteSpace(lines[1]))
-        {
-            title += " - " + lines[1].Trim();
-        }
-
+        var title = SectionTitle(text);
         var closed = Chevron("Raffica.Icon.ChevronRight");
         var open = Chevron("Raffica.Icon.ChevronDown");
         open.IsVisible = false;
+        var label = new TextBlock { Text = title, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(label, 1);
         var header = new ToggleButton
         {
             Name = "PART_NoticeToggle" + index,
-            Content = new StackPanel
+            Content = new Grid
             {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Children = { new Panel { Children = { closed, open } }, new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis } },
+                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                ColumnSpacing = 6,
+                Children = { new Panel { Children = { closed, open } }, label },
             },
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Left,
         };
+        header.Classes.Add("disclosure");
         AutomationProperties.SetName(header, title);
 
         var body = new ContentControl { Name = "PART_NoticeBody" + index, IsVisible = false };

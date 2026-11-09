@@ -257,7 +257,9 @@ internal sealed partial class PdfWindow
         OcrLanguages: ShowLanguageFiles,
         OcrCancel: CancelOcr,
         TextEdit: ToggleTextEdit,
-        TextEditDone: FinishTextEdit);
+        TextEditDone: FinishTextEdit,
+        DocumentInfo: () => _ = GuardAsync(ShowDocumentInfoAsync),
+        CheckForUpdates: CheckForUpdates);
 
     /// <summary>
     /// The Sign command: with no saved signature the new-signature card opens straight away, else the picker (a pick places that signature,
@@ -512,6 +514,7 @@ internal sealed partial class PdfWindow
         if (ActiveView is { } view)
         {
             view.PageTheme = view.PageTheme == PageTheme.Dark ? PageTheme.Light : PageTheme.Dark;
+            UpdateCheckedStates();
         }
     }
 
@@ -522,6 +525,8 @@ internal sealed partial class PdfWindow
         {
             view.PageTheme = theme;
         }
+
+        UpdateCheckedStates();
     }
 
     /// <summary>Shows the list of keyboard shortcuts and returns when it is closed.</summary>
@@ -572,7 +577,49 @@ internal sealed partial class PdfWindow
     }
 
     /// <summary>The ribbon, the field codes and the search ask the commands again: the tabs, the active document or its permissions changed.</summary>
-    private void RefreshCommandStates() => Ribbon.RefreshCommandStates();
+    private void RefreshCommandStates()
+    {
+        _checkedStates = CheckedStates();
+        Ribbon.RefreshCommandStates();
+    }
+
+    // What the switch and choice commands of the View tab show, as one value: the ribbon is asked again only when it changes (the view
+    // reports every scroll, which changes nothing here).
+    private (ZoomMode Zoom, PageLayoutMode Layout, PageTheme Theme, LeftPaneKind Pane, bool HasTab) _checkedStates;
+
+    private (ZoomMode Zoom, PageLayoutMode Layout, PageTheme Theme, LeftPaneKind Pane, bool HasTab) CheckedStates() =>
+        ActiveView is { } view
+            ? (view.ZoomMode, view.Layout, view.PageTheme, _leftPane, true)
+            : (ZoomMode.Free, PageLayoutMode.Continuous, PageTheme.Light, LeftPaneKind.None, false);
+
+    /// <summary>The ribbon asks the buttons again when the zoom fit mode, the layout, the page theme or the open pane changed.</summary>
+    private void UpdateCheckedStates()
+    {
+        if (CheckedStates() != _checkedStates)
+        {
+            RefreshCommandStates();
+        }
+    }
+
+    /// <summary>Whether a switch or choice command is on now (the pressed state of its button), read from the active tab and the window.</summary>
+    private bool IsCommandOn(string id)
+    {
+        var (zoom, layout, theme, pane, hasTab) = CheckedStates();
+        return hasTab && id switch
+        {
+            PdfCommandIds.FitWidth => zoom == ZoomMode.FitWidth,
+            PdfCommandIds.FitPage => zoom == ZoomMode.FitPage,
+            PdfCommandIds.ActualSize => zoom == ZoomMode.ActualSize,
+            PdfCommandIds.Continuous => layout == PageLayoutMode.Continuous,
+            PdfCommandIds.SinglePage => layout == PageLayoutMode.SinglePage,
+            PdfCommandIds.TwoPages => layout == PageLayoutMode.TwoPages,
+            PdfCommandIds.TwoPagesCover => layout == PageLayoutMode.TwoPagesWithCover,
+            PdfCommandIds.DarkPage => theme == PageTheme.Dark,
+            PdfCommandIds.PagesPane => pane == LeftPaneKind.Pages,
+            PdfCommandIds.OutlinePane => pane == LeftPaneKind.Outline,
+            _ => false,
+        };
+    }
 
     /// <summary>Reads the print permission of a tab once (the document answers on its own thread); the ribbon follows when the answer is in.</summary>
     private void LoadPrintInfo(PdfTab tab)

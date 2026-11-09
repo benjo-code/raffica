@@ -82,7 +82,7 @@ public static class SettingsDialog
         {
             Title = ShellStrings.SettingsTitle,
             Content = body,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, ok } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
         dialog.CancelRequested += (_, _) => onCancel();
         cancel.Click += (_, _) => onCancel();

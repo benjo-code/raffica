@@ -23,7 +23,7 @@ internal static class PasswordCard
         var field = new TextBox { Name = "PART_Password", PasswordChar = '•', MinWidth = 280 };
         AutomationProperties.SetName(field, PdfStrings.PasswordLabel);
         var hint = new TextBlock { Name = "PART_Incorrect", Text = PdfStrings.PasswordIncorrect, IsVisible = incorrect, TextWrapping = TextWrapping.Wrap };
-        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(hint);
 
         var ok = CreateButton("PART_Ok", ShellStrings.Ok, primary: true);
         var cancel = CreateButton("PART_Cancel", ShellStrings.Cancel, primary: false);
@@ -32,7 +32,7 @@ internal static class PasswordCard
         {
             Title = PdfStrings.PasswordTitle,
             Content = new StackPanel { Spacing = 12, Children = { message, field, hint } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok, cancel } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
         ok.Click += (_, _) => done(field.Text ?? string.Empty);
         cancel.Click += (_, _) => done(null);

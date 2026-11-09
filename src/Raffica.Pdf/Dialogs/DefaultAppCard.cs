@@ -11,7 +11,7 @@ internal enum DefaultAppChoice
     /// <summary>Set Raffica as the default app (the system may still leave the last step to the user).</summary>
     SetDefault,
 
-    /// <summary>Not now: ask again at the next start.</summary>
+    /// <summary>Not now: the flow keeps the card away for 30 days (<c>DefaultAppFlow.SnoozeDays</c>).</summary>
     NotNow,
 
     /// <summary>Don't ask again: the choice is stored.</summary>
@@ -38,7 +38,7 @@ internal static class DefaultAppCard
         {
             Title = PdfStrings.DefaultAppTitle,
             Content = message,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { notNow, dontAsk, set } },
+            Footer = CardFooter.Build(set, [dontAsk], notNow),
         };
 
         var arming = new ArmingLock(time, dialog, set, dontAsk);

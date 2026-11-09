@@ -32,7 +32,8 @@ public sealed class DefaultAppFlowTests : IDisposable
             Host = new DialogHost { Content = new Border() };
             _window = new Window { Content = Host, Width = 700, Height = 400 };
             _window.Show();
-            Flow = new DefaultAppFlow(service, () => Settings, p => Settings = Settings with { DefaultAppPrompt = p }, new DialogQueue(Host), Time);
+            Flow = new DefaultAppFlow(service, () => Settings, p => Settings = Settings with { DefaultAppPrompt = p }, new DialogQueue(Host), Time,
+                until => Settings = Settings with { DefaultAppPromptSnoozedUntil = until });
         }
 
         public FakeDefaultAppService Service { get; }
@@ -92,13 +93,84 @@ public sealed class DefaultAppFlowTests : IDisposable
         using var asks = new Rig(new FakeDefaultAppService());
         var offer = asks.Flow.OfferAtStartAsync(TestContext.Current.CancellationToken);
         await asks.WaitForCardAsync();
-        Assert.Equal(["PART_NotNow", "PART_DontAsk", "PART_Set"], asks.ButtonNames);
+        Assert.Equal(["PART_Set", "PART_DontAsk", "PART_NotNow"], asks.ButtonNames);
         Assert.Equal(PdfStrings.DefaultAppTitle, asks.Host.ActiveDialog!.Title);
         asks.Click("PART_NotNow");
         await offer;
         Assert.False(asks.Host.IsOpen);
         Assert.Equal(DefaultAppPromptSetting.Ask, asks.Settings.DefaultAppPrompt);
         Assert.Equal(0, asks.Service.MakeCalls);
+    }
+
+    // 08-UI-16 (scope change of M2.7): "Not now" is remembered for 30 days, it no longer returns at every start.
+    [AvaloniaFact]
+    public async Task NotNowSnoozesTheCardFor30DaysAndOnlyThenItReturns()
+    {
+        using var rig = new Rig(new FakeDefaultAppService());
+        rig.Time.UtcNow = new DateTimeOffset(2026, 11, 9, 20, 0, 0, TimeSpan.Zero);
+        var offer = rig.Flow.OfferAtStartAsync(TestContext.Current.CancellationToken);
+        await rig.WaitForCardAsync();
+        rig.Click("PART_NotNow");
+        await offer;
+        Assert.Equal(new DateOnly(2026, 12, 9), rig.Settings.DefaultAppPromptSnoozedUntil);
+        Assert.Equal(DefaultAppPromptSetting.Ask, rig.Settings.DefaultAppPrompt);
+        Assert.Equal(1, rig.Service.StatusCalls);
+
+        // A later start inside the 30 days, and on the last day itself: no card, the system is not even asked.
+        foreach (var day in new[] { new DateTimeOffset(2026, 11, 10, 8, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 12, 9, 23, 59, 0, TimeSpan.Zero) })
+        {
+            rig.Time.UtcNow = day;
+            var snoozed = new DefaultAppFlow(rig.Service, () => rig.Settings, _ => { }, new DialogQueue(rig.Host), rig.Time);
+            await snoozed.OfferAtStartAsync(TestContext.Current.CancellationToken);
+            Assert.False(rig.Host.IsOpen);
+            Assert.Equal(1, rig.Service.StatusCalls);
+        }
+
+        // The first start after that day asks again.
+        rig.Time.UtcNow = new DateTimeOffset(2026, 12, 10, 0, 1, 0, TimeSpan.Zero);
+        var later = new DefaultAppFlow(rig.Service, () => rig.Settings, _ => { }, new DialogQueue(rig.Host), rig.Time);
+        var again = later.OfferAtStartAsync(TestContext.Current.CancellationToken);
+        await rig.WaitForCardAsync();
+        Assert.Equal(2, rig.Service.StatusCalls);
+        rig.Click("PART_NotNow");
+        await again;
+    }
+
+    [AvaloniaFact]
+    public async Task DontAskAgainStaysPermanentWhateverTheDate()
+    {
+        using var rig = new Rig(new FakeDefaultAppService());
+        rig.Time.UtcNow = new DateTimeOffset(2026, 11, 9, 20, 0, 0, TimeSpan.Zero);
+        var offer = rig.Flow.OfferAtStartAsync(TestContext.Current.CancellationToken);
+        await rig.WaitForCardAsync();
+        rig.Time.Advance(ArmingLock.DelayMilliseconds);
+        rig.Click("PART_DontAsk");
+        await offer;
+        Assert.Equal(DefaultAppPromptSetting.Never, rig.Settings.DefaultAppPrompt);
+        Assert.Null(rig.Settings.DefaultAppPromptSnoozedUntil);
+
+        // A far-future and a past date: the permanent choice does not look at the date.
+        foreach (var day in new[] { new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero) })
+        {
+            rig.Time.UtcNow = day;
+            var next = new DefaultAppFlow(rig.Service, () => rig.Settings, _ => { }, new DialogQueue(rig.Host), rig.Time);
+            await next.OfferAtStartAsync(TestContext.Current.CancellationToken);
+            Assert.False(rig.Host.IsOpen);
+            Assert.Equal(1, rig.Service.StatusCalls);
+        }
+    }
+
+    [Fact]
+    public void ASnoozeFurtherAwayThanThirtyDaysIsAClockMistakeAndExpired()
+    {
+        var time = new ManualTime { UtcNow = new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero) };
+        AppSettings Until(DateOnly day) => AppSettings.Default with { DefaultAppPromptSnoozedUntil = day };
+
+        Assert.True(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2026, 12, 9)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2026, 12, 10)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2031, 1, 1)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2026, 11, 8)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(AppSettings.Default, time));
     }
 
     [AvaloniaFact]

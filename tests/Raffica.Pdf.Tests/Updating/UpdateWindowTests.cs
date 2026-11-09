@@ -96,7 +96,7 @@ public sealed class UpdateWindowTests
         using var f = WindowFixture.Create(UpdateCheck(false));
         f.Window.UpdateFlows = _ => kit.Flow();
 
-        Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates")).Run();
+        Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates"), e => e.Name == PdfStrings.CmdCheckForUpdates).Run();
         await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen);
         Assert.Equal(PdfStrings.UpdateCheckTitle, f.Window.Host.ActiveDialog!.Title);
         Click(Find(f, "PART_Ok"));
@@ -107,7 +107,7 @@ public sealed class UpdateWindowTests
         var tab = await f.OpenAsync("pages-marked.pdf");
         tab.MarkDirty();
         kit.Applier.OnApply = () => Assert.True(File.Exists(Path.Combine(PdfSettingsFilesFolder(f), SessionStore.FileName)));
-        Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates")).Run();
+        Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates"), e => e.Name == PdfStrings.CmdCheckForUpdates).Run();
         await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
         Assert.Equal(0, kit.Applier.Calls);
         await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
@@ -138,7 +138,7 @@ public sealed class UpdateWindowTests
 
         async Task InstallToTheQuestionAsync()
         {
-            Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates")).Run();
+            Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates"), e => e.Name == PdfStrings.CmdCheckForUpdates).Run();
             await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
             await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
             ViewFixture.Pump();
@@ -173,7 +173,7 @@ public sealed class UpdateWindowTests
         using var f = WindowFixture.Create(UpdateCheck(false));
         f.Window.UpdateFlows = _ => kit.Flow();
 
-        Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates")).Run();
+        Assert.Single(f.Window.TitleSearch.ExtraResults!("check for updates"), e => e.Name == PdfStrings.CmdCheckForUpdates).Run();
         await ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
         await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
         ViewFixture.Pump();

@@ -93,8 +93,8 @@ public class SearchField : TemplatedControl
             return;
         }
 
-        _input.PlaceholderText = ShellStrings.Search;
-        AutomationProperties.SetName(_input, ShellStrings.Search);
+        _input.PlaceholderText = ShellStrings.SearchCommands;
+        AutomationProperties.SetName(_input, ShellStrings.SearchCommands);
         _input.InnerLeftContent = new Border
         {
             Margin = new Thickness(8, 0, 0, 0),
@@ -142,14 +142,17 @@ public class SearchField : TemplatedControl
             return;
         }
 
+        var commandNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var command in CommandMatcher.Find(Source, query, ShellStrings.Culture))
         {
+            commandNames.Add(command.Name);
             AddRow(new SearchResultRow(command));
         }
 
         if (ExtraResults is { } provider)
         {
-            foreach (var group in provider(query).GroupBy(entry => entry.Group))
+            // An extra entry that is named like a command would only repeat the command row.
+            foreach (var group in provider(query).Where(entry => !commandNames.Contains(entry.Name)).GroupBy(entry => entry.Group))
             {
                 var heading = new TextBlock { Text = group.Key };
                 heading.Classes.Add("search-group");
@@ -270,11 +273,11 @@ public class SearchField : TemplatedControl
     }
 }
 
-/// <summary>One result of the <see cref="SearchField"/>, a command or a <see cref="SearchEntry"/>: 32 px high, the name on the left, the shortcut (or the detail) on the right.</summary>
+/// <summary>One result of the <see cref="SearchField"/>, a command or a <see cref="SearchEntry"/>: 32 px high, the name on the left, the shortcut on the right (a command without a shortcut shows its description there, which tells commands with alike names apart; an entry its detail).</summary>
 internal sealed class SearchResultRow : Border
 {
     public SearchResultRow(CommandDefinition command)
-        : this(command.Name, command.Shortcut is { Length: > 0 } shortcut ? KeyNames.Format(shortcut, ShellStrings.Culture) : null, "search-shortcut")
+        : this(command.Name, command.Shortcut is { Length: > 0 } shortcut ? KeyNames.Format(shortcut, ShellStrings.Culture) : command.Description, command.Shortcut is { Length: > 0 } ? "search-shortcut" : "search-detail")
     {
         Command = command;
         ShortcutText = command.Shortcut;

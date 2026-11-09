@@ -57,7 +57,7 @@ internal static class SplitCard
         var everyField = new TextBox { Name = "PART_Every", Width = 100, Text = "1" };
         AutomationProperties.SetName(everyField, PdfStrings.SplitEveryLabel);
         var ranges = Radio("PART_ModeRanges", PdfStrings.SplitModeRanges);
-        var rangesField = new TextBox { Name = "PART_Ranges", MinWidth = 280, Text = "all" };
+        var rangesField = new TextBox { Name = "PART_Ranges", MinWidth = 280, Text = PdfStrings.PageKeywordAll };
         AutomationProperties.SetName(rangesField, PdfStrings.SplitRangesLabel);
         var bookmarks = Radio("PART_ModeBookmarks", PdfStrings.SplitModeBookmarks);
         var reason = new TextBlock { Name = "PART_BookmarksReason", Text = PdfStrings.SplitNoBookmarksReason, IsVisible = !hasBookmarks, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(24, 0, 0, 0) };
@@ -88,7 +88,7 @@ internal static class SplitCard
         var folderRow = new StackPanel { Spacing = 4, Children = { new TextBlock { Text = PdfStrings.SplitFolderLabel, FontWeight = FontWeight.SemiBold }, folderText, choose } };
 
         var problem = new TextBlock { Name = "PART_PreviewProblem", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        problem.Bind(TextBlock.ForegroundProperty, problem.GetResourceObservable("Raffica.Brush.Danger"));
+        ValidationHint.Mark(problem);
         var preview = new StackPanel { Name = "PART_Preview", Spacing = 2 };
         var more = new TextBlock { Name = "PART_PreviewMore", IsVisible = false };
         var previewBox = new StackPanel
@@ -103,7 +103,7 @@ internal static class SplitCard
         {
             Title = PdfStrings.SplitTitle,
             Content = new ScrollViewer { Content = new StackPanel { Spacing = 12, Children = { header, modes, folderRow, previewBox } } },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { split, cancel } },
+            Footer = CardFooter.Build(split, null, cancel),
         };
 
         string? folder = null;
@@ -203,7 +203,7 @@ internal static class SplitCard
         {
             Title = PdfStrings.SplitTitle,
             Content = ExtractCard.LossBody(PdfStrings.Fill(PdfStrings.SplitConfirmIntroFormat, partCount), losses, stays, PdfStrings.StaysHeadingSplit),
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { go, back } },
+            Footer = CardFooter.Build(go, null, back),
         };
         go.Click += (_, _) => done(true);
         back.Click += (_, _) => done(false);

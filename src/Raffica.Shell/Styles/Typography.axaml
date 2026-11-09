@@ -33,6 +33,11 @@
     <Setter Property="FontWeight" Value="400" />
     <Setter Property="LineHeight" Value="16.25" />
   </Style>
+  <!-- The text of a link button (Button.link): underlined and wrapping; the colour is the button's -->
+  <Style Selector="TextBlock.link">
+    <Setter Property="TextDecorations" Value="Underline" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
   <Style Selector="TextBlock.secondary.multiline">
     <Setter Property="LineHeight" Value="18.2" />
   </Style>

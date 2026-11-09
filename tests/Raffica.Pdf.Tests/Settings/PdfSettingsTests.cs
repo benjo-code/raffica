@@ -53,6 +53,34 @@ public sealed class PdfSettingsTests
     }
 
     [AvaloniaFact]
+    public void InASmallWindowTheDialogScrollsAndTabReachesUpdates()
+    {
+        using var windows = WindowFixture.Create(width: 1024, height: 480);
+        var window = windows.Window;
+        window.Settings.Open();
+        ViewFixture.Pump();
+        window.UpdateLayout();
+
+        var dialog = window.Host.ActiveDialog!;
+        Assert.True(dialog.Bounds.Height <= window.Host.Bounds.Height - DialogHost.CardMargin + 0.5, $"the card is {dialog.Bounds.Height} DIP high in a {window.Host.Bounds.Height} DIP host");
+        var updates = Find<CheckBox>(window, "PART_UpdateCheck");
+        var scroll = dialog.GetVisualDescendants().OfType<ScrollViewer>().First(s => s.Name == "PART_BodyScroll");
+        Assert.True(scroll.Extent.Height > scroll.Viewport.Height, "the body is taller than the card in a 480 DIP window");
+
+        for (var i = 0; i < 40 && !ReferenceEquals(window.FocusManager!.GetFocusedElement(), updates); i++)
+        {
+            window.KeyPressQwerty(Avalonia.Input.PhysicalKey.Tab, Avalonia.Input.RawInputModifiers.None);
+            window.KeyReleaseQwerty(Avalonia.Input.PhysicalKey.Tab, Avalonia.Input.RawInputModifiers.None);
+            ViewFixture.Pump();
+        }
+
+        Assert.Same(updates, window.FocusManager!.GetFocusedElement());
+        var at = updates.TranslatePoint(default, scroll)!.Value;
+        Assert.True(at.Y >= -0.5 && at.Y + updates.Bounds.Height <= scroll.Viewport.Height + 0.5, $"Updates sits at {at.Y} of a {scroll.Viewport.Height} DIP viewport");
+        Click(window, "PART_Cancel");
+    }
+
+    [AvaloniaFact]
     public void CtrlCommaAndTheCommandOpenTheDialogWithoutADocument()
     {
         using var windows = WindowFixture.Create();

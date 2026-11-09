@@ -30,8 +30,8 @@
   <data name="NotificationError" xml:space="preserve">
     <value>Error</value>
   </data>
-  <data name="Search" xml:space="preserve">
-    <value>Search</value>
+  <data name="SearchCommands" xml:space="preserve">
+    <value>Search commands</value>
   </data>
   <data name="More" xml:space="preserve">
     <value>More</value>
@@ -51,6 +51,12 @@
   <data name="RibbonGroupMore" xml:space="preserve">
     <value>More commands in {0}</value>
   </data>
+  <data name="RibbonScrollLeft" xml:space="preserve">
+    <value>Scroll commands left</value>
+  </data>
+  <data name="RibbonScrollRight" xml:space="preserve">
+    <value>Scroll commands right</value>
+  </data>
   <data name="SearchTooltip" xml:space="preserve">
     <value>Search ({0})</value>
   </data>
@@ -63,8 +69,20 @@
   <data name="CloseDocument" xml:space="preserve">
     <value>Close document</value>
   </data>
+  <data name="TabsScrollLeft" xml:space="preserve">
+    <value>Scroll tabs left</value>
+  </data>
+  <data name="TabsScrollRight" xml:space="preserve">
+    <value>Scroll tabs right</value>
+  </data>
+  <data name="TabsAll" xml:space="preserve">
+    <value>All documents</value>
+  </data>
   <data name="TabUnsavedChanges" xml:space="preserve">
     <value>Unsaved changes</value>
+  </data>
+  <data name="StatusUnsaved" xml:space="preserve">
+    <value>Unsaved</value>
   </data>
   <data name="Minimize" xml:space="preserve">
     <value>Minimize</value>

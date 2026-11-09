@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
@@ -86,6 +87,32 @@ public sealed class PrintCommandTests
         Assert.False(host.Host.IsOpen);
         Assert.Equal([0, 1, 2, 3], service.Printed.Single());
         Assert.All(service.TemporaryFiles, f => Assert.False(File.Exists(f)));
+    }
+
+    [AvaloniaFact]
+    public async Task TheJobIsTitledWithTheNameOfTheDocument()
+    {
+        using var host = new PrintHost();
+        var service = new FakePrintService { DialogResult = Ticket() };
+        var tab = await host.OpenAsync(FourPages);
+
+        await Create(service, host, tab).RunAsync();
+
+        // The Windows service hands this name to StartDoc and CUPS to the job title: the file name, not the name of the program.
+        var title = service.Jobs.Single().DocumentName;
+        Assert.Equal(tab.Title, title);
+        Assert.EndsWith(".pdf", title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TheProgramIsCalledRafficaPdfInItsVersionInformation()
+    {
+        // The version resource of the exe is what Windows shows for the program (print dialogs and queue, Task Manager): the product name, not the assembly name.
+        var assembly = typeof(PdfStrings).Assembly;
+        Assert.Equal("Raffica PDF", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
+        Assert.Equal("Raffica PDF", assembly.GetCustomAttribute<AssemblyTitleAttribute>()?.Title);
+        Assert.Equal("Raffica", assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company);
+        Assert.Equal("RafficaPdf", assembly.GetName().Name);
     }
 
     [AvaloniaFact]

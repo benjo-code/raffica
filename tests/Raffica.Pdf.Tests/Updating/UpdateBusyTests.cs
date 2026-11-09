@@ -21,7 +21,7 @@ public sealed class UpdateBusyTests
 
     private static async Task ChooseInstallAsync(PdfWindow window)
     {
-        Assert.Single(window.TitleSearch.ExtraResults!("check for updates")).Run();
+        Assert.Single(window.TitleSearch.ExtraResults!("check for updates"), e => e.Name == PdfStrings.CmdCheckForUpdates).Run();
         await ViewFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == PdfStrings.UpdateTitle);
         await Task.Delay(ArmingLock.DelayMilliseconds + 100, TestContext.Current.CancellationToken);
         ViewFixture.Pump();

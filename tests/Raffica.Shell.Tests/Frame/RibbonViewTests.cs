@@ -233,4 +233,21 @@ public sealed class RibbonViewTests
         Assert.Contains(Buttons(ribbon), b => b.Definition.Id == "bold");
         Assert.Equal(1, ribbon.TabRow.GetVisualDescendants().OfType<Button>().Count(b => b.Classes.Contains("active")));
     }
+
+    [AvaloniaFact]
+    public void TheGroupLabelsOfATabSitOnOneBottomRow()
+    {
+        var (window, _, ribbon) = Show();
+        foreach (var tab in ribbon.Definition!.Tabs)
+        {
+            ribbon.ActiveTab = tab;
+            ControlHarness.Settle(window);
+            var labels = ControlHarness.Descendants(ribbon.Band).OfType<TextBlock>().Where(t => t.Classes.Contains("ribbon-group-label")).ToList();
+            Assert.Equal(tab.Groups.Count, labels.Count);
+            var tops = labels.Select(l => l.TranslatePoint(default, window)!.Value.Y).ToList();
+            var bottoms = labels.Select((l, i) => tops[i] + l.Bounds.Height).ToList();
+            Assert.True(tops.Max() - tops.Min() < 0.5, $"{tab.Name}: the labels sit at different heights: {string.Join(", ", tops.Select(t => $"{t:F1}"))}");
+            Assert.True(bottoms.Max() - bottoms.Min() < 0.5, $"{tab.Name}: the labels end at different heights");
+        }
+    }
 }

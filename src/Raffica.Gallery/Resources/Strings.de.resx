@@ -64,7 +64,7 @@
     <value>Einfügen</value>
   </data>
   <data name="SampleBrowse" xml:space="preserve">
-    <value>Durchsuchen …</value>
+    <value>Durchsuchen…</value>
   </data>
   <data name="SampleApply" xml:space="preserve">
     <value>Endgültig anwenden</value>
@@ -238,7 +238,7 @@
     <value>Der Ordner „Downloads“ ist schreibgeschützt. Ihre Änderungen sind lokal gesichert.</value>
   </data>
   <data name="NoteSaveAs" xml:space="preserve">
-    <value>Speichern unter …</value>
+    <value>Speichern unter…</value>
   </data>
   <data name="SectionFoundations" xml:space="preserve">
     <value>Grundlagen</value>

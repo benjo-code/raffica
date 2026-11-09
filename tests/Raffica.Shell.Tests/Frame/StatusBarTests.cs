@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
@@ -32,9 +34,12 @@ public sealed class StatusBarTests
     public void CellsChangeInPlace()
     {
         var (window, bar) = Show();
+        bar.Language = "German (DE)";
+        ControlHarness.Settle(window);
         var before = Cells.ToDictionary(n => n, n => X(bar, n));
 
-        bar.Position = "Page 1234567 of 99999999 in a very long section name";
+        // The position and count cells size to their text with a minimum (M2.7): a text that fits the minimum moves nothing.
+        bar.Position = "Page 123 of 999";
         bar.Count = "1";
         bar.FocusPane = "Comments, a pane with a rather long name";
         bar.SaveState = "Not saved";
@@ -44,6 +49,98 @@ public sealed class StatusBarTests
         {
             Assert.Equal(before[name], X(bar, name), 0.01);
         }
+    }
+
+    // The language cell is there only while it has a text (the PDF app never sets one): without it no 96 px and no gap are kept free, the room goes to the hint column.
+    [AvaloniaFact]
+    public void TheLanguageCellTakesNoRoomWhileItIsEmpty()
+    {
+        var (window, bar) = Show();
+        window.Width = 1000;
+        bar.FocusPane = "Navigation";
+        ControlHarness.Settle(window);
+        var focusWithout = Part(bar, "PART_Focus").Bounds.Width;
+        var zoomRight = Part(bar, "PART_Zoom").Bounds.Right;
+        Assert.False(Part(bar, "PART_Language").IsVisible);
+
+        bar.Language = "German (DE)";
+        ControlHarness.Settle(window);
+        var language = Part(bar, "PART_Language");
+        Assert.True(language.IsVisible);
+        Assert.Equal(96, language.Bounds.Width, 0.01);
+        Assert.Equal(focusWithout - 96 - 16, Part(bar, "PART_Focus").Bounds.Width, 0.5);
+        Assert.Equal(zoomRight, Part(bar, "PART_Zoom").Bounds.Right, 0.01);
+        Assert.True(X(bar, "PART_Language") + 96 + 16 <= X(bar, "PART_Zoom") + 0.01, "the zoom cluster follows the language cell");
+
+        bar.Language = null;
+        ControlHarness.Settle(window);
+        Assert.False(Part(bar, "PART_Language").IsVisible);
+        Assert.Equal(focusWithout, Part(bar, "PART_Focus").Bounds.Width, 0.5);
+        Assert.Equal(zoomRight, Part(bar, "PART_Zoom").Bounds.Right, 0.01);
+    }
+
+    [AvaloniaFact]
+    public void PositionAndCountGrowWithTheirTextAndTakeTheRoomFromTheFreeColumn()
+    {
+        var (window, bar) = Show();
+        var before = Cells.ToDictionary(n => n, n => X(bar, n));
+        var zoomRight = Part(bar, "PART_Zoom").Bounds.Right;
+
+        bar.Position = "Page 1234567 of 99999999 in a very long section name";
+        ControlHarness.Settle(window);
+
+        Assert.True(Part(bar, "PART_Position").Bounds.Width > 128, "the position cell grows past its minimum");
+        Assert.Equal(Part(bar, "PART_Position").Bounds.Width, ControlHarness.Part<TextBlock>(bar, "PART_Position").DesiredSize.Width, 0.5);
+        Assert.Equal(before["PART_SaveState"], X(bar, "PART_SaveState"), 0.01);
+        Assert.Equal(before["PART_Position"], X(bar, "PART_Position"), 0.01);
+        Assert.True(X(bar, "PART_Count") > before["PART_Count"], "the cells right of it move over");
+        Assert.Equal(zoomRight, Part(bar, "PART_Zoom").Bounds.Right, 0.01);
+
+        bar.Position = "Page 1 of 3";
+        ControlHarness.Settle(window);
+        Assert.Equal(128, Part(bar, "PART_Position").Bounds.Width, 0.01);
+        Assert.Equal(144, Part(bar, "PART_Count").Bounds.Width, 0.01);
+    }
+
+    [AvaloniaFact]
+    public void TheCellsWithATextAreControlElementsNamedByTheirText()
+    {
+        var (window, bar) = Show();
+        bar.FocusPane = "Focus: Comments";
+        bar.Language = "German (DE)";
+        ControlHarness.Settle(window);
+
+        foreach (var (name, text) in new[]
+        {
+            ("PART_SaveState", "Saved"), ("PART_Position", "Page 1 of 3"), ("PART_Count", "120 words"), ("PART_FocusText", "Focus: Comments"),
+            ("PART_LanguageText", "German (DE)"), ("PART_Zoom", "100%"),
+        })
+        {
+            var cell = ControlHarness.Part<TextBlock>(bar, name);
+            var peer = ControlAutomationPeer.CreatePeerForElement(cell);
+            Assert.True(peer.IsControlElement(), $"{name} is a control element");
+            Assert.Equal(text, peer.GetName());
+            Assert.Equal(AutomationControlType.Text, peer.GetAutomationControlType());
+
+            // A cell that changes in place is not announced on its own: a screen reader reads it when the user goes there.
+            Assert.Equal(AutomationLiveSetting.Off, AutomationProperties.GetLiveSetting(cell));
+        }
+
+        // The name follows the text.
+        bar.Position = "Page 2 of 3";
+        ControlHarness.Settle(window);
+        Assert.Equal("Page 2 of 3", ControlAutomationPeer.CreatePeerForElement(ControlHarness.Part<TextBlock>(bar, "PART_Position")).GetName());
+    }
+
+    [AvaloniaFact]
+    public void AnEmptyCellIsNotAControlElement()
+    {
+        var (window, bar) = Show();
+        bar.SaveState = null;
+        ControlHarness.Settle(window);
+
+        var peer = ControlAutomationPeer.CreatePeerForElement(ControlHarness.Part<TextBlock>(bar, "PART_SaveState"));
+        Assert.False(peer.IsControlElement(), "an empty cell would be an unnamed element");
     }
 
     [AvaloniaFact]
@@ -190,5 +287,34 @@ public sealed class StatusBarTests
         Assert.Equal(24, Part(bar, "PART_ZoomOut").Bounds.Width, 0.01);
         Assert.Equal(24, Part(bar, "PART_ZoomOut").Bounds.Height, 0.01);
         Assert.Equal(96, Part(bar, "PART_ZoomSlider").Bounds.Width, 0.01);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void TheZoomButtonsAndTheSliderHaveTooltipsInTheUiLanguage(string lang)
+    {
+        var previous = Raffica.Shell.Localization.ShellStrings.Culture;
+        try
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo(lang);
+            var (_, bar) = Show();
+
+            foreach (var (name, expected) in new[]
+            {
+                ("PART_ZoomOut", Raffica.Shell.Localization.ShellStrings.ZoomOut),
+                ("PART_ZoomIn", Raffica.Shell.Localization.ShellStrings.ZoomIn),
+                ("PART_ZoomSlider", Raffica.Shell.Localization.ShellStrings.ZoomLevel),
+            })
+            {
+                var tip = Assert.IsType<TooltipContent>(ToolTip.GetTip(Part(bar, name)));
+                Assert.Equal(expected, tip.Title);
+                Assert.False(string.IsNullOrWhiteSpace(tip.Title));
+            }
+        }
+        finally
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = previous;
+        }
     }
 }

@@ -17,11 +17,15 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
     /// <summary>The settings page of the default apps, with Raffica's name as it is registered in <c>RegisteredApplications</c>.</summary>
     internal const string SettingsUri = "ms-settings:defaultapps?registeredAppUser=Raffica";
 
+    /// <summary>The same page for an installation for all users, which registers below <c>HKLM</c> (<c>registeredAppMachine</c>).</summary>
+    internal const string MachineSettingsUri = "ms-settings:defaultapps?registeredAppMachine=Raffica";
+
     private const string UserChoiceKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf\UserChoice";
     private const string UserChoiceLatestKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf\UserChoiceLatest\ProgId";
     private const string OpenCommandKey = @"Software\Classes\" + FileTypeRegistration.ProgId + @"\shell\open\command";
 
     private readonly RegistryKey _root;
+    private readonly RegistryKey? _machineRoot;
     private readonly string _exePath;
     private readonly Func<string, Task> _openUri;
     private readonly Action _notifyAssociationsChanged;
@@ -31,7 +35,8 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
             Registry.CurrentUser,
             Environment.ProcessPath ?? throw new InvalidOperationException("The path of the program is unknown."),
             OpenWithShell,
-            ShellNative.NotifyAssociationsChanged)
+            ShellNative.NotifyAssociationsChanged,
+            Registry.LocalMachine)
     {
     }
 
@@ -40,13 +45,15 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
     /// <param name="exePath">The program to register.</param>
     /// <param name="openUri">Opens a URI such as the settings page.</param>
     /// <param name="notifyAssociationsChanged">Tells the shell that file types changed.</param>
-    public WindowsDefaultAppService(RegistryKey root, string exePath, Func<string, Task> openUri, Action notifyAssociationsChanged)
+    /// <param name="machineRoot">Where an installation for all users registers (<c>HKLM</c>, or a sandbox key in tests); null: there is none.</param>
+    public WindowsDefaultAppService(RegistryKey root, string exePath, Func<string, Task> openUri, Action notifyAssociationsChanged, RegistryKey? machineRoot = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentException.ThrowIfNullOrWhiteSpace(exePath);
         ArgumentNullException.ThrowIfNull(openUri);
         ArgumentNullException.ThrowIfNull(notifyAssociationsChanged);
         _root = root;
+        _machineRoot = machineRoot;
         _exePath = exePath;
         _openUri = openUri;
         _notifyAssociationsChanged = notifyAssociationsChanged;
@@ -100,12 +107,18 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
         return key?.GetValue("ProgId") as string;
     }
 
-    // The registered open command starts this very program.
+    // The registered open command starts this very program. The user's registration wins over the one for all users (as in
+    // the merged view of HKCR); an installation for all users has none of its own below HKCU and must not get a copy.
     private bool IsRegisteredForThisProgram()
     {
-        using var key = _root.OpenSubKey(OpenCommandKey);
         var expected = FileTypeRegistration.Entries(_exePath).First(e => e.KeyPath == OpenCommandKey).Value;
-        return key?.GetValue(null) as string == expected;
+        return (OpenCommand(_root) ?? OpenCommand(_machineRoot)) == expected;
+    }
+
+    private static string? OpenCommand(RegistryKey? root)
+    {
+        using var key = root?.OpenSubKey(OpenCommandKey);
+        return key?.GetValue(null) as string;
     }
 
     private async Task<DefaultAppResult> SetDefaultAsync(CancellationToken cancellationToken)
@@ -113,13 +126,19 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            var machine = false;
             if (!IsRegisteredForThisProgram())
             {
                 new WindowsFileTypeRegistry(_root).Write(RegistrationScope.User, FileTypeRegistration.Entries(_exePath));
                 _notifyAssociationsChanged();
             }
+            else
+            {
+                // Registered already: by the user, or (nothing below HKCU) by an installation for all users.
+                machine = OpenCommand(_root) is null;
+            }
 
-            await _openUri(SettingsUri).ConfigureAwait(false);
+            await _openUri(machine ? MachineSettingsUri : SettingsUri).ConfigureAwait(false);
             return DefaultAppResult.OpenedSystemSettings;
         }
         catch (Exception e) when (e is System.Security.SecurityException or UnauthorizedAccessException or IOException or Win32Exception or InvalidOperationException)

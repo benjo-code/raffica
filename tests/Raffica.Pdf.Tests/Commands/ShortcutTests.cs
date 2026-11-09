@@ -633,8 +633,8 @@ public sealed class ShortcutTests
         var window = windows.Window;
         var commands = window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
 
-        // Without a document: Open, Settings and Help.
-        Assert.Equal(["file.open", "file.settings", "help.shortcuts"], commands.Where(c => c.IsEnabled).Select(c => c.Id).Order(StringComparer.Ordinal).ToArray());
+        // Without a document: Open, Settings, Help and Check for updates.
+        Assert.Equal(["app.update", "file.open", "file.settings", "help.shortcuts"], commands.Where(c => c.IsEnabled).Select(c => c.Id).Order(StringComparer.Ordinal).ToArray());
 
         await windows.OpenAsync("text-basic.pdf");
         var enabled = commands.Where(c => c.IsEnabled).Select(c => c.Id).ToList();

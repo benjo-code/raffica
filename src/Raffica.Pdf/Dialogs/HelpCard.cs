@@ -60,19 +60,20 @@ internal static class HelpCard
 
         var ok = new Button { Name = "PART_Ok", Content = ShellStrings.Close };
         ok.Classes.Add("primary");
+        Button? aboutButton = null;
+        if (about is not null)
+        {
+            aboutButton = new Button { Name = "PART_About", Content = PdfStrings.CmdAbout };
+            aboutButton.Classes.Add("boxed");
+            aboutButton.Click += (_, _) => about();
+        }
+
         var dialog = new Dialog
         {
             Title = PdfStrings.HelpTitle,
             Content = scroll,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ok } },
+            Footer = CardFooter.Build(null, aboutButton is null ? null : [aboutButton], ok),
         };
-        if (about is not null)
-        {
-            var aboutButton = new Button { Name = "PART_About", Content = PdfStrings.CmdAbout };
-            aboutButton.Classes.Add("boxed");
-            aboutButton.Click += (_, _) => about();
-            ((StackPanel)dialog.Footer!).Children.Insert(0, aboutButton);
-        }
 
         ok.Click += (_, _) => done();
         dialog.CancelRequested += (_, _) => done();

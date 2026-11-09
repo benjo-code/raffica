@@ -19,8 +19,10 @@ public sealed class PaletteSourceTests
         IReadOnlyList<OutlineEntry>? outline = null,
         int recent = 0,
         int pages = 5,
-        List<string>? log = null) => new()
+        List<string>? log = null,
+        bool searchDocument = false) => new()
         {
+            SearchDocument = searchDocument ? text => log?.Add("search " + text) : null,
             Tabs = () => tabs ?? [],
             ActiveTab = () => tabs is { Count: > 0 } ? tabs[0] : null,
             Select = tab => log?.Add("select " + tab.Title),
@@ -31,6 +33,50 @@ public sealed class PaletteSourceTests
             GoToPage = page => log?.Add("page " + page),
             ShowDocumentInfo = () => log?.Add("info"),
         };
+
+    [AvaloniaFact]
+    public async Task SearchTheDocumentIsTheLastResultAndOpensTheFindBar()
+    {
+        using var fixture = WindowFixture.Create();
+        var window = fixture.Window;
+        var palette = window.TitleSearch.ExtraResults!;
+        Assert.DoesNotContain(palette("abschnitt"), e => e.Name.StartsWith("Search the document", StringComparison.Ordinal));
+
+        await fixture.OpenAsync("outline.pdf");
+        await fixture.LoadRecentAsync();
+        var found = palette("abschnitt");
+        Assert.True(found.Count > 1);
+        var last = found[^1];
+        Assert.Equal(PdfStrings.PaletteGroupDocument, last.Group);
+        Assert.Equal("Search the document for 'abschnitt'", last.Name);
+
+        // The German entry has the typographic quotes.
+        var previous = PdfStrings.Culture;
+        try
+        {
+            PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal("Im Dokument nach „abschnitt“ suchen", palette("abschnitt")[^1].Name);
+        }
+        finally
+        {
+            PdfStrings.Culture = previous;
+        }
+
+        last.Run();
+        ViewFixture.Pump();
+        var bar = window.ShownSearchBar;
+        Assert.NotNull(bar);
+        Assert.Equal("abschnitt", bar.Query);
+
+        // The search itself started, not only the text of the field.
+        Assert.Equal("abschnitt", window.SearchOf(window.Workspace.Active!)!.Query);
+    }
+
+    [AvaloniaFact]
+    public void SearchTheDocumentNeedsADocumentAndTheHook()
+    {
+        Assert.DoesNotContain(new PdfPaletteSource(Context(searchDocument: true)).Find("intro"), e => e.Name.StartsWith("Search the document", StringComparison.Ordinal));
+    }
 
     [AvaloniaFact]
     public async Task ListsTabsRecentOutlineAndGoToPage()
@@ -103,8 +149,7 @@ public sealed class PaletteSourceTests
         using var fixture = WindowFixture.Create();
         await fixture.OpenAsync("text-rich.pdf");
         var window = fixture.Window;
-        var info = Assert.Single(window.TitleSearch.ExtraResults!("info"), e => e.Group == PdfStrings.PaletteGroupDocument);
-        Assert.Equal("Document info", info.Name);
+        var info = Assert.Single(window.TitleSearch.ExtraResults!("info"), e => e.Group == PdfStrings.PaletteGroupDocument && e.Name == PdfStrings.InfoTitle);
 
         info.Run();
         await ViewFixture.WaitAsync(() => window.Host.IsOpen);
@@ -117,9 +162,9 @@ public sealed class PaletteSourceTests
         PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
         var source = new PdfPaletteSource(Context(pages: 9));
         var go = Assert.Single(source.Find("3"));
-        Assert.Equal("Gehe zu Seite 3", go.Name);
+        Assert.Equal("Zu Seite 3 springen", go.Name);
         Assert.Equal("von 9", go.Detail);
-        Assert.Equal("Gehe zu", go.Group);
+        Assert.Equal("Springen", go.Group);
     }
 
     [AvaloniaFact]

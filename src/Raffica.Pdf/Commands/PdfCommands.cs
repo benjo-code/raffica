@@ -85,7 +85,9 @@ internal sealed record PdfCommands(
     Action? OcrLanguages = null,
     Action? OcrCancel = null,
     Action? TextEdit = null,
-    Action? TextEditDone = null)
+    Action? TextEditDone = null,
+    Action? DocumentInfo = null,
+    Action? CheckForUpdates = null)
 {
     /// <summary>The action behind a command id of <see cref="PdfCommandIds"/>, or null when there is none.</summary>
     public Action? RunOf(string id) => id switch
@@ -107,6 +109,8 @@ internal sealed record PdfCommands(
         PdfCommandIds.SelectAll => SelectAll,
         PdfCommandIds.Copy => Copy,
         PdfCommandIds.Help => Help,
+        PdfCommandIds.DocumentInfo => DocumentInfo,
+        PdfCommandIds.Update => CheckForUpdates,
         PdfCommandIds.ZoomIn => ZoomIn,
         PdfCommandIds.ZoomOut => ZoomOut,
         PdfCommandIds.FitWidth => FitWidth,

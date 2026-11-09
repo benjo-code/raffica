@@ -54,7 +54,7 @@ internal static class ChangedOriginalCard
         {
             Title = PdfStrings.ChangedTitle,
             Content = message,
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { saveAs, overwrite, cancel } },
+            Footer = CardFooter.Build(saveAs, [overwrite], cancel),
         };
         var arming = new ArmingLock(time, dialog, overwrite);
         saveAs.Click += (_, _) => Finish(ChangedChoice.SaveAs);

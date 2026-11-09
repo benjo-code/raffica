@@ -112,7 +112,7 @@ internal sealed partial class DialogsSection : UserControl
         {
             Title = GalleryStrings.SampleDialogTitle,
             Content = new TextBlock { Text = GalleryStrings.SampleDialogText, TextWrapping = TextWrapping.Wrap },
-            Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { cancel, ok } },
+            Footer = CardFooter.Build(ok, null, cancel),
         };
         dialog.CancelRequested += (_, _) => Host?.Close();
         return dialog;

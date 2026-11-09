@@ -206,6 +206,11 @@ internal sealed class PdfSettingsController
                         AuthorName = string.IsNullOrWhiteSpace(author.Text) ? null : author.Text.Trim(),
                         UpdateCheck = updateCheck.IsChecked == true,
                         DefaultAppPrompt = _makeDefaultApp is null ? App.DefaultAppPrompt : askAtStart.IsChecked == true ? DefaultAppPromptSetting.Ask : DefaultAppPromptSetting.Never,
+
+                        // Asking for the offer again, or making Raffica the default now, ends a "Not now" that is still running.
+                        DefaultAppPromptSnoozedUntil = _makeDefaultApp is not null && (makeNow.IsChecked == true || (askAtStart.IsChecked == true && App.DefaultAppPrompt != DefaultAppPromptSetting.Ask))
+                            ? null
+                            : App.DefaultAppPromptSnoozedUntil,
                     });
                 if (makeNow.IsChecked == true)
                 {
