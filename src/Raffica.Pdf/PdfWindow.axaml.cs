@@ -183,7 +183,7 @@ internal sealed partial class PdfWindow : Window
             ? Redacting.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose)
             : Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError, ShowOpenFailures);
-        Start.NewRequested += app => { _ = GuardAsync(OpenFromDialogAsync); };
+        Start.NewRequested += OnStartTile;
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
         Status.ZoomChanged += (_, percent) => ActiveView?.SetZoom(percent / 100.0);
@@ -569,6 +569,9 @@ internal sealed partial class PdfWindow : Window
     internal Func<Task<IReadOnlyList<string>>>? FilePicker { get; set; }
 
     private bool _pickerShowing;
+
+    // The only tile of the start view is "Open PDF" (a single `_` lambda parameter would shadow the discard).
+    private void OnStartTile(StartApp app) => _ = GuardAsync(OpenFromDialogAsync);
 
     /// <summary>
     /// Asks for PDF files with the system file dialog and opens them. While a dialog is already showing, another call does nothing

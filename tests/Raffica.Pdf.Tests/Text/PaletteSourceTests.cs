@@ -50,11 +50,26 @@ public sealed class PaletteSourceTests
         Assert.Equal(PdfStrings.PaletteGroupDocument, last.Group);
         Assert.Equal("Search the document for 'abschnitt'", last.Name);
 
+        // The German entry has the typographic quotes.
+        var previous = PdfStrings.Culture;
+        try
+        {
+            PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal("Im Dokument nach „abschnitt“ suchen", palette("abschnitt")[^1].Name);
+        }
+        finally
+        {
+            PdfStrings.Culture = previous;
+        }
+
         last.Run();
         ViewFixture.Pump();
         var bar = window.ShownSearchBar;
         Assert.NotNull(bar);
         Assert.Equal("abschnitt", bar.Query);
+
+        // The search itself started, not only the text of the field.
+        Assert.Equal("abschnitt", window.SearchOf(window.Workspace.Active!)!.Query);
     }
 
     [AvaloniaFact]
