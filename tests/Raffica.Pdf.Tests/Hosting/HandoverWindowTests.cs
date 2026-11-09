@@ -138,4 +138,19 @@ public sealed class HandoverWindowTests : IDisposable
         window.Close();
         Pump();
     }
+
+    [AvaloniaFact]
+    public async Task TheTabThatWasActiveBeforeAnUpdateIsActiveAfterTheRestart()
+    {
+        string[] names = ["hello_world.pdf", "text-rich.pdf", "text-basic.pdf"];
+        var files = names.Select(TestData.Pdf).ToList();
+        var options = PdfOptions.Parse(["--settings-file", Path.Combine(_folder, "settings.json")]).WithFiles(files, files[0]);
+        var window = new PdfWindow(options, new ShellSettings());
+        window.Show();
+
+        await WaitAsync(() => window.Workspace.Tabs.Count == 3 && window.Workspace.Active is not null);
+        await WaitAsync(() => Path.GetFullPath(files[0]) == window.Workspace.Active!.Path);
+        window.Close();
+        Pump();
+    }
 }

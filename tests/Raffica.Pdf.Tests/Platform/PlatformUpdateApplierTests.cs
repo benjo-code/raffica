@@ -70,4 +70,35 @@ public sealed class PlatformUpdateApplierTests : IDisposable
         // A second start finds no session.
         Assert.Equal(["extra.pdf"], Program.RestoreSession(PdfOptions.Parse(["--restore-session", "--settings-file", settings, "extra.pdf"])).Files);
     }
+
+    [Fact]
+    public void RestoreSessionNamesTheTabThatWasActive()
+    {
+        var settings = Path.Combine(_kit.Config, "settings.json");
+        string[] names = ["a.pdf", "b.pdf", "c.pdf"];
+        var files = names.Select(name => Path.Combine(_kit.Home, name)).ToList();
+        files.ForEach(file => File.WriteAllText(file, "x"));
+        Assert.True(new SessionStore(_kit.SessionPath).TrySave(new SessionSnapshot([new SessionWindow([.. files.Select(file => new SessionTab(file, null))], 1)])));
+
+        var options = Program.RestoreSession(PdfOptions.Parse(["--restore-session", "--settings-file", settings]));
+
+        Assert.Equal(files, options.Files);
+        Assert.Equal(files[1], options.ActiveFile);
+    }
+
+    [Fact]
+    public void ARestoreWithAFileOnTheCommandLineKeepsThatFileActive()
+    {
+        var settings = Path.Combine(_kit.Config, "settings.json");
+        var present = Path.Combine(_kit.Home, "present.pdf");
+        var other = Path.Combine(_kit.Home, "other.pdf");
+        File.WriteAllText(present, "x");
+        File.WriteAllText(other, "x");
+        Assert.True(new SessionStore(_kit.SessionPath).TrySave(new SessionSnapshot([new SessionWindow([new SessionTab(present, null), new SessionTab(other, null)], 0)])));
+
+        var options = Program.RestoreSession(PdfOptions.Parse(["--restore-session", "--settings-file", settings, "asked.pdf"]));
+
+        Assert.Equal([present, other, "asked.pdf"], options.Files);
+        Assert.Null(options.ActiveFile);
+    }
 }

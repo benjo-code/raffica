@@ -682,6 +682,7 @@ internal sealed partial class PdfWindow : Window
             _ = GuardAsync(async () =>
             {
                 await OpenFilesAsync(_options.Files);
+                SelectActiveFile();
                 if (Workspace.Tabs.Count == 0)
                 {
                     await OnFirstSharpPageAsync();
@@ -700,6 +701,15 @@ internal sealed partial class PdfWindow : Window
         // Without a file there is no page to wait for: once the window has been shown and the app is idle, the listener opens.
         await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
         await GuardAsync(OnFirstSharpPageAsync);
+    }
+
+    // The tab that was active before an update restarted the app is active again (the files were opened in their order, so the last one is active until now).
+    private void SelectActiveFile()
+    {
+        if (_options.ActiveFile is { } file && Workspace.Find(file) is { } tab)
+        {
+            Workspace.Select(tab);
+        }
     }
 
     // Once: the pipe loop of the single-instance lock hands each message to OnHandover on a pool thread. A listener that cannot start is no reason for the window to fail.

@@ -103,14 +103,21 @@ internal static class Program
     }
 
     // The tabs of the session the app wrote before the update restarted it, once: the file is read and deleted at once, files that are gone are dropped, and the tabs
-    // open in their order (the last one is the active tab).
+    // open in their order, and the tab that was active is active again (a file given on the command line next to it is the one the user just asked for and stays the
+    // last opened, so it is the active one).
     internal static PdfOptions RestoreSession(PdfOptions options)
     {
         var store = new SessionStore(UpdateApplierSupport.SessionPath(PdfSettingsFiles.ConfigDirectoryFor(options.SettingsFile)));
         var session = store.Load().KeepFiles(File.Exists);
         store.Delete();
         var files = session.Windows.SelectMany(window => window.Tabs.Select(tab => tab.Path)).Concat(options.Files).ToList();
-        return files.Count == 0 ? options : options.WithFiles(files);
+        if (files.Count == 0)
+        {
+            return options;
+        }
+
+        var active = options.Files.Count == 0 && session.Windows.Count > 0 ? session.Windows[0].Active.Path : null;
+        return options.WithFiles(files, active);
     }
 
     private static int RunRegistration(PdfOptions options)
