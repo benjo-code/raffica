@@ -26,7 +26,7 @@ internal static class HelpCard
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(done);
 
-        var list = new StackPanel { Spacing = 2, Width = ListWidth };
+        var list = new StackPanel { Spacing = 2, MinWidth = ListWidth, HorizontalAlignment = HorizontalAlignment.Stretch };
         string? group = null;
         foreach (var entry in entries)
         {
@@ -39,8 +39,8 @@ internal static class HelpCard
             }
 
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
-            var name = new TextBlock { Text = entry.Name, TextTrimming = TextTrimming.CharacterEllipsis };
-            var shortcut = new TextBlock { Text = entry.Shortcut, HorizontalAlignment = HorizontalAlignment.Right };
+            var name = new TextBlock { Text = entry.Name, TextWrapping = TextWrapping.Wrap };
+            var shortcut = new TextBlock { Text = entry.Shortcut, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
             shortcut.Classes.Add("secondary");
             Grid.SetColumn(shortcut, 1);
             row.Children.Add(name);
