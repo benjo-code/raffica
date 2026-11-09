@@ -86,6 +86,44 @@ public sealed class WindowPlacementWindowTests : IDisposable
         Assert.Equal(70, stored.Y);
     }
 
+    // The size of a window set before its chrome is known is a size for the system chrome: on Win32 the window then grew by the height of the title bar that
+    // the shell takes away when it is shown (30 px per start). The headless platform has no chrome, so the order is what the test can pin; the live check is the
+    // outer height over several starts (Docs/DECISIONS.md, M2.7 final pass).
+    [AvaloniaFact]
+    public void TheWindowHasItsChromeBeforeTheStoredSizeIsApplied()
+    {
+        new SettingsStore(SettingsPath).Save(new ShellSettings(WindowPlacement: new WindowPlacement(60, 70, 1100, 700, false)));
+
+        var window = Make();
+
+        Assert.False(window.IsVisible);
+        Assert.True(window.ExtendClientAreaToDecorationsHint);
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Equal(WindowDecorations.BorderOnly, window.WindowDecorations);
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStoredPlacementComesBackUnchangedAfterEveryStartAndClose()
+    {
+        var first = new WindowPlacement(60, 70, 1100, 700, false);
+        new SettingsStore(SettingsPath).Save(new ShellSettings(WindowPlacement: first));
+
+        for (var start = 0; start < 3; start++)
+        {
+            var window = Make();
+            window.Show();
+            Pump();
+            Assert.Equal(first.Width, window.ClientSize.Width);
+            Assert.Equal(first.Height, window.ClientSize.Height);
+            window.Close();
+            Pump();
+
+            Assert.Equal(first, new SettingsStore(SettingsPath).Load().WindowPlacement);
+        }
+    }
+
     [AvaloniaFact]
     public void ClosingStoresWhereTheWindowWasAndKeepsTheOtherSettings()
     {
