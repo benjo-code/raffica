@@ -602,6 +602,48 @@ public sealed class SingleInstanceTests
         }
     }
 
+    private const string MacTemp = "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/";
+
+    [Fact]
+    public void PlainNameIsKeptWhenTheSocketPathFits()
+    {
+        Assert.Equal("raffica-ben", SingleInstance.PipeNameFor("raffica-ben", runtimeDirectory: null, tempPath: "/tmp/"));
+    }
+
+    [Fact]
+    public void LongTempFolderGivesAShortHashedName()
+    {
+        Assert.Equal(49, MacTemp.Length);
+        var name = "raffica-" + new string('u', 20) + "-" + new string('a', 12);
+
+        var pipe = SingleInstance.PipeNameFor(name, runtimeDirectory: null, tempPath: MacTemp);
+
+        Assert.NotEqual(name, pipe);
+        Assert.Equal(18, pipe.Length);
+        Assert.StartsWith("r-", pipe, StringComparison.Ordinal);
+        Assert.True(Encoding.UTF8.GetByteCount(SingleInstance.SocketPathFor(pipe, MacTemp)) < 100);
+    }
+
+    [Fact]
+    public void ShortNamesAreStableAndDistinct()
+    {
+        var first = "raffica-" + new string('u', 20) + "-" + new string('a', 12);
+        var second = "raffica-" + new string('u', 20) + "-" + new string('b', 12);
+
+        var one = SingleInstance.PipeNameFor(first, null, MacTemp);
+
+        Assert.Equal(one, SingleInstance.PipeNameFor(first, null, MacTemp));
+        Assert.NotEqual(one, SingleInstance.PipeNameFor(second, null, MacTemp));
+    }
+
+    [Fact]
+    public void RuntimeDirectoryStillWinsWhenItFits()
+    {
+        var pipe = SingleInstance.PipeNameFor("raffica-ben", "/run/user/1000", MacTemp);
+
+        Assert.Equal(Path.Combine("/run/user/1000", "raffica-ben.pipe"), pipe);
+    }
+
     [Fact]
     public void RegularLockFileIsCoordinated()
     {
