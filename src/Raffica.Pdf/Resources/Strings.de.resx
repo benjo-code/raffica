@@ -1347,7 +1347,7 @@
     <value>Außer den Seitenänderungen ist nichts betroffen.</value>
   </data>
   <data name="ApplyWarning" xml:space="preserve">
-    <value>Die Datei wird neu geschrieben. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt. Um das Original zu behalten, wähle Speichern unter.</value>
+    <value>Die Datei wird neu geschrieben. Das lässt sich nicht rückgängig machen, und es wird keine Sicherungskopie angelegt. Um das Original zu behalten, wählen Sie „Speichern unter“.</value>
   </data>
   <data name="ApplySaveAs" xml:space="preserve">
     <value>Speichern unter…</value>
@@ -1359,7 +1359,7 @@
     <value>Zurück</value>
   </data>
   <data name="ApplyOpenEdit" xml:space="preserve">
-    <value>Beende oder verwirf zuerst die offene Bearbeitung.</value>
+    <value>Beenden oder verwerfen Sie zuerst die offene Bearbeitung.</value>
   </data>
   <data name="ApplyJobTitleFormat" xml:space="preserve">
     <value>Seitenänderungen werden auf {0} angewendet</value>
@@ -1416,7 +1416,7 @@
     <value>Die Seitenänderungen ließen sich nicht anwenden.</value>
   </data>
   <data name="ApplyFailAdoptFormat" xml:space="preserve">
-    <value>Die Seitenänderungen wurden geschrieben, aber das Dokument ließ sich nicht übernehmen. Die Datei unter {0} ist die neu geschriebene: Öffne sie, um weiterzuarbeiten.</value>
+    <value>Die Seitenänderungen wurden geschrieben, aber das Dokument ließ sich nicht übernehmen. Die Datei unter {0} ist die neu geschriebene: Öffnen Sie sie, um weiterzuarbeiten.</value>
   </data>
   <data name="LossSignature" xml:space="preserve">
     <value>Diese Datei ist digital signiert. Programme, die Signaturen prüfen, melden die Signatur nach der Änderung der Seiten als gebrochen.</value>
@@ -1485,7 +1485,7 @@
     <value>{0} und {1} weitere</value>
   </data>
   <data name="ApplyPlanChanged" xml:space="preserve">
-    <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wende sie erneut an, um die aktuelle Liste zu sehen.</value>
+    <value>Die Seitenänderungen wurden bearbeitet, während der Dateidialog offen war, deshalb wurde nichts geschrieben. Wenden Sie sie erneut an, um die aktuelle Liste zu sehen.</value>
   </data>
   <data name="UnsavedPlanTitle" xml:space="preserve">
     <value>Seitenänderungen verwerfen?</value>
@@ -1725,7 +1725,7 @@
     <value>Eigene Auflösung in dpi (1 bis 1200)</value>
   </data>
   <data name="ExportDpiInvalid" xml:space="preserve">
-    <value>Gib eine ganze Zahl von 1 bis 1200 ein.</value>
+    <value>Geben Sie eine ganze Zahl von 1 bis 1200 ein.</value>
   </data>
   <data name="ExportMarks" xml:space="preserve">
     <value>Markierungen und Formularfelder einbeziehen</value>
@@ -1734,10 +1734,10 @@
     <value>Größte Seite: {0} × {1} Pixel ({2} Megapixel)</value>
   </data>
   <data name="ExportTooLargeFormat" xml:space="preserve">
-    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wählen Sie eine niedrigere Auflösung, oder lassen Sie diese Seite weg.</value>
   </data>
   <data name="ExportTooLargeHugeFormat" xml:space="preserve">
-    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wähle eine niedrigere Auflösung oder lass diese Seite weg.</value>
+    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wählen Sie eine niedrigere Auflösung, oder lassen Sie diese Seite weg.</value>
   </data>
   <data name="ExportFolderMissing" xml:space="preserve">
     <value>Dieser Ordner existiert nicht.</value>
