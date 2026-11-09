@@ -197,6 +197,7 @@ public sealed class OcrOptionsTests
             Assert.True(Find<TextBlock>(dialog, "PART_RangeHint").IsVisible, bad);
             range.Focus();
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
             Assert.Empty(results);
         }
 
@@ -231,6 +232,7 @@ public sealed class OcrOptionsTests
         // Enter in the field confirms a valid choice; Esc gives nothing.
         range.Focus();
         window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         var chosen = Assert.IsType<OcrOptions>(Assert.Single(results));
         Assert.Equal(8, OcrLanguages.Split(chosen.Languages).Count);
         window.Close();

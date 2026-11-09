@@ -115,7 +115,66 @@ public sealed class CardFooterTests : IDisposable
             ? [.. footer.GetLogicalDescendants().OfType<Button>().Where(b => b.IsVisible)]
             : [];
 
-    private static IEnumerable<string> Problems(string key, List<Button> buttons)
+    // The button that Enter presses on each card. The safe answer is the default where the other choices lose or send something (signed file,
+    // a tab that cannot be saved, a running recognition); every other card has its main action first. A refactor that makes a destructive
+    // button the default fails here.
+    internal static readonly Dictionary<string, string> DefaultButtons = new(StringComparer.Ordinal)
+    {
+        ["AboutCard.Create"] = "PART_Ok",
+        ["ApplyCard.Create"] = "PART_SaveAs",
+        ["ApplyCard.Create(only save as)"] = "PART_SaveAs",
+        ["ApplyCard.Create(refused)"] = "PART_Back",
+        ["ChangedOriginalCard.Create"] = "PART_SaveAs",
+        ["CrashCard.Create"] = "PART_Ok",
+        ["DefaultAppCard.Create"] = "PART_Set",
+        ["DocumentInfoCard.Create"] = "PART_Ok",
+        ["ErrorCard.Create"] = "PART_Ok",
+        ["ExportImagesCard.Create"] = "PART_Export",
+        ["ExtractCard.Create"] = "PART_Extract",
+        ["ExtractCard.CreateConfirm"] = "PART_Go",
+        ["GoToPageCard.Create"] = "PART_Ok",
+        ["HelpCard.Create"] = "PART_Ok",
+        ["HelpCard.Create(about)"] = "PART_Ok",
+        ["InsertFileCard.Create"] = "PART_Insert",
+        ["LanguageFilesCard.Create"] = "PART_Choose",
+        ["LanguageFilesCard.CreateReplace"] = "PART_Keep",
+        ["LinkCard.Create"] = "PART_Open",
+        ["NoticeCard.Create"] = "PART_Ok",
+        ["OcrKeepPagesCard.CreateKeep"] = "PART_Discard",
+        ["OcrReportCard.Create"] = "PART_Ok",
+        ["OpenFailuresCard.Create"] = "PART_Ok",
+        ["PartsResultCard.Create"] = "PART_Open",
+        ["PartsResultCard.Create(no open)"] = "PART_Ok",
+        ["PasswordCard.Create"] = "PART_Ok",
+        ["PrintCard.Create"] = "PART_Print",
+        ["PrintMessageCard.Create"] = "PART_Ok",
+        ["RecognizeCard.Create"] = "PART_Recognize",
+        ["RedactApplyCard.Create"] = "PART_SaveAs",
+        ["RedactApplyCard.Create(rescue)"] = "PART_SaveAs",
+        ["RedactOriginalCard.Create"] = "PART_Back",
+        ["RedactRefusedCard.Create"] = "PART_Back",
+        ["RedactResultCard.Create"] = "PART_Ok",
+        ["RequiredFieldsCard.Create"] = "PART_GoToFirst",
+        ["SaveFailedCard.Create"] = "PART_Ok",
+        ["SaveFirstCard.Create"] = "PART_SaveFirst",
+        ["SignedFileCard.Create"] = "PART_Cancel",
+        ["SignedFileCard.Create(note)"] = "PART_Ok",
+        ["SplitCard.Create"] = "PART_Split",
+        ["SplitCard.CreateConfirm"] = "PART_Go",
+        ["UnsavedChangesCard.Create(Save)"] = "PART_Save",
+        ["UnsavedChangesCard.Create(Locked)"] = "PART_Cancel",
+        ["UnsavedChangesCard.Create(Plan)"] = "PART_Apply",
+        ["UnsavedChangesCard.Create(Redact)"] = "PART_Apply",
+        ["UnsavedChangesCard.Create(Ocr)"] = "PART_Cancel",
+        ["UpdateCard.Create(install)"] = "PART_Install",
+        ["UpdateCard.Create(manual)"] = "PART_Page",
+        ["UpdateProgressCard.Dialog"] = "PART_Cancel",
+        ["NewSignatureCard.Create"] = "PART_Save",
+        ["SignaturePickerCard.Create"] = "PART_New",
+        ["SettingsDialog.Create"] = "PART_Ok",
+    };
+
+    private static IEnumerable<string> Problems(string key, List<Button> buttons, string? expectedDefault = null)
     {
         if (buttons.Count == 0)
         {
@@ -129,6 +188,11 @@ public sealed class CardFooterTests : IDisposable
         {
             yield return $"{key}: expected one default button, found {defaults.Count}";
             yield break;
+        }
+
+        if (expectedDefault is not null && defaults[0].Name != expectedDefault)
+        {
+            yield return $"{key}: the default button is {defaults[0].Name}, expected {expectedDefault}";
         }
 
         if (cancels.Count > 1)
@@ -164,7 +228,12 @@ public sealed class CardFooterTests : IDisposable
             var dialog = make();
             host.Show(dialog);
             Dispatcher.UIThread.RunJobs();
-            problems.AddRange(Problems(key, VisibleButtons(dialog)));
+            problems.AddRange(Problems(key, VisibleButtons(dialog), DefaultButtons.GetValueOrDefault(key)));
+            if (!DefaultButtons.ContainsKey(key))
+            {
+                problems.Add($"{key}: no expected default button listed");
+            }
+
             window.Close();
         }
 
@@ -176,11 +245,17 @@ public sealed class CardFooterTests : IDisposable
     {
         var card = new UpdateProgressCard(() => { }, _ => { });
         var problems = new List<string>();
-        problems.AddRange(Problems("progress, running", VisibleButtons(card.Dialog)));
+        problems.AddRange(Problems("progress, running", VisibleButtons(card.Dialog), "PART_Cancel"));
         card.Apply(new UpdateState(UpdateStage.Failed, null, null, 0, null), null, canRetry: true, offersDownloadPage: true);
-        problems.AddRange(Problems("progress, failed with retry and page", VisibleButtons(card.Dialog)));
+        problems.AddRange(Problems("progress, failed with retry and page", VisibleButtons(card.Dialog), "PART_Retry"));
         card.Apply(new UpdateState(UpdateStage.Failed, null, null, 0, null), null, canRetry: false, offersDownloadPage: false);
-        problems.AddRange(Problems("progress, failed without retry", VisibleButtons(card.Dialog)));
+        problems.AddRange(Problems("progress, failed without retry", VisibleButtons(card.Dialog), "PART_Dismiss"));
+
+        // Only the button that is visible is the cancel: Cancel while it runs, Close after a failure.
+        var cancels = VisibleButtons(card.Dialog).Count(b => b.IsCancel);
+        Assert.Equal(1, cancels);
+        var all = ((Control)card.Dialog.Footer!).GetLogicalDescendants().OfType<Button>().ToList();
+        Assert.Equal(1, all.Count(b => b.IsCancel));
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
@@ -245,6 +320,7 @@ public sealed class CardFooterTests : IDisposable
     private static void PressEnterIn(Dialog card)
     {
         card.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter, PhysicalKey = PhysicalKey.Enter, KeyModifiers = KeyModifiers.None });
+        card.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = Key.Enter, PhysicalKey = PhysicalKey.Enter, KeyModifiers = KeyModifiers.None });
         Dispatcher.UIThread.RunJobs();
     }
 

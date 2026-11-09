@@ -1908,7 +1908,7 @@
     <value>Es gibt nichts rückgängig zu machen.</value>
   </data>
   <data name="ReasonNothingToRedo" xml:space="preserve">
-    <value>Es gibt nichts wiederherzustellen.</value>
+    <value>Es gibt nichts zu wiederholen.</value>
   </data>
   <data name="ReasonSelectMarkFirst" xml:space="preserve">
     <value>Wählen Sie zuerst eine Markierung aus</value>

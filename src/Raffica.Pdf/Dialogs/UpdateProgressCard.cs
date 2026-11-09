@@ -89,7 +89,6 @@ internal sealed class UpdateProgressCard
         // Two states share the footer: while it runs only Cancel shows; after a failure Try again (primary), the download page and Close (the cancel) do.
         var footer = CardFooter.Build(_retry, [_page], _cancelButton);
         footer.Children.Add(_close);
-        _close.IsCancel = true;
         Dialog = new Dialog
         {
             Title = PdfStrings.UpdateProgressTitle,
@@ -146,8 +145,8 @@ internal sealed class UpdateProgressCard
         _track.IsVisible = true;
         _retry.IsVisible = _page.IsVisible = _close.IsVisible = false;
         _cancelButton.IsVisible = true;
-        _cancelButton.IsDefault = true;
-        _retry.IsDefault = _close.IsDefault = false;
+        _cancelButton.IsDefault = _cancelButton.IsCancel = true;
+        _retry.IsDefault = _close.IsDefault = _close.IsCancel = false;
         var step = state.Stage switch
         {
             UpdateStage.Verifying => 1,
@@ -194,9 +193,10 @@ internal sealed class UpdateProgressCard
         _failure.IsVisible = true;
         _track.IsVisible = false;
         _cancelButton.IsVisible = false;
-        _cancelButton.IsDefault = false;
+        _cancelButton.IsDefault = _cancelButton.IsCancel = false;
         _retry.IsDefault = canRetry;
         _close.IsDefault = !canRetry;
+        _close.IsCancel = true;
         _retry.IsVisible = canRetry;
         _page.IsVisible = offersDownloadPage;
         _close.IsVisible = true;

@@ -66,6 +66,29 @@ public sealed class DialogTests
         ControlHarness.Settle(window);
     }
 
+    [AvaloniaFact]
+    public void AHeldEnterActsOnceUntilItIsReleased()
+    {
+        var f = Create(ThemeMode.Light);
+        var clicks = 0;
+        f.Body.Click += (_, _) => clicks++;
+        Assert.True(f.Body.IsFocused);
+
+        // Enter goes down and stays down: the repeats of a held key must not press the focused or the default button again.
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(1, clicks);
+
+        // Released and pressed again it is a new press.
+        f.Window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        f.Window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(2, clicks);
+    }
+
     private static Point Centre(Window window, Control control) =>
         control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
 

@@ -160,12 +160,14 @@ public sealed class PrintCardTests
         copies.Focus();
         copies.Text = "3";
         host.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        host.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         var settings = Assert.Single(results)!;
         Assert.Equal(3, settings.Copies);
 
         // Enter with a wrong value keeps the card open and says why.
         copies.Text = "0";
         host.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+        host.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         Assert.Single(results);
         Assert.True(PrintHost.Find<TextBlock>(dialog, "PART_Hint").IsVisible);
 

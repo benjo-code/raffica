@@ -26,10 +26,13 @@ public class Dialog : ContentControl
 
     private Button? _close;
     private Control? _footerBar;
+    private readonly HashSet<Key> _down = [];
 
     public Dialog()
     {
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, (_, e) => _down.Remove(e.Key), RoutingStrategies.Tunnel);
+        DetachedFromVisualTree += (_, _) => _down.Clear();
     }
 
     /// <summary>Raised by Esc and by the close button.</summary>
@@ -98,6 +101,14 @@ public class Dialog : ContentControl
     {
         if (e.Handled)
         {
+            return;
+        }
+
+        // A held Enter must not press a button again and again, nor the default button of the card: only the key going down counts (the key-up
+        // clears it). Avalonia has no repeat flag on the event, so the dialog remembers which keys are down.
+        if (e.Key == Key.Enter && !_down.Add(e.Key))
+        {
+            e.Handled = true;
             return;
         }
 

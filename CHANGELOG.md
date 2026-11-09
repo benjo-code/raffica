@@ -65,5 +65,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF: a disabled command now says why when you hover it: "Turn on "Redact" first" for the Redact commands (the same for Organize pages, Edit text), "There are no changes to save", "Only one document is open", "Select pages first" and so on, and Print, Save and Save as say "A save is running" while a save runs.
 - Raffica PDF: the keyboard shortcuts card (F1) now has a "Navigation" section for the keys that belong to no command: Ctrl+K for the search field, F6 between the panes, Alt for field codes, Ctrl+Y, Enter and Shift+Enter in the search field, the keys of Organize pages and of forms, Ctrl+Enter for text boxes and comments and Ctrl+Shift+G while editing text (written as Cmd on macOS and as Strg in German).
 - Raffica PDF: the hints of the cards (a wrong page range, a wrong password, a wrong number of copies and the like) are now read out by a screen reader as soon as they appear, and Windows shows "Raffica PDF" instead of "RafficaPdf" as the name of the program (print dialog and queue, Task Manager); a print job is titled with the name of the document.
+- Raffica PDF cards and dialogs: a held Enter key no longer presses a button again and again, and the German reason for Redo says "Es gibt nichts zu wiederholen" like the command.
 
 ### Removed

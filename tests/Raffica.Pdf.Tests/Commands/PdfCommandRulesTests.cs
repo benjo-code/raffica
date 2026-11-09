@@ -201,4 +201,16 @@ public sealed class PdfCommandRulesTests : IDisposable
         Assert.Equal(PdfStrings.SaveBusy, rules.ReasonFor("file.saveAs"));
         Assert.Equal("A save is running.", PdfStrings.SaveBusy);
     }
+
+    [Fact]
+    public void TheGermanReasonsUseTheNamesOfTheCommands()
+    {
+        PdfStrings.Culture = CultureInfo.GetCultureInfo("de");
+        var rules = Rules(new Cfg());
+
+        // The command is "Wiederholen", so the reason says "wiederholen", and undo keeps its phrase.
+        Assert.Equal("Wiederholen", PdfStrings.CmdRedo);
+        Assert.Equal("Es gibt nichts zu wiederholen.", rules.ReasonFor("edit.redo"));
+        Assert.Equal("Es gibt nichts rückgängig zu machen.", rules.ReasonFor("edit.undo"));
+    }
 }
