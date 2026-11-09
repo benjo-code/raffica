@@ -126,4 +126,59 @@ public sealed class HandoverBehindCardTests
 
         await WaitAsync(() => window.Workspace.Tabs.Count == 2);
     }
+
+    [AvaloniaFact]
+    public async Task AHandoverDuringAQueuedQuestionWaitsUntilTheQuestionIsAnswered()
+    {
+        using var fixture = WindowFixture.Create();
+        var window = fixture.Window;
+        var tab = await fixture.OpenAsync("hello_world.pdf");
+        var path = TestData.Pdf("text-rich.pdf");
+        window.ShowCrashCard(fixture.Folder);
+        Pump();
+
+        // A tab close or an update asks while a card is open: the question queues; the file that arrives now queues too, and comes after the answer.
+        var question = window.AskPlanAsync(tab);
+        window.OnHandover([path]);
+        await WaitAsync(() => window.PendingHandover.Count == 1);
+
+        window.Host.Close();
+        await WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "PART_Cancel"));
+        await Task.Delay(150);
+        Pump();
+        Assert.Single(window.Workspace.Tabs);
+        Assert.Single(window.PendingHandover);
+
+        Click(window, "PART_Cancel");
+        Assert.Equal(CloseChoice.Cancel, await question);
+        await WaitAsync(() => window.Workspace.Tabs.Count == 2);
+    }
+
+    [AvaloniaFact]
+    public async Task ASecondCloseWhileTheFirstQuestionIsOpenDoesNotAskTwiceButAskedAgainAfterCancel()
+    {
+        using var fixture = WindowFixture.Create();
+        var window = fixture.Window;
+        var tab = await fixture.OpenAsync("hello_world.pdf");
+        tab.MarkDirty();
+
+        window.Close();
+        await WaitAsync(() => window.Host.IsOpen);
+        var first = window.Host.ActiveDialog;
+        window.Close();
+        Pump();
+        await Task.Delay(100);
+        Pump();
+        Assert.Same(first, window.Host.ActiveDialog);
+
+        Click(window, "PART_Cancel");
+        await WaitAsync(() => !window.Host.IsOpen);
+        Assert.True(window.IsVisible);
+
+        // The wish to close is asked again as usual.
+        window.Close();
+        await WaitAsync(() => window.Host.IsOpen);
+        Click(window, "PART_Cancel");
+        await WaitAsync(() => !window.Host.IsOpen);
+    }
 }
