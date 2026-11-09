@@ -31,19 +31,24 @@ public sealed class DefaultAppServiceTests : IDisposable
         }
     }
 
-    private LinuxDefaultAppService Linux(FakeRunner runner, bool hasXdgMime = true, string? appImage = null, string? appDir = null) =>
+    private const string AppDirOfAppImage = "/tmp/.mount_RafficaAbc";
+    private const string ProcessOfAppImage = AppDirOfAppImage + "/usr/bin/RafficaPdf";
+
+    // appImage given without an explicit appDir/process: this program runs from inside the AppImage (the normal case).
+    private LinuxDefaultAppService Linux(FakeRunner runner, bool hasXdgMime = true, string? appImage = null, string? appDir = null, string? processPath = null) =>
         new(
             name => name switch
             {
                 "XDG_DATA_HOME" => Path.Combine(_folder, "data"),
                 "XDG_DATA_DIRS" => Path.Combine(_folder, "system"),
                 "APPIMAGE" => appImage,
-                "APPDIR" => appDir,
+                "APPDIR" => appDir ?? (appImage is null ? null : AppDirOfAppImage),
                 _ => null,
             },
             runner,
             TimeSpan.FromSeconds(5),
-            program => hasXdgMime && program == "xdg-mime" ? "/usr/bin/xdg-mime" : null);
+            program => hasXdgMime && program == "xdg-mime" ? "/usr/bin/xdg-mime" : null,
+            processPath ?? (appImage is null ? null : ProcessOfAppImage));
 
     private string DesktopFile => Path.Combine(_folder, "data", "applications", LinuxDefaultAppService.DesktopFileName);
 
@@ -121,6 +126,32 @@ public sealed class DefaultAppServiceTests : IDisposable
         var query = new FakeRunner(new ProcessOutcome(0, "raffica-pdf.desktop\n"));
         Assert.Equal(DefaultAppStatus.IsDefault, await Linux(query, appImage: AppImage).GetStatusAsync(ct));
         Assert.Equal(DefaultAppStatus.NotDefault, await Linux(query, appImage: "/home/ada/Elsewhere/Raffica.AppImage").GetStatusAsync(ct));
+    }
+
+    // 01-S2: APPIMAGE/APPDIR inherited from a parent AppImage while this program runs from somewhere else must not be trusted.
+    [Fact]
+    public async Task LinuxIgnoresAnInheritedAppImageThatIsNotThisProgram()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        const string foreign = "/home/mallory/Foreign.AppImage";
+        const string foreignDir = "/tmp/.mount_Foreign";
+        const string mine = "/opt/raffica/RafficaPdf";
+
+        // Set: no desktop file is written for the foreign file; with none installed the result is the non-AppImage one.
+        var runner = new FakeRunner();
+        Assert.Equal(DefaultAppResult.NotAvailable, await Linux(runner, appImage: foreign, appDir: foreignDir, processPath: mine).MakeDefaultAsync(ct));
+        Assert.False(File.Exists(DesktopFile));
+        Assert.Empty(runner.Calls);
+
+        // With a desktop file of a package installed, the plain path sets the default and still writes nothing of the foreign file.
+        InstallDesktopFile();
+        var set = new FakeRunner();
+        Assert.Equal(DefaultAppResult.Done, await Linux(set, appImage: foreign, appDir: foreignDir, processPath: mine).MakeDefaultAsync(ct));
+        Assert.DoesNotContain(foreign, await File.ReadAllTextAsync(DesktopFile, ct), StringComparison.Ordinal);
+
+        // Status: the foreign variable does not make the choice stale.
+        var query = new FakeRunner(new ProcessOutcome(0, "raffica-pdf.desktop\n"));
+        Assert.Equal(DefaultAppStatus.IsDefault, await Linux(query, appImage: foreign, appDir: foreignDir, processPath: mine).GetStatusAsync(ct));
     }
 
     [Fact]
