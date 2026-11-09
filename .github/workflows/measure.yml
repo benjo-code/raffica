@@ -15,8 +15,20 @@
 #   manual `workflow_dispatch` above; the repository is named by whoever dispatches it (the owner), and its commit is
 #   pinned by a full 40-hex SHA on purpose (a tag can move). The inputs are validated before anything is fetched, the
 #   repository is checked out without credentials, no secret is used or passed, and the job keeps `contents: read`.
+# - The optional input `ref` (empty: the app of the dispatch ref) names the commit whose APP is measured, to measure an older merge commit or a
+#   branch while the workflow file runs from the dispatch ref (the runner group allows `dev` only). It is checked before anything is fetched:
+#   empty, a 40-hex commit id or a plain branch name, never pull/N/head or refs/pull/... (the check of linux-update-check.yml and
+#   windows-update-check.yml). Only the app comes from `ref`: it is checked out into `measured/` and published from there. The measuring tool
+#   (bench/shell-probe/measure.cs with its limit tables), the test files (testdata/pdfs) and this file stay those of the dispatch ref, so the
+#   limits are always the current ones. The target `reference` takes its commit from `reference_ref` and rejects a `ref`.
 # Procedure: bench/shell-probe/RUNNERS.md and bench/shell-probe/README.md; spec section 9.3.
+#
+#   gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>"
+#   gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>" -f ref=<branch or 40-hex commit>
 name: Measure
+
+# The title of a run in the list of runs; a measured commit shows in it (the validated value is also in machine.txt and the job summary).
+run-name: "Measure ${{ inputs.target }} on ${{ inputs.platform }}${{ inputs.ref != '' && format(' at {0}', inputs.ref) || '' }}"
 
 on:
   workflow_dispatch:
@@ -45,6 +57,10 @@ on:
         type: choice
         default: app
         options: [app, software, default]
+      ref:
+        description: 'Commit or branch whose app to measure (empty: the app of the dispatch ref). A 40-hex commit id or a branch name, never pull/...; not for the target reference'
+        type: string
+        default: ''
       reference_repo:
         description: 'Target reference only: owner/name of the reference app''s repository'
         type: string
@@ -74,6 +90,8 @@ env:
   EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || inputs.target == 'pdf' && 'RafficaPdf' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
   PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || inputs.target == 'pdf' && 'src/Raffica.Pdf' || 'bench/shell-probe/ShellProbe' }}
   OUT: out/measure-${{ github.run_id }}
+  # The folder of the measured app inside the workspace: "measured/" when `ref` is given (never for the target reference), else the root.
+  MEASURED_PREFIX: ${{ inputs.ref != '' && inputs.target != 'reference' && 'measured/' || '' }}
   FONTS: ${{ inputs.target == 'probe' && 'bench/shell-probe/ShellProbe/Assets/Fonts' || 'src/Raffica.Shell/Assets/Fonts' }}
   # Only the PDF app on Windows reads it (bench/shell-probe/README.md); the child processes of measure.cs inherit it. Empty for every other
   # target and platform and for the input "app" (the app's own default, software rendering); "software" forces it, "default" opts out to
@@ -91,6 +109,39 @@ jobs:
       group: measure-${{ inputs.platform }}
       cancel-in-progress: false
     steps:
+      # The `ref` input is checked before anything is fetched or run (the same rule as linux-update-check.yml and windows-update-check.yml): empty, a
+      # 40-hex commit id or a plain branch name, never pull/N/head or refs/pull/...; and not for the target reference, which has its own pinned
+      # commit. The value travels in an environment variable, never inside the script text, and is not echoed.
+      - name: Validate the ref input (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          $r = [string]$env:REF_INPUT
+          $refOk = ($r -eq '') -or ($r -cmatch '^[0-9a-f]{40}$') -or (($r -cmatch '^[A-Za-z0-9._/-]+$') -and -not ($r -cmatch '^pull/') -and -not ($r -cmatch '\.\.') -and (-not ($r -cmatch '^refs/') -or ($r -cmatch '^refs/heads/')))
+          if (-not $refOk) { Write-Host '::error title=Measure::ref is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)'; exit 1 }
+          if ($r -ne '' -and $env:TARGET -eq 'reference') { Write-Host '::error title=Measure::ref is not for the target reference (it takes reference_ref)'; exit 1 }
+          exit 0
+
+      - name: Validate the ref input (Linux, macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          export LC_ALL=C
+          ref_ok=false
+          if [[ -z "$REF_INPUT" || "$REF_INPUT" =~ ^[0-9a-f]{40}$ ]]; then
+            ref_ok=true
+          elif [[ "$REF_INPUT" =~ ^[A-Za-z0-9._/-]+$ && "$REF_INPUT" != pull/* && "$REF_INPUT" != *..* ]]; then
+            if [[ "$REF_INPUT" != refs/* || "$REF_INPUT" == refs/heads/* ]]; then ref_ok=true; fi
+          fi
+          [[ "$ref_ok" == true ]] || { echo '::error title=Measure::ref is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)'; exit 1; }
+          if [[ -n "$REF_INPUT" && "$TARGET" == reference ]]; then echo '::error title=Measure::ref is not for the target reference (it takes reference_ref)'; exit 1; fi
+
       # Target reference: the inputs are checked before anything is fetched or run. The values travel in environment
       # variables, never inside the script text, and are not echoed (a value could carry a workflow command).
       - name: Validate the reference inputs (Windows)
@@ -136,6 +187,16 @@ jobs:
         with:
           persist-credentials: false
 
+      # The app to measure, from the commit of the `ref` input, in its own folder of the workspace. Only the app is built from it; the measuring tool,
+      # the limits and the test files stay those of the checkout above (the dispatch ref).
+      - name: Check out the measured commit
+        if: inputs.ref != '' && inputs.target != 'reference'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          path: measured
+          persist-credentials: false
+
       # The reference app's repository, at the pinned commit, in its own folder of the workspace (the next
       # steps run inside it). No credentials stay in its git configuration.
       - name: Check out the reference app
@@ -168,9 +229,12 @@ jobs:
         shell: powershell
         run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
+      # From the folder of the measured commit (the root without `ref`); the output goes to out/app of the workspace in both cases, where the
+      # measuring steps expect it.
       - name: Publish the app (Native AOT)
         if: inputs.target != 'reference'
-        run: dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} -o out/app
+        working-directory: ${{ inputs.ref != '' && 'measured' || '.' }}
+        run: dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} -o "${{ github.workspace }}/out/app"
 
       # The reference app, from its own checkout (the SDK picks up that repository's global.json and NuGet.config). The inputs
       # were validated by the first step. Its publish needs nothing else: the native OCR library that its CI fetches is
@@ -253,6 +317,58 @@ jobs:
             echo "Processor: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.logicalcpu) logical processors"
             echo "RAM: $(sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }') GiB"
           } | tee "$OUT/machine.txt"
+
+      # The measured app: the full commit id that was published (a branch name moves, so it is recorded), appended to the machine notes written
+      # above and to the job summary. With a 40-hex `ref` the checkout must be exactly that commit. The measuring tool, the limits and the test files
+      # are those of the line "Commit" above (the dispatch ref).
+      - name: Notes of the measured commit (Windows)
+        if: inputs.target != 'reference' && runner.os == 'Windows'
+        shell: powershell
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          MEASURED_DIR: ${{ inputs.ref != '' && 'measured' || '.' }}
+        run: |
+          $head = ("$(git -C $env:MEASURED_DIR rev-parse HEAD)").Trim()
+          if ($head -cnotmatch '^[0-9a-f]{40}$') {
+            Write-Host '::error title=Measure::The checkout of the measured app has no readable commit id.'
+            exit 1
+          }
+          if ($env:REF_INPUT -cmatch '^[0-9a-f]{40}$' -and $head -ne $env:REF_INPUT) {
+            Write-Host '::error title=Measure::The checkout of the measured app is not the commit named by ref.'
+            exit 1
+          }
+          $from = if ($env:REF_INPUT) { "ref input $env:REF_INPUT" } else { 'the dispatch ref' }
+          $lines = @(
+            "Measured app: commit $head (from $from)",
+            'Measuring tool, limits and test files: the commit on the line "Commit" above (the dispatch ref)'
+          )
+          $lines | ForEach-Object { Write-Host $_ }
+          Add-Content -Path "$env:OUT/machine.txt" -Value $lines -Encoding utf8
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "Measured app: commit ``$head`` (from $from)" -Encoding utf8
+          exit 0
+
+      - name: Notes of the measured commit (Linux, macOS)
+        if: inputs.target != 'reference' && runner.os != 'Windows'
+        shell: bash
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          MEASURED_DIR: ${{ inputs.ref != '' && 'measured' || '.' }}
+        run: |
+          head=$(git -C "$MEASURED_DIR" rev-parse HEAD || true)
+          if ! [[ "$head" =~ ^[0-9a-f]{40}$ ]]; then
+            echo '::error title=Measure::The checkout of the measured app has no readable commit id.'
+            exit 1
+          fi
+          if [[ "$REF_INPUT" =~ ^[0-9a-f]{40}$ && "$head" != "$REF_INPUT" ]]; then
+            echo '::error title=Measure::The checkout of the measured app is not the commit named by ref.'
+            exit 1
+          fi
+          if [ -n "$REF_INPUT" ]; then from="ref input $REF_INPUT"; else from='the dispatch ref'; fi
+          {
+            echo "Measured app: commit $head (from $from)"
+            echo 'Measuring tool, limits and test files: the commit on the line "Commit" above (the dispatch ref)'
+          } | tee -a "$OUT/machine.txt"
+          echo "Measured app: commit \`$head\` (from $from)" >> "$GITHUB_STEP_SUMMARY"
 
       # The reference app (target reference): which repository, which commit (checked against the pin: the checkout must be
       # exactly that commit) and which binary was measured. Appended to the machine notes written above.
@@ -583,7 +699,7 @@ jobs:
 
       - name: Size (frame)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'probe' }}
-        run: dotnet run bench/shell-probe/measure.cs -- size --publish-dir out/app --fonts-dir ${{ env.FONTS }} --mode frame --out ${{ env.OUT }}/size.csv
+        run: dotnet run bench/shell-probe/measure.cs -- size --publish-dir out/app --fonts-dir ${{ env.MEASURED_PREFIX }}${{ env.FONTS }} --mode frame --out ${{ env.OUT }}/size.csv
 
       # The gallery (target gallery): the frame view only, no empty baseline. Each run gets a settings file of its own, so a
       # measurement never reads or writes the settings of the user. The mode in the CSV is "gallery".
@@ -605,7 +721,7 @@ jobs:
 
       - name: Size (gallery)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' }}
-        run: dotnet run bench/shell-probe/measure.cs -- size --target gallery --publish-dir out/app --fonts-dir ${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
+        run: dotnet run bench/shell-probe/measure.cs -- size --target gallery --publish-dir out/app --fonts-dir ${{ env.MEASURED_PREFIX }}${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
 
       # The PDF app (target pdf), the cases of milestone 2.1 (spec section 5; the method is the entry "Raffica PDF measurement method (M2.1)" in
       # Docs/DECISIONS.md). Every run gets a settings folder of its own, so a measurement never reads or writes the settings, the recent
@@ -636,7 +752,7 @@ jobs:
 
       - name: Size (pdf)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' }}
-        run: dotnet run bench/shell-probe/measure.cs -- size --target pdf --publish-dir out/app --fonts-dir ${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
+        run: dotnet run bench/shell-probe/measure.cs -- size --target pdf --publish-dir out/app --fonts-dir ${{ env.MEASURED_PREFIX }}${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
 
       # The verdict against the limits of the PDF app. The table is empty until the owner's runs are recorded: then this step prints the
       # medians into the job summary and fails with "no limits recorded for target pdf" (exit code 2), never a pass.
