@@ -87,7 +87,8 @@ internal sealed partial class PdfWindow : Window
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
     private bool _listening;
-    private bool _closeRunning;
+    private int _closeRuns;
+    private bool IsCloseRunning => _closeRuns > 0;
     private readonly List<string> _pendingHandover = [];
     private bool _handoverDrainPosted;
     private SingleInstance? _instance;
@@ -797,7 +798,7 @@ internal sealed partial class PdfWindow : Window
         try
         {
             // Decided before the error cards of this very hand-over open: they do not hold back the good files next to them.
-            var busy = Host.IsOpen || _closeRunning;
+            var busy = Host.IsOpen || IsCloseRunning;
             foreach (var name in rejected)
             {
                 ShowOpenError(name, PdfOpenError.FileNotFound);
@@ -886,7 +887,7 @@ internal sealed partial class PdfWindow : Window
 
     private void OpenPendingHandover()
     {
-        if (_pendingHandover.Count == 0 || _closeRunning || _closeConfirmed)
+        if (_pendingHandover.Count == 0 || IsCloseRunning || _closeConfirmed)
         {
             return;
         }
@@ -1709,12 +1710,36 @@ internal sealed partial class PdfWindow : Window
     internal Task<CloseChoice> AskPlanAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Plan);
 
     // The question goes through the dialog queue: behind a card that is open (an error card, a password question) it waits and appears when the host is free, instead of
-    // being answered Cancel. The window is brought to the front, so the user sees why it did not close.
+    // being answered Cancel. The window is brought to the front, so the user sees why it did not close. The one exception is a file job: its card is no question the
+    // user can end, and a close that meets it is answered Cancel as before (the tab stays, the job runs on).
     private Task<CloseChoice> AskAsync(PdfTab tab, UnsavedKind kind)
     {
+        if (Host.IsOpen && BusyWithFileJob())
+        {
+            return Task.FromResult(CloseChoice.Cancel);
+        }
+
         Workspace.Select(tab);
         BringToFront();
-        return Dialogs.ShowAsync<CloseChoice>(done => UnsavedChangesCard.Create(tab.Title, done, kind, _time));
+
+        // The answer completes where the click happened (the guard goes on in the same turn), not on a pool thread.
+        var answer = new TaskCompletionSource<CloseChoice>();
+        _ = Dialogs.ShowAsync<CloseChoice>(done => UnsavedChangesCard.Create(tab.Title, choice =>
+        {
+            done(choice);
+            answer.TrySetResult(choice);
+        }, kind, _time)).ContinueWith(
+            shown =>
+            {
+                if (shown.IsFaulted)
+                {
+                    answer.TrySetException(shown.Exception!.InnerExceptions);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return answer.Task;
     }
 
     // Restores a minimized window and brings it to the front (a hand-over, a close question that waited).
@@ -1745,12 +1770,12 @@ internal sealed partial class PdfWindow : Window
         e.Cancel = true;
 
         // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions.
-        if (_closeRunning)
+        if (IsCloseRunning && Host.IsOpen)
         {
             return;
         }
 
-        _closeRunning = true;
+        _closeRuns++;
         try
         {
             if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
@@ -1766,7 +1791,7 @@ internal sealed partial class PdfWindow : Window
         }
         finally
         {
-            _closeRunning = false;
+            _closeRuns--;
             DrainHandover();
         }
     }
