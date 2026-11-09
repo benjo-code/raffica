@@ -257,7 +257,7 @@ public sealed class OpenTargetGuardTests : IDisposable
         var other = await AddAsync(workspace, Copy().Path);
         var elsewhere = Path.Combine(Copy().Folder, "elsewhere.pdf");
 
-        // No identity call exists there (macOS): null is the answer for every pair, so only the spelling decides.
+        // No identity call exists there: null is the answer for every pair, so only the spelling decides.
         Assert.Null(await OpenTargetGuard.FindOtherTabAsync(workspace, self, elsewhere, Ct, (_, _) => null, identitySupported: false));
         Assert.Same(other, await OpenTargetGuard.FindOtherTabAsync(workspace, self, other.Path!, Ct, (_, _) => null, identitySupported: false));
 
