@@ -668,6 +668,17 @@ internal static class PdfStrings
     public static string ModeRedactReason => Table.Get("ModeRedactReason");
     public static string ModeOcrReason => Table.Get("ModeOcrReason");
     public static string ModeTextEditReason => Table.Get("ModeTextEditReason");
+    public static string ReasonTurnOnFirstFormat => Table.Get("ReasonTurnOnFirstFormat");
+    public static string ReasonNoRecognitionRunning => Table.Get("ReasonNoRecognitionRunning");
+    public static string ReasonOnlyOneDocument => Table.Get("ReasonOnlyOneDocument");
+    public static string ReasonNothingToSave => Table.Get("ReasonNothingToSave");
+    public static string ReasonNothingToUndo => Table.Get("ReasonNothingToUndo");
+    public static string ReasonNothingToRedo => Table.Get("ReasonNothingToRedo");
+    public static string ReasonSelectMarkFirst => Table.Get("ReasonSelectMarkFirst");
+    public static string ReasonSelectPagesFirst => Table.Get("ReasonSelectPagesFirst");
+    public static string ReasonNoPageChanges => Table.Get("ReasonNoPageChanges");
+    public static string ReasonNothingMarkedToRedact => Table.Get("ReasonNothingMarkedToRedact");
+    public static string ReasonPagesNotReady => Table.Get("ReasonPagesNotReady");
     public static string TextEditBadgeText => Table.Get("TextEditBadgeText");
     public static string TextEditHintLine => Table.Get("TextEditHintLine");
     public static string TextEditWholeRunSwitch => Table.Get("TextEditWholeRunSwitch");

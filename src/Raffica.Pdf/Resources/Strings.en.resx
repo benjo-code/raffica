@@ -1849,6 +1849,39 @@
   <data name="ModeTextEditReason" xml:space="preserve">
     <value>Finish editing the text first.</value>
   </data>
+  <data name="ReasonTurnOnFirstFormat" xml:space="preserve">
+    <value>Turn on "{0}" first</value>
+  </data>
+  <data name="ReasonNoRecognitionRunning" xml:space="preserve">
+    <value>No text recognition is running.</value>
+  </data>
+  <data name="ReasonOnlyOneDocument" xml:space="preserve">
+    <value>Only one document is open.</value>
+  </data>
+  <data name="ReasonNothingToSave" xml:space="preserve">
+    <value>There are no changes to save.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>There is nothing to undo.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>There is nothing to redo.</value>
+  </data>
+  <data name="ReasonSelectMarkFirst" xml:space="preserve">
+    <value>Select a mark first</value>
+  </data>
+  <data name="ReasonSelectPagesFirst" xml:space="preserve">
+    <value>Select pages first</value>
+  </data>
+  <data name="ReasonNoPageChanges" xml:space="preserve">
+    <value>There are no page changes to apply.</value>
+  </data>
+  <data name="ReasonNothingMarkedToRedact" xml:space="preserve">
+    <value>Mark something to redact first</value>
+  </data>
+  <data name="ReasonPagesNotReady" xml:space="preserve">
+    <value>The pages are still loading.</value>
+  </data>
   <data name="UnsavedRedactTitle" xml:space="preserve">
     <value>Discard the redactions?</value>
   </data>

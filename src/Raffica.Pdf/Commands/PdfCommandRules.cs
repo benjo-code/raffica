@@ -117,7 +117,10 @@ internal sealed class PdfCommandRules(
         _ => hasDocument(),
     };
 
-    /// <summary>Why the command is disabled, in the UI language, when there is something to tell (null otherwise).</summary>
+    /// <summary>
+    /// Why the command is disabled, in the UI language, when there is something to tell (null otherwise). With a document open every disabled
+    /// command has a reason; without one the start view shows no commands, so nothing is told.
+    /// </summary>
     public string? ReasonFor(string id)
     {
         if (!hasDocument())
@@ -125,6 +128,73 @@ internal sealed class PdfCommandRules(
             return null;
         }
 
+        return LockReason(id) ?? (Allows(id) ? null : DisabledReason(id));
+    }
+
+    // What is disabled with nothing else in the way: a mode that is not on, nothing to act on, a save that runs, pages that are not read yet.
+    private string? DisabledReason(string id)
+    {
+        if (id is PdfCommandIds.NextTab or PdfCommandIds.PreviousTab)
+        {
+            return PdfStrings.ReasonOnlyOneDocument;
+        }
+
+        switch (id)
+        {
+            case PdfCommandIds.Print or PdfCommandIds.SaveAs:
+                return BusyReason();
+            case PdfCommandIds.Save:
+                return Ask(isDirty, false) ? BusyReason() : PdfStrings.ReasonNothingToSave;
+            case PdfCommandIds.Undo:
+                return PdfStrings.ReasonNothingToUndo;
+            case PdfCommandIds.Redo:
+                return PdfStrings.ReasonNothingToRedo;
+            case PdfCommandIds.DeleteMark:
+                return PdfStrings.ReasonSelectMarkFirst;
+            case PdfCommandIds.OcrCancel:
+                return PdfStrings.ReasonNoRecognitionRunning;
+            case PdfCommandIds.RedactApply when _modes.IsActive(PdfMode.Redact):
+                return PdfStrings.ReasonNothingMarkedToRedact;
+            case PdfCommandIds.ApplyPages when PlanOpen():
+                return PdfStrings.ReasonNoPageChanges;
+            case PdfCommandIds.PagesUndo when PlanOpen():
+                return PdfStrings.ReasonNothingToUndo;
+            case PdfCommandIds.PagesRedo when PlanOpen():
+                return PdfStrings.ReasonNothingToRedo;
+        }
+
+        if (PageEdits.Contains(id) && PlanOpen())
+        {
+            return PdfStrings.ReasonSelectPagesFirst;
+        }
+
+        // A command that works inside a mode names the command that turns the mode on.
+        var inside = InsideMode.TryGetValue(id, out var insideMode) ? insideMode : PageEdits.Contains(id) || id is PdfCommandIds.BlankPage or PdfCommandIds.InsertFile or PdfCommandIds.PagesUndo or PdfCommandIds.PagesRedo or PdfCommandIds.ApplyPages or PdfCommandIds.DiscardPages ? PdfMode.Organize : (PdfMode?)null;
+        if (inside is { } needed && !_modes.IsActive(needed))
+        {
+            return PdfStrings.Fill(PdfStrings.ReasonTurnOnFirstFormat, NameOf(needed));
+        }
+
+        // The commands that start something read the pages of the document: they wait until the first ones are there.
+        if (id is PdfCommandIds.RedactMode or PdfCommandIds.TextEdit or PdfCommandIds.OcrRun or PdfCommandIds.Organize && !Ask(pagesReady, true))
+        {
+            return PdfStrings.ReasonPagesNotReady;
+        }
+
+        return null;
+    }
+
+    // The name of the command that turns the mode on, as the ribbon shows it.
+    private static string NameOf(PdfMode mode) => mode switch
+    {
+        PdfMode.Redact => PdfStrings.CmdRedactMode,
+        PdfMode.Organize => PdfStrings.CmdOrganize,
+        PdfMode.TextEdit => PdfStrings.CmdTextEdit,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "This mode has no command that turns it on."),
+    };
+
+    private string? LockReason(string id)
+    {
         // While a plan is open the tools, Sign, the forms and the output commands are locked: the page view shows the document as it is, not
         // as the plan will leave it.
         if (PageOutputs.Contains(id) && PlanOpen())

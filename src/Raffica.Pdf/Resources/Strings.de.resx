@@ -1832,6 +1832,39 @@
   <data name="ModeTextEditReason" xml:space="preserve">
     <value>Beenden Sie zuerst das Bearbeiten des Textes.</value>
   </data>
+  <data name="ReasonTurnOnFirstFormat" xml:space="preserve">
+    <value>Schalten Sie zuerst „{0}“ ein</value>
+  </data>
+  <data name="ReasonNoRecognitionRunning" xml:space="preserve">
+    <value>Es läuft keine Texterkennung.</value>
+  </data>
+  <data name="ReasonOnlyOneDocument" xml:space="preserve">
+    <value>Es ist nur ein Dokument geöffnet.</value>
+  </data>
+  <data name="ReasonNothingToSave" xml:space="preserve">
+    <value>Es gibt keine Änderungen zu speichern.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>Es gibt nichts rückgängig zu machen.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>Es gibt nichts wiederherzustellen.</value>
+  </data>
+  <data name="ReasonSelectMarkFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst eine Markierung aus</value>
+  </data>
+  <data name="ReasonSelectPagesFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst Seiten aus</value>
+  </data>
+  <data name="ReasonNoPageChanges" xml:space="preserve">
+    <value>Es gibt keine Seitenänderungen zum Anwenden.</value>
+  </data>
+  <data name="ReasonNothingMarkedToRedact" xml:space="preserve">
+    <value>Markieren Sie zuerst etwas zum Schwärzen</value>
+  </data>
+  <data name="ReasonPagesNotReady" xml:space="preserve">
+    <value>Die Seiten werden noch geladen.</value>
+  </data>
   <data name="UnsavedRedactTitle" xml:space="preserve">
     <value>Die Schwärzungen verwerfen?</value>
   </data>
