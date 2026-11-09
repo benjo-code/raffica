@@ -261,10 +261,12 @@ internal sealed class OcrRunFlow
 
     private sealed class UiProgress(OcrRunFlow flow, Run run) : IProgress<OcrProgress>
     {
-        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one.
+        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one. The priority is the one of the
+        // synchronization context (Normal), on which the end of the run continues: Dispatcher.Post defaults to the lower Default, so the last report could
+        // run after the continuation and put "3 of 3 pages" over the sentence of the end.
         private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
 
-        public void Report(OcrProgress value) => _dispatcher.Post(() => flow.OnProgress(run, value));
+        public void Report(OcrProgress value) => _dispatcher.Post(() => flow.OnProgress(run, value), DispatcherPriority.Normal);
     }
 
     private sealed record Applied(OcrApplyResult? Result, bool Failed);
