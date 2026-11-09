@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Raffica.Shell.Frame;
@@ -99,8 +100,17 @@ public sealed class RibbonStateTests
         ControlHarness.AssertToken("Raffica.Brush.Text.OnInk", ControlHarness.Presenter(button).Foreground, "checked text");
         Assert.NotEqual(ControlHarness.ColorOf(ControlHarness.Presenter(button).Background), ControlHarness.ColorOf(ControlHarness.Presenter(plain).Background));
 
+        // Under the pointer it stays in ink (the hover fill is not drawn over it).
+        var centre = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+        window.MouseMove(centre);
+        ControlHarness.Settle(window);
+        Assert.True(button.IsPointerOver, "the pointer is not over the button");
+        ControlHarness.AssertToken("Raffica.Brush.Ink", ControlHarness.Presenter(button).Background, "checked fill under the pointer");
+
         flags.Single = false;
         ribbon.RefreshCommandStates();
+        ControlHarness.Settle(window);
+        window.MouseMove(new Point(window.Width - 2, window.Height - 2));
         ControlHarness.Settle(window);
         Assert.NotEqual(ControlHarness.Token("Raffica.Brush.Ink"), ControlHarness.ColorOf(ControlHarness.Presenter(button).Background));
     }

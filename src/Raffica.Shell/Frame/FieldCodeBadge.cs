@@ -13,8 +13,8 @@ namespace Raffica.Shell.Frame;
 /// </summary>
 public class FieldCodeBadge : TemplatedControl
 {
-    // The height of a badge (the template says 18 px), for the placement below a control.
-    private const double BadgeHeight = 18;
+    // How far a badge beside a small button reaches over the button's right edge (its padding is 6 px, so the text is not touched).
+    private const double BesideOverlap = 4;
 
     public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<FieldCodeBadge, string?>(nameof(Text));
 
@@ -28,25 +28,45 @@ public class FieldCodeBadge : TemplatedControl
     public static void SetCode(Control control, string? code) => control.SetValue(CodeProperty, code);
 
     /// <summary>
-    /// Puts a badge with <paramref name="text"/> on <paramref name="target"/>; null when the target is not in a window yet. With
-    /// <paramref name="inside"/> the badge sits inside the right edge of the target, vertically centred (for the items of a menu, whose
-    /// popup would clip a badge that hangs over the edge). With <paramref name="below"/> the badge hangs below the control, its top on the
-    /// bottom edge and 4 px beyond the right edge (for the commands and group labels of the ribbon, so it never covers their text).
+    /// Puts a badge with <paramref name="text"/> on <paramref name="target"/>; null when the target is not in a window yet. The
+    /// <paramref name="placement"/> says where; the default is the bottom right corner of the spec (4 px beyond the right edge, 6 px below the
+    /// bottom edge). The ribbon uses the other places so that a tip never covers text.
     /// </summary>
-    internal static FieldCodeBadge? Show(Control target, string text, bool inside = false, bool below = false)
+    internal static FieldCodeBadge? Show(Control target, string text, BadgePlacement placement = BadgePlacement.BottomRight)
     {
         if (AdornerLayer.GetAdornerLayer(target) is not { } layer)
         {
             return null;
         }
 
+        var (vertical, margin) = placement switch
+        {
+            // Inside the right edge, vertically centred (the items of a menu, whose popup would clip a badge that hangs over the edge; a group label).
+            BadgePlacement.InsideRight => (VerticalAlignment.Center, new Thickness(0, 0, 6, 0)),
+
+            // Flush with the right edge, vertically centred (the label row of a ribbon group, which keeps 20 px free on the right).
+            BadgePlacement.GroupLabel => (VerticalAlignment.Center, new Thickness(0, 0, 1, 0)),
+
+            // The top right corner inside a large tile: over the icon, never over the label below it.
+            BadgePlacement.TileCorner => (VerticalAlignment.Top, new Thickness(0, 2, 2, 0)),
+
+            // Beside a small button: vertically centred on it, 4 px over its right edge and the rest beyond it (over the padding and the icon
+            // of the next button, not its text); the margin follows the width of the badge, which a long code widens.
+            BadgePlacement.BesideRight => (VerticalAlignment.Center, new Thickness(0, 0, -14, 0)),
+            _ => (VerticalAlignment.Bottom, new Thickness(0, 0, -4, -6)),
+        };
         var badge = new FieldCodeBadge
         {
             Text = text,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = inside ? VerticalAlignment.Center : VerticalAlignment.Bottom,
-            Margin = inside ? new Thickness(0, 0, 6, 0) : below ? new Thickness(0, 0, -4, -BadgeHeight) : new Thickness(0, 0, -4, -6),
+            VerticalAlignment = vertical,
+            Margin = margin,
         };
+        if (placement == BadgePlacement.BesideRight)
+        {
+            badge.SizeChanged += (_, e) => badge.Margin = new Thickness(0, 0, BesideOverlap - e.NewSize.Width, 0);
+        }
+
         AdornerLayer.SetAdornedElement(badge, target);
         AdornerLayer.SetIsClipEnabled(badge, false);
         layer.Children.Add(badge);
@@ -63,4 +83,23 @@ public class FieldCodeBadge : TemplatedControl
 
         badges.Clear();
     }
+}
+
+/// <summary>Where <see cref="FieldCodeBadge"/> puts a badge on its control.</summary>
+internal enum BadgePlacement
+{
+    /// <summary>4 px beyond the right edge, 6 px below the bottom edge (the spec's place, for tabs, the search field and the panes).</summary>
+    BottomRight,
+
+    /// <summary>Inside the right edge, vertically centred.</summary>
+    InsideRight,
+
+    /// <summary>Flush with the right edge of the label row of a group, vertically centred.</summary>
+    GroupLabel,
+
+    /// <summary>The top right corner inside a large tile, over its icon.</summary>
+    TileCorner,
+
+    /// <summary>Beside a small button, vertically centred, 14 px beyond its right edge.</summary>
+    BesideRight,
 }

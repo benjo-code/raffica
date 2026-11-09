@@ -67,25 +67,8 @@ public sealed class FieldCodeBadgeTests
         Assert.Equal(targetOrigin.Y + target.Bounds.Height + 6, badgeOrigin.Y + badge.Bounds.Height, 0.51);
     }
 
-    // The badge of a ribbon command or group label hangs below it (its top on the bottom edge), 4 px beyond the right edge: it never covers the text of the button.
-    private static void AssertBelow(FieldCodeFixture f, Control target)
-    {
-        var badge = FieldCodeFixture.BadgeFor(target);
-        var targetOrigin = target.TranslatePoint(default, f.Window)!.Value;
-        var badgeOrigin = badge.TranslatePoint(default, f.Window)!.Value;
-        Assert.Equal(targetOrigin.X + target.Bounds.Width + 4, badgeOrigin.X + badge.Bounds.Width, 0.51);
-        Assert.True(badgeOrigin.Y >= targetOrigin.Y + target.Bounds.Height - 1.01, $"the badge starts at {badgeOrigin.Y}, the control ends at {targetOrigin.Y + target.Bounds.Height}");
-        Assert.True(badgeOrigin.Y <= targetOrigin.Y + target.Bounds.Height + 1.01, "the badge is detached from its control");
-        foreach (var text in ControlHarness.Descendants(target).OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)))
-        {
-            var origin = text.TranslatePoint(default, f.Window)!.Value;
-            var covered = new Rect(origin, text.Bounds.Size).Intersects(new Rect(badgeOrigin, badge.Bounds.Size));
-            Assert.False(covered, $"the badge '{badge.Text}' covers the text '{text.Text}'");
-        }
-    }
-
     [AvaloniaFact]
-    public void BadgesAreAtTheBottomRightOfTheirControl()
+    public void TabsSearchAndPanesHaveTheirBadgeAtTheBottomRight()
     {
         var f = FieldCodeFixture.Create();
         f.Alt();
@@ -97,13 +80,12 @@ public sealed class FieldCodeBadgeTests
         AssertBottomRight(f, f.Right);
 
         f.TypeCode("H");
+
+        // The badges of the commands and the groups sit elsewhere (NoKeyTipOfTheBandCoversTextOrLeavesTheBand); each command still has its own.
         foreach (var button in RibbonViewTests.Buttons(f.Ribbon))
         {
-            AssertBelow(f, button);
+            Assert.Equal(button.Definition.FieldCode, FieldCodeFixture.BadgeFor(button).Text);
         }
-
-        var group = (TextBlock)Assert.Single(ControlHarness.Descendants(f.Ribbon.Band).OfType<TextBlock>(), t => t.Text == "Clipboard");
-        AssertBelow(f, group);
     }
 
     [AvaloniaFact]
@@ -215,6 +197,26 @@ public sealed class FieldCodeBadgeTests
         finally
         {
             ShellStrings.Culture = previous;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NoKeyTipOfTheBandCoversTextOrLeavesTheBand(bool compact)
+    {
+        var (window, frame, ribbon) = RibbonViewTests.Show(compact: compact);
+        Assert.NotNull(frame);
+        ribbon.ShowFieldCodes = true;
+        foreach (var tab in ribbon.Definition!.Tabs)
+        {
+            ribbon.ActiveTab = tab;
+            ribbon.FieldCodeTabLetter = tab.Letter;
+            ControlHarness.Settle(window);
+            Assert.Equal(compact, ribbon.IsEffectivelyCompact);
+
+            var offenders = BadgeFit.Find(window, ribbon.Band);
+            Assert.True(offenders.Count == 0, $"{tab.Name} (compact {compact}):{Environment.NewLine}{string.Join(Environment.NewLine, offenders.Distinct())}");
         }
     }
 }

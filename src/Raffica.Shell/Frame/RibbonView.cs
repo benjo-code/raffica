@@ -443,7 +443,7 @@ public class RibbonView : TemplatedControl
         {
             if (child is Button { Tag: RibbonTabDefinition tab } button)
             {
-                Add(button, tab.Letter, below: false);
+                Add(button, tab.Letter);
             }
         }
 
@@ -454,17 +454,17 @@ public class RibbonView : TemplatedControl
 
         foreach (var (target, digit) in _groupAnchors)
         {
-            Add(target, digit);
+            Add(target, digit, BadgePlacement.GroupLabel);
         }
 
         foreach (var button in _groups.GetVisualDescendants().OfType<RibbonButton>())
         {
-            Add(button, button.Definition.FieldCode);
+            Add(button, button.Definition.FieldCode, button.Kind == RibbonButtonKind.Tile ? BadgePlacement.TileCorner : BadgePlacement.BesideRight);
         }
 
-        void Add(Control target, string text, bool below = true)
+        void Add(Control target, string text, BadgePlacement placement = BadgePlacement.BottomRight)
         {
-            if (FieldCodeBadge.Show(target, text, below: below) is { } badge)
+            if (FieldCodeBadge.Show(target, text, placement) is { } badge)
             {
                 _badges.Add(badge);
             }
@@ -493,13 +493,16 @@ public class RibbonView : TemplatedControl
             column.Children.Add(new RibbonButton(command, command.IconOnly ? RibbonButtonKind.IconOnly : RibbonButtonKind.Small, Invoke));
         }
 
-        var label = new TextBlock { Text = group.Label, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 3, 0, 0) };
+        var label = new TextBlock { Text = group.Label, HorizontalAlignment = HorizontalAlignment.Center };
         label.Classes.Add("ribbon-group-label");
-        anchors?.Add((label, group.Digit));
+
+        // The label sits in a row with 20 px of room on each side: the key tip of the group (the digit) takes the right one without covering the text.
+        var labelRow = new Border { Child = label, Padding = new Thickness(20, 0), Margin = new Thickness(0, 3, 0, 0) };
+        anchors?.Add((labelRow, group.Digit));
 
         var panel = new StackPanel { Margin = new Thickness(8, 0) };
         panel.Children.Add(commands);
-        panel.Children.Add(label);
+        panel.Children.Add(labelRow);
         return panel;
     }
 

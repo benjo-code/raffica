@@ -40,6 +40,7 @@ internal static class PdfRibbon
                 CompactPlacement.Inline,
                 IconOnly: false,
                 Shortcut: command.Shortcut?.Text(mac),
+                Description: command.Description,
                 EnabledWhen: () => run is not null && (rules is null || rules.Allows(command.Id)),
                 DisabledReason: () => rules?.ReasonFor(command.Id),
                 CheckedWhen: command.Toggle ? () => isOn?.Invoke(command.Id) == true : null);

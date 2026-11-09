@@ -132,15 +132,15 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
 
     public IReadOnlyList<CatalogCommand> Commands => _commands;
 
-    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false)
+    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, bool describe = false)
     {
-        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle));
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, describe));
         return this;
     }
 }
 
 /// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
-internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size, bool toggle)
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size, bool toggle, bool describe)
 {
     public CatalogGroup Group { get; } = group;
 
@@ -167,6 +167,13 @@ internal sealed class CatalogCommand(CatalogGroup group, string id, string nameK
     /// layouts, the dark page and the panes. The window tells which of them is on (<see cref="PdfRibbon.Create"/>).
     /// </summary>
     public bool Toggle { get; } = toggle;
+
+    /// <summary>
+    /// The longer wording of the command (key <c>Desc&lt;Name&gt;</c>, for <c>CmdApplyPages</c> the key <c>DescApplyPages</c>), or null. The tooltip shows it,
+    /// the title search shows it when the command has no shortcut, and it tells apart commands whose short names are alike (the page undo and the undo
+    /// of Home, Discard of the pages and of Redact).
+    /// </summary>
+    public string? Description => describe ? PdfStrings.Get("Desc" + NameKey["Cmd".Length..]) : null;
 }
 
 /// <summary>
@@ -208,8 +215,8 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.DocumentInfo, "CmdDocumentInfo", "Info", "72")
             .Add(PdfCommandIds.Update, "CmdCheckForUpdates", "RefreshCw", "73");
         home.Group("GroupHistory", "8")
-            .Add(PdfCommandIds.Undo, "CmdUndo", "Undo", "81", Cmd(Key.Z, "Z", repeat: true))
-            .Add(PdfCommandIds.Redo, "CmdRedo", "Redo", "82", Cmd(Key.Z, "Z", shift: true, repeat: true, also: Cmd(Key.Y, "Y", repeat: true)));
+            .Add(PdfCommandIds.Undo, "CmdUndo", "Undo", "81", Cmd(Key.Z, "Z", repeat: true), describe: true)
+            .Add(PdfCommandIds.Redo, "CmdRedo", "Redo", "82", Cmd(Key.Z, "Z", shift: true, repeat: true, also: Cmd(Key.Y, "Y", repeat: true)), describe: true);
 
         // Letter A for the tab (the pane codes 6 and 7 belong to the panes and Q to the title bar search, none is a tab letter).
         var annotate = new CatalogTab("TabAnnotate", "A");
@@ -225,7 +232,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.Arrow, "CmdArrow", "MoveUpRight", "25")
             .Add(PdfCommandIds.TextBox, "CmdTextBox", "Type", "26");
         annotate.Group("GroupEdit", "3")
-            .Add(PdfCommandIds.AnnotateMode, "CmdAnnotateMode", "PenLine", "31", Cmd(Key.K, "K", shift: true), CommandSize.Large)
+            .Add(PdfCommandIds.AnnotateMode, "CmdAnnotateMode", "PenLine", "31", Cmd(Key.K, "K", shift: true), CommandSize.Large, describe: true)
             .Add(PdfCommandIds.SelectMark, "CmdSelectMark", "MousePointer", "32", Cmd(Key.M, "M", shift: true))
             .Add(PdfCommandIds.AnnotateDone, "CmdAnnotateDone", "Check", "33")
             .Add(PdfCommandIds.MarksPane, "CmdMarksPane", "PanelRight", "34");
@@ -242,34 +249,34 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.FormsNext, "CmdFormsNext", "CornerRightDown", "11")
             .Add(PdfCommandIds.FormsPrevious, "CmdFormsPrevious", "CornerLeftUp", "12")
             .Add(PdfCommandIds.FormsNextRequired, "CmdFormsNextRequired", "TriangleAlert", "13")
-            .Add(PdfCommandIds.FormsHighlight, "CmdFormsHighlight", "Brush", "14");
+            .Add(PdfCommandIds.FormsHighlight, "CmdFormsHighlight", "Brush", "14", describe: true);
 
         // Letter P for the tab (free: the frame keeps Q, 6 and 7). No command has a shortcut: the keys of the mode belong to the list of the pages pane
         // (Alt+Up, Delete, [ and ] and so on), and Ctrl+Z and Ctrl+Y are the Home tab's, which go to the plan while the mode is on. The Output group
         // (digit 5) sits before the destructive one (digit 6) so that stays last.
         var pages = new CatalogTab("TabPages", "P");
         pages.Group("GroupOrganize", "1")
-            .Add(PdfCommandIds.Organize, "CmdOrganize", "LayoutGrid", "11", size: CommandSize.Large);
+            .Add(PdfCommandIds.Organize, "CmdOrganize", "LayoutGrid", "11", size: CommandSize.Large, describe: true);
         pages.Group("GroupEdit", "2")
-            .Add(PdfCommandIds.RotateLeft, "CmdRotateLeft", "RotateCcw", "21")
-            .Add(PdfCommandIds.RotateRight, "CmdRotateRight", "RotateCw", "22")
-            .Add(PdfCommandIds.DuplicatePages, "CmdDuplicatePages", "CopyPlus", "23")
-            .Add(PdfCommandIds.BlankPage, "CmdBlankPage", "FilePlus", "24")
-            .Add(PdfCommandIds.InsertFile, "CmdInsertFile", "FileInput", "25")
-            .Add(PdfCommandIds.MovePagesUp, "CmdMovePagesUp", "MoveUp", "26")
-            .Add(PdfCommandIds.MovePagesDown, "CmdMovePagesDown", "MoveDown", "27");
+            .Add(PdfCommandIds.RotateLeft, "CmdRotateLeft", "RotateCcw", "21", describe: true)
+            .Add(PdfCommandIds.RotateRight, "CmdRotateRight", "RotateCw", "22", describe: true)
+            .Add(PdfCommandIds.DuplicatePages, "CmdDuplicatePages", "CopyPlus", "23", describe: true)
+            .Add(PdfCommandIds.BlankPage, "CmdBlankPage", "FilePlus", "24", describe: true)
+            .Add(PdfCommandIds.InsertFile, "CmdInsertFile", "FileInput", "25", describe: true)
+            .Add(PdfCommandIds.MovePagesUp, "CmdMovePagesUp", "MoveUp", "26", describe: true)
+            .Add(PdfCommandIds.MovePagesDown, "CmdMovePagesDown", "MoveDown", "27", describe: true);
         pages.Group("GroupHistory", "3")
-            .Add(PdfCommandIds.PagesUndo, "CmdPagesUndo", "Undo", "31")
-            .Add(PdfCommandIds.PagesRedo, "CmdPagesRedo", "Redo", "32");
+            .Add(PdfCommandIds.PagesUndo, "CmdPagesUndo", "Undo", "31", describe: true)
+            .Add(PdfCommandIds.PagesRedo, "CmdPagesRedo", "Redo", "32", describe: true);
         pages.Group("GroupApply", "4")
-            .Add(PdfCommandIds.ApplyPages, "CmdApplyPages", "ListChecks", "41", size: CommandSize.Large)
-            .Add(PdfCommandIds.DiscardPages, "CmdDiscardPages", "CircleX", "42");
+            .Add(PdfCommandIds.ApplyPages, "CmdApplyPages", "ListChecks", "41", size: CommandSize.Large, describe: true)
+            .Add(PdfCommandIds.DiscardPages, "CmdDiscardPages", "CircleX", "42", describe: true);
         pages.Group("GroupOutput", "5")
-            .Add(PdfCommandIds.ExtractPages, "CmdExtractPages", "FileOutput", "51")
-            .Add(PdfCommandIds.SplitDocument, "CmdSplitDocument", "Scissors", "52")
-            .Add(PdfCommandIds.ExportImages, "CmdExportImages", "ImageDown", "53");
+            .Add(PdfCommandIds.ExtractPages, "CmdExtractPages", "FileOutput", "51", describe: true)
+            .Add(PdfCommandIds.SplitDocument, "CmdSplitDocument", "Scissors", "52", describe: true)
+            .Add(PdfCommandIds.ExportImages, "CmdExportImages", "ImageDown", "53", describe: true);
         pages.Group("GroupDelete", "6", destructive: true)
-            .Add(PdfCommandIds.DeletePages, "CmdDeletePages", "FileX", "61");
+            .Add(PdfCommandIds.DeletePages, "CmdDeletePages", "FileX", "61", describe: true);
 
         // Letter R for the tab (free: the frame keeps Q, 6 and 7). Only the mode command is usable before the mode is on; the rest follow it.
         // The Delete group (digit 5) holds the one command that removes marks and stays last.
@@ -283,7 +290,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.RedactRasterPage, "CmdRedactRasterPage", "Image", "31");
         redact.Group("GroupApply", "4")
             .Add(PdfCommandIds.RedactApply, "CmdRedactApply", "Eraser", "41", size: CommandSize.Large)
-            .Add(PdfCommandIds.RedactDiscard, "CmdRedactDiscard", "Undo2", "42");
+            .Add(PdfCommandIds.RedactDiscard, "CmdRedactDiscard", "Undo2", "42", describe: true);
         redact.Group("GroupDelete", "5", destructive: true)
             .Add(PdfCommandIds.RedactDeleteMarks, "CmdRedactDeleteMarks", "SquareX", "51");
 

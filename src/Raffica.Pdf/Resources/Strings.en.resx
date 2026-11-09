@@ -3333,4 +3333,67 @@
   <data name="CrashOpenFolder" xml:space="preserve">
     <value>Open folder</value>
   </data>
+  <data name="DescAnnotateMode" xml:space="preserve">
+    <value>Turn the annotate mode on or off</value>
+  </data>
+  <data name="DescFormsHighlight" xml:space="preserve">
+    <value>Show or hide the highlight of the form fields</value>
+  </data>
+  <data name="DescOrganize" xml:space="preserve">
+    <value>Open or close the page organizer</value>
+  </data>
+  <data name="DescRotateLeft" xml:space="preserve">
+    <value>Rotate the selected pages 90° counterclockwise</value>
+  </data>
+  <data name="DescRotateRight" xml:space="preserve">
+    <value>Rotate the selected pages 90° clockwise</value>
+  </data>
+  <data name="DescDuplicatePages" xml:space="preserve">
+    <value>Duplicate the selected pages</value>
+  </data>
+  <data name="DescBlankPage" xml:space="preserve">
+    <value>Insert a blank page</value>
+  </data>
+  <data name="DescInsertFile" xml:space="preserve">
+    <value>Insert pages from another PDF file</value>
+  </data>
+  <data name="DescMovePagesUp" xml:space="preserve">
+    <value>Move the selected pages up</value>
+  </data>
+  <data name="DescMovePagesDown" xml:space="preserve">
+    <value>Move the selected pages down</value>
+  </data>
+  <data name="DescPagesUndo" xml:space="preserve">
+    <value>Undo the last page change</value>
+  </data>
+  <data name="DescPagesRedo" xml:space="preserve">
+    <value>Redo the page change you undid</value>
+  </data>
+  <data name="DescApplyPages" xml:space="preserve">
+    <value>Write the page changes into the file</value>
+  </data>
+  <data name="DescDiscardPages" xml:space="preserve">
+    <value>Discard the page changes</value>
+  </data>
+  <data name="DescExtractPages" xml:space="preserve">
+    <value>Save pages as a new PDF file</value>
+  </data>
+  <data name="DescSplitDocument" xml:space="preserve">
+    <value>Split the document into several files</value>
+  </data>
+  <data name="DescExportImages" xml:space="preserve">
+    <value>Export pages as PNG images</value>
+  </data>
+  <data name="DescDeletePages" xml:space="preserve">
+    <value>Delete the selected pages</value>
+  </data>
+  <data name="DescRedactDiscard" xml:space="preserve">
+    <value>Discard the redaction marks</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Undo the last change</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Redo the change you undid</value>
+  </data>
 </root>

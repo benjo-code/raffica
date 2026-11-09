@@ -349,4 +349,27 @@ public sealed class SearchFieldTests
         Assert.Equal(["Pages"], Headings(search).Select(h => h.Text));
         Assert.Contains(Rows(search), r => r.Label == "Page 3");
     }
+
+    [AvaloniaFact]
+    public void ACommandWithoutAShortcutShowsItsDescriptionOnTheRight()
+    {
+        var tab = new RibbonTabDefinition("T", "T",
+        [
+            new RibbonGroupDefinition("G", "1",
+            [
+                new CommandDefinition("a.undo", "Undo", "Raffica.Icon.Undo", "11", Shortcut: "Ctrl+Z", Description: "Undo the last change"),
+                new CommandDefinition("b.undo", "Undo", "Raffica.Icon.Undo", "12", Description: "Undo the last page change"),
+            ]),
+        ]);
+        var search = new SearchField { Source = new RibbonDefinition([tab]), Width = 300, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+        var window = ControlHarness.Show(search, ThemeMode.Light);
+        Type(window, search, "undo");
+
+        var rows = Rows(search);
+        Assert.Equal(2, rows.Count);
+        var texts = rows.Select(r => ControlHarness.Descendants(r).OfType<TextBlock>().Select(t => t.Text).ToList()).ToList();
+        Assert.Contains("Ctrl+Z", texts[0]);
+        Assert.DoesNotContain("Undo the last change", texts[0]);
+        Assert.Contains("Undo the last page change", texts[1]);
+    }
 }

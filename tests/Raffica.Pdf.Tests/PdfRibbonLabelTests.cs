@@ -49,7 +49,7 @@ public sealed class PdfRibbonLabelTests
 
     [AvaloniaTheory]
     [MemberData(nameof(LanguagesAndWidths))]
-    public async Task NoLabelOfAnyTabIsClippedOrCutInTheMiddleOfAWord(string language, int width)
+    public async Task NoRibbonLabelOfAnyTabIsClippedOrCutInTheMiddleOfAWord(string language, int width)
     {
         using var f = await PdfRibbonLayoutTests.ShowWithDocumentAsync(language, width);
         var window = f.Window;
@@ -58,6 +58,8 @@ public sealed class PdfRibbonLabelTests
         {
             window.Ribbon.ActiveTab = tab;
             PdfRibbonLayoutTests.Layout(window);
+
+            // The ribbon only: the status bar text of the page size is reported by LabelFit as well and belongs to the status bar review (Task 11).
             clipped.AddRange(LabelFit.FindClipped(window).Where(c => c.Contains("(ribbon", StringComparison.Ordinal)).Select(c => $"{tab.Name}: {c}"));
         }
 
@@ -116,5 +118,50 @@ public sealed class PdfRibbonLabelTests
         await f.OpenAsync("text-rich.pdf");
         Assert.True(Command("doc.info").IsEnabled);
         Assert.True(Command("app.update").IsEnabled);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void CommandsWithTheSameShortNameCanBeToldApartByTheirDescription(string language)
+    {
+        var culture = CultureInfo.GetCultureInfo(language);
+        Raffica.Shell.Localization.ShellStrings.Culture = culture;
+        PdfStrings.Culture = culture;
+        using var f = WindowFixture.Create(width: 1920, height: 700);
+        var commands = f.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
+
+        var duplicates = commands.GroupBy(c => c.Name).Where(g => g.Count() > 1).ToList();
+        Assert.True(duplicates.Count > 0 || language == "en", "German has commands with the same short name (the review premise)");
+        foreach (var group in duplicates)
+        {
+            Assert.All(group, c => Assert.False(string.IsNullOrWhiteSpace(c.Description), $"[{language}] '{group.Key}' ({c.Id}) has the name of another command and no description"));
+            Assert.Equal(group.Count(), group.Select(c => c.Description).Distinct().Count());
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void ThePagesCommandsAndTheShortenedOnesHaveALongerDescriptionInTheTooltip(string language)
+    {
+        var culture = CultureInfo.GetCultureInfo(language);
+        Raffica.Shell.Localization.ShellStrings.Culture = culture;
+        PdfStrings.Culture = culture;
+        using var f = WindowFixture.Create(width: 1920, height: 700);
+        var commands = f.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToDictionary(c => c.Id);
+
+        var pages = f.Window.Ribbon.Definition!.Tabs.Single(t => t.Letter == PdfRibbon.PagesLetter).Groups.SelectMany(g => g.Commands).Select(c => c.Id);
+        foreach (var id in pages.Concat(["annotate.mode", "forms.highlight", "redact.discard"]))
+        {
+            var description = commands[id].Description;
+            Assert.False(string.IsNullOrWhiteSpace(description), $"[{language}] {id} has no description");
+            Assert.True(description!.Length <= 64, $"[{language}] {id}: the description is too long for a search row: {description}");
+            Assert.NotEqual(commands[id].Name, description);
+        }
+
+        // The wording that was shortened for the label is complete in the description.
+        Assert.Equal(PdfStrings.GetIn("DescPagesUndo", culture), commands["pages.undo"].Description);
+        Assert.NotEqual(commands["edit.undo"].Description, commands["pages.undo"].Description);
     }
 }

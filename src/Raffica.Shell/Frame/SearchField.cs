@@ -273,11 +273,11 @@ public class SearchField : TemplatedControl
     }
 }
 
-/// <summary>One result of the <see cref="SearchField"/>, a command or a <see cref="SearchEntry"/>: 32 px high, the name on the left, the shortcut (or the detail) on the right.</summary>
+/// <summary>One result of the <see cref="SearchField"/>, a command or a <see cref="SearchEntry"/>: 32 px high, the name on the left, the shortcut on the right (a command without a shortcut shows its description there, which tells commands with alike names apart; an entry its detail).</summary>
 internal sealed class SearchResultRow : Border
 {
     public SearchResultRow(CommandDefinition command)
-        : this(command.Name, command.Shortcut is { Length: > 0 } shortcut ? KeyNames.Format(shortcut, ShellStrings.Culture) : null, "search-shortcut")
+        : this(command.Name, command.Shortcut is { Length: > 0 } shortcut ? KeyNames.Format(shortcut, ShellStrings.Culture) : command.Description, command.Shortcut is { Length: > 0 } ? "search-shortcut" : "search-detail")
     {
         Command = command;
         ShortcutText = command.Shortcut;

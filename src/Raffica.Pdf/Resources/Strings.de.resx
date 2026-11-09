@@ -3317,4 +3317,67 @@
   <data name="CrashOpenFolder" xml:space="preserve">
     <value>Ordner öffnen</value>
   </data>
+  <data name="DescAnnotateMode" xml:space="preserve">
+    <value>Anmerkungsmodus ein- oder ausschalten</value>
+  </data>
+  <data name="DescFormsHighlight" xml:space="preserve">
+    <value>Hervorhebung der Formularfelder ein- oder ausblenden</value>
+  </data>
+  <data name="DescOrganize" xml:space="preserve">
+    <value>Seitenorganisation öffnen oder schließen</value>
+  </data>
+  <data name="DescRotateLeft" xml:space="preserve">
+    <value>Ausgewählte Seiten um 90° nach links drehen</value>
+  </data>
+  <data name="DescRotateRight" xml:space="preserve">
+    <value>Ausgewählte Seiten um 90° nach rechts drehen</value>
+  </data>
+  <data name="DescDuplicatePages" xml:space="preserve">
+    <value>Ausgewählte Seiten duplizieren</value>
+  </data>
+  <data name="DescBlankPage" xml:space="preserve">
+    <value>Eine leere Seite einfügen</value>
+  </data>
+  <data name="DescInsertFile" xml:space="preserve">
+    <value>Seiten aus einer anderen PDF-Datei einfügen</value>
+  </data>
+  <data name="DescMovePagesUp" xml:space="preserve">
+    <value>Ausgewählte Seiten nach oben verschieben</value>
+  </data>
+  <data name="DescMovePagesDown" xml:space="preserve">
+    <value>Ausgewählte Seiten nach unten verschieben</value>
+  </data>
+  <data name="DescPagesUndo" xml:space="preserve">
+    <value>Letzte Seitenänderung rückgängig machen</value>
+  </data>
+  <data name="DescPagesRedo" xml:space="preserve">
+    <value>Rückgängig gemachte Seitenänderung wiederholen</value>
+  </data>
+  <data name="DescApplyPages" xml:space="preserve">
+    <value>Seitenänderungen in die Datei schreiben</value>
+  </data>
+  <data name="DescDiscardPages" xml:space="preserve">
+    <value>Seitenänderungen verwerfen</value>
+  </data>
+  <data name="DescExtractPages" xml:space="preserve">
+    <value>Seiten als neue PDF-Datei speichern</value>
+  </data>
+  <data name="DescSplitDocument" xml:space="preserve">
+    <value>Dokument in mehrere Dateien teilen</value>
+  </data>
+  <data name="DescExportImages" xml:space="preserve">
+    <value>Seiten als PNG-Bilder exportieren</value>
+  </data>
+  <data name="DescDeletePages" xml:space="preserve">
+    <value>Ausgewählte Seiten löschen</value>
+  </data>
+  <data name="DescRedactDiscard" xml:space="preserve">
+    <value>Schwärzungsmarkierungen verwerfen</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Letzte Änderung rückgängig machen</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Rückgängig gemachte Änderung wiederholen</value>
+  </data>
 </root>
