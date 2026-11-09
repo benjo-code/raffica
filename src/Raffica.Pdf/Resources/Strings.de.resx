@@ -3182,6 +3182,12 @@
   <data name="AboutProjectFormat" xml:space="preserve">
     <value>Projekt: {0}</value>
   </data>
+  <data name="AboutProjectLabel" xml:space="preserve">
+    <value>Projekt:</value>
+  </data>
+  <data name="AboutNoticeTitleMoreFormat" xml:space="preserve">
+    <value>{0} und {1} weitere - {2}</value>
+  </data>
   <data name="AboutNoticesHeading" xml:space="preserve">
     <value>Hinweise zu Drittsoftware</value>
   </data>

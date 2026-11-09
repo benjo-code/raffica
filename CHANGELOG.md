@@ -37,6 +37,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF: the About card fits its card (the notices list is no longer wider than the card, the intro wraps), the component rows open and close like a disclosure instead of turning pink, each row names the component and its licence, the project address is a link that asks before it opens, and the German notice text says "enthält" with its umlaut.
 - Raffica PDF: screen readers now find the page view as a document named "<file>, page 3 of 12" (it follows the current page, in English and German) and the status bar cells (save state, position, page count, zoom value) with their text.
 - Raffica PDF: cards and dialogs scroll when the window is small or the display scaling is large (Settings, for example, was cut off at 150% scaling): the card is never taller than the window less 48 px, its body scrolls and the focused control is brought into view with Tab.
 - Raffica PDF: the status bar no longer cuts its cells: the save state says "Unsaved" ("Nicht gespeichert"), and the page count with its size ("128 pages · 210 × 297 mm") and the position ("Page 1000 of 1000") grow with their text, in English and German.

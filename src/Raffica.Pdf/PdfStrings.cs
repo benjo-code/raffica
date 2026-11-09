@@ -717,6 +717,8 @@ internal static class PdfStrings
     public static string AboutVersionFormat => Table.Get("AboutVersionFormat");
     public static string AboutLicenseFormat => Table.Get("AboutLicenseFormat");
     public static string AboutProjectFormat => Table.Get("AboutProjectFormat");
+    public static string AboutProjectLabel => Table.Get("AboutProjectLabel");
+    public static string AboutNoticeTitleMoreFormat => Table.Get("AboutNoticeTitleMoreFormat");
     public static string AboutNoticesHeading => Table.Get("AboutNoticesHeading");
     public static string AboutNoticesName => Table.Get("AboutNoticesName");
     public static string CmdAbout => Table.Get("CmdAbout");

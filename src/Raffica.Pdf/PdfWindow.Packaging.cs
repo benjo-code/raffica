@@ -63,7 +63,9 @@ internal sealed partial class PdfWindow
     {
         var notices = NoticesSource();
         return Dialogs.ShowAsync<bool>(done => AboutCard.Create(
-            AppInfo.Version, UpdateTrust.TestBuildNote(PdfStrings.Culture), notices, () => done(true)));
+            AppInfo.Version, UpdateTrust.TestBuildNote(PdfStrings.Culture), notices, () => done(true),
+            // The link closes the card first; the confirmation card then waits in the queue behind it for a moment and shows.
+            () => _ = GuardAsync(() => OpenAddressAfterConfirmationAsync(AboutCard.ProjectAddress))));
     }
 
     /// <summary>The command "Make Raffica the default app for PDFs" (the palette, the settings dialog).</summary>

@@ -604,7 +604,7 @@ static partial class Inventory
         var before = errors.Count;
         var sb = new StringBuilder();
         sb.Append("Hinweise zu Drittsoftware / Third-party notices\n\n");
-        sb.Append("Raffica PDF steht unter der GPL-3.0-or-later. Es enthaelt oder nutzt die folgenden Komponenten unter ihren eigenen Lizenzen.\n");
+        sb.Append("Raffica PDF steht unter der GPL-3.0-or-later. Es enthält oder nutzt die folgenden Komponenten unter ihren eigenen Lizenzen.\n");
         sb.Append("Raffica PDF is licensed under the GPL-3.0-or-later. It includes or uses the following components under their own licences.\n\n");
 
         sb.Append("====\n");
@@ -873,6 +873,9 @@ static class SelfTest
         Expect("both PDFium packages are in the section", text.Contains("bblanchon.PDFium.Linux 1.2.3\nbblanchon.PDFium.Win32 1.2.3\nApache-2.0", StringComparison.Ordinal), true);
         Expect("shipped=false is not in the notices", text.Contains("BuildOnly", StringComparison.Ordinal), false);
         Expect("notices file ends with a separator", text.EndsWith("====\n", StringComparison.Ordinal), true);
+        Expect("the intro says enthält with the umlaut", text.Contains("Es enthält oder nutzt", StringComparison.Ordinal), true);
+        var written = File.ReadAllBytes(f.Paths.Notices);
+        Expect("the notices are UTF-8 without a BOM (the umlaut is C3 A4)", written.AsSpan(0, 3).SequenceEqual("Hin"u8) && written.AsSpan().IndexOf("enthält"u8) >= 0, true);
 
         // Latin-1 licence text (FreeType in the PDFium archive) is decoded, not turned into U+FFFD.
         File.WriteAllBytes(Path.Combine(f.Dir, "third-party", "pdfium", "licenses", "a.txt"), [0x4D, 0xFC, 0x6C, 0x6C, 0x65, 0x72, 0x0A]);

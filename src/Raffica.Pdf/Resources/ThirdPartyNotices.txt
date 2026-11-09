@@ -1,6 +1,6 @@
 Hinweise zu Drittsoftware / Third-party notices
 
-Raffica PDF steht unter der GPL-3.0-or-later. Es enthaelt oder nutzt die folgenden Komponenten unter ihren eigenen Lizenzen.
+Raffica PDF steht unter der GPL-3.0-or-later. Es enthält oder nutzt die folgenden Komponenten unter ihren eigenen Lizenzen.
 Raffica PDF is licensed under the GPL-3.0-or-later. It includes or uses the following components under their own licences.
 
 ====

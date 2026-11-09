@@ -73,6 +73,15 @@
     <Style Selector="^.icon">
       <Setter Property="Padding" Value="0" />
     </Style>
+    <!-- link: an address or name that opens something; the ink colour, no fill, as high as its text. Its content is a TextBlock with the class link (Typography.axaml): the underline -->
+    <Style Selector="^.link">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
 
     <!-- Hover -->
     <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
