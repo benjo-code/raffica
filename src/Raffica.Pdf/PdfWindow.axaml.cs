@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Raffica.Core.Hosting;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
@@ -265,7 +266,7 @@ internal sealed partial class PdfWindow : Window
             Height = fit.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
             Position = new PixelPoint((int)fit.X, (int)fit.Y);
-            _restoreBounds = fit with { Maximized = false };
+            NoteBounds(fit, long.MinValue / 2);
             if (fit.Maximized)
             {
                 WindowState = WindowState.Maximized;
@@ -278,8 +279,10 @@ internal sealed partial class PdfWindow : Window
         }
     }
 
-    // The restore bounds are the last ones seen in the normal state; a maximized or minimized window keeps them, and a window that is minimized when it closes
-    // is stored as it was before.
+    // The restore bounds are the last ones seen in the normal state. A real window system may raise the position or size event of a maximize or a minimize before the
+    // window state changes (Win32 does), so such a snapshot looks like a normal one. Every snapshot is kept with its time; when the state turns Maximized or Minimized, the
+    // snapshots of the last TransitionMs are dropped and the newest older one is the restore bounds. The minimized sentinel position (-32000) and a size of zero are never
+    // snapshots.
     private void TrackPlacement()
     {
         PositionChanged += (_, _) => TrackBounds();
@@ -289,20 +292,69 @@ internal sealed partial class PdfWindow : Window
 
     private void TrackBounds()
     {
-        if (WindowState == WindowState.Normal && IsVisible && ClientSize.Width > 0 && ClientSize.Height > 0)
+        if (WindowState == WindowState.Normal && IsVisible)
         {
-            _restoreBounds = new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, false);
+            NoteBounds(new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, false), Environment.TickCount64);
         }
     }
 
-    private void TrackState(WindowState state)
+    private void TrackState(WindowState state) => NoteState(state, Environment.TickCount64);
+
+    /// <summary>How long before a change of the window state a position or size is still counted as part of that change.</summary>
+    internal const long TransitionMs = 300;
+
+    /// <summary>Positions at or below this are the sentinel of a minimized window, not a place.</summary>
+    internal const double MinimizedSentinel = -30000;
+
+    private readonly List<(WindowPlacement Bounds, long At)> _boundsHistory = [];
+
+    /// <summary>The bounds that would be stored for the restore now (tests).</summary>
+    internal WindowPlacement? RestoreBounds => _restoreBounds;
+
+    /// <summary>Notes the bounds the window has in the normal state at time <paramref name="now"/> (milliseconds); a sentinel position or an empty size is ignored.</summary>
+    internal void NoteBounds(WindowPlacement bounds, long now)
+    {
+        if (!bounds.IsUsable || bounds.X <= MinimizedSentinel || bounds.Y <= MinimizedSentinel)
+        {
+            return;
+        }
+
+        if (_restoreBounds is { } current && current == bounds with { Maximized = false })
+        {
+            return;
+        }
+
+        _restoreBounds = bounds with { Maximized = false };
+        _boundsHistory.Add((_restoreBounds, now));
+        if (_boundsHistory.Count > 16)
+        {
+            _boundsHistory.RemoveAt(0);
+        }
+    }
+
+    /// <summary>Notes a change of the window state at time <paramref name="now"/> (milliseconds).</summary>
+    internal void NoteState(WindowState state, long now)
     {
         if (state != WindowState.Minimized)
         {
             _maximized = state is WindowState.Maximized or WindowState.FullScreen;
         }
 
-        TrackBounds();
+        if (state is WindowState.Maximized or WindowState.Minimized or WindowState.FullScreen)
+        {
+            // What arrived just before is part of this change: the newest older snapshot (the oldest one there is, when all are that young) is the restore bounds.
+            var stable = _boundsHistory.FindLastIndex(entry => now - entry.At >= TransitionMs);
+            var keep = stable >= 0 ? stable : (_boundsHistory.Count > 0 ? 0 : -1);
+            if (keep >= 0)
+            {
+                _restoreBounds = _boundsHistory[keep].Bounds;
+                _boundsHistory.RemoveRange(keep + 1, _boundsHistory.Count - keep - 1);
+            }
+        }
+        else
+        {
+            TrackBounds();
+        }
     }
 
     private void RememberPlacement()
@@ -1208,7 +1260,8 @@ internal sealed partial class PdfWindow : Window
         UpdateMarksPane();
         UpdateViewStatus();
 
-        // A card that is open owns the focus (a file that arrives behind it must not pull the focus away); the host gives it back to the view when it closes.
+        // A card that is open owns the focus (a file that arrives behind it must not pull the focus away); when the host closes it gives the focus back to the control that
+        // had it before the card (not necessarily this view).
         Dispatcher.UIThread.Post(
             () =>
             {
@@ -1711,11 +1764,13 @@ internal sealed partial class PdfWindow : Window
 
     // The question goes through the dialog queue: behind a card that is open (an error card, a password question) it waits and appears when the host is free, instead of
     // being answered Cancel. The window is brought to the front, so the user sees why it did not close. The one exception is a file job: its card is no question the
-    // user can end, and a close that meets it is answered Cancel as before (the tab stays, the job runs on).
+    // user can end, and a close that meets it is answered Cancel as before (the tab stays, the job runs on), after the window was brought to the front so the user sees
+    // the job that holds it. Only the job's own card counts: any other card waits.
     private Task<CloseChoice> AskAsync(PdfTab tab, UnsavedKind kind)
     {
-        if (Host.IsOpen && BusyWithFileJob())
+        if (Host.IsOpen && BusyWithFileJob() && Host.ActiveDialog!.GetVisualDescendants().OfType<SaveJobCard>().Any())
         {
+            BringToFront();
             return Task.FromResult(CloseChoice.Cancel);
         }
 
@@ -1770,7 +1825,7 @@ internal sealed partial class PdfWindow : Window
         e.Cancel = true;
 
         // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions.
-        if (IsCloseRunning && Host.IsOpen)
+        if (IsCloseRunning)
         {
             return;
         }

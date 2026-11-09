@@ -114,7 +114,7 @@ public sealed class WindowPlacementWindowTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void AWindowThatIsMaximizedWhenItClosesStoresTheBoundsOfBeforeAndTheFlag()
+    public async Task AWindowThatIsMaximizedWhenItClosesStoresTheBoundsOfBeforeAndTheFlag()
     {
         var window = Make();
         window.Show();
@@ -123,6 +123,7 @@ public sealed class WindowPlacementWindowTests : IDisposable
         window.Width = 1100;
         window.Height = 700;
         Pump();
+        await Task.Delay((int)PdfWindow.TransitionMs + 100, TestContext.Current.CancellationToken);
         window.WindowState = WindowState.Maximized;
         Pump();
 
@@ -161,5 +162,63 @@ public sealed class WindowPlacementWindowTests : IDisposable
 
         Assert.Equal(placement, window.Settings.Shell.WindowPlacement);
         Assert.Equal(placement, new SettingsStore(SettingsPath).Load().WindowPlacement);
+    }
+
+    [AvaloniaFact]
+    public void APositionThatArrivesBeforeTheMaximizedStateIsNotTheRestoreBounds()
+    {
+        var window = Make();
+        window.Show();
+        Pump();
+        var at = Environment.TickCount64 + 100_000;
+        var normal = new WindowPlacement(100, 80, 1100, 700, false);
+        window.NoteBounds(normal, at);
+
+        // Win32 raises the move to the maximized corner (and the old size) before the state changes.
+        window.NoteBounds(new WindowPlacement(-8, -8, 1100, 700, false), at + 8_990);
+        window.NoteState(WindowState.Maximized, at + 9_000);
+
+        Assert.Equal(normal, window.RestoreBounds);
+        window.Close();
+        Pump();
+        var stored = new SettingsStore(SettingsPath).Load().WindowPlacement;
+        Assert.NotNull(stored);
+        Assert.True(stored.Maximized);
+        Assert.Equal(100, stored.X);
+        Assert.Equal(80, stored.Y);
+        Assert.Equal(1100, stored.Width);
+    }
+
+    [AvaloniaFact]
+    public void ASizeThatArrivesBeforeTheMinimizedStateAndTheSentinelPositionAreNotKept()
+    {
+        var window = Make();
+        var normal = new WindowPlacement(100, 80, 1100, 700, false);
+        window.NoteBounds(normal, 1_000);
+
+        window.NoteBounds(new WindowPlacement(-32000, -32000, 1100, 700, false), 9_980);
+        window.NoteBounds(new WindowPlacement(100, 80, 0, 0, false), 9_985);
+        Assert.Equal(normal, window.RestoreBounds);
+
+        window.NoteBounds(new WindowPlacement(120, 90, 160, 28, false), 9_990);
+        window.NoteState(WindowState.Minimized, 10_000);
+        Assert.Equal(normal, window.RestoreBounds);
+
+        // Restoring brings the normal state back, and a later real move is noted again.
+        window.NoteState(WindowState.Normal, 12_000);
+        window.NoteBounds(new WindowPlacement(140, 100, 1000, 650, false), 20_000);
+        Assert.Equal(new WindowPlacement(140, 100, 1000, 650, false), window.RestoreBounds);
+    }
+
+    [AvaloniaFact]
+    public void AMoveThatIsLongBeforeTheMaximizeStaysTheRestoreBounds()
+    {
+        var window = Make();
+        window.NoteBounds(new WindowPlacement(100, 80, 1100, 700, false), 1_000);
+        window.NoteBounds(new WindowPlacement(200, 120, 1000, 650, false), 5_000);
+
+        window.NoteState(WindowState.Maximized, 9_000);
+
+        Assert.Equal(new WindowPlacement(200, 120, 1000, 650, false), window.RestoreBounds);
     }
 }
