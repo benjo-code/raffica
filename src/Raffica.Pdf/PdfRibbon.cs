@@ -21,7 +21,8 @@ internal static class PdfRibbon
 
     /// <param name="commands">What the commands do.</param>
     /// <param name="rules">When they may run (null: whenever an action is wired).</param>
-    public static RibbonDefinition Create(PdfCommands commands, PdfCommandRules? rules = null)
+    /// <param name="isOn">Whether a switch or choice command (<see cref="CatalogCommand.Toggle"/>) is on now, by command id (null: none is).</param>
+    public static RibbonDefinition Create(PdfCommands commands, PdfCommandRules? rules = null, Func<string, bool>? isOn = null)
     {
         ArgumentNullException.ThrowIfNull(commands);
 
@@ -40,7 +41,8 @@ internal static class PdfRibbon
                 IconOnly: false,
                 Shortcut: command.Shortcut?.Text(mac),
                 EnabledWhen: () => run is not null && (rules is null || rules.Allows(command.Id)),
-                DisabledReason: () => rules?.ReasonFor(command.Id));
+                DisabledReason: () => rules?.ReasonFor(command.Id),
+                CheckedWhen: command.Toggle ? () => isOn?.Invoke(command.Id) == true : null);
         }
 
         var tabs = PdfCommandCatalog.Tabs

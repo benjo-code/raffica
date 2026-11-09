@@ -130,15 +130,15 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
 
     public IReadOnlyList<CatalogCommand> Commands => _commands;
 
-    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small)
+    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false)
     {
-        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size));
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle));
         return this;
     }
 }
 
 /// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
-internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size)
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size, bool toggle)
 {
     public CatalogGroup Group { get; } = group;
 
@@ -159,6 +159,12 @@ internal sealed class CatalogCommand(CatalogGroup group, string id, string nameK
     public PdfShortcut? Shortcut { get; } = shortcut;
 
     public CommandSize Size { get; } = size;
+
+    /// <summary>
+    /// Whether the command is a switch or a choice that shows its state (pressed and the UIA Toggle state): the zoom fit modes, the page
+    /// layouts, the dark page and the panes. The window tells which of them is on (<see cref="PdfRibbon.Create"/>).
+    /// </summary>
+    public bool Toggle { get; } = toggle;
 }
 
 /// <summary>
@@ -291,19 +297,19 @@ internal static class PdfCommandCatalog
         view.Group("GroupZoom", "1")
             .Add(PdfCommandIds.ZoomIn, "CmdZoomIn", "ZoomIn", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
             .Add(PdfCommandIds.ZoomOut, "CmdZoomOut", "ZoomOut", "12", Cmd(Key.OemMinus, "-", anyShift: true, alternates: [Key.Subtract], repeat: true))
-            .Add(PdfCommandIds.FitWidth, "CmdFitWidth", "MoveHorizontal", "13", Cmd(Key.D1, "1", alternates: [Key.NumPad1]))
-            .Add(PdfCommandIds.FitPage, "CmdFitPage", "Maximize", "14", Cmd(Key.D2, "2", alternates: [Key.NumPad2]))
-            .Add(PdfCommandIds.ActualSize, "CmdActualSize", "Percent", "15", Cmd(Key.D0, "0", alternates: [Key.NumPad0]));
+            .Add(PdfCommandIds.FitWidth, "CmdFitWidth", "MoveHorizontal", "13", Cmd(Key.D1, "1", alternates: [Key.NumPad1]), toggle: true)
+            .Add(PdfCommandIds.FitPage, "CmdFitPage", "Maximize", "14", Cmd(Key.D2, "2", alternates: [Key.NumPad2]), toggle: true)
+            .Add(PdfCommandIds.ActualSize, "CmdActualSize", "Percent", "15", Cmd(Key.D0, "0", alternates: [Key.NumPad0]), toggle: true);
         view.Group("GroupLayout", "2")
-            .Add(PdfCommandIds.Continuous, "CmdContinuous", "GalleryVertical", "21")
-            .Add(PdfCommandIds.SinglePage, "CmdSinglePage", "File", "22")
-            .Add(PdfCommandIds.TwoPages, "CmdTwoPages", "BookOpen", "23")
-            .Add(PdfCommandIds.TwoPagesCover, "CmdTwoPagesCover", "BookOpenText", "24");
+            .Add(PdfCommandIds.Continuous, "CmdContinuous", "GalleryVertical", "21", toggle: true)
+            .Add(PdfCommandIds.SinglePage, "CmdSinglePage", "File", "22", toggle: true)
+            .Add(PdfCommandIds.TwoPages, "CmdTwoPages", "BookOpen", "23", toggle: true)
+            .Add(PdfCommandIds.TwoPagesCover, "CmdTwoPagesCover", "BookOpenText", "24", toggle: true);
         view.Group("GroupPage", "3")
-            .Add(PdfCommandIds.DarkPage, "CmdDarkPage", "Moon", "31", Cmd(Key.D, "D", shift: true), CommandSize.Large);
+            .Add(PdfCommandIds.DarkPage, "CmdDarkPage", "Moon", "31", Cmd(Key.D, "D", shift: true), CommandSize.Large, toggle: true);
         view.Group("GroupPanes", "4")
-            .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "PanelLeft", "41", Cmd(Key.D1, "1", shift: true))
-            .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "ListTree", "42", Cmd(Key.D2, "2", shift: true));
+            .Add(PdfCommandIds.PagesPane, "CmdPagesPane", "PanelLeft", "41", Cmd(Key.D1, "1", shift: true), toggle: true)
+            .Add(PdfCommandIds.OutlinePane, "CmdOutlinePane", "ListTree", "42", Cmd(Key.D2, "2", shift: true), toggle: true);
 
         Tabs = [home, annotate, forms, pages, redact, edit, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();

@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -186,7 +188,7 @@ public class RibbonView : TemplatedControl
         // The tab buttons stay (and keep their keyboard focus); only the active mark moves.
         for (var i = 0; i < _tabStrip.Children.Count && Definition is not null; i++)
         {
-            ((Button)_tabStrip.Children[i]).Classes.Set("active", ReferenceEquals(Definition.Tabs[i], ActiveTab));
+            ((TabButton)_tabStrip.Children[i]).SetActive(ReferenceEquals(Definition.Tabs[i], ActiveTab));
         }
 
         RebuildBand();
@@ -241,11 +243,10 @@ public class RibbonView : TemplatedControl
 
         foreach (var tab in Definition.Tabs)
         {
-            var button = new Button { Content = tab.Name, Tag = tab };
-            button.Classes.Add("ribbon-tab");
-            button.Classes.Set("active", ReferenceEquals(tab, ActiveTab));
+            var button = new TabButton(tab.Name, tab, () => SetCurrentValue(ActiveTabProperty, tab));
+            button.SetActive(ReferenceEquals(tab, ActiveTab));
             AutomationProperties.SetName(button, tab.Name);
-            button.Click += (_, _) => SetCurrentValue(ActiveTabProperty, tab);
+            button.Click += (_, _) => button.Select();
             _tabStrip.Children.Add(button);
         }
 
@@ -521,5 +522,60 @@ public class RibbonView : TemplatedControl
         }
 
         return row;
+    }
+
+    /// <summary>A tab name in the tab row: a button, and for assistive technology a tab item with the selection item pattern that says whether it is the active tab.</summary>
+    private sealed class TabButton : Button
+    {
+        private readonly Action _select;
+
+        public TabButton(string name, RibbonTabDefinition tab, Action select)
+        {
+            Content = name;
+            Tag = tab;
+            _select = select;
+            Classes.Add("ribbon-tab");
+        }
+
+        public bool IsActive { get; private set; }
+
+        protected override Type StyleKeyOverride => typeof(Button);
+
+        public void Select() => _select();
+
+        public void SetActive(bool active)
+        {
+            if (active == IsActive)
+            {
+                return;
+            }
+
+            IsActive = active;
+            Classes.Set("active", active);
+            (ControlAutomationPeer.FromElement(this) as TabAutomationPeer)?.SelectionChanged(!active, active);
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new TabAutomationPeer(this);
+
+        private sealed class TabAutomationPeer(TabButton owner) : ControlAutomationPeer(owner), ISelectionItemProvider
+        {
+            public bool IsSelected => owner.IsActive;
+
+            public ISelectionProvider? SelectionContainer => null;
+
+            public void Select() => owner.Select();
+
+            public void AddToSelection() => Select();
+
+            public void RemoveFromSelection()
+            {
+                // A ribbon always has one active tab: it cannot be deselected.
+            }
+
+            public void SelectionChanged(bool oldValue, bool newValue) =>
+                RaisePropertyChangedEvent(SelectionItemPatternIdentifiers.IsSelectedProperty, oldValue, newValue);
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.TabItem;
+        }
     }
 }

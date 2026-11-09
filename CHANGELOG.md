@@ -31,6 +31,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF: faster start on Windows and a third of the idle memory through software rendering; set `RAFFICA_RENDERING=default` to use the GPU path instead.
 - Raffica PDF: the ribbon no longer clips commands in a narrow window. Below the width the full band of a tab needs (at the default window width, for example, the Home and Pages tabs) the command bar switches to the compact layout by itself, and when even that does not fit it scrolls with an arrow button at each end; Tab moves the focus into view. The setting "Compact command bar" still forces the compact layout at any width.
 - Raffica PDF: a ribbon label breaks only at a space or hyphen and never in the middle of a word, and the German names are shorter ("Anmerken", "Änderungen anwenden", "Felder hervorheben", "Rückgängig", "Wiederholen", "Verwerfen", "Als Bilder exportieren …", "Aus Datei einfügen …").
+- Raffica PDF: the View tab buttons now show what is on: the zoom fit mode (page width, whole page, actual size), the page layout, the dark page and the pane that is open are drawn pressed, and assistive technology reads them as switches that are on or off; the ribbon tabs report which one is selected.
 
 ### Fixed
 

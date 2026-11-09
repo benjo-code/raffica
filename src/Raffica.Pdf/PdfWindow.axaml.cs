@@ -128,7 +128,7 @@ internal sealed partial class PdfWindow : Window
 
         Frame = new AppFrame();
         _rules = CreateRules();
-        var definition = PdfRibbon.Create(CreateCommands(), _rules);
+        var definition = PdfRibbon.Create(CreateCommands(), _rules, IsCommandOn);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == PdfRibbon.HomeLetter) };
 
         var titleBar = new TitleBar { Mark = CreateAppMark() };
@@ -1224,6 +1224,7 @@ internal sealed partial class PdfWindow : Window
                 if (ReferenceEquals(ActiveView, created))
                 {
                     UpdateViewStatus();
+                    UpdateCheckedStates();
                 }
             };
             ApplyInitialView(view, active);
@@ -1421,6 +1422,7 @@ internal sealed partial class PdfWindow : Window
     {
         _leftPane = kind;
         UpdateLeftPane();
+        UpdateCheckedStates();
     }
 
     /// <summary>

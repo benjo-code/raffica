@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -77,11 +79,36 @@ public class RibbonButton : Button
 
     protected override Type StyleKeyOverride => typeof(Button);
 
-    /// <summary>Takes over the enabled state of the definition: the button is dimmed and inert while it is disabled, and the tooltip names the reason.</summary>
+    /// <summary>Whether a switch or choice command is on (drawn pressed, exposed as a toggle); always false for a plain command.</summary>
+    internal bool IsOn { get; private set; }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => Definition.IsToggle ? new RibbonToggleAutomationPeer(this) : base.OnCreateAutomationPeer();
+
+    /// <summary>Runs the command as a click does (the toggle pattern of assistive technology).</summary>
+    internal void Activate()
+    {
+        if (IsEnabled)
+        {
+            RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(ClickEvent));
+        }
+    }
+
+    /// <summary>Takes over the enabled and the checked state of the definition: the button is dimmed and inert while it is disabled, and the tooltip names the reason; a command that is on is drawn pressed.</summary>
     internal void RefreshState()
     {
         var enabled = Definition.IsEnabled;
         IsEnabled = enabled;
+        if (Definition.IsToggle)
+        {
+            var on = Definition.IsChecked;
+            if (on != IsOn)
+            {
+                IsOn = on;
+                Classes.Set("checked", on);
+                (ControlAutomationPeer.FromElement(this) as RibbonToggleAutomationPeer)?.StateChanged(!on, on);
+            }
+        }
+
         if (ToolTip.GetTip(this) is TooltipContent tip)
         {
             tip.Description = enabled ? Definition.Description : Definition.CurrentDisabledReason ?? Definition.Description;
@@ -93,7 +120,7 @@ public class RibbonButton : Button
         }
     }
 
-    /// <summary>Updates the enabled state of menu items made by <see cref="CreateMenuItem"/> (their command rides in the tag).</summary>
+    /// <summary>Updates the enabled and the checked state of menu items made by <see cref="CreateMenuItem"/> (their command rides in the tag).</summary>
     internal static void RefreshItems(IEnumerable<object?> items)
     {
         foreach (var item in items)
@@ -101,6 +128,11 @@ public class RibbonButton : Button
             if (item is MenuItem { Tag: CommandDefinition command } menuItem)
             {
                 menuItem.IsEnabled = command.IsEnabled;
+                if (command.IsToggle)
+                {
+                    menuItem.IsChecked = command.IsChecked;
+                }
+
                 RefreshItems(menuItem.Items.Cast<object?>());
             }
         }
@@ -110,6 +142,12 @@ public class RibbonButton : Button
     internal static MenuItem CreateMenuItem(CommandDefinition command, Action<CommandDefinition> invoked)
     {
         var item = new MenuItem { Header = command.Name, Tag = command, IsEnabled = command.IsEnabled };
+        if (command.IsToggle)
+        {
+            item.ToggleType = MenuItemToggleType.CheckBox;
+            item.IsChecked = command.IsChecked;
+        }
+
         AutomationProperties.SetName(item, command.Name);
         if (!string.IsNullOrEmpty(command.Shortcut))
         {
@@ -192,6 +230,19 @@ public class RibbonButton : Button
 
         label.Classes.Add("ribbon-label");
         return label;
+    }
+
+    /// <summary>The button of a switch or choice command as an automation button with the toggle pattern, so assistive technology hears whether it is on.</summary>
+    private sealed class RibbonToggleAutomationPeer(RibbonButton owner) : ControlAutomationPeer(owner), IToggleProvider
+    {
+        public ToggleState ToggleState => owner.IsOn ? ToggleState.On : ToggleState.Off;
+
+        public void Toggle() => owner.Activate();
+
+        public void StateChanged(bool oldValue, bool newValue) =>
+            RaisePropertyChangedEvent(TogglePatternIdentifiers.ToggleStateProperty, oldValue ? ToggleState.On : ToggleState.Off, newValue ? ToggleState.On : ToggleState.Off);
+
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
     }
 
     /// <summary>

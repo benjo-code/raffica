@@ -52,6 +52,18 @@
     <Setter Property="Width" Value="{DynamicResource Raffica.Size.HitTargetMin}" />
   </Style>
 
+  <!-- A switch or choice that is on (class checked, set by RibbonButton from CommandDefinition.CheckedWhen): the pressed look of the toggle, ink fill with text.onInk, also under the pointer; greyed while disabled. -->
+  <Style Selector="Button.ribbon-tile.checked /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-small.checked /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-iconly.checked /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-tile.checked:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-small.checked:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-iconly.checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+  </Style>
+  <Style Selector="Button.ribbon-tile.checked:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-small.checked:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.ribbon-iconly.checked:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+  </Style>
+
   <!-- The scroll chevrons at the two ends of a band that is wider than the window: as high as a tile, as high as a small button when the band is compact. -->
   <Style Selector="Button.ribbon-chevron">
     <Setter Property="Padding" Value="0" />
