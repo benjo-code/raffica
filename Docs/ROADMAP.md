@@ -438,22 +438,22 @@ Goal: The repository can be made public and v0.1.0 released: no fork can reach t
 - [x] Core fixes: save check beyond 10,000 annotations, `PdfDate` with `+HH'`, link targets on rotated and cropped pages, saving through file symlinks, the `.old` leftover of the fallback replace, the text-edit check render size, UTF-8 in the Windows console of the CLI (Task 5)
 - [x] Crash handling: `crash.log` without paths, the window stays open with one card, no loop (Task 6)
 - [x] Window placement fitted and remembered; single-instance listener from the start; hand-over and close question queued behind an open card; one summary card for many bad files; active tab after an update; End shows the last page (Task 7)
-- [ ] Start view with one working "Open PDF" tile, the "+" opens a file, the title-bar field is named "Search commands" and can search the document (Task 8)
-- [ ] One Lucide icon per meaning for every command, pinned by `CommandIconTests` (Task 9)
-- [ ] The ribbon switches to compact and scrolls instead of clipping, shows toggle states, shorter German labels, aligned group labels and key tips (Task 10)
-- [ ] Status bar cells, scrolling dialogs, the About card, the redact pane in German, many tabs, automation peers for the page view and the status bar (Task 11)
-- [ ] Editable combo-box form fields, caret and edge of the editors on paper, visible selections, the lock marker beside the field (Task 12)
-- [ ] German in the "Sie" form, "alle" as a page keyword, wording and spelling fixes, one card footer order, a reason for every disabled command, the navigation keys in the help card, announced hints, the print job name (Task 13)
-- [ ] Platform: inherited `APPIMAGE` ignored, an all-users registration counts as default, OCR languages locked during any run, "Not now" of the default-app card remembered for 30 days (Task 14)
+- [x] Start view with one working "Open PDF" tile, the "+" opens a file, the title-bar field is named "Search commands" and can search the document (Task 8)
+- [x] One Lucide icon per meaning for every command, pinned by `CommandIconTests` (Task 9)
+- [x] The ribbon switches to compact and scrolls instead of clipping, shows toggle states, shorter German labels, aligned group labels and key tips (Task 10)
+- [x] Status bar cells, scrolling dialogs, the About card, the redact pane in German, many tabs, automation peers for the page view and the status bar (Task 11)
+- [x] Editable combo-box form fields, caret and edge of the editors on paper, visible selections, the lock marker beside the field (Task 12)
+- [x] German in the "Sie" form, "alle" as a page keyword, wording and spelling fixes, one card footer order, a reason for every disabled command, the navigation keys in the help card, announced hints, the print job name (Task 13)
+- [x] Platform: inherited `APPIMAGE` ignored, an all-users registration counts as default, OCR languages locked during any run, "Not now" of the default-app card remembered for 30 days (Task 14)
 - [ ] The start-time regression: `measure.yml` gets a `ref` input, Windows run, bisection, fix, both machines measured with the predecessor control (Task 15)
 - [ ] Final check: live UI pass on the Native AOT build, full suite, release dry run, roadmap and `CLAUDE.md` updated (Task 16)
 
 **Acceptance criteria**
-- [ ] `release.yml` refuses a `ref` that is on neither `main` nor `dev` and runs green on the `dev` head as a dry run (both run ids in the evidence)
-- [ ] A PDF with a page `/AF` attachment and a `/B` article thread is redacted without any of their secrets in the output, and the report lists nothing as cleaned that the read-back did not confirm (test names in the evidence)
+- [x] `release.yml` refuses a `ref` that is on neither `main` nor `dev` and runs green on the `dev` head as a dry run (both run ids in the evidence) – Dry runs on the feature branch head (on neither branch) and on a commit that does not exist were refused by the preflight: runs 42514651256 and 42514653839; green dry run on the dev head fcded7c: run 42516806960
+- [x] A PDF with a page `/AF` attachment and a `/B` article thread is redacted without any of their secrets in the output, and the report lists nothing as cleaned that the read-back did not confirm (test names in the evidence) – `PageAttachmentTests` (a page with /AF and /B is refused and nothing is written, a file only on a page is never counted as a cleaned attachment, the cleanup read-back fails on a left-over embedded file), `RedactionVerifier`/`CleanupReadBack` tests for non-paperclip files and the media subtype count
 - [ ] At 1280 x 860 and 1024 x 600, in English and German, every ribbon command is visible or reachable through the chevrons, and no status cell, dialog row or pane label is cut (`PdfRibbonLayoutTests`, `GermanLayoutTests`, live screenshots)
-- [ ] An exception thrown by a command handler keeps the window and the other tabs' unsaved changes, shows one card and writes `crash.log` without a path (`CrashGuardTests`)
-- [ ] A write onto a file that another tab has open is refused with a note in Save as, Apply, Redact Apply and Extract (`OpenTargetGuardTests` and the flow tests)
+- [x] An exception thrown by a command handler keeps the window and the other tabs' unsaved changes, shows one card and writes `crash.log` without a path (`CrashGuardTests`) – `CrashGuardTests` (31 tests) incl. `AFailingUiThreadDelegateLeavesTheWindowOpenTheOtherTabDirtyAndShowsOneCard`: window open, other tab dirty, one card, `crash.log` scrubbed of paths; limit: a failing UI-thread delegate is posted instead of a real throwing ribbon command (no command throws on demand)
+- [x] A write onto a file that another tab has open is refused with a note in Save as, Apply, Redact Apply and Extract (`OpenTargetGuardTests` and the flow tests) – `OpenTargetGuardTests` (17 tests: unit cases plus one test per flow: Save as, Apply with Save as, Redact Apply with Save as, Extract; the signed-file card case; `SaveBusy`); with the guard neutered 10 of 14 failed
 - [ ] Live UI pass on the Native AOT build: every finding of Tasks 8 to 13 seen fixed (screenshots in the PR)
 - [ ] `measure.yml` with `target=pdf` passes its check on the Windows PC and the Linux laptop, each with a predecessor control run of the same session, or the miss is recorded as a finding for the owner with the numbers (budgets are not loosened)
 - [ ] Build, tests with `RAFFICA_REQUIRE_OCR=1`, format and roadmap check are green on the final `dev` head
