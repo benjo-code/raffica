@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace Raffica.Core.Pdf;
 
-/// <summary>Parses page selections such as <c>3</c>, <c>2-5</c>, <c>1,3,5-7</c> or <c>all</c> (1-based).</summary>
+/// <summary>Parses page selections such as <c>3</c>, <c>2-5</c>, <c>1,3,5-7</c> or <c>all</c> (<c>alle</c> too, the German keyword; 1-based).</summary>
 public static class PageRange
 {
     /// <summary>
@@ -50,7 +50,7 @@ public static class PageRange
     /// <exception cref="FormatException">The text is not a valid selection.</exception>
     public static void Validate(string text) => ParseSegments(text);
 
-    /// <summary>Returns the 1-based inclusive segments, or <see langword="null"/> for <c>all</c>.</summary>
+    /// <summary>Returns the 1-based inclusive segments, or <see langword="null"/> for <c>all</c> or <c>alle</c>.</summary>
     private static List<(int Start, int End)>? ParseSegments(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -60,7 +60,7 @@ public static class PageRange
             throw new FormatException("The page selection is empty.");
         }
 
-        if (trimmed.Equals("all", StringComparison.OrdinalIgnoreCase))
+        if (trimmed.Equals("all", StringComparison.OrdinalIgnoreCase) || trimmed.Equals("alle", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -99,7 +99,7 @@ public static class PageRange
         var digits = text.Trim();
         if (digits.Length == 0 || !digits.All(char.IsAsciiDigit))
         {
-            throw new FormatException($"'{whole.Trim()}' is not a valid page selection. Use for example 3, 2-5, 1,3,5-7 or all.");
+            throw new FormatException($"'{whole.Trim()}' is not a valid page selection. Use for example 3, 2-5, 1,3,5-7, all or alle.");
         }
 
         if (!int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var page))

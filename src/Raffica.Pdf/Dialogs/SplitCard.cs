@@ -57,7 +57,7 @@ internal static class SplitCard
         var everyField = new TextBox { Name = "PART_Every", Width = 100, Text = "1" };
         AutomationProperties.SetName(everyField, PdfStrings.SplitEveryLabel);
         var ranges = Radio("PART_ModeRanges", PdfStrings.SplitModeRanges);
-        var rangesField = new TextBox { Name = "PART_Ranges", MinWidth = 280, Text = "all" };
+        var rangesField = new TextBox { Name = "PART_Ranges", MinWidth = 280, Text = PdfStrings.PageKeywordAll };
         AutomationProperties.SetName(rangesField, PdfStrings.SplitRangesLabel);
         var bookmarks = Radio("PART_ModeBookmarks", PdfStrings.SplitModeBookmarks);
         var reason = new TextBlock { Name = "PART_BookmarksReason", Text = PdfStrings.SplitNoBookmarksReason, IsVisible = !hasBookmarks, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(24, 0, 0, 0) };

@@ -35,7 +35,7 @@ internal static class ExportImagesCard
 
         var header = new TextBlock { Name = "PART_File", Text = PdfStrings.Fill(PdfStrings.ExtractHeaderFormat, fileName, sizes.Count), FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
         var rangeLabel = new TextBlock { Text = PdfStrings.ExportRangeLabel, TextWrapping = TextWrapping.Wrap };
-        var range = new TextBox { Name = "PART_Range", MinWidth = 280, Text = "all" };
+        var range = new TextBox { Name = "PART_Range", MinWidth = 280, Text = PdfStrings.PageKeywordAll };
         AutomationProperties.SetName(range, PdfStrings.ExportRangeLabel);
         var rangeHint = Hint("PART_RangeHint");
 

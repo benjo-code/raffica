@@ -59,5 +59,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF and shell: the selected page or outline entry in the side pane now has a 2 px dark edge bar besides the tint (the tint alone was 1.2 : 1), and selected text in a text field now has a darker highlight (3 : 1 or more on the field) with light text on it in the light, dark and high-contrast theme.
 - Raffica PDF forms: the lock mark of a read-only or unsupported field now sits outside the field, left of it (right of it when there is no room), instead of over the value.
 - Raffica PDF in German: seven texts of the Apply and Export images cards (the file is rewritten, finish the open edit, the document could not be taken over, the plan changed, the resolution) no longer address you with "du"; the German UI now says "Sie" throughout, pinned by a test.
+- Raffica PDF: a page selection now also accepts "alle" (besides "all"), the CLI too; in German the page range fields of Insert pages, Split document and Export images start with "alle" and the labels and hints name "alle" in quotes (they said "all" or, in one place, "alle" that the parser rejected).
 
 ### Removed

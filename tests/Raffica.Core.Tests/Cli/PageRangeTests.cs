@@ -11,6 +11,9 @@ public sealed class PageRangeTests
     [InlineData("1,3,5-6", 6, new[] { 0, 2, 4, 5 })]
     [InlineData("all", 3, new[] { 0, 1, 2 })]
     [InlineData("ALL", 2, new[] { 0, 1 })]
+    [InlineData("alle", 3, new[] { 0, 1, 2 })]
+    [InlineData("Alle", 2, new[] { 0, 1 })]
+    [InlineData("  ALLE ", 2, new[] { 0, 1 })]
     [InlineData("2,2,1", 2, new[] { 0, 1 })]
     [InlineData("4-5,1-2,2-4", 5, new[] { 0, 1, 2, 3, 4 })]
     [InlineData(" 1 , 3 - 4 ", 4, new[] { 0, 2, 3 })]
@@ -55,6 +58,7 @@ public sealed class PageRangeTests
     public void AllOfAnEmptyDocumentIsEmpty()
     {
         Assert.Empty(PageRange.Parse("all", 0));
+        Assert.Empty(PageRange.Parse("alle", 0));
     }
 
     [Fact]

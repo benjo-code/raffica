@@ -488,6 +488,8 @@ internal static class PdfStrings
     /// <summary>The note when the chosen target is open in another tab ({0} is the file name).</summary>
     public static string TargetOpenInOtherTabFormat => Table.Get("TargetOpenInOtherTabFormat");
     public static string ExportTitle => Table.Get("ExportTitle");
+    /// <summary>The keyword that selects every page in a page-range field ("all", "alle"); <see cref="Raffica.Core.Pdf.PageRange"/> knows both.</summary>
+    public static string PageKeywordAll => Table.Get("PageKeywordAll");
     public static string ExportRangeLabel => Table.Get("ExportRangeLabel");
     public static string ExportDpiLabel => Table.Get("ExportDpiLabel");
     public static string ExportDpiFormat => Table.Get("ExportDpiFormat");
