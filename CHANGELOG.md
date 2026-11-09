@@ -20,6 +20,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 - Raffica PDF: the window now fits the work area of a small screen (never taller than the screen less a margin) and opens where it was when you closed it, maximized or not; a position on a screen that is gone moves back inside.
 - Raffica PDF: files opened from the file manager while the app is still starting are taken over by the running window (it listens as soon as it is open), and a file that arrives while a card or the close question is open waits until the card is gone instead of switching the tab under it; a close that finds another card open now asks its question after that card instead of silently refusing to close.
+- Raffica PDF: dropping or opening many files that cannot be opened shows one card with the first five names and "and N more" instead of one card per file, and a recent file that cannot be read for now (an offline share, a damaged file) stays in the list; only a file that is gone leaves it.
 
 ### Changed
 

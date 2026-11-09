@@ -84,6 +84,9 @@ internal static class PdfStrings
     public static string PasswordLabel => Table.Get("PasswordLabel");
     public static string PasswordIncorrect => Table.Get("PasswordIncorrect");
     public static string ErrorTitle => Table.Get("ErrorTitle");
+    public static string OpenFailuresTitle => Table.Get("OpenFailuresTitle");
+    public static string OpenFailuresMessage => Table.Get("OpenFailuresMessage");
+    public static string OpenFailuresMoreFormat => Table.Get("OpenFailuresMoreFormat");
     public static string ErrorFileNotFound => Table.Get("ErrorFileNotFound");
     public static string ErrorCannotRead => Table.Get("ErrorCannotRead");
     public static string ErrorNotAPdf => Table.Get("ErrorNotAPdf");

@@ -179,6 +179,15 @@
   <data name="ErrorTitle" xml:space="preserve">
     <value>Die Datei konnte nicht geöffnet werden</value>
   </data>
+  <data name="OpenFailuresTitle" xml:space="preserve">
+    <value>Einige Dateien konnten nicht geöffnet werden</value>
+  </data>
+  <data name="OpenFailuresMessage" xml:space="preserve">
+    <value>Diese Dateien fehlen, sind keine PDF-Dateien oder können nicht gelesen werden:</value>
+  </data>
+  <data name="OpenFailuresMoreFormat" xml:space="preserve">
+    <value>und {0} weitere</value>
+  </data>
   <data name="ErrorFileNotFound" xml:space="preserve">
     <value>Die Datei existiert nicht mehr oder wurde verschoben.</value>
   </data>

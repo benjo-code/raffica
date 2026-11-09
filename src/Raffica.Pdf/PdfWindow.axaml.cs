@@ -178,7 +178,7 @@ internal sealed partial class PdfWindow : Window
         _saves.ApplyPlan = (tab, saveAs) => tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty
             ? Redacting.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose)
             : Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
-        Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError);
+        Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError, ShowOpenFailures);
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
         Status.ZoomChanged += (_, percent) => ActiveView?.SetZoom(percent / 100.0);
@@ -496,8 +496,12 @@ internal sealed partial class PdfWindow : Window
     {
         ArgumentNullException.ThrowIfNull(entry);
         var path = Path.Combine(entry.Folder, entry.Name);
-        var tab = await Flow.OpenAsync(path);
-        if (tab is null && !File.Exists(path))
+
+        // The open reports what is wrong (the check runs off the UI thread inside it): only a file that is gone leaves the list. A file that is there but cannot
+        // be read now (a share that is offline, a file in use, a damaged file) stays, so the entry is there when the problem is over.
+        PdfOpenError? failure = null;
+        var tab = await Flow.OpenAsync(path, error => failure = error);
+        if (tab is null && failure == PdfOpenError.FileNotFound)
         {
             _recent.Remove(path);
         }
@@ -915,6 +919,13 @@ internal sealed partial class PdfWindow : Window
 
     private void ShowOpenError(string path, PdfOpenError error) =>
         _ = Dialogs.ShowAsync<bool>(done => ErrorCard.Create(DisplayName(path), error, () => done(true)));
+
+    // Two or more files of one open that failed: one card with the names (up to five, then "and N more"), not one card each.
+    private void ShowOpenFailures(IReadOnlyList<OpenFailure> failures)
+    {
+        var names = failures.Select(failure => DisplayName(failure.Path)).Select(name => name.Length > MaxShownNameLength ? name[..MaxShownNameLength] : name).ToList();
+        _ = Dialogs.ShowAsync<bool>(done => OpenFailuresCard.Create(names, () => done(true)));
+    }
 
     private void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e) => Refresh();
 
