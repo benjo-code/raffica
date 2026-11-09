@@ -116,4 +116,16 @@ public sealed class ModeLockRuleTests
         Assert.Equal(PdfStrings.SaveBusy, saving.ReasonFor("text.edit"));
         Assert.Equal(PdfStrings.SaveBusy, saving.ReasonFor("pages.organize"));
     }
+
+    [Fact]
+    public void TheLanguageFilesAreLockedWhileAnyRunGoesWithTheReasonOfTheRun()
+    {
+        var running = new PdfCommandRules(() => true, () => 2, () => new PdfPrintInfo(false, true), ocrRunning: () => true, modes: new ModeExclusion(mode => false));
+        Assert.False(running.Allows("ocr.languages"));
+        Assert.Equal(PdfStrings.ModeOcrReason, running.ReasonFor("ocr.languages"));
+
+        var idle = new PdfCommandRules(() => true, () => 2, () => new PdfPrintInfo(false, true), modes: new ModeExclusion(mode => false));
+        Assert.True(idle.Allows("ocr.languages"));
+        Assert.Null(idle.ReasonFor("ocr.languages"));
+    }
 }

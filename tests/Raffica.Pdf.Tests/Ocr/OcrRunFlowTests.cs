@@ -291,6 +291,49 @@ public sealed class OcrRunFlowTests
         Assert.True(Command(window, "edit.undo").IsEnabled);
     }
 
+    // 06-B-3: the language files cannot be replaced while any run goes, also one in a tab that is not the active one.
+    [AvaloniaFact]
+    public async Task LanguagesAreLockedWhileARunGoesInAnotherTab()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        var window = rig.Window;
+        var other = Path.Combine(rig.Fixture.Folder, "work-other.pdf");
+        File.Copy(TestData.Pdf("ocr-scan.pdf"), other);
+        var second = await window.Flow.OpenAsync(other) ?? throw new InvalidOperationException("did not open");
+        window.Workspace.Select(rig.Tab);
+        ViewFixture.Pump();
+
+        rig.Engines!.HoldAt(1);
+        var run = window.StartOcrRunAsync(rig.Tab, Options());
+        await rig.UntilPagesAsync(1);
+
+        window.Workspace.Select(second);
+        ViewFixture.Pump();
+        Assert.Same(second, window.Workspace.Active);
+        Assert.False(second.OcrIfCreated?.IsActive ?? false);
+
+        var command = Command(window, "ocr.languages");
+        Assert.False(command.IsEnabled);
+        Assert.Equal(PdfStrings.ModeOcrReason, command.CurrentDisabledReason);
+
+        // The command itself returns early: no card, no picker.
+        var picked = 0;
+        window.LanguageFilePicker = () =>
+        {
+            picked++;
+            return Task.FromResult<string?>(null);
+        };
+        await window.LanguagesAsync();
+        Assert.Null(rig.Card);
+        Assert.Equal(0, picked);
+
+        rig.Engines.Release();
+        var report = await rig.CardWithAsync("PART_Ok");
+        OcrRig.Click(report, "PART_Ok");
+        await run;
+        Assert.True(Command(window, "ocr.languages").IsEnabled);
+    }
+
     [AvaloniaFact]
     public async Task CloseCancelsTheRun()
     {

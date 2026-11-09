@@ -102,7 +102,7 @@ internal sealed class PdfCommandRules(
         PdfCommandIds.TextEdit => hasDocument() && (_modes.IsActive(PdfMode.TextEdit) || (_modes.CanEnter(PdfMode.TextEdit, out _) && Ask(pagesReady, true) && Ask(annotateAllowed, true) && !Ask(saveRunning, false))),
         PdfCommandIds.OcrRun => hasDocument() && _modes.CanEnter(PdfMode.Ocr, out _) && Ask(ocrLibrary, true) && Ask(ocrStarter, true) && Ask(annotateAllowed, true) && Ask(pagesReady, true) && !Ask(ocrRunning, false) && !Ask(saveRunning, false),
         _ when StartsMode.TryGetValue(id, out var starts) => hasDocument() && _modes.CanEnter(starts, out _),
-        PdfCommandIds.OcrLanguages => hasDocument() && !_modes.IsActive(PdfMode.Ocr),
+        PdfCommandIds.OcrLanguages => hasDocument() && !_modes.IsActive(PdfMode.Ocr) && !Ask(ocrRunning, false),
         PdfCommandIds.Organize => hasDocument() && (PlanOpen() || (_modes.CanStart(PdfMode.Organize, out _) && Ask(pagesReady, true) && !Ask(saveRunning, false))),
         _ when PageEdits.Contains(id) => hasDocument() && PlanOpen() && Ask(pageSelection, false),
         PdfCommandIds.BlankPage or PdfCommandIds.InsertFile => hasDocument() && PlanOpen(),
@@ -244,9 +244,10 @@ internal sealed class PdfCommandRules(
         }
 
         // The language files are read when an engine is made and a file in use cannot be replaced: no import while a recognition runs.
+        // A run in another tab holds the files as well (the mode is the tab's, the run is the window's).
         if (id == PdfCommandIds.OcrLanguages)
         {
-            return _modes.ReasonWhileActive(PdfMode.Ocr);
+            return _modes.ReasonWhileActive(PdfMode.Ocr) ?? (Ask(ocrRunning, false) ? PdfStrings.ModeOcrReason : null);
         }
 
         if (PageOutputs.Contains(id) && OutputModeReason() is { } modeReason)

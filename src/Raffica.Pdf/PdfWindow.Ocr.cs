@@ -153,7 +153,8 @@ internal sealed partial class PdfWindow
     /// <summary>The Languages command: the trust warning, then the file picker, then the copy off the UI thread and its result.</summary>
     internal async Task LanguagesAsync()
     {
-        if (_languagesRunning || Workspace.Active is null)
+        // The files are read when an engine is made: no import while any run goes, in whatever tab (the command is locked too).
+        if (_languagesRunning || Workspace.Active is null || OcrBusy)
         {
             return;
         }
