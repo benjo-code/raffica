@@ -33,6 +33,12 @@ Raffica is a fast, open-source office suite for Windows, Linux and macOS, growin
 
 - No paid Apple account: no notarization, no Developer ID. Ad-hoc signing only (required on Apple Silicon; sign again after assembling the `.app` bundle). The README documents the first launch ("Open Anyway" in System Settings → Privacy & Security).
 - Spec: `Docs/superpowers/specs/2026-11-09-raffica-macos-design.md` (milestones 3.1 to 3.3); decisions "Raffica on macOS: scope and Mac conventions (M3)" and "... speed checks and CI (M3)" in `Docs/DECISIONS.md`.
+- **M3.1 (runs on the Mac):** decision "Raffica on macOS: native libraries, paths and activation (M3.1)". Minimum macOS 15.0 is `MACOS_DEPLOYMENT_TARGET` in `packaging/native/versions.txt` (3.3 reads it for `LSMinimumSystemVersion`).
+- **Paths:** `PathRules` (Core) decides how paths compare (Windows and Linux as before, macOS `Ordinal` or NFC + `OrdinalIgnoreCase`); never choose path case by an OS check at a call site (`NoSourceFileChoosesPathCaseByWindowsCheck`, single-line regex). `FileIdentity` uses `stat$INODE64` on x64 and `stat` on arm64; the real calls are proven by CI only.
+- **Activation:** `FileActivationBridge` (queue until `Attach`) with `AvaloniaFileActivationSource` delivers Finder files; wired in `App` on macOS only, not in measurement runs; Reopen is 3.2.
+- **CI:** `build-macos` (macos-15 arm64, x64 build under Rosetta) runs on a PR into `main`, a push to `main`, the label `ci:macos` or a path from `.github/scripts/macos-paths.sh`; adding any label re-runs the whole CI (`labeled` type); it uploads `raffica-pdf-osx-x64` for the owner's manual check.
+- **Mac check and bundle:** `packaging/macos/dev-app.sh` is a throwaway wrapper for the manual Finder check (3.3 replaces it by the real bundle step); steps in `packaging/README.md`, "Manual check on a Mac (M3.1)".
+- **Native libraries:** `tools/check-binary.cs` also checks Mach-O files (`MachORules`: only `/usr/lib`, `/System/Library` or files inside the bundle; `selftest`). The macOS Tesseract is built by `packaging/native/build-macos.sh` through `native-tesseract.yml` with `-f build=2 -f systems=macos` (release `native-tesseract-5.5.4-2`); `tools/native-fetch.cs` pins both `.dylib` files. Lessons: macOS bash 3.2 needs `eval "$(...)"` instead of `source <(...)`; the x86_64 build needs `target-processor.cmake` as `CMAKE_PROJECT_INCLUDE` because Tesseract takes the processor from the host; a rerun needs a new release number and a failed run leaves an empty prerelease to delete first.
 
 ### Shell
 

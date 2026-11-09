@@ -41,6 +41,10 @@ if [ -z "$min_version" ]; then
 fi
 
 mkdir -p "$out_dir"
+# The app is built from a copy of the publish folder: an out folder inside it would copy itself into the bundle.
+case "$(cd "$out_dir" && pwd)/" in
+  "$(cd "$publish_dir" && pwd)/"*) echo "error: '$out_dir' lies inside the publish folder; pass another out folder." >&2; exit 1 ;;
+esac
 app="$out_dir/Raffica PDF.app"
 if [ -e "$app" ]; then
   rm -rf "$app"
