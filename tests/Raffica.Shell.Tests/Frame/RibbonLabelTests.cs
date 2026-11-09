@@ -90,4 +90,26 @@ public sealed class RibbonLabelTests
         Assert.True(label.Bounds.Width < 48, $"the label is {label.Bounds.Width} wide");
         Assert.Equal(1, (int)Math.Round(label.Bounds.Height / label.LineHeight));
     }
+
+    [AvaloniaFact]
+    public void GroupLabelsSitOnOneRowWhateverTheGroupHolds()
+    {
+        // A group of one small command is 26 px high, a stack of two 54 px, a tile 54 px: the labels still share one bottom row.
+        var tab = new RibbonTabDefinition("Test", "T",
+        [
+            new RibbonGroupDefinition("One", "1", [new CommandDefinition("g.one", "Single", "Raffica.Icon.Check", "11")]),
+            new RibbonGroupDefinition("Tile", "2", [new CommandDefinition("g.tile", "Tile", "Raffica.Icon.Check", "21", Size: CommandSize.Large)]),
+            new RibbonGroupDefinition("Two", "3", [new CommandDefinition("g.a", "A one", "Raffica.Icon.Check", "31"), new CommandDefinition("g.b", "A two", "Raffica.Icon.Check", "32")]),
+            new RibbonGroupDefinition("Icons", "4", [new CommandDefinition("g.i", "Icon", "Raffica.Icon.Check", "41", IconOnly: true)]),
+        ]);
+        var ribbon = new RibbonView { Definition = new RibbonDefinition([tab]) };
+        var window = ControlHarness.Show(new AppFrame { TabRow = ribbon.TabRow, Band = ribbon.Band }, ThemeMode.Light);
+        window.Width = 1400;
+        ControlHarness.Settle(window);
+
+        var labels = ribbon.Band.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("ribbon-group-label")).ToList();
+        Assert.Equal(4, labels.Count);
+        var tops = labels.Select(l => l.TranslatePoint(default, window)!.Value.Y).ToList();
+        Assert.True(tops.Max() - tops.Min() < 0.5, $"the labels sit at different heights: {string.Join(", ", tops.Select(t => $"{t:F1}"))}");
+    }
 }

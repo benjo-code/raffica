@@ -191,4 +191,33 @@ public sealed class StatusBarTests
         Assert.Equal(24, Part(bar, "PART_ZoomOut").Bounds.Height, 0.01);
         Assert.Equal(96, Part(bar, "PART_ZoomSlider").Bounds.Width, 0.01);
     }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    public void TheZoomButtonsAndTheSliderHaveTooltipsInTheUiLanguage(string lang)
+    {
+        var previous = Raffica.Shell.Localization.ShellStrings.Culture;
+        try
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = System.Globalization.CultureInfo.GetCultureInfo(lang);
+            var (_, bar) = Show();
+
+            foreach (var (name, expected) in new[]
+            {
+                ("PART_ZoomOut", Raffica.Shell.Localization.ShellStrings.ZoomOut),
+                ("PART_ZoomIn", Raffica.Shell.Localization.ShellStrings.ZoomIn),
+                ("PART_ZoomSlider", Raffica.Shell.Localization.ShellStrings.ZoomLevel),
+            })
+            {
+                var tip = Assert.IsType<TooltipContent>(ToolTip.GetTip(Part(bar, name)));
+                Assert.Equal(expected, tip.Title);
+                Assert.False(string.IsNullOrWhiteSpace(tip.Title));
+            }
+        }
+        finally
+        {
+            Raffica.Shell.Localization.ShellStrings.Culture = previous;
+        }
+    }
 }

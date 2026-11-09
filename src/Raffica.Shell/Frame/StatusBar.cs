@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Raffica.Shell.Controls;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Shell.Frame;
@@ -98,6 +99,7 @@ public class StatusBar : TemplatedControl
             _slider.Value = Zoom;
             _slider.ValueChanged += OnSliderChanged;
             AutomationProperties.SetName(_slider, ShellStrings.ZoomLevel);
+            ToolTip.SetTip(_slider, new TooltipContent { Title = ShellStrings.ZoomLevel });
         }
 
         Hook(e, "PART_ZoomOut", ShellStrings.ZoomOut, -ZoomStep);
@@ -112,6 +114,7 @@ public class StatusBar : TemplatedControl
         }
 
         AutomationProperties.SetName(button, label);
+        ToolTip.SetTip(button, new TooltipContent { Title = label });
         button.Click += (_, _) => UserZoom(Zoom + delta);
     }
 

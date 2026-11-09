@@ -332,4 +332,21 @@ public sealed class SearchFieldTests
 
         Assert.False(PopupOf(search).IsOpen);
     }
+
+    [AvaloniaFact]
+    public void AnExtraResultWithTheNameOfACommandIsNotListedTwice()
+    {
+        // The command row is the one to choose; an extra entry of the same name would only repeat it (and its heading with it).
+        var (window, search, _) = ShowWithEntries(_ =>
+        [
+            new SearchEntry("App", "bookmark", () => { }),
+            new SearchEntry("Pages", "Page 3", () => { }),
+        ]);
+
+        Type(window, search, "bo");
+
+        Assert.Equal(1, Rows(search).Count(r => string.Equals(r.Label, "Bookmark", StringComparison.OrdinalIgnoreCase)));
+        Assert.Equal(["Pages"], Headings(search).Select(h => h.Text));
+        Assert.Contains(Rows(search), r => r.Label == "Page 3");
+    }
 }

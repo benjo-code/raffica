@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -273,5 +274,28 @@ public sealed class RibbonOverflowTests
         Assert.True(ribbon.IsEffectivelyCompact);
         Resize(window, 1400);
         Assert.False(ribbon.IsEffectivelyCompact);
+    }
+
+    [AvaloniaFact]
+    public void TheWheelScrollsTheBandVerticallyOrHorizontally()
+    {
+        var (window, _, ribbon) = Show(190);
+        var scroller = Scroller(ribbon);
+        var over = scroller.TranslatePoint(new Point(scroller.Bounds.Width / 2, scroller.Bounds.Height / 2), window)!.Value;
+        Assert.True(scroller.Extent.Width > scroller.Viewport.Width);
+        Assert.Equal(0, scroller.Offset.X, 1);
+
+        window.MouseWheel(over, new Vector(0, -1));
+        ControlHarness.Settle(window);
+        var afterVertical = scroller.Offset.X;
+        Assert.True(afterVertical > 0, "the vertical wheel does not scroll the band");
+
+        window.MouseWheel(over, new Vector(-1, 0));
+        ControlHarness.Settle(window);
+        Assert.True(scroller.Offset.X > afterVertical, "the horizontal wheel does not scroll the band");
+
+        window.MouseWheel(over, new Vector(1, 0));
+        ControlHarness.Settle(window);
+        Assert.Equal(afterVertical, scroller.Offset.X, 1);
     }
 }

@@ -54,6 +54,9 @@ public class RibbonView : TemplatedControl
     // viewport stays the same whichever chevron shows.
     private const double ChevronSlotWidth = 32;
 
+    // The height of a large tile (Raffica.Size.TileLarge): the commands of a group take this much, so the group labels line up.
+    private const double TileHeight = 54;
+
     private readonly Panel _tabRow = new();
     private readonly StackPanel _tabStrip = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Border _band = new() { ClipToBounds = true };
@@ -64,7 +67,7 @@ public class RibbonView : TemplatedControl
     private readonly Border _leftSlot = new() { IsVisible = false, Width = ChevronSlotWidth, Padding = new Thickness(4, 0) };
     private readonly Border _rightSlot = new() { IsVisible = false, Width = ChevronSlotWidth, Padding = new Thickness(4, 0) };
     private readonly StackPanel _groups = new() { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left };
-    private readonly Dictionary<RibbonTabDefinition, double> _fullWidths = [];
+    private readonly Dictionary<RibbonTabDefinition, double> _fullWidths = new(ReferenceEqualityComparer.Instance);
     private readonly List<(Control Target, string Digit)> _groupAnchors = [];
     private readonly List<FieldCodeBadge> _badges = [];
     private bool _settingDefinition;
@@ -406,13 +409,15 @@ public class RibbonView : TemplatedControl
 
     private void OnBandWheel(object? sender, PointerWheelEventArgs e)
     {
-        if (_scroller.Extent.Width <= _scroller.Viewport.Width + 0.5 || e.Delta.Y == 0)
+        // A horizontal wheel (a tilt wheel, a trackpad) scrolls as it is; the vertical wheel scrolls the band sideways.
+        var delta = e.Delta.X != 0 ? e.Delta.X : e.Delta.Y;
+        if (_scroller.Extent.Width <= _scroller.Viewport.Width + 0.5 || delta == 0)
         {
             return;
         }
 
         var max = _scroller.Extent.Width - _scroller.Viewport.Width;
-        _scroller.Offset = new Vector(Math.Clamp(_scroller.Offset.X - (e.Delta.Y * 48), 0, max), 0);
+        _scroller.Offset = new Vector(Math.Clamp(_scroller.Offset.X - (delta * 48), 0, max), 0);
         e.Handled = true;
     }
 
@@ -438,7 +443,7 @@ public class RibbonView : TemplatedControl
         {
             if (child is Button { Tag: RibbonTabDefinition tab } button)
             {
-                Add(button, tab.Letter);
+                Add(button, tab.Letter, below: false);
             }
         }
 
@@ -457,9 +462,9 @@ public class RibbonView : TemplatedControl
             Add(button, button.Definition.FieldCode);
         }
 
-        void Add(Control target, string text)
+        void Add(Control target, string text, bool below = true)
         {
-            if (FieldCodeBadge.Show(target, text) is { } badge)
+            if (FieldCodeBadge.Show(target, text, below: below) is { } badge)
             {
                 _badges.Add(badge);
             }
@@ -468,7 +473,8 @@ public class RibbonView : TemplatedControl
 
     private StackPanel BuildGroup(RibbonGroupDefinition group, List<(Control Target, string Digit)>? anchors)
     {
-        var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 5, 0, 0) };
+        // As high as a tile whatever the group holds, so the labels of all groups sit on one row.
+        var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Top, Height = TileHeight, Margin = new Thickness(0, 5, 0, 0) };
         foreach (var command in group.Commands.Where(c => c.Size == CommandSize.Large))
         {
             commands.Children.Add(new RibbonButton(command, RibbonButtonKind.Tile, Invoke));

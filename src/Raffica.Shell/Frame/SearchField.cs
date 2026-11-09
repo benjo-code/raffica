@@ -142,14 +142,17 @@ public class SearchField : TemplatedControl
             return;
         }
 
+        var commandNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var command in CommandMatcher.Find(Source, query, ShellStrings.Culture))
         {
+            commandNames.Add(command.Name);
             AddRow(new SearchResultRow(command));
         }
 
         if (ExtraResults is { } provider)
         {
-            foreach (var group in provider(query).GroupBy(entry => entry.Group))
+            // An extra entry that is named like a command would only repeat the command row.
+            foreach (var group in provider(query).Where(entry => !commandNames.Contains(entry.Name)).GroupBy(entry => entry.Group))
             {
                 var heading = new TextBlock { Text = group.Key };
                 heading.Classes.Add("search-group");

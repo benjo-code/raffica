@@ -13,6 +13,9 @@ namespace Raffica.Shell.Frame;
 /// </summary>
 public class FieldCodeBadge : TemplatedControl
 {
+    // The height of a badge (the template says 18 px), for the placement below a control.
+    private const double BadgeHeight = 18;
+
     public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<FieldCodeBadge, string?>(nameof(Text));
 
     /// <summary>The field code a control shows while the Alt mode is on (for example "Q" on the search field); null for none.</summary>
@@ -27,9 +30,10 @@ public class FieldCodeBadge : TemplatedControl
     /// <summary>
     /// Puts a badge with <paramref name="text"/> on <paramref name="target"/>; null when the target is not in a window yet. With
     /// <paramref name="inside"/> the badge sits inside the right edge of the target, vertically centred (for the items of a menu, whose
-    /// popup would clip a badge that hangs over the edge).
+    /// popup would clip a badge that hangs over the edge). With <paramref name="below"/> the badge hangs below the control, its top on the
+    /// bottom edge and 4 px beyond the right edge (for the commands and group labels of the ribbon, so it never covers their text).
     /// </summary>
-    internal static FieldCodeBadge? Show(Control target, string text, bool inside = false)
+    internal static FieldCodeBadge? Show(Control target, string text, bool inside = false, bool below = false)
     {
         if (AdornerLayer.GetAdornerLayer(target) is not { } layer)
         {
@@ -41,7 +45,7 @@ public class FieldCodeBadge : TemplatedControl
             Text = text,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = inside ? VerticalAlignment.Center : VerticalAlignment.Bottom,
-            Margin = inside ? new Thickness(0, 0, 6, 0) : new Thickness(0, 0, -4, -6),
+            Margin = inside ? new Thickness(0, 0, 6, 0) : below ? new Thickness(0, 0, -4, -BadgeHeight) : new Thickness(0, 0, -4, -6),
         };
         AdornerLayer.SetAdornedElement(badge, target);
         AdornerLayer.SetIsClipEnabled(badge, false);
