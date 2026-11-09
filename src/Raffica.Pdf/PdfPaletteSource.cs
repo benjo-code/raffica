@@ -36,6 +36,9 @@ internal sealed class PaletteContext
     /// <summary>Shows the card with the facts about the active document.</summary>
     public required Action ShowDocumentInfo { get; init; }
 
+    /// <summary>Opens the find bar of the active document with the typed text and starts the search; null: no entry.</summary>
+    public Action<string>? SearchDocument { get; init; }
+
     /// <summary>Makes Raffica the default app for PDF files (the command <c>app.default</c>); null: no entry.</summary>
     public Action? MakeDefaultApp { get; init; }
 
@@ -85,6 +88,7 @@ internal sealed class PdfPaletteSource(PaletteContext context)
             Section(entries, () => Updates(text));
             Section(entries, () => Outline(text));
             Section(entries, () => RecentFiles(text));
+            Section(entries, () => SearchTheDocument(text));
             return entries;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -210,6 +214,15 @@ internal sealed class PdfPaletteSource(PaletteContext context)
                     Safe(() => context.GoToPage(page)),
                     PdfStrings.Fill(PdfStrings.PaletteOutlinePageFormat, page + 1));
             });
+    }
+
+    // Always the last result, for any text: the commands and places come first, the plain text search is the way out when none fits.
+    private IEnumerable<SearchEntry> SearchTheDocument(string text)
+    {
+        if (context.SearchDocument is { } run && context.ActiveTab() is not null)
+        {
+            yield return new SearchEntry(PdfStrings.PaletteGroupDocument, PdfStrings.Fill(PdfStrings.PaletteSearchDocumentFormat, text), Safe(() => run(text)));
+        }
     }
 
     private IEnumerable<SearchEntry> RecentFiles(string text)

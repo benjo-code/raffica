@@ -326,6 +326,12 @@
   <data name="PaletteGroupGoTo" xml:space="preserve">
     <value>Gehe zu</value>
   </data>
+  <data name="OpenFileButton" xml:space="preserve">
+    <value>Datei öffnen</value>
+  </data>
+  <data name="PaletteSearchDocumentFormat" xml:space="preserve">
+    <value>Im Dokument nach „{0}“ suchen</value>
+  </data>
   <data name="PaletteGoToPageFormat" xml:space="preserve">
     <value>Gehe zu Seite {0}</value>
   </data>

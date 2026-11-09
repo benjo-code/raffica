@@ -30,8 +30,8 @@
   <data name="NotificationError" xml:space="preserve">
     <value>Fehler</value>
   </data>
-  <data name="Search" xml:space="preserve">
-    <value>Suchen</value>
+  <data name="SearchCommands" xml:space="preserve">
+    <value>Befehle suchen</value>
   </data>
   <data name="More" xml:space="preserve">
     <value>Mehr</value>

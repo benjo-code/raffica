@@ -158,7 +158,8 @@ public sealed class SearchFieldTests
         var input = ControlHarness.Part<TextBox>(search, "PART_Input");
 
         Assert.Equal(28, search.Bounds.Height, 0.01);
-        Assert.Equal(ShellStrings.Search, input.PlaceholderText);
+        Assert.Equal(ShellStrings.SearchCommands, input.PlaceholderText);
+        Assert.Equal(ShellStrings.SearchCommands, Avalonia.Automation.AutomationProperties.GetName(input));
         Assert.NotEmpty(ControlHarness.Descendants(search).OfType<StrokeIcon>()); // the magnifier
         // No keycap: the shortcut is in the tooltip only.
         Assert.DoesNotContain(ControlHarness.Descendants(search).OfType<TextBlock>(), t => t.Text == KeyNames.Format("Ctrl+K", ShellStrings.Culture));

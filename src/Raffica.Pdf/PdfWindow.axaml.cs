@@ -138,6 +138,8 @@ internal sealed partial class PdfWindow : Window
         TitleSearch.ExtraResults = new PdfPaletteSource(CreatePaletteContext()).Find;
         Tabs = titleBar.Tabs;
         Tabs.CloseRequested += OnCloseRequested;
+        Tabs.NewButtonLabel = PdfStrings.OpenFileButton;
+        Tabs.NewRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Tabs.Items.CollectionChanged += OnTabsChanged;
         _selectedSubscription = Tabs.GetObservable(DocumentTabs.SelectedProperty).Subscribe(new SelectedObserver(this));
 
@@ -151,7 +153,7 @@ internal sealed partial class PdfWindow : Window
         FieldCodeBadge.SetCode(CommentsPane, "7");
 
         Status = new StatusBar();
-        Start = new StartView { Tiles = StartTile.Standard(), Recent = [], OwnApp = StartApp.Pdf };
+        Start = new StartView { Tiles = StartTile.OpenPdfOnly(), Recent = [], OwnApp = StartApp.Pdf };
 
         Frame.TitleBar = titleBar;
         // The card of a running print job sits under the frame: it does not take the notification slot of the search bar.
@@ -181,6 +183,7 @@ internal sealed partial class PdfWindow : Window
             ? Redacting.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose)
             : Applying.RunAsync(tab, saveAs ? ApplyTarget.SaveAs : ApplyTarget.Choose);
         Flow = new OpenFlow(Workspace, () => _engine ??= new PdfEngine(), AskPasswordAsync, ShowOpenError, ShowOpenFailures);
+        Start.NewRequested += app => { _ = GuardAsync(OpenFromDialogAsync); };
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
         Status.ZoomChanged += (_, percent) => ActiveView?.SetZoom(percent / 100.0);
@@ -1692,7 +1695,18 @@ internal sealed partial class PdfWindow : Window
         MakeDefaultApp = MakeDefaultApp,
         ShowAbout = () => _ = GuardAsync(ShowAboutAsync),
         CheckForUpdates = CheckForUpdates,
+        SearchDocument = SearchDocumentFor,
     };
+
+    /// <summary>The palette entry "Search the document for ...": the find bar opens and searches the text.</summary>
+    private void SearchDocumentFor(string text)
+    {
+        ShowSearchBar();
+        if (ShownSearchBar is { } bar)
+        {
+            bar.Query = text;
+        }
+    }
 
     /// <summary>The page view of a tab, once the tab has been shown (for tests); null before.</summary>
     internal PageView? ViewOf(PdfTab tab) => _views.GetValueOrDefault(tab);

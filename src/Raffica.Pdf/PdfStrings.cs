@@ -133,6 +133,8 @@ internal static class PdfStrings
     public static string LinkWarningUserInfo => Table.Get("LinkWarningUserInfo");
     public static string LinkWarningPunycodeFormat => Table.Get("LinkWarningPunycodeFormat");
     public static string PaletteGroupGoTo => Table.Get("PaletteGroupGoTo");
+    public static string OpenFileButton => Table.Get("OpenFileButton");
+    public static string PaletteSearchDocumentFormat => Table.Get("PaletteSearchDocumentFormat");
     public static string PaletteGoToPageFormat => Table.Get("PaletteGoToPageFormat");
     public static string PaletteGoToPageDetailFormat => Table.Get("PaletteGoToPageDetailFormat");
     public static string PaletteGroupTabs => Table.Get("PaletteGroupTabs");

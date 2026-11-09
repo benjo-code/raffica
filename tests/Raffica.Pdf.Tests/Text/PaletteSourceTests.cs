@@ -19,8 +19,10 @@ public sealed class PaletteSourceTests
         IReadOnlyList<OutlineEntry>? outline = null,
         int recent = 0,
         int pages = 5,
-        List<string>? log = null) => new()
+        List<string>? log = null,
+        bool searchDocument = false) => new()
         {
+            SearchDocument = searchDocument ? text => log?.Add("search " + text) : null,
             Tabs = () => tabs ?? [],
             ActiveTab = () => tabs is { Count: > 0 } ? tabs[0] : null,
             Select = tab => log?.Add("select " + tab.Title),
@@ -31,6 +33,35 @@ public sealed class PaletteSourceTests
             GoToPage = page => log?.Add("page " + page),
             ShowDocumentInfo = () => log?.Add("info"),
         };
+
+    [AvaloniaFact]
+    public async Task SearchTheDocumentIsTheLastResultAndOpensTheFindBar()
+    {
+        using var fixture = WindowFixture.Create();
+        var window = fixture.Window;
+        var palette = window.TitleSearch.ExtraResults!;
+        Assert.DoesNotContain(palette("abschnitt"), e => e.Name.StartsWith("Search the document", StringComparison.Ordinal));
+
+        await fixture.OpenAsync("outline.pdf");
+        await fixture.LoadRecentAsync();
+        var found = palette("abschnitt");
+        Assert.True(found.Count > 1);
+        var last = found[^1];
+        Assert.Equal(PdfStrings.PaletteGroupDocument, last.Group);
+        Assert.Equal("Search the document for 'abschnitt'", last.Name);
+
+        last.Run();
+        ViewFixture.Pump();
+        var bar = window.ShownSearchBar;
+        Assert.NotNull(bar);
+        Assert.Equal("abschnitt", bar.Query);
+    }
+
+    [AvaloniaFact]
+    public void SearchTheDocumentNeedsADocumentAndTheHook()
+    {
+        Assert.DoesNotContain(new PdfPaletteSource(Context(searchDocument: true)).Find("intro"), e => e.Name.StartsWith("Search the document", StringComparison.Ordinal));
+    }
 
     [AvaloniaFact]
     public async Task ListsTabsRecentOutlineAndGoToPage()
@@ -103,8 +134,7 @@ public sealed class PaletteSourceTests
         using var fixture = WindowFixture.Create();
         await fixture.OpenAsync("text-rich.pdf");
         var window = fixture.Window;
-        var info = Assert.Single(window.TitleSearch.ExtraResults!("info"), e => e.Group == PdfStrings.PaletteGroupDocument);
-        Assert.Equal("Document info", info.Name);
+        var info = Assert.Single(window.TitleSearch.ExtraResults!("info"), e => e.Group == PdfStrings.PaletteGroupDocument && e.Name == PdfStrings.InfoTitle);
 
         info.Run();
         await ViewFixture.WaitAsync(() => window.Host.IsOpen);

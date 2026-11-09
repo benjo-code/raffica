@@ -30,6 +30,7 @@ public class DocumentTabs : TemplatedControl
     private readonly Button _plus;
     private readonly TabsLayout _layout;
     private Border? _host;
+    private string _newLabel = string.Empty;
 
     static DocumentTabs()
     {
@@ -57,8 +58,7 @@ public class DocumentTabs : TemplatedControl
 
         _plus = new Button { Name = "PART_New", Content = RibbonButton.CreateIcon("Raffica.Icon.Plus", 16) };
         _plus.Classes.Add("document-tab-new");
-        AutomationProperties.SetName(_plus, ShellStrings.NewDocument);
-        ToolTip.SetTip(_plus, new TooltipContent { Title = ShellStrings.NewDocument });
+        ApplyNewButtonLabel(ShellStrings.NewDocument);
         _plus.Click += (_, _) => NewRequested?.Invoke();
         WindowDecorationProperties.SetElementRole(_plus, WindowDecorationsElementRole.User);
 
@@ -71,9 +71,23 @@ public class DocumentTabs : TemplatedControl
     /// <summary>Raised when the user presses the "+" button.</summary>
     public event Action? NewRequested;
 
+    /// <summary>The name and tooltip of the "+" button; "New document" until an app that opens files instead sets its own.</summary>
+    public string NewButtonLabel
+    {
+        get => _newLabel;
+        set => ApplyNewButtonLabel(value);
+    }
+
     public ObservableCollection<DocumentTab> Items { get; } = [];
 
     public DocumentTab? Selected { get => GetValue(SelectedProperty); set => SetValue(SelectedProperty, value); }
+
+    private void ApplyNewButtonLabel(string label)
+    {
+        _newLabel = label;
+        AutomationProperties.SetName(_plus, label);
+        ToolTip.SetTip(_plus, new TooltipContent { Title = label });
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

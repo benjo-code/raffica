@@ -93,8 +93,8 @@ public class SearchField : TemplatedControl
             return;
         }
 
-        _input.PlaceholderText = ShellStrings.Search;
-        AutomationProperties.SetName(_input, ShellStrings.Search);
+        _input.PlaceholderText = ShellStrings.SearchCommands;
+        AutomationProperties.SetName(_input, ShellStrings.SearchCommands);
         _input.InnerLeftContent = new Border
         {
             Margin = new Thickness(8, 0, 0, 0),

@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
 using Raffica.Shell.Tests.Controls;
@@ -70,6 +71,39 @@ public sealed class StartViewTests
         {
             ShellStrings.Culture = previous;
         }
+    }
+
+    [AvaloniaFact]
+    public void OpenPdfOnlyIsOneTileThatNamesNoOtherApp()
+    {
+        var previous = ShellStrings.Culture;
+        try
+        {
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("de");
+            var tile = Assert.Single(StartTile.OpenPdfOnly());
+            Assert.Equal(StartApp.Pdf, tile.App);
+            Assert.Equal("PDF öffnen", tile.Label);
+            Assert.Equal(4, StartTile.Standard().Count);
+        }
+        finally
+        {
+            ShellStrings.Culture = previous;
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheNewButtonLabelDefaultsToNewDocumentAndCanBeChanged()
+    {
+        var tabs = new DocumentTabs();
+        var window = ControlHarness.Show(tabs, ThemeMode.Light);
+        ControlHarness.Settle(window);
+        var plus = ControlHarness.Part<Button>(tabs, "PART_New");
+        Assert.Equal(ShellStrings.NewDocument, AutomationProperties.GetName(plus));
+        Assert.Equal(ShellStrings.NewDocument, Assert.IsType<TooltipContent>(ToolTip.GetTip(plus)).Title);
+
+        tabs.NewButtonLabel = "Open file";
+        Assert.Equal("Open file", AutomationProperties.GetName(plus));
+        Assert.Equal("Open file", Assert.IsType<TooltipContent>(ToolTip.GetTip(plus)).Title);
     }
 
     [AvaloniaFact]
