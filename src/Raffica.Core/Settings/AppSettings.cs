@@ -135,6 +135,12 @@ public sealed record AppSettings
     /// <summary>Whether the card "Set Raffica as default for PDFs?" may appear at the start.</summary>
     public DefaultAppPromptSetting DefaultAppPrompt { get; set; } = DefaultAppPromptSetting.Ask;
 
+    /// <summary>
+    /// The day until which the card "Set Raffica as default for PDFs?" stays away after "Not now" (the card comes back on the first start after that
+    /// day), or <see langword="null"/> when nothing is snoozed. "Don't ask again" is <see cref="DefaultAppPrompt"/>, not this.
+    /// </summary>
+    public DateOnly? DefaultAppPromptSnoozedUntil { get; set; }
+
     /// <summary>Whether Raffica checks for a newer version by itself (at most once in 24 hours). Off means no network access at all.</summary>
     public bool UpdateCheck { get; set; } = true;
 

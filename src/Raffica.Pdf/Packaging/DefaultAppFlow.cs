@@ -23,14 +23,16 @@ internal sealed class DefaultAppFlow
     private readonly Action<DefaultAppPromptSetting> _write;
     private readonly DialogQueue _cards;
     private readonly TimeProvider? _time;
+    private readonly Action<DateOnly>? _snooze;
     private bool _offered;
 
     /// <param name="service">Reads and sets the default app of this system.</param>
     /// <param name="read">The viewer settings in force.</param>
     /// <param name="write">Stores the answer to "Don't ask again".</param>
     /// <param name="cards">Where the cards are shown.</param>
-    /// <param name="time">The clock of the card's arming delay (tests); null: the system clock.</param>
-    public DefaultAppFlow(IDefaultAppService service, Func<AppSettings> read, Action<DefaultAppPromptSetting> write, DialogQueue cards, TimeProvider? time = null)
+    /// <param name="time">The clock of the card's arming delay and of the snooze (tests); null: the system clock.</param>
+    /// <param name="snooze">Stores the day until which "Not now" keeps the card away (<see cref="SnoozeDays"/> days from today); null: "Not now" stores nothing.</param>
+    public DefaultAppFlow(IDefaultAppService service, Func<AppSettings> read, Action<DefaultAppPromptSetting> write, DialogQueue cards, TimeProvider? time = null, Action<DateOnly>? snooze = null)
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(read);
@@ -41,18 +43,28 @@ internal sealed class DefaultAppFlow
         _write = write;
         _cards = cards;
         _time = time;
+        _snooze = snooze;
     }
+
+    /// <summary>How many days "Not now" keeps the card away.</summary>
+    public const int SnoozeDays = 30;
+
+    /// <summary>Whether "Not now" still holds on the day of <paramref name="time"/>: the card stays away through the stored day and returns on the first start after it.</summary>
+    internal static bool IsSnoozed(AppSettings settings, TimeProvider? time) =>
+        settings.DefaultAppPromptSnoozedUntil is { } until && Today(time) <= until;
+
+    private static DateOnly Today(TimeProvider? time) => DateOnly.FromDateTime((time ?? TimeProvider.System).GetLocalNow().DateTime);
 
     /// <summary>Whether a question or a change of the default app is under way.</summary>
     public bool IsBusy { get; private set; }
 
     /// <summary>
-    /// Asks once per run, and only when the setting is <see cref="DefaultAppPromptSetting.Ask"/>, the system says another app is the default
+    /// Asks once per run, and only when the setting is <see cref="DefaultAppPromptSetting.Ask"/>, "Not now" is not remembered for today (<see cref="IsSnoozed"/>), the system says another app is the default
     /// (<see cref="DefaultAppStatus.NotDefault"/>; an unknown status asks nothing) and nothing else of this flow runs.
     /// </summary>
     public async Task OfferAtStartAsync(CancellationToken cancellationToken)
     {
-        if (_offered || IsBusy || _read().DefaultAppPrompt != DefaultAppPromptSetting.Ask || !_service.IsSupported)
+        if (_offered || IsBusy || _read().DefaultAppPrompt != DefaultAppPromptSetting.Ask || IsSnoozed(_read(), _time) || !_service.IsSupported)
         {
             return;
         }
@@ -76,6 +88,9 @@ internal sealed class DefaultAppFlow
                     break;
                 case DefaultAppChoice.DontAskAgain:
                     _write(DefaultAppPromptSetting.Never);
+                    break;
+                case DefaultAppChoice.NotNow:
+                    _snooze?.Invoke(Today(_time).AddDays(SnoozeDays));
                     break;
             }
         }

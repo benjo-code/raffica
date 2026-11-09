@@ -21,6 +21,13 @@ internal sealed class ManualTime : TimeProvider
     public override long GetTimestamp() => _milliseconds;
 
     public void Advance(int milliseconds) => _milliseconds += milliseconds;
+
+    /// <summary>The calendar clock (UTC is also the local zone here); starts at the real time, tests set it to a fixed day.</summary>
+    public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UtcNow;
+
+    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+
+    public override DateTimeOffset GetUtcNow() => UtcNow;
 }
 
 /// <summary>
