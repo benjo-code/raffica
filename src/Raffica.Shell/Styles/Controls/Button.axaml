@@ -83,6 +83,18 @@
       <Setter Property="HorizontalContentAlignment" Value="Left" />
     </Style>
 
+    <!-- wrap: a text label that breaks into lines at the room it has (a narrow pane), so the button grows in height; the content stays a string -->
+    <Style Selector="^.wrap">
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="ContentTemplate">
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" />
+        </DataTemplate>
+      </Setter>
+    </Style>
+
     <!-- Hover -->
     <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />

@@ -65,6 +65,15 @@
       </ControlTemplate>
     </Setter>
 
+    <!-- wrap: the label breaks into lines at the room it has (a narrow pane); the content stays a string -->
+    <Style Selector="^.wrap">
+      <Setter Property="ContentTemplate">
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+        </DataTemplate>
+      </Setter>
+    </Style>
+
     <Style Selector="^:checked /template/ Border#Box">
       <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />

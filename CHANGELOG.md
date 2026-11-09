@@ -37,6 +37,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF: in German the check boxes, buttons and toggles of the redact pane and its Find panel (256 px wide) break their labels into lines instead of cutting them off (for example "Textgröße an die Markierung anpassen"), and the text box for the text on the marks has the short hint "Optionaler Text" / "Optional text".
 - Raffica PDF: the About card fits its card (the notices list is no longer wider than the card, the intro wraps), the component rows open and close like a disclosure instead of turning pink, each row names the component and its licence, the project address is a link that asks before it opens, and the German notice text says "enthält" with its umlaut.
 - Raffica PDF: screen readers now find the page view as a document named "<file>, page 3 of 12" (it follows the current page, in English and German) and the status bar cells (save state, position, page count, zoom value) with their text.
 - Raffica PDF: cards and dialogs scroll when the window is small or the display scaling is large (Settings, for example, was cut off at 150% scaling): the card is never taller than the window less 48 px, its body scrolls and the focused control is brought into view with Tab.

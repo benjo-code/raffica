@@ -2198,7 +2198,7 @@
     <value>Text on the selected marks</value>
   </data>
   <data name="RedactOverlayPlaceholder" xml:space="preserve">
-    <value>Text on the selected marks (optional)</value>
+    <value>Optional text</value>
   </data>
   <data name="RedactOverlayRepeat" xml:space="preserve">
     <value>Repeat the text</value>

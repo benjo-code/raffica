@@ -97,7 +97,7 @@ internal sealed partial class RedactPane
 
     private void BuildLook()
     {
-        _lookToggle = new ToggleButton { Name = "PART_LookToggle", Content = PdfStrings.RedactLookToggle, HorizontalAlignment = HorizontalAlignment.Left };
+        _lookToggle = new ToggleButton { Name = "PART_LookToggle", Content = PdfStrings.RedactLookToggle, HorizontalAlignment = HorizontalAlignment.Left, Classes = { "wrap" } };
         _lookToggle.IsCheckedChanged += (_, _) => _lookScroll.IsVisible = _lookToggle.IsChecked == true;
 
         FillBox = new TextBox { Name = "PART_FillBox", MaxLength = 16 };
@@ -150,9 +150,9 @@ internal sealed partial class RedactPane
         AutomationProperties.SetName(OverlayBox, PdfStrings.RedactOverlayName);
         OverlayBox.AddHandler(KeyDownEvent, (_, e) => OnFieldKey(e, OverlayDirty, CommitOverlay, RevertOverlay), Avalonia.Interactivity.RoutingStrategies.Tunnel);
         OverlayBox.LostFocus += (_, _) => CommitOverlayIfDirty();
-        RepeatBox = new CheckBox { Name = "PART_OverlayRepeat", Content = PdfStrings.RedactOverlayRepeat };
+        RepeatBox = new CheckBox { Name = "PART_OverlayRepeat", Content = PdfStrings.RedactOverlayRepeat, Classes = { "wrap" } };
         RepeatBox.IsCheckedChanged += (_, _) => OnStyleBoxChanged();
-        AutoSizeBox = new CheckBox { Name = "PART_OverlayAutoSize", Content = PdfStrings.RedactOverlayAutoSize, IsChecked = true };
+        AutoSizeBox = new CheckBox { Name = "PART_OverlayAutoSize", Content = PdfStrings.RedactOverlayAutoSize, IsChecked = true, Classes = { "wrap" } };
         AutoSizeBox.IsCheckedChanged += (_, _) => OnStyleBoxChanged();
         TextColorBox = new TextBox { Name = "PART_TextColorBox", MaxLength = 16, PlaceholderText = "#RRGGBB" };
         AutomationProperties.SetName(TextColorBox, PdfStrings.RedactTextColorName);
@@ -161,7 +161,7 @@ internal sealed partial class RedactPane
         _contrastWarning = new TextBlock { Name = "PART_ContrastWarning", TextWrapping = TextWrapping.Wrap, IsVisible = false };
         AutomationProperties.SetLiveSetting(_contrastWarning, AutomationLiveSetting.Polite);
 
-        RasterPageBox = new CheckBox { Name = "PART_RasterPage" };
+        RasterPageBox = new CheckBox { Name = "PART_RasterPage", Classes = { "wrap" } };
         RasterPageBox.IsCheckedChanged += (_, _) => OnRasterPageChanged();
         _rasterCount = new TextBlock { Name = "PART_RasterCount", TextWrapping = TextWrapping.Wrap, IsVisible = false };
         DpiBox = new ComboBox

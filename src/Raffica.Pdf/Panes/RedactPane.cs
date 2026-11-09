@@ -71,7 +71,7 @@ internal sealed partial class RedactPane : UserControl, IDisposable
         };
         _list.SelectionChanged += OnListSelectionChanged;
         _list.AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        ApplyButton = new Button { Name = "PART_Apply", Content = PdfStrings.RedactApplyButton, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        ApplyButton = new Button { Name = "PART_Apply", Content = PdfStrings.RedactApplyButton, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Classes = { "wrap" } };
         ApplyButton.Classes.Add("primary");
         ApplyButton.Click += (_, _) => ApplyRequested?.Invoke();
 
