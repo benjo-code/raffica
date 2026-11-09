@@ -53,15 +53,20 @@ cmake -S "$work/tesseract" -B "$work/tess-build" "${common[@]}" \
   -DBUILD_SHARED_LIBS=ON -DSW_BUILD=OFF -DOPENMP_BUILD=OFF -DDISABLE_CURL=ON -DDISABLE_ARCHIVE=ON \
   -DBUILD_TRAINING_TOOLS=OFF -DBUILD_TESTS=OFF -DGRAPHICS_DISABLED=ON -DENABLE_LTO=OFF \
   -DLeptonica_DIR="$work/prefix/lib/cmake/leptonica" \
-  "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-install_name,@loader_path/libtesseract.dylib -Wl,-dead_strip"
+  -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON -DCMAKE_INSTALL_NAME_DIR=@loader_path \
+  "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-headerpad_max_install_names -Wl,-dead_strip"
 cmake --build "$work/tess-build" --target libtesseract
 
 lib=$(find "$work/tess-build" -maxdepth 1 -name 'libtesseract*.dylib' -type f | head -1)
 [ -n "$lib" ] || { echo "build-macos: libtesseract.dylib not found" >&2; exit 1; }
 cp "$lib" "$out/libtesseract.dylib"
-# CMake adds its own -install_name (@rpath/...) after the linker flags above, so the install name is set once more on the copy;
-# editing and stripping invalidate the signature, and an arm64 library without one does not load: sign it again (ad-hoc).
+# CMake writes the install name itself: CMAKE_BUILD_WITH_INSTALL_NAME_DIR with CMAKE_INSTALL_NAME_DIR=@loader_path gives
+# @loader_path/<file name>, and the file name still carries the version (libtesseract.5.5.dylib). The copy is named libtesseract.dylib,
+# so the id is set once more here; -headerpad_max_install_names above leaves room for it. The id is then checked and the build fails if it is wrong.
 install_name_tool -id @loader_path/libtesseract.dylib "$out/libtesseract.dylib"
+id=$(otool -D "$out/libtesseract.dylib" | tail -n 1)
+[ "$id" = "@loader_path/libtesseract.dylib" ] || { echo "build-macos: install name is '$id', expected @loader_path/libtesseract.dylib" >&2; exit 1; }
 strip -x "$out/libtesseract.dylib"
+# Editing and stripping invalidate the signature, and an arm64 library without one does not load: sign it again (ad-hoc).
 codesign --force --sign - "$out/libtesseract.dylib"
 echo "build-macos: $(stat -f %z "$out/libtesseract.dylib") bytes ($arch) in $out/libtesseract.dylib"

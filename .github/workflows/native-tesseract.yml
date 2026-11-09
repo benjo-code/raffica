@@ -4,7 +4,9 @@ name: Native Tesseract
 # this repository named native-tesseract-<Tesseract version>-<build number>. Started by hand only:
 #   gh workflow run native-tesseract.yml --ref dev -f build=1                    (Windows and Linux, build 1)
 #   gh workflow run native-tesseract.yml --ref <branch> -f build=2 -f systems=macos   (macOS x86_64 and arm64, build 2)
-# "systems" is all (windows and linux jobs) or macos (macos job only); every build number is its own prerelease.
+# "systems" is all (the windows and linux jobs only) or macos (the macos job only); every build number is its own prerelease,
+# so the macOS libraries live in the -2 release (the pins of osx-x64 and osx-arm64 point at it) and never in the -1 release
+# of Windows and Linux. The tag is always native-tesseract-<Tesseract version>-<build>; the macos job refuses build number 1.
 # The tag never starts with "v": the update check reads releases/latest and release.yml accepts SemVer tags only, so this
 # prerelease can never be mistaken for an app release (Docs/DECISIONS.md, "Raffica PDF: redaction, OCR and text editing conventions (M2.5)", item 13).
 # After the run, Pins.Libraries in tools/native-fetch.cs gets the size and SHA-256 of each file from the job summary; `native-fetch`
@@ -18,7 +20,7 @@ on:
         required: true
         type: string
       systems:
-        description: 'Which libraries to build: all (Windows and Linux) or macos (x86_64 and arm64)'
+        description: 'Which libraries to build: all (Windows and Linux only) or macos (x86_64 and arm64 only)'
         required: false
         default: all
         type: choice
@@ -132,6 +134,7 @@ jobs:
           echo "| libtesseract.so | $(stat -c %s "$f") | $(sha256sum "$f" | cut -d' ' -f1) |" | tee -a "$GITHUB_STEP_SUMMARY"
 
   macos:
+    if: ${{ inputs.systems == 'macos' }}
     needs: prepare
     runs-on: macos-15
     timeout-minutes: 90
@@ -146,6 +149,12 @@ jobs:
           - arch: arm64
             asset: libtesseract-osx-arm64.dylib
     steps:
+      - name: Refuse the release of Windows and Linux
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          # The macOS libraries belong to build 2 or later; build 1 is the release of tesseract.dll and libtesseract.so.
+          [[ "$TAG" =~ -[1-9][0-9]*$ ]] && [[ ! "$TAG" =~ -1$ ]] || { echo "the macOS libraries must not go into $TAG (use build 2 or later)" >&2; exit 1; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

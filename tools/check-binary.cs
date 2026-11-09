@@ -162,15 +162,24 @@ static partial class MachORules
     [GeneratedRegex(@"^\s*version\s+(?<v>\d+(?:\.\d+)*)\s*$")]
     private static partial Regex LegacyVersionLine();
 
-    public static List<string> Dependencies(string otoolOutput)
+    public static List<string> Dependencies(string otoolOutput) => Dependencies(otoolOutput, out _);
+
+    // Unparsable receives every indented non-blank line that is not a dependency line (the parser must not fail open on a changed format).
+    public static List<string> Dependencies(string otoolOutput, out List<string> unparsable)
     {
         var result = new List<string>();
-        foreach (var line in otoolOutput.Split('\n'))
+        unparsable = [];
+        foreach (var raw in otoolOutput.Split('\n'))
         {
-            var m = DependencyLine().Match(line.TrimEnd('\r'));
+            var line = raw.TrimEnd('\r');
+            var m = DependencyLine().Match(line);
             if (m.Success)
             {
                 result.Add(m.Groups["p"].Value);
+            }
+            else if (line.Length > 0 && char.IsWhiteSpace(line[0]) && line.Trim().Length > 0)
+            {
+                unparsable.Add(line.Trim());
             }
         }
 
@@ -242,7 +251,18 @@ static partial class MachORules
             problems.Add($"deployment target macOS {minos} is higher than allowed ({string.Join('.', maxMacos)})");
         }
 
-        foreach (var dependency in Dependencies(otoolOutput))
+        var dependencies = Dependencies(otoolOutput, out var unparsable);
+        if (dependencies.Count == 0)
+        {
+            problems.Add("no dependency found in the otool -L output (every dylib links libSystem): the output is empty or not understood");
+        }
+
+        foreach (var line in unparsable)
+        {
+            problems.Add($"otool -L line not understood: {line}");
+        }
+
+        foreach (var dependency in dependencies)
         {
             if (!DependencyAllowed(dependency, bundleHasFile))
             {
@@ -496,6 +516,11 @@ static class SelfTest
         Expect("macho: minos 15.0 against max 14.0 fails", MachORules.Violations(Clean, "arm64", Vtool15, "arm64", max14, All).Count, 1);
         Expect("macho: minos 13.0 against max 14.0 passes", MachORules.Violations(Clean, "arm64", Vtool13, "arm64", max14, All).Count, 0);
         Expect("macho: no minos in the vtool text fails", MachORules.Violations(Clean, "arm64", "nothing", "arm64", max14, All).Count, 1);
+        Expect("macho: empty otool output fails", MachORules.Violations(string.Empty, "arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: a header line alone (no dependency) fails", MachORules.Violations("libtesseract.dylib:\n", "arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: an unparsable indented line fails", MachORules.Violations(Clean + "\t/usr/lib/libz.1.dylib\n", "arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: an unparsable line is named", MachORules.Violations(Clean + "\tsurprise\n", "arm64", Vtool13, "arm64", max14, All).Any(p => p.Contains("surprise", StringComparison.Ordinal)), true);
+        Expect("macho: the normal sample still passes", MachORules.Violations(Clean, "arm64", Vtool13, "arm64", max14, All).Count, 0);
         Expect("macho: the legacy LC_VERSION_MIN_MACOSX form is read", MachORules.Violations(Clean, "arm64", "      cmd LC_VERSION_MIN_MACOSX\n  cmdsize 16\n  version 13.0\n      sdk 15.2\n", "arm64", max14, All).Count, 0);
 
         // The ELF rules keep their behaviour.

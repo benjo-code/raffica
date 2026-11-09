@@ -358,7 +358,7 @@ static class SelfTest
         Expect("macOS: a refused placeholder lays nothing down", !Directory.Exists(outMac) || Directory.GetFileSystemEntries(outMac).Length == 0, true);
     }
 
-    private const string ReleaseUrl ="https://github.com/benjo-code/raffica/releases/download/native-tesseract-5.5.4-1/tesseract.dll";
+    private const string ReleaseUrl = "https://github.com/benjo-code/raffica/releases/download/native-tesseract-5.5.4-1/tesseract.dll";
 
     // Serves the release lookup and the asset download like the GitHub API and records what it was asked.
     private sealed class FakeGitHub : HttpMessageHandler
