@@ -235,6 +235,80 @@ public sealed class StartupCreatesNoPackagingWorkTests
         Assert.Equal(PdfStrings.DefaultAppResultTitle, f.Window.Host.ActiveDialog!.Title);
     }
 
+    // "Not now" is remembered: while it holds, the window does not even make the service or the flow.
+    [AvaloniaFact]
+    public async Task ASnoozedOfferMakesNoFlowAndNoService()
+    {
+        var made = 0;
+        var fake = new FakeDefaultAppService();
+        var until = DateOnly.FromDateTime(DateTime.Now).AddDays(10);
+        using var f = WindowFixture.Create(folder =>
+            Assert.True(new SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(AppSettings.Default with { DefaultAppPromptSnoozedUntil = until, UpdateCheck = false })));
+        f.Window.DefaultAppServices = () =>
+        {
+            made++;
+            return fake;
+        };
+        var tab = await f.OpenAsync("pages-marked.pdf");
+        await ViewFixture.WaitAsync(() => f.Window.ViewOf(tab)!.FirstSharpPageShown);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        ViewFixture.Pump();
+        Assert.Equal(0, made);
+        Assert.False(f.Window.DefaultAppFlowCreated);
+        Assert.Equal(0, fake.StatusCalls);
+    }
+
+    [AvaloniaFact]
+    public void AskingAgainOrMakingTheDefaultNowEndsTheSnooze()
+    {
+        try
+        {
+            var fake = new FakeDefaultAppService();
+            var until = DateOnly.FromDateTime(DateTime.Now).AddDays(10);
+            using var f = WindowFixture.Create(folder =>
+                Assert.True(new SettingsStore(Path.Combine(folder, "pdf-settings.json")).TrySave(AppSettings.Default with { DefaultAppPromptSnoozedUntil = until })));
+            f.Window.DefaultAppServices = () => fake;
+
+            T Find<T>(string name) where T : Control => f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<T>().Single(c => c.Name == name);
+            void Ok()
+            {
+                Find<Button>("PART_Ok").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                ViewFixture.Pump();
+            }
+
+            // Saving the dialog without a change keeps the snooze (the box is already checked).
+            f.Window.Settings.Open();
+            ViewFixture.Pump();
+            Ok();
+            Assert.Equal(until, f.Window.Settings.App.DefaultAppPromptSnoozedUntil);
+
+            // Switched off, then on again in a second save: the change from unchecked to checked ends the snooze.
+            f.Window.Settings.Open();
+            ViewFixture.Pump();
+            Find<CheckBox>("PART_DefaultAppAsk").IsChecked = false;
+            Ok();
+            Assert.Equal(until, f.Window.Settings.App.DefaultAppPromptSnoozedUntil);
+            f.Window.Settings.Open();
+            ViewFixture.Pump();
+            Find<CheckBox>("PART_DefaultAppAsk").IsChecked = true;
+            Ok();
+            Assert.Null(f.Window.Settings.App.DefaultAppPromptSnoozedUntil);
+            Assert.Equal(DefaultAppPromptSetting.Ask, f.Window.Settings.App.DefaultAppPrompt);
+
+            // "Set as default now" ends a snooze too.
+            f.Window.Settings.Update(f.Window.Settings.App with { DefaultAppPromptSnoozedUntil = until });
+            f.Window.Settings.Open();
+            ViewFixture.Pump();
+            Find<CheckBox>("PART_DefaultAppNow").IsChecked = true;
+            Ok();
+            Assert.Null(f.Window.Settings.App.DefaultAppPromptSnoozedUntil);
+        }
+        finally
+        {
+            RestoreTheme();
+        }
+    }
+
     [AvaloniaFact]
     public void TheSettingsRowStoresTheOfferAndRunsTheCommandAfterOk()
     {

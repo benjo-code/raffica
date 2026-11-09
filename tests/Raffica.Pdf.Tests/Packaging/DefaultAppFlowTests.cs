@@ -149,11 +149,28 @@ public sealed class DefaultAppFlowTests : IDisposable
         Assert.Equal(DefaultAppPromptSetting.Never, rig.Settings.DefaultAppPrompt);
         Assert.Null(rig.Settings.DefaultAppPromptSnoozedUntil);
 
-        rig.Time.UtcNow = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var next = new DefaultAppFlow(rig.Service, () => rig.Settings, _ => { }, new DialogQueue(rig.Host), rig.Time);
-        await next.OfferAtStartAsync(TestContext.Current.CancellationToken);
-        Assert.False(rig.Host.IsOpen);
-        Assert.Equal(1, rig.Service.StatusCalls);
+        // A far-future and a past date: the permanent choice does not look at the date.
+        foreach (var day in new[] { new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero) })
+        {
+            rig.Time.UtcNow = day;
+            var next = new DefaultAppFlow(rig.Service, () => rig.Settings, _ => { }, new DialogQueue(rig.Host), rig.Time);
+            await next.OfferAtStartAsync(TestContext.Current.CancellationToken);
+            Assert.False(rig.Host.IsOpen);
+            Assert.Equal(1, rig.Service.StatusCalls);
+        }
+    }
+
+    [Fact]
+    public void ASnoozeFurtherAwayThanThirtyDaysIsAClockMistakeAndExpired()
+    {
+        var time = new ManualTime { UtcNow = new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero) };
+        AppSettings Until(DateOnly day) => AppSettings.Default with { DefaultAppPromptSnoozedUntil = day };
+
+        Assert.True(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2026, 12, 9)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2026, 12, 10)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2031, 1, 1)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(Until(new DateOnly(2026, 11, 8)), time));
+        Assert.False(DefaultAppFlow.IsSnoozed(AppSettings.Default, time));
     }
 
     [AvaloniaFact]

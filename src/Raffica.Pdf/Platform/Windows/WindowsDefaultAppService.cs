@@ -17,6 +17,9 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
     /// <summary>The settings page of the default apps, with Raffica's name as it is registered in <c>RegisteredApplications</c>.</summary>
     internal const string SettingsUri = "ms-settings:defaultapps?registeredAppUser=Raffica";
 
+    /// <summary>The same page for an installation for all users, which registers below <c>HKLM</c> (<c>registeredAppMachine</c>).</summary>
+    internal const string MachineSettingsUri = "ms-settings:defaultapps?registeredAppMachine=Raffica";
+
     private const string UserChoiceKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf\UserChoice";
     private const string UserChoiceLatestKey = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf\UserChoiceLatest\ProgId";
     private const string OpenCommandKey = @"Software\Classes\" + FileTypeRegistration.ProgId + @"\shell\open\command";
@@ -123,13 +126,19 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            var machine = false;
             if (!IsRegisteredForThisProgram())
             {
                 new WindowsFileTypeRegistry(_root).Write(RegistrationScope.User, FileTypeRegistration.Entries(_exePath));
                 _notifyAssociationsChanged();
             }
+            else
+            {
+                // Registered already: by the user, or (nothing below HKCU) by an installation for all users.
+                machine = OpenCommand(_root) is null;
+            }
 
-            await _openUri(SettingsUri).ConfigureAwait(false);
+            await _openUri(machine ? MachineSettingsUri : SettingsUri).ConfigureAwait(false);
             return DefaultAppResult.OpenedSystemSettings;
         }
         catch (Exception e) when (e is System.Security.SecurityException or UnauthorizedAccessException or IOException or Win32Exception or InvalidOperationException)

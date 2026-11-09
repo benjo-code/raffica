@@ -49,9 +49,15 @@ internal sealed class DefaultAppFlow
     /// <summary>How many days "Not now" keeps the card away.</summary>
     public const int SnoozeDays = 30;
 
-    /// <summary>Whether "Not now" still holds on the day of <paramref name="time"/>: the card stays away through the stored day and returns on the first start after it.</summary>
-    internal static bool IsSnoozed(AppSettings settings, TimeProvider? time) =>
-        settings.DefaultAppPromptSnoozedUntil is { } until && Today(time) <= until;
+    /// <summary>
+    /// Whether "Not now" still holds on the day of <paramref name="time"/>: the card stays away through the stored day and returns on the first start after it.
+    /// A day further away than <see cref="SnoozeDays"/> can only come from a clock that was wrong when it was stored: it counts as expired.
+    /// </summary>
+    internal static bool IsSnoozed(AppSettings settings, TimeProvider? time)
+    {
+        var today = Today(time);
+        return settings.DefaultAppPromptSnoozedUntil is { } until && today <= until && until <= today.AddDays(SnoozeDays);
+    }
 
     private static DateOnly Today(TimeProvider? time) => DateOnly.FromDateTime((time ?? TimeProvider.System).GetLocalNow().DateTime);
 

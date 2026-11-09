@@ -268,7 +268,12 @@ public sealed class DefaultAppServiceTests : IDisposable
         try
         {
             var notified = 0;
-            var service = new WindowsDefaultAppService(user, exe, _ => Task.CompletedTask, () => notified++, machine);
+            var opened = new List<string>();
+            var service = new WindowsDefaultAppService(user, exe, uri =>
+            {
+                opened.Add(uri);
+                return Task.CompletedTask;
+            }, () => notified++, machine);
             new WindowsFileTypeRegistry(machine).Write(RegistrationScope.Machine, FileTypeRegistration.Entries(exe));
             using (var key = user.CreateSubKey(userChoice))
             {
@@ -283,9 +288,16 @@ public sealed class DefaultAppServiceTests : IDisposable
             Assert.Null(user.OpenSubKey(command));
             Assert.Equal(0, notified);
 
+            // The registration is the machine's, so the settings page is asked for the machine's app (registeredAppMachine).
+            Assert.Equal(["ms-settings:defaultapps?registeredAppMachine=Raffica"], opened);
+
             // An all-users registration of another path does not count: the user's registration is written as before.
             const string otherExe = @"D:\Other\RafficaPdf.exe";
-            var other = new WindowsDefaultAppService(user, otherExe, _ => Task.CompletedTask, () => notified++, machine);
+            var other = new WindowsDefaultAppService(user, otherExe, uri =>
+            {
+                opened.Add(uri);
+                return Task.CompletedTask;
+            }, () => notified++, machine);
             Assert.Equal(DefaultAppStatus.NotDefault, await other.GetStatusAsync(ct));
             Assert.Equal(DefaultAppResult.OpenedSystemSettings, await other.MakeDefaultAsync(ct));
             using (var written = user.OpenSubKey(command))
@@ -294,6 +306,7 @@ public sealed class DefaultAppServiceTests : IDisposable
             }
 
             Assert.Equal(1, notified);
+            Assert.Equal("ms-settings:defaultapps?registeredAppUser=Raffica", opened[^1]);
         }
         finally
         {
