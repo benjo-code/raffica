@@ -408,6 +408,66 @@
   <data name="PrintNoPrinter" xml:space="preserve">
     <value>No printer was found.</value>
   </data>
+  <data name="HelpGroupNavigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="HelpNavSearch" xml:space="preserve">
+    <value>Go to the search field</value>
+  </data>
+  <data name="HelpNavPanes" xml:space="preserve">
+    <value>Move between the panes</value>
+  </data>
+  <data name="HelpNavFieldCodes" xml:space="preserve">
+    <value>Field codes: show them, then type one</value>
+  </data>
+  <data name="HelpNavSearchNext" xml:space="preserve">
+    <value>Search field: next match</value>
+  </data>
+  <data name="HelpNavSearchPrevious" xml:space="preserve">
+    <value>Search field: previous match</value>
+  </data>
+  <data name="HelpNavOrganizeMove" xml:space="preserve">
+    <value>Organize pages: move the selected pages by one</value>
+  </data>
+  <data name="HelpNavOrganizeEnds" xml:space="preserve">
+    <value>Organize pages: move to the start or the end</value>
+  </data>
+  <data name="HelpNavOrganizeRotate" xml:space="preserve">
+    <value>Organize pages: turn left or right</value>
+  </data>
+  <data name="HelpNavOrganizeDuplicate" xml:space="preserve">
+    <value>Organize pages: duplicate</value>
+  </data>
+  <data name="HelpNavOrganizeSelectAll" xml:space="preserve">
+    <value>Organize pages: select all pages</value>
+  </data>
+  <data name="HelpNavOrganizeDelete" xml:space="preserve">
+    <value>Organize pages: delete</value>
+  </data>
+  <data name="HelpNavFormWalk" xml:space="preserve">
+    <value>Forms: next or previous field</value>
+  </data>
+  <data name="HelpNavFormFill" xml:space="preserve">
+    <value>Forms: fill in the field with the focus</value>
+  </data>
+  <data name="HelpNavFormLeave" xml:space="preserve">
+    <value>Forms: leave the field</value>
+  </data>
+  <data name="HelpNavTextFinish" xml:space="preserve">
+    <value>Finish a text box or a comment</value>
+  </data>
+  <data name="HelpNavWholeLine" xml:space="preserve">
+    <value>Edit text: whole line in the replacement font</value>
+  </data>
+  <data name="HelpKeyHome" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="HelpKeyEnd" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="HelpKeySpace" xml:space="preserve">
+    <value>Space</value>
+  </data>
   <data name="HelpTitle" xml:space="preserve">
     <value>Keyboard shortcuts</value>
   </data>

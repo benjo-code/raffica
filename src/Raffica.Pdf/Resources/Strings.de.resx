@@ -404,6 +404,66 @@
   <data name="PrintNoPrinter" xml:space="preserve">
     <value>Es wurde kein Drucker gefunden.</value>
   </data>
+  <data name="HelpGroupNavigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="HelpNavSearch" xml:space="preserve">
+    <value>Zum Suchfeld springen</value>
+  </data>
+  <data name="HelpNavPanes" xml:space="preserve">
+    <value>Zwischen den Bereichen wechseln</value>
+  </data>
+  <data name="HelpNavFieldCodes" xml:space="preserve">
+    <value>Feldcodes anzeigen, dann einen eintippen</value>
+  </data>
+  <data name="HelpNavSearchNext" xml:space="preserve">
+    <value>Suchfeld: nächster Treffer</value>
+  </data>
+  <data name="HelpNavSearchPrevious" xml:space="preserve">
+    <value>Suchfeld: vorheriger Treffer</value>
+  </data>
+  <data name="HelpNavOrganizeMove" xml:space="preserve">
+    <value>Seiten organisieren: markierte Seiten um eine Stelle verschieben</value>
+  </data>
+  <data name="HelpNavOrganizeEnds" xml:space="preserve">
+    <value>Seiten organisieren: an den Anfang oder ans Ende verschieben</value>
+  </data>
+  <data name="HelpNavOrganizeRotate" xml:space="preserve">
+    <value>Seiten organisieren: nach links oder rechts drehen</value>
+  </data>
+  <data name="HelpNavOrganizeDuplicate" xml:space="preserve">
+    <value>Seiten organisieren: duplizieren</value>
+  </data>
+  <data name="HelpNavOrganizeSelectAll" xml:space="preserve">
+    <value>Seiten organisieren: alle Seiten auswählen</value>
+  </data>
+  <data name="HelpNavOrganizeDelete" xml:space="preserve">
+    <value>Seiten organisieren: löschen</value>
+  </data>
+  <data name="HelpNavFormWalk" xml:space="preserve">
+    <value>Formulare: nächstes oder vorheriges Feld</value>
+  </data>
+  <data name="HelpNavFormFill" xml:space="preserve">
+    <value>Formulare: das Feld mit dem Fokus ausfüllen</value>
+  </data>
+  <data name="HelpNavFormLeave" xml:space="preserve">
+    <value>Formulare: das Feld verlassen</value>
+  </data>
+  <data name="HelpNavTextFinish" xml:space="preserve">
+    <value>Textfeld oder Kommentar abschließen</value>
+  </data>
+  <data name="HelpNavWholeLine" xml:space="preserve">
+    <value>Text bearbeiten: ganze Zeile in Ersatzschrift</value>
+  </data>
+  <data name="HelpKeyHome" xml:space="preserve">
+    <value>Pos1</value>
+  </data>
+  <data name="HelpKeyEnd" xml:space="preserve">
+    <value>Ende</value>
+  </data>
+  <data name="HelpKeySpace" xml:space="preserve">
+    <value>Leertaste</value>
+  </data>
   <data name="HelpTitle" xml:space="preserve">
     <value>Tastenkürzel</value>
   </data>

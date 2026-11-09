@@ -346,10 +346,14 @@ internal static class PdfCommandCatalog
         return null;
     }
 
-    /// <summary>The lines of the help card: every command that has a shortcut, in ribbon order, grouped by its ribbon group, the shortcut written for the platform and the UI language.</summary>
+    /// <summary>
+    /// The lines of the help card: every command that has a shortcut, in ribbon order, grouped by its ribbon group, the shortcut written for the platform and
+    /// the UI language; then the fixed "Navigation" section (<see cref="NavigationHelp"/>) with the keys that belong to no command.
+    /// </summary>
     public static IReadOnlyList<HelpEntry> HelpEntries() =>
         Commands.Where(c => c.Shortcut is not null)
             .Select(c => new HelpEntry(c.Group.Label, c.Name, KeyNames.Format(c.Shortcut!.Text(OperatingSystem.IsMacOS()), PdfStrings.Culture)))
+            .Concat(NavigationHelp.Entries())
             .ToList();
 
     private static PdfShortcut Cmd(Key key, string token, bool shift = false, bool anyShift = false, Key[]? alternates = null, bool repeat = false, PdfShortcut? also = null) =>

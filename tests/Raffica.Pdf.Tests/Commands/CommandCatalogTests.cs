@@ -246,7 +246,7 @@ public sealed class CommandCatalogTests
     {
         var entries = PdfCommandCatalog.HelpEntries();
         var withShortcut = PdfCommandCatalog.Commands.Where(c => c.Shortcut is not null).ToList();
-        Assert.Equal(withShortcut.Count, entries.Count);
+        Assert.Equal(withShortcut.Count, entries.Count(e => e.Group != PdfStrings.HelpGroupNavigation));
         foreach (var command in withShortcut)
         {
             var shortcut = KeyNames.Format(command.Shortcut!.Text(OperatingSystem.IsMacOS()), PdfStrings.Culture);
