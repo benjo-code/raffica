@@ -22,6 +22,7 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
     private const string OpenCommandKey = @"Software\Classes\" + FileTypeRegistration.ProgId + @"\shell\open\command";
 
     private readonly RegistryKey _root;
+    private readonly RegistryKey? _machineRoot;
     private readonly string _exePath;
     private readonly Func<string, Task> _openUri;
     private readonly Action _notifyAssociationsChanged;
@@ -31,7 +32,8 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
             Registry.CurrentUser,
             Environment.ProcessPath ?? throw new InvalidOperationException("The path of the program is unknown."),
             OpenWithShell,
-            ShellNative.NotifyAssociationsChanged)
+            ShellNative.NotifyAssociationsChanged,
+            Registry.LocalMachine)
     {
     }
 
@@ -40,13 +42,15 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
     /// <param name="exePath">The program to register.</param>
     /// <param name="openUri">Opens a URI such as the settings page.</param>
     /// <param name="notifyAssociationsChanged">Tells the shell that file types changed.</param>
-    public WindowsDefaultAppService(RegistryKey root, string exePath, Func<string, Task> openUri, Action notifyAssociationsChanged)
+    /// <param name="machineRoot">Where an installation for all users registers (<c>HKLM</c>, or a sandbox key in tests); null: there is none.</param>
+    public WindowsDefaultAppService(RegistryKey root, string exePath, Func<string, Task> openUri, Action notifyAssociationsChanged, RegistryKey? machineRoot = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentException.ThrowIfNullOrWhiteSpace(exePath);
         ArgumentNullException.ThrowIfNull(openUri);
         ArgumentNullException.ThrowIfNull(notifyAssociationsChanged);
         _root = root;
+        _machineRoot = machineRoot;
         _exePath = exePath;
         _openUri = openUri;
         _notifyAssociationsChanged = notifyAssociationsChanged;
@@ -100,12 +104,18 @@ internal sealed class WindowsDefaultAppService : IDefaultAppService
         return key?.GetValue("ProgId") as string;
     }
 
-    // The registered open command starts this very program.
+    // The registered open command starts this very program. The user's registration wins over the one for all users (as in
+    // the merged view of HKCR); an installation for all users has none of its own below HKCU and must not get a copy.
     private bool IsRegisteredForThisProgram()
     {
-        using var key = _root.OpenSubKey(OpenCommandKey);
         var expected = FileTypeRegistration.Entries(_exePath).First(e => e.KeyPath == OpenCommandKey).Value;
-        return key?.GetValue(null) as string == expected;
+        return (OpenCommand(_root) ?? OpenCommand(_machineRoot)) == expected;
+    }
+
+    private static string? OpenCommand(RegistryKey? root)
+    {
+        using var key = root?.OpenSubKey(OpenCommandKey);
+        return key?.GetValue(null) as string;
     }
 
     private async Task<DefaultAppResult> SetDefaultAsync(CancellationToken cancellationToken)

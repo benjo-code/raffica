@@ -243,6 +243,64 @@ public sealed class DefaultAppServiceTests : IDisposable
         }
     }
 
+    // 06-B-2: an installation for all users registers below HKLM; the user's HKCU has nothing, and nothing may be written there.
+    [Fact]
+    public async Task WindowsAllUsersRegistrationIsReadAndNotCopiedToTheUser()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The registry is Windows only.");
+            return;
+        }
+
+        await RunWindowsAllUsersAsync(TestContext.Current.CancellationToken);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static async Task RunWindowsAllUsersAsync(CancellationToken ct)
+    {
+        const string exe = @"C:\Program Files\Raffica PDF\RafficaPdf.exe";
+        const string command = @"Software\Classes\Raffica.PDF\shell\open\command";
+        const string userChoice = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf\UserChoice";
+        var name = @"Software\RafficaTests\" + Guid.NewGuid().ToString("N");
+        using var user = Registry.CurrentUser.CreateSubKey(name + @"\user");
+        using var machine = Registry.CurrentUser.CreateSubKey(name + @"\machine");
+        try
+        {
+            var notified = 0;
+            var service = new WindowsDefaultAppService(user, exe, _ => Task.CompletedTask, () => notified++, machine);
+            new WindowsFileTypeRegistry(machine).Write(RegistrationScope.Machine, FileTypeRegistration.Entries(exe));
+            using (var key = user.CreateSubKey(userChoice))
+            {
+                key.SetValue("ProgId", "Raffica.PDF");
+            }
+
+            // The all-users registration counts: the app is the default once the user chose it.
+            Assert.Equal(DefaultAppStatus.IsDefault, await service.GetStatusAsync(ct));
+
+            // Making it the default opens the settings page and writes nothing below the user's root.
+            Assert.Equal(DefaultAppResult.OpenedSystemSettings, await service.MakeDefaultAsync(ct));
+            Assert.Null(user.OpenSubKey(command));
+            Assert.Equal(0, notified);
+
+            // An all-users registration of another path does not count: the user's registration is written as before.
+            const string otherExe = @"D:\Other\RafficaPdf.exe";
+            var other = new WindowsDefaultAppService(user, otherExe, _ => Task.CompletedTask, () => notified++, machine);
+            Assert.Equal(DefaultAppStatus.NotDefault, await other.GetStatusAsync(ct));
+            Assert.Equal(DefaultAppResult.OpenedSystemSettings, await other.MakeDefaultAsync(ct));
+            using (var written = user.OpenSubKey(command))
+            {
+                Assert.Equal($"\"{otherExe}\" \"%1\"", written?.GetValue(null));
+            }
+
+            Assert.Equal(1, notified);
+        }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(name, throwOnMissingSubKey: false);
+        }
+    }
+
     [Fact]
     public async Task WindowsThatCannotOpenTheSettingsPageEndsFailed()
     {
