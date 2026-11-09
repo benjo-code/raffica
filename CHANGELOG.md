@@ -57,5 +57,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF forms: an editable combo box (a choice list that also takes your own text) can now be typed into; before, the field opened without a text box. A value that is already there is shown when the editor opens.
 - Raffica PDF: the editing field of a text box and of a form field now always has white paper, a black caret and a dark edge and selection (3 : 1 or more on the paper) in every theme; in the dark and the high-contrast theme the caret and the edge were almost invisible.
 - Raffica PDF and shell: the selected page or outline entry in the side pane now has a 2 px dark edge bar besides the tint (the tint alone was 1.2 : 1), and selected text in a text field now has a darker highlight (3 : 1 or more on the field) with light text on it in the light, dark and high-contrast theme.
+- Raffica PDF forms: the lock mark of a read-only or unsupported field now sits outside the field, left of it (right of it when there is no room), instead of over the value.
 
 ### Removed

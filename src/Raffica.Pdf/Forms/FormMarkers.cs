@@ -40,6 +40,7 @@ internal sealed class FormMarkers : IPageOverlay, IDisposable
 
     private const double RingWidth = 2;
     private const double RingGap = 2;
+    private const double ChipGap = 2;
     private readonly FormSession _session;
     private readonly FormFocus _focus;
     private readonly HashSet<int> _requested = [];
@@ -137,7 +138,7 @@ internal sealed class FormMarkers : IPageOverlay, IDisposable
                 var star = IsEmptyRequired(field);
                 if (field.Lock != FormLock.None)
                 {
-                    plan.Add(new FormMarker(FormMarkerKind.Lock, field.Key, GlyphAt(rect, right: false)));
+                    plan.Add(new FormMarker(FormMarkerKind.Lock, field.Key, LockChipAt(rect, view.Bounds.Width)));
                 }
 
                 if (star)
@@ -205,7 +206,31 @@ internal sealed class FormMarkers : IPageOverlay, IDisposable
         && field.State.SelectedOptions.Count == 0
         && field.State.Checked != true;
 
-    // The chip sits inside the widget at the top corner; a widget too small for it keeps the chip at its corner anyway.
+    /// <summary>
+    /// Where the lock chip sits: outside the widget, never over its value (08-UI-20). It goes left of the widget with a 2 DIP gap, top aligned;
+    /// when that leaves the view it goes to the right of the widget, and when neither side has room above the widget.
+    /// </summary>
+    /// <param name="widget">The widget in view coordinates.</param>
+    /// <param name="viewWidth">The width of the view.</param>
+    /// <returns>The chip.</returns>
+    internal static Rect LockChipAt(Rect widget, double viewWidth)
+    {
+        var left = widget.Left - ChipGap - GlyphSize;
+        if (left >= 0)
+        {
+            return new Rect(left, widget.Top, GlyphSize, GlyphSize);
+        }
+
+        var right = widget.Right + ChipGap;
+        if (right + GlyphSize <= viewWidth)
+        {
+            return new Rect(right, widget.Top, GlyphSize, GlyphSize);
+        }
+
+        return new Rect(widget.Left, widget.Top - ChipGap - GlyphSize, GlyphSize, GlyphSize);
+    }
+
+    // The star chip sits inside the widget at the top corner; a widget too small for it keeps the chip at its corner anyway.
     private static Rect GlyphAt(Rect widget, bool right) =>
         new(right ? widget.Right - GlyphSize : widget.Left, widget.Top, GlyphSize, GlyphSize);
 

@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Headless.XUnit;
 using Raffica.Core.Forms;
 using Raffica.Pdf.Forms;
@@ -68,6 +69,54 @@ public sealed class FormMarkersTests
             var locks = markers.Plan(file.Fixture.View).Where(m => m.Kind == FormMarkerKind.Lock).Select(m => m.Key.FieldName).Order().ToArray();
             Assert.Equal(["btn", "ro", "sig"], locks);
         }
+    }
+
+    // 08-UI-20: the lock chip sat inside the widget and covered the value. It is outside the widget's left edge, at the right edge when the
+    // left has no room, and never over the widget. The widgets are those of forms-basic.pdf, all of them locked.
+    [AvaloniaFact]
+    public async Task LockChipNeverCoversAWidgetOfFormsBasic()
+    {
+        using var file = await AnnotatedFile.OpenAsync(Basic);
+        var real = await file.Tab.Session.Document!.GetFormFieldsAsync(0, TestContext.Current.CancellationToken);
+        Assert.NotEmpty(real);
+        var locked = real.Select(f => f with { Lock = FormLock.ReadOnly, LockReason = "locked" }).ToArray();
+        using var forms = await FormFocusTests.SessionAsync(file, locked);
+        using var markers = new FormMarkers(forms, new FormFocus());
+        file.Fixture.View.FormOverlay = markers;
+        await ShownAsync(file);
+
+        var view = file.Fixture.View;
+        var plan = markers.Plan(view).Where(m => m.Kind == FormMarkerKind.Lock).ToList();
+        Assert.Equal(locked.Length, plan.Count);
+        foreach (var marker in plan)
+        {
+            var field = locked.Single(f => f.Key == marker.Key);
+            var widget = view.ToView(field.Key.Page, field.Bounds)!.Value;
+            Assert.False(marker.Bounds.Intersects(widget), field.Key.FieldName + ": chip " + marker.Bounds + " over widget " + widget);
+            Assert.True(marker.Bounds.Right <= widget.Left + 0.01 || marker.Bounds.Left >= widget.Right - 0.01 || marker.Bounds.Bottom <= widget.Top + 0.01, field.Key.FieldName);
+            Assert.True(marker.Bounds.Left >= 0 && marker.Bounds.Right <= view.Bounds.Width, field.Key.FieldName + ": chip outside the view");
+        }
+    }
+
+    [Fact]
+    public void LockChipGoesLeftThenRightThenAbove()
+    {
+        const double view = 600;
+
+        // Room on the left: outside the left edge, top aligned.
+        var left = FormMarkers.LockChipAt(new Rect(100, 50, 200, 24), view);
+        Assert.True(left.Right <= 100 && left.Left >= 0);
+        Assert.Equal(50, left.Top);
+
+        // No room on the left: outside the right edge.
+        var right = FormMarkers.LockChipAt(new Rect(4, 50, 200, 24), view);
+        Assert.True(right.Left >= 204);
+        Assert.True(right.Right <= view);
+
+        // No room on either side (a widget as wide as the view): above the widget.
+        var above = FormMarkers.LockChipAt(new Rect(2, 50, 596, 24), view);
+        Assert.True(above.Bottom <= 50);
+        Assert.False(above.Intersects(new Rect(2, 50, 596, 24)));
     }
 
     [AvaloniaFact]
