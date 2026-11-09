@@ -41,10 +41,10 @@ static class Pins
         new("win-x64", "tesseract.dll", "tesseract.dll", 3684864, "24fc074bfefba19dfe566b54604fcf1fcbdeef85080acb461d866bb0ebecd86c", TesseractRelease + "tesseract.dll"),
         new("linux-x64", "libtesseract.so", "libtesseract.so", 6948376, "b3d19bbabb63f8af6e13728aa74940b8c6b1138cd078d9fef346adb5ac75adc4", TesseractRelease + "libtesseract.so"),
 
-        // Placeholder pins (size 0, all-zero SHA-256): Fetcher refuses them until the build native-tesseract-5.5.4-2 exists and is pinned.
+        // Size and SHA-256 from the job summary of the workflow native-tesseract.yml (run 42699294492); they equal the release digests.
         // The release asset names differ per architecture; the laid-down name is the same.
-        new("osx-x64", "libtesseract-osx-x64.dylib", "libtesseract.dylib", 0, Placeholder, TesseractReleaseMacOS + "libtesseract-osx-x64.dylib"),
-        new("osx-arm64", "libtesseract-osx-arm64.dylib", "libtesseract.dylib", 0, Placeholder, TesseractReleaseMacOS + "libtesseract-osx-arm64.dylib"),
+        new("osx-x64", "libtesseract-osx-x64.dylib", "libtesseract.dylib", 4847040, "4928b312945529d558fc95207e9437f55b0288d0b0e39c70f71ae375d9d0565b", TesseractReleaseMacOS + "libtesseract-osx-x64.dylib"),
+        new("osx-arm64", "libtesseract-osx-arm64.dylib", "libtesseract.dylib", 4499616, "922ec3f4377ac4926a63d3fa4228fe2b620a5bbe15212772814076a06d8d35f2", TesseractReleaseMacOS + "libtesseract-osx-arm64.dylib"),
     ];
 
     // tessdata_fast 4.1.0 (Apache-2.0).
@@ -320,11 +320,8 @@ static class SelfTest
             Expect("an unknown RID gives 2", Cli.Run(["--rid", "mac", "--out", Path.Combine(root, "x")]), 2);
             Expect("missing arguments give 2", Cli.Run(["--rid", "win-x64"]), 2);
             MacOsEntries(root);
-            // The macOS entries carry the placeholder pin until the build native-tesseract-5.5.4-2 exists (then a real pin or none).
-            var pinned = Pins.Libraries.Where(f => !f.Rid.StartsWith("osx-", StringComparison.Ordinal)).Concat(Pins.Tessdata).ToArray();
-            Expect("no Windows, Linux or language-data pin is a placeholder (size 0 or an all-zero SHA-256)", pinned.All(f => f.Size > 0 && f.Sha256 != Pins.Placeholder), true);
+            Expect("no pin is a placeholder (size 0 or an all-zero SHA-256)", Pins.Libraries.Concat(Pins.Tessdata).All(f => f.Size > 0 && f.Sha256 != Pins.Placeholder), true);
             Expect("every pin is a lower-case SHA-256", Pins.Libraries.Concat(Pins.Tessdata).All(f => f.Sha256.Length == 64 && f.Sha256.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'))), true);
-            Expect("a macOS pin is a placeholder or a real one, never half of each", Pins.Libraries.Where(f => f.Rid.StartsWith("osx-", StringComparison.Ordinal)).All(f => (f.Size == 0) == (f.Sha256 == Pins.Placeholder)), true);
         }
         finally
         {
@@ -341,7 +338,7 @@ static class SelfTest
     }
 
     // The two macOS entries: distinct release asset names, the same laid-down name, the dylib plus the two language files, and a
-    // placeholder pin is refused with exit 1 and nothing laid down (until the build is pinned).
+    // placeholder pin is refused with exit 1 and nothing laid down.
     private static void MacOsEntries(string root)
     {
         var x64 = Pins.Libraries.Where(f => f.Rid == "osx-x64").ToArray();
@@ -354,7 +351,6 @@ static class SelfTest
         Expect("macOS: the entries come from the own release constant", x64[0].Url.Contains("/native-tesseract-5.5.4-2/", StringComparison.Ordinal) && arm[0].Url.Contains("/native-tesseract-5.5.4-2/", StringComparison.Ordinal), true);
         var outMac = Path.Combine(root, "out-mac");
         Expect("macOS: a placeholder pin is refused (exit 1)", Fetcher.Fetch([new("osx-arm64", "libtesseract-osx-arm64.dylib", "libtesseract.dylib", 0, Pins.Placeholder, "x")], outMac, root), 1);
-        Expect("macOS: the fetch of a rid that is still a placeholder is refused, or it is pinned for real", Pins.Libraries.Where(f => f.Rid.StartsWith("osx-", StringComparison.Ordinal)).All(f => f.Size == 0 && f.Sha256 == Pins.Placeholder) ? Cli.Run(["--rid", "osx-arm64", "--out", outMac]) : 1, 1);
         Expect("macOS: a refused placeholder lays nothing down", !Directory.Exists(outMac) || Directory.GetFileSystemEntries(outMac).Length == 0, true);
     }
 
