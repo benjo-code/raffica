@@ -43,7 +43,7 @@ public sealed class SingleInstance : IDisposable
 
     private const int MaxNameLength = 64;
 
-    private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(3);
 
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
@@ -70,6 +70,12 @@ public sealed class SingleInstance : IDisposable
     /// exception while the listener keeps working. Set before <see cref="StartListening"/>; for tests.
     /// </summary>
     internal Action<Exception> CallbackFailed { get; set; } = RethrowOnThreadPool;
+
+    /// <summary>
+    /// Gets or sets how long the listener waits for the end of one message before it stops waiting for the client. What was
+    /// received until then is still judged by its content. Set before <see cref="StartListening"/>; for tests.
+    /// </summary>
+    internal TimeSpan ReadTimeout { get; set; } = DefaultReadTimeout;
 
     /// <summary>
     /// Gets a value indicating whether the lock file is held. <see langword="false"/> for an
@@ -423,10 +429,10 @@ public sealed class SingleInstance : IDisposable
         }
     }
 
-    private static async Task<byte[]?> ReadMessageAsync(Stream stream, CancellationToken stop)
+    private static async Task<byte[]?> ReadMessageAsync(Stream stream, TimeSpan readTimeout, CancellationToken stop)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
-        timeout.CancelAfter(ReadTimeout);
+        timeout.CancelAfter(readTimeout);
         using var message = new MemoryStream();
         var chunk = new byte[8192];
         try
@@ -449,12 +455,15 @@ public sealed class SingleInstance : IDisposable
         }
         catch (OperationCanceledException) when (!stop.IsCancellationRequested)
         {
-            // The client stalled; drop it.
-            return null;
+            // The client stalled, or this listener ran late (a starved thread pool, a long pause): stop waiting for the end of
+            // the connection. A message that arrived whole is still valid, so what came in is judged by its content (TryParse
+            // refuses anything cut off); dropping it here would lose a message the sender saw as delivered.
+            return message.ToArray();
         }
         catch (IOException)
         {
-            return null;
+            // The pipe broke: same, the content decides.
+            return message.ToArray();
         }
     }
 
@@ -576,7 +585,7 @@ public sealed class SingleInstance : IDisposable
 
     private async Task HandleClientAsync(Stream client, Action<IReadOnlyList<string>> onMessage, CancellationToken token)
     {
-        var data = await ReadMessageAsync(client, token).ConfigureAwait(false);
+        var data = await ReadMessageAsync(client, ReadTimeout, token).ConfigureAwait(false);
         if (data is null || !TryParse(data, out var paths) || token.IsCancellationRequested)
         {
             return;

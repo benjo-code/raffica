@@ -470,6 +470,49 @@ public sealed class SingleInstanceTests
         await AssertNothingAsync(received);
     }
 
+    // The end of a message is the end of the connection, but a listener that ran late (a starved thread pool, a long pause) or a
+    // sender that was slow to close must never cost a message that arrived whole: the content decides, not the clock.
+    [Fact]
+    public async Task AMessageThatArrivedWholeIsDeliveredWhenTheEndOfTheConnectionComesLate()
+    {
+        var name = UniqueName();
+        using var primary = Primary(name);
+        primary.ReadTimeout = TimeSpan.FromMilliseconds(300);
+        var received = Listen(primary);
+
+        using var slow = new NamedPipeClientStream(".", SingleInstance.PipeNameFor(name), PipeDirection.Out, PipeOptions.CurrentUserOnly);
+        slow.Connect((int)Due.TotalMilliseconds);
+        slow.Write(Message("whole.pdf"));
+        slow.Flush();
+
+        // The connection stays open past the read timeout of the listener.
+        Assert.Equal(["whole.pdf"], await NextAsync(received));
+        await AssertNothingAsync(received);
+
+        Assert.True(SingleInstance.TrySend(name, ["next.pdf"], Due));
+        Assert.Equal(["next.pdf"], await NextAsync(received));
+    }
+
+    [Fact]
+    public async Task AHalfMessageIsStillDroppedWhenTheClientStalls()
+    {
+        var name = UniqueName();
+        using var primary = Primary(name);
+        primary.ReadTimeout = TimeSpan.FromMilliseconds(300);
+        var received = Listen(primary);
+
+        using var stalled = new NamedPipeClientStream(".", SingleInstance.PipeNameFor(name), PipeDirection.Out, PipeOptions.CurrentUserOnly);
+        stalled.Connect((int)Due.TotalMilliseconds);
+        var half = Message("one.pdf", "two.pdf");
+        stalled.Write(half.AsSpan(0, half.Length - 3));
+        stalled.Flush();
+
+        Assert.True(SingleInstance.TrySend(name, ["good.pdf"], Due));
+
+        Assert.Equal(["good.pdf"], await NextAsync(received));
+        await AssertNothingAsync(received);
+    }
+
     [Fact]
     public async Task PathAtTheLengthLimitIsAccepted()
     {
