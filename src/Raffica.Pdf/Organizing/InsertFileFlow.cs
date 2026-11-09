@@ -124,8 +124,7 @@ internal sealed class InsertFileFlow(
     {
         try
         {
-            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-            if (tab.Path is { } own && string.Equals(Path.GetFullPath(own), Path.GetFullPath(path), comparison))
+            if (tab.Path is { } own && PathRules.AreEqual(Path.GetFullPath(own), Path.GetFullPath(path)))
             {
                 return OrganizeResult.Refused(OrganizeProblem.SameFile);
             }

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Raffica.Core.Saving;
 using Raffica.Core.Viewing;
 
 namespace Raffica.Core.Settings;
@@ -46,8 +47,7 @@ public sealed class RecentFiles
     /// <summary>The most entries the list holds; the oldest fall away.</summary>
     public const int MaxEntries = 30;
 
-    private static readonly StringComparer PathComparer =
-        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static readonly StringComparer PathComparer = PathRules.Comparer;
 
     private readonly List<RecentFile> _items = [];
 

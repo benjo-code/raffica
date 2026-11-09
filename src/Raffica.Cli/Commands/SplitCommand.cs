@@ -121,14 +121,13 @@ internal static class SplitCommand
     // Everything in the way is named at once, before the warnings and before the first byte.
     private static void RefuseFilesInTheWay(IReadOnlyList<string> targets, string inputPath, bool force)
     {
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var inTheWay = new List<string>();
         var folders = new List<string>();
         foreach (var target in targets)
         {
             var isFolder = Directory.Exists(target);
             var exists = isFolder || File.Exists(target);
-            if (exists && (string.Equals(target, inputPath, comparison) || FileIdentity.AreSameFile(target, inputPath) == true))
+            if (exists && (PathRules.AreEqual(target, inputPath) || FileIdentity.AreSameFile(target, inputPath) == true))
             {
                 throw new CliException($"A part must not replace the input file ('{Path.GetFileName(target)}'), with or without --force. Nothing was written.");
             }

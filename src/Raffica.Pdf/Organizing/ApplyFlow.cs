@@ -257,10 +257,9 @@ internal sealed class ApplyFlow(
     // goes wrong from here on (a handler of the window) is no failure of the apply and no card.
     private void Completed(PdfTab tab, OrganizeSession session, PageEditPlan plan, string written)
     {
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var page = 0;
         JobRunner.Guarded(() => page = plan.FollowPage(Math.Clamp(currentPage(tab), 0, plan.PrimaryPageCount - 1)));
-        var renamed = !string.Equals(Path.GetFullPath(written), tab.Path, comparison);
+        var renamed = !PathRules.AreEqual(Path.GetFullPath(written), tab.Path);
         if (renamed)
         {
             JobRunner.Guarded(() => tab.Rename(written));

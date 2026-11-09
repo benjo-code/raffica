@@ -406,7 +406,7 @@ public static class DocumentSaver
     }
 
     private static bool SamePath(string a, string b) =>
-        string.Equals(a, b, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        PathRules.AreEqual(a, b);
 
     /// <summary>A short name independent of the target's name, so a long target name never makes it too long.</summary>
     private static string ShortName(string extension) => ".pw-" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(6)) + extension;

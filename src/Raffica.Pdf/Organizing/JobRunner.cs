@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using Raffica.Core.Saving;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Shell.Controls;
@@ -86,9 +87,9 @@ internal sealed class JobRunner(DialogQueue dialogs)
         }
     }
 
-    /// <summary>Whether two paths name the same file by their text (case-insensitive on Windows).</summary>
+    /// <summary>Whether two paths name the same file by their text (by the rule of PathRules).</summary>
     internal static bool SamePath(string a, string? b) =>
-        b is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        b is not null && PathRules.AreEqual(Path.GetFullPath(a), Path.GetFullPath(b));
 
     private static void TryCancel(CancellationTokenSource? source)
     {

@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using Raffica.Core.Saving;
 using Raffica.Core.Viewing;
 
 namespace Raffica.Pdf.Documents;
@@ -9,7 +10,6 @@ namespace Raffica.Pdf.Documents;
 /// </summary>
 internal sealed class Workspace
 {
-    private static readonly StringComparison PathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private readonly TabList<PdfTab> _tabs = [];
     private readonly CloseGuard _guard;
@@ -33,12 +33,12 @@ internal sealed class Workspace
 
     public PdfTab? Active => _tabs.Active;
 
-    /// <summary>The tab of a file (compared by full path, ignoring the case on Windows), or null.</summary>
+    /// <summary>The tab of a file (compared by full path with the rule of PathRules), or null.</summary>
     public PdfTab? Find(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var full = Path.GetFullPath(path);
-        return _tabs.FirstOrDefault(t => string.Equals(t.Path, full, PathComparison));
+        return _tabs.FirstOrDefault(t => PathRules.AreEqual(t.Path, full));
     }
 
     /// <summary>Adds a tab for an opened (or opening) session next to the active tab and makes it active.</summary>

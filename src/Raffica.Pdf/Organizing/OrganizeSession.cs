@@ -362,7 +362,7 @@ internal sealed class OrganizeSession : IDisposable
     };
 
     private static bool IsSameFile(string a, string b) =>
-        string.Equals(a, b, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        PathRules.AreEqual(a, b);
 
     // Applies one operation to the plan: a refusal of Core changes nothing; an operation that changes nothing (no page selected) is no step.
     private OrganizeResult Edit(Func<PageEditPlan, PageEditPlan> change, Func<PageEditPlan, IEnumerable<int>> select)
