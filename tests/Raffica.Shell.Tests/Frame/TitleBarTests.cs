@@ -53,7 +53,8 @@ public sealed class TitleBarTests
         Assert.Equal(ShellStrings.Maximize, Avalonia.Automation.AutomationProperties.GetName(Caption(bar, "Maximize")));
 
         // The window decorations are the borderless-with-resize mode and the buttons carry their roles.
-        Assert.Equal(WindowDecorations.BorderOnly, window.WindowDecorations);
+        // (macOS keeps the system's decorations: PrepareWindow leaves them alone there.)
+        Assert.Equal(OperatingSystem.IsMacOS() ? WindowDecorations.Full : WindowDecorations.BorderOnly, window.WindowDecorations);
         Assert.Equal(WindowDecorationsElementRole.CloseButton, WindowDecorationProperties.GetElementRole(Caption(bar, "Close")));
         Assert.Equal(WindowDecorationsElementRole.MinimizeButton, WindowDecorationProperties.GetElementRole(Caption(bar, "Minimize")));
         Assert.Equal(WindowDecorationsElementRole.MaximizeButton, WindowDecorationProperties.GetElementRole(Caption(bar, "Maximize")));
