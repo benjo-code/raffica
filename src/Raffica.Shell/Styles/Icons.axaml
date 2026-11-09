@@ -4,6 +4,7 @@
     Icon geometries from Lucide, tag 1.63.0 (ISC, see third-party/lucide), 24 x 24 units, drawn by Controls/StrokeIcon
     with a 1.5 px stroke at 16 or 20 px. Shapes other than paths were converted: circle to two arcs, line to M and L.
     A path that starts with a relative m starts with the absolute M, so that the paths of one icon can be joined.
+    Rectangles became paths (with arcs for rx), so every icon is a plain stroked path (no fill, no clip).
     Align left, center and right are text-align-start, text-align-center and text-align-end in Lucide.
   -->
   <StreamGeometry x:Key="Raffica.Icon.Check">M20 6 9 17l-5-5</StreamGeometry>
@@ -24,4 +25,74 @@
   <StreamGeometry x:Key="Raffica.Icon.AlignLeft">M21 5H3 M15 12H3 M17 19H3</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.AlignCenter">M21 5H3 M17 12H7 M19 19H5</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.AlignRight">M21 5H3 M21 12H9 M21 19H7</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.FolderOpen">M6 14 l 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1 -1.95 1.5H4a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2h3.9a2 2 0 0 1 1.69 .9l.81 1.2a2 2 0 0 0 1.67 .9H18a2 2 0 0 1 2 2v2</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Printer">M6 18H4a2 2 0 0 1 -2 -2v-5a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v5a2 2 0 0 1 -2 2h-2 M6 9V3a1 1 0 0 1 1 -1h10a1 1 0 0 1 1 1v6 M7 14H17a1 1 0 0 1 1 1V21a1 1 0 0 1 -1 1H7a1 1 0 0 1 -1 -1V15a1 1 0 0 1 1 -1z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Settings">M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1 -2.33 4.033 2.34 2.34 0 0 0 -3.319 1.915 2.34 2.34 0 0 1 -4.659 0 2.34 2.34 0 0 0 -3.32 -1.915 2.34 2.34 0 0 1 -2.33 -4.033 2.34 2.34 0 0 0 0 -3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319 -1.915 M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Save">M15.2 3a2 2 0 0 1 1.4 .6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M17 21v-7a1 1 0 0 0 -1 -1H8a1 1 0 0 0 -1 1v7 M7 3v4a1 1 0 0 0 1 1h7</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.SaveAll">M10 2v3a1 1 0 0 0 1 1h5 M18 18v-6a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v6 M18 22H4a2 2 0 0 1 -2 -2V6 M8 18a2 2 0 0 1 -2 -2V4a2 2 0 0 1 2 -2h9.172a2 2 0 0 1 1.414 .586l2.828 2.828A2 2 0 0 1 22 6.828V16a2 2 0 0 1 -2.01 2z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ArrowDown">M12 5v14 M19 12 l -7 7-7-7</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ArrowUp">M5 12 l 7-7 7 7 M12 19V5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CornerDownRight">M15 10 l 5 5-5 5 M4 4v7a4 4 0 0 0 4 4h12</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ChevronLeft">M15 18 l -6-6 6-6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ChevronsLeft">M11 17 l -5-5 5-5 M18 17 l -5-5 5-5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ChevronsRight">M6 17 l 5-5-5-5 M13 17 l 5-5-5-5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ArrowLeft">M12 19 l -7-7 7-7 M19 12H5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ArrowRight">M5 12h14 M12 5 l 7 7-7 7</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.TextSelect">M14 21h1 M14 3h1 M19 3a2 2 0 0 1 2 2 M21 14v1 M21 19a2 2 0 0 1 -2 2 M21 9v1 M3 14v1 M3 9v1 M5 21a2 2 0 0 1 -2 -2 M5 3a2 2 0 0 0 -2 2 M7 12h10 M7 16h6 M7 8h8 M9 21h1 M9 3h1</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Copy">M10 8H20a2 2 0 0 1 2 2V20a2 2 0 0 1 -2 2H10a2 2 0 0 1 -2 -2V10a2 2 0 0 1 2 -2z M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CircleHelp">M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0 M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Highlighter">M9 11 l -6 6v3h9l3-3 M22 12 l -4.6 4.6a2 2 0 0 1 -2.8 0l-5.2-5.2a2 2 0 0 1 0 -2.8L14 4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Strikethrough">M16 4H9a3 3 0 0 0 -2.83 4 M14 12a4 4 0 0 1 0 8H6 M4 12 L20 12</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Pencil">M21.174 6.812a1 1 0 0 0 -3.986 -3.987L3.842 16.174a2 2 0 0 0 -.5 .83l-1.321 4.352a.5 .5 0 0 0 .623 .622l4.353-1.32a2 2 0 0 0 .83 -.497z M15 5 l 4 4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Square">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Circle">M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Slash">M22 2 2 22</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.MoveUpRight">M13 5H19V11 M19 5L5 19</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Type">M12 4v16 M4 7V5a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v2 M9 20h6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.PenLine">M13 21h8 M21.174 6.812a1 1 0 0 0 -3.986 -3.987L3.842 16.174a2 2 0 0 0 -.5 .83l-1.321 4.352a.5 .5 0 0 0 .623 .622l4.353-1.32a2 2 0 0 0 .83 -.497z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.MousePointer">M12.586 12.586 19 19 M3.688 3.037a.497 .497 0 0 0 -.651 .651l6.5 15.999a.501 .501 0 0 0 .947 -.062l1.569-6.083a2 2 0 0 1 1.448 -1.479l6.124-1.579a.5 .5 0 0 0 .063 -.947z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.SquareCheck">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M16 9 l -5.5 5.5L8 12</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListChecks">M13 5h8 M13 12h8 M13 19h8 M3 17 l 2 2 4-4 M3 7 l 2 2 4-4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.PanelRight">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M15 3v18</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.PanelLeft">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M9 3v18</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Signature">M21 17 l -2.156-1.868A.5 .5 0 0 0 18 15.5v.5a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1c0-2.545-3.991-3.97-8.5-4a1 1 0 0 0 0 5c4.153 0 4.745-11.295 5.708-13.5a2.5 2.5 0 1 1 3.31 3.284 M3 21h18</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CornerRightDown">M10 15 l 5 5 5-5 M4 4h7a4 4 0 0 1 4 4v12</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CornerLeftUp">M14 9 9 4 4 9 M20 20h-7a4 4 0 0 1 -4 -4V4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Brush">M11 10 l 3 3 M6.5 21A3.5 3.5 0 1 0 3 17.5a2.62 2.62 0 0 1 -.708 1.792A1 1 0 0 0 3 21z M9.969 17.031 21.378 5.624a1 1 0 0 0 -3.002 -3.002L6.967 14.031</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.LayoutGrid">M4 3H9a1 1 0 0 1 1 1V9a1 1 0 0 1 -1 1H4a1 1 0 0 1 -1 -1V4a1 1 0 0 1 1 -1z M15 3H20a1 1 0 0 1 1 1V9a1 1 0 0 1 -1 1H15a1 1 0 0 1 -1 -1V4a1 1 0 0 1 1 -1z M15 14H20a1 1 0 0 1 1 1V20a1 1 0 0 1 -1 1H15a1 1 0 0 1 -1 -1V15a1 1 0 0 1 1 -1z M4 14H9a1 1 0 0 1 1 1V20a1 1 0 0 1 -1 1H4a1 1 0 0 1 -1 -1V15a1 1 0 0 1 1 -1z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.RotateCcw">M3 12a9 9 0 1 0 9 -9 9.75 9.75 0 0 0 -6.74 2.74L3 8 M3 3v5h5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.RotateCw">M21 12a9 9 0 1 1 -9 -9c2.52 0 4.93 1 6.74 2.74L21 8 M21 3v5h-5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CopyPlus">M15 12 L15 18 M12 15 L18 15 M10 8H20a2 2 0 0 1 2 2V20a2 2 0 0 1 -2 2H10a2 2 0 0 1 -2 -2V10a2 2 0 0 1 2 -2z M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.FilePlus">M6 22a2 2 0 0 1 -2 -2V4a2 2 0 0 1 2 -2h8a2.4 2.4 0 0 1 1.704 .706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1 -2 2z M14 2v5a1 1 0 0 0 1 1h5 M9 15h6 M12 18v-6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.FileInput">M4 11V4a2 2 0 0 1 2 -2h8a2.4 2.4 0 0 1 1.706 .706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2v-1 M14 2v5a1 1 0 0 0 1 1h5 M2 15h10 M9 18 l 3-3-3-3</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.MoveUp">M8 6L12 2L16 6 M12 2V22</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.MoveDown">M8 18L12 22L16 18 M12 2V22</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CircleX">M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0 M15 9 l -6 6 M9 9 l 6 6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.FileOutput">M4.226 20.925A2 2 0 0 0 6 22h12a2 2 0 0 0 2 -2V8a2.4 2.4 0 0 0 -.706 -1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0 -2 2v3.127 M14 2v5a1 1 0 0 0 1 1h5 M5 11 l -3 3 M5 17 l -3-3h10</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Scissors">M3 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M8.12 8.12 12 12 M20 4 8.12 15.88 M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M14.8 14.8 20 20</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ImageDown">M10.3 21H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0 -2.814 .014L6 21 M14 19 l 3 3v-5.5 M17 22 l 3-3 M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.SquarePen">M12 3H5a2 2 0 0 0 -2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2 -2v-7 M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1 -.853 .505l-2.873.84a.5 .5 0 0 1 -.62 -.62l.84-2.873a2 2 0 0 1 .506 -.852z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ScanText">M3 7V5a2 2 0 0 1 2 -2h2 M17 3h2a2 2 0 0 1 2 2v2 M21 17v2a2 2 0 0 1 -2 2h-2 M7 21H5a2 2 0 0 1 -2 -2v-2 M7 8h8 M7 12h10 M7 16h6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Languages">M5 8 l 6 6 M4 14 l 6-6 2-3 M2 5h12 M7 2h1 M22 22 l -5-10-5 10 M14 18h6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.EyeOff">M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1 -1.444 2.49 M14.084 14.158a3 3 0 0 1 -4.242 -4.242 M17.479 17.499a10.75 10.75 0 0 1 -15.417 -5.151 1 1 0 0 1 0 -.696 10.75 10.75 0 0 1 4.446 -5.143 M2 2 l 20 20</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.SquareDashed">M5 3a2 2 0 0 0 -2 2 M19 3a2 2 0 0 1 2 2 M21 19a2 2 0 0 1 -2 2 M5 21a2 2 0 0 1 -2 -2 M9 3h1 M9 21h1 M14 3h1 M14 21h1 M3 9v1 M21 9v1 M3 14v1 M21 14v1</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ScanSearch">M3 7V5a2 2 0 0 1 2 -2h2 M17 3h2a2 2 0 0 1 2 2v2 M21 17v2a2 2 0 0 1 -2 2h-2 M7 21H5a2 2 0 0 1 -2 -2v-2 M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M16 16 l -1.9-1.9</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Image">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M21 15 l -3.086-3.086a2 2 0 0 0 -2.828 0L6 21</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Eraser">M21 21H8a2 2 0 0 1 -1.42 -.587l-3.994-3.999a2 2 0 0 1 0 -2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21 M5.082 11.09 l 8.828 8.828</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Undo2">M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1 -5.5 5.5H11</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Trash2">M10 11v6 M14 11v6 M19 6v14a2 2 0 0 1 -2 2H7a2 2 0 0 1 -2 -2V6 M3 6h18 M8 6V4a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.FileX">M6 22a2 2 0 0 1 -2 -2V4a2 2 0 0 1 2 -2h8a2.4 2.4 0 0 1 1.704 .706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1 -2 2z M14 2v5a1 1 0 0 0 1 1h5 M14.5 12.5 l -5 5 M9.5 12.5 l 5 5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.SquareX">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M15 9 l -6 6 M9 9 l 6 6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.OctagonX">M15 9 l -6 6 M2.586 16.726A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586 -1.414l4.688-4.688A2 2 0 0 1 8.688 2h6.624a2 2 0 0 1 1.414 .586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1 -.586 1.414l-4.688 4.688a2 2 0 0 1 -1.414 .586H8.688a2 2 0 0 1 -1.414 -.586z M9 9 l 6 6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ZoomIn">M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M21 21 L16.65 16.65 M11 8 L11 14 M8 11 L14 11</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ZoomOut">M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M21 21 L16.65 16.65 M8 11 L14 11</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.MoveHorizontal">M18 8 l 4 4-4 4 M2 12h20 M6 8 l -4 4 4 4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Maximize">M8 3H5a2 2 0 0 0 -2 2v3 M21 8V5a2 2 0 0 0 -2 -2h-3 M3 16v3a2 2 0 0 0 2 2h3 M16 21h3a2 2 0 0 0 2 -2v-3</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Percent">M19 5 L5 19 M4 6.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M15 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.GalleryVertical">M3 2h18 M5 6H19a2 2 0 0 1 2 2V16a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V8a2 2 0 0 1 2 -2z M3 22h18</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.File">M6 22a2 2 0 0 1 -2 -2V4a2 2 0 0 1 2 -2h8a2.4 2.4 0 0 1 1.704 .706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1 -2 2z M14 2v5a1 1 0 0 0 1 1h5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.BookOpen">M12 5v16 M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0 -1.999 -2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0 -4 -2H4a2 2 0 0 0 -2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4 -2z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListTree">M8 5h13 M13 12h8 M13 19h8 M3 10a2 2 0 0 0 2 2h3 M3 5v12a2 2 0 0 0 2 2h3</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Moon">M20.985 12.486a9 9 0 1 1 -9.473 -9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.BookOpenText">M12 5v16 M16 13h2 M16 9h2 M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0 -1.999 -2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0 -4 -2H4a2 2 0 0 0 -2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4 -2z M6 13h2 M6 9h2</StreamGeometry>
 </ResourceDictionary>

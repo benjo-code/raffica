@@ -1,6 +1,6 @@
 # Lucide – third-party license
 
-Raffica draws its icons from **Lucide**. The path data of 18 icons lies in `src/Raffica.Shell/Styles/Icons.axaml` (resource keys `Raffica.Icon.<Name>`); `StrokeIcon` draws them at 16 or 20 px with a 1.5 px stroke.
+Raffica draws its icons from **Lucide**. The path data of 88 icons lies in `src/Raffica.Shell/Styles/Icons.axaml` (resource keys `Raffica.Icon.<Name>`); `StrokeIcon` draws them at 16 or 20 px with a 1.5 px stroke.
 
 ## Source and license
 
@@ -15,3 +15,4 @@ Raffica draws its icons from **Lucide**. The path data of 18 icons lies in `src/
 | TriangleAlert, OctagonAlert | `triangle-alert`, `octagon-alert` |
 | Bold, Italic, Underline, Undo, Redo | `bold`, `italic`, `underline`, `undo`, `redo` |
 | AlignLeft, AlignCenter, AlignRight | `text-align-start`, `text-align-center`, `text-align-end` |
+| every other key | the Lucide file of the same name in kebab case (`FolderOpen` is `folder-open`, `CircleHelp` is `circle-help`); `rect` became a path (arcs for `rx`), compact arc flags were written out |
