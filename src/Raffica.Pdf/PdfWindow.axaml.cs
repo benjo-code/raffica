@@ -86,6 +86,10 @@ internal sealed partial class PdfWindow : Window
     private LeftPaneKind _leftPane = LeftPaneKind.Pages;
     private DispatcherTimer? _firstSharpFallback;
     private bool _firstSharpWorkStarted;
+    private bool _listening;
+    private bool _closeRunning;
+    private readonly List<string> _pendingHandover = [];
+    private bool _handoverDrainPosted;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
@@ -662,6 +666,10 @@ internal sealed partial class PdfWindow : Window
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
+
+        // Accepting a later launch is cheap and the pipe is only a socket: it starts now, so a second launch within its one second does not become a window of its own. Showing
+        // what arrives still waits for the UI (ShowHandover).
+        StartListening();
         if (_options.Files.Count > 0)
         {
             // Not awaited: a password question of the first file must not hold back the work after the first page. The page view of the
@@ -690,6 +698,25 @@ internal sealed partial class PdfWindow : Window
         await GuardAsync(OnFirstSharpPageAsync);
     }
 
+    // Once: the pipe loop of the single-instance lock hands each message to OnHandover on a pool thread. A listener that cannot start is no reason for the window to fail.
+    private void StartListening()
+    {
+        if (_listening || _instance is null)
+        {
+            return;
+        }
+
+        _listening = true;
+        try
+        {
+            _instance.StartListening(OnHandover);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Without the listener a later launch opens a window of its own.
+        }
+    }
+
     private void OnFirstSharpPageShown() => _ = GuardAsync(OnFirstSharpPageAsync);
 
     /// <summary>
@@ -706,14 +733,10 @@ internal sealed partial class PdfWindow : Window
         {
             _firstSharpWorkStarted = true;
             _firstSharpFallback?.Stop();
-            try
-            {
-                _instance?.StartListening(OnHandover);
-            }
-            finally
-            {
-                ProbePrint();
-            }
+
+            // The listener normally runs since the window opened; this covers a window whose Opened never ran.
+            StartListening();
+            ProbePrint();
         }
 
         await load;
@@ -759,20 +782,28 @@ internal sealed partial class PdfWindow : Window
 
         try
         {
+            // Decided before the error cards of this very hand-over open: they do not hold back the good files next to them.
+            var busy = Host.IsOpen || _closeRunning;
             foreach (var name in rejected)
             {
                 ShowOpenError(name, PdfOpenError.FileNotFound);
             }
 
-            if (WindowState == WindowState.Minimized)
+            BringToFront();
+            if (accepted.Count == 0)
             {
-                WindowState = WindowState.Normal;
+                return;
             }
 
-            Activate();
-            if (accepted.Count > 0)
+            // While a card is open or the close questions run, the files wait: opening a tab now would move the focus and the active tab under the card.
+            _pendingHandover.AddRange(accepted);
+            if (busy)
             {
-                _ = GuardAsync(() => OpenFilesAsync(accepted));
+                WatchHostForHandover();
+            }
+            else
+            {
+                OpenPendingHandover();
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -780,6 +811,79 @@ internal sealed partial class PdfWindow : Window
             // Whatever a second instance sends must not take the app down.
         }
     }
+
+    private bool _watchingHost;
+
+    // The queued files are opened as soon as the host is free (and no close question runs); watched once, by the host's own property.
+    private void WatchHostForHandover()
+    {
+        if (_watchingHost)
+        {
+            return;
+        }
+
+        _watchingHost = true;
+        Host.GetObservable(DialogHost.ActiveDialogProperty).Subscribe(new HostObserver(this));
+    }
+
+    private sealed class HostObserver(PdfWindow window) : IObserver<Dialog?>
+    {
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(Dialog? value)
+        {
+            if (value is null)
+            {
+                window.PostDrainHandover();
+            }
+        }
+    }
+
+    // Posted: the host is still in the middle of its Close, and the queue of the cards may show the next card in the same turn (that one goes first).
+    private void PostDrainHandover()
+    {
+        if (_pendingHandover.Count == 0 || _handoverDrainPosted)
+        {
+            return;
+        }
+
+        _handoverDrainPosted = true;
+        Dispatcher.Post(() =>
+        {
+            _handoverDrainPosted = false;
+            DrainHandover();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>Opens the files that arrived while a card was open or the window was being closed, once the host is free again. Call it on the UI thread.</summary>
+    internal void DrainHandover()
+    {
+        if (!Host.IsOpen)
+        {
+            OpenPendingHandover();
+        }
+    }
+
+    private void OpenPendingHandover()
+    {
+        if (_pendingHandover.Count == 0 || _closeRunning || _closeConfirmed)
+        {
+            return;
+        }
+
+        var files = _pendingHandover.ToList();
+        _pendingHandover.Clear();
+        _ = GuardAsync(() => OpenFilesAsync(files));
+    }
+
+    /// <summary>The files of a hand-over that wait for a card or a close question to end (tests).</summary>
+    internal IReadOnlyList<string> PendingHandover => _pendingHandover;
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
@@ -1081,7 +1185,17 @@ internal sealed partial class PdfWindow : Window
         UpdateLeftPane();
         UpdateMarksPane();
         UpdateViewStatus();
-        Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Input);
+
+        // A card that is open owns the focus (a file that arrives behind it must not pull the focus away); the host gives it back to the view when it closes.
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (!Host.IsOpen)
+                {
+                    view.Focus();
+                }
+            },
+            DispatcherPriority.Input);
     }
 
     // A document without a form gets no form session and no overlay: nothing is created, drawn or loaded for it.
@@ -1567,27 +1681,30 @@ internal sealed partial class PdfWindow : Window
 
     private Task<CloseChoice> PromptAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Save);
 
-    /// <summary>"Discard the redactions?" for a tab in the redact mode with marks: Discard is DontSave; Apply… (Save) and Cancel keep the tab. A card that is already open answers Cancel.</summary>
+    /// <summary>"Discard the redactions?" for a tab in the redact mode with marks: Discard is DontSave; Apply… (Save) and Cancel keep the tab. A card that is already open does not answer it: the question waits behind it.</summary>
     internal Task<CloseChoice> AskRedactAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Redact);
 
-    /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open answers Cancel.</summary>
+    /// <summary>"Discard the page changes?" for a tab with an open plan: Save is Apply, DontSave is Discard. A card that is already open does not answer it: the question waits behind it.</summary>
     internal Task<CloseChoice> AskPlanAsync(PdfTab tab) => AskAsync(tab, UnsavedKind.Plan);
 
+    // The question goes through the dialog queue: behind a card that is open (an error card, a password question) it waits and appears when the host is free, instead of
+    // being answered Cancel. The window is brought to the front, so the user sees why it did not close.
     private Task<CloseChoice> AskAsync(PdfTab tab, UnsavedKind kind)
     {
-        if (Host.IsOpen)
+        Workspace.Select(tab);
+        BringToFront();
+        return Dialogs.ShowAsync<CloseChoice>(done => UnsavedChangesCard.Create(tab.Title, done, kind, _time));
+    }
+
+    // Restores a minimized window and brings it to the front (a hand-over, a close question that waited).
+    private void BringToFront()
+    {
+        if (WindowState == WindowState.Minimized)
         {
-            return Task.FromResult(CloseChoice.Cancel);
+            WindowState = WindowState.Normal;
         }
 
-        Workspace.Select(tab);
-        var answer = new TaskCompletionSource<CloseChoice>();
-        Host.Show(UnsavedChangesCard.Create(tab.Title, choice =>
-        {
-            Host.Close();
-            answer.TrySetResult(choice);
-        }, kind, _time));
-        return answer.Task;
+        Activate();
     }
 
     // "Apply…" of the close question: the Apply card flow; the tab closes only if the plan was written.
@@ -1605,6 +1722,14 @@ internal sealed partial class PdfWindow : Window
         }
 
         e.Cancel = true;
+
+        // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions.
+        if (_closeRunning)
+        {
+            return;
+        }
+
+        _closeRunning = true;
         try
         {
             if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
@@ -1617,6 +1742,11 @@ internal sealed partial class PdfWindow : Window
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // An exception in the close guard keeps the window open; it must not take the app down.
+        }
+        finally
+        {
+            _closeRunning = false;
+            DrainHandover();
         }
     }
 

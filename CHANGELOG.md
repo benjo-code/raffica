@@ -19,6 +19,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF: an unexpected error no longer ends the app without a word. It is written to `crash.log` (time, error type, message and stack, never a file path or document text) and a card says to save under a new name and restart, with a button for the folder; an error loop still ends the app.
 
 - Raffica PDF: the window now fits the work area of a small screen (never taller than the screen less a margin) and opens where it was when you closed it, maximized or not; a position on a screen that is gone moves back inside.
+- Raffica PDF: files opened from the file manager while the app is still starting are taken over by the running window (it listens as soon as it is open), and a file that arrives while a card or the close question is open waits until the card is gone instead of switching the tab under it; a close that finds another card open now asks its question after that card instead of silently refusing to close.
 
 ### Changed
 
