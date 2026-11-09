@@ -138,6 +138,22 @@ is skipped and the job `release-manifest` does not run.
    `release-manifest` is skipped. The Linux job runs the container build (`packaging/linux/container-build.sh`,
    Ubuntu 22.04) with `deb-smoke` and `appimage-smoke`.
 
+## Manual check on a Mac (M3.1)
+
+Milestone 3.1 has no bundle step yet (that is milestone 3.3); `packaging/macos/dev-app.sh` wraps a publish folder into a
+throwaway, ad-hoc signed `Raffica PDF.app` (no icon, no version, no `.dmg`) so that the Finder paths can be tried.
+
+1. Download the artifact `raffica-pdf-osx-x64` of the CI job `build-macos` (a pull request run with the label `ci:macos`,
+   or a run on `dev`), then `tar xzf` it into an empty folder. On an Apple Silicon Mac the x64 build runs under Rosetta.
+2. `bash packaging/macos/dev-app.sh <that folder> <out folder>` builds `<out folder>/Raffica PDF.app`.
+3. The first launch of an ad-hoc signed app is blocked: open System Settings, Privacy & Security, "Open Anyway". For a
+   downloaded copy, `xattr -dr com.apple.quarantine "Raffica PDF.app"` clears the quarantine mark first.
+4. Check, and write down what you see:
+   a. Double-click a PDF in the Finder with Open With, the app: the file opens in a tab.
+   b. `open -a "Raffica PDF.app" file.pdf` opens the file.
+   c. While the app runs, `open -a "Raffica PDF.app" a.pdf b.pdf` opens both files in the same instance.
+   d. Open a scanned page and run OCR: the text is recognized (this loads the Tesseract library of the bundle).
+
 ## Open checks on real machines
 
 Each item below was not verified during Milestone 2.6; the command or step says how to check it. Done and not listed any
