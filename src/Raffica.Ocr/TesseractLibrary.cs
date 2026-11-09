@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Raffica.Ocr;
 
 /// <summary>
-/// The native OCR library (Tesseract with Leptonica, <c>tesseract.dll</c> / <c>libtesseract.so</c>). It is only ever loaded by its full path from
+/// The native OCR library (Tesseract with Leptonica, <c>tesseract.dll</c> / <c>libtesseract.dylib</c> / <c>libtesseract.so</c>). It is only ever loaded by its full path from
 /// one folder (next to the application), never from the search path or the working directory, and only when the first engine is created:
 /// <see cref="IsAvailable"/> looks for the file and loads nothing.
 /// </summary>
@@ -23,7 +23,15 @@ public sealed class TesseractLibrary
     }
 
     /// <summary>Gets the file name of the library on this system.</summary>
-    public static string FileName => OperatingSystem.IsWindows() ? "tesseract.dll" : "libtesseract.so";
+    public static string FileName => FileNameFor(OperatingSystem.IsWindows() ? OperatingSystemKind.Windows : OperatingSystem.IsMacOS() ? OperatingSystemKind.MacOS : OperatingSystemKind.Linux);
+
+    /// <summary>Gets the file name of the library on a system (a test pins all three).</summary>
+    internal static string FileNameFor(OperatingSystemKind kind) => kind switch
+    {
+        OperatingSystemKind.Windows => "tesseract.dll",
+        OperatingSystemKind.MacOS => "libtesseract.dylib",
+        _ => "libtesseract.so",
+    };
 
     /// <summary>Gets the library the engines use: the one in the folder of the application.</summary>
     public static TesseractLibrary Default
@@ -102,4 +110,12 @@ public sealed class TesseractLibrary
             return handle;
         }
     }
+}
+
+/// <summary>The systems that have their own library file name.</summary>
+internal enum OperatingSystemKind
+{
+    Windows,
+    MacOS,
+    Linux,
 }

@@ -1,12 +1,21 @@
 #:property PublishAot=false
 
-// Checks the dependencies of a Linux shared library: the highest GLIBC and GLIBCXX version it needs and its NEEDED libraries.
+// Checks the dependencies of a native library. The format is read from the first four bytes of the file.
+// ELF (Linux): the highest GLIBC and GLIBCXX version it needs and its NEEDED libraries.
 //   dotnet run tools/check-binary.cs -- <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]...
+// Mach-O (macOS, thin 64-bit): architecture, deployment target and dependencies (otool -L, lipo -archs, vtool -show-build; Mac only).
+//   dotnet run tools/check-binary.cs -- <file> --arch <x86_64|arm64> --max-macos <x.y> --bundle <folder>
+//   dotnet run tools/check-binary.cs -- selftest   (the rules on sample text, runs anywhere)
 // --allow-needed adds one NEEDED library to the allow-list for this run (the release build allows libfontconfig.so.1 of Skia).
 // Reads the dynamic symbols and the program headers with objdump (package binutils). Used by the workflow native-tesseract.yml.
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
+
+if (args is ["selftest"])
+{
+    return SelfTest.Run();
+}
 
 return CheckBinary.Run(args);
 
@@ -132,14 +141,143 @@ static partial class ElfRules
     }
 }
 
+enum BinaryFormat
+{
+    Unknown,
+    Elf,
+    MachO,
+}
+
+// The rules for a thin 64-bit Mach-O dynamic library (the macOS build of the OCR library), from the text of otool -L, lipo -archs and vtool -show-build.
+static partial class MachORules
+{
+    // otool -L: "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)"
+    [GeneratedRegex(@"^\s+(?<p>\S.*?)\s+\(compatibility version")]
+    private static partial Regex DependencyLine();
+
+    // vtool -show-build: "    minos 13.0" (LC_BUILD_VERSION) or "  version 13.0" after "cmd LC_VERSION_MIN_MACOSX".
+    [GeneratedRegex(@"^\s*minos\s+(?<v>\d+(?:\.\d+)*)\s*$")]
+    private static partial Regex MinosLine();
+
+    [GeneratedRegex(@"^\s*version\s+(?<v>\d+(?:\.\d+)*)\s*$")]
+    private static partial Regex LegacyVersionLine();
+
+    public static List<string> Dependencies(string otoolOutput)
+    {
+        var result = new List<string>();
+        foreach (var line in otoolOutput.Split('\n'))
+        {
+            var m = DependencyLine().Match(line.TrimEnd('\r'));
+            if (m.Success)
+            {
+                result.Add(m.Groups["p"].Value);
+            }
+        }
+
+        return result;
+    }
+
+    // The deployment target, or null when the text names none.
+    public static string? MinOs(string vtoolOutput)
+    {
+        var legacy = false;
+        foreach (var raw in vtoolOutput.Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            var m = MinosLine().Match(line);
+            if (m.Success)
+            {
+                return m.Groups["v"].Value;
+            }
+
+            if (line.Contains("cmd ", StringComparison.Ordinal))
+            {
+                legacy = line.Contains("LC_VERSION_MIN_MACOSX", StringComparison.Ordinal);
+            }
+            else if (legacy && LegacyVersionLine().Match(line) is { Success: true } v)
+            {
+                return v.Groups["v"].Value;
+            }
+        }
+
+        return null;
+    }
+
+    // A dependency passes when it is a system library (/usr/lib/, /System/Library/) or one of the three @ forms naming a file the bundle has.
+    public static bool DependencyAllowed(string dependency, Func<string, bool> bundleHasFile)
+    {
+        if (dependency.StartsWith("/usr/lib/", StringComparison.Ordinal) || dependency.StartsWith("/System/Library/", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        foreach (var prefix in new[] { "@rpath/", "@loader_path/", "@executable_path/" })
+        {
+            if (dependency.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                var name = dependency[prefix.Length..];
+                return name.Length > 0 && !name.Contains('/', StringComparison.Ordinal) && bundleHasFile(name);
+            }
+        }
+
+        return false;
+    }
+
+    public static List<string> Violations(string otoolOutput, string lipoArchs, string vtoolOutput, string expectedArch, int[] maxMacos, Func<string, bool> bundleHasFile)
+    {
+        var problems = new List<string>();
+        var archs = lipoArchs.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        if (archs.Length != 1 || archs[0] != expectedArch)
+        {
+            problems.Add($"architectures are '{string.Join(' ', archs)}' (exactly '{expectedArch}' expected)");
+        }
+
+        var minos = MinOs(vtoolOutput);
+        if (minos is null || !ElfRules.TryParseVersion(minos, out var minosVersion))
+        {
+            problems.Add("no macOS deployment target (minos) found in the build version");
+        }
+        else if (ElfRules.Compare(minosVersion, maxMacos) > 0)
+        {
+            problems.Add($"deployment target macOS {minos} is higher than allowed ({string.Join('.', maxMacos)})");
+        }
+
+        foreach (var dependency in Dependencies(otoolOutput))
+        {
+            if (!DependencyAllowed(dependency, bundleHasFile))
+            {
+                problems.Add($"dependency not allowed: {dependency}");
+            }
+        }
+
+        return problems;
+    }
+}
+
 static class CheckBinary
 {
+    public static BinaryFormat DetectFormat(ReadOnlySpan<byte> head)
+    {
+        if (head.Length >= 4 && head[0] == 0x7F && head[1] == 0x45 && head[2] == 0x4C && head[3] == 0x46)
+        {
+            return BinaryFormat.Elf;
+        }
+
+        if (head.Length >= 4 && head[0] == 0xCF && head[1] == 0xFA && head[2] == 0xED && head[3] == 0xFE)
+        {
+            return BinaryFormat.MachO;
+        }
+
+        return BinaryFormat.Unknown;
+    }
+
     public static int Run(string[] args)
     {
         var files = new List<string>();
         var extraAllowed = new List<string>();
         var maxText = ElfRules.DefaultMaxGlibc;
         var maxCxxText = ElfRules.DefaultMaxGlibcxx;
+        string? arch = null, maxMacosText = null, bundle = null;
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] == "--max-glibc" && i + 1 < args.Length)
@@ -149,6 +287,18 @@ static class CheckBinary
             else if (args[i] == "--max-glibcxx" && i + 1 < args.Length)
             {
                 maxCxxText = args[++i];
+            }
+            else if (args[i] == "--arch" && i + 1 < args.Length)
+            {
+                arch = args[++i];
+            }
+            else if (args[i] == "--max-macos" && i + 1 < args.Length)
+            {
+                maxMacosText = args[++i];
+            }
+            else if (args[i] == "--bundle" && i + 1 < args.Length)
+            {
+                bundle = args[++i];
             }
             else if (args[i] == "--allow-needed" && i + 1 < args.Length)
             {
@@ -167,7 +317,7 @@ static class CheckBinary
 
         if (files.Count == 0 || !ElfRules.TryParseVersion(maxText, out var max) || !ElfRules.TryParseVersion(maxCxxText, out _))
         {
-            Console.Error.WriteLine("usage: check-binary <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]...");
+            Console.Error.WriteLine("usage: check-binary <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]... | <file> --arch <x86_64|arm64> --max-macos <x.y> --bundle <folder> | selftest");
             return 2;
         }
 
@@ -178,6 +328,22 @@ static class CheckBinary
             {
                 Console.Error.WriteLine($"{file}: file not found");
                 failed = true;
+                continue;
+            }
+
+            var head = new byte[4];
+            using (var stream = File.OpenRead(file))
+            {
+                _ = stream.Read(head, 0, head.Length);
+            }
+
+            if (DetectFormat(head) == BinaryFormat.MachO)
+            {
+                if (!CheckMachO(file, arch, maxMacosText, bundle))
+                {
+                    failed = true;
+                }
+
                 continue;
             }
 
@@ -204,6 +370,68 @@ static class CheckBinary
         }
 
         return failed ? 1 : 0;
+    }
+
+    private static bool CheckMachO(string file, string? arch, string? maxMacosText, string? bundle)
+    {
+        if (arch is not ("x86_64" or "arm64") || maxMacosText is null || !ElfRules.TryParseVersion(maxMacosText, out var maxMacos) || bundle is null)
+        {
+            Console.Error.WriteLine($"{file}: a Mach-O file needs --arch <x86_64|arm64>, --max-macos <x.y> and --bundle <folder>");
+            return false;
+        }
+
+        var otool = RunTool("otool", ["-L", file]);
+        var lipo = RunTool("lipo", ["-archs", file]);
+        var vtool = RunTool("vtool", ["-show-build", file]);
+        if (otool is null || lipo is null || vtool is null)
+        {
+            return false;
+        }
+
+        var folder = Path.GetFullPath(bundle);
+        var problems = MachORules.Violations(otool, lipo, vtool, arch, maxMacos, name => File.Exists(Path.Combine(folder, name)));
+        if (problems.Count == 0)
+        {
+            Console.WriteLine($"{file}: ok");
+            return true;
+        }
+
+        foreach (var p in problems)
+        {
+            Console.Error.WriteLine($"{file}: {p}");
+        }
+
+        return false;
+    }
+
+    // Runs one of the Xcode command line tools (otool, lipo, vtool); null with a message when it is missing or fails.
+    private static string? RunTool(string tool, string[] arguments)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(tool) { RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var a in arguments)
+            {
+                psi.ArgumentList.Add(a);
+            }
+
+            using var p = Process.Start(psi)!;
+            var stderrTask = p.StandardError.ReadToEndAsync();
+            var stdout = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+            if (p.ExitCode != 0)
+            {
+                Console.Error.WriteLine($"{arguments[^1]}: {tool} {arguments[0]} failed: {stderrTask.Result.Trim()}");
+                return null;
+            }
+
+            return stdout;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            Console.Error.WriteLine($"{tool} not found: it is part of the Xcode command line tools (xcode-select --install); a Mach-O file can only be checked on a Mac");
+            return null;
+        }
     }
 
     // objdump -T prints "not a dynamic object" for a static file; that is not an error here (empty text, no GLIBC need).
@@ -234,6 +462,64 @@ static class CheckBinary
         {
             Console.Error.WriteLine("objdump not found: install the package binutils (sudo apt-get install -y binutils)");
             return null;
+        }
+    }
+}
+
+static class SelfTest
+{
+    private static int s_failures;
+
+    public static int Run()
+    {
+        const string Clean = "libtesseract.dylib:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 1900.180.0)\n";
+        const string Own = "libtesseract.dylib:\n\t@loader_path/libtesseract.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n";
+        const string Homebrew = "libtesseract.dylib:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n\t/opt/homebrew/opt/libpng/lib/libpng16.16.dylib (compatibility version 53.0.0)\n";
+        const string Rpath = "libtesseract.dylib:\n\t@rpath/libleptonica.dylib (compatibility version 6.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n";
+        const string Local = "libtesseract.dylib:\n\t/usr/local/lib/libfoo.dylib (compatibility version 1.0.0)\n";
+        const string Framework = "libtesseract.dylib:\n\t/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate (compatibility version 1.0.0)\n";
+        const string Vtool13 = "Load command 9\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 13.0\n      sdk 15.2\n";
+        const string Vtool15 = "Load command 9\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 15.0\n      sdk 15.2\n";
+        int[] max14 = [14, 0];
+        static bool None(string _) => false;
+        static bool All(string _) => true;
+
+        Expect("macho: system libraries only pass", MachORules.Violations(Clean, "arm64", Vtool13, "arm64", max14, None).Count, 0);
+        Expect("macho: its own install name (@loader_path, file in the bundle) passes", MachORules.Violations(Own, "arm64", Vtool13, "arm64", max14, All).Count, 0);
+        Expect("macho: a Homebrew path fails", MachORules.Violations(Homebrew, "arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: /usr/local fails", MachORules.Violations(Local, "arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: a system framework passes", MachORules.Violations(Framework, "arm64", Vtool13, "arm64", max14, None).Count, 0);
+        Expect("macho: @rpath fails when the bundle lacks the file", MachORules.Violations(Rpath, "arm64", Vtool13, "arm64", max14, None).Count, 1);
+        Expect("macho: @rpath passes when the bundle has the file", MachORules.Violations(Rpath, "arm64", Vtool13, "arm64", max14, All).Count, 0);
+        Expect("macho: the wrong architecture fails", MachORules.Violations(Clean, "arm64", Vtool13, "x86_64", max14, All).Count, 1);
+        Expect("macho: a fat file fails", MachORules.Violations(Clean, "x86_64 arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: minos 15.0 against max 14.0 fails", MachORules.Violations(Clean, "arm64", Vtool15, "arm64", max14, All).Count, 1);
+        Expect("macho: minos 13.0 against max 14.0 passes", MachORules.Violations(Clean, "arm64", Vtool13, "arm64", max14, All).Count, 0);
+        Expect("macho: no minos in the vtool text fails", MachORules.Violations(Clean, "arm64", "nothing", "arm64", max14, All).Count, 1);
+        Expect("macho: the legacy LC_VERSION_MIN_MACOSX form is read", MachORules.Violations(Clean, "arm64", "      cmd LC_VERSION_MIN_MACOSX\n  cmdsize 16\n  version 13.0\n      sdk 15.2\n", "arm64", max14, All).Count, 0);
+
+        // The ELF rules keep their behaviour.
+        const string Symbols = "0000 DF *UND*\t0000 (GLIBC_2.34) printf\n0000 DF *UND*\t0000 (GLIBCXX_3.4.30) _ZSt\n";
+        const string Headers = "  NEEDED               libc.so.6\n  NEEDED               libstdc++.so.6\n";
+        int[] max = [2, 35];
+        Expect("elf: a file within the limits passes", ElfRules.Violations(Symbols, Headers, max, "2.35").Count, 0);
+        Expect("elf: GLIBC 2.38 fails", ElfRules.Violations(Symbols.Replace("2.34", "2.38", StringComparison.Ordinal), Headers, max, "2.35").Count, 1);
+        Expect("elf: a foreign NEEDED library fails", ElfRules.Violations(Symbols, Headers + "  NEEDED               libpng16.so.16\n", max, "2.35").Count, 1);
+        Expect("format: ELF magic", CheckBinary.DetectFormat([0x7F, 0x45, 0x4C, 0x46]), BinaryFormat.Elf);
+        Expect("format: thin 64-bit Mach-O magic", CheckBinary.DetectFormat([0xCF, 0xFA, 0xED, 0xFE]), BinaryFormat.MachO);
+        Expect("format: anything else", CheckBinary.DetectFormat([0x4D, 0x5A, 0, 0]), BinaryFormat.Unknown);
+
+        Console.WriteLine(s_failures == 0 ? "selftest passed" : $"selftest: {s_failures} failure(s)");
+        return s_failures == 0 ? 0 : 1;
+    }
+
+    private static void Expect<T>(string what, T actual, T expected)
+    {
+        var ok = EqualityComparer<T>.Default.Equals(actual, expected);
+        Console.WriteLine($"{(ok ? "ok  " : "FAIL")} {what}");
+        if (!ok)
+        {
+            s_failures++;
         }
     }
 }

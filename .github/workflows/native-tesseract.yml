@@ -2,7 +2,9 @@ name: Native Tesseract
 
 # Builds the OCR library (Tesseract + Leptonica in one shared library, packaging/native/) and uploads it to a PRERELEASE of
 # this repository named native-tesseract-<Tesseract version>-<build number>. Started by hand only:
-#   gh workflow run native-tesseract.yml --ref dev -f build=1
+#   gh workflow run native-tesseract.yml --ref dev -f build=1                    (Windows and Linux, build 1)
+#   gh workflow run native-tesseract.yml --ref <branch> -f build=2 -f systems=macos   (macOS x86_64 and arm64, build 2)
+# "systems" is all (windows and linux jobs) or macos (macos job only); every build number is its own prerelease.
 # The tag never starts with "v": the update check reads releases/latest and release.yml accepts SemVer tags only, so this
 # prerelease can never be mistaken for an app release (Docs/DECISIONS.md, "Raffica PDF: redaction, OCR and text editing conventions (M2.5)", item 13).
 # After the run, Pins.Libraries in tools/native-fetch.cs gets the size and SHA-256 of each file from the job summary; `native-fetch`
@@ -15,6 +17,14 @@ on:
         description: 'Build number n of the tag native-tesseract-<version>-<n> (a rebuild of the same version is a new number)'
         required: true
         type: string
+      systems:
+        description: 'Which libraries to build: all (Windows and Linux) or macos (x86_64 and arm64)'
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - macos
 
 permissions:
   contents: read
@@ -50,6 +60,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
   windows:
+    if: ${{ inputs.systems == 'all' }}
     needs: prepare
     runs-on: windows-2025
     timeout-minutes: 90
@@ -87,6 +98,7 @@ jobs:
           "| file | size | sha256 |`n| --- | --- | --- |`n| tesseract.dll | $($file.Length) | $hash |" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
   linux:
+    if: ${{ inputs.systems == 'all' }}
     needs: prepare
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -118,3 +130,56 @@ jobs:
           echo '| file | size | sha256 |' | tee -a "$GITHUB_STEP_SUMMARY"
           echo '| --- | --- | --- |' | tee -a "$GITHUB_STEP_SUMMARY"
           echo "| libtesseract.so | $(stat -c %s "$f") | $(sha256sum "$f" | cut -d' ' -f1) |" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  macos:
+    needs: prepare
+    runs-on: macos-15
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            asset: libtesseract-osx-x64.dylib
+          - arch: arm64
+            asset: libtesseract-osx-arm64.dylib
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Build libtesseract.dylib
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: bash packaging/native/build-macos.sh . "artifacts/native/macos-$ARCH" "$ARCH"
+      - name: Check the binary
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          source <(grep -E '^[A-Z_]+=' packaging/native/versions.txt)
+          dir="artifacts/native/macos-$ARCH"
+          f="$dir/libtesseract.dylib"
+          dotnet run tools/check-binary.cs -- "$f" --arch "$ARCH" --max-macos "$MACOS_DEPLOYMENT_TARGET" --bundle "$dir"
+          if nm -gU "$f" | grep -E ' _?(curl_|archive_|omp_|GOMP_)'; then echo "unexpected symbols (curl, archive, OpenMP)" >&2; exit 1; fi
+          for name in TessBaseAPICreate TessBaseAPIInit3 TessBaseAPISetImage TessBaseAPIRecognize TessResultIteratorGetUTF8Text; do
+            nm -gU "$f" | grep -q " T _$name\$" || { echo "export $name is missing" >&2; exit 1; }
+          done
+      - name: Upload and print the pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          ARCH: ${{ matrix.arch }}
+          ASSET: ${{ matrix.asset }}
+        run: |
+          # The release asset name carries the architecture; the file in the release is the built one under that name.
+          cp "artifacts/native/macos-$ARCH/libtesseract.dylib" "artifacts/native/macos-$ARCH/$ASSET"
+          gh release upload "$TAG" "artifacts/native/macos-$ARCH/$ASSET" --clobber
+          f="artifacts/native/macos-$ARCH/$ASSET"
+          # Each matrix job has its own job summary: the table has the same shape as in the other jobs.
+          echo '| file | size | sha256 |' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '| --- | --- | --- |' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "| $ASSET | $(stat -f %z "$f") | $(shasum -a 256 "$f" | cut -d' ' -f1) |" | tee -a "$GITHUB_STEP_SUMMARY"

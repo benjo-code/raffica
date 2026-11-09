@@ -378,7 +378,8 @@
       "licenseFile": "third-party/tesseract/LICENSE",
       "files": [
         "tesseract.dll",
-        "libtesseract.so"
+        "libtesseract.so",
+        "libtesseract.dylib"
       ]
     },
     {
