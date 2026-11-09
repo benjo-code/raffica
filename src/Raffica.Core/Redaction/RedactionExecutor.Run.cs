@@ -167,9 +167,14 @@ public sealed partial class RedactionExecutor
             losses.Add(new RedactionLoss(RedactionLossKind.ColorSpaceBecomesRgb, overwritten));
         }
 
+        // A file that is refused for keys on its pages cleans nothing: the embedded files it holds may hang off those pages (/AF), and the
+        // inventory cannot tell them from the files of the names tree, so "attached files" is not claimed for it.
+        var cleanup = pass.Refusals.Any(static r => r.Kind == RedactionRefusalKind.UnremovablePageKeys)
+            ? [.. inventory.Cleanup.Where(static item => item.Kind != CleanupKind.Attachments)]
+            : inventory.Cleanup;
         return new RedactionAnalysis(
             pass.Impacts,
-            inventory.Cleanup,
+            cleanup,
             inventory.Complete,
             [.. losses.OrderBy(static l => l.Kind)],
             planRefusal is null ? pass.Refusals : [planRefusal, .. pass.Refusals],
@@ -178,7 +183,9 @@ public sealed partial class RedactionExecutor
             withoutTerm,
             inventory.AttachmentAnnotations,
             plan.RasterPages.Count > 0 ? pass.Raster : null,
-            plan.ImageTreatment);
+            plan.ImageTreatment,
+            inventory.MediaAnnotations,
+            inventory.OtherAttachments);
     }
 
     /// <summary>

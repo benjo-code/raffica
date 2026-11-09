@@ -94,9 +94,10 @@ internal static class ExtractCard
     /// The card that says what the new file loses, before the save dialog and the write.
     /// </summary>
     /// <param name="range">The range text of the extract.</param>
-    /// <param name="losses">One sentence per loss (<see cref="Organizing.PageLossWording.DescribeParts"/>), at least one.</param>
+    /// <param name="losses">One sentence per loss (<see cref="Organizing.PageLossWording.DescribeParts"/>); empty when only <paramref name="stays"/> has lines.</param>
     /// <param name="done">Whether to go on.</param>
-    public static Dialog CreateConfirm(string range, IReadOnlyList<string> losses, Action<bool> done)
+    /// <param name="stays">What the new file keeps from the document level (<see cref="Organizing.DocumentLevelWording.Lines"/>), or null: nothing to say.</param>
+    public static Dialog CreateConfirm(string range, IReadOnlyList<string> losses, Action<bool> done, IReadOnlyList<string>? stays = null)
     {
         ArgumentNullException.ThrowIfNull(range);
         ArgumentNullException.ThrowIfNull(losses);
@@ -106,7 +107,7 @@ internal static class ExtractCard
         var dialog = new Dialog
         {
             Title = PdfStrings.ExtractConfirmTitle,
-            Content = LossBody(PdfStrings.Fill(PdfStrings.ExtractConfirmIntroFormat, range), losses),
+            Content = LossBody(PdfStrings.Fill(PdfStrings.ExtractConfirmIntroFormat, range), losses, stays, PdfStrings.StaysHeadingExtract),
             Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { go, back } },
         };
         go.Click += (_, _) => done(true);
@@ -122,32 +123,43 @@ internal static class ExtractCard
         return OutputNames.Sanitize(PdfStrings.Fill(PdfStrings.ExtractSuggestedNameFormat, stem, compact)) + ".pdf";
     }
 
-    // The introduction, the heading and the bulleted sentences (text, never colour alone).
-    internal static StackPanel LossBody(string intro, IReadOnlyList<string> losses)
+    // The introduction, the heading and the bulleted sentences (text, never colour alone); then, when there are lines, what the new files keep and
+    // the pointer to Redact. A card that has no loss shows no loss heading.
+    internal static StackPanel LossBody(string intro, IReadOnlyList<string> losses, IReadOnlyList<string>? stays = null, string? staysHeading = null)
     {
-        var list = new StackPanel { Name = "PART_Losses", Spacing = 6 };
-        foreach (var loss in losses)
+        var body = new StackPanel { Spacing = 8, Children = { new TextBlock { Name = "PART_Intro", Text = intro, TextWrapping = TextWrapping.Wrap } } };
+        if (losses.Count > 0)
         {
-            var line = new TextBlock { Name = "PART_Loss", Text = "• " + loss, TextWrapping = TextWrapping.Wrap };
-            AutomationProperties.SetName(line, loss);
+            body.Children.Add(new TextBlock { Text = PdfStrings.OutputLossesHeading, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+            body.Children.Add(new ScrollViewer
+            {
+                MaxHeight = LossesMaxHeight,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                Content = Bullets("PART_Losses", "PART_Loss", losses),
+            });
+        }
+
+        if (stays is { Count: > 0 })
+        {
+            body.Children.Add(new TextBlock { Name = "PART_StaysHeading", Text = staysHeading, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+            body.Children.Add(Bullets("PART_Stays", "PART_Stay", stays));
+            body.Children.Add(new TextBlock { Name = "PART_StaysHint", Text = PdfStrings.StaysRedactHint, TextWrapping = TextWrapping.Wrap });
+        }
+
+        return body;
+    }
+
+    private static StackPanel Bullets(string listName, string lineName, IReadOnlyList<string> texts)
+    {
+        var list = new StackPanel { Name = listName, Spacing = 6 };
+        foreach (var text in texts)
+        {
+            var line = new TextBlock { Name = lineName, Text = "• " + text, TextWrapping = TextWrapping.Wrap };
+            AutomationProperties.SetName(line, text);
             list.Children.Add(line);
         }
 
-        return new StackPanel
-        {
-            Spacing = 8,
-            Children =
-            {
-                new TextBlock { Name = "PART_Intro", Text = intro, TextWrapping = TextWrapping.Wrap },
-                new TextBlock { Text = PdfStrings.OutputLossesHeading, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap },
-                new ScrollViewer
-                {
-                    MaxHeight = LossesMaxHeight,
-                    HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-                    Content = list,
-                },
-            },
-        };
+        return list;
     }
 
     private static Button Button(string name, string text, bool primary)

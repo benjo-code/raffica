@@ -359,6 +359,16 @@ public static class RedactionReportText
             lines.Add(string.Create(CultureInfo.InvariantCulture, $"File attachments of annotations (paperclip notes): up to {analysis.AttachmentAnnotations}. Their embedded files come with the pages and stay in the file."));
         }
 
+        if (analysis.OtherAttachments > 0)
+        {
+            lines.Add(string.Create(CultureInfo.InvariantCulture, $"Files attached to other objects (associated files of annotations and similar): up to {analysis.OtherAttachments}. They come with the pages; the check of the written file stops the save while one is left."));
+        }
+
+        if (analysis.MediaAnnotations > 0)
+        {
+            lines.Add(string.Create(CultureInfo.InvariantCulture, $"Sound and video annotations and other media: up to {analysis.MediaAnnotations}. They come with the pages and stay in the file."));
+        }
+
         if (analysis.Losses.Any(static l => l.Kind == RedactionLossKind.FormFieldsNotFillable))
         {
             lines.Add("The values (/V, /DV) of form fields stay on their widgets in the file; a marked text inside them is still found by the check of the file bytes, and then nothing is written.");

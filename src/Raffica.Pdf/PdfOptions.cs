@@ -53,12 +53,16 @@ internal sealed class PdfOptions
     /// <summary>True for a measurement run.</summary>
     public bool IsMeasuring => MeasureSwitch is not null;
 
-    /// <summary>The same options with other files to open (the session of an update restarts the tabs this way).</summary>
-    public PdfOptions WithFiles(IReadOnlyList<string> files)
+    /// <summary>The file that is the active tab once all of <see cref="Files"/> are open (the session of an update names the tab that was active); null: the last file opened stays active.</summary>
+    public string? ActiveFile { get; private init; }
+
+    /// <summary>The same options with other files to open (the session of an update restarts the tabs this way) and the file to select afterwards.</summary>
+    public PdfOptions WithFiles(IReadOnlyList<string> files, string? activeFile = null)
     {
         ArgumentNullException.ThrowIfNull(files);
         return new PdfOptions
         {
+            ActiveFile = activeFile,
             MeasureSwitch = MeasureSwitch,
             Files = files,
             Lang = Lang,

@@ -180,6 +180,16 @@ internal static class RedactReportLines
             lines.Add(PdfStrings.Fill(PdfStrings.RedactNotCleanedAttachFormat, Number(analysis.AttachmentAnnotations)));
         }
 
+        if (analysis.OtherAttachments > 0)
+        {
+            lines.Add(PdfStrings.Fill(PdfStrings.RedactNotCleanedOtherAttachFormat, Number(analysis.OtherAttachments)));
+        }
+
+        if (analysis.MediaAnnotations > 0)
+        {
+            lines.Add(PdfStrings.Fill(PdfStrings.RedactNotCleanedMediaFormat, Number(analysis.MediaAnnotations)));
+        }
+
         if (analysis.Losses.Any(static l => l.Kind == RedactionLossKind.FormFieldsNotFillable))
         {
             lines.Add(PdfStrings.RedactNotCleanedFormValues);

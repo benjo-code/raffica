@@ -747,7 +747,7 @@ public sealed class AnnotationEditor
                 var counts = new Dictionary<int, int>(pages.Length);
                 foreach (var page in pages)
                 {
-                    counts[page] = (await document.GetAnnotationsAsync(page, cancellationToken).ConfigureAwait(false)).Count;
+                    counts[page] = await document.CountAnnotationsForCheckAsync(page, cancellationToken).ConfigureAwait(false);
                 }
 
                 var request = new SaveRequest(

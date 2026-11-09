@@ -304,7 +304,7 @@ public sealed class RedactApplyFlowTests
             var card = await rig.CardWithAsync("PART_Reason");
 
             Assert.False(card.GetVisualDescendants().OfType<CheckBox>().Any());
-            Assert.Equal("• A thumbnail, private data, metadata or actions that Raffica cannot remove are on page 2, so the file is not redacted.", PrintHost.Find<TextBlock>(card, "PART_Reason").Text);
+            Assert.Equal("• A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on page 2, so the file is not redacted.", PrintHost.Find<TextBlock>(card, "PART_Reason").Text);
             Assert.Equal("Nothing was written. The file is unchanged and the marks are still open.", PrintHost.Find<TextBlock>(card, "PART_Intro").Text);
             RedactApplyRig.Click(card, "PART_Back");
             Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
@@ -351,6 +351,32 @@ public sealed class RedactApplyFlowTests
         Assert.False(rig.Flow.IsRunning);
         PrintHost.Pump();
         Assert.Null(rig.Host.ActiveDialog);
+    }
+
+    [AvaloniaFact]
+    public async Task AnUnredactedOriginalThatCouldNotBeDeletedIsNamedAfterTheResult()
+    {
+        using var rig = await RedactApplyRig.OpenAsync();
+        await rig.MarkTermAsync(Term);
+        var target = Path.Combine(rig.Folder, "copy.pdf");
+        var leftover = Path.Combine(rig.Folder, ".pw-0123456789ab.old");
+        rig.Picks.Enqueue(target);
+        rig.Flow.Applier = async (session, engine, request, progress, token) =>
+        {
+            var applied = await Raffica.Core.Redaction.RedactionApplier.ApplyAsync(session, engine, request, progress, token);
+            return applied with { Saved = applied.Saved with { LeftoverPath = leftover } };
+        };
+
+        var run = rig.Flow.RunAsync(rig.Tab);
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_SaveAs"), "PART_SaveAs");
+        RedactApplyRig.Click(await rig.CardWithAsync("PART_Checked"), "PART_Ok");
+
+        // After the result card, a warning that names the path and says to delete it.
+        var warning = await rig.CardWithAsync("PART_Message");
+        Assert.Equal($"The redacted file was written. The unredacted original is still at {leftover}; delete it.", PrintHost.Find<TextBlock>(warning, "PART_Message").Text);
+        RedactApplyRig.Click(warning, "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
+        Assert.Equal(target, rig.Tab.Path);
     }
 
     [AvaloniaFact]
@@ -459,8 +485,8 @@ public sealed class RedactApplyFlowTests
         Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(60), Ct));
         if (how == "symlink")
         {
-            // The write replaces the link itself by the redacted file (the replace is atomic and does not follow a link); the file behind it stays as it was.
-            Assert.Equal(before, await File.ReadAllBytesAsync(rig.Path, Ct));
+            // The write goes through the link: the file behind it holds the redacted content and the link stays a link.
+            Assert.NotEqual(before, await File.ReadAllBytesAsync(rig.Path, Ct));
             return;
         }
 

@@ -179,6 +179,15 @@
   <data name="ErrorTitle" xml:space="preserve">
     <value>The file could not be opened</value>
   </data>
+  <data name="OpenFailuresTitle" xml:space="preserve">
+    <value>Some files could not be opened</value>
+  </data>
+  <data name="OpenFailuresMessage" xml:space="preserve">
+    <value>These files are missing, are not PDF files or cannot be read:</value>
+  </data>
+  <data name="OpenFailuresMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
   <data name="ErrorFileNotFound" xml:space="preserve">
     <value>The file does not exist any more or was moved.</value>
   </data>
@@ -499,6 +508,9 @@
   </data>
   <data name="SaveBusy" xml:space="preserve">
     <value>A save is running.</value>
+  </data>
+  <data name="SaveLeftoverFormat" xml:space="preserve">
+    <value>The file was saved. The old version is still at {0}. You can delete it.</value>
   </data>
   <data name="SaveJobTitleFormat" xml:space="preserve">
     <value>Saving {0}</value>
@@ -1587,6 +1599,39 @@
   <data name="OutputLossesHeading" xml:space="preserve">
     <value>In the new files, these things are lost or change:</value>
   </data>
+  <data name="StaysHeadingExtract" xml:space="preserve">
+    <value>Parts of the document that stay in the new file:</value>
+  </data>
+  <data name="StaysHeadingSplit" xml:space="preserve">
+    <value>Parts of the document that stay in every new file (for fields and bookmarks, the highest count of any file):</value>
+  </data>
+  <data name="StaysAttachedOne" xml:space="preserve">
+    <value>Up to 1 attached file</value>
+  </data>
+  <data name="StaysAttachedManyFormat" xml:space="preserve">
+    <value>Up to {0} attached files</value>
+  </data>
+  <data name="StaysScripts" xml:space="preserve">
+    <value>Possibly scripts (JavaScript) in the document</value>
+  </data>
+  <data name="StaysIncomplete" xml:space="preserve">
+    <value>The file could not be read completely, so more may stay than is listed.</value>
+  </data>
+  <data name="StaysFieldsOne" xml:space="preserve">
+    <value>1 form field from another page</value>
+  </data>
+  <data name="StaysFieldsManyFormat" xml:space="preserve">
+    <value>{0} form fields from other pages</value>
+  </data>
+  <data name="StaysBookmarksOne" xml:space="preserve">
+    <value>1 bookmark that points to another page</value>
+  </data>
+  <data name="StaysBookmarksManyFormat" xml:space="preserve">
+    <value>{0} bookmarks that point to other pages</value>
+  </data>
+  <data name="StaysRedactHint" xml:space="preserve">
+    <value>Content that must not be passed on: redact it first in the Redact tab.</value>
+  </data>
   <data name="OutputLossFilesFormat" xml:space="preserve">
     <value>Files {0}: {1}</value>
   </data>
@@ -1664,6 +1709,9 @@
   </data>
   <data name="FileJobBusy" xml:space="preserve">
     <value>Another file job is already running.</value>
+  </data>
+  <data name="TargetOpenInOtherTabFormat" xml:space="preserve">
+    <value>{0} is open in another tab. Close it first.</value>
   </data>
   <data name="ExportTitle" xml:space="preserve">
     <value>Export pages as images</value>
@@ -2355,6 +2403,12 @@
   <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
     <value>File attachments of annotations (paperclip notes): up to {0}. Their embedded files come with the pages and stay in the file.</value>
   </data>
+  <data name="RedactNotCleanedOtherAttachFormat" xml:space="preserve">
+    <value>Files attached to other objects (associated files of annotations and similar): up to {0}. They come with the pages; the check of the written file stops the save while one is left.</value>
+  </data>
+  <data name="RedactNotCleanedMediaFormat" xml:space="preserve">
+    <value>Sound, video and other media of annotations: up to {0}. They come with the pages and stay in the file.</value>
+  </data>
   <data name="RedactNotCleanedFormValues" xml:space="preserve">
     <value>The values of form fields stay on their widgets in the file; a marked text inside them is found by the check of the file, and then nothing is written.</value>
   </data>
@@ -2428,7 +2482,7 @@
     <value>The file is encrypted. Raffica does not remove protection silently, so the file is not redacted.</value>
   </data>
   <data name="RedactRefusedKeysFormat" xml:space="preserve">
-    <value>A thumbnail, private data, metadata or actions that Raffica cannot remove are on {0}, so the file is not redacted.</value>
+    <value>A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on {0}, so the file is not redacted.</value>
   </data>
   <data name="RedactRefusedKeysUnverified" xml:space="preserve">
     <value>The page keys of the file could not be checked, so the file is not redacted: a page may carry data that Raffica cannot remove.</value>
@@ -2516,6 +2570,9 @@
   </data>
   <data name="RedactFailOther" xml:space="preserve">
     <value>The redactions could not be applied.</value>
+  </data>
+  <data name="RedactLeftoverFormat" xml:space="preserve">
+    <value>The redacted file was written. The unredacted original is still at {0}; delete it.</value>
   </data>
   <data name="RedactFailAdoptFormat" xml:space="preserve">
     <value>The redactions were written, but the tab could not take the file over. The file at {0} is the redacted one: open it from disk to continue.</value>
@@ -3257,5 +3314,14 @@
   </data>
   <data name="SettingsUpdateCheck" xml:space="preserve">
     <value>Check for updates automatically</value>
+  </data>
+  <data name="CrashTitle" xml:space="preserve">
+    <value>Something went wrong</value>
+  </data>
+  <data name="CrashMessage" xml:space="preserve">
+    <value>Save your work under a new name and restart Raffica PDF. Details are in crash.log.</value>
+  </data>
+  <data name="CrashOpenFolder" xml:space="preserve">
+    <value>Open folder</value>
   </data>
 </root>

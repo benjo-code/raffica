@@ -106,6 +106,31 @@ public sealed class SaveControllerTests
     }
 
     [AvaloniaFact]
+    public async Task AnOldFileLeftBehindIsNamedAfterTheSave()
+    {
+        using var copy = new TempCopy("text-rich.pdf");
+        var leftover = Path.Combine(copy.Folder, ".pw-0123456789ab.old");
+        var engine = new PdfEngine();
+        SaveRunner runner = async (t, target, overwrite, progress, token) =>
+        {
+            var saved = await t.Annotations.Editor.SaveAsync(engine, target, overwrite, progress, token);
+            return saved with { Saved = saved.Saved with { LeftoverPath = leftover } };
+        };
+        using var windows = WindowFixture.Create(saveRunner: runner);
+        var tab = await OpenDirtyAsync(windows, copy.Path);
+
+        var save = windows.Window.SaveActiveAsync();
+        var card = await NextCardAsync(windows.Window.Host);
+
+        // The file is saved; the card names the path of the old version.
+        Assert.Equal($"The file was saved. The old version is still at {leftover}. You can delete it.", PrintHost.Find<TextBlock>(card, "PART_Message").Text);
+        Click(card, "PART_Ok");
+        Assert.True(await save);
+        ViewFixture.Pump();
+        Assert.False(tab.IsDirty);
+    }
+
+    [AvaloniaFact]
     public async Task SaveCleansTheTabAndKeepsScrollAndZoom()
     {
         using var copy = new TempCopy("text-rich.pdf");

@@ -425,11 +425,12 @@ public sealed class DocumentSaverTests : IDisposable
             Assert.Single(await result.Reopened.GetAnnotationsAsync(0, Ct));
         }
 
-        // Known limit: the rename replaces the link by a regular file; the file it pointed to stays as it was.
-        Assert.Null(new FileInfo(link).LinkTarget);
-        Assert.Equal(before, await File.ReadAllBytesAsync(real, Ct));
-        var saved = await File.ReadAllBytesAsync(link, Ct);
+        // The save writes the file the link points to and keeps the link.
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+        var saved = await File.ReadAllBytesAsync(real, Ct);
+        Assert.True(saved.Length > before.Length);
         Assert.Equal(before, saved.AsSpan(0, before.Length).ToArray());
+        Assert.Equal(saved, await File.ReadAllBytesAsync(link, Ct));
         AssertOnlyFiles(real, link);
     }
 
@@ -762,6 +763,74 @@ public sealed class DocumentSaverTests : IDisposable
         await using (var reread = await OpenAsync(path))
         {
             Assert.Single(await reread.GetAnnotationsAsync(0, Ct));
+        }
+
+        AssertOnlyFiles(path);
+    }
+
+    [Fact]
+    public async Task AnOldFileThatCannotBeDeletedAfterTheFallbackIsNamedInTheResult()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows needs the fallback.");
+        var path = Copy("text-basic.pdf");
+        var before = await File.ReadAllBytesAsync(path, Ct);
+        await using var document = await OpenAsync(path);
+        var request = await MarkAsync(document, path, path);
+        var attempts = 0;
+        var faults = new SaveFaults
+        {
+            AtomicReplace = (_, _) => 50,
+            DeleteAside = _ =>
+            {
+                attempts++;
+                throw new IOException("held by another program");
+            },
+            DeleteAsideDelay = TimeSpan.FromMilliseconds(1),
+        };
+
+        var result = await DocumentSaver.SaveAsync(document, engine, request, null, faults, Ct);
+        await using (result.Reopened)
+        {
+            // The save itself succeeded; the old content stays under the named path and the delete was tried four times.
+            Assert.Equal(4, attempts);
+            var leftover = Assert.IsType<string>(result.LeftoverPath);
+            Assert.Equal(folder.Path, Path.GetDirectoryName(leftover));
+            Assert.Matches(@"^\.pw-[0-9a-f]{12}\.old$", Path.GetFileName(leftover));
+            Assert.Equal(before, await File.ReadAllBytesAsync(leftover, Ct));
+            Assert.Single(await result.Reopened.GetAnnotationsAsync(0, Ct));
+        }
+
+        Assert.True((await File.ReadAllBytesAsync(path, Ct)).Length > before.Length);
+    }
+
+    [Fact]
+    public async Task AnOldFileThatIsDeletedOnARetryLeavesNothing()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows needs the fallback.");
+        var path = Copy("text-basic.pdf");
+        await using var document = await OpenAsync(path);
+        var request = await MarkAsync(document, path, path);
+        var attempts = 0;
+        var faults = new SaveFaults
+        {
+            AtomicReplace = (_, _) => 50,
+            DeleteAside = aside =>
+            {
+                if (++attempts < 3)
+                {
+                    throw new IOException("held by another program");
+                }
+
+                File.Delete(aside);
+            },
+            DeleteAsideDelay = TimeSpan.FromMilliseconds(1),
+        };
+
+        var result = await DocumentSaver.SaveAsync(document, engine, request, null, faults, Ct);
+        await using (result.Reopened)
+        {
+            Assert.Equal(3, attempts);
+            Assert.Null(result.LeftoverPath);
         }
 
         AssertOnlyFiles(path);

@@ -284,7 +284,7 @@ public static class RedactionApplier
     {
         if (!scan.WasChecked)
         {
-            yield return new RedactionFinding(RedactionFindingKind.PageKeysStillPresent, null, "The page keys of the written file could not be checked, so it cannot be shown that no page still carries a thumbnail, private data, metadata or actions.");
+            yield return new RedactionFinding(RedactionFindingKind.PageKeysStillPresent, null, "The page keys of the written file could not be checked, so it cannot be shown that no page still carries a thumbnail, private data, metadata, actions, attached files or article threads.");
             yield break;
         }
 

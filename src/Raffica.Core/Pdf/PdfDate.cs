@@ -121,7 +121,7 @@ public static class PdfDate
         return true;
     }
 
-    // HH, HH'mm', HH'mm, HHmm.
+    // HH, HH', HH'mm', HH'mm, HHmm.
     private static bool TryParseOffsetDigits(ReadOnlySpan<char> text, out TimeSpan magnitude)
     {
         magnitude = TimeSpan.Zero;
@@ -137,6 +137,12 @@ public static class PdfDate
             if (text[position] == '\'')
             {
                 position++;
+                if (position == text.Length)
+                {
+                    // "+01'": the apostrophe closes the hours, no minutes follow.
+                    magnitude = new TimeSpan(hours, 0, 0);
+                    return hours <= 23;
+                }
             }
 
             if (!TryReadNumber(text, ref position, 2, out minutes))

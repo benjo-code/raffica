@@ -21,6 +21,7 @@ internal sealed partial class App : Application
     private readonly SettingsStore _store;
     private readonly ShellSettings _settings;
     private readonly Raffica.Core.Settings.AppSettings _appSettings;
+    private IDisposable[]? _crashSubscriptions;
 
     public App(PdfOptions options, SingleInstance? instance = null)
     {
@@ -72,6 +73,11 @@ internal sealed partial class App : Application
                 : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled, () => window.EndForUpdate(() => desktop.Shutdown()));
 
             desktop.MainWindow = window;
+            if (!_options.IsMeasuring)
+            {
+                AttachCrashGuard(window, desktop);
+            }
+
             if (_options.IsMeasuring)
             {
                 // Held by the watchdog timer and the window events until the run is over.
@@ -80,6 +86,25 @@ internal sealed partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    // The last net: an uncaught exception goes to crash.log, a UI one also shows one card. The dispatcher is captured here, on the UI thread, because the
+    // callbacks of the other events run on pool threads. Only subscriptions are made now; the file and the card exist after the first exception.
+    private void AttachCrashGuard(PdfWindow window, IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        var ui = Dispatcher.UIThread;
+        var folder = PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile);
+        Hosting.CrashGuard? guard = null;
+        guard = new Hosting.CrashGuard(
+            folder,
+            TimeProvider.System,
+            _ => ui.Post(() => window.ShowCrashCard(folder, closed: () => guard!.CardClosed())),
+            () => ui.Post(() => desktop.Shutdown(1)));
+        _crashSubscriptions =
+        [
+            Hosting.CrashGuardHost.AttachUi(guard, ui),
+            Hosting.CrashGuardHost.AttachProcess(guard),
+        ];
     }
 
     private Updating.UpdateHelperWindow CreateUpdateHelperWindow(string staging, IClassicDesktopStyleApplicationLifetime desktop)

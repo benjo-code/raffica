@@ -80,6 +80,33 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
+    /// Counts the annotations of a page the way <see cref="GetAnnotationsAsync"/> lists them (no popups, no replies, damaged
+    /// entries skipped), but without the document-wide limit of <see cref="MaxAnnotations"/> and without touching the count the
+    /// limit is kept with. For the check of a save, which compares the page before and after the write and must not depend on
+    /// which other pages happened to be listed. Runs with <see cref="PdfPriority.Background"/>.
+    /// </summary>
+    /// <param name="page">The 0-based page.</param>
+    /// <param name="token">Cancels the count.</param>
+    /// <returns>The number of annotations of the page.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="page"/> is not a page of the document.</exception>
+    /// <exception cref="InvalidDataException">The page is damaged and cannot be loaded.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="token"/> was canceled.</exception>
+    /// <exception cref="ObjectDisposedException">The document is disposed.</exception>
+    public Task<int> CountAnnotationsForCheckAsync(int page, CancellationToken token)
+    {
+        ThrowIfDisposed();
+        ThrowIfNotAPage(page);
+        return document.Thread.InvokeAsync(
+            () =>
+            {
+                using var loaded = document.LoadPage(page);
+                return PdfiumAnnotations.Read(loaded, int.MaxValue, token).Count;
+            },
+            PdfiumPriority.Background,
+            token);
+    }
+
+    /// <summary>
     /// Creates a highlight, underline or strike-out over <paramref name="lineRects"/> (one rectangle per line, page points
     /// from the top left like <see cref="PageText"/>; see <see cref="MarkupGeometry.LinesFor"/>). The rectangles are
     /// converted to PDF space by PDFium (<c>FPDF_DeviceToPage</c>), one quadrilateral per line. The annotation gets a new

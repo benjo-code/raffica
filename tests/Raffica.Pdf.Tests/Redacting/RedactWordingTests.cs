@@ -222,6 +222,37 @@ public sealed class RedactWordingTests
         Assert.Equal(check.Items.Count, RedactReportLines.NotChecked(analysis, check).Count - (analysis.MarksWithoutTerm > 0 ? 1 : 0) - (analysis.CleanupComplete ? 0 : 1));
     }
 
+    [Fact]
+    public void TheNotCleanedLinesListMediaOfAnnotationsInBothLanguagesOnlyWhenThereAreSome()
+    {
+        var with = new RedactionAnalysis([], [], true, [], [], true, 1, 0, 0, null, RedactionImageTreatment.Solid, 2, 3);
+        var without = with with { MediaAnnotations = 0, OtherAttachments = 0 };
+        var before = PdfStrings.Culture;
+        try
+        {
+            var seen = new List<string>();
+            foreach (var language in new[] { "en", "de" })
+            {
+                PdfStrings.Culture = new System.Globalization.CultureInfo(language);
+                var line = PdfStrings.Fill(PdfStrings.RedactNotCleanedMediaFormat, 2);
+                var other = PdfStrings.Fill(PdfStrings.RedactNotCleanedOtherAttachFormat, 3);
+                Assert.Contains(line, RedactReportLines.NotCleaned(with));
+                Assert.Contains(other, RedactReportLines.NotCleaned(with));
+                Assert.DoesNotContain(line, RedactReportLines.NotCleaned(without));
+                Assert.DoesNotContain(other, RedactReportLines.NotCleaned(without));
+                Assert.False(Overpromise.IsMatch(line), line);
+                Assert.False(Overpromise.IsMatch(other), other);
+                seen.Add(line + other);
+            }
+
+            Assert.NotEqual(seen[0], seen[1]);
+        }
+        finally
+        {
+            PdfStrings.Culture = before;
+        }
+    }
+
     [AvaloniaFact]
     public async Task ACheckWithFindingsShowsNoCheckedAndNoCleanedSection()
     {

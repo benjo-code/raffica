@@ -191,6 +191,8 @@ internal sealed class NameTally
 
     public int AttachmentAnnotations { get; private set; }
 
+    public int MediaAnnotations { get; private set; }
+
     public int OutlineItems { get; private set; }
 
     public int PageLabelKeys { get; private set; }
@@ -200,12 +202,20 @@ internal sealed class NameTally
     /// <summary>Counts a name.</summary>
     /// <param name="name">The name without its slash, <c>#xx</c> escapes resolved.</param>
     /// <param name="valueOfType">Whether the name is the value of a <c>/Type</c> entry.</param>
-    public void OnName(ReadOnlySpan<byte> name, bool valueOfType)
+    /// <param name="valueOfSubtype">Whether the name is the value of a <c>/Subtype</c> entry (an annotation's kind).</param>
+    public void OnName(ReadOnlySpan<byte> name, bool valueOfType, bool valueOfSubtype)
     {
         switch (name.Length)
         {
             case 2 when name.SequenceEqual("JS"u8):
                 JavaScriptActions++;
+                break;
+            case 2 when valueOfSubtype && name.SequenceEqual("3D"u8):
+            case 5 when valueOfSubtype && (name.SequenceEqual("Sound"u8) || name.SequenceEqual("Movie"u8)):
+            case 6 when valueOfSubtype && name.SequenceEqual("Screen"u8):
+            case 9 when valueOfSubtype && name.SequenceEqual("RichMedia"u8):
+                // Only as the kind of an annotation: /BM /Screen (a blend mode) and /S /Sound or /S /Movie (actions) are not media of a page.
+                MediaAnnotations++;
                 break;
             case 7 when name.SequenceEqual("Encrypt"u8):
                 EncryptSeen = true;

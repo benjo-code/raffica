@@ -84,6 +84,9 @@ internal static class PdfStrings
     public static string PasswordLabel => Table.Get("PasswordLabel");
     public static string PasswordIncorrect => Table.Get("PasswordIncorrect");
     public static string ErrorTitle => Table.Get("ErrorTitle");
+    public static string OpenFailuresTitle => Table.Get("OpenFailuresTitle");
+    public static string OpenFailuresMessage => Table.Get("OpenFailuresMessage");
+    public static string OpenFailuresMoreFormat => Table.Get("OpenFailuresMoreFormat");
     public static string ErrorFileNotFound => Table.Get("ErrorFileNotFound");
     public static string ErrorCannotRead => Table.Get("ErrorCannotRead");
     public static string ErrorNotAPdf => Table.Get("ErrorNotAPdf");
@@ -310,6 +313,7 @@ internal static class PdfStrings
     public static string PrintJobCancelling => Table.Get("PrintJobCancelling");
     public static string PrintBusy => Table.Get("PrintBusy");
     public static string SaveBusy => Table.Get("SaveBusy");
+    public static string SaveLeftoverFormat => Table.Get("SaveLeftoverFormat");
     public static string SaveJobTitleFormat => Table.Get("SaveJobTitleFormat");
     public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
     public static string PrintFailedPagesFormat => Table.Get("PrintFailedPagesFormat");
@@ -440,6 +444,17 @@ internal static class PdfStrings
     public static string SplitTooManyFormat => Table.Get("SplitTooManyFormat");
     public static string SplitConfirmIntroFormat => Table.Get("SplitConfirmIntroFormat");
     public static string OutputLossesHeading => Table.Get("OutputLossesHeading");
+    public static string StaysHeadingExtract => Table.Get("StaysHeadingExtract");
+    public static string StaysHeadingSplit => Table.Get("StaysHeadingSplit");
+    public static string StaysAttachedOne => Table.Get("StaysAttachedOne");
+    public static string StaysAttachedManyFormat => Table.Get("StaysAttachedManyFormat");
+    public static string StaysScripts => Table.Get("StaysScripts");
+    public static string StaysIncomplete => Table.Get("StaysIncomplete");
+    public static string StaysFieldsOne => Table.Get("StaysFieldsOne");
+    public static string StaysFieldsManyFormat => Table.Get("StaysFieldsManyFormat");
+    public static string StaysBookmarksOne => Table.Get("StaysBookmarksOne");
+    public static string StaysBookmarksManyFormat => Table.Get("StaysBookmarksManyFormat");
+    public static string StaysRedactHint => Table.Get("StaysRedactHint");
     public static string OutputLossFilesFormat => Table.Get("OutputLossFilesFormat");
     public static string OutputCheckingTitleFormat => Table.Get("OutputCheckingTitleFormat");
     public static string OutputJobTitleFormat => Table.Get("OutputJobTitleFormat");
@@ -466,6 +481,9 @@ internal static class PdfStrings
     public static string OutputCauseOpen => Table.Get("OutputCauseOpen");
     public static string OutputCauseDamaged => Table.Get("OutputCauseDamaged");
     public static string FileJobBusy => Table.Get("FileJobBusy");
+
+    /// <summary>The note when the chosen target is open in another tab ({0} is the file name).</summary>
+    public static string TargetOpenInOtherTabFormat => Table.Get("TargetOpenInOtherTabFormat");
     public static string ExportTitle => Table.Get("ExportTitle");
     public static string ExportRangeLabel => Table.Get("ExportRangeLabel");
     public static string ExportDpiLabel => Table.Get("ExportDpiLabel");
@@ -717,6 +735,9 @@ internal static class PdfStrings
     public static string UpdateStepDone => Table.Get("UpdateStepDone");
     public static string UpdateProgressBytesFormat => Table.Get("UpdateProgressBytesFormat");
     public static string UpdateFailedTitle => Table.Get("UpdateFailedTitle");
+    public static string CrashTitle => Table.Get("CrashTitle");
+    public static string CrashMessage => Table.Get("CrashMessage");
+    public static string CrashOpenFolder => Table.Get("CrashOpenFolder");
     public static string UpdateTryAgain => Table.Get("UpdateTryAgain");
     public static string UpdateCheckTitle => Table.Get("UpdateCheckTitle");
     public static string UpdateUpToDateFormat => Table.Get("UpdateUpToDateFormat");
@@ -908,6 +929,8 @@ internal static class PdfStrings
     public static string RedactNotCleanedActions => Table.Get("RedactNotCleanedActions");
     public static string RedactNotCleanedAnnots => Table.Get("RedactNotCleanedAnnots");
     public static string RedactNotCleanedAttachFormat => Table.Get("RedactNotCleanedAttachFormat");
+    public static string RedactNotCleanedOtherAttachFormat => Table.Get("RedactNotCleanedOtherAttachFormat");
+    public static string RedactNotCleanedMediaFormat => Table.Get("RedactNotCleanedMediaFormat");
     public static string RedactNotCleanedFormValues => Table.Get("RedactNotCleanedFormValues");
     public static string RedactNotCleanedSignature => Table.Get("RedactNotCleanedSignature");
     public static string RedactImgPixelatedFormat => Table.Get("RedactImgPixelatedFormat");
@@ -963,6 +986,7 @@ internal static class PdfStrings
     public static string RedactFailDamaged => Table.Get("RedactFailDamaged");
     public static string RedactFailOther => Table.Get("RedactFailOther");
     public static string RedactFailAdoptFormat => Table.Get("RedactFailAdoptFormat");
+    public static string RedactLeftoverFormat => Table.Get("RedactLeftoverFormat");
     public static string RedactPlanChanged => Table.Get("RedactPlanChanged");
     public static string RedactApplySuggestedNameFormat => Table.Get("RedactApplySuggestedNameFormat");
     public static string RedactResultTitle => Table.Get("RedactResultTitle");

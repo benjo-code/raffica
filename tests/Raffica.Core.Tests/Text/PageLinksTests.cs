@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Raffica.Core.Pdf;
 using Raffica.Core.Text;
+using Raffica.Pdfium;
 using Raffica.TestSupport;
 using Xunit;
 
@@ -116,6 +117,73 @@ public sealed class PageLinksTests
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public async Task DestinationPositionUsesTheTransformOfTheTargetPage()
+    {
+        // Target 1: CropBox [0 36 612 828] on a 864 high MediaBox, so the top of the page lies at y = 828 and /XYZ y = 400 is 428 down.
+        // Target 2: /Rotate 90 turns the page, so the displayed top is the left edge: /XYZ x = 50 is 50 down.
+        using var folder = new Annotations.TempFolder();
+        var path = Annotations.AnnotationTestFiles.WritePdf(
+            folder,
+            "targets.pdf",
+            [
+                "<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Annots [6 0 R 7 0 R] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 864] /CropBox [0 36 612 828] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 600] /Rotate 90 >>",
+                "<< /Type /Annot /Subtype /Link /Rect [40 340 140 360] /Dest [4 0 R /XYZ 100 400 null] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [40 300 140 320] /Dest [5 0 R /XYZ 50 300 null] >>",
+            ]);
+        var ct = TestContext.Current.CancellationToken;
+        await using var document = await engine.OpenAsync(path, cancellationToken: ct);
+
+        var text = await document.GetPageTextAsync(0, ct);
+
+        var targets = text.Links.Select(l => l.Target).OfType<PageTarget>().OrderBy(t => t.PageIndex).ToArray();
+        Assert.Equal([1, 2], targets.Select(t => t.PageIndex));
+        Assert.Equal(428, targets[0].Top!.Value, 0.1);
+        Assert.Equal(50, targets[1].Top!.Value, 0.1);
+    }
+
+    [Fact]
+    public async Task LinksToTheSamePageLoadItOnceAndTheCurrentPageNotAtAll()
+    {
+        // Page 0 holds five links: three to page 1, one to page 2 and one to itself. Only pages 1 and 2 are loaded, each once.
+        using var folder = new Annotations.TempFolder();
+        var path = Annotations.AnnotationTestFiles.WritePdf(
+            folder,
+            "many-links.pdf",
+            [
+                "<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Annots [6 0 R 7 0 R 8 0 R 9 0 R 10 0 R] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [10 10 50 20] /Dest [4 0 R /XYZ 0 100 null] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [10 30 50 40] /Dest [4 0 R /XYZ 0 200 null] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [10 50 50 60] /Dest [4 0 R /XYZ 0 300 null] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [10 70 50 80] /Dest [5 0 R /XYZ 0 100 null] >>",
+                "<< /Type /Annot /Subtype /Link /Rect [10 90 50 100] /Dest [3 0 R /XYZ 0 100 null] >>",
+            ]);
+        var thread = PdfiumThread.Shared;
+
+        var (links, loaded) = await thread.InvokeAsync(
+            () =>
+            {
+                var loads = new List<int>();
+                using var document = PdfiumDocument.Open(thread, path, null);
+                using var page = document.LoadPage(0);
+                using var text = page.LoadTextPage();
+                return (PdfiumPageText.ReadLinks(document, page, text, 0, loads.Add), loads);
+            },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(5, links.Count(l => l.Kind == PdfiumLinkKind.Page));
+        Assert.Equal([1, 2], loaded.Order());
+        Assert.Equal([300.0, 200.0, 100.0], links.Where(l => l.PageIndex == 1).Select(l => l.Top!.Value).Order(Comparer<double>.Create((x, y) => y.CompareTo(x))));
     }
 
     private static (double X, double Y) Centre(PageRect rect) => ((rect.Left + rect.Right) / 2, (rect.Top + rect.Bottom) / 2);

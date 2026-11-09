@@ -29,6 +29,7 @@ namespace Raffica.Pdf.Organizing;
 /// <param name="busy">Whether a print job runs (an apply is then refused); null: never.</param>
 /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
 /// <param name="otherJob">Whether another file job of the window runs (a save, extract, split, export): an apply is then refused; null: never.</param>
+/// <param name="workspace">The open tabs: a picked target that another tab has open is refused (<see cref="OpenTargetGuard"/>); null: never checked.</param>
 internal sealed class ApplyFlow(
     DialogQueue dialogs,
     Func<PdfTab, Task<bool>> saveMarks,
@@ -40,7 +41,8 @@ internal sealed class ApplyFlow(
     Action? changed = null,
     Func<bool>? busy = null,
     TimeProvider? time = null,
-    Func<bool>? otherJob = null)
+    Func<bool>? otherJob = null,
+    Workspace? workspace = null)
 {
     private readonly JobRunner _jobs = new(dialogs);
 
@@ -179,6 +181,12 @@ internal sealed class ApplyFlow(
             return false;
         }
 
+        // Immediately before the write: no other tab has the picked target open. Only Save as is asked: the original is the tab's own path.
+        if (choice == ApplyChoice.SaveAs && !await TargetFreeAsync(tab, targetPath))
+        {
+            return false;
+        }
+
         // (6) The rewrite.
         var files = plan.Slots
             .Where(slot => slot.Source.Value != 0 && slot.Blank is null)
@@ -204,6 +212,7 @@ internal sealed class ApplyFlow(
 
                 // (7) The plan is applied.
                 Completed(tab, session, plan, targetPath);
+                await WarnLeftoverAsync(result.Saved.LeftoverPath);
                 return true;
             }
             catch (SaveFailureException ex) when (ex.Reason == SaveFailureReason.OriginalChanged && !overwrite && choice == ApplyChoice.Original)
@@ -225,6 +234,11 @@ internal sealed class ApplyFlow(
                     }
 
                     targetPath = Path.GetFullPath(other);
+                    if (!await TargetFreeAsync(tab, targetPath))
+                    {
+                        return false;
+                    }
+
                     choice = ApplyChoice.SaveAs;
                 }
                 else
@@ -258,6 +272,25 @@ internal sealed class ApplyFlow(
         if (renamed)
         {
             JobRunner.Guarded(() => pathChanged?.Invoke(tab));
+        }
+    }
+
+    // The replace had to move the old file aside and could not delete it: the user is told where it is. The file is written; a card that cannot be shown
+    // must not turn into "not applied".
+    private async Task WarnLeftoverAsync(string? leftover)
+    {
+        if (leftover is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Tell(PdfStrings.Fill(PdfStrings.SaveLeftoverFormat, leftover));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // See above.
         }
     }
 
@@ -295,6 +328,17 @@ internal sealed class ApplyFlow(
             _ => PdfStrings.ApplyFailOther + stays,
         };
         return (PdfStrings.ApplyFailedTitle, message);
+    }
+
+    private async Task<bool> TargetFreeAsync(PdfTab tab, string target)
+    {
+        if (workspace is null || await OpenTargetGuard.FindOtherTabAsync(workspace, tab, target, CancellationToken.None) is null)
+        {
+            return true;
+        }
+
+        await Tell(OpenTargetGuard.NoteFor(target));
+        return false;
     }
 
     private Task<bool> Tell(string message) =>

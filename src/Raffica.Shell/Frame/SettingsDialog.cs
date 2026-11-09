@@ -89,13 +89,15 @@ public static class SettingsDialog
         ok.Click += (_, _) =>
         {
             var selected = LanguageCodes[Math.Max(0, language.SelectedIndex)];
-            onOk(new ShellSettings(
-                Themes[Math.Max(0, theme.SelectedIndex)],
+            onOk(current with
+            {
+                Theme = Themes[Math.Max(0, theme.SelectedIndex)],
 
                 // An untouched first-start choice stays "follow the system" instead of being pinned.
-                current.Language is null && selected == running ? null : selected,
-                compact.IsChecked == true,
-                showAutosave ? autosave.IsChecked == true : current.Autosave));
+                Language = current.Language is null && selected == running ? null : selected,
+                CompactCommandBar = compact.IsChecked == true,
+                Autosave = showAutosave ? autosave.IsChecked == true : current.Autosave,
+            });
         };
         return dialog;
     }

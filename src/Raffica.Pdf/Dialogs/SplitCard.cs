@@ -190,9 +190,10 @@ internal static class SplitCard
 
     /// <summary>The card that says what the new files lose, before anything is written.</summary>
     /// <param name="partCount">How many files will be written.</param>
-    /// <param name="losses">One sentence per loss (<see cref="PageLossWording.DescribeParts"/>), at least one.</param>
+    /// <param name="losses">One sentence per loss (<see cref="PageLossWording.DescribeParts"/>); empty when only <paramref name="stays"/> has lines.</param>
     /// <param name="done">Whether to go on.</param>
-    public static Dialog CreateConfirm(int partCount, IReadOnlyList<string> losses, Action<bool> done)
+    /// <param name="stays">What every new file keeps from the document level (<see cref="Organizing.DocumentLevelWording.Lines"/>), or null: nothing to say.</param>
+    public static Dialog CreateConfirm(int partCount, IReadOnlyList<string> losses, Action<bool> done, IReadOnlyList<string>? stays = null)
     {
         ArgumentNullException.ThrowIfNull(losses);
         ArgumentNullException.ThrowIfNull(done);
@@ -201,7 +202,7 @@ internal static class SplitCard
         var dialog = new Dialog
         {
             Title = PdfStrings.SplitTitle,
-            Content = ExtractCard.LossBody(PdfStrings.Fill(PdfStrings.SplitConfirmIntroFormat, partCount), losses),
+            Content = ExtractCard.LossBody(PdfStrings.Fill(PdfStrings.SplitConfirmIntroFormat, partCount), losses, stays, PdfStrings.StaysHeadingSplit),
             Footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { go, back } },
         };
         go.Click += (_, _) => done(true);

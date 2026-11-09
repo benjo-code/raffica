@@ -43,6 +43,9 @@ public sealed class SettingsStore(string path)
             {
                 Language = settings.Language is "de" or "en" ? settings.Language : null,
                 Theme = Enum.IsDefined(settings.Theme) ? settings.Theme : ThemeMode.System,
+
+                // A placement that is no real window (no numbers, no size) is left out.
+                WindowPlacement = settings.WindowPlacement is { IsUsable: true } ? settings.WindowPlacement : null,
             };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or ArgumentException or InvalidOperationException)

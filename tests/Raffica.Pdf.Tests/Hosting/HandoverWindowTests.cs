@@ -1,5 +1,7 @@
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Raffica.Core.Hosting;
+using Raffica.Pdf.Hosting;
 using Raffica.Shell.Frame;
 using Raffica.TestSupport;
 using Xunit;
@@ -104,6 +106,50 @@ public sealed class HandoverWindowTests : IDisposable
         await WaitAsync(() => File.Exists(Path.Combine(_folder, "recent.json")));
         Assert.Single(window.Workspace.Tabs);
         Assert.Contains("hello_world.pdf", File.ReadAllText(Path.Combine(_folder, "recent.json")));
+        window.Close();
+        Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task AHandoverSentBeforeTheFirstSharpPageIsAccepted()
+    {
+        var name = "raffica-test-" + Guid.NewGuid().ToString("N");
+        using var primary = SingleInstance.TryBecomePrimary(name);
+        Assert.NotNull(primary);
+
+        // A file that asks for its password never gets a first sharp page: the old listener started only after the 3 second fallback, past the one second of a later launch.
+        var locked = TestData.Pdf("encrypted_hello_world_r6.pdf");
+        var second = TestData.Pdf("text-rich.pdf");
+        var options = PdfOptions.Parse(["--settings-file", Path.Combine(_folder, "settings.json"), locked]);
+        var window = new PdfWindow(options, new ShellSettings());
+        window.Listen(primary);
+        var sharp = false;
+        window.FirstSharpPageDrawn += _ => sharp = true;
+        var arrived = false;
+        window.HandoverArrived += () => arrived = true;
+        window.Show();
+        Pump();
+
+        var sent = await Task.Run(() => InstanceHandover.TryHandOver(name, [second], TimeSpan.FromSeconds(1)), TestContext.Current.CancellationToken);
+
+        Assert.True(sent);
+        Assert.False(sharp);
+        await WaitAsync(() => arrived);
+        window.Close();
+        Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task TheTabThatWasActiveBeforeAnUpdateIsActiveAfterTheRestart()
+    {
+        string[] names = ["hello_world.pdf", "text-rich.pdf", "text-basic.pdf"];
+        var files = names.Select(TestData.Pdf).ToList();
+        var options = PdfOptions.Parse(["--settings-file", Path.Combine(_folder, "settings.json")]).WithFiles(files, files[0]);
+        var window = new PdfWindow(options, new ShellSettings());
+        window.Show();
+
+        await WaitAsync(() => window.Workspace.Tabs.Count == 3 && window.Workspace.Active is not null);
+        await WaitAsync(() => Path.GetFullPath(files[0]) == window.Workspace.Active!.Path);
         window.Close();
         Pump();
     }

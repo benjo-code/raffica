@@ -4,7 +4,7 @@ namespace Raffica.Core.Redaction;
 
 /// <summary>
 /// Reads back from the written file what the cleaning rebuild is meant to have removed at the document level (milestone 14): the fields
-/// of the information dictionary, the bookmarks, the names tree (attached files and scripts), the page labels and the other keys of
+/// of the information dictionary, the bookmarks, the names tree (attached files and scripts), the page labels, embedded files beyond paperclip annotations and the other keys of
 /// <see cref="PageKeyScanner.DocumentKeys"/>. Anything that is still there is a finding of kind
 /// <see cref="RedactionFindingKind.CleanupItemStillPresent"/>: the report says "cleaned" only for what this read confirmed. The findings
 /// name the item and never its content. The XMP and the scripts inside page-level objects (form objects, image objects, annotations)
@@ -47,6 +47,14 @@ internal static class CleanupReadBack
         foreach (var key in scan.DocumentKeys)
         {
             findings.Add(Still($"The written file still has {key} at the document level ({Meaning(key)})."));
+        }
+
+        // Embedded files anywhere in the written file other than the files of paperclip annotations (which come with their pages and are
+        // listed as not cleaned): the names tree is gone with the catalog, so any other file (an associated file of a page, an annotation
+        // or the catalog, a file specification inside another object) is a finding. Counts, never content.
+        if (scan.EmbeddedFiles > scan.AttachmentAnnotations)
+        {
+            findings.Add(Still("The written file still has an embedded file that is not the file of a paperclip annotation."));
         }
 
         return findings;

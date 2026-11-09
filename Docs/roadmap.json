@@ -550,12 +550,12 @@
           "goal": "The repository can be made public and v0.1.0 released: no fork can reach the owner's runners, redaction removes what it reports, no control is dead or hidden at the default window size, the German UI reads as one product, a crash never ends the app without a word, and the start-time regression of 2026-11-08 is explained and fixed.",
           "tasks": [
             { "text": "Repository and CI ready to be public: hosted CI once public, `release.yml` accepts only refs on `main` or `dev` and builds from fresh package and SDK folders, digest-pinned image, `SECURITY.md`, `CONTRIBUTING.md`, issue template config, docs without \"private\", the owner's checklist for the flip (plan Task 1)", "done": true },
-            { "text": "Redaction removes page attachments (`/AF`) and article threads (`/B`) and lists as cleaned only what the read-back confirmed (Task 2)", "done": false },
-            { "text": "Extract and Split name the document-level content every part keeps; cleaned parts go to the backlog (Task 3)", "done": false },
-            { "text": "No write onto a file that another tab has open (Save as, Apply, Redact Apply, Extract); a save while a save runs says so (Task 4)", "done": false },
-            { "text": "Core fixes: save check beyond 10,000 annotations, `PdfDate` with `+HH'`, link targets on rotated and cropped pages, saving through file symlinks, the `.old` leftover of the fallback replace, the text-edit check render size, UTF-8 in the Windows console of the CLI (Task 5)", "done": false },
-            { "text": "Crash handling: `crash.log` without paths, the window stays open with one card, no loop (Task 6)", "done": false },
-            { "text": "Window placement fitted and remembered; single-instance listener from the start; hand-over and close question queued behind an open card; one summary card for many bad files; active tab after an update; End shows the last page (Task 7)", "done": false },
+            { "text": "Redaction removes page attachments (`/AF`) and article threads (`/B`) and lists as cleaned only what the read-back confirmed (Task 2)", "done": true },
+            { "text": "Extract and Split name the document-level content every part keeps; cleaned parts go to the backlog (Task 3)", "done": true },
+            { "text": "No write onto a file that another tab has open (Save as, Apply, Redact Apply, Extract); a save while a save runs says so (Task 4)", "done": true },
+            { "text": "Core fixes: save check beyond 10,000 annotations, `PdfDate` with `+HH'`, link targets on rotated and cropped pages, saving through file symlinks, the `.old` leftover of the fallback replace, the text-edit check render size, UTF-8 in the Windows console of the CLI (Task 5)", "done": true },
+            { "text": "Crash handling: `crash.log` without paths, the window stays open with one card, no loop (Task 6)", "done": true },
+            { "text": "Window placement fitted and remembered; single-instance listener from the start; hand-over and close question queued behind an open card; one summary card for many bad files; active tab after an update; End shows the last page (Task 7)", "done": true },
             { "text": "Start view with one working \"Open PDF\" tile, the \"+\" opens a file, the title-bar field is named \"Search commands\" and can search the document (Task 8)", "done": false },
             { "text": "One Lucide icon per meaning for every command, pinned by `CommandIconTests` (Task 9)", "done": false },
             { "text": "The ribbon switches to compact and scrolls instead of clipping, shows toggle states, shorter German labels, aligned group labels and key tips (Task 10)", "done": false },
@@ -665,6 +665,10 @@
     }
   ],
   "backlog": [
+    {
+      "title": "Extract and Split write cleaned parts",
+      "text": "Today a part of Extract or Split is the working copy minus the dropped pages, so the information dictionary, the XMP, the whole outline, the names tree (attached files, document scripts) and the form with the values of fields on dropped pages stay in it; the cards of 2.7 name what stays and point to Redact. A cleaned part would import the chosen pages into a new document and carry over only a filtered outline and the fields of the kept pages. Left out of 2.7 because rebuilding the parts in an empty document would break their forms (field trees, calculation order, appearance streams) and needs its own design and tests."
+    },
     {
       "title": "Manual check: independent viewer for merged and split files (2.4)",
       "text": "In Raffica PDF open a temp copy of `testdata/pdfs/pages-marked.pdf`, insert a second file with Insert file in the Pages tab and Save as; split another copy every 2 pages into a folder; open the merged file and one part in an independent viewer, for example Adobe Acrobat Reader, Chrome, Edge or Okular. Expect the page count, the page order and the bookmarks of the main file. Record the viewer's name and version in the \"Open items\" block of milestone 2.4 and tick its second criterion. The other points not verified here are listed there."

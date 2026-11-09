@@ -14,6 +14,14 @@ public sealed class PdfDateTests
     }
 
     [Fact]
+    public void ParsesAnOffsetWhoseHoursEndWithAnApostrophe()
+    {
+        var date = PdfDate.TryParse("D:20240101120000+01'");
+
+        Assert.Equal(new DateTimeOffset(2024, 1, 1, 12, 0, 0, TimeSpan.FromHours(1)), date);
+    }
+
+    [Fact]
     public void ParsesNegativeOffsetWithMinutes()
     {
         var date = PdfDate.TryParse("D:20240131120530-03'30'");

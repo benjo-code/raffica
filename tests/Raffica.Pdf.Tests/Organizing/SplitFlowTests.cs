@@ -134,6 +134,76 @@ public sealed class SplitFlowTests
         Assert.Empty(Pdfs(Path.Combine(rig.Folder, "out")));
     }
 
+    private static List<string?> StaysOf(Avalonia.Controls.Control card) =>
+        card.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Name == "PART_Stay").Select(t => t.Text).ToList();
+
+    [AvaloniaFact]
+    public async Task ExtractCardNamesWhatTheNewFileKeepsAndPointsToRedact()
+    {
+        using var rig = await SplitRig.OpenAsync("redact-everywhere-nopattern.pdf");
+        var run = await StartExtractAsync(rig, "2");
+        var confirm = await rig.CardWithAsync("PART_Go");
+
+        Assert.Equal(["• " + PdfStrings.StaysAttachedOne, "• " + PdfStrings.StaysFieldsOne, "• " + PdfStrings.StaysBookmarksOne], StaysOf(confirm));
+        var texts = SplitRig.TextsOf(confirm);
+        Assert.Contains(PdfStrings.StaysHeadingExtract, texts);
+        Assert.Contains(PdfStrings.StaysRedactHint, texts);
+        Assert.Empty(rig.SuggestedNames);
+
+        SplitRig.Click(confirm, "PART_Back");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task SplitCardNamesTheSameItemsForEveryPart()
+    {
+        using var rig = await SplitRig.OpenAsync("redact-everywhere-nopattern.pdf");
+        var run = await StartSplitAsync(rig, rig.NewFolder(), (_, find) => Choose(find, "PART_ModeEvery", every: "1"));
+        var confirm = await rig.CardWithAsync("PART_Go");
+
+        Assert.Equal(["• " + PdfStrings.StaysAttachedOne, "• " + PdfStrings.StaysFieldsOne, "• " + PdfStrings.StaysBookmarksOne], StaysOf(confirm));
+        Assert.Contains(PdfStrings.StaysHeadingSplit, SplitRig.TextsOf(confirm));
+
+        SplitRig.Click(confirm, "PART_Back");
+        Assert.False(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task ADocumentWithoutAnythingToKeepShowsNoSuchLinesAndNoCard()
+    {
+        using var rig = await SplitRig.OpenAsync("hello_world.pdf");
+        rig.SavePicks.Enqueue(Path.Combine(rig.NewFolder(), "one.pdf"));
+        var run = await StartExtractAsync(rig, "1");
+
+        // No confirm card at all: the flow goes straight on to the file dialog and the result.
+        var result = await rig.CardWithAsync("PART_Ok");
+        Assert.Empty(StaysOf(result));
+        SplitRig.Click(result, "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
+    [AvaloniaFact]
+    public async Task WhatThePartsKeepIsReadOnlyWhenTheCardIsAboutToOpenAndAFailedReadChangesNothingElse()
+    {
+        using var rig = await SplitRig.OpenAsync("redact-everywhere-nopattern.pdf");
+        var reads = 0;
+        rig.Flow.KeptReader = (_, _, _, _) =>
+        {
+            reads++;
+            throw new InvalidOperationException("unreadable");
+        };
+
+        Assert.Equal(0, reads);
+        rig.SavePicks.Enqueue(Path.Combine(rig.NewFolder(), "two.pdf"));
+        var run = await StartExtractAsync(rig, "2");
+        var result = await rig.ResultAsync();
+
+        Assert.Equal(1, reads);
+        Assert.Empty(StaysOf(result));
+        SplitRig.Click(result, "PART_Ok");
+        Assert.True(await run.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+    }
+
     [AvaloniaFact]
     public async Task SplitEveryTwoPagesGivesTheRightPartsAndPageCounts()
     {
