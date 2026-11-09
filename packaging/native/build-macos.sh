@@ -39,8 +39,14 @@ fetch() { # url tag commit dir
 fetch "$LEPTONICA_URL" "$LEPTONICA_TAG" "$LEPTONICA_COMMIT" "$work/leptonica"
 fetch "$TESSERACT_URL" "$TESSERACT_TAG" "$TESSERACT_COMMIT" "$work/tesseract"
 
+# Cross build pitfall (the x86_64 library is built on an arm64 runner): CMake sets CMAKE_SYSTEM_PROCESSOR from the HOST (arm64), and
+# Tesseract's CMakeLists.txt reads it to choose the SIMD sources (it takes CMAKE_OSX_ARCHITECTURES only when the variable is empty).
+# On the arm64 host it would enable NEON and the link of an x86_64 library fails (tesseract::DotProductNEON undefined).
+# So the target processor is set explicitly. With x86_64 Tesseract then compiles the AVX, AVX2, AVX512F, FMA and SSE4.1 sources with
+# their own per-file -m flags and picks one at run time (simddetect); -march=native only exists behind ENABLE_NATIVE, which is OFF
+# (also passed explicitly, a -march flag would crash the library on an older Intel Mac).
 common=(-G Ninja -DCMAKE_BUILD_TYPE=Release
-  "-DCMAKE_OSX_ARCHITECTURES=$arch" "-DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_DEPLOYMENT_TARGET"
+  "-DCMAKE_OSX_ARCHITECTURES=$arch" "-DCMAKE_SYSTEM_PROCESSOR=$arch" -DENABLE_NATIVE=OFF "-DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_DEPLOYMENT_TARGET"
   "-DCMAKE_IGNORE_PREFIX_PATH=/opt/homebrew;/usr/local")
 
 cmake -S "$work/leptonica" -B "$work/lept-build" "${common[@]}" \
@@ -69,4 +75,12 @@ id=$(otool -D "$out/libtesseract.dylib" | tail -n 1)
 strip -x "$out/libtesseract.dylib"
 # Editing and stripping invalidate the signature, and an arm64 library without one does not load: sign it again (ad-hoc).
 codesign --force --sign - "$out/libtesseract.dylib"
+# The result must be the requested architecture only, and an x86_64 library must carry no NEON code.
+got=$(lipo -archs "$out/libtesseract.dylib")
+[ "$got" = "$arch" ] || { echo "build-macos: lipo says '$got', expected '$arch'" >&2; exit 1; }
+if [ "$arch" = x86_64 ] && nm -gU "$out/libtesseract.dylib" | grep -qi 'neon'; then
+  echo "build-macos: the x86_64 library lists NEON symbols (CMAKE_SYSTEM_PROCESSOR taken from the host?)" >&2
+  nm -gU "$out/libtesseract.dylib" | grep -i 'neon' >&2 || true
+  exit 1
+fi
 echo "build-macos: $(stat -f %z "$out/libtesseract.dylib") bytes ($arch) in $out/libtesseract.dylib"
