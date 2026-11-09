@@ -42,7 +42,7 @@ namespace Raffica.Pdf.Commands;
  *   annotate.textBox -> type
  *   annotate.mode -> pen-line
  *   annotate.select -> mouse-pointer
- *   annotate.done -> check
+ *   annotate.done -> log-out
  *   annotate.marks -> panel-right
  *   annotate.sign -> signature
  *   annotate.delete -> trash-2
@@ -74,7 +74,7 @@ namespace Raffica.Pdf.Commands;
  *   redact.discard -> undo-2
  *   redact.deleteMarks -> square-x
  *   text.edit -> square-pen
- *   text.editDone -> square-check
+ *   text.editDone -> corner-down-left
  *   ocr.run -> scan-text
  *   ocr.languages -> languages
  *   ocr.cancel -> octagon-x
@@ -234,7 +234,7 @@ internal static class PdfCommandCatalog
         annotate.Group("GroupEdit", "3")
             .Add(PdfCommandIds.AnnotateMode, "CmdAnnotateMode", "PenLine", "31", Cmd(Key.K, "K", shift: true), CommandSize.Large, describe: true)
             .Add(PdfCommandIds.SelectMark, "CmdSelectMark", "MousePointer", "32", Cmd(Key.M, "M", shift: true))
-            .Add(PdfCommandIds.AnnotateDone, "CmdAnnotateDone", "Check", "33")
+            .Add(PdfCommandIds.AnnotateDone, "CmdAnnotateDone", "LogOut", "33")
             .Add(PdfCommandIds.MarksPane, "CmdMarksPane", "PanelRight", "34");
         // The Sign group sits before the destructive one so that group stays last; its digit is 5 because 4 is taken by Delete.
         annotate.Group("GroupSign", "5")
@@ -298,7 +298,7 @@ internal static class PdfCommandCatalog
         var edit = new CatalogTab("TabEdit", "E");
         edit.Group("GroupText", "1")
             .Add(PdfCommandIds.TextEdit, "CmdTextEdit", "SquarePen", "11", Cmd(Key.W, "W", shift: true), CommandSize.Large)
-            .Add(PdfCommandIds.TextEditDone, "CmdTextEditDone", "SquareCheck", "12");
+            .Add(PdfCommandIds.TextEditDone, "CmdTextEditDone", "CornerDownLeft", "12");
         edit.Group("GroupScan", "2")
             .Add(PdfCommandIds.OcrRun, "CmdOcrRun", "ScanText", "21", Cmd(Key.Q, "Q", shift: true), CommandSize.Large)
             .Add(PdfCommandIds.OcrLanguages, "CmdOcrLanguages", "Languages", "22")

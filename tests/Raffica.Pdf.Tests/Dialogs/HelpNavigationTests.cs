@@ -79,4 +79,28 @@ public sealed class HelpNavigationTests : IDisposable
         Assert.Contains("Go to the search field", texts);
         window.Close();
     }
+
+    // The German key descriptions are long ("Seiten organisieren: markierte Seiten um eine Stelle verschieben"): they wrap in their column instead of ending in an ellipsis,
+    // and the list fills the card instead of sitting in its middle.
+    [AvaloniaTheory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public void NoKeyDescriptionIsCutAndTheListFillsTheCard(string culture)
+    {
+        PdfStrings.Culture = CultureInfo.GetCultureInfo(culture);
+        var host = new DialogHost { Content = new Border() };
+        var window = new Window { Width = 1280, Height = 3600, Content = host };
+        window.Show();
+        host.Show(HelpCard.Create(PdfCommandCatalog.HelpEntries(), () => { }));
+        ViewFixture.Pump();
+
+        // Every row is laid out at once (the list is not scrolled), so every row is checked.
+        var scroll = host.ActiveDialog!.GetVisualDescendants().OfType<ScrollViewer>().First(v => v.Name == "PART_List");
+        scroll.MaxHeight = double.PositiveInfinity;
+        ViewFixture.Pump();
+        Assert.Empty(Raffica.Shell.Tests.Frame.LabelFit.FindClipped(window));
+        var list = (Control)scroll.Content!;
+        Assert.True(list.Bounds.Width >= scroll.Viewport.Width - 0.5, $"list {list.Bounds.Width}, viewport {scroll.Viewport.Width}");
+        window.Close();
+    }
 }

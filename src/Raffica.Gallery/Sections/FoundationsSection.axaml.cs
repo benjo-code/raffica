@@ -17,12 +17,12 @@ internal sealed partial class FoundationsSection : UserControl
         "Check", "ChevronDown", "ChevronRight", "X", "Search", "Plus", "Minus", "Info", "TriangleAlert", "OctagonAlert",
         "Bold", "Italic", "Underline", "Undo", "Redo", "AlignLeft", "AlignCenter", "AlignRight",
         "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "BookCopy", "BookOpen", "Brush", "ChevronLeft", "ChevronsLeft",
-        "ChevronsRight", "Circle", "CircleHelp", "CircleX", "Copy", "CopyPlus", "CornerDownRight", "CornerLeftUp",
+        "ChevronsRight", "Circle", "CircleHelp", "CircleX", "Copy", "CopyPlus", "CornerDownLeft", "CornerDownRight", "CornerLeftUp",
         "CornerRightDown", "Eraser", "EyeOff", "File", "FileInput", "FileOutput", "FilePlus", "FileX", "FolderOpen",
-        "GalleryVertical", "Highlighter", "Image", "ImageDown", "Languages", "LayoutGrid", "ListChecks", "ListTree", "Maximize",
+        "GalleryVertical", "Highlighter", "Image", "ImageDown", "Languages", "LayoutGrid", "ListChecks", "ListTree", "LogOut", "Maximize",
         "Moon", "MousePointer", "MoveDown", "MoveHorizontal", "MoveUp", "MoveUpRight", "OctagonX", "PanelLeft", "PanelRight",
         "PenLine", "Pencil", "Percent", "Printer", "RefreshCw", "RotateCcw", "RotateCw", "Save", "SaveAll", "ScanSearch", "ScanText",
-        "Scissors", "Settings", "Signature", "Slash", "Square", "SquareCheck", "SquareDashed", "SquarePen", "SquareX",
+        "Scissors", "Settings", "Signature", "Slash", "Square", "SquareDashed", "SquarePen", "SquareX",
         "Strikethrough", "TextSelect", "Trash2", "Type", "Undo2", "ZoomIn", "ZoomOut",
     ];
 

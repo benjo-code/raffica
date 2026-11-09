@@ -27,6 +27,14 @@ public sealed class CommandIconTests
         }
     }
 
+    // A check mark reads like a switched-on option (a dimmed "Done" looked checked), so no command carries one; a command that ends a mode shows a leave or return arrow.
+    [Fact]
+    public void NoCommandWearsACheckMark()
+    {
+        string[] checkMarks = ["Check", "SquareCheck", "CircleCheck", "CheckCheck"];
+        Assert.DoesNotContain(PdfCommandCatalog.Commands, c => checkMarks.Contains(c.Icon));
+    }
+
     [AvaloniaFact]
     public void EveryCommandIconResolvesToAGeometry()
     {

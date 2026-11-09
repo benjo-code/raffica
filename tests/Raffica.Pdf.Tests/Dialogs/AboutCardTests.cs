@@ -321,4 +321,36 @@ public sealed class AboutCardTests : IDisposable
         Assert.False(f.Window.Host.IsOpen);
         Assert.Equal(AboutCard.ProjectAddress, Assert.Single(launched).OriginalString);
     }
+
+    // Assistive technology activates the address through the Invoke pattern: the link is a button (its text is only the content), not a text.
+    [AvaloniaFact]
+    public void TheProjectLinkIsAButtonThatCanBeInvoked()
+    {
+        using var s = Show("de", "1.2.3", null, "NOTICES", () => { });
+        var link = s.Find<Button>("PART_ProjectLink");
+
+        var peer = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(link);
+        Assert.Equal(Avalonia.Automation.Peers.AutomationControlType.Button, peer.GetAutomationControlType());
+        Assert.IsAssignableFrom<Avalonia.Automation.Provider.IInvokeProvider>(peer);
+    }
+
+    // Declining the question about the address leads back to the About card instead of to the document.
+    [AvaloniaFact]
+    public async Task DecliningTheLinkQuestionBringsTheAboutCardBack()
+    {
+        var launched = new List<Uri>();
+        using var f = Raffica.Pdf.Tests.Viewing.WindowFixture.Create(launcher: launched.Add, time: new Raffica.Pdf.Tests.Text.ManualTime());
+        f.Window.NoticesSource = () => "NOTICES";
+        _ = f.Window.ShowAboutAsync();
+        await Raffica.Pdf.Tests.Viewing.ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.AboutTitle);
+
+        f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_ProjectLink")
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await Raffica.Pdf.Tests.Viewing.ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title != PdfStrings.AboutTitle);
+        f.Window.Host.ActiveDialog!.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Cancel")
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+        await Raffica.Pdf.Tests.Viewing.ViewFixture.WaitAsync(() => f.Window.Host.IsOpen && f.Window.Host.ActiveDialog!.Title == PdfStrings.AboutTitle);
+        Assert.Empty(launched);
+    }
 }

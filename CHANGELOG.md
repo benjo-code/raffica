@@ -37,6 +37,11 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF: declining the question "Open this link?" that follows the project address in the About card brings the About card back instead of leaving you at the document.
+- Raffica PDF: "Done" (Annotate) and "Stop editing" (Edit) no longer use a check mark, which read like a switched-on option when the command was dimmed; they show a leave arrow and a return arrow.
+- Raffica PDF: long key descriptions in the shortcut list (F1) wrap onto a second line instead of ending in an ellipsis (German "Seiten organisieren: markierte Seiten um eine Stelle verschieben"), and the list uses the full width of the card.
+- Raffica PDF: the list of all open documents (the arrow next to the tabs, shown when many tabs are open) is no longer empty in the release build; it names every tab and marks the current one.
+- Raffica PDF: the window no longer gets taller by the height of the title bar (30 px) at every start on Windows; it opens at the size it was closed with.
 - Raffica PDF: "Not now" on the card that offers to make Raffica the default PDF app is remembered for 30 days instead of asking at every start; "Don't ask again" still stays permanent.
 - Raffica PDF on Windows: an installation for all users is recognized as registered for PDF files, so the app no longer asks to be made the default again and writes no second registration for your account.
 - Raffica PDF on Linux: an `APPIMAGE` variable inherited from another program no longer points the desktop file at a foreign AppImage; it counts only while Raffica itself runs from inside that AppImage.

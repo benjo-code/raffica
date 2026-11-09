@@ -197,6 +197,7 @@ internal sealed partial class PdfWindow : Window
         // The window fits the work area and goes where it closed last; a measurement run keeps the fixed size of the window.
         if (!options.IsMeasuring)
         {
+            TitleBar.PrepareWindow(this);
             ApplyPlacement(settings.WindowPlacement);
             TrackPlacement();
         }

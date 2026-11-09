@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Raffica.Core.Ocr;
 using Raffica.Ocr;
@@ -289,6 +290,40 @@ public sealed class OcrRunFlowTests
         Assert.True(Command(window, "pages.organize").IsEnabled);
         Assert.True(Command(window, "file.save").IsEnabled);
         Assert.True(Command(window, "edit.undo").IsEnabled);
+    }
+
+    // The reports of the run arrive from pool threads and the end of the run is a continuation on the UI thread. Both must go through the same queue in order: a
+    // report posted at a lower priority than the continuation (Dispatcher.Post defaults to Default, the synchronization context posts at Normal) ran after the end
+    // sentence and put "3 of 3 pages" over "Text recognition ended". The test forces that order by running only the Normal jobs until the end is said.
+    [AvaloniaFact]
+    public async Task AReportNeverOverwritesTheEndOfTheRun()
+    {
+        using var rig = await OcrRig.OpenAsync();
+        var window = rig.Window;
+        rig.Engines!.HoldAt(1);
+        var run = window.StartOcrRunAsync(rig.Tab, Options());
+        await rig.UntilPagesAsync(1);
+        var session = rig.Tab.OcrIfCreated!;
+        var ended = PdfStrings.Fill(PdfStrings.OcrAnnounceDoneFormat, 3);
+
+        // The two last reports and the end of the run are all pending while the UI thread is not looking (it only blocks here, it does not pump).
+        rig.Engines.Release();
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (session.Message != ended)
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The run did not say its end.");
+            Thread.Sleep(5);
+            Dispatcher.UIThread.RunJobs(DispatcherPriority.Normal);
+        }
+
+        // Whatever is still queued below Normal now runs: it must not touch the end sentence.
+        ViewFixture.Pump();
+        Assert.Equal(ended, session.Message);
+        Assert.Equal(ended, window.OcrBadgeOf(rig.Tab)!.Message);
+
+        var card = await rig.CardWithAsync("PART_Ok");
+        OcrRig.Click(card, "PART_Ok");
+        await run;
     }
 
     // 06-B-3: the language files cannot be replaced while any run goes, also one in a tab that is not the active one.

@@ -389,20 +389,21 @@ internal sealed partial class PdfWindow
         _ = new SessionStore(SessionPath()).TrySave(new SessionSnapshot([new SessionWindow(entries, active)]));
     }
 
-    private Task OpenDownloadPageAsync() => OpenAddressAfterConfirmationAsync(UpdateTrust.ReleasesPageUrl);
+    private async Task OpenDownloadPageAsync() => _ = await OpenAddressAfterConfirmationAsync(UpdateTrust.ReleasesPageUrl);
 
     // An address of the app (the download page, the project page of the About card) opens only after the card that shows it in full (the same card as for a link in a document).
-    internal async Task OpenAddressAfterConfirmationAsync(string address)
+    // The answer is false only when the user declined the question (the About card then comes back).
+    internal async Task<bool> OpenAddressAfterConfirmationAsync(string address)
     {
         if (!ExternalLink.TryParse(address, out var link))
         {
-            return;
+            return true;
         }
 
         var confirmed = await Dialogs.ShowAsync<bool>(done => LinkCard.Create(link, () => done(true), () => done(false), _time));
         if (!confirmed)
         {
-            return;
+            return false;
         }
 
         try
@@ -413,5 +414,7 @@ internal sealed partial class PdfWindow
         {
             // No browser, or the system refused: the address is on the card.
         }
+
+        return true;
     }
 }

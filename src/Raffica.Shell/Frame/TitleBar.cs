@@ -159,18 +159,29 @@ public class TitleBar : TemplatedControl
         return base.MeasureOverride(availableSize);
     }
 
+    /// <summary>
+    /// Gives <paramref name="window"/> its chrome (no system title bar, the client area extended over it) before it has a size. The bar does the same when it is attached
+    /// to the visual tree, which happens when the window is shown; a size set before that would be a size for the system chrome, and the window would grow by the height of
+    /// the title bar that is then taken away (30 px at 100 % on Windows, on every start with a remembered size).
+    /// </summary>
+    public static void PrepareWindow(Window window, bool showCaptionButtons = true)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (showCaptionButtons && !OperatingSystem.IsMacOS())
+        {
+            window.WindowDecorations = WindowDecorations.BorderOnly;
+        }
+
+        window.ExtendClientAreaToDecorationsHint = true;
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         if (TopLevel.GetTopLevel(this) is Window window)
         {
             _window = window;
-            if (ShowCaptionButtons)
-            {
-                window.WindowDecorations = WindowDecorations.BorderOnly;
-            }
-
-            window.ExtendClientAreaToDecorationsHint = true;
+            PrepareWindow(window, ShowCaptionButtons);
             window.PropertyChanged += OnWindowPropertyChanged;
             UpdateMaximizeButton();
         }
