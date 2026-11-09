@@ -16,36 +16,38 @@
       </FocusAdornerTemplate>
     </Setter>
   </Style>
-  <!-- The editing field of a text box over the page: Geist, paper white with the colour of the annotation as text (both set by the editor,
-       the colour is the data of the palette), the app ink as a 1 px edge in every state (the field is the one thing being edited). -->
+  <!-- The editors over a page (the text box annotation, the form fields): the page paper is white in every theme, so the editors are
+       paper white with dark text and take caret, edge and selection from the fixed Paper.* tokens (the same in Light, Dark and
+       HighContrast, each at least 3 : 1 on white), never from the theme tokens: with the theme ones the caret and the edge were
+       almost invisible in the dark and the high-contrast theme (M2.7). The font is Geist; the edge is 1 px in every state (the
+       field is the one thing being edited). Paper white and the dark text are set by the editors themselves. -->
+  <Style Selector="TextBox.textbox-editor, TextBox.form-editor, ComboBox.form-editor /template/ TextBox#PART_EditableTextBox">
+    <Setter Property="CaretBrush" Value="{DynamicResource Raffica.Brush.Paper.Caret}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Raffica.Brush.Paper.Selection}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Raffica.Brush.Paper.OnSelection}" />
+  </Style>
   <Style Selector="TextBox.textbox-editor">
     <Setter Property="FontFamily" Value="avares://RafficaPdf/Assets/Fonts#Geist" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Paper.Edge}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="0" />
     <Setter Property="Padding" Value="3" />
     <Setter Property="MinWidth" Value="0" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="VerticalContentAlignment" Value="Top" />
-    <Setter Property="CaretBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
-    <Setter Property="SelectionBrush" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
   </Style>
-  <Style Selector="TextBox.textbox-editor /template/ Border#PART_BorderElement">
-    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+  <Style Selector="TextBox.textbox-editor /template/ Border#PART_BorderElement, TextBox.textbox-editor:pointerover /template/ Border#PART_BorderElement, TextBox.textbox-editor:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Paper.Edge}" />
   </Style>
-  <Style Selector="TextBox.textbox-editor:pointerover /template/ Border#PART_BorderElement">
-    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
-  </Style>
-  <Style Selector="TextBox.textbox-editor:focus /template/ Border#PART_BorderElement">
-    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
-  </Style>
-  <!-- The editors of the form fields over the page (list and combo box; the text field has the style above): paper white and dark text are
-       set by the editor, the app ink is the edge. -->
+  <!-- List and combo box of the form fields (the text field has the style above). -->
   <Style Selector="ComboBox.form-editor, ListBox.form-editor">
     <Setter Property="FontFamily" Value="avares://RafficaPdf/Assets/Fonts#Geist" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Paper.Edge}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="ComboBox.form-editor /template/ Border#Background, ComboBox.form-editor:pointerover /template/ Border#Background, ComboBox.form-editor:focus-within /template/ Border#Background, ComboBox.form-editor:dropdownopen /template/ Border#Background">
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Paper.Edge}" />
   </Style>
   <Style Selector="Border.textbox-hint">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Band}" />

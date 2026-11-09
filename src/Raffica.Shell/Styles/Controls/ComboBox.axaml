@@ -72,6 +72,7 @@
                      VerticalAlignment="Stretch"
                      PlaceholderText="{TemplateBinding PlaceholderText}"
                      Text="{TemplateBinding Text, Mode=TwoWay}"
+                     AutomationProperties.Name="{TemplateBinding (AutomationProperties.Name)}"
                      DataValidationErrors.Errors="{TemplateBinding (DataValidationErrors.Errors)}" />
             <controls:StrokeIcon x:Name="DropDownGlyph"
                                  Grid.Column="1"

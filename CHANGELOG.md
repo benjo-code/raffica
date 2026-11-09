@@ -55,5 +55,6 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF text editing: a page of extreme size (a few billion points on one side) is refused with the note that the page cannot be rewritten, instead of asking for a picture of a billion pixels for the check.
 - Raffica command line on Windows: text with umlauts and other non-ASCII characters now shows correctly in a console (redirected output stays UTF-8 as before).
 - Raffica PDF forms: an editable combo box (a choice list that also takes your own text) can now be typed into; before, the field opened without a text box. A value that is already there is shown when the editor opens.
+- Raffica PDF: the editing field of a text box and of a form field now always has white paper, a black caret and a dark edge and selection (3 : 1 or more on the paper) in every theme; in the dark and the high-contrast theme the caret and the edge were almost invisible.
 
 ### Removed

@@ -55,5 +55,13 @@
   <SolidColorBrush x:Key="Raffica.Brush.Danger" Color="#FF8080" />
   <Color x:Key="Raffica.Color.Warning.Icon">#FFFF00</Color>
   <SolidColorBrush x:Key="Raffica.Brush.Warning.Icon" Color="#FFFF00" />
+  <Color x:Key="Raffica.Color.Paper.Caret">#000000</Color>
+  <SolidColorBrush x:Key="Raffica.Brush.Paper.Caret" Color="#000000" />
+  <Color x:Key="Raffica.Color.Paper.Edge">#1A1D21</Color>
+  <SolidColorBrush x:Key="Raffica.Brush.Paper.Edge" Color="#1A1D21" />
+  <Color x:Key="Raffica.Color.Paper.Selection">#5F6670</Color>
+  <SolidColorBrush x:Key="Raffica.Brush.Paper.Selection" Color="#5F6670" />
+  <Color x:Key="Raffica.Color.Paper.OnSelection">#FFFFFF</Color>
+  <SolidColorBrush x:Key="Raffica.Brush.Paper.OnSelection" Color="#FFFFFF" />
   <BoxShadows x:Key="Raffica.Shadow.Page">none</BoxShadows>
 </ResourceDictionary>

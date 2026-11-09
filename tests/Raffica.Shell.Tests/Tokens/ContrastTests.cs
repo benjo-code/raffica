@@ -78,6 +78,38 @@ public sealed class ContrastTests
         Assert.Empty(failures);
     }
 
+    [Theory]
+    [MemberData(nameof(ThemesWithHighContrast))]
+    public void OnPaperTokensMeetTheirThresholdAgainstWhite(string theme)
+    {
+        var c = TokenFile.Load(theme);
+        var paper = Avalonia.Media.Color.Parse(ContrastPolicy.PaperWhite);
+        var failures = new List<string>();
+
+        foreach (var name in ContrastPolicy.Tokens.Where(t => t.Value.Kind == ContrastKind.OnPaper).Select(t => t.Key).Where(n => n != "Paper.OnSelection"))
+        {
+            var ratio = WcagContrast.Ratio(c[name], paper);
+            if (ratio < 3.0)
+            {
+                failures.Add($"{theme} {name} on paper white: {ratio:0.00} < 3");
+            }
+        }
+
+        var text = WcagContrast.Ratio(c["Paper.OnSelection"], c["Paper.Selection"]);
+        if (text < 4.5)
+        {
+            failures.Add($"{theme} Paper.OnSelection on Paper.Selection: {text:0.00} < 4.5");
+        }
+
+        // Fixed pair: the same in every theme.
+        foreach (var name in new[] { "Paper.Caret", "Paper.Edge", "Paper.Selection", "Paper.OnSelection" })
+        {
+            Assert.Equal(TokenFile.Load("Light")[name], c[name]);
+        }
+
+        Assert.Empty(failures);
+    }
+
     [Fact]
     public void ForbiddenPairingsReallyFail()
     {
