@@ -35,7 +35,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.5 | Redact, OCR and line editing | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-06-milestone-02-5-redact-ocr-line-editing.md) | 2026-11-06 |
 | 2.6 | Packaging and release | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | 2026-11-08 |
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
-| 3 | Create spec for macOS | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | – |
+| 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
 | 3.1 | Runs on the Mac | 4 – macOS | ⬜ open | – | – |
 | 3.2 | Feels like a Mac app | 4 – macOS | ⬜ open | – | – |
 | 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
@@ -209,7 +209,7 @@ Goal: The scope and the milestones of the PDF app on the new UI and the imported
 - [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
+- [x] The spec is approved and linked here – The spec is written and its milestones 3.1 "Runs on the Mac", 3.2 "Feels like a Mac app" and 3.3 "Package and release" are entered. The owner approved the spec in the planning session on 2026-11-04 ("approved"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green.
 
 ## Milestone 2.1 – Viewer
 **Status:** ✅ done (2026-11-04) · **Plan:** [2026-11-04-milestone-02-1-viewer.md](superpowers/plans/2026-11-04-milestone-02-1-viewer.md) · **Spec:** [2026-11-04-raffica-pdf-design.md](superpowers/specs/2026-11-04-raffica-pdf-design.md) · **Prerequisites:** M2, M1.2
@@ -471,15 +471,15 @@ Goal: The repository can be made public and v0.1.0 released: no fork can reach t
 **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) Raffica on macOS design, approved 2026-11-09
 
 ## Milestone 3 – Create spec for macOS
-**Status:** 🔵 in progress · **Plan:** [2026-11-09-milestone-03-macos-spec.md](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M2.6
+**Status:** ✅ done (2026-11-09) · **Plan:** [2026-11-09-milestone-03-macos-spec.md](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M2.6
 
 Goal: The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, updates, CI) is specified and split into milestones.
 
 **Tasks**
-- [ ] Create the spec (brainstorming) and enter its milestones
+- [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [ ] The spec is approved and linked here
+- [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-09 ("ja passt"); it is linked as `superpowers/specs/2026-11-09-raffica-macos-design.md`. On the tree of this branch (documents only; two foreign, unstaged changes in `src/Raffica.Shell/Frame/SettingsStore.cs` and `tests/Raffica.Pdf.Tests/Panes/NavListSelectionTests.cs` were in the working tree and not part of this work): `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`: 6258 total, 0 failed, 6227 passed, 31 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; `dotnet run tools/roadmap.cs -- check` valid.
 
 ## Milestone 3.1 – Runs on the Mac
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3

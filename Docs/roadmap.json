@@ -391,7 +391,7 @@
             { "text": "Create the spec (brainstorming) and enter its milestones", "done": true }
           ],
           "acceptance": [
-            { "text": "The spec is approved and linked here", "done": true, "evidence": "The owner approved the spec in the planning session on 2026-11-04 (\"approved\"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green." }
+            { "text": "The spec is approved and linked here", "done": true, "evidence": "The spec is written and its milestones 3.1 \"Runs on the Mac\", 3.2 \"Feels like a Mac app\" and 3.3 \"Package and release\" are entered. The owner approved the spec in the planning session on 2026-11-04 (\"approved\"), as handed over with its marked (call) items; the spec status is set to approved; it is linked from subproject 3 and from this milestone: `superpowers/specs/2026-11-04-raffica-pdf-design.md`. `dotnet run tools/roadmap.cs -- check` passes with milestones 2.1 to 2.6 entered. Verification on Windows: `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` 4071 run, 0 failed, 21 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; PR 20 `ci` and `roadmap` green." }
           ]
         },
         {
@@ -608,16 +608,17 @@
         {
           "id": "3",
           "title": "Create spec for macOS",
-          "status": "in-progress",
+          "status": "done",
+          "completedOn": "2026-11-09",
           "plan": "superpowers/plans/2026-11-09-milestone-03-macos-spec.md",
           "spec": "superpowers/specs/2026-11-09-raffica-macos-design.md",
           "prerequisites": ["2.6"],
           "goal": "The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, updates, CI) is specified and split into milestones.",
           "tasks": [
-            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": true }
           ],
           "acceptance": [
-            { "text": "The spec is approved and linked here", "done": false }
+            { "text": "The spec is approved and linked here", "done": true, "evidence": "The owner approved the spec in the planning session on 2026-11-09 (\"ja passt\"); it is linked as `superpowers/specs/2026-11-09-raffica-macos-design.md`. On the tree of this branch (documents only; two foreign, unstaged changes in `src/Raffica.Shell/Frame/SettingsStore.cs` and `tests/Raffica.Pdf.Tests/Panes/NavListSelectionTests.cs` were in the working tree and not part of this work): `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`: 6258 total, 0 failed, 6227 passed, 31 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; `dotnet run tools/roadmap.cs -- check` valid." }
           ]
         },
         {
