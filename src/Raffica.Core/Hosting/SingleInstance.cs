@@ -163,9 +163,10 @@ public sealed class SingleInstance : IDisposable
     /// <summary>
     /// Gets the pipe name for an instance name: an absolute socket path in the runtime directory on
     /// Linux when there is one (an absolute path works as pipe name on Unix), otherwise the plain name,
-    /// or a short hashed name when the socket path of the plain name would not fit (macOS temp folders).
+    /// or a short hashed name when the socket path of the plain name would not fit (macOS temp folders). On Windows it is always the plain safe name (named pipes have no such limit).
     /// </summary>
-    internal static string PipeNameFor(string name) => PipeNameFor(name, RuntimeDirectory(), Path.GetTempPath());
+    internal static string PipeNameFor(string name) =>
+        OperatingSystem.IsWindows() ? FileSafeName(name) : PipeNameFor(name, RuntimeDirectory(), Path.GetTempPath());
 
     /// <summary>
     /// The seam of <see cref="PipeNameFor(string)"/>. A usable runtime directory gives its socket path as before. Otherwise

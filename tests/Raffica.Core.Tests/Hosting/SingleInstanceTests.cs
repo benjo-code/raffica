@@ -637,6 +637,15 @@ public sealed class SingleInstanceTests
     }
 
     [Fact]
+    public void WindowsKeepsThePlainNameHoweverLongItIs()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows only: named pipes have no socket path limit");
+        var name = "raffica-" + new string('u', 20) + "-" + new string('a', 12);
+
+        Assert.Equal(name, SingleInstance.PipeNameFor(name));
+    }
+
+    [Fact]
     public void RuntimeDirectoryStillWinsWhenItFits()
     {
         var pipe = SingleInstance.PipeNameFor("raffica-ben", "/run/user/1000", MacTemp);
