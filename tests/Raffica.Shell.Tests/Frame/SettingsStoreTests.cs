@@ -143,4 +143,30 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), path);
         Assert.EndsWith(Path.Combine("Raffica", "Pdf", "settings.json"), path);
     }
+
+    [Fact]
+    public void MacOsPutsTheShellSettingsUnderApplicationSupport()
+    {
+        var path = SettingsStore.DefaultPath("Pdf", isMacOS: true, folder => folder == Environment.SpecialFolder.UserProfile ? "/Users/x" : "/wrong");
+
+        Assert.Equal(Path.Combine("/Users/x", "Library", "Application Support", "Raffica", "Pdf", "settings.json"), path);
+    }
+
+    [Fact]
+    public void OtherSystemsKeepApplicationData()
+    {
+        var path = SettingsStore.DefaultPath("Pdf", isMacOS: false, folder => folder == Environment.SpecialFolder.ApplicationData ? "/appdata" : "/wrong");
+
+        Assert.Equal(Path.Combine("/appdata", "Raffica", "Pdf", "settings.json"), path);
+    }
+
+    [Fact]
+    public void ShellAndCoreAgreeOnTheMacParent()
+    {
+        var shell = SettingsStore.DefaultPath("Pdf", isMacOS: true, folder => folder == Environment.SpecialFolder.UserProfile ? "/Users/x" : "/wrong");
+        var core = Raffica.Core.Settings.UserDataPaths.ConfigDirectory(name => name == "HOME" ? "/Users/x" : null, Raffica.Core.Settings.UserDataSystem.MacOS);
+
+        // <Application Support>/Raffica/Pdf/settings.json: the "Raffica" folder must be the one Core uses.
+        Assert.Equal(core.Replace('\\', '/'), Path.GetDirectoryName(Path.GetDirectoryName(shell))!.Replace('\\', '/'));
+    }
 }

@@ -14,11 +14,24 @@ public sealed class SettingsStore(string path)
 
     public string Path { get; } = path ?? throw new ArgumentNullException(nameof(path));
 
-    /// <summary>The settings file of an app: <c>Raffica/&lt;appName&gt;/settings.json</c> in the application-data folder of the user.</summary>
-    public static string DefaultPath(string appName)
+    /// <summary>
+    /// The settings file of an app: <c>Raffica/&lt;appName&gt;/settings.json</c> in the application-data folder of the user, or
+    /// <c>~/Library/Application Support/Raffica/&lt;appName&gt;/settings.json</c> on macOS.
+    /// </summary>
+    public static string DefaultPath(string appName) =>
+        DefaultPath(appName, OperatingSystem.IsMacOS(), Environment.GetFolderPath);
+
+    /// <summary>
+    /// The seam of <see cref="DefaultPath(string)"/>. The shell has no reference to Core, so the macOS folder is written here
+    /// once more, on purpose; a test pins that it is the parent <c>UserDataPaths.ConfigDirectory</c> uses.
+    /// </summary>
+    internal static string DefaultPath(string appName, bool isMacOS, Func<Environment.SpecialFolder, string> folder)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appName);
-        return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Raffica", appName, "settings.json");
+        var root = isMacOS
+            ? System.IO.Path.Combine(folder(Environment.SpecialFolder.UserProfile), "Library", "Application Support")
+            : folder(Environment.SpecialFolder.ApplicationData);
+        return System.IO.Path.Combine(root, "Raffica", appName, "settings.json");
     }
 
     /// <summary>The stored settings, or the defaults if the file is missing, empty, unreadable or corrupt.</summary>

@@ -10,6 +10,8 @@
     -->
     <PackageReference Include="xunit.v3" VersionOverride="3.2.2" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
+    <!-- Only for the test that pins the shell's macOS settings folder against Core's rule (the Shell itself has no Core reference). -->
+    <ProjectReference Include="..\..\src\Raffica.Core\Raffica.Core.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Shell\Raffica.Shell.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Gallery\Raffica.Gallery.csproj" />
   </ItemGroup>
