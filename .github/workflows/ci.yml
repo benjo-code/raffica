@@ -434,7 +434,7 @@ jobs:
             out=$($runner "$exe" rotate "$dir/Bericht.pdf" --pages all --angle 90 --output "$dir/bericht.pdf" 2>&1) || code=$?
             echo "$out"
             [ "$code" -ne 0 ] || { echo "$rid: rotate onto the same file exited 0" >&2; exit 1; }
-            case "$out" in *"same file"*) echo "$rid: the same file is refused" ;; *) echo "$rid: the refusal does not say 'same file'" >&2; exit 1 ;; esac
+            case "$out" in *"must not be the input file"*) echo "$rid: the same file is refused" ;; *) echo "$rid: the refusal does not say 'must not be the input file'" >&2; exit 1 ;; esac
           done
 
       # tar keeps the executable bit, which the artifact zip would lose. For the owner's manual check on an Intel Mac.
