@@ -48,13 +48,17 @@ calls per hour once it is public).
 The boundary that keeps a fork pull request off the owner's machines is the runner group setting, not a workflow
 expression: a fork controls the workflow file of its own pull request and can name any `runs-on`. The routing of `ci.yml`
 and `roadmap.yml` to hosted runners (public repository or fork) is a convenience on top of it. `release.yml` refuses any
-`ref` that is not `main`, `dev` or a commit on one of them. None of the settings below is changed by a commit; the owner
+`ref` that is not `main`, `dev` or a commit on one of them; `measure.yml` and the two update-check workflows, which build the
+`ref` input on the owner's desktop and laptop, accept a branch of this repository or a commit on `main` or `dev` and refuse the
+head commit of a fork's pull request. None of the settings below is changed by a commit; the owner
 applies them, in this order:
 
 1. Make the signing key and the environment ready (the two sections above) and enter the public key in `UpdateTrust.cs`.
 2. Runner group `raffica-ci` (organisation settings, Actions, Runner groups): restrict the workflows to
    `benjo-code/raffica/.github/workflows/release.yml@refs/heads/main` and `benjo-code/raffica/.github/workflows/release.yml@refs/heads/dev`.
-   The group `Default` stays private-only (no access for public repositories).
+   The group `Default` stays private-only (no access for public repositories). Until the visibility flip (step 5) `ci.yml`
+   and `roadmap.yml` still run on the self-hosted runners of this group, so do steps 2 to 5 in one sitting: a pull request
+   opened in between waits for a runner.
 3. Repository settings, Actions, General, "Fork pull request workflows from outside collaborators": "Require approval for
    all external contributors".
 4. Turn the wiki and projects off (Settings, General, Features).

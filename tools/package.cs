@@ -4959,6 +4959,34 @@ static class SelfTest
                     st[guard].Contains("[0-9a-f]{40}", StringComparison.Ordinal);
             }), true);
 
+        // The ref input is built on runners that also build the release: a job that takes it checks, before its first checkout,
+        // that it is a commit of main or dev (compare status identical or behind), so a fork's pull request commit is refused.
+        foreach (var guardedJob in new[] { "preflight", "windows", "linux" })
+        {
+            var st = StepsOf(Job(guardedJob));
+            var refGuard = st.FindIndex(x => Name(x) == "Check that the ref is on main or dev");
+            Expect($"release.yml: Job {guardedJob} checks that inputs.ref is on main or dev before its first checkout",
+                refGuard >= 0 && refGuard < st.FindIndex(x => x.Contains("actions/checkout@", StringComparison.Ordinal)) &&
+                st[refGuard].Contains("        if: inputs.ref != ''\n", StringComparison.Ordinal) &&
+                st[refGuard].Contains("compare/$branch...$sha", StringComparison.Ordinal) &&
+                st[refGuard].Contains("identical", StringComparison.Ordinal) && st[refGuard].Contains("behind", StringComparison.Ordinal), true);
+        }
+
+        // The workflows that build the ref input on the owner's own machines (not the release builders) check it the same way
+        // before the checkout: a branch of this repository, or a commit that is on main or dev.
+        foreach (var ownerWorkflow in new[] { "measure.yml", "windows-update-check.yml", "linux-update-check.yml" })
+        {
+            var ownerPath = ".github/workflows/" + ownerWorkflow;
+            var ownerYml = File.Exists(ownerPath) ? File.ReadAllText(ownerPath).Replace("\r\n", "\n", StringComparison.Ordinal) : string.Empty;
+            var guardAt = ownerYml.IndexOf("- name: Check that the ref is code of this repository", StringComparison.Ordinal);
+            var checkoutAt = ownerYml.IndexOf("actions/checkout@", StringComparison.Ordinal);
+            var checkoutOfRefAt = ownerYml.IndexOf("ref: ${{ inputs.ref }}", StringComparison.Ordinal);
+            Expect($"{ownerWorkflow}: the ref input is checked as code of this repository before any checkout of it",
+                guardAt >= 0 && guardAt < checkoutAt && guardAt < checkoutOfRefAt &&
+                ownerYml.Contains("compare/$branch...$r", StringComparison.Ordinal) && ownerYml.Contains("branches/$r", StringComparison.Ordinal) &&
+                ownerYml.Contains("identical", StringComparison.Ordinal) && ownerYml.Contains("behind", StringComparison.Ordinal), true);
+        }
+
         // The dispatch input ref accepts any text; pull/N/head and refs/pull/N/head would run foreign code on the persistent
         // runners with a write token. Every job that sees the input checks it in its first step against a positive list
         // (empty, a commit id, a plain branch name): the rule of RefInputRule, in bash or PowerShell.

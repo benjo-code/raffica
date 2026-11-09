@@ -64,6 +64,29 @@ jobs:
           [[ "$ref_ok" == true ]] || { echo "ref '$REF_INPUT' is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)" >&2; exit 1; }
           [[ "$WAIT_MINUTES" =~ ^[0-9]{1,3}$ && "$WAIT_MINUTES" -ge 1 && "$WAIT_MINUTES" -le 120 ]] || { echo "wait_minutes must be 1 to 120" >&2; exit 1; }
 
+      # The `ref` input is built and run on the owner's own machine, so it must be code of this repository and never code of a fork
+      # or a pull request: a branch name must exist in this repository, a commit id must be the head of main or dev or an ancestor
+      # of it (compare status identical or behind, the rule of release.yml). Refused before anything is fetched. No `gh` is needed.
+      - name: Check that the ref is code of this repository
+        if: inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          r="${REF_INPUT#refs/heads/}"
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$GH_REPO/$1"; }
+          if [[ "$r" =~ ^[0-9a-f]{40}$ ]]; then
+            for branch in main dev; do
+              status="$(api "compare/$branch...$r" 2>/dev/null | grep -m1 -E '^  "status":' | sed -E 's/.*: *"([a-z]+)".*/\1/' || true)"
+              if [[ "$status" == identical || "$status" == behind ]]; then echo "Ref is on $branch ($status)"; exit 0; fi
+            done
+            echo 'the commit is on neither main nor dev: only commits of these branches are built on this runner' >&2
+            exit 1
+          fi
+          api "branches/$r" >/dev/null 2>&1 || { echo 'the ref is not a branch of this repository and not a 40-character commit id' >&2; exit 1; }
+          echo 'Ref is a branch of this repository'
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
