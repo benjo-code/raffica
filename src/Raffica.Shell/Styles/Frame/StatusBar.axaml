@@ -4,8 +4,8 @@
                     xmlns:controls="clr-namespace:Raffica.Shell.Controls">
   <!--
     The status bar (sections 4.4 and 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): 30 px, surface.band,
-    cells 20 px high in 13 px text with tabular figures, 16 px between cells. The save state and language columns have a fixed
-    width (112, 96) and a text that is too long ends in an ellipsis there; the position and count columns size to their text with a
+    cells 20 px high in 13 px text with tabular figures, 16 px between cells. The save state column has a fixed width (112) and the language cell 96, and a
+    text that is too long ends in an ellipsis there; the language cell is there only while it has a text (it and its gap leave the free room to the hint column otherwise); the position and count columns size to their text with a
     minimum (128, 144, M2.7), so "Page 1000 of 1000" and "128 pages · 210 × 297 mm" are never cut and the cells stay in place while
     the text fits the minimum. The focus or hint column takes the rest (the free room of a wide window, and the shortfall of a narrow
     one: its text then ends in an ellipsis before any other cell is cut); the language and the zoom cluster sit at the right edge. The zoom cluster on the right: 24 px buttons, a 96 px slider and the value in a 48 px cell.
@@ -27,7 +27,6 @@
             <ColumnDefinition Width="Auto" MinWidth="128" />
             <ColumnDefinition Width="Auto" MinWidth="144" />
             <ColumnDefinition Width="*" MinWidth="0" />
-            <ColumnDefinition Width="96" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <TextBlock x:Name="PART_SaveState" Grid.Column="0" Classes="secondary tnum" Text="{TemplateBinding SaveState}"
@@ -47,12 +46,14 @@
                        LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                        IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </Panel>
-          <Panel x:Name="PART_Language" Grid.Column="4" Height="{DynamicResource Raffica.Size.StatusCell}" VerticalAlignment="Center">
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="{DynamicResource Raffica.Size.StatusCellGap}" VerticalAlignment="Center">
+          <Panel x:Name="PART_Language" Width="96" Height="{DynamicResource Raffica.Size.StatusCell}" VerticalAlignment="Center"
+                 IsVisible="{TemplateBinding Language, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
             <TextBlock x:Name="PART_LanguageText" Classes="secondary tnum" Text="{TemplateBinding Language}"
                        LineHeight="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                        IsVisible="{TemplateBinding Language, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </Panel>
-          <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <Button x:Name="PART_ZoomOut" Classes="icon"
                     Width="{DynamicResource Raffica.Size.ZoomButton}" Height="{DynamicResource Raffica.Size.ZoomButton}"
                     MinWidth="{DynamicResource Raffica.Size.ZoomButton}" MinHeight="{DynamicResource Raffica.Size.ZoomButton}">
@@ -68,6 +69,7 @@
             <TextBlock x:Name="PART_Zoom" Classes="secondary tnum" Text="{TemplateBinding ZoomText}" Width="48" Margin="8,0,0,0"
                        Height="{DynamicResource Raffica.Size.StatusCell}" LineHeight="20" VerticalAlignment="Center"
                        TextAlignment="Right" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          </StackPanel>
           </StackPanel>
         </Grid>
         </Border>

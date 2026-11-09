@@ -22,6 +22,9 @@ public class DialogHost : ContentControl
     /// <summary>The room kept free around a card: it is at most the host's height less this (24 DIP above and below).</summary>
     public const double CardMargin = 48;
 
+    /// <summary>The least height the cap leaves a card (header, footer and a few rows of the body), so a very small host does not shrink it to a sliver (the margin gives way there: the card is then as tall as the host, never taller).</summary>
+    public const double MinCardHeight = 200;
+
     private InputElement? _opener;
 
     public DialogHost()
@@ -92,9 +95,9 @@ public class DialogHost : ContentControl
         }
     }
 
-    // The card never grows past the host (less the margin): its body scrolls instead. A host that is not laid out yet has no height to cap by.
+    // The card never grows past the host (less the margin, but not below MinCardHeight): its body scrolls instead. A host that is not laid out yet has no height to cap by.
     private static void CapHeight(Dialog dialog, double hostHeight) =>
-        dialog.MaxHeight = hostHeight > CardMargin ? hostHeight - CardMargin : double.PositiveInfinity;
+        dialog.MaxHeight = hostHeight > 0 ? Math.Max(MinCardHeight, hostHeight - CardMargin) : double.PositiveInfinity;
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {

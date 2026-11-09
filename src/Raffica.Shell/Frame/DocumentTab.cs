@@ -11,6 +11,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using Raffica.Shell.Localization;
 
 namespace Raffica.Shell.Frame;
@@ -113,9 +114,61 @@ public static class MiddleEllipsis
 
         return Candidate(low);
     }
+
+    /// <summary>The fewest characters of the name that stay visible beside an extension; with less room the extension goes first.</summary>
+    public const int MinKeptWithExtension = 8;
+
+    /// <summary>
+    /// A file name that does not fit: the name is shortened in the middle before its extension (<c>Quarterly-pl…v12.pdf</c>), and the extension stays only while at least
+    /// <see cref="MinKeptWithExtension"/> characters of the name stay beside it; with less room the extension is dropped and the name alone takes the room
+    /// (<c>Quarte…L-v12</c>), because the start and the end of the name say more than ".pdf". The extension is the last dot with one to five letters or digits after it
+    /// (not a leading dot, no space); a text without one is shortened in the middle as a whole.
+    /// </summary>
+    public static string FitFileName(string text, double maxWidth, Func<string, double> measure)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(measure);
+        if (text.Length == 0 || measure(text) <= maxWidth)
+        {
+            return text;
+        }
+
+        var dot = text.LastIndexOf('.');
+        var extension = dot > 0 && IsExtension(text.AsSpan(dot + 1)) ? text[dot..] : string.Empty;
+        var name = text[..(text.Length - extension.Length)];
+        if (extension.Length > 0)
+        {
+            var shortened = Fit(name, maxWidth - measure(extension), measure);
+            if (shortened.Length - 1 >= MinKeptWithExtension && measure(shortened + extension) <= maxWidth)
+            {
+                return shortened + extension;
+            }
+        }
+
+        return Fit(name, maxWidth, measure);
+    }
+
+    private static bool IsExtension(ReadOnlySpan<char> text)
+    {
+        if (text.Length is 0 or > 5)
+        {
+            return false;
+        }
+
+        foreach (var c in text)
+        {
+            if (!char.IsLetterOrDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
-/// <summary>A single-line text that is shortened in the middle when it does not fit. <see cref="DisplayText"/> is what is drawn.</summary>
+
+/// <summary>A single-line file name that is shortened before its extension when it does not fit (<see cref="MiddleEllipsis.FitFileName"/>). <see cref="DisplayText"/> is what is drawn.</summary>
 public sealed class MiddleTrimTextBlock : Control
 {
     public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<MiddleTrimTextBlock, string?>(nameof(Text));
@@ -143,7 +196,7 @@ public sealed class MiddleTrimTextBlock : Control
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var display = MiddleEllipsis.Fit(Text ?? string.Empty, finalSize.Width, s => Format(s).WidthIncludingTrailingWhitespace);
+        var display = MiddleEllipsis.FitFileName(Text ?? string.Empty, finalSize.Width, s => Format(s).WidthIncludingTrailingWhitespace);
         if (display != _display)
         {
             _display = display;
@@ -321,5 +374,18 @@ public sealed class DocumentTabItem : Border
             RaisePropertyChangedEvent(SelectionItemPatternIdentifiers.IsSelectedProperty, oldValue, newValue);
 
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.TabItem;
+
+        // A tab that lies outside the strip's window (scrolled away) is offscreen; one that is partly in view is on screen, because the user sees it and can click it.
+        protected override bool IsOffscreenCore()
+        {
+            if (base.IsOffscreenCore())
+            {
+                return true;
+            }
+
+            return owner.FindAncestorOfType<ScrollViewer>() is { } scroll
+                && owner.TranslatePoint(default, scroll) is { } origin
+                && !new Rect(origin, owner.Bounds.Size).Intersects(new Rect(scroll.Bounds.Size));
+        }
     }
 }

@@ -69,6 +69,15 @@
   <data name="CloseDocument" xml:space="preserve">
     <value>Close document</value>
   </data>
+  <data name="TabsScrollLeft" xml:space="preserve">
+    <value>Scroll tabs left</value>
+  </data>
+  <data name="TabsScrollRight" xml:space="preserve">
+    <value>Scroll tabs right</value>
+  </data>
+  <data name="TabsAll" xml:space="preserve">
+    <value>All documents</value>
+  </data>
   <data name="TabUnsavedChanges" xml:space="preserve">
     <value>Unsaved changes</value>
   </data>

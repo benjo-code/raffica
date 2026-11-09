@@ -34,6 +34,8 @@ public sealed class StatusBarTests
     public void CellsChangeInPlace()
     {
         var (window, bar) = Show();
+        bar.Language = "German (DE)";
+        ControlHarness.Settle(window);
         var before = Cells.ToDictionary(n => n, n => X(bar, n));
 
         // The position and count cells size to their text with a minimum (M2.7): a text that fits the minimum moves nothing.
@@ -47,6 +49,34 @@ public sealed class StatusBarTests
         {
             Assert.Equal(before[name], X(bar, name), 0.01);
         }
+    }
+
+    // The language cell is there only while it has a text (the PDF app never sets one): without it no 96 px and no gap are kept free, the room goes to the hint column.
+    [AvaloniaFact]
+    public void TheLanguageCellTakesNoRoomWhileItIsEmpty()
+    {
+        var (window, bar) = Show();
+        window.Width = 1000;
+        bar.FocusPane = "Navigation";
+        ControlHarness.Settle(window);
+        var focusWithout = Part(bar, "PART_Focus").Bounds.Width;
+        var zoomRight = Part(bar, "PART_Zoom").Bounds.Right;
+        Assert.False(Part(bar, "PART_Language").IsVisible);
+
+        bar.Language = "German (DE)";
+        ControlHarness.Settle(window);
+        var language = Part(bar, "PART_Language");
+        Assert.True(language.IsVisible);
+        Assert.Equal(96, language.Bounds.Width, 0.01);
+        Assert.Equal(focusWithout - 96 - 16, Part(bar, "PART_Focus").Bounds.Width, 0.5);
+        Assert.Equal(zoomRight, Part(bar, "PART_Zoom").Bounds.Right, 0.01);
+        Assert.True(X(bar, "PART_Language") + 96 + 16 <= X(bar, "PART_Zoom") + 0.01, "the zoom cluster follows the language cell");
+
+        bar.Language = null;
+        ControlHarness.Settle(window);
+        Assert.False(Part(bar, "PART_Language").IsVisible);
+        Assert.Equal(focusWithout, Part(bar, "PART_Focus").Bounds.Width, 0.5);
+        Assert.Equal(zoomRight, Part(bar, "PART_Zoom").Bounds.Right, 0.01);
     }
 
     [AvaloniaFact]

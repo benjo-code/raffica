@@ -303,6 +303,32 @@ public sealed class DialogTests
         Assert.True(f.Dialog.Bounds.Height > 320, "the card follows a taller host");
     }
 
+    // A host of 100 DIP would cap the card at 52 (a header and no body at all): the cap has a minimum, so the margin gives way in a small host and a few rows stay in view.
+    [AvaloniaFact]
+    public void ASmallHostGivesTheCardRoomForAFewRowsInsteadOfASliver()
+    {
+        var f = CreateTall();
+
+        f.Window.Height = 200;
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(DialogHost.MinCardHeight, f.Dialog.MaxHeight, 0.01);
+        Assert.Equal(200, f.Dialog.Bounds.Height, 1);
+        Assert.True(f.Scroll.Viewport.Height >= 3 * 26, $"the body shows {f.Scroll.Viewport.Height} DIP");
+        Assert.True(f.Scroll.Extent.Height > f.Scroll.Viewport.Height);
+
+        // Below the minimum the card is as tall as the host (not host less the margin: 52, or 2 in a 50 DIP host).
+        f.Window.Height = 100;
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(DialogHost.MinCardHeight, f.Dialog.MaxHeight, 0.01);
+        Assert.Equal(100, f.Dialog.Bounds.Height, 1);
+
+        // A roomy host is capped at its height less the margin again.
+        f.Window.Height = 320;
+        ControlHarness.Settle(f.Window);
+        Assert.Equal(320 - DialogHost.CardMargin, f.Dialog.MaxHeight, 0.01);
+        Assert.Equal(320 - DialogHost.CardMargin, f.Dialog.Bounds.Height, 1);
+    }
+
     [AvaloniaFact]
     public void ACardThatFitsIsNotChangedByTheScrollViewer()
     {
