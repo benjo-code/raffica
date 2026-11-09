@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Raffica PDF – Formular Neutral</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&amp;family=Carlito:ital,wght@0,400;0,700;1,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF}
+.fa{--ink:#5E1A3E;--on:#FFFFFF;--page:#FFFFFF;--band:#F5F6F8;--desk:#E9EBEE;--hov:#E6E8EC;--sel:#DCDFE4;--tx:#1A1D21;--tx2:#4A5059;--ctl:#7A818B;--rule:#D3D7DD;--dis:#9AA0A8;--red:#B21F2D;font-family:'Public Sans',system-ui,sans-serif;font-size:14px;line-height:1.3;color:var(--tx);background:var(--page);font-variant-numeric:tabular-nums;caret-color:var(--tx)}
+.fa ::selection{background:#D6DAE0;color:var(--tx)}
+.fa *{box-sizing:border-box}
+.fa svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.fa svg.i20{width:20px;height:20px}
+.fa svg.i *{vector-effect:non-scaling-stroke}
+.lbl{font-family:inherit;font-weight:400;font-size:12px;letter-spacing:normal;text-transform:none;line-height:1.2;color:var(--tx2,#4A5059)}
+.btn{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:5px;height:26px;min-width:26px;padding:0 5px;border-radius:0;cursor:pointer;position:relative;white-space:nowrap}
+.btn:hover{background:var(--hov)}
+.btn:active,.btn.on{background:var(--ink);color:var(--on)}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn.tall{flex-direction:column;height:54px;min-width:48px;gap:4px;font-size:12px;white-space:normal;width:78px;line-height:1.15;text-align:center}
+.btn.box{border-color:var(--ctl);background:var(--page)}
+.btn.box:hover{background:var(--hov)}
+.dz{appearance:none;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border:1px solid var(--red);background:var(--page);color:var(--red);font:inherit;font-weight:600;cursor:pointer;border-radius:0;position:relative;white-space:nowrap}
+.dz:hover{background:var(--hov)}
+.dz:active{background:var(--red);color:var(--on)}
+.dz:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.dz:disabled{border-color:var(--dis);color:var(--dis);background:transparent;cursor:default}
+.kz{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border:1px solid var(--rule);font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;font-size:12px;letter-spacing:.02em;line-height:1;color:var(--tx2);background:transparent;white-space:nowrap}
+.kz.on{background:var(--ink);color:var(--on);border-color:var(--ink)}
+.cc{display:none}
+.cc.on{display:inline-flex;position:absolute;right:-4px;bottom:-6px;z-index:3}
+.gl{display:flex;align-items:center;gap:6px;height:14px}
+.dt{height:28px;max-width:280px;min-width:0;display:inline-flex;align-items:center;gap:6px;padding:0 2px 0 10px;border:1px solid transparent;border-bottom:0;color:var(--tx2);flex:0 1 auto}
+.dt:hover{background:var(--hov)}
+.dt.cur{background:var(--band);border-color:var(--rule);color:var(--tx);font-weight:500;box-shadow:inset 0 3px 0 var(--ink)}
+.dtb{appearance:none;border:0;padding:0;height:26px;background:transparent;color:inherit;font:inherit;min-width:0;display:flex;align-items:center;cursor:pointer}
+.dtb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtx{appearance:none;width:24px;height:24px;flex:none;border:0;background:transparent;color:var(--tx2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.dtx:hover{background:var(--hov);color:var(--tx)}
+.dtx:focus-visible,.dtb:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.tab{appearance:none;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--tx);font:inherit;font-weight:500;height:32px;padding:0 11px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap}
+.tab:hover{background:var(--hov)}
+.tab.cur{background:var(--band);border-color:var(--ink);color:var(--ink);font-weight:600;margin-bottom:-1px;height:33px}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+.band{height:82px;column-gap:8px;padding-left:2px;flex:none;display:flex;overflow:hidden;background:var(--band);border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)}
+.grp{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:6px 8px 4px;flex:none}
+.grp-row{display:flex;align-items:center;gap:2px}
+.stk{display:flex;flex-direction:column;gap:2px}
+.stk.tight{gap:2px;align-items:flex-start}
+.xs{display:none}
+.cmp .band{height:40px}
+.cmp .grp{flex-direction:row;align-items:center;gap:2px;padding:6px 8px}
+.cmp .grp > .gl,.cmp .btn.tall,.cmp .dzt{display:none}
+.cmp .stk{flex-direction:row;align-items:center;gap:2px}
+.cmp .xs{display:inline-flex}
+.cmp .btn.lb{font-size:0;gap:0}
+.ovf{display:none}
+.cmp .ovf{display:inline-flex;width:24px;min-width:24px;padding:0;color:var(--tx2)}
+.cmp .dz{height:26px}
+.cap{appearance:none;width:46px;height:36px;border:0;background:transparent;color:var(--tx);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.cap:hover{background:var(--hov)}
+.cap.x:hover{background:var(--tx);color:var(--on)}
+.stat{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 7px;border:1px solid var(--rule);background:var(--page);white-space:nowrap}
+.pf{outline:1px solid var(--ink);outline-offset:-1px}
+.pg{appearance:none;display:flex;width:100%;border:0;background:transparent;color:var(--tx);padding:10px 12px 10px 0;cursor:pointer;font:inherit;align-items:flex-start}
+.pg:hover{background:var(--hov)}
+.pg:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.pg .no{width:34px;flex:none;display:flex;justify-content:center;font-size:12px;color:var(--tx2)}
+.pg .pv{background:#FFFFFF;border:1px solid var(--rule);display:flex;flex-direction:column;gap:3px;padding:7px}
+.pg.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink)}
+.pg.on .no{color:var(--tx);font-weight:600}
+.pv .l{height:2px;background:#C9CDD3}
+.mk{appearance:none;display:flex;gap:9px;width:100%;text-align:left;border:0;background:transparent;color:var(--tx);font:inherit;padding:10px 12px;cursor:pointer;align-items:flex-start}
+.mk:hover{background:var(--hov)}
+.mk.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink)}
+.mk:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.mk .lbl{color:var(--tx2)}
+.mk svg.i{color:var(--tx2);margin-top:1px}
+.mk.on svg.i{color:var(--tx)}
+.form{font-family:'Carlito',Calibri,sans-serif;color:var(--tx)}
+.form .sec{display:grid;grid-template-columns:28px 1fr;border-top:1px solid #1A1D21}
+.form .sn{font-weight:700;font-size:13px;padding-top:7px}
+.form .fl{font-size:11px;color:#464C55;letter-spacing:.03em}
+.form .fv{font-size:15px;border-bottom:1px solid #9AA1AB;padding:2px 0 3px;min-height:23px}
+.desk{scrollbar-color:var(--ctl) var(--desk);scrollbar-width:thin}
+.kz.off{display:none}
+.sb{height:30px;flex:none;display:flex;align-items:center;gap:20px;padding:0 8px 0 12px;background:var(--band);border-top:1px solid var(--rule);overflow:hidden}
+.sc{display:inline-flex;align-items:center;height:20px;color:var(--tx2);font-size:13px;white-space:nowrap}
+.sc.zl{min-width:40px;justify-content:flex-end}
+.sb .btn{height:24px;min-width:24px;color:var(--tx2)}
+.phd{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px}
+.phd .sv{margin-left:auto}
+.sv{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.pf .ph{color:var(--tx)}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+.btn,.btn.tall,.dd,.fld,.sty,.dz,.dtx,.b,.f,.swt,.tog,.db,.nt,.cm,.tip,.dlg,.nb,.kz,.mx .mi,.slw select,.fld input,.srch label,.sbx{border-radius:3px}
+.cb{border-radius:2px}
+.seg{border-radius:0}.seg:first-child{border-radius:3px 0 0 3px}.seg:last-child{border-radius:0 3px 3px 0}
+.sg span{border-radius:0}.sg:first-child span{border-radius:3px 0 0 3px}.sg:last-child span{border-radius:0 3px 3px 0}
+input::placeholder,textarea::placeholder{color:var(--tx2,#4A5059);opacity:1}
+.sk{color:var(--tx2,#4A5059);font-size:12px;font-weight:400;white-space:nowrap}
+</style>
+</helmet>
+<div class="{{rootCls}}" style="width: 100%; height: 900px; overflow: hidden; display: flex; flex-direction: column;">
+
+  <div style="height: 36px; flex: none; display: flex; align-items: flex-end; gap: 12px; padding-left: 12px;">
+    <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;">
+      <span aria-hidden="true" style="min-width: 20px; height: 20px; padding: 0 3px; flex: none; background: #5E1A3E; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px;">PDF</span>
+      <span class="lbl">Raffica PDF</span>
+    </div>
+    <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px; overflow: hidden;">
+      <div class="dt cur" role="presentation">
+        <button class="dtb" role="tab" aria-selected="true"><span>Schadenmeldung Geräteschuppen.pdf</span></button>
+        <button class="dtx" aria-label="Schließen: Schadenmeldung Geräteschuppen.pdf"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <div class="dt" role="presentation">
+        <button class="dtb" role="tab" aria-selected="false"><span>Förderbescheid 2026.pdf</span></button>
+        <button class="dtx" aria-label="Schließen: Förderbescheid 2026.pdf"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <button class="dtx" aria-label="Datei öffnen" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+    </div>
+    <div style="height: 36px; flex: 0 1 300px; min-width: 200px; display: flex; align-items: center;">
+      <label title="Suchen (Strg+K)" style="flex: 1; display: flex; align-items: center; gap: 8px; height: 28px; border: 1px solid #7A818B; border-radius: 3px; background: #FFFFFF; padding: 0 8px; position: relative;">
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: #4A5059;"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg>
+        <input aria-label="Suchen" placeholder="Suchen" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: #1A1D21;">
+        <span class="{{cc}}">Q</span>
+      </label>
+    </div>
+    <div style="height: 36px; flex: none; display: flex;">
+      <button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button>
+      <button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button>
+      <button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button>
+    </div>
+  </div>
+
+  <div role="tablist" aria-label="Befehlsregisterkarten" style="height: 32px; flex: none; display: flex; align-items: flex-end; padding-left: 8px; gap: 2px; position: relative; z-index: 2; border-top: 1px solid #D3D7DD;">
+    <button class="tab" role="tab" aria-selected="false">Datei <span class="{{tk}}">F</span></button>
+    <button class="tab" role="tab" aria-selected="false">Start <span class="{{tk}}">H</span></button>
+    <button class="tab" role="tab" aria-selected="false">Bearbeiten <span class="{{tk}}">E</span></button>
+    <button class="tab" role="tab" aria-selected="false">Kommentieren <span class="{{tk}}">A</span></button>
+    <button class="tab" role="tab" aria-selected="false">Ausfüllen und signieren <span class="{{tk}}">G</span></button>
+    <button class="tab" role="tab" aria-selected="false">Seiten <span class="{{tk}}">P</span></button>
+    <button class="tab cur" role="tab" aria-selected="true">Schützen <span class="{{tk}}">T</span></button>
+    <button class="tab" role="tab" aria-selected="false">Ansicht <span class="{{tk}}">W</span></button>
+  </div>
+
+  <div class="band" role="toolbar" aria-label="Befehle: Schützen">
+    <div class="grp" role="group" aria-label="Schwärzen">
+      <div class="grp-row" style="gap: 4px; align-items: flex-start;">
+        <button class="btn tall on" aria-pressed="true"><svg class="i i20" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="6" stroke-dasharray="2 1.5"></rect><path d="M4.5 8h7"></path></svg>Bereich markieren<span class="{{cc}}">01</span></button>
+        <button class="btn tall"><svg class="i i20" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h5M2 12h12"></path><rect x="8.5" y="6.3" width="5.5" height="3.4"></rect></svg>Text markieren<span class="{{cc}}">02</span></button>
+        <button class="btn tall"><svg class="i i20" viewBox="0 0 16 16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4"></circle><path d="m9.5 9.5 4 4M4.5 6.5h4"></path></svg>Suchen und markieren<span class="{{cc}}">03</span></button>
+        <button class="btn xs on" aria-pressed="true" aria-label="Bereich markieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="6" stroke-dasharray="2 1.5"></rect><path d="M4.5 8h7"></path></svg><span class="{{cc}}">01</span></button>
+        <button class="btn xs" aria-label="Text markieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h5M2 12h12"></path><rect x="8.5" y="6.3" width="5.5" height="3.4"></rect></svg><span class="{{cc}}">02</span></button>
+        <button class="btn xs" aria-label="Suchen und markieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4"></circle><path d="m9.5 9.5 4 4M4.5 6.5h4"></path></svg><span class="{{cc}}">03</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Schwärzen</span><span class="{{gk}}">0</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Schwärzen" title="Schwärzen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Markierungen prüfen">
+      <div class="stk tight">
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m9.5 4-4 4 4 4"></path></svg>Vorherige Markierung<span class="{{cc}}">11</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m6.5 4 4 4-4 4"></path></svg>Nächste Markierung<span class="{{cc}}">12</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Markierungen prüfen</span><span class="{{gk}}">1</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Markierungen prüfen" title="Markierungen prüfen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Verborgene Daten">
+      <div class="stk tight">
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h5.5L12 5v8.5H4z"></path><path d="M6.5 8.5h3"></path></svg>Dokumentdaten entfernen<span class="{{cc}}">21</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"></path><path d="M6 6.5h4"></path></svg>Kommentare entfernen<span class="{{cc}}">22</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Verborgene Daten</span><span class="{{gk}}">2</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Verborgene Daten" title="Verborgene Daten"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Sicherheit">
+      <div class="stk tight">
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>Kennwort<span class="{{cc}}">31</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 3 4v4c0 3 2.2 5 5 6 2.8-1 5-3 5-6V4z"></path></svg>Berechtigungen<span class="{{cc}}">32</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Sicherheit</span><span class="{{gk}}">3</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Sicherheit" title="Sicherheit"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div style="flex: 1 1 48px; min-width: 32px;" aria-hidden="true"></div>
+    <div class="grp" role="group" aria-label="Schwärzungen anwenden, endgültig" style="border-left: 1px solid #D3D7DD; border-right: 0; padding-right: 30px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="dz"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="6"></rect><path d="M2 5l12 6M2 11l12-6"></path></svg>Schwärzungen anwenden<span class="{{cc}}">91</span></button>
+        <span class="dzt" style="width: 150px; font-size: 12px; line-height: 1.3; color: #1A1D21;">1 Markierung ausstehend. Entfernt den Inhalt endgültig.</span>
+      </div>
+      <span class="gl"><span class="lbl">Endgültig anwenden</span><span class="{{gk}}">9</span></span>
+    </div>
+  </div>
+
+  <div role="status" style="height: 40px; flex: none; display: flex; align-items: center; gap: 10px; margin: 6px 8px; padding: 0 8px 0 12px; background: #FFFFFF; border: 1px solid #D3D7DD; border-radius: 3px;">
+    <svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: #4A5059;"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.1"></path></svg>
+    <span>Seite 3 ist ein Scan ohne Text und lässt sich weder durchsuchen noch kopieren.</span>
+    <button class="btn box" style="margin-left: 6px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5V2.5h2.5M11.5 2.5H14V5M14 11v2.5h-2.5M4.5 13.5H2V11M5 6h6M5 8.5h6M5 11h4"></path></svg>Text erkennen</button>
+    <button class="btn" aria-label="Hinweis schließen" style="margin-left: auto;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex;">
+    <nav aria-label="Seiten" class="desk" style="width: 204px; flex: none; background: #F5F6F8; border-right: 1px solid #D3D7DD; overflow-y: auto;">
+      <div class="phd">
+        <span class="lbl ph">Seiten</span><span class="sv">4</span>
+        <span class="{{tk}}">6</span>
+      </div>
+      <button class="pg on" aria-current="true" aria-label="Seite 1, A4 hoch"><span class="no">1</span><span class="pv" style="width: 104px; height: 147px;"><span class="l" style="width: 60%; height: 4px; background: #1A1D21;"></span><span class="l"></span><span class="l" style="width: 80%;"></span><span class="l"></span><span class="l" style="width: 70%;"></span><span style="height: 12px; background: #FBE7A1; margin: 2px 0;"></span><span class="l"></span><span style="height: 6px; width: 70%; background: #1A1D21;"></span><span class="l" style="width: 50%;"></span><span style="margin-top: auto; height: 10px; width: 45%; border-bottom: 1px solid #1A1D21;"></span></span></button>
+      <button class="pg" aria-label="Seite 2, A4 hoch"><span class="no">2</span><span class="pv" style="width: 104px; height: 147px;"><span class="l" style="width: 50%; height: 4px; background: #1A1D21;"></span><span class="l"></span><span class="l"></span><span class="l" style="width: 85%;"></span><span class="l"></span><span class="l" style="width: 60%;"></span><span class="l"></span><span class="l" style="width: 75%;"></span></span></button>
+      <button class="pg" aria-label="Seite 3, A4 quer, Scan"><span class="no">3</span><span class="pv" style="width: 147px; height: 104px; background: #E9E6E1; padding: 6px;"><span style="flex: 1; background: #CFCAC2; display: flex; align-items: flex-end; padding: 4px;"><span class="lbl" style="color: #3A3F46;">Scan</span></span></span></button>
+      <button class="pg" aria-label="Seite 4, A4 hoch"><span class="no">4</span><span class="pv" style="width: 104px; height: 147px;"><span class="l" style="width: 40%; height: 4px; background: #1A1D21;"></span><span class="l"></span><span class="l" style="width: 70%;"></span><span class="l"></span><span class="l" style="width: 55%;"></span></span></button>
+    </nav>
+
+    <div class="desk" role="region" aria-label="Dokument" style="flex: 1; min-width: 0; background: #E9EBEE; overflow: auto;">
+      <article class="form" aria-label="Seite 1 von 4" style="width: 720px; height: 1018px; margin: 22px auto 40px; background: #FFFFFF; padding: 40px 48px; position: relative; box-shadow: 0 1px 2px rgba(26,29,33,0.14), 0 8px 24px rgba(26,29,33,0.10); display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px;">
+          <div>
+            <div style="font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #464C55;">Gebäude- und Inhaltsversicherung</div>
+            <div style="font-size: 24px; font-weight: 700; line-height: 1.1;">Schadenanzeige: Nebengebäude</div>
+          </div>
+          <div style="font-size: 12px; color: #464C55; text-align: right;">Formular SA-2 (2026)<br>Seite 1 von 4</div>
+        </div>
+        <div class="sec"><span class="sn">1</span><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; padding: 7px 0 8px;"><div><div class="fl">Versicherungsnummer</div><div class="fv">HV-2291-0457</div></div><div><div class="fl">Versicherungsnehmer</div><div class="fv">Gemeinschaftsgarten Lindenhof e. V.</div></div><div style="grid-column: span 2;"><div class="fl">Versicherter Ort</div><div class="fv">Am Lindenhof 14, 50823 Köln</div></div></div></div>
+        <div class="sec"><span class="sn">2</span><div style="display: grid; grid-template-columns: 1fr 2fr; gap: 6px 20px; padding: 7px 0 8px;"><div><div class="fl">Schadentag</div><div class="fv">14.09.2026</div></div><div><div class="fl">Schadenart</div><div style="display: flex; gap: 14px; font-size: 14px; padding-top: 4px; flex-wrap: wrap;"><span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border: 1px solid #1A1D21; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; font-weight: 700;">x</span>Sturm</span><span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border: 1px solid #1A1D21;"></span>Leitungswasser</span><span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border: 1px solid #1A1D21;"></span>Feuer</span><span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border: 1px solid #1A1D21;"></span>Einbruch</span></div></div></div></div>
+        <div class="sec" style="position: relative;"><span class="sn">3</span><div style="padding: 7px 0 8px;"><div class="fl">Was ist passiert?</div><p style="margin: 3px 0 0; font-size: 15px; line-height: 1.5;">Bei einem Sturm in der Nacht riss die Dachpappe des neuen Geräteschuppens auf, und Regenwasser lief hinein. <span style="background: #FBE7A1;">Dachpappe, zwei Regalböden und ein Rasenmäher wurden beschädigt.</span> Der Vorstand hat das Dach am nächsten Morgen provisorisch abgedeckt.</p></div>
+          <span role="img" aria-label="Notiz: Fotos in meiner E-Mail vom 15. September" style="position: absolute; right: -36px; top: 18px; width: 24px; height: 24px; background: #FBE7A1; border: 1px solid #8A6A00; display: inline-flex; align-items: center; justify-content: center; color: #5C4600;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h10v7H8l-3 3v-3H3z"></path></svg></span>
+        </div>
+        <div class="sec"><span class="sn">4</span><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; padding: 7px 0 8px;"><div><div class="fl">Geschätzte Reparaturkosten</div><div class="fv">640,00 €</div></div><div><div class="fl">Reparatur bereits beauftragt?</div><div class="fv">Ja, Kostenvoranschlag auf Seite 3</div></div></div></div>
+        <div class="sec"><span class="sn">5</span><div style="padding: 7px 0 8px;"><div class="fl">Bankverbindung für die Zahlung</div><div style="display: flex; gap: 20px; align-items: flex-end;"><div style="flex: 1;"><div class="fv" style="position: relative;">IBAN&#8194;DE89 3704 0044 0532 0130 00<span role="img" aria-label="Schwärzung markiert, noch nicht angewendet" style="position: absolute; left: 40px; top: -3px; width: 252px; height: 27px; border: 2px solid #1A1D21; background: rgba(26,29,33,0.12);"></span><span class="lbl" style="position: absolute; left: 300px; top: 3px; background: #1A1D21; color: #FFFFFF; padding: 3px 5px;">Schwärzung · ausstehend</span></div></div><div style="width: 170px;"><div class="fl">Kontoinhaber</div><div class="fv">Gemeinschaftsgarten e. V.</div></div></div></div></div>
+        <div class="sec"><span class="sn">6</span><div style="padding: 7px 0 0;"><div class="fl">Erklärung</div><p style="margin: 3px 0 10px; font-size: 14px; line-height: 1.45;">Ich bestätige, dass die Angaben in diesem Formular wahr und vollständig sind, und bin einverstanden, dass der Versicherer den genannten Handwerksbetrieb kontaktiert.</p>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: end;">
+            <div><div style="height: 54px; border-bottom: 1px solid #1A1D21; position: relative;"><svg viewBox="0 0 220 54" aria-label="Unterschrift von Daniel Weber" role="img" style="position: absolute; left: 6px; bottom: 2px; width: 220px; height: 54px; fill: none; stroke: #1F3A6E; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;"><path d="M8 38c6-14 10-26 14-26s-2 26 0 28 10-20 14-20-2 18 2 18 8-14 12-14 0 12 4 12c6 0 10-16 16-16 4 0 0 14 6 14 5 0 9-10 13-10 3 0 1 9 5 9 7 0 12-12 20-14M96 30c10 4 30 2 52-6M150 22c8-4 14-6 22-6"></path></svg></div><div class="fl" style="margin-top: 4px;">Unterschrift</div></div>
+            <div><div class="fv">21.09.2026</div><div class="fl" style="margin-top: 4px;">Datum</div></div>
+          </div>
+        </div></div>
+      </article>
+    </div>
+
+    <!-- Marks pane: focused in this state (F6) -->
+    <aside aria-label="Markierungen in diesem Dokument" style="width: 256px; flex: none; background: #F5F6F8; border-left: 1px solid #D3D7DD; display: flex; flex-direction: column;">
+      <div class="phd">
+        <span class="lbl ph">Markierungen</span><span class="sv">4</span>
+        <span class="{{tk}}">7</span>
+      </div>
+      <button class="mk"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 11 2-5 6-4.5 1.5 2L9 9.5 4 11zM2.5 14.5h11"></path></svg><span style="display: flex; flex-direction: column; gap: 4px;"><span class="lbl">Hervorhebung · Seite 1</span><span>Dachpappe, zwei Regalböden und ein Rasenmäher wurden beschädigt.</span></span></button>
+      <button class="mk"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h10v7H8l-3 3v-3H3z"></path></svg><span style="display: flex; flex-direction: column; gap: 4px;"><span class="lbl">Notiz · Seite 1</span><span>Fotos in meiner E-Mail vom 15. September.</span></span></button>
+      <button class="mk"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 12c2-5 3-8 4-8s0 7 1 7 2-4 3-4 0 3 1 3 2-2 3-2M2 14h12"></path></svg><span style="display: flex; flex-direction: column; gap: 4px;"><span class="lbl">Unterschrift · Seite 1</span><span>Daniel Weber, 21.09.2026</span></span></button>
+      <button class="mk on" aria-current="true"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="6"></rect><path d="M2 5l12 6M2 11l12-6"></path></svg><span style="display: flex; flex-direction: column; gap: 4px;"><span class="lbl">Schwärzung · ausstehend</span><span>IBAN in Abschnitt 5</span></span></button>
+      <p style="margin: 0; padding: 12px 10px; color: #1A1D21; line-height: 1.45;">Ausstehende Schwärzungen verdecken den Text nur. Erst „Schwärzungen anwenden“ entfernt ihn aus der Datei.</p>
+    </aside>
+  </div>
+
+  <footer class="sb">
+    <span class="sc">Gespeichert</span>
+    <span class="sc">Seite 1 von 4</span>
+    <sc-if value="{{ alt }}" hint-placeholder-val="{{ false }}">
+      <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;"><span class="kz on">Alt</span>Feldcode eingeben · Esc bricht ab</span>
+    </sc-if>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+      <button class="btn" aria-label="Verkleinern" style="height: 24px; min-width: 24px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8"></path></svg></button>
+      <span aria-hidden="true" style="width: 96px; height: 1px; background: #7A818B; position: relative;"><span style="position: absolute; left: 46px; top: -5px; width: 7px; height: 11px; background: #4A5059;"></span></span>
+      <button class="btn" aria-label="Vergrößern" style="height: 24px; min-width: 24px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8M8 4v8"></path></svg></button>
+      <span class="sc zl">Seitenbreite</span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"altHeld":{"editor":"boolean","default":false,"section":"Zustand"},"compact":{"editor":"boolean","default":false,"section":"Zustand"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const alt = this.props.altHeld ?? false;
+    const compact = this.props.compact ?? false;
+    return {
+      alt: alt,
+      rootCls: compact ? 'fa cmp' : 'fa',
+      gk: alt ? 'kz on' : 'kz off',
+      tk: alt ? 'kz on' : 'kz off',
+      cc: alt ? 'kz cc on' : 'kz cc'
+    };
+  }
+}
+</script>
+</body>
+</html>

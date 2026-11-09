@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      Avalonia.Headless.XUnit 12.1.5 is built against xunit.v3 3.2.x and fails test discovery with the central 4.0.x.
+      The override stays in this project only; drop it once Avalonia.Headless.XUnit supports xunit.v3 4.x.
+    -->
+    <PackageReference Include="xunit.v3" VersionOverride="3.2.2" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <ProjectReference Include="..\..\src\Raffica.Shell\Raffica.Shell.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Gallery\Raffica.Gallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A test-only string table with a format string, to test StringTable.Get(key, args). -->
+    <EmbeddedResource Update="Localization\TestStrings.en.resx" WithCulture="false" LogicalName="Raffica.Shell.Tests.TestStrings.en.resources" />
+    <EmbeddedResource Update="Localization\TestStrings.de.resx" WithCulture="false" LogicalName="Raffica.Shell.Tests.TestStrings.de.resources" />
+  </ItemGroup>
+</Project>

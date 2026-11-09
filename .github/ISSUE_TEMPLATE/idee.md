@@ -1,7 +1,7 @@
 ---
-name: Idee
-about: Einfall für dieses Projekt, wird später mit /ideen abgearbeitet
+name: Idea
+about: A thought for the project; the maintainer reviews ideas and adopts, schedules or declines them
 labels: idee
 ---
 
-<!-- Der Titel ist die Idee in einem Satz. Details optional hier. -->
+<!-- The title is the idea in one sentence. Details are optional: what would you do with it, and what do you do today? -->

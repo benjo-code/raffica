@@ -1,0 +1,138 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    Text field, row "Text field / search" of the state table (appendix A section 5 of
+    Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): surface.page, 1 px border.control, 26 px high, 3 px radius
+    (appendix A section 4). Placeholder text.secondary, hover edge text.secondary, typing (focused) edge text.primary,
+    disabled surface.band with text.disabled text and edge. Text selection is selection.field (M2.7: at least 3 : 1 on the field, the selected text text.onInk; selection.tint was 1.2 : 1), the caret text.primary.
+    The keyboard ring is the shared adorner, 2 px outside the edge, so Fluent's FocusAdorner override is gone; a click focuses
+    the field without the ring, the typing edge shows it is active. A multi-line box (AcceptsReturn) keeps the style and grows.
+    The context flyout is the shell's own TextBoxContextFlyout (localized, Cut/Copy/Paste/Select all/Undo/Redo) in the menu theme.
+  -->
+  <controls:TextBoxContextFlyout x:Key="Raffica.TextBox.ContextFlyout" />
+
+  <ControlTheme x:Key="{x:Type TextBox}" TargetType="TextBox">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Raffica.Brush.Selection.Field}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Dropdown}" />
+    <Setter Property="MinWidth" Value="64" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="ScrollViewer.IsScrollChainingEnabled" Value="True" />
+    <Setter Property="ContextFlyout" Value="{DynamicResource Raffica.TextBox.ContextFlyout}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <DataValidationErrors>
+          <Panel>
+            <Border Name="PART_BorderElement"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    MinWidth="{TemplateBinding MinWidth}"
+                    MinHeight="{TemplateBinding MinHeight}" />
+            <Border Margin="{TemplateBinding BorderThickness}">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <ContentPresenter Grid.Column="0"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Content="{TemplateBinding InnerLeftContent}" />
+                <ScrollViewer Name="PART_ScrollViewer"
+                              Grid.Column="1"
+                              Margin="{TemplateBinding Padding}"
+                              HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                              VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}"
+                              IsScrollChainingEnabled="{TemplateBinding (ScrollViewer.IsScrollChainingEnabled)}"
+                              AllowAutoHide="{TemplateBinding (ScrollViewer.AllowAutoHide)}"
+                              BringIntoViewOnFocusChange="{TemplateBinding (ScrollViewer.BringIntoViewOnFocusChange)}">
+                  <Panel>
+                    <TextBlock Name="PART_Placeholder"
+                               Foreground="{TemplateBinding PlaceholderForeground}"
+                               Opacity="1"
+                               Text="{TemplateBinding PlaceholderText}"
+                               TextAlignment="{TemplateBinding TextAlignment}"
+                               TextWrapping="{TemplateBinding TextWrapping}"
+                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                      <TextBlock.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                          <Binding ElementName="PART_TextPresenter" Path="PreeditText" Converter="{x:Static StringConverters.IsNullOrEmpty}" />
+                          <Binding RelativeSource="{RelativeSource TemplatedParent}" Path="Text" Converter="{x:Static StringConverters.IsNullOrEmpty}" />
+                        </MultiBinding>
+                      </TextBlock.IsVisible>
+                    </TextBlock>
+                    <TextPresenter Name="PART_TextPresenter"
+                                   Text="{TemplateBinding Text, Mode=TwoWay}"
+                                   CaretBlinkInterval="{TemplateBinding CaretBlinkInterval}"
+                                   CaretIndex="{TemplateBinding CaretIndex}"
+                                   SelectionStart="{TemplateBinding SelectionStart}"
+                                   SelectionEnd="{TemplateBinding SelectionEnd}"
+                                   TextAlignment="{TemplateBinding TextAlignment}"
+                                   TextWrapping="{TemplateBinding TextWrapping}"
+                                   LineHeight="{TemplateBinding LineHeight}"
+                                   LetterSpacing="{TemplateBinding LetterSpacing}"
+                                   PasswordChar="{TemplateBinding PasswordChar}"
+                                   RevealPassword="{TemplateBinding RevealPassword}"
+                                   SelectionBrush="{TemplateBinding SelectionBrush}"
+                                   SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                   CaretBrush="{TemplateBinding CaretBrush}"
+                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                  </Panel>
+                  <ScrollViewer.Styles>
+                    <Style Selector="ScrollContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Cursor" Value="IBeam" />
+                    </Style>
+                  </ScrollViewer.Styles>
+                </ScrollViewer>
+                <ContentPresenter Grid.Column="2"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Content="{TemplateBinding InnerRightContent}" />
+              </Grid>
+            </Border>
+          </Panel>
+        </DataValidationErrors>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- A multi-line box grows with its content and starts at the top -->
+    <Style Selector="^[AcceptsReturn=True]">
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+
+    <!-- Hover: the edge turns text.secondary -->
+    <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+    </Style>
+
+    <!-- Typing: the edge turns text.primary (after hover, so a hovered focused field is "typing") -->
+    <Style Selector="^:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+
+    <!-- Disabled: the band, text.disabled for text, placeholder and edge -->
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+      <Setter Property="PlaceholderForeground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Band}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+
+    <Style Selector="^:error /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Danger}" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

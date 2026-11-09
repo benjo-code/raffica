@@ -1,0 +1,137 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Colour tokens of the Direction D design, appendix A sections 1.1 and 1.2 of
+    Docs/superpowers/specs/2026-11-03-design-system-shell-design.md (measured contrast in section 2).
+    Raffica.Color.<Group>.<Name> is the Color, Raffica.Brush.<Group>.<Name> the SolidColorBrush (same value);
+    the appendix token surface.page is Surface.Page, text.onInk is Text.OnInk. Avalonia reads 8-digit colours as
+    #AARRGGBB, the spec writes CSS alpha: scrim light rgba(26,29,33,0.32) is #521A1D21. The dark scrim #80000000 is a
+    decision of milestone 1.1 (appendix B leaves it open). text.selection is dropped (appendix B): selections use
+    Selection.Tint. focus.ring is not a token here: ShellTheme sets Raffica.Brush.Focus.Ring from the active ink.
+    TokenValuesTests check every value against the spec, ContrastTests every pairing. Reference the brushes with
+    DynamicResource so they follow the theme variant. The Windows high-contrast set has the same keys and lives in
+    Tokens.HighContrast.axaml; a new token goes into all three (TokenParityTests).
+  -->
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="Raffica.Color.Surface.Page">#FFFFFF</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Surface.Page" Color="#FFFFFF" />
+      <Color x:Key="Raffica.Color.Surface.Band">#F5F6F8</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Surface.Band" Color="#F5F6F8" />
+      <Color x:Key="Raffica.Color.Surface.Desk">#E9EBEE</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Surface.Desk" Color="#E9EBEE" />
+      <Color x:Key="Raffica.Color.State.Hover">#E6E8EC</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.State.Hover" Color="#E6E8EC" />
+      <Color x:Key="Raffica.Color.Selection.Tint">#DCDFE4</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Selection.Tint" Color="#DCDFE4" />
+      <Color x:Key="Raffica.Color.Text.Primary">#1A1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.Primary" Color="#1A1D21" />
+      <Color x:Key="Raffica.Color.Text.Secondary">#4A5059</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.Secondary" Color="#4A5059" />
+      <Color x:Key="Raffica.Color.Text.Disabled">#9AA0A8</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.Disabled" Color="#9AA0A8" />
+      <Color x:Key="Raffica.Color.Text.OnInk">#FFFFFF</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.OnInk" Color="#FFFFFF" />
+      <Color x:Key="Raffica.Color.Border.Control">#7A818B</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Border.Control" Color="#7A818B" />
+      <Color x:Key="Raffica.Color.Rule">#D3D7DD</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Rule" Color="#D3D7DD" />
+      <Color x:Key="Raffica.Color.Grid.Line">#DADDE2</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Grid.Line" Color="#DADDE2" />
+      <Color x:Key="Raffica.Color.Button.Primary.Fill">#1A1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Button.Primary.Fill" Color="#1A1D21" />
+      <Color x:Key="Raffica.Color.Button.Primary.Hover">#3A3F46</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Button.Primary.Hover" Color="#3A3F46" />
+      <Color x:Key="Raffica.Color.Scrim">#521A1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Scrim" Color="#521A1D21" />
+      <Color x:Key="Raffica.Color.Ink.Write">#1D4F91</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Write" Color="#1D4F91" />
+      <Color x:Key="Raffica.Color.Ink.Sheets">#1E6B47</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Sheets" Color="#1E6B47" />
+      <Color x:Key="Raffica.Color.Ink.Slides">#A3420F</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Slides" Color="#A3420F" />
+      <Color x:Key="Raffica.Color.Ink.Pdf">#5E1A3E</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Pdf" Color="#5E1A3E" />
+      <Color x:Key="Raffica.Color.Review.Violet">#7B2FBE</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Review.Violet" Color="#7B2FBE" />
+      <Color x:Key="Raffica.Color.Review.Tint">#F1EAF9</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Review.Tint" Color="#F1EAF9" />
+      <Color x:Key="Raffica.Color.Danger">#B21F2D</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Danger" Color="#B21F2D" />
+      <Color x:Key="Raffica.Color.Warning.Icon">#8A6A00</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Warning.Icon" Color="#8A6A00" />
+      <Color x:Key="Raffica.Color.Selection.Field">#5F6670</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Selection.Field" Color="#5F6670" />
+      <Color x:Key="Raffica.Color.Paper.Caret">#000000</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.Caret" Color="#000000" />
+      <Color x:Key="Raffica.Color.Paper.Edge">#1A1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.Edge" Color="#1A1D21" />
+      <Color x:Key="Raffica.Color.Paper.Selection">#5F6670</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.Selection" Color="#5F6670" />
+      <Color x:Key="Raffica.Color.Paper.OnSelection">#FFFFFF</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.OnSelection" Color="#FFFFFF" />
+      <!-- Document page and slide on the desk (appendix A, page.shadow). Alpha .14 is 24, .10 is 1A. -->
+      <BoxShadows x:Key="Raffica.Shadow.Page">0 1 2 0 #241A1D21, 0 8 24 0 #1A1A1D21</BoxShadows>
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="Raffica.Color.Surface.Page">#1B1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Surface.Page" Color="#1B1D21" />
+      <Color x:Key="Raffica.Color.Surface.Band">#222429</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Surface.Band" Color="#222429" />
+      <Color x:Key="Raffica.Color.Surface.Desk">#131417</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Surface.Desk" Color="#131417" />
+      <Color x:Key="Raffica.Color.State.Hover">#2C2F35</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.State.Hover" Color="#2C2F35" />
+      <Color x:Key="Raffica.Color.Selection.Tint">#3A3E45</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Selection.Tint" Color="#3A3E45" />
+      <Color x:Key="Raffica.Color.Text.Primary">#E8EAED</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.Primary" Color="#E8EAED" />
+      <Color x:Key="Raffica.Color.Text.Secondary">#A9AFB8</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.Secondary" Color="#A9AFB8" />
+      <Color x:Key="Raffica.Color.Text.Disabled">#5E646D</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.Disabled" Color="#5E646D" />
+      <Color x:Key="Raffica.Color.Text.OnInk">#1B1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Text.OnInk" Color="#1B1D21" />
+      <Color x:Key="Raffica.Color.Border.Control">#7D848E</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Border.Control" Color="#7D848E" />
+      <Color x:Key="Raffica.Color.Rule">#373B42</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Rule" Color="#373B42" />
+      <Color x:Key="Raffica.Color.Grid.Line">#34373D</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Grid.Line" Color="#34373D" />
+      <Color x:Key="Raffica.Color.Button.Primary.Fill">#E8EAED</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Button.Primary.Fill" Color="#E8EAED" />
+      <Color x:Key="Raffica.Color.Button.Primary.Hover">#C9CED6</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Button.Primary.Hover" Color="#C9CED6" />
+      <Color x:Key="Raffica.Color.Scrim">#80000000</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Scrim" Color="#80000000" />
+      <Color x:Key="Raffica.Color.Ink.Write">#8DB4EE</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Write" Color="#8DB4EE" />
+      <Color x:Key="Raffica.Color.Ink.Sheets">#7CCBA2</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Sheets" Color="#7CCBA2" />
+      <Color x:Key="Raffica.Color.Ink.Slides">#F0A374</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Slides" Color="#F0A374" />
+      <Color x:Key="Raffica.Color.Ink.Pdf">#E5A4C5</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Ink.Pdf" Color="#E5A4C5" />
+      <Color x:Key="Raffica.Color.Review.Violet">#B48CF0</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Review.Violet" Color="#B48CF0" />
+      <Color x:Key="Raffica.Color.Review.Tint">#2E2840</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Review.Tint" Color="#2E2840" />
+      <Color x:Key="Raffica.Color.Danger">#FF6F66</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Danger" Color="#FF6F66" />
+      <Color x:Key="Raffica.Color.Warning.Icon">#D9A93A</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Warning.Icon" Color="#D9A93A" />
+      <Color x:Key="Raffica.Color.Selection.Field">#8F96A1</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Selection.Field" Color="#8F96A1" />
+      <Color x:Key="Raffica.Color.Paper.Caret">#000000</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.Caret" Color="#000000" />
+      <Color x:Key="Raffica.Color.Paper.Edge">#1A1D21</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.Edge" Color="#1A1D21" />
+      <Color x:Key="Raffica.Color.Paper.Selection">#5F6670</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.Selection" Color="#5F6670" />
+      <Color x:Key="Raffica.Color.Paper.OnSelection">#FFFFFF</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Paper.OnSelection" Color="#FFFFFF" />
+      <!-- No shadow in dark: the page has a 1 px Rule edge instead. -->
+      <BoxShadows x:Key="Raffica.Shadow.Page">none</BoxShadows>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

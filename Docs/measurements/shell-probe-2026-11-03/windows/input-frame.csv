@@ -1,0 +1,4 @@
+machine,mode,case,run,value,unit
+windows-main-pc,frame,input,median,4.26,ms
+windows-main-pc,frame,input,p99,9.69,ms
+windows-main-pc,frame,input,max,13.44,ms

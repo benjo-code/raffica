@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+linux-probook,empty,cold,1,124.55,ms
+linux-probook,empty,cold,2,123.72,ms
+linux-probook,empty,cold,3,161.64,ms
+linux-probook,empty,cold,4,137.51,ms
+linux-probook,empty,cold,5,130.2,ms
+linux-probook,empty,cold,6,133.6,ms
+linux-probook,empty,cold,7,171.98,ms
+linux-probook,empty,cold,8,119.85,ms
+linux-probook,empty,cold,9,155.51,ms
+linux-probook,empty,cold,10,133.74,ms

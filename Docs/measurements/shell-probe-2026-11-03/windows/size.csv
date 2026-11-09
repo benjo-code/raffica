@@ -1,0 +1,5 @@
+machine,mode,case,run,value,unit
+windows-main-pc,frame,size,total,39951400,bytes
+windows-main-pc,frame,size,zip,16480917,bytes
+windows-main-pc,frame,size,fonts,2947332,bytes
+windows-main-pc,frame,size,native,18839080,bytes

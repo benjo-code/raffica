@@ -1,0 +1,4 @@
+<Project>
+  <!-- bench/shell-probe/Directory.Build.props isolates the measurement script; the probe project takes the root settings again. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props" />
+</Project>

@@ -1,0 +1,479 @@
+using System.Runtime.CompilerServices;
+using Avalonia.Controls;
+using Avalonia.Threading;
+using Raffica.Core.Annotations;
+using Raffica.Core.Pdf;
+using Raffica.Core.Saving;
+using Raffica.Pdf.Dialogs;
+
+namespace Raffica.Pdf.Documents;
+
+/// <summary>Writes the changes of a tab; the seam over <see cref="AnnotationEditor.SaveAsync"/> that lets tests inject failures.</summary>
+internal delegate Task<AnnotationSaveResult> SaveRunner(PdfTab tab, string target, bool overwriteChangedOriginal, IProgress<double> progress, CancellationToken cancellationToken);
+
+/// <summary>
+/// Save and Save as. Both end the open drafts first (<see cref="Annotating.AnnotationSession.FlushAsync"/>), ask about the empty required fields of a form (never blocking), ask about a signed file
+/// (<see cref="SignaturePolicy"/>), run the incremental save of Core with a job card (progress, Cancel) and turn every failure into a card:
+/// nothing escapes to the caller. The dirty state of the tab after a save follows the annotation session, so a draft that could not be made
+/// keeps the tab dirty. One save at a time; a save and a print job refuse each other.
+/// </summary>
+internal sealed class SaveController
+{
+    private readonly DialogQueue _dialogs;
+    private readonly Func<PdfTab, Task<string?>> _pickSavePath;
+    private readonly SaveRunner _runner;
+    private readonly Action<Control?>? _setJobSlot;
+    private readonly Func<bool>? _printRunning;
+    private readonly Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? _askRequired;
+    private readonly TimeProvider? _time;
+    private readonly Workspace? _workspace;
+    private readonly ConditionalWeakTable<PdfTab, NotedDocument> _noted = [];
+    private readonly ConditionalWeakTable<PdfTab, object> _textNoted = [];
+    private CancellationTokenSource? _running;
+
+    /// <param name="dialogs">Where the cards appear.</param>
+    /// <param name="pickSavePath">Asks for the target of Save as (the system dialog confirms an overwrite); null: the user canceled.</param>
+    /// <param name="engine">The engine that opened the files (it opens the written file for the check); asked when a save runs.</param>
+    /// <param name="setJobSlot">Puts the job card into the frame (null: no card is shown).</param>
+    /// <param name="printRunning">Whether a print job runs (a save is then refused).</param>
+    /// <param name="time">The clock of the arming delay of the cards (tests move it).</param>
+    /// <param name="askRequired">Asks about the empty required fields of a form that is saved (the names are passed); null: never asked.</param>
+    /// <param name="runner">Replaces the save of Core (tests); null: <see cref="AnnotationEditor.SaveAsync"/> of the tab.</param>
+    /// <param name="workspace">The open tabs: a picked target that another tab has open is refused (<see cref="OpenTargetGuard"/>); null: never checked.</param>
+    public SaveController(
+        DialogQueue dialogs,
+        Func<PdfTab, Task<string?>> pickSavePath,
+        Func<PdfEngine> engine,
+        Action<Control?>? setJobSlot = null,
+        Func<bool>? printRunning = null,
+        TimeProvider? time = null,
+        SaveRunner? runner = null,
+        Func<PdfTab, IReadOnlyList<string>, Task<RequiredChoice>>? askRequired = null,
+        Workspace? workspace = null)
+    {
+        ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(pickSavePath);
+        ArgumentNullException.ThrowIfNull(engine);
+        _dialogs = dialogs;
+        _pickSavePath = pickSavePath;
+        _setJobSlot = setJobSlot;
+        _printRunning = printRunning;
+        _time = time;
+        _askRequired = askRequired;
+        _workspace = workspace;
+        _runner = runner ?? ((tab, target, overwrite, progress, token) => tab.Annotations.Editor.SaveAsync(engine(), target, overwrite, progress, token));
+    }
+
+    /// <summary>Raised on the UI thread when <see cref="IsSaving"/> changes or a save changed a tab (its path, its dirty state).</summary>
+    public event Action? Changed;
+
+    /// <summary>Raised on the UI thread after Save as gave a tab another path (the recent list follows).</summary>
+    public event Action<PdfTab>? PathChanged;
+
+    /// <summary>
+    /// Raised on the UI thread after a save wrote an edited text of a tab (one that is still done in the history, not one undone since) while the note about
+    /// the old text was not shown for the tab yet: the old text stays in earlier versions of the file, and the window says so (the hint bar of the mode and the
+    /// status bar) and then calls <see cref="MarkTextNoted"/>. A note that could not be shown (the cell of the status bar is taken) is offered again by the next such save.
+    /// </summary>
+    public event Action<PdfTab>? TextEditsSaved;
+
+    /// <summary>The window showed the note about the old text for a tab: it is not offered again (once per tab).</summary>
+    public void MarkTextNoted(PdfTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!_textNoted.TryGetValue(tab, out _))
+        {
+            _textNoted.Add(tab, new object());
+        }
+    }
+
+    /// <summary>Gets whether a save is running.</summary>
+    public bool IsSaving { get; private set; }
+
+    /// <summary>Cancels the running save, if any (the window is closing).</summary>
+    public void Cancel()
+    {
+        try
+        {
+            _running?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The save ended meanwhile.
+        }
+    }
+
+    /// <summary>
+    /// Hands Save and Save as of a tab with an open page plan that changes something, or with marked redactions, to the Apply flow (the second argument says it
+    /// is Save as): a page plan or redactions are written by the rewrite of Apply, never by the incremental save. A tab without such a plan saves as before. Set by the window (the flow
+    /// itself uses <see cref="SaveMarksAsync"/>, so this class does not know it).
+    /// </summary>
+    public Func<PdfTab, bool, Task<bool>>? ApplyPlan { get; set; }
+
+    /// <summary>Saves the tab into its own file. Returns whether the changes are saved (a clean tab counts as saved; a tab that is dirty only because of an unresolved draft is not).</summary>
+    public Task<bool> SaveAsync(PdfTab tab) => HasPlan(tab) ? ApplyPlan!(tab, false) : RunAsync(tab, askForTarget: false);
+
+    /// <summary>Saves the tab under a path the user picks; the tab then belongs to that file. Returns whether the changes are saved.</summary>
+    public Task<bool> SaveAsAsync(PdfTab tab) => HasPlan(tab) ? ApplyPlan!(tab, true) : RunAsync(tab, askForTarget: true);
+
+    /// <summary>
+    /// Saves the marks and form values of the tab into its own file (the normal incremental save) although a page plan is open: the first step of Apply.
+    /// Returns whether they are saved; a tab without changes counts as not saved here, the caller asks <c>Editor.IsDirty</c> first.
+    /// </summary>
+    public Task<bool> SaveMarksAsync(PdfTab tab) => RunAsync(tab, askForTarget: false);
+
+    // A page plan that changes something, or redactions that are marked: both are written by their own apply, never by the incremental save.
+    private bool HasPlan(PdfTab tab) =>
+        ApplyPlan is not null
+        && ((tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity)
+            || (tab.RedactIfCreated is { IsActive: true } redact && !redact.Plan.IsEmpty));
+
+    private async Task<bool> RunAsync(PdfTab tab, bool askForTarget)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (IsSaving)
+        {
+            // Told, not silent: the close question asks Save while a save of the tab runs.
+            _ = Tell(PdfStrings.SaveBusy);
+            return false;
+        }
+
+        if (_printRunning?.Invoke() == true)
+        {
+            _ = Tell(PdfStrings.PrintBusy);
+            return false;
+        }
+
+        try
+        {
+            SetSaving(true);
+            return await SaveCoreAsync(tab, askForTarget);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Whatever is not foreseen ends as a card, never as an exception in a command handler.
+            await ShowFailureAsync(tab, SaveFailureReason.WriteFailed);
+            return false;
+        }
+        finally
+        {
+            SetSaving(false);
+        }
+    }
+
+    private async Task<bool> SaveCoreAsync(PdfTab tab, bool askForTarget)
+    {
+        // Pending nudges and valid drafts are made now; the dirty state of the tab is current afterwards.
+        await tab.Annotations.FlushAsync();
+        if (tab.Session.Document is not { } document)
+        {
+            return false;
+        }
+
+        // Nothing to write when the editor holds no change: a clean tab counts as saved, and a tab that is dirty only because of an unresolved
+        // draft (a text box text that was refused, a comment that could not be applied) keeps its draft and stays dirty. There is no write
+        // and no question about a signed file for a document that would be written unchanged. Save as still writes a copy.
+        if (!askForTarget && !tab.Annotations.Editor.IsDirty)
+        {
+            return !tab.IsDirty;
+        }
+
+        // Empty required fields come first: that question is about the form, the one about the signature is about the file. It never blocks.
+        if (await AskRequiredAsync(tab) == RequiredChoice.GoToFirst)
+        {
+            return false;
+        }
+
+        var advice = SignaturePolicy.Evaluate(await document.GetSignatureInfoAsync());
+        var target = askForTarget ? null : tab.Path;
+        var decided = false;
+        while (true)
+        {
+            if (askForTarget)
+            {
+                target = await _pickSavePath(tab);
+                if (target is null)
+                {
+                    return false;
+                }
+
+                target = Path.GetFullPath(target);
+                if (!await TargetFreeAsync(tab, target))
+                {
+                    return false;
+                }
+            }
+
+            if (target is null)
+            {
+                return false;
+            }
+
+            if (decided)
+            {
+                break;
+            }
+
+            var choice = await AskSignedAsync(tab, document, advice);
+            if (choice == SignedChoice.Cancel)
+            {
+                return false;
+            }
+
+            if (choice != SignedChoice.SaveAs)
+            {
+                break;
+            }
+
+            // The user chose a copy: pick the path, then save without asking about the signature again.
+            askForTarget = true;
+            decided = true;
+        }
+
+        // The signed-file card (or the picker behind it) can take long: a tab may have opened the target meanwhile. Asked again, immediately before the write.
+        if (askForTarget && !await TargetFreeAsync(tab, target))
+        {
+            return false;
+        }
+
+        return await WriteAsync(tab, target, askForTarget);
+    }
+
+    private async Task<RequiredChoice> AskRequiredAsync(PdfTab tab)
+    {
+        // Only a save that writes form values is asked, whatever else is saved with them: a document without a form, or a save that holds
+        // no form change, never is.
+        if (_askRequired is null || !tab.Annotations.Editor.HasFormChanges || !tab.Forms.HasForm)
+        {
+            return RequiredChoice.SaveAnyway;
+        }
+
+        await tab.Forms.RefreshRequiredAsync();
+        var names = tab.Forms.EmptyRequired;
+        return names.Count == 0 ? RequiredChoice.SaveAnyway : await _askRequired(tab, names);
+    }
+
+    private async Task<SignedChoice> AskSignedAsync(PdfTab tab, PdfDocument document, SignatureAdvice advice)
+    {
+        if (advice == SignatureAdvice.None)
+        {
+            return SignedChoice.Continue;
+        }
+
+        if (advice == SignatureAdvice.AppendedOnly && _noted.TryGetValue(tab, out var noted) && ReferenceEquals(noted.Document, document))
+        {
+            return SignedChoice.Continue;
+        }
+
+        var name = tab.Title;
+        // "Only form fields were filled" is told only when that is all the editor holds; a save that mixes in a mark gets the generic warning.
+        var onlyForm = tab.Annotations.Editor.HasOnlyFormChanges;
+        var choice = await _dialogs.ShowAsync<SignedChoice>(done => SignedFileCard.Create(name, advice, onlyForm, done, _time));
+        if (advice == SignatureAdvice.AppendedOnly && choice == SignedChoice.Continue)
+        {
+            _noted.AddOrUpdate(tab, new NotedDocument(document));
+        }
+
+        return choice;
+    }
+
+    private async Task<bool> WriteAsync(PdfTab tab, string target, bool saveAs)
+    {
+        var overwrite = false;
+        var before = tab.Session.Document;
+
+        // The history is empty after the write, so whether it held a text edit is read now.
+        var wroteText = tab.Annotations.Editor.HasLiveTextEdits;
+        string? leftover;
+        while (true)
+        {
+            try
+            {
+                leftover = await RunJobAsync(tab, target, overwrite);
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                // Canceled by the user (or the tab went away): no card; the tab stays dirty with its history.
+                return false;
+            }
+            catch (SaveFailureException ex) when (ex.Reason == SaveFailureReason.OriginalChanged && !overwrite)
+            {
+                var name = Path.GetFileName(target);
+                var choice = await _dialogs.ShowAsync<ChangedChoice>(done => ChangedOriginalCard.Create(name, done, _time));
+                if (choice == ChangedChoice.Overwrite)
+                {
+                    overwrite = true;
+                }
+                else if (choice == ChangedChoice.SaveAs)
+                {
+                    if (await _pickSavePath(tab) is not { } other)
+                    {
+                        return false;
+                    }
+
+                    target = Path.GetFullPath(other);
+                    if (!await TargetFreeAsync(tab, target))
+                    {
+                        return false;
+                    }
+
+                    saveAs = true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (SaveFailureException ex) when (ex.Reason == SaveFailureReason.Canceled)
+            {
+                // Canceled is no failure: no card, the tab stays dirty with its history.
+                return false;
+            }
+            catch (SaveFailureException ex)
+            {
+                await ShowFailureAsync(tab, ex.Reason);
+                return false;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                await ShowFailureAsync(tab, SaveFailureReason.WriteFailed);
+                return false;
+            }
+        }
+
+        // Core adopted the written file (a new document object): the note shown for the old one counts for the new one.
+        if (_noted.TryGetValue(tab, out var noted) && ReferenceEquals(noted.Document, before) && tab.Session.Document is { } adopted)
+        {
+            _noted.AddOrUpdate(tab, new NotedDocument(adopted));
+        }
+
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+        // The file is written: whatever goes wrong from here on (a handler of the window) is no save failure and no card.
+        if (saveAs && !string.Equals(Path.GetFullPath(target), tab.Path, comparison))
+        {
+            Guarded(() => tab.Rename(target));
+            Guarded(() => PathChanged?.Invoke(tab));
+        }
+
+        // The tab is clean unless the session still holds something unsaved (a text box draft that was refused stays dirty).
+        Guarded(tab.Annotations.Refresh);
+
+        // The first save of an edited text tells where the old text stays; once per tab.
+        if (wroteText && !_textNoted.TryGetValue(tab, out _))
+        {
+            Guarded(() => TextEditsSaved?.Invoke(tab));
+        }
+
+        // An open page plan keeps the tab dirty: the session of the marks cleared the state it had set, the plan has not been applied.
+        Guarded(() =>
+        {
+            if (tab.OrganizeIfCreated is { IsActive: true } session && !session.Plan.IsIdentity)
+            {
+                tab.MarkDirty();
+            }
+        });
+        Guarded(() => Changed?.Invoke());
+
+        // The replace had to move the old file aside and could not delete it: the user is told where it is.
+        if (leftover is not null)
+        {
+            try
+            {
+                await Tell(PdfStrings.Fill(PdfStrings.SaveLeftoverFormat, leftover));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // The file is saved; a card that cannot be shown is no save failure.
+            }
+        }
+
+        return true;
+    }
+
+    private static void Guarded(Action step)
+    {
+        try
+        {
+            step();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The save itself succeeded; a step after it that fails must not turn into the card "the original is unchanged".
+        }
+    }
+
+    private async Task<string?> RunJobAsync(PdfTab tab, string target, bool overwrite)
+    {
+        using var cancellation = new CancellationTokenSource();
+        _running = cancellation;
+        var card = new SaveJobCard(tab.Title, cancellation.Cancel);
+        _setJobSlot?.Invoke(card);
+
+        // A tab that closes under the save takes its session with it: the save is canceled first.
+        void OnTabDisposing()
+        {
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The save ended meanwhile.
+            }
+        }
+
+        tab.Disposing += OnTabDisposing;
+        try
+        {
+            return (await _runner(tab, target, overwrite, new UiProgress(card), cancellation.Token)).Saved.LeftoverPath;
+        }
+        finally
+        {
+            tab.Disposing -= OnTabDisposing;
+            _running = null;
+            _setJobSlot?.Invoke(null);
+        }
+    }
+
+    private Task<bool> ShowFailureAsync(PdfTab tab, SaveFailureReason reason)
+    {
+        var name = tab.Title;
+
+        // The original is unchanged, the tab is still dirty with its history; the card is only the news.
+        return _dialogs.ShowAsync<bool>(done => SaveFailedCard.Create(name, reason, () => done(true)));
+    }
+
+    // A picked target that another tab has open is never written: the replace would succeed under that tab.
+    private async Task<bool> TargetFreeAsync(PdfTab tab, string target)
+    {
+        if (_workspace is null || await OpenTargetGuard.FindOtherTabAsync(_workspace, tab, target, CancellationToken.None) is null)
+        {
+            return true;
+        }
+
+        await Tell(OpenTargetGuard.NoteFor(target));
+        return false;
+    }
+
+    private Task<bool> Tell(string message) =>
+        _dialogs.ShowAsync<bool>(done => NoticeCard.Create(PdfStrings.CmdSave, message, () => done(true)));
+
+    private void SetSaving(bool saving)
+    {
+        IsSaving = saving;
+        Changed?.Invoke();
+    }
+
+    private sealed record NotedDocument(PdfDocument Document);
+
+    /// <summary>Takes the progress from the PDFium thread and hands it to the card on the UI thread.</summary>
+    private sealed class UiProgress(SaveJobCard card) : IProgress<double>
+    {
+        // Reports arrive on the thread of the work: post to the dispatcher this was made on, not to the static one.
+        private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+
+        public void Report(double value) => _dispatcher.Post(() => card.Report(value));
+    }
+}

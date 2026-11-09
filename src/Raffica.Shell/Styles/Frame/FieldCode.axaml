@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:frame="clr-namespace:Raffica.Shell.Frame">
+  <!--
+    A field-code badge of the Alt mode (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): 18 px high,
+    at least 18 px wide, 3 px radius, filled with the ink of the app, the code in on-ink text in Barlow Semi Condensed 600 12 px.
+    Both brushes are semantic tokens, so the badge follows the app ink and the theme.
+  -->
+  <ControlTheme x:Key="{x:Type frame:FieldCodeBadge}" TargetType="frame:FieldCodeBadge">
+    <Setter Property="Height" Value="18" />
+    <Setter Property="MinWidth" Value="18" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Fill" Background="{DynamicResource Raffica.Brush.Ink}"
+                CornerRadius="{DynamicResource Raffica.Radius.Control}" Padding="4,0">
+          <TextBlock x:Name="PART_Text" Text="{TemplateBinding Text}" Foreground="{DynamicResource Raffica.Brush.Text.OnInk}"
+                     FontFamily="{DynamicResource Raffica.Font.FieldCode}" FontSize="12" FontWeight="600"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

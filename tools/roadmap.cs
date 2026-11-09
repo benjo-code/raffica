@@ -1,10 +1,9 @@
 #:package JsonSchema.Net@9.4.0
 #:property PublishAot=false
 
-// Roadmap tool of benjo-code/project-template.
+// Roadmap tool of benjo-code/project-template, adapted for Raffica: English output, no selftest (the fixtures are left out).
 //   dotnet run tools/roadmap.cs -- generate [Docs/roadmap.json]   writes Docs/ROADMAP.md
 //   dotnet run tools/roadmap.cs -- check    [Docs/roadmap.json]   validates and compares, writes nothing
-//   dotnet run tools/roadmap.cs -- selftest [tools/roadmap-fixtures]
 // Run from the repository root. The schema is Docs/roadmap.schema.json next to the source file.
 
 using System.Globalization;
@@ -17,24 +16,20 @@ return Cli.Run(args);
 static class Cli
 {
     private const string DefaultSource = "Docs/roadmap.json";
-    private const string DefaultFixtures = "tools/roadmap-fixtures";
     private const string SchemaFile = "roadmap.schema.json";
     private const string MarkdownFile = "ROADMAP.md";
 
     public static int Run(string[] args)
     {
         var path = args.Skip(1).FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
-        var update = args.Contains("--update");
         switch (args.Length > 0 ? args[0] : string.Empty)
         {
             case "generate":
                 return Generate(path ?? DefaultSource);
             case "check":
                 return Check(path ?? DefaultSource);
-            case "selftest":
-                return SelfTest(path ?? DefaultFixtures, update);
             default:
-                Console.Error.WriteLine("Aufruf: dotnet run tools/roadmap.cs -- <generate|check|selftest [--update]> [Pfad]");
+                Console.Error.WriteLine("Usage: dotnet run tools/roadmap.cs -- <generate|check> [path]");
                 return 2;
         }
     }
@@ -54,7 +49,7 @@ static class Cli
         }
 
         File.WriteAllText(MarkdownPathFor(source), result.Markdown, new UTF8Encoding(false));
-        Console.WriteLine($"{MarkdownPathFor(source)} erzeugt.");
+        Console.WriteLine($"{MarkdownPathFor(source)} written.");
         return 0;
     }
 
@@ -69,92 +64,23 @@ static class Cli
         var target = MarkdownPathFor(source);
         if (!File.Exists(target) || File.ReadAllText(target).ReplaceLineEndings("\n") != result.Markdown)
         {
-            Console.Error.WriteLine($"{target} ist nicht aktuell. Bitte `dotnet run tools/roadmap.cs -- generate` ausführen.");
+            Console.Error.WriteLine($"{target} is not up to date. Please run `dotnet run tools/roadmap.cs -- generate`.");
             return 1;
         }
 
-        Console.WriteLine("Roadmap ist gültig und ROADMAP.md ist aktuell.");
+        Console.WriteLine("Roadmap is valid and ROADMAP.md is up to date.");
         return 0;
     }
 
     private static int Fail(string source, IReadOnlyList<string> errors)
     {
-        Console.Error.WriteLine($"{source} ist ungültig:");
+        Console.Error.WriteLine($"{source} is invalid:");
         foreach (var error in errors)
         {
             Console.Error.WriteLine($"  {error}");
         }
 
         return 1;
-    }
-
-    private static int SelfTest(string fixtures, bool update)
-    {
-        var schema = File.ReadAllText(Path.Combine("Docs", SchemaFile));
-        var failures = new List<string>();
-        var count = 0;
-
-        foreach (var file in Directory.GetFiles(Path.Combine(fixtures, "valid"), "*.json").Order(StringComparer.Ordinal))
-        {
-            count++;
-            var name = Path.GetFileName(file);
-            var json = File.ReadAllText(file);
-            var first = Roadmaps.Build(json, schema);
-            if (first.Errors.Count > 0)
-            {
-                failures.Add($"valid/{name}: unerwartet ungültig: {string.Join(" | ", first.Errors)}");
-                continue;
-            }
-
-            if (Roadmaps.Build(json, schema).Markdown != first.Markdown)
-            {
-                failures.Add($"valid/{name}: zwei Läufe liefern verschiedene Ausgaben");
-            }
-
-            var golden = Path.ChangeExtension(file, ".expected.md");
-            if (update)
-            {
-                File.WriteAllText(golden, first.Markdown, new UTF8Encoding(false));
-            }
-
-            if (!File.Exists(golden) || File.ReadAllText(golden) != first.Markdown)
-            {
-                failures.Add($"valid/{name}: weicht von {Path.GetFileName(golden)} ab");
-            }
-        }
-
-        foreach (var file in Directory.GetFiles(Path.Combine(fixtures, "invalid"), "*.json").Order(StringComparer.Ordinal))
-        {
-            count++;
-            var name = Path.GetFileName(file);
-            var result = Roadmaps.Build(File.ReadAllText(file), schema);
-            if (result.Errors.Count == 0)
-            {
-                failures.Add($"invalid/{name}: unerwartet gültig");
-                continue;
-            }
-
-            var all = string.Join('\n', result.Errors);
-            var expectedFile = Path.ChangeExtension(file, ".expected.txt");
-            // A line is a substring the message must contain; a line starting with "!" one it must not contain.
-            foreach (var line in File.ReadAllLines(expectedFile).Where(l => l.Length > 0))
-            {
-                var forbidden = line.StartsWith('!');
-                var part = forbidden ? line[1..] : line;
-                if (all.Contains(part, StringComparison.Ordinal) == forbidden)
-                {
-                    failures.Add($"invalid/{name}: Meldung {(forbidden ? "enthält" : "enthält nicht")} „{part}“:\n    {all.Replace("\n", "\n    ")}");
-                }
-            }
-        }
-
-        foreach (var failure in failures)
-        {
-            Console.Error.WriteLine(failure);
-        }
-
-        Console.WriteLine(failures.Count == 0 ? $"selftest: {count} Fixtures bestanden." : $"selftest: {failures.Count} Fehler.");
-        return failures.Count == 0 ? 0 : 1;
     }
 }
 
@@ -177,7 +103,7 @@ static class Roadmaps
         }
         catch (JsonException exception)
         {
-            return new BuildResult(string.Empty, [$"Kein gültiges JSON: {exception.Message}"]);
+            return new BuildResult(string.Empty, [$"Not valid JSON: {exception.Message}"]);
         }
 
         using (document)
@@ -190,7 +116,7 @@ static class Roadmaps
                 {
                     foreach (var error in detail.Errors!.Where(e => !Aggregates.Contains(e.Key)))
                     {
-                        var message = error.Key.Length == 0 ? "Feld nicht erlaubt" : error.Value;
+                        var message = error.Key.Length == 0 ? "Field not allowed" : error.Value;
                         errors.Add($"{Describe(detail.InstanceLocation.ToString())}: {message}");
                     }
                 }
@@ -209,7 +135,7 @@ static class Roadmaps
     {
         if (pointer.Length == 0)
         {
-            return "(Datei)";
+            return "(file)";
         }
 
         var text = new StringBuilder();
@@ -240,7 +166,7 @@ static class Roadmaps
             var subproject = roadmap.Subprojects[s];
             if (s > 0 && subproject.Number <= roadmap.Subprojects[s - 1].Number)
             {
-                errors.Add($"subprojects[{s}].number: Die Nummer {subproject.Number} muss größer sein als die des Teilprojekts davor");
+                errors.Add($"subprojects[{s}].number: The number {subproject.Number} must be greater than that of the subproject before it");
             }
 
             for (var m = 0; m < subproject.Milestones.Count; m++)
@@ -248,7 +174,7 @@ static class Roadmaps
                 var milestone = subproject.Milestones[m];
                 if (!ids.Add(milestone.Id))
                 {
-                    errors.Add($"subprojects[{s}].milestones[{m}].id: Die Id „{milestone.Id}“ kommt mehrfach vor");
+                    errors.Add($"subprojects[{s}].milestones[{m}].id: The id '{milestone.Id}' occurs more than once");
                 }
             }
         }
@@ -265,11 +191,11 @@ static class Roadmaps
                     var id = milestone.Prerequisites![p];
                     if (!ids.Contains(id))
                     {
-                        errors.Add($"{at}.prerequisites[{p}]: Einen Milestone „{id}“ gibt es nicht");
+                        errors.Add($"{at}.prerequisites[{p}]: There is no milestone '{id}'");
                     }
                     else if (id == milestone.Id)
                     {
-                        errors.Add($"{at}.prerequisites[{p}]: Ein Milestone kann nicht Voraussetzung von sich selbst sein");
+                        errors.Add($"{at}.prerequisites[{p}]: A milestone cannot be a prerequisite of itself");
                     }
                 }
             }
@@ -283,20 +209,20 @@ static class Roadmaps
             var at = $"releases[{r}]";
             if (!versions.Add(release.Version))
             {
-                errors.Add($"{at}.version: Die Version „{release.Version}“ kommt mehrfach vor");
+                errors.Add($"{at}.version: The version '{release.Version}' occurs more than once");
             }
 
             CheckDate(errors, $"{at}.date", release.Date);
             if (!ids.Contains(release.AfterMilestone))
             {
-                errors.Add($"{at}.afterMilestone: Einen Milestone „{release.AfterMilestone}“ gibt es nicht");
+                errors.Add($"{at}.afterMilestone: There is no milestone '{release.AfterMilestone}'");
             }
 
             for (var c = 0; c < (release.Covers?.Count ?? 0); c++)
             {
                 if (!ids.Contains(release.Covers![c]))
                 {
-                    errors.Add($"{at}.covers[{c}]: Einen Milestone „{release.Covers[c]}“ gibt es nicht");
+                    errors.Add($"{at}.covers[{c}]: There is no milestone '{release.Covers[c]}'");
                 }
             }
         }
@@ -314,7 +240,7 @@ static class Roadmaps
     {
         if (value is not null && !DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
         {
-            errors.Add($"{at}: „{value}“ ist kein gültiges Datum (JJJJ-MM-TT)");
+            errors.Add($"{at}: '{value}' is not a valid date (YYYY-MM-DD)");
         }
     }
 }
@@ -322,23 +248,23 @@ static class Roadmaps
 static class Markdown
 {
     private const string Intro = """
-        Gesamtfahrplan für das Projekt. Jeder Milestone ist so geschnitten, dass er in **einem** Plan und einer Umsetzungsrunde abgearbeitet werden kann.
+        Overall roadmap of the project. Every milestone is sized so that it can be handled in **one** plan and one round of implementation.
 
-        > **Diese Datei ist generiert.** Quelle ist [roadmap.json](roadmap.json) (Schema: [roadmap.schema.json](roadmap.schema.json)). Änderungen nur dort, danach `dotnet run tools/roadmap.cs -- generate`.
+        > **This file is generated.** The source is [roadmap.json](roadmap.json) (schema: [roadmap.schema.json](roadmap.schema.json)). Change it only there, then run `dotnet run tools/roadmap.cs -- generate`.
 
-        ## Arbeitsweise
+        ## How we work
 
-        1. **„Plane Milestone N“:** Claude Code liest diese Roadmap, die verlinkte Spec und den aktuellen Code-Stand und schreibt einen Plan nach `Docs/superpowers/plans/YYYY-MM-DD-milestone-NN-<thema>.md`. Der Plan wird beim Milestone verlinkt, Status → `🟡 geplant`.
-        2. **Umsetzung:** Plan abarbeiten. Jede erledigte Aufgabe wird sofort abgehakt (`done: true` in `Docs/roadmap.json`).
-        3. **Abschluss:** Alle Abnahmekriterien geprüft und abgehakt → Status `✅ fertig`, Datum eintragen.
-        4. Scope-Änderungen während der Umsetzung werden unter „Scope-Änderungen“ festgehalten, nicht stillschweigend im Code.
+        1. **"Plan milestone N":** Claude Code reads this roadmap, the linked spec and the current state of the code and writes a plan to `Docs/superpowers/plans/YYYY-MM-DD-milestone-NN-<topic>.md`. The plan is linked at the milestone, status → `🟡 planned`.
+        2. **Implementation:** Work through the plan. Every finished task is ticked right away (`done: true` in `Docs/roadmap.json`).
+        3. **Completion:** All acceptance criteria checked and ticked → status `✅ done`, enter the date.
+        4. Scope changes during implementation are recorded under "Scope changes", not silently in the code.
 
-        **Status-Legende:** `⬜ offen` · `🟡 geplant` · `🔵 in Arbeit` · `✅ fertig`
+        **Status legend:** `⬜ open` · `🟡 planned` · `🔵 in progress` · `✅ done`
 
-        **Regeln:**
-        - Milestones grundsätzlich in Reihenfolge abarbeiten. Maßgeblich sind die Voraussetzungen beim jeweiligen Milestone.
-        - Ein Milestone beginnt mit `Spec erstellen`, wenn für sein Teilprojekt noch keine Spec existiert. Die Spec entsteht per Brainstorming und wird unter `Docs/superpowers/specs/` abgelegt.
-        - Aufgaben späterer Teilprojekte sind absichtlich grob gehalten und werden beim Schreiben der jeweiligen Spec präzisiert.
+        **Rules:**
+        - Work through the milestones in order as a rule. The prerequisites of the respective milestone are what counts.
+        - A milestone starts with `Create spec` if its subproject has no spec yet. The spec is worked out by brainstorming and put under `Docs/superpowers/specs/`.
+        - Tasks of later subprojects are deliberately kept rough and are made precise when the respective spec is written.
         """;
 
     public static string Render(Roadmap roadmap)
@@ -348,14 +274,14 @@ static class Markdown
 
         void Line(string value = "") => doc.Line(value);
 
-        Line("<!-- Generiert aus Docs/roadmap.json mit `dotnet run tools/roadmap.cs -- generate` – nicht von Hand ändern. -->");
+        Line("<!-- Generated from Docs/roadmap.json with `dotnet run tools/roadmap.cs -- generate` – do not edit by hand. -->");
         Line($"# {roadmap.Title} – Roadmap");
         Line();
         Line(Intro.ReplaceLineEndings("\n")); // a raw string literal takes the line endings of this file
         Line();
-        Line("## Übersicht");
+        Line("## Overview");
         Line();
-        Line("| # | Milestone | Teilprojekt | Status | Plan | Fertig am |");
+        Line("| # | Milestone | Subproject | Status | Plan | Done on |");
         Line("|---|---|---|---|---|---|");
         foreach (var subproject in roadmap.Subprojects)
         {
@@ -371,12 +297,12 @@ static class Markdown
         }
 
         Line();
-        Line("## Scope-Änderungen");
+        Line("## Scope changes");
         Line();
         var changes = roadmap.ScopeChanges ?? [];
         if (changes.Count == 0)
         {
-            Line("_Noch keine._");
+            Line("_None yet._");
         }
 
         foreach (var change in changes)
@@ -397,7 +323,7 @@ static class Markdown
             Line();
             Line("---");
             Line();
-            Line($"# Teilprojekt {subproject.Number} – {subproject.Name}");
+            Line($"# Subproject {subproject.Number} – {subproject.Name}");
             if (subproject.Spec is { } spec)
             {
                 Line();
@@ -419,17 +345,17 @@ static class Markdown
         Line();
         Line("## Backlog");
         Line();
-        Line("Bewusst nicht eingeplant. Ideen, die `/ideen` hier ablegt, stehen als Liste; bei Bedarf wird daraus ein Milestone.");
+        Line("Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, one becomes a milestone.");
         Line();
         var backlog = roadmap.Backlog ?? [];
         if (backlog.Count == 0)
         {
-            Line("_Noch nichts._");
+            Line("_Nothing yet._");
         }
 
         foreach (var entry in backlog)
         {
-            Line($"- **{entry.Title}:** {Item(entry.Text)}{(entry.Idea is { } idea ? $" (Idee #{idea})" : string.Empty)}");
+            Line($"- **{entry.Title}:** {Item(entry.Text)}{(entry.Idea is { } idea ? $" (Idea #{idea})" : string.Empty)}");
         }
 
         // Text values may carry CR, CRLF, U+2028 or the like: the output has LF only, or `check` could never agree with `generate`.
@@ -447,21 +373,21 @@ static class Markdown
             fields.Add($"**Spec:** [{Path.GetFileName(milestone.Spec)}]({milestone.Spec})");
         }
 
-        fields.Add($"**Voraussetzungen:** {Prerequisites(milestone)}");
+        fields.Add($"**Prerequisites:** {Prerequisites(milestone)}");
         line.Line(string.Join(" · ", fields));
         line.Line();
-        line.Line($"Ziel: {milestone.Goal}");
+        line.Line($"Goal: {milestone.Goal}");
         if (milestone.Tasks.Count > 0)
         {
             line.Line();
-            line.Line("**Aufgaben**");
+            line.Line("**Tasks**");
             foreach (var task in milestone.Tasks)
             {
                 line.Line($"- [{(task.Done ? 'x' : ' ')}] {Item(task.Text)}");
             }
         }
 
-        RenderCriteria("**Abnahmekriterien**", milestone.Acceptance, line);
+        RenderCriteria("**Acceptance criteria**", milestone.Acceptance, line);
         RenderBlocks(milestone.Blocks, line);
     }
 
@@ -475,7 +401,7 @@ static class Markdown
         }
 
         line.Line();
-        line.Line($"## Release `v{release.Version}` – Abnahme");
+        line.Line($"## Release `v{release.Version}` – Acceptance");
         if (release.Intro is not null)
         {
             line.Line();
@@ -522,7 +448,7 @@ static class Markdown
         var note = milestone.PrerequisitesNote;
         return (ids.Count, note) switch
         {
-            (0, null) => "keine",
+            (0, null) => "none",
             (0, _) => note!,
             (_, null) => string.Join(", ", ids),
             _ => $"{string.Join(", ", ids)} ({note})",
@@ -533,15 +459,15 @@ static class Markdown
     {
         null or { Count: 0 } => string.Empty,
         { Count: 1 } => $" (M{covers[0]})",
-        _ => $" (M{covers[0]} bis M{covers[^1]})",
+        _ => $" (M{covers[0]} to M{covers[^1]})",
     };
 
     private static string StatusLabel(string status) => status switch
     {
-        "open" => "⬜ offen",
-        "planned" => "🟡 geplant",
-        "in-progress" => "🔵 in Arbeit",
-        _ => "✅ fertig",
+        "open" => "⬜ open",
+        "planned" => "🟡 planned",
+        "in-progress" => "🔵 in progress",
+        _ => "✅ done",
     };
 
     private static string Cell(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);

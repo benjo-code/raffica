@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Raffica Write – F6-Fokus, dunkel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&amp;family=Carlito:ital,wght@0,400;0,700;1,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#1B1D21;color:#E8EAED}
+.fa{--ink:#8DB4EE;--on:#1B1D21;--page:#1B1D21;--band:#222429;--desk:#131417;--hov:#2C2F35;--sel:#3A3E45;--tx:#E8EAED;--tx2:#A9AFB8;--ctl:#7D848E;--rule:#373B42;--dis:#5E646D;--rev:#B48CF0;--revt:#2E2840;--red:#FF6F66;color-scheme:dark;font-family:'Public Sans',system-ui,sans-serif;font-size:14px;line-height:1.3;color:var(--tx);background:var(--page);font-variant-numeric:tabular-nums;caret-color:var(--tx)}
+.fa ::selection{background:#3A3E45;color:var(--tx)}
+.fa *{box-sizing:border-box}
+.fa svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.fa svg.i20{width:20px;height:20px}
+.fa svg.i *{vector-effect:non-scaling-stroke}
+.lbl{font-family:inherit;font-weight:400;font-size:12px;letter-spacing:normal;text-transform:none;line-height:1.2;color:var(--tx2,#A9AFB8)}
+.btn{appearance:none;border:1px solid transparent;background:transparent;color:var(--tx);font:inherit;display:inline-flex;align-items:center;justify-content:center;gap:5px;height:26px;min-width:26px;padding:0 5px;border-radius:0;cursor:pointer;position:relative;white-space:nowrap}
+.btn:hover{background:var(--hov)}
+.btn:active,.btn.on{background:var(--ink);color:var(--on)}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn:disabled{color:var(--dis);background:transparent;cursor:default}
+.btn.tall{flex-direction:column;height:54px;min-width:48px;gap:4px;font-size:12px}
+.btn.box{border-color:var(--ctl);background:var(--page)}
+.dd{appearance:none;display:inline-flex;align-items:center;justify-content:space-between;gap:6px;height:26px;padding:0 4px 0 7px;border:1px solid var(--ctl);background:var(--page);color:var(--tx);font:inherit;border-radius:0;cursor:pointer;position:relative;white-space:nowrap}
+.dd:hover{background:var(--hov)}
+.dd:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.kz{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border:1px solid var(--rule);font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;font-size:12px;letter-spacing:.02em;line-height:1;color:var(--tx2);background:transparent;white-space:nowrap}
+.kz.on{background:var(--ink);color:var(--on);border-color:var(--ink)}
+.cc{display:none}
+.cc.on{display:inline-flex;position:absolute;right:-4px;bottom:-6px;z-index:3}
+.gl{display:flex;align-items:center;gap:6px;height:14px}
+.dt{appearance:none;height:28px;max-width:236px;min-width:0;display:inline-flex;align-items:center;gap:6px;padding:0 2px 0 10px;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--tx2);font:inherit;cursor:pointer;flex:0 1 auto}
+.dt:hover{background:var(--hov)}
+.dt.cur{background:var(--band);border-color:var(--rule);color:var(--tx);font-weight:500;box-shadow:inset 0 3px 0 var(--ink)}
+.dt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dtx{appearance:none;width:24px;height:24px;flex:none;border:0;background:transparent;color:var(--tx2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.dtx:hover{background:var(--hov);color:var(--tx)}
+.dtb{appearance:none;border:0;padding:0;height:26px;background:transparent;color:inherit;font:inherit;min-width:0;display:flex;align-items:center;cursor:pointer}
+.dtx:focus-visible,.dtb:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.tab{appearance:none;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--tx);font:inherit;font-weight:500;height:32px;padding:0 12px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;position:relative}
+.tab:hover{background:var(--hov)}
+.tab.cur{background:var(--band);border-color:var(--ink);color:var(--ink);font-weight:600;margin-bottom:-1px;height:33px}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+.band{height:82px;column-gap:8px;padding-left:2px;flex:none;display:flex;flex-wrap:wrap;overflow:hidden;background:var(--band);border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)}
+.grp{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:6px 8px 4px;flex:none}
+.grp-row{display:flex;align-items:center;gap:2px}
+.stk{display:flex;flex-direction:column;gap:2px}
+.stk.tight{gap:2px;align-items:flex-start}
+.xs{display:none}
+.cmp .band{height:40px}
+.cmp .grp{flex-direction:row;align-items:center;gap:2px;padding:6px 8px}
+.cmp .grp > .gl,.cmp .btn.tall,.cmp .sty,.cmp .stymore{display:none}
+.cmp .stk{flex-direction:row;align-items:center;gap:2px}
+.cmp .xs{display:inline-flex}
+.cmp .btn.lb{font-size:0;gap:0}
+.ovf{display:none}
+.cmp .ovf{display:inline-flex;width:24px;min-width:24px;padding:0;color:var(--tx2)}
+.sty{appearance:none;width:90px;height:54px;border:1px solid var(--ctl);background:var(--page);color:var(--tx);display:flex;flex-direction:column;justify-content:space-between;padding:6px 7px 5px;cursor:pointer;text-align:left;position:relative;font:inherit}
+.sty:hover{background:var(--hov)}
+.sty.on{background:var(--ink);border-color:var(--ink);color:var(--on)}
+.sty:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.sty .nm{font-size:12px;white-space:nowrap}
+.out{appearance:none;display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:var(--tx);font:inherit;text-align:left;padding:7px 12px;min-height:32px;cursor:pointer}
+.out:hover{background:var(--hov)}
+.out.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink);color:var(--tx);font-weight:600}
+.out:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.out .n{font-weight:600;min-width:24px;color:var(--tx2)}
+.out.on .n{color:var(--tx)}
+.seg{appearance:none;flex:1 1 auto;height:24px;border:1px solid var(--ctl);margin-left:-1px;background:var(--page);color:var(--tx);font:inherit;font-size:12px;padding:0 5px;cursor:pointer;white-space:nowrap}
+.seg:hover{background:var(--hov)}
+.seg.on{background:var(--sel);color:var(--tx);font-weight:600;box-shadow:inset 0 -3px 0 var(--ink);position:relative}
+.cap{appearance:none;width:46px;height:36px;border:0;background:transparent;color:var(--tx);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.cap:hover{background:var(--hov)}
+.cap.x:hover{background:var(--tx);color:var(--on)}
+.stat{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 7px;border:1px solid var(--rule);background:var(--page);white-space:nowrap}
+.pf{outline:1px solid var(--ink);outline-offset:-1px}
+.desk{scrollbar-color:var(--ctl) var(--desk);scrollbar-width:thin}
+.doc{font-family:'Carlito',Calibri,sans-serif;color:var(--tx);font-size:15px;line-height:1.5}
+.doc p{margin:0 0 11px}
+.doc h1{font-size:22px;font-weight:700;margin:0 0 12px;line-height:1.2}
+.doc h2{font-size:17px;font-weight:700;margin:16px 0 8px;line-height:1.2}
+.doc table{border-collapse:collapse;width:100%;margin:4px 0 6px;font-size:14px}
+.doc th{text-align:left;font-weight:700;border-bottom:1.5px solid var(--tx);padding:4px 8px}
+.doc td{border-bottom:1px solid #34373D;padding:4px 8px}
+.doc td.r,.doc th.r{text-align:right}
+.ins{color:var(--rev);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.anc{background:var(--revt);box-shadow:inset 0 -2px 0 var(--rev)}
+.ruler span{flex:1;border-left:1px solid var(--ctl);height:6px;align-self:flex-end;position:relative}
+.kz.off{display:none}
+.sb{height:30px;flex:none;display:flex;align-items:center;gap:20px;padding:0 8px 0 12px;background:var(--band);border-top:1px solid var(--rule);overflow:hidden}
+.sc{display:inline-flex;align-items:center;height:20px;color:var(--tx2);font-size:13px;white-space:nowrap}
+.sc.zl{min-width:40px;justify-content:flex-end}
+.sb .btn{height:24px;min-width:24px;color:var(--tx2)}
+.phd{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px}
+.phd .sv{margin-left:auto}
+.sv{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.pf .ph{color:var(--tx)}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+.btn,.btn.tall,.dd,.fld,.sty,.dz,.dtx,.b,.f,.swt,.tog,.db,.nt,.cm,.tip,.dlg,.nb,.kz,.mx .mi,.slw select,.fld input,.srch label,.sbx{border-radius:3px}
+.cb{border-radius:2px}
+.seg{border-radius:0}.seg:first-child{border-radius:3px 0 0 3px}.seg:last-child{border-radius:0 3px 3px 0}
+.sg span{border-radius:0}.sg:first-child span{border-radius:3px 0 0 3px}.sg:last-child span{border-radius:0 3px 3px 0}
+input::placeholder,textarea::placeholder{color:var(--tx2,#A9AFB8);opacity:1}
+.sk{color:var(--tx2,#A9AFB8);font-size:12px;font-weight:400;white-space:nowrap}
+</style>
+</helmet>
+<div class="{{rootCls}}" style="width: 100%; height: 900px; overflow: hidden; display: flex; flex-direction: column;">
+
+  <!-- Title bar: app mark, document tabs, command search, caption buttons -->
+  <div style="height: 36px; flex: none; display: flex; align-items: flex-end; gap: 12px; padding-left: 12px;">
+    <div style="height: 36px; display: flex; align-items: center; gap: 9px; flex: none;">
+      <span aria-hidden="true" style="width: 20px; height: 20px; flex: none; background: #8DB4EE; color: #1B1D21; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px;">W</span>
+      <span class="lbl">Raffica Write</span>
+    </div>
+    <div role="tablist" aria-label="Geöffnete Dokumente" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 2px; overflow: hidden;">
+      <div class="dt cur" role="presentation" style="display: inline-flex;">
+        <button class="dtb" role="tab" aria-selected="true" title="Gemeinschaftsgarten – Jahresbericht 2026.docx"><span class="nm">Gemeinschaftsgarten – Jahresbericht 2026.docx</span></button>
+        <button class="dtx" aria-label="Schließen: Gemeinschaftsgarten – Jahresbericht 2026.docx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <div class="dt" role="presentation" style="display: inline-flex;">
+        <button class="dtb" role="tab" aria-selected="false"><span class="nm">Brief an das Grünflächenamt.docx</span></button>
+        <button class="dtx" aria-label="Schließen: Brief an das Grünflächenamt.docx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <div class="dt" role="presentation" style="display: inline-flex;">
+        <button class="dtb" role="tab" aria-selected="false"><span class="nm">Protokoll Vorstandssitzung.docx</span></button>
+        <button class="dtx" aria-label="Schließen: Protokoll Vorstandssitzung.docx"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg></button>
+      </div>
+      <button class="dtx" aria-label="Neues Dokument" style="margin-bottom: 2px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"></path></svg></button>
+    </div>
+    <div style="height: 36px; flex: 0 1 300px; min-width: 200px; display: flex; align-items: center;">
+      <label title="Suchen (Strg+K)" style="flex: 1; display: flex; align-items: center; gap: 8px; height: 28px; border: 1px solid #7D848E; border-radius: 3px; background: #1B1D21; padding: 0 8px; position: relative;">
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true" style="color: #A9AFB8;"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg>
+        <input aria-label="Suchen" placeholder="Suchen" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: #E8EAED;">
+        <span class="{{cc}}">Q</span>
+      </label>
+    </div>
+    <div style="height: 36px; flex: none; display: flex; justify-content: flex-end;">
+      <button class="cap" aria-label="Minimieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"></path></svg></button>
+      <button class="cap" aria-label="Maximieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8"></rect></svg></button>
+      <button class="cap x" aria-label="Schließen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button>
+    </div>
+  </div>
+
+  <!-- Command tabs -->
+  <div role="tablist" aria-label="Befehlsregisterkarten" style="height: 32px; flex: none; display: flex; align-items: flex-end; padding-left: 8px; gap: 2px; position: relative; z-index: 2; border-top: 1px solid #373B42;">
+    <button class="tab" role="tab" aria-selected="false">Datei <span class="{{tk}}">F</span></button>
+    <button class="tab cur" role="tab" aria-selected="true">Start <span class="{{tk}}">H</span></button>
+    <button class="tab" role="tab" aria-selected="false">Einfügen <span class="{{tk}}">N</span></button>
+    <button class="tab" role="tab" aria-selected="false">Layout <span class="{{tk}}">P</span></button>
+    <button class="tab" role="tab" aria-selected="false">Referenzen <span class="{{tk}}">S</span></button>
+    <button class="tab" role="tab" aria-selected="false">Überprüfen <span class="{{tk}}">R</span></button>
+    <button class="tab" role="tab" aria-selected="false">Ansicht <span class="{{tk}}">W</span></button>
+  </div>
+
+  <!-- Command band -->
+  <div class="band" role="toolbar" aria-label="Befehle: Start">
+    <div class="grp" role="group" aria-label="Zwischenablage">
+      <div class="grp-row" style="gap: 4px; align-items: flex-start;">
+        <button class="btn tall"><svg class="i i20" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg>Einfügen<span class="{{cc}}">01</span></button>
+        <div class="stk tight">
+          <button class="btn xs" aria-label="Einfügen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="9" height="11.5"></rect><path d="M6 3V2h4v1M6 7.5h4M6 10h4"></path></svg><span class="{{cc}}">01</span></button>
+          <button class="btn" aria-label="Ausschneiden"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="11.5" r="2"></circle><circle cx="11.5" cy="11.5" r="2"></circle><path d="M6 10 12 2.5M10 10 4 2.5"></path></svg><span class="{{cc}}">02</span></button>
+          <button class="btn" aria-label="Kopieren"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8.5"></rect><path d="M3.5 10.5V2.5H10"></path></svg><span class="{{cc}}">03</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Zwischenablage</span><span class="{{gk}}">0</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Zwischenablage" title="Zwischenablage"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Schriftart">
+      <div class="stk">
+        <div class="grp-row" style="gap: 4px;">
+          <button class="dd" style="width: 142px;" aria-label="Schriftart: Carlito">Carlito<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">11</span></button>
+          <button class="dd" style="width: 50px;" aria-label="Schriftgrad: 11">11<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">12</span></button>
+        </div>
+        <div class="grp-row">
+          <button class="btn" aria-label="Fett" style="font-weight: 700; font-size: 14px;">F<span class="{{cc}}">13</span></button>
+          <button class="btn" aria-label="Kursiv" style="font-style: italic; font-size: 14px; font-family: Georgia, serif;">K<span class="{{cc}}">14</span></button>
+          <button class="btn" aria-label="Unterstrichen" style="text-decoration: underline; text-underline-offset: 2px; font-size: 14px;">U<span class="{{cc}}">15</span></button>
+          <button class="btn" aria-label="Texthervorhebungsfarbe: Gelb" style="flex-direction: column; gap: 1px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 11 2-5 6-4.5 1.5 2L9 9.5 4 11z"></path></svg><span aria-hidden="true" style="width: 14px; height: 3px; background: #F7D84A;"></span><span class="{{cc}}">16</span></button>
+          <button class="btn" aria-label="Schriftfarbe: Automatisch" style="flex-direction: column; gap: 1px; font-size: 13px; font-weight: 600; line-height: 1;">A<span aria-hidden="true" style="width: 14px; height: 3px; background: #E8EAED;"></span><span class="{{cc}}">17</span></button>
+          <button class="btn" aria-label="Formatierung löschen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3h8M8 3 6 13M10 10l4 4M14 10l-4 4"></path></svg><span class="{{cc}}">18</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Schriftart</span><span class="{{gk}}">1</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Schriftart" title="Schriftart"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Absatz">
+      <div class="stk">
+        <div class="grp-row">
+          <button class="btn" aria-label="Aufzählungszeichen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h.5M2.5 8h.5M2.5 12h.5M6 4h8M6 8h8M6 12h8"></path></svg><span class="{{cc}}">21</span></button>
+          <button class="btn" aria-label="Nummerierung"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2 3.5 2.5v3M2.3 9.2c.3-.6 2-.8 2 .3 0 .8-2 1.3-2 2.5h2.1M7 4h7M7 8h7M7 12h7"></path></svg><span class="{{cc}}">22</span></button>
+          <button class="btn" aria-label="Einzug verkleinern"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M7 6.5h7M7 9.5h7M2 13h12M4.5 6 2.5 8l2 2"></path></svg><span class="{{cc}}">23</span></button>
+          <button class="btn" aria-label="Einzug vergrößern"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M7 6.5h7M7 9.5h7M2 13h12M2.5 6l2 2-2 2"></path></svg><span class="{{cc}}">24</span></button>
+          <button class="btn" aria-label="Zeilenabstand"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 4h7M7 8h7M7 12h7M3.5 2v12M2 3.5 3.5 2 5 3.5M2 12.5 3.5 14 5 12.5"></path></svg><span class="{{cc}}">25</span></button>
+        </div>
+        <div class="grp-row">
+          <button class="btn on" aria-label="Linksbündig" aria-pressed="true"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8"></path></svg><span class="{{cc}}">26</span></button>
+          <button class="btn" aria-label="Zentriert"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8"></path></svg><span class="{{cc}}">27</span></button>
+          <button class="btn" aria-label="Rechtsbündig"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8"></path></svg><span class="{{cc}}">28</span></button>
+          <button class="btn" aria-label="Blocksatz"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12"></path></svg><span class="{{cc}}">29</span></button>
+        </div>
+      </div>
+      <span class="gl"><span class="lbl">Absatz</span><span class="{{gk}}">2</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Absatz" title="Absatz"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Formatvorlagen">
+      <div class="grp-row" style="gap: 4px;">
+        <button class="sty"><span style="font-family: Carlito, sans-serif; font-size: 15px;">Aa</span><span class="nm">Standard</span><span class="{{cc}}">31</span></button>
+        <button class="sty on" aria-pressed="true"><span style="font-family: Carlito, sans-serif; font-size: 17px; font-weight: 700;">Aa</span><span class="nm">Überschrift 1</span><span class="{{cc}}">32</span></button>
+        <button class="sty"><span style="font-family: Carlito, sans-serif; font-size: 15px; font-weight: 700;">Aa</span><span class="nm">Überschrift 2</span><span class="{{cc}}">33</span></button>
+        <button class="sty"><span style="font-family: Carlito, sans-serif; font-size: 15px; font-style: italic;">Aa</span><span class="nm">Zitat</span><span class="{{cc}}">34</span></button>
+        <button class="btn stymore" aria-label="Alle Formatvorlagen" style="height: 54px; border: 1px solid #7D848E; background: #1B1D21;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">35</span></button>
+        <button class="dd xs" style="width: 132px;" aria-label="Formatvorlage: Überschrift 1">Überschrift 1<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg><span class="{{cc}}">32</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Formatvorlagen</span><span class="{{gk}}">3</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Formatvorlagen" title="Formatvorlagen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Bearbeiten">
+      <div class="stk tight">
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg>Suchen<span class="{{cc}}">41</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.5h9l-2-2M13 10.5H4l2 2"></path></svg>Ersetzen<span class="{{cc}}">42</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Bearbeiten</span><span class="{{gk}}">4</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Bearbeiten" title="Bearbeiten"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+    <div class="grp" role="group" aria-label="Überprüfen">
+      <div class="stk tight">
+        <button class="btn on lb" aria-pressed="true"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13.5h10M4 10.5l7-7 2 2-7 7H4z"></path></svg>Änderungen nachverfolgen<span class="{{cc}}">51</span></button>
+        <button class="btn lb"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"></path></svg>Neuer Kommentar<span class="{{cc}}">52</span></button>
+      </div>
+      <span class="gl"><span class="lbl">Überprüfen</span><span class="{{gk}}">5</span></span>
+      <button class="btn ovf" aria-label="Weitere Befehle: Überprüfen" title="Überprüfen"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+    </div>
+  </div>
+
+  <!-- Work area -->
+  <div style="flex: 1; min-height: 0; display: flex;">
+    <nav aria-label="Navigation" style="width: 240px; flex: none; background: #222429; border-right: 1px solid #373B42; display: flex; flex-direction: column; min-height: 0;">
+      <div style="padding: 12px 10px 10px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="lbl ph">Navigation</span>
+          <span class="{{tk}}">6</span>
+        </div>
+        <div role="tablist" aria-label="Navigationsansicht" style="display: flex; padding-left: 1px;">
+          <button class="seg on" role="tab" aria-selected="true">Überschriften</button>
+          <button class="seg" role="tab" aria-selected="false">Seiten</button>
+          <button class="seg" role="tab" aria-selected="false">Ergebnisse</button>
+        </div>
+      </div>
+      <div style="padding: 2px 0 6px; display: flex; flex-direction: column;">
+        <button class="out"><span class="n">1</span>Zusammenfassung</button>
+        <button class="out"><span class="n">2</span>Mitglieder und Parzellen</button>
+        <button class="out on" aria-current="true"><span class="n">3</span>Budget und Ausgaben</button>
+        <button class="out" style="padding-left: 28px;"><span class="n">3.1</span>Wasser</button>
+        <button class="out" style="padding-left: 28px;"><span class="n">3.2</span>Geräteschuppen</button>
+        <button class="out" style="padding-left: 28px;"><span class="n">3.3</span>Saatgut und Pflanzen</button>
+        <button class="out"><span class="n">4</span>Veranstaltungen</button>
+        <button class="out"><span class="n">5</span>Ausblick 2027</button>
+      </div>
+      <div style="margin-top: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 6px;">
+        <span class="lbl">Dieses Dokument</span>
+        <div class="kv"><span>Kommentare</span><span class="sv">1</span></div>
+        <div class="kv"><span>Nachverfolgte Änderungen</span><span class="sv">1</span></div>
+        <div class="kv"><span>Fußnoten</span><span class="sv">3</span></div>
+      </div>
+    </nav>
+
+    <!-- Desk: the document pane, focused (1 px ink border) -->
+    <div class="desk" role="region" aria-label="Dokument" style="flex: 1; min-width: 0; background: #131417; overflow: auto; position: relative;">
+      <div style="position: relative; width: 680px; margin: 0 auto; padding-bottom: 48px;">
+        <div class="ruler" aria-hidden="true" style="height: 22px; display: flex; align-items: flex-end; position: sticky; top: 0; background: #131417; z-index: 2;">
+          <sc-for list="{{ ruler }}" as="t" hint-placeholder-count="21">
+            <span><em style="position: absolute; left: 3px; bottom: 5px; font-style: normal; font-weight: 600; font-size: 11px; color: #A9AFB8;">{{ t.n }}</em></span>
+          </sc-for>
+        </div>
+        <article class="doc" aria-label="Seite 2" style="background: #1B1D21; width: 680px; height: 962px; padding: 64px 74px; position: relative; border: 1px solid #373B42;">
+          <h1>3&#8195;Budget und Ausgaben</h1>
+          <p>Die Parzellengebühren deckten den Großteil der laufenden Kosten. 38 von 40 Parzellen waren die ganze Saison über vergeben, und die Warteliste wuchs auf elf Haushalte. Der Vorstand hielt die Gebühr bei 45 € je Parzelle, damit niemand seine Parzelle aus Kostengründen aufgeben musste.<sup style="font-size: 10px;">1</sup></p>
+          <h2>3.1&#8195;Wasser</h2>
+          <p style="position: relative;">Beim Wasser lagen wir am deutlichsten über Plan. Wegen der Trockenperiode im Juli und August lief der Haupthahn fast jeden Abend, und <span class="anc">die Wasserrechnung lag bei 1.385 €</span> statt der geplanten 1.240 €. Eine zweite Regentonne am Schuppen sammelt jetzt Dachwasser<span class="ins">, zwei weitere sind für das Frühjahr bestellt</span>.<span aria-hidden="true" style="position: absolute; left: -22px; top: 46px; width: 2px; height: 22px; background: #B48CF0;"></span></p>
+          <p style="font-size: 13px; color: #A9AFB8; margin-bottom: 2px;">Tabelle 2 – Geplante und tatsächliche Ausgaben</p>
+          <table>
+            <thead><tr><th>Posten</th><th class="r">Plan</th><th class="r">Ist</th></tr></thead>
+            <tbody>
+              <tr><td>Wasser</td><td class="r">1.240 €</td><td class="r">1.385 €</td></tr>
+              <tr><td>Geräteschuppen</td><td class="r">2.800 €</td><td class="r">2.650 €</td></tr>
+              <tr><td>Saatgut und Pflanzen</td><td class="r">600 €</td><td class="r">540 €</td></tr>
+              <tr><td style="font-weight: 700; border-bottom: 0;">Summe</td><td class="r" style="font-weight: 700; border-bottom: 0;">4.640 €</td><td class="r" style="font-weight: 700; border-bottom: 0;">4.575 €</td></tr>
+            </tbody>
+          </table>
+          <h2>3.2&#8195;Geräteschuppen</h2>
+          <p>Der neue Geräteschuppen wurde im Mai fertig und blieb unter Budget, dank gespendetem Holz von Familie Hartmann und drei Arbeitseinsätzen am Wochenende.<sup style="font-size: 10px;">2</sup> Er beherbergt jetzt die gemeinsamen Rasenmäher, die Schlauchwagen und einen abschließbaren Schrank für den Erste-Hilfe-Kasten.</p>
+          <h2>3.3&#8195;Saatgut und Pflanzen</h2>
+          <p>Saatgut wurde zum ersten Mal gemeinsam bestellt. Der Sammeleinkauf sparte rund ein Zehntel gegenüber den Preisen des Vorjahres, und die Saatgutbörse im März deckte die meisten Bohnen und Kürbisse ab.<sup style="font-size: 10px;">3</sup></p>
+          <div style="position: absolute; left: 74px; right: 74px; bottom: 40px; font-size: 12px; line-height: 1.45; color: #E8EAED;">
+            <div aria-hidden="true" style="width: 180px; border-top: 1px solid #E8EAED; margin-bottom: 6px;"></div>
+            <div><sup>1</sup> Die Gebühren für 2027 beschließt die Mitgliederversammlung im Februar.</div>
+            <div><sup>2</sup> Materialliste in Anhang B.</div>
+            <div><sup>3</sup> Organisiert von der Saatgutbibliothek im Stadtteilzentrum.</div>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- Comments pane: focused with F6 (1 px ink border, title turns primary) -->
+    <aside class="pf" aria-label="Kommentare" style="width: 300px; flex: none; background: #222429; color: #E8EAED; border-left: 1px solid #373B42; display: flex; flex-direction: column;">
+      <div class="phd">
+        <span class="lbl ph">Kommentare</span><span class="sv">1</span>
+        <span class="{{tk}}">7</span>
+      </div>
+      <div style="padding: 4px 10px; display: flex; flex-direction: column; gap: 8px;">
+        <article aria-label="Kommentar von M. Keller" style="background: #1B1D21; color: #E8EAED; border: 1px solid #B48CF0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 7px 8px; border-bottom: 1px solid #373B42;">
+            <span style="font-weight: 600;">M. Keller</span>
+            <span class="sv">Gestern, 18:42</span>
+          </div>
+          <p style="margin: 0; padding: 9px 9px 6px; line-height: 1.4;">Können wir die Wasserkosten je Parzelle aufteilen?</p>
+          <p style="margin: 0; padding: 0 9px 9px; font-size: 12px; color: #A9AFB8;">Zu „die Wasserrechnung lag bei 1.385 €“, Abschnitt 3.1</p>
+          <div style="padding: 0 8px 8px; display: flex; flex-direction: column; gap: 6px;">
+            <label style="display: flex; flex-direction: column; gap: 4px;"><span class="lbl">Antwort</span><textarea rows="2" placeholder="Antwort schreiben" style="resize: none; border: 1px solid #7D848E; background: #1B1D21; color: #E8EAED; font: inherit; padding: 6px 8px; outline: 2px solid #8DB4EE; outline-offset: 2px;"></textarea></label>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn box">Antworten</button>
+              <button class="btn">Erledigt</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Status bar -->
+  <footer class="sb">
+    <span class="sc">Gespeichert</span>
+    <span class="sc">Seite 2 von 7</span>
+    <span class="sc">1.284 Wörter</span>
+    <span class="sc" aria-live="polite">Fokus: Kommentare</span>
+    <sc-if value="{{ alt }}" hint-placeholder-val="{{ false }}">
+      <span style="margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;"><span class="kz on">Alt</span>Feldcode eingeben · Esc bricht ab</span>
+    </sc-if>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+      <button class="btn" aria-label="Verkleinern" style="height: 24px; min-width: 24px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8"></path></svg></button>
+      <span aria-hidden="true" style="width: 96px; height: 1px; background: #7D848E; position: relative;"><span style="position: absolute; left: 54px; top: -5px; width: 7px; height: 11px; background: #A9AFB8;"></span></span>
+      <button class="btn" aria-label="Vergrößern" style="height: 24px; min-width: 24px;"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8M8 4v8"></path></svg></button>
+      <span class="sc zl">110 %</span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"altHeld":{"editor":"boolean","default":false,"section":"Zustand"},"compact":{"editor":"boolean","default":false,"section":"Zustand"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const alt = this.props.altHeld ?? false;
+    const compact = this.props.compact ?? false;
+    const ruler = [];
+    for (let i = 0; i < 21; i++) ruler.push({ n: i > 0 && i % 2 === 0 ? String(i) : '' });
+    return {
+      alt: alt,
+      ruler: ruler,
+      rootCls: compact ? 'fa cmp' : 'fa',
+      gk: alt ? 'kz on' : 'kz off',
+      tk: alt ? 'kz on' : 'kz off',
+      cc: alt ? 'kz cc on' : 'kz cc'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+# Manual check of the AppImage self-update on the owner's Linux laptop (real display, real FUSE mount): builds two test
+# versions of the PDF app as AppImages, serves the new one from a test server on 127.0.0.1 and starts the old one on the
+# desktop. You click "Install" in the window; the job then checks what the updater did to the file. The logic is in
+# packaging/linux/update-check.sh (packaging/README.md, section "Manual update check", step 4).
+#
+# SECURITY: This workflow executes repository code on a personal machine, with the owner's user rights.
+# - It runs only on an explicit manual trigger: `workflow_dispatch` (needs write access to the repository). There is
+#   deliberately no `push`, `pull_request`, `pull_request_target`, `issue_comment` or `schedule` trigger, so no pull
+#   request, fork or comment can ever start it.
+# - It runs on the runner with the labels `raffica-measure` and `linux`, never on a CI runner. The owner starts that
+#   runner by hand (`./run.sh` in the logged-in desktop session) and stops it afterwards; it is not a service.
+# - No secret is used or needed, and the token is read-only (`contents: read`). The test key is made for the run, is useless
+#   against any release (a release build trusts only its own keys) and is deleted at the end. The test server answers
+#   on 127.0.0.1 only.
+# - The `ref` input is checked before anything is fetched: empty, a commit id or a plain branch name, never pull/N/head.
+#
+#   gh workflow run linux-update-check.yml --ref dev
+#   gh workflow run linux-update-check.yml --ref dev -f ref=<branch or 40-hex commit>   (the code of that branch)
+name: Linux update check
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or commit whose code to test (empty: the ref of the dispatch)'
+        required: false
+        default: ''
+        type: string
+      wait_minutes:
+        description: 'Minutes to wait for your click on Install'
+        required: false
+        default: '20'
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AVALONIA_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  check:
+    name: linux-update-check
+    runs-on: [self-hosted, raffica-measure, linux]
+    timeout-minutes: 90
+    # On the job so that a skipped run never takes the group; two runs must never overlap on the one machine.
+    concurrency:
+      group: linux-update-check
+      cancel-in-progress: false
+    env:
+      REF_INPUT: ${{ inputs.ref }}
+      WAIT_MINUTES: ${{ inputs.wait_minutes }}
+    steps:
+      # inputs reach the shell only through the environment, never inside the script text.
+      - name: Check the inputs
+        run: |
+          set -euo pipefail
+          ref_ok=false
+          if [[ -z "$REF_INPUT" || "$REF_INPUT" =~ ^[0-9a-f]{40}$ ]]; then
+            ref_ok=true
+          elif [[ "$REF_INPUT" =~ ^[A-Za-z0-9._/-]+$ && "$REF_INPUT" != pull/* && "$REF_INPUT" != *..* ]]; then
+            if [[ "$REF_INPUT" != refs/* || "$REF_INPUT" == refs/heads/* ]]; then ref_ok=true; fi
+          fi
+          [[ "$ref_ok" == true ]] || { echo "ref '$REF_INPUT' is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)" >&2; exit 1; }
+          [[ "$WAIT_MINUTES" =~ ^[0-9]{1,3}$ && "$WAIT_MINUTES" -ge 1 && "$WAIT_MINUTES" -le 120 ]] || { echo "wait_minutes must be 1 to 120" >&2; exit 1; }
+
+      # The `ref` input is built and run on the owner's own machine, so it must be code of this repository and never code of a fork
+      # or a pull request: a branch name must exist in this repository, a commit id must be the head of main or dev or an ancestor
+      # of it (compare status identical or behind, the rule of release.yml). Refused before anything is fetched. No `gh` is needed.
+      - name: Check that the ref is code of this repository
+        if: inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          r="${REF_INPUT#refs/heads/}"
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$GH_REPO/$1"; }
+          if [[ "$r" =~ ^[0-9a-f]{40}$ ]]; then
+            for branch in main dev; do
+              status="$(api "compare/$branch...$r" 2>/dev/null | grep -m1 -E '^  "status":' | sed -E 's/.*: *"([a-z]+)".*/\1/' || true)"
+              if [[ "$status" == identical || "$status" == behind ]]; then echo "Ref is on $branch ($status)"; exit 0; fi
+            done
+            echo 'the commit is on neither main nor dev: only commits of these branches are built on this runner' >&2
+            exit 1
+          fi
+          api "branches/$r" >/dev/null 2>&1 || { echo 'the ref is not a branch of this repository and not a 40-character commit id' >&2; exit 1; }
+          echo 'Ref is a branch of this repository'
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Build, serve, start the old version and wait for the install
+        run: bash packaging/linux/update-check.sh

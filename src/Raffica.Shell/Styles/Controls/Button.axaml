@@ -1,0 +1,132 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Button, rows "Button", "Boxed button", "Primary button" and "Destructive button" of the state table (appendix A section 5
+    of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md). The plain button is the ribbon button: transparent,
+    5 px side padding. The classes boxed, primary and destructive are text buttons with 8 px side padding (appendix B); icon is
+    the square icon-only button. 26 px high, 3 px radius, no shadow, no press animation. The state rules target the template
+    presenter, as in the predecessor theme, so a local Background on a button does not hide them. The order of the rules
+    matters (hover, pressed, disabled), and every variant that sets its own colours repeats the state it changes, because the
+    class makes its selector more specific than the generic one.
+  -->
+  <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+    <Setter Property="Padding" Value="5,0" />
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.Button}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Raffica.Size.Button}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter x:Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                          Padding="{TemplateBinding Padding}"
+                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                          RecognizesAccessKey="True" />
+      </ControlTemplate>
+    </Setter>
+
+    <!-- Variants -->
+    <Style Selector="^.boxed">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="^.primary">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Button.Primary.Fill}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Button.Primary.Fill}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+      <Setter Property="FontWeight" Value="600" />
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="^.destructive">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Danger}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Danger}" />
+      <Setter Property="FontWeight" Value="600" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FocusAdorner">
+        <FocusAdornerTemplate>
+          <Border AdornerLayer.IsClipEnabled="False"
+                  BorderThickness="2"
+                  Margin="-4"
+                  CornerRadius="7"
+                  BorderBrush="{DynamicResource Raffica.Brush.Danger}" />
+        </FocusAdornerTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="^.icon">
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <!-- link: an address or name that opens something; the ink colour, no fill, as high as its text. Its content is a TextBlock with the class link (Typography.axaml): the underline -->
+    <Style Selector="^.link">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <!-- wrap: a text label that breaks into lines at the room it has (a narrow pane), so the button grows in height; the content stays a string -->
+    <Style Selector="^.wrap">
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="ContentTemplate">
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Text="{Binding}" TextWrapping="Wrap" TextAlignment="Center" />
+        </DataTemplate>
+      </Setter>
+    </Style>
+
+    <!-- Hover -->
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+    </Style>
+    <Style Selector="^.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Button.Primary.Hover}" />
+    </Style>
+
+    <!-- Pressed: the ink (the danger colour on a destructive button) -->
+    <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
+    </Style>
+    <Style Selector="^.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="^.destructive:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Danger}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Danger}" />
+    </Style>
+
+    <!-- Disabled: boxed, primary and destructive keep the page fill and grey out text and edge -->
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^.boxed:disabled /template/ ContentPresenter#PART_ContentPresenter, ^.primary:disabled /template/ ContentPresenter#PART_ContentPresenter, ^.destructive:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

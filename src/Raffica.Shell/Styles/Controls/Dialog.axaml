@@ -1,0 +1,113 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    Dialog and the host that shows it (section 6 and appendix A of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md,
+    board Docs/design/direction-d/Dialog.dc.html): 520 px wide, surface.page with a 1 px border.control edge and a 3 px radius, no
+    shadow (the dialog sits over the scrim). Header 44 px with the title (15 px, 600) and an icon close button, separated by a
+    1 px rule; body padding 16; footer 52 px on surface.band with a 1 px rule above it (its bottom corners follow the 2 px inside radius of the frame), the action buttons on the right, 16 px from
+    the edge. Buttons in the footer are 28 px high and at least 96 px wide (the Button theme has no minimum width by decision).
+    The body scrolls (vertical on demand, never horizontal) and the
+    host caps the card at its own height less 48 DIP (M2.7), so the header and the footer stay in view in a small window or at a
+    large display scaling. The host layers the content, the scrim (Raffica.Brush.Scrim) and the dialog; while a dialog is open the content takes no
+    pointer input (the scrim above it would catch it anyway) and is not restyled.
+  -->
+  <ControlTheme x:Key="{x:Type controls:Dialog}" TargetType="controls:Dialog">
+    <Setter Property="Width" Value="{DynamicResource Raffica.Size.DialogWidth}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                BorderBrush="{DynamicResource Raffica.Brush.Border.Control}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource Raffica.Radius.Overlay}">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <Border x:Name="PART_Header"
+                    Grid.Row="0"
+                    Height="{DynamicResource Raffica.Size.DialogHeader}"
+                    BorderBrush="{DynamicResource Raffica.Brush.Rule}"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,0,8,0">
+              <DockPanel>
+                <Button x:Name="PART_Close"
+                        DockPanel.Dock="Right"
+                        Classes="icon"
+                        VerticalAlignment="Center">
+                  <controls:StrokeIcon Size="16" Data="{DynamicResource Raffica.Icon.X}" />
+                </Button>
+                <TextBlock x:Name="PART_Title"
+                           Classes="heading-dialog"
+                           Text="{TemplateBinding Title}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+              </DockPanel>
+            </Border>
+            <ScrollViewer x:Name="PART_BodyScroll"
+                          Grid.Row="1"
+                          Focusable="False"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ContentPresenter x:Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Padding="{TemplateBinding Padding}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ScrollViewer>
+            <Border x:Name="PART_FooterBar"
+                    Grid.Row="2"
+                    Height="{DynamicResource Raffica.Size.DialogFooter}"
+                    IsVisible="{TemplateBinding Footer, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Background="{DynamicResource Raffica.Brush.Surface.Band}"
+                    BorderBrush="{DynamicResource Raffica.Brush.Rule}"
+                    BorderThickness="0,1,0,0"
+                    CornerRadius="0,0,2,2"
+                    Padding="16,0">
+              <ContentPresenter x:Name="PART_Footer"
+                                Content="{TemplateBinding Footer}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center" />
+            </Border>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type controls:DialogHost}" TargetType="controls:DialogHost">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ContentPresenter x:Name="PART_Content"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          <Border x:Name="PART_Scrim"
+                  IsVisible="False"
+                  Background="{DynamicResource Raffica.Brush.Scrim}" />
+          <ContentPresenter x:Name="PART_Dialog"
+                            IsVisible="False"
+                            Content="{TemplateBinding ActiveDialog}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:open /template/ ContentPresenter#PART_Content">
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="^:open /template/ Border#PART_Scrim">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:open /template/ ContentPresenter#PART_Dialog">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

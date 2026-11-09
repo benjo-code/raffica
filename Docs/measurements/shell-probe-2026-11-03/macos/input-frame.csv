@@ -1,0 +1,4 @@
+machine,mode,case,run,value,unit
+macos-macbook,frame,input,median,16.66,ms
+macos-macbook,frame,input,p99,128.26,ms
+macos-macbook,frame,input,max,212.99,ms

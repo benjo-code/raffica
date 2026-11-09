@@ -1,0 +1,104 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    Checkbox, row "Checkbox" of the state table (appendix A section 5 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md):
+    a 16 px box with the page fill, the control edge and a 2 px radius; checked = ink fill with a text.onInk tick; the board has
+    no hover state. Undetermined (three-state) shows a bar in the same ink fill. The focus ring surrounds the box (2 px, offset
+    2 px), so the control brings its own focus adorner, laid out over the box and outside the clip of the control. Disabled greys out text and edge; a disabled checked box fills with text.disabled.
+    The row is at least 26 px high, the label 10 px from the box.
+  -->
+  <ControlTheme x:Key="{x:Type CheckBox}" TargetType="CheckBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Padding" Value="10,0,0,0" />
+    <Setter Property="MinHeight" Value="{DynamicResource Raffica.Size.Button}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <Border AdornerLayer.IsClipEnabled="False"
+                Width="24"
+                Height="24"
+                Margin="-4,0,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                BorderThickness="2"
+                CornerRadius="6"
+                BorderBrush="{DynamicResource Raffica.Brush.Focus.Ring}" />
+      </FocusAdornerTemplate>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid x:Name="RootGrid" Background="{TemplateBinding Background}" ColumnDefinitions="Auto,*">
+          <Panel Width="16" Height="16" VerticalAlignment="Center">
+            <Border x:Name="Box"
+                    Width="16"
+                    Height="16"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource Raffica.Radius.Checkbox}"
+                    Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                    BorderBrush="{DynamicResource Raffica.Brush.Border.Control}" />
+            <controls:StrokeIcon x:Name="Tick"
+                                 IsVisible="False"
+                                 IsHitTestVisible="False"
+                                 Size="16"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 Data="{DynamicResource Raffica.Icon.Check}"
+                                 Stroke="{DynamicResource Raffica.Brush.Text.OnInk}" />
+          </Panel>
+          <ContentPresenter x:Name="PART_ContentPresenter"
+                            Grid.Column="1"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Margin="{TemplateBinding Padding}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            RecognizesAccessKey="True" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- wrap: the label breaks into lines at the room it has (a narrow pane); the content stays a string -->
+    <Style Selector="^.wrap">
+      <Setter Property="ContentTemplate">
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+        </DataTemplate>
+      </Setter>
+    </Style>
+
+    <Style Selector="^:checked /template/ Border#Box">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="^:checked /template/ controls|StrokeIcon#Tick">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:indeterminate /template/ Border#Box">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="^:indeterminate /template/ controls|StrokeIcon#Tick">
+      <Setter Property="IsVisible" Value="True" />
+      <Setter Property="Data" Value="{DynamicResource Raffica.Icon.Minus}" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#Box">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+    <Style Selector="^:disabled:checked /template/ Border#Box, ^:disabled:indeterminate /template/ Border#Box">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

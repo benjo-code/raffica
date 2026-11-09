@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Raffica.Shell.Controls;assembly=Raffica.Shell"
+        x:Class="Raffica.Gallery.GalleryWindow"
+        Width="1520"
+        Height="900"
+        Background="{DynamicResource Raffica.Brush.Surface.Page}"
+        Foreground="{DynamicResource Raffica.Brush.Text.Primary}"
+        FontFamily="{DynamicResource Raffica.Font.Ui}"
+        FontSize="14">
+  <Window.Styles>
+    <!-- The section list: a plain list box in the tokens of the shell (rows of the list height, hover and selection tints). -->
+    <Style Selector="ListBox.nav">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="ListBox.nav > ListBoxItem">
+      <Setter Property="Height" Value="{DynamicResource Raffica.Size.RowList}" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.nav > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="ListBox.nav > ListBoxItem:selected">
+      <Setter Property="FontWeight" Value="600" />
+    </Style>
+    <Style Selector="ListBox.nav > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="ListBox.nav > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+  </Window.Styles>
+  <controls:DialogHost>
+    <Grid RowDefinitions="Auto,Auto,*">
+      <Border Background="{DynamicResource Raffica.Brush.Surface.Band}" Padding="16,8">
+        <StackPanel x:Name="Toolbar" Orientation="Horizontal" Spacing="24" />
+      </Border>
+      <Border Grid.Row="1" Height="1" Background="{DynamicResource Raffica.Brush.Rule}" />
+      <Grid Grid.Row="2" ColumnDefinitions="240,Auto,*">
+        <ListBox x:Name="Navigation" Classes="nav" />
+        <Border Grid.Column="1" Width="1" Background="{DynamicResource Raffica.Brush.Rule}" />
+        <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto">
+          <ContentControl x:Name="Host" Margin="16,24" />
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+  </controls:DialogHost>
+</Window>

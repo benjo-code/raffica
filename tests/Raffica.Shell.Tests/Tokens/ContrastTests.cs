@@ -1,0 +1,148 @@
+using Xunit;
+
+namespace Raffica.Shell.Tests.Tokens;
+
+public sealed class ContrastTests
+{
+    public static readonly TheoryData<string> Themes = ["Light", "Dark"];
+
+    public static readonly TheoryData<string> ThemesWithHighContrast = ["Light", "Dark", "HighContrast"];
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void EveryTokenIsClassified(string theme)
+    {
+        var tokens = TokenFile.Load(theme).Keys.ToHashSet();
+        var classified = ContrastPolicy.Tokens.Keys.ToHashSet();
+
+        Assert.Empty(tokens.Except(classified));
+        Assert.Empty(classified.Except(tokens));
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void PairingsMeetTheirThreshold(string theme)
+    {
+        var colors = TokenFile.Load(theme);
+        var failures = new List<string>();
+
+        foreach (var (name, (kind, _)) in ContrastPolicy.Tokens)
+        {
+            if (kind is not (ContrastKind.Text or ContrastKind.Ui))
+            {
+                continue;
+            }
+
+            foreach (var background in ContrastPolicy.Backgrounds)
+            {
+                if (ContrastPolicy.IsExempt(name, background, theme))
+                {
+                    continue;
+                }
+
+                var ratio = WcagContrast.Ratio(colors[name], colors[background]);
+                if (ratio < ContrastPolicy.Threshold(kind))
+                {
+                    failures.Add($"{theme} {name} on {background}: {ratio:0.00} < {ContrastPolicy.Threshold(kind)}");
+                }
+            }
+        }
+
+        Assert.Empty(failures);
+    }
+
+    [Theory]
+    [MemberData(nameof(ThemesWithHighContrast))]
+    public void FilledPairingsMeetTheirThreshold(string theme)
+    {
+        var c = TokenFile.Load(theme);
+        var failures = new List<string>();
+
+        void Check(string foreground, string background, double threshold)
+        {
+            var ratio = WcagContrast.Ratio(c[foreground], c[background]);
+            if (ratio < threshold)
+            {
+                failures.Add($"{theme} {foreground} on {background}: {ratio:0.00} < {threshold}");
+            }
+        }
+
+        foreach (var fill in new[] { "Ink.Write", "Ink.Sheets", "Ink.Slides", "Ink.Pdf", "Review.Violet", "Danger", "Button.Primary.Fill", "Button.Primary.Hover" })
+        {
+            Check("Text.OnInk", fill, 4.5);
+        }
+
+        // 07-UI-10: the selection of a text field stands out from the field (page or band) and keeps the selected text readable.
+        Check("Selection.Field", "Surface.Page", 3.0);
+        Check("Selection.Field", "Surface.Band", 3.0);
+        Check("Text.OnInk", "Selection.Field", 4.5);
+
+        Check("Text.Primary", "Review.Tint", 4.5);
+        Check("Review.Violet", "Review.Tint", 3.0);
+
+        Assert.Empty(failures);
+    }
+
+    [Theory]
+    [MemberData(nameof(ThemesWithHighContrast))]
+    public void OnPaperTokensMeetTheirThresholdAgainstWhite(string theme)
+    {
+        var c = TokenFile.Load(theme);
+        var paper = Avalonia.Media.Color.Parse(ContrastPolicy.PaperWhite);
+        var failures = new List<string>();
+
+        foreach (var name in ContrastPolicy.Tokens.Where(t => t.Value.Kind == ContrastKind.OnPaper).Select(t => t.Key).Where(n => n != "Paper.OnSelection"))
+        {
+            var ratio = WcagContrast.Ratio(c[name], paper);
+            if (ratio < 3.0)
+            {
+                failures.Add($"{theme} {name} on paper white: {ratio:0.00} < 3");
+            }
+        }
+
+        var text = WcagContrast.Ratio(c["Paper.OnSelection"], c["Paper.Selection"]);
+        if (text < 4.5)
+        {
+            failures.Add($"{theme} Paper.OnSelection on Paper.Selection: {text:0.00} < 4.5");
+        }
+
+        // Fixed pair: the same in every theme.
+        foreach (var name in new[] { "Paper.Caret", "Paper.Edge", "Paper.Selection", "Paper.OnSelection" })
+        {
+            Assert.Equal(TokenFile.Load("Light")[name], c[name]);
+        }
+
+        Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void ForbiddenPairingsReallyFail()
+    {
+        foreach (var (foreground, background, theme) in ContrastPolicy.Forbidden)
+        {
+            var colors = TokenFile.Load(theme);
+            var kind = ContrastPolicy.Tokens[foreground].Kind;
+
+            Assert.True(
+                WcagContrast.Ratio(colors[foreground], colors[background]) < ContrastPolicy.Threshold(kind),
+                $"{theme} {foreground} on {background} now passes: take it off the forbidden list.");
+        }
+    }
+
+    [Fact]
+    public void ExemptPairingsReallyFail()
+    {
+        foreach (var (foreground, background, _) in ContrastPolicy.ExemptPairings)
+        {
+            foreach (var theme in new[] { "Light", "Dark" })
+            {
+                var colors = TokenFile.Load(theme);
+                var kind = ContrastPolicy.Tokens[foreground].Kind;
+
+                Assert.True(
+                    WcagContrast.Ratio(colors[foreground], colors[background]) < ContrastPolicy.Threshold(kind),
+                    $"{theme} {foreground} on {background} now passes: drop the exemption.");
+            }
+        }
+    }
+}

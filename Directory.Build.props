@@ -1,0 +1,39 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <Version>0.0.0</Version>
+  </PropertyGroup>
+  <!--
+    Test build of the updater (-p:RafficaUpdateTestBuild=true, see Raffica.Core.csproj and packaging/README.md, section
+    "Manual update check"; never set by a release). Only an explicit -p: on the command line switches it on: MSBuild also turns
+    environment variables into properties (names ignore case), and a release job inherits the environment of its runner.
+    A command-line property is global and ignores the assignments below; one from the environment (or anything else) is
+    overwritten here, before any project reads it, and CheckRafficaUpdateTestBuildSource then fails the build. The guard
+    also refuses the three names in the environment outright, so the only way in stays -p:.
+  -->
+  <PropertyGroup>
+    <_RafficaUpdateTestBuildSeen>$(RafficaUpdateTestBuild)</_RafficaUpdateTestBuildSeen>
+    <_RafficaUpdateTestPortSeen>$(RafficaUpdateTestPort)</_RafficaUpdateTestPortSeen>
+    <_RafficaUpdateTestKeySeen>$(RafficaUpdateTestKey)</_RafficaUpdateTestKeySeen>
+    <RafficaUpdateTestBuild />
+    <RafficaUpdateTestPort />
+    <RafficaUpdateTestKey />
+  </PropertyGroup>
+  <Target Name="CheckRafficaUpdateTestBuildSource" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(_RafficaUpdateTestBuildSeen)' != '$(RafficaUpdateTestBuild)' Or '$(_RafficaUpdateTestPortSeen)' != '$(RafficaUpdateTestPort)' Or '$(_RafficaUpdateTestKeySeen)' != '$(RafficaUpdateTestKey)' Or '$([System.Environment]::GetEnvironmentVariable(`RafficaUpdateTestBuild`))' != '' Or '$([System.Environment]::GetEnvironmentVariable(`RafficaUpdateTestPort`))' != '' Or '$([System.Environment]::GetEnvironmentVariable(`RafficaUpdateTestKey`))' != ''"
+           Text="RafficaUpdateTestBuild, RafficaUpdateTestPort or RafficaUpdateTestKey does not come from the command line (for example as an environment variable). The test build of the updater applies only with -p: or /p: on the command line; remove the environment variable (see the comment above)." />
+  </Target>
+  <PropertyGroup Condition="'$(RafficaUpdateTestBuild)' == 'true'">
+    <BaseOutputPath>bin\update-test-build\</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj\update-test-build\</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
+    <DefineConstants>$(DefineConstants);RAFFICA_UPDATE_TESTBUILD</DefineConstants>
+  </PropertyGroup>
+</Project>

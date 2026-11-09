@@ -1,0 +1,294 @@
+name: CI
+
+# As few runs as possible, without losing a check:
+# - Pull requests (not drafts) are checked. There is no second run when the squash merge lands on dev: the pull request
+#   run already checked the same tree. Pushes to main (releases) run in full.
+# - A pull request that changes only documentation (Docs/, Markdown in the root and in bench/, LICENSE) skips the build;
+#   the required status check "ci" still reports, so the branch protection never waits.
+# - Stale runs of the same ref are cancelled.
+# While the repository is private everything runs on the owner's self-hosted runners; once it is public (or for a pull
+# request from a fork) every job goes to GitHub-hosted runners. This routing is a convenience: the boundary that keeps
+# foreign code off the owner's machines is the runner group (restricted to release.yml on main and dev), because a fork
+# controls the workflow file of its own pull request (packaging/README.md, "Making the repository public").
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Stale runs of the same ref are cancelled so the runners are not blocked.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Avalonia.BuildServices would send anonymous usage data while compiling; the app itself never connects anywhere.
+env:
+  AVALONIA_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  # Decides whether the build runs and where (hosted runners: public repository or a pull request from a fork).
+  changes:
+    name: changes
+    runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      hosted: ${{ steps.diff.outputs.hosted }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Decide
+        id: diff
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BASE: ${{ github.base_ref }}
+          FORK: ${{ (github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) }}
+        run: |
+          echo "hosted=$FORK" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = pull_request ] && [ "$DRAFT" = true ]; then
+            echo "A draft pull request is not built."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Pushes to main and pull requests into main (releases) are always built in full.
+          if [ "$EVENT" != pull_request ] || [ "$BASE" = main ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The checkout of a pull request is the merge commit; its first parent is the tip of the base branch.
+          code=false
+          files=$(git diff --name-only HEAD^1 HEAD)
+          [ -n "$files" ] || code=true
+          while IFS= read -r f; do
+            case "$f" in
+              '') ;;
+              Docs/*|LICENSE|bench/*.md|bench/*/*.md) ;;
+              */*) code=true ;;
+              *.md) ;;
+              *) code=true ;;
+            esac
+          done <<< "$files"
+          echo "Changed files:"; echo "$files"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build-${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ fromJSON(needs.changes.outputs.hosted == 'true' && format('["{0}"]', matrix.hosted) || format('["self-hosted","{0}"]', matrix.label)) }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, label: dotnet-linux, hosted: ubuntu-24.04, rid: linux-x64, binary: raffica }
+          - { name: windows, label: dotnet-windows, hosted: windows-2025, rid: win-x64, binary: raffica.exe }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No root on the owner's runners: the SDK goes into the user's folder.
+      - name: Set DOTNET_INSTALL_DIR (Linux)
+        if: runner.os == 'Linux'
+        run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
+
+      - name: Set DOTNET_INSTALL_DIR (Windows)
+        if: runner.os == 'Windows'
+        run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:USERPROFILE\.dotnet"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The Native AOT linker needs vswhere.exe on PATH; it takes effect from the next step on.
+      - name: Put vswhere on PATH
+        if: runner.os == 'Windows'
+        run: Add-Content -Path $env:GITHUB_PATH -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
+      # Only on a GitHub-hosted runner (public repository or fork pull request): the image has most of this, but it is not guaranteed.
+      - name: Install the Native AOT prerequisites (Linux, hosted runner)
+        if: runner.os == 'Linux' && needs.changes.outputs.hosted == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      # The self-hosted runner is set up by hand and has no root: check that it has what the AOT publish needs.
+      - name: Check the Native AOT prerequisites (Linux, self-hosted runner)
+        if: runner.os == 'Linux' && needs.changes.outputs.hosted != 'true'
+        run: |
+          command -v clang >/dev/null || { echo 'clang not found: install the clang package' >&2; exit 1; }
+          test -f /usr/include/zlib.h || { echo 'zlib.h not found: install zlib1g-dev' >&2; exit 1; }
+
+      - name: Restore
+        run: dotnet restore Raffica.slnx
+
+      - name: Build
+        run: dotnet build Raffica.slnx -c Release --no-restore
+
+      # The OCR tests need the real library (SHA-256 pinned in tools/native-fetch.cs); without it they would only report
+      # themselves as skipped, which RAFFICA_REQUIRE_OCR below turns into a failure.
+      - name: Fetch the OCR library and the language data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: dotnet run tools/native-fetch.cs -- --rid ${{ matrix.rid }} --out artifacts/native/${{ matrix.rid }}
+
+      # One test module at a time: the PDFium-heavy Core tests starve each other's timing on a machine with few cores.
+      - name: Test
+        env:
+          RAFFICA_REQUIRE_OCR: '1'
+        run: dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1
+
+      # Renderings and diff images of failed render regression tests (see tests/Raffica.Render.Tests).
+      - name: Upload the render diffs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: render-diff-${{ matrix.name }}
+          path: tests/Raffica.Render.Tests/**/render-diff/**
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Format
+        run: dotnet format Raffica.slnx --verify-no-changes --no-restore
+
+      # Staging and rejection of the OCR library fetch (a wrong hash lays nothing down), which the normal fetch above does not hit.
+      - name: Self-test of the OCR library fetch
+        run: dotnet run tools/native-fetch.cs -- selftest
+
+      - name: Publish the CLI (Native AOT)
+        run: dotnet publish src/Raffica.Cli -c Release -r ${{ matrix.rid }} -o out/cli
+
+      # The published binary must start, load PDFium and extract text from a test PDF ("Hello, ..." is drawn into the fixture).
+      - name: Smoke test of the CLI binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./out/cli/${{ matrix.binary }} --help > /dev/null
+          text=$(./out/cli/${{ matrix.binary }} text testdata/pdfs/text-basic.pdf)
+          case "$text" in *"Hello,"*) echo "text extraction works" ;; *) echo "unexpected output: $text" >&2; exit 1 ;; esac
+
+      # PowerShell, not bash: the self-hosted Windows runner does not have bash on PATH.
+      - name: Smoke test of the CLI binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          & ./out/cli/${{ matrix.binary }} --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "--help exited with $LASTEXITCODE" }
+          $text = (& ./out/cli/${{ matrix.binary }} text testdata/pdfs/text-basic.pdf) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw "text exited with $LASTEXITCODE" }
+          if ($text -notlike '*Hello,*') { throw "unexpected output: $text" }
+          Write-Host 'text extraction works'
+
+      # The gallery of the design system. The publish proves that the gallery builds as Native AOT without warnings; --print-string
+      # proves that the resource lookup works in the published binary. It runs before any window exists, so no display is needed and
+      # CI does not show that the AXAML, fonts and styles render (the local --screenshot run does).
+      - name: Publish the gallery (Native AOT)
+        run: dotnet publish src/Raffica.Gallery -c Release -r ${{ matrix.rid }} -o out/gallery
+
+      # The size limits of the speed targets (Docs/DECISIONS.md, "Speed targets of the frame (M1)"): the published gallery and its zip
+      # must stay within budget x 1.25. Fails above the limit; budgets are never loosened here.
+      # --no-cache: a file-based app (measure.cs) is built once and reused by the up-to-date check of `dotnet run`; on the persistent
+      # runners a build of an older measure.cs made a step run the old script (run 41856451033 printed a message that no longer exists
+      # in the checked-out file). Building every time costs a few seconds and cannot run a stale script.
+      # run 41874712000 showed that --no-cache is not enough on the persistent Windows runner (the PDF step ran a measure.cs without the
+      # limits recorded in the checkout), so the build of the file-based app also goes into the temp folder of this job, which the runner
+      # empties for every job.
+      - name: Size of the published gallery
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --publish-dir out/gallery --fonts-dir src/Raffica.Shell/Assets/Fonts
+
+      - name: Smoke test of the gallery binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          de=$(./out/gallery/RafficaGallery --print-string Cancel --lang de)
+          [ "$de" = "Abbrechen" ] || { echo "expected 'Abbrechen' with --lang de, got: $de" >&2; exit 1; }
+          en=$(./out/gallery/RafficaGallery --print-string Cancel --lang en)
+          [ "$en" = "Cancel" ] || { echo "expected 'Cancel' with --lang en, got: $en" >&2; exit 1; }
+          echo "the published gallery prints German and English strings"
+
+      # RafficaGallery.exe is a GUI-subsystem program: PowerShell does not wait for it and does not capture its output when it is
+      # simply called. Start-Process -Wait with redirected output files waits and gives a reliable exit code.
+      - name: Smoke test of the gallery binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Resolve-Path ./out/gallery/RafficaGallery.exe).Path
+          foreach ($case in @(@('de', 'Abbrechen'), @('en', 'Cancel'))) {
+            $lang = $case[0]; $expected = $case[1]
+            $out = Join-Path $env:RUNNER_TEMP "gallery-$lang.out"
+            $err = Join-Path $env:RUNNER_TEMP "gallery-$lang.err"
+            $p = Start-Process -FilePath $exe -ArgumentList '--print-string', 'Cancel', '--lang', $lang -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($p.ExitCode -ne 0) { throw "--lang $lang exited with $($p.ExitCode): $(Get-Content $err -Raw)" }
+            $text = (Get-Content $out -Raw).Trim()
+            if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
+          }
+          Write-Host 'the published gallery prints German and English strings'
+
+      # The PDF app: the same two proofs as for the gallery (Native AOT publish without warnings, resource lookup in the published
+      # binary through --print-string, which needs no display).
+      - name: Publish the PDF app (Native AOT)
+        run: dotnet publish src/Raffica.Pdf -c Release -r ${{ matrix.rid }} -o out/pdf
+
+      # The published size of the PDF app and its zip against the limits (budget x 1.25) recorded from the owner's measurement runs
+      # (Docs/DECISIONS.md, "Raffica PDF speed budgets (M2.1)"; the single copy of the table is CheckCommand in measure.cs): exit 1 above a
+      # limit, no CSV. A miss is a finding for the owner, never a loosened limit. --no-cache for the reason given at the gallery step.
+      - name: Size of the published PDF app
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --check ${{ matrix.rid }} --target pdf --publish-dir out/pdf --fonts-dir src/Raffica.Shell/Assets/Fonts
+
+      - name: Smoke test of the PDF app binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          de=$(./out/pdf/RafficaPdf --print-string TabView --lang de)
+          [ "$de" = "Ansicht" ] || { echo "expected 'Ansicht' with --lang de, got: $de" >&2; exit 1; }
+          en=$(./out/pdf/RafficaPdf --print-string TabView --lang en)
+          [ "$en" = "View" ] || { echo "expected 'View' with --lang en, got: $en" >&2; exit 1; }
+          echo "the published PDF app prints German and English strings"
+
+      # RafficaPdf.exe is a GUI-subsystem program, like the gallery: Start-Process -Wait with redirected output files.
+      - name: Smoke test of the PDF app binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Resolve-Path ./out/pdf/RafficaPdf.exe).Path
+          foreach ($case in @(@('de', 'Ansicht'), @('en', 'View'))) {
+            $lang = $case[0]; $expected = $case[1]
+            $out = Join-Path $env:RUNNER_TEMP "pdf-$lang.out"
+            $err = Join-Path $env:RUNNER_TEMP "pdf-$lang.err"
+            $p = Start-Process -FilePath $exe -ArgumentList '--print-string', 'TabView', '--lang', $lang -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($p.ExitCode -ne 0) { throw "--lang $lang exited with $($p.ExitCode): $(Get-Content $err -Raw)" }
+            $text = (Get-Content $out -Raw).Trim()
+            if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
+          }
+          Write-Host 'the published PDF app prints German and English strings'
+
+  # The required status check: it passes when the build passed, or when there was nothing to build (documentation only,
+  # draft), so the matrix can change without touching the branch protection.
+  ci:
+    name: ci
+    if: always()
+    needs: [changes, build]
+    runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
+    timeout-minutes: 5
+    steps:
+      - name: All build jobs passed
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          CODE: ${{ needs.changes.outputs.code }}
+          BUILD: ${{ needs.build.result }}
+        run: |
+          echo "changes: $CHANGES, code: $CODE, build: $BUILD"
+          test "$CHANGES" = success
+          if [ "$CODE" = true ]; then test "$BUILD" = success; else echo "nothing to build"; fi

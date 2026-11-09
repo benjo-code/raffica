@@ -1,0 +1,71 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    Notification bar (section 6 and appendix A of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md, board
+    Docs/design/direction-d/Komponenten.dc.html): 40 px high, surface.page with a 1 px border.control edge and a 3 px radius, no
+    shadow. The icon takes the kind: Info is the circle with an i in text.secondary, Warning the triangle in warning.icon (the
+    icon only), Error the octagon in text.primary. Red (the danger colour) is never used here. Padding 12 px left and 8 px right as
+    on the board; 10 px between the icon, the sentence and the actions; the actions follow the sentence 6 px further out.
+  -->
+  <ControlTheme x:Key="{x:Type controls:NotificationBar}" TargetType="controls:NotificationBar">
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.NotificationBar}" />
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Height="{DynamicResource Raffica.Size.NotificationBar}"
+                Background="{DynamicResource Raffica.Brush.Surface.Page}"
+                BorderBrush="{DynamicResource Raffica.Brush.Border.Control}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource Raffica.Radius.Overlay}"
+                Padding="11,0,7,0">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <controls:StrokeIcon x:Name="PART_Icon"
+                                 Grid.Column="0"
+                                 Size="16"
+                                 Margin="0,0,10,0"
+                                 VerticalAlignment="Center"
+                                 AutomationProperties.AccessibilityView="Content" />
+            <TextBlock x:Name="PART_Text"
+                       Grid.Column="1"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="NoWrap" />
+            <StackPanel x:Name="PART_Actions"
+                        Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="10"
+                        Margin="16,0,0,0"
+                        VerticalAlignment="Center" />
+            <Button x:Name="PART_Close"
+                    Grid.Column="3"
+                    Classes="icon"
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center"
+                    IsVisible="{TemplateBinding IsClosable}">
+              <controls:StrokeIcon Size="16" Data="{DynamicResource Raffica.Icon.X}" />
+            </Button>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- Data and Stroke are set by style, not in the template: a local value in the template would beat these rules. -->
+    <Style Selector="^:info /template/ controls|StrokeIcon#PART_Icon">
+      <Setter Property="Data" Value="{DynamicResource Raffica.Icon.Info}" />
+      <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+    </Style>
+    <Style Selector="^:warning /template/ controls|StrokeIcon#PART_Icon">
+      <Setter Property="Data" Value="{DynamicResource Raffica.Icon.TriangleAlert}" />
+      <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Warning.Icon}" />
+    </Style>
+    <Style Selector="^:error /template/ controls|StrokeIcon#PART_Icon">
+      <Setter Property="Data" Value="{DynamicResource Raffica.Icon.OctagonAlert}" />
+      <Setter Property="Stroke" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

@@ -1,0 +1,81 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Raffica.Shell.Controls">
+  <!--
+    Tooltip (section 6 and appendix B of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md, board
+    Docs/design/direction-d/Komponenten.dc.html): surface.page, 1 px border.control, 3 px radius, no arrow, no shadow, at most
+    240 px wide, padding 9 px sides, 7 px top and 8 px bottom, text wraps. The tooltip appears at once (no fade). TooltipContent is
+    the rich body: the name once (13 px, 600) with the shortcut as plain 12 px text.secondary on the right, and a description
+    (12 px, line height 1.35, text.secondary) below.
+  -->
+  <controls:ShortcutTextConverter x:Key="Raffica.Converter.ShortcutText" />
+
+  <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Border.Control}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Overlay}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="400" />
+    <Setter Property="Padding" Value="9,7,9,8" />
+    <Setter Property="MaxWidth" Value="240" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_LayoutRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            TextBlock.TextWrapping="Wrap" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type controls:TooltipContent}" TargetType="controls:TooltipContent">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
+    <Setter Property="MaxWidth" Value="240" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Spacing="3">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Name="PART_Title"
+                       Text="{TemplateBinding Title}"
+                       FontSize="13"
+                       FontWeight="600"
+                       LineHeight="16.25"
+                       Foreground="{TemplateBinding Foreground}"
+                       TextWrapping="Wrap" />
+            <TextBlock Name="PART_Shortcut"
+                       Grid.Column="1"
+                       Margin="8,0,0,0"
+                       Text="{TemplateBinding Shortcut, Converter={StaticResource Raffica.Converter.ShortcutText}}"
+                       IsVisible="{TemplateBinding Shortcut, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       FontSize="12"
+                       FontWeight="400"
+                       LineHeight="16.2"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource Raffica.Brush.Text.Secondary}"
+                       TextWrapping="NoWrap" />
+          </Grid>
+          <TextBlock Name="PART_Description"
+                     Text="{TemplateBinding Description}"
+                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                     FontSize="12"
+                     FontWeight="400"
+                     LineHeight="16.2"
+                     Foreground="{DynamicResource Raffica.Brush.Text.Secondary}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

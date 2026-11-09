@@ -1,10 +1,15 @@
 name: Roadmap
 
+# Runs only when a pull request (not a draft) touches the roadmap files, or on a push to main; otherwise the job
+# reports success at once, so the required status check "roadmap" never waits. Once the repository is public, or for a
+# pull request from a fork, the job goes to a GitHub-hosted runner, otherwise to the owner's self-hosted runner. The
+# routing is a convenience; the boundary is the runner group (packaging/README.md, "Making the repository public").
 on:
   pull_request:
     branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [dev, main]
+    branches: [main]
 
 permissions:
   contents: read
@@ -18,22 +23,49 @@ concurrency:
 jobs:
   roadmap:
     name: roadmap
-    runs-on: [self-hosted, dotnet-linux]
+    runs-on: ${{ fromJSON((github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && '["ubuntu-24.04"]' || '["self-hosted","dotnet-linux"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Decide
+        id: relevant
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT" = pull_request ] && [ "$DRAFT" = true ]; then
+            echo "A draft pull request is not checked."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$EVENT" != pull_request ] || [ "$BASE" = main ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The checkout of a pull request is the merge commit; its first parent is the tip of the base branch.
+          run=false
+          while IFS= read -r f; do
+            case "$f" in
+              Docs/roadmap.json|Docs/roadmap.schema.json|Docs/ROADMAP.md|tools/roadmap.cs|.github/workflows/roadmap.yml) run=true ;;
+            esac
+          done <<< "$(git diff --name-only HEAD^1 HEAD)"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
 
       - name: Install the .NET SDK into HOME (no root on the runner)
+        if: steps.relevant.outputs.run == 'true'
         run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: steps.relevant.outputs.run == 'true'
         with:
           dotnet-version: '10.0.x'
 
-      # The fixtures belong to the template; a repository created from it may leave them out.
-      - name: Self-test of the generator
-        if: ${{ hashFiles('tools/roadmap-fixtures/**') != '' }}
-        run: dotnet run tools/roadmap.cs -- selftest
-
       - name: Check the roadmap
+        if: steps.relevant.outputs.run == 'true'
         run: dotnet run tools/roadmap.cs -- check

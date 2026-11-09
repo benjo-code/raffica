@@ -1,0 +1,29 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:frame="clr-namespace:Raffica.Shell.Frame">
+  <!--
+    The title bar (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): 36 px, surface.page, square. The
+    host border is the drag area of the window, so it has a fill. The caption buttons (class caption-button) are 46 x 36 and square;
+    hover, press and focus come from the button theme: a neutral hover on all three, the close button is not red.
+  -->
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type frame:TitleBar}" TargetType="frame:TitleBar">
+      <Setter Property="Height" Value="{DynamicResource Raffica.Size.TitleBar}" />
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Page}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="PART_Host" Background="{TemplateBinding Background}" />
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <Style Selector="Button.caption-button">
+    <Setter Property="Width" Value="{DynamicResource Raffica.Size.CaptionButton}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Raffica.Size.CaptionButton}" />
+    <Setter Property="Height" Value="{DynamicResource Raffica.Size.TitleBar}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+  </Style>
+</Styles>

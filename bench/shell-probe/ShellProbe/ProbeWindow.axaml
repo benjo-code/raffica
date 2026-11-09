@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ShellProbe.ProbeWindow"
+        Width="1440" Height="900"
+        Background="#FFFFFF" Foreground="#1A1D21"
+        FontFamily="avares://ShellProbe/Assets/Fonts#Public Sans" FontSize="14">
+  <Grid RowDefinitions="36,32,82,*,30">
+    <!-- Title bar: app mark, document tabs, search, caption buttons -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,300,Auto" Margin="12,0,0,0">
+      <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+        <Border Width="20" Height="20" Background="#1D4F91">
+          <TextBlock Text="W" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <TextBlock x:Name="AppLabel" FontSize="12" Foreground="#4A5059" VerticalAlignment="Center" />
+      </StackPanel>
+      <StackPanel x:Name="DocTabs" Grid.Column="1" Orientation="Horizontal" Spacing="2" Margin="12,0,12,0" VerticalAlignment="Bottom" ClipToBounds="True" />
+      <TextBox x:Name="SearchBox" Grid.Column="2" Height="28" MinHeight="28" VerticalAlignment="Center" Padding="8,0" CornerRadius="3" BorderBrush="#7A818B" />
+      <StackPanel x:Name="Captions" Grid.Column="3" Orientation="Horizontal" />
+    </Grid>
+
+    <!-- Command tabs -->
+    <StackPanel x:Name="CommandTabs" Grid.Row="1" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0" VerticalAlignment="Bottom" />
+
+    <!-- Command band -->
+    <Border Grid.Row="2" Background="#F5F6F8" BorderBrush="#1D4F91" BorderThickness="0,1,0,0" ClipToBounds="True">
+      <Border BorderBrush="#D3D7DD" BorderThickness="0,0,0,1">
+        <StackPanel x:Name="Ribbon" Orientation="Horizontal" Margin="2,0,0,0" Spacing="8" />
+      </Border>
+    </Border>
+
+    <!-- Work area -->
+    <Grid Grid.Row="3" ColumnDefinitions="240,*">
+      <Border Background="#F5F6F8" BorderBrush="#D3D7DD" BorderThickness="0,0,1,0">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Bottom" Margin="10,12" Spacing="6">
+            <TextBlock x:Name="ThisDocumentLabel" FontSize="12" Foreground="#4A5059" />
+            <StackPanel x:Name="DocumentFacts" Spacing="6" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Top" Margin="10,12,10,10" Spacing="10">
+            <TextBlock x:Name="NavigationLabel" FontSize="12" Foreground="#4A5059" />
+            <StackPanel x:Name="NavViews" Orientation="Horizontal" />
+          </StackPanel>
+          <StackPanel x:Name="Outline" Margin="0,2,0,6" />
+        </DockPanel>
+      </Border>
+      <Border Grid.Column="1" Background="#E9EBEE" ClipToBounds="True">
+        <Grid ColumnDefinitions="*,680,*" Margin="0,22,0,0">
+          <Border Grid.Column="1" Background="#FFFFFF" Padding="74,64" BoxShadow="0 1 2 0 #241A1D21, 0 8 24 0 #1A1A1D21">
+            <StackPanel Spacing="11">
+              <TextBlock x:Name="PageHeading" FontFamily="avares://ShellProbe/Assets/Fonts#Carlito" FontSize="22" FontWeight="Bold" />
+              <TextBlock x:Name="PageBody" FontFamily="avares://ShellProbe/Assets/Fonts#Carlito" FontSize="15" LineHeight="22" TextWrapping="Wrap" />
+              <TextBlock x:Name="PageItalic" FontFamily="avares://ShellProbe/Assets/Fonts#Carlito" FontSize="15" FontStyle="Italic" FontWeight="Bold" />
+              <TextBox x:Name="InputBox" FontFamily="avares://ShellProbe/Assets/Fonts#Carlito" FontSize="15" MinHeight="28" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="2" Margin="22,238,0,0" Width="224" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#FFFFFF" BorderBrush="#7B2FBE" BorderThickness="1">
+            <StackPanel>
+              <Grid ColumnDefinitions="*,Auto" Margin="8,7">
+                <TextBlock x:Name="CommentAuthor" FontWeight="SemiBold" />
+                <TextBlock x:Name="CommentTime" Grid.Column="1" FontSize="12" Foreground="#4A5059" />
+              </Grid>
+              <TextBlock x:Name="CommentText" Margin="9,9,9,10" TextWrapping="Wrap" />
+              <StackPanel x:Name="CommentButtons" Orientation="Horizontal" Spacing="4" Margin="6,0,6,6" />
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- Status bar -->
+    <Border Grid.Row="4" Background="#F5F6F8" BorderBrush="#D3D7DD" BorderThickness="0,1,0,0">
+      <DockPanel Margin="12,0,8,0">
+        <StackPanel x:Name="Zoom" DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" />
+        <StackPanel x:Name="StatusCells" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

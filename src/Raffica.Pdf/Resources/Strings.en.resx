@@ -1,0 +1,3505 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="AppMarkName" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="PageViewPageNameFormat" xml:space="preserve">
+    <value>{0}, page {1} of {2}</value>
+    <comment>Automation name of the page view once the pages are known; {0} is the file name, {1} the current page and {2} the page count.</comment>
+  </data>
+  <data name="PageViewNameFormat" xml:space="preserve">
+    <value>{0}, PDF document</value>
+    <comment>Automation name of the page view; {0} is the file name of the document.</comment>
+  </data>
+  <data name="PanePages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="PaneOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="PageThumbnailNameFormat" xml:space="preserve">
+    <value>Page {0}</value>
+    <comment>Automation name of a page thumbnail; {0} is the page number.</comment>
+  </data>
+  <data name="PageThumbnailCurrentNameFormat" xml:space="preserve">
+    <value>Page {0}, current page</value>
+    <comment>Automation name of the thumbnail of the page shown in the document; {0} is the page number.</comment>
+  </data>
+  <data name="OutlineEmpty" xml:space="preserve">
+    <value>This document has no outline.</value>
+    <comment>Hint in the outline pane when the document has no bookmarks (or they could not be read).</comment>
+  </data>
+  <data name="OutlineNoPage" xml:space="preserve">
+    <value>no page</value>
+    <comment>Added to the automation name of an outline entry that has no page to go to.</comment>
+  </data>
+  <data name="OutlineExpanded" xml:space="preserve">
+    <value>expanded</value>
+    <comment>Added to the automation name of an outline entry whose children are shown.</comment>
+  </data>
+  <data name="OutlineCollapsed" xml:space="preserve">
+    <value>collapsed</value>
+    <comment>Added to the automation name of an outline entry whose children are hidden.</comment>
+  </data>
+  <data name="OutlineUntitled" xml:space="preserve">
+    <value>(untitled)</value>
+    <comment>Shown for an outline entry without a title.</comment>
+  </data>
+  <data name="TabHome" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="TabView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="GroupFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="GroupFind" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="GroupGoTo" xml:space="preserve">
+    <value>Go to</value>
+  </data>
+  <data name="GroupPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="GroupZoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="GroupLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="GroupPage" xml:space="preserve">
+    <value>Page</value>
+  </data>
+  <data name="GroupPanes" xml:space="preserve">
+    <value>Panes</value>
+  </data>
+  <data name="CmdOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="CmdPrint" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="CmdSearch" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="CmdSearchNext" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="CmdSearchPrevious" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="CmdGoToPage" xml:space="preserve">
+    <value>Go to page</value>
+  </data>
+  <data name="CmdPreviousPage" xml:space="preserve">
+    <value>Previous page</value>
+  </data>
+  <data name="CmdNextPage" xml:space="preserve">
+    <value>Next page</value>
+  </data>
+  <data name="CmdFirstPage" xml:space="preserve">
+    <value>First page</value>
+  </data>
+  <data name="CmdLastPage" xml:space="preserve">
+    <value>Last page</value>
+  </data>
+  <data name="CmdZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="CmdZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="CmdFitWidth" xml:space="preserve">
+    <value>Fit width</value>
+  </data>
+  <data name="CmdFitPage" xml:space="preserve">
+    <value>Fit page</value>
+  </data>
+  <data name="CmdActualSize" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="CmdContinuous" xml:space="preserve">
+    <value>Continuous</value>
+  </data>
+  <data name="CmdSinglePage" xml:space="preserve">
+    <value>Single page</value>
+  </data>
+  <data name="CmdTwoPages" xml:space="preserve">
+    <value>Two pages</value>
+  </data>
+  <data name="CmdTwoPagesCover" xml:space="preserve">
+    <value>Two pages with cover</value>
+  </data>
+  <data name="CmdDarkPage" xml:space="preserve">
+    <value>Dark page</value>
+  </data>
+  <data name="CmdPagesPane" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="CmdOutlinePane" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="UnsavedTitle" xml:space="preserve">
+    <value>Save changes?</value>
+  </data>
+  <data name="UnsavedMessageFormat" xml:space="preserve">
+    <value>{0} has unsaved changes. Do you want to save them before you close it?</value>
+  </data>
+  <data name="UnsavedSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="UnsavedDontSave" xml:space="preserve">
+    <value>Don't save</value>
+  </data>
+  <data name="PasswordTitle" xml:space="preserve">
+    <value>Enter the password</value>
+  </data>
+  <data name="PasswordMessageFormat" xml:space="preserve">
+    <value>{0} is protected by a password. Enter it to open the file.</value>
+  </data>
+  <data name="PasswordLabel" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="PasswordIncorrect" xml:space="preserve">
+    <value>The password is incorrect. Try again.</value>
+  </data>
+  <data name="ErrorTitle" xml:space="preserve">
+    <value>The file could not be opened</value>
+  </data>
+  <data name="OpenFailuresTitle" xml:space="preserve">
+    <value>Some files could not be opened</value>
+  </data>
+  <data name="OpenFailuresMessage" xml:space="preserve">
+    <value>These files are missing, are not PDF files or cannot be read:</value>
+  </data>
+  <data name="OpenFailuresMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="ErrorFileNotFound" xml:space="preserve">
+    <value>The file does not exist any more or was moved.</value>
+  </data>
+  <data name="ErrorCannotRead" xml:space="preserve">
+    <value>The file cannot be read. It may be in use by another program, or you may not have access to it.</value>
+  </data>
+  <data name="ErrorNotAPdf" xml:space="preserve">
+    <value>This is not a PDF file, or the file is damaged.</value>
+  </data>
+  <data name="ErrorPasswordRequired" xml:space="preserve">
+    <value>The file is protected by a password.</value>
+  </data>
+  <data name="ErrorPasswordIncorrect" xml:space="preserve">
+    <value>The password for this file is incorrect.</value>
+  </data>
+  <data name="ErrorUnsupportedEncryption" xml:space="preserve">
+    <value>The file uses a kind of protection that is not supported.</value>
+  </data>
+  <data name="ErrorUnknown" xml:space="preserve">
+    <value>The file could not be opened for an unknown reason.</value>
+  </data>
+  <data name="OpenDialogTitle" xml:space="preserve">
+    <value>Open PDF</value>
+  </data>
+  <data name="OpenFilterPdf" xml:space="preserve">
+    <value>PDF documents</value>
+  </data>
+  <data name="StatusPositionFormat" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+    <comment>Position cell of the status bar: current page and page count.</comment>
+  </data>
+  <data name="StatusPageCountOne" xml:space="preserve">
+    <value>1 page</value>
+  </data>
+  <data name="StatusPageCountFormat" xml:space="preserve">
+    <value>{0} pages</value>
+  </data>
+  <data name="StatusCountWithSizeFormat" xml:space="preserve">
+    <value>{0} · {1}</value>
+    <comment>Count cell: the page count, then the page size.</comment>
+  </data>
+  <data name="PageSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+    <comment>Page size, width by height in millimeters.</comment>
+  </data>
+  <data name="GoToPageTitle" xml:space="preserve">
+    <value>Go to page</value>
+  </data>
+  <data name="GoToPageLabelFormat" xml:space="preserve">
+    <value>Page number (1 to {0})</value>
+  </data>
+  <data name="GoToPageInvalidFormat" xml:space="preserve">
+    <value>Enter a page number from 1 to {0}.</value>
+  </data>
+  <data name="InfoTitle" xml:space="preserve">
+    <value>Document info</value>
+  </data>
+  <data name="InfoFileName" xml:space="preserve">
+    <value>File name</value>
+  </data>
+  <data name="InfoFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="InfoPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="InfoPageSize" xml:space="preserve">
+    <value>Page size</value>
+  </data>
+  <data name="InfoPdfVersion" xml:space="preserve">
+    <value>PDF version</value>
+  </data>
+  <data name="InfoFileSize" xml:space="preserve">
+    <value>File size</value>
+  </data>
+  <data name="InfoDocumentTitle" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="InfoAuthor" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="InfoCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="InfoNotSet" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+  <data name="SearchBarName" xml:space="preserve">
+    <value>Find in document</value>
+  </data>
+  <data name="SearchMatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+  <data name="SearchWholeWord" xml:space="preserve">
+    <value>Whole word</value>
+  </data>
+  <data name="SearchPreviousHit" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="SearchNextHit" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="SearchCloseBar" xml:space="preserve">
+    <value>Close search</value>
+  </data>
+  <data name="SearchNoHits" xml:space="preserve">
+    <value>No hits</value>
+  </data>
+  <data name="SearchHitOne" xml:space="preserve">
+    <value>1 hit</value>
+  </data>
+  <data name="SearchHitsFormat" xml:space="preserve">
+    <value>{0} hits</value>
+  </data>
+  <data name="SearchLimitFormat" xml:space="preserve">
+    <value>More than {0} hits</value>
+  </data>
+  <data name="SearchSearching" xml:space="preserve">
+    <value>Searching…</value>
+  </data>
+  <data name="LinkTitle" xml:space="preserve">
+    <value>Open this link?</value>
+  </data>
+  <data name="LinkMessage" xml:space="preserve">
+    <value>This link leads outside the document. It opens in your browser or mail program.</value>
+  </data>
+  <data name="LinkAddressName" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="LinkOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="LinkWarningUserInfo" xml:space="preserve">
+    <value>Check this address. It contains a user name before the host name, a common disguise for a different site.</value>
+  </data>
+  <data name="LinkWarningPunycodeFormat" xml:space="preserve">
+    <value>Check this address. The domain uses special characters and can imitate another name. Decoded domain: {0}</value>
+  </data>
+  <data name="PaletteGroupGoTo" xml:space="preserve">
+    <value>Go to</value>
+  </data>
+  <data name="OpenFileButton" xml:space="preserve">
+    <value>Open file</value>
+  </data>
+  <data name="PaletteSearchDocumentFormat" xml:space="preserve">
+    <value>Search the document for '{0}'</value>
+  </data>
+  <data name="PaletteGoToPageFormat" xml:space="preserve">
+    <value>Go to page {0}</value>
+  </data>
+  <data name="PaletteGoToPageDetailFormat" xml:space="preserve">
+    <value>of {0}</value>
+  </data>
+  <data name="PaletteGroupTabs" xml:space="preserve">
+    <value>Open documents</value>
+  </data>
+  <data name="PaletteGroupRecent" xml:space="preserve">
+    <value>Recent files</value>
+  </data>
+  <data name="PaletteGroupOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="PaletteOutlinePageFormat" xml:space="preserve">
+    <value>Page {0}</value>
+  </data>
+  <data name="PaletteGroupDocument" xml:space="preserve">
+    <value>Document</value>
+  </data>
+  <data name="GroupTabs" xml:space="preserve">
+    <value>Tabs</value>
+  </data>
+  <data name="GroupText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="GroupHelp" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="CmdCloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="CmdSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="CmdNextTab" xml:space="preserve">
+    <value>Next tab</value>
+  </data>
+  <data name="CmdPreviousTab" xml:space="preserve">
+    <value>Previous tab</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Select all text</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Copy text</value>
+  </data>
+  <data name="CmdHelp" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="PrintLockedReason" xml:space="preserve">
+    <value>This document does not allow printing.</value>
+  </data>
+  <data name="PrintErrorStart" xml:space="preserve">
+    <value>The printer could not start the print job.</value>
+  </data>
+  <data name="PrintErrorPage" xml:space="preserve">
+    <value>The printer reported an error while printing.</value>
+  </data>
+  <data name="PrintErrorDialog" xml:space="preserve">
+    <value>The print dialog could not be shown.</value>
+  </data>
+  <data name="PrintNoService" xml:space="preserve">
+    <value>No printing service is available on this system.</value>
+  </data>
+  <data name="PrintNoPrinter" xml:space="preserve">
+    <value>No printer was found.</value>
+  </data>
+  <data name="HelpGroupNavigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="HelpNavSearch" xml:space="preserve">
+    <value>Go to the search field</value>
+  </data>
+  <data name="HelpNavPanes" xml:space="preserve">
+    <value>Move between the panes</value>
+  </data>
+  <data name="HelpNavFieldCodes" xml:space="preserve">
+    <value>Field codes: show them, then type one</value>
+  </data>
+  <data name="HelpNavSearchNext" xml:space="preserve">
+    <value>Search field: next match</value>
+  </data>
+  <data name="HelpNavSearchPrevious" xml:space="preserve">
+    <value>Search field: previous match</value>
+  </data>
+  <data name="HelpNavOrganizeMove" xml:space="preserve">
+    <value>Organize pages: move the selected pages by one</value>
+  </data>
+  <data name="HelpNavOrganizeEnds" xml:space="preserve">
+    <value>Organize pages: move to the start or the end</value>
+  </data>
+  <data name="HelpNavOrganizeRotate" xml:space="preserve">
+    <value>Organize pages: turn left or right</value>
+  </data>
+  <data name="HelpNavOrganizeDuplicate" xml:space="preserve">
+    <value>Organize pages: duplicate</value>
+  </data>
+  <data name="HelpNavOrganizeSelectAll" xml:space="preserve">
+    <value>Organize pages: select all pages</value>
+  </data>
+  <data name="HelpNavOrganizeDelete" xml:space="preserve">
+    <value>Organize pages: delete</value>
+  </data>
+  <data name="HelpNavFormWalk" xml:space="preserve">
+    <value>Forms: next or previous field</value>
+  </data>
+  <data name="HelpNavFormFill" xml:space="preserve">
+    <value>Forms: fill in the field with the focus</value>
+  </data>
+  <data name="HelpNavFormLeave" xml:space="preserve">
+    <value>Forms: leave the field</value>
+  </data>
+  <data name="HelpNavTextFinish" xml:space="preserve">
+    <value>Finish a text box or a comment</value>
+  </data>
+  <data name="HelpNavWholeLine" xml:space="preserve">
+    <value>Edit text: whole line in the replacement font</value>
+  </data>
+  <data name="HelpKeyHome" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="HelpKeyEnd" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="HelpKeySpace" xml:space="preserve">
+    <value>Space</value>
+  </data>
+  <data name="HelpTitle" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="HelpListName" xml:space="preserve">
+    <value>List of keyboard shortcuts</value>
+  </data>
+  <data name="SettingsPageAppearance" xml:space="preserve">
+    <value>Page appearance</value>
+  </data>
+  <data name="SettingsPageLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="SettingsPageFollowTheme" xml:space="preserve">
+    <value>Follow theme</value>
+  </data>
+  <data name="SettingsDefaultLayout" xml:space="preserve">
+    <value>Default layout</value>
+  </data>
+  <data name="SettingsDefaultZoom" xml:space="preserve">
+    <value>Default zoom</value>
+  </data>
+  <data name="SettingsAuthorName" xml:space="preserve">
+    <value>Author name</value>
+  </data>
+  <data name="PrintCardTitle" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="PrintCardPrinter" xml:space="preserve">
+    <value>Printer</value>
+  </data>
+  <data name="PrintCardPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="PrintPagesAll" xml:space="preserve">
+    <value>All pages</value>
+  </data>
+  <data name="PrintPagesCurrent" xml:space="preserve">
+    <value>Current page</value>
+  </data>
+  <data name="PrintPagesRange" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="PrintRangeLabel" xml:space="preserve">
+    <value>Page range</value>
+  </data>
+  <data name="PrintCardCopies" xml:space="preserve">
+    <value>Copies</value>
+  </data>
+  <data name="PrintCardCollate" xml:space="preserve">
+    <value>Collate</value>
+  </data>
+  <data name="PrintCardScaling" xml:space="preserve">
+    <value>Scaling</value>
+  </data>
+  <data name="PrintScalingFit" xml:space="preserve">
+    <value>Fit to paper</value>
+  </data>
+  <data name="PrintScalingActual" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="PrintCardDuplex" xml:space="preserve">
+    <value>Two-sided</value>
+  </data>
+  <data name="PrintDuplexDefault" xml:space="preserve">
+    <value>Printer default</value>
+  </data>
+  <data name="PrintDuplexOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="PrintDuplexLong" xml:space="preserve">
+    <value>Flip on long edge</value>
+  </data>
+  <data name="PrintDuplexShort" xml:space="preserve">
+    <value>Flip on short edge</value>
+  </data>
+  <data name="PrintCardOrientation" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="PrintOrientationDefault" xml:space="preserve">
+    <value>Printer default</value>
+  </data>
+  <data name="PrintOrientationPortrait" xml:space="preserve">
+    <value>Portrait</value>
+  </data>
+  <data name="PrintOrientationLandscape" xml:space="preserve">
+    <value>Landscape</value>
+  </data>
+  <data name="PrintRangeInvalidFormat" xml:space="preserve">
+    <value>Enter pages from 1 to {0}, for example 1-3, 5.</value>
+  </data>
+  <data name="PrintCopiesInvalid" xml:space="preserve">
+    <value>Enter a number of copies from 1 to 999.</value>
+  </data>
+  <data name="PrintJobTitleFormat" xml:space="preserve">
+    <value>Printing {0}</value>
+  </data>
+  <data name="PrintJobPreparing" xml:space="preserve">
+    <value>Preparing the job</value>
+  </data>
+  <data name="PrintJobProgressFormat" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+  </data>
+  <data name="PrintJobCancelling" xml:space="preserve">
+    <value>Canceling</value>
+  </data>
+  <data name="PrintBusy" xml:space="preserve">
+    <value>A print job is already running.</value>
+  </data>
+  <data name="SaveBusy" xml:space="preserve">
+    <value>A save is running.</value>
+  </data>
+  <data name="SaveLeftoverFormat" xml:space="preserve">
+    <value>The file was saved. The old version is still at {0}. You can delete it.</value>
+  </data>
+  <data name="SaveJobTitleFormat" xml:space="preserve">
+    <value>Saving {0}</value>
+  </data>
+  <data name="SaveDialogTitle" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="PrintFailedPagesFormat" xml:space="preserve">
+    <value>These pages could not be printed: {0}.</value>
+  </data>
+  <data name="PrintFailedMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
+  <data name="TabAnnotate" xml:space="preserve">
+    <value>Annotate</value>
+  </data>
+  <data name="GroupHistory" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="GroupMarkup" xml:space="preserve">
+    <value>Markup</value>
+  </data>
+  <data name="GroupDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="GroupEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="GroupDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="CmdAnnotateMode" xml:space="preserve">
+    <value>Annotate mode</value>
+  </data>
+  <data name="CmdHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="CmdUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="CmdStrikeOut" xml:space="preserve">
+    <value>Strike out</value>
+  </data>
+  <data name="CmdSelectMark" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="CmdFreehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="CmdRectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="CmdEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="CmdLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="CmdArrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="CmdTextBox" xml:space="preserve">
+    <value>Text box</value>
+  </data>
+  <data name="CmdAnnotateDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="CmdMarksPane" xml:space="preserve">
+    <value>Marks</value>
+  </data>
+  <data name="CmdDeleteMark" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="GroupSign" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="CmdSign" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="AnnotateLockedReason" xml:space="preserve">
+    <value>This document does not allow changing annotations.</value>
+  </data>
+  <data name="AnnotateModeFormat" xml:space="preserve">
+    <value>{0} – Esc to finish</value>
+  </data>
+  <data name="AnnotateCardTitle" xml:space="preserve">
+    <value>Annotations</value>
+  </data>
+  <data name="AnnotateLimitReached" xml:space="preserve">
+    <value>This document already has as many annotations as Raffica can list (10,000). Nothing more could be added. What was added before that was kept and can be undone.</value>
+  </data>
+  <data name="AnnotateFailed" xml:space="preserve">
+    <value>The mark could not be added. What was added before that, on earlier pages, was kept and can be undone.</value>
+  </data>
+  <data name="SelectLockedReason" xml:space="preserve">
+    <value>Locked: another program made this mark in a way Raffica cannot redraw without loss. You can comment on it or delete it.</value>
+  </data>
+  <data name="SelectFailed" xml:space="preserve">
+    <value>The change could not be made. The mark is as it was.</value>
+  </data>
+  <data name="TextBoxRejectedFormat" xml:space="preserve">
+    <value>A text box cannot show these characters: {0}</value>
+  </data>
+  <data name="TextBoxTooLong" xml:space="preserve">
+    <value>The text is longer than 2,000 characters.</value>
+  </data>
+  <data name="TextBoxTooManyLines" xml:space="preserve">
+    <value>The text has more than 200 lines.</value>
+  </data>
+  <data name="TextBoxFieldName" xml:space="preserve">
+    <value>Text of the text box</value>
+  </data>
+  <data name="PaneMarks" xml:space="preserve">
+    <value>Marks</value>
+  </data>
+  <data name="MarkFilterName" xml:space="preserve">
+    <value>Show marks</value>
+  </data>
+  <data name="MarkFilterAll" xml:space="preserve">
+    <value>All marks</value>
+  </data>
+  <data name="MarkFilterHighlight" xml:space="preserve">
+    <value>Highlights</value>
+  </data>
+  <data name="MarkFilterUnderline" xml:space="preserve">
+    <value>Underlines</value>
+  </data>
+  <data name="MarkFilterStrikeOut" xml:space="preserve">
+    <value>Strike-outs</value>
+  </data>
+  <data name="MarkFilterDrawings" xml:space="preserve">
+    <value>Drawings and text boxes</value>
+  </data>
+  <data name="MarkFilterOther" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="MarkKindHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="MarkKindUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="MarkKindStrikeOut" xml:space="preserve">
+    <value>Strike-out</value>
+  </data>
+  <data name="MarkKindFreehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="MarkKindRectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="MarkKindEllipse" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="MarkKindLine" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="MarkKindArrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="MarkKindTextBox" xml:space="preserve">
+    <value>Text box</value>
+  </data>
+  <data name="MarkKindSignature" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="MarkKindOtherFormat" xml:space="preserve">
+    <value>Other: {0}</value>
+  </data>
+  <data name="MarkGroupFormat" xml:space="preserve">
+    <value>Freehand, {0} strokes</value>
+  </data>
+  <data name="MarkPageTagFormat" xml:space="preserve">
+    <value>p. {0}</value>
+  </data>
+  <data name="MarkLockedLabel" xml:space="preserve">
+    <value>Locked</value>
+  </data>
+  <data name="MarkSummaryOneFormat" xml:space="preserve">
+    <value>1 mark on page {0}</value>
+  </data>
+  <data name="MarkSummaryOnePageFormat" xml:space="preserve">
+    <value>{0} marks, all on page {1}</value>
+  </data>
+  <data name="MarkSummaryPagesFormat" xml:space="preserve">
+    <value>{0} marks on {1} pages</value>
+  </data>
+  <data name="MarksEmpty" xml:space="preserve">
+    <value>This document has no marks.</value>
+  </data>
+  <data name="MarksNoneOfKind" xml:space="preserve">
+    <value>No marks of this kind.</value>
+  </data>
+  <data name="MarksHelp" xml:space="preserve">
+    <value>A deleted mark stays in earlier revisions of the file.</value>
+  </data>
+  <data name="MarkCommentName" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="MarkCommentHint" xml:space="preserve">
+    <value>Ctrl+Enter applies, Esc discards.</value>
+  </data>
+  <data name="MarkRepliesReason" xml:space="preserve">
+    <value>This mark has replies, so Raffica leaves it as it is.</value>
+  </data>
+  <data name="MarkOtherReason" xml:space="preserve">
+    <value>Made by another program. Raffica shows it but cannot change it.</value>
+  </data>
+  <data name="MarkTextBoxLockedReason" xml:space="preserve">
+    <value>Locked: another program made this text box. You can delete it.</value>
+  </data>
+  <data name="MarkTextBoxNote" xml:space="preserve">
+    <value>Double-click the text box in the document to change its text.</value>
+  </data>
+  <data name="MarkCommentFailed" xml:space="preserve">
+    <value>The comment could not be changed. The mark is as it was.</value>
+  </data>
+  <data name="SignedWarnTitle" xml:space="preserve">
+    <value>This signature does not allow comments</value>
+  </data>
+  <data name="SignedWarnText" xml:space="preserve">
+    <value>After saving, programs such as Acrobat will show it as invalid.</value>
+  </data>
+  <data name="SignedNoteTitle" xml:space="preserve">
+    <value>This document is signed</value>
+  </data>
+  <data name="SignedNoteText" xml:space="preserve">
+    <value>Raffica PDF only appends your changes; the signed bytes stay unchanged.</value>
+  </data>
+  <data name="SignedSaveAnyway" xml:space="preserve">
+    <value>Save anyway</value>
+  </data>
+  <data name="ChangedTitle" xml:space="preserve">
+    <value>The file has been replaced</value>
+  </data>
+  <data name="ChangedMessageFormat" xml:space="preserve">
+    <value>Another file has taken the place of {0} since you opened it. Do you want to overwrite it?</value>
+  </data>
+  <data name="ChangedOverwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="SaveFailedTitle" xml:space="preserve">
+    <value>Not saved</value>
+  </data>
+  <data name="SaveFailNotWritable" xml:space="preserve">
+    <value>The file could not be saved because the folder or the file is read-only or access is denied. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailDiskFull" xml:space="preserve">
+    <value>The disk is full. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailWriteFailed" xml:space="preserve">
+    <value>The file could not be written, for example because another program has it open. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailVerificationFailed" xml:space="preserve">
+    <value>The saved file did not pass the check and was discarded. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailOriginalChanged" xml:space="preserve">
+    <value>Another file has taken the place of the original since you opened it. Nothing was overwritten, and the original file is unchanged.</value>
+  </data>
+  <data name="SaveFailSourceModified" xml:space="preserve">
+    <value>Another program rewrote this file after you opened it, so it cannot be saved from here. Your changes are still in this tab, and this save left the original file unchanged.</value>
+  </data>
+  <data name="SaveFailEncryptedNotSupported" xml:space="preserve">
+    <value>This document is encrypted, and the saved file would not keep the encryption. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailTargetExists" xml:space="preserve">
+    <value>A file already exists at the target and was not replaced. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailRedactionFailed" xml:space="preserve">
+    <value>The check of the redaction failed, so nothing was saved. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailWriterNotSupported" xml:space="preserve">
+    <value>Raffica PDF cannot save this document. The original file is unchanged.</value>
+  </data>
+  <data name="SaveFailCanceled" xml:space="preserve">
+    <value>Saving was canceled. The original file is unchanged.</value>
+  </data>
+  <data name="UnsavedLockedTitle" xml:space="preserve">
+    <value>Close without saving?</value>
+  </data>
+  <data name="UnsavedLockedMessageFormat" xml:space="preserve">
+    <value>{0} has changes that cannot be saved here. If you close it, they are lost.</value>
+  </data>
+  <data name="UnsavedDiscard" xml:space="preserve">
+    <value>Close and discard changes</value>
+  </data>
+  <data name="StyleStripColorName" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="StyleStripColorWidthName" xml:space="preserve">
+    <value>Color and width</value>
+  </data>
+  <data name="StyleStripColorSizeName" xml:space="preserve">
+    <value>Color and text size</value>
+  </data>
+  <data name="MarkupColorYellow" xml:space="preserve">
+    <value>Yellow</value>
+  </data>
+  <data name="MarkupColorGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="MarkupColorBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="MarkupColorPink" xml:space="preserve">
+    <value>Pink</value>
+  </data>
+  <data name="MarkupColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="DrawColorRed" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="DrawColorBlack" xml:space="preserve">
+    <value>Black</value>
+  </data>
+  <data name="DrawColorBlue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="DrawColorGreen" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="DrawColorOrange" xml:space="preserve">
+    <value>Orange</value>
+  </data>
+  <data name="StyleWidthThin" xml:space="preserve">
+    <value>Thin</value>
+  </data>
+  <data name="StyleWidthMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="StyleWidthThick" xml:space="preserve">
+    <value>Thick</value>
+  </data>
+  <data name="StyleSizeSmall" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="StyleSizeMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="StyleSizeLarge" xml:space="preserve">
+    <value>Large</value>
+  </data>
+  <data name="StylePointsFormat" xml:space="preserve">
+    <value>{0}, {1} pt</value>
+  </data>
+  <data name="FormCardTitle" xml:space="preserve">
+    <value>Form</value>
+  </data>
+  <data name="FormRejectedFormat" xml:space="preserve">
+    <value>A form field cannot show these characters: {0}</value>
+  </data>
+  <data name="FormControlCharacterFormat" xml:space="preserve">
+    <value>A form field cannot take this control character: {0}</value>
+  </data>
+  <data name="FormTooLongFormat" xml:space="preserve">
+    <value>The field takes at most {0} characters.</value>
+  </data>
+  <data name="FormOneLineOnly" xml:space="preserve">
+    <value>This field takes one line only.</value>
+  </data>
+  <data name="FormNotKept" xml:space="preserve">
+    <value>The form did not keep the value. The field is as it was.</value>
+  </data>
+  <data name="FormNotKeptNotRestored" xml:space="preserve">
+    <value>The form did not keep the value and the field could not be checked afterwards. The page is read again; the field may differ from the undo history.</value>
+  </data>
+  <data name="FormLocked" xml:space="preserve">
+    <value>This field cannot be changed.</value>
+  </data>
+  <data name="FormNotFound" xml:space="preserve">
+    <value>The document has no such field any more.</value>
+  </data>
+  <data name="FormHistoryFull" xml:space="preserve">
+    <value>The undo history is full. Save the document first, then go on.</value>
+  </data>
+  <data name="FormInvalid" xml:space="preserve">
+    <value>This value cannot be written to the field.</value>
+  </data>
+  <data name="FormFillForbidden" xml:space="preserve">
+    <value>This document does not allow filling in form fields.</value>
+  </data>
+  <data name="TabForms" xml:space="preserve">
+    <value>Forms</value>
+  </data>
+  <data name="GroupFill" xml:space="preserve">
+    <value>Fill</value>
+  </data>
+  <data name="CmdFormsNext" xml:space="preserve">
+    <value>Next field</value>
+  </data>
+  <data name="CmdFormsPrevious" xml:space="preserve">
+    <value>Previous field</value>
+  </data>
+  <data name="CmdFormsNextRequired" xml:space="preserve">
+    <value>Next required field</value>
+  </data>
+  <data name="CmdFormsHighlight" xml:space="preserve">
+    <value>Highlight fields</value>
+  </data>
+  <data name="FormsNoFormReason" xml:space="preserve">
+    <value>This document has no form fields to fill in.</value>
+  </data>
+  <data name="FormsNoRequiredReason" xml:space="preserve">
+    <value>No required field is empty.</value>
+  </data>
+  <data name="FormTipReadOnly" xml:space="preserve">
+    <value>Read-only field</value>
+  </data>
+  <data name="FormTipSignature" xml:space="preserve">
+    <value>Signature field: Raffica does not sign here</value>
+  </data>
+  <data name="FormTipButton" xml:space="preserve">
+    <value>Button: Raffica never runs a button's action</value>
+  </data>
+  <data name="FormTipUnsupported" xml:space="preserve">
+    <value>Raffica cannot change this field</value>
+  </data>
+  <data name="FormTipRequired" xml:space="preserve">
+    <value>Required field, still empty</value>
+  </data>
+  <data name="FormNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FormStateChecked" xml:space="preserve">
+    <value>checked</value>
+  </data>
+  <data name="FormStateNotChecked" xml:space="preserve">
+    <value>not checked</value>
+  </data>
+  <data name="FormNoticeScripts" xml:space="preserve">
+    <value>Calculations, formats and checks in this form need JavaScript and are not run.</value>
+  </data>
+  <data name="FormNoticeXfa" xml:space="preserve">
+    <value>This is an XFA form; Raffica PDF does not support XFA forms.</value>
+  </data>
+  <data name="FormNoticeSignature" xml:space="preserve">
+    <value>Digital signature fields are not supported.</value>
+  </data>
+  <data name="FormNoticeButtons" xml:space="preserve">
+    <value>Buttons in this form never run an action.</value>
+  </data>
+  <data name="FormNoticeDismiss" xml:space="preserve">
+    <value>Dismiss notice</value>
+  </data>
+  <data name="FormRequiredOne" xml:space="preserve">
+    <value>1 required field empty</value>
+  </data>
+  <data name="FormRequiredManyFormat" xml:space="preserve">
+    <value>{0} required fields empty</value>
+  </data>
+  <data name="FormHighlightToggle" xml:space="preserve">
+    <value>Highlight fields</value>
+  </data>
+  <data name="SignedFormsTitle" xml:space="preserve">
+    <value>This file is signed</value>
+  </data>
+  <data name="SignedFormsText" xml:space="preserve">
+    <value>Only form fields were filled in. The level of this signature may allow that, but Raffica PDF cannot check whether the signature stays intact. Programs such as Acrobat may show it as invalid.</value>
+  </data>
+  <data name="RequiredTitle" xml:space="preserve">
+    <value>Required fields are empty</value>
+  </data>
+  <data name="RequiredTextOne" xml:space="preserve">
+    <value>One required field has no value yet.</value>
+  </data>
+  <data name="RequiredTextMany" xml:space="preserve">
+    <value>{0} required fields have no value yet.</value>
+  </data>
+  <data name="RequiredNames" xml:space="preserve">
+    <value>Empty: {0}</value>
+  </data>
+  <data name="RequiredMore" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="RequiredHint" xml:space="preserve">
+    <value>You can also save the file as it is.</value>
+  </data>
+  <data name="RequiredGoToFirst" xml:space="preserve">
+    <value>Go to first empty field</value>
+  </data>
+  <data name="RequiredSaveAnyway" xml:space="preserve">
+    <value>Save anyway</value>
+  </data>
+  <data name="SignatureNewTitle" xml:space="preserve">
+    <value>New signature</value>
+  </data>
+  <data name="SignatureNewTabs" xml:space="preserve">
+    <value>Way to make the signature</value>
+  </data>
+  <data name="SignatureNewTabDraw" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="SignatureNewTabImage" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="SignatureNewName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="SignatureNewDefaultNameFormat" xml:space="preserve">
+    <value>Signature {0}</value>
+  </data>
+  <data name="SignatureNewPadName" xml:space="preserve">
+    <value>Drawing area for your signature</value>
+  </data>
+  <data name="SignatureNewClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="SignatureNewBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="SignatureNewBackTip" xml:space="preserve">
+    <value>Remove the last stroke</value>
+  </data>
+  <data name="SignatureNewInk" xml:space="preserve">
+    <value>Ink color</value>
+  </data>
+  <data name="SignatureNewChoose" xml:space="preserve">
+    <value>Choose image</value>
+  </data>
+  <data name="SignatureNewImageNone" xml:space="preserve">
+    <value>PNG or JPG, up to 10 MB</value>
+  </data>
+  <data name="SignatureNewImageLoaded" xml:space="preserve">
+    <value>Move the slider until only your signature is left.</value>
+  </data>
+  <data name="SignatureNewCutout" xml:space="preserve">
+    <value>Cutout</value>
+  </data>
+  <data name="SignatureNewCutoutTip" xml:space="preserve">
+    <value>Right keeps more of the image, left removes more</value>
+  </data>
+  <data name="SignatureNewPreview" xml:space="preserve">
+    <value>Preview on a transparent background</value>
+  </data>
+  <data name="SignatureNewSave" xml:space="preserve">
+    <value>Save signature</value>
+  </data>
+  <data name="SignatureNewPickTitle" xml:space="preserve">
+    <value>Choose an image of your signature</value>
+  </data>
+  <data name="SignatureNewPickFilter" xml:space="preserve">
+    <value>Images (PNG, JPG)</value>
+  </data>
+  <data name="SignatureNewRefusalLimit" xml:space="preserve">
+    <value>The library already holds ten signatures. Remove one first.</value>
+  </data>
+  <data name="SignatureNewRefusalTooLarge" xml:space="preserve">
+    <value>The file is larger than 10 MB.</value>
+  </data>
+  <data name="SignatureNewRefusalTooManyPixels" xml:space="preserve">
+    <value>The image is larger than 6000 pixels on a side.</value>
+  </data>
+  <data name="SignatureNewRefusalUnreadable" xml:space="preserve">
+    <value>The file is not a PNG or JPG image, or it cannot be read.</value>
+  </data>
+  <data name="SignatureNewRefusalEmpty" xml:space="preserve">
+    <value>Nothing of the image is left. Choose another image or move the slider.</value>
+  </data>
+  <data name="SignatureNewRefusalAspect" xml:space="preserve">
+    <value>The signature would be too wide or too tall. Choose another image or move the slider.</value>
+  </data>
+  <data name="SignatureNewRefusalUnusable" xml:space="preserve">
+    <value>This drawing cannot be saved. Clear it and draw again with fewer strokes.</value>
+  </data>
+  <data name="SignatureNewRefusalWriteFailed" xml:space="preserve">
+    <value>The signature could not be saved. Nothing was changed.</value>
+  </data>
+  <data name="SignatureHintWritten" xml:space="preserve">
+    <value>Replaces no handwritten signature where written form is required.</value>
+  </data>
+  <data name="SignatureHintImage" xml:space="preserve">
+    <value>This is an image of your signature, not a digital signature.</value>
+  </data>
+  <data name="SignaturePickerTitle" xml:space="preserve">
+    <value>Sign</value>
+  </data>
+  <data name="SignaturePickerList" xml:space="preserve">
+    <value>Saved signatures</value>
+  </data>
+  <data name="SignaturePickerNew" xml:space="preserve">
+    <value>New signature…</value>
+  </data>
+  <data name="SignaturePickerDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SignaturePickerDeleteTip" xml:space="preserve">
+    <value>Delete this signature from your saved signatures</value>
+  </data>
+  <data name="SignaturePickerDeleteConfirm" xml:space="preserve">
+    <value>Delete this signature from your saved signatures? Documents that already contain it stay as they are.</value>
+  </data>
+  <data name="SignaturePickerDeleteYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SignaturePickerDeleteKeep" xml:space="preserve">
+    <value>Keep</value>
+  </data>
+  <data name="SignaturePickerDeleteFailed" xml:space="preserve">
+    <value>The signature could not be deleted. Nothing was changed.</value>
+  </data>
+  <data name="SignaturePickerEmpty" xml:space="preserve">
+    <value>No saved signatures.</value>
+  </data>
+  <data name="SignaturePlaceTitle" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="SignaturePlaceHistoryFull" xml:space="preserve">
+    <value>There is no room left for more unsaved changes. Save the document first, then place the signature. Nothing was placed.</value>
+  </data>
+  <data name="SignaturePlaceFailed" xml:space="preserve">
+    <value>The signature could not be placed. Nothing was added to the document.</value>
+  </data>
+  <data name="OrganizeListName" xml:space="preserve">
+    <value>Page plan</value>
+    <comment>Automation name of the list of the pages in organize mode.</comment>
+  </data>
+  <data name="OrganizeCounterChangedFormat" xml:space="preserve">
+    <value>{0} → {1} pages</value>
+    <comment>Counter above the organize list when the plan changes the page count; {0} pages before, {1} after (more than one).</comment>
+  </data>
+  <data name="OrganizeCounterChangedOneFormat" xml:space="preserve">
+    <value>{0} → 1 page</value>
+    <comment>Counter when the plan leaves one page; {0} pages before.</comment>
+  </data>
+  <data name="OrganizeCounterSameFormat" xml:space="preserve">
+    <value>{0} pages</value>
+    <comment>Counter when the plan keeps the page count; {0} is the count (more than one).</comment>
+  </data>
+  <data name="OrganizeCounterSameOne" xml:space="preserve">
+    <value>1 page</value>
+    <comment>Counter for a document of one page that the plan does not change in size.</comment>
+  </data>
+  <data name="OrganizeGoneFormat" xml:space="preserve">
+    <value>{0} removed</value>
+    <comment>Under the counter: how many pages of the document the plan removes.</comment>
+  </data>
+  <data name="OrganizeTurnedFormat" xml:space="preserve">
+    <value>Turned {0}°</value>
+    <comment>Pending state of a page in the plan: turned by {0} degrees.</comment>
+  </data>
+  <data name="OrganizeBlank" xml:space="preserve">
+    <value>New blank page</value>
+    <comment>Pending state of a blank page in the plan.</comment>
+  </data>
+  <data name="OrganizeBlankSizeFormat" xml:space="preserve">
+    <value>{0} × {1} mm</value>
+    <comment>Size of a blank page in the plan: width and height in millimeters.</comment>
+  </data>
+  <data name="OrganizeFromFileFormat" xml:space="preserve">
+    <value>From {0}, page {1}</value>
+    <comment>Pending state of a page taken from another file; {0} is the file name, {1} the page number there.</comment>
+  </data>
+  <data name="OrganizeCopy" xml:space="preserve">
+    <value>Copy</value>
+    <comment>Pending state of a page that is a further copy of a page of the plan.</comment>
+  </data>
+  <data name="OrganizeLastPageRefused" xml:space="preserve">
+    <value>The last page cannot be deleted. Nothing was changed.</value>
+    <comment>Notice when the plan would be left without a page.</comment>
+  </data>
+  <data name="OrganizeLimitRefusedFormat" xml:space="preserve">
+    <value>A plan can hold at most {0} pages. Nothing was changed.</value>
+    <comment>Notice when the plan would grow beyond the limit; {0} is the limit.</comment>
+  </data>
+  <data name="TabPages" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="GroupOrganize" xml:space="preserve">
+    <value>Organize</value>
+  </data>
+  <data name="GroupApply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="GroupOutput" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="CmdOrganize" xml:space="preserve">
+    <value>Organize pages</value>
+  </data>
+  <data name="CmdRotateLeft" xml:space="preserve">
+    <value>Rotate left</value>
+  </data>
+  <data name="CmdRotateRight" xml:space="preserve">
+    <value>Rotate right</value>
+  </data>
+  <data name="CmdDuplicatePages" xml:space="preserve">
+    <value>Duplicate pages</value>
+  </data>
+  <data name="CmdBlankPage" xml:space="preserve">
+    <value>Insert blank page</value>
+  </data>
+  <data name="CmdInsertFile" xml:space="preserve">
+    <value>Insert pages from file…</value>
+  </data>
+  <data name="CmdMovePagesUp" xml:space="preserve">
+    <value>Move pages up</value>
+  </data>
+  <data name="CmdMovePagesDown" xml:space="preserve">
+    <value>Move pages down</value>
+  </data>
+  <data name="CmdPagesUndo" xml:space="preserve">
+    <value>Undo page change</value>
+  </data>
+  <data name="CmdPagesRedo" xml:space="preserve">
+    <value>Redo page change</value>
+  </data>
+  <data name="CmdApplyPages" xml:space="preserve">
+    <value>Apply page changes</value>
+  </data>
+  <data name="CmdDiscardPages" xml:space="preserve">
+    <value>Discard page changes</value>
+  </data>
+  <data name="CmdDeletePages" xml:space="preserve">
+    <value>Delete pages</value>
+  </data>
+  <data name="CmdExtractPages" xml:space="preserve">
+    <value>Extract pages…</value>
+  </data>
+  <data name="CmdSplitDocument" xml:space="preserve">
+    <value>Split document…</value>
+  </data>
+  <data name="CmdExportImages" xml:space="preserve">
+    <value>Export pages as images…</value>
+  </data>
+  <data name="PageChangesLockedReason" xml:space="preserve">
+    <value>Apply or discard the page changes first</value>
+  </data>
+  <data name="SaveMarksFirstReason" xml:space="preserve">
+    <value>Save the marks first</value>
+  </data>
+  <data name="InsertFileTitle" xml:space="preserve">
+    <value>Insert pages from a file</value>
+  </data>
+  <data name="InsertFilePickTitle" xml:space="preserve">
+    <value>Choose a PDF to insert</value>
+  </data>
+  <data name="InsertFileHeaderFormat" xml:space="preserve">
+    <value>{0} (pages: {1})</value>
+  </data>
+  <data name="InsertFileRangeLabel" xml:space="preserve">
+    <value>Pages to insert (for example 3, 2-5, 1,3,5-7 or "all")</value>
+  </data>
+  <data name="InsertRangeInvalid" xml:space="preserve">
+    <value>Enter pages like 3, 2-5, 1,3,5-7 or "all".</value>
+  </data>
+  <data name="InsertRangeOutsideFormat" xml:space="preserve">
+    <value>The file has only {0} pages.</value>
+  </data>
+  <data name="InsertPositionLabel" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="InsertAfterFormat" xml:space="preserve">
+    <value>After the selected pages (after page {0})</value>
+  </data>
+  <data name="InsertAtEnd" xml:space="preserve">
+    <value>At the end</value>
+  </data>
+  <data name="InsertAtStart" xml:space="preserve">
+    <value>At the start</value>
+  </data>
+  <data name="InsertConfirm" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="InsertRefusedTitle" xml:space="preserve">
+    <value>Nothing was inserted</value>
+  </data>
+  <data name="InsertRefusedSameFile" xml:space="preserve">
+    <value>This is the open file itself. Pages of it cannot be inserted into it.</value>
+  </data>
+  <data name="InsertRefusedTooManyFormat" xml:space="preserve">
+    <value>Pages of at most {0} other files can be inserted before the changes are applied.</value>
+  </data>
+  <data name="InsertRefusedUnreadable" xml:space="preserve">
+    <value>The file cannot be read or is not a PDF.</value>
+  </data>
+  <data name="InsertRefusedNeedsPassword" xml:space="preserve">
+    <value>The file needs a password.</value>
+  </data>
+  <data name="InsertRefusedWrongPassword" xml:space="preserve">
+    <value>The password is wrong.</value>
+  </data>
+  <data name="InsertRefusedBadRange" xml:space="preserve">
+    <value>The page selection does not fit the pages of the file.</value>
+  </data>
+  <data name="InsertRefusedLimitFormat" xml:space="preserve">
+    <value>A document can have at most {0} pages.</value>
+  </data>
+  <data name="InsertRefusedNotActive" xml:space="preserve">
+    <value>The page changes were closed in the meantime.</value>
+  </data>
+  <data name="InsertRefusedOther" xml:space="preserve">
+    <value>The pages could not be inserted.</value>
+  </data>
+  <data name="ApplyTitle" xml:space="preserve">
+    <value>Apply page changes</value>
+  </data>
+  <data name="ApplyRefusedTitle" xml:space="preserve">
+    <value>Page changes cannot be applied</value>
+  </data>
+  <data name="ApplyRefusedIntro" xml:space="preserve">
+    <value>Nothing was written. These page changes cannot be applied:</value>
+  </data>
+  <data name="ApplySummaryPagesFormat" xml:space="preserve">
+    <value>{0} → {1} pages</value>
+  </data>
+  <data name="ApplySummaryTurnedFormat" xml:space="preserve">
+    <value>{0} turned</value>
+  </data>
+  <data name="ApplySummaryFileOne" xml:space="preserve">
+    <value>1 file inserted</value>
+  </data>
+  <data name="ApplySummaryFilesFormat" xml:space="preserve">
+    <value>{0} files inserted</value>
+  </data>
+  <data name="ApplySummaryBlankOne" xml:space="preserve">
+    <value>1 blank page</value>
+  </data>
+  <data name="ApplySummaryBlankFormat" xml:space="preserve">
+    <value>{0} blank pages</value>
+  </data>
+  <data name="ApplySummaryDuplicatedFormat" xml:space="preserve">
+    <value>{0} duplicated</value>
+  </data>
+  <data name="ApplyLossesHeading" xml:space="preserve">
+    <value>These things are lost or change:</value>
+  </data>
+  <data name="ApplyNoLosses" xml:space="preserve">
+    <value>Nothing but the page changes is affected.</value>
+  </data>
+  <data name="ApplyWarning" xml:space="preserve">
+    <value>The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use "Save as".</value>
+  </data>
+  <data name="ApplySaveAs" xml:space="preserve">
+    <value>Save as…</value>
+  </data>
+  <data name="ApplyOriginal" xml:space="preserve">
+    <value>Save in the original file</value>
+  </data>
+  <data name="ApplyBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="ApplyOpenEdit" xml:space="preserve">
+    <value>Finish or discard the open edit first.</value>
+  </data>
+  <data name="ApplyJobTitleFormat" xml:space="preserve">
+    <value>Applying page changes to {0}</value>
+  </data>
+  <data name="ApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Checking page changes of {0}</value>
+  </data>
+  <data name="ApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-pages.pdf</value>
+  </data>
+  <data name="SaveFirstTitle" xml:space="preserve">
+    <value>Save the marks first?</value>
+  </data>
+  <data name="SaveFirstMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the page changes are applied.</value>
+  </data>
+  <data name="SaveFirstSaveAsMessage" xml:space="preserve">
+    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the page changes are saved as a new file. "Back" leaves everything as it is.</value>
+  </data>
+  <data name="SaveFirstSave" xml:space="preserve">
+    <value>Save first</value>
+  </data>
+  <data name="ApplyFailedTitle" xml:space="preserve">
+    <value>Page changes not applied</value>
+  </data>
+  <data name="ApplyStays" xml:space="preserve">
+    <value>The file is unchanged and the page changes are still open.</value>
+  </data>
+  <data name="ApplyStaysAfterSave" xml:space="preserve">
+    <value>The marks are saved into the file, but the page changes were not applied and are still open.</value>
+  </data>
+  <data name="ApplyChangesOpen" xml:space="preserve">
+    <value>The page changes are still open.</value>
+  </data>
+  <data name="ApplyFailSourceModified" xml:space="preserve">
+    <value>The file changed on disk since it was opened, so its pages cannot be rewritten from here.</value>
+  </data>
+  <data name="ApplyFailInsertedModifiedFormat" xml:space="preserve">
+    <value>The inserted file {0} changed on disk since it was inserted.</value>
+  </data>
+  <data name="ApplyFailEncrypted" xml:space="preserve">
+    <value>An encrypted file cannot be inserted into a document that is not encrypted: its content would be written unprotected.</value>
+  </data>
+  <data name="ApplyFailPlan" xml:space="preserve">
+    <value>The page changes no longer fit the document.</value>
+  </data>
+  <data name="ApplyFailOpen" xml:space="preserve">
+    <value>A file of the page changes could not be opened.</value>
+  </data>
+  <data name="ApplyFailDamaged" xml:space="preserve">
+    <value>A page of one of the files is damaged and could not be copied.</value>
+  </data>
+  <data name="ApplyFailOther" xml:space="preserve">
+    <value>The page changes could not be applied.</value>
+  </data>
+  <data name="ApplyFailAdoptFormat" xml:space="preserve">
+    <value>The page changes were written, but the document could not be taken over. The file at {0} is the rewritten one: open it to continue.</value>
+  </data>
+  <data name="LossSignature" xml:space="preserve">
+    <value>This file is digitally signed. Programs that check signatures will report the signature as broken after the pages changed.</value>
+  </data>
+  <data name="LossSignatureLevelFormat" xml:space="preserve">
+    <value>The signature was made with change level {0}.</value>
+  </data>
+  <data name="LossLabelsShifted" xml:space="preserve">
+    <value>The file has page labels (such as "iv" or "A-3"). They follow the position, not the pages, so they will name other pages.</value>
+  </data>
+  <data name="LossLabelsSourceFormat" xml:space="preserve">
+    <value>The page labels of the inserted file {0} are not taken over.</value>
+  </data>
+  <data name="LossForeignOutlineFormat" xml:space="preserve">
+    <value>The bookmarks of the inserted file {0} are not taken over.</value>
+  </data>
+  <data name="LossBookmarkDeleted" xml:space="preserve">
+    <value>Bookmarks that point to deleted pages stay as entries without a target.</value>
+  </data>
+  <data name="LossFormInserted" xml:space="preserve">
+    <value>Inserted pages have form fields. They are not entered into the form of the file, so other programs may not let you fill them in.</value>
+  </data>
+  <data name="LossFormDuplicated" xml:space="preserve">
+    <value>Copied pages have form fields. A field then appears on more than one page and its value is shared.</value>
+  </data>
+  <data name="LossNameUnchecked" xml:space="preserve">
+    <value>There were too many form field names to check whether fields of the same name come from different files.</value>
+  </data>
+  <data name="LossNameCollision" xml:space="preserve">
+    <value>Form fields of the same name come from different files. They are read as one field.</value>
+  </data>
+  <data name="LossEncryptionBlocksFormat" xml:space="preserve">
+    <value>The inserted file {0} is encrypted, but the new file would not be. Its protected content would be written unprotected.</value>
+  </data>
+  <data name="LossEncryptionWarnFormat" xml:space="preserve">
+    <value>The inserted file {0} is encrypted. Its pages are protected by the password and permissions of the main file, not by their own.</value>
+  </data>
+  <data name="LossLinkCopied" xml:space="preserve">
+    <value>Internal links on copied pages lose their destination.</value>
+  </data>
+  <data name="LossLinkDeleted" xml:space="preserve">
+    <value>Internal links lose their target because the target page is deleted.</value>
+  </data>
+  <data name="LossOrphan" xml:space="preserve">
+    <value>Form fields on deleted pages stay in the form of the file without a page.</value>
+  </data>
+  <data name="LossOther" xml:space="preserve">
+    <value>The page changes lose something.</value>
+  </data>
+  <data name="LossPageResultFormat" xml:space="preserve">
+    <value> (page {0} of the new file)</value>
+  </data>
+  <data name="LossPagesResultFormat" xml:space="preserve">
+    <value> (pages {0} of the new file)</value>
+  </data>
+  <data name="LossPageOriginalFormat" xml:space="preserve">
+    <value> (original page {0})</value>
+  </data>
+  <data name="LossPagesOriginalFormat" xml:space="preserve">
+    <value> (original pages {0})</value>
+  </data>
+  <data name="LossListAnd" xml:space="preserve">
+    <value> and </value>
+  </data>
+  <data name="LossListMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
+  <data name="ApplyPlanChanged" xml:space="preserve">
+    <value>The page changes were edited while the file dialog was open, so nothing was written. Apply again to see the current list.</value>
+  </data>
+  <data name="UnsavedPlanTitle" xml:space="preserve">
+    <value>Discard the page changes?</value>
+  </data>
+  <data name="UnsavedPlanMessageFormat" xml:space="preserve">
+    <value>The page changes of {0} are not applied yet. "Apply" writes them to a file; "Discard" drops them and leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedPlanApply" xml:space="preserve">
+    <value>Apply…</value>
+  </data>
+  <data name="UnsavedPlanDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="ExtractTitle" xml:space="preserve">
+    <value>Extract pages</value>
+  </data>
+  <data name="ExtractHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} pages)</value>
+  </data>
+  <data name="ExtractRangeLabel" xml:space="preserve">
+    <value>Pages to extract (for example 3, 2-5, 1,3,5-7 or "all")</value>
+  </data>
+  <data name="ExtractNameLabel" xml:space="preserve">
+    <value>The new file is suggested as</value>
+  </data>
+  <data name="ExtractConfirm" xml:space="preserve">
+    <value>Extract…</value>
+  </data>
+  <data name="ExtractGo" xml:space="preserve">
+    <value>Extract</value>
+  </data>
+  <data name="ExtractSaveTitle" xml:space="preserve">
+    <value>Save the extracted pages as</value>
+  </data>
+  <data name="ExtractSuggestedNameFormat" xml:space="preserve">
+    <value>{0}-pages-{1}</value>
+  </data>
+  <data name="ExtractConfirmTitle" xml:space="preserve">
+    <value>Extract pages</value>
+  </data>
+  <data name="ExtractConfirmIntroFormat" xml:space="preserve">
+    <value>Pages {0} of the document are written into a new file. The open file stays as it is.</value>
+  </data>
+  <data name="SplitTitle" xml:space="preserve">
+    <value>Split document</value>
+  </data>
+  <data name="SplitHeaderFormat" xml:space="preserve">
+    <value>{0} ({1} pages)</value>
+  </data>
+  <data name="SplitModeLabel" xml:space="preserve">
+    <value>Split by</value>
+  </data>
+  <data name="SplitModeEvery" xml:space="preserve">
+    <value>Every n pages</value>
+  </data>
+  <data name="SplitEveryLabel" xml:space="preserve">
+    <value>Pages per file</value>
+  </data>
+  <data name="SplitModeRanges" xml:space="preserve">
+    <value>Page ranges, one file each</value>
+  </data>
+  <data name="SplitRangesLabel" xml:space="preserve">
+    <value>Ranges (for example 1-3,4-9 or "all")</value>
+  </data>
+  <data name="SplitModeBookmarks" xml:space="preserve">
+    <value>Top-level bookmarks</value>
+  </data>
+  <data name="SplitNoBookmarksReason" xml:space="preserve">
+    <value>This file has no bookmarks</value>
+  </data>
+  <data name="SplitFolderLabel" xml:space="preserve">
+    <value>Folder for the new files</value>
+  </data>
+  <data name="SplitFolderChoose" xml:space="preserve">
+    <value>Choose folder…</value>
+  </data>
+  <data name="SplitFolderNone" xml:space="preserve">
+    <value>No folder chosen yet</value>
+  </data>
+  <data name="SplitFolderPickTitle" xml:space="preserve">
+    <value>Choose the folder for the new files</value>
+  </data>
+  <data name="SplitPreviewHeading" xml:space="preserve">
+    <value>Files that will be written</value>
+  </data>
+  <data name="SplitPreviewItemFormat" xml:space="preserve">
+    <value>{0} (pages {1})</value>
+  </data>
+  <data name="SplitPreviewMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="SplitConfirm" xml:space="preserve">
+    <value>Split</value>
+  </data>
+  <data name="SplitEveryInvalid" xml:space="preserve">
+    <value>Enter a whole number of pages, 1 or more.</value>
+  </data>
+  <data name="SplitTooManyFormat" xml:space="preserve">
+    <value>A split can have at most {0} files.</value>
+  </data>
+  <data name="SplitConfirmIntroFormat" xml:space="preserve">
+    <value>The document is split into {0} new files. The open file stays as it is.</value>
+  </data>
+  <data name="OutputLossesHeading" xml:space="preserve">
+    <value>In the new files, these things are lost or change:</value>
+  </data>
+  <data name="StaysHeadingExtract" xml:space="preserve">
+    <value>Parts of the document that stay in the new file:</value>
+  </data>
+  <data name="StaysHeadingSplit" xml:space="preserve">
+    <value>Parts of the document that stay in every new file (for fields and bookmarks, the highest count of any file):</value>
+  </data>
+  <data name="StaysAttachedOne" xml:space="preserve">
+    <value>Up to 1 attached file</value>
+  </data>
+  <data name="StaysAttachedManyFormat" xml:space="preserve">
+    <value>Up to {0} attached files</value>
+  </data>
+  <data name="StaysScripts" xml:space="preserve">
+    <value>Possibly scripts (JavaScript) in the document</value>
+  </data>
+  <data name="StaysIncomplete" xml:space="preserve">
+    <value>The file could not be read completely, so more may stay than is listed.</value>
+  </data>
+  <data name="StaysFieldsOne" xml:space="preserve">
+    <value>1 form field from another page</value>
+  </data>
+  <data name="StaysFieldsManyFormat" xml:space="preserve">
+    <value>{0} form fields from other pages</value>
+  </data>
+  <data name="StaysBookmarksOne" xml:space="preserve">
+    <value>1 bookmark that points to another page</value>
+  </data>
+  <data name="StaysBookmarksManyFormat" xml:space="preserve">
+    <value>{0} bookmarks that point to other pages</value>
+  </data>
+  <data name="StaysRedactHint" xml:space="preserve">
+    <value>Content that must not be passed on: redact it first in the "Redact" tab.</value>
+  </data>
+  <data name="OutputLossFilesFormat" xml:space="preserve">
+    <value>Files {0}: {1}</value>
+  </data>
+  <data name="OutputCheckingTitleFormat" xml:space="preserve">
+    <value>Checking {0}</value>
+  </data>
+  <data name="OutputJobTitleFormat" xml:space="preserve">
+    <value>Writing new files from {0}</value>
+  </data>
+  <data name="OutputNoSource" xml:space="preserve">
+    <value>The document is not available any more.</value>
+  </data>
+  <data name="OutputResultExtractTitle" xml:space="preserve">
+    <value>Pages extracted</value>
+  </data>
+  <data name="OutputResultSplitTitle" xml:space="preserve">
+    <value>Document split</value>
+  </data>
+  <data name="OutputWrittenOne" xml:space="preserve">
+    <value>1 file was written.</value>
+  </data>
+  <data name="OutputWrittenFormat" xml:space="preserve">
+    <value>{0} files were written.</value>
+  </data>
+  <data name="OutputNothingWritten" xml:space="preserve">
+    <value>Nothing was written.</value>
+  </data>
+  <data name="OutputCanceled" xml:space="preserve">
+    <value>Canceled.</value>
+  </data>
+  <data name="OutputWrittenBefore" xml:space="preserve">
+    <value>These files were written before it stopped and stay:</value>
+  </data>
+  <data name="OutputFolderLabel" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="OutputMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="OutputOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="OutputFailTargetExistsFormat" xml:space="preserve">
+    <value>A file with this name already exists: {0}. Nothing was replaced.</value>
+  </data>
+  <data name="OutputFailTargetIsSource" xml:space="preserve">
+    <value>A new file would replace the open document. Nothing was written.</value>
+  </data>
+  <data name="OutputFailDirectoryMissing" xml:space="preserve">
+    <value>The folder does not exist any more. Nothing was written.</value>
+  </data>
+  <data name="OutputFailNoBookmarks" xml:space="preserve">
+    <value>This file has no bookmarks. Nothing was written.</value>
+  </data>
+  <data name="OutputFailUnsafeName" xml:space="preserve">
+    <value>A file name cannot be used. Nothing was written.</value>
+  </data>
+  <data name="OutputFailPartFormat" xml:space="preserve">
+    <value>File {0} ({1}) could not be written: {2}</value>
+  </data>
+  <data name="OutputFailLimit" xml:space="preserve">
+    <value>The pages or files are more than a split may have. Nothing was written.</value>
+  </data>
+  <data name="OutputFailRange" xml:space="preserve">
+    <value>The pages do not fit this document. Nothing was written.</value>
+  </data>
+  <data name="OutputFailOther" xml:space="preserve">
+    <value>The files could not be written.</value>
+  </data>
+  <data name="OutputCauseOpen" xml:space="preserve">
+    <value>A file needed for this could not be opened.</value>
+  </data>
+  <data name="OutputCauseDamaged" xml:space="preserve">
+    <value>A page is damaged and could not be copied.</value>
+  </data>
+  <data name="FileJobBusy" xml:space="preserve">
+    <value>Another file job is already running.</value>
+  </data>
+  <data name="TargetOpenInOtherTabFormat" xml:space="preserve">
+    <value>{0} is open in another tab. Close it first.</value>
+  </data>
+  <data name="ExportTitle" xml:space="preserve">
+    <value>Export pages as images</value>
+  </data>
+  <data name="PageKeywordAll" xml:space="preserve">
+    <value>all</value>
+  </data>
+  <data name="ExportRangeLabel" xml:space="preserve">
+    <value>Pages to export (for example 3, 2-5, 1,3,5-7 or "all")</value>
+  </data>
+  <data name="ExportDpiLabel" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="ExportDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="ExportDpiCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="ExportDpiCustomLabel" xml:space="preserve">
+    <value>Custom resolution in dpi (1 to 1200)</value>
+  </data>
+  <data name="ExportDpiInvalid" xml:space="preserve">
+    <value>Enter a whole number from 1 to 1200.</value>
+  </data>
+  <data name="ExportMarks" xml:space="preserve">
+    <value>Include marks and form fields</value>
+  </data>
+  <data name="ExportLargestFormat" xml:space="preserve">
+    <value>Largest page: {0} × {1} pixels ({2} megapixels)</value>
+  </data>
+  <data name="ExportTooLargeFormat" xml:space="preserve">
+    <value>Page {0} would have {1} megapixels at this resolution; the limit is {2} megapixels. Choose a lower resolution or leave this page out.</value>
+  </data>
+  <data name="ExportTooLargeHugeFormat" xml:space="preserve">
+    <value>Page {0} would be far larger than the limit of {2} megapixels at this resolution. Choose a lower resolution or leave this page out.</value>
+  </data>
+  <data name="ExportFolderMissing" xml:space="preserve">
+    <value>This folder does not exist.</value>
+  </data>
+  <data name="ExportConfirm" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="ExportJobTitleFormat" xml:space="preserve">
+    <value>Exporting pages of {0}</value>
+  </data>
+  <data name="ExportResultTitle" xml:space="preserve">
+    <value>Pages exported</value>
+  </data>
+  <data name="ExportFailTooLargeFormat" xml:space="preserve">
+    <value>Page {0} is too large at this resolution. Nothing was written.</value>
+  </data>
+  <data name="ExportFailTooMany" xml:space="preserve">
+    <value>More pages were chosen than one export can write. Nothing was written.</value>
+  </data>
+  <data name="ExportFailWriteFormat" xml:space="preserve">
+    <value>The image of page {0} could not be written.</value>
+  </data>
+  <data name="ExportFailRender" xml:space="preserve">
+    <value>A page could not be drawn.</value>
+  </data>
+  <data name="TabRedact" xml:space="preserve">
+    <value>Redact</value>
+  </data>
+  <data name="TabEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="GroupMark" xml:space="preserve">
+    <value>Mark</value>
+  </data>
+  <data name="GroupLook" xml:space="preserve">
+    <value>Look</value>
+  </data>
+  <data name="GroupScan" xml:space="preserve">
+    <value>Scan</value>
+  </data>
+  <data name="CmdRedactMode" xml:space="preserve">
+    <value>Redact</value>
+  </data>
+  <data name="CmdRedactMarkSelection" xml:space="preserve">
+    <value>Mark selection</value>
+  </data>
+  <data name="CmdRedactFind" xml:space="preserve">
+    <value>Find and mark…</value>
+  </data>
+  <data name="CmdRedactRasterPage" xml:space="preserve">
+    <value>Turn page into image</value>
+  </data>
+  <data name="CmdRedactDeleteMarks" xml:space="preserve">
+    <value>Delete marks</value>
+  </data>
+  <data name="CmdRedactDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="CmdRedactApply" xml:space="preserve">
+    <value>Apply redactions…</value>
+  </data>
+  <data name="CmdOcrRun" xml:space="preserve">
+    <value>Recognize text…</value>
+  </data>
+  <data name="CmdOcrLanguages" xml:space="preserve">
+    <value>Languages…</value>
+  </data>
+  <data name="CmdOcrCancel" xml:space="preserve">
+    <value>Cancel recognition</value>
+  </data>
+  <data name="CmdTextEdit" xml:space="preserve">
+    <value>Edit text</value>
+  </data>
+  <data name="CmdTextEditDone" xml:space="preserve">
+    <value>Done editing</value>
+  </data>
+  <data name="ModeAnnotateReason" xml:space="preserve">
+    <value>Finish annotating first.</value>
+  </data>
+  <data name="ModeFormsReason" xml:space="preserve">
+    <value>Finish filling in the form first.</value>
+  </data>
+  <data name="ModeRedactReason" xml:space="preserve">
+    <value>Apply or discard the redactions first.</value>
+  </data>
+  <data name="ModeOcrReason" xml:space="preserve">
+    <value>Wait for the text recognition to finish, or cancel it.</value>
+  </data>
+  <data name="ModeTextEditReason" xml:space="preserve">
+    <value>Finish editing the text first.</value>
+  </data>
+  <data name="ReasonTurnOnFirstFormat" xml:space="preserve">
+    <value>Turn on "{0}" first</value>
+  </data>
+  <data name="ReasonNoRecognitionRunning" xml:space="preserve">
+    <value>No text recognition is running.</value>
+  </data>
+  <data name="ReasonOnlyOneDocument" xml:space="preserve">
+    <value>Only one document is open.</value>
+  </data>
+  <data name="ReasonNothingToSave" xml:space="preserve">
+    <value>There are no changes to save.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>There is nothing to undo.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>There is nothing to redo.</value>
+  </data>
+  <data name="ReasonSelectMarkFirst" xml:space="preserve">
+    <value>Select a mark first</value>
+  </data>
+  <data name="ReasonSelectPagesFirst" xml:space="preserve">
+    <value>Select pages first</value>
+  </data>
+  <data name="ReasonNoPageChanges" xml:space="preserve">
+    <value>There are no page changes to apply.</value>
+  </data>
+  <data name="ReasonNothingMarkedToRedact" xml:space="preserve">
+    <value>Mark something to redact first</value>
+  </data>
+  <data name="ReasonPagesNotReady" xml:space="preserve">
+    <value>The pages are still loading.</value>
+  </data>
+  <data name="UnsavedRedactTitle" xml:space="preserve">
+    <value>Discard the redactions?</value>
+  </data>
+  <data name="UnsavedRedactMessageFormat" xml:space="preserve">
+    <value>The redactions of {0} are marked but not applied yet. "Apply" writes them to a file; "Discard" drops them and leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedRedactApply" xml:space="preserve">
+    <value>Apply…</value>
+  </data>
+  <data name="UnsavedRedactDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="UnsavedOcrTitle" xml:space="preserve">
+    <value>Cancel the text recognition?</value>
+  </data>
+  <data name="UnsavedOcrMessageFormat" xml:space="preserve">
+    <value>The text recognition of {0} is still running. Stopping it leaves the file as it is.</value>
+  </data>
+  <data name="UnsavedOcrStop" xml:space="preserve">
+    <value>Stop recognition</value>
+  </data>
+  <data name="UnsavedOcrKeep" xml:space="preserve">
+    <value>Keep going</value>
+  </data>
+  <data name="PaneRedact" xml:space="preserve">
+    <value>Redact</value>
+  </data>
+  <data name="RedactHint" xml:space="preserve">
+    <value>Nothing is removed until you apply the marks.</value>
+  </data>
+  <data name="RedactCounterNone" xml:space="preserve">
+    <value>No marks yet</value>
+  </data>
+  <data name="RedactCounterMarksOne" xml:space="preserve">
+    <value>1 mark</value>
+  </data>
+  <data name="RedactCounterMarksMany" xml:space="preserve">
+    <value>{0} marks</value>
+  </data>
+  <data name="RedactCounterPagesOne" xml:space="preserve">
+    <value>1 page</value>
+  </data>
+  <data name="RedactCounterPagesMany" xml:space="preserve">
+    <value>{0} pages</value>
+  </data>
+  <data name="RedactCounterJoinFormat" xml:space="preserve">
+    <value>{0} on {1}</value>
+  </data>
+  <data name="RedactApplyButton" xml:space="preserve">
+    <value>Apply…</value>
+  </data>
+  <data name="RedactListName" xml:space="preserve">
+    <value>Marks for redaction</value>
+  </data>
+  <data name="RedactPageHeaderFormat" xml:space="preserve">
+    <value>Page {0}</value>
+  </data>
+  <data name="RedactMarkNameFormat" xml:space="preserve">
+    <value>Mark for redaction, page {0}</value>
+  </data>
+  <data name="RedactKindArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="RedactKindText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="RedactKindHit" xml:space="preserve">
+    <value>Hit</value>
+  </data>
+  <data name="RedactRowTextFormat" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="RedactBadgeText" xml:space="preserve">
+    <value>Redact – Esc to finish</value>
+  </data>
+  <data name="RedactToolsName" xml:space="preserve">
+    <value>Marking tool</value>
+  </data>
+  <data name="RedactToolArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="RedactToolText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="RedactRefusalNothingSelected" xml:space="preserve">
+    <value>Select some text first.</value>
+  </data>
+  <data name="RedactRefusalTextNotMarkable" xml:space="preserve">
+    <value>This text cannot be marked, so nothing was marked.</value>
+  </data>
+  <data name="RedactRefusalTooManyFormat" xml:space="preserve">
+    <value>A document can hold at most {0} marks.</value>
+  </data>
+  <data name="RedactRefusalNotArea" xml:space="preserve">
+    <value>Only areas can be moved or resized. Delete the mark and mark the text again.</value>
+  </data>
+  <data name="RedactRefusalOutOfRange" xml:space="preserve">
+    <value>That area is not on the page.</value>
+  </data>
+  <data name="RedactRefusalUnknownMark" xml:space="preserve">
+    <value>That mark is gone.</value>
+  </data>
+  <data name="RedactRefusalTextUnavailable" xml:space="preserve">
+    <value>The text of the page could not be read.</value>
+  </data>
+  <data name="RedactRefusalNotActive" xml:space="preserve">
+    <value>The redact mode is off.</value>
+  </data>
+  <data name="RedactRefusalTooManyLinesFormat" xml:space="preserve">
+    <value>This selection spans more than {0} lines, more than one mark can hold. Select less text.</value>
+  </data>
+  <data name="RedactRefusalBusy" xml:space="preserve">
+    <value>The selection is still being marked.</value>
+  </data>
+  <data name="RedactRefusalSearchIncomplete" xml:space="preserve">
+    <value>Accept first that the search did not cover everything.</value>
+  </data>
+  <data name="RedactRefusalNothingToMark" xml:space="preserve">
+    <value>There is nothing to mark.</value>
+  </data>
+  <data name="RedactRefusalSearchRunning" xml:space="preserve">
+    <value>A search is still running.</value>
+  </data>
+  <data name="FindPanelName" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="FindTermName" xml:space="preserve">
+    <value>Text to find</value>
+  </data>
+  <data name="FindSearchButton" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="FindCancelButton" xml:space="preserve">
+    <value>Cancel search</value>
+  </data>
+  <data name="FindMatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+  <data name="FindWholeWords" xml:space="preserve">
+    <value>Whole words</value>
+  </data>
+  <data name="FindPatternsMode" xml:space="preserve">
+    <value>Patterns</value>
+  </data>
+  <data name="FindKindEmail" xml:space="preserve">
+    <value>E-mail addresses</value>
+  </data>
+  <data name="FindKindIban" xml:space="preserve">
+    <value>IBANs</value>
+  </data>
+  <data name="FindKindPhone" xml:space="preserve">
+    <value>Phone numbers</value>
+  </data>
+  <data name="FindKindCard" xml:space="preserve">
+    <value>Card numbers</value>
+  </data>
+  <data name="FindKindCountFormat" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="FindCertaintyChecksumOk" xml:space="preserve">
+    <value>Checksum ok</value>
+  </data>
+  <data name="FindCertaintyShapeOnly" xml:space="preserve">
+    <value>Shape only</value>
+  </data>
+  <data name="FindCertaintyChecksumFailed" xml:space="preserve">
+    <value>Checksum failed</value>
+  </data>
+  <data name="FindGroupFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FindPatternCaution" xml:space="preserve">
+    <value>Patterns only find what the text shows. Look through the list yourself.</value>
+  </data>
+  <data name="FindEmptyTerm" xml:space="preserve">
+    <value>Type the text to find, then press Enter.</value>
+  </data>
+  <data name="FindRunning" xml:space="preserve">
+    <value>Searching…</value>
+  </data>
+  <data name="FindCanceled" xml:space="preserve">
+    <value>The search was canceled. No result is shown.</value>
+  </data>
+  <data name="FindFailed" xml:space="preserve">
+    <value>The search failed. Nothing was marked.</value>
+  </data>
+  <data name="FindNoMatches" xml:space="preserve">
+    <value>No matches.</value>
+  </data>
+  <data name="FindMatchesOne" xml:space="preserve">
+    <value>1 match</value>
+  </data>
+  <data name="FindMatchesMany" xml:space="preserve">
+    <value>{0} matches</value>
+  </data>
+  <data name="FindIncompletePagesFormat" xml:space="preserve">
+    <value>These pages could not be read in full: {0}. Marking stays off until you accept this.</value>
+  </data>
+  <data name="FindIncompleteLimitFormat" xml:space="preserve">
+    <value>The search stopped at {0} matches; more may exist. Marking stays off until you accept this.</value>
+  </data>
+  <data name="FindAcknowledge" xml:space="preserve">
+    <value>Accept and allow marking</value>
+  </data>
+  <data name="FindAcknowledged" xml:space="preserve">
+    <value>Accepted for this search.</value>
+  </data>
+  <data name="FindPicturesOne" xml:space="preserve">
+    <value>1 page is a picture; text in pictures is not searched</value>
+  </data>
+  <data name="FindPicturesManyFormat" xml:space="preserve">
+    <value>{0} pages are pictures; text in pictures is not searched</value>
+  </data>
+  <data name="FindPicturesInstruction" xml:space="preserve">
+    <value>Recognize text first: leave Redact mode (apply or discard the marks), recognize the text, then search again.</value>
+  </data>
+  <data name="FindMarkAll" xml:space="preserve">
+    <value>Mark all</value>
+  </data>
+  <data name="FindMarkTicked" xml:space="preserve">
+    <value>Mark ticked</value>
+  </data>
+  <data name="FindAddFailed" xml:space="preserve">
+    <value>Add these</value>
+  </data>
+  <data name="FindNotSearchedToggle" xml:space="preserve">
+    <value>What is not searched?</value>
+  </data>
+  <data name="FindNotSearchedName" xml:space="preserve">
+    <value>Places the search does not look at</value>
+  </data>
+  <data name="FindListName" xml:space="preserve">
+    <value>Matches</value>
+  </data>
+  <data name="FindHitName" xml:space="preserve">
+    <value>Match, page {0}</value>
+  </data>
+  <data name="FindHitRowFormat" xml:space="preserve">
+    <value>Page {0}: {1}</value>
+  </data>
+  <data name="FindHitHidden" xml:space="preserve">
+    <value>hidden text</value>
+  </data>
+  <data name="FindHitNotMarkableFormat" xml:space="preserve">
+    <value>{0} (cannot be marked: {1})</value>
+  </data>
+  <data name="FindMarkedOne" xml:space="preserve">
+    <value>1 mark added.</value>
+  </data>
+  <data name="FindMarkedManyFormat" xml:space="preserve">
+    <value>{0} marks added.</value>
+  </data>
+  <data name="FindMarkedNone" xml:space="preserve">
+    <value>These matches are marked already.</value>
+  </data>
+  <data name="FindNotMarkableNoArea" xml:space="preserve">
+    <value>no place on the page to mark</value>
+  </data>
+  <data name="FindNotMarkableTooManyLinesFormat" xml:space="preserve">
+    <value>more than {0} lines</value>
+  </data>
+  <data name="FindNotMarkableWhiteSpace" xml:space="preserve">
+    <value>only white space</value>
+  </data>
+  <data name="FindNotMarkableTooLongFormat" xml:space="preserve">
+    <value>longer than {0} characters</value>
+  </data>
+  <data name="FindNotMarkableNoBox" xml:space="preserve">
+    <value>a letter or digit has no box on the page</value>
+  </data>
+  <data name="FindNotSearched1" xml:space="preserve">
+    <value>Replies to annotations (/IRT) and popup notes are not searched.</value>
+  </data>
+  <data name="FindNotSearched2" xml:space="preserve">
+    <value>The author (/T) and the subject (/Subj) of annotations are not searched.</value>
+  </data>
+  <data name="FindNotSearched3" xml:space="preserve">
+    <value>The tooltips (/TU) and the names of form fields are not searched.</value>
+  </data>
+  <data name="FindNotSearched4" xml:space="preserve">
+    <value>The rich text (/RV) of annotations and the default values (/DV) of form fields are not searched.</value>
+  </data>
+  <data name="FindNotSearched5" xml:space="preserve">
+    <value>Text that exists only in the appearance (/AP) of an annotation is not searched.</value>
+  </data>
+  <data name="FindNotSearched6" xml:space="preserve">
+    <value>Invisible text is flagged only for the render mode 3 (invisible); text that is covered by something else is found but not flagged.</value>
+  </data>
+  <data name="FindNotSearched7" xml:space="preserve">
+    <value>The values of form fields in a file without a form (widgets without /AcroForm) are not searched.</value>
+  </data>
+  <data name="FindNotSearched8" xml:space="preserve">
+    <value>Patterns only find what the text shows and what their built-in rules know. Not found: a number split across a line break or a page boundary; digits interrupted by other characters than the usual separators; numbers inside images; IBANs of countries outside the built-in table; telephone numbers that do not start with +, 0 or (; digit chains of more than 64 groups; e-mail addresses whose local part has unusual characters (&amp; = * !); and card numbers grouped in other layouts.</value>
+  </data>
+  <data name="FindTermTooLongFormat" xml:space="preserve">
+    <value>The term is too long: at most {0} characters. The previous result is unchanged.</value>
+  </data>
+  <data name="FindNotMarkedOne" xml:space="preserve">
+    <value>1 could not be marked.</value>
+  </data>
+  <data name="FindNotMarkedManyFormat" xml:space="preserve">
+    <value>{0} could not be marked.</value>
+  </data>
+  <data name="FindNoMatchesIncomplete" xml:space="preserve">
+    <value>No matches in the pages searched.</value>
+  </data>
+  <data name="RedactLookToggle" xml:space="preserve">
+    <value>Look</value>
+  </data>
+  <data name="RedactLookName" xml:space="preserve">
+    <value>Look of the marks</value>
+  </data>
+  <data name="RedactFillLabel" xml:space="preserve">
+    <value>Fill color</value>
+  </data>
+  <data name="RedactFillName" xml:space="preserve">
+    <value>Fill color as # and six digits</value>
+  </data>
+  <data name="RedactFillPresetFormat" xml:space="preserve">
+    <value>Fill color {0}</value>
+  </data>
+  <data name="RedactImageLabel" xml:space="preserve">
+    <value>Pictures under a mark</value>
+  </data>
+  <data name="RedactImageSolid" xml:space="preserve">
+    <value>Cover with the fill</value>
+  </data>
+  <data name="RedactImagePixelate" xml:space="preserve">
+    <value>Pixelate</value>
+  </data>
+  <data name="RedactImageBlur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="RedactStrengthLabel" xml:space="preserve">
+    <value>Strength</value>
+  </data>
+  <data name="RedactStrengthCoarse" xml:space="preserve">
+    <value>Coarse</value>
+  </data>
+  <data name="RedactStrengthVeryCoarse" xml:space="preserve">
+    <value>Very coarse</value>
+  </data>
+  <data name="RedactImageCaution" xml:space="preserve">
+    <value>Blurred or pixelated pictures keep a rough version of what was there, which can sometimes be made out. The solid fill removes the picture under the mark.</value>
+  </data>
+  <data name="RedactOverlayLabel" xml:space="preserve">
+    <value>Text on the marks</value>
+  </data>
+  <data name="RedactOverlayName" xml:space="preserve">
+    <value>Text on the selected marks</value>
+  </data>
+  <data name="RedactOverlayPlaceholder" xml:space="preserve">
+    <value>Optional text</value>
+  </data>
+  <data name="RedactOverlayRepeat" xml:space="preserve">
+    <value>Repeat the text</value>
+  </data>
+  <data name="RedactOverlayAutoSize" xml:space="preserve">
+    <value>Fit the text size to the mark</value>
+  </data>
+  <data name="RedactTextColorLabel" xml:space="preserve">
+    <value>Text color (empty: automatic)</value>
+  </data>
+  <data name="RedactTextColorName" xml:space="preserve">
+    <value>Text color as # and six digits, empty for automatic</value>
+  </data>
+  <data name="RedactContrastWarningFormat" xml:space="preserve">
+    <value>This text color has a contrast of {0}:1 with the fill, below the 4.5:1 that reads well. It is still used.</value>
+  </data>
+  <data name="RedactRasterLabel" xml:space="preserve">
+    <value>Pages as images</value>
+  </data>
+  <data name="RedactRasterPageFormat" xml:space="preserve">
+    <value>Page {0} as image</value>
+  </data>
+  <data name="RedactRasterCountOne" xml:space="preserve">
+    <value>1 page becomes an image</value>
+  </data>
+  <data name="RedactRasterCountManyFormat" xml:space="preserve">
+    <value>{0} pages become images</value>
+  </data>
+  <data name="RedactRasterDpiLabel" xml:space="preserve">
+    <value>Resolution of the images</value>
+  </data>
+  <data name="RedactRasterDpiFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="RedactRasterHint" xml:space="preserve">
+    <value>A page turned into an image loses its text, links and form fields.</value>
+  </data>
+  <data name="RedactPreviewNote" xml:space="preserve">
+    <value>The marks on the page show where the fill goes. They do not show overlay text or the exact pixels; you check those after applying.</value>
+  </data>
+  <data name="RedactRefusalFillNotColour" xml:space="preserve">
+    <value>Write the color as # and six digits, for example #1F3A5F. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayTooLongFormat" xml:space="preserve">
+    <value>The text is longer than {0} characters. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayControl" xml:space="preserve">
+    <value>The text has a line break, a tab or another control character, which cannot be drawn. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayLetters" xml:space="preserve">
+    <value>The text has letters from a script the font does not cover (for example Greek, Cyrillic, Arabic or Asian letters). Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlaySymbols" xml:space="preserve">
+    <value>The text has a symbol or picture character (such as an emoji) that the font cannot draw. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayCharacters" xml:space="preserve">
+    <value>The text has a character that the font cannot draw. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeats" xml:space="preserve">
+    <value>The text on a mark repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalDpiNotOffered" xml:space="preserve">
+    <value>Choose 150, 200 or 300 dpi. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalTooManyRasterFormat" xml:space="preserve">
+    <value>At most {0} pages can become images. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsOneFormat" xml:space="preserve">
+    <value>The text on a mark on page {0} repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
+  </data>
+  <data name="RedactRefusalOverlayRepeatsManyFormat" xml:space="preserve">
+    <value>The text on marks on pages {0} repeats a text that is marked, which would put it back on the page. Nothing was changed.</value>
+  </data>
+  <data name="RedactApplyTitle" xml:space="preserve">
+    <value>Apply redactions</value>
+  </data>
+  <data name="RedactApplyJobTitleFormat" xml:space="preserve">
+    <value>Applying the redactions to {0}</value>
+  </data>
+  <data name="RedactApplyCheckingTitleFormat" xml:space="preserve">
+    <value>Checking the redactions of {0}</value>
+  </data>
+  <data name="RedactApplyRemovedHeading" xml:space="preserve">
+    <value>What will be removed</value>
+  </data>
+  <data name="RedactApplyWholeHeading" xml:space="preserve">
+    <value>Removed whole instead of precisely</value>
+  </data>
+  <data name="RedactApplyRasterHeading" xml:space="preserve">
+    <value>Pages turned into images</value>
+  </data>
+  <data name="RedactApplyImageHeading" xml:space="preserve">
+    <value>Image areas</value>
+  </data>
+  <data name="RedactApplyOverlayHeading" xml:space="preserve">
+    <value>Overlay text</value>
+  </data>
+  <data name="RedactApplyCleanedHeading" xml:space="preserve">
+    <value>Also removed from the whole file, every time</value>
+  </data>
+  <data name="RedactApplyLostHeading" xml:space="preserve">
+    <value>What the rewrite loses</value>
+  </data>
+  <data name="RedactApplyNotCleanedHeading" xml:space="preserve">
+    <value>Not cleaned</value>
+  </data>
+  <data name="RedactCountChars" xml:space="preserve">
+    <value>Characters removed: {0}</value>
+  </data>
+  <data name="RedactCountSplit" xml:space="preserve">
+    <value>Text objects split: {0}</value>
+  </data>
+  <data name="RedactCountTextWhole" xml:space="preserve">
+    <value>Text objects removed as a whole: {0}</value>
+  </data>
+  <data name="RedactCountImagesOver" xml:space="preserve">
+    <value>Images overwritten under a mark: {0}</value>
+  </data>
+  <data name="RedactCountImagesWhole" xml:space="preserve">
+    <value>Images removed as a whole: {0}</value>
+  </data>
+  <data name="RedactCountPathsCut" xml:space="preserve">
+    <value>Paths cropped: {0}</value>
+  </data>
+  <data name="RedactCountPathsWhole" xml:space="preserve">
+    <value>Paths removed as a whole: {0}</value>
+  </data>
+  <data name="RedactCountForms" xml:space="preserve">
+    <value>Form objects taken apart or removed: {0}</value>
+  </data>
+  <data name="RedactCountAnnots" xml:space="preserve">
+    <value>Annotations removed, with their popups and replies: {0}</value>
+  </data>
+  <data name="RedactPageLineFormat" xml:space="preserve">
+    <value>Page {0}: {1}</value>
+  </data>
+  <data name="RedactPageNothingFormat" xml:space="preserve">
+    <value>Page {0}: no content was under the marks; the areas are drawn.</value>
+  </data>
+  <data name="RedactFallbackTextObject" xml:space="preserve">
+    <value>a text object with characters under a mark</value>
+  </data>
+  <data name="RedactFallbackImage" xml:space="preserve">
+    <value>an image under a mark</value>
+  </data>
+  <data name="RedactFallbackPath" xml:space="preserve">
+    <value>a path under a mark</value>
+  </data>
+  <data name="RedactFallbackForm" xml:space="preserve">
+    <value>a form object under a mark</value>
+  </data>
+  <data name="RedactCleanAuthor" xml:space="preserve">
+    <value>Information field Author</value>
+  </data>
+  <data name="RedactCleanTitle" xml:space="preserve">
+    <value>Information field Title</value>
+  </data>
+  <data name="RedactCleanSubject" xml:space="preserve">
+    <value>Information field Subject</value>
+  </data>
+  <data name="RedactCleanKeywords" xml:space="preserve">
+    <value>Information field Keywords</value>
+  </data>
+  <data name="RedactCleanCreator" xml:space="preserve">
+    <value>Information field Creator</value>
+  </data>
+  <data name="RedactCleanProducer" xml:space="preserve">
+    <value>Information field Producer</value>
+  </data>
+  <data name="RedactCleanXmpFormat" xml:space="preserve">
+    <value>XMP metadata: up to {0}</value>
+  </data>
+  <data name="RedactCleanBookmarksFormat" xml:space="preserve">
+    <value>Bookmarks: up to {0}</value>
+  </data>
+  <data name="RedactCleanAttachmentsFormat" xml:space="preserve">
+    <value>Attached files: {0}</value>
+  </data>
+  <data name="RedactCleanJavaScriptFormat" xml:space="preserve">
+    <value>JavaScript: up to {0}</value>
+  </data>
+  <data name="RedactCleanLabelsFormat" xml:space="preserve">
+    <value>Page labels: {0}</value>
+  </data>
+  <data name="RedactCleanNone" xml:space="preserve">
+    <value>The file has none of the document-level data that the cleanup removes.</value>
+  </data>
+  <data name="RedactCleanIncomplete" xml:space="preserve">
+    <value>The scan of the file could not read every stream, so there may be more.</value>
+  </data>
+  <data name="RedactLossLinksFormat" xml:space="preserve">
+    <value>Internal links lose their target and lead nowhere ({0}).</value>
+  </data>
+  <data name="RedactLossFormsFormat" xml:space="preserve">
+    <value>Form fields are no longer reliably fillable ({0}); their widgets stay on the pages as annotations.</value>
+  </data>
+  <data name="RedactLossRgbFormat" xml:space="preserve">
+    <value>Images overwritten under a mark are written again as RGB; colors of CMYK or indexed images may look different in other viewers ({0}).</value>
+  </data>
+  <data name="RedactLossSignatureFormat" xml:space="preserve">
+    <value>The file is digitally signed ({0}). Programs that check signatures will report the signature as broken after this change; its data stays in the file.</value>
+  </data>
+  <data name="RedactNotCleanedMeta" xml:space="preserve">
+    <value>Metadata and private data (/Metadata, /PieceInfo) of form objects and image objects that come with the pages.</value>
+  </data>
+  <data name="RedactNotCleanedActions" xml:space="preserve">
+    <value>Actions of annotations (links and other actions) that come with the pages.</value>
+  </data>
+  <data name="RedactNotCleanedAnnots" xml:space="preserve">
+    <value>Annotations outside the marked areas (comment texts, authors, replies, popups, notes) come along unchanged; only an annotation under a mark is removed.</value>
+  </data>
+  <data name="RedactNotCleanedAttachFormat" xml:space="preserve">
+    <value>File attachments of annotations (paperclip notes): up to {0}. Their embedded files come with the pages and stay in the file.</value>
+  </data>
+  <data name="RedactNotCleanedOtherAttachFormat" xml:space="preserve">
+    <value>Files attached to other objects (associated files of annotations and similar): up to {0}. They come with the pages; the check of the written file stops the save while one is left.</value>
+  </data>
+  <data name="RedactNotCleanedMediaFormat" xml:space="preserve">
+    <value>Sound, video and other media of annotations: up to {0}. They come with the pages and stay in the file.</value>
+  </data>
+  <data name="RedactNotCleanedFormValues" xml:space="preserve">
+    <value>The values of form fields stay on their widgets in the file; a marked text inside them is found by the check of the file, and then nothing is written.</value>
+  </data>
+  <data name="RedactNotCleanedSignature" xml:space="preserve">
+    <value>The data of a digital signature (certificate name, contents) stays in the file.</value>
+  </data>
+  <data name="RedactImgPixelatedFormat" xml:space="preserve">
+    <value>Image areas pixelated: {0}</value>
+  </data>
+  <data name="RedactImgBlurredFormat" xml:space="preserve">
+    <value>Image areas blurred: {0}</value>
+  </data>
+  <data name="RedactImgSolidFormat" xml:space="preserve">
+    <value>Image areas filled solid instead ({0}): {1}</value>
+  </data>
+  <data name="RedactSolidTooSmall" xml:space="preserve">
+    <value>the area is smaller than 2 x 2 blocks of 8 pixels</value>
+  </data>
+  <data name="RedactSolidTurned" xml:space="preserve">
+    <value>the image is turned or sheared</value>
+  </data>
+  <data name="RedactSolidClipped" xml:space="preserve">
+    <value>the image is cut by a clipping path</value>
+  </data>
+  <data name="RedactSolidOverlapping" xml:space="preserve">
+    <value>several areas overlap on the same image</value>
+  </data>
+  <data name="RedactSolidUnreadable" xml:space="preserve">
+    <value>the pixels of the image could not be read or written reliably</value>
+  </data>
+  <data name="RedactSolidTooMany" xml:space="preserve">
+    <value>too many treated images lie under one area</value>
+  </data>
+  <data name="RedactOverlayNotShownFormat" xml:space="preserve">
+    <value>Areas without overlay text because a pixelated or blurred image lies under them: {0}</value>
+  </data>
+  <data name="RedactOverlayNotFitFormat" xml:space="preserve">
+    <value>Areas whose overlay text does not fit and stay filled without text: {0}</value>
+  </data>
+  <data name="RedactOverlayLimitFormat" xml:space="preserve">
+    <value>Of these, areas left out because the limit for overlay text was reached: {0}</value>
+  </data>
+  <data name="RedactRasterInfoFormat" xml:space="preserve">
+    <value>Page {0}: turned into an image at {1} dpi ({2} x {3} pixels, up to {4} MB). Only the picture of the page stays; its text, links, comments and form fields are not kept.</value>
+  </data>
+  <data name="RedactRasterLowered" xml:space="preserve">
+    <value>The resolution is lower than asked for because the page is large.</value>
+  </data>
+  <data name="RedactRasterInfoPlainFormat" xml:space="preserve">
+    <value>Page {0}: turned into an image. Only the picture of the page stays; its text, links, comments and form fields are not kept.</value>
+  </data>
+  <data name="RedactRescueHeading" xml:space="preserve">
+    <value>Pages that cannot be redacted in place</value>
+  </data>
+  <data name="RedactRescueIntro" xml:space="preserve">
+    <value>Redacting these pages would change content outside the marks. Turn each one into an image to go on, or go back and remove its marks.</value>
+  </data>
+  <data name="RedactRescueTickFormat" xml:space="preserve">
+    <value>Page {0}: turn into an image ({1} dpi, {2} x {3} pixels, up to {4} MB)</value>
+  </data>
+  <data name="RedactRescueBlocked" xml:space="preserve">
+    <value>Tick every page above, or go back. Applying waits until then.</value>
+  </data>
+  <data name="RedactRefusedTitle" xml:space="preserve">
+    <value>Redaction not possible</value>
+  </data>
+  <data name="RedactRefusedIntro" xml:space="preserve">
+    <value>Nothing was written. The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactRefusedEncrypted" xml:space="preserve">
+    <value>The file is encrypted. Raffica does not remove protection silently, so the file is not redacted.</value>
+  </data>
+  <data name="RedactRefusedKeysFormat" xml:space="preserve">
+    <value>A thumbnail, private data, metadata, actions, attached files or article threads that Raffica cannot remove are on {0}, so the file is not redacted.</value>
+  </data>
+  <data name="RedactRefusedKeysUnverified" xml:space="preserve">
+    <value>The page keys of the file could not be checked, so the file is not redacted: a page may carry data that Raffica cannot remove.</value>
+  </data>
+  <data name="RedactRefusedNotRedactableFormat" xml:space="preserve">
+    <value>Redacting {0} would change content outside the marked areas, so the file is not redacted. Turn the page into an image or remove its marks.</value>
+  </data>
+  <data name="RedactRefusedOverlayFormat" xml:space="preserve">
+    <value>The text on the areas of {0} contains a text that is redacted, which would put it back on the page, so the file is not redacted. Change the text on the areas.</value>
+  </data>
+  <data name="RedactPageOneFormat" xml:space="preserve">
+    <value>page {0}</value>
+  </data>
+  <data name="RedactPageManyFormat" xml:space="preserve">
+    <value>pages {0}</value>
+  </data>
+  <data name="RedactPagesNone" xml:space="preserve">
+    <value>the file</value>
+  </data>
+  <data name="RedactFailedTitle" xml:space="preserve">
+    <value>Redaction stopped by the check</value>
+  </data>
+  <data name="RedactFailedIntro" xml:space="preserve">
+    <value>The written file did not pass the check, so nothing was written. The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactFailedNoCheck" xml:space="preserve">
+    <value>The check of the written file could not be finished, so nothing was written. The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactFailUnremovableFormat" xml:space="preserve">
+    <value>Removed text is still in the file in a place that is not a page object (for example a Type 3 font, a pattern or a stream of a form), and Raffica cannot remove it ({0}).</value>
+  </data>
+  <data name="RedactFailTextFormat" xml:space="preserve">
+    <value>A removed text is still in the page text of the result ({0}).</value>
+  </data>
+  <data name="RedactFailCharFormat" xml:space="preserve">
+    <value>Characters of the result lie inside a marked area ({0}).</value>
+  </data>
+  <data name="RedactFailPixelFormat" xml:space="preserve">
+    <value>Pixels of an image under a marked area were not overwritten ({0}).</value>
+  </data>
+  <data name="RedactFailUnreadableFormat" xml:space="preserve">
+    <value>Part of the file could not be read ({0}), so it cannot be shown that nothing of the removed text is left in it.</value>
+  </data>
+  <data name="RedactFailKeysFormat" xml:space="preserve">
+    <value>A page still carries a thumbnail, private data, metadata or actions that Raffica cannot remove, or the keys could not be checked ({0}).</value>
+  </data>
+  <data name="RedactFailOutsideFormat" xml:space="preserve">
+    <value>A page looks different outside the marked areas ({0}).</value>
+  </data>
+  <data name="RedactFailUnverifiableFormat" xml:space="preserve">
+    <value>A removed text could not be searched for ({0}), so the result cannot be checked.</value>
+  </data>
+  <data name="RedactFailCleanupFormat" xml:space="preserve">
+    <value>Something the cleanup should have removed from the whole file is still there ({0}).</value>
+  </data>
+  <data name="RedactFailRasterFormat" xml:space="preserve">
+    <value>A page that was turned into an image is not only one image, or could not be checked ({0}).</value>
+  </data>
+  <data name="RedactFailTreatmentFormat" xml:space="preserve">
+    <value>An image area that should be pixelated or blurred is neither filled solid nor the block averages of the original ({0}).</value>
+  </data>
+  <data name="RedactFailedWriteTitle" xml:space="preserve">
+    <value>Redactions not applied</value>
+  </data>
+  <data name="RedactStays" xml:space="preserve">
+    <value>The file is unchanged and the marks are still open.</value>
+  </data>
+  <data name="RedactStaysAfterSave" xml:space="preserve">
+    <value>The annotations are saved into the file, but the redactions were not applied and are still open.</value>
+  </data>
+  <data name="RedactFailSourceModified" xml:space="preserve">
+    <value>The file changed on disk since it was opened, so it cannot be redacted from here.</value>
+  </data>
+  <data name="RedactFailEncrypted" xml:space="preserve">
+    <value>The file is encrypted, so it is not redacted.</value>
+  </data>
+  <data name="RedactFailMarks" xml:space="preserve">
+    <value>A mark no longer fits the document.</value>
+  </data>
+  <data name="RedactFailOpen" xml:space="preserve">
+    <value>The file could not be opened for the redaction.</value>
+  </data>
+  <data name="RedactFailDamaged" xml:space="preserve">
+    <value>A page of the file is damaged and could not be read.</value>
+  </data>
+  <data name="RedactFailOther" xml:space="preserve">
+    <value>The redactions could not be applied.</value>
+  </data>
+  <data name="RedactLeftoverFormat" xml:space="preserve">
+    <value>The redacted file was written. The unredacted original is still at {0}; delete it.</value>
+  </data>
+  <data name="RedactFailAdoptFormat" xml:space="preserve">
+    <value>The redactions were written, but the tab could not take the file over. The file at {0} is the redacted one: open it from disk to continue.</value>
+  </data>
+  <data name="RedactPlanChanged" xml:space="preserve">
+    <value>The marks were edited while the file dialog was open, so nothing was written. Apply again to see the current marks.</value>
+  </data>
+  <data name="RedactApplySuggestedNameFormat" xml:space="preserve">
+    <value>{0}-redacted.pdf</value>
+  </data>
+  <data name="RedactResultTitle" xml:space="preserve">
+    <value>Redactions applied</value>
+  </data>
+  <data name="RedactResultIntroFormat" xml:space="preserve">
+    <value>The redacted file {0} was written and read back. Below: what was removed, what the check covered and what it did not.</value>
+  </data>
+  <data name="RedactResRemovedHeading" xml:space="preserve">
+    <value>Removed</value>
+  </data>
+  <data name="RedactResCleanedHeading" xml:space="preserve">
+    <value>Cleaned, read back from the written file</value>
+  </data>
+  <data name="RedactResLostHeading" xml:space="preserve">
+    <value>Lost</value>
+  </data>
+  <data name="RedactResCheckedHeading" xml:space="preserve">
+    <value>Checked</value>
+  </data>
+  <data name="RedactResNotCheckedHeading" xml:space="preserve">
+    <value>Not checked</value>
+  </data>
+  <data name="RedactChkPageText" xml:space="preserve">
+    <value>Page text: every removed text occurs in the page text of the written file at most as often as before, minus the places removed (never, for a text marked everywhere).</value>
+  </data>
+  <data name="RedactChkBytes" xml:space="preserve">
+    <value>File bytes: the file was searched for each removed text of at least 4 characters, with strings decoded and streams unpacked, in older revisions, metadata and attachments too.</value>
+  </data>
+  <data name="RedactChkAreasSolid" xml:space="preserve">
+    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are the color of the area.</value>
+  </data>
+  <data name="RedactChkAreasTreated" xml:space="preserve">
+    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are either the color of the area or exactly the block averages worked out from the original.</value>
+  </data>
+  <data name="RedactChkPagesAll" xml:space="preserve">
+    <value>Pages: every redacted page was rendered from the written file and looks like the original outside the marked areas.</value>
+  </data>
+  <data name="RedactChkPagesInPlace" xml:space="preserve">
+    <value>Pages: every page redacted in place was rendered from the written file and looks like the original outside the marked areas.</value>
+  </data>
+  <data name="RedactChkRasterFormat" xml:space="preserve">
+    <value>Pages turned into images ({0}): each has exactly one image and no text, other object, annotation, link or form field, and the pixels under the marks are the color of the area. These pages are not rendered against the original.</value>
+  </data>
+  <data name="RedactChkKeys" xml:space="preserve">
+    <value>Page keys: no page of the written file carries /Thumb, /PieceInfo, /Metadata or /AA.</value>
+  </data>
+  <data name="RedactChkCleanup" xml:space="preserve">
+    <value>Cleanup: the information dictionary, bookmarks, the names tree (attached files, scripts), page labels, the open action, actions, form and permissions were read back from the written file; none is left.</value>
+  </data>
+  <data name="RedactNcOther" xml:space="preserve">
+    <value>Further limits of the check apply.</value>
+  </data>
+  <data name="RedactNcBlankFormat" xml:space="preserve">
+    <value>Removed texts that are only white space: {0}. They are not searched for.</value>
+  </data>
+  <data name="RedactNcUnreadableCharsFormat" xml:space="preserve">
+    <value>Removed texts with a character that could not be read exactly: {0}. They are not searched for.</value>
+  </data>
+  <data name="RedactNcTruncatedFormat" xml:space="preserve">
+    <value>Removed texts longer than the limit: {0}. Only their beginning is searched for.</value>
+  </data>
+  <data name="RedactNcFurtherFormat" xml:space="preserve">
+    <value>Further removed texts beyond the limit of {1}: {0}. They are not searched for.</value>
+  </data>
+  <data name="RedactNcRawShortFormat" xml:space="preserve">
+    <value>Removed texts shorter than {1} characters: {0}. They are not searched for in the file bytes.</value>
+  </data>
+  <data name="RedactNcRawNothing" xml:space="preserve">
+    <value>No text was removed, so the file bytes were not searched.</value>
+  </data>
+  <data name="RedactNcRawStillOccurFormat" xml:space="preserve">
+    <value>Removed texts that still occur in the page text: {0} (in {1} places), so a leaked copy in the file bytes cannot be told from them.</value>
+  </data>
+  <data name="RedactNcRawFilterFormat" xml:space="preserve">
+    <value>Streams with a filter that is not unpacked: {0}. They are searched as bytes only.</value>
+  </data>
+  <data name="RedactNcRawImageStreamsFormat" xml:space="preserve">
+    <value>Streams with image data: {0}. They are searched as bytes only.</value>
+  </data>
+  <data name="RedactNcRawUnreadableFormat" xml:space="preserve">
+    <value>Streams that could not be unpacked: {0}.</value>
+  </data>
+  <data name="RedactNcRawTooLargeFormat" xml:space="preserve">
+    <value>Streams that unpack to more than the limit of one stream: {0}.</value>
+  </data>
+  <data name="RedactNcRawTotalFormat" xml:space="preserve">
+    <value>Streams not unpacked because the file reached the total limit: {0}.</value>
+  </data>
+  <data name="RedactNcRawPredictorFormat" xml:space="preserve">
+    <value>Streams with a predictor that is not undone: {0}.</value>
+  </data>
+  <data name="RedactNcRawEncrypted" xml:space="preserve">
+    <value>The file has an encryption entry, so its streams cannot be read.</value>
+  </data>
+  <data name="RedactNcRawFontMapping" xml:space="preserve">
+    <value>Fonts with their own code mapping: the text is not readable in the streams.</value>
+  </data>
+  <data name="RedactNcRawEncodings" xml:space="preserve">
+    <value>Only common encodings of the text are searched; others are not found.</value>
+  </data>
+  <data name="RedactNcRawSplit" xml:space="preserve">
+    <value>A text split across text objects, XML entities and other spellings of the case are not found.</value>
+  </data>
+  <data name="RedactNcRawImageAttachments" xml:space="preserve">
+    <value>Image data is searched as bytes only, and attached files are not looked into.</value>
+  </data>
+  <data name="RedactNcPixelsBeyondFormat" xml:space="preserve">
+    <value>Marked areas beyond the limit of {1} were not read back: {0}.</value>
+  </data>
+  <data name="RedactNcPixelsOnlyImages" xml:space="preserve">
+    <value>Only images that touch a marked area are read back.</value>
+  </data>
+  <data name="RedactNcOtherViewer" xml:space="preserve">
+    <value>Another program may read the file differently.</value>
+  </data>
+  <data name="RedactNcApplyRender" xml:space="preserve">
+    <value>Render comparison: only the pages redacted in place are compared with the original, outside the marked areas and the places where content was removed; pages without a mark are not compared, and for a document with a form the annotations are left out of both renders.</value>
+  </data>
+  <data name="RedactNcApplyRenderRasterFormat" xml:space="preserve">
+    <value>Render comparison: only the pages redacted in place are compared with the original, outside the marked areas and the places where content was removed; pages without a mark and the pages turned into images ({0}) are not compared, and for a document with a form the annotations are left out of both renders.</value>
+  </data>
+  <data name="RedactNcApplyPageKeys" xml:space="preserve">
+    <value>Page keys: only /Thumb, /PieceInfo, /Metadata and /AA of the page dictionaries are looked for; the same keys of form objects, image objects and annotations are not.</value>
+  </data>
+  <data name="RedactNcApplyXmp" xml:space="preserve">
+    <value>XMP metadata and JavaScript were removed from the document level by building the file anew; the entries inside page-level objects are not read back.</value>
+  </data>
+  <data name="RedactNcRasterOutsideFormat" xml:space="preserve">
+    <value>Pages turned into images ({0}): a visible occurrence of a removed text outside the marked areas stays in the image and cannot be found without text recognition.</value>
+  </data>
+  <data name="RedactNcImageTextFormat" xml:space="preserve">
+    <value>Image areas pixelated or blurred: {0}, filled solid: {1}. Whether text inside such an image stays legible is not checked.</value>
+  </data>
+  <data name="RedactNcOverlayNotRead" xml:space="preserve">
+    <value>Overlay text is drawn as shapes on the areas and is not read back from the written file.</value>
+  </data>
+  <data name="RedactNcNoTermFormat" xml:space="preserve">
+    <value>Marks without a text (rectangles dragged on the page): {0}. The text under them is removed, but no text is searched for in the file bytes for them; only the characters inside the areas are looked for.</value>
+  </data>
+  <data name="RedactMarksOpen" xml:space="preserve">
+    <value>The marks are still open.</value>
+  </data>
+  <data name="RedactSaveFirstMessage" xml:space="preserve">
+    <value>The annotations and form values of {0} are not saved yet. They are saved into the file first, then the redactions are applied.</value>
+  </data>
+  <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
+    <value>The annotations and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. "Back" leaves everything as it is.</value>
+  </data>
+  <data name="RedactOriginalTitle" xml:space="preserve">
+    <value>Replace the original file?</value>
+  </data>
+  <data name="RedactOriginalMessageFormat" xml:space="preserve">
+    <value>You chose the file that is open, {0}. The redacted file replaces it. This cannot be undone, and no backup copy is made.</value>
+  </data>
+  <data name="RedactFailedHint" xml:space="preserve">
+    <value>To go on, mark the text that is left by area, or turn that page into an image.</value>
+  </data>
+  <data name="OcrRecognizeTitle" xml:space="preserve">
+    <value>Recognize text</value>
+  </data>
+  <data name="OcrLanguagesHeading" xml:space="preserve">
+    <value>Languages</value>
+  </data>
+  <data name="OcrLanguageImportedFormat" xml:space="preserve">
+    <value>{0} (imported)</value>
+  </data>
+  <data name="OcrNoLanguages" xml:space="preserve">
+    <value>No language files are installed. Add one with "Languages…" on the "Edit" tab.</value>
+  </data>
+  <data name="OcrSlowWarning" xml:space="preserve">
+    <value>More than three languages make recognition slower and less accurate.</value>
+  </data>
+  <data name="OcrLanguageRefusalTooManyFormat" xml:space="preserve">
+    <value>At most {0} languages can be chosen.</value>
+  </data>
+  <data name="OcrLanguageRefusalNotInstalled" xml:space="preserve">
+    <value>That language file is not installed.</value>
+  </data>
+  <data name="OcrPagesHeading" xml:space="preserve">
+    <value>Pages</value>
+  </data>
+  <data name="OcrPagesAll" xml:space="preserve">
+    <value>All pages</value>
+  </data>
+  <data name="OcrPagesCurrentFormat" xml:space="preserve">
+    <value>Current page ({0})</value>
+  </data>
+  <data name="OcrPagesRange" xml:space="preserve">
+    <value>Only these pages</value>
+  </data>
+  <data name="OcrPagesRangeLabel" xml:space="preserve">
+    <value>Pages to recognize</value>
+  </data>
+  <data name="OcrModeHeading" xml:space="preserve">
+    <value>Pages that already have text</value>
+  </data>
+  <data name="OcrModeSkip" xml:space="preserve">
+    <value>Skip them, so only pages without text are recognized</value>
+  </data>
+  <data name="OcrModeRedo" xml:space="preserve">
+    <value>Redo the text layer Raffica made earlier</value>
+  </data>
+  <data name="OcrModeForce" xml:space="preserve">
+    <value>Recognize every chosen page and keep the text that is there</value>
+  </data>
+  <data name="OcrResolutionHeading" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="OcrResolutionAuto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="OcrResolutionFormat" xml:space="preserve">
+    <value>{0} dpi</value>
+  </data>
+  <data name="OcrAccuracyNote" xml:space="preserve">
+    <value>Recognition is not error-free. Check the result, especially numbers and names.</value>
+  </data>
+  <data name="OcrSignedChange" xml:space="preserve">
+    <value>The recognized text counts as a change to the signed file.</value>
+  </data>
+  <data name="OcrRecognizeConfirm" xml:space="preserve">
+    <value>Recognize</value>
+  </data>
+  <data name="OcrNoLibraryReason" xml:space="preserve">
+    <value>Text recognition is not part of this installation.</value>
+  </data>
+  <data name="OcrFilesTitle" xml:space="preserve">
+    <value>Language files</value>
+  </data>
+  <data name="OcrFilesTrustWarning" xml:space="preserve">
+    <value>Only add language files from a source you trust. The program reads them with code that does not check them, so a damaged or manipulated file can make the recognition fail or stop the program.</value>
+  </data>
+  <data name="OcrFilesCopyNote" xml:space="preserve">
+    <value>The file you choose is copied. The original stays where it is.</value>
+  </data>
+  <data name="OcrFilesInstalledHeading" xml:space="preserve">
+    <value>Installed languages</value>
+  </data>
+  <data name="OcrFilesNone" xml:space="preserve">
+    <value>No language files are installed.</value>
+  </data>
+  <data name="OcrFilesShippedFormat" xml:space="preserve">
+    <value>{0}, included with Raffica</value>
+  </data>
+  <data name="OcrFilesImportedFormat" xml:space="preserve">
+    <value>{0}, added by you</value>
+  </data>
+  <data name="OcrFilesChoose" xml:space="preserve">
+    <value>Choose file…</value>
+  </data>
+  <data name="OcrFilesPickTitle" xml:space="preserve">
+    <value>Choose a language file</value>
+  </data>
+  <data name="OcrFilesFilter" xml:space="preserve">
+    <value>Language files</value>
+  </data>
+  <data name="OcrReplaceTitle" xml:space="preserve">
+    <value>Replace the added file?</value>
+  </data>
+  <data name="OcrReplaceMessageFormat" xml:space="preserve">
+    <value>A file for {0} was added before. Replace it with the one you chose?</value>
+  </data>
+  <data name="OcrReplaceConfirm" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="OcrReplaceKeep" xml:space="preserve">
+    <value>Keep the old one</value>
+  </data>
+  <data name="OcrImportTitle" xml:space="preserve">
+    <value>Language file</value>
+  </data>
+  <data name="OcrImportDoneFormat" xml:space="preserve">
+    <value>The language file {0} was added. The original was copied and stays where it is.</value>
+  </data>
+  <data name="OcrImportInvalidName" xml:space="preserve">
+    <value>The file name must be the language code followed by .traineddata, with letters and underscores only (for example deu.traineddata). Nothing was added.</value>
+  </data>
+  <data name="OcrImportNotAFile" xml:space="preserve">
+    <value>That is not a file, or it no longer exists. Nothing was added.</value>
+  </data>
+  <data name="OcrImportEmpty" xml:space="preserve">
+    <value>The file is empty. Nothing was added.</value>
+  </data>
+  <data name="OcrImportTooLargeFormat" xml:space="preserve">
+    <value>The file is larger than {0}. Nothing was added.</value>
+  </data>
+  <data name="OcrImportAlreadyAddedFormat" xml:space="preserve">
+    <value>A file for {0} was added before and was kept.</value>
+  </data>
+  <data name="OcrImportFailed" xml:space="preserve">
+    <value>The file could not be read or copied. Nothing was added.</value>
+  </data>
+  <data name="OcrBadgeText" xml:space="preserve">
+    <value>Recognizing text</value>
+  </data>
+  <data name="OcrBadgeProgressFormat" xml:space="preserve">
+    <value>Recognizing text: {0} of {1} pages</value>
+  </data>
+  <data name="OcrHintFormat" xml:space="preserve">
+    <value>{0} of {1} pages</value>
+  </data>
+  <data name="OcrAnnounceStart" xml:space="preserve">
+    <value>Text recognition started.</value>
+  </data>
+  <data name="OcrAnnounceDoneFormat" xml:space="preserve">
+    <value>Text recognition ended. {0} pages recognized.</value>
+  </data>
+  <data name="OcrAnnounceCanceled" xml:space="preserve">
+    <value>Text recognition canceled. The file is unchanged.</value>
+  </data>
+  <data name="OcrAnnounceKeptFormat" xml:space="preserve">
+    <value>Text recognition canceled. The text of {0} pages was kept.</value>
+  </data>
+  <data name="OcrAnnounceFailed" xml:space="preserve">
+    <value>Text recognition ended without a result.</value>
+  </data>
+  <data name="OcrScanHintText" xml:space="preserve">
+    <value>This looks like a scan. Make it searchable?</value>
+  </data>
+  <data name="OcrScanHintRecognize" xml:space="preserve">
+    <value>Recognize…</value>
+  </data>
+  <data name="OcrScanHintNotNow" xml:space="preserve">
+    <value>Not now</value>
+  </data>
+  <data name="OcrScanHintNever" xml:space="preserve">
+    <value>Don't ask again for this file</value>
+  </data>
+  <data name="OcrScanHintName" xml:space="preserve">
+    <value>Scan hint</value>
+  </data>
+  <data name="OcrKeepTitle" xml:space="preserve">
+    <value>Keep the finished pages?</value>
+  </data>
+  <data name="OcrKeepMessageFormat" xml:space="preserve">
+    <value>The recognition of {1} was canceled after {0} pages. Keep their text, or discard it and leave the file as it is?</value>
+  </data>
+  <data name="OcrKeepKeepFormat" xml:space="preserve">
+    <value>Keep {0} pages</value>
+  </data>
+  <data name="OcrKeepDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="OcrFailTitle" xml:space="preserve">
+    <value>Text recognition</value>
+  </data>
+  <data name="OcrFailLibraryUnusable" xml:space="preserve">
+    <value>The text recognition library could not be loaded.</value>
+  </data>
+  <data name="OcrFailLanguageInvalid" xml:space="preserve">
+    <value>The choice of languages is not usable.</value>
+  </data>
+  <data name="OcrFailLanguageMissingFormat" xml:space="preserve">
+    <value>These language files are missing: {0}. Add them with "Languages…", or choose other languages.</value>
+  </data>
+  <data name="OcrFailLanguageMissingNone" xml:space="preserve">
+    <value>A language file is missing. Add it with "Languages…", or choose another language.</value>
+  </data>
+  <data name="OcrFailDataCorrupt" xml:space="preserve">
+    <value>A language file could not be read. It may be damaged or made for another version.</value>
+  </data>
+  <data name="OcrFailFailed" xml:space="preserve">
+    <value>The text recognition stopped without a result.</value>
+  </data>
+  <data name="OcrFailApply" xml:space="preserve">
+    <value>The recognized text could not be written into the file. The file is unchanged.</value>
+  </data>
+  <data name="OcrReportTitle" xml:space="preserve">
+    <value>Text recognition</value>
+  </data>
+  <data name="OcrReportCanceledTitle" xml:space="preserve">
+    <value>Text recognition canceled</value>
+  </data>
+  <data name="OcrReportSummaryFormat" xml:space="preserve">
+    <value>{0} pages recognized, {1} words found. Mean confidence reported by the engine: {2} %.</value>
+  </data>
+  <data name="OcrReportWrittenFormat" xml:space="preserve">
+    <value>{0} words were written into the text layer of {1} pages.</value>
+  </data>
+  <data name="OcrReportLeftOutFormat" xml:space="preserve">
+    <value>{0} words were left out because a character of them is missing in the font of the text layer.</value>
+  </data>
+  <data name="OcrReportKeptLayerFormat" xml:space="preserve">
+    <value>These pages kept the text layer they had: {0}.</value>
+  </data>
+  <data name="OcrReportNothingWritten" xml:space="preserve">
+    <value>Nothing was written into the file.</value>
+  </data>
+  <data name="OcrReportSkippedLineFormat" xml:space="preserve">
+    <value>Page {0}: {1}</value>
+  </data>
+  <data name="OcrReportLowFormat" xml:space="preserve">
+    <value>Pages that may be turned or hard to read (low confidence): {0}.</value>
+  </data>
+  <data name="OcrReportEmptyFormat" xml:space="preserve">
+    <value>Pages without any recognized word: {0}.</value>
+  </data>
+  <data name="OcrReportLittleFormat" xml:space="preserve">
+    <value>Pages that had a little text of their own, which stays as it is: {0}.</value>
+  </data>
+  <data name="OcrReportLoweredFormat" xml:space="preserve">
+    <value>Pages recognized at a lower resolution because of their size: {0}.</value>
+  </data>
+  <data name="OcrReportMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
+  <data name="OcrReportUndoable" xml:space="preserve">
+    <value>The recognition is one step of the undo history. Save the file to keep it.</value>
+  </data>
+  <data name="OcrReportNotUndoable" xml:space="preserve">
+    <value>This step is too large for the undo history, so "Undo" cannot take it back. It counts as an unsaved change; close without saving to drop it.</value>
+  </data>
+  <data name="OcrSkipHasText" xml:space="preserve">
+    <value>The page has text of its own.</value>
+  </data>
+  <data name="OcrSkipAlreadyRecognized" xml:space="preserve">
+    <value>The page already has a text layer made by Raffica. Choose the redo option to replace it.</value>
+  </data>
+  <data name="OcrSkipTooLarge" xml:space="preserve">
+    <value>The page is too large, or has more words than are handled.</value>
+  </data>
+  <data name="OcrSkipResolutionTooLowFormat" xml:space="preserve">
+    <value>The resolution of {0} dpi is too low for recognition.</value>
+  </data>
+  <data name="OcrSkipResolutionTooLow" xml:space="preserve">
+    <value>The resolution is too low for recognition.</value>
+  </data>
+  <data name="OcrSkipTimeout" xml:space="preserve">
+    <value>The page took too long.</value>
+  </data>
+  <data name="OcrSkipFailed" xml:space="preserve">
+    <value>The page could not be read.</value>
+  </data>
+  <data name="OcrSkipNoSupportedCharacters" xml:space="preserve">
+    <value>No word could be written, because its characters are missing in the font of the text layer.</value>
+  </data>
+  <data name="OcrReportFileFormat" xml:space="preserve">
+    <value>Document: {0}</value>
+  </data>
+  <data name="OcrReportSkippedMoreFormat" xml:space="preserve">
+    <value>and {0} more pages that were not recognized</value>
+  </data>
+  <data name="OcrNotStartedReason" xml:space="preserve">
+    <value>The text recognition could not start, because the document changed in the meantime. Try again.</value>
+  </data>
+  <data name="TextEditBadgeText" xml:space="preserve">
+    <value>Edit text – Esc to finish</value>
+  </data>
+  <data name="TextEditHintLine" xml:space="preserve">
+    <value>Edit lines, not paragraphs. Characters the font lacks are set in a replacement font.</value>
+  </data>
+  <data name="TextEditWholeRunSwitch" xml:space="preserve">
+    <value>Whole line in replacement font ({0})</value>
+  </data>
+  <data name="TextEditBarName" xml:space="preserve">
+    <value>Text editing</value>
+  </data>
+  <data name="TextEditFieldName" xml:space="preserve">
+    <value>New text of the line</value>
+  </data>
+  <data name="TextEditRunNameFormat" xml:space="preserve">
+    <value>Line {0} of page {1}</value>
+  </data>
+  <data name="TextEditLockedRunNameFormat" xml:space="preserve">
+    <value>Locked line {0} of page {1}</value>
+  </data>
+  <data name="TextEditLockInvisibleText" xml:space="preserve">
+    <value>Locked: this text is invisible. In a scanned page the picture is what you see, and editing the hidden text would not change the picture.</value>
+  </data>
+  <data name="TextEditLockType3Font" xml:space="preserve">
+    <value>Locked: this page uses a font type (Type 3) that Raffica cannot write again, so no line of the page can be changed.</value>
+  </data>
+  <data name="TextEditLockVerticalWriting" xml:space="preserve">
+    <value>Locked: this line is written vertically.</value>
+  </data>
+  <data name="TextEditLockUnsupportedRenderMode" xml:space="preserve">
+    <value>Locked: this text is drawn as an outline or as a clipping shape, and writing it again would change the look of the page.</value>
+  </data>
+  <data name="TextEditLockFormXObject" xml:space="preserve">
+    <value>Locked: this text belongs to a shared page element (a header or footer, for example), and a change could reach other pages.</value>
+  </data>
+  <data name="TextEditLockMarkedContent" xml:space="preserve">
+    <value>Locked: this text carries its own replacement text or lies on a layer, so search and copy would go on giving the old words.</value>
+  </data>
+  <data name="TextEditLockNotSavable" xml:space="preserve">
+    <value>Locked: Raffica cannot save this file (it is encrypted, or it changed outside Raffica).</value>
+  </data>
+  <data name="TextEditLockPageNotRewritable" xml:space="preserve">
+    <value>Locked: writing this page again would change something else on it.</value>
+  </data>
+  <data name="TextEditLockLigature" xml:space="preserve">
+    <value>Locked: two characters of this line share one glyph (a ligature), and writing it again would draw them on top of each other.</value>
+  </data>
+  <data name="TextEditLockTooManyRunsFormat" xml:space="preserve">
+    <value>Locked: this page has more than {0} lines of text.</value>
+  </data>
+  <data name="TextEditLockRunTooLongFormat" xml:space="preserve">
+    <value>Locked: this line has more than {0} characters.</value>
+  </data>
+  <data name="TextEditRejectTooLongFormat" xml:space="preserve">
+    <value>Too long: a line takes at most {0} characters. Nothing was changed.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedFormat" xml:space="preserve">
+    <value>Not possible: neither the font of the line nor the replacement font has {0}. Nothing was changed.</value>
+  </data>
+  <data name="TextEditRejectUnsupportedNone" xml:space="preserve">
+    <value>Not possible: the text has characters that neither the font of the line nor the replacement font has. Nothing was changed.</value>
+  </data>
+  <data name="TextEditNoteMissingFormat" xml:space="preserve">
+    <value>The font of the line lacks {0}. Only these characters are set in the replacement font.</value>
+  </data>
+  <data name="TextEditNoteWholeRun" xml:space="preserve">
+    <value>The whole line is set in the replacement font.</value>
+  </data>
+  <data name="TextEditNoteEmpty" xml:space="preserve">
+    <value>Empty: the line is taken away. "Undo" brings it back.</value>
+  </data>
+  <data name="TextEditNoteUnchanged" xml:space="preserve">
+    <value>The text is as it was; nothing changes.</value>
+  </data>
+  <data name="TextEditNoteOverlap" xml:space="preserve">
+    <value>The new text may reach over other text.</value>
+  </data>
+  <data name="TextEditNoteOutsidePage" xml:space="preserve">
+    <value>The new text may reach beyond the page edge.</value>
+  </data>
+  <data name="TextEditNoteDone" xml:space="preserve">
+    <value>Line changed. "Undo" brings the old text back.</value>
+  </data>
+  <data name="TextEditNoteStale" xml:space="preserve">
+    <value>The page changed after this line was read. Nothing was changed. Select the line again.</value>
+  </data>
+  <data name="TextEditNoteWriteFailed" xml:space="preserve">
+    <value>Writing the line failed, and the page may have changed. Look at the page; "Undo" goes back.</value>
+  </data>
+  <data name="TextEditNoteHistoryFull" xml:space="preserve">
+    <value>There is no room left for more undo steps. Save first. Nothing was changed.</value>
+  </data>
+  <data name="TextEditNoteFailed" xml:space="preserve">
+    <value>The line could not be changed. Nothing was changed.</value>
+  </data>
+  <data name="TextEditNotePageUnreadable" xml:space="preserve">
+    <value>The lines of this page could not be read, so none can be edited.</value>
+  </data>
+  <data name="TextEditOldTextNote" xml:space="preserve">
+    <value>The old text stays in earlier versions of the file. To remove it for real: "Redact".</value>
+  </data>
+  <data name="DefaultAppTitle" xml:space="preserve">
+    <value>Default app for PDFs</value>
+  </data>
+  <data name="DefaultAppMessage" xml:space="preserve">
+    <value>Do you want Raffica to open PDF files by default? You can change this later in your system settings.</value>
+  </data>
+  <data name="DefaultAppSet" xml:space="preserve">
+    <value>Set as default</value>
+  </data>
+  <data name="DefaultAppNotNow" xml:space="preserve">
+    <value>Not now</value>
+  </data>
+  <data name="DefaultAppDontAsk" xml:space="preserve">
+    <value>Don&apos;t ask again</value>
+  </data>
+  <data name="DefaultAppResultTitle" xml:space="preserve">
+    <value>Default app</value>
+  </data>
+  <data name="DefaultAppDone" xml:space="preserve">
+    <value>Raffica now opens PDF files by default.</value>
+  </data>
+  <data name="DefaultAppOpenedSettings" xml:space="preserve">
+    <value>The system settings for default apps are open. Choose Raffica for .pdf files there; the system leaves that choice to you.</value>
+  </data>
+  <data name="DefaultAppNotAvailable" xml:space="preserve">
+    <value>This system offers no way to set the default app from here. Nothing was changed. You can choose it in your system settings.</value>
+  </data>
+  <data name="DefaultAppFailed" xml:space="preserve">
+    <value>The default app could not be set. Nothing was changed. You can choose it in your system settings.</value>
+  </data>
+  <data name="CmdMakeDefaultApp" xml:space="preserve">
+    <value>Make Raffica the default app for PDFs</value>
+  </data>
+  <data name="PaletteGroupApp" xml:space="preserve">
+    <value>App</value>
+  </data>
+  <data name="SettingsDefaultApp" xml:space="preserve">
+    <value>Default app</value>
+  </data>
+  <data name="SettingsDefaultAppAsk" xml:space="preserve">
+    <value>Offer at start to make Raffica the default app</value>
+  </data>
+  <data name="SettingsDefaultAppNow" xml:space="preserve">
+    <value>Make Raffica the default app for PDFs when I click OK</value>
+  </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
+  <data name="AboutName" xml:space="preserve">
+    <value>Raffica PDF</value>
+  </data>
+  <data name="AboutVersionFormat" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="AboutLicenseFormat" xml:space="preserve">
+    <value>License: {0}</value>
+  </data>
+  <data name="AboutProjectFormat" xml:space="preserve">
+    <value>Project: {0}</value>
+  </data>
+  <data name="AboutProjectLabel" xml:space="preserve">
+    <value>Project:</value>
+  </data>
+  <data name="AboutNoticeTitleMoreFormat" xml:space="preserve">
+    <value>{0} and {1} more - {2}</value>
+  </data>
+  <data name="AboutNoticesHeading" xml:space="preserve">
+    <value>Third-party notices</value>
+  </data>
+  <data name="AboutNoticesName" xml:space="preserve">
+    <value>Third-party notices, scrollable text</value>
+  </data>
+  <data name="CmdAbout" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
+  <data name="UpdateTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateMessageFormat" xml:space="preserve">
+    <value>Raffica PDF {0} is available. You have version {1}.</value>
+  </data>
+  <data name="UpdateCheckedNote" xml:space="preserve">
+    <value>Before anything is installed, Raffica checks the signature of the release and the size and SHA-256 of the downloaded file.</value>
+  </data>
+  <data name="UpdateRestartNote" xml:space="preserve">
+    <value>Raffica asks about unsaved changes first and opens your tabs again after the restart.</value>
+  </data>
+  <data name="UpdateManualMessage" xml:space="preserve">
+    <value>This installation cannot update itself. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateInstall" xml:space="preserve">
+    <value>Install and restart</value>
+  </data>
+  <data name="UpdateLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="UpdateOpenPage" xml:space="preserve">
+    <value>Open download page</value>
+  </data>
+  <data name="UpdateProgressTitle" xml:space="preserve">
+    <value>Updating Raffica PDF</value>
+  </data>
+  <data name="UpdateStepDownload" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="UpdateStepCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="UpdateStepInstall" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="UpdateStepRestart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="UpdateStepDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="UpdateProgressBytesFormat" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="UpdateFailedTitle" xml:space="preserve">
+    <value>Update failed</value>
+  </data>
+  <data name="UpdateTryAgain" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="UpdateCheckTitle" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdateUpToDateFormat" xml:space="preserve">
+    <value>Raffica PDF is up to date (version {0}).</value>
+  </data>
+  <data name="UpdateCouldNotCheck" xml:space="preserve">
+    <value>Could not check for updates. Check your connection and try again later.</value>
+  </data>
+  <data name="CmdDocumentInfo" xml:space="preserve">
+    <value>Document info</value>
+  </data>
+  <data name="CmdCheckForUpdates" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="UpdateFailureUnreachable" xml:space="preserve">
+    <value>The update could not be downloaded. Check your connection and try again.</value>
+  </data>
+  <data name="UpdateFailureWithdrawn" xml:space="preserve">
+    <value>This update is not offered any more. Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureSuperseded" xml:space="preserve">
+    <value>A newer version was released in the meantime. Nothing was installed; close this message to see it.</value>
+  </data>
+  <data name="UpdateFailureRejected" xml:space="preserve">
+    <value>The release information was not accepted. Nothing was installed.</value>
+  </data>
+  <data name="UpdateFailureChecksum" xml:space="preserve">
+    <value>The downloaded file does not match the size and SHA-256 of the signed release information. It was deleted and nothing was installed.</value>
+  </data>
+  <data name="UpdateFailureStorage" xml:space="preserve">
+    <value>The update could not be saved on this computer (disk full or no access). Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureNoInstaller" xml:space="preserve">
+    <value>This installation cannot update itself. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateFailureInstallFailed" xml:space="preserve">
+    <value>The installer did not finish. The version you are running is unchanged.</value>
+  </data>
+  <data name="UpdateBusyNote" xml:space="preserve">
+    <value>A file is being saved, printed or processed. Wait until it has finished, then choose "Install" again. Nothing was changed.</value>
+  </data>
+  <data name="UpdateFailureFolderWriteProtectedFormat" xml:space="preserve">
+    <value>The folder {0} is write-protected, so Raffica cannot replace itself there. Nothing was changed. Get the new version from the download page.</value>
+  </data>
+  <data name="UpdateFailureNotStarted" xml:space="preserve">
+    <value>The new version is installed, but it could not be started. It starts the next time you open Raffica.</value>
+  </data>
+  <data name="UpdateFailureVersionMismatch" xml:space="preserve">
+    <value>The installer finished, but the installed program is not the new version yet. Files may have been replaced. Try again, or restart your computer and open Raffica.</value>
+  </data>
+  <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
+    <value>The installer did not finish, or the permission prompt was declined. Files may have been replaced. Try again, or get the new version from the download page.</value>
+  </data>
+  <data name="UpdateButton" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateButtonNameFormat" xml:space="preserve">
+    <value>Update available: Raffica PDF {0}</value>
+  </data>
+  <data name="UpdateStepCurrent" xml:space="preserve">
+    <value>In progress</value>
+  </data>
+  <data name="SettingsUpdates" xml:space="preserve">
+    <value>Updates</value>
+  </data>
+  <data name="SettingsUpdateCheck" xml:space="preserve">
+    <value>Check for updates automatically</value>
+  </data>
+  <data name="CrashTitle" xml:space="preserve">
+    <value>Something went wrong</value>
+  </data>
+  <data name="CrashMessage" xml:space="preserve">
+    <value>Save your work under a new name and restart Raffica PDF. Details are in crash.log.</value>
+  </data>
+  <data name="CrashOpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="DescAnnotateMode" xml:space="preserve">
+    <value>Turn the annotate mode on or off</value>
+  </data>
+  <data name="DescFormsHighlight" xml:space="preserve">
+    <value>Show or hide the highlight of the form fields</value>
+  </data>
+  <data name="DescOrganize" xml:space="preserve">
+    <value>Open or close the page organizer</value>
+  </data>
+  <data name="DescRotateLeft" xml:space="preserve">
+    <value>Rotate the selected pages 90° counterclockwise</value>
+  </data>
+  <data name="DescRotateRight" xml:space="preserve">
+    <value>Rotate the selected pages 90° clockwise</value>
+  </data>
+  <data name="DescDuplicatePages" xml:space="preserve">
+    <value>Duplicate the selected pages</value>
+  </data>
+  <data name="DescBlankPage" xml:space="preserve">
+    <value>Insert a blank page</value>
+  </data>
+  <data name="DescInsertFile" xml:space="preserve">
+    <value>Insert pages from another PDF file</value>
+  </data>
+  <data name="DescMovePagesUp" xml:space="preserve">
+    <value>Move the selected pages up</value>
+  </data>
+  <data name="DescMovePagesDown" xml:space="preserve">
+    <value>Move the selected pages down</value>
+  </data>
+  <data name="DescPagesUndo" xml:space="preserve">
+    <value>Undo the last page change</value>
+  </data>
+  <data name="DescPagesRedo" xml:space="preserve">
+    <value>Redo the page change you undid</value>
+  </data>
+  <data name="DescApplyPages" xml:space="preserve">
+    <value>Write the page changes into the file</value>
+  </data>
+  <data name="DescDiscardPages" xml:space="preserve">
+    <value>Discard the page changes</value>
+  </data>
+  <data name="DescExtractPages" xml:space="preserve">
+    <value>Save pages as a new PDF file</value>
+  </data>
+  <data name="DescSplitDocument" xml:space="preserve">
+    <value>Split the document into several files</value>
+  </data>
+  <data name="DescExportImages" xml:space="preserve">
+    <value>Export pages as PNG images</value>
+  </data>
+  <data name="DescDeletePages" xml:space="preserve">
+    <value>Delete the selected pages</value>
+  </data>
+  <data name="DescRedactDiscard" xml:space="preserve">
+    <value>Discard the redaction marks</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Undo the last change</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Redo the change you undid</value>
+  </data>
+</root>

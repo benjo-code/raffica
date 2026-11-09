@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:frame="clr-namespace:Raffica.Shell.Frame">
+  <!--
+    A pane (section 6 of Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): surface.band, square edges, a 38 px header
+    with the title in 12 px secondary text, the content with 12 px padding. The frame border is always 1 px wide (transparent at
+    rest) so that the F6 focus, which draws it in ink, does not shift anything; the title turns primary. The document pane has no
+    header, no padding and no surface. The fills are set by styles, not on the template parts, so that the states can override them.
+  -->
+  <ControlTheme x:Key="{x:Type frame:Pane}" TargetType="frame:Pane">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame" BorderThickness="1">
+          <Grid RowDefinitions="Auto,*">
+            <Border x:Name="PART_Header" Grid.Row="0" Height="{DynamicResource Raffica.Size.PanelHeader}">
+              <TextBlock x:Name="PART_Title" Text="{TemplateBinding Title}" FontSize="12" Margin="12,0"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+            </Border>
+            <Border x:Name="PART_Body" Grid.Row="1" Padding="12">
+              <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+            </Border>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^ /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Surface.Band}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="^ /template/ TextBlock#PART_Title">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+    </Style>
+    <Style Selector="^:pane-focused /template/ Border#PART_Frame">
+      <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Ink}" />
+    </Style>
+    <Style Selector="^:pane-focused /template/ TextBlock#PART_Title">
+      <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    </Style>
+    <Style Selector="^:document /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{x:Null}" />
+    </Style>
+    <Style Selector="^:document /template/ Border#PART_Header">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:document /template/ Border#PART_Body">
+      <Setter Property="Padding" Value="0" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>

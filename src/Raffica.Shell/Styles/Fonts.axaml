@@ -1,0 +1,10 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The three embedded families (Assets/Fonts, SIL OFL 1.1, see third-party/). The chrome uses Public Sans only; Barlow
+    Semi Condensed is for field-code badges, Carlito (Calibri-metric) for document content.
+  -->
+  <FontFamily x:Key="Raffica.Font.Ui">avares://Raffica.Shell/Assets/Fonts#Public Sans</FontFamily>
+  <FontFamily x:Key="Raffica.Font.FieldCode">avares://Raffica.Shell/Assets/Fonts#Barlow Semi Condensed</FontFamily>
+  <FontFamily x:Key="Raffica.Font.Document">avares://Raffica.Shell/Assets/Fonts#Carlito</FontFamily>
+</ResourceDictionary>

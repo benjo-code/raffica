@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+windows-main-pc,frame,memory,1,128598016,bytes
+windows-main-pc,frame,memory,2,130961408,bytes
+windows-main-pc,frame,memory,3,130392064,bytes
+windows-main-pc,frame,memory,4,128925696,bytes
+windows-main-pc,frame,memory,5,129093632,bytes
+windows-main-pc,frame,memory,6,130359296,bytes
+windows-main-pc,frame,memory,7,128749568,bytes
+windows-main-pc,frame,memory,8,130580480,bytes
+windows-main-pc,frame,memory,9,127979520,bytes
+windows-main-pc,frame,memory,10,130109440,bytes

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Raffica PDF
+GenericName=PDF Viewer
+GenericName[de]=PDF-Betrachter
+Comment=Fast, offline PDF viewer
+Comment[de]=Schneller PDF-Betrachter ohne Netzwerk
+Exec=/usr/lib/raffica-pdf/RafficaPdf %F
+Icon=raffica-pdf
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;
+StartupWMClass=RafficaPdf

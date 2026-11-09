@@ -1,0 +1,49 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Raffica.Shell.Controls"
+        x:Class="Raffica.Shell.RafficaStyles">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Tokens.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Metrics.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Fonts.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Icons.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Focus.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/Button.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/ToggleButton.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/CheckBox.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/RadioButton.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/SegmentedControl.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/TextBox.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/ComboBox.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/Menu.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/ContextMenu.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/ToolTip.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/Dialog.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Controls/NotificationBar.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/AppFrame.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/StatusBar.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/Pane.axaml" />
+        <ResourceInclude Source="avares://Raffica.Shell/Styles/Frame/FieldCode.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+  <FluentTheme />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Typography.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/Window.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/Ribbon.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/TitleBar.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/DocumentTabs.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/SearchField.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/StartView.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/SettingsDialog.axaml" />
+  <!--
+    Buttons in the footer of a dialog: 28 px high, at least 96 px wide (appendix A section 4 of the design spec). This is a style
+    of the bundle, not a rule inside the dialog theme: a rule inside a control theme loses against the setters of the Button theme.
+  -->
+  <Style Selector="controls|Dialog /template/ ContentPresenter#PART_Footer Button">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinWidth" Value="96" />
+  </Style>
+</Styles>

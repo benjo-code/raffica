@@ -1,17 +1,17 @@
 ---
 name: Feature
-about: Idee oder Wunsch für eine neue Funktion
+about: Idea or request for a new feature
 labels: enhancement
 ---
 
 ## Problem
 
-<!-- Welches Problem soll gelöst werden? -->
+<!-- Which problem should be solved? -->
 
-## Vorschlag
+## Proposal
 
-<!-- Wie könnte die Lösung aussehen? -->
+<!-- What could the solution look like? -->
 
 ## Milestone
 
-<!-- Passt das zu einem bestehenden Milestone in Docs/ROADMAP.md oder braucht es einen neuen? -->
+<!-- Does this fit an existing milestone in Docs/ROADMAP.md or does it need a new one? -->

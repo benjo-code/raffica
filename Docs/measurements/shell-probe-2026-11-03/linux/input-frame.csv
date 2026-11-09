@@ -1,0 +1,4 @@
+machine,mode,case,run,value,unit
+linux-probook,frame,input,median,16.55,ms
+linux-probook,frame,input,p99,33.48,ms
+linux-probook,frame,input,max,47.28,ms
