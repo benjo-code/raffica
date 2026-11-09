@@ -5,7 +5,7 @@
     Text field, row "Text field / search" of the state table (appendix A section 5 of
     Docs/superpowers/specs/2026-11-03-design-system-shell-design.md): surface.page, 1 px border.control, 26 px high, 3 px radius
     (appendix A section 4). Placeholder text.secondary, hover edge text.secondary, typing (focused) edge text.primary,
-    disabled surface.band with text.disabled text and edge. Text selection is selection.tint (appendix B), the caret text.primary.
+    disabled surface.band with text.disabled text and edge. Text selection is selection.field (M2.7: at least 3 : 1 on the field, the selected text text.onInk; selection.tint was 1.2 : 1), the caret text.primary.
     The keyboard ring is the shared adorner, 2 px outside the edge, so Fluent's FocusAdorner override is gone; a click focuses
     the field without the ring, the typing edge shows it is active. A multi-line box (AcceptsReturn) keeps the style and grows.
     The context flyout is the shell's own TextBoxContextFlyout (localized, Cut/Copy/Paste/Select all/Undo/Redo) in the menu theme.
@@ -19,8 +19,8 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
     <Setter Property="CaretBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
-    <Setter Property="SelectionBrush" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
-    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Raffica.Brush.Selection.Field}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Raffica.Brush.Text.OnInk}" />
     <Setter Property="PlaceholderForeground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
     <Setter Property="FontFamily" Value="{DynamicResource Raffica.Font.Ui}" />
     <Setter Property="FontSize" Value="14" />

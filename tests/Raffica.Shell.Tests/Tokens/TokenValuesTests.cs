@@ -35,6 +35,7 @@ public sealed class TokenValuesTests
         { "Warning.Icon", "#8A6A00", "#D9A93A" },
 
         // On paper (M2.7): the same in every theme, because the thing they colour sits on white paper (an editor over a page).
+        { "Selection.Field", "#5F6670", "#8F96A1" },
         { "Paper.Caret", "#000000", "#000000" },
         { "Paper.Edge", "#1A1D21", "#1A1D21" },
         { "Paper.Selection", "#5F6670", "#5F6670" },

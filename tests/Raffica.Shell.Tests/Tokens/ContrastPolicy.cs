@@ -54,6 +54,9 @@ public static class ContrastPolicy
             ["Button.Primary.Hover"] = (ContrastKind.Fill, null),
             ["Scrim"] = (ContrastKind.Fill, null),
 
+            // The selected text of a text field (M2.7): checked against the field backgrounds and with Text.OnInk on it in FilledPairingsMeetTheirThreshold.
+            ["Selection.Field"] = (ContrastKind.Fill, null),
+
             // On paper (M2.7): caret, edge and selection of the editors over a page. The page paper is white in every theme, so these do not follow the theme.
             ["Paper.Caret"] = (ContrastKind.OnPaper, null),
             ["Paper.Edge"] = (ContrastKind.OnPaper, null),

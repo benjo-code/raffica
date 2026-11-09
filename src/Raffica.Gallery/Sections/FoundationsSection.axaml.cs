@@ -58,7 +58,7 @@ internal sealed partial class FoundationsSection : UserControl
         "Button.Primary.Fill", "Button.Primary.Hover", "Scrim",
         "Ink.Write", "Ink.Sheets", "Ink.Slides", "Ink.Pdf",
         "Review.Violet", "Review.Tint", "Danger", "Warning.Icon",
-        "Paper.Caret", "Paper.Edge", "Paper.Selection", "Paper.OnSelection",
+        "Selection.Field", "Paper.Caret", "Paper.Edge", "Paper.Selection", "Paper.OnSelection",
     ];
 
     private static TextBlock Cell(string text, int row, int column, params string[] classes)

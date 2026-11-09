@@ -60,6 +60,8 @@
       <SolidColorBrush x:Key="Raffica.Brush.Danger" Color="#B21F2D" />
       <Color x:Key="Raffica.Color.Warning.Icon">#8A6A00</Color>
       <SolidColorBrush x:Key="Raffica.Brush.Warning.Icon" Color="#8A6A00" />
+      <Color x:Key="Raffica.Color.Selection.Field">#5F6670</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Selection.Field" Color="#5F6670" />
       <Color x:Key="Raffica.Color.Paper.Caret">#000000</Color>
       <SolidColorBrush x:Key="Raffica.Brush.Paper.Caret" Color="#000000" />
       <Color x:Key="Raffica.Color.Paper.Edge">#1A1D21</Color>
@@ -118,6 +120,8 @@
       <SolidColorBrush x:Key="Raffica.Brush.Danger" Color="#FF6F66" />
       <Color x:Key="Raffica.Color.Warning.Icon">#D9A93A</Color>
       <SolidColorBrush x:Key="Raffica.Brush.Warning.Icon" Color="#D9A93A" />
+      <Color x:Key="Raffica.Color.Selection.Field">#8F96A1</Color>
+      <SolidColorBrush x:Key="Raffica.Brush.Selection.Field" Color="#8F96A1" />
       <Color x:Key="Raffica.Color.Paper.Caret">#000000</Color>
       <SolidColorBrush x:Key="Raffica.Brush.Paper.Caret" Color="#000000" />
       <Color x:Key="Raffica.Color.Paper.Edge">#1A1D21</Color>

@@ -72,6 +72,11 @@ public sealed class ContrastTests
             Check("Text.OnInk", fill, 4.5);
         }
 
+        // 07-UI-10: the selection of a text field stands out from the field (page or band) and keeps the selected text readable.
+        Check("Selection.Field", "Surface.Page", 3.0);
+        Check("Selection.Field", "Surface.Band", 3.0);
+        Check("Text.OnInk", "Selection.Field", 4.5);
+
         Check("Text.Primary", "Review.Tint", 4.5);
         Check("Review.Violet", "Review.Tint", 3.0);
 
