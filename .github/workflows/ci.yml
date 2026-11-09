@@ -330,7 +330,29 @@ jobs:
       - name: Test
         env:
           RAFFICA_REQUIRE_OCR: '1'
-        run: dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1
+        run: |
+          set -o pipefail
+          dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1 2>&1 | tee "$RUNNER_TEMP/macos-test.log"
+
+      # The runner prints "skipped <test>" and the reason on the next line. A skip that only macOS causes starts its reason with
+      # "macOS:" (listed here for the owner); a skip with no reason at all fails the job.
+      - name: List the skipped tests and check their reasons
+        run: |
+          esc=$(printf '\033')
+          sed "s/${esc}\[[0-9;]*m//g" "$RUNNER_TEMP/macos-test.log" | awk '
+            /^[0-9TZ:.-]* *skipped / { sub(/^[0-9TZ:.-]* */, ""); name = substr($0, 9); getline; reason = $0
+              sub(/^[ \t]+/, "", reason)
+              if (reason ~ /^from / || reason == "") { reason = "" }
+              if (reason == "") { print "NOREASON " name } else if (reason ~ /^macOS:/) { print "MACOS " name " -- " reason } else { other++ } }
+            END { print "OTHER " other + 0 }' > "$RUNNER_TEMP/skips.txt"
+          echo "Skipped on macOS because of macOS:"
+          grep '^MACOS ' "$RUNNER_TEMP/skips.txt" | sed 's/^MACOS /  /' || true
+          grep '^OTHER ' "$RUNNER_TEMP/skips.txt" | sed 's/^OTHER /Skipped for other reasons (every system): /'
+          if grep -q '^NOREASON ' "$RUNNER_TEMP/skips.txt"; then
+            echo "Skipped tests without a reason:" >&2
+            grep '^NOREASON ' "$RUNNER_TEMP/skips.txt" | sed 's/^NOREASON /  /' >&2
+            exit 1
+          fi
 
       - name: Upload the render diffs
         if: failure()
