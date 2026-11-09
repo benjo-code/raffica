@@ -86,7 +86,7 @@ public sealed class RedactApplyFlowTests
             Assert.Contains("Actions of annotations (links and other actions) that come with the pages.", notCleaned);
             Assert.Contains(notCleaned, l => l.StartsWith("Annotations outside the marked areas", StringComparison.Ordinal));
             Assert.Contains(notCleaned, l => l.StartsWith("The values of form fields stay", StringComparison.Ordinal));
-            Assert.Equal("The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use Save as.", PrintHost.Find<TextBlock>(card, "PART_Warning").Text);
+            Assert.Equal("The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use \"Save as\".", PrintHost.Find<TextBlock>(card, "PART_Warning").Text);
             RedactApplyRig.Click(card, "PART_Back");
         }
 

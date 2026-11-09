@@ -306,7 +306,7 @@
     <value>Mehr als {0} Treffer</value>
   </data>
   <data name="SearchSearching" xml:space="preserve">
-    <value>Suche läuft …</value>
+    <value>Suche läuft…</value>
   </data>
   <data name="LinkTitle" xml:space="preserve">
     <value>Diesen Link öffnen?</value>
@@ -417,7 +417,7 @@
     <value>Hell</value>
   </data>
   <data name="SettingsPageFollowTheme" xml:space="preserve">
-    <value>Wie das Design</value>
+    <value>Wie die Darstellung</value>
   </data>
   <data name="SettingsDefaultLayout" xml:space="preserve">
     <value>Standardlayout</value>
@@ -807,7 +807,7 @@
     <value>Das Speichern wurde abgebrochen. Die Originaldatei ist unverändert.</value>
   </data>
   <data name="UnsavedLockedTitle" xml:space="preserve">
-    <value>Schließen ohne zu speichern?</value>
+    <value>Schließen, ohne zu speichern?</value>
   </data>
   <data name="UnsavedLockedMessageFormat" xml:space="preserve">
     <value>{0} hat Änderungen, die hier nicht gespeichert werden können. Wenn Sie es schließen, gehen sie verloren.</value>
@@ -1110,7 +1110,7 @@
     <value>Gespeicherte Unterschriften</value>
   </data>
   <data name="SignaturePickerNew" xml:space="preserve">
-    <value>Neue Unterschrift …</value>
+    <value>Neue Unterschrift…</value>
   </data>
   <data name="SignaturePickerDelete" xml:space="preserve">
     <value>Löschen</value>
@@ -1209,7 +1209,7 @@
     <value>Leere Seite einfügen</value>
   </data>
   <data name="CmdInsertFile" xml:space="preserve">
-    <value>Aus Datei einfügen …</value>
+    <value>Aus Datei einfügen…</value>
   </data>
   <data name="CmdMovePagesUp" xml:space="preserve">
     <value>Seiten nach oben</value>
@@ -1233,13 +1233,13 @@
     <value>Seiten löschen</value>
   </data>
   <data name="CmdExtractPages" xml:space="preserve">
-    <value>Seiten extrahieren …</value>
+    <value>Seiten extrahieren…</value>
   </data>
   <data name="CmdSplitDocument" xml:space="preserve">
-    <value>Dokument teilen …</value>
+    <value>Dokument teilen…</value>
   </data>
   <data name="CmdExportImages" xml:space="preserve">
-    <value>Als Bilder exportieren …</value>
+    <value>Als Bilder exportieren…</value>
   </data>
   <data name="PageChangesLockedReason" xml:space="preserve">
     <value>Wenden Sie die Seitenänderungen zuerst an oder verwerfen Sie sie</value>
@@ -1623,7 +1623,7 @@
     <value>{0} Lesezeichen, die auf andere Seiten zeigen</value>
   </data>
   <data name="StaysRedactHint" xml:space="preserve">
-    <value>Inhalte, die nicht weitergegeben werden dürfen, schwärzen Sie vorher im Reiter Schwärzen.</value>
+    <value>Inhalte, die nicht weitergegeben werden dürfen, schwärzen Sie vorher im Reiter „Schwärzen“.</value>
   </data>
   <data name="OutputLossFilesFormat" xml:space="preserve">
     <value>Dateien {0}: {1}</value>
@@ -1737,10 +1737,10 @@
     <value>Größte Seite: {0} × {1} Pixel ({2} Megapixel)</value>
   </data>
   <data name="ExportTooLargeFormat" xml:space="preserve">
-    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wählen Sie eine niedrigere Auflösung, oder lassen Sie diese Seite weg.</value>
+    <value>Seite {0} hätte bei dieser Auflösung {1} Megapixel; die Grenze liegt bei {2} Megapixeln. Wählen Sie eine niedrigere Auflösung oder lassen Sie diese Seite weg.</value>
   </data>
   <data name="ExportTooLargeHugeFormat" xml:space="preserve">
-    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wählen Sie eine niedrigere Auflösung, oder lassen Sie diese Seite weg.</value>
+    <value>Seite {0} wäre bei dieser Auflösung weit größer als die Grenze von {2} Megapixeln. Wählen Sie eine niedrigere Auflösung oder lassen Sie diese Seite weg.</value>
   </data>
   <data name="ExportFolderMissing" xml:space="preserve">
     <value>Dieser Ordner existiert nicht.</value>
@@ -1836,7 +1836,7 @@
     <value>Die Schwärzungen verwerfen?</value>
   </data>
   <data name="UnsavedRedactMessageFormat" xml:space="preserve">
-    <value>Die Schwärzungen von {0} sind markiert, aber noch nicht angewendet. Anwenden schreibt sie in eine Datei; Verwerfen löscht sie und lässt die Datei, wie sie ist.</value>
+    <value>Die Schwärzungen von {0} sind markiert, aber noch nicht angewendet. „Anwenden“ schreibt sie in eine Datei; „Verwerfen“ löscht sie und lässt die Datei, wie sie ist.</value>
   </data>
   <data name="UnsavedRedactApply" xml:space="preserve">
     <value>Anwenden…</value>
@@ -2010,7 +2010,7 @@
     <value>Geben Sie den gesuchten Text ein und drücken Sie die Eingabetaste.</value>
   </data>
   <data name="FindRunning" xml:space="preserve">
-    <value>Suche läuft …</value>
+    <value>Suche läuft…</value>
   </data>
   <data name="FindCanceled" xml:space="preserve">
     <value>Die Suche wurde abgebrochen. Es wird kein Ergebnis angezeigt.</value>
@@ -2547,7 +2547,7 @@
     <value>Die Datei ist unverändert und die Markierungen sind weiterhin offen.</value>
   </data>
   <data name="RedactStaysAfterSave" xml:space="preserve">
-    <value>Die Anmerkungen sind in der Datei gespeichert, die Schwärzungen wurden aber nicht angewendet und sind weiterhin offen.</value>
+    <value>Die Markierungen sind in der Datei gespeichert, die Schwärzungen wurden aber nicht angewendet und sind weiterhin offen.</value>
   </data>
   <data name="RedactFailSourceModified" xml:space="preserve">
     <value>Die Datei hat sich auf dem Datenträger geändert, seit sie geöffnet wurde, deshalb lässt sie sich von hier aus nicht schwärzen.</value>
@@ -2721,10 +2721,10 @@
     <value>Die Markierungen sind weiterhin offen.</value>
   </data>
   <data name="RedactSaveFirstMessage" xml:space="preserve">
-    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Schwärzungen angewendet.</value>
+    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in der Datei gespeichert, danach werden die Schwärzungen angewendet.</value>
   </data>
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
-    <value>Die Anmerkungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. Zurück lässt alles, wie es ist.</value>
+    <value>Die Markierungen und Formularwerte von {0} sind noch nicht gespeichert. Sie werden zuerst in {0} geschrieben, {0} wird dadurch geändert, und danach wird die geschwärzte Kopie als neue Datei gespeichert. „Zurück“ lässt alles, wie es ist.</value>
   </data>
   <data name="RedactOriginalTitle" xml:space="preserve">
     <value>Originaldatei ersetzen?</value>
@@ -2745,7 +2745,7 @@
     <value>{0} (importiert)</value>
   </data>
   <data name="OcrNoLanguages" xml:space="preserve">
-    <value>Es sind keine Sprachdateien installiert. Fügen Sie eine mit „Sprachen…“ im Tab Bearbeiten hinzu.</value>
+    <value>Es sind keine Sprachdateien installiert. Fügen Sie eine mit „Sprachen…“ im Reiter „Bearbeiten“ hinzu.</value>
   </data>
   <data name="OcrSlowWarning" xml:space="preserve">
     <value>Mehr als drei Sprachen machen die Erkennung langsamer und ungenauer.</value>
@@ -2988,7 +2988,7 @@
     <value>Die Erkennung ist ein Schritt im Rückgängig-Verlauf. Speichern Sie die Datei, um sie zu behalten.</value>
   </data>
   <data name="OcrReportNotUndoable" xml:space="preserve">
-    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließen Sie ohne zu speichern, um ihn zu verwerfen.</value>
+    <value>Dieser Schritt ist zu groß für den Rückgängig-Verlauf, deshalb kann „Rückgängig“ ihn nicht zurücknehmen. Er zählt als nicht gespeicherte Änderung; schließen Sie, ohne zu speichern, um ihn zu verwerfen.</value>
   </data>
   <data name="OcrSkipHasText" xml:space="preserve">
     <value>Die Seite hat schon eigenen Text.</value>
@@ -3093,7 +3093,7 @@
     <value>Die ganze Zeile wird in der Ersatzschrift gesetzt.</value>
   </data>
   <data name="TextEditNoteEmpty" xml:space="preserve">
-    <value>Leer: Die Zeile wird weggenommen. Mit Rückgängig kommt sie zurück.</value>
+    <value>Leer: Die Zeile wird weggenommen. Mit „Rückgängig“ kommt sie zurück.</value>
   </data>
   <data name="TextEditNoteUnchanged" xml:space="preserve">
     <value>Der Text ist wie vorher; nichts ändert sich.</value>
@@ -3105,13 +3105,13 @@
     <value>Der neue Text könnte über den Seitenrand hinausreichen.</value>
   </data>
   <data name="TextEditNoteDone" xml:space="preserve">
-    <value>Zeile geändert. Mit Rückgängig kommt der alte Text zurück.</value>
+    <value>Zeile geändert. Mit „Rückgängig“ kommt der alte Text zurück.</value>
   </data>
   <data name="TextEditNoteStale" xml:space="preserve">
     <value>Die Seite hat sich geändert, nachdem diese Zeile gelesen wurde. Nichts wurde geändert. Wählen Sie die Zeile noch einmal.</value>
   </data>
   <data name="TextEditNoteWriteFailed" xml:space="preserve">
-    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sehen Sie sich die Seite an; mit Rückgängig gehen Sie zurück.</value>
+    <value>Das Schreiben der Zeile ist fehlgeschlagen, und die Seite hat sich möglicherweise geändert. Sehen Sie sich die Seite an; mit „Rückgängig“ gehen Sie zurück.</value>
   </data>
   <data name="TextEditNoteHistoryFull" xml:space="preserve">
     <value>Für weitere Rückgängig-Schritte ist kein Platz mehr. Speichern Sie zuerst. Nichts wurde geändert.</value>
@@ -3123,7 +3123,7 @@
     <value>Die Zeilen dieser Seite konnten nicht gelesen werden; deshalb lässt sich keine bearbeiten.</value>
   </data>
   <data name="TextEditOldTextNote" xml:space="preserve">
-    <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: Schwärzen.</value>
+    <value>Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: „Schwärzen“.</value>
   </data>
   <data name="DefaultAppTitle" xml:space="preserve">
     <value>Standard-App für PDFs</value>
@@ -3213,7 +3213,7 @@
     <value>Raffica fragt zuerst nach ungespeicherten Änderungen und öffnet Ihre Tabs nach dem Neustart wieder.</value>
   </data>
   <data name="UpdateManualMessage" xml:space="preserve">
-    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite.</value>
+    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateInstall" xml:space="preserve">
     <value>Installieren und neu starten</value>
@@ -3285,16 +3285,16 @@
     <value>Das Update konnte nicht auf diesem Computer gespeichert werden (Datenträger voll oder kein Zugriff). Es wurde nichts geändert.</value>
   </data>
   <data name="UpdateFailureNoInstaller" xml:space="preserve">
-    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite.</value>
+    <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>Die Installation wurde nicht abgeschlossen. Die laufende Version ist unverändert.</value>
   </data>
   <data name="UpdateBusyNote" xml:space="preserve">
-    <value>Eine Datei wird gerade gespeichert, gedruckt oder verarbeitet. Warten Sie, bis das beendet ist, und wählen Sie dann erneut Installieren. Es wurde nichts geändert.</value>
+    <value>Eine Datei wird gerade gespeichert, gedruckt oder verarbeitet. Warten Sie, bis das beendet ist, und wählen Sie dann erneut „Installieren“. Es wurde nichts geändert.</value>
   </data>
   <data name="UpdateFailureFolderWriteProtectedFormat" xml:space="preserve">
-    <value>Der Ordner {0} ist schreibgeschützt, daher kann sich Raffica dort nicht ersetzen. Es wurde nichts geändert. Laden Sie die neue Version von der Download-Seite.</value>
+    <value>Der Ordner {0} ist schreibgeschützt, daher kann sich Raffica dort nicht ersetzen. Es wurde nichts geändert. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateFailureNotStarted" xml:space="preserve">
     <value>Die neue Version ist installiert, konnte aber nicht gestartet werden. Sie startet beim nächsten Öffnen von Raffica.</value>
@@ -3303,7 +3303,7 @@
     <value>Die Installation wurde beendet, aber das installierte Programm ist noch nicht die neue Version. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder starten Sie den Computer neu und öffnen Sie Raffica.</value>
   </data>
   <data name="UpdateFailureHelperInstallFailed" xml:space="preserve">
-    <value>Die Installation wurde nicht abgeschlossen, oder die Rückfrage zur Berechtigung wurde abgelehnt. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder laden Sie die neue Version von der Download-Seite.</value>
+    <value>Die Installation wurde nicht abgeschlossen, oder die Rückfrage zur Berechtigung wurde abgelehnt. Möglicherweise wurden Dateien ersetzt. Versuchen Sie es erneut oder laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
   <data name="UpdateButton" xml:space="preserve">
     <value>Update verfügbar</value>

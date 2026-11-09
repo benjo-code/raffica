@@ -67,7 +67,7 @@ public sealed class TextEditSessionTests
         var preview = await rig.PreviewOfAsync(string.Empty);
         Assert.Equal(TextEditOutcome.Remove, preview.Decision.Outcome);
         Assert.Equal(PdfStrings.TextEditNoteEmpty, rig.Session.Note);
-        Assert.Equal("Empty: the line is taken away. Undo brings it back.", PdfStrings.TextEditNoteEmpty);
+        Assert.Equal("Empty: the line is taken away. \"Undo\" brings it back.", PdfStrings.TextEditNoteEmpty);
 
         var result = await rig.Session.CommitAsync();
         Assert.Equal(TextEditCommitKind.Applied, result.Kind);

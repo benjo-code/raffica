@@ -17,8 +17,8 @@ public sealed class TextEditSaveNoteTests
         await rig.EnterModeAsync();
         var bar = rig.Window.TextEditOf(rig.Tab)!.Bar;
         var note = PdfStrings.GetIn("TextEditOldTextNote", CultureInfo.GetCultureInfo("en"));
-        Assert.Equal("The old text stays in earlier versions of the file. To remove it for real: Redact.", note);
-        Assert.Equal("Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: Schwärzen.", PdfStrings.GetIn("TextEditOldTextNote", CultureInfo.GetCultureInfo("de")));
+        Assert.Equal("The old text stays in earlier versions of the file. To remove it for real: \"Redact\".", note);
+        Assert.Equal("Der alte Text bleibt in früheren Fassungen der Datei erhalten. Zum echten Entfernen: „Schwärzen“.", PdfStrings.GetIn("TextEditOldTextNote", CultureInfo.GetCultureInfo("de")));
 
         // Before any save the note is not there.
         Assert.False(bar.OldTextShown);

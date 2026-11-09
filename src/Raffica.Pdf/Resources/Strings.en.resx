@@ -235,7 +235,7 @@
   </data>
   <data name="PageSizeFormat" xml:space="preserve">
     <value>{0} × {1} mm</value>
-    <comment>Page size, width by height in millimetres.</comment>
+    <comment>Page size, width by height in millimeters.</comment>
   </data>
   <data name="GoToPageTitle" xml:space="preserve">
     <value>Go to page</value>
@@ -511,7 +511,7 @@
     <value>Page {0} of {1}</value>
   </data>
   <data name="PrintJobCancelling" xml:space="preserve">
-    <value>Cancelling</value>
+    <value>Canceling</value>
   </data>
   <data name="PrintBusy" xml:space="preserve">
     <value>A print job is already running.</value>
@@ -931,7 +931,7 @@
     <value>Next required field</value>
   </data>
   <data name="CmdFormsHighlight" xml:space="preserve">
-    <value>Show or hide field highlight</value>
+    <value>Highlight fields</value>
   </data>
   <data name="FormsNoFormReason" xml:space="preserve">
     <value>This document has no form fields to fill in.</value>
@@ -1048,7 +1048,7 @@
     <value>Remove the last stroke</value>
   </data>
   <data name="SignatureNewInk" xml:space="preserve">
-    <value>Ink colour</value>
+    <value>Ink color</value>
   </data>
   <data name="SignatureNewChoose" xml:space="preserve">
     <value>Choose image</value>
@@ -1180,7 +1180,7 @@
   </data>
   <data name="OrganizeBlankSizeFormat" xml:space="preserve">
     <value>{0} × {1} mm</value>
-    <comment>Size of a blank page in the plan: width and height in millimetres.</comment>
+    <comment>Size of a blank page in the plan: width and height in millimeters.</comment>
   </data>
   <data name="OrganizeFromFileFormat" xml:space="preserve">
     <value>From {0}, page {1}</value>
@@ -1364,7 +1364,7 @@
     <value>Nothing but the page changes is affected.</value>
   </data>
   <data name="ApplyWarning" xml:space="preserve">
-    <value>The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use Save as.</value>
+    <value>The file is written anew. This cannot be undone, and no backup copy is made. To keep the original, use "Save as".</value>
   </data>
   <data name="ApplySaveAs" xml:space="preserve">
     <value>Save as…</value>
@@ -1394,7 +1394,7 @@
     <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the page changes are applied.</value>
   </data>
   <data name="SaveFirstSaveAsMessage" xml:space="preserve">
-    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the page changes are saved as a new file. Back leaves everything as it is.</value>
+    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the page changes are saved as a new file. "Back" leaves everything as it is.</value>
   </data>
   <data name="SaveFirstSave" xml:space="preserve">
     <value>Save first</value>
@@ -1508,7 +1508,7 @@
     <value>Discard the page changes?</value>
   </data>
   <data name="UnsavedPlanMessageFormat" xml:space="preserve">
-    <value>The page changes of {0} are not applied yet. Apply writes them to a file; Discard drops them and leaves the file as it is.</value>
+    <value>The page changes of {0} are not applied yet. "Apply" writes them to a file; "Discard" drops them and leaves the file as it is.</value>
   </data>
   <data name="UnsavedPlanApply" xml:space="preserve">
     <value>Apply…</value>
@@ -1640,7 +1640,7 @@
     <value>{0} bookmarks that point to other pages</value>
   </data>
   <data name="StaysRedactHint" xml:space="preserve">
-    <value>Content that must not be passed on: redact it first in the Redact tab.</value>
+    <value>Content that must not be passed on: redact it first in the "Redact" tab.</value>
   </data>
   <data name="OutputLossFilesFormat" xml:space="preserve">
     <value>Files {0}: {1}</value>
@@ -1853,7 +1853,7 @@
     <value>Discard the redactions?</value>
   </data>
   <data name="UnsavedRedactMessageFormat" xml:space="preserve">
-    <value>The redactions of {0} are marked but not applied yet. Apply writes them to a file; Discard drops them and leaves the file as it is.</value>
+    <value>The redactions of {0} are marked but not applied yet. "Apply" writes them to a file; "Discard" drops them and leaves the file as it is.</value>
   </data>
   <data name="UnsavedRedactApply" xml:space="preserve">
     <value>Apply…</value>
@@ -2162,13 +2162,13 @@
     <value>Look of the marks</value>
   </data>
   <data name="RedactFillLabel" xml:space="preserve">
-    <value>Fill colour</value>
+    <value>Fill color</value>
   </data>
   <data name="RedactFillName" xml:space="preserve">
-    <value>Fill colour as # and six digits</value>
+    <value>Fill color as # and six digits</value>
   </data>
   <data name="RedactFillPresetFormat" xml:space="preserve">
-    <value>Fill colour {0}</value>
+    <value>Fill color {0}</value>
   </data>
   <data name="RedactImageLabel" xml:space="preserve">
     <value>Pictures under a mark</value>
@@ -2210,13 +2210,13 @@
     <value>Fit the text size to the mark</value>
   </data>
   <data name="RedactTextColorLabel" xml:space="preserve">
-    <value>Text colour (empty: automatic)</value>
+    <value>Text color (empty: automatic)</value>
   </data>
   <data name="RedactTextColorName" xml:space="preserve">
-    <value>Text colour as # and six digits, empty for automatic</value>
+    <value>Text color as # and six digits, empty for automatic</value>
   </data>
   <data name="RedactContrastWarningFormat" xml:space="preserve">
-    <value>This text colour has a contrast of {0}:1 with the fill, below the 4.5:1 that reads well. It is still used.</value>
+    <value>This text color has a contrast of {0}:1 with the fill, below the 4.5:1 that reads well. It is still used.</value>
   </data>
   <data name="RedactRasterLabel" xml:space="preserve">
     <value>Pages as images</value>
@@ -2243,7 +2243,7 @@
     <value>The marks on the page show where the fill goes. They do not show overlay text or the exact pixels; you check those after applying.</value>
   </data>
   <data name="RedactRefusalFillNotColour" xml:space="preserve">
-    <value>Write the colour as # and six digits, for example #1F3A5F. Nothing was changed.</value>
+    <value>Write the color as # and six digits, for example #1F3A5F. Nothing was changed.</value>
   </data>
   <data name="RedactRefusalOverlayTooLongFormat" xml:space="preserve">
     <value>The text is longer than {0} characters. Nothing was changed.</value>
@@ -2399,7 +2399,7 @@
     <value>Form fields are no longer reliably fillable ({0}); their widgets stay on the pages as annotations.</value>
   </data>
   <data name="RedactLossRgbFormat" xml:space="preserve">
-    <value>Images overwritten under a mark are written again as RGB; colours of CMYK or indexed images may look different in other viewers ({0}).</value>
+    <value>Images overwritten under a mark are written again as RGB; colors of CMYK or indexed images may look different in other viewers ({0}).</value>
   </data>
   <data name="RedactLossSignatureFormat" xml:space="preserve">
     <value>The file is digitally signed ({0}). Programs that check signatures will report the signature as broken after this change; its data stays in the file.</value>
@@ -2624,10 +2624,10 @@
     <value>File bytes: the file was searched for each removed text of at least 4 characters, with strings decoded and streams unpacked, in older revisions, metadata and attachments too.</value>
   </data>
   <data name="RedactChkAreasSolid" xml:space="preserve">
-    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are the colour of the area.</value>
+    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are the color of the area.</value>
   </data>
   <data name="RedactChkAreasTreated" xml:space="preserve">
-    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are either the colour of the area or exactly the block averages worked out from the original.</value>
+    <value>Marked areas: no character of the written file lies inside a marked area, and the pixels of images under them are either the color of the area or exactly the block averages worked out from the original.</value>
   </data>
   <data name="RedactChkPagesAll" xml:space="preserve">
     <value>Pages: every redacted page was rendered from the written file and looks like the original outside the marked areas.</value>
@@ -2636,7 +2636,7 @@
     <value>Pages: every page redacted in place was rendered from the written file and looks like the original outside the marked areas.</value>
   </data>
   <data name="RedactChkRasterFormat" xml:space="preserve">
-    <value>Pages turned into images ({0}): each has exactly one image and no text, other object, annotation, link or form field, and the pixels under the marks are the colour of the area. These pages are not rendered against the original.</value>
+    <value>Pages turned into images ({0}): each has exactly one image and no text, other object, annotation, link or form field, and the pixels under the marks are the color of the area. These pages are not rendered against the original.</value>
   </data>
   <data name="RedactChkKeys" xml:space="preserve">
     <value>Page keys: no page of the written file carries /Thumb, /PieceInfo, /Metadata or /AA.</value>
@@ -2741,7 +2741,7 @@
     <value>The marks and form values of {0} are not saved yet. They are saved into the file first, then the redactions are applied.</value>
   </data>
   <data name="RedactSaveFirstSaveAsMessage" xml:space="preserve">
-    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. Back leaves everything as it is.</value>
+    <value>The marks and form values of {0} are not saved yet. They are written into {0} first, so {0} is changed, and then the redacted copy is saved as a new file. "Back" leaves everything as it is.</value>
   </data>
   <data name="RedactOriginalTitle" xml:space="preserve">
     <value>Replace the original file?</value>
@@ -2762,7 +2762,7 @@
     <value>{0} (imported)</value>
   </data>
   <data name="OcrNoLanguages" xml:space="preserve">
-    <value>No language files are installed. Add one with Languages… on the Edit tab.</value>
+    <value>No language files are installed. Add one with "Languages…" on the "Edit" tab.</value>
   </data>
   <data name="OcrSlowWarning" xml:space="preserve">
     <value>More than three languages make recognition slower and less accurate.</value>
@@ -2948,10 +2948,10 @@
     <value>The choice of languages is not usable.</value>
   </data>
   <data name="OcrFailLanguageMissingFormat" xml:space="preserve">
-    <value>These language files are missing: {0}. Add them with Languages…, or choose other languages.</value>
+    <value>These language files are missing: {0}. Add them with "Languages…", or choose other languages.</value>
   </data>
   <data name="OcrFailLanguageMissingNone" xml:space="preserve">
-    <value>A language file is missing. Add it with Languages…, or choose another language.</value>
+    <value>A language file is missing. Add it with "Languages…", or choose another language.</value>
   </data>
   <data name="OcrFailDataCorrupt" xml:space="preserve">
     <value>A language file could not be read. It may be damaged or made for another version.</value>
@@ -3005,7 +3005,7 @@
     <value>The recognition is one step of the undo history. Save the file to keep it.</value>
   </data>
   <data name="OcrReportNotUndoable" xml:space="preserve">
-    <value>This step is too large for the undo history, so Undo cannot take it back. It counts as an unsaved change; close without saving to drop it.</value>
+    <value>This step is too large for the undo history, so "Undo" cannot take it back. It counts as an unsaved change; close without saving to drop it.</value>
   </data>
   <data name="OcrSkipHasText" xml:space="preserve">
     <value>The page has text of its own.</value>
@@ -3110,7 +3110,7 @@
     <value>The whole line is set in the replacement font.</value>
   </data>
   <data name="TextEditNoteEmpty" xml:space="preserve">
-    <value>Empty: the line is taken away. Undo brings it back.</value>
+    <value>Empty: the line is taken away. "Undo" brings it back.</value>
   </data>
   <data name="TextEditNoteUnchanged" xml:space="preserve">
     <value>The text is as it was; nothing changes.</value>
@@ -3122,13 +3122,13 @@
     <value>The new text may reach beyond the page edge.</value>
   </data>
   <data name="TextEditNoteDone" xml:space="preserve">
-    <value>Line changed. Undo brings the old text back.</value>
+    <value>Line changed. "Undo" brings the old text back.</value>
   </data>
   <data name="TextEditNoteStale" xml:space="preserve">
     <value>The page changed after this line was read. Nothing was changed. Select the line again.</value>
   </data>
   <data name="TextEditNoteWriteFailed" xml:space="preserve">
-    <value>Writing the line failed, and the page may have changed. Look at the page; Undo goes back.</value>
+    <value>Writing the line failed, and the page may have changed. Look at the page; "Undo" goes back.</value>
   </data>
   <data name="TextEditNoteHistoryFull" xml:space="preserve">
     <value>There is no room left for more undo steps. Save first. Nothing was changed.</value>
@@ -3140,7 +3140,7 @@
     <value>The lines of this page could not be read, so none can be edited.</value>
   </data>
   <data name="TextEditOldTextNote" xml:space="preserve">
-    <value>The old text stays in earlier versions of the file. To remove it for real: Redact.</value>
+    <value>The old text stays in earlier versions of the file. To remove it for real: "Redact".</value>
   </data>
   <data name="DefaultAppTitle" xml:space="preserve">
     <value>Default app for PDFs</value>
@@ -3308,7 +3308,7 @@
     <value>The installer did not finish. The version you are running is unchanged.</value>
   </data>
   <data name="UpdateBusyNote" xml:space="preserve">
-    <value>A file is being saved, printed or processed. Wait until it has finished, then choose Install again. Nothing was changed.</value>
+    <value>A file is being saved, printed or processed. Wait until it has finished, then choose "Install" again. Nothing was changed.</value>
   </data>
   <data name="UpdateFailureFolderWriteProtectedFormat" xml:space="preserve">
     <value>The folder {0} is write-protected, so Raffica cannot replace itself there. Nothing was changed. Get the new version from the download page.</value>

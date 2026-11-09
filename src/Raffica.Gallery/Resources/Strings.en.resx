@@ -226,7 +226,7 @@
     <value>Font missing.</value>
   </data>
   <data name="NoteFontText" xml:space="preserve">
-    <value>“Calibri” is not installed and is shown with Carlito, same metrics.</value>
+    <value>"Calibri" is not installed and is shown with Carlito, same metrics.</value>
   </data>
   <data name="NoteShowFonts" xml:space="preserve">
     <value>Show fonts</value>
@@ -235,7 +235,7 @@
     <value>Saving failed.</value>
   </data>
   <data name="NoteSaveText" xml:space="preserve">
-    <value>The folder “Downloads” is read-only. Your changes are saved locally.</value>
+    <value>The folder "Downloads" is read-only. Your changes are saved locally.</value>
   </data>
   <data name="NoteSaveAs" xml:space="preserve">
     <value>Save as…</value>
@@ -283,7 +283,7 @@
     <value>Type</value>
   </data>
   <data name="FoundColours" xml:space="preserve">
-    <value>Colour tokens</value>
+    <value>Color tokens</value>
   </data>
   <data name="FoundIcons" xml:space="preserve">
     <value>Icons at 16 and 20 px</value>

@@ -121,7 +121,7 @@
     <value>Zuletzt verwendet</value>
   </data>
   <data name="StartBrowse" xml:space="preserve">
-    <value>Durchsuchen …</value>
+    <value>Durchsuchen…</value>
   </data>
   <data name="StartRecentEmpty" xml:space="preserve">
     <value>Noch keine zuletzt verwendeten Dateien.</value>

@@ -22,8 +22,8 @@ public sealed class PdfRibbonLabelTests
         { "CmdPagesRedo", "Wiederholen" },
         { "CmdPagesUndo", "Rückgängig" },
         { "CmdDiscardPages", "Verwerfen" },
-        { "CmdExportImages", "Als Bilder exportieren …" },
-        { "CmdInsertFile", "Aus Datei einfügen …" },
+        { "CmdExportImages", "Als Bilder exportieren…" },
+        { "CmdInsertFile", "Aus Datei einfügen…" },
     };
 
     public static TheoryData<string, int> LanguagesAndWidths => new()

@@ -86,7 +86,7 @@ internal sealed class FormBadge : UserControl, IDisposable
 
         // The badge never takes the keyboard from the page: a click on a button leaves the focus on the page view, so Tab and Enter still reach the
         // form keys. The counter and the switch are out of the tab order for that reason; their keyboard path is the ribbon (Next required field,
-        // Show or hide field highlight), and they stay reachable and invokable for assistive technology. The dismiss button of the notice is the
+        // Highlight fields), and they stay reachable and invokable for assistive technology. The dismiss button of the notice is the
         // exception: it can take the focus (a keyboard user could not close the notice otherwise), Esc on it closes the notice, and the notice
         // hands the focus back to the page when it closes.
         _counter.Focusable = false;
