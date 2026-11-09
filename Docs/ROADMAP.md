@@ -36,7 +36,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.6 | Packaging and release | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | 2026-11-08 |
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
 | 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
-| 3.1 | Runs on the Mac | 4 – macOS | 🟡 planned | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | – |
+| 3.1 | Runs on the Mac | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | – |
 | 3.2 | Feels like a Mac app | 4 – macOS | ⬜ open | – | – |
 | 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
@@ -97,6 +97,9 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-09 (Milestone 3):** Milestones 3.1 "Runs on the Mac", 3.2 "Feels like a Mac app" and 3.3 "Package and release" are added under the macOS spec. They cover both `osx-x64` and `osx-arm64`; Apple silicon is released with automatic checks only and marked "not tested by hand" in the README. Decisions: "Raffica on macOS: scope and Mac conventions (M3)" and "Raffica on macOS: speed checks and CI (M3)" in `Docs/DECISIONS.md`.
 - **2026-11-09 (Milestone 3):** Milestone 4 (Spikes & spec for Raffica Write) now depends on 3.3 instead of 3, so that "macOS before Write" stays true after the macOS spec milestone.
 - **2026-11-09 (Milestone 3):** The backlog entry "Option key handling on macOS" is decided (no key tips and no Option capture on macOS, see "Raffica on macOS: scope and Mac conventions (M3)") and moves into milestone 3.2. The backlog entry "macOS print panel" is added; printing on macOS uses the own print card over CUPS.
+- **2026-11-09 (Milestone 3.1):** A throwaway `packaging/macos/dev-app.sh` wraps a publish folder into an ad-hoc signed `.app` for the owner's manual Finder check. The spec puts `Info.plist` and the bundle into 3.3, but the check of 3.1 (Finder double-click and `open -a`) needs a bundle; 3.3 replaces the script by the real bundle step.
+- **2026-11-09 (Milestone 3.1):** `native-tesseract.yml` gets a `systems` input (`macos`, besides the existing platforms) so that the macOS libraries are built as their own release `native-tesseract-5.5.4-2` and the Windows and Linux pins and release `-1` stay as they are. See "Raffica on macOS: native libraries, paths and activation (M3.1)" in `Docs/DECISIONS.md`.
+- **2026-11-09 (Milestone 3.1):** `UserDataPaths.CacheDirectory` (`~/Library/Caches/Raffica` on macOS) is added although nothing consumes it yet, because the task names the cache folder; the first consumer decides its use.
 
 ---
 
@@ -482,25 +485,25 @@ Goal: The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, 
 - [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-09 ("ja passt"); it is linked as `superpowers/specs/2026-11-09-raffica-macos-design.md`. On the tree of this branch (documents only; two foreign, unstaged changes in `src/Raffica.Shell/Frame/SettingsStore.cs` and `tests/Raffica.Pdf.Tests/Panes/NavListSelectionTests.cs` were in the working tree and not part of this work): `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`: 6258 total, 0 failed, 6227 passed, 31 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; `dotnet run tools/roadmap.cs -- check` valid.
 
 ## Milestone 3.1 – Runs on the Mac
-**Status:** 🟡 planned · **Plan:** [2026-11-09-milestone-03-1-runs-on-the-mac.md](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3
+**Status:** 🔵 in progress · **Plan:** [2026-11-09-milestone-03-1-runs-on-the-mac.md](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3
 
 Goal: Raffica PDF builds, passes its tests and opens PDFs from the Finder on Intel and Apple-silicon Macs, checked by a sparse macOS CI job.
 
 **Tasks**
-- [ ] PDFium for `osx-x64` and `osx-arm64`: the `bblanchon.PDFium.macOS` package (same version as the Windows and Linux packages) and its entry in `third-party/licenses.json`
-- [ ] Tesseract: a macOS job in `native-tesseract.yml` builds `libtesseract.dylib` for both RIDs as a new prerelease, `tools/native-fetch.cs` pins size and SHA-256 per RID, `TesseractLibrary.FileName` and `OcrTestLibrary` learn the `.dylib`, and a Mach-O check (counterpart of `check-binary`'s ELF rules) allows only system libraries and files inside the bundle
-- [ ] Paths under `~/Library/Application Support/Raffica` and `~/Library/Caches/Raffica` (`UserDataPaths`, `ShellSettingsStore`); `--settings-file` still redirects everything
-- [ ] Case-insensitive path identity on macOS (workspace, save and job paths, `RecentFiles`, CLI `OutputGuard`) and `FileIdentity.AreSameFile` from device and inode instead of null
-- [ ] Single-instance pipe checked on macOS (socket path length) and Finder and Dock file activation through `IActivatableLifetime`, at first start and while the app runs
-- [ ] `build-macos` job in `ci.yml` on `macos-15` with its path filter and the label `ci:macos` (spec section 7); the aggregate `ci` check treats a skipped macOS job as passed
-- [ ] Every test passes on macOS or is skipped there with a named reason
+- [x] PDFium for `osx-x64` and `osx-arm64`: the `bblanchon.PDFium.macOS` package (same version as the Windows and Linux packages) and its entry in `third-party/licenses.json`
+- [x] Tesseract: a macOS job in `native-tesseract.yml` builds `libtesseract.dylib` for both RIDs as a new prerelease, `tools/native-fetch.cs` pins size and SHA-256 per RID, `TesseractLibrary.FileName` and `OcrTestLibrary` learn the `.dylib`, and a Mach-O check (counterpart of `check-binary`'s ELF rules) allows only system libraries and files inside the bundle
+- [x] Paths under `~/Library/Application Support/Raffica` and `~/Library/Caches/Raffica` (`UserDataPaths`, `ShellSettingsStore`); `--settings-file` still redirects everything
+- [x] Case-insensitive path identity on macOS (workspace, save and job paths, `RecentFiles`, CLI `OutputGuard`) and `FileIdentity.AreSameFile` from device and inode instead of null
+- [x] Single-instance pipe checked on macOS (socket path length) and Finder and Dock file activation through `IActivatableLifetime`, at first start and while the app runs
+- [x] `build-macos` job in `ci.yml` on `macos-15` with its path filter and the label `ci:macos` (spec section 7); the aggregate `ci` check treats a skipped macOS job as passed
+- [x] Every test passes on macOS or is skipped there with a named reason
 
 **Acceptance criteria**
-- [ ] `build-macos` is green on a pull request that carries the label `ci:macos` (run id in the evidence)
-- [ ] The identity tests for `Bericht.pdf` and `bericht.pdf` on a case-insensitive volume, and for `FileIdentity.AreSameFile` from device and inode, pass in the `build-macos` job (test names in the evidence)
-- [ ] The `build-macos` job runs the full test suite with `RAFFICA_REQUIRE_OCR=1`: 0 failed, and every skipped test has a named macOS reason (result line in the evidence)
-- [ ] On the owner's Mac a published `osx-x64` build opens a PDF by double-click in the Finder and by `open -a` (manual check, recorded)
-- [ ] On the owner's Mac the same build recognizes text with OCR (manual check, recorded)
+- [x] `build-macos` is green on a pull request that carries the label `ci:macos` (run id in the evidence) – CI run 42709065751 on PR #59 (head 51606c5): job `build-macos` (macos-15, label `ci:macos` on the PR) green; `ci`, `roadmap`, CodeQL, Windows and Linux green in the same run.
+- [x] The identity tests for `Bericht.pdf` and `bericht.pdf` on a case-insensitive volume, and for `FileIdentity.AreSameFile` from device and inode, pass in the `build-macos` job (test names in the evidence) – `FileIdentityTests.OtherSpellingOfTheNameIsTheSameFile` (`Bericht.pdf` against `bericht.pdf` on the runner's case-insensitive volume; not in the skip list of the run), `FileIdentityTests.TwoNamesOfOneFileAreTheSameFile`, `FileIdentityTests.MacOsAnswersAndDoesNotGiveUp` (real `stat` calls) and the `DarwinStatBuffers*` tests ran and passed in CI run 42709065751 on PR #59 (head 51606c5); the Rosetta same-file smoke test of the job passed too (it hits the case-insensitive `PathRules` branch first, so the `FileIdentity` branch is covered by the unit tests).
+- [x] The `build-macos` job runs the full test suite with `RAFFICA_REQUIRE_OCR=1`: 0 failed, and every skipped test has a named macOS reason (result line in the evidence) – CI run 42709065751 on PR #59 (head 51606c5), job `build-macos` with `RAFFICA_REQUIRE_OCR=1` (the runner has the pinned `libtesseract-osx-arm64.dylib`): total 6307, failed 0, succeeded 6244, skipped 63; the job step "skips" lists every skip with a reason and fails on an empty one, and none of the skips was added for macOS-specific reasons.
+- [ ] On the owner's Mac a published `osx-x64` build opens a PDF by double-click in the Finder and by `open -a` (manual check, recorded) – OPEN, needs the owner's Mac. Command: download the artifact `raffica-pdf-osx-x64` of the `build-macos` run of PR #59, then follow `packaging/README.md`, section "Manual check on a Mac (M3.1)" (`packaging/macos/dev-app.sh`, then Finder Open With and `open -a`, at first start and while the app runs). Live behavior of `FileActivationBridge` is not verified by CI.
+- [ ] On the owner's Mac the same build recognizes text with OCR (manual check, recorded) – OPEN, needs the owner's Mac. Command: step 4d of `packaging/README.md`, section "Manual check on a Mac (M3.1)" (open a scanned page, run OCR). CI only proves that the pinned library loads and runs on the arm64 runner and that the x64 file passes `check-binary`'s Mach-O rules.
 
 ## Milestone 3.2 – Feels like a Mac app
 **Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
