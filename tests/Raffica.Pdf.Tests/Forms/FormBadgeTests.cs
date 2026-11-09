@@ -308,6 +308,7 @@ public sealed class FormBadgeTests
         {
             frame.CopyPixels(new PixelRect(size), buffer, all.Length, stride);
             Marshal.Copy(buffer, all, 0, all.Length);
+            Raffica.Pdf.Tests.Viewing.PixelOrder.ToBgra(all, frame.Format);
         }
         finally
         {

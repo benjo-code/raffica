@@ -44,7 +44,7 @@ public sealed class TooltipTests
         Assert.Equal(FontWeight.SemiBold, title.FontWeight);
         ControlHarness.AssertToken("Raffica.Brush.Text.Primary", title.Foreground, "title");
 
-        Assert.Equal("Ctrl+Shift+E", shortcut.Text);
+        Assert.Equal(OperatingSystem.IsMacOS() ? "⌃⇧E" : "Ctrl+Shift+E", shortcut.Text);
         Assert.True(shortcut.IsVisible);
         Assert.Equal(FontWeight.Normal, shortcut.FontWeight);
         ControlHarness.AssertToken("Raffica.Brush.Text.Secondary", shortcut.Foreground, "shortcut");

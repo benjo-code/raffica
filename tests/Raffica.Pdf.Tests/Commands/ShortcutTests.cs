@@ -266,8 +266,9 @@ public sealed class ShortcutTests
         Press(window, Key.F1, PhysicalKey.F1);
         Assert.True(window.Host.IsOpen);
         var texts = window.Host.ActiveDialog!.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-        Assert.Contains("Ctrl+O", texts);
-        Assert.Contains("Ctrl+Shift+D", texts);
+        var command = OperatingSystem.IsMacOS() ? "Meta" : "Ctrl";
+        Assert.Contains(Raffica.Shell.Localization.KeyNames.Format(command + "+O", PdfStrings.Culture), texts);
+        Assert.Contains(Raffica.Shell.Localization.KeyNames.Format(command + "+Shift+D", PdfStrings.Culture), texts);
 
         // A second F1 does not stack another card; Esc closes it.
         Press(window, Key.F1, PhysicalKey.F1);

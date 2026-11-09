@@ -83,7 +83,7 @@ public sealed class OpenTargetGuardTests : IDisposable
     }
 
     [Fact]
-    public async Task TheCaseIsIgnoredOnWindowsOnly()
+    public async Task TheCaseIsIgnoredOnWindowsAndMacOsOnly()
     {
         var workspace = NewWorkspace();
         var self = await AddAsync(workspace, Copy().Path);
@@ -91,7 +91,7 @@ public sealed class OpenTargetGuardTests : IDisposable
         var upper = other.Path!.ToUpperInvariant();
 
         var found = await OpenTargetGuard.FindOtherTabAsync(workspace, self, upper, Ct, (_, _) => false);
-        if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
         {
             Assert.Same(other, found);
         }

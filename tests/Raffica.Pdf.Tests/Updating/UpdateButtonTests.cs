@@ -108,7 +108,10 @@ public sealed class UpdateButtonTests : IDisposable
         var text = button.GetVisualDescendants().OfType<TextBlock>().Single();
         var left = button.TranslatePoint(default, bar)!.Value.X;
         var searchRight = f.Window.TitleSearch.TranslatePoint(default, bar)!.Value.X + f.Window.TitleSearch.Bounds.Width;
-        var minimizeLeft = bar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_CaptionMinimize").TranslatePoint(default, bar)!.Value.X;
+        // macOS draws no caption buttons (the system's buttons sit on the left), so the bar's right edge is the limit.
+        var minimizeLeft = bar.ShowCaptionButtons
+            ? bar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_CaptionMinimize").TranslatePoint(default, bar)!.Value.X
+            : bar.Bounds.Width;
         text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
 
         Assert.True(left >= searchRight - 0.5, "the button sits right of the search field");
