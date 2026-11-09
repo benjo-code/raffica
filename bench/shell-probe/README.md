@@ -169,6 +169,31 @@ Owner steps (what is still open):
 2. Measure the references on the same machines: the predecessor with `-f target=reference` (section "Measuring the reference app" below: startup to the first sharp page, the 1000-page file and a file handed to the running instance; the predecessor's script has no scroll or memory case) and Chrome by the method of the predecessor's comparison entry, and add the numbers to the entry "Raffica PDF speed budgets (M2.1)" with a finding for every case that is slower than the predecessor.
 3. A new budget or a loosened limit is a new decisions entry and a change of `s_pdfBudgets` together with the selftest lines that pin it, never an edit to make a check pass.
 
+## Measuring another commit (the `ref` input)
+
+The workflow file runs from the dispatch ref (`--ref dev`; the runner group allows only `dev`), but the optional input `ref` names the commit
+whose **app** is measured, for the merge commits of earlier milestones or a branch (for example to find where a speed case got slower):
+
+```
+gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>" -f ref=<40-hex commit or branch name>
+```
+
+- **What comes from `ref`:** only the app under test. The workflow checks `ref` out into `measured/` (without credentials) and runs
+  `dotnet publish` from there into `out/app`; the size step reads the fonts of that checkout.
+- **What stays on the dispatch ref (`dev`):** the workflow file, `bench/shell-probe/measure.cs` with its limit tables (`s_pdfBudgets` and the
+  others) and the test files in `testdata/pdfs`. So the verdict of the check step is always against the current limits, and every commit is
+  measured with the same files. An older commit that does not know a measurement switch of the current tool fails its case; that is a result, not a
+  reason to change the tool.
+- **Allowed values:** empty (the app of the dispatch ref, as before), a full 40-character lowercase commit id, or a plain branch name
+  (`refs/heads/<name>` is accepted); never `pull/N/head`, `refs/pull/...`, `refs/tags/...` or a name with `..`. The check is the one of
+  `linux-update-check.yml` and `windows-update-check.yml` and runs before anything is fetched; the value travels in an environment variable.
+- **The target `reference` rejects `ref`:** it takes its own commit from `reference_ref` (pinned by SHA), so a non-empty `ref` with
+  `-f target=reference` fails the first step.
+- **What shows which commit was measured:** the run title (`Measure pdf on linux at <ref>`), the line `Measured app: commit <40-hex> (from ...)` in
+  `machine.txt` of the artifact and in the job summary (the full commit id of the checkout, which matters for a branch name; with a 40-hex
+  `ref` the step fails if the checkout is not exactly that commit). The line `Commit:` of `machine.txt` stays the dispatch ref, that is the
+  commit of the tool and the limits.
+
 ## Measuring the reference app (the predecessor)
 
 `measure.yml` with `-f target=reference` measures the predecessor of this suite on the same self-hosted machines, so that the numbers of

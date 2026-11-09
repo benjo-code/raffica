@@ -65,6 +65,10 @@ By default the workflow measures the gallery app's frame (`-f target=gallery`) a
 of the decisions entry "Speed targets of the frame (M1)", shown in the job summary; `-f target=probe` measures the
 throwaway shell probe as before. `-f target=pdf` measures the PDF app (cases cold, warm, 1000 pages, second file, scroll, memory, size; see the section "Measuring the PDF app" in `README.md`); its check step fails with "no limits recorded for target pdf" until the owner has recorded the budgets. `-f target=reference` builds and measures the predecessor (a second repository, pinned by commit) with its own startup protocol, for the comparison with the PDF app on the same machine; it needs the extra inputs `reference_repo`, `reference_ref`, `reference_project` and `reference_exe` and runs that repository's code with the owner's rights (see "Measuring the reference app" in `README.md`). It has no check step and never fails on the reference's own budget.
 
+The optional input `-f ref=<40-hex commit or branch name>` measures the app of another commit (for example an earlier merge commit) while the
+workflow, the measuring tool, its limits and the test files stay those of the dispatch ref `dev`; it is not for `target=reference` (see "Measuring another commit"
+in `README.md`).
+
 The run waits until the runner of that platform is online. For the cold start after a reboot (spec 9.1) reboot the
 machine, start the runner, and run `-f platform=<platform> -f note="…" -f cases=cold-reboot`.
 
