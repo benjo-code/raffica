@@ -24,6 +24,12 @@ public class AppFrame : TemplatedControl
     /// <summary>Compact ribbon: the band row is 40 px instead of 82.</summary>
     public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<AppFrame, bool>(nameof(IsCompact));
 
+    /// <summary>
+    /// Set by the <see cref="RibbonView"/> whose band sits in the frame while its band is compact because the window is too narrow for
+    /// the full band (the manual <see cref="IsCompact"/> is the user's setting and stays as it is). Either one makes the band row 40 px.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsAutoCompactProperty = AvaloniaProperty.Register<AppFrame, bool>(nameof(IsAutoCompact));
+
     /// <summary>Whether the left pane slot shows: a pane is set and it is visible. A closed pane takes its slot, and the rule of the slot, with it.</summary>
     public static readonly DirectProperty<AppFrame, bool> IsLeftPaneShownProperty =
         AvaloniaProperty.RegisterDirect<AppFrame, bool>(nameof(IsLeftPaneShown), f => f._isLeftPaneShown);
@@ -37,7 +43,8 @@ public class AppFrame : TemplatedControl
 
     static AppFrame()
     {
-        IsCompactProperty.Changed.AddClassHandler<AppFrame>((frame, e) => frame.PseudoClasses.Set(":compact", e.GetNewValue<bool>()));
+        IsCompactProperty.Changed.AddClassHandler<AppFrame>((frame, _) => frame.UpdateCompactClass());
+        IsAutoCompactProperty.Changed.AddClassHandler<AppFrame>((frame, _) => frame.UpdateCompactClass());
         LeftPaneProperty.Changed.AddClassHandler<AppFrame>((frame, e) => Follow(e, frame.OnLeftPaneVisibility, frame.UpdateLeftPane));
         RightPaneProperty.Changed.AddClassHandler<AppFrame>((frame, e) => Follow(e, frame.OnRightPaneVisibility, frame.UpdateRightPane));
     }
@@ -60,9 +67,13 @@ public class AppFrame : TemplatedControl
 
     public bool IsCompact { get => GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
 
+    public bool IsAutoCompact { get => GetValue(IsAutoCompactProperty); set => SetValue(IsAutoCompactProperty, value); }
+
     public bool IsLeftPaneShown => _isLeftPaneShown;
 
     public bool IsRightPaneShown => _isRightPaneShown;
+
+    private void UpdateCompactClass() => PseudoClasses.Set(":compact", IsCompact || IsAutoCompact);
 
     // The slot follows the visibility of its pane: the handler sits on the pane while it is in the slot.
     private static void Follow(AvaloniaPropertyChangedEventArgs e, EventHandler<AvaloniaPropertyChangedEventArgs> handler, Action update)

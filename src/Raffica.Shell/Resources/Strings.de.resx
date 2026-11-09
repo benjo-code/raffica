@@ -51,6 +51,12 @@
   <data name="RibbonGroupMore" xml:space="preserve">
     <value>Weitere Befehle in {0}</value>
   </data>
+  <data name="RibbonScrollLeft" xml:space="preserve">
+    <value>Befehle nach links scrollen</value>
+  </data>
+  <data name="RibbonScrollRight" xml:space="preserve">
+    <value>Befehle nach rechts scrollen</value>
+  </data>
   <data name="SearchTooltip" xml:space="preserve">
     <value>Suchen ({0})</value>
   </data>

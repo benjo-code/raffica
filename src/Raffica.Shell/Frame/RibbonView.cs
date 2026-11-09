@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
@@ -16,6 +18,14 @@ namespace Raffica.Shell.Frame;
 /// <see cref="RibbonDefinition"/> and rebuilds the band when the tab or <see cref="IsCompact"/> changes. Compact mode (a 40 px band)
 /// hides the labels, turns large tiles into small buttons and moves the commands marked <see cref="CompactPlacement.Overflow"/> behind a
 /// dropdown at the end of their group.
+/// <para>
+/// The band never hides a command. <see cref="IsCompact"/> is the user's setting and forces the compact layout at any width. Without it
+/// the band switches to the compact layout by itself when the window is narrower than the full band of the active tab
+/// (<see cref="IsEffectivelyCompact"/>); the width of the full band is measured once per tab (the band on screen is its own measure, a
+/// compact band measures a throw-away full band) and kept until the <see cref="Definition"/> is replaced, so a tab of another language
+/// is a new measure. When even the compact band is wider than the window it scrolls, with a chevron button at each end that shows only
+/// while there is more in that direction; keyboard focus brings the focused button into view.
+/// </para>
 /// </summary>
 public class RibbonView : TemplatedControl
 {
@@ -38,13 +48,29 @@ public class RibbonView : TemplatedControl
     /// </summary>
     public static readonly StyledProperty<CommandDefinition?> FieldCodeMenuProperty = AvaloniaProperty.Register<RibbonView, CommandDefinition?>(nameof(FieldCodeMenu));
 
+    // A chevron slot: the 24 px chevron button and 4 px on each side. The slot keeps its width while its chevron is hidden, so the
+    // viewport stays the same whichever chevron shows.
+    private const double ChevronSlotWidth = 32;
+
     private readonly Panel _tabRow = new();
     private readonly StackPanel _tabStrip = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Border _band = new() { ClipToBounds = true };
+    private readonly Grid _host = new();
+    private readonly ScrollViewer _scroller;
+    private readonly Button _scrollLeft;
+    private readonly Button _scrollRight;
+    private readonly Border _leftSlot = new() { IsVisible = false, Width = ChevronSlotWidth, Padding = new Thickness(4, 0) };
+    private readonly Border _rightSlot = new() { IsVisible = false, Width = ChevronSlotWidth, Padding = new Thickness(4, 0) };
     private readonly StackPanel _groups = new() { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left };
+    private readonly Dictionary<RibbonTabDefinition, double> _fullWidths = [];
     private readonly List<(Control Target, string Digit)> _groupAnchors = [];
     private readonly List<FieldCodeBadge> _badges = [];
     private bool _settingDefinition;
+    private bool _effectivelyCompact;
+    private bool _builtCompact;
+    private RibbonTabDefinition? _builtTab;
+    private double _lastWidth;
+    private AppFrame? _frame;
 
     static RibbonView()
     {
@@ -62,7 +88,36 @@ public class RibbonView : TemplatedControl
         _tabRow.Children.Add(new Border { Name = "PART_TabRule", Classes = { "ribbon-tabrule" }, VerticalAlignment = VerticalAlignment.Bottom, IsHitTestVisible = false });
         _tabRow.Children.Add(_tabStrip);
         _band.Classes.Add("ribbon-band");
-        _band.Child = _groups;
+
+        // The band is a scroll viewer between two slots for the chevrons. The slots take room only while the band is wider than the window and
+        // then at both ends, so the viewport does not change when a chevron shows or hides (a button that was scrolled into view stays in view).
+        _host.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
+        _scroller = new ScrollViewer
+        {
+            Name = "PART_BandScroll",
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = _groups,
+        };
+        Grid.SetColumn(_scroller, 1);
+        _scrollLeft = CreateChevron("PART_ScrollLeft", "Raffica.Icon.ChevronLeft", ShellStrings.RibbonScrollLeft);
+        _scrollRight = CreateChevron("PART_ScrollRight", "Raffica.Icon.ChevronRight", ShellStrings.RibbonScrollRight);
+        Grid.SetColumn(_rightSlot, 2);
+        _leftSlot.Child = _scrollLeft;
+        _rightSlot.Child = _scrollRight;
+        _scrollLeft.Click += (_, _) => ScrollBy(-1);
+        _scrollRight.Click += (_, _) => ScrollBy(1);
+        _host.Children.Add(_leftSlot);
+        _host.Children.Add(_scroller);
+        _host.Children.Add(_rightSlot);
+        _band.Child = _host;
+
+        _scroller.ScrollChanged += (_, _) => UpdateChevrons();
+        _scroller.PointerWheelChanged += OnBandWheel;
+        _groups.AddHandler(GotFocusEvent, OnGroupsGotFocus);
+        _band.SizeChanged += OnBandSizeChanged;
+        _band.AttachedToVisualTree += OnBandAttached;
+        _band.DetachedFromVisualTree += OnBandDetached;
     }
 
     /// <summary>Raised after a command ran (its <see cref="CommandDefinition.Run"/> has been called), also for items of a menu command and of the overflow menu.</summary>
@@ -73,6 +128,18 @@ public class RibbonView : TemplatedControl
     public RibbonTabDefinition? ActiveTab { get => GetValue(ActiveTabProperty); set => SetValue(ActiveTabProperty, value); }
 
     public bool IsCompact { get => GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
+
+    /// <summary>
+    /// Whether the band is in the compact layout: <see cref="IsCompact"/> (the user's setting) or the window is narrower than the full band
+    /// of the active tab. Changes only with the width, the tab, the definition or <see cref="IsCompact"/>, never with the layout it picks.
+    /// </summary>
+    public bool IsEffectivelyCompact => _effectivelyCompact;
+
+    /// <summary>How often the band was built (a test reads it to see that a settled layout does not rebuild).</summary>
+    internal int BandBuildCount { get; private set; }
+
+    /// <summary>How often a throw-away full band was built only to measure it (a test reads it to see that a measure is kept).</summary>
+    internal int FullMeasureCount { get; private set; }
 
     public bool ShowFieldCodes { get => GetValue(ShowFieldCodesProperty); set => SetValue(ShowFieldCodesProperty, value); }
 
@@ -88,7 +155,9 @@ public class RibbonView : TemplatedControl
 
     private void OnDefinitionChanged(RibbonDefinition? definition)
     {
-        // One rebuild: the tab strip is built here, the band once after the active tab is settled.
+        // One rebuild: the tab strip is built here, the band once after the active tab is settled. A new definition is new measures
+        // (its names may be in another language).
+        _fullWidths.Clear();
         _settingDefinition = true;
         try
         {
@@ -185,26 +254,174 @@ public class RibbonView : TemplatedControl
 
     private void RebuildBand()
     {
+        var compact = WantsCompact();
         _groups.Children.Clear();
         _groupAnchors.Clear();
-        _band.Classes.Set("compact", IsCompact);
+        _scroller.Offset = default;
+        _band.Classes.Set("compact", compact);
+        SetEffectivelyCompact(compact);
+        _builtTab = ActiveTab;
+        _builtCompact = compact;
+        BandBuildCount++;
         if (ActiveTab is null)
         {
             RefreshBadges();
             return;
         }
 
-        foreach (var group in ActiveTab.Groups)
+        AddGroups(_groups, ActiveTab, compact, _groupAnchors);
+        RefreshBadges();
+    }
+
+    private void AddGroups(StackPanel panel, RibbonTabDefinition tab, bool compact, List<(Control Target, string Digit)>? anchors)
+    {
+        foreach (var group in tab.Groups)
         {
-            if (group.Destructive && _groups.Children.Count > 0)
+            if (group.Destructive && panel.Children.Count > 0)
             {
-                _groups.Children.Add(new Border { Classes = { "ribbon-rule" }, Width = 1, Margin = new Thickness(0, 6), IsHitTestVisible = false });
+                panel.Children.Add(new Border { Classes = { "ribbon-rule" }, Width = 1, Margin = new Thickness(0, 6), IsHitTestVisible = false });
             }
 
-            _groups.Children.Add(IsCompact ? BuildCompactGroup(group) : BuildGroup(group));
+            panel.Children.Add(compact ? BuildCompactGroup(group) : BuildGroup(group, anchors));
+        }
+    }
+
+    private void SetEffectivelyCompact(bool compact)
+    {
+        _effectivelyCompact = compact;
+        _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, compact);
+    }
+
+    /// <summary>Whether the band should be compact now: the setting, or a window narrower than the full band of the active tab (not known yet: no).</summary>
+    private bool WantsCompact()
+    {
+        if (IsCompact)
+        {
+            return true;
         }
 
-        RefreshBadges();
+        var width = _band.Bounds.Width;
+        if (ActiveTab is not { } tab || width <= 0)
+        {
+            return false;
+        }
+
+        return FullWidthOf(tab) is { } full && full > width + 0.5;
+    }
+
+    /// <summary>
+    /// The width the full band of a tab needs, or null while it cannot be measured yet (the band is not in a window). It is taken once
+    /// and kept: from the band on screen when that is the full band of the tab, else from a throw-away full band that is measured inside the
+    /// band (the styles apply only there) and removed again. The result never depends on the layout that is showing.
+    /// </summary>
+    private double? FullWidthOf(RibbonTabDefinition tab)
+    {
+        if (_fullWidths.TryGetValue(tab, out var known))
+        {
+            return known;
+        }
+
+        if (!_builtCompact && ReferenceEquals(_builtTab, tab) && _groups.IsMeasureValid && _groups.DesiredSize.Width > 0)
+        {
+            return _fullWidths[tab] = _groups.DesiredSize.Width;
+        }
+
+        if (!_band.IsAttachedToVisualTree())
+        {
+            return null;
+        }
+
+        var probe = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left, IsHitTestVisible = false, Opacity = 0 };
+        Grid.SetColumnSpan(probe, 3);
+        AddGroups(probe, tab, compact: false, anchors: null);
+        _host.Children.Add(probe);
+        try
+        {
+            probe.Measure(Size.Infinity);
+            FullMeasureCount++;
+            return _fullWidths[tab] = probe.DesiredSize.Width;
+        }
+        finally
+        {
+            _host.Children.Remove(probe);
+        }
+    }
+
+    private void OnBandSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        // Only the width decides; the height changes with the layout the decision picks and must not start the next decision.
+        var width = e.NewSize.Width;
+        if (Math.Abs(width - _lastWidth) < 0.5)
+        {
+            return;
+        }
+
+        _lastWidth = width;
+        if (WantsCompact() != _effectivelyCompact)
+        {
+            RebuildBand();
+        }
+    }
+
+    private void OnBandAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        _frame = _band.FindAncestorOfType<AppFrame>();
+        _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, _effectivelyCompact);
+    }
+
+    private void OnBandDetached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, false);
+        _frame = null;
+        _lastWidth = 0;
+    }
+
+    private static Button CreateChevron(string name, string iconKey, string label)
+    {
+        var chevron = new Button { Name = name, Content = RibbonButton.CreateIcon(iconKey, 16), IsVisible = false, IsTabStop = false, Focusable = false };
+        chevron.Classes.Add("ribbon-chevron");
+        AutomationProperties.SetName(chevron, label);
+        ToolTip.SetTip(chevron, new TooltipContent { Title = label });
+        return chevron;
+    }
+
+    private void UpdateChevrons()
+    {
+        // The slots follow the extent and the width of the band (not the viewport, which they change themselves), so this cannot loop.
+        var overflowing = _host.Bounds.Width > 0 && _scroller.Extent.Width > _host.Bounds.Width + 0.5;
+        _leftSlot.IsVisible = overflowing;
+        _rightSlot.IsVisible = overflowing;
+        var offset = _scroller.Offset.X;
+        _scrollLeft.IsVisible = overflowing && offset > 0.5;
+        _scrollRight.IsVisible = overflowing && offset + _scroller.Viewport.Width < _scroller.Extent.Width - 0.5;
+    }
+
+    private void ScrollBy(int direction)
+    {
+        var step = Math.Max(96, _scroller.Viewport.Width * 0.6);
+        var max = Math.Max(0, _scroller.Extent.Width - _scroller.Viewport.Width);
+        _scroller.Offset = new Vector(Math.Clamp(_scroller.Offset.X + (direction * step), 0, max), 0);
+    }
+
+    private void OnBandWheel(object? sender, PointerWheelEventArgs e)
+    {
+        if (_scroller.Extent.Width <= _scroller.Viewport.Width + 0.5 || e.Delta.Y == 0)
+        {
+            return;
+        }
+
+        var max = _scroller.Extent.Width - _scroller.Viewport.Width;
+        _scroller.Offset = new Vector(Math.Clamp(_scroller.Offset.X - (e.Delta.Y * 48), 0, max), 0);
+        e.Handled = true;
+    }
+
+    // Keyboard focus (Tab, arrows, a program) shows the button; a click does not move the band under the pointer.
+    private void OnGroupsGotFocus(object? sender, FocusChangedEventArgs e)
+    {
+        if (e.NavigationMethod != NavigationMethod.Pointer && e.Source is Control control)
+        {
+            control.BringIntoView();
+        }
     }
 
     /// <summary>Rebuilds the badges from the state: nothing at rest; tab letters while the mode is on; plus group digits and command codes once a tab is chosen.</summary>
@@ -248,7 +465,7 @@ public class RibbonView : TemplatedControl
         }
     }
 
-    private StackPanel BuildGroup(RibbonGroupDefinition group)
+    private StackPanel BuildGroup(RibbonGroupDefinition group, List<(Control Target, string Digit)>? anchors)
     {
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 5, 0, 0) };
         foreach (var command in group.Commands.Where(c => c.Size == CommandSize.Large))
@@ -271,7 +488,7 @@ public class RibbonView : TemplatedControl
 
         var label = new TextBlock { Text = group.Label, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 3, 0, 0) };
         label.Classes.Add("ribbon-group-label");
-        _groupAnchors.Add((label, group.Digit));
+        anchors?.Add((label, group.Digit));
 
         var panel = new StackPanel { Margin = new Thickness(8, 0) };
         panel.Children.Add(commands);

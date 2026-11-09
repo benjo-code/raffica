@@ -32,6 +32,8 @@ public static class ShellStrings
     public static string ZoomIn => Table.Get("ZoomIn");
     public static string ZoomLevel => Table.Get("ZoomLevel");
     public static string RibbonMore => Table.Get("RibbonMore");
+    public static string RibbonScrollLeft => Table.Get("RibbonScrollLeft");
+    public static string RibbonScrollRight => Table.Get("RibbonScrollRight");
     public static string ContextCut => Table.Get("ContextCut");
     public static string ContextCopy => Table.Get("ContextCopy");
     public static string ContextPaste => Table.Get("ContextPaste");

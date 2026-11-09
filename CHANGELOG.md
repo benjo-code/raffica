@@ -29,6 +29,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 - Raffica PDF: every command in the ribbon and the compact bar now has an icon of its own (printer, folder, save, scissors, highlighter and so on) instead of eight commands sharing one arrow.
 - Raffica PDF: the app icon is now the Raffica PDF mark (plum square with `Pd` and wind streaks) in the installer, on the exe and in the Linux packages, replacing the placeholder.
 - Raffica PDF: faster start on Windows and a third of the idle memory through software rendering; set `RAFFICA_RENDERING=default` to use the GPU path instead.
+- Raffica PDF: the ribbon no longer clips commands in a narrow window. Below the width the full band of a tab needs (at the default window width, for example, the Home and Pages tabs) the command bar switches to the compact layout by itself, and when even that does not fit it scrolls with an arrow button at each end; Tab moves the focus into view. The setting "Compact command bar" still forces the compact layout at any width.
 
 ### Fixed
 

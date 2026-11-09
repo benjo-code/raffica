@@ -706,10 +706,6 @@
       "text": "Several people editing one document at the same time, someday, not for the beginning."
     },
     {
-      "title": "Automatic compact command bar below a window width",
-      "text": "The full ribbon at 1024 px without the compact bar clips groups of the Home tab; compact mode is a user toggle today. Decide whether the frame switches to compact automatically below a width (a scope change for the frame)."
-    },
-    {
       "title": "What the field-code group numbers should do",
       "text": "In field-code mode the group digits are shown as a legend only; Q, 6 and 7 act. Decide whether typing a group digit should do something (for example jump to the group)."
     },
