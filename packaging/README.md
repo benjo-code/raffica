@@ -55,7 +55,10 @@ applies them, in this order:
 
 1. Make the signing key and the environment ready (the two sections above) and enter the public key in `UpdateTrust.cs`.
 2. Runner group `raffica-ci` (organisation settings, Actions, Runner groups): restrict the workflows to
-   `benjo-code/raffica/.github/workflows/release.yml@refs/heads/main` and `benjo-code/raffica/.github/workflows/release.yml@refs/heads/dev`.
+   `benjo-code/raffica/.github/workflows/release.yml@refs/heads/dev`. GitHub refuses an entry whose file does not exist at
+   that ref, and `main` has no workflow file until the first release pull request (`release/vX.Y.Z` to `main`) has been
+   merged: add `benjo-code/raffica/.github/workflows/release.yml@refs/heads/main` right after that merge and before the
+   first `release.yml` run on `main` (without it that run finds no runner of the group).
    The group `Default` stays private-only (no access for public repositories). Until the visibility flip (step 5) `ci.yml`
    and `roadmap.yml` still run on the self-hosted runners of this group, so do steps 2 to 5 in one sitting: a pull request
    opened in between waits for a runner.
