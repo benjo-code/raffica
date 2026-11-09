@@ -624,7 +624,8 @@
         {
           "id": "3.1",
           "title": "Runs on the Mac",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md",
           "spec": "superpowers/specs/2026-11-09-raffica-macos-design.md",
           "prerequisites": ["3"],
           "goal": "Raffica PDF builds, passes its tests and opens PDFs from the Finder on Intel and Apple-silicon Macs, checked by a sparse macOS CI job.",

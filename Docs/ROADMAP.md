@@ -36,7 +36,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.6 | Packaging and release | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-07-milestone-02-6-packaging-and-release.md) | 2026-11-08 |
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
 | 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
-| 3.1 | Runs on the Mac | 4 – macOS | ⬜ open | – | – |
+| 3.1 | Runs on the Mac | 4 – macOS | 🟡 planned | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | – |
 | 3.2 | Feels like a Mac app | 4 – macOS | ⬜ open | – | – |
 | 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
@@ -482,7 +482,7 @@ Goal: The macOS port of Raffica PDF (both architectures, Mac conventions, .dmg, 
 - [x] The spec is approved and linked here – The owner approved the spec in the planning session on 2026-11-09 ("ja passt"); it is linked as `superpowers/specs/2026-11-09-raffica-macos-design.md`. On the tree of this branch (documents only; two foreign, unstaged changes in `src/Raffica.Shell/Frame/SettingsStore.cs` and `tests/Raffica.Pdf.Tests/Panes/NavListSelectionTests.cs` were in the working tree and not part of this work): `dotnet build Raffica.slnx -c Release` 0 warnings, 0 errors; `RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`: 6258 total, 0 failed, 6227 passed, 31 skipped; `dotnet format Raffica.slnx --verify-no-changes` exit 0; `dotnet run tools/roadmap.cs -- check` valid.
 
 ## Milestone 3.1 – Runs on the Mac
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3
+**Status:** 🟡 planned · **Plan:** [2026-11-09-milestone-03-1-runs-on-the-mac.md](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3
 
 Goal: Raffica PDF builds, passes its tests and opens PDFs from the Finder on Intel and Apple-silicon Macs, checked by a sparse macOS CI job.
 
