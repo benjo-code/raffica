@@ -558,7 +558,7 @@
     <value>Wiederholen</value>
   </data>
   <data name="CmdAnnotateMode" xml:space="preserve">
-    <value>Anmerkungsmodus</value>
+    <value>Anmerken</value>
   </data>
   <data name="CmdHighlight" xml:space="preserve">
     <value>Hervorheben</value>
@@ -924,7 +924,7 @@
     <value>Nächstes Pflichtfeld</value>
   </data>
   <data name="CmdFormsHighlight" xml:space="preserve">
-    <value>Feldhervorhebung ein- oder ausblenden</value>
+    <value>Felder hervorheben</value>
   </data>
   <data name="FormsNoFormReason" xml:space="preserve">
     <value>Dieses Dokument hat keine Formularfelder zum Ausfüllen.</value>
@@ -1206,7 +1206,7 @@
     <value>Leere Seite einfügen</value>
   </data>
   <data name="CmdInsertFile" xml:space="preserve">
-    <value>Seiten aus Datei einfügen …</value>
+    <value>Aus Datei einfügen …</value>
   </data>
   <data name="CmdMovePagesUp" xml:space="preserve">
     <value>Seiten nach oben</value>
@@ -1215,16 +1215,16 @@
     <value>Seiten nach unten</value>
   </data>
   <data name="CmdPagesUndo" xml:space="preserve">
-    <value>Seitenänderung rückgängig</value>
+    <value>Rückgängig</value>
   </data>
   <data name="CmdPagesRedo" xml:space="preserve">
-    <value>Seitenänderung wiederholen</value>
+    <value>Wiederholen</value>
   </data>
   <data name="CmdApplyPages" xml:space="preserve">
-    <value>Seitenänderungen anwenden</value>
+    <value>Änderungen anwenden</value>
   </data>
   <data name="CmdDiscardPages" xml:space="preserve">
-    <value>Seitenänderungen verwerfen</value>
+    <value>Verwerfen</value>
   </data>
   <data name="CmdDeletePages" xml:space="preserve">
     <value>Seiten löschen</value>
@@ -1236,7 +1236,7 @@
     <value>Dokument teilen …</value>
   </data>
   <data name="CmdExportImages" xml:space="preserve">
-    <value>Seiten als Bilder exportieren …</value>
+    <value>Als Bilder exportieren …</value>
   </data>
   <data name="PageChangesLockedReason" xml:space="preserve">
     <value>Wenden Sie die Seitenänderungen zuerst an oder verwerfen Sie sie</value>

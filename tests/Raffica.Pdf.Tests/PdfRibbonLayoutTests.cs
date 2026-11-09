@@ -28,7 +28,7 @@ public sealed class PdfRibbonLayoutTests
         { "de", 1024 },
     };
 
-    private static void Layout(PdfWindow window)
+    internal static void Layout(PdfWindow window)
     {
         ViewFixture.Pump();
         window.UpdateLayout();
@@ -44,7 +44,7 @@ public sealed class PdfRibbonLayoutTests
         return WindowFixture.Create(width: width, height: 700);
     }
 
-    private static async Task<WindowFixture> ShowWithDocumentAsync(string language, double width)
+    internal static async Task<WindowFixture> ShowWithDocumentAsync(string language, double width)
     {
         var fixture = Show(language, width);
         await fixture.OpenAsync("text-rich.pdf");

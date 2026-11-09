@@ -171,9 +171,10 @@ public class RibbonButton : Button
         }
     }
 
-    private static TextBlock Label(CommandDefinition definition, TextAlignment alignment, bool wrap)
+    private static RibbonLabel Label(CommandDefinition definition, TextAlignment alignment, bool wrap)
     {
-        var label = new TextBlock
+        // A wrapping (tile) label is capped by RibbonLabel itself so that it can step over the cap for a long word.
+        var label = new RibbonLabel(wrap ? TileLabelMaxWidth : double.PositiveInfinity)
         {
             Text = definition.Name,
             FontSize = 12,
@@ -182,10 +183,87 @@ public class RibbonButton : Button
             TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = wrap ? 2 : 1,
-            MaxWidth = wrap ? TileLabelMaxWidth : SmallLabelMaxWidth,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        if (!wrap)
+        {
+            label.MaxWidth = SmallLabelMaxWidth;
+        }
+
         label.Classes.Add("ribbon-label");
         return label;
+    }
+
+    /// <summary>
+    /// The label of a tile: it wraps at spaces and hyphens only. Up to <c>wrapWidth</c> it wraps like any text; a word (or the part
+    /// between two hyphens) that is wider than that is never cut in the middle, the label takes the width of that word instead and the
+    /// tile grows with it (the text engine would otherwise break the word at any character).
+    /// </summary>
+    private sealed class RibbonLabel(double wrapWidth) : TextBlock
+    {
+        private double _widest = -1;
+        private string? _measuredText;
+
+        protected override Type StyleKeyOverride => typeof(TextBlock);
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (TextWrapping == TextWrapping.NoWrap || string.IsNullOrEmpty(Text))
+            {
+                return base.MeasureOverride(availableSize);
+            }
+
+            var cap = Math.Max(wrapWidth, WidestSegment());
+            return base.MeasureOverride(new Size(Math.Min(availableSize.Width, cap), availableSize.Height));
+        }
+
+        // The width of the widest piece the text may be broken into; kept for one text and font.
+        private double WidestSegment()
+        {
+            var key = $"{Text}|{FontSize}|{FontFamily}|{FontWeight}";
+            if (_widest >= 0 && key == _measuredText)
+            {
+                return _widest;
+            }
+
+            _widest = 0;
+            _measuredText = key;
+            foreach (var segment in Segments(Text!))
+            {
+                var probe = new TextBlock { Text = segment, FontFamily = FontFamily, FontSize = FontSize, FontWeight = FontWeight, FontStyle = FontStyle, TextWrapping = TextWrapping.NoWrap };
+                probe.Measure(Size.Infinity);
+                _widest = Math.Max(_widest, probe.DesiredSize.Width);
+            }
+
+            return _widest;
+        }
+
+        // The pieces between the break opportunities: split at a space (it is dropped) and after a hyphen (it stays with its piece).
+        private static IEnumerable<string> Segments(string text)
+        {
+            var start = 0;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (text[i] == ' ')
+                {
+                    if (i > start)
+                    {
+                        yield return text[start..i];
+                    }
+
+                    start = i + 1;
+                }
+                else if (text[i] is '-' or '‐' && i + 1 < text.Length && text[i + 1] != ' ')
+                {
+                    yield return text[start..(i + 1)];
+                    start = i + 1;
+                }
+            }
+
+            if (start < text.Length)
+            {
+                yield return text[start..];
+            }
+        }
     }
 }
