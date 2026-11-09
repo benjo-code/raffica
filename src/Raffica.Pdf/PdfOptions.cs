@@ -156,6 +156,9 @@ internal sealed class PdfOptions
 
                     measure = args[i];
                     break;
+                case var other when other.StartsWith("-psn_", StringComparison.Ordinal):
+                    // The process serial number that older macOS puts into argv when the Finder starts the app: not a file, not a switch.
+                    break;
                 case var other when other.StartsWith("--", StringComparison.Ordinal):
                     throw new ArgumentException($"unknown switch '{other}'");
                 default:
