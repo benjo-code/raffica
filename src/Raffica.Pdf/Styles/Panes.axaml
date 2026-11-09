@@ -34,6 +34,10 @@
   <Style Selector="ListBox.nav-list > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
   </Style>
+  <!-- The marks list has its own edge bar (mark-edge) and its own padding: no second bar and no 2 px shift. -->
+  <Style Selector="ListBox.nav-list.marks-list > ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
   <Style Selector="ListBox.nav-list > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Raffica.Brush.State.Hover}" />
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />

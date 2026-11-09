@@ -111,7 +111,7 @@
     <Style Selector="^:pointerover /template/ Border#Background">
       <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
     </Style>
-    <Style Selector="^:focus-within /template/ Border#Background">
+    <Style Selector="^[IsEditable=True]:focus-within /template/ Border#Background">
       <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
     </Style>
     <Style Selector="^:dropdownopen /template/ Border#Background">
