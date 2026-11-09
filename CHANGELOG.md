@@ -37,6 +37,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF: declining the question "Open this link?" that follows the project address in the About card brings the About card back instead of leaving you at the document.
 - Raffica PDF: "Done" (Annotate) and "Stop editing" (Edit) no longer use a check mark, which read like a switched-on option when the command was dimmed; they show a leave arrow and a return arrow.
 - Raffica PDF: long key descriptions in the shortcut list (F1) wrap onto a second line instead of ending in an ellipsis (German "Seiten organisieren: markierte Seiten um eine Stelle verschieben"), and the list uses the full width of the card.
 - Raffica PDF: the list of all open documents (the arrow next to the tabs, shown when many tabs are open) is no longer empty in the release build; it names every tab and marks the current one.
