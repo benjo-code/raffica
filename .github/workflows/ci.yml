@@ -420,6 +420,31 @@ jobs:
             case "$text" in *"Hello,"*) echo "$rid: text extraction works" ;; *) echo "$rid: unexpected output: $text" >&2; exit 1 ;; esac
           done
 
+      # The same steps as release-macos (release.yml), on the folders published above (they already carry the OCR files, so no
+      # --native). The version 0.0.0 only has to be stable; nothing here is uploaded to a release.
+      - name: Self-test of the packaging tool
+        run: dotnet run tools/package.cs -- selftest
+
+      - name: Bundle, image and smoke (both architectures)
+        run: |
+          set -euo pipefail
+          macos_min="$(grep '^MACOS_DEPLOYMENT_TARGET=' packaging/native/versions.txt | cut -d= -f2)"
+          mkdir -p out/dmg
+          for rid in osx-arm64 osx-x64; do
+            case "$rid" in
+              osx-arm64) short=arm64; machine=arm64 ;;
+              osx-x64) short=x64; machine=x86_64 ;;
+            esac
+            echo "=== $rid ==="
+            dotnet run tools/package.cs -- macos-app --rid "$rid" --app "out/pdf-$rid" --cli "out/cli-$rid" --out "out/bundle-$rid" --version 0.0.0
+            bundle="out/bundle-$rid/Raffica PDF.app"
+            macos_dir="$bundle/Contents/MacOS"
+            dotnet run tools/check-binary.cs -- "$macos_dir/RafficaPdf" "$macos_dir/raffica" "$macos_dir"/*.dylib --arch "$machine" --max-macos "$macos_min" --bundle "$macos_dir"
+            dmg="out/dmg/RafficaPdf-0.0.0-macos-$short.dmg"
+            dotnet run tools/package.cs -- dmg --app "$bundle" --rid "$rid" --version 0.0.0 --out "$dmg"
+            dotnet run tools/package.cs -- dmg-smoke --dmg "$dmg" --rid "$rid"
+          done
+
       # The default macOS volume ignores case: Bericht.pdf and bericht.pdf are one file. The CLI must see that (PathRules) and refuse,
       # not overwrite its own input. This is the path comparison; the file identity is the next step.
       - name: Smoke test of the same-file guard
@@ -455,15 +480,12 @@ jobs:
             case "$out" in *"same file under another name or path"*) echo "$rid: the hard link is refused through the file identity" ;; *) echo "$rid: the refusal does not say 'same file under another name or path'" >&2; exit 1 ;; esac
           done
 
-      # tar keeps the executable bit, which the artifact zip would lose. For the owner's manual check on an Intel Mac.
-      - name: Pack the Intel PDF app
-        run: tar czf "$RUNNER_TEMP/raffica-pdf-osx-x64.tar.gz" -C out pdf-osx-x64
-
-      - name: Upload the Intel PDF app
+      # The Intel disk image, for the owner's manual check on an Intel Mac (packaging/README.md).
+      - name: Upload the Intel disk image
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: raffica-pdf-osx-x64
-          path: ${{ runner.temp }}/raffica-pdf-osx-x64.tar.gz
+          name: raffica-pdf-macos-x64-dmg
+          path: out/dmg/RafficaPdf-0.0.0-macos-x64.dmg
           if-no-files-found: error
           retention-days: 3
 

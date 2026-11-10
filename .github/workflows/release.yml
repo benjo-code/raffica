@@ -525,9 +525,190 @@ jobs:
           echo "sums_sha256=$hash" >> "$GITHUB_OUTPUT"
           echo "SHA256SUMS-linux.txt: $hash"
 
+  # The macOS disk images: built on a GitHub-hosted Apple Silicon runner (macos-15, no macOS runner of our own). The
+  # Intel build is published for osx-x64 on the same runner and smoked under Rosetta. Ad-hoc signing only, no
+  # notarization and no secret (the bundle step signs with "-"); the files are the two .dmg and SHA256SUMS-macos.txt.
+  # Shell steps run in bash 3.2 of macOS: no source <(...), no mapfile, no associative arrays.
+  macos:
+    name: release-macos
+    needs: preflight
+    runs-on: macos-15
+    timeout-minutes: 60
+    # The SHA-256 of the checksum file that this job uploaded (see the windows job).
+    outputs:
+      sums_sha256: ${{ steps.sums.outputs.sums_sha256 }}
+    # Needed to attach files to the release (gh release upload).
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag }}
+      # inputs.ref reaches the shell only through the environment; the first step of the job rejects foreign refs.
+      REF_INPUT: ${{ inputs.ref }}
+      UPLOAD: ${{ inputs.upload }}
+    steps:
+      - name: Check the tag and derive the version
+        run: |
+          set -euo pipefail
+          # The ref input: empty, a commit id, or a plain branch name (a leading refs/heads/ is fine). Everything else is
+          # refused, above all pull/N/head and refs/pull/N/head, which would run foreign code on this runner.
+          ref_ok=false
+          if [[ -z "$REF_INPUT" || "$REF_INPUT" =~ ^[0-9a-f]{40}$ ]]; then
+            ref_ok=true
+          elif [[ "$REF_INPUT" =~ ^[A-Za-z0-9._/-]+$ && "$REF_INPUT" != pull/* && "$REF_INPUT" != *..* ]]; then
+            if [[ "$REF_INPUT" != refs/* || "$REF_INPUT" == refs/heads/* ]]; then ref_ok=true; fi
+          fi
+          [[ "$ref_ok" == true ]] || { echo "ref '$REF_INPUT' is not allowed: only empty, a commit id or a branch name (no pull/..., no refs/pull/...)" >&2; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "Tag '$TAG' is not a SemVer tag vX.Y.Z[-prerelease]" >&2; exit 1; }
+          version="${TAG#v}"
+          # The app bundle has a numeric version only (Info.plist, tools/package.cs macos-app): a pre-release tag gets no
+          # disk image, and this says so instead of letting the bundle step fail.
+          [[ "$version" != *-* ]] || { echo "Tag $TAG is a pre-release: the macOS app bundle has a stable version x.y.z only, so release-macos cannot build it. Use a stable tag." >&2; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Tag $TAG, version $version, upload: $UPLOAD"
+
+      # The ref input is built on a runner that also builds the release, so it must be a commit of main or dev (the same
+      # rule as for the tag above): a plain branch name must be main or dev, a commit id must be the head of main or dev
+      # or an ancestor of it (compare status identical or behind). A commit of a fork, of a pull request or of any other
+      # branch is refused before anything is checked out or run.
+      - name: Check that the ref is on main or dev
+        if: inputs.ref != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          r="${REF_INPUT#refs/heads/}"
+          if [[ "$r" =~ ^[0-9a-f]{40}$ ]]; then
+            sha="$r"
+          elif [[ "$r" == main || "$r" == dev ]]; then
+            sha="$(gh api "repos/$GH_REPO/commits/refs/heads/$r" --jq .sha)" || { echo "Branch '$r' not found" >&2; exit 1; }
+          else
+            echo "ref '$REF_INPUT' is not allowed: a branch name must be main or dev, otherwise a commit id of main or dev" >&2
+            exit 1
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Unexpected commit id for ref '$REF_INPUT': '$sha'" >&2; exit 1; }
+          for branch in main dev; do
+            status="$(gh api "repos/$GH_REPO/compare/$branch...$sha" --jq .status || true)"
+            if [[ "$status" == identical || "$status" == behind ]]; then
+              echo "Ref $REF_INPUT ($sha) is on $branch ($status)"
+              exit 0
+            fi
+          done
+          echo "Ref $REF_INPUT ($sha) is on neither main nor dev: only commits of these branches are built on this runner." >&2
+          exit 1
+
+      # A branch build is a dry run: what is uploaded must be built from the tag.
+      - name: Refuse to upload a branch build
+        if: env.UPLOAD == 'true' && inputs.ref != ''
+        run: |
+          echo 'Uploading and ref exclude each other: only what is built from the tag is uploaded.' >&2
+          exit 1
+
+      # With upload=true the commit that preflight verified must be there; the checkout never falls back to the tag name.
+      - name: Require the verified commit
+        if: env.UPLOAD == 'true'
+        env:
+          TAG_SHA: ${{ needs.preflight.outputs.tag_sha }}
+        run: |
+          [[ "$TAG_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Preflight delivered no verified commit: '$TAG_SHA'" >&2; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || needs.preflight.outputs.tag_sha || format('refs/tags/{0}', inputs.tag) }}
+          persist-credentials: false
+
+      # Fresh folders, see the preflight job.
+      - name: Use fresh SDK and package folders (no root on the runner)
+        run: |
+          echo "DOTNET_INSTALL_DIR=$RUNNER_TEMP/dotnet" >> "$GITHUB_ENV"
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The runner is Apple Silicon: the osx-x64 binaries run through Rosetta 2.
+      - name: Check Rosetta
+        run: arch -x86_64 /usr/bin/true || sudo softwareupdate --install-rosetta --agree-to-license
+
+      - name: Check the release prerequisites (gh)
+        run: |
+          command -v gh >/dev/null || { echo 'gh (GitHub CLI) not found on PATH (it comes with the hosted runner image)' >&2; exit 1; }
+          gh --version
+
+      - name: Self-test of the packaging tool
+        run: dotnet run tools/package.cs -- selftest
+
+      - name: Self-test of the licence tool
+        run: dotnet run tools/licenses.cs -- selftest
+
+      # Size and SHA-256 of every file are pinned in tools/native-fetch.cs; nothing is laid down unless all of them match.
+      # The publish folders below have no OCR files (a fresh checkout has no artifacts/native); the bundle step adds them.
+      - name: Fetch the OCR library and the language data (both architectures)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dotnet run tools/native-fetch.cs -- --rid osx-arm64 --out out/native/osx-arm64
+          dotnet run tools/native-fetch.cs -- --rid osx-x64 --out out/native/osx-x64
+
+      # Per architecture: publish (Native AOT), licence check, bundle with ad-hoc signature, dependency check of every
+      # Mach-O file in the bundle, the real OCR run of the bundle's CLI, disk image, and the smoke test of the image.
+      - name: Publish, bundle, image and smoke tests (both architectures)
+        run: |
+          set -euo pipefail
+          macos_min="$(grep '^MACOS_DEPLOYMENT_TARGET=' packaging/native/versions.txt | cut -d= -f2)"
+          [[ "$macos_min" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "Unexpected MACOS_DEPLOYMENT_TARGET: '$macos_min'" >&2; exit 1; }
+          mkdir -p out/release
+          for rid in osx-arm64 osx-x64; do
+            case "$rid" in
+              osx-arm64) short=arm64; machine=arm64 ;;
+              osx-x64) short=x64; machine=x86_64 ;;
+            esac
+            echo "=== $rid ==="
+            dotnet publish src/Raffica.Cli -c Release -r "$rid" "-p:Version=$VERSION" -o "out/cli-$rid"
+            dotnet publish src/Raffica.Pdf -c Release -r "$rid" "-p:Version=$VERSION" -o "out/app-$rid"
+            dotnet run tools/licenses.cs -- check --publish-dir "out/app-$rid" --publish-dir "out/cli-$rid"
+            dotnet run tools/package.cs -- macos-app --rid "$rid" --app "out/app-$rid" --cli "out/cli-$rid" --out "out/bundle-$rid" --version "$VERSION" --native "out/native/$rid"
+            bundle="out/bundle-$rid/Raffica PDF.app"
+            macos_dir="$bundle/Contents/MacOS"
+            dotnet run tools/check-binary.cs -- "$macos_dir/RafficaPdf" "$macos_dir/raffica" "$macos_dir"/*.dylib --arch "$machine" --max-macos "$macos_min" --bundle "$macos_dir"
+            # The Intel binary runs through Rosetta without a prefix; the bundle carries the library and tessdata, so this is the real OCR run.
+            dotnet run tools/smoke-cli.cs -- "$macos_dir/raffica"
+            dmg="out/release/RafficaPdf-$VERSION-macos-$short.dmg"
+            dotnet run tools/package.cs -- dmg --app "$bundle" --rid "$rid" --version "$VERSION" --out "$dmg"
+            dotnet run tools/package.cs -- dmg-smoke --dmg "$dmg" --rid "$rid"
+          done
+
+      - name: Checksums
+        run: dotnet run tools/package.cs -- sums "out/release/RafficaPdf-$VERSION-macos-arm64.dmg" "out/release/RafficaPdf-$VERSION-macos-x64.dmg" --out out/release/SHA256SUMS-macos.txt
+
+      # Only with upload=true; otherwise build and smoke tests only.
+      - name: Upload to the release
+        if: env.UPLOAD == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # No .git on the runner (checkout zip): name the repository explicitly.
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload "$TAG" \
+            "out/release/RafficaPdf-$VERSION-macos-arm64.dmg" \
+            "out/release/RafficaPdf-$VERSION-macos-x64.dmg" \
+            out/release/SHA256SUMS-macos.txt --clobber
+
+      - name: Report the SHA-256 of the checksum file
+        id: sums
+        if: env.UPLOAD == 'true'
+        run: |
+          set -euo pipefail
+          hash="$(shasum -a 256 out/release/SHA256SUMS-macos.txt | cut -d' ' -f1)"
+          [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || { echo "Unexpected SHA-256: '$hash'" >&2; exit 1; }
+          echo "sums_sha256=$hash" >> "$GITHUB_OUTPUT"
+          echo "SHA256SUMS-macos.txt: $hash"
+
   # The signed update manifest: built from the checksums and the file sizes of the release, signed with
   # the secret RAFFICA_UPDATE_SIGNING_KEY, verified with the keys compiled into the app, and uploaded. Runs only after
-  # both build jobs have uploaded their files. This is the only job on a GitHub-hosted, ephemeral runner,
+  # the three build jobs have uploaded their files. This is the only job on a GitHub-hosted, ephemeral runner,
   # and it waits for the approval of the environment release-signing (branches main and dev, owner as reviewer); the
   # key is a secret of that environment. It appears in exactly one place, the env of the step "Sign the update
   # manifest", which runs nothing but the signing command of the tool that an earlier step built from the tag's
@@ -536,8 +717,8 @@ jobs:
   # manifest: the app reads only X.Y.Z versions, and releases/latest never names a pre-release.
   manifest:
     name: release-manifest
-    needs: [preflight, windows, linux]
-    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' && inputs.upload }}
+    needs: [preflight, windows, linux, macos]
+    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && inputs.upload }}
     runs-on: ubuntu-24.04
     environment: release-signing
     timeout-minutes: 30
@@ -669,7 +850,7 @@ jobs:
           set -euo pipefail
           rm -rf out/manifest
           mkdir -p out/manifest
-          gh release download "$TAG" --pattern SHA256SUMS-windows.txt --pattern SHA256SUMS-linux.txt --dir out/manifest
+          gh release download "$TAG" --pattern SHA256SUMS-windows.txt --pattern SHA256SUMS-linux.txt --pattern SHA256SUMS-macos.txt --dir out/manifest
           gh release view "$TAG" --json assets > out/manifest/assets.json
 
       # The build jobs reported the SHA-256 of the checksum files they uploaded; a file that was replaced on the release
@@ -680,14 +861,16 @@ jobs:
         env:
           WINDOWS_SUMS_SHA256: ${{ needs.windows.outputs.sums_sha256 }}
           LINUX_SUMS_SHA256: ${{ needs.linux.outputs.sums_sha256 }}
+          MACOS_SUMS_SHA256: ${{ needs.macos.outputs.sums_sha256 }}
         run: |
           set -euo pipefail
           dotnet "$PACKAGE_TOOL" sums-verify --file out/manifest/SHA256SUMS-windows.txt --sha256 "$WINDOWS_SUMS_SHA256"
           dotnet "$PACKAGE_TOOL" sums-verify --file out/manifest/SHA256SUMS-linux.txt --sha256 "$LINUX_SUMS_SHA256"
+          dotnet "$PACKAGE_TOOL" sums-verify --file out/manifest/SHA256SUMS-macos.txt --sha256 "$MACOS_SUMS_SHA256"
 
       - name: Build the update manifest
         if: env.STABLE == 'true'
-        run: dotnet "$PACKAGE_TOOL" update-manifest --version "$VERSION" --sums out/manifest/SHA256SUMS-windows.txt out/manifest/SHA256SUMS-linux.txt --sizes out/manifest/assets.json --out out/manifest/update-manifest.json
+        run: dotnet "$PACKAGE_TOOL" update-manifest --version "$VERSION" --sums out/manifest/SHA256SUMS-windows.txt out/manifest/SHA256SUMS-linux.txt out/manifest/SHA256SUMS-macos.txt --sizes out/manifest/assets.json --out out/manifest/update-manifest.json
 
       # The only step that sees the signing key. The tool reads it from the environment, never prints it, never writes
       # it to disk, and verifies the signature with the public key of UpdateTrust.cs before it writes the .sig file.

@@ -4243,8 +4243,8 @@ static class SelfTest
 
         Expect("tag: all bash rules are the same (Linux and manifest job)",
             Regex.Matches(yml, @"\[\[ ""\$TAG"" =~ (?<p>\S+) \]\]").Select(m => m.Groups["p"].Value).Distinct(StringComparer.Ordinal).Count(), 1);
-        Expect("tag: both checkouts of the build jobs also build a branch (inputs.ref)", Regex.Count(yml, @"ref: \$\{\{ inputs\.ref \|\| "), 2);
-        Expect("tag: all four jobs refuse to upload a branch build", Regex.Count(yml, "name: Refuse to upload a branch build"), 4);
+        Expect("tag: the three checkouts of the build jobs also build a branch (inputs.ref)", Regex.Count(yml, @"ref: \$\{\{ inputs\.ref \|\| "), 3);
+        Expect("tag: all five jobs refuse to upload a branch build", Regex.Count(yml, "name: Refuse to upload a branch build"), 5);
     }
 
     // The AppImage contains libfuse (LGPL-2.1): its source and the runtime's build scripts are attached to every release.
@@ -4366,7 +4366,7 @@ static class SelfTest
         var yml = File.ReadAllText(workflow);
         Expect("container: the work folder is handed back even after an abort (if: always() with chown)",
             Regex.IsMatch(yml, @"name: Give the workspace back to the runner user \(Linux\)\s+if: always\(\)\s+run: \|[\s\S]*?chown -R"), true);
-        Expect("container: self-test of the packaging tool runs in all three jobs on the host", Regex.Count(yml, "name: Self-test of the packaging tool"), 3);
+        Expect("container: self-test of the packaging tool runs in all four jobs on the host", Regex.Count(yml, "name: Self-test of the packaging tool"), 4);
         Expect("container: container-build.sh sets NUGET_PACKAGES (dotnet and licenses.cs look in the same place)",
             Regex.IsMatch(File.ReadAllText(container), @"(?m)^export .*\bNUGET_PACKAGES="), true);
         Expect("container: container-build.sh has no pipe into head (pipefail turns it into exit 141)",
@@ -5592,9 +5592,9 @@ static class SelfTest
         Expect("release.yml: nothing reads a release event any more (github.event.release, event_name == 'release')",
             Regex.IsMatch(yml, @"github\.event\.release|event_name == 'release'"), false);
         Expect("release.yml: TAG comes from inputs.tag only in every job", Regex.Count(yml, @"(?m)^      TAG: \$\{\{ inputs\.tag \}\}$"), Regex.Count(yml, @"(?m)^      TAG:"));
-        Expect("release.yml: TAG is set in four jobs", Regex.Count(yml, @"(?m)^      TAG:"), 4);
+        Expect("release.yml: TAG is set in five jobs", Regex.Count(yml, @"(?m)^      TAG:"), 5);
         Expect("release.yml: UPLOAD comes from inputs.upload only in every job", Regex.Count(yml, @"(?m)^      UPLOAD: \$\{\{ inputs\.upload \}\}$"), Regex.Count(yml, @"(?m)^      UPLOAD:"));
-        Expect("release.yml: UPLOAD is set in three jobs", Regex.Count(yml, @"(?m)^      UPLOAD:"), 3);
+        Expect("release.yml: UPLOAD is set in four jobs", Regex.Count(yml, @"(?m)^      UPLOAD:"), 4);
         Expect("release.yml: concurrency only per inputs.tag", yml.Contains("  group: release-${{ inputs.tag }}\n", StringComparison.Ordinal), true);
 
         string Job(string name) => Regex.Match(yml, @"(?m)^  " + name + @":\n(?<b>(?:    .*\n|\n)*)").Groups["b"].Value;
@@ -5650,12 +5650,12 @@ static class SelfTest
         Expect("release.yml: preflight and manifest check out the verified commit id (steps.ontag.outputs.sha)",
             Regex.Count(yml, @"(?m)^          ref: \$\{\{ steps\.ontag\.outputs\.sha \}\}$"), 2);
         Expect("release.yml: build jobs check out inputs.ref, otherwise the commit id of preflight (tag name only as the fallback of the dry run)",
-            Regex.Count(yml, @"(?m)^          ref: \$\{\{ inputs\.ref \|\| needs\.preflight\.outputs\.tag_sha \|\| format\('refs/tags/\{0\}', inputs\.tag\) \}\}$"), 2);
+            Regex.Count(yml, @"(?m)^          ref: \$\{\{ inputs\.ref \|\| needs\.preflight\.outputs\.tag_sha \|\| format\('refs/tags/\{0\}', inputs\.tag\) \}\}$"), 3);
         Expect("release.yml: no checkout by the tag name alone", Regex.IsMatch(yml, @"(?m)^          ref: (refs/tags/)?\$\{\{ inputs\.tag \}\}$"), false);
         Expect("release.yml: preflight outputs the verified commit id (outputs.tag_sha)",
             preflight.Contains("    outputs:\n      tag_sha: ${{ steps.ontag.outputs.sha }}\n", StringComparison.Ordinal), true);
         Expect("release.yml: every checkout of the build jobs comes after 'Require the verified commit' (uploading without a verified commit aborts)",
-            new[] { "windows", "linux" }.All(j =>
+            new[] { "windows", "linux", "macos" }.All(j =>
             {
                 var st = StepsOf(Job(j));
                 var guard = st.FindIndex(x => Name(x) == "Require the verified commit");
@@ -5667,7 +5667,7 @@ static class SelfTest
 
         // The ref input is built on runners that also build the release: a job that takes it checks, before its first checkout,
         // that it is a commit of main or dev (compare status identical or behind), so a fork's pull request commit is refused.
-        foreach (var guardedJob in new[] { "preflight", "windows", "linux" })
+        foreach (var guardedJob in new[] { "preflight", "windows", "linux", "macos" })
         {
             var st = StepsOf(Job(guardedJob));
             var refGuard = st.FindIndex(x => Name(x) == "Check that the ref is on main or dev");
@@ -5708,7 +5708,7 @@ static class SelfTest
             Expect($"ref rule: '{value}' is rejected", RefInputRule.Accepts(value), false);
         }
 
-        foreach (var refJob in new[] { "preflight", "windows", "linux", "manifest" })
+        foreach (var refJob in new[] { "preflight", "windows", "linux", "macos", "manifest" })
         {
             var refSteps = StepsOf(Job(refJob));
             var first = refSteps.Count > 0 ? refSteps[0] : string.Empty;
@@ -5778,22 +5778,34 @@ static class SelfTest
             }
         }
 
-        foreach (var buildJob in new[] { "windows", "linux" })
+        foreach (var buildJob in new[] { "windows", "linux", "macos" })
         {
             Expect($"release.yml: job {buildJob} waits for preflight", Job(buildJob).Contains("    needs: preflight\n", StringComparison.Ordinal), true);
         }
 
+        // The macOS job: hosted macos-15, the preamble of the Linux job, bundle, image and smoke for both architectures.
+        var macosJob = Job("macos");
+        Expect("release.yml: job macos present, named release-macos", macosJob.Contains("    name: release-macos\n", StringComparison.Ordinal), true);
+        Expect("release.yml: job macos on the hosted runner macos-15", macosJob.Contains("    runs-on: macos-15\n", StringComparison.Ordinal) &&
+            !IsSelfHosted(Regex.Match(macosJob, @"(?m)^    runs-on:.*$").Value), true);
+        Expect("release.yml: job macos may upload (contents: write)", Regex.IsMatch(macosJob, @"    permissions:\n      contents: write\n"), true);
+        Expect("release.yml: job macos has a timeout of 60 minutes", macosJob.Contains("    timeout-minutes: 60\n", StringComparison.Ordinal), true);
+        foreach (var word in new[] { "macos-app", "package.cs -- dmg ", "dmg-smoke", "SHA256SUMS-macos.txt", "check-binary.cs", "smoke-cli.cs", "native-fetch.cs", "RafficaPdf-$VERSION-macos-" })
+        {
+            Expect($"release.yml: job macos contains {word.Trim()}", macosJob.Contains(word, StringComparison.Ordinal), true);
+        }
+
         var job = Job("manifest");
         Expect("release.yml: job manifest present", job.Length > 0, true);
-        Expect("release.yml: job manifest waits for preflight and both build jobs", job.Contains("    needs: [preflight, windows, linux]\n", StringComparison.Ordinal), true);
-        Expect("release.yml: job manifest runs only after both jobs succeeded and only when uploading", job.Contains(
-            "    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' && inputs.upload }}\n",
+        Expect("release.yml: job manifest waits for preflight and the three build jobs", job.Contains("    needs: [preflight, windows, linux, macos]\n", StringComparison.Ordinal), true);
+        Expect("release.yml: job manifest runs only after the three build jobs succeeded and only when uploading", job.Contains(
+            "    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && inputs.upload }}\n",
             StringComparison.Ordinal), true);
         // The only job that sees the signing key runs on a fresh GitHub-hosted runner, behind the environment.
         Expect("release.yml: job manifest on the hosted runner ubuntu-24.04", job.Contains("    runs-on: ubuntu-24.04\n", StringComparison.Ordinal), true);
         Expect("release.yml: job manifest names no self-hosted label", IsSelfHosted(Regex.Match(job, @"(?m)^    runs-on:.*$").Value), false);
         Expect("release.yml: job manifest with environment: release-signing", job.Contains("    environment: release-signing\n", StringComparison.Ordinal), true);
-        foreach (var buildJob in new[] { "windows", "linux" })
+        foreach (var buildJob in new[] { "windows", "linux", "macos" })
         {
             var buildSteps = StepsOf(Job(buildJob));
             var uploadAt = buildSteps.FindIndex(x => Name(x) == "Upload to the release");
@@ -5869,12 +5881,18 @@ static class SelfTest
         Expect("release.yml: the sum comparison takes the hashes of the build jobs through the environment (no ${{ }} in the command line)",
             Regex.IsMatch(sumsStep, @"\n        env:\n(?:          \S.*\n)*          WINDOWS_SUMS_SHA256: \$\{\{ needs\.windows\.outputs\.sums_sha256 \}\}\n") &&
             Regex.IsMatch(sumsStep, @"\n        env:\n(?:          \S.*\n)*          LINUX_SUMS_SHA256: \$\{\{ needs\.linux\.outputs\.sums_sha256 \}\}\n") &&
+            Regex.IsMatch(sumsStep, @"\n        env:\n(?:          \S.*\n)*          MACOS_SUMS_SHA256: \$\{\{ needs\.macos\.outputs\.sums_sha256 \}\}\n") &&
             sumsStep.Contains("\n        run: |\n", StringComparison.Ordinal) &&
             !sumsStep[sumsStep.IndexOf("\n        run: |\n", StringComparison.Ordinal)..].Contains("${{", StringComparison.Ordinal), true);
-        Expect("release.yml: the sum comparison checks both downloaded files with sums-verify and aborts on an error",
+        Expect("release.yml: the sum comparison checks all three downloaded files with sums-verify and aborts on an error",
             sumsStep.Contains("set -euo pipefail", StringComparison.Ordinal) &&
             sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-windows.txt --sha256 ""$WINDOWS_SUMS_SHA256""", StringComparison.Ordinal) &&
-            sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-linux.txt --sha256 ""$LINUX_SUMS_SHA256""", StringComparison.Ordinal), true);
+            sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-linux.txt --sha256 ""$LINUX_SUMS_SHA256""", StringComparison.Ordinal) &&
+            sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-macos.txt --sha256 ""$MACOS_SUMS_SHA256""", StringComparison.Ordinal), true);
+        // The manifest job downloads and signs over all three checksum files (the tool takes the macOS files only as a pair).
+        Expect("release.yml: the manifest job downloads three checksum files and passes them to update-manifest",
+            steps[download].Contains("--pattern SHA256SUMS-windows.txt --pattern SHA256SUMS-linux.txt --pattern SHA256SUMS-macos.txt", StringComparison.Ordinal) &&
+            steps[build].Contains("--sums out/manifest/SHA256SUMS-windows.txt out/manifest/SHA256SUMS-linux.txt out/manifest/SHA256SUMS-macos.txt --sizes", StringComparison.Ordinal), true);
         Expect("release.yml: the sum comparison without a secret and without an action", sumsStep.Contains("secrets.", StringComparison.Ordinal) || sumsStep.Contains("uses:", StringComparison.Ordinal), false);
         Expect("release.yml: the placeholder test is armed (RAFFICA_REQUIRE_RELEASE_KEY)", test >= 0 &&
             steps[test].Contains("RAFFICA_REQUIRE_RELEASE_KEY: '1'", StringComparison.Ordinal) &&
