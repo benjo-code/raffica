@@ -2,13 +2,13 @@
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
-//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf] [--mode frame] [--machine <name>]
-//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf]
+//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
+//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf] [--app <bundle dir> --dmg <file>: pdf on macOS]
 //   dotnet run bench/shell-probe/measure.cs -- check --platform windows|linux|macos --in "<csv glob>" [--target gallery|pdf] [--summary <md>]
 //   dotnet run bench/shell-probe/measure.cs -- budgets --in <csv>... --out <md>
 //   dotnet run bench/shell-probe/measure.cs -- selftest
 // CSV columns: machine,mode,case,run,value,unit. unit is ms or bytes. Rows of the case input carry the statistic
-// (median, p99, max) in the column run; rows of the case size carry total, zip, fonts or native. The gallery
+// (median, p99, max) in the column run; rows of the case size carry total, zip, fonts, native, app or dmg (the last two: the macOS bundle and disk image). The gallery
 // (--target gallery) writes the mode gallery, the PDF app (--target pdf) the mode pdf; its cases are cold, warm, thousand, second, scroll
 // (rows p99 and max per run in the column run) and memory. check --target pdf judges against the recorded limits (see CheckCommand).
 //
@@ -897,7 +897,7 @@ static class SizeCommand
         var platform = check is null ? null : CheckCommand.PlatformOfRid(check);
         if (check is not null && platform is null)
         {
-            Console.Error.WriteLine("--check needs a runtime identifier: win-x64, linux-x64 or osx-x64.");
+            Console.Error.WriteLine("--check needs a runtime identifier: win-x64, linux-x64, osx-x64 or osx-arm64.");
             return 2;
         }
 
@@ -917,14 +917,45 @@ static class SizeCommand
             return 2;
         }
 
+        // The macOS bundle and disk image (target pdf; with --check only on a macOS runtime identifier): bytes of every file of the bundle, bytes of the file.
+        var appDir = o.Get("--app") is { } a ? Path.GetFullPath(a) : null;
+        var dmgFile = o.Get("--dmg") is { } d ? Path.GetFullPath(d) : null;
+        if ((appDir is not null || dmgFile is not null) && (target != "pdf" || (platform is not null && platform != "macos")))
+        {
+            Console.Error.WriteLine("--app and --dmg belong to --target pdf (and, with --check, to osx-x64 or osx-arm64).");
+            return 2;
+        }
+
+        if ((appDir is not null && !Directory.Exists(appDir)) || (dmgFile is not null && !File.Exists(dmgFile)))
+        {
+            Console.Error.WriteLine("--app must be an existing folder (the .app bundle) and --dmg an existing file.");
+            return 2;
+        }
+
+        var appBytes = appDir is null ? (long?)null : Directory.EnumerateFiles(appDir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
+        var dmgBytes = dmgFile is null ? (long?)null : new FileInfo(dmgFile).Length;
+
         var (total, zip, fontBytes, native) = Measure(publish, fonts, mainExe);
 
         if (platform is not null)
         {
-            // The CI check: the size and zip limits of the check command, exit 1 above them, no CSV.
+            // The CI check: the size and zip limits of the check command, exit 1 above them, no CSV. The bundle and the image are judged only when given.
             var measured = new Dictionary<string, double?> { ["size"] = total / (double)Stats.MiB, ["zip"] = zip / (double)Stats.MiB };
+            List<string> keys = ["size", "zip"];
+            if (appBytes is { } ab)
+            {
+                measured["app"] = ab / (double)Stats.MiB;
+                keys.Add("app");
+            }
+
+            if (dmgBytes is { } db)
+            {
+                measured["dmg"] = db / (double)Stats.MiB;
+                keys.Add("dmg");
+            }
+
             var pdf = target == "pdf";
-            var results = pdf ? CheckCommand.JudgePdf(platform, measured, "size", "zip") : CheckCommand.Judge(platform, measured, "size", "zip");
+            var results = pdf ? CheckCommand.JudgePdf(platform, measured, [.. keys]) : CheckCommand.Judge(platform, measured, [.. keys]);
             Console.WriteLine($"Published {target} ({check}):");
             Console.Write(CheckCommand.Render(results));
             if (pdf && CheckCommand.PdfHasNoLimits(platform))
@@ -941,7 +972,18 @@ static class SizeCommand
         var machine = o.Get("--machine") ?? Environment.MachineName;
         var mode = o.Get("--mode") ?? (target is "gallery" or "pdf" ? target : "frame");
 
-        var rows = new[] { ("total", total), ("zip", zip), ("fonts", fontBytes), ("native", native) }
+        List<(string, long)> sizes = [("total", total), ("zip", zip), ("fonts", fontBytes), ("native", native)];
+        if (appBytes is { } appRow)
+        {
+            sizes.Add(("app", appRow));
+        }
+
+        if (dmgBytes is { } dmgRow)
+        {
+            sizes.Add(("dmg", dmgRow));
+        }
+
+        var rows = sizes
             .Select(r => Lines.Csv(machine, mode, "size", r.Item1, r.Item2, "bytes"))
             .ToList();
         foreach (var row in rows)
@@ -1177,6 +1219,8 @@ static class CheckCommand
         ("memory", "memory (MiB)"),
         ("size", "size (MiB)"),
         ("zip", "zip (MiB)"),
+        ("app", "app bundle (MiB)"),
+        ("dmg", "disk image (MiB)"),
     ];
 
     // THE limit table of the PDF app (target pdf), the only place for these numbers. The source is the entry "Raffica PDF speed budgets
@@ -1187,7 +1231,11 @@ static class CheckCommand
     // budget x 1.25 once (Stats.Limit). "scroll" is the median of the p99 of the frame gaps. "zip" has a budget like the gallery's
     // (the size check judges size and zip together; a metric without a budget would be "unrecorded" and fail). Size and zip are the ones of the entry
     // "Raffica PDF: published size budgets after the OCR payload (M2.5)" (the owner chose to count the OCR library and its language data). Never loosen a number
-    // here to make a check pass; a change is a new decisions entry. macOS has none (indicative only).
+    // here to make a check pass; a change is a new decisions entry. macOS is not exempt (only the gallery is indicative there): its entry is still
+    // empty, so a check of the PDF app on macOS exits 2 ("no limits recorded") until the M3.3 measurements of the CI and of the owner's Intel Mac
+    // fill it. The time and memory limits of the macos entry bind only the owner's Intel Mac (measure.yml, platform macos); the size limits bind
+    // both architectures through the one entry (the budget from the larger of the two measured medians). The metrics "app" (bundle bytes) and
+    // "dmg" (file bytes) exist for macOS only and are judged only when given (size --app, --dmg, or rows size/app and size/dmg).
     private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
     {
         ["windows"] = new() { ["cold"] = 200, ["warm"] = 210, ["thousand"] = 200, ["second"] = 20, ["scroll"] = 20, ["memory"] = 40, ["size"] = 66, ["zip"] = 29 },
@@ -1204,9 +1252,9 @@ static class CheckCommand
     /// <summary>The limit table of the PDF app in force.</summary>
     public static Dictionary<string, Dictionary<string, double>> PdfTable => PdfTableForTests ?? s_pdfBudgets;
 
-    /// <summary>True when a binding platform (not macOS) of the PDF app has no limit at all, so a check cannot pass.</summary>
+    /// <summary>True when a platform of the PDF app (macOS included) has no limit at all, so a check cannot pass.</summary>
     public static bool PdfHasNoLimits(string platform) =>
-        platform != "macos" && (!PdfTable.TryGetValue(platform, out var table) || table.Count == 0);
+        !PdfTable.TryGetValue(platform, out var table) || table.Count == 0;
 
     /// <summary>The limit (budget x 1.25) of a metric on a platform; null where there is none (macOS).</summary>
     public static double? LimitOf(string platform, string key) => LimitOf(s_budgets, platform, key);
@@ -1224,16 +1272,19 @@ static class CheckCommand
 
     /// <summary>
     /// Verdicts for the measured values (<paramref name="only"/> restricts the metrics): <c>ok</c> (at or below the limit), <c>over</c>,
-    /// <c>missing</c> (a required value is not there) or <c>indicative</c> (the platform has no limits).
+    /// <c>missing</c> (a required value is not there) or <c>indicative</c> (the gallery on macOS has no limits).
     /// </summary>
     public static List<Result> Judge(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only) =>
-        Judge(s_budgets, s_metrics, platform, measured, only);
+        Judge(s_budgets, s_metrics, platform, measured, only, indicativeOnMac: true);
 
-    /// <summary>The verdicts of the PDF app against <see cref="PdfTable"/>; a binding platform without a limit for a metric is <c>unrecorded</c>.</summary>
+    /// <summary>
+    /// The verdicts of the PDF app against <see cref="PdfTable"/>; a platform without a limit for a metric (macOS included) is <c>unrecorded</c>.
+    /// <c>app</c> and <c>dmg</c> exist for macOS only and are judged only when named in <paramref name="only"/>.
+    /// </summary>
     public static List<Result> JudgePdf(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only) =>
-        Judge(PdfTable, s_pdfMetrics, platform, measured, only);
+        Judge(PdfTable, [.. s_pdfMetrics.Where(m => m.Key is not ("app" or "dmg") || (platform == "macos" && only.Contains(m.Key)))], platform, measured, only, indicativeOnMac: false);
 
-    private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only)
+    private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only, bool indicativeOnMac)
     {
         var results = new List<Result>();
         foreach (var (key, label) in metrics.Where(m => only.Length == 0 || only.Contains(m.Key)))
@@ -1242,8 +1293,8 @@ static class CheckCommand
             var limit = LimitOf(budgets, platform, key);
             double? budget = limit / Stats.Tolerance;
 
-            // A binding platform whose limit is not recorded must not pass silently; macOS is indicative only.
-            var verdict = limit is null ? (platform == "macos" ? "indicative" : "unrecorded") : value is null ? "missing" : value > limit ? "over" : "ok";
+            // A binding platform whose limit is not recorded must not pass silently; only the gallery on macOS is indicative.
+            var verdict = limit is null ? (indicativeOnMac && platform == "macos" ? "indicative" : "unrecorded") : value is null ? "missing" : value > limit ? "over" : "ok";
             results.Add(new Result(key, label, value, budget, limit, verdict));
         }
 
@@ -1283,7 +1334,19 @@ static class CheckCommand
             ["size"] = Median("size", "total"),
             ["zip"] = Median("size", "zip"),
         };
-        return JudgePdf(platform, measured);
+
+        // The bundle and the image are judged only when the rows are there (the CSV of a size run with --app and --dmg).
+        List<string> only = [.. s_pdfMetrics.Select(m => m.Key).Where(k => k is not ("app" or "dmg"))];
+        foreach (var key in new[] { "app", "dmg" })
+        {
+            if (Median("size", key) is { } bytes)
+            {
+                measured[key] = bytes;
+                only.Add(key);
+            }
+        }
+
+        return JudgePdf(platform, measured, [.. only]);
     }
 
     private static double? MedianOf(IReadOnlyList<BudgetsCommand.Row> rows, string mode, string @case, string? run)
@@ -1377,7 +1440,7 @@ static class CheckCommand
         var pdf = target == "pdf";
         var results = pdf ? EvaluatePdf(platform, rows) : Evaluate(platform, rows);
         var text = new StringBuilder(pdf ? $"## PDF app measurement ({platform})\n\n" : $"## Frame measurement ({platform})\n\n");
-        if (platform == "macos")
+        if (platform == "macos" && !pdf)
         {
             text.AppendLine("macOS has no limits; the values are indicative only.").AppendLine();
         }
@@ -1413,7 +1476,7 @@ static class CheckCommand
         }
 
         // A missing or unreadable CSV fails the check on every platform that has limits.
-        var failed = ExitCode(results) == 1 || (platform != "macos" && problems.Count > 0);
+        var failed = ExitCode(results) == 1 || ((platform != "macos" || pdf) && problems.Count > 0);
         Console.WriteLine(failed ? "check: FAILED (a value is over its limit, a limit is not recorded or a CSV is missing)" : "check: ok");
         return failed ? 1 : 0;
     }
@@ -1637,7 +1700,7 @@ static class SelfTest
     {
         ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thousand"] = 200, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16 },
         ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thousand"] = 240, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16 },
-        ["macos"] = [],
+        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thousand"] = 250, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["app"] = 20, ["dmg"] = 10 },
     };
 
     /// <summary>Rows of the PDF app with every metric at <c>limit + delta</c> of the platform in the test table; <paramref name="only"/> restricts the delta to one metric, <paramref name="without"/> leaves a metric out.</summary>
@@ -1704,7 +1767,7 @@ static class SelfTest
         Expect("pdf limits: windows has limits", CheckCommand.PdfHasNoLimits("windows"), false);
         Expect("pdf limits: linux has limits", CheckCommand.PdfHasNoLimits("linux"), false);
         Expect("pdf limits: every binding metric is recorded", CheckCommand.PdfTable["windows"].Count == s_pdfKeys.Length && CheckCommand.PdfTable["linux"].Count == s_pdfKeys.Length, true);
-        Expect("pdf limits: macOS has none and is indicative, not missing", CheckCommand.PdfTable["macos"].Count == 0 && !CheckCommand.PdfHasNoLimits("macos"), true);
+        Expect("pdf limits: macOS is not exempt: an empty table has no limits (until the M3.3 measurements fill it)", CheckCommand.PdfTable["macos"].Count == 0 && CheckCommand.PdfHasNoLimits("macos"), true);
 
         // The committed first measurements (CSVs of the owner's runs) are inside the recorded limits: the same files `check` is run on.
         RecordedMeasurementsTests();
@@ -1730,7 +1793,8 @@ static class SelfTest
         var text = File.Exists(summary) ? File.ReadAllText(summary) : string.Empty;
         Expect("check pdf: the summary names the missing limits", text.Contains(CheckCommand.NoPdfLimits, StringComparison.Ordinal), true);
         Expect("check pdf: the summary still has the medians", text.Contains("| 1000 pages (ms) |", StringComparison.Ordinal), true);
-        Expect("check pdf macos: indicative with an empty table", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "macos", "--in", csv], out _)!), 0);
+        Expect("check pdf macos: an empty table exits 2", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "macos", "--in", csv], out _)!), 2);
+        Expect("check gallery macos: still indicative with an empty table", CheckCommand.Execute(Options.Parse(["--platform", "macos", "--in", csv], out _)!), 0);
         Expect("check: an unknown target is a usage error", CheckCommand.Execute(Options.Parse(["--target", "amiga", "--platform", "windows", "--in", csv], out _)!), 2);
         CheckCommand.PdfTableForTests = null;
 
@@ -1739,7 +1803,7 @@ static class SelfTest
         try
         {
             Expect("pdf limits (test table): windows cold", CheckCommand.LimitOf(CheckCommand.PdfTable, "windows", "cold"), 125);
-            foreach (var platform in new[] { "windows", "linux" })
+            foreach (var platform in new[] { "windows", "linux", "macos" })
             {
                 Expect($"check pdf {platform}: every value exactly at its limit passes", CheckCommand.ExitCode(CheckCommand.EvaluatePdf(platform, PdfRows(platform))), 0);
                 Expect($"check pdf {platform}: verdicts at the limit are ok", CheckCommand.EvaluatePdf(platform, PdfRows(platform)).All(r => r.Verdict == "ok"), true);
@@ -1757,8 +1821,17 @@ static class SelfTest
             }
 
             Expect("check pdf: the scroll metric is the p99 of the rows, not the maximum", CheckCommand.EvaluatePdf("windows", PdfRows("windows")).First(r => r.Key == "scroll").Measured, 37.5);
-            Expect("check pdf macos: every value passes, indicative", CheckCommand.EvaluatePdf("macos", PdfRows("windows", delta: 500)).All(r => r.Verdict == "indicative"), true);
-            Expect("check pdf macos: exit 0", CheckCommand.ExitCode(CheckCommand.EvaluatePdf("macos", PdfRows("windows", delta: 500))), 0);
+            Expect("check pdf macos: huge values are over, not indicative", CheckCommand.EvaluatePdf("macos", PdfRows("macos", delta: 500)).All(r => r.Verdict == "over"), true);
+            Expect("check pdf macos: exit 1 with huge values", CheckCommand.ExitCode(CheckCommand.EvaluatePdf("macos", PdfRows("macos", delta: 500))), 1);
+            Expect("check pdf windows: no app and dmg metric", CheckCommand.EvaluatePdf("windows", PdfRows("windows")).Any(r => r.Key is "app" or "dmg"), false);
+            Expect("check pdf macos: app and dmg are judged only with rows", CheckCommand.EvaluatePdf("macos", PdfRows("macos")).Any(r => r.Key is "app" or "dmg"), false);
+            var withBundle = PdfRows("macos");
+            withBundle.Add(new("pc", "pdf", "size", "app", 25 * MiBd, "bytes"));
+            withBundle.Add(new("pc", "pdf", "size", "dmg", 12.5 * MiBd + 1, "bytes"));
+            var bundleVerdicts = CheckCommand.EvaluatePdf("macos", withBundle);
+            Expect("check pdf macos: the app row at its limit is ok", bundleVerdicts.First(r => r.Key == "app").Verdict, "ok");
+            Expect("check pdf macos: the dmg row one byte above is over", bundleVerdicts.First(r => r.Key == "dmg").Verdict, "over");
+            Expect("check pdf macos: the size rows keep their verdicts next to app and dmg", bundleVerdicts.Count(r => r.Verdict == "ok"), s_pdfKeys.Length + 1);
 
             PdfCsv(csv, PdfRows("windows"));
             Expect("check command pdf: CSVs at the limit exit 0", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "windows", "--in", csv], out _)!), 0);
@@ -1914,11 +1987,15 @@ static class SelfTest
         const long Win = 50 * 1024 * 1024; // 40 MiB x 1.25 (test table)
         Expect("size --check pdf (test table): exactly at the limit passes", Check("win-x64", Win), 0);
         Expect("size --check pdf (test table): one byte above fails", Check("win-x64", Win + 1), 1);
-        Expect("size --check pdf (test table): macOS is indicative", Check("osx-x64", Win * 2), 0);
+        const long Mac = 56 * 1024 * 1024 + 256 * 1024; // 45 MiB x 1.25 (test table)
+        Expect("size --check pdf (test table): macOS exactly at the limit passes", Check("osx-x64", Mac), 0);
+        Expect("size --check pdf (test table): macOS one byte above fails", Check("osx-x64", Mac + 1), 1);
+        Expect("size --check pdf (test table): the same size passes on arm64 and x64", Check("osx-arm64", Mac), 0);
+        MacBundleTests(root, fonts);
         CheckCommand.PdfTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
         Expect("size --check pdf: an empty table exits 2", Check("win-x64", 10), 2);
         Expect("size --check pdf: an empty table exits 2 on Linux", Check("linux-x64", 10), 2);
-        Expect("size --check pdf: macOS stays indicative", Check("osx-x64", 10), 0);
+        Expect("size --check pdf: an empty table exits 2 on macOS", Check("osx-x64", 10), 2);
 
         // The recorded table: 66 MiB x 1.25 = 82.5 MiB on Windows, 65 MiB x 1.25 = 81.25 MiB on Linux (the zip of the stand-in file is far below 36.25 MiB).
         CheckCommand.PdfTableForTests = null;
@@ -1926,9 +2003,64 @@ static class SelfTest
         Expect("size --check pdf (recorded): windows one byte above 82.5 MiB fails", Check("win-x64", 82 * 1024 * 1024 + 512 * 1024 + 1), 1);
         Expect("size --check pdf (recorded): linux exactly at 81.25 MiB passes", Check("linux-x64", 81 * 1024 * 1024 + 256 * 1024), 0);
         Expect("size --check pdf (recorded): linux one byte above 81.25 MiB fails", Check("linux-x64", 81 * 1024 * 1024 + 256 * 1024 + 1), 1);
-        Expect("size --check pdf (recorded): macOS stays indicative", Check("osx-x64", 200 * 1024 * 1024), 0);
+        Expect("size --check pdf (recorded): macOS has no recorded limit yet and exits 2", Check("osx-x64", 10), 2);
         CheckCommand.PdfTableForTests = PdfTestTable();
         Directory.Delete(root, recursive: true);
+    }
+
+    /// <summary>The metrics <c>app</c> (bundle bytes) and <c>dmg</c> (file bytes) of <c>size</c>, with the TEST-ONLY macOS limits app 25 MiB and dmg 12.5 MiB.</summary>
+    private static void MacBundleTests(string root, string fonts)
+    {
+        var bundle = root + "-app";
+        var dmg = root + ".dmg";
+
+        int Check(string rid, long appBytes, long? dmgBytes, string target = "pdf")
+        {
+            foreach (var dir in new[] { root, bundle })
+            {
+                if (Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+
+                Directory.CreateDirectory(dir);
+            }
+
+            File.WriteAllBytes(Path.Combine(root, "RafficaPdf.exe"), new byte[10]);
+            Directory.CreateDirectory(Path.Combine(bundle, "Contents", "MacOS"));
+            File.WriteAllBytes(Path.Combine(bundle, "Contents", "MacOS", "RafficaPdf"), new byte[appBytes - 4]);
+            File.WriteAllBytes(Path.Combine(bundle, "Contents", "Info.plist"), new byte[4]);
+            List<string> args = ["--publish-dir", root, "--fonts-dir", fonts, "--target", target, "--check", rid, "--app", bundle];
+            if (dmgBytes is { } d)
+            {
+                File.WriteAllBytes(dmg, new byte[d]);
+                args.AddRange(["--dmg", dmg]);
+            }
+
+            return SizeCommand.Execute(Options.Parse([.. args], out _)!);
+        }
+
+        const long App = 25 * 1024 * 1024;
+        const long Dmg = 12 * 1024 * 1024 + 512 * 1024;
+        Expect("size --check --app --dmg: both exactly at their limits pass", Check("osx-arm64", App, Dmg), 0);
+        Expect("size --check --app --dmg: the app one byte above fails", Check("osx-arm64", App + 1, Dmg), 1);
+        Expect("size --check --app --dmg: the dmg one byte above fails", Check("osx-x64", App, Dmg + 1), 1);
+        Expect("size --check --app: a missing --dmg skips only that row", Check("osx-x64", App, null), 0);
+        Expect("size --check --app: the app is still judged without --dmg", Check("osx-x64", App + 1, null), 1);
+        Expect("size --check --app on Windows is a usage error", Check("win-x64", App, null), 2);
+        Expect("size --check --app for the gallery is a usage error", Check("osx-x64", App, null, "gallery"), 2);
+
+        // Without --check: the bytes as rows of the size CSV.
+        var csv = root + "-bundle.csv";
+        File.WriteAllBytes(dmg, new byte[1000]);
+        var exit = SizeCommand.Execute(Options.Parse(["--target", "pdf", "--publish-dir", root, "--fonts-dir", fonts, "--app", bundle, "--dmg", dmg, "--out", csv], out _)!);
+        var lines = File.Exists(csv) ? File.ReadAllLines(csv) : [];
+        Expect("size --app --dmg --out: exit 0", exit, 0);
+        Expect("size --app --dmg --out: the app row is the bundle bytes", lines.Any(l => l.EndsWith(",pdf,size,app," + App + ",bytes", StringComparison.Ordinal)), true);
+        Expect("size --app --dmg --out: the dmg row is the file bytes", lines.Any(l => l.EndsWith(",pdf,size,dmg,1000,bytes", StringComparison.Ordinal)), true);
+        Expect("size --dmg: a missing file is a usage error", SizeCommand.Execute(Options.Parse(["--target", "pdf", "--publish-dir", root, "--fonts-dir", fonts, "--dmg", dmg + ".nope", "--out", csv], out _)!), 2);
+        Directory.Delete(bundle, recursive: true);
+        File.Delete(dmg);
     }
 
     private static void SizeCheckTests()
