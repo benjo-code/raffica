@@ -3,7 +3,7 @@
 // Checks the dependencies of a native library. The format is read from the first four bytes of the file.
 // ELF (Linux): the highest GLIBC and GLIBCXX version it needs and its NEEDED libraries.
 //   dotnet run tools/check-binary.cs -- <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]...
-// Mach-O (macOS, thin 64-bit or universal): architecture, deployment target and dependencies (otool -L, lipo -archs, vtool -show-build; Mac only).
+// Mach-O (macOS, thin 64-bit or universal): architecture, deployment target and dependencies (otool -L without the file's own install name from otool -D, lipo -archs, vtool -show-build; Mac only).
 // A universal (fat) file is accepted for a *.dylib only (the NuGet natives of Avalonia, SkiaSharp and HarfBuzz are universal): it must hold the
 // expected slice and that slice is checked. The executables stay single-architecture. Any other format is a failure.
 //   dotnet run tools/check-binary.cs -- <file> --arch <x86_64|arm64> --max-macos <x.y> --bundle <folder>
@@ -237,11 +237,31 @@ static partial class MachORules
     // Only a dynamic library may be universal; the executables (RafficaPdf, raffica) hold exactly one architecture.
     public static bool MayBeUniversal(string fileName) => fileName.EndsWith(".dylib", StringComparison.OrdinalIgnoreCase);
 
+    // Only a dynamic library has an install name (LC_ID_DYLIB); the executables have none, so otool -D is not asked for them.
+    public static bool MayHaveId(string fileName) => fileName.EndsWith(".dylib", StringComparison.OrdinalIgnoreCase);
+
+    // otool -D: a header line ("f:" or "f (architecture arm64):"), then the install name on the next line; a file without one prints the header alone.
+    public static string? OwnId(string otoolIdOutput)
+    {
+        var lines = otoolIdOutput.Split('\n');
+        for (var i = 1; i < lines.Length; i++)
+        {
+            var id = lines[i].Trim();
+            if (id.Length > 0)
+            {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
     // otool and vtool read the first slice of a universal file unless told which one: name the expected slice (a thin file needs nothing).
     public static string[] SliceArguments(bool universal, string expectedArch) => universal ? ["-arch", expectedArch] : [];
 
     // allowUniversal: the file may hold several slices, but the expected one must be among them (the caller then reads that slice only).
-    public static List<string> Violations(string otoolOutput, string lipoArchs, string vtoolOutput, string expectedArch, int[] maxMacos, Func<string, bool> bundleHasFile, bool allowUniversal = false)
+    // otoolIdOutput: the text of otool -D; otool -L lists the file's own install name first, and that one entry is not a dependency (only that entry, and only when it equals the id).
+    public static List<string> Violations(string otoolOutput, string lipoArchs, string vtoolOutput, string expectedArch, int[] maxMacos, Func<string, bool> bundleHasFile, bool allowUniversal = false, string otoolIdOutput = "")
     {
         var problems = new List<string>();
         var archs = lipoArchs.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
@@ -268,6 +288,11 @@ static partial class MachORules
         }
 
         var dependencies = Dependencies(otoolOutput, out var unparsable);
+        if (OwnId(otoolIdOutput) is { } ownId && dependencies.Count > 0 && dependencies[0] == ownId)
+        {
+            dependencies.RemoveAt(0);
+        }
+
         if (dependencies.Count == 0)
         {
             problems.Add("no dependency found in the otool -L output (every dylib links libSystem): the output is empty or not understood");
@@ -434,14 +459,15 @@ static class CheckBinary
         var otool = RunTool("otool", [.. slice, "-L", file]);
         var lipo = RunTool("lipo", ["-archs", file]);
         var vtool = RunTool("vtool", [.. slice, "-show-build", file]);
-        if (otool is null || lipo is null || vtool is null)
+        var otoolId = MachORules.MayHaveId(Path.GetFileName(file)) ? RunTool("otool", [.. slice, "-D", file]) : string.Empty;
+        if (otool is null || lipo is null || vtool is null || otoolId is null)
         {
             return false;
         }
 
         var folder = Path.GetFullPath(bundle);
         var problems = MachORules.Violations(otool, lipo, vtool, arch, maxMacos, name => File.Exists(Path.Combine(folder, name)),
-            allowUniversal: MachORules.MayBeUniversal(Path.GetFileName(file)));
+            allowUniversal: MachORules.MayBeUniversal(Path.GetFileName(file)), otoolIdOutput: otoolId);
         if (problems.Count == 0)
         {
             Console.WriteLine($"{file}: ok");
@@ -473,7 +499,7 @@ static class CheckBinary
             p.WaitForExit();
             if (p.ExitCode != 0)
             {
-                Console.Error.WriteLine($"{arguments[^1]}: {tool} {arguments[0]} failed: {stderrTask.Result.Trim()}");
+                Console.Error.WriteLine($"{arguments[^1]}: {tool} {string.Join(' ', arguments[..^1])} failed: {stderrTask.Result.Trim()}");
                 return null;
             }
 
@@ -564,7 +590,30 @@ static class SelfTest
         Expect("macho: a universal file gets -arch for otool and vtool", string.Join(' ', MachORules.SliceArguments(true, "arm64")), "-arch arm64");
         Expect("macho: a thin file gets no -arch", MachORules.SliceArguments(false, "arm64").Length, 0);
         Expect("macho: only a .dylib may be universal", (MachORules.MayBeUniversal("libSkiaSharp.dylib"), MachORules.MayBeUniversal("RafficaPdf"), MachORules.MayBeUniversal("raffica")), (true, false, false));
-        Expect("format: universal Mach-O magic CA FE BA BE", CheckBinary.DetectFormat([0xCA, 0xFE, 0xBA, 0xBE]), BinaryFormat.MachO);
+        // A dylib's own install name (LC_ID_DYLIB) is the first entry of otool -L and is not a dependency; otool -D names it.
+        const string AvaloniaL = "libAvaloniaNative.dylib (architecture arm64):\n\t/usr/local/lib/libAvalonia.Native.OSX.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n";
+        const string AvaloniaD = "libAvaloniaNative.dylib (architecture arm64):\n/usr/local/lib/libAvalonia.Native.OSX.dylib\n";
+        const string PdfiumL = "libpdfium.dylib:\n\t./libpdfium.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n";
+        const string PdfiumD = "libpdfium.dylib:\n./libpdfium.dylib\n";
+        const string IdPlusLocalL = "libx.dylib:\n\t/usr/lib/libx.dylib (compatibility version 1.0.0)\n\t/usr/local/lib/libfoo.dylib (compatibility version 1.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n";
+        const string IdPlusLocalD = "libx.dylib:\n/usr/lib/libx.dylib\n";
+        const string SameNameL = "libA.dylib:\n\t/usr/lib/libA.dylib (compatibility version 1.0.0)\n\t/opt/homebrew/lib/libA.dylib (compatibility version 1.0.0)\n";
+        const string ExeL = "RafficaPdf:\n\t/usr/local/lib/libfoo.dylib (compatibility version 1.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n";
+        const string ExeD = "RafficaPdf:\n";
+        Expect("macho: an own install name under /usr/local is not a dependency (universal slice)", MachORules.Violations(AvaloniaL, "x86_64 arm64", Vtool13, "arm64", max14, None, allowUniversal: true, otoolIdOutput: AvaloniaD).Count, 0);
+        Expect("macho: the same own install name without otool -D is still refused", MachORules.Violations(AvaloniaL, "x86_64 arm64", Vtool13, "arm64", max14, None, allowUniversal: true).Count, 1);
+        Expect("macho: an own install name ./libpdfium.dylib is not a dependency", MachORules.Violations(PdfiumL, "arm64", Vtool13, "arm64", max14, None, allowUniversal: true, otoolIdOutput: PdfiumD).Count, 0);
+        Expect("macho: a bad dependency next to the own id is still named", MachORules.Violations(IdPlusLocalL, "arm64", Vtool13, "arm64", max14, None, allowUniversal: true, otoolIdOutput: IdPlusLocalD).Where(p => p.Contains("/usr/local/lib/libfoo.dylib", StringComparison.Ordinal)).Count(), 1);
+        Expect("macho: the own id is not reported when a bad dependency is", MachORules.Violations(IdPlusLocalL, "arm64", Vtool13, "arm64", max14, None, allowUniversal: true, otoolIdOutput: IdPlusLocalD).Count, 1);
+        Expect("macho: a dependency that only shares the id's file name is not hidden", MachORules.Violations(SameNameL, "arm64", Vtool13, "arm64", max14, None, allowUniversal: true, otoolIdOutput: "libA.dylib:\n/usr/lib/libA.dylib\n").Any(p => p.Contains("/opt/homebrew/lib/libA.dylib", StringComparison.Ordinal)), true);
+        Expect("macho: an executable has no id and a bad dependency is refused", MachORules.Violations(ExeL, "arm64", Vtool13, "arm64", max14, None, otoolIdOutput: ExeD).Any(p => p.Contains("/usr/local/lib/libfoo.dylib", StringComparison.Ordinal)), true);
+        Expect("macho: a dylib with an id and nothing else has no dependency and fails", MachORules.Violations(PdfiumL.Replace("\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n", string.Empty, StringComparison.Ordinal), "arm64", Vtool13, "arm64", max14, None, allowUniversal: true, otoolIdOutput: PdfiumD).Count, 1);
+        Expect("macho: the id is read from otool -D (thin)", MachORules.OwnId(PdfiumD), "./libpdfium.dylib");
+        Expect("macho: the id is read from otool -D (slice header)", MachORules.OwnId(AvaloniaD), "/usr/local/lib/libAvalonia.Native.OSX.dylib");
+        Expect("macho: an executable has no id", MachORules.OwnId(ExeD), (string?)null);
+        Expect("macho: empty otool -D output has no id", MachORules.OwnId(string.Empty), (string?)null);
+        Expect("macho: otool -D is asked for dylibs only (an executable has no id)", (MachORules.MayHaveId("libpdfium.dylib"), MachORules.MayHaveId("RafficaPdf")), (true, false));
+        Expect("format: universal Mach-O magic CA FE BA BE",CheckBinary.DetectFormat([0xCA, 0xFE, 0xBA, 0xBE]), BinaryFormat.MachO);
         Expect("format: universal 64-bit Mach-O magic CA FE BA BF", CheckBinary.DetectFormat([0xCA, 0xFE, 0xBA, 0xBF]), BinaryFormat.MachO);
         Expect("format: CA FE BA BE is universal, CF FA ED FE is thin", (CheckBinary.IsUniversal([0xCA, 0xFE, 0xBA, 0xBE]), CheckBinary.IsUniversal([0xCF, 0xFA, 0xED, 0xFE])), (true, false));
         Expect("format: a file of an unknown format is a failure (never an ELF check)", CheckUnknownFile([0x4D, 0x5A, 0x90, 0x00]), 1);
