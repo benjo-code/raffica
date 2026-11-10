@@ -18,6 +18,7 @@
 //   dotnet run tools/package.cs -- runtime-fetch [--out <file>]                         (Linux)
 //   dotnet run tools/package.cs -- appimage --layout <dir> --version <x.y.z> --out <RafficaPdf-x.y.z-x86_64.AppImage> [--runtime <file>] [--repo <root>]   (Linux)
 //   dotnet run tools/package.cs -- appimage-smoke <file.AppImage> [--repo <root>]        (Linux)
+//   dotnet run tools/package.cs -- macos-app --rid <osx-arm64|osx-x64> --app <dir> --cli <dir> --out <dir> --version <x.y.z> [--native <dir>] [--repo <root>]   (macOS)
 //   dotnet run tools/package.cs -- selftest
 // Run from the repository root. Only inno-install and runtime-fetch use the network (one download each, with a pinned SHA-256).
 
@@ -52,6 +53,7 @@ static class Cli
         "  runtime-sources --out <dir> [--from <dir>]                        downloads the sources of the AppImage runtime (libfuse, type2-runtime; SHA-256 checked) for the release\n" +
         "  appimage --layout <dir> --version <x.y.z> --out <file> [--runtime <file>]   builds RafficaPdf-<version>-x86_64.AppImage (Linux, mksquashfs)\n" +
         "  appimage-smoke <file.AppImage>                                    checks the runtime, unpacks, runs the CLI, starts the app without FUSE (Linux)\n" +
+        "  macos-app --rid <osx-arm64|osx-x64> --app <dir> --cli <dir> --out <dir> --version <x.y.z> [--native <dir>]   builds \"Raffica PDF.app\" with icon and ad-hoc signature (macOS only)\n" +
         "  selftest                                                          checks the parts of the tool";
 
     // Command name -> handler (receives the arguments after the command name). Add new subcommands here.
@@ -75,6 +77,7 @@ static class Cli
         ["runtime-sources"] = RuntimeSourcesCommand.Run,
         ["appimage"] = AppImage.Run,
         ["appimage-smoke"] = AppImageSmoke.Run,
+        ["macos-app"] = MacApp.Run,
         ["selftest"] = SelfTest.Run,
     };
 
@@ -259,6 +262,7 @@ static class Layout
     {
         "win-x64" => "pdfium.dll",
         "linux-x64" => "libpdfium.so",
+        "osx-arm64" or "osx-x64" => "libpdfium.dylib",
         _ => throw new ArgumentException($"unknown RID: {rid}", nameof(rid)),
     };
 
@@ -3008,6 +3012,7 @@ static class NativeFiles
     {
         "win-x64" => ["tesseract.dll", .. Tessdata],
         "linux-x64" => ["libtesseract.so", .. Tessdata],
+        "osx-arm64" or "osx-x64" => ["libtesseract.dylib", .. Tessdata],
         _ => Tessdata,
     };
 }
@@ -3459,6 +3464,354 @@ static class RefInputRule
     }
 }
 
+// The macOS app bundle "Raffica PDF.app" (Milestone 3.3): the layout of Contents/, Info.plist, the icon and the ad-hoc signature.
+// macOS only (sips, iconutil, plutil, codesign); the pure parts (InfoPlist, MinSystemVersion, Arch) run everywhere.
+static partial class MacApp
+{
+    public const string BundleName = "Raffica PDF.app";
+    public const string BundleId = "io.github.benjo-code.raffica.pdf";
+    private const string Usage = "Usage: macos-app --rid <osx-arm64|osx-x64> --app <publish dir> --cli <publish dir> --out <dir> --version <x.y.z> [--native <dir>] [--repo <dir>]";
+
+    [GeneratedRegex(@"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")]
+    private static partial Regex StableVersion();
+
+    public static string Arch(string rid) => rid switch
+    {
+        "osx-arm64" => "arm64",
+        "osx-x64" => "x64",
+        _ => throw new ArgumentException($"unknown RID: {rid}", nameof(rid)),
+    };
+
+    // Reads MACOS_DEPLOYMENT_TARGET from the text of packaging/native/versions.txt (the one place the minimum is written down).
+    public static string MinSystemVersion(string versionsFileText)
+    {
+        foreach (var raw in versionsFileText.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith("MACOS_DEPLOYMENT_TARGET=", StringComparison.Ordinal))
+            {
+                var value = line["MACOS_DEPLOYMENT_TARGET=".Length..].Trim();
+                return value.Length > 0 ? value : throw new IOException("MACOS_DEPLOYMENT_TARGET is empty in versions.txt");
+            }
+        }
+
+        throw new IOException("MACOS_DEPLOYMENT_TARGET is missing in versions.txt");
+    }
+
+    // Only stable versions have a numeric plist form (CFBundleVersion); callers check with IsStable first.
+    public static bool IsStable(string version) => StableVersion().IsMatch(version);
+
+    public static string InfoPlist(string version, string minSystemVersion)
+    {
+        var v = System.Security.SecurityElement.Escape(version);
+        var m = System.Security.SecurityElement.Escape(minSystemVersion);
+        return $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>CFBundleIdentifier</key>
+              <string>{BundleId}</string>
+              <key>CFBundleExecutable</key>
+              <string>RafficaPdf</string>
+              <key>CFBundleName</key>
+              <string>Raffica PDF</string>
+              <key>CFBundleDisplayName</key>
+              <string>Raffica PDF</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>{v}</string>
+              <key>CFBundleVersion</key>
+              <string>{v}</string>
+              <key>CFBundleIconFile</key>
+              <string>RafficaPdf</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>LSApplicationCategoryType</key>
+              <string>public.app-category.productivity</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>{m}</string>
+              <key>CFBundleDocumentTypes</key>
+              <array>
+                <dict>
+                  <key>CFBundleTypeName</key>
+                  <string>PDF Document</string>
+                  <key>CFBundleTypeRole</key>
+                  <string>Editor</string>
+                  <key>LSHandlerRank</key>
+                  <string>Alternate</string>
+                  <key>LSItemContentTypes</key>
+                  <array>
+                    <string>com.adobe.pdf</string>
+                  </array>
+                </dict>
+              </array>
+            </dict>
+            </plist>
+
+            """;
+    }
+
+    public static int Run(string[] args)
+    {
+        var parsed = Options.Parse(args, "--rid", "--app", "--cli", "--out", "--version", "--native", "--repo");
+        if (parsed is not { } p || p.Positional.Count != 0 ||
+            !p.Named.TryGetValue("--rid", out var rid) || !p.Named.TryGetValue("--app", out var app) ||
+            !p.Named.TryGetValue("--cli", out var cli) || !p.Named.TryGetValue("--out", out var output) ||
+            !p.Named.TryGetValue("--version", out var version))
+        {
+            Console.Error.WriteLine(Usage);
+            return 2;
+        }
+
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            Console.Error.WriteLine($"macos-app: unknown RID: {rid}");
+            return 2;
+        }
+
+        if (!IsStable(version))
+        {
+            Console.Error.WriteLine($"macos-app: only a stable version x.y.z has a plist form, not: {version}");
+            return 2;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.Error.WriteLine("macos-app: only on macOS (sips, iconutil, plutil and codesign are needed)");
+            return 2;
+        }
+
+        return Build(rid, app, cli, output, version, p.Named.GetValueOrDefault("--native"), p.Named.GetValueOrDefault("--repo", "."));
+    }
+
+    private static readonly string[] SkippedExtensions = [".pdb", ".dbg"];
+
+    private static bool Skipped(string relative) =>
+        SkippedExtensions.Contains(Path.GetExtension(relative), StringComparer.OrdinalIgnoreCase) ||
+        relative.Split('/', '\\').Any(s => s.EndsWith(".dSYM", StringComparison.OrdinalIgnoreCase));
+
+    private static IEnumerable<string> Files(string dir) =>
+        Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(dir, f))
+            .Where(r => !Skipped(r))
+            .Order(StringComparer.Ordinal);
+
+    private static int Build(string rid, string app, string cli, string output, string version, string? nativeDir, string repo)
+    {
+        var library = Layout.NativeLibrary(rid);
+        var license = Path.Combine(repo, "LICENSE");
+        var notices = Path.Combine(repo, "src", "Raffica.Pdf", "Resources", "ThirdPartyNotices.txt");
+        var icon = Path.Combine(repo, "Docs", "design", "icons", "brand", "pdf.png");
+        var versions = Path.Combine(repo, "packaging", "native", "versions.txt");
+        var bundle = Path.Combine(output, BundleName);
+        var problems = new List<string>();
+        foreach (var (label, dir, exe) in new[] { ("App", app, "RafficaPdf"), ("CLI", cli, "raffica") })
+        {
+            if (!Directory.Exists(dir))
+            {
+                problems.Add($"{label} folder missing: {dir}");
+            }
+            else
+            {
+                foreach (var need in new[] { exe, library })
+                {
+                    if (!File.Exists(Path.Combine(dir, need)))
+                    {
+                        problems.Add($"{label} folder does not contain {need}: {dir}");
+                    }
+                }
+            }
+        }
+
+        foreach (var file in new[] { license, notices, icon, versions })
+        {
+            if (!File.Exists(file))
+            {
+                problems.Add($"File missing: {file}");
+            }
+        }
+
+        if (Directory.Exists(app) && nativeDir is not null)
+        {
+            foreach (var target in NativeFiles.For(rid))
+            {
+                if (!File.Exists(Path.Combine(nativeDir, target)))
+                {
+                    problems.Add($"Folder --native does not contain {target}: {nativeDir}");
+                }
+
+                if (File.Exists(Path.Combine(app, target)) || File.Exists(Path.Combine(cli, target)))
+                {
+                    problems.Add($"The app or CLI folder already contains {target}; --native does not overwrite it");
+                }
+            }
+        }
+
+        // The CLI's own files (its native libraries) must be the app's, byte for byte: the bundle holds one copy next to both programs.
+        var extraFromCli = new List<string>();
+        if (Directory.Exists(app) && Directory.Exists(cli))
+        {
+            foreach (var relative in Files(cli).Where(r => r != "raffica"))
+            {
+                var inApp = Path.Combine(app, relative);
+                if (!File.Exists(inApp))
+                {
+                    extraFromCli.Add(relative);
+                }
+                else if (!File.ReadAllBytes(inApp).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(cli, relative))))
+                {
+                    problems.Add($"The CLI's {relative} differs from the app's; the bundle keeps one copy");
+                }
+            }
+        }
+
+        if (Directory.Exists(bundle))
+        {
+            problems.Add($"Bundle exists already: {bundle}");
+        }
+
+        if (problems.Count > 0)
+        {
+            foreach (var problem in problems)
+            {
+                Console.Error.WriteLine($"macos-app: {problem}");
+            }
+
+            return 1;
+        }
+
+        var work = Path.Combine(Path.GetTempPath(), "raffica-macapp-" + Guid.NewGuid().ToString("N"));
+        var success = false;
+        try
+        {
+            var macOs = Path.Combine(bundle, "Contents", "MacOS");
+            var resources = Path.Combine(bundle, "Contents", "Resources");
+            Directory.CreateDirectory(macOs);
+            Directory.CreateDirectory(resources);
+            foreach (var relative in Files(app))
+            {
+                Copy(Path.Combine(app, relative), Path.Combine(macOs, relative), relative == "RafficaPdf");
+            }
+
+            Copy(Path.Combine(cli, "raffica"), Path.Combine(macOs, "raffica"), true);
+            foreach (var relative in extraFromCli)
+            {
+                Copy(Path.Combine(cli, relative), Path.Combine(macOs, relative), false);
+            }
+
+            if (nativeDir is not null)
+            {
+                foreach (var target in NativeFiles.For(rid))
+                {
+                    Copy(Path.Combine(nativeDir, target), Path.Combine(macOs, target), false);
+                }
+            }
+
+            Copy(license, Path.Combine(resources, "LICENSE"), false);
+            Copy(notices, Path.Combine(resources, "THIRD-PARTY-NOTICES.txt"), false);
+
+            var plist = Path.Combine(bundle, "Contents", "Info.plist");
+            File.WriteAllText(plist, InfoPlist(version, MinSystemVersion(File.ReadAllText(versions))), new UTF8Encoding(false));
+            if (Step("plutil", ["-lint", plist]) != 0)
+            {
+                return 1;
+            }
+
+            Directory.CreateDirectory(work);
+            if (!MakeIcon(icon, Path.Combine(work, "RafficaPdf.iconset"), Path.Combine(resources, "RafficaPdf.icns")))
+            {
+                return 1;
+            }
+
+            // Ad-hoc signing (no Developer ID, no notarization): every Mach-O first, then the bundle, then the strict check.
+            var machO = Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)
+                .Where(f => Path.GetFileName(f) is "RafficaPdf" or "raffica" || f.EndsWith(".dylib", StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal);
+            foreach (var file in machO)
+            {
+                if (Step("codesign", ["--force", "-s", "-", file]) != 0)
+                {
+                    return 1;
+                }
+            }
+
+            if (Step("codesign", ["--force", "-s", "-", bundle]) != 0 ||
+                Step("codesign", ["--verify", "--deep", "--strict", bundle]) != 0)
+            {
+                return 1;
+            }
+
+            Console.WriteLine($"macos-app: {Arch(rid)} bundle {bundle}");
+            success = true;
+            return 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"macos-app: {e.Message}");
+            return 1;
+        }
+        finally
+        {
+            // A failed run leaves no half-built (or half-signed) bundle behind.
+            foreach (var path in success ? new[] { work } : new[] { work, bundle })
+            {
+                try
+                {
+                    Directory.Delete(path, recursive: true);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
+
+    // sips resizes, iconutil packs; the names are the ones iconutil requires (icon_<n>x<n>.png and icon_<n>x<n>@2x.png).
+    private static bool MakeIcon(string source, string iconset, string icns)
+    {
+        Directory.CreateDirectory(iconset);
+        foreach (var size in new[] { 16, 32, 128, 256, 512 })
+        {
+            foreach (var (suffix, pixels) in new[] { ("", size), ("@2x", size * 2) })
+            {
+                var target = Path.Combine(iconset, $"icon_{size}x{size}{suffix}.png");
+                if (Step("sips", ["-z", pixels.ToString(CultureInfo.InvariantCulture), pixels.ToString(CultureInfo.InvariantCulture), source, "--out", target]) != 0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return Step("iconutil", ["-c", "icns", "-o", icns, iconset]) == 0;
+    }
+
+    private static int Step(string tool, string[] arguments)
+    {
+        var code = Tool.Run(tool, arguments, out var output);
+        if (code != 0)
+        {
+            Console.Error.WriteLine($"macos-app: {tool} {string.Join(' ', arguments.Take(2))} ... ended with code {code}: {output.Trim()}");
+        }
+
+        return code;
+    }
+
+    // Executables get 0755, everything else 0644, so the bundle does not depend on the build machine's umask.
+    private static void Copy(string from, string to, bool executable)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        File.Copy(from, to);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(to, executable
+                ? UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute
+                : UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+        }
+    }
+}
+
 static class SelfTest
 {
     private static int s_checks;
@@ -3525,6 +3878,7 @@ static class SelfTest
         ManifestJobParts();
         PublicRepoWorkflowParts();
         UpdateTestBuildGuardParts();
+        MacAppParts();
         Expect("unknown command returns 2", Cli.Run(["does-not-exist"]), 2);
 
         Console.WriteLine(s_failures == 0
@@ -5316,6 +5670,137 @@ static class SelfTest
         catch (System.ComponentModel.Win32Exception)
         {
             return -1;
+        }
+    }
+
+    // macos-app: the pure parts run everywhere, the real run (sips, iconutil, codesign) only on macOS.
+    private static void MacAppParts()
+    {
+        var plist = System.Xml.Linq.XDocument.Parse(MacApp.InfoPlist("0.1.0", "15.0"));
+        var dict = plist.Root!.Element("dict")!;
+        var values = new Dictionary<string, System.Xml.Linq.XElement>(StringComparer.Ordinal);
+        var children = dict.Elements().ToList();
+        for (var i = 0; i + 1 < children.Count; i += 2)
+        {
+            values[children[i].Value] = children[i + 1];
+        }
+
+        string Text(string key) => values.TryGetValue(key, out var e) ? e.Value : "(missing)";
+        Expect("macos-app: bundle id", Text("CFBundleIdentifier"), "io.github.benjo-code.raffica.pdf");
+        Expect("macos-app: executable", Text("CFBundleExecutable"), "RafficaPdf");
+        Expect("macos-app: name", Text("CFBundleName"), "Raffica PDF");
+        Expect("macos-app: display name", Text("CFBundleDisplayName"), "Raffica PDF");
+        Expect("macos-app: package type", Text("CFBundlePackageType"), "APPL");
+        Expect("macos-app: icon file", Text("CFBundleIconFile"), "RafficaPdf");
+        Expect("macos-app: category", Text("LSApplicationCategoryType"), "public.app-category.productivity");
+        Expect("macos-app: short version", Text("CFBundleShortVersionString"), "0.1.0");
+        Expect("macos-app: bundle version", Text("CFBundleVersion"), "0.1.0");
+        Expect("macos-app: minimum system version", Text("LSMinimumSystemVersion"), "15.0");
+        Expect("macos-app: NSHighResolutionCapable is true", values.TryGetValue("NSHighResolutionCapable", out var hi) ? hi.Name.LocalName : "(missing)", "true");
+        var types = values.TryGetValue("CFBundleDocumentTypes", out var docs) ? docs.Elements("dict").ToList() : [];
+        Expect("macos-app: one document type", types.Count, 1);
+        var typeText = types.Count == 1 ? string.Join('|', types[0].Descendants().Select(e => e.Value)) : "";
+        Expect("macos-app: document type is com.adobe.pdf, Editor, Alternate",
+            typeText.Contains("com.adobe.pdf", StringComparison.Ordinal) && typeText.Contains("Editor", StringComparison.Ordinal) && typeText.Contains("Alternate", StringComparison.Ordinal), true);
+
+        var versionsFile = Path.Combine("packaging", "native", "versions.txt");
+        Expect("macos-app: versions.txt present", File.Exists(versionsFile), true);
+        Expect("macos-app: minimum system version from the real versions.txt",
+            File.Exists(versionsFile) ? MacApp.MinSystemVersion(File.ReadAllText(versionsFile)) : "(missing)", "15.0");
+        Expect("macos-app: minimum system version, last line without a newline and with CR",
+            MacApp.MinSystemVersion("A=1\r\nMACOS_DEPLOYMENT_TARGET=16.2\r"), "16.2");
+        Expect("macos-app: a text without the key throws", ThrowsIo(() => MacApp.MinSystemVersion("A=1\n")), true);
+        Expect("macos-app: an empty value throws", ThrowsIo(() => MacApp.MinSystemVersion("MACOS_DEPLOYMENT_TARGET=\n")), true);
+
+        Expect("macos-app: arch of osx-arm64", MacApp.Arch("osx-arm64"), "arm64");
+        Expect("macos-app: arch of osx-x64", MacApp.Arch("osx-x64"), "x64");
+        Expect("macos-app: native library name", Layout.NativeLibrary("osx-arm64") + "|" + Layout.NativeLibrary("osx-x64"), "libpdfium.dylib|libpdfium.dylib");
+        Expect("macos-app: native files of osx-x64", string.Join(',', NativeFiles.For("osx-x64")),
+            "libtesseract.dylib,tessdata/eng.traineddata,tessdata/deu.traineddata");
+        Expect("macos-app: layout stays Windows and Linux only", Cli.Run(["layout", "--rid", "osx-x64", "--app", "a", "--cli", "b", "--out", "c"]), 2);
+
+        string[] Args(string rid, string version) =>
+            ["macos-app", "--rid", rid, "--app", "app-does-not-exist", "--cli", "cli-does-not-exist", "--out", "out-does-not-exist", "--version", version];
+        Expect("macos-app: a prerelease version returns 2", Cli.Run(Args("osx-arm64", "0.2.0-rc.1")), 2);
+        Expect("macos-app: a version with a leading v returns 2", Cli.Run(Args("osx-arm64", "v0.2.0")), 2);
+        Expect("macos-app: an unknown RID returns 2", Cli.Run(Args("linux-x64", "0.1.0")), 2);
+        Expect("macos-app: a missing option returns 2", Cli.Run(["macos-app", "--rid", "osx-x64"]), 2);
+        if (!OperatingSystem.IsMacOS())
+        {
+            Expect("macos-app: anywhere but macOS returns 2", Cli.Run(Args("osx-arm64", "0.1.0")), 2);
+            Console.WriteLine("selftest: skipped macos-app real run, reason: macOS: needs sips, iconutil and codesign (proven by the CI job build-macos).");
+            return;
+        }
+
+        MacOsRealRun();
+    }
+
+    private static void MacOsRealRun()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "raffica-macapp-selftest-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var app = Path.Combine(dir, "app");
+            var cli = Path.Combine(dir, "cli");
+            var native = Path.Combine(dir, "native");
+            var otherCli = Path.Combine(dir, "cli-other");
+            var output = Path.Combine(dir, "out folder");
+            foreach (var d in new[] { app, cli, otherCli, Path.Combine(native, "tessdata") })
+            {
+                Directory.CreateDirectory(d);
+            }
+
+            const string Template = "/usr/bin/true";
+            foreach (var (folder, name) in new[] { (app, "RafficaPdf"), (app, "libpdfium.dylib"), (cli, "raffica"), (cli, "libpdfium.dylib"), (otherCli, "raffica"), (otherCli, "libpdfium.dylib") })
+            {
+                File.Copy(Template, Path.Combine(folder, name));
+            }
+
+            File.AppendAllText(Path.Combine(otherCli, "libpdfium.dylib"), "different");
+            File.WriteAllText(Path.Combine(app, "RafficaPdf.pdb"), "symbols");
+            File.Copy(Template, Path.Combine(native, "libtesseract.dylib"));
+            File.WriteAllText(Path.Combine(native, "tessdata", "eng.traineddata"), "eng");
+            File.WriteAllText(Path.Combine(native, "tessdata", "deu.traineddata"), "deu");
+
+            string[] Args(string cliDir, string? nativeDir) =>
+            [
+                "macos-app", "--rid", "osx-arm64", "--app", app, "--cli", cliDir, "--out", output, "--version", "0.1.0",
+                .. nativeDir is null ? Array.Empty<string>() : ["--native", nativeDir],
+            ];
+
+            Expect("macos-app run: a CLI with another libpdfium.dylib exits 1", Cli.Run(Args(otherCli, native)), 1);
+            Expect("macos-app run: nothing is left after the refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
+            Expect("macos-app run: exit 0", Cli.Run(Args(cli, native)), 0);
+            var bundle = Path.Combine(output, MacApp.BundleName);
+            var macOs = Path.Combine(bundle, "Contents", "MacOS");
+            Expect("macos-app run: Info.plist", File.Exists(Path.Combine(bundle, "Contents", "Info.plist")), true);
+            Expect("macos-app run: icns", File.Exists(Path.Combine(bundle, "Contents", "Resources", "RafficaPdf.icns")), true);
+            Expect("macos-app run: LICENSE", File.Exists(Path.Combine(bundle, "Contents", "Resources", "LICENSE")), true);
+            Expect("macos-app run: THIRD-PARTY-NOTICES.txt", File.Exists(Path.Combine(bundle, "Contents", "Resources", "THIRD-PARTY-NOTICES.txt")), true);
+            Expect("macos-app run: no .pdb in the bundle", File.Exists(Path.Combine(macOs, "RafficaPdf.pdb")), false);
+            Expect("macos-app run: OCR library and tessdata", File.Exists(Path.Combine(macOs, "libtesseract.dylib")) && File.Exists(Path.Combine(macOs, "tessdata", "eng.traineddata")), true);
+            Expect("macos-app run: RafficaPdf is 0755", File.GetUnixFileMode(Path.Combine(macOs, "RafficaPdf")), (UnixFileMode)0x1ED);
+            Expect("macos-app run: raffica is 0755", File.GetUnixFileMode(Path.Combine(macOs, "raffica")), (UnixFileMode)0x1ED);
+            Expect("macos-app run: the library is 0644", File.GetUnixFileMode(Path.Combine(macOs, "libpdfium.dylib")), (UnixFileMode)0x1A4);
+            Expect("macos-app run: tessdata is 0644", File.GetUnixFileMode(Path.Combine(macOs, "tessdata", "eng.traineddata")), (UnixFileMode)0x1A4);
+            Expect("macos-app run: plutil -lint", Tool.Run("plutil", ["-lint", Path.Combine(bundle, "Contents", "Info.plist")], out _), 0);
+            Expect("macos-app run: codesign --verify --deep --strict", Tool.Run("codesign", ["--verify", "--deep", "--strict", bundle], out var verify), 0);
+            if (verify.Length > 0)
+            {
+                Console.Error.WriteLine(verify);
+            }
+
+            Expect("macos-app run: an existing bundle is refused", Cli.Run(Args(cli, native)), 1);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
         }
     }
 

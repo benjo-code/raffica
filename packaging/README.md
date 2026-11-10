@@ -140,16 +140,17 @@ is skipped and the job `release-manifest` does not run.
 
 ## Manual check on a Mac (M3.1)
 
-Milestone 3.1 has no bundle step yet (that is milestone 3.3); `packaging/macos/dev-app.sh` wraps a publish folder into a
-throwaway, ad-hoc signed `Raffica PDF.app` (no icon, no version, no `.dmg`) so that the Finder paths can be tried. The CI
-build is the `osx-x64` build: on an Apple silicon Mac it runs under Rosetta and says nothing about arm64.
+The bundle step of `tools/package.cs` (`macos-app`, milestone 3.3) wraps a publish folder into an ad-hoc signed
+`Raffica PDF.app` so that the Finder paths can be tried. The CI build is the `osx-x64` build: on an Apple silicon Mac it runs under Rosetta and says nothing about arm64.
 
 1. Download the artifact `raffica-pdf-osx-x64` of the CI job `build-macos` (a pull request run with the label `ci:macos`,
    or a run on `dev`). A browser download is a zip around a `.tar.gz`: unzip it first (`gh run download <run id> -n
    raffica-pdf-osx-x64` hands over the `.tar.gz` itself). Then `tar xzf` it into an empty folder; it holds a folder
    `pdf-osx-x64`, so the publish folder is `<that folder>/pdf-osx-x64`.
-2. `bash packaging/macos/dev-app.sh <that folder>/pdf-osx-x64 <out folder>` builds `<out folder>/Raffica PDF.app`; the out
-   folder must lie outside the publish folder (the script refuses otherwise).
+2. `dotnet run tools/package.cs -- macos-app --rid osx-x64 --app <that folder>/pdf-osx-x64 --cli <that folder>/pdf-osx-x64
+   --out <out folder> --version 0.0.0` builds `<out folder>/Raffica PDF.app`. The throwaway wrapper that did this in 3.1 is
+   gone; `--cli` wants a publish folder with `raffica` (the artifact holds the app only, so a local CLI publish is needed
+   until the M3.3 steps in this file are written).
 3. The first launch of an ad-hoc signed app may be blocked: open System Settings, Privacy & Security, "Open Anyway". For a
    downloaded copy, `xattr -dr com.apple.quarantine "<out folder>/Raffica PDF.app"` clears the quarantine mark first.
 4. Check, and write down what you see (`open -a` needs the path to the app, or run it from the out folder):
@@ -163,7 +164,7 @@ build is the `osx-x64` build: on an Apple silicon Mac it runs under Rosetta and 
 Milestone 3.2 (menu bar, keys, life cycle, trackpad, Retina, printing; decision "Raffica on macOS: menu bar, keys and life
 cycle (M3.2)" in `Docs/DECISIONS.md`) is proven by CI as far as headless tests reach. What follows needs a real Mac. Get the
 app as in "Manual check on a Mac (M3.1)", steps 1 to 3 (artifact `raffica-pdf-osx-x64` of the `build-macos` run of the pull
-request, then `bash packaging/macos/dev-app.sh <that folder>/pdf-osx-x64 <out folder>`); start it from the out folder or with
+request, then the `macos-app` command of step 2); start it from the out folder or with
 `open -a "<out folder>/Raffica PDF.app"`. Write down what you see in your own words; the roadmap evidence of milestone 3.2
 takes it from there. Apple silicon stays "not tested by hand" (the CI build is x64, which runs under Rosetta there). Every box
 stays unticked until it is done.
