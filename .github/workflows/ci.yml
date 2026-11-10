@@ -420,8 +420,8 @@ jobs:
             case "$text" in *"Hello,"*) echo "$rid: text extraction works" ;; *) echo "$rid: unexpected output: $text" >&2; exit 1 ;; esac
           done
 
-      # The default macOS volume ignores case: Bericht.pdf and bericht.pdf are one file. The CLI must see that (FileIdentity, stat$INODE64
-      # under Rosetta) and refuse, not overwrite its own input.
+      # The default macOS volume ignores case: Bericht.pdf and bericht.pdf are one file. The CLI must see that (PathRules) and refuse,
+      # not overwrite its own input. This is the path comparison; the file identity is the next step.
       - name: Smoke test of the same-file guard
         run: |
           for pair in osx-arm64: osx-x64:"arch -x86_64"; do
@@ -435,6 +435,24 @@ jobs:
             echo "$out"
             [ "$code" -ne 0 ] || { echo "$rid: rotate onto the same file exited 0" >&2; exit 1; }
             case "$out" in *"must not be the input file"*) echo "$rid: the same file is refused" ;; *) echo "$rid: the refusal does not say 'must not be the input file'" >&2; exit 1 ;; esac
+          done
+
+      # Two names of one file that no path comparison can tell apart: a hard link. Only FileIdentity (stat$INODE64 on x64 under
+      # Rosetta, stat on arm64) can see that they are one file; --force leaves it as the only guard.
+      - name: Smoke test of the hard-link guard
+        run: |
+          for pair in osx-arm64: osx-x64:"arch -x86_64"; do
+            rid=${pair%%:*}; runner=${pair#*:}
+            exe="out/cli-$rid/raffica"
+            dir="$RUNNER_TEMP/hardlink-$rid"
+            mkdir -p "$dir"
+            cp testdata/pdfs/text-basic.pdf "$dir/Bericht.pdf"
+            ln "$dir/Bericht.pdf" "$dir/Zweit.pdf"
+            code=0
+            out=$($runner "$exe" rotate "$dir/Bericht.pdf" --pages all --angle 90 --output "$dir/Zweit.pdf" --force 2>&1) || code=$?
+            echo "$out"
+            [ "$code" -ne 0 ] || { echo "$rid: rotate onto a hard link of the input exited 0" >&2; exit 1; }
+            case "$out" in *"same file under another name or path"*) echo "$rid: the hard link is refused through the file identity" ;; *) echo "$rid: the refusal does not say 'same file under another name or path'" >&2; exit 1 ;; esac
           done
 
       # tar keeps the executable bit, which the artifact zip would lose. For the owner's manual check on an Intel Mac.

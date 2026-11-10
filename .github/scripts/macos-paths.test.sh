@@ -20,6 +20,7 @@ check match src/Raffica.Core/Hosting/SingleInstance.cs
 check match src/Raffica.Pdfium/Native/Fpdf.cs
 check match tools/package.cs
 check match Directory.Packages.props
+check match global.json
 check match src/Raffica.Pdf/Raffica.Pdf.csproj
 check match .github/workflows/ci.yml
 check nomatch src/Raffica.Pdf/Panes/MarksPane.cs
@@ -36,3 +37,13 @@ echo "ok: first match of a list"
 out=$(printf '' | bash "$script"); code=$?
 if [ "$code" -ne 1 ] || [ -n "$out" ]; then echo "FAIL: empty input (exit $code)"; exit 1; fi
 echo "ok: empty input"
+
+# A long list (far beyond the pipe buffer) with the match first: the producer must not die of SIGPIPE under pipefail, as in ci.yml.
+(
+  set -o pipefail
+  long=$( { echo tools/package.cs; seq 1 20000 | sed 's|^|src/Raffica.Pdf/Panes/Other|'; } )
+  if ! hit=$(printf '%s
+' "$long" | bash "$script"); then echo "FAIL: long list with an early match gave no match"; exit 1; fi
+  if [ "$hit" != tools/package.cs ]; then echo "FAIL: long list printed '$hit'"; exit 1; fi
+) || exit 1
+echo "ok: long list under pipefail"
