@@ -452,37 +452,42 @@ jobs:
             dotnet run tools/package.cs -- dmg-smoke --dmg "$dmg" --rid "$rid"
           done
 
-      # Records the published sizes of both architectures (M3.3, Task 12): the median of three runs fills s_pdfBudgets["macos"] (size, zip, app,
-      # dmg) in measure.cs. No --check, so nothing is judged and the step never fails the job. Each row is
-      # "<rid>,pdf,size,<total|zip|fonts|native|app|dmg>,<bytes>,bytes" (--machine is the rid). --no-cache and the job temp folder for the reason
+      # The published sizes of both architectures against the one `macos` entry of s_pdfBudgets in measure.cs (size, zip, app, dmg; the budgets of
+      # Docs/DECISIONS.md, "Raffica PDF on macOS: published sizes and the hosted record (M3.3)"). `--check <rid>` judges the four sizes only (it asks
+      # for no time or memory metric) and exits 1 above a limit; both architectures are checked before the step fails, so one run shows both. The
+      # output (a table in MiB with budget and limit) goes to the log and the step summary. --no-cache and the job temp folder for the reason
       # given at the gallery step of the other jobs.
-      - name: Sizes of the published app (recorded, not judged yet)
-        continue-on-error: true
+      - name: Sizes of the published app
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
           TMPDIR: ${{ runner.temp }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          failed=0
           for rid in osx-arm64 osx-x64; do
             case "$rid" in
               osx-arm64) short=arm64 ;;
               osx-x64) short=x64 ;;
             esac
             echo "=== sizes $rid ==="
-            csv="$RUNNER_TEMP/sizes-$rid.csv"
-            dotnet run --no-cache bench/shell-probe/measure.cs -- size --target pdf --publish-dir "out/pdf-$rid" --fonts-dir src/Raffica.Shell/Assets/Fonts --machine "$rid" --app "out/bundle-$rid/Raffica PDF.app" --dmg "out/dmg/RafficaPdf-0.0.0-macos-$short.dmg" --out "$csv"
+            out="$RUNNER_TEMP/sizes-$rid.txt"
+            dotnet run --no-cache bench/shell-probe/measure.cs -- size --target pdf --check "$rid" --publish-dir "out/pdf-$rid" --fonts-dir src/Raffica.Shell/Assets/Fonts --app "out/bundle-$rid/Raffica PDF.app" --dmg "out/dmg/RafficaPdf-0.0.0-macos-$short.dmg" | tee "$out"
+            code=${PIPESTATUS[0]}
             if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
               {
                 echo "### Published sizes $rid (MiB)"
                 echo
-                echo "| metric | bytes | MiB |"
-                echo "| --- | ---: | ---: |"
-                grep ",pdf,size," "$csv" | awk -F, '{ printf "| %s | %s | %.2f |\n", $4, $5, $5 / 1048576 }'
+                grep '^|' "$out" || true
                 echo
               } >> "$GITHUB_STEP_SUMMARY"
             fi
+            if [ "$code" -ne 0 ]; then
+              echo "::error title=Sizes::the published size check of $rid exited $code"
+              failed=1
+            fi
           done
+          exit "$failed"
 
       # The default macOS volume ignores case: Bericht.pdf and bericht.pdf are one file. The CLI must see that (PathRules) and refuse,
       # not overwrite its own input. This is the path comparison; the file identity is the next step.

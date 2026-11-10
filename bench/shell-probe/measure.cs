@@ -1238,16 +1238,17 @@ static class CheckCommand
     // budget x 1.25 once (Stats.Limit). "scroll" is the median of the p99 of the frame gaps. "zip" has a budget like the gallery's
     // (the size check judges size and zip together; a metric without a budget would be "unrecorded" and fail). Size and zip are the ones of the entry
     // "Raffica PDF: published size budgets after the OCR payload (M2.5)" (the owner chose to count the OCR library and its language data). Never loosen a number
-    // here to make a check pass; a change is a new decisions entry. macOS is not exempt (only the gallery is indicative there): its entry is still
-    // empty, so a check of the PDF app on macOS exits 2 ("no limits recorded") until the M3.3 measurements of the CI and of the owner's Intel Mac
-    // fill it. The time and memory limits of the macos entry bind only the owner's Intel Mac (measure.yml, platform macos); the size limits bind
-    // both architectures through the one entry (the budget from the larger of the two measured medians). The metrics "app" (bundle bytes) and
-    // "dmg" (file bytes) exist for macOS only and are judged only when given (size --app, --dmg, or rows size/app and size/dmg).
+    // here to make a check pass; a change is a new decisions entry. macOS is not exempt (only the gallery is indicative there): its entry holds the
+    // four size metrics of the entry "Raffica PDF on macOS: published sizes and the hosted record (M3.3)": the medians of three CI runs of the
+    // larger architecture (osx-x64), rounded up to 1 MiB as in M2.5, and they bind both architectures through the one entry. It has NO time and
+    // no memory limit on purpose: those bind only the owner's Intel Mac (measure.yml, platform macos), which has not been measured, so such a
+    // metric is "unrecorded" (a check that asks for it exits 1) instead of passing; the size check asks only for size, zip, app and dmg.
+    // The metrics "app" (bundle bytes) and "dmg" (file bytes) exist for macOS only and are judged only when given (size --app, --dmg, or rows size/app and size/dmg).
     private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
     {
         ["windows"] = new() { ["cold"] = 200, ["warm"] = 210, ["thousand"] = 200, ["second"] = 20, ["scroll"] = 20, ["memory"] = 40, ["size"] = 66, ["zip"] = 29 },
         ["linux"] = new() { ["cold"] = 230, ["warm"] = 230, ["thousand"] = 220, ["second"] = 40, ["scroll"] = 40, ["memory"] = 155, ["size"] = 65, ["zip"] = 30 },
-        ["macos"] = [],
+        ["macos"] = new() { ["size"] = 69, ["zip"] = 32, ["app"] = 76, ["dmg"] = 38 },
     };
 
     /// <summary>The message of a check of the PDF app against an empty limit table.</summary>
@@ -1765,6 +1766,7 @@ static class SelfTest
         [
             ("windows", "cold", 200), ("windows", "warm", 210), ("windows", "thousand", 200), ("windows", "second", 20), ("windows", "scroll", 20), ("windows", "memory", 40), ("windows", "size", 66), ("windows", "zip", 29),
             ("linux", "cold", 230), ("linux", "warm", 230), ("linux", "thousand", 220), ("linux", "second", 40), ("linux", "scroll", 40), ("linux", "memory", 155), ("linux", "size", 65), ("linux", "zip", 30),
+            ("macos", "size", 69), ("macos", "zip", 32), ("macos", "app", 76), ("macos", "dmg", 38),
         ];
         foreach (var (platform, key, budget) in recorded)
         {
@@ -1774,7 +1776,12 @@ static class SelfTest
         Expect("pdf limits: windows has limits", CheckCommand.PdfHasNoLimits("windows"), false);
         Expect("pdf limits: linux has limits", CheckCommand.PdfHasNoLimits("linux"), false);
         Expect("pdf limits: every binding metric is recorded", CheckCommand.PdfTable["windows"].Count == s_pdfKeys.Length && CheckCommand.PdfTable["linux"].Count == s_pdfKeys.Length, true);
-        Expect("pdf limits: macOS is not exempt: an empty table has no limits (until the M3.3 measurements fill it)", CheckCommand.PdfTable["macos"].Count == 0 && CheckCommand.PdfHasNoLimits("macos"), true);
+        Expect("pdf limits: macOS has limits", CheckCommand.PdfHasNoLimits("macos"), false);
+        Expect("pdf limits: macOS holds the four size metrics and no time or memory limit (not measured on an Intel Mac yet)", string.Join(',', CheckCommand.PdfTable["macos"].Keys.Order()), "app,dmg,size,zip");
+        foreach (var key in new[] { "cold", "warm", "thousand", "second", "scroll", "memory" })
+        {
+            Expect($"pdf limits: macOS {key} stays unrecorded", CheckCommand.JudgePdf("macos", new Dictionary<string, double?> { [key] = 1 }, key)[0].Verdict, "unrecorded");
+        }
 
         // The committed first measurements (CSVs of the owner's runs) are inside the recorded limits: the same files `check` is run on.
         RecordedMeasurementsTests();
@@ -2010,7 +2017,10 @@ static class SelfTest
         Expect("size --check pdf (recorded): windows one byte above 82.5 MiB fails", Check("win-x64", 82 * 1024 * 1024 + 512 * 1024 + 1), 1);
         Expect("size --check pdf (recorded): linux exactly at 81.25 MiB passes", Check("linux-x64", 81 * 1024 * 1024 + 256 * 1024), 0);
         Expect("size --check pdf (recorded): linux one byte above 81.25 MiB fails", Check("linux-x64", 81 * 1024 * 1024 + 256 * 1024 + 1), 1);
-        Expect("size --check pdf (recorded): macOS has no recorded limit yet and exits 2", Check("osx-x64", 10), 2);
+        Expect("size --check pdf (recorded): macOS exactly at 69 MiB x 1.25 passes", Check("osx-x64", 86 * 1024 * 1024 + 256 * 1024), 0);
+        Expect("size --check pdf (recorded): macOS one byte above 69 MiB x 1.25 fails", Check("osx-x64", 86 * 1024 * 1024 + 256 * 1024 + 1), 1);
+        Expect("size --check pdf (recorded): the same limit binds arm64", Check("osx-arm64", 86 * 1024 * 1024 + 256 * 1024 + 1), 1);
+        Expect("size --check pdf (recorded): macOS asks for no time or memory metric, so a tiny publish passes", Check("osx-x64", 10), 0);
         CheckCommand.PdfTableForTests = PdfTestTable();
         Directory.Delete(root, recursive: true);
     }
@@ -2064,7 +2074,16 @@ static class SelfTest
         CheckCommand.PdfTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = new() { ["cold"] = 100 } };
         Expect("size --check --app: a macOS metric without a limit is unrecorded and exits 1", Check("osx-x64", App, null), 1);
         Expect("check pdf macos: a metric without a limit is unrecorded, not indicative", CheckCommand.JudgePdf("macos", new Dictionary<string, double?> { ["app"] = 1 }, "app")[0].Verdict, "unrecorded");
+
+        // The recorded macOS table: app 76 MiB x 1.25 = 95 MiB and dmg 38 MiB x 1.25 = 47.5 MiB.
+        CheckCommand.PdfTableForTests = null;
+        const long RecApp = 95 * 1024 * 1024;
+        const long RecDmg = 47 * 1024 * 1024 + 512 * 1024;
+        Expect("size --check --app --dmg (recorded): both exactly at their limits pass", Check("osx-x64", RecApp, RecDmg), 0);
+        Expect("size --check --app --dmg (recorded): the app one byte above fails", Check("osx-x64", RecApp + 1, RecDmg), 1);
+        Expect("size --check --app --dmg (recorded): the dmg one byte above fails", Check("osx-arm64", RecApp, RecDmg + 1), 1);
         CheckCommand.PdfTableForTests = PdfTestTable();
+        Check("osx-x64", App, null); // leaves the bundle at its size for the rows test below
 
         // Symbolic links are not counted (creating one may need privileges on Windows: then the check is skipped).
         var linkRoot = root + "-links";
