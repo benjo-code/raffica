@@ -158,6 +158,53 @@ build is the `osx-x64` build: on an Apple silicon Mac it runs under Rosetta and 
    c. While the app runs, `open -a "<out folder>/Raffica PDF.app" a.pdf b.pdf` opens both files in the same instance.
    d. Open a scanned page and run OCR: the text is recognized (this loads the Tesseract library of the bundle).
 
+## Manual check on a Mac (M3.2)
+
+Milestone 3.2 (menu bar, keys, life cycle, trackpad, Retina, printing; decision "Raffica on macOS: menu bar, keys and life
+cycle (M3.2)" in `Docs/DECISIONS.md`) is proven by CI as far as headless tests reach. What follows needs a real Mac. Get the
+app as in "Manual check on a Mac (M3.1)", steps 1 to 3 (artifact `raffica-pdf-osx-x64` of the `build-macos` run of the pull
+request, then `bash packaging/macos/dev-app.sh <that folder>/pdf-osx-x64 <out folder>`); start it from the out folder or with
+`open -a "<out folder>/Raffica PDF.app"`. Write down what you see in your own words; the roadmap evidence of milestone 3.2
+takes it from there. Apple silicon stays "not tested by hand" (the CI build is x64, which runs under Rosetta there). Every box
+stays unticked until it is done.
+
+- [ ] a. **Menu bar.** The bar shows the app menu, File, Edit, View, Window and Help. The app menu has About, Check for updates
+  and Settings, and below them Services, Hide, Hide others, Show all and Quit (these five come from Avalonia's native side;
+  if one is missing, report which: `Docs/DECISIONS.md` names the fallback). No item is twice in the bar (Enter Full Screen,
+  Minimize, Zoom). Start with `--lang de` (`open -a "<out folder>/Raffica PDF.app" --args --lang de`, or run
+  `"<out folder>/Raffica PDF.app/Contents/MacOS/RafficaPdf" --lang de`): the German wording reads right, the system items
+  in Apple's terms, the rest as in the ribbon.
+- [ ] b. **Items act.** With a document open, the File, Edit and View items act on the document (Open, Open Recent, Close, Save,
+  Save as, Print, Undo, Redo, Copy, Select all, Find, zoom, layouts, panes, dark page, Enter Full Screen). With a comment
+  box (or the text-box editor or the search field) focused, Cmd+Z, Cmd+C, Cmd+A, Cmd+X and Cmd+V act on the box and not on
+  the document or the marks history.
+- [ ] c. **Cmd+Q.** With unsaved marks, Cmd+Q asks the close questions; Cancel keeps the app and the window; a later plain
+  close of the window does not quit the app; answering Save or Don't save quits.
+- [ ] d. **Life cycle.** Close the last window: the app stays in the Dock and in the menu bar (only Open works in it), a Dock
+  click shows a new window, a PDF opened from the Finder (`open -a "<out folder>/Raffica PDF.app" a.pdf`) with no window
+  creates one, a second Finder file while a window is open becomes a tab. A PDF dropped on the Dock icon while the last window
+  is closing (a close question is open) opens in the next window and is not lost.
+- [ ] e. **Pinch and Retina.** Pinch zoom on the trackpad zooms around the pointer; the zoom commands (Cmd+plus, Cmd+minus, fit)
+  step on from the pinched value. On a Retina display pages are sharp at 2x: zoom in on text and compare with Preview.
+- [ ] f. **Title bar.** The traffic lights sit in the 80 px inset, the bar drags the window, Ctrl+Cmd+F and the View menu item
+  both enter and leave full screen, and there is no empty gap on the left in full screen.
+- [ ] g. **Option key.** Option types `@`, the euro sign and friends in a text box on the German layout and nothing flashes in
+  the ribbon (no key tips). Shift+Cmd+R recognizes text; Shift+Cmd+Q is the system's Log Out dialog and not ours (cancel it).
+- [ ] h. **Printing.** A page prints through the app's own print card to a real printer and to a PDF printer (the print card
+  lists the printers of the Mac; check the paper, the duplex choice and that the output matches the page).
+- [ ] i. **Search and Tab.** The title-bar search (Cmd+K) and F6 still work, and no Alt field codes appear.
+- [ ] j. **Shortcut once.** A single Cmd+S saves exactly once (watch the file or the marks flag) and Shift+Cmd+D flips the
+  dark page once, not twice (the native menu key equivalent and the window's own shortcut handler must not both act); holding
+  a one-shot key (Cmd+S, Shift+Cmd+D) does not repeat the command.
+- [ ] k. **Menu follows the focus.** Open the Edit menu with a comment box focused and again with the page focused: Cut, Copy,
+  Paste, Undo and Redo are enabled and act as the focused part says (the menu refreshes when it opens).
+- [ ] l. **Paste once.** Cmd+V in a text box pastes once, not twice.
+- [ ] m. **Page list.** In organize mode (Pages tab) with the page list focused, Cmd+A selects pages and not page text, and
+  Cmd+D duplicates the selection.
+- [ ] n. **Window comes and goes.** Close the first window, click the Dock icon, close that window and open one again, repeat a
+  few times: no beach ball, the app still opens a new window each time, and a crash or update card shown after that is still
+  answered.
+
 ## Native OCR library for macOS (M3.1)
 
 The Windows and Linux libraries are release `native-tesseract-5.5.4-1`; the macOS libraries are release
