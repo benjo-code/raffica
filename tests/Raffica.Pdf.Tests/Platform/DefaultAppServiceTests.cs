@@ -350,6 +350,8 @@ public sealed class DefaultAppServiceTests : IDisposable
     public void TheFactoryNeverReturnsNullAndTheStubIsNotSupportedWhereThereIsNoService()
     {
         var service = PlatformDefaultAppServices.Create();
+
+        // macOS: the test host is no installed bundle, so the service exists but is not supported (MacDefaultAppServiceTests pins the rule).
         Assert.Equal(OperatingSystem.IsWindows() || OperatingSystem.IsLinux(), service.IsSupported);
     }
 }
