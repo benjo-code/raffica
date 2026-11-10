@@ -10,7 +10,7 @@
 //   dotnet run tools/package.cs -- installer-smoke <setup.exe> [--repo <root>]          (Windows)
 //   dotnet run tools/package.cs -- update-smoke <setup-old.exe> <setup-new.exe> --key <test-key.txt> [--key-id <id>]   (Windows, test build)
 //   dotnet run tools/package.cs -- update-keygen --id <id> --private-out <file>   (the owner, once; never in a repository)
-//   dotnet run tools/package.cs -- update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <assets.json> --out <update-manifest.json>
+//   dotnet run tools/package.cs -- update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <assets.json> --out <update-manifest.json>
 //   dotnet run tools/package.cs -- update-sign --manifest <file> --key-env RAFFICA_UPDATE_SIGNING_KEY --id <id> --out <file.sig> [--source <UpdateTrust.cs>]
 //   dotnet run tools/package.cs -- update-verify [--manifest <file> --sig <file>] (--keys-from-source | --source <file>)
 //   dotnet run tools/package.cs -- deb --layout <dir> --version <x.y.z> --out <raffica-pdf_x.y.z_amd64.deb> [--repo <root>]   (Linux)
@@ -18,6 +18,7 @@
 //   dotnet run tools/package.cs -- runtime-fetch [--out <file>]                         (Linux)
 //   dotnet run tools/package.cs -- appimage --layout <dir> --version <x.y.z> --out <RafficaPdf-x.y.z-x86_64.AppImage> [--runtime <file>] [--repo <root>]   (Linux)
 //   dotnet run tools/package.cs -- appimage-smoke <file.AppImage> [--repo <root>]        (Linux)
+//   dotnet run tools/package.cs -- macos-app --rid <osx-arm64|osx-x64> --app <dir> --cli <dir> --out <dir> --version <x.y.z> [--native <dir>] [--repo <root>]   (macOS)
 //   dotnet run tools/package.cs -- selftest
 // Run from the repository root. Only inno-install and runtime-fetch use the network (one download each, with a pinned SHA-256).
 
@@ -43,7 +44,7 @@ static class Cli
         "  installer-smoke <setup.exe>                                       installs silently, checks, installs again, uninstalls (Windows)\n" +
         "  update-smoke <setup-old.exe> <setup-new.exe> --key <test-key.txt> [--key-id <id>]   update through the helper mode (Windows, test build)\n" +
         "  update-keygen --id <id> --private-out <file>                      creates the signing key: private half only into the file, public half as an entry for UpdateTrust.Keys\n" +
-        "  update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <assets.json> --out <file>   update manifest of the release\n" +
+        "  update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <assets.json> --out <file>   update manifest of the release\n" +
         "  update-sign --manifest <file> --key-env <variable> --id <id> --out <file.sig> [--source <UpdateTrust.cs>]   signs (the key comes only from the environment) and verifies\n" +
         "  update-verify [--manifest <file> --sig <file>] (--keys-from-source | --source <file>)   checks signature and content like the app (without a manifest only the keys)\n" +
         "  deb --layout <dir> --version <x.y.z> --out <file>                 builds raffica-pdf_<version>_amd64.deb (Linux, dpkg-deb)\n" +
@@ -52,6 +53,9 @@ static class Cli
         "  runtime-sources --out <dir> [--from <dir>]                        downloads the sources of the AppImage runtime (libfuse, type2-runtime; SHA-256 checked) for the release\n" +
         "  appimage --layout <dir> --version <x.y.z> --out <file> [--runtime <file>]   builds RafficaPdf-<version>-x86_64.AppImage (Linux, mksquashfs)\n" +
         "  appimage-smoke <file.AppImage>                                    checks the runtime, unpacks, runs the CLI, starts the app without FUSE (Linux)\n" +
+        "  macos-app --rid <osx-arm64|osx-x64> --app <dir> --cli <dir> --out <dir> --version <x.y.z> [--native <dir>]   builds \"Raffica PDF.app\" with icon and ad-hoc signature (macOS only)\n" +
+        "  dmg --app <dir> --rid <osx-arm64|osx-x64> --version <x.y.z> --out <file>   builds RafficaPdf-<version>-macos-<arm64|x64>.dmg with the app and a link to /Applications (macOS only)\n" +
+        "  dmg-smoke --dmg <file> --rid <rid> [--ceiling-seconds 5]          attaches, copies out, checks signature, architectures and a start of the app (macOS only)\n" +
         "  selftest                                                          checks the parts of the tool";
 
     // Command name -> handler (receives the arguments after the command name). Add new subcommands here.
@@ -75,6 +79,9 @@ static class Cli
         ["runtime-sources"] = RuntimeSourcesCommand.Run,
         ["appimage"] = AppImage.Run,
         ["appimage-smoke"] = AppImageSmoke.Run,
+        ["macos-app"] = MacApp.Run,
+        ["dmg"] = Dmg.Run,
+        ["dmg-smoke"] = DmgSmoke.Run,
         ["selftest"] = SelfTest.Run,
     };
 
@@ -259,6 +266,7 @@ static class Layout
     {
         "win-x64" => "pdfium.dll",
         "linux-x64" => "libpdfium.so",
+        "osx-arm64" or "osx-x64" => "libpdfium.dylib",
         _ => throw new ArgumentException($"unknown RID: {rid}", nameof(rid)),
     };
 
@@ -1700,18 +1708,21 @@ static partial class UpdateManifestRules
     public const long MaxFileSize = 1L << 30;
     private const int MaxFiles = 64;
 
-    // UpdateFileKinds.All in their order, with the release file name of a version.
-    public static readonly (string Kind, Func<string, string> Name)[] Kinds =
+    // UpdateFileKinds.All in their order, with the release file name of a version. The four Windows and Linux kinds are
+    // required; the two macOS disk images are optional as a pair (both or neither: a release is never half a Mac).
+    public static readonly (string Kind, Func<string, string> Name, bool Required)[] Kinds =
     [
-        ("win-x64-setup", v => $"RafficaPdf-{v}-win-x64-setup.exe"),
-        ("win-x64-portable", v => $"RafficaPdf-{v}-win-x64-portable.zip"),
-        ("linux-appimage", v => $"RafficaPdf-{v}-x86_64.AppImage"),
-        ("linux-deb", v => $"raffica-pdf_{v}_amd64.deb"),
+        ("win-x64-setup", v => $"RafficaPdf-{v}-win-x64-setup.exe", true),
+        ("win-x64-portable", v => $"RafficaPdf-{v}-win-x64-portable.zip", true),
+        ("linux-appimage", v => $"RafficaPdf-{v}-x86_64.AppImage", true),
+        ("linux-deb", v => $"raffica-pdf_{v}_amd64.deb", true),
+        ("macos-arm64-dmg", v => $"RafficaPdf-{v}-macos-arm64.dmg", false),
+        ("macos-x64-dmg", v => $"RafficaPdf-{v}-macos-x64.dmg", false),
     ];
 
     // The endings that make a release file one of the known kinds; a file with such an ending but another version is an
     // error, every other file (source archives, checksums) is not part of the manifest.
-    public static readonly string[] KnownEndings = ["-win-x64-setup.exe", "-win-x64-portable.zip", "-x86_64.AppImage", "_amd64.deb"];
+    public static readonly string[] KnownEndings = ["-win-x64-setup.exe", "-win-x64-portable.zip", "-x86_64.AppImage", "_amd64.deb", "-macos-arm64.dmg", "-macos-x64.dmg"];
 
     // UpdateVersion.TryParse without the "v": the app reads only stable X.Y.Z versions.
     [GeneratedRegex(@"^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\z")]
@@ -2066,14 +2077,14 @@ static class UpdateKeygen
     }
 }
 
-// update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <gh release view --json assets> --out <file>
+// update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <gh release view --json assets> --out <file>
 static partial class UpdateManifestCommand
 {
     // sums: "<sha256>  <file name>" (Sums.Line)
     [GeneratedRegex(@"^(?<h>[0-9a-f]{64})  (?<n>[^\s/\\]+)$")]
     private static partial Regex SumsLine();
 
-    private const string Usage = "Usage: update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <assets.json> --out <update-manifest.json>";
+    private const string Usage = "Usage: update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <assets.json> --out <update-manifest.json>";
 
     public static int Run(string[] args)
     {
@@ -2150,10 +2161,30 @@ static partial class UpdateManifestCommand
             }
         }
 
+        // The optional kinds come as a pair: when one is in the checksums, the other must be too.
+        var optional = UpdateManifestRules.Kinds.Where(k => !k.Required).ToList();
+        var optionalPresent = optional.Where(k => hashes.ContainsKey(k.Name(version))).ToList();
+        var skipOptional = optionalPresent.Count == 0;
+        if (!skipOptional)
+        {
+            foreach (var (kind, nameOf, _) in optional.Where(k => !optionalPresent.Contains(k)))
+            {
+                problems.Add($"{kind}: {nameOf(version)} is missing in the checksums (the macOS images come as a pair: arm64 and x64, or neither)");
+            }
+        }
+
         var files = new List<(string Kind, string Name, long Size, string Sha256)>();
-        foreach (var (kind, nameOf) in UpdateManifestRules.Kinds)
+        foreach (var (kind, nameOf, required) in UpdateManifestRules.Kinds)
         {
             var name = nameOf(version);
+            if (!required)
+            {
+                if (skipOptional || !optionalPresent.Any(k => k.Kind == kind))
+                {
+                    continue; // absent (the pair problem is already listed) or not part of this release
+                }
+            }
+
             if (!hashes.TryGetValue(name, out var hash))
             {
                 problems.Add($"{kind}: {name} is missing in the checksums");
@@ -3008,6 +3039,7 @@ static class NativeFiles
     {
         "win-x64" => ["tesseract.dll", .. Tessdata],
         "linux-x64" => ["libtesseract.so", .. Tessdata],
+        "osx-arm64" or "osx-x64" => ["libtesseract.dylib", .. Tessdata],
         _ => Tessdata,
     };
 }
@@ -3419,6 +3451,300 @@ static partial class AppImageSmoke
     }
 }
 
+// The disk image RafficaPdf-<version>-macos-<arm64|x64>.dmg (Milestone 3.3): the app and a link to /Applications, no background picture.
+// macOS only (hdiutil, ditto); everything runs as an argument list, never through a shell.
+static class Dmg
+{
+    public const string VolumeName = "Raffica PDF";
+    private const string Usage = "Usage: dmg --app <\"Raffica PDF.app\"> --rid <osx-arm64|osx-x64> --version <x.y.z> --out <RafficaPdf-<version>-macos-<arm64|x64>.dmg>";
+
+    public static string FileName(string version, string rid) => $"RafficaPdf-{version}-macos-{MacApp.Arch(rid)}.dmg";
+
+    // The argument rules (before the macOS check, so they can be tested everywhere): null when the arguments are acceptable.
+    public static string? Problem(string rid, string version, string output)
+    {
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            return $"dmg: unknown RID: {rid}";
+        }
+
+        if (!MacApp.IsStable(version))
+        {
+            return $"dmg: only a stable version x.y.z is allowed, not: {version}";
+        }
+
+        return Path.GetFileName(output) != FileName(version, rid)
+            ? $"dmg: the output file must be named {FileName(version, rid)}: {output}"
+            : null;
+    }
+
+    public static int Run(string[] args)
+    {
+        var parsed = Options.Parse(args, "--app", "--rid", "--version", "--out");
+        if (parsed is not { } p || p.Positional.Count != 0 ||
+            !p.Named.TryGetValue("--app", out var app) || !p.Named.TryGetValue("--rid", out var rid) ||
+            !p.Named.TryGetValue("--version", out var version) || !p.Named.TryGetValue("--out", out var output))
+        {
+            Console.Error.WriteLine(Usage);
+            return 2;
+        }
+
+        if (Problem(rid, version, output) is { } problem)
+        {
+            Console.Error.WriteLine(problem);
+            return 2;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.Error.WriteLine("dmg: only on macOS (hdiutil and ditto are needed)");
+            return 2;
+        }
+
+        return Build(Path.GetFullPath(app), Path.GetFullPath(output));
+    }
+
+    private static int Build(string app, string output)
+    {
+        app = app.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!Directory.Exists(app) || !app.EndsWith(".app", StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine($"dmg: the app bundle is missing: {app}");
+            return 1;
+        }
+
+        var stage = Path.Combine(Path.GetTempPath(), "raffica-dmg-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(stage);
+            // ditto keeps symbolic links, extended attributes and the signature of the bundle intact.
+            if (Tool.Run("ditto", [app, Path.Combine(stage, MacApp.BundleName)], out var dittoLog) != 0)
+            {
+                Console.Error.WriteLine($"dmg: ditto failed: {dittoLog}");
+                return 1;
+            }
+
+            File.CreateSymbolicLink(Path.Combine(stage, "Applications"), "/Applications");
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            if (Tool.Run("hdiutil", ["create", "-volname", VolumeName, "-srcfolder", stage, "-fs", "HFS+", "-format", "UDZO", "-ov", output], out var createLog) != 0)
+            {
+                Console.Error.WriteLine($"dmg: hdiutil create failed: {createLog}");
+                return 1;
+            }
+
+            if (Tool.Run("hdiutil", ["verify", output], out var verifyLog) != 0)
+            {
+                Console.Error.WriteLine($"dmg: hdiutil verify failed: {verifyLog}");
+                return 1;
+            }
+
+            Console.WriteLine($"dmg: {output}");
+            Console.Write(Sums.Line(output));
+            return 0;
+        }
+        finally
+        {
+            if (Directory.Exists(stage))
+            {
+                Directory.Delete(stage, true);
+            }
+        }
+    }
+}
+
+// The check of a finished disk image on macOS (Milestone 3.3): contents, the copy out of it, signature, architectures and a start
+// of the app. The dependency check of the Mach-O files is a workflow step (tools/check-binary.cs), not part of this command.
+static class DmgSmoke
+{
+    private const string Usage = "Usage: dmg-smoke --dmg <file> --rid <osx-arm64|osx-x64> [--ceiling-seconds 5]";
+
+    // The argument rules (before the macOS check, so they can be tested everywhere): null when the arguments are acceptable.
+    public static string? Problem(string rid, string ceilingText, out double ceiling)
+    {
+        ceiling = 0;
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            return $"dmg-smoke: unknown RID: {rid}";
+        }
+
+        return !double.TryParse(ceilingText, NumberStyles.Float, CultureInfo.InvariantCulture, out ceiling) || !(ceiling > 0) || double.IsInfinity(ceiling)
+            ? $"dmg-smoke: --ceiling-seconds must be a positive number: {ceilingText}"
+            : null;
+    }
+
+    public static int Run(string[] args)
+    {
+        var parsed = Options.Parse(args, "--dmg", "--rid", "--ceiling-seconds");
+        if (parsed is not { } p || p.Positional.Count != 0 ||
+            !p.Named.TryGetValue("--dmg", out var dmg) || !p.Named.TryGetValue("--rid", out var rid))
+        {
+            Console.Error.WriteLine(Usage);
+            return 2;
+        }
+
+        // The ceiling is the coarse "starts within a few seconds" value (spec section 6): it catches a build that cannot run, not speed.
+        if (Problem(rid, p.Named.GetValueOrDefault("--ceiling-seconds", "5"), out var ceiling) is { } problem)
+        {
+            Console.Error.WriteLine(problem);
+            return 2;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.Error.WriteLine("dmg-smoke: only on macOS (hdiutil, ditto, codesign and lipo are needed)");
+            return 2;
+        }
+
+        var source = Path.GetFullPath(dmg);
+        if (!File.Exists(source))
+        {
+            Console.Error.WriteLine($"dmg-smoke: file missing: {source}");
+            return 1;
+        }
+
+        var failures = new List<string>();
+        void Check(bool ok, string what)
+        {
+            Console.WriteLine($"{(ok ? "ok    " : "FAILED")} {what}");
+            if (!ok)
+            {
+                failures.Add(what);
+            }
+        }
+
+        var work = Path.Combine(Path.GetTempPath(), "raffica-dmg-smoke-" + Guid.NewGuid().ToString("N"));
+        var mount = Path.Combine(work, "mount");
+        var copy = Path.Combine(work, "copy folder");
+        var stuck = false;
+
+        // Attaches, checks the contents, copies the app out and detaches again; the detach also happens on every failure.
+        bool CopyOut()
+        {
+            var attached = false;
+            try
+            {
+                Directory.CreateDirectory(mount);
+                var attachCode = Tool.Run("hdiutil", ["attach", "-readonly", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mount, source], out var attachLog);
+                attached = attachCode == 0;
+                Check(attached, $"hdiutil attach, read-only and hidden (code {attachCode})");
+                if (!attached)
+                {
+                    Console.Write(attachLog);
+                    return false;
+                }
+
+                // Names starting with a dot (.fseventsd, .Trashes, .DS_Store) are the volume's, not content.
+                var names = Directory.EnumerateFileSystemEntries(mount).Select(Path.GetFileName).Where(n => !n!.StartsWith('.')).Order(StringComparer.Ordinal).ToList();
+                Check(string.Join('|', names) == "Applications|" + MacApp.BundleName, $"the image holds exactly {MacApp.BundleName} and Applications ({string.Join(", ", names)})");
+                var link = new FileInfo(Path.Combine(mount, "Applications")).LinkTarget;
+                Check(link == "/Applications", $"Applications links to /Applications ({link ?? "no link"})");
+
+                var inImage = Path.Combine(mount, MacApp.BundleName);
+                var dittoCode = Directory.Exists(inImage) ? Tool.Run("ditto", [inImage, Path.Combine(copy, MacApp.BundleName)], out _) : -1;
+                Check(dittoCode == 0, $"app copied out of the image with ditto (code {dittoCode})");
+                return dittoCode == 0;
+            }
+            finally
+            {
+                if (attached)
+                {
+                    var detached = Tool.Run("hdiutil", ["detach", mount], out _) == 0 || Tool.Run("hdiutil", ["detach", "-force", mount], out _) == 0;
+                    stuck = !detached;
+                    Check(detached, "hdiutil detach");
+                }
+            }
+        }
+
+        try
+        {
+            Directory.CreateDirectory(copy);
+            if (!CopyOut())
+            {
+                return Finish(failures);
+            }
+
+            var bundle = Path.Combine(copy, MacApp.BundleName);
+            var signCode = Tool.Run("codesign", ["--verify", "--deep", "--strict", bundle], out var signLog);
+            Check(signCode == 0, $"codesign --verify --deep --strict on the copy (code {signCode})");
+            if (signCode != 0)
+            {
+                Console.Write(signLog);
+            }
+
+            var macOs = Path.Combine(bundle, "Contents", "MacOS");
+            var expected = MacApp.Arch(rid) == "x64" ? "x86_64" : "arm64";
+            var machO = Directory.Exists(macOs)
+                ? Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)
+                    .Where(f => Path.GetFileName(f) is "RafficaPdf" or "raffica" || f.EndsWith(".dylib", StringComparison.Ordinal))
+                    .Order(StringComparer.Ordinal).ToList()
+                : [];
+            Check(machO.Any(f => Path.GetFileName(f) == "RafficaPdf") && machO.Any(f => Path.GetFileName(f) == "raffica"), "Contents/MacOS holds RafficaPdf and raffica");
+            foreach (var file in machO)
+            {
+                var name = Path.GetRelativePath(macOs, file);
+                var code = Tool.Run("lipo", ["-archs", file], out var archs);
+                var found = archs.Split([' ', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+                if (code == 0 && found.Length > 1 && file.EndsWith(".dylib", StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"ok     {name}: universal library ({string.Join(' ', found)}), not compared");
+                }
+                else
+                {
+                    // RafficaPdf and raffica are never universal: exactly the one architecture of the RID.
+                    Check(code == 0 && found.Length == 1 && found[0] == expected, $"{name}: architecture {(code == 0 ? string.Join(' ', found) : "unreadable")} (expected {expected})");
+                }
+            }
+
+            var program = Path.Combine(macOs, "RafficaPdf");
+            if (File.Exists(program))
+            {
+                // An Intel image on an Apple silicon host runs under Rosetta; arch picks the Intel slice.
+                var viaArch = rid == "osx-x64" && System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64;
+                foreach (var (lang, text) in new[] { ("de", "Ansicht"), ("en", "View") })
+                {
+                    string[] arguments = ["--print-string", "TabView", "--lang", lang];
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
+                    var code = viaArch ? Tool.Run("arch", ["-x86_64", program, .. arguments], out var printed) : Tool.Run(program, arguments, out printed);
+                    watch.Stop();
+                    var seconds = watch.Elapsed.TotalSeconds;
+                    Check(code == 0 && printed.Trim() == text && seconds <= ceiling,
+                        $"RafficaPdf --print-string TabView --lang {lang} prints {text} within {ceiling.ToString(CultureInfo.InvariantCulture)} s (code {code}, {seconds.ToString("0.00", CultureInfo.InvariantCulture)} s{(viaArch ? ", under arch -x86_64" : string.Empty)})");
+                    if (printed.Trim() != text)
+                    {
+                        Console.WriteLine($"       output: {printed.Trim()}");
+                    }
+                }
+            }
+            else
+            {
+                Check(false, "RafficaPdf is missing in the copy");
+            }
+
+            return Finish(failures);
+        }
+        finally
+        {
+            // Never recurse into a mount that could not be detached.
+            if (!stuck)
+            {
+                try
+                {
+                    Directory.Delete(work, true);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
+
+    private static int Finish(List<string> failures)
+    {
+        Console.WriteLine(failures.Count == 0 ? "dmg-smoke: passed." : $"dmg-smoke: {failures.Count} check(s) failed.");
+        return failures.Count == 0 ? 0 : 1;
+    }
+}
+
 // The tag check of .github/workflows/release.yml: the same rule once in PowerShell (-cnotmatch) and once in bash (=~).
 static class TagRules
 {
@@ -3456,6 +3782,403 @@ static class RefInputRule
         return Regex.IsMatch(value, @"^[A-Za-z0-9._/-]+$") && !value.StartsWith("pull/", StringComparison.Ordinal) &&
             !value.Contains("..", StringComparison.Ordinal) &&
             (!value.StartsWith("refs/", StringComparison.Ordinal) || value.StartsWith("refs/heads/", StringComparison.Ordinal));
+    }
+}
+
+// The macOS app bundle "Raffica PDF.app" (Milestone 3.3): the layout of Contents/, Info.plist, the icon and the ad-hoc signature.
+// macOS only (sips, iconutil, plutil, codesign); the pure parts (InfoPlist, MinSystemVersion, Arch) run everywhere.
+static partial class MacApp
+{
+    public const string BundleName = "Raffica PDF.app";
+    public const string BundleId = "io.github.benjo-code.raffica.pdf";
+    private const string Usage = "Usage: macos-app --rid <osx-arm64|osx-x64> --app <publish dir> --cli <publish dir> --out <dir> --version <x.y.z> [--native <dir>] [--repo <dir>]";
+
+    // ASCII digits and \z: `$` also matches before a trailing newline and `\d` matches digits of other scripts.
+    [GeneratedRegex(@"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z")]
+    private static partial Regex StableVersion();
+
+    public static string Arch(string rid) => rid switch
+    {
+        "osx-arm64" => "arm64",
+        "osx-x64" => "x64",
+        _ => throw new ArgumentException($"unknown RID: {rid}", nameof(rid)),
+    };
+
+    // Reads MACOS_DEPLOYMENT_TARGET from the text of packaging/native/versions.txt (the one place the minimum is written down).
+    public static string MinSystemVersion(string versionsFileText)
+    {
+        foreach (var raw in versionsFileText.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith("MACOS_DEPLOYMENT_TARGET=", StringComparison.Ordinal))
+            {
+                var value = line["MACOS_DEPLOYMENT_TARGET=".Length..].Trim();
+                return value.Length > 0 ? value : throw new IOException("MACOS_DEPLOYMENT_TARGET is empty in versions.txt");
+            }
+        }
+
+        throw new IOException("MACOS_DEPLOYMENT_TARGET is missing in versions.txt");
+    }
+
+    // Only stable versions have a numeric plist form (CFBundleVersion); callers check with IsStable first.
+    public static bool IsStable(string version) => StableVersion().IsMatch(version);
+
+    public static string InfoPlist(string version, string minSystemVersion)
+    {
+        var v = System.Security.SecurityElement.Escape(version);
+        var m = System.Security.SecurityElement.Escape(minSystemVersion);
+        return $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>CFBundleIdentifier</key>
+              <string>{BundleId}</string>
+              <key>CFBundleExecutable</key>
+              <string>RafficaPdf</string>
+              <key>CFBundleName</key>
+              <string>Raffica PDF</string>
+              <key>CFBundleDisplayName</key>
+              <string>Raffica PDF</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>{v}</string>
+              <key>CFBundleVersion</key>
+              <string>{v}</string>
+              <key>CFBundleIconFile</key>
+              <string>RafficaPdf</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>LSApplicationCategoryType</key>
+              <string>public.app-category.productivity</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>{m}</string>
+              <key>CFBundleDocumentTypes</key>
+              <array>
+                <dict>
+                  <key>CFBundleTypeName</key>
+                  <string>PDF Document</string>
+                  <key>CFBundleTypeRole</key>
+                  <string>Editor</string>
+                  <key>LSHandlerRank</key>
+                  <string>Alternate</string>
+                  <key>LSItemContentTypes</key>
+                  <array>
+                    <string>com.adobe.pdf</string>
+                  </array>
+                </dict>
+              </array>
+            </dict>
+            </plist>
+
+            """;
+    }
+
+    public static int Run(string[] args)
+    {
+        var parsed = Options.Parse(args, "--rid", "--app", "--cli", "--out", "--version", "--native", "--repo");
+        if (parsed is not { } p || p.Positional.Count != 0 ||
+            !p.Named.TryGetValue("--rid", out var rid) || !p.Named.TryGetValue("--app", out var app) ||
+            !p.Named.TryGetValue("--cli", out var cli) || !p.Named.TryGetValue("--out", out var output) ||
+            !p.Named.TryGetValue("--version", out var version))
+        {
+            Console.Error.WriteLine(Usage);
+            return 2;
+        }
+
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            Console.Error.WriteLine($"macos-app: unknown RID: {rid}");
+            return 2;
+        }
+
+        if (!IsStable(version))
+        {
+            Console.Error.WriteLine($"macos-app: only a stable version x.y.z has a plist form, not: {version}");
+            return 2;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.Error.WriteLine("macos-app: only on macOS (sips, iconutil, plutil and codesign are needed)");
+            return 2;
+        }
+
+        return Build(rid, app, cli, output, version, p.Named.GetValueOrDefault("--native"), p.Named.GetValueOrDefault("--repo", "."));
+    }
+
+    private static readonly string[] SkippedExtensions = [".pdb", ".dbg"];
+
+    private static bool Skipped(string relative) =>
+        SkippedExtensions.Contains(Path.GetExtension(relative), StringComparer.OrdinalIgnoreCase) ||
+        relative.Split('/', '\\').Any(s => s.EndsWith(".dSYM", StringComparison.OrdinalIgnoreCase));
+
+    private static IEnumerable<string> Files(string dir) =>
+        Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(dir, f))
+            .Where(r => !Skipped(r))
+            .Order(StringComparer.Ordinal);
+
+    private const string TessdataFolder = "tessdata";
+
+    private static bool IsTessdata(string relative) =>
+        relative.Replace('\\', '/').StartsWith(TessdataFolder + "/", StringComparison.Ordinal);
+
+    // codesign treats every subfolder of Contents/MacOS as a nested code component and rejects data files in it, so the language data
+    // goes to Contents/Resources/tessdata (found through TessdataStore.ShippedDirectoryFor); everything else of a publish folder sits next to the programs.
+    public static string Destination(string relative, string macOs, string resources) =>
+        IsTessdata(relative) ? Path.Combine(resources, relative) : Path.Combine(macOs, relative);
+
+    // Folders of a publish folder that would land in Contents/MacOS: only tessdata (it moves to Resources) and *.dSYM (skipped) are allowed.
+    public static IEnumerable<string> StrayFolders(string dir) =>
+        Directory.EnumerateDirectories(dir, "*", SearchOption.AllDirectories)
+            .Select(d => Path.GetRelativePath(dir, d).Replace('\\', '/'))
+            .Where(r => !Skipped(r) && r != TessdataFolder && !IsTessdata(r + "/"))
+            .Order(StringComparer.Ordinal);
+
+    // The files codesign signs one by one, in this order: every *.dylib (ordinal among themselves), then the CLI, then the main executable last.
+    // Signing the main executable of a bundle makes codesign seal the bundle context, and it then demands that nested code is signed already
+    // (an unsigned dylib fails with "code object is not signed at all"; the arm64 dylibs only passed because the linker signs them). Other files are not code.
+    public static IEnumerable<string> SigningOrder(IEnumerable<string> files)
+    {
+        var all = files.ToList();
+        static string NameOf(string f) => Path.GetFileName(f);
+        foreach (var dylib in all.Where(f => NameOf(f).EndsWith(".dylib", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            yield return dylib;
+        }
+
+        foreach (var name in new[] { "raffica", "RafficaPdf" })
+        {
+            foreach (var f in all.Where(f => NameOf(f) == name).Order(StringComparer.Ordinal))
+            {
+                yield return f;
+            }
+        }
+    }
+
+    private static int Build(string rid, string app, string cli, string output, string version, string? nativeDir, string repo)
+    {
+        var library = Layout.NativeLibrary(rid);
+        var license = Path.Combine(repo, "LICENSE");
+        var notices = Path.Combine(repo, "src", "Raffica.Pdf", "Resources", "ThirdPartyNotices.txt");
+        var icon = Path.Combine(repo, "Docs", "design", "icons", "brand", "pdf.png");
+        var versions = Path.Combine(repo, "packaging", "native", "versions.txt");
+        var bundle = Path.Combine(output, BundleName);
+        var problems = new List<string>();
+        foreach (var (label, dir, exe) in new[] { ("App", app, "RafficaPdf"), ("CLI", cli, "raffica") })
+        {
+            if (!Directory.Exists(dir))
+            {
+                problems.Add($"{label} folder missing: {dir}");
+            }
+            else
+            {
+                foreach (var need in new[] { exe, library })
+                {
+                    if (!File.Exists(Path.Combine(dir, need)))
+                    {
+                        problems.Add($"{label} folder does not contain {need}: {dir}");
+                    }
+                }
+
+                foreach (var stray in StrayFolders(dir))
+                {
+                    problems.Add($"{label} folder holds the folder {stray}; codesign treats a folder in Contents/MacOS as code and would reject the bundle (only {TessdataFolder} is moved to Contents/Resources): {dir}");
+                }
+            }
+        }
+
+        foreach (var file in new[] { license, notices, icon, versions })
+        {
+            if (!File.Exists(file))
+            {
+                problems.Add($"File missing: {file}");
+            }
+        }
+
+        if (Directory.Exists(app) && nativeDir is not null)
+        {
+            foreach (var target in NativeFiles.For(rid))
+            {
+                if (!File.Exists(Path.Combine(nativeDir, target)))
+                {
+                    problems.Add($"Folder --native does not contain {target}: {nativeDir}");
+                }
+
+                if (File.Exists(Path.Combine(app, target)) || File.Exists(Path.Combine(cli, target)))
+                {
+                    problems.Add($"The app or CLI folder already contains {target}; --native does not overwrite it");
+                }
+            }
+        }
+
+        // The CLI's own files (its native libraries) must be the app's, byte for byte: the bundle holds one copy next to both programs.
+        var extraFromCli = new List<string>();
+        if (Directory.Exists(app) && Directory.Exists(cli))
+        {
+            foreach (var relative in Files(cli).Where(r => r != "raffica"))
+            {
+                var inApp = Path.Combine(app, relative);
+                if (!File.Exists(inApp))
+                {
+                    extraFromCli.Add(relative);
+                }
+                else if (!File.ReadAllBytes(inApp).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(cli, relative))))
+                {
+                    problems.Add($"The CLI's {relative} differs from the app's; the bundle keeps one copy");
+                }
+            }
+        }
+
+        if (Directory.Exists(bundle))
+        {
+            problems.Add($"Bundle exists already: {bundle}");
+        }
+
+        if (problems.Count > 0)
+        {
+            foreach (var problem in problems)
+            {
+                Console.Error.WriteLine($"macos-app: {problem}");
+            }
+
+            return 1;
+        }
+
+        var work = Path.Combine(Path.GetTempPath(), "raffica-macapp-" + Guid.NewGuid().ToString("N"));
+        var success = false;
+        try
+        {
+            var macOs = Path.Combine(bundle, "Contents", "MacOS");
+            var resources = Path.Combine(bundle, "Contents", "Resources");
+            Directory.CreateDirectory(macOs);
+            Directory.CreateDirectory(resources);
+            foreach (var relative in Files(app))
+            {
+                Copy(Path.Combine(app, relative), Destination(relative, macOs, resources), relative == "RafficaPdf");
+            }
+
+            Copy(Path.Combine(cli, "raffica"), Path.Combine(macOs, "raffica"), true);
+            foreach (var relative in extraFromCli)
+            {
+                Copy(Path.Combine(cli, relative), Destination(relative, macOs, resources), false);
+            }
+
+            if (nativeDir is not null)
+            {
+                foreach (var target in NativeFiles.For(rid))
+                {
+                    Copy(Path.Combine(nativeDir, target), Destination(target, macOs, resources), false);
+                }
+            }
+
+            Copy(license, Path.Combine(resources, "LICENSE"), false);
+            Copy(notices, Path.Combine(resources, "THIRD-PARTY-NOTICES.txt"), false);
+
+            var plist = Path.Combine(bundle, "Contents", "Info.plist");
+            File.WriteAllText(plist, InfoPlist(version, MinSystemVersion(File.ReadAllText(versions))), new UTF8Encoding(false));
+            if (Step("plutil", ["-lint", plist]) != 0)
+            {
+                return 1;
+            }
+
+            Directory.CreateDirectory(work);
+            if (!MakeIcon(icon, Path.Combine(work, "RafficaPdf.iconset"), Path.Combine(resources, "RafficaPdf.icns")))
+            {
+                return 1;
+            }
+
+            // Ad-hoc signing (no Developer ID, no notarization): every Mach-O in SigningOrder (dylibs, CLI, main executable), then the bundle, then the strict check.
+            // Contents/MacOS must hold files only: codesign would take a folder in it for a code component.
+            var strays = Directory.EnumerateDirectories(macOs, "*", SearchOption.AllDirectories).ToList();
+            if (strays.Count > 0)
+            {
+                Console.Error.WriteLine($"macos-app: Contents/MacOS must hold files only, found the folder {Path.GetRelativePath(macOs, strays[0])}");
+                return 1;
+            }
+
+            foreach (var file in SigningOrder(Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)))
+            {
+                if (Step("codesign", ["--force", "-s", "-", file]) != 0)
+                {
+                    return 1;
+                }
+            }
+
+            if (Step("codesign", ["--force", "-s", "-", bundle]) != 0 ||
+                Step("codesign", ["--verify", "--deep", "--strict", bundle]) != 0)
+            {
+                return 1;
+            }
+
+            Console.WriteLine($"macos-app: {Arch(rid)} bundle {bundle}");
+            success = true;
+            return 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"macos-app: {e.Message}");
+            return 1;
+        }
+        finally
+        {
+            // A failed run leaves no half-built (or half-signed) bundle behind.
+            foreach (var path in success ? new[] { work } : new[] { work, bundle })
+            {
+                try
+                {
+                    Directory.Delete(path, recursive: true);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
+
+    // sips resizes, iconutil packs; the names are the ones iconutil requires (icon_<n>x<n>.png and icon_<n>x<n>@2x.png).
+    private static bool MakeIcon(string source, string iconset, string icns)
+    {
+        Directory.CreateDirectory(iconset);
+        foreach (var size in new[] { 16, 32, 128, 256, 512 })
+        {
+            foreach (var (suffix, pixels) in new[] { ("", size), ("@2x", size * 2) })
+            {
+                var target = Path.Combine(iconset, $"icon_{size}x{size}{suffix}.png");
+                if (Step("sips", ["-z", pixels.ToString(CultureInfo.InvariantCulture), pixels.ToString(CultureInfo.InvariantCulture), source, "--out", target]) != 0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return Step("iconutil", ["-c", "icns", "-o", icns, iconset]) == 0;
+    }
+
+    private static int Step(string tool, string[] arguments)
+    {
+        var code = Tool.Run(tool, arguments, out var output);
+        if (code != 0)
+        {
+            Console.Error.WriteLine($"macos-app: {tool} {string.Join(' ', arguments.Take(2))} ... ended with code {code}: {output.Trim()}");
+        }
+
+        return code;
+    }
+
+    // Executables get 0755, everything else 0644, so the bundle does not depend on the build machine's umask.
+    private static void Copy(string from, string to, bool executable)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        File.Copy(from, to);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(to, executable
+                ? UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute
+                : UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+        }
     }
 }
 
@@ -3525,6 +4248,8 @@ static class SelfTest
         ManifestJobParts();
         PublicRepoWorkflowParts();
         UpdateTestBuildGuardParts();
+        MacAppParts();
+        DmgParts();
         Expect("unknown command returns 2", Cli.Run(["does-not-exist"]), 2);
 
         Console.WriteLine(s_failures == 0
@@ -3567,8 +4292,8 @@ static class SelfTest
 
         Expect("tag: all bash rules are the same (Linux and manifest job)",
             Regex.Matches(yml, @"\[\[ ""\$TAG"" =~ (?<p>\S+) \]\]").Select(m => m.Groups["p"].Value).Distinct(StringComparer.Ordinal).Count(), 1);
-        Expect("tag: both checkouts of the build jobs also build a branch (inputs.ref)", Regex.Count(yml, @"ref: \$\{\{ inputs\.ref \|\| "), 2);
-        Expect("tag: all four jobs refuse to upload a branch build", Regex.Count(yml, "name: Refuse to upload a branch build"), 4);
+        Expect("tag: the three checkouts of the build jobs also build a branch (inputs.ref)", Regex.Count(yml, @"ref: \$\{\{ inputs\.ref \|\| "), 3);
+        Expect("tag: all five jobs refuse to upload a branch build", Regex.Count(yml, "name: Refuse to upload a branch build"), 5);
     }
 
     // The AppImage contains libfuse (LGPL-2.1): its source and the runtime's build scripts are attached to every release.
@@ -3690,7 +4415,7 @@ static class SelfTest
         var yml = File.ReadAllText(workflow);
         Expect("container: the work folder is handed back even after an abort (if: always() with chown)",
             Regex.IsMatch(yml, @"name: Give the workspace back to the runner user \(Linux\)\s+if: always\(\)\s+run: \|[\s\S]*?chown -R"), true);
-        Expect("container: self-test of the packaging tool runs in all three jobs on the host", Regex.Count(yml, "name: Self-test of the packaging tool"), 3);
+        Expect("container: self-test of the packaging tool runs in all four jobs on the host", Regex.Count(yml, "name: Self-test of the packaging tool"), 4);
         Expect("container: container-build.sh sets NUGET_PACKAGES (dotnet and licenses.cs look in the same place)",
             Regex.IsMatch(File.ReadAllText(container), @"(?m)^export .*\bNUGET_PACKAGES="), true);
         Expect("container: container-build.sh has no pipe into head (pipefail turns it into exit 141)",
@@ -4520,6 +5245,36 @@ static class SelfTest
             Expect($"update-manifest: writes exactly the bytes of {vectorManifest} (test vector of the app)",
                 File.Exists(manifest) && File.Exists(vectorManifest) && File.ReadAllBytes(manifest).AsSpan().SequenceEqual(File.ReadAllBytes(vectorManifest)), true);
 
+            // The two macOS disk images: optional as a pair, listed after the four others in the order of Kinds.
+            var macSums = Path.Combine(dir, "SHA256SUMS-macos.txt");
+            var macNames = new[] { "RafficaPdf-0.2.0-macos-arm64.dmg", "RafficaPdf-0.2.0-macos-x64.dmg" };
+            File.WriteAllText(macSums, SumsOf(macNames[1], macNames[0]));
+            var macAssets = assets.Concat(macNames.Select(n => (n, 60_000_000L))).Concat([("SHA256SUMS-macos.txt", 300L)]).ToList();
+            var macSizes = Path.Combine(dir, "assets-macos.json");
+            File.WriteAllText(macSizes, AssetsJson(macAssets));
+            var sixManifest = Path.Combine(dir, "update-manifest-six.json");
+            Expect("ManifestWithThreeSumsHasSixKindsInOrder: success", Cli.Run(ManifestArgs("0.2.0", sixManifest, macSizes, win, linux, macSums)), 0);
+            var sixFiles = ManifestFiles(sixManifest);
+            Expect("ManifestWithThreeSumsHasSixKindsInOrder: kinds", string.Join(",", sixFiles.Select(f => f.Kind)),
+                "win-x64-setup,win-x64-portable,linux-appimage,linux-deb,macos-arm64-dmg,macos-x64-dmg");
+            Expect("ManifestWithThreeSumsHasSixKindsInOrder: dmg size and SHA-256", sixFiles.Contains(("macos-x64-dmg", macNames[1], 60_000_000L, NameHash(macNames[1]))), true);
+            Expect("ManifestWithTwoSumsIsByteIdenticalToTheVector: the extra macOS files in the release change nothing",
+                Cli.Run(ManifestArgs("0.2.0", Path.Combine(dir, "four.json"), macSizes, win, linux)) == 0 &&
+                File.ReadAllBytes(Path.Combine(dir, "four.json")).AsSpan().SequenceEqual(File.ReadAllBytes(vectorManifest)), true);
+            var oneMac = Path.Combine(dir, "SHA256SUMS-macos-one.txt");
+            File.WriteAllText(oneMac, SumsOf(macNames[0]));
+            var oneRefused = Path.Combine(dir, "one-refused.json");
+            var (oneCode, _, oneErr) = Capture(ManifestArgs("0.2.0", oneRefused, macSizes, win, linux, oneMac));
+            Expect("OnlyOneMacArchitectureIsRefused: returns 1", oneCode, 1);
+            Expect("OnlyOneMacArchitectureIsRefused: names the missing kind", oneErr.Contains("macos-x64-dmg", StringComparison.Ordinal), true);
+            Expect("OnlyOneMacArchitectureIsRefused: no file", File.Exists(oneRefused), false);
+            var otherMac = Path.Combine(dir, "SHA256SUMS-macos-other.txt");
+            File.WriteAllText(otherMac, SumsOf(macNames[0], macNames[1], "RafficaPdf-0.1.0-macos-x64.dmg"));
+            var (otherCode, _, otherErr) = Capture(ManifestArgs("0.2.0", oneRefused, macSizes, win, linux, otherMac));
+            Expect("AMacDmgOfAnotherVersionIsListedAsNotBelongingToTheVersion: returns 1", otherCode, 1);
+            Expect("AMacDmgOfAnotherVersionIsListedAsNotBelongingToTheVersion: message",
+                otherErr.Contains("RafficaPdf-0.1.0-macos-x64.dmg does not belong to version 0.2.0", StringComparison.Ordinal), true);
+
             var refused = Path.Combine(dir, "refused.json");
             Expect("update-manifest: a prerelease returns 2 (the app reads only X.Y.Z)", Cli.Run(ManifestArgs("0.2.0-rc.1", refused, sizes, win, linux)), 2);
             Expect("update-manifest: file names of another version return 1", Cli.Run(ManifestArgs("0.3.0", refused, sizes, win, linux)), 1);
@@ -4886,9 +5641,9 @@ static class SelfTest
         Expect("release.yml: nothing reads a release event any more (github.event.release, event_name == 'release')",
             Regex.IsMatch(yml, @"github\.event\.release|event_name == 'release'"), false);
         Expect("release.yml: TAG comes from inputs.tag only in every job", Regex.Count(yml, @"(?m)^      TAG: \$\{\{ inputs\.tag \}\}$"), Regex.Count(yml, @"(?m)^      TAG:"));
-        Expect("release.yml: TAG is set in four jobs", Regex.Count(yml, @"(?m)^      TAG:"), 4);
+        Expect("release.yml: TAG is set in five jobs", Regex.Count(yml, @"(?m)^      TAG:"), 5);
         Expect("release.yml: UPLOAD comes from inputs.upload only in every job", Regex.Count(yml, @"(?m)^      UPLOAD: \$\{\{ inputs\.upload \}\}$"), Regex.Count(yml, @"(?m)^      UPLOAD:"));
-        Expect("release.yml: UPLOAD is set in three jobs", Regex.Count(yml, @"(?m)^      UPLOAD:"), 3);
+        Expect("release.yml: UPLOAD is set in four jobs", Regex.Count(yml, @"(?m)^      UPLOAD:"), 4);
         Expect("release.yml: concurrency only per inputs.tag", yml.Contains("  group: release-${{ inputs.tag }}\n", StringComparison.Ordinal), true);
 
         string Job(string name) => Regex.Match(yml, @"(?m)^  " + name + @":\n(?<b>(?:    .*\n|\n)*)").Groups["b"].Value;
@@ -4944,12 +5699,12 @@ static class SelfTest
         Expect("release.yml: preflight and manifest check out the verified commit id (steps.ontag.outputs.sha)",
             Regex.Count(yml, @"(?m)^          ref: \$\{\{ steps\.ontag\.outputs\.sha \}\}$"), 2);
         Expect("release.yml: build jobs check out inputs.ref, otherwise the commit id of preflight (tag name only as the fallback of the dry run)",
-            Regex.Count(yml, @"(?m)^          ref: \$\{\{ inputs\.ref \|\| needs\.preflight\.outputs\.tag_sha \|\| format\('refs/tags/\{0\}', inputs\.tag\) \}\}$"), 2);
+            Regex.Count(yml, @"(?m)^          ref: \$\{\{ inputs\.ref \|\| needs\.preflight\.outputs\.tag_sha \|\| format\('refs/tags/\{0\}', inputs\.tag\) \}\}$"), 3);
         Expect("release.yml: no checkout by the tag name alone", Regex.IsMatch(yml, @"(?m)^          ref: (refs/tags/)?\$\{\{ inputs\.tag \}\}$"), false);
         Expect("release.yml: preflight outputs the verified commit id (outputs.tag_sha)",
             preflight.Contains("    outputs:\n      tag_sha: ${{ steps.ontag.outputs.sha }}\n", StringComparison.Ordinal), true);
         Expect("release.yml: every checkout of the build jobs comes after 'Require the verified commit' (uploading without a verified commit aborts)",
-            new[] { "windows", "linux" }.All(j =>
+            new[] { "windows", "linux", "macos" }.All(j =>
             {
                 var st = StepsOf(Job(j));
                 var guard = st.FindIndex(x => Name(x) == "Require the verified commit");
@@ -4961,7 +5716,7 @@ static class SelfTest
 
         // The ref input is built on runners that also build the release: a job that takes it checks, before its first checkout,
         // that it is a commit of main or dev (compare status identical or behind), so a fork's pull request commit is refused.
-        foreach (var guardedJob in new[] { "preflight", "windows", "linux" })
+        foreach (var guardedJob in new[] { "preflight", "windows", "linux", "macos" })
         {
             var st = StepsOf(Job(guardedJob));
             var refGuard = st.FindIndex(x => Name(x) == "Check that the ref is on main or dev");
@@ -5002,7 +5757,7 @@ static class SelfTest
             Expect($"ref rule: '{value}' is rejected", RefInputRule.Accepts(value), false);
         }
 
-        foreach (var refJob in new[] { "preflight", "windows", "linux", "manifest" })
+        foreach (var refJob in new[] { "preflight", "windows", "linux", "macos", "manifest" })
         {
             var refSteps = StepsOf(Job(refJob));
             var first = refSteps.Count > 0 ? refSteps[0] : string.Empty;
@@ -5072,22 +5827,34 @@ static class SelfTest
             }
         }
 
-        foreach (var buildJob in new[] { "windows", "linux" })
+        foreach (var buildJob in new[] { "windows", "linux", "macos" })
         {
             Expect($"release.yml: job {buildJob} waits for preflight", Job(buildJob).Contains("    needs: preflight\n", StringComparison.Ordinal), true);
         }
 
+        // The macOS job: hosted macos-15, the preamble of the Linux job, bundle, image and smoke for both architectures.
+        var macosJob = Job("macos");
+        Expect("release.yml: job macos present, named release-macos", macosJob.Contains("    name: release-macos\n", StringComparison.Ordinal), true);
+        Expect("release.yml: job macos on the hosted runner macos-15", macosJob.Contains("    runs-on: macos-15\n", StringComparison.Ordinal) &&
+            !IsSelfHosted(Regex.Match(macosJob, @"(?m)^    runs-on:.*$").Value), true);
+        Expect("release.yml: job macos may upload (contents: write)", Regex.IsMatch(macosJob, @"    permissions:\n      contents: write\n"), true);
+        Expect("release.yml: job macos has a timeout of 60 minutes", macosJob.Contains("    timeout-minutes: 60\n", StringComparison.Ordinal), true);
+        foreach (var word in new[] { "macos-app", "package.cs -- dmg ", "dmg-smoke", "SHA256SUMS-macos.txt", "check-binary.cs", "smoke-cli.cs", "native-fetch.cs", "RafficaPdf-$VERSION-macos-" })
+        {
+            Expect($"release.yml: job macos contains {word.Trim()}", macosJob.Contains(word, StringComparison.Ordinal), true);
+        }
+
         var job = Job("manifest");
         Expect("release.yml: job manifest present", job.Length > 0, true);
-        Expect("release.yml: job manifest waits for preflight and both build jobs", job.Contains("    needs: [preflight, windows, linux]\n", StringComparison.Ordinal), true);
-        Expect("release.yml: job manifest runs only after both jobs succeeded and only when uploading", job.Contains(
-            "    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' && inputs.upload }}\n",
+        Expect("release.yml: job manifest waits for preflight and the three build jobs", job.Contains("    needs: [preflight, windows, linux, macos]\n", StringComparison.Ordinal), true);
+        Expect("release.yml: job manifest runs only after the three build jobs succeeded and only when uploading", job.Contains(
+            "    if: ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && inputs.upload }}\n",
             StringComparison.Ordinal), true);
         // The only job that sees the signing key runs on a fresh GitHub-hosted runner, behind the environment.
         Expect("release.yml: job manifest on the hosted runner ubuntu-24.04", job.Contains("    runs-on: ubuntu-24.04\n", StringComparison.Ordinal), true);
         Expect("release.yml: job manifest names no self-hosted label", IsSelfHosted(Regex.Match(job, @"(?m)^    runs-on:.*$").Value), false);
         Expect("release.yml: job manifest with environment: release-signing", job.Contains("    environment: release-signing\n", StringComparison.Ordinal), true);
-        foreach (var buildJob in new[] { "windows", "linux" })
+        foreach (var buildJob in new[] { "windows", "linux", "macos" })
         {
             var buildSteps = StepsOf(Job(buildJob));
             var uploadAt = buildSteps.FindIndex(x => Name(x) == "Upload to the release");
@@ -5163,12 +5930,18 @@ static class SelfTest
         Expect("release.yml: the sum comparison takes the hashes of the build jobs through the environment (no ${{ }} in the command line)",
             Regex.IsMatch(sumsStep, @"\n        env:\n(?:          \S.*\n)*          WINDOWS_SUMS_SHA256: \$\{\{ needs\.windows\.outputs\.sums_sha256 \}\}\n") &&
             Regex.IsMatch(sumsStep, @"\n        env:\n(?:          \S.*\n)*          LINUX_SUMS_SHA256: \$\{\{ needs\.linux\.outputs\.sums_sha256 \}\}\n") &&
+            Regex.IsMatch(sumsStep, @"\n        env:\n(?:          \S.*\n)*          MACOS_SUMS_SHA256: \$\{\{ needs\.macos\.outputs\.sums_sha256 \}\}\n") &&
             sumsStep.Contains("\n        run: |\n", StringComparison.Ordinal) &&
             !sumsStep[sumsStep.IndexOf("\n        run: |\n", StringComparison.Ordinal)..].Contains("${{", StringComparison.Ordinal), true);
-        Expect("release.yml: the sum comparison checks both downloaded files with sums-verify and aborts on an error",
+        Expect("release.yml: the sum comparison checks all three downloaded files with sums-verify and aborts on an error",
             sumsStep.Contains("set -euo pipefail", StringComparison.Ordinal) &&
             sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-windows.txt --sha256 ""$WINDOWS_SUMS_SHA256""", StringComparison.Ordinal) &&
-            sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-linux.txt --sha256 ""$LINUX_SUMS_SHA256""", StringComparison.Ordinal), true);
+            sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-linux.txt --sha256 ""$LINUX_SUMS_SHA256""", StringComparison.Ordinal) &&
+            sumsStep.Contains(@"sums-verify --file out/manifest/SHA256SUMS-macos.txt --sha256 ""$MACOS_SUMS_SHA256""", StringComparison.Ordinal), true);
+        // The manifest job downloads and signs over all three checksum files (the tool takes the macOS files only as a pair).
+        Expect("release.yml: the manifest job downloads three checksum files and passes them to update-manifest",
+            steps[download].Contains("--pattern SHA256SUMS-windows.txt --pattern SHA256SUMS-linux.txt --pattern SHA256SUMS-macos.txt", StringComparison.Ordinal) &&
+            steps[build].Contains("--sums out/manifest/SHA256SUMS-windows.txt out/manifest/SHA256SUMS-linux.txt out/manifest/SHA256SUMS-macos.txt --sizes", StringComparison.Ordinal), true);
         Expect("release.yml: the sum comparison without a secret and without an action", sumsStep.Contains("secrets.", StringComparison.Ordinal) || sumsStep.Contains("uses:", StringComparison.Ordinal), false);
         Expect("release.yml: the placeholder test is armed (RAFFICA_REQUIRE_RELEASE_KEY)", test >= 0 &&
             steps[test].Contains("RAFFICA_REQUIRE_RELEASE_KEY: '1'", StringComparison.Ordinal) &&
@@ -5316,6 +6089,429 @@ static class SelfTest
         catch (System.ComponentModel.Win32Exception)
         {
             return -1;
+        }
+    }
+
+    // macos-app: the pure parts run everywhere, the real run (sips, iconutil, codesign) only on macOS.
+    private static void MacAppParts()
+    {
+        var plist = System.Xml.Linq.XDocument.Parse(MacApp.InfoPlist("0.1.0", "15.0"));
+        var dict = plist.Root!.Element("dict")!;
+        var values = new Dictionary<string, System.Xml.Linq.XElement>(StringComparer.Ordinal);
+        var children = dict.Elements().ToList();
+        for (var i = 0; i + 1 < children.Count; i += 2)
+        {
+            values[children[i].Value] = children[i + 1];
+        }
+
+        string Text(string key) => values.TryGetValue(key, out var e) ? e.Value : "(missing)";
+        Expect("macos-app: bundle id", Text("CFBundleIdentifier"), "io.github.benjo-code.raffica.pdf");
+        Expect("macos-app: executable", Text("CFBundleExecutable"), "RafficaPdf");
+        Expect("macos-app: name", Text("CFBundleName"), "Raffica PDF");
+        Expect("macos-app: display name", Text("CFBundleDisplayName"), "Raffica PDF");
+        Expect("macos-app: package type", Text("CFBundlePackageType"), "APPL");
+        Expect("macos-app: icon file", Text("CFBundleIconFile"), "RafficaPdf");
+        Expect("macos-app: category", Text("LSApplicationCategoryType"), "public.app-category.productivity");
+        Expect("macos-app: short version", Text("CFBundleShortVersionString"), "0.1.0");
+        Expect("macos-app: bundle version", Text("CFBundleVersion"), "0.1.0");
+        Expect("macos-app: minimum system version", Text("LSMinimumSystemVersion"), "15.0");
+        Expect("macos-app: NSHighResolutionCapable is true", values.TryGetValue("NSHighResolutionCapable", out var hi) ? hi.Name.LocalName : "(missing)", "true");
+        var types = values.TryGetValue("CFBundleDocumentTypes", out var docs) ? docs.Elements("dict").ToList() : [];
+        Expect("macos-app: one document type", types.Count, 1);
+        var typeText = types.Count == 1 ? string.Join('|', types[0].Descendants().Select(e => e.Value)) : "";
+        Expect("macos-app: document type is com.adobe.pdf, Editor, Alternate",
+            typeText.Contains("com.adobe.pdf", StringComparison.Ordinal) && typeText.Contains("Editor", StringComparison.Ordinal) && typeText.Contains("Alternate", StringComparison.Ordinal), true);
+
+        var versionsFile = Path.Combine("packaging", "native", "versions.txt");
+        Expect("macos-app: versions.txt present", File.Exists(versionsFile), true);
+        Expect("macos-app: minimum system version from the real versions.txt",
+            File.Exists(versionsFile) ? MacApp.MinSystemVersion(File.ReadAllText(versionsFile)) : "(missing)", "15.0");
+        Expect("macos-app: minimum system version, last line without a newline and with CR",
+            MacApp.MinSystemVersion("A=1\r\nMACOS_DEPLOYMENT_TARGET=16.2\r"), "16.2");
+        Expect("macos-app: a text without the key throws", ThrowsIo(() => MacApp.MinSystemVersion("A=1\n")), true);
+        Expect("macos-app: an empty value throws", ThrowsIo(() => MacApp.MinSystemVersion("MACOS_DEPLOYMENT_TARGET=\n")), true);
+
+        Expect("macos-app: arch of osx-arm64", MacApp.Arch("osx-arm64"), "arm64");
+        Expect("macos-app: arch of osx-x64", MacApp.Arch("osx-x64"), "x64");
+        Expect("macos-app: native library name", Layout.NativeLibrary("osx-arm64") + "|" + Layout.NativeLibrary("osx-x64"), "libpdfium.dylib|libpdfium.dylib");
+        Expect("macos-app: native files of osx-x64", string.Join(',', NativeFiles.For("osx-x64")),
+            "libtesseract.dylib,tessdata/eng.traineddata,tessdata/deu.traineddata");
+        static string Norm(string path) => path.Replace('\\', '/');
+        Expect("macos-app: tessdata goes to Resources", Norm(MacApp.Destination("tessdata/eng.traineddata", "/b/MacOS", "/b/Resources")), "/b/Resources/tessdata/eng.traineddata");
+        Expect("macos-app: a library goes to MacOS", Norm(MacApp.Destination("libtesseract.dylib", "/b/MacOS", "/b/Resources")), "/b/MacOS/libtesseract.dylib");
+        Expect("macos-app: a file called tessdata.txt stays in MacOS", Norm(MacApp.Destination("tessdata.txt", "/b/MacOS", "/b/Resources")), "/b/MacOS/tessdata.txt");
+        var strayDir = Path.Combine(Path.GetTempPath(), "raffica-macapp-stray-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            foreach (var folder in new[] { "tessdata", Path.Combine("tessdata", "configs"), "RafficaPdf.dSYM", Path.Combine("RafficaPdf.dSYM", "Contents"), "locales", Path.Combine("locales", "de") })
+            {
+                Directory.CreateDirectory(Path.Combine(strayDir, folder));
+            }
+
+            Expect("macos-app: only tessdata and dSYM are allowed folders", string.Join(',', MacApp.StrayFolders(strayDir)), "locales,locales/de");
+        }
+        finally
+        {
+            Directory.Delete(strayDir, recursive: true);
+        }
+
+        // codesign refuses to seal the main executable of a bundle while nested code is unsigned, so the order is: dylibs, the CLI, RafficaPdf last.
+        var scrambled = new[] { "m/RafficaPdf", "m/libtesseract.dylib", "m/raffica", "m/notes.txt", "m/libpdfium.dylib", "m/RafficaPdf.pdb", "m/libAvaloniaNative.dylib", "m/Info.plist" };
+        Expect("macos-app: signing order is the dylibs, then raffica, then RafficaPdf, other files dropped",
+            string.Join(',', MacApp.SigningOrder(scrambled)),
+            "m/libAvaloniaNative.dylib,m/libpdfium.dylib,m/libtesseract.dylib,m/raffica,m/RafficaPdf");
+        Expect("macos-app: signing order does not depend on the input order",
+            string.Join(',', MacApp.SigningOrder(scrambled.Reverse())), string.Join(',', MacApp.SigningOrder(scrambled)));
+        Expect("macos-app: the main executable is signed last",
+            Path.GetFileName(MacApp.SigningOrder(["x/RafficaPdf", "x/zzz.dylib", "x/raffica"]).Last()), "RafficaPdf");
+        Expect("macos-app: a bundle without dylibs still signs raffica before RafficaPdf",
+            string.Join(',', MacApp.SigningOrder(["x/RafficaPdf", "x/raffica"])), "x/raffica,x/RafficaPdf");
+        Expect("macos-app: names that are not Mach-O are dropped", MacApp.SigningOrder(["x/readme.txt", "x/Raffica", "x/rafficapdf", "x/a.dylib.txt"]).Count(), 0);
+
+        Expect("macos-app: layout stays Windows and Linux only", Cli.Run(["layout", "--rid", "osx-x64", "--app", "a", "--cli", "b", "--out", "c"]), 2);
+
+        string[] Args(string rid, string version) =>
+            ["macos-app", "--rid", rid, "--app", "app-does-not-exist", "--cli", "cli-does-not-exist", "--out", "out-does-not-exist", "--version", version];
+        Expect("macos-app: a prerelease version returns 2", Cli.Run(Args("osx-arm64", "0.2.0-rc.1")), 2);
+        Expect("macos-app: a version with a trailing newline is not stable ($ would accept it)", MacApp.IsStable("0.1.0\n"), false);
+        Expect("macos-app: non-ASCII digits are not a stable version (a digit class would accept them)", MacApp.IsStable("٠.١.٠"), false);
+        Expect("macos-app: a plain stable version is stable", MacApp.IsStable("0.1.0"), true);
+        Expect("macos-app: a version with a leading v returns 2", Cli.Run(Args("osx-arm64", "v0.2.0")), 2);
+        Expect("macos-app: an unknown RID returns 2", Cli.Run(Args("linux-x64", "0.1.0")), 2);
+        Expect("macos-app: a missing option returns 2", Cli.Run(["macos-app", "--rid", "osx-x64"]), 2);
+        if (!OperatingSystem.IsMacOS())
+        {
+            Expect("macos-app: anywhere but macOS returns 2", Cli.Run(Args("osx-arm64", "0.1.0")), 2);
+            Console.WriteLine("selftest: skipped macos-app real run, reason: macOS: needs sips, iconutil and codesign (proven by the CI job build-macos).");
+            return;
+        }
+
+        MacOsRealRun();
+    }
+
+    // The dylibs a real build sees on x64 carry no signature at all (the arm64 ones get an ad-hoc one from the linker), and signing RafficaPdf
+    // first then fails. A copy of /usr/bin/true is signed, so the fixtures strip the signature of their libraries to make the signing order matter.
+    private static void Unsign(params string[] files)
+    {
+        foreach (var file in files)
+        {
+            Expect($"macos-app run: {Path.GetFileName(file)} loses its signature", Tool.Run("codesign", ["--remove-signature", file], out _), 0);
+            Expect($"macos-app run: {Path.GetFileName(file)} is unsigned now", Tool.Run("codesign", ["--verify", file], out _) != 0, true);
+        }
+    }
+
+    private static void MacOsRealRun()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "raffica-macapp-selftest-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var app = Path.Combine(dir, "app");
+            var cli = Path.Combine(dir, "cli");
+            var native = Path.Combine(dir, "native");
+            var otherCli = Path.Combine(dir, "cli-other");
+            var output = Path.Combine(dir, "out folder");
+            var appWithData = Path.Combine(dir, "app-with-data");
+            var appWithFolder = Path.Combine(dir, "app-with-folder");
+            foreach (var d in new[] { app, cli, otherCli, Path.Combine(native, "tessdata"), Path.Combine(appWithData, "tessdata"), Path.Combine(appWithFolder, "locales") })
+            {
+                Directory.CreateDirectory(d);
+            }
+
+            const string Template = "/usr/bin/true";
+            foreach (var (folder, name) in new[] { (app, "RafficaPdf"), (app, "libpdfium.dylib"), (cli, "raffica"), (cli, "libpdfium.dylib"), (otherCli, "raffica"), (otherCli, "libpdfium.dylib") })
+            {
+                File.Copy(Template, Path.Combine(folder, name));
+            }
+
+            File.AppendAllText(Path.Combine(otherCli, "libpdfium.dylib"), "different");
+            File.WriteAllText(Path.Combine(app, "RafficaPdf.pdb"), "symbols");
+            File.Copy(Template, Path.Combine(native, "libtesseract.dylib"));
+            // Unsigned libraries (app and CLI hold the same bytes, the bundle keeps one copy), as the x64 build has them.
+            Unsign(Path.Combine(app, "libpdfium.dylib"), Path.Combine(cli, "libpdfium.dylib"), Path.Combine(native, "libtesseract.dylib"));
+            File.WriteAllText(Path.Combine(native, "tessdata", "eng.traineddata"), "eng");
+            File.WriteAllText(Path.Combine(native, "tessdata", "deu.traineddata"), "deu");
+
+            // An app folder as CI publishes it with OCR files: the library and tessdata sit next to the program (no --native then).
+            foreach (var name in new[] { "RafficaPdf", "libpdfium.dylib", "libtesseract.dylib" })
+            {
+                File.Copy(Template, Path.Combine(appWithData, name));
+            }
+
+            Unsign(Path.Combine(appWithData, "libpdfium.dylib"), Path.Combine(appWithData, "libtesseract.dylib"));
+            File.WriteAllText(Path.Combine(appWithData, "tessdata", "eng.traineddata"), "eng");
+            File.WriteAllText(Path.Combine(appWithData, "tessdata", "deu.traineddata"), "deu");
+
+            // Any other folder of a publish folder would make codesign reject the bundle.
+            File.Copy(Template, Path.Combine(appWithFolder, "RafficaPdf"));
+            File.Copy(Template, Path.Combine(appWithFolder, "libpdfium.dylib"));
+            File.WriteAllText(Path.Combine(appWithFolder, "locales", "de.txt"), "de");
+
+            string[] Args(string cliDir, string? nativeDir, string? appDir = null, string? outDir = null) =>
+            [
+                "macos-app", "--rid", "osx-arm64", "--app", appDir ?? app, "--cli", cliDir, "--out", outDir ?? output, "--version", "0.1.0",
+                .. nativeDir is null ? Array.Empty<string>() : ["--native", nativeDir],
+            ];
+
+            Expect("macos-app run: a CLI with another libpdfium.dylib exits 1", Cli.Run(Args(otherCli, native)), 1);
+            Expect("macos-app run: nothing is left after the refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
+            Expect("macos-app run: an app folder with another folder exits 1", Cli.Run(Args(cli, null, appWithFolder)), 1);
+            Expect("macos-app run: nothing is left after the folder refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
+            Expect("macos-app run: --native does not overwrite tessdata that is in the app folder", Cli.Run(Args(cli, native, appWithData)), 1);
+            Expect("macos-app run: nothing is left after the overwrite refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
+            Expect("macos-app run: exit 0", Cli.Run(Args(cli, native)), 0);
+            var bundle = Path.Combine(output, MacApp.BundleName);
+            var macOs = Path.Combine(bundle, "Contents", "MacOS");
+            Expect("macos-app run: Info.plist", File.Exists(Path.Combine(bundle, "Contents", "Info.plist")), true);
+            Expect("macos-app run: icns", File.Exists(Path.Combine(bundle, "Contents", "Resources", "RafficaPdf.icns")), true);
+            Expect("macos-app run: LICENSE", File.Exists(Path.Combine(bundle, "Contents", "Resources", "LICENSE")), true);
+            Expect("macos-app run: THIRD-PARTY-NOTICES.txt", File.Exists(Path.Combine(bundle, "Contents", "Resources", "THIRD-PARTY-NOTICES.txt")), true);
+            Expect("macos-app run: no .pdb in the bundle", File.Exists(Path.Combine(macOs, "RafficaPdf.pdb")), false);
+            var resources = Path.Combine(bundle, "Contents", "Resources");
+            Expect("macos-app run: OCR library next to the program", File.Exists(Path.Combine(macOs, "libtesseract.dylib")), true);
+            Expect("macos-app run: tessdata in Contents/Resources", File.Exists(Path.Combine(resources, "tessdata", "eng.traineddata")) && File.Exists(Path.Combine(resources, "tessdata", "deu.traineddata")), true);
+            Expect("macos-app run: no tessdata in Contents/MacOS", Directory.Exists(Path.Combine(macOs, "tessdata")), false);
+            Expect("macos-app run: no folder in Contents/MacOS", Directory.EnumerateDirectories(macOs).Any(), false);
+            Expect("macos-app run: RafficaPdf is 0755", File.GetUnixFileMode(Path.Combine(macOs, "RafficaPdf")), (UnixFileMode)0x1ED);
+            Expect("macos-app run: raffica is 0755", File.GetUnixFileMode(Path.Combine(macOs, "raffica")), (UnixFileMode)0x1ED);
+            Expect("macos-app run: the library is 0644", File.GetUnixFileMode(Path.Combine(macOs, "libpdfium.dylib")), (UnixFileMode)0x1A4);
+            Expect("macos-app run: tessdata is 0644", File.GetUnixFileMode(Path.Combine(resources, "tessdata", "eng.traineddata")), (UnixFileMode)0x1A4);
+            Expect("macos-app run: plutil -lint", Tool.Run("plutil", ["-lint", Path.Combine(bundle, "Contents", "Info.plist")], out _), 0);
+            Expect("macos-app run: codesign --verify --deep --strict", Tool.Run("codesign", ["--verify", "--deep", "--strict", bundle], out var verify), 0);
+            if (verify.Length > 0)
+            {
+                Console.Error.WriteLine(verify);
+            }
+
+            Expect("macos-app run: an existing bundle is refused", Cli.Run(Args(cli, native)), 1);
+
+            // The same bundle from an app folder that already holds the OCR files (how CI publishes them): tessdata moves out of MacOS.
+            var secondOutput = Path.Combine(dir, "out data");
+            Expect("macos-app run: an app folder with tessdata exits 0", Cli.Run(Args(cli, null, appWithData, secondOutput)), 0);
+            var secondBundle = Path.Combine(secondOutput, MacApp.BundleName);
+            var secondMacOs = Path.Combine(secondBundle, "Contents", "MacOS");
+            Expect("macos-app run: published tessdata moved to Contents/Resources", File.Exists(Path.Combine(secondBundle, "Contents", "Resources", "tessdata", "eng.traineddata")), true);
+            Expect("macos-app run: published tessdata is not in Contents/MacOS", Directory.Exists(Path.Combine(secondMacOs, "tessdata")), false);
+            Expect("macos-app run: published OCR library stays in Contents/MacOS", File.Exists(Path.Combine(secondMacOs, "libtesseract.dylib")), true);
+            Expect("macos-app run: second bundle verifies", Tool.Run("codesign", ["--verify", "--deep", "--strict", secondBundle], out var secondVerify), 0);
+            if (secondVerify.Length > 0)
+            {
+                Console.Error.WriteLine(secondVerify);
+            }
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    // dmg and dmg-smoke: the pure parts run everywhere, the real run (hdiutil, ditto, codesign, lipo) only on macOS.
+    private static void DmgParts()
+    {
+        Expect("dmg: file name of osx-arm64", Dmg.FileName("0.1.0", "osx-arm64"), "RafficaPdf-0.1.0-macos-arm64.dmg");
+        Expect("dmg: file name of osx-x64", Dmg.FileName("1.2.3", "osx-x64"), "RafficaPdf-1.2.3-macos-x64.dmg");
+        Expect("dmg: another RID throws", ThrowsArgument(() => Dmg.FileName("0.1.0", "linux-x64")), true);
+
+        string[] Args(string rid, string version, string name) =>
+            ["dmg", "--app", "app-does-not-exist/Raffica PDF.app", "--rid", rid, "--version", version, "--out", Path.Combine("out-does-not-exist", name)];
+
+        // The argument rules are a pure method that runs before the macOS check; the CLI checks also assert the message, so a
+        // refusal by the macOS check (which also returns 2) cannot pass for them.
+        const string Arm = "RafficaPdf-0.1.0-macos-arm64.dmg";
+        static string SmokeProblem(string rid, string ceilingText, out double ceiling) => DmgSmoke.Problem(rid, ceilingText, out ceiling) ?? "(none)";
+        Expect("dmg: valid arguments have no problem", Dmg.Problem("osx-arm64", "0.1.0", Path.Combine("out", Arm)) ?? "(none)", "(none)");
+        Expect("dmg: another RID is a problem", Dmg.Problem("linux-x64", "0.1.0", Arm) ?? "(none)", "dmg: unknown RID: linux-x64");
+        Expect("dmg: a prerelease version is a problem", Dmg.Problem("osx-arm64", "0.2.0-rc.1", "RafficaPdf-0.2.0-rc.1-macos-arm64.dmg") ?? "(none)",
+            "dmg: only a stable version x.y.z is allowed, not: 0.2.0-rc.1");
+        Expect("dmg: a wrong out name is a problem", Dmg.Problem("osx-arm64", "0.1.0", "x.dmg") ?? "(none)", $"dmg: the output file must be named {Arm}: x.dmg");
+        Expect("dmg: the name of the other architecture is a problem", Dmg.Problem("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-x64.dmg")?.StartsWith("dmg: the output file must be named ", StringComparison.Ordinal) ?? false, true);
+        Expect("dmg: another version in the name is a problem", Dmg.Problem("osx-x64", "0.1.0", "RafficaPdf-0.1.1-macos-x64.dmg")?.StartsWith("dmg: the output file must be named ", StringComparison.Ordinal) ?? false, true);
+        Expect("dmg-smoke: valid arguments have no problem and the default ceiling is 5", SmokeProblem("osx-x64", "5", out var five) + "|" + five, "(none)|5");
+        Expect("dmg-smoke: another RID is a problem", SmokeProblem("linux-x64", "5", out _), "dmg-smoke: unknown RID: linux-x64");
+        foreach (var bad in new[] { "0", "-1", "soon", "NaN", "Infinity" })
+        {
+            Expect($"dmg-smoke: the ceiling \"{bad}\" is a problem", SmokeProblem("osx-x64", bad, out _), $"dmg-smoke: --ceiling-seconds must be a positive number: {bad}");
+        }
+
+        (int Code, string Error) CliError(string[] args)
+        {
+            var original = Console.Error;
+            using var captured = new StringWriter();
+            Console.SetError(captured);
+            try
+            {
+                return (Cli.Run(args), captured.ToString());
+            }
+            finally
+            {
+                Console.SetError(original);
+            }
+        }
+
+        var (wrongCode, wrongError) = CliError(Args("osx-arm64", "0.1.0", "x.dmg"));
+        Expect("dmg: a wrong out name returns 2 with the name message", wrongCode + "|" + wrongError.Contains("the output file must be named", StringComparison.Ordinal), "2|True");
+        var (preCode, preError) = CliError(Args("osx-arm64", "0.2.0-rc.1", "RafficaPdf-0.2.0-rc.1-macos-arm64.dmg"));
+        Expect("dmg: a prerelease version returns 2 with the version message", preCode + "|" + preError.Contains("only a stable version", StringComparison.Ordinal), "2|True");
+        var (ridCode, ridError) = CliError(Args("linux-x64", "0.1.0", Arm));
+        Expect("dmg: another RID returns 2 with the RID message", ridCode + "|" + ridError.Contains("unknown RID", StringComparison.Ordinal), "2|True");
+        var (ceilCode, ceilError) = CliError(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64", "--ceiling-seconds", "0"]);
+        Expect("dmg-smoke: a ceiling of 0 returns 2 with the ceiling message", ceilCode + "|" + ceilError.Contains("must be a positive number", StringComparison.Ordinal), "2|True");
+        Expect("dmg: a missing option returns 2", Cli.Run(["dmg", "--rid", "osx-x64"]), 2);
+        Expect("dmg-smoke: a missing option returns 2", Cli.Run(["dmg-smoke", "--rid", "osx-x64"]), 2);
+        if (!OperatingSystem.IsMacOS())
+        {
+            Expect("dmg: anywhere but macOS returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-arm64.dmg")), 2);
+            Expect("dmg-smoke: anywhere but macOS returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64"]), 2);
+            Console.WriteLine("selftest: skipped dmg real run (ADmgOfAFakeBundleHoldsTheAppAndTheLink, TheSmokeFailsForABinaryThatDoesNotPrintTheString), reason: macOS: needs hdiutil, ditto, codesign and lipo (proven by the CI job build-macos).");
+            return;
+        }
+
+        DmgRealRun();
+    }
+
+    private static bool ThrowsArgument(Action action)
+    {
+        try
+        {
+            action();
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
+    }
+
+    private static void DmgRealRun()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "raffica-dmg-selftest-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+
+            // The fake programs are single-architecture slices of /usr/bin/true (a system binary is universal, and the smoke refuses a
+            // universal RafficaPdf or raffica). Intel is preferred because every macOS 15 /usr/bin/true has that slice (the other is
+            // arm64e, which is not arm64); on an Apple silicon host the Intel fake runs under Rosetta, and without Rosetta it simply
+            // prints nothing, which is the failure this test expects anyway.
+            Tool.Run("lipo", ["-archs", "/usr/bin/true"], out var trueArchs);
+            var slices = trueArchs.Split([' ', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+            var (rid, arch) = slices.Contains("x86_64") ? ("osx-x64", "x86_64") : slices.Contains("arm64") ? ("osx-arm64", "arm64") : (string.Empty, string.Empty);
+            Expect($"dmg run: /usr/bin/true has an x86_64 or arm64 slice to thin ({trueArchs.Trim()})", rid.Length > 0, true);
+            if (rid.Length == 0)
+            {
+                return;
+            }
+
+            var fake = Path.Combine(dir, "fake-program");
+            Expect("dmg run: the fake program is thinned", Tool.Run("lipo", ["/usr/bin/true", "-thin", arch, "-output", fake], out var thinLog), 0);
+            if (!File.Exists(fake))
+            {
+                Console.Error.WriteLine(thinLog);
+                return;
+            }
+
+            File.SetUnixFileMode(fake, (UnixFileMode)0x1ED);
+            var app = Path.Combine(dir, "app");
+            var cli = Path.Combine(dir, "cli");
+            var bundles = Path.Combine(dir, "bundles");
+            foreach (var d in new[] { app, cli })
+            {
+                Directory.CreateDirectory(d);
+            }
+
+            foreach (var (folder, name) in new[] { (app, "RafficaPdf"), (app, "libpdfium.dylib"), (cli, "raffica"), (cli, "libpdfium.dylib") })
+            {
+                File.Copy(fake, Path.Combine(folder, name));
+            }
+
+            Unsign(Path.Combine(app, "libpdfium.dylib"), Path.Combine(cli, "libpdfium.dylib"));
+
+            Expect("dmg run: the fake bundle is built", Cli.Run(["macos-app", "--rid", rid, "--app", app, "--cli", cli, "--out", bundles, "--version", "0.1.0"]), 0);
+            var bundle = Path.Combine(bundles, MacApp.BundleName);
+            var images = Path.Combine(dir, "images folder");
+            Directory.CreateDirectory(images);
+            var image = Path.Combine(images, Dmg.FileName("0.1.0", rid));
+
+            Expect("dmg run: ADmgOfAFakeBundleHoldsTheAppAndTheLink: create", Cli.Run(["dmg", "--app", bundle + "/", "--rid", rid, "--version", "0.1.0", "--out", image]), 0);
+            Expect("dmg run: the image exists", File.Exists(image), true);
+            var mount = Path.Combine(dir, "mount");
+            Directory.CreateDirectory(mount);
+            var attach = Tool.Run("hdiutil", ["attach", "-readonly", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mount, image], out var attachLog);
+            Expect("dmg run: attach", attach, 0);
+            if (attach == 0)
+            {
+                try
+                {
+                    var names = Directory.EnumerateFileSystemEntries(mount).Select(Path.GetFileName).Where(n => !n!.StartsWith('.')).Order(StringComparer.Ordinal).ToList();
+                    Expect("dmg run: the image holds the app and Applications", string.Join('|', names), "Applications|Raffica PDF.app");
+                    Expect("dmg run: Applications links to /Applications", new FileInfo(Path.Combine(mount, "Applications")).LinkTarget ?? "(none)", "/Applications");
+                    Expect("dmg run: the app in the image is signed",
+                        Tool.Run("codesign", ["--verify", "--deep", "--strict", Path.Combine(mount, MacApp.BundleName)], out _), 0);
+                }
+                finally
+                {
+                    Expect("dmg run: detach", Tool.Run("hdiutil", ["detach", mount], out _) == 0 || Tool.Run("hdiutil", ["detach", "-force", mount], out _) == 0, true);
+                }
+            }
+            else
+            {
+                Console.Error.WriteLine(attachLog);
+            }
+
+            // TheSmokeFailsForABinaryThatDoesNotPrintTheString: the fake prints nothing, so exactly the two print checks (de and en)
+            // fail; attach, listing, link, copy, detach, signature and every architecture must have passed before them.
+            var original = Console.Out;
+            using var captured = new StringWriter();
+            Console.SetOut(captured);
+            int smokeCode;
+            try
+            {
+                smokeCode = Cli.Run(["dmg-smoke", "--dmg", image, "--rid", rid]);
+            }
+            finally
+            {
+                Console.SetOut(original);
+            }
+
+            var lines = captured.ToString().Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+            bool Passed(string what) => lines.Any(l => l.StartsWith("ok ", StringComparison.Ordinal) && l.Contains(what, StringComparison.Ordinal));
+            var failed = lines.Where(l => l.StartsWith("FAILED", StringComparison.Ordinal)).ToList();
+            if (smokeCode != 1 || failed.Count != 2)
+            {
+                Console.Error.WriteLine(captured.ToString());
+            }
+
+            Expect("dmg run: TheSmokeFailsForABinaryThatDoesNotPrintTheString: exit 1", smokeCode, 1);
+            foreach (var what in new[]
+            {
+                "hdiutil attach", "the image holds exactly Raffica PDF.app and Applications", "Applications links to /Applications", "app copied out of the image",
+                "hdiutil detach", "codesign --verify --deep --strict", "Contents/MacOS holds RafficaPdf and raffica",
+                $"RafficaPdf: architecture {arch}", $"raffica: architecture {arch}", $"libpdfium.dylib: architecture {arch}",
+            })
+            {
+                Expect($"dmg run: the smoke passed \"{what}\"", Passed(what), true);
+            }
+
+            Expect("dmg run: only the two print-string checks failed", failed.Count == 2 && failed.All(l => l.Contains("RafficaPdf --print-string TabView --lang", StringComparison.Ordinal)), true);
+            Expect("dmg run: the smoke ends with its failure count", lines.Contains("dmg-smoke: 2 check(s) failed."), true);
+            Tool.Run("hdiutil", ["info"], out var info);
+            Expect("dmg run: the smoke detached the image", info.Contains(Path.GetFileName(image), StringComparison.Ordinal), false);
+            Expect("dmg run: a missing image returns 1", Cli.Run(["dmg-smoke", "--dmg", Path.Combine(dir, "nope.dmg"), "--rid", rid]), 1);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+            }
         }
     }
 

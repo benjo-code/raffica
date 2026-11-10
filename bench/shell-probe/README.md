@@ -129,11 +129,14 @@ the 1000-page file, p99 and max of the frame gaps) and `memory`; the CSV column 
 
 Software rendering is the default of the PDF app on Windows (entry "Raffica PDF: software rendering is the Windows default (M2.1
 follow-up)" in `Docs/DECISIONS.md`); the environment variable `RAFFICA_RENDERING=default` opts out to Avalonia's own default path (ANGLE
-over Direct3D 11). The `measure.yml` input `rendering` (only used for `--target pdf` on Windows) has three choices: `app` (the default;
+over Direct3D 11). The `measure.yml` input `rendering` (used for `--target pdf` on Windows and macOS) has three choices: `app` (the default;
 nothing is set, the app does what a user gets), `software` (sets `RAFFICA_RENDERING=software`, which is the same as `app` today but
 stays explicit) and `default` (sets `RAFFICA_RENDERING=default`, Avalonia's own path, for comparison on the same machine with the same
-method). The scripts' child processes inherit the variable; the effective value is written to `machine.txt` and to the job summary as
-"Rendering override: app", "... software" or "... default" for every `target=pdf` run (`app` means nothing is set). The Windows limits of
+method). On macOS the same variable has one meaning: `RAFFICA_RENDERING=software` asks for Avalonia's software (framebuffer) mode, everything else keeps
+Avalonia's own path (Linux ignores it); the input `rendering` therefore also applies to `platform=macos`. The fourth platform `macos-hosted` runs on the
+GitHub-hosted `macos-15` runner (Apple silicon, `osx-arm64`, SDK by `setup-dotnet`), writes the CSVs, `summary.md` (the medians) and the artifact
+`measure-macos-hosted-<run id>`, and has no check step: its numbers are recorded, not judged. The scripts' child processes inherit the variable; the effective value is written to `machine.txt` as
+"Rendering override: app", "... software" or "... default" for every `target=pdf` run (`app` means nothing is set); it also goes to the job summary on Windows and `macos-hosted`, not on the self-hosted `macos` and `linux` runners. The Windows limits of
 `check --target pdf` are the budgets of the software path; the CSVs of the first run (`Docs/measurements/pdf-viewer-2026-11-04/windows`)
 were measured on Avalonia's default path and are kept as history, the Windows check runs on `rendering/software`. It is a developer
 override, not a setting of the app. The runner group allows `measure.yml` only on `dev`.

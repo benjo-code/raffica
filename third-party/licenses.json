@@ -58,7 +58,10 @@
       "kind": "nuget",
       "version": "12.1.5",
       "license": "MIT",
-      "licenseFile": "third-party/avalonia/LICENSE"
+      "licenseFile": "third-party/avalonia/LICENSE",
+      "files": [
+        "libAvaloniaNative.dylib"
+      ]
     },
     {
       "id": "Avalonia.Remote.Protocol",
@@ -163,7 +166,9 @@
       "licenseFiles": [
         "third-party/skiasharp/THIRD-PARTY-NOTICES.txt"
       ],
-      "shipped": false
+      "files": [
+        "libHarfBuzzSharp.dylib"
+      ]
     },
     {
       "id": "HarfBuzzSharp.NativeAssets.WebAssembly",
@@ -243,7 +248,9 @@
       "licenseFiles": [
         "third-party/skiasharp/THIRD-PARTY-NOTICES.txt"
       ],
-      "shipped": false
+      "files": [
+        "libSkiaSharp.dylib"
+      ]
     },
     {
       "id": "SkiaSharp.NativeAssets.WebAssembly",

@@ -25,6 +25,11 @@
 #
 #   gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>"
 #   gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>" -f ref=<branch or 40-hex commit>
+#
+# The platform macos-hosted is the one exception to the owner's runners: it runs on the GitHub-hosted macos-15 runner (Apple silicon, osx-arm64,
+# no raffica-measure label, nothing of the owner's machines), so it needs no runner of the owner and executes the same repository code as ci.yml does
+# on hosted runners. It produces the CSVs, a summary of the medians and the artifact, and has no check step: its numbers are recorded, not judged
+# (a hosted virtual machine is no measuring machine; the limits bind the owner's Intel Mac, platform macos).
 name: Measure
 
 # The title of a run in the list of runs; a measured commit shows in it (the validated value is also in machine.txt and the job summary).
@@ -34,10 +39,10 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Machine to measure on (the runner with the label raffica-measure and this platform)
+        description: Machine to measure on (the runner with the label raffica-measure and this platform; macos-hosted = the GitHub-hosted macos-15 runner, Apple silicon, recorded and not judged)
         type: choice
         required: true
-        options: [windows, linux, macos]
+        options: [windows, linux, macos, macos-hosted]
       note:
         description: 'Machine note: GPU, resolution, scaling, power mode'
         type: string
@@ -53,7 +58,7 @@ on:
         default: all
         options: [all, cold-reboot]
       rendering:
-        description: 'PDF app on Windows only: rendering path. app = the app''s own default (software, nothing set), software = forces software, default = Avalonia''s default path (ANGLE) via RAFFICA_RENDERING=default'
+        description: 'PDF app on Windows and macOS: rendering path. app = the app''s own default (nothing set: software on Windows, Avalonia''s own path on macOS), software = RAFFICA_RENDERING=software, default = Avalonia''s default path (ANGLE on Windows) via RAFFICA_RENDERING=default'
         type: choice
         default: app
         options: [app, software, default]
@@ -86,22 +91,23 @@ permissions:
 # executable come from the reference_* inputs).
 env:
   AVALONIA_TELEMETRY_OPTOUT: '1'
-  RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64"}')[inputs.platform] }}
+  RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64","macos-hosted":"osx-arm64"}')[inputs.platform] }}
   EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || inputs.target == 'pdf' && 'RafficaPdf' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
   PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || inputs.target == 'pdf' && 'src/Raffica.Pdf' || 'bench/shell-probe/ShellProbe' }}
   OUT: out/measure-${{ github.run_id }}
   # The folder of the measured app inside the workspace: "measured/" when `ref` is given (never for the target reference), else the root.
   MEASURED_PREFIX: ${{ inputs.ref != '' && inputs.target != 'reference' && 'measured/' || '' }}
   FONTS: ${{ inputs.target == 'probe' && 'bench/shell-probe/ShellProbe/Assets/Fonts' || 'src/Raffica.Shell/Assets/Fonts' }}
-  # Only the PDF app on Windows reads it (bench/shell-probe/README.md); the child processes of measure.cs inherit it. Empty for every other
-  # target and platform and for the input "app" (the app's own default, software rendering); "software" forces it, "default" opts out to
-  # Avalonia's own default path.
-  RAFFICA_RENDERING: ${{ inputs.target == 'pdf' && inputs.platform == 'windows' && inputs.rendering != 'app' && inputs.rendering || '' }}
+  # Only the PDF app on Windows and macOS reads it (bench/shell-probe/README.md); the child processes of measure.cs inherit it. Empty for every
+  # other target and platform (Linux ignores it) and for the input "app" (the app's own default: software on Windows, Avalonia's own path on
+  # macOS); "software" asks for software rendering, "default" opts out to Avalonia's own default path on Windows.
+  RAFFICA_RENDERING: ${{ inputs.target == 'pdf' && (inputs.platform == 'windows' || inputs.platform == 'macos' || inputs.platform == 'macos-hosted') && inputs.rendering != 'app' && inputs.rendering || '' }}
 
 jobs:
   measure:
     name: measure-${{ inputs.platform }}
-    runs-on: [self-hosted, raffica-measure, '${{ inputs.platform }}']
+    # The owner's runner (labels raffica-measure and the platform), except macos-hosted: the GitHub-hosted macos-15 (Apple silicon).
+    runs-on: ${{ fromJSON(inputs.platform == 'macos-hosted' && '["macos-15"]' || format('["self-hosted","raffica-measure","{0}"]', inputs.platform)) }}
     timeout-minutes: 60
     # On the job (not the workflow) so that a skipped run never takes the group. Two runs must never overlap on one
     # machine; a running measurement is never cancelled.
@@ -266,8 +272,9 @@ jobs:
         shell: powershell
         run: Add-Content -Path $env:GITHUB_ENV -Value "DOTNET_INSTALL_DIR=$env:USERPROFILE\.dotnet"
 
+      # Not on the hosted runner (macos-hosted): setup-dotnet below installs the SDK there.
       - name: Set DOTNET_INSTALL_DIR (Linux, macOS)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && inputs.platform != 'macos-hosted'
         shell: bash
         run: echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
 
@@ -358,16 +365,19 @@ jobs:
         shell: bash
         env:
           NOTE: ${{ inputs.note }}
+          TARGET: ${{ inputs.target }}
+          PLATFORM: ${{ inputs.platform }}
         run: |
           mkdir -p "$OUT"
           {
             echo "Note: $NOTE"
-            echo "Platform: macos"
+            echo "Platform: $PLATFORM"
             echo "Date (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
             echo "Commit: $GITHUB_SHA ($GITHUB_REF)"
             echo "OS: $(sw_vers -productName) $(sw_vers -productVersion) (build $(sw_vers -buildVersion)), $(uname -m)"
             echo "Processor: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.logicalcpu) logical processors"
             echo "RAM: $(sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }') GiB"
+            if [ "$TARGET" = pdf ]; then echo "Rendering override: ${RAFFICA_RENDERING:-app}"; fi
           } | tee "$OUT/machine.txt"
 
       # The measured app: the full commit id that was published (a branch name moves, so it is recorded), appended to the machine notes written
@@ -814,7 +824,7 @@ jobs:
         run: dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$env:GITHUB_STEP_SUMMARY"
 
       - name: Check against the limits (pdf, Linux, macOS)
-        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' && runner.os != 'Windows' }}
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' && runner.os != 'Windows' && inputs.platform != 'macos-hosted' }}
         shell: bash
         run: dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
 
@@ -827,9 +837,49 @@ jobs:
         run: dotnet run bench/shell-probe/measure.cs -- check --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$env:GITHUB_STEP_SUMMARY"
 
       - name: Check against the limits (Linux, macOS)
-        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' && runner.os != 'Windows' }}
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'gallery' && runner.os != 'Windows' && inputs.platform != 'macos-hosted' }}
         shell: bash
         run: dotnet run bench/shell-probe/measure.cs -- check --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
+
+      # The hosted macOS record (platform macos-hosted): no check step judges it, so the job summary lists the median of every case from the
+      # CSVs (the same text is kept as summary.md in the artifact). Recorded, not judged. Written for macOS bash 3.2 and BSD awk: the values
+      # are sorted by sort first, awk reads the median per group.
+      - name: Summary of the hosted macOS record
+        if: ${{ !cancelled() && inputs.platform == 'macos-hosted' && inputs.target != 'reference' }}
+        shell: bash
+        env:
+          TARGET: ${{ inputs.target }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          export LC_ALL=C
+          shopt -s nullglob
+          files=("$OUT"/*.csv)
+          {
+            echo "## Hosted macOS record ($TARGET, osx-arm64)"
+            echo
+            echo "Machine note: $NOTE"
+            echo "Rendering override: ${RAFFICA_RENDERING:-app}"
+            echo
+            echo 'Recorded, not judged: a GitHub-hosted virtual machine is no measuring machine, so no limit is applied to these values.'
+            echo
+            if [ "${#files[@]}" -eq 0 ]; then
+              echo 'No CSV was written.'
+            else
+              echo '| Case | Median | Runs | Unit |'
+              echo '|---|---:|---:|---|'
+              # case (plus the statistic of the column run when it is not a number), value, unit; sorted by group and value, then the median
+              for f in "${files[@]}"; do tail -n +2 "$f" | tr -d '\r'; done \
+                | awk -F, 'NF >= 6 { key = $3; if ($4 !~ /^[0-9]+$/) key = key "/" $4; printf "%s,%s,%s\n", key, $5, $6 }' \
+                | sort -t, -k1,1 -k2,2n \
+                | awk -F, '
+                    function flush() { if (n > 0) { m = (n % 2) ? v[(n + 1) / 2] : (v[n / 2] + v[n / 2 + 1]) / 2; printf "| %s | %.1f | %d | %s |\n", g, m, n, u } }
+                    $1 != g { flush(); g = $1; n = 0; u = $3 }
+                    { n++; v[n] = $2 }
+                    END { flush() }'
+            fi
+          } > "$OUT/summary.md"
+          cat "$OUT/summary.md"
+          cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && inputs.target != 'reference' }}

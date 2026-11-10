@@ -108,4 +108,59 @@ public sealed class PackageFormTests
 
         Assert.Null(UpdateChecker.Pick(manifest, PackageForm.WindowsInstaller));
     }
+
+    private static PackageForm Mac(string? processPath, bool isArm64) =>
+        PackageFormDetector.Detect(isWindows: false, processPath, _ => false, _ => null, isMacOS: true, isArm64: isArm64);
+
+    [Theory]
+    [InlineData("/Applications/Raffica PDF.app/Contents/MacOS/RafficaPdf", true, PackageForm.MacAppArm64)]
+    [InlineData("/Applications/Raffica PDF.app/Contents/MacOS/RafficaPdf", false, PackageForm.MacAppX64)]
+    [InlineData("/Users/x/Apps/Raffica PDF.app/Contents/MacOS/RafficaPdf", true, PackageForm.MacAppArm64)]
+    [InlineData("/Users/x/Apps/Raffica PDF.app/Contents/MacOS/RafficaPdf", false, PackageForm.MacAppX64)]
+    public void MacFormFollowsThePathAndTheProcessArchitecture(string path, bool isArm64, PackageForm expected) =>
+        Assert.Equal(expected, Mac(path, isArm64));
+
+    [Fact]
+    public void AMacProcessOutsideABundleIsUnknown() =>
+        Assert.Equal(PackageForm.Unknown, Mac("/Users/x/src/out/RafficaPdf", true));
+
+    [Theory]
+    [InlineData("/Applications/Raffica PDF.app/Contents/MacOS/RafficaPdf", "/Applications/Raffica PDF.app")]
+    [InlineData("/a/One.app/Contents/MacOS/x/Two.app/Contents/MacOS/y", "/a/One.app")]
+    [InlineData("/Users/x/src/out/RafficaPdf", null)]
+    [InlineData(null, null)]
+    public void BundlePathOfCutsAtTheFirstAppSegment(string? path, string? expected) =>
+        Assert.Equal(expected, PackageFormDetector.BundlePathOf(path));
+
+    [Theory]
+    [InlineData(PackageForm.MacAppArm64, UpdateFileKinds.MacOsArm64Dmg)]
+    [InlineData(PackageForm.MacAppX64, UpdateFileKinds.MacOsX64Dmg)]
+    public void PickChoosesTheDmgOfTheArchitecture(PackageForm form, string kind) =>
+        Assert.Equal(kind, UpdateChecker.Pick(ManifestWithAllKinds(), form)?.Kind);
+
+    [Theory]
+    [InlineData(PackageForm.MacAppArm64, UpdateFileKinds.MacOsX64Dmg)]
+    [InlineData(PackageForm.MacAppX64, UpdateFileKinds.MacOsArm64Dmg)]
+    public void PickGivesNothingWhenOnlyTheOtherArchitectureIsInTheManifest(PackageForm form, string otherKind)
+    {
+        var manifest = new UpdateManifest(1, "0.2.0", [new UpdateFile(otherKind, "x.dmg", 10, new string('a', 64))]);
+
+        Assert.Null(UpdateChecker.Pick(manifest, form));
+    }
+
+    [Theory]
+    [InlineData(PackageForm.MacAppArm64)]
+    [InlineData(PackageForm.MacAppX64)]
+    public void AnOldManifestWithoutMacKindsGivesNothingForMac(PackageForm form)
+    {
+        var manifest = new UpdateManifest(
+            1,
+            "0.2.0",
+            [
+                new UpdateFile(UpdateFileKinds.WindowsSetup, "a.exe", 10, new string('a', 64)),
+                new UpdateFile(UpdateFileKinds.LinuxAppImage, "a.AppImage", 10, new string('a', 64)),
+            ]);
+
+        Assert.Null(UpdateChecker.Pick(manifest, form));
+    }
 }

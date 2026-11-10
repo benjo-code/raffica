@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using Raffica.Core.Updates;
 using Raffica.Pdf.Platform;
+using Raffica.Pdf.Platform.MacOS;
 using Raffica.Pdf.Settings;
 
 namespace Raffica.Pdf.Updating;
@@ -35,16 +37,34 @@ internal static class UpdateServices
         var source = GitHubUpdateSource.Create();
         var running = UpdateApplierSupport.RunningVersion();
         var checker = new UpdateChecker(source, new UpdateStatusStore(Path.Combine(config, UpdateStatusStore.FileName)), TimeProvider.System, running, UpdateTrust.Keys);
-        var form = PackageFormDetector.Detect(OperatingSystem.IsWindows(), Environment.ProcessPath, File.Exists, Environment.GetEnvironmentVariable);
+        // The process architecture, never the machine's: an Intel build under Rosetta must pick the x64 image.
+        var form = PackageFormDetector.Detect(
+            OperatingSystem.IsWindows(),
+            Environment.ProcessPath,
+            File.Exists,
+            Environment.GetEnvironmentVariable,
+            isMacOS: OperatingSystem.IsMacOS(),
+            isArm64: RuntimeInformation.ProcessArchitecture == Architecture.Arm64);
         var processPath = Environment.ProcessPath;
 
-        // The folder the installer replaces: the program's own folder, or the folder of the AppImage file.
+        // The folder the installer replaces: the program's own folder, the folder of the AppImage file, or the folder that holds the macOS bundle.
         var appImage = form == PackageForm.AppImage ? Environment.GetEnvironmentVariable("APPIMAGE") : null;
-        var target = string.IsNullOrEmpty(appImage) ? Path.GetDirectoryName(processPath) : Path.GetDirectoryName(appImage);
+        var bundle = OperatingSystem.IsMacOS() ? PackageFormDetector.BundlePathOf(processPath) : null;
+        var target = bundle is not null ? Path.GetDirectoryName(bundle) : string.IsNullOrEmpty(appImage) ? Path.GetDirectoryName(processPath) : Path.GetDirectoryName(appImage);
         return new UpdateFlow(checker, source, shutdown is null ? null : PlatformUpdateApplier.Create(form, config, shutdown), form, enabled, TimeProvider.System, config)
         {
             ProcessPath = processPath,
             TargetDirectory = target,
+            BeforeStagingDelete = StagingReleaseFor(OperatingSystem.IsMacOS()),
         };
     }
+
+    /// <summary>
+    /// What runs before a staging folder is deleted: on macOS the detach of a disk image an earlier update left mounted inside it, elsewhere nothing
+    /// (<see langword="null"/>). The runner is made when the hook runs, never at startup.
+    /// </summary>
+    /// <param name="isMacOS">Whether the program runs on macOS.</param>
+    /// <param name="runner">The runner of the system programs; <see langword="null"/> is <see cref="SystemProcessRunner"/> (tests pass a fake).</param>
+    internal static Func<string, Task>? StagingReleaseFor(bool isMacOS, IProcessRunner? runner = null) =>
+        isMacOS ? directory => MacStagingMount.ReleaseAsync(runner ?? new SystemProcessRunner(), directory) : null;
 }
