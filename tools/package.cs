@@ -3437,6 +3437,24 @@ static class Dmg
 
     public static string FileName(string version, string rid) => $"RafficaPdf-{version}-macos-{MacApp.Arch(rid)}.dmg";
 
+    // The argument rules (before the macOS check, so they can be tested everywhere): null when the arguments are acceptable.
+    public static string? Problem(string rid, string version, string output)
+    {
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            return $"dmg: unknown RID: {rid}";
+        }
+
+        if (!MacApp.IsStable(version))
+        {
+            return $"dmg: only a stable version x.y.z is allowed, not: {version}";
+        }
+
+        return Path.GetFileName(output) != FileName(version, rid)
+            ? $"dmg: the output file must be named {FileName(version, rid)}: {output}"
+            : null;
+    }
+
     public static int Run(string[] args)
     {
         var parsed = Options.Parse(args, "--app", "--rid", "--version", "--out");
@@ -3448,21 +3466,9 @@ static class Dmg
             return 2;
         }
 
-        if (rid is not ("osx-arm64" or "osx-x64"))
+        if (Problem(rid, version, output) is { } problem)
         {
-            Console.Error.WriteLine($"dmg: unknown RID: {rid}");
-            return 2;
-        }
-
-        if (!MacApp.IsStable(version))
-        {
-            Console.Error.WriteLine($"dmg: only a stable version x.y.z is allowed, not: {version}");
-            return 2;
-        }
-
-        if (Path.GetFileName(output) != FileName(version, rid))
-        {
-            Console.Error.WriteLine($"dmg: the output file must be named {FileName(version, rid)}: {output}");
+            Console.Error.WriteLine(problem);
             return 2;
         }
 
@@ -3477,6 +3483,7 @@ static class Dmg
 
     private static int Build(string app, string output)
     {
+        app = app.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         if (!Directory.Exists(app) || !app.EndsWith(".app", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"dmg: the app bundle is missing: {app}");
@@ -3528,6 +3535,20 @@ static class DmgSmoke
 {
     private const string Usage = "Usage: dmg-smoke --dmg <file> --rid <osx-arm64|osx-x64> [--ceiling-seconds 5]";
 
+    // The argument rules (before the macOS check, so they can be tested everywhere): null when the arguments are acceptable.
+    public static string? Problem(string rid, string ceilingText, out double ceiling)
+    {
+        ceiling = 0;
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            return $"dmg-smoke: unknown RID: {rid}";
+        }
+
+        return !double.TryParse(ceilingText, NumberStyles.Float, CultureInfo.InvariantCulture, out ceiling) || !(ceiling > 0) || double.IsInfinity(ceiling)
+            ? $"dmg-smoke: --ceiling-seconds must be a positive number: {ceilingText}"
+            : null;
+    }
+
     public static int Run(string[] args)
     {
         var parsed = Options.Parse(args, "--dmg", "--rid", "--ceiling-seconds");
@@ -3538,17 +3559,10 @@ static class DmgSmoke
             return 2;
         }
 
-        if (rid is not ("osx-arm64" or "osx-x64"))
-        {
-            Console.Error.WriteLine($"dmg-smoke: unknown RID: {rid}");
-            return 2;
-        }
-
         // The ceiling is the coarse "starts within a few seconds" value (spec section 6): it catches a build that cannot run, not speed.
-        var ceilingText = p.Named.GetValueOrDefault("--ceiling-seconds", "5");
-        if (!double.TryParse(ceilingText, NumberStyles.Float, CultureInfo.InvariantCulture, out var ceiling) || !(ceiling > 0) || double.IsInfinity(ceiling))
+        if (Problem(rid, p.Named.GetValueOrDefault("--ceiling-seconds", "5"), out var ceiling) is { } problem)
         {
-            Console.Error.WriteLine($"dmg-smoke: --ceiling-seconds must be a positive number: {ceilingText}");
+            Console.Error.WriteLine(problem);
             return 2;
         }
 
@@ -3578,6 +3592,7 @@ static class DmgSmoke
         var work = Path.Combine(Path.GetTempPath(), "raffica-dmg-smoke-" + Guid.NewGuid().ToString("N"));
         var mount = Path.Combine(work, "mount");
         var copy = Path.Combine(work, "copy folder");
+        var stuck = false;
 
         // Attaches, checks the contents, copies the app out and detaches again; the detach also happens on every failure.
         bool CopyOut()
@@ -3611,6 +3626,7 @@ static class DmgSmoke
                 if (attached)
                 {
                     var detached = Tool.Run("hdiutil", ["detach", mount], out _) == 0 || Tool.Run("hdiutil", ["detach", "-force", mount], out _) == 0;
+                    stuck = !detached;
                     Check(detached, "hdiutil detach");
                 }
             }
@@ -3645,12 +3661,13 @@ static class DmgSmoke
                 var name = Path.GetRelativePath(macOs, file);
                 var code = Tool.Run("lipo", ["-archs", file], out var archs);
                 var found = archs.Split([' ', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
-                if (code == 0 && found.Length > 1)
+                if (code == 0 && found.Length > 1 && file.EndsWith(".dylib", StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"ok     {name}: universal ({string.Join(' ', found)}), not compared");
+                    Console.WriteLine($"ok     {name}: universal library ({string.Join(' ', found)}), not compared");
                 }
                 else
                 {
+                    // RafficaPdf and raffica are never universal: exactly the one architecture of the RID.
                     Check(code == 0 && found.Length == 1 && found[0] == expected, $"{name}: architecture {(code == 0 ? string.Join(' ', found) : "unreadable")} (expected {expected})");
                 }
             }
@@ -3684,12 +3701,16 @@ static class DmgSmoke
         }
         finally
         {
-            try
+            // Never recurse into a mount that could not be detached.
+            if (!stuck)
             {
-                Directory.Delete(work, true);
-            }
-            catch (IOException)
-            {
+                try
+                {
+                    Directory.Delete(work, true);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                }
             }
         }
     }
@@ -6091,15 +6112,50 @@ static class SelfTest
 
         string[] Args(string rid, string version, string name) =>
             ["dmg", "--app", "app-does-not-exist/Raffica PDF.app", "--rid", rid, "--version", version, "--out", Path.Combine("out-does-not-exist", name)];
-        Expect("dmg: another RID returns 2", Cli.Run(Args("linux-x64", "0.1.0", "RafficaPdf-0.1.0-macos-arm64.dmg")), 2);
-        Expect("dmg: a wrong out name returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "x.dmg")), 2);
-        Expect("dmg: the name of the other architecture returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-x64.dmg")), 2);
-        Expect("dmg: a prerelease version returns 2", Cli.Run(Args("osx-arm64", "0.2.0-rc.1", "RafficaPdf-0.2.0-rc.1-macos-arm64.dmg")), 2);
+
+        // The argument rules are a pure method that runs before the macOS check; the CLI checks also assert the message, so a
+        // refusal by the macOS check (which also returns 2) cannot pass for them.
+        const string Arm = "RafficaPdf-0.1.0-macos-arm64.dmg";
+        static string SmokeProblem(string rid, string ceilingText, out double ceiling) => DmgSmoke.Problem(rid, ceilingText, out ceiling) ?? "(none)";
+        Expect("dmg: valid arguments have no problem", Dmg.Problem("osx-arm64", "0.1.0", Path.Combine("out", Arm)) ?? "(none)", "(none)");
+        Expect("dmg: another RID is a problem", Dmg.Problem("linux-x64", "0.1.0", Arm) ?? "(none)", "dmg: unknown RID: linux-x64");
+        Expect("dmg: a prerelease version is a problem", Dmg.Problem("osx-arm64", "0.2.0-rc.1", "RafficaPdf-0.2.0-rc.1-macos-arm64.dmg") ?? "(none)",
+            "dmg: only a stable version x.y.z is allowed, not: 0.2.0-rc.1");
+        Expect("dmg: a wrong out name is a problem", Dmg.Problem("osx-arm64", "0.1.0", "x.dmg") ?? "(none)", $"dmg: the output file must be named {Arm}: x.dmg");
+        Expect("dmg: the name of the other architecture is a problem", Dmg.Problem("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-x64.dmg")?.StartsWith("dmg: the output file must be named ", StringComparison.Ordinal) ?? false, true);
+        Expect("dmg: another version in the name is a problem", Dmg.Problem("osx-x64", "0.1.0", "RafficaPdf-0.1.1-macos-x64.dmg")?.StartsWith("dmg: the output file must be named ", StringComparison.Ordinal) ?? false, true);
+        Expect("dmg-smoke: valid arguments have no problem and the default ceiling is 5", SmokeProblem("osx-x64", "5", out var five) + "|" + five, "(none)|5");
+        Expect("dmg-smoke: another RID is a problem", SmokeProblem("linux-x64", "5", out _), "dmg-smoke: unknown RID: linux-x64");
+        foreach (var bad in new[] { "0", "-1", "soon", "NaN", "Infinity" })
+        {
+            Expect($"dmg-smoke: the ceiling \"{bad}\" is a problem", SmokeProblem("osx-x64", bad, out _), $"dmg-smoke: --ceiling-seconds must be a positive number: {bad}");
+        }
+
+        (int Code, string Error) CliError(string[] args)
+        {
+            var original = Console.Error;
+            using var captured = new StringWriter();
+            Console.SetError(captured);
+            try
+            {
+                return (Cli.Run(args), captured.ToString());
+            }
+            finally
+            {
+                Console.SetError(original);
+            }
+        }
+
+        var (wrongCode, wrongError) = CliError(Args("osx-arm64", "0.1.0", "x.dmg"));
+        Expect("dmg: a wrong out name returns 2 with the name message", wrongCode + "|" + wrongError.Contains("the output file must be named", StringComparison.Ordinal), "2|True");
+        var (preCode, preError) = CliError(Args("osx-arm64", "0.2.0-rc.1", "RafficaPdf-0.2.0-rc.1-macos-arm64.dmg"));
+        Expect("dmg: a prerelease version returns 2 with the version message", preCode + "|" + preError.Contains("only a stable version", StringComparison.Ordinal), "2|True");
+        var (ridCode, ridError) = CliError(Args("linux-x64", "0.1.0", Arm));
+        Expect("dmg: another RID returns 2 with the RID message", ridCode + "|" + ridError.Contains("unknown RID", StringComparison.Ordinal), "2|True");
+        var (ceilCode, ceilError) = CliError(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64", "--ceiling-seconds", "0"]);
+        Expect("dmg-smoke: a ceiling of 0 returns 2 with the ceiling message", ceilCode + "|" + ceilError.Contains("must be a positive number", StringComparison.Ordinal), "2|True");
         Expect("dmg: a missing option returns 2", Cli.Run(["dmg", "--rid", "osx-x64"]), 2);
         Expect("dmg-smoke: a missing option returns 2", Cli.Run(["dmg-smoke", "--rid", "osx-x64"]), 2);
-        Expect("dmg-smoke: another RID returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "linux-x64"]), 2);
-        Expect("dmg-smoke: a ceiling that is not a positive number returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64", "--ceiling-seconds", "0"]), 2);
-        Expect("dmg-smoke: a ceiling that is text returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64", "--ceiling-seconds", "soon"]), 2);
         if (!OperatingSystem.IsMacOS())
         {
             Expect("dmg: anywhere but macOS returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-arm64.dmg")), 2);
@@ -6129,7 +6185,30 @@ static class SelfTest
         var dir = Path.Combine(Path.GetTempPath(), "raffica-dmg-selftest-" + Guid.NewGuid().ToString("N"));
         try
         {
-            // A fake publish folder as in the macos-app run: every program is /usr/bin/true, so the bundle is real but prints nothing.
+            Directory.CreateDirectory(dir);
+
+            // The fake programs are single-architecture slices of /usr/bin/true (a system binary is universal, and the smoke refuses a
+            // universal RafficaPdf or raffica). Intel is preferred because every macOS 15 /usr/bin/true has that slice (the other is
+            // arm64e, which is not arm64); on an Apple silicon host the Intel fake runs under Rosetta, and without Rosetta it simply
+            // prints nothing, which is the failure this test expects anyway.
+            Tool.Run("lipo", ["-archs", "/usr/bin/true"], out var trueArchs);
+            var slices = trueArchs.Split([' ', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+            var (rid, arch) = slices.Contains("x86_64") ? ("osx-x64", "x86_64") : slices.Contains("arm64") ? ("osx-arm64", "arm64") : (string.Empty, string.Empty);
+            Expect($"dmg run: /usr/bin/true has an x86_64 or arm64 slice to thin ({trueArchs.Trim()})", rid.Length > 0, true);
+            if (rid.Length == 0)
+            {
+                return;
+            }
+
+            var fake = Path.Combine(dir, "fake-program");
+            Expect("dmg run: the fake program is thinned", Tool.Run("lipo", ["/usr/bin/true", "-thin", arch, "-output", fake], out var thinLog), 0);
+            if (!File.Exists(fake))
+            {
+                Console.Error.WriteLine(thinLog);
+                return;
+            }
+
+            File.SetUnixFileMode(fake, (UnixFileMode)0x1ED);
             var app = Path.Combine(dir, "app");
             var cli = Path.Combine(dir, "cli");
             var bundles = Path.Combine(dir, "bundles");
@@ -6140,16 +6219,16 @@ static class SelfTest
 
             foreach (var (folder, name) in new[] { (app, "RafficaPdf"), (app, "libpdfium.dylib"), (cli, "raffica"), (cli, "libpdfium.dylib") })
             {
-                File.Copy("/usr/bin/true", Path.Combine(folder, name));
+                File.Copy(fake, Path.Combine(folder, name));
             }
 
-            Expect("dmg run: the fake bundle is built", Cli.Run(["macos-app", "--rid", "osx-arm64", "--app", app, "--cli", cli, "--out", bundles, "--version", "0.1.0"]), 0);
+            Expect("dmg run: the fake bundle is built", Cli.Run(["macos-app", "--rid", rid, "--app", app, "--cli", cli, "--out", bundles, "--version", "0.1.0"]), 0);
             var bundle = Path.Combine(bundles, MacApp.BundleName);
             var images = Path.Combine(dir, "images folder");
             Directory.CreateDirectory(images);
-            var image = Path.Combine(images, Dmg.FileName("0.1.0", "osx-arm64"));
+            var image = Path.Combine(images, Dmg.FileName("0.1.0", rid));
 
-            Expect("dmg run: ADmgOfAFakeBundleHoldsTheAppAndTheLink: create", Cli.Run(["dmg", "--app", bundle, "--rid", "osx-arm64", "--version", "0.1.0", "--out", image]), 0);
+            Expect("dmg run: ADmgOfAFakeBundleHoldsTheAppAndTheLink: create", Cli.Run(["dmg", "--app", bundle + "/", "--rid", rid, "--version", "0.1.0", "--out", image]), 0);
             Expect("dmg run: the image exists", File.Exists(image), true);
             var mount = Path.Combine(dir, "mount");
             Directory.CreateDirectory(mount);
@@ -6175,11 +6254,45 @@ static class SelfTest
                 Console.Error.WriteLine(attachLog);
             }
 
-            // The fake RafficaPdf prints nothing, so the smoke must fail and must still leave nothing attached.
-            Expect("dmg run: TheSmokeFailsForABinaryThatDoesNotPrintTheString", Cli.Run(["dmg-smoke", "--dmg", image, "--rid", "osx-arm64"]), 1);
+            // TheSmokeFailsForABinaryThatDoesNotPrintTheString: the fake prints nothing, so exactly the two print checks (de and en)
+            // fail; attach, listing, link, copy, detach, signature and every architecture must have passed before them.
+            var original = Console.Out;
+            using var captured = new StringWriter();
+            Console.SetOut(captured);
+            int smokeCode;
+            try
+            {
+                smokeCode = Cli.Run(["dmg-smoke", "--dmg", image, "--rid", rid]);
+            }
+            finally
+            {
+                Console.SetOut(original);
+            }
+
+            var lines = captured.ToString().Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+            bool Passed(string what) => lines.Any(l => l.StartsWith("ok ", StringComparison.Ordinal) && l.Contains(what, StringComparison.Ordinal));
+            var failed = lines.Where(l => l.StartsWith("FAILED", StringComparison.Ordinal)).ToList();
+            if (smokeCode != 1 || failed.Count != 2)
+            {
+                Console.Error.WriteLine(captured.ToString());
+            }
+
+            Expect("dmg run: TheSmokeFailsForABinaryThatDoesNotPrintTheString: exit 1", smokeCode, 1);
+            foreach (var what in new[]
+            {
+                "hdiutil attach", "the image holds exactly Raffica PDF.app and Applications", "Applications links to /Applications", "app copied out of the image",
+                "hdiutil detach", "codesign --verify --deep --strict", "Contents/MacOS holds RafficaPdf and raffica",
+                $"RafficaPdf: architecture {arch}", $"raffica: architecture {arch}", $"libpdfium.dylib: architecture {arch}",
+            })
+            {
+                Expect($"dmg run: the smoke passed \"{what}\"", Passed(what), true);
+            }
+
+            Expect("dmg run: only the two print-string checks failed", failed.Count == 2 && failed.All(l => l.Contains("RafficaPdf --print-string TabView --lang", StringComparison.Ordinal)), true);
+            Expect("dmg run: the smoke ends with its failure count", lines.Contains("dmg-smoke: 2 check(s) failed."), true);
             Tool.Run("hdiutil", ["info"], out var info);
             Expect("dmg run: the smoke detached the image", info.Contains(Path.GetFileName(image), StringComparison.Ordinal), false);
-            Expect("dmg run: a missing image returns 1", Cli.Run(["dmg-smoke", "--dmg", Path.Combine(dir, "nope.dmg"), "--rid", "osx-arm64"]), 1);
+            Expect("dmg run: a missing image returns 1", Cli.Run(["dmg-smoke", "--dmg", Path.Combine(dir, "nope.dmg"), "--rid", rid]), 1);
         }
         finally
         {
@@ -6187,7 +6300,7 @@ static class SelfTest
             {
                 Directory.Delete(dir, recursive: true);
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
             }
         }
