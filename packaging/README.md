@@ -216,9 +216,9 @@ stays unticked until it is done.
 ## Manual check on a Mac (M3.3)
 
 Milestone 3.3 (bundle, disk image, default app, update; decision "Raffica on macOS: packaging, default app and updates (M3.3)"
-in `Docs/DECISIONS.md`) is meant to be checked by CI as far as hosted runners reach: `build-macos` is to build both bundles and
-images and check the signature (`codesign --verify --deep --strict`), the Mach-O files and the 5-second start of `dmg-smoke`;
-it ran green on CI run 42860216762 (head e1ca1b3, both architectures). What follows needs a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
+in `Docs/DECISIONS.md`) is checked by CI as far as hosted runners reach: `build-macos` builds both bundles and
+images and checks the signature (`codesign --verify --deep --strict`), the Mach-O files and the 5-second start of `dmg-smoke`
+(green on CI run 42860216762, head e1ca1b3, both architectures). What follows needs a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
 otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under Rosetta there; the arm64 image has not been run by hand). Every box stays unticked until it is done; write what you see in your own words.
 
 - [ ] a. **Open the image.** Open the `.dmg`: it shows `Raffica PDF.app` and the `Applications` link. Drag the app into
