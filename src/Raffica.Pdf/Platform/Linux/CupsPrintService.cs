@@ -10,6 +10,7 @@ namespace Raffica.Pdf.Platform.Linux;
 /// private temporary folder, which is deleted afterwards.
 /// </summary>
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
 internal sealed class CupsPrintService : IPrintService
 {
     /// <inheritdoc/>

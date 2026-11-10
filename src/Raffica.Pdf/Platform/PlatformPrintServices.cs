@@ -7,24 +7,19 @@ namespace Raffica.Pdf.Platform;
 /// <summary>Chooses the print service of the operating system; made on the first print, never at startup.</summary>
 internal static class PlatformPrintServices
 {
-    /// <summary>
-    /// Creates the service of this system. Where nothing can print (macOS for now) the service
-    /// reports <see cref="IPrintService.IsAvailable"/> as <see langword="false"/>.
-    /// </summary>
-    public static IPrintService Create()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return new WindowsPrintService();
-        }
+    /// <summary>Creates the service of this system: the Windows dialog, or CUPS on Linux and macOS.</summary>
+    public static IPrintService Create() =>
+        Choose(OperatingSystem.IsWindows(), OperatingSystem.IsLinux(), OperatingSystem.IsMacOS());
 
-        if (OperatingSystem.IsLinux())
-        {
-            return new CupsPrintService();
-        }
-
-        return new NoPrintService();
-    }
+    /// <summary>The choice as a seam: <see cref="NoPrintService"/> where nothing can print.</summary>
+    /// <param name="windows">Whether the system is Windows.</param>
+    /// <param name="linux">Whether the system is Linux.</param>
+    /// <param name="macOs">Whether the system is macOS.</param>
+    /// <returns>The print service.</returns>
+#pragma warning disable CA1416 // The flags are the platform guard; the services only run on the system they are chosen for.
+    internal static IPrintService Choose(bool windows, bool linux, bool macOs) =>
+        windows ? new WindowsPrintService() : linux || macOs ? new CupsPrintService() : new NoPrintService();
+#pragma warning restore CA1416
 }
 
 /// <summary>The service for a system without printing: not available, no dialog, no printers.</summary>
