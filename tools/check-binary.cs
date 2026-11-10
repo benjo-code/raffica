@@ -3,7 +3,9 @@
 // Checks the dependencies of a native library. The format is read from the first four bytes of the file.
 // ELF (Linux): the highest GLIBC and GLIBCXX version it needs and its NEEDED libraries.
 //   dotnet run tools/check-binary.cs -- <file>... [--max-glibc 2.35] [--max-glibcxx 3.4.30] [--allow-needed <lib>]...
-// Mach-O (macOS, thin 64-bit): architecture, deployment target and dependencies (otool -L, lipo -archs, vtool -show-build; Mac only).
+// Mach-O (macOS, thin 64-bit or universal): architecture, deployment target and dependencies (otool -L, lipo -archs, vtool -show-build; Mac only).
+// A universal (fat) file is accepted for a *.dylib only (the NuGet natives of Avalonia, SkiaSharp and HarfBuzz are universal): it must hold the
+// expected slice and that slice is checked. The executables stay single-architecture. Any other format is a failure.
 //   dotnet run tools/check-binary.cs -- <file> --arch <x86_64|arm64> --max-macos <x.y> --bundle <folder>
 //   dotnet run tools/check-binary.cs -- selftest   (the rules on sample text, runs anywhere)
 // --allow-needed adds one NEEDED library to the allow-list for this run (the release build allows libfontconfig.so.1 of Skia).
@@ -148,7 +150,7 @@ enum BinaryFormat
     MachO,
 }
 
-// The rules for a thin 64-bit Mach-O dynamic library (the macOS build of the OCR library), from the text of otool -L, lipo -archs and vtool -show-build.
+// The rules for a Mach-O file (the OCR library, the NuGet natives, the executables), from the text of otool -L, lipo -archs and vtool -show-build.
 static partial class MachORules
 {
     // otool -L: "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)"
@@ -232,11 +234,25 @@ static partial class MachORules
         return false;
     }
 
-    public static List<string> Violations(string otoolOutput, string lipoArchs, string vtoolOutput, string expectedArch, int[] maxMacos, Func<string, bool> bundleHasFile)
+    // Only a dynamic library may be universal; the executables (RafficaPdf, raffica) hold exactly one architecture.
+    public static bool MayBeUniversal(string fileName) => fileName.EndsWith(".dylib", StringComparison.OrdinalIgnoreCase);
+
+    // otool and vtool read the first slice of a universal file unless told which one: name the expected slice (a thin file needs nothing).
+    public static string[] SliceArguments(bool universal, string expectedArch) => universal ? ["-arch", expectedArch] : [];
+
+    // allowUniversal: the file may hold several slices, but the expected one must be among them (the caller then reads that slice only).
+    public static List<string> Violations(string otoolOutput, string lipoArchs, string vtoolOutput, string expectedArch, int[] maxMacos, Func<string, bool> bundleHasFile, bool allowUniversal = false)
     {
         var problems = new List<string>();
         var archs = lipoArchs.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
-        if (archs.Length != 1 || archs[0] != expectedArch)
+        if (allowUniversal)
+        {
+            if (!archs.Contains(expectedArch, StringComparer.Ordinal))
+            {
+                problems.Add($"architectures are '{string.Join(' ', archs)}' (the slice '{expectedArch}' is missing)");
+            }
+        }
+        else if (archs.Length != 1 || archs[0] != expectedArch)
         {
             problems.Add($"architectures are '{string.Join(' ', archs)}' (exactly '{expectedArch}' expected)");
         }
@@ -288,8 +304,12 @@ static class CheckBinary
             return BinaryFormat.MachO;
         }
 
-        return BinaryFormat.Unknown;
+        // Universal (fat): CA FE BA BE, or CA FE BA BF with 64-bit offsets.
+        return IsUniversal(head) ? BinaryFormat.MachO : BinaryFormat.Unknown;
     }
+
+    public static bool IsUniversal(ReadOnlySpan<byte> head) =>
+        head.Length >= 4 && head[0] == 0xCA && head[1] == 0xFE && head[2] == 0xBA && (head[3] == 0xBE || head[3] == 0xBF);
 
     public static int Run(string[] args)
     {
@@ -357,9 +377,18 @@ static class CheckBinary
                 _ = stream.Read(head, 0, head.Length);
             }
 
-            if (DetectFormat(head) == BinaryFormat.MachO)
+            var format = DetectFormat(head);
+            if (format == BinaryFormat.Unknown)
             {
-                if (!CheckMachO(file, arch, maxMacosText, bundle))
+                // Never guess ELF: a file that is neither ELF nor Mach-O must not pass as "ok" or fall into objdump.
+                Console.Error.WriteLine($"{file}: unknown binary format (neither ELF nor Mach-O)");
+                failed = true;
+                continue;
+            }
+
+            if (format == BinaryFormat.MachO)
+            {
+                if (!CheckMachO(file, arch, maxMacosText, bundle, IsUniversal(head)))
                 {
                     failed = true;
                 }
@@ -392,7 +421,7 @@ static class CheckBinary
         return failed ? 1 : 0;
     }
 
-    private static bool CheckMachO(string file, string? arch, string? maxMacosText, string? bundle)
+    private static bool CheckMachO(string file, string? arch, string? maxMacosText, string? bundle, bool universal)
     {
         if (arch is not ("x86_64" or "arm64") || maxMacosText is null || !ElfRules.TryParseVersion(maxMacosText, out var maxMacos) || bundle is null)
         {
@@ -400,16 +429,19 @@ static class CheckBinary
             return false;
         }
 
-        var otool = RunTool("otool", ["-L", file]);
+        // A universal file is read on the expected slice; whether it may be universal at all is the rule's business (MayBeUniversal).
+        var slice = MachORules.SliceArguments(universal, arch);
+        var otool = RunTool("otool", [.. slice, "-L", file]);
         var lipo = RunTool("lipo", ["-archs", file]);
-        var vtool = RunTool("vtool", ["-show-build", file]);
+        var vtool = RunTool("vtool", [.. slice, "-show-build", file]);
         if (otool is null || lipo is null || vtool is null)
         {
             return false;
         }
 
         var folder = Path.GetFullPath(bundle);
-        var problems = MachORules.Violations(otool, lipo, vtool, arch, maxMacos, name => File.Exists(Path.Combine(folder, name)));
+        var problems = MachORules.Violations(otool, lipo, vtool, arch, maxMacos, name => File.Exists(Path.Combine(folder, name)),
+            allowUniversal: MachORules.MayBeUniversal(Path.GetFileName(file)));
         if (problems.Count == 0)
         {
             Console.WriteLine($"{file}: ok");
@@ -523,6 +555,21 @@ static class SelfTest
         Expect("macho: the normal sample still passes", MachORules.Violations(Clean, "arm64", Vtool13, "arm64", max14, All).Count, 0);
         Expect("macho: the legacy LC_VERSION_MIN_MACOSX form is read", MachORules.Violations(Clean, "arm64", "      cmd LC_VERSION_MIN_MACOSX\n  cmdsize 16\n  version 13.0\n      sdk 15.2\n", "arm64", max14, All).Count, 0);
 
+        // A universal (fat) .dylib passes when the expected slice is in it; the executables stay single-architecture.
+        Expect("macho: a universal file with the expected slice passes when universal files are allowed", MachORules.Violations(Clean, "x86_64 arm64", Vtool13, "arm64", max14, All, allowUniversal: true).Count, 0);
+        Expect("macho: a universal file without the expected slice fails", MachORules.Violations(Clean, "x86_64 arm64e", Vtool13, "arm64", max14, All, allowUniversal: true).Count, 1);
+        Expect("macho: a thin file of another architecture still fails when universal files are allowed", MachORules.Violations(Clean, "x86_64", Vtool13, "arm64", max14, All, allowUniversal: true).Count, 1);
+        Expect("macho: a universal file stays refused when universal files are not allowed (the executables)", MachORules.Violations(Clean, "x86_64 arm64", Vtool13, "arm64", max14, All).Count, 1);
+        Expect("macho: a universal file is checked on its slice (a high minos of the slice fails)", MachORules.Violations(Clean, "x86_64 arm64", Vtool15, "arm64", max14, All, allowUniversal: true).Count, 1);
+        Expect("macho: a universal file gets -arch for otool and vtool", string.Join(' ', MachORules.SliceArguments(true, "arm64")), "-arch arm64");
+        Expect("macho: a thin file gets no -arch", MachORules.SliceArguments(false, "arm64").Length, 0);
+        Expect("macho: only a .dylib may be universal", (MachORules.MayBeUniversal("libSkiaSharp.dylib"), MachORules.MayBeUniversal("RafficaPdf"), MachORules.MayBeUniversal("raffica")), (true, false, false));
+        Expect("format: universal Mach-O magic CA FE BA BE", CheckBinary.DetectFormat([0xCA, 0xFE, 0xBA, 0xBE]), BinaryFormat.MachO);
+        Expect("format: universal 64-bit Mach-O magic CA FE BA BF", CheckBinary.DetectFormat([0xCA, 0xFE, 0xBA, 0xBF]), BinaryFormat.MachO);
+        Expect("format: CA FE BA BE is universal, CF FA ED FE is thin", (CheckBinary.IsUniversal([0xCA, 0xFE, 0xBA, 0xBE]), CheckBinary.IsUniversal([0xCF, 0xFA, 0xED, 0xFE])), (true, false));
+        Expect("format: a file of an unknown format is a failure (never an ELF check)", CheckUnknownFile([0x4D, 0x5A, 0x90, 0x00]), 1);
+        Expect("format: a file shorter than four bytes is a failure", CheckUnknownFile([0x7F]), 1);
+
         // The ELF rules keep their behaviour.
         const string Symbols = "0000 DF *UND*\t0000 (GLIBC_2.34) printf\n0000 DF *UND*\t0000 (GLIBCXX_3.4.30) _ZSt\n";
         const string Headers = "  NEEDED               libc.so.6\n  NEEDED               libstdc++.so.6\n";
@@ -536,6 +583,21 @@ static class SelfTest
 
         Console.WriteLine(s_failures == 0 ? "selftest passed" : $"selftest: {s_failures} failure(s)");
         return s_failures == 0 ? 0 : 1;
+    }
+
+    // Runs the real command on a temporary file with these bytes (an unknown format must end the run with 1 before any tool is started).
+    private static int CheckUnknownFile(byte[] bytes)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "raffica-check-binary-selftest-" + Guid.NewGuid().ToString("N"));
+        File.WriteAllBytes(path, bytes);
+        try
+        {
+            return CheckBinary.Run([path]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     private static void Expect<T>(string what, T actual, T expected)

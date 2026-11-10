@@ -3793,7 +3793,8 @@ static partial class MacApp
     public const string BundleId = "io.github.benjo-code.raffica.pdf";
     private const string Usage = "Usage: macos-app --rid <osx-arm64|osx-x64> --app <publish dir> --cli <publish dir> --out <dir> --version <x.y.z> [--native <dir>] [--repo <dir>]";
 
-    [GeneratedRegex(@"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")]
+    // ASCII digits and \z: `$` also matches before a trailing newline and `\d` matches digits of other scripts.
+    [GeneratedRegex(@"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z")]
     private static partial Regex StableVersion();
 
     public static string Arch(string rid) => rid switch
@@ -6092,6 +6093,9 @@ static class SelfTest
         string[] Args(string rid, string version) =>
             ["macos-app", "--rid", rid, "--app", "app-does-not-exist", "--cli", "cli-does-not-exist", "--out", "out-does-not-exist", "--version", version];
         Expect("macos-app: a prerelease version returns 2", Cli.Run(Args("osx-arm64", "0.2.0-rc.1")), 2);
+        Expect("macos-app: a version with a trailing newline is not stable ($ would accept it)", MacApp.IsStable("0.1.0\n"), false);
+        Expect("macos-app: non-ASCII digits are not a stable version (a digit class would accept them)", MacApp.IsStable("٠.١.٠"), false);
+        Expect("macos-app: a plain stable version is stable", MacApp.IsStable("0.1.0"), true);
         Expect("macos-app: a version with a leading v returns 2", Cli.Run(Args("osx-arm64", "v0.2.0")), 2);
         Expect("macos-app: an unknown RID returns 2", Cli.Run(Args("linux-x64", "0.1.0")), 2);
         Expect("macos-app: a missing option returns 2", Cli.Run(["macos-app", "--rid", "osx-x64"]), 2);
