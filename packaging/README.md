@@ -198,12 +198,17 @@ stays unticked until it is done.
   a one-shot key (Cmd+S, Shift+Cmd+D) does not repeat the command.
 - [ ] k. **Menu follows the focus.** Open the Edit menu with a comment box focused and again with the page focused: Cut, Copy,
   Paste, Undo and Redo are enabled and act as the focused part says (the menu refreshes when it opens).
+  This is the `NeedsUpdate` check of the submenus: with the page view focused, Cut and Paste are disabled; with a text box
+  focused they are enabled, each time you open the Edit menu (no click elsewhere in between).
 - [ ] l. **Paste once.** Cmd+V in a text box pastes once, not twice.
-- [ ] m. **Page list.** In organize mode (Pages tab) with the page list focused, Cmd+A selects pages and not page text, and
-  Cmd+D duplicates the selection.
+- [ ] m. **Page list.** In organize mode (Pages tab) with the page list focused, Cmd+A selects pages and not page text, Cmd+C
+  does not copy page text, and Cmd+D duplicates the selection (the Edit menu shows Copy and Select all disabled then).
 - [ ] n. **Window comes and goes.** Close the first window, click the Dock icon, close that window and open one again, repeat a
   few times: no beach ball, the app still opens a new window each time, and a crash or update card shown after that is still
   answered.
+- [ ] o. **Restart and log out.** With Raffica open and nothing unsaved, restart the Mac (and log out in a second try): Raffica must
+  not abort the restart or the log out. (Known risk: the window cancels every close, also the system's; see the known limits of
+  the decision.) With unsaved marks the close question may appear; that is expected.
 
 ## Native OCR library for macOS (M3.1)
 
