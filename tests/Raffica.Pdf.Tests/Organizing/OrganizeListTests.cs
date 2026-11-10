@@ -74,6 +74,8 @@ internal sealed class OrganizeListFixture : IDisposable
 
 public sealed class OrganizeListTests
 {
+    private static RawInputModifiers CommandKey => OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
     [AvaloniaFact]
     public async Task ListShowsOneItemPerSlotInPlanOrder()
     {
@@ -182,7 +184,7 @@ public sealed class OrganizeListTests
         Assert.Equal([0, 2, 3], f.Session.Selection.Positions);
 
         Assert.True(f.Item(1).Focus());
-        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Control);
+        f.Key(Key.A, PhysicalKey.A, CommandKey);
         Assert.Equal([0, 1, 2, 3, 4, 5], f.Session.Selection.Positions);
         Assert.Equal(6, f.List.List.Selection.SelectedIndexes.Count);
     }
@@ -313,7 +315,7 @@ public sealed class OrganizeListTests
         f.Key(Key.OemOpenBrackets, PhysicalKey.BracketLeft);
         f.Key(Key.OemOpenBrackets, PhysicalKey.BracketLeft);
         Assert.Equal(270, f.Session.Plan.Slots[1].ExtraRotation);
-        f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Control);
+        f.Key(Key.D, PhysicalKey.D, CommandKey);
         Assert.Equal(7, f.Session.Plan.Slots.Count);
     }
 
@@ -340,10 +342,10 @@ public sealed class OrganizeListTests
     }
 
     [AvaloniaFact]
-    public async Task ControlStaysTheModifierWhereItIsTheCommandModifier()
+    public async Task TheDefaultCommandModifierIsMetaOnMacAndControlElsewhere()
     {
         using var f = await OrganizeListFixture.OpenAsync();
-        Assert.Equal(Raffica.Shell.Localization.KeyNames.CommandModifier, f.List.CommandModifier);
+        Assert.Equal(OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control, f.List.CommandModifier);
     }
 
     [AvaloniaFact]
@@ -387,7 +389,7 @@ public sealed class OrganizeListTests
         f.Click(500);
         Assert.Equal(500, NavList.FocusedIndex(list));
 
-        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Control);
+        f.Key(Key.A, PhysicalKey.A, CommandKey);
         Assert.Equal(1000, f.Session.Selection.Count);
         Assert.Equal(500, NavList.FocusedIndex(list));
         Assert.Contains(500, f.List.RealizedPositions);

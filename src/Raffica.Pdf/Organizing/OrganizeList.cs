@@ -21,7 +21,7 @@ namespace Raffica.Pdf.Organizing;
 /// what is pending for the page as icon plus text) and a counter above it. The list shows the plan and the selection of the
 /// <see cref="OrganizeSession"/> and changes them only through it. Mouse: click, Ctrl+click and Shift+click select, a drag of the selection
 /// reorders (the pages keep their order and are gathered at the drop). Keys inside the list: Alt+Up and Alt+Down move the selection by one,
-/// Alt+Home and Alt+End to the ends, Delete deletes, <c>[</c> and <c>]</c> turn, Ctrl+D duplicates, Esc collapses the selection to the focused
+/// Alt+Home and Alt+End to the ends, Delete deletes, <c>[</c> and <c>]</c> turn, Ctrl+D (Cmd+D on macOS) duplicates, Esc collapses the selection to the focused
 /// page; Tab leaves the list. The thumbnails follow the rules of the navigation list (<see cref="PagesPane"/>): only after the first sharp page
 /// of the tab, only while shown, only for the realised items.
 /// </summary>
