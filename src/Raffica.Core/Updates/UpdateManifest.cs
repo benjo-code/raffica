@@ -44,8 +44,15 @@ public static class UpdateFileKinds
     /// <summary>The Debian package.</summary>
     public const string LinuxDeb = "linux-deb";
 
+    /// <summary>The disk image of the Apple Silicon build.</summary>
+    public const string MacOsArm64Dmg = "macos-arm64-dmg";
+
+    /// <summary>The disk image of the Intel build.</summary>
+    public const string MacOsX64Dmg = "macos-x64-dmg";
+
     /// <summary>All known kinds.</summary>
-    public static IReadOnlyList<string> All { get; } = [WindowsSetup, WindowsPortable, LinuxAppImage, LinuxDeb];
+    public static IReadOnlyList<string> All { get; } =
+        [WindowsSetup, WindowsPortable, LinuxAppImage, LinuxDeb, MacOsArm64Dmg, MacOsX64Dmg];
 }
 
 /// <summary>Source-generated JSON metadata for the update manifest (no reflection, Native AOT safe).</summary>

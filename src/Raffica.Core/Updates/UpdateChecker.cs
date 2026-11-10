@@ -128,6 +128,8 @@ public sealed class UpdateChecker(
         {
             PackageForm.WindowsInstaller => manifest.FileOfKind(UpdateFileKinds.WindowsSetup),
             PackageForm.AppImage => manifest.FileOfKind(UpdateFileKinds.LinuxAppImage),
+            PackageForm.MacAppArm64 => manifest.FileOfKind(UpdateFileKinds.MacOsArm64Dmg),
+            PackageForm.MacAppX64 => manifest.FileOfKind(UpdateFileKinds.MacOsX64Dmg),
             _ => null,
         };
     }

@@ -17,6 +17,12 @@ public enum PackageForm
 
     /// <summary>Anything else.</summary>
     Unknown,
+
+    /// <summary>macOS, the Apple Silicon build run from an <c>.app</c> bundle.</summary>
+    MacAppArm64,
+
+    /// <summary>macOS, the Intel build run from an <c>.app</c> bundle.</summary>
+    MacAppX64,
 }
 
 /// <summary>Finds out the <see cref="PackageForm"/> of the running program from plain inputs (testable without a system).</summary>
@@ -28,15 +34,33 @@ public static class PackageFormDetector
     /// <summary>The folder the Debian package installs the program into.</summary>
     public const string DebDirectory = "/usr/lib/raffica-pdf/";
 
+    /// <summary>The path part that marks a program inside a macOS bundle.</summary>
+    private const string BundleMarker = ".app/Contents/MacOS/";
+
     /// <summary>Detects the form.</summary>
     /// <param name="isWindows">Whether the system is Windows (otherwise Linux is assumed).</param>
     /// <param name="processPath">The path of the running executable, if known.</param>
     /// <param name="fileExists">Tells whether a file exists.</param>
     /// <param name="env">Reads an environment variable (<c>null</c> if unset).</param>
-    public static PackageForm Detect(bool isWindows, string? processPath, Func<string, bool> fileExists, Func<string, string?> env)
+    /// <param name="isMacOS">Whether the system is macOS.</param>
+    /// <param name="isArm64">Whether the process is an arm64 process (the process architecture, so an Intel build under Rosetta is not).</param>
+    public static PackageForm Detect(
+        bool isWindows,
+        string? processPath,
+        Func<string, bool> fileExists,
+        Func<string, string?> env,
+        bool isMacOS = false,
+        bool isArm64 = false)
     {
         ArgumentNullException.ThrowIfNull(fileExists);
         ArgumentNullException.ThrowIfNull(env);
+
+        if (isMacOS)
+        {
+            return BundlePathOf(processPath) is null
+                ? PackageForm.Unknown
+                : isArm64 ? PackageForm.MacAppArm64 : PackageForm.MacAppX64;
+        }
 
         if (isWindows)
         {
@@ -57,6 +81,21 @@ public static class PackageFormDetector
         return processPath is not null && processPath.StartsWith(DebDirectory, StringComparison.Ordinal)
             ? PackageForm.Deb
             : PackageForm.Unknown;
+    }
+
+    /// <summary>
+    /// The path of the bundle (up to and including the first <c>.app</c> segment) of a <c>.app/Contents/MacOS/</c> path,
+    /// or <c>null</c> for any other path.
+    /// </summary>
+    public static string? BundlePathOf(string? processPath)
+    {
+        if (string.IsNullOrEmpty(processPath))
+        {
+            return null;
+        }
+
+        var index = processPath.IndexOf(BundleMarker, StringComparison.Ordinal);
+        return index < 0 ? null : processPath[..(index + ".app".Length)];
     }
 
     /// <summary>

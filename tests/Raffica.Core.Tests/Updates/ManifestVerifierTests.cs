@@ -370,6 +370,32 @@ public sealed class ManifestVerifierTests
     }
 
     [Fact]
+    public void AManifestWithMacKindsKeepsBothAndOneWithoutStillVerifies()
+    {
+        var withMac = VerifySigned(ManifestWithFiles(
+            FileJson("win-x64-setup", name: "a.exe"),
+            FileJson("linux-appimage", name: "a.AppImage"),
+            FileJson("macos-arm64-dmg", name: "arm.dmg"),
+            FileJson("macos-x64-dmg", name: "x64.dmg")));
+
+        Assert.Null(withMac.Rejection);
+        Assert.NotNull(withMac.Manifest);
+        Assert.Equal(4, withMac.Manifest.Files.Count);
+        Assert.Equal("arm.dmg", withMac.Manifest.FileOfKind("macos-arm64-dmg")?.Name);
+        Assert.Equal("x64.dmg", withMac.Manifest.FileOfKind("macos-x64-dmg")?.Name);
+
+        var withoutMac = VerifySigned(ManifestWithFiles(
+            FileJson("win-x64-setup", name: "a.exe"),
+            FileJson("win-x64-portable", name: "a.zip"),
+            FileJson("linux-appimage", name: "a.AppImage"),
+            FileJson("linux-deb", name: "a.deb")));
+
+        Assert.Null(withoutMac.Rejection);
+        Assert.NotNull(withoutMac.Manifest);
+        Assert.Equal(4, withoutMac.Manifest.Files.Count);
+    }
+
+    [Fact]
     public void IgnoresAnUnknownKind()
     {
         var result = VerifySigned(ManifestWithFiles(FileJson("linux-arm64-appimage")));
