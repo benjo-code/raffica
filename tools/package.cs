@@ -54,6 +54,8 @@ static class Cli
         "  appimage --layout <dir> --version <x.y.z> --out <file> [--runtime <file>]   builds RafficaPdf-<version>-x86_64.AppImage (Linux, mksquashfs)\n" +
         "  appimage-smoke <file.AppImage>                                    checks the runtime, unpacks, runs the CLI, starts the app without FUSE (Linux)\n" +
         "  macos-app --rid <osx-arm64|osx-x64> --app <dir> --cli <dir> --out <dir> --version <x.y.z> [--native <dir>]   builds \"Raffica PDF.app\" with icon and ad-hoc signature (macOS only)\n" +
+        "  dmg --app <dir> --rid <osx-arm64|osx-x64> --version <x.y.z> --out <file>   builds RafficaPdf-<version>-macos-<arm64|x64>.dmg with the app and a link to /Applications (macOS only)\n" +
+        "  dmg-smoke --dmg <file> --rid <rid> [--ceiling-seconds 5]          attaches, copies out, checks signature, architectures and a start of the app (macOS only)\n" +
         "  selftest                                                          checks the parts of the tool";
 
     // Command name -> handler (receives the arguments after the command name). Add new subcommands here.
@@ -78,6 +80,8 @@ static class Cli
         ["appimage"] = AppImage.Run,
         ["appimage-smoke"] = AppImageSmoke.Run,
         ["macos-app"] = MacApp.Run,
+        ["dmg"] = Dmg.Run,
+        ["dmg-smoke"] = DmgSmoke.Run,
         ["selftest"] = SelfTest.Run,
     };
 
@@ -3424,6 +3428,279 @@ static partial class AppImageSmoke
     }
 }
 
+// The disk image RafficaPdf-<version>-macos-<arm64|x64>.dmg (Milestone 3.3): the app and a link to /Applications, no background picture.
+// macOS only (hdiutil, ditto); everything runs as an argument list, never through a shell.
+static class Dmg
+{
+    public const string VolumeName = "Raffica PDF";
+    private const string Usage = "Usage: dmg --app <\"Raffica PDF.app\"> --rid <osx-arm64|osx-x64> --version <x.y.z> --out <RafficaPdf-<version>-macos-<arm64|x64>.dmg>";
+
+    public static string FileName(string version, string rid) => $"RafficaPdf-{version}-macos-{MacApp.Arch(rid)}.dmg";
+
+    public static int Run(string[] args)
+    {
+        var parsed = Options.Parse(args, "--app", "--rid", "--version", "--out");
+        if (parsed is not { } p || p.Positional.Count != 0 ||
+            !p.Named.TryGetValue("--app", out var app) || !p.Named.TryGetValue("--rid", out var rid) ||
+            !p.Named.TryGetValue("--version", out var version) || !p.Named.TryGetValue("--out", out var output))
+        {
+            Console.Error.WriteLine(Usage);
+            return 2;
+        }
+
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            Console.Error.WriteLine($"dmg: unknown RID: {rid}");
+            return 2;
+        }
+
+        if (!MacApp.IsStable(version))
+        {
+            Console.Error.WriteLine($"dmg: only a stable version x.y.z is allowed, not: {version}");
+            return 2;
+        }
+
+        if (Path.GetFileName(output) != FileName(version, rid))
+        {
+            Console.Error.WriteLine($"dmg: the output file must be named {FileName(version, rid)}: {output}");
+            return 2;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.Error.WriteLine("dmg: only on macOS (hdiutil and ditto are needed)");
+            return 2;
+        }
+
+        return Build(Path.GetFullPath(app), Path.GetFullPath(output));
+    }
+
+    private static int Build(string app, string output)
+    {
+        if (!Directory.Exists(app) || !app.EndsWith(".app", StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine($"dmg: the app bundle is missing: {app}");
+            return 1;
+        }
+
+        var stage = Path.Combine(Path.GetTempPath(), "raffica-dmg-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(stage);
+            // ditto keeps symbolic links, extended attributes and the signature of the bundle intact.
+            if (Tool.Run("ditto", [app, Path.Combine(stage, MacApp.BundleName)], out var dittoLog) != 0)
+            {
+                Console.Error.WriteLine($"dmg: ditto failed: {dittoLog}");
+                return 1;
+            }
+
+            File.CreateSymbolicLink(Path.Combine(stage, "Applications"), "/Applications");
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            if (Tool.Run("hdiutil", ["create", "-volname", VolumeName, "-srcfolder", stage, "-fs", "HFS+", "-format", "UDZO", "-ov", output], out var createLog) != 0)
+            {
+                Console.Error.WriteLine($"dmg: hdiutil create failed: {createLog}");
+                return 1;
+            }
+
+            if (Tool.Run("hdiutil", ["verify", output], out var verifyLog) != 0)
+            {
+                Console.Error.WriteLine($"dmg: hdiutil verify failed: {verifyLog}");
+                return 1;
+            }
+
+            Console.WriteLine($"dmg: {output}");
+            Console.Write(Sums.Line(output));
+            return 0;
+        }
+        finally
+        {
+            if (Directory.Exists(stage))
+            {
+                Directory.Delete(stage, true);
+            }
+        }
+    }
+}
+
+// The check of a finished disk image on macOS (Milestone 3.3): contents, the copy out of it, signature, architectures and a start
+// of the app. The dependency check of the Mach-O files is a workflow step (tools/check-binary.cs), not part of this command.
+static class DmgSmoke
+{
+    private const string Usage = "Usage: dmg-smoke --dmg <file> --rid <osx-arm64|osx-x64> [--ceiling-seconds 5]";
+
+    public static int Run(string[] args)
+    {
+        var parsed = Options.Parse(args, "--dmg", "--rid", "--ceiling-seconds");
+        if (parsed is not { } p || p.Positional.Count != 0 ||
+            !p.Named.TryGetValue("--dmg", out var dmg) || !p.Named.TryGetValue("--rid", out var rid))
+        {
+            Console.Error.WriteLine(Usage);
+            return 2;
+        }
+
+        if (rid is not ("osx-arm64" or "osx-x64"))
+        {
+            Console.Error.WriteLine($"dmg-smoke: unknown RID: {rid}");
+            return 2;
+        }
+
+        // The ceiling is the coarse "starts within a few seconds" value (spec section 6): it catches a build that cannot run, not speed.
+        var ceilingText = p.Named.GetValueOrDefault("--ceiling-seconds", "5");
+        if (!double.TryParse(ceilingText, NumberStyles.Float, CultureInfo.InvariantCulture, out var ceiling) || !(ceiling > 0) || double.IsInfinity(ceiling))
+        {
+            Console.Error.WriteLine($"dmg-smoke: --ceiling-seconds must be a positive number: {ceilingText}");
+            return 2;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.Error.WriteLine("dmg-smoke: only on macOS (hdiutil, ditto, codesign and lipo are needed)");
+            return 2;
+        }
+
+        var source = Path.GetFullPath(dmg);
+        if (!File.Exists(source))
+        {
+            Console.Error.WriteLine($"dmg-smoke: file missing: {source}");
+            return 1;
+        }
+
+        var failures = new List<string>();
+        void Check(bool ok, string what)
+        {
+            Console.WriteLine($"{(ok ? "ok    " : "FAILED")} {what}");
+            if (!ok)
+            {
+                failures.Add(what);
+            }
+        }
+
+        var work = Path.Combine(Path.GetTempPath(), "raffica-dmg-smoke-" + Guid.NewGuid().ToString("N"));
+        var mount = Path.Combine(work, "mount");
+        var copy = Path.Combine(work, "copy folder");
+
+        // Attaches, checks the contents, copies the app out and detaches again; the detach also happens on every failure.
+        bool CopyOut()
+        {
+            var attached = false;
+            try
+            {
+                Directory.CreateDirectory(mount);
+                var attachCode = Tool.Run("hdiutil", ["attach", "-readonly", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mount, source], out var attachLog);
+                attached = attachCode == 0;
+                Check(attached, $"hdiutil attach, read-only and hidden (code {attachCode})");
+                if (!attached)
+                {
+                    Console.Write(attachLog);
+                    return false;
+                }
+
+                // Names starting with a dot (.fseventsd, .Trashes, .DS_Store) are the volume's, not content.
+                var names = Directory.EnumerateFileSystemEntries(mount).Select(Path.GetFileName).Where(n => !n!.StartsWith('.')).Order(StringComparer.Ordinal).ToList();
+                Check(string.Join('|', names) == "Applications|" + MacApp.BundleName, $"the image holds exactly {MacApp.BundleName} and Applications ({string.Join(", ", names)})");
+                var link = new FileInfo(Path.Combine(mount, "Applications")).LinkTarget;
+                Check(link == "/Applications", $"Applications links to /Applications ({link ?? "no link"})");
+
+                var inImage = Path.Combine(mount, MacApp.BundleName);
+                var dittoCode = Directory.Exists(inImage) ? Tool.Run("ditto", [inImage, Path.Combine(copy, MacApp.BundleName)], out _) : -1;
+                Check(dittoCode == 0, $"app copied out of the image with ditto (code {dittoCode})");
+                return dittoCode == 0;
+            }
+            finally
+            {
+                if (attached)
+                {
+                    var detached = Tool.Run("hdiutil", ["detach", mount], out _) == 0 || Tool.Run("hdiutil", ["detach", "-force", mount], out _) == 0;
+                    Check(detached, "hdiutil detach");
+                }
+            }
+        }
+
+        try
+        {
+            Directory.CreateDirectory(copy);
+            if (!CopyOut())
+            {
+                return Finish(failures);
+            }
+
+            var bundle = Path.Combine(copy, MacApp.BundleName);
+            var signCode = Tool.Run("codesign", ["--verify", "--deep", "--strict", bundle], out var signLog);
+            Check(signCode == 0, $"codesign --verify --deep --strict on the copy (code {signCode})");
+            if (signCode != 0)
+            {
+                Console.Write(signLog);
+            }
+
+            var macOs = Path.Combine(bundle, "Contents", "MacOS");
+            var expected = MacApp.Arch(rid) == "x64" ? "x86_64" : "arm64";
+            var machO = Directory.Exists(macOs)
+                ? Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)
+                    .Where(f => Path.GetFileName(f) is "RafficaPdf" or "raffica" || f.EndsWith(".dylib", StringComparison.Ordinal))
+                    .Order(StringComparer.Ordinal).ToList()
+                : [];
+            Check(machO.Any(f => Path.GetFileName(f) == "RafficaPdf") && machO.Any(f => Path.GetFileName(f) == "raffica"), "Contents/MacOS holds RafficaPdf and raffica");
+            foreach (var file in machO)
+            {
+                var name = Path.GetRelativePath(macOs, file);
+                var code = Tool.Run("lipo", ["-archs", file], out var archs);
+                var found = archs.Split([' ', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+                if (code == 0 && found.Length > 1)
+                {
+                    Console.WriteLine($"ok     {name}: universal ({string.Join(' ', found)}), not compared");
+                }
+                else
+                {
+                    Check(code == 0 && found.Length == 1 && found[0] == expected, $"{name}: architecture {(code == 0 ? string.Join(' ', found) : "unreadable")} (expected {expected})");
+                }
+            }
+
+            var program = Path.Combine(macOs, "RafficaPdf");
+            if (File.Exists(program))
+            {
+                // An Intel image on an Apple silicon host runs under Rosetta; arch picks the Intel slice.
+                var viaArch = rid == "osx-x64" && System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64;
+                foreach (var (lang, text) in new[] { ("de", "Ansicht"), ("en", "View") })
+                {
+                    string[] arguments = ["--print-string", "TabView", "--lang", lang];
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
+                    var code = viaArch ? Tool.Run("arch", ["-x86_64", program, .. arguments], out var printed) : Tool.Run(program, arguments, out printed);
+                    watch.Stop();
+                    var seconds = watch.Elapsed.TotalSeconds;
+                    Check(code == 0 && printed.Trim() == text && seconds <= ceiling,
+                        $"RafficaPdf --print-string TabView --lang {lang} prints {text} within {ceiling.ToString(CultureInfo.InvariantCulture)} s (code {code}, {seconds.ToString("0.00", CultureInfo.InvariantCulture)} s{(viaArch ? ", under arch -x86_64" : string.Empty)})");
+                    if (printed.Trim() != text)
+                    {
+                        Console.WriteLine($"       output: {printed.Trim()}");
+                    }
+                }
+            }
+            else
+            {
+                Check(false, "RafficaPdf is missing in the copy");
+            }
+
+            return Finish(failures);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(work, true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    private static int Finish(List<string> failures)
+    {
+        Console.WriteLine(failures.Count == 0 ? "dmg-smoke: passed." : $"dmg-smoke: {failures.Count} check(s) failed.");
+        return failures.Count == 0 ? 0 : 1;
+    }
+}
+
 // The tag check of .github/workflows/release.yml: the same rule once in PowerShell (-cnotmatch) and once in bash (=~).
 static class TagRules
 {
@@ -3879,6 +4156,7 @@ static class SelfTest
         PublicRepoWorkflowParts();
         UpdateTestBuildGuardParts();
         MacAppParts();
+        DmgParts();
         Expect("unknown command returns 2", Cli.Run(["does-not-exist"]), 2);
 
         Console.WriteLine(s_failures == 0
@@ -5791,6 +6069,117 @@ static class SelfTest
             }
 
             Expect("macos-app run: an existing bundle is refused", Cli.Run(Args(cli, native)), 1);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    // dmg and dmg-smoke: the pure parts run everywhere, the real run (hdiutil, ditto, codesign, lipo) only on macOS.
+    private static void DmgParts()
+    {
+        Expect("dmg: file name of osx-arm64", Dmg.FileName("0.1.0", "osx-arm64"), "RafficaPdf-0.1.0-macos-arm64.dmg");
+        Expect("dmg: file name of osx-x64", Dmg.FileName("1.2.3", "osx-x64"), "RafficaPdf-1.2.3-macos-x64.dmg");
+        Expect("dmg: another RID throws", ThrowsArgument(() => Dmg.FileName("0.1.0", "linux-x64")), true);
+
+        string[] Args(string rid, string version, string name) =>
+            ["dmg", "--app", "app-does-not-exist/Raffica PDF.app", "--rid", rid, "--version", version, "--out", Path.Combine("out-does-not-exist", name)];
+        Expect("dmg: another RID returns 2", Cli.Run(Args("linux-x64", "0.1.0", "RafficaPdf-0.1.0-macos-arm64.dmg")), 2);
+        Expect("dmg: a wrong out name returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "x.dmg")), 2);
+        Expect("dmg: the name of the other architecture returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-x64.dmg")), 2);
+        Expect("dmg: a prerelease version returns 2", Cli.Run(Args("osx-arm64", "0.2.0-rc.1", "RafficaPdf-0.2.0-rc.1-macos-arm64.dmg")), 2);
+        Expect("dmg: a missing option returns 2", Cli.Run(["dmg", "--rid", "osx-x64"]), 2);
+        Expect("dmg-smoke: a missing option returns 2", Cli.Run(["dmg-smoke", "--rid", "osx-x64"]), 2);
+        Expect("dmg-smoke: another RID returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "linux-x64"]), 2);
+        Expect("dmg-smoke: a ceiling that is not a positive number returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64", "--ceiling-seconds", "0"]), 2);
+        Expect("dmg-smoke: a ceiling that is text returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64", "--ceiling-seconds", "soon"]), 2);
+        if (!OperatingSystem.IsMacOS())
+        {
+            Expect("dmg: anywhere but macOS returns 2", Cli.Run(Args("osx-arm64", "0.1.0", "RafficaPdf-0.1.0-macos-arm64.dmg")), 2);
+            Expect("dmg-smoke: anywhere but macOS returns 2", Cli.Run(["dmg-smoke", "--dmg", "x.dmg", "--rid", "osx-x64"]), 2);
+            Console.WriteLine("selftest: skipped dmg real run (ADmgOfAFakeBundleHoldsTheAppAndTheLink, TheSmokeFailsForABinaryThatDoesNotPrintTheString), reason: macOS: needs hdiutil, ditto, codesign and lipo (proven by the CI job build-macos).");
+            return;
+        }
+
+        DmgRealRun();
+    }
+
+    private static bool ThrowsArgument(Action action)
+    {
+        try
+        {
+            action();
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
+    }
+
+    private static void DmgRealRun()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "raffica-dmg-selftest-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            // A fake publish folder as in the macos-app run: every program is /usr/bin/true, so the bundle is real but prints nothing.
+            var app = Path.Combine(dir, "app");
+            var cli = Path.Combine(dir, "cli");
+            var bundles = Path.Combine(dir, "bundles");
+            foreach (var d in new[] { app, cli })
+            {
+                Directory.CreateDirectory(d);
+            }
+
+            foreach (var (folder, name) in new[] { (app, "RafficaPdf"), (app, "libpdfium.dylib"), (cli, "raffica"), (cli, "libpdfium.dylib") })
+            {
+                File.Copy("/usr/bin/true", Path.Combine(folder, name));
+            }
+
+            Expect("dmg run: the fake bundle is built", Cli.Run(["macos-app", "--rid", "osx-arm64", "--app", app, "--cli", cli, "--out", bundles, "--version", "0.1.0"]), 0);
+            var bundle = Path.Combine(bundles, MacApp.BundleName);
+            var images = Path.Combine(dir, "images folder");
+            Directory.CreateDirectory(images);
+            var image = Path.Combine(images, Dmg.FileName("0.1.0", "osx-arm64"));
+
+            Expect("dmg run: ADmgOfAFakeBundleHoldsTheAppAndTheLink: create", Cli.Run(["dmg", "--app", bundle, "--rid", "osx-arm64", "--version", "0.1.0", "--out", image]), 0);
+            Expect("dmg run: the image exists", File.Exists(image), true);
+            var mount = Path.Combine(dir, "mount");
+            Directory.CreateDirectory(mount);
+            var attach = Tool.Run("hdiutil", ["attach", "-readonly", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mount, image], out var attachLog);
+            Expect("dmg run: attach", attach, 0);
+            if (attach == 0)
+            {
+                try
+                {
+                    var names = Directory.EnumerateFileSystemEntries(mount).Select(Path.GetFileName).Where(n => !n!.StartsWith('.')).Order(StringComparer.Ordinal).ToList();
+                    Expect("dmg run: the image holds the app and Applications", string.Join('|', names), "Applications|Raffica PDF.app");
+                    Expect("dmg run: Applications links to /Applications", new FileInfo(Path.Combine(mount, "Applications")).LinkTarget ?? "(none)", "/Applications");
+                    Expect("dmg run: the app in the image is signed",
+                        Tool.Run("codesign", ["--verify", "--deep", "--strict", Path.Combine(mount, MacApp.BundleName)], out _), 0);
+                }
+                finally
+                {
+                    Expect("dmg run: detach", Tool.Run("hdiutil", ["detach", mount], out _) == 0 || Tool.Run("hdiutil", ["detach", "-force", mount], out _) == 0, true);
+                }
+            }
+            else
+            {
+                Console.Error.WriteLine(attachLog);
+            }
+
+            // The fake RafficaPdf prints nothing, so the smoke must fail and must still leave nothing attached.
+            Expect("dmg run: TheSmokeFailsForABinaryThatDoesNotPrintTheString", Cli.Run(["dmg-smoke", "--dmg", image, "--rid", "osx-arm64"]), 1);
+            Tool.Run("hdiutil", ["info"], out var info);
+            Expect("dmg run: the smoke detached the image", info.Contains(Path.GetFileName(image), StringComparison.Ordinal), false);
+            Expect("dmg run: a missing image returns 1", Cli.Run(["dmg-smoke", "--dmg", Path.Combine(dir, "nope.dmg"), "--rid", "osx-arm64"]), 1);
         }
         finally
         {
