@@ -444,8 +444,8 @@ jobs:
             bundle="out/bundle-$rid/Raffica PDF.app"
             macos_dir="$bundle/Contents/MacOS"
             dotnet run tools/check-binary.cs -- "$macos_dir/RafficaPdf" "$macos_dir/raffica" "$macos_dir"/*.dylib --arch "$machine" --max-macos "$macos_min" --bundle "$macos_dir"
-            # The bundle's own CLI (the Intel one runs through Rosetta when started directly). Only the x64 bundle carries the OCR files here,
-            # so the real OCR run happens for x64 and the arm64 run does the part that needs no library.
+            # The bundle's own CLI (the Intel one runs through Rosetta when started directly). Both bundles carry the OCR files (the library and
+            # the language data are fetched for osx-arm64 and osx-x64 above and copied into each publish folder), so the real OCR run happens for both.
             dotnet run tools/smoke-cli.cs -- "$macos_dir/raffica"
             dmg="out/dmg/RafficaPdf-0.0.0-macos-$short.dmg"
             dotnet run tools/package.cs -- dmg --app "$bundle" --rid "$rid" --version 0.0.0 --out "$dmg"

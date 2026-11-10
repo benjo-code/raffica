@@ -3937,6 +3937,27 @@ static partial class MacApp
             .Where(r => !Skipped(r) && r != TessdataFolder && !IsTessdata(r + "/"))
             .Order(StringComparer.Ordinal);
 
+    // The files codesign signs one by one, in this order: every *.dylib (ordinal among themselves), then the CLI, then the main executable last.
+    // Signing the main executable of a bundle makes codesign seal the bundle context, and it then demands that nested code is signed already
+    // (an unsigned dylib fails with "code object is not signed at all"; the arm64 dylibs only passed because the linker signs them). Other files are not code.
+    public static IEnumerable<string> SigningOrder(IEnumerable<string> files)
+    {
+        var all = files.ToList();
+        static string NameOf(string f) => Path.GetFileName(f);
+        foreach (var dylib in all.Where(f => NameOf(f).EndsWith(".dylib", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            yield return dylib;
+        }
+
+        foreach (var name in new[] { "raffica", "RafficaPdf" })
+        {
+            foreach (var f in all.Where(f => NameOf(f) == name).Order(StringComparer.Ordinal))
+            {
+                yield return f;
+            }
+        }
+    }
+
     private static int Build(string rid, string app, string cli, string output, string version, string? nativeDir, string repo)
     {
         var library = Layout.NativeLibrary(rid);
@@ -4069,7 +4090,7 @@ static partial class MacApp
                 return 1;
             }
 
-            // Ad-hoc signing (no Developer ID, no notarization): every Mach-O first, then the bundle, then the strict check.
+            // Ad-hoc signing (no Developer ID, no notarization): every Mach-O in SigningOrder (dylibs, CLI, main executable), then the bundle, then the strict check.
             // Contents/MacOS must hold files only: codesign would take a folder in it for a code component.
             var strays = Directory.EnumerateDirectories(macOs, "*", SearchOption.AllDirectories).ToList();
             if (strays.Count > 0)
@@ -4078,10 +4099,7 @@ static partial class MacApp
                 return 1;
             }
 
-            var machO = Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)
-                .Where(f => Path.GetFileName(f) is "RafficaPdf" or "raffica" || f.EndsWith(".dylib", StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal);
-            foreach (var file in machO)
+            foreach (var file in SigningOrder(Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)))
             {
                 if (Step("codesign", ["--force", "-s", "-", file]) != 0)
                 {
@@ -6137,6 +6155,19 @@ static class SelfTest
             Directory.Delete(strayDir, recursive: true);
         }
 
+        // codesign refuses to seal the main executable of a bundle while nested code is unsigned, so the order is: dylibs, the CLI, RafficaPdf last.
+        var scrambled = new[] { "m/RafficaPdf", "m/libtesseract.dylib", "m/raffica", "m/notes.txt", "m/libpdfium.dylib", "m/RafficaPdf.pdb", "m/libAvaloniaNative.dylib", "m/Info.plist" };
+        Expect("macos-app: signing order is the dylibs, then raffica, then RafficaPdf, other files dropped",
+            string.Join(',', MacApp.SigningOrder(scrambled)),
+            "m/libAvaloniaNative.dylib,m/libpdfium.dylib,m/libtesseract.dylib,m/raffica,m/RafficaPdf");
+        Expect("macos-app: signing order does not depend on the input order",
+            string.Join(',', MacApp.SigningOrder(scrambled.Reverse())), string.Join(',', MacApp.SigningOrder(scrambled)));
+        Expect("macos-app: the main executable is signed last",
+            Path.GetFileName(MacApp.SigningOrder(["x/RafficaPdf", "x/zzz.dylib", "x/raffica"]).Last()), "RafficaPdf");
+        Expect("macos-app: a bundle without dylibs still signs raffica before RafficaPdf",
+            string.Join(',', MacApp.SigningOrder(["x/RafficaPdf", "x/raffica"])), "x/raffica,x/RafficaPdf");
+        Expect("macos-app: names that are not Mach-O are dropped", MacApp.SigningOrder(["x/readme.txt", "x/Raffica", "x/rafficapdf", "x/a.dylib.txt"]).Count(), 0);
+
         Expect("macos-app: layout stays Windows and Linux only", Cli.Run(["layout", "--rid", "osx-x64", "--app", "a", "--cli", "b", "--out", "c"]), 2);
 
         string[] Args(string rid, string version) =>
@@ -6156,6 +6187,17 @@ static class SelfTest
         }
 
         MacOsRealRun();
+    }
+
+    // The dylibs a real build sees on x64 carry no signature at all (the arm64 ones get an ad-hoc one from the linker), and signing RafficaPdf
+    // first then fails. A copy of /usr/bin/true is signed, so the fixtures strip the signature of their libraries to make the signing order matter.
+    private static void Unsign(params string[] files)
+    {
+        foreach (var file in files)
+        {
+            Expect($"macos-app run: {Path.GetFileName(file)} loses its signature", Tool.Run("codesign", ["--remove-signature", file], out _), 0);
+            Expect($"macos-app run: {Path.GetFileName(file)} is unsigned now", Tool.Run("codesign", ["--verify", file], out _) != 0, true);
+        }
     }
 
     private static void MacOsRealRun()
@@ -6184,6 +6226,8 @@ static class SelfTest
             File.AppendAllText(Path.Combine(otherCli, "libpdfium.dylib"), "different");
             File.WriteAllText(Path.Combine(app, "RafficaPdf.pdb"), "symbols");
             File.Copy(Template, Path.Combine(native, "libtesseract.dylib"));
+            // Unsigned libraries (app and CLI hold the same bytes, the bundle keeps one copy), as the x64 build has them.
+            Unsign(Path.Combine(app, "libpdfium.dylib"), Path.Combine(cli, "libpdfium.dylib"), Path.Combine(native, "libtesseract.dylib"));
             File.WriteAllText(Path.Combine(native, "tessdata", "eng.traineddata"), "eng");
             File.WriteAllText(Path.Combine(native, "tessdata", "deu.traineddata"), "deu");
 
@@ -6193,6 +6237,7 @@ static class SelfTest
                 File.Copy(Template, Path.Combine(appWithData, name));
             }
 
+            Unsign(Path.Combine(appWithData, "libpdfium.dylib"), Path.Combine(appWithData, "libtesseract.dylib"));
             File.WriteAllText(Path.Combine(appWithData, "tessdata", "eng.traineddata"), "eng");
             File.WriteAllText(Path.Combine(appWithData, "tessdata", "deu.traineddata"), "deu");
 
@@ -6383,6 +6428,8 @@ static class SelfTest
             {
                 File.Copy(fake, Path.Combine(folder, name));
             }
+
+            Unsign(Path.Combine(app, "libpdfium.dylib"), Path.Combine(cli, "libpdfium.dylib"));
 
             Expect("dmg run: the fake bundle is built", Cli.Run(["macos-app", "--rid", rid, "--app", app, "--cli", cli, "--out", bundles, "--version", "0.1.0"]), 0);
             var bundle = Path.Combine(bundles, MacApp.BundleName);
