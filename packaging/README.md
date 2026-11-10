@@ -218,7 +218,7 @@ stays unticked until it is done.
 Milestone 3.3 (bundle, disk image, default app, update; decision "Raffica on macOS: packaging, default app and updates (M3.3)"
 in `Docs/DECISIONS.md`) is meant to be checked by CI as far as hosted runners reach: `build-macos` is to build both bundles and
 images and check the signature (`codesign --verify --deep --strict`), the Mach-O files and the 5-second start of `dmg-smoke`;
-it has not run for this code yet. What follows needs a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
+it ran green on CI run 42860216762 (head e1ca1b3, both architectures). What follows needs a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
 otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under Rosetta there; the arm64 image has not been run by hand). Every box stays unticked until it is done; write what you see in your own words.
 
 - [ ] a. **Open the image.** Open the `.dmg`: it shows `Raffica PDF.app` and the `Applications` link. Drag the app into
@@ -264,9 +264,9 @@ otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under 
   that does not exist or needs `sudo` is fine to note), then `raffica info <file.pdf>` and, with a scanned file, `raffica ocr`
   work from Terminal.
 
-Not on this list because CI is to answer it (not run yet): `codesign --verify --deep --strict` of the bundle with tessdata in `Contents/Resources` and the libraries in
-`Contents/MacOS` (the first run failed with tessdata in `Contents/MacOS`; the corrected layout has not run yet), and the 5-second ceiling of the
-image smoke under Rosetta.
+Not on this list because CI answered it (CI run 42860216762, green): `codesign --verify --deep --strict` of the bundle with tessdata in `Contents/Resources` and the libraries in
+`Contents/MacOS` (the first run failed with tessdata in `Contents/MacOS`), and the 5-second ceiling of the image smoke under Rosetta (the first
+Intel start took 2.43 s). That is a hosted Apple-silicon runner, not a real Mac: the boxes above stay open.
 
 ## Native OCR library for macOS (M3.1)
 
@@ -305,7 +305,7 @@ more: the release dry run, the container build with `deb-smoke` and `appimage-sm
 | macOS first launch, Finder, Open With and icon | the boxes a, b and g of "Manual check on a Mac (M3.3)" |
 | macOS default app (`LSSetDefaultRoleHandlerForContentType`, deprecated, assumed to work on macOS 15) | box c of "Manual check on a Mac (M3.3)" |
 | macOS update without a Gatekeeper prompt, quarantine result, mounted-image and write-protected refusals | boxes d, e and f of "Manual check on a Mac (M3.3)" |
-| macOS speed budgets for time and memory on the Intel Mac (the `macos` entry of `s_pdfBudgets` holds none until they are measured) | `gh workflow run measure.yml --ref <branch> -f platform=macos -f target=pdf -f rendering=default -f note="<machine>"` and again with `rendering=software`; the Apple-silicon record runs hosted: `-f platform=macos-hosted` (recorded, not judged) |
+| macOS speed budgets for time and memory on the Intel Mac (the `macos` entry of `s_pdfBudgets` holds the four size limits only, from CI run 42865447655; the time and memory budgets and the macOS rendering default are **open**: the Mac runner was offline, nothing has run, see `Docs/DECISIONS.md`, "Raffica PDF on macOS: published sizes and the hosted record (M3.3)") | `gh workflow run measure.yml --ref <branch> -f platform=macos -f target=pdf -f rendering=default -f note="<machine>"` and again with `rendering=software`; the Apple-silicon record runs hosted: `-f platform=macos-hosted` (recorded, not judged) |
 | Speed and size on the binding machines | `gh workflow run measure.yml --ref <branch> -f platform=windows (or linux) -f target=pdf -f note="<machine>"`, and `dotnet run bench/shell-probe/measure.cs -- size --check <rid> --target pdf --publish-dir <dir> --fonts-dir src/Raffica.Shell/Assets/Fonts` (the Windows size was 68.32 MiB against the budget of 66 MiB, see `Docs/DECISIONS.md`, "Raffica PDF: packaging and release measurements (M2.6)") |
 
 The container build by hand (the same call as the step "Build, package and smoke-test in ubuntu:22.04" of `release.yml`; run it
