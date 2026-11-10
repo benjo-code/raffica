@@ -171,12 +171,21 @@ internal static class Program
     {
         var builder = AppBuilder.Configure(() => new App(options, instance)).UsePlatformDetect();
 
-        // Windows only: software rendering is the default (no Direct3D device, no ANGLE display, no composition; it halves every start case and
+        // Windows: software rendering is the default (no Direct3D device, no ANGLE display, no composition; it halves every start case and
         // cuts idle memory to a third, see Docs/DECISIONS.md). RAFFICA_RENDERING=default opts out to Avalonia's own default path.
-        if (OperatingSystem.IsWindows()
-            && RenderingChoiceParser.Parse(Environment.GetEnvironmentVariable(RenderingChoiceParser.VariableName)) == RenderingChoice.Software)
+        // macOS: Avalonia's own path stays the default; RAFFICA_RENDERING=software opts in to the framebuffer (software) mode.
+        // Linux: untouched.
+        var choice = RenderingChoiceParser.For(RenderingChoiceParser.CurrentPlatform, Environment.GetEnvironmentVariable(RenderingChoiceParser.VariableName));
+        if (choice == RenderingChoice.Software)
         {
-            builder = builder.With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Software] });
+            if (OperatingSystem.IsWindows())
+            {
+                builder = builder.With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Software] });
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                builder = builder.With(new AvaloniaNativePlatformOptions { RenderingMode = [AvaloniaNativeRenderingMode.Software] });
+            }
         }
 
         return builder;
