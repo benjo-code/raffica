@@ -75,6 +75,7 @@ internal sealed partial class App : Application
                 }, () => desktop.Shutdown(), Dispatcher.UIThread);
                 host.Adopt(window);
                 StartHostedInput(window, host);
+                AttachMenu(host);
             }
             else if (_instance is not null)
             {
@@ -150,6 +151,29 @@ internal sealed partial class App : Application
         }
 
         first.Opened += OnOpened;
+    }
+
+    // The menu bar of macOS: one native menu for the app, bound to the current window of the host. It is read again when the current window changes, when that
+    // window reports new command states and when the system asks. "Open" with no window makes one through the host (the dispatcher runs the host's own post first),
+    // then runs the command of the new window, so the picker has a window to belong to.
+    private void AttachMenu(Hosting.WindowHost host)
+    {
+        var ui = Dispatcher.UIThread;
+        var binder = new Platform.MacOS.MacMenuBinder(() => host.Current as Platform.MacOS.IMenuWindow, () => OpenWindowThenPickerAsync(host, ui));
+        host.CurrentChanged += binder.Refresh;
+        Avalonia.Controls.NativeMenu.SetMenu(this, binder.Menu);
+    }
+
+    private static async Task OpenWindowThenPickerAsync(Hosting.WindowHost host, Dispatcher ui)
+    {
+        host.Reopen();
+
+        // Reopen posted the window to the dispatcher; this runs behind it.
+        await ui.InvokeAsync(() => { });
+        if (host.Current is Platform.MacOS.IMenuWindow window)
+        {
+            window.CommandOf(Commands.PdfCommandIds.Open)?.Run?.Invoke();
+        }
     }
 
     // The last net: an uncaught exception goes to crash.log, a UI one also shows one card. The dispatcher is captured here, on the UI thread, because the
