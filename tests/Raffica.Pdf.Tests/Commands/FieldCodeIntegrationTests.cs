@@ -36,7 +36,7 @@ public sealed class FieldCodeIntegrationTests
     [AvaloniaFact]
     public async Task AltHVRunsZoomInAndOpensTheViewTab()
     {
-        using var windows = WindowFixture.Create();
+        using var windows = WindowFixture.Create(keyTips: true);
         var tab = await windows.OpenAsync("text-rich.pdf");
         var window = windows.Window;
         var view = window.ViewOf(tab)!;
@@ -54,7 +54,7 @@ public sealed class FieldCodeIntegrationTests
     [AvaloniaFact]
     public async Task AltHRunsFindAndAnEnabledCodeOfEveryGroupWorks()
     {
-        using var windows = WindowFixture.Create();
+        using var windows = WindowFixture.Create(keyTips: true);
         var tab = await windows.OpenAsync("pages-marked.pdf");
         var window = windows.Window;
         var view = window.ViewOf(tab)!;
@@ -78,7 +78,7 @@ public sealed class FieldCodeIntegrationTests
     [AvaloniaFact]
     public async Task ADisabledCodeDoesNothing()
     {
-        using var windows = WindowFixture.Create();
+        using var windows = WindowFixture.Create(keyTips: true);
         await windows.OpenAsync("text-basic.pdf");
         var window = windows.Window;
 
@@ -93,7 +93,7 @@ public sealed class FieldCodeIntegrationTests
     [AvaloniaFact]
     public void FieldCodesInTheStartViewDoNothingAndDoNotThrow()
     {
-        using var windows = WindowFixture.Create();
+        using var windows = WindowFixture.Create(keyTips: true);
         var window = windows.Window;
         Assert.Same(window.Start, window.Frame.Document);
 

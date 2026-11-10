@@ -74,7 +74,12 @@ internal sealed class OrganizeListFixture : IDisposable
 
 public sealed class OrganizeListTests
 {
+    // The page list's own D / A keys use the platform command key (OrganizeList.CommandModifier).
     private static RawInputModifiers CommandKey => OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
+    // The click toggle belongs to Avalonia's ListBox, which asks PlatformHotkeyConfiguration.CommandModifiers. A real macOS app binds Meta there,
+    // but the headless platform binds the default configuration (Control) on every OS, so a headless click toggles on Control everywhere.
+    private static RawInputModifiers ToggleKey => RawInputModifiers.Control;
 
     [AvaloniaFact]
     public async Task ListShowsOneItemPerSlotInPlanOrder()
@@ -173,14 +178,14 @@ public sealed class OrganizeListTests
         using var f = await OrganizeListFixture.OpenAsync();
         f.Click(0);
         Assert.Equal([0], f.Session.Selection.Positions);
-        f.Click(2, CommandKey);
+        f.Click(2, ToggleKey);
         Assert.Equal([0, 2], f.Session.Selection.Positions);
-        f.Click(2, CommandKey);
+        f.Click(2, ToggleKey);
         Assert.Equal([0], f.Session.Selection.Positions);
         f.Click(0);
         f.Click(3, RawInputModifiers.Shift);
         Assert.Equal([0, 1, 2, 3], f.Session.Selection.Positions);
-        f.Click(1, CommandKey);
+        f.Click(1, ToggleKey);
         Assert.Equal([0, 2, 3], f.Session.Selection.Positions);
 
         Assert.True(f.Item(1).Focus());
@@ -194,7 +199,7 @@ public sealed class OrganizeListTests
     {
         using var f = await OrganizeListFixture.OpenAsync();
         f.Click(0);
-        f.Click(2, CommandKey);
+        f.Click(2, ToggleKey);
         Assert.Equal([0, 2], f.Session.Selection.Positions);
 
         // Press on a selected page, move below the middle of the third item (the gap before the fourth), release.
@@ -233,7 +238,7 @@ public sealed class OrganizeListTests
 
         // A multi-selection pressed and released without a move collapses to the pressed page, as a click does.
         f.Click(0);
-        f.Click(2, CommandKey);
+        f.Click(2, ToggleKey);
         f.Click(0);
         Assert.Equal([0], f.Session.Selection.Positions);
         Assert.True(OrganizeDrag.IsNoOp([2, 3], 2));

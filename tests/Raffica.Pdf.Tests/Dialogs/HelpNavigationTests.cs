@@ -28,7 +28,17 @@ public sealed class HelpNavigationTests : IDisposable
         string Written(string shortcut) => Raffica.Shell.Localization.KeyNames.Format(shortcut, PdfStrings.Culture);
         Assert.Equal(Written(Command + "+K"), keys["Go to the search field"]);
         Assert.Equal(Written("F6") + " / " + Written("Shift+F6"), keys["Move between the panes"]);
-        Assert.Equal(Written("Alt"), keys["Field codes: show them, then type one"]);
+        // The Alt field codes are offered only where key tips exist (not on macOS, spec 5.4).
+        var keyTips = Raffica.Pdf.Commands.KeyTips.Offered(OperatingSystem.IsMacOS());
+        if (keyTips)
+        {
+            Assert.Equal(Written("Alt"), keys["Field codes: show them, then type one"]);
+        }
+        else
+        {
+            Assert.DoesNotContain("Field codes: show them, then type one", keys.Keys);
+        }
+
         Assert.Equal(Written(Command + "+Y"), keys["Redo"]);
         Assert.Equal(Written("Enter"), keys["Search field: next match"]);
         Assert.Equal(Written("Shift+Enter"), keys["Search field: previous match"]);
@@ -43,7 +53,7 @@ public sealed class HelpNavigationTests : IDisposable
         Assert.Equal(Written("Esc"), keys["Forms: leave the field"]);
         Assert.Equal(Written(Command + "+Enter"), keys["Finish a text box or a comment"]);
         Assert.Equal(Written(Command + "+Shift+G"), keys["Edit text: whole line in the replacement font"]);
-        Assert.Equal(17, navigation.Count);
+        Assert.Equal(keyTips ? 17 : 16, navigation.Count);
     }
 
     [Fact]
