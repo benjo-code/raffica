@@ -120,9 +120,10 @@ key and a server on `127.0.0.1`. No release build sets these properties (`packag
 
 Run green on 2026-11-08 (run 42422270038, `dev` commit 4a31a74b81563f6015dc773ebe07a7b12ab16ca9; the first run, 42418844306,
 had failed in the Linux part of the packaging selftest and was fixed by PR #37). It built the Windows and Linux files,
-ran every smoke test (installer, `.deb`, AppImage, CLI, licenses) and uploaded nothing (that run predates milestone 3.3: the job
-`release-macos` and its files below have not run in a dry run yet, so the dry run is to be repeated before the first release); with `upload=false` the key check
-is skipped and the job `release-manifest` does not run.
+ran every smoke test (installer, `.deb`, AppImage, CLI, licenses) and uploaded nothing (that run predates milestone 3.3). The run of milestone 3.3, 42883424963 (`dev` commit
+79efc9b78135ef6b0d5036b3f55ff8289a476c0e, `upload=false`), is green for `release-preflight`, `release-linux`, `release-macos` and
+`release-windows`; `release-manifest` was skipped as expected, so the manifest with `upload=true`, the real upload and the first
+release are still open. With `upload=false` the key check is skipped and the job `release-manifest` does not run.
 
 1. Push the branch you want to build. The workflow file must exist on `dev` (a workflow can only be dispatched when the
    default branch has it).
@@ -290,7 +291,7 @@ macOS: native libraries, paths and activation (M3.1)", lessons from the Tesserac
 
 ## Open checks on real machines
 
-Each item below was not verified during Milestone 2.6; the command or step says how to check it. Done and not listed any
+Each item below was not verified during Milestone 2.6; the command or step says how to check it. Still open for macOS: the manifest job with `upload=true`, the real upload and the first release (the dry run with `upload=false` is green, run 42883424963). Done and not listed any
 more: the release dry run, the container build with `deb-smoke` and `appimage-smoke`, `desktop-file-validate` and
 `StartupWMClass=RafficaPdf` on X11 (see `Docs/DECISIONS.md`, "Raffica PDF: packaging and release (M2.6)", "Dry run and Linux build").
 
