@@ -454,7 +454,7 @@ jobs:
 
       # The published sizes of both architectures against the one `macos` entry of s_pdfBudgets in measure.cs (size, zip, app, dmg; the budgets of
       # Docs/DECISIONS.md, "Raffica PDF on macOS: published sizes and the hosted record (M3.3)"). `--check <rid>` judges the four sizes only (it asks
-      # for no time or memory metric) and exits 1 above a limit; both architectures are checked before the step fails, so one run shows both. The
+      # for no time or memory metric) and exits 1 above a limit; `set +e` in the script keeps the loop going, so both architectures are checked (and shown) before the step fails. The
       # output (a table in MiB with budget and limit) goes to the log and the step summary. --no-cache and the job temp folder for the reason
       # given at the gallery step of the other jobs.
       - name: Sizes of the published app
@@ -463,7 +463,10 @@ jobs:
           TMP: ${{ runner.temp }}
           TMPDIR: ${{ runner.temp }}
         run: |
+          # GitHub runs this under `bash -e {0}`: -e must be off here, or the first rid over its limit would end the shell inside the pipe
+          # and the second would never be checked. pipefail makes PIPESTATUS[0] the exit code of dotnet, read right after the pipe.
           set -uo pipefail
+          set +e
           failed=0
           for rid in osx-arm64 osx-x64; do
             case "$rid" in

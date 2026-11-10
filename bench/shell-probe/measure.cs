@@ -2083,7 +2083,9 @@ static class SelfTest
         Expect("size --check --app --dmg (recorded): the app one byte above fails", Check("osx-x64", RecApp + 1, RecDmg), 1);
         Expect("size --check --app --dmg (recorded): the dmg one byte above fails", Check("osx-arm64", RecApp, RecDmg + 1), 1);
         CheckCommand.PdfTableForTests = PdfTestTable();
-        Check("osx-x64", App, null); // leaves the bundle at its size for the rows test below
+        // Setup by side effect: Check rebuilds the stand-in bundle on disk each time, and the "--out" rows test below reads whatever the last call
+        // left there and expects an app of exactly App bytes. The recorded-table calls above left RecApp, so one call restores it.
+        Check("osx-x64", App, null);
 
         // Symbolic links are not counted (creating one may need privileges on Windows: then the check is skipped).
         var linkRoot = root + "-links";
