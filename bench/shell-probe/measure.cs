@@ -932,7 +932,9 @@ static class SizeCommand
             return 2;
         }
 
-        var appBytes = appDir is null ? (long?)null : Directory.EnumerateFiles(appDir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
+        // "app" counts the bytes of every file in the bundle, symbols included, so it deliberately differs from "total", which skips
+        // .pdb/.dbg/.dSYM. Symbolic links (files and folders) are not followed and not counted, so a link never adds the size of its target.
+        var appBytes = appDir is null ? (long?)null : AppBundleBytes(appDir);
         var dmgBytes = dmgFile is null ? (long?)null : new FileInfo(dmgFile).Length;
 
         var (total, zip, fontBytes, native) = Measure(publish, fonts, mainExe);
@@ -994,6 +996,11 @@ static class SizeCommand
         RunCommand.WriteCsv(o.Get("--out")!, rows);
         return 0;
     }
+
+    /// <summary>The bytes of every file under the bundle folder; symbolic links are skipped (not followed, not counted); hidden files count.</summary>
+    public static long AppBundleBytes(string bundle) =>
+        Directory.EnumerateFiles(bundle, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint })
+            .Sum(f => new FileInfo(f).Length);
 
     /// <summary>
     /// The sizes in bytes. Debug symbols (<c>*.pdb</c>, <c>*.dbg</c>, <c>*.dSYM</c> bundles) are not shipped and count nowhere; the native
@@ -2026,7 +2033,9 @@ static class SelfTest
                 Directory.CreateDirectory(dir);
             }
 
+            // Both executables are there, so only the --app rule (not the missing-executable check) can answer 2 for the gallery.
             File.WriteAllBytes(Path.Combine(root, "RafficaPdf.exe"), new byte[10]);
+            File.WriteAllBytes(Path.Combine(root, "RafficaGallery.exe"), new byte[10]);
             Directory.CreateDirectory(Path.Combine(bundle, "Contents", "MacOS"));
             File.WriteAllBytes(Path.Combine(bundle, "Contents", "MacOS", "RafficaPdf"), new byte[appBytes - 4]);
             File.WriteAllBytes(Path.Combine(bundle, "Contents", "Info.plist"), new byte[4]);
@@ -2049,6 +2058,34 @@ static class SelfTest
         Expect("size --check --app: the app is still judged without --dmg", Check("osx-x64", App + 1, null), 1);
         Expect("size --check --app on Windows is a usage error", Check("win-x64", App, null), 2);
         Expect("size --check --app for the gallery is a usage error", Check("osx-x64", App, null, "gallery"), 2);
+        Expect("size --check --app for the gallery: the gallery alone would pass", SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "gallery", "--check", "osx-x64"], out _)!), 0);
+
+        // A metric without a limit in a non-empty macOS table is unrecorded (exit 1), never indicative.
+        CheckCommand.PdfTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = new() { ["cold"] = 100 } };
+        Expect("size --check --app: a macOS metric without a limit is unrecorded and exits 1", Check("osx-x64", App, null), 1);
+        Expect("check pdf macos: a metric without a limit is unrecorded, not indicative", CheckCommand.JudgePdf("macos", new Dictionary<string, double?> { ["app"] = 1 }, "app")[0].Verdict, "unrecorded");
+        CheckCommand.PdfTableForTests = PdfTestTable();
+
+        // Symbolic links are not counted (creating one may need privileges on Windows: then the check is skipped).
+        var linkRoot = root + "-links";
+        if (Directory.Exists(linkRoot))
+        {
+            Directory.Delete(linkRoot, recursive: true);
+        }
+
+        Directory.CreateDirectory(linkRoot);
+        File.WriteAllBytes(Path.Combine(linkRoot, "real"), new byte[100]);
+        try
+        {
+            File.CreateSymbolicLink(Path.Combine(linkRoot, "link"), Path.Combine(linkRoot, "real"));
+            Expect("app bundle bytes: a symbolic link is not counted at its target's size", SizeCommand.AppBundleBytes(linkRoot), 100);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Console.WriteLine($"skipped: symbolic link check ({e.GetType().Name}: no privilege to create a link here)");
+        }
+
+        Directory.Delete(linkRoot, recursive: true);
 
         // Without --check: the bytes as rows of the size CSV.
         var csv = root + "-bundle.csv";
