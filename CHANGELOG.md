@@ -6,6 +6,10 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening a file in the running Raffica PDF from a second start could lose the file when the first instance was slow to read the message (a heavily loaded machine); the message is now delivered whenever it arrived whole.
+
 ## [0.1.0] – 2026-11-09
 
 First release: Raffica PDF, with Milestones 0 (repository skeleton and CI), 1, 1.1 and 1.2 (design system and app frame), 2.1 (viewer), 2.2 (annotate), 2.3 (forms and signing), 2.4 (organize pages), 2.5 (redact, OCR and line editing), 2.6 (packaging and release) and 2.7 (release readiness).

@@ -39,8 +39,8 @@ public sealed record RememberedView(ViewState View, double Zoom, ZoomMode ZoomMo
 public sealed record RecentFile(string Path, DateTimeOffset LastOpened, RememberedView? View);
 
 /// <summary>
-/// The list of recently opened files, newest first, at most <see cref="MaxEntries"/>. Paths are compared without
-/// regard to case on Windows and with it elsewhere. Not thread-safe: use it from the UI thread only.
+/// The list of recently opened files, newest first, at most <see cref="MaxEntries"/>. Paths are compared by the rule
+/// of <see cref="PathRules"/> (case-insensitive on Windows, by case on Linux, on macOS the Unicode-normalized form). Not thread-safe: use it from the UI thread only.
 /// </summary>
 public sealed class RecentFiles
 {
