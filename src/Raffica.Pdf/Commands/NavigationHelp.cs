@@ -24,11 +24,10 @@ internal static class NavigationHelp
 
         HelpEntry Line(string name, params string[] keys) => new(group, name, string.Join(" / ", keys.Select(k => KeyNames.Format(k, ui, macOs))));
 
-        return
-        [
+        var lines = new List<HelpEntry>
+        {
             Line(PdfStrings.HelpNavSearch, command + "+K"),
             Line(PdfStrings.HelpNavPanes, "F6", "Shift+F6"),
-            Line(PdfStrings.HelpNavFieldCodes, "Alt"),
             Line(PdfStrings.CmdRedo, command + "+Y"),
             Line(PdfStrings.HelpNavSearchNext, "Enter"),
             Line(PdfStrings.HelpNavSearchPrevious, "Shift+Enter"),
@@ -43,7 +42,15 @@ internal static class NavigationHelp
             Line(PdfStrings.HelpNavFormLeave, "Esc"),
             Line(PdfStrings.HelpNavTextFinish, command + "+Enter"),
             Line(PdfStrings.HelpNavWholeLine, command + "+Shift+G"),
-        ];
+        };
+
+        // The Alt key tips do not exist on macOS (spec 5.4), so the help does not list them.
+        if (KeyTips.Offered(macOs))
+        {
+            lines.Insert(2, Line(PdfStrings.HelpNavFieldCodes, "Alt"));
+        }
+
+        return lines;
     }
 
     /// <summary>The same lines for a language other than the current one (tests).</summary>

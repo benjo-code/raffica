@@ -60,7 +60,10 @@ internal sealed partial class PdfWindow : Window
     private const int MaxHandoverErrorCards = 3;
     private const int MaxShownNameLength = 120;
 
-    private readonly IDisposable _fieldCodes;
+    private readonly IDisposable? _fieldCodes;
+
+    /// <summary>Whether the Alt key tips (field codes) exist in this window; never on macOS, where Option types characters.</summary>
+    internal bool HasKeyTips { get; }
     private readonly EventHandler? _processExit;
     private readonly IDisposable _selectedSubscription;
     private readonly CloseGuard _closeGuard;
@@ -108,9 +111,11 @@ internal sealed partial class PdfWindow : Window
     /// <param name="printService">The print service (tests give a fake; null: the one of the system, made on the first print).</param>
     /// <param name="saveRunner">Replaces the save of Core (tests; null: the real save).</param>
     /// <param name="savePicker">Replaces the save dialog of the system (tests; null: the system dialog).</param>
-    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null, SaveRunner? saveRunner = null, Func<PdfTab, Task<string?>>? savePicker = null)
+    /// <param name="keyTips">Whether the Alt key tips exist (tests force either; null: every system except macOS).</param>
+    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null, SaveRunner? saveRunner = null, Func<PdfTab, Task<string?>>? savePicker = null, bool? keyTips = null)
     {
         ArgumentNullException.ThrowIfNull(options);
+        HasKeyTips = keyTips ?? KeyTips.Offered(OperatingSystem.IsMacOS());
         ArgumentNullException.ThrowIfNull(settings);
         _launcher = launcher;
         _time = time;
@@ -149,8 +154,11 @@ internal sealed partial class PdfWindow : Window
         NavigationPane = new Pane { Title = PdfStrings.PanePages, Width = PagesPaneWidth };
         DocumentPane = new Pane { IsDocument = true, PaneName = ShellStrings.PaneDocument };
         CommentsPane = new Pane { Title = PdfStrings.PaneMarks, Width = MarksPaneWidth, IsOpen = false };
-        FieldCodeBadge.SetCode(NavigationPane, "6");
-        FieldCodeBadge.SetCode(CommentsPane, "7");
+        if (HasKeyTips)
+        {
+            FieldCodeBadge.SetCode(NavigationPane, "6");
+            FieldCodeBadge.SetCode(CommentsPane, "7");
+        }
 
         Status = new StatusBar();
         Start = new StartView { Tiles = StartTile.OpenPdfOnly(), Recent = [], OwnApp = StartApp.Pdf };
@@ -208,13 +216,17 @@ internal sealed partial class PdfWindow : Window
         FrameKeys.Attach(this, TitleSearch);
         AttachShortcuts(definition);
         var paneFocus = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
-        FieldCodeTarget[] targets =
-        [
-            new("Q", TitleSearch.FocusAndSelect),
-            new("6", () => paneFocus.Focus(NavigationPane)),
-            new("7", () => paneFocus.Focus(CommentsPane)),
-        ];
-        _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
+        if (HasKeyTips)
+        {
+            FieldCodeTarget[] targets =
+            [
+                new("Q", TitleSearch.FocusAndSelect),
+                new("6", () => paneFocus.Focus(NavigationPane)),
+                new("7", () => paneFocus.Focus(CommentsPane)),
+            ];
+            _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
+        }
+
         Closing += OnWindowClosing;
         Closed += OnWindowClosed;
 
@@ -399,7 +411,7 @@ internal sealed partial class PdfWindow : Window
         Step(() => _exportFlow?.Cancel());
         Step(() => _defaultAppCancel?.Cancel());
         Step(EndUpdates);
-        Step(_fieldCodes.Dispose);
+        Step(() => _fieldCodes?.Dispose());
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
         Step(() => AppDomain.CurrentDomain.ProcessExit -= _processExit);
