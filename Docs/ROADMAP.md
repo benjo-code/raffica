@@ -37,7 +37,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
 | 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
 | 3.1 | Runs on the Mac | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | – |
-| 3.2 | Feels like a Mac app | 4 – macOS | 🟡 planned | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | – |
+| 3.2 | Feels like a Mac app | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | – |
 | 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -100,6 +100,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-09 (Milestone 3.1):** A throwaway `packaging/macos/dev-app.sh` wraps a publish folder into an ad-hoc signed `.app` for the owner's manual Finder check. The spec puts `Info.plist` and the bundle into 3.3, but the check of 3.1 (Finder double-click and `open -a`) needs a bundle; 3.3 replaces the script by the real bundle step.
 - **2026-11-09 (Milestone 3.1):** `native-tesseract.yml` gets a `systems` input (`macos`, besides the existing platforms) so that the macOS libraries are built as their own release `native-tesseract-5.5.4-2` and the Windows and Linux pins and release `-1` stay as they are. See "Raffica on macOS: native libraries, paths and activation (M3.1)" in `Docs/DECISIONS.md`.
 - **2026-11-09 (Milestone 3.1):** `UserDataPaths.CacheDirectory` (`~/Library/Caches/Raffica` on macOS) is added although nothing consumes it yet, because the task names the cache folder; the first consumer decides its use.
+- **2026-11-10 (Milestone 3.2):** The task "App life cycle without windows" moves the window life cycle (Finder files, Dock reopen, quit and the next window) to `WindowHost`, but the update flow and the dialog queue stay on `PdfWindow` and come back with each new window (a ready update is dropped with its window). Making them app-wide is a bigger change with no gain until Write shares a host; see `Docs/DECISIONS.md`, "Raffica on macOS: menu bar, keys and life cycle (M3.2)". Recognize text moves from Ctrl+Shift+Q to Shift+Cmd+R on macOS only (Shift+Cmd+Q is Log Out).
 
 ---
 
@@ -506,22 +507,22 @@ Goal: Raffica PDF builds, passes its tests and opens PDFs from the Finder on Int
 - [ ] On the owner's Mac the same build recognizes text with OCR (manual check, recorded) – OPEN, needs the owner's Mac. Command: step 4d of `packaging/README.md`, section "Manual check on a Mac (M3.1)" (open a scanned page, run OCR). CI only proves that the pinned library loads and runs on the arm64 runner and that the x64 file passes `check-binary`'s Mach-O rules.
 
 ## Milestone 3.2 – Feels like a Mac app
-**Status:** 🟡 planned · **Plan:** [2026-11-10-milestone-03-2-feels-like-a-mac-app.md](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
+**Status:** 🔵 in progress · **Plan:** [2026-11-10-milestone-03-2-feels-like-a-mac-app.md](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
 
 Goal: Raffica PDF behaves like a Mac app: menu bar, ⌘ shortcuts without key tips, life cycle without windows, trackpad, Retina and printing.
 
 **Tasks**
-- [ ] Native menu bar (Avalonia `NativeMenu`) with all items of spec section 5.2, bound to the command catalog with the same enabled and checked state; items without a catalog command are wired directly
-- [ ] German and English menu wording: Apple's own terms for the system items, the command's existing label for every item that runs an app command
-- [ ] Reserved-shortcut audit of every ⌘ shortcut against the macOS reserved list (⌘H, ⌥⌘H, ⌘M, ⌘Q, ⌘Tab, ⌘Space, ⌘`, ⌃⌘F, ⇧⌘3/4/5); a clash is moved on macOS only and a test pins the result
-- [ ] No ribbon key tips and no ⌥ capture on macOS, and no key-tip table in the F1 help card; this decides the backlog entry "Option key handling on macOS"
-- [ ] App life cycle without windows (spec 5.3): the single-instance listener, the update flow and the dialog queue move off `PdfWindow`, the app outlives its last window, Dock reopen shows a new window, ⌘Q and window close run the close questions
-- [ ] Pinch zoom around the pointer with the zoom steps and limits of the zoom commands, sharp pages on Retina (render at the window's scaling), title bar with the 80 px inset, full screen
-- [ ] Printing over CUPS on macOS: the print service binds `libcups.2.dylib` and `PlatformPrintServices.Create` returns it, with the Linux print rules unchanged
+- [x] Native menu bar (Avalonia `NativeMenu`) with all items of spec section 5.2, bound to the command catalog with the same enabled and checked state; items without a catalog command are wired directly
+- [x] German and English menu wording: Apple's own terms for the system items, the command's existing label for every item that runs an app command
+- [x] Reserved-shortcut audit of every ⌘ shortcut against the macOS reserved list (⌘H, ⌥⌘H, ⌘M, ⌘Q, ⌘Tab, ⌘Space, ⌘`, ⌃⌘F, ⇧⌘3/4/5); a clash is moved on macOS only and a test pins the result
+- [x] No ribbon key tips and no ⌥ capture on macOS, and no key-tip table in the F1 help card; this decides the backlog entry "Option key handling on macOS"
+- [x] App life cycle without windows (spec 5.3): the single-instance listener, the update flow and the dialog queue move off `PdfWindow`, the app outlives its last window, Dock reopen shows a new window, ⌘Q and window close run the close questions
+- [x] Pinch zoom around the pointer with the zoom steps and limits of the zoom commands, sharp pages on Retina (render at the window's scaling), title bar with the 80 px inset, full screen
+- [x] Printing over CUPS on macOS: the print service binds `libcups.2.dylib` and `PlatformPrintServices.Create` returns it, with the Linux print rules unchanged
 
 **Acceptance criteria**
-- [ ] Tests pin that every menu item runs its command catalog command with the same enabled and checked state, and that the English and German menu strings exist (test names in the evidence)
-- [ ] A test pins the result of the reserved-shortcut audit, and a test pins that no ⌥ key tip capture exists on macOS while Windows and Linux are unchanged (test names in the evidence)
+- [x] Tests pin that every menu item runs its command catalog command with the same enabled and checked state, and that the English and German menu strings exist (test names in the evidence) – Local, Windows (headless): `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with `RAFFICA_REQUIRE_OCR=1`: total 6378, failed 0, succeeded 6342, skipped 36 (Raffica.Pdf.Tests among them). Tests: `MacMenuBindingTests.EveryCommandItemRunsItsCommand`, `MacMenuBindingTests.EnabledAndCheckedStateFollowTheCommand`, `MacMenuBindingTests.TheRealWindowAnswersEveryCommandNodeWithTheRibbonsDefinition`, `MacMenuBindingTests.HeadersAreTheCatalogLabelsInBothLanguages`, `MacMenuModelTests.EveryCommandNodeNamesACatalogCommand`, `MacMenuModelTests.EveryHeaderKeyExistsInBothLanguages`, plus the existing `TranslationTests`, `GermanRegisterTests` and `WordingStyleTests`. They are platform independent; the same classes must also pass in `build-macos` (run id added when the pull request's CI is green).
+- [x] A test pins the result of the reserved-shortcut audit, and a test pins that no ⌥ key tip capture exists on macOS while Windows and Linux are unchanged (test names in the evidence) – Local, Windows (headless): same full run as above (total 6378, failed 0, skipped 36). Audit: `ReservedShortcutTests.NoCatalogShortcutClashesWithAReservedMacShortcutOnMacOs`, `ReservedShortcutTests.TheUnmovedCatalogHasExactlyOneClash`, `ReservedShortcutTests.OcrRunIsCommandShiftRonMacAndCtrlShiftQElsewhere`, `ReservedShortcutTests.FindUsesTheMacTableOnMac`, `ReservedShortcutTests.NoTwoCommandsShareAShortcutOnEitherSystem`. No key tips on macOS: `KeyTipPolicyTests.KeyTipsAreOfferedExceptOnMacOs`, `KeyTipPolicyTests.NoKeyTipLineInTheHelpOnMac`, `KeyTipPolicyTests.AWindowWithoutKeyTipsDoesNotEnterTheFieldCodeMode`. Windows and Linux unchanged: `KeyTipPolicyTests.AWindowWithKeyTipsStillEntersIt` and the existing `FieldCodeIntegrationTests` and `PdfRibbonKeyTipTests`. The real macOS run in `build-macos` is added to the evidence when the pull request's CI is green.
 - [ ] On the owner's Mac the menu bar acts on the document and on a focused text box, and ⌘Q with unsaved marks asks the close questions (manual checks, recorded)
 - [ ] On the owner's Mac a Dock click with no window open shows a new window, and a Finder file opened with no window creates one (manual checks, recorded)
 - [ ] On the owner's Mac pinch zoom works, pages are sharp at 2×, and the title bar, its inset and full screen look right (manual checks, recorded)
