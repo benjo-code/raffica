@@ -217,4 +217,77 @@ public sealed class TessdataStoreTests : IDisposable
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void AnApplicationBundleReadsTheLanguageFilesOfItsResourcesFolder()
+    {
+        var root = Directory.CreateTempSubdirectory("raffica-bundle-").FullName;
+        try
+        {
+            var macOs = Directory.CreateDirectory(Path.Combine(root, "Raffica PDF.app", "Contents", "MacOS")).FullName;
+            var resources = Directory.CreateDirectory(Path.Combine(root, "Raffica PDF.app", "Contents", "Resources", "tessdata")).FullName;
+
+            Assert.Equal(Path.GetFullPath(resources), Path.GetFullPath(TessdataStore.ShippedDirectoryFor(macOs)));
+            Assert.Equal(Path.GetFullPath(resources), Path.GetFullPath(TessdataStore.ShippedDirectoryFor(macOs + Path.DirectorySeparatorChar)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ABundleWithoutResourcesLanguageFilesKeepsItsOwnPath()
+    {
+        var root = Directory.CreateTempSubdirectory("raffica-bundle-").FullName;
+        try
+        {
+            var macOs = Directory.CreateDirectory(Path.Combine(root, "Raffica PDF.app", "Contents", "MacOS")).FullName;
+            Directory.CreateDirectory(Path.Combine(root, "Raffica PDF.app", "Contents", "Resources"));
+
+            Assert.Equal(Path.Combine(macOs, "tessdata"), TessdataStore.ShippedDirectoryFor(macOs));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AMacOsFolderOutsideAnApplicationBundleNeverReadsAResourcesFolder()
+    {
+        var root = Directory.CreateTempSubdirectory("raffica-bundle-").FullName;
+        try
+        {
+            var macOs = Directory.CreateDirectory(Path.Combine(root, "Something", "Contents", "MacOS")).FullName;
+            Directory.CreateDirectory(Path.Combine(root, "Something", "Contents", "Resources", "tessdata"));
+            var loose = Directory.CreateDirectory(Path.Combine(root, "loose", "MacOS")).FullName;
+            Directory.CreateDirectory(Path.Combine(root, "loose", "Resources", "tessdata"));
+
+            Assert.Equal(Path.Combine(macOs, "tessdata"), TessdataStore.ShippedDirectoryFor(macOs));
+            Assert.Equal(Path.Combine(loose, "tessdata"), TessdataStore.ShippedDirectoryFor(loose));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AnApplicationFolderOwnLanguageFilesWinInsideABundleToo()
+    {
+        var root = Directory.CreateTempSubdirectory("raffica-bundle-").FullName;
+        try
+        {
+            var macOs = Directory.CreateDirectory(Path.Combine(root, "Raffica PDF.app", "Contents", "MacOS")).FullName;
+            var own = Directory.CreateDirectory(Path.Combine(macOs, "tessdata")).FullName;
+            Directory.CreateDirectory(Path.Combine(root, "Raffica PDF.app", "Contents", "Resources", "tessdata"));
+
+            Assert.Equal(own, TessdataStore.ShippedDirectoryFor(macOs));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

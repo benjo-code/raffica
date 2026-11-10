@@ -3920,6 +3920,23 @@ static partial class MacApp
             .Where(r => !Skipped(r))
             .Order(StringComparer.Ordinal);
 
+    private const string TessdataFolder = "tessdata";
+
+    private static bool IsTessdata(string relative) =>
+        relative.Replace('\\', '/').StartsWith(TessdataFolder + "/", StringComparison.Ordinal);
+
+    // codesign treats every subfolder of Contents/MacOS as a nested code component and rejects data files in it, so the language data
+    // goes to Contents/Resources/tessdata (found through TessdataStore.ShippedDirectoryFor); everything else of a publish folder sits next to the programs.
+    public static string Destination(string relative, string macOs, string resources) =>
+        IsTessdata(relative) ? Path.Combine(resources, relative) : Path.Combine(macOs, relative);
+
+    // Folders of a publish folder that would land in Contents/MacOS: only tessdata (it moves to Resources) and *.dSYM (skipped) are allowed.
+    public static IEnumerable<string> StrayFolders(string dir) =>
+        Directory.EnumerateDirectories(dir, "*", SearchOption.AllDirectories)
+            .Select(d => Path.GetRelativePath(dir, d).Replace('\\', '/'))
+            .Where(r => !Skipped(r) && r != TessdataFolder && !IsTessdata(r + "/"))
+            .Order(StringComparer.Ordinal);
+
     private static int Build(string rid, string app, string cli, string output, string version, string? nativeDir, string repo)
     {
         var library = Layout.NativeLibrary(rid);
@@ -3943,6 +3960,11 @@ static partial class MacApp
                     {
                         problems.Add($"{label} folder does not contain {need}: {dir}");
                     }
+                }
+
+                foreach (var stray in StrayFolders(dir))
+                {
+                    problems.Add($"{label} folder holds the folder {stray}; codesign treats a folder in Contents/MacOS as code and would reject the bundle (only {TessdataFolder} is moved to Contents/Resources): {dir}");
                 }
             }
         }
@@ -4014,20 +4036,20 @@ static partial class MacApp
             Directory.CreateDirectory(resources);
             foreach (var relative in Files(app))
             {
-                Copy(Path.Combine(app, relative), Path.Combine(macOs, relative), relative == "RafficaPdf");
+                Copy(Path.Combine(app, relative), Destination(relative, macOs, resources), relative == "RafficaPdf");
             }
 
             Copy(Path.Combine(cli, "raffica"), Path.Combine(macOs, "raffica"), true);
             foreach (var relative in extraFromCli)
             {
-                Copy(Path.Combine(cli, relative), Path.Combine(macOs, relative), false);
+                Copy(Path.Combine(cli, relative), Destination(relative, macOs, resources), false);
             }
 
             if (nativeDir is not null)
             {
                 foreach (var target in NativeFiles.For(rid))
                 {
-                    Copy(Path.Combine(nativeDir, target), Path.Combine(macOs, target), false);
+                    Copy(Path.Combine(nativeDir, target), Destination(target, macOs, resources), false);
                 }
             }
 
@@ -4048,6 +4070,14 @@ static partial class MacApp
             }
 
             // Ad-hoc signing (no Developer ID, no notarization): every Mach-O first, then the bundle, then the strict check.
+            // Contents/MacOS must hold files only: codesign would take a folder in it for a code component.
+            var strays = Directory.EnumerateDirectories(macOs, "*", SearchOption.AllDirectories).ToList();
+            if (strays.Count > 0)
+            {
+                Console.Error.WriteLine($"macos-app: Contents/MacOS must hold files only, found the folder {Path.GetRelativePath(macOs, strays[0])}");
+                return 1;
+            }
+
             var machO = Directory.EnumerateFiles(macOs, "*", SearchOption.AllDirectories)
                 .Where(f => Path.GetFileName(f) is "RafficaPdf" or "raffica" || f.EndsWith(".dylib", StringComparison.Ordinal))
                 .Order(StringComparer.Ordinal);
@@ -6088,6 +6118,25 @@ static class SelfTest
         Expect("macos-app: native library name", Layout.NativeLibrary("osx-arm64") + "|" + Layout.NativeLibrary("osx-x64"), "libpdfium.dylib|libpdfium.dylib");
         Expect("macos-app: native files of osx-x64", string.Join(',', NativeFiles.For("osx-x64")),
             "libtesseract.dylib,tessdata/eng.traineddata,tessdata/deu.traineddata");
+        static string Norm(string path) => path.Replace('\\', '/');
+        Expect("macos-app: tessdata goes to Resources", Norm(MacApp.Destination("tessdata/eng.traineddata", "/b/MacOS", "/b/Resources")), "/b/Resources/tessdata/eng.traineddata");
+        Expect("macos-app: a library goes to MacOS", Norm(MacApp.Destination("libtesseract.dylib", "/b/MacOS", "/b/Resources")), "/b/MacOS/libtesseract.dylib");
+        Expect("macos-app: a file called tessdata.txt stays in MacOS", Norm(MacApp.Destination("tessdata.txt", "/b/MacOS", "/b/Resources")), "/b/MacOS/tessdata.txt");
+        var strayDir = Path.Combine(Path.GetTempPath(), "raffica-macapp-stray-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            foreach (var folder in new[] { "tessdata", Path.Combine("tessdata", "configs"), "RafficaPdf.dSYM", Path.Combine("RafficaPdf.dSYM", "Contents"), "locales", Path.Combine("locales", "de") })
+            {
+                Directory.CreateDirectory(Path.Combine(strayDir, folder));
+            }
+
+            Expect("macos-app: only tessdata and dSYM are allowed folders", string.Join(',', MacApp.StrayFolders(strayDir)), "locales,locales/de");
+        }
+        finally
+        {
+            Directory.Delete(strayDir, recursive: true);
+        }
+
         Expect("macos-app: layout stays Windows and Linux only", Cli.Run(["layout", "--rid", "osx-x64", "--app", "a", "--cli", "b", "--out", "c"]), 2);
 
         string[] Args(string rid, string version) =>
@@ -6119,7 +6168,9 @@ static class SelfTest
             var native = Path.Combine(dir, "native");
             var otherCli = Path.Combine(dir, "cli-other");
             var output = Path.Combine(dir, "out folder");
-            foreach (var d in new[] { app, cli, otherCli, Path.Combine(native, "tessdata") })
+            var appWithData = Path.Combine(dir, "app-with-data");
+            var appWithFolder = Path.Combine(dir, "app-with-folder");
+            foreach (var d in new[] { app, cli, otherCli, Path.Combine(native, "tessdata"), Path.Combine(appWithData, "tessdata"), Path.Combine(appWithFolder, "locales") })
             {
                 Directory.CreateDirectory(d);
             }
@@ -6136,14 +6187,32 @@ static class SelfTest
             File.WriteAllText(Path.Combine(native, "tessdata", "eng.traineddata"), "eng");
             File.WriteAllText(Path.Combine(native, "tessdata", "deu.traineddata"), "deu");
 
-            string[] Args(string cliDir, string? nativeDir) =>
+            // An app folder as CI publishes it with OCR files: the library and tessdata sit next to the program (no --native then).
+            foreach (var name in new[] { "RafficaPdf", "libpdfium.dylib", "libtesseract.dylib" })
+            {
+                File.Copy(Template, Path.Combine(appWithData, name));
+            }
+
+            File.WriteAllText(Path.Combine(appWithData, "tessdata", "eng.traineddata"), "eng");
+            File.WriteAllText(Path.Combine(appWithData, "tessdata", "deu.traineddata"), "deu");
+
+            // Any other folder of a publish folder would make codesign reject the bundle.
+            File.Copy(Template, Path.Combine(appWithFolder, "RafficaPdf"));
+            File.Copy(Template, Path.Combine(appWithFolder, "libpdfium.dylib"));
+            File.WriteAllText(Path.Combine(appWithFolder, "locales", "de.txt"), "de");
+
+            string[] Args(string cliDir, string? nativeDir, string? appDir = null, string? outDir = null) =>
             [
-                "macos-app", "--rid", "osx-arm64", "--app", app, "--cli", cliDir, "--out", output, "--version", "0.1.0",
+                "macos-app", "--rid", "osx-arm64", "--app", appDir ?? app, "--cli", cliDir, "--out", outDir ?? output, "--version", "0.1.0",
                 .. nativeDir is null ? Array.Empty<string>() : ["--native", nativeDir],
             ];
 
             Expect("macos-app run: a CLI with another libpdfium.dylib exits 1", Cli.Run(Args(otherCli, native)), 1);
             Expect("macos-app run: nothing is left after the refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
+            Expect("macos-app run: an app folder with another folder exits 1", Cli.Run(Args(cli, null, appWithFolder)), 1);
+            Expect("macos-app run: nothing is left after the folder refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
+            Expect("macos-app run: --native does not overwrite tessdata that is in the app folder", Cli.Run(Args(cli, native, appWithData)), 1);
+            Expect("macos-app run: nothing is left after the overwrite refusal", Directory.Exists(Path.Combine(output, MacApp.BundleName)), false);
             Expect("macos-app run: exit 0", Cli.Run(Args(cli, native)), 0);
             var bundle = Path.Combine(output, MacApp.BundleName);
             var macOs = Path.Combine(bundle, "Contents", "MacOS");
@@ -6152,11 +6221,15 @@ static class SelfTest
             Expect("macos-app run: LICENSE", File.Exists(Path.Combine(bundle, "Contents", "Resources", "LICENSE")), true);
             Expect("macos-app run: THIRD-PARTY-NOTICES.txt", File.Exists(Path.Combine(bundle, "Contents", "Resources", "THIRD-PARTY-NOTICES.txt")), true);
             Expect("macos-app run: no .pdb in the bundle", File.Exists(Path.Combine(macOs, "RafficaPdf.pdb")), false);
-            Expect("macos-app run: OCR library and tessdata", File.Exists(Path.Combine(macOs, "libtesseract.dylib")) && File.Exists(Path.Combine(macOs, "tessdata", "eng.traineddata")), true);
+            var resources = Path.Combine(bundle, "Contents", "Resources");
+            Expect("macos-app run: OCR library next to the program", File.Exists(Path.Combine(macOs, "libtesseract.dylib")), true);
+            Expect("macos-app run: tessdata in Contents/Resources", File.Exists(Path.Combine(resources, "tessdata", "eng.traineddata")) && File.Exists(Path.Combine(resources, "tessdata", "deu.traineddata")), true);
+            Expect("macos-app run: no tessdata in Contents/MacOS", Directory.Exists(Path.Combine(macOs, "tessdata")), false);
+            Expect("macos-app run: no folder in Contents/MacOS", Directory.EnumerateDirectories(macOs).Any(), false);
             Expect("macos-app run: RafficaPdf is 0755", File.GetUnixFileMode(Path.Combine(macOs, "RafficaPdf")), (UnixFileMode)0x1ED);
             Expect("macos-app run: raffica is 0755", File.GetUnixFileMode(Path.Combine(macOs, "raffica")), (UnixFileMode)0x1ED);
             Expect("macos-app run: the library is 0644", File.GetUnixFileMode(Path.Combine(macOs, "libpdfium.dylib")), (UnixFileMode)0x1A4);
-            Expect("macos-app run: tessdata is 0644", File.GetUnixFileMode(Path.Combine(macOs, "tessdata", "eng.traineddata")), (UnixFileMode)0x1A4);
+            Expect("macos-app run: tessdata is 0644", File.GetUnixFileMode(Path.Combine(resources, "tessdata", "eng.traineddata")), (UnixFileMode)0x1A4);
             Expect("macos-app run: plutil -lint", Tool.Run("plutil", ["-lint", Path.Combine(bundle, "Contents", "Info.plist")], out _), 0);
             Expect("macos-app run: codesign --verify --deep --strict", Tool.Run("codesign", ["--verify", "--deep", "--strict", bundle], out var verify), 0);
             if (verify.Length > 0)
@@ -6165,6 +6238,20 @@ static class SelfTest
             }
 
             Expect("macos-app run: an existing bundle is refused", Cli.Run(Args(cli, native)), 1);
+
+            // The same bundle from an app folder that already holds the OCR files (how CI publishes them): tessdata moves out of MacOS.
+            var secondOutput = Path.Combine(dir, "out data");
+            Expect("macos-app run: an app folder with tessdata exits 0", Cli.Run(Args(cli, null, appWithData, secondOutput)), 0);
+            var secondBundle = Path.Combine(secondOutput, MacApp.BundleName);
+            var secondMacOs = Path.Combine(secondBundle, "Contents", "MacOS");
+            Expect("macos-app run: published tessdata moved to Contents/Resources", File.Exists(Path.Combine(secondBundle, "Contents", "Resources", "tessdata", "eng.traineddata")), true);
+            Expect("macos-app run: published tessdata is not in Contents/MacOS", Directory.Exists(Path.Combine(secondMacOs, "tessdata")), false);
+            Expect("macos-app run: published OCR library stays in Contents/MacOS", File.Exists(Path.Combine(secondMacOs, "libtesseract.dylib")), true);
+            Expect("macos-app run: second bundle verifies", Tool.Run("codesign", ["--verify", "--deep", "--strict", secondBundle], out var secondVerify), 0);
+            if (secondVerify.Length > 0)
+            {
+                Console.Error.WriteLine(secondVerify);
+            }
         }
         finally
         {

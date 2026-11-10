@@ -226,10 +226,11 @@ try
         failures.Add($"ocr --dry-run: expected exit 0, 'page 1: skip (has text of its own)' and 'would recognize 2 pages', got exit {ocrDry.ExitCode} with '{ocrDry.Output.Trim()}' / '{ocrDry.Error.Trim()}'");
     }
 
-    // A real run, when the package has the library and the language data next to the binary.
+    // A real run, when the package has the library next to the binary and the language data next to it, in the folder above (cli/) or in
+    // Contents/Resources of an application bundle.
     var binaryFolder = Path.GetDirectoryName(binary)!;
     var libraryName = OperatingSystem.IsWindows() ? "tesseract.dll" : OperatingSystem.IsMacOS() ? "libtesseract.dylib" : "libtesseract.so";
-    var shippedData = new[] { Path.Combine(binaryFolder, "tessdata"), Path.Combine(binaryFolder, "..", "tessdata") }.FirstOrDefault(Directory.Exists);
+    var shippedData = new[] { Path.Combine(binaryFolder, "tessdata"), Path.Combine(binaryFolder, "..", "tessdata"), Path.Combine(binaryFolder, "..", "Resources", "tessdata") }.FirstOrDefault(Directory.Exists);
     if (File.Exists(Path.Combine(binaryFolder, libraryName)) && shippedData is not null)
     {
         var ocrInput = Path.Combine(ocrDirectory, "scan.pdf");

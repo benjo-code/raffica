@@ -264,9 +264,9 @@ otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under 
   that does not exist or needs `sudo` is fine to note), then `raffica info <file.pdf>` and, with a scanned file, `raffica ocr`
   work from Terminal.
 
-Not on this list because CI is to answer it (not run yet): `codesign --verify --deep --strict` of the bundle with tessdata and the libraries in
-`Contents/MacOS` (the first `build-macos` run of milestone 3.3 decides it), and the 5-second ceiling of the image smoke under
-Rosetta.
+Not on this list because CI is to answer it (not run yet): `codesign --verify --deep --strict` of the bundle with tessdata in `Contents/Resources` and the libraries in
+`Contents/MacOS` (the first run failed with tessdata in `Contents/MacOS`; the corrected layout has not run yet), and the 5-second ceiling of the
+image smoke under Rosetta.
 
 ## Native OCR library for macOS (M3.1)
 
