@@ -151,7 +151,7 @@ silicon Mac it runs under Rosetta and says nothing about arm64.
 1. Download the artifact `raffica-pdf-macos-x64-dmg` of the CI job `build-macos` (a pull request run with the label
    `ci:macos`, or a run on `dev`). A browser download is a zip around the file: unzip it first (`gh run download <run id> -n
    raffica-pdf-macos-x64-dmg` hands over the `.dmg` itself). It is `RafficaPdf-0.0.0-macos-x64.dmg`, built with the version
-   0.0.0 (so it offers no update to itself).
+   0.0.0 (no release exists yet, so it is offered no update).
 2. Open the image and drag `Raffica PDF.app` onto the `Applications` link (or into another folder you own). Eject the image.
 3. The first launch of an ad-hoc signed app is blocked: start it once, then System Settings, Privacy & Security, "Open
    Anyway". On macOS 15 a right-click and "Open" no longer skips the check. In a terminal, `xattr -dr com.apple.quarantine
@@ -216,28 +216,37 @@ stays unticked until it is done.
 ## Manual check on a Mac (M3.3)
 
 Milestone 3.3 (bundle, disk image, default app, update; decision "Raffica on macOS: packaging, default app and updates (M3.3)"
-in `Docs/DECISIONS.md`) is proven by CI as far as hosted runners reach: `build-macos` builds both bundles and images, checks
-the signature (`codesign --verify --deep --strict`), the Mach-O files and the 5-second start of `dmg-smoke`. What follows needs
-a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
-otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under Rosetta there; the arm64 image has only run on a
-hosted runner). Every box stays unticked until it is done; write what you see in your own words.
+in `Docs/DECISIONS.md`) is meant to be checked by CI as far as hosted runners reach: `build-macos` is to build both bundles and
+images and check the signature (`codesign --verify --deep --strict`), the Mach-O files and the 5-second start of `dmg-smoke`;
+it has not run for this code yet. What follows needs a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
+otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under Rosetta there; the arm64 image has not been run by hand). Every box stays unticked until it is done; write what you see in your own words.
 
 - [ ] a. **Open the image.** Open the `.dmg`: it shows `Raffica PDF.app` and the `Applications` link. Drag the app into
   Applications and start it. macOS blocks the first launch; System Settings, Privacy & Security, "Open Anyway" (as the README
   says) starts it. Note whether macOS asks twice, and what the message says.
-- [ ] b. **Icon and Open With.** The plum Raffica PDF icon shows in the Finder (also in a folder with Icon view), in the Dock
+- [ ] b. **Icon and Open With.** The Raffica PDF icon shows in the Finder (also in a folder with Icon view), in the Dock
   and in the app switcher. A PDF's Open With list names Raffica PDF.
 - [ ] c. **Default app.** Start the app from Applications while another program is the default for PDF files: the card offers
   the default; "Set as default" makes Raffica PDF the default (Finder, Get Info on a PDF shows it) and a double-click on a PDF
   opens it. The call `LSSetDefaultRoleHandlerForContentType` is deprecated; if it fails on this macOS, write down the card's
   text. Also check that the card does not appear when the app runs from the mounted image.
-- [ ] d. **Update.** Build two test versions as in "Manual update check" (`-p:RafficaUpdateTestBuild=true
-  -p:RafficaUpdateTestPort=<port> -p:RafficaUpdateTestKey=<public test key>`, for example 0.0.1 and 0.0.2) for `osx-x64`
-  (or `osx-arm64` on your Mac), make a bundle (`package.cs macos-app`) and an image (`package.cs dmg`) of each, then
-  `dotnet run tools/update-testserver.cs -- prepare ...` with the newer image and `... -- serve`. Install the older app into
+- [ ] d. **Update.** Build two test versions, 0.0.1 and 0.0.2, as in "Manual update check": publish `osx-x64` (or `osx-arm64` on
+  your Mac) with `-p:Version=<version> -p:RafficaUpdateTestBuild=true -p:RafficaUpdateTestPort=<port>
+  -p:RafficaUpdateTestKey=<public test key>`, make a bundle with `package.cs macos-app ... --version <version>` and an image with
+  `package.cs dmg ... --version <version> --out RafficaPdf-<version>-macos-<arch>.dmg` for each version (`<arch>` is `x64` or
+  `arm64`). The test key comes from `package.cs update-keygen --id test-1 --private-out <key file outside the repository>`. Then
+  prepare and serve the newer one:
+
+  ```
+  dotnet run tools/update-testserver.cs -- prepare --version 0.0.2 --key <key file> --out <new folder> RafficaPdf-0.0.2-macos-<arch>.dmg
+  dotnet run tools/update-testserver.cs -- serve --root <new folder> --port <port>
+  ```
+
+  (`--id test-1` is the default; `prepare` refuses a file whose name is not that of version 0.0.2 and an `--out` folder that
+  exists and is not empty. The port must be the `RafficaUpdateTestPort` of the test builds.) Install the 0.0.1 app into
   Applications (first launch as in a), then in Terminal `xattr -l "/Applications/Raffica PDF.app"` and write the output down.
-  Start the app, use "Install" on the update button: the app quits, the new version starts with the tabs back (Ctrl+K,
-  "About" shows the version) and **no Gatekeeper prompt appears**. Run `xattr -l "/Applications/Raffica PDF.app"` again and write
+  Start the app and use "Install" on the update button: the app quits, the new version starts with the tabs back (Ctrl+K,
+  "About" shows 0.0.2) and **no Gatekeeper prompt appears**. Run `xattr -l "/Applications/Raffica PDF.app"` again and write
   the result down: whether a quarantine mark is on the new bundle, and whether macOS still asked.
 - [ ] e. **From the mounted image.** Start the app from the open image (not copied): "Update available" and "Install" end with
   the sentence "Raffica is running from the downloaded disk image ... Move Raffica PDF to the Applications folder ..." in
@@ -249,7 +258,7 @@ hosted runner). Every box stays unticked until it is done; write what you see in
   that does not exist or needs `sudo` is fine to note), then `raffica info <file.pdf>` and, with a scanned file, `raffica ocr`
   work from Terminal.
 
-Not on this list because CI answers it: `codesign --verify --deep --strict` of the bundle with tessdata and the libraries in
+Not on this list because CI is to answer it (not run yet): `codesign --verify --deep --strict` of the bundle with tessdata and the libraries in
 `Contents/MacOS` (the first `build-macos` run of milestone 3.3 decides it), and the 5-second ceiling of the image smoke under
 Rosetta.
 
