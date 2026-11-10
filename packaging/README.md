@@ -247,7 +247,13 @@ otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under 
   Applications (first launch as in a), then in Terminal `xattr -l "/Applications/Raffica PDF.app"` and write the output down.
   Start the app and use "Install" on the update button: the app quits, the new version starts with the tabs back (Ctrl+K,
   "About" shows 0.0.2) and **no Gatekeeper prompt appears**. Run `xattr -l "/Applications/Raffica PDF.app"` again and write
-  the result down: whether a quarantine mark is on the new bundle, and whether macOS still asked.
+  the result down: whether a quarantine mark is on the new bundle, and whether macOS still asked. Then look for leftovers:
+  `ls -la /Applications | grep Raffica` must show only `Raffica PDF.app`, no `.Raffica PDF update.app` and no
+  `.Raffica PDF previous.app` (write down what is there if not). Also write down whether macOS showed a prompt such as
+  "Raffica PDF was prevented from modifying apps on your Mac" (App Management, macOS 13 and later) while the app replaced
+  itself. Whether App Management lets an ad-hoc signed app replace itself in `/Applications` is **unverified**: the swap is
+  made by a shell script that `/bin/sh` runs after the app has quit, and nothing here has run on a Mac yet. If the prompt
+  appears or the swap fails, the user's Privacy & Security setting "App Management" for Raffica PDF is the first thing to look at.
 - [ ] e. **From the mounted image.** Start the app from the open image (not copied): "Update available" and "Install" end with
   the sentence "Raffica is running from the downloaded disk image ... Move Raffica PDF to the Applications folder ..." in
   English and, with `--lang de`, in German, and nothing is replaced. Note that the image is downloaded before this sentence
