@@ -333,7 +333,9 @@ public sealed class TextBoxToolTests
     {
         using var window = WindowFixture.Create();
         var tab = await window.OpenAsync("text-rich.pdf");
-        ViewFixture.Pump();
+
+        // A press on the page does nothing before its first sharp page is shown, and on a slow runner the click can come first.
+        await ViewFixture.WaitAsync(() => window.Window.ViewOf(tab)!.FirstSharpPageShown);
         window.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == "annotate.textBox").Run!.Invoke();
         var controller = window.Window.AnnotateOf(tab)!.TextBox;
         var view = window.Window.ActiveView!;
@@ -369,7 +371,9 @@ public sealed class TextBoxToolTests
     {
         using var window = WindowFixture.Create();
         var tab = await window.OpenAsync("text-rich.pdf");
-        ViewFixture.Pump();
+
+        // A press on the page does nothing before its first sharp page is shown, and on a slow runner the click can come first.
+        await ViewFixture.WaitAsync(() => window.Window.ViewOf(tab)!.FirstSharpPageShown);
         window.Window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == "annotate.textBox").Run!.Invoke();
         var controller = window.Window.AnnotateOf(tab)!.TextBox;
         var view = window.Window.ActiveView!;

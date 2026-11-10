@@ -29,6 +29,9 @@ internal sealed class FormKeys : IDisposable
     /// <summary>Whether the handler took the last key it saw (it set <c>Handled</c> itself); a key it leaves alone is passed on. For tests.</summary>
     internal bool TookLastKey { get; private set; }
 
+    /// <summary>The walk the last Tab started because a page had to be read first; it is done once the focus moved or the walk ended. For tests.</summary>
+    internal Task PendingMove { get; private set; } = Task.CompletedTask;
+
     public FormKeys(PageView view, ToolState tools, FormSession forms, FormFocus focus, FormInteraction interaction, DialogQueue dialogs, Func<bool?>? fillAllowed = null, Func<string?>? lockReason = null)
     {
         ArgumentNullException.ThrowIfNull(view);
@@ -148,7 +151,7 @@ internal sealed class FormKeys : IDisposable
                 break;
             case FormStep.NeedsPage:
                 e.Handled = TookLastKey = true;
-                _ = MoveAfterReadAsync(forward);
+                PendingMove = MoveAfterReadAsync(forward);
                 break;
             default:
                 // A true end: the key passes on and the form focus is let go, so the next Tab into the page view enters the form again.
