@@ -3502,4 +3502,50 @@
   <data name="DescRedo" xml:space="preserve">
     <value>Redo the change you undid</value>
   </data>
+  <!-- macOS menu bar (M3.2) -->
+  <data name="MenuFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="MenuView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="MenuWindow" xml:space="preserve">
+    <value>Window</value>
+  </data>
+  <data name="MenuHelp" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="MenuAbout" xml:space="preserve">
+    <value>About Raffica PDF</value>
+  </data>
+  <data name="MenuCut" xml:space="preserve">
+    <value>Cut</value>
+  </data>
+  <data name="MenuPaste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="MenuOpenRecent" xml:space="preserve">
+    <value>Open Recent</value>
+  </data>
+  <data name="MenuNoRecent" xml:space="preserve">
+    <value>No recent files</value>
+  </data>
+  <data name="MenuMinimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="MenuZoomWindow" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="MenuBringAllToFront" xml:space="preserve">
+    <value>Bring All to Front</value>
+  </data>
+  <data name="MenuEnterFullScreen" xml:space="preserve">
+    <value>Enter Full Screen</value>
+  </data>
+  <data name="MenuExitFullScreen" xml:space="preserve">
+    <value>Exit Full Screen</value>
+  </data>
 </root>
