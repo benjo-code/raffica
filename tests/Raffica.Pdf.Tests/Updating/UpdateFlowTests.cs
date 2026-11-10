@@ -252,6 +252,18 @@ public sealed class UpdateFlowTests : IDisposable
     }
 
     [Theory]
+    [InlineData(PackageForm.WindowsInstaller)]
+    [InlineData(PackageForm.AppImage)]
+    [InlineData(PackageForm.MacAppArm64)]
+    [InlineData(PackageForm.MacAppX64)]
+    public void TheMacFormsCanInstall(PackageForm form)
+    {
+        using var flow = _kit.Flow(form);
+
+        Assert.True(flow.CanInstall);
+    }
+
+    [Theory]
     [InlineData(PackageForm.Deb)]
     [InlineData(PackageForm.WindowsPortable)]
     [InlineData(PackageForm.Unknown)]

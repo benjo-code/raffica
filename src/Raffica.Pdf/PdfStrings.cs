@@ -832,6 +832,7 @@ internal static class PdfStrings
     public static string UpdateFailureChecksum => Table.Get("UpdateFailureChecksum");
     public static string UpdateFailureStorage => Table.Get("UpdateFailureStorage");
     public static string UpdateFailureNoInstaller => Table.Get("UpdateFailureNoInstaller");
+    public static string UpdateFailureRunsFromDownload => Table.Get("UpdateFailureRunsFromDownload");
     public static string UpdateFailureInstallFailed => Table.Get("UpdateFailureInstallFailed");
     public static string UpdateFailureFolderWriteProtectedFormat => Table.Get("UpdateFailureFolderWriteProtectedFormat");
     public static string UpdateFailureNotStarted => Table.Get("UpdateFailureNotStarted");

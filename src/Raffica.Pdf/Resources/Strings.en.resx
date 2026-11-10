@@ -3397,6 +3397,9 @@
   <data name="UpdateFailureNoInstaller" xml:space="preserve">
     <value>This installation cannot update itself. Get the new version from the download page.</value>
   </data>
+  <data name="UpdateFailureRunsFromDownload" xml:space="preserve">
+    <value>Raffica is running from the downloaded disk image or from a copy macOS moved aside, so it cannot replace itself. Move Raffica PDF to the Applications folder, start it from there and check for updates again, or get the new version from the download page.</value>
+  </data>
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>The installer did not finish. The version you are running is unchanged.</value>
   </data>

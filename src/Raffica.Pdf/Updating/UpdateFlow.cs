@@ -82,7 +82,7 @@ internal sealed class UpdateFlow : IDisposable
     public PackageForm Form { get; }
 
     /// <summary>Gets whether this installation can install a newer version by itself (a form with an installer and an applier for it); otherwise it is only pointed to the download page.</summary>
-    public bool CanInstall => _applier is not null && Form is PackageForm.WindowsInstaller or PackageForm.AppImage;
+    public bool CanInstall => _applier is not null && Form is PackageForm.WindowsInstaller or PackageForm.AppImage or PackageForm.MacAppArm64 or PackageForm.MacAppX64;
 
     /// <summary>Gets the verified update that waits for the installer (<see cref="UpdateStage.Ready"/>), or <see langword="null"/>.</summary>
     public StagedUpdate? Staged { get; private set; }

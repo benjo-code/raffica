@@ -3380,6 +3380,9 @@
   <data name="UpdateFailureNoInstaller" xml:space="preserve">
     <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
+  <data name="UpdateFailureRunsFromDownload" xml:space="preserve">
+    <value>Raffica läuft vom heruntergeladenen Disk-Image oder von einer Kopie, die macOS beiseitegelegt hat, und kann sich deshalb nicht selbst ersetzen. Verschieben Sie Raffica PDF in den Ordner „Programme“, starten Sie es von dort und suchen Sie erneut nach Updates, oder laden Sie die neue Version von der Download-Seite herunter.</value>
+  </data>
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>Die Installation wurde nicht abgeschlossen. Die laufende Version ist unverändert.</value>
   </data>

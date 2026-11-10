@@ -1,6 +1,7 @@
 using Raffica.Core.Updates;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Platform.Linux;
+using Raffica.Pdf.Platform.MacOS;
 using Raffica.Pdf.Platform.Windows;
 using Raffica.Pdf.Settings;
 using Xunit;
@@ -15,6 +16,9 @@ public sealed class PlatformUpdateApplierTests : IDisposable
 
     private IUpdateApplier? Create(PackageForm form, bool isWindows, bool isLinux, string? processPath, string? appImage = null, string? appDir = null) =>
         PlatformUpdateApplier.Create(form, isWindows, isLinux, processPath, appImage, appDir, _kit.Config, () => { }, new FakeStarter());
+
+    private IUpdateApplier? CreateMac(PackageForm form, bool isMacOS, string? processPath) =>
+        PlatformUpdateApplier.Create(form, isWindows: false, isLinux: false, processPath, appImage: null, appDir: null, _kit.Config, () => { }, new FakeStarter(), isMacOS, new FakeRunner());
 
     [Theory]
     [InlineData(PackageForm.Deb)]
@@ -49,6 +53,26 @@ public sealed class PlatformUpdateApplierTests : IDisposable
         Assert.Null(Create(PackageForm.AppImage, isWindows: false, isLinux: true, Path.Combine(_kit.Root, "elsewhere", "RafficaPdf"), image, appDir));
         Assert.Null(Create(PackageForm.AppImage, isWindows: false, isLinux: true, inside, appImage: null, appDir));
         Assert.Null(Create(PackageForm.AppImage, isWindows: true, isLinux: false, inside, image, appDir));
+    }
+
+    [Theory]
+    [InlineData(PackageForm.MacAppArm64)]
+    [InlineData(PackageForm.MacAppX64)]
+    public void TheMacFormsGetTheMacUpdaterOnlyOnMacOsInsideABundle(PackageForm form)
+    {
+        const string InsideBundle = "/Applications/Raffica PDF.app/Contents/MacOS/RafficaPdf";
+
+        Assert.IsType<MacAppUpdater>(CreateMac(form, isMacOS: true, InsideBundle));
+
+        // Not on another system, not outside a bundle, not without a program path.
+        Assert.Null(CreateMac(form, isMacOS: false, InsideBundle));
+        Assert.Null(CreateMac(form, isMacOS: true, "/usr/local/bin/RafficaPdf"));
+        Assert.Null(CreateMac(form, isMacOS: true, processPath: null));
+
+        // The other forms never get it, even inside a bundle on macOS.
+        Assert.Null(CreateMac(PackageForm.AppImage, isMacOS: true, InsideBundle));
+        Assert.Null(CreateMac(PackageForm.WindowsInstaller, isMacOS: true, InsideBundle));
+        Assert.Null(CreateMac(PackageForm.Unknown, isMacOS: true, InsideBundle));
     }
 
     [Fact]
