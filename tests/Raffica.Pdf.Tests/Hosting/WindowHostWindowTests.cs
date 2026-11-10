@@ -110,6 +110,7 @@ public sealed class WindowHostWindowTests
         Assert.Null(host.Current);
     }
 
+    // The settings source is the one App.CreateWindow uses: the first window gets the settings of the start of the process, a later one reads the files again.
     [AvaloniaFact]
     public void ASecondWindowReadsTheSettingsTheFirstWrote()
     {
@@ -118,26 +119,30 @@ public sealed class WindowHostWindowTests
         {
             var file = Path.Combine(folder, "settings.json");
             var options = PdfOptions.Parse(["--settings-file", file]);
-            var first = new PdfWindow(options, new ShellSettings());
+            var source = new WindowSettingsSource(options.SettingsFile, new ShellSettings(), Raffica.Core.Settings.AppSettings.Default);
+
+            var (shell, app) = source.Next();
+            Assert.Null(shell.WindowPlacement);
+            var first = new PdfWindow(options, shell, app);
             first.Show();
             Pump();
-            Assert.False(first.Frame.IsCompact);
 
             PdfWindow? second = null;
             var host = new WindowHost(_ =>
             {
-                var (shell, app) = FreshSettings.Read(options.SettingsFile);
-                second = new PdfWindow(options, shell, app);
+                var (nextShell, nextApp) = source.Next();
+                second = new PdfWindow(options, nextShell, nextApp);
                 second.Show();
                 return second;
             }, () => { }, Dispatcher.UIThread);
             host.Adopt(first);
 
-            // The first window closes and has written its placement; the compact bar was chosen in it.
+            // The first window is moved and closes: its own close writes the placement.
+            var placed = new WindowPlacement(60, 70, 1100, 700, false);
+            first.NoteBounds(placed, Environment.TickCount64);
             first.Close();
             Pump();
-            var store = new SettingsStore(file);
-            store.Save(store.Load() with { CompactCommandBar = true });
+            Assert.Equal(placed, new SettingsStore(file).Load().WindowPlacement);
             Assert.Null(host.Current);
 
             host.Reopen();
@@ -145,13 +150,84 @@ public sealed class WindowHostWindowTests
 
             Assert.NotNull(second);
             Assert.Same(second, host.Current);
-            Assert.True(second.Frame.IsCompact);
+            Assert.Equal(1100, second.Width);
+            Assert.Equal(700, second.Height);
+            Assert.Equal(new Avalonia.PixelPoint(60, 70), second.Position);
             second.Close();
             Pump();
         }
         finally
         {
             DeleteFolder(folder);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AFileQueuedBehindTheCloseQuestionOpensInTheNextWindow()
+    {
+        using var copy = new TempCopy("text-rich.pdf");
+        using var fixture = WindowFixture.Create();
+        var path = Raffica.TestSupport.TestData.Pdf("hello_world.pdf");
+        var seen = new List<IReadOnlyList<string>>();
+        var next = new List<PdfWindow>();
+        var host = new WindowHost(paths =>
+        {
+            seen.Add(paths);
+            var options = PdfOptions.Parse(["--settings-file", Path.Combine(fixture.Folder, "settings.json")]);
+            var window = new PdfWindow(options, new ShellSettings());
+            window.Show();
+            next.Add(window);
+            return window;
+        }, () => { }, Dispatcher.UIThread);
+        host.Adopt(fixture.Window);
+        await DirtyTabAsync(fixture.Window, copy);
+
+        var attempt = fixture.Window.RunCloseAsync(quit: false);
+        var card = await WaitForCardAsync(fixture.Window);
+        fixture.Window.OnHandover([path]);
+        for (var i = 0; i < 100 && fixture.Window.PendingHandover.Count == 0; i++)
+        {
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+            Pump();
+        }
+
+        Assert.Single(fixture.Window.PendingHandover);
+        Press(card, "PART_DontSave");
+        await attempt;
+        Pump();
+
+        Assert.Equal(Path.GetFullPath(path), Path.GetFullPath(Assert.Single(Assert.Single(seen))));
+        Assert.Same(next[0], host.Current);
+        next[0].Close();
+        Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task AFileThatArrivesOnceTheCloseIsConfirmedIsHandedToTheNextWindow()
+    {
+        using var fixture = WindowFixture.Create();
+        var path = Raffica.TestSupport.TestData.Pdf("hello_world.pdf");
+
+        // Both drop paths: the check on the pool thread sees the confirmed close, or the answer reaches the UI thread after it.
+        await fixture.Window.RunCloseAsync(quit: false);
+        Assert.True(fixture.Window.IsClosing);
+        fixture.Window.OnHandover([path]);
+        Assert.Equal([path], fixture.Window.TakeUndelivered());
+        Assert.Empty(fixture.Window.TakeUndelivered());
+        Pump();
+
+        var second = WindowFixture.Create();
+        try
+        {
+            // The hand-over was accepted before the close was confirmed and shown after it.
+            second.Window.OnHandover([path]);
+            await second.Window.RunCloseAsync(quit: false);
+            Pump();
+            Assert.Equal([path], second.Window.TakeUndelivered().Select(Path.GetFullPath));
+        }
+        finally
+        {
+            second.Dispose();
         }
     }
 

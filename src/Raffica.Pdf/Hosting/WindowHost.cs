@@ -16,6 +16,12 @@ internal interface IHostedWindow
 
     void BringToFront();
 
+    /// <summary>
+    /// Takes the files this window was handed but did not open (queued behind a card, or dropped because the close was already confirmed); the list is cleared.
+    /// Called on the UI thread when the window has closed.
+    /// </summary>
+    IReadOnlyList<string> TakeUndelivered();
+
     event EventHandler? Closed;
 }
 
@@ -39,6 +45,7 @@ internal sealed class WindowHost
     private readonly Dispatcher _dispatcher;
     private readonly List<string> _waiting = [];
     private bool _quit;
+    private bool _reopenAfterClose;
 
     public WindowHost(Func<IReadOnlyList<string>, IHostedWindow> create, Action shutdown, Dispatcher dispatcher)
     {
@@ -88,6 +95,7 @@ internal sealed class WindowHost
         }
 
         _quit = true;
+        _reopenAfterClose = false;
         _waiting.Clear();
         _shutdown();
     }
@@ -101,7 +109,7 @@ internal sealed class WindowHost
 
         if (Current is not { } window)
         {
-            Take(_create(paths));
+            MakeNext(paths);
         }
         else if (window.IsClosing)
         {
@@ -120,14 +128,28 @@ internal sealed class WindowHost
             return;
         }
 
-        if (Current is { } window)
+        if (Current is not { } window)
         {
-            window.BringToFront();
+            MakeNext([]);
+        }
+        else if (window.IsClosing)
+        {
+            // The window is going away: the Dock click wants a window afterwards.
+            _reopenAfterClose = true;
         }
         else
         {
-            Take(_create([]));
+            window.BringToFront();
         }
+    }
+
+    // The files that wait come first. They stay queued until the window exists: a factory that throws loses nothing.
+    private void MakeNext(IReadOnlyList<string> paths)
+    {
+        var next = _create([.. _waiting, .. paths]);
+        _waiting.Clear();
+        _reopenAfterClose = false;
+        Take(next);
     }
 
     private void Take(IHostedWindow window)
@@ -146,6 +168,7 @@ internal sealed class WindowHost
 
         window.Closed -= OnClosed;
         var quit = window.QuitRequested;
+        _waiting.AddRange(window.TakeUndelivered());
         if (ReferenceEquals(Current, window))
         {
             Current = null;
@@ -158,11 +181,9 @@ internal sealed class WindowHost
             return;
         }
 
-        if (_waiting.Count > 0 && !_quit && Current is null)
+        if (!_quit && Current is null && (_waiting.Count > 0 || _reopenAfterClose))
         {
-            var paths = _waiting.ToList();
-            _waiting.Clear();
-            Take(_create(paths));
+            MakeNext([]);
         }
     }
 }

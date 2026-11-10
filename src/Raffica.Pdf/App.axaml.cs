@@ -97,20 +97,15 @@ internal sealed partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private int _windowsMade;
+    private Hosting.WindowSettingsSource? _settingsSource;
 
     // One window with its services. The first one has the settings read at the start of the process; every later one (macOS) reads them again from their
     // files, because the window before it wrote the placement and the compact bar when it closed.
     private PdfWindow CreateWindow(IReadOnlyList<string>? files, IClassicDesktopStyleApplicationLifetime desktop)
     {
         var options = files is null ? _options : _options.WithFiles(files);
-        var settings = _settings;
-        var appSettings = _appSettings;
-        if (_windowsMade++ > 0)
-        {
-            (settings, appSettings) = Hosting.FreshSettings.Read(_options.SettingsFile);
-        }
-
+        _settingsSource ??= new Hosting.WindowSettingsSource(_options.SettingsFile, _settings, _appSettings);
+        var (settings, appSettings) = _settingsSource.Next();
         var window = new PdfWindow(options, settings, appSettings);
 
         // The system's default app service is made on first use (the offer after the first sharp page, the command); a measurement run has none.

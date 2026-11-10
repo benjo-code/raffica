@@ -94,6 +94,7 @@ internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
     private int _closeRuns;
     private bool IsCloseRunning => _closeRuns > 0;
     private readonly List<string> _pendingHandover = [];
+    private readonly List<string> _undelivered = [];
     private bool _handoverDrainPosted;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
@@ -841,6 +842,7 @@ internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
             Dispatcher.Post(() => HandoverArrived?.Invoke());
             if (_closeConfirmed)
             {
+                Undeliver(paths);
                 return;
             }
 
@@ -864,6 +866,7 @@ internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
     {
         if (_closeConfirmed)
         {
+            Undeliver(accepted);
             return;
         }
 
@@ -967,6 +970,29 @@ internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
         var files = _pendingHandover.ToList();
         _pendingHandover.Clear();
         _ = GuardAsync(() => OpenFilesAsync(files));
+    }
+
+    // Files this window will not open because it is going away: the host gives them to the next window (TakeUndelivered). Called on any thread.
+    private void Undeliver(IReadOnlyList<string> paths)
+    {
+        lock (_undelivered)
+        {
+            _undelivered.AddRange(paths);
+        }
+    }
+
+    /// <summary>The files this window was handed but will not open: the ones queued behind a card or a close question and the ones that arrived once the close was confirmed. Cleared by the call.</summary>
+    public IReadOnlyList<string> TakeUndelivered()
+    {
+        List<string> taken;
+        lock (_undelivered)
+        {
+            taken = [.. _pendingHandover, .. _undelivered];
+            _pendingHandover.Clear();
+            _undelivered.Clear();
+        }
+
+        return taken;
     }
 
     /// <summary>The files of a hand-over that wait for a card or a close question to end (tests).</summary>

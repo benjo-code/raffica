@@ -25,6 +25,15 @@ public sealed class WindowHostTests
 
         public void BringToFront() => Fronts++;
 
+        public List<string> Undelivered { get; } = [];
+
+        public IReadOnlyList<string> TakeUndelivered()
+        {
+            var taken = Undelivered.ToList();
+            Undelivered.Clear();
+            return taken;
+        }
+
         public void Close() => Closed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -214,5 +223,84 @@ public sealed class WindowHostTests
         rig.Host.Reopen();
         Pump();
         Assert.Equal(3, raised);
+    }
+
+    [AvaloniaFact]
+    public void FilesTheClosedWindowNeverOpenedGoToTheNextWindow()
+    {
+        var rig = new Rig();
+        var window = new FakeWindow();
+        rig.Host.Adopt(window);
+        window.Undelivered.AddRange(["queued.pdf"]);
+        rig.Host.OpenFiles(["late.pdf"]);
+        window.IsClosing = true;
+        Pump();
+
+        window.Close();
+        Pump();
+
+        Assert.Equal(["late.pdf", "queued.pdf"], Assert.Single(rig.Made).Initial);
+        Assert.Empty(window.Undelivered);
+    }
+
+    [AvaloniaFact]
+    public void AQuitDiscardsTheUndeliveredFiles()
+    {
+        var rig = new Rig();
+        var window = new FakeWindow { IsClosing = true, QuitRequested = true };
+        window.Undelivered.Add("queued.pdf");
+        rig.Host.Adopt(window);
+
+        window.Close();
+        Pump();
+
+        Assert.Empty(rig.Made);
+        Assert.Equal(1, rig.Shutdowns);
+    }
+
+    [AvaloniaFact]
+    public void ReopenWhileTheWindowIsClosingMakesAnEmptyWindowAfterTheClose()
+    {
+        var rig = new Rig();
+        var window = new FakeWindow { IsClosing = true };
+        rig.Host.Adopt(window);
+
+        rig.Host.Reopen();
+        Pump();
+        Assert.Empty(rig.Made);
+        Assert.Equal(0, window.Fronts);
+
+        window.Close();
+        Pump();
+
+        Assert.Empty(Assert.Single(rig.Made).Initial);
+    }
+
+    [AvaloniaFact]
+    public void AFactoryThatThrowsLosesNoWaitingFile()
+    {
+        var calls = 0;
+        var seen = new List<IReadOnlyList<string>>();
+        var host = new WindowHost(paths =>
+        {
+            seen.Add(paths);
+            if (calls++ == 0)
+            {
+                throw new InvalidOperationException("no window");
+            }
+
+            return new FakeWindow { Initial = paths };
+        }, () => { }, Dispatcher.UIThread);
+        var window = new FakeWindow { IsClosing = true };
+        host.Adopt(window);
+        host.OpenFiles(["a.pdf"]);
+        Pump();
+
+        Assert.Throws<InvalidOperationException>(window.Close);
+        host.Reopen();
+        Pump();
+
+        Assert.Equal(["a.pdf"], seen[^1]);
+        Assert.NotNull(host.Current);
     }
 }
