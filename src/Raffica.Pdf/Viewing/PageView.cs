@@ -107,6 +107,7 @@ internal sealed partial class PageView : Control
         VisualChildren.Add(_horizontal);
         LogicalChildren.Add(_vertical);
         LogicalChildren.Add(_horizontal);
+        AddHandler(PointerTouchPadGestureMagnifyEvent, OnTouchPadMagnify);
     }
 
     /// <summary>
@@ -641,6 +642,19 @@ internal sealed partial class PageView : Control
         }
 
     }
+
+    private void OnTouchPadMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        if (_layout is not null)
+        {
+            MagnifyAround(e.Delta.X, e.GetPosition(this));
+        }
+
+        e.Handled = true;
+    }
+
+    /// <summary>A touch pad pinch of <paramref name="magnification"/> (relative change) around <paramref name="point"/>: ends a fit mode, the spot under the point stays.</summary>
+    internal void MagnifyAround(double magnification, Point point) => ZoomAround(ViewCommands.ZoomByMagnify(_zoom, magnification), point);
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
