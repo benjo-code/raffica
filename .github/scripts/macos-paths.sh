@@ -7,7 +7,7 @@ hit=
 while IFS= read -r f; do
   [ -z "$hit" ] || continue
   case "$f" in
-    src/*/Platform/*|src/Raffica.Pdf/Updating/*|src/Raffica.Pdf/Packaging/*|src/Raffica.Core/Hosting/*|src/Raffica.Pdfium/*|src/Raffica.Ocr/*) ;;
+    src/*/Platform/*|src/Raffica.Pdf/Updating/*|src/Raffica.Pdf/Packaging/*|src/Raffica.Pdf/Hosting/*|src/Raffica.Pdf/App.axaml.cs|src/Raffica.Core/Hosting/*|src/Raffica.Pdfium/*|src/Raffica.Ocr/*) ;;
     packaging/*|tools/package.cs|tools/native-fetch.cs|tools/check-binary.cs) ;;
     Directory.*.props|global.json|*.csproj|.github/workflows/*|.github/scripts/*) ;;
     *) continue ;;

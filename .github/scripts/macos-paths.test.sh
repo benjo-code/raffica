@@ -17,6 +17,8 @@ check() {
 
 check match src/Raffica.Pdf/Platform/Windows/X.cs
 check match src/Raffica.Core/Hosting/SingleInstance.cs
+check match src/Raffica.Pdf/Hosting/WindowHost.cs
+check match src/Raffica.Pdf/App.axaml.cs
 check match src/Raffica.Pdfium/Native/Fpdf.cs
 check match tools/package.cs
 check match Directory.Packages.props
@@ -24,6 +26,8 @@ check match global.json
 check match src/Raffica.Pdf/Raffica.Pdf.csproj
 check match .github/workflows/ci.yml
 check nomatch src/Raffica.Pdf/Panes/MarksPane.cs
+check nomatch src/Raffica.Pdf/App.axaml
+check nomatch src/Raffica.Pdf/PdfWindow.axaml.cs
 check nomatch src/Raffica.Shell/Styles/Tokens.axaml
 check nomatch tests/Raffica.Pdf.Tests/Panes/X.cs
 check nomatch Docs/ROADMAP.md
