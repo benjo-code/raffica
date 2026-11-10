@@ -38,7 +38,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
 | 3.1 | Runs on the Mac | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | – |
 | 3.2 | Feels like a Mac app | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | – |
-| 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
+| 3.3 | Package and release | 4 – macOS | 🟡 planned | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
 | 6 | Create spec for Raffica Slides | 7 – Raffica Slides | ⬜ open | – | – |
@@ -529,7 +529,7 @@ Goal: Raffica PDF behaves like a Mac app: menu bar, ⌘ shortcuts without key ti
 - [ ] On the owner's Mac a page prints through the own print card with a real or a PDF printer (manual check, recorded)
 
 ## Milestone 3.3 – Package and release
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.2
+**Status:** 🟡 planned · **Plan:** [2026-11-10-milestone-03-3-package-and-release.md](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.2
 
 Goal: Signed `.app` bundles ship as two `.dmg` files with default-app offer, self-update, release workflow, README and recorded speed budgets.
 

@@ -695,7 +695,8 @@
         {
           "id": "3.3",
           "title": "Package and release",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md",
           "spec": "superpowers/specs/2026-11-09-raffica-macos-design.md",
           "prerequisites": ["3.2"],
           "goal": "Signed `.app` bundles ship as two `.dmg` files with default-app offer, self-update, release workflow, README and recorded speed budgets.",
