@@ -195,14 +195,22 @@ public sealed class FormBadgeTests
 
         // Between the notice text and the frame edge, in the notice text itself, and in the padding at the top left corner of the badge.
         var host = HostOf(f);
-        await Task.Delay(100);
-        ViewFixture.Pump();
-        List<Point> spots =
+        List<Point> Spots() =>
         [
             host.TranslatePoint(new Point(3, 3), f.Window)!.Value,
             host.TranslatePoint(new Point(host.Bounds.Width - 3, host.Bounds.Height - 3), f.Window)!.Value,
             CentreOf(f, badge.NoticeBlock),
         ];
+
+        // InputHitTest reads the composited scene, which is brought up to date on a render tick, and the headless timer is driven by hand; a fixed
+        // delay only worked while the machine was fast. Each wait step ticks, then the spots are measured again and the hit test is asked for real.
+        await ViewFixture.WaitAsync(() =>
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            ViewFixture.Pump();
+            return Spots().All(s => f.View.IsInBadge(f.Window.InputHitTest(s)));
+        });
+        var spots = Spots();
         var away = f.View.TranslatePoint(new Point(f.View.Bounds.Width / 2, f.View.Bounds.Height / 2), f.Window)!.Value;
         foreach (var spot in spots)
         {
