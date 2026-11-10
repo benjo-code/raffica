@@ -28,7 +28,7 @@ public sealed class HelpNavigationTests : IDisposable
         string Written(string shortcut) => Raffica.Shell.Localization.KeyNames.Format(shortcut, PdfStrings.Culture);
         Assert.Equal(Written(Command + "+K"), keys["Go to the search field"]);
         Assert.Equal(Written("F6") + " / " + Written("Shift+F6"), keys["Move between the panes"]);
-        Assert.Equal("Alt", keys["Field codes: show them, then type one"]);
+        Assert.Equal(Written("Alt"), keys["Field codes: show them, then type one"]);
         Assert.Equal(Written(Command + "+Y"), keys["Redo"]);
         Assert.Equal(Written("Enter"), keys["Search field: next match"]);
         Assert.Equal(Written("Shift+Enter"), keys["Search field: previous match"]);

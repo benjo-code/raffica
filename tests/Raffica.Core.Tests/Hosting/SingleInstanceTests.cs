@@ -470,6 +470,49 @@ public sealed class SingleInstanceTests
         await AssertNothingAsync(received);
     }
 
+    // The end of a message is the end of the connection, but a listener that ran late (a starved thread pool, a long pause) or a
+    // sender that was slow to close must never cost a message that arrived whole: the content decides, not the clock.
+    [Fact]
+    public async Task AMessageThatArrivedWholeIsDeliveredWhenTheEndOfTheConnectionComesLate()
+    {
+        var name = UniqueName();
+        using var primary = Primary(name);
+        primary.ReadTimeout = TimeSpan.FromMilliseconds(300);
+        var received = Listen(primary);
+
+        using var slow = new NamedPipeClientStream(".", SingleInstance.PipeNameFor(name), PipeDirection.Out, PipeOptions.CurrentUserOnly);
+        slow.Connect((int)Due.TotalMilliseconds);
+        slow.Write(Message("whole.pdf"));
+        slow.Flush();
+
+        // The connection stays open past the read timeout of the listener.
+        Assert.Equal(["whole.pdf"], await NextAsync(received));
+        await AssertNothingAsync(received);
+
+        Assert.True(SingleInstance.TrySend(name, ["next.pdf"], Due));
+        Assert.Equal(["next.pdf"], await NextAsync(received));
+    }
+
+    [Fact]
+    public async Task AHalfMessageIsStillDroppedWhenTheClientStalls()
+    {
+        var name = UniqueName();
+        using var primary = Primary(name);
+        primary.ReadTimeout = TimeSpan.FromMilliseconds(300);
+        var received = Listen(primary);
+
+        using var stalled = new NamedPipeClientStream(".", SingleInstance.PipeNameFor(name), PipeDirection.Out, PipeOptions.CurrentUserOnly);
+        stalled.Connect((int)Due.TotalMilliseconds);
+        var half = Message("one.pdf", "two.pdf");
+        stalled.Write(half.AsSpan(0, half.Length - 3));
+        stalled.Flush();
+
+        Assert.True(SingleInstance.TrySend(name, ["good.pdf"], Due));
+
+        Assert.Equal(["good.pdf"], await NextAsync(received));
+        await AssertNothingAsync(received);
+    }
+
     [Fact]
     public async Task PathAtTheLengthLimitIsAccepted()
     {
@@ -600,6 +643,57 @@ public sealed class SingleInstanceTests
         {
             Directory.Delete(path);
         }
+    }
+
+    private const string MacTemp = "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/";
+
+    [Fact]
+    public void PlainNameIsKeptWhenTheSocketPathFits()
+    {
+        Assert.Equal("raffica-ben", SingleInstance.PipeNameFor("raffica-ben", runtimeDirectory: null, tempPath: "/tmp/"));
+    }
+
+    [Fact]
+    public void LongTempFolderGivesAShortHashedName()
+    {
+        Assert.Equal(49, MacTemp.Length);
+        var name = "raffica-" + new string('u', 20) + "-" + new string('a', 12);
+
+        var pipe = SingleInstance.PipeNameFor(name, runtimeDirectory: null, tempPath: MacTemp);
+
+        Assert.NotEqual(name, pipe);
+        Assert.Equal(18, pipe.Length);
+        Assert.StartsWith("r-", pipe, StringComparison.Ordinal);
+        Assert.True(Encoding.UTF8.GetByteCount(SingleInstance.SocketPathFor(pipe, MacTemp)) < 100);
+    }
+
+    [Fact]
+    public void ShortNamesAreStableAndDistinct()
+    {
+        var first = "raffica-" + new string('u', 20) + "-" + new string('a', 12);
+        var second = "raffica-" + new string('u', 20) + "-" + new string('b', 12);
+
+        var one = SingleInstance.PipeNameFor(first, null, MacTemp);
+
+        Assert.Equal(one, SingleInstance.PipeNameFor(first, null, MacTemp));
+        Assert.NotEqual(one, SingleInstance.PipeNameFor(second, null, MacTemp));
+    }
+
+    [Fact]
+    public void WindowsKeepsThePlainNameHoweverLongItIs()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows only: named pipes have no socket path limit");
+        var name = "raffica-" + new string('u', 20) + "-" + new string('a', 12);
+
+        Assert.Equal(name, SingleInstance.PipeNameFor(name));
+    }
+
+    [Fact]
+    public void RuntimeDirectoryStillWinsWhenItFits()
+    {
+        var pipe = SingleInstance.PipeNameFor("raffica-ben", "/run/user/1000", MacTemp);
+
+        Assert.Equal(Path.Combine("/run/user/1000", "raffica-ben.pipe"), pipe);
     }
 
     [Fact]

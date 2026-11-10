@@ -167,6 +167,10 @@ public sealed class FormKeyboardTests
             // The first Tab is taken (the page has to be read), the read fails and the page counts as having no widgets.
             Assert.True(Decide(keys, f.View, Key.Tab));
             await ViewFixture.WaitAsync(() => forms.IsFailed(1));
+
+            // The walk of that Tab ends on its own once the read is over (it finds nothing to move to); a later Tab must not meet it still
+            // running, or its step could move the focus right after a Tab passed on.
+            await ViewFixture.WaitAsync(() => keys.PendingMove.IsCompleted);
             Assert.False(forms.IsLoaded(1));
             Assert.Equal(mehrfach, focus.Current);
 

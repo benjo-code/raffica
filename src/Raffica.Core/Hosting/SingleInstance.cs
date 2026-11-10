@@ -43,7 +43,7 @@ public sealed class SingleInstance : IDisposable
 
     private const int MaxNameLength = 64;
 
-    private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(3);
 
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
@@ -70,6 +70,12 @@ public sealed class SingleInstance : IDisposable
     /// exception while the listener keeps working. Set before <see cref="StartListening"/>; for tests.
     /// </summary>
     internal Action<Exception> CallbackFailed { get; set; } = RethrowOnThreadPool;
+
+    /// <summary>
+    /// Gets or sets how long the listener waits for the end of one message before it stops waiting for the client. What was
+    /// received until then is still judged by its content. Set before <see cref="StartListening"/>; for tests.
+    /// </summary>
+    internal TimeSpan ReadTimeout { get; set; } = DefaultReadTimeout;
 
     /// <summary>
     /// Gets a value indicating whether the lock file is held. <see langword="false"/> for an
@@ -162,15 +168,24 @@ public sealed class SingleInstance : IDisposable
 
     /// <summary>
     /// Gets the pipe name for an instance name: an absolute socket path in the runtime directory on
-    /// Linux when there is one (an absolute path works as pipe name on Unix), otherwise the plain name.
+    /// Linux when there is one (an absolute path works as pipe name on Unix), otherwise the plain name,
+    /// or a short hashed name when the socket path of the plain name would not fit (macOS temp folders). On Windows it is always the plain safe name (named pipes have no such limit).
     /// </summary>
-    internal static string PipeNameFor(string name)
+    internal static string PipeNameFor(string name) =>
+        OperatingSystem.IsWindows() ? FileSafeName(name) : PipeNameFor(name, RuntimeDirectory(), Path.GetTempPath());
+
+    /// <summary>
+    /// The seam of <see cref="PipeNameFor(string)"/>. A usable runtime directory gives its socket path as before. Otherwise
+    /// the plain safe name is kept while <see cref="SocketPathFor(string, string)"/> stays under 100 UTF-8 bytes (<c>sun_path</c>
+    /// is 104 bytes on macOS and 108 on Linux, with the terminator); else the name is <c>r-</c> and the first 8 bytes of the
+    /// SHA-256 of the original name as hex (18 characters).
+    /// </summary>
+    internal static string PipeNameFor(string name, string? runtimeDirectory, string tempPath)
     {
         var safe = FileSafeName(name);
-        var directory = RuntimeDirectory();
-        if (directory is not null)
+        if (runtimeDirectory is not null)
         {
-            var path = Path.Combine(directory, safe + ".pipe");
+            var path = Path.Combine(runtimeDirectory, safe + ".pipe");
 
             // The sun_path of a Unix socket holds about 108 bytes.
             if (Encoding.UTF8.GetByteCount(path) < 100)
@@ -179,7 +194,12 @@ public sealed class SingleInstance : IDisposable
             }
         }
 
-        return safe;
+        if (Encoding.UTF8.GetByteCount(SocketPathFor(safe, tempPath)) < 100)
+        {
+            return safe;
+        }
+
+        return "r-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(name)), 0, 8);
     }
 
     /// <summary>Gets the path of the lock file for an instance name.</summary>
@@ -409,10 +429,10 @@ public sealed class SingleInstance : IDisposable
         }
     }
 
-    private static async Task<byte[]?> ReadMessageAsync(Stream stream, CancellationToken stop)
+    private static async Task<byte[]?> ReadMessageAsync(Stream stream, TimeSpan readTimeout, CancellationToken stop)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
-        timeout.CancelAfter(ReadTimeout);
+        timeout.CancelAfter(readTimeout);
         using var message = new MemoryStream();
         var chunk = new byte[8192];
         try
@@ -435,12 +455,15 @@ public sealed class SingleInstance : IDisposable
         }
         catch (OperationCanceledException) when (!stop.IsCancellationRequested)
         {
-            // The client stalled; drop it.
-            return null;
+            // The client stalled, or this listener ran late (a starved thread pool, a long pause): stop waiting for the end of
+            // the connection. A message that arrived whole is still valid, so what came in is judged by its content (TryParse
+            // refuses anything cut off); dropping it here would lose a message the sender saw as delivered.
+            return message.ToArray();
         }
         catch (IOException)
         {
-            return null;
+            // The pipe broke: same, the content decides.
+            return message.ToArray();
         }
     }
 
@@ -464,8 +487,11 @@ public sealed class SingleInstance : IDisposable
     /// Gets the path of the socket file .NET makes on Unix for a pipe name: the name itself when it is rooted (the runtime
     /// folder case of <see cref="PipeNameFor"/>), otherwise <c>CoreFxPipe_&lt;name&gt;</c> in the temp folder.
     /// </summary>
-    internal static string SocketPathFor(string pipeName) =>
-        Path.IsPathRooted(pipeName) ? pipeName : Path.Combine(Path.GetTempPath(), "CoreFxPipe_" + pipeName);
+    internal static string SocketPathFor(string pipeName) => SocketPathFor(pipeName, Path.GetTempPath());
+
+    /// <summary>Like <see cref="SocketPathFor(string)"/> for a given temp folder.</summary>
+    internal static string SocketPathFor(string pipeName, string tempPath) =>
+        Path.IsPathRooted(pipeName) ? pipeName : Path.Combine(tempPath, "CoreFxPipe_" + pipeName);
 
     /// <summary>
     /// On Unix sets the socket file of <paramref name="pipeName"/> to read and write for the owner (0600). .NET leaves it at
@@ -559,7 +585,7 @@ public sealed class SingleInstance : IDisposable
 
     private async Task HandleClientAsync(Stream client, Action<IReadOnlyList<string>> onMessage, CancellationToken token)
     {
-        var data = await ReadMessageAsync(client, token).ConfigureAwait(false);
+        var data = await ReadMessageAsync(client, ReadTimeout, token).ConfigureAwait(false);
         if (data is null || !TryParse(data, out var paths) || token.IsCancellationRequested)
         {
             return;

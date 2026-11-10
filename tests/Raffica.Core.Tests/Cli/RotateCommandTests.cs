@@ -127,7 +127,7 @@ public sealed class RotateCommandTests : IDisposable
             Path.Combine(workDirectory.FullName, ".", "pages-marked.pdf"),
             Path.Combine(workDirectory.FullName, "sub", "..", "pages-marked.pdf"),
         };
-        if (OperatingSystem.IsWindows())
+        if (TestVolume.IgnoresCase(workDirectory.FullName))
         {
             spellings.Add(input.ToUpperInvariant());
         }
@@ -209,7 +209,7 @@ public sealed class RotateCommandTests : IDisposable
         Assert.True(FileIdentity.AreSameFile(input, input));
         Assert.False(FileIdentity.AreSameFile(input, copy));
         Assert.False(FileIdentity.AreSameFile(input, Path.Combine(workDirectory.FullName, "missing.pdf")));
-        if (OperatingSystem.IsWindows())
+        if (TestVolume.IgnoresCase(workDirectory.FullName))
         {
             Assert.True(FileIdentity.AreSameFile(input, input.ToUpperInvariant()));
         }

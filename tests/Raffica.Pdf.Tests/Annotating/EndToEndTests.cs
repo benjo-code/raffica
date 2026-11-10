@@ -244,6 +244,7 @@ public sealed class EndToEndTests
         {
             frame.CopyPixels(new Avalonia.PixelRect(size), buffer, pixels.Length, stride);
             Marshal.Copy(buffer, pixels, 0, pixels.Length);
+            Raffica.Pdf.Tests.Viewing.PixelOrder.ToBgra(pixels, frame.Format);
         }
         finally
         {

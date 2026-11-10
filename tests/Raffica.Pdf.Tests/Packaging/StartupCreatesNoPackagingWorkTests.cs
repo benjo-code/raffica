@@ -18,6 +18,15 @@ public sealed class StartupCreatesNoPackagingWorkTests
 
     private static void RestoreTheme() => ShellTheme.Apply(Avalonia.Application.Current!, ThemeMode.System, AppInk.Pdf, null);
 
+    // The bridge to the Finder and the Dock exists only on macOS: elsewhere a window has none and it costs nothing.
+    [AvaloniaFact]
+    public void NoFileActivationBridgeOutsideMacOS()
+    {
+        Assert.SkipWhen(OperatingSystem.IsMacOS(), "macOS makes the bridge in App");
+        using var fixture = WindowFixture.Create();
+        Assert.Null(fixture.Window.FileActivation);
+    }
+
     // The service is the only thing that could start a process or read the registry: if it is never made, nothing of the packaging runs.
     [AvaloniaFact]
     public async Task StartupCreatesNoPackagingWork()

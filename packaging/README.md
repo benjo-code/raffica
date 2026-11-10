@@ -138,6 +138,46 @@ is skipped and the job `release-manifest` does not run.
    `release-manifest` is skipped. The Linux job runs the container build (`packaging/linux/container-build.sh`,
    Ubuntu 22.04) with `deb-smoke` and `appimage-smoke`.
 
+## Manual check on a Mac (M3.1)
+
+Milestone 3.1 has no bundle step yet (that is milestone 3.3); `packaging/macos/dev-app.sh` wraps a publish folder into a
+throwaway, ad-hoc signed `Raffica PDF.app` (no icon, no version, no `.dmg`) so that the Finder paths can be tried. The CI
+build is the `osx-x64` build: on an Apple silicon Mac it runs under Rosetta and says nothing about arm64.
+
+1. Download the artifact `raffica-pdf-osx-x64` of the CI job `build-macos` (a pull request run with the label `ci:macos`,
+   or a run on `dev`). A browser download is a zip around a `.tar.gz`: unzip it first (`gh run download <run id> -n
+   raffica-pdf-osx-x64` hands over the `.tar.gz` itself). Then `tar xzf` it into an empty folder; it holds a folder
+   `pdf-osx-x64`, so the publish folder is `<that folder>/pdf-osx-x64`.
+2. `bash packaging/macos/dev-app.sh <that folder>/pdf-osx-x64 <out folder>` builds `<out folder>/Raffica PDF.app`; the out
+   folder must lie outside the publish folder (the script refuses otherwise).
+3. The first launch of an ad-hoc signed app may be blocked: open System Settings, Privacy & Security, "Open Anyway". For a
+   downloaded copy, `xattr -dr com.apple.quarantine "<out folder>/Raffica PDF.app"` clears the quarantine mark first.
+4. Check, and write down what you see (`open -a` needs the path to the app, or run it from the out folder):
+   a. Double-click a PDF in the Finder with Open With, the app: the file opens in a tab.
+   b. `open -a "<out folder>/Raffica PDF.app" file.pdf` opens the file.
+   c. While the app runs, `open -a "<out folder>/Raffica PDF.app" a.pdf b.pdf` opens both files in the same instance.
+   d. Open a scanned page and run OCR: the text is recognized (this loads the Tesseract library of the bundle).
+
+## Native OCR library for macOS (M3.1)
+
+The Windows and Linux libraries are release `native-tesseract-5.5.4-1`; the macOS libraries are release
+`native-tesseract-5.5.4-2` (assets `libtesseract-osx-x64.dylib` and `libtesseract-osx-arm64.dylib`). Pins (size and SHA-256
+per asset) are in `Pins.Libraries` of `tools/native-fetch.cs`; the sources and the deployment target are in
+`packaging/native/versions.txt`. Rebuild or change a version:
+
+1. Change `packaging/native/versions.txt` (a change is an entry in `Docs/DECISIONS.md`) and use a new release number: the
+   workflow refuses a tag that exists ("a rebuild needs a new number"). A failed run leaves an empty prerelease behind:
+   `gh release delete native-tesseract-5.5.4-<n> --cleanup-tag --yes` before the next dispatch.
+2. `gh workflow run native-tesseract.yml --ref <branch> -f build=<n> -f systems=macos` (the input `systems` limits the run
+   to one platform, so the other pins stay as they are). `packaging/native/build-macos.sh` builds both RIDs on a hosted
+   macOS runner and asserts the result (`lipo -archs`, no NEON symbol in the x86_64 library, the Mach-O rules of
+   `tools/check-binary.cs`).
+3. Download the assets, note size and SHA-256, and enter them in `Pins.Libraries` together with the new release tag; then
+   `dotnet run tools/native-fetch.cs -- selftest` and `dotnet run tools/check-binary.cs -- selftest`.
+
+Pitfalls (macOS bash is 3.2; the x86_64 library is cross-built on the arm64 runner): see `Docs/DECISIONS.md`, "Raffica on
+macOS: native libraries, paths and activation (M3.1)", lessons from the Tesseract build.
+
 ## Open checks on real machines
 
 Each item below was not verified during Milestone 2.6; the command or step says how to check it. Done and not listed any

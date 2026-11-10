@@ -307,10 +307,9 @@ internal sealed class RedactApplyFlow(
     // whatever goes wrong from here on (a handler of the window) is no failure of the apply and no card.
     private void Completed(PdfTab tab, string written)
     {
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var page = 0;
         JobRunner.Guarded(() => page = Math.Max(0, currentPage(tab)));
-        var renamed = !string.Equals(Path.GetFullPath(written), tab.Path, comparison);
+        var renamed = !PathRules.AreEqual(Path.GetFullPath(written), tab.Path);
         if (renamed)
         {
             JobRunner.Guarded(() => tab.Rename(written));

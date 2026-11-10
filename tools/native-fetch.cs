@@ -1,13 +1,13 @@
 // Fetches the OCR library and the language data the OCR tests need.
 //
-//   dotnet run tools/native-fetch.cs -- --rid <win-x64|linux-x64> --out <folder> [--from <folder>]
+//   dotnet run tools/native-fetch.cs -- --rid <win-x64|linux-x64|osx-x64|osx-arm64> --out <folder> [--from <folder>]
 //   dotnet run tools/native-fetch.cs -- selftest
 //
 // Everything is fetched into a staging folder and checked (size and SHA-256 per file) first; nothing is laid down
 // unless every file passes. --from takes the files from a folder instead of the network (offline use, selftest).
 // The pinned SHA-256 is what is trusted, not the place the files come from.
 //
-// The Tesseract library comes from the prerelease native-tesseract-5.5.4-1 of benjo-code/raffica, built by the workflow
+// The Tesseract library comes from the prerelease native-tesseract-5.5.4-1 of benjo-code/raffica (macOS: native-tesseract-5.5.4-2), built by the workflow
 // native-tesseract.yml (the tag never starts with "v", so it is no release of any update check). While the repository is private,
 // a release asset is read through the GitHub API (releases/tags/<tag>, then assets[].url with
 // "Accept: application/octet-stream"); the token comes from GITHUB_TOKEN or GH_TOKEN when one is set. Without a token the same
@@ -32,11 +32,19 @@ static class Pins
 
     private const string TesseractRelease = "https://github.com/benjo-code/raffica/releases/download/native-tesseract-5.5.4-1/";
 
+    // The macOS builds are their own prerelease (build number 2 of the same Tesseract version).
+    private const string TesseractReleaseMacOS = "https://github.com/benjo-code/raffica/releases/download/native-tesseract-5.5.4-2/";
+
     public static readonly PinnedFile[] Libraries =
     [
         // Size and SHA-256 from the job summary of the workflow native-tesseract.yml (run 42198001684); they equal the release digests.
         new("win-x64", "tesseract.dll", "tesseract.dll", 3684864, "24fc074bfefba19dfe566b54604fcf1fcbdeef85080acb461d866bb0ebecd86c", TesseractRelease + "tesseract.dll"),
         new("linux-x64", "libtesseract.so", "libtesseract.so", 6948376, "b3d19bbabb63f8af6e13728aa74940b8c6b1138cd078d9fef346adb5ac75adc4", TesseractRelease + "libtesseract.so"),
+
+        // Size and SHA-256 from the job summary of the workflow native-tesseract.yml (run 42699294492); they equal the release digests.
+        // The release asset names differ per architecture; the laid-down name is the same.
+        new("osx-x64", "libtesseract-osx-x64.dylib", "libtesseract.dylib", 4847040, "4928b312945529d558fc95207e9437f55b0288d0b0e39c70f71ae375d9d0565b", TesseractReleaseMacOS + "libtesseract-osx-x64.dylib"),
+        new("osx-arm64", "libtesseract-osx-arm64.dylib", "libtesseract.dylib", 4499616, "922ec3f4377ac4926a63d3fa4228fe2b620a5bbe15212772814076a06d8d35f2", TesseractReleaseMacOS + "libtesseract-osx-arm64.dylib"),
     ];
 
     // tessdata_fast 4.1.0 (Apache-2.0).
@@ -72,7 +80,7 @@ static class Cli
             return Usage();
         }
 
-        if (rid is not ("win-x64" or "linux-x64"))
+        if (rid is not ("win-x64" or "linux-x64" or "osx-x64" or "osx-arm64"))
         {
             Console.Error.WriteLine($"unknown RID: {rid}");
             return 2;
@@ -83,7 +91,7 @@ static class Cli
 
     private static int Usage()
     {
-        Console.Error.WriteLine("usage: native-fetch --rid <win-x64|linux-x64> --out <folder> [--from <folder>]");
+        Console.Error.WriteLine("usage: native-fetch --rid <win-x64|linux-x64|osx-x64|osx-arm64> --out <folder> [--from <folder>]");
         return 2;
     }
 }
@@ -311,6 +319,7 @@ static class SelfTest
             Expect("a missing source file is refused", Fetcher.Fetch(good, Path.Combine(root, "out-missing"), Path.Combine(root, "nope")), 1);
             Expect("an unknown RID gives 2", Cli.Run(["--rid", "mac", "--out", Path.Combine(root, "x")]), 2);
             Expect("missing arguments give 2", Cli.Run(["--rid", "win-x64"]), 2);
+            MacOsEntries(root);
             Expect("no pin is a placeholder (size 0 or an all-zero SHA-256)", Pins.Libraries.Concat(Pins.Tessdata).All(f => f.Size > 0 && f.Sha256 != Pins.Placeholder), true);
             Expect("every pin is a lower-case SHA-256", Pins.Libraries.Concat(Pins.Tessdata).All(f => f.Sha256.Length == 64 && f.Sha256.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'))), true);
         }
@@ -326,6 +335,23 @@ static class SelfTest
 
         Console.WriteLine(s_failures == 0 ? "selftest passed" : $"selftest: {s_failures} failure(s)");
         return s_failures == 0 ? 0 : 1;
+    }
+
+    // The two macOS entries: distinct release asset names, the same laid-down name, the dylib plus the two language files, and a
+    // placeholder pin is refused with exit 1 and nothing laid down.
+    private static void MacOsEntries(string root)
+    {
+        var x64 = Pins.Libraries.Where(f => f.Rid == "osx-x64").ToArray();
+        var arm = Pins.Libraries.Where(f => f.Rid == "osx-arm64").ToArray();
+        Expect("macOS: one entry per architecture", x64.Length == 1 && arm.Length == 1, true);
+        Expect("macOS: the asset names differ", x64[0].Asset != arm[0].Asset, true);
+        Expect("macOS: the laid-down name is the same", x64[0].Target == "libtesseract.dylib" && arm[0].Target == x64[0].Target, true);
+        Expect("macOS: the asset names carry the architecture", x64[0].Asset == "libtesseract-osx-x64.dylib" && arm[0].Asset == "libtesseract-osx-arm64.dylib", true);
+        Expect("macOS: arm64 gets the dylib plus the two tessdata files", string.Join(" ", Pins.For("osx-arm64").Select(f => f.Target)), "libtesseract.dylib tessdata/eng.traineddata tessdata/deu.traineddata");
+        Expect("macOS: the entries come from the own release constant", x64[0].Url.Contains("/native-tesseract-5.5.4-2/", StringComparison.Ordinal) && arm[0].Url.Contains("/native-tesseract-5.5.4-2/", StringComparison.Ordinal), true);
+        var outMac = Path.Combine(root, "out-mac");
+        Expect("macOS: a placeholder pin is refused (exit 1)", Fetcher.Fetch([new("osx-arm64", "libtesseract-osx-arm64.dylib", "libtesseract.dylib", 0, Pins.Placeholder, "x")], outMac, root), 1);
+        Expect("macOS: a refused placeholder lays nothing down", !Directory.Exists(outMac) || Directory.GetFileSystemEntries(outMac).Length == 0, true);
     }
 
     private const string ReleaseUrl = "https://github.com/benjo-code/raffica/releases/download/native-tesseract-5.5.4-1/tesseract.dll";

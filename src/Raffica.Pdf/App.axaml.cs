@@ -72,6 +72,12 @@ internal sealed partial class App : Application
                 ? null
                 : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled, () => window.EndForUpdate(() => desktop.Shutdown()));
 
+            // macOS hands files to the running app through the activation events, not the command line: the bridge subscribes now so nothing is lost before the window opens.
+            if (OperatingSystem.IsMacOS() && !_options.IsMeasuring && this.TryGetFeature<IActivatableLifetime>() is { } activatable)
+            {
+                window.FileActivation = new Hosting.FileActivationBridge(new Hosting.AvaloniaFileActivationSource(activatable));
+            }
+
             desktop.MainWindow = window;
             if (!_options.IsMeasuring)
             {

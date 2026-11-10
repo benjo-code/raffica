@@ -1,3 +1,4 @@
+using Raffica.Core.Saving;
 using Raffica.Core.Settings;
 
 namespace Raffica.Core.Updates;
@@ -32,8 +33,7 @@ public sealed record SessionSnapshot(IReadOnlyList<SessionWindow> Windows)
     /// </summary>
     public const int MaxTabsPerWindow = 500;
 
-    private static readonly StringComparer PathComparer =
-        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static readonly StringComparer PathComparer = PathRules.Comparer;
 
     /// <summary>Gets a session without windows.</summary>
     public static SessionSnapshot Empty { get; } = new([]);

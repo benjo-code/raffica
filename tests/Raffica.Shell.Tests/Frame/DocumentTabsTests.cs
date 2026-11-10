@@ -263,7 +263,7 @@ public sealed class DocumentTabsTests
     [AvaloniaFact]
     public void ThirtyTabsKeepPlusSearchAndCaptionButtonsInPlace()
     {
-        var bar = new TitleBar { Mark = new TextBlock { Text = "R" } };
+        var bar = new TitleBar { Mark = new TextBlock { Text = "R" }, ShowCaptionButtons = true };
         bar.Search.Source = SampleRibbon.Create();
         for (var i = 0; i < 30; i++)
         {

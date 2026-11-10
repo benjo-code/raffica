@@ -31,7 +31,11 @@ public sealed class TitleBarTrailingTests
 
         // With content: right of the search field, left of the minimize button, inside the 36 px bar.
         var marker = new Border { Name = "PART_Marker", Width = 60, Height = 20 };
-        var (window, bar) = Show(b => b.Trailing = marker);
+        var (window, bar) = Show(b =>
+        {
+            b.ShowCaptionButtons = true;
+            b.Trailing = marker;
+        });
         var minimize = ControlHarness.Part<Button>(bar, "PART_CaptionMinimize");
         var origin = marker.TranslatePoint(new Point(0, 0), bar)!.Value;
         var search = bar.Search.TranslatePoint(new Point(0, 0), bar)!.Value;

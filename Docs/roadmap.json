@@ -262,6 +262,21 @@
       "date": "2026-11-09",
       "context": "Milestone 3",
       "text": "The backlog entry \"Option key handling on macOS\" is decided (no key tips and no Option capture on macOS, see \"Raffica on macOS: scope and Mac conventions (M3)\") and moves into milestone 3.2. The backlog entry \"macOS print panel\" is added; printing on macOS uses the own print card over CUPS."
+    },
+    {
+      "date": "2026-11-09",
+      "context": "Milestone 3.1",
+      "text": "A throwaway `packaging/macos/dev-app.sh` wraps a publish folder into an ad-hoc signed `.app` for the owner's manual Finder check. The spec puts `Info.plist` and the bundle into 3.3, but the check of 3.1 (Finder double-click and `open -a`) needs a bundle; 3.3 replaces the script by the real bundle step."
+    },
+    {
+      "date": "2026-11-09",
+      "context": "Milestone 3.1",
+      "text": "`native-tesseract.yml` gets a `systems` input (`macos`, besides the existing platforms) so that the macOS libraries are built as their own release `native-tesseract-5.5.4-2` and the Windows and Linux pins and release `-1` stay as they are. See \"Raffica on macOS: native libraries, paths and activation (M3.1)\" in `Docs/DECISIONS.md`."
+    },
+    {
+      "date": "2026-11-09",
+      "context": "Milestone 3.1",
+      "text": "`UserDataPaths.CacheDirectory` (`~/Library/Caches/Raffica` on macOS) is added although nothing consumes it yet, because the task names the cache folder; the first consumer decides its use."
     }
   ],
   "subprojects": [
@@ -624,25 +639,26 @@
         {
           "id": "3.1",
           "title": "Runs on the Mac",
-          "status": "open",
+          "status": "in-progress",
+          "plan": "superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md",
           "spec": "superpowers/specs/2026-11-09-raffica-macos-design.md",
           "prerequisites": ["3"],
           "goal": "Raffica PDF builds, passes its tests and opens PDFs from the Finder on Intel and Apple-silicon Macs, checked by a sparse macOS CI job.",
           "tasks": [
-            { "text": "PDFium for `osx-x64` and `osx-arm64`: the `bblanchon.PDFium.macOS` package (same version as the Windows and Linux packages) and its entry in `third-party/licenses.json`", "done": false },
-            { "text": "Tesseract: a macOS job in `native-tesseract.yml` builds `libtesseract.dylib` for both RIDs as a new prerelease, `tools/native-fetch.cs` pins size and SHA-256 per RID, `TesseractLibrary.FileName` and `OcrTestLibrary` learn the `.dylib`, and a Mach-O check (counterpart of `check-binary`'s ELF rules) allows only system libraries and files inside the bundle", "done": false },
-            { "text": "Paths under `~/Library/Application Support/Raffica` and `~/Library/Caches/Raffica` (`UserDataPaths`, `ShellSettingsStore`); `--settings-file` still redirects everything", "done": false },
-            { "text": "Case-insensitive path identity on macOS (workspace, save and job paths, `RecentFiles`, CLI `OutputGuard`) and `FileIdentity.AreSameFile` from device and inode instead of null", "done": false },
-            { "text": "Single-instance pipe checked on macOS (socket path length) and Finder and Dock file activation through `IActivatableLifetime`, at first start and while the app runs", "done": false },
-            { "text": "`build-macos` job in `ci.yml` on `macos-15` with its path filter and the label `ci:macos` (spec section 7); the aggregate `ci` check treats a skipped macOS job as passed", "done": false },
-            { "text": "Every test passes on macOS or is skipped there with a named reason", "done": false }
+            { "text": "PDFium for `osx-x64` and `osx-arm64`: the `bblanchon.PDFium.macOS` package (same version as the Windows and Linux packages) and its entry in `third-party/licenses.json`", "done": true },
+            { "text": "Tesseract: a macOS job in `native-tesseract.yml` builds `libtesseract.dylib` for both RIDs as a new prerelease, `tools/native-fetch.cs` pins size and SHA-256 per RID, `TesseractLibrary.FileName` and `OcrTestLibrary` learn the `.dylib`, and a Mach-O check (counterpart of `check-binary`'s ELF rules) allows only system libraries and files inside the bundle", "done": true },
+            { "text": "Paths under `~/Library/Application Support/Raffica` and `~/Library/Caches/Raffica` (`UserDataPaths`, `ShellSettingsStore`); `--settings-file` still redirects everything", "done": true },
+            { "text": "Case-insensitive path identity on macOS (workspace, save and job paths, `RecentFiles`, CLI `OutputGuard`) and `FileIdentity.AreSameFile` from device and inode instead of null", "done": true },
+            { "text": "Single-instance pipe checked on macOS (socket path length) and Finder and Dock file activation through `IActivatableLifetime`, at first start and while the app runs", "done": true },
+            { "text": "`build-macos` job in `ci.yml` on `macos-15` with its path filter and the label `ci:macos` (spec section 7); the aggregate `ci` check treats a skipped macOS job as passed", "done": true },
+            { "text": "Every test passes on macOS or is skipped there with a named reason", "done": true }
           ],
           "acceptance": [
-            { "text": "`build-macos` is green on a pull request that carries the label `ci:macos` (run id in the evidence)", "done": false },
-            { "text": "The identity tests for `Bericht.pdf` and `bericht.pdf` on a case-insensitive volume, and for `FileIdentity.AreSameFile` from device and inode, pass in the `build-macos` job (test names in the evidence)", "done": false },
-            { "text": "The `build-macos` job runs the full test suite with `RAFFICA_REQUIRE_OCR=1`: 0 failed, and every skipped test has a named macOS reason (result line in the evidence)", "done": false },
-            { "text": "On the owner's Mac a published `osx-x64` build opens a PDF by double-click in the Finder and by `open -a` (manual check, recorded)", "done": false },
-            { "text": "On the owner's Mac the same build recognizes text with OCR (manual check, recorded)", "done": false }
+            {"text": "`build-macos` is green on a pull request that carries the label `ci:macos` (run id in the evidence)", "done": true, "evidence": "CI run 42736005328 on PR #59 (head 4a88c98): job `build-macos` (macos-15, label `ci:macos` on the PR) green; `ci`, `roadmap`, CodeQL, Windows and Linux green in the same run (first green run 42709065751 on 51606c5, before the single-instance fix and the test synchronization)."},
+            {"text": "The identity tests for `Bericht.pdf` and `bericht.pdf` on a case-insensitive volume, and for `FileIdentity.AreSameFile` from device and inode, pass in the `build-macos` job (test names in the evidence)", "done": true, "evidence": "`FileIdentityTests.OtherSpellingOfTheNameIsTheSameFile` (`Bericht.pdf` against `bericht.pdf` on the runner's case-insensitive volume; not in the skip list of the run), `FileIdentityTests.TwoNamesOfOneFileAreTheSameFile`, `FileIdentityTests.MacOsAnswersAndDoesNotGiveUp` (real `stat` calls) and the `DarwinStatBuffers*` tests ran and passed in CI run 42736005328 on PR #59 (head 4a88c98; first green on 51606c5 in run 42709065751); the Rosetta same-file smoke test of the job passed too (it hits the case-insensitive `PathRules` branch first). The hard-link smoke step (both RIDs, the x64 one under Rosetta; passed in run 42736005328) covers the `FileIdentity` call of the x64 build."},
+            {"text": "The `build-macos` job runs the full test suite with `RAFFICA_REQUIRE_OCR=1`: 0 failed, and every skipped test has a named macOS reason (result line in the evidence)", "done": true, "evidence": "CI run 42709065751 on PR #59 (head 51606c5), job `build-macos` with `RAFFICA_REQUIRE_OCR=1` (the runner has the pinned `libtesseract-osx-arm64.dylib`): total 6307, failed 0, succeeded 6244, skipped 63 (later green on the head 4a88c98 in run 42736005328, 6309 tests); the job step \"skips\" lists every skip with a reason and fails on an empty one, and none of the skips was added for macOS-specific reasons."},
+            {"text": "On the owner's Mac a published `osx-x64` build opens a PDF by double-click in the Finder and by `open -a` (manual check, recorded)", "done": false, "evidence": "OPEN, needs the owner's Mac. Command: download the artifact `raffica-pdf-osx-x64` of the `build-macos` run of PR #59, then follow `packaging/README.md`, section \"Manual check on a Mac (M3.1)\" (`packaging/macos/dev-app.sh`, then Finder Open With and `open -a`, at first start and while the app runs). Live behavior of `FileActivationBridge` is not verified by CI."},
+            {"text": "On the owner's Mac the same build recognizes text with OCR (manual check, recorded)", "done": false, "evidence": "OPEN, needs the owner's Mac. Command: step 4d of `packaging/README.md`, section \"Manual check on a Mac (M3.1)\" (open a scanned page, run OCR). CI only proves that the pinned library loads and runs on the arm64 runner and that the x64 file passes `check-binary`'s Mach-O rules."}
           ]
         },
         {

@@ -348,10 +348,9 @@ internal sealed class SaveController
             _noted.AddOrUpdate(tab, new NotedDocument(adopted));
         }
 
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         // The file is written: whatever goes wrong from here on (a handler of the window) is no save failure and no card.
-        if (saveAs && !string.Equals(Path.GetFullPath(target), tab.Path, comparison))
+        if (saveAs && !PathRules.AreEqual(Path.GetFullPath(target), tab.Path))
         {
             Guarded(() => tab.Rename(target));
             Guarded(() => PathChanged?.Invoke(tab));

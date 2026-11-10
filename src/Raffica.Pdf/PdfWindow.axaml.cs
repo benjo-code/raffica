@@ -727,6 +727,9 @@ internal sealed partial class PdfWindow : Window
         _instance = instance;
     }
 
+    /// <summary>The files the system hands to the running app (macOS); set by the app before the window opens, null elsewhere and in a measurement run.</summary>
+    internal Hosting.FileActivationBridge? FileActivation { get; set; }
+
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
@@ -734,6 +737,9 @@ internal sealed partial class PdfWindow : Window
         // Accepting a later launch is cheap and the pipe is only a socket: it starts now, so a second launch within its one second does not become a window of its own. Showing
         // what arrives still waits for the UI (ShowHandover).
         StartListening();
+
+        // Files the Finder or the Dock handed over before this point wait in the bridge (macOS only). Like the pipe, the file check runs off the UI thread.
+        FileActivation?.Attach(paths => _ = Task.Run(() => OnHandover(paths)));
         if (_options.Files.Count > 0)
         {
             // Not awaited: a password question of the first file must not hold back the work after the first page. The page view of the

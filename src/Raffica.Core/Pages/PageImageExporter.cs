@@ -313,7 +313,6 @@ public static class PageImageExporter
         var name = IsPlain(stem, digits)
             ? stem
             : OutputNames.Sanitize(stem, OutputNames.DefaultMaxLength - SuffixRoom, OutputNames.MaxStemBytes - SuffixRoom);
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var targets = new string[pages.Count];
         for (var i = 0; i < pages.Count; i++)
         {
@@ -323,8 +322,8 @@ public static class PageImageExporter
             var path = Path.GetFullPath(Path.Combine(root, file));
             var parent = Path.GetDirectoryName(path);
             if (parent is null
-                || !string.Equals(Path.TrimEndingDirectorySeparator(parent), root, comparison)
-                || !string.Equals(Path.GetFileName(path), file, comparison))
+                || !PathRules.AreEqual(Path.TrimEndingDirectorySeparator(parent), root)
+                || !PathRules.AreEqual(Path.GetFileName(path), file))
             {
                 throw new PageExportException(PageExportError.UnsafeName, "A file name would lead out of the target folder.", pages[i], [], null);
             }
@@ -386,7 +385,7 @@ public static class PageImageExporter
 
         // The file that is open is never a target: the same file under another name (link, 8.3 name, hard link) counts.
         if (sourcePath is not null
-            && (string.Equals(target, sourcePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            && (PathRules.AreEqual(target, sourcePath)
                 || FileIdentity.AreSameFile(target, sourcePath) == true))
         {
             return PageExportError.TargetIsSource;

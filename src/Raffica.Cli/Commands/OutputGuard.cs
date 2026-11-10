@@ -136,5 +136,5 @@ internal static class OutputGuard
     }
 
     private static bool SamePath(string a, string b) =>
-        string.Equals(a, b, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        PathRules.AreEqual(a, b);
 }

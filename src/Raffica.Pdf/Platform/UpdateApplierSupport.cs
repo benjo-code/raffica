@@ -1,5 +1,6 @@
 using System.Text;
 using Raffica.Core;
+using Raffica.Core.Saving;
 using Raffica.Core.Updates;
 using Raffica.Pdf.Updating;
 
@@ -86,8 +87,7 @@ internal static class UpdateApplierSupport
         {
             var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(staging));
             var updates = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(configDirectory, UpdateStaging.DirectoryName)));
-            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-            if (!string.Equals(Path.GetDirectoryName(full), updates, comparison) || !UpdateVersion.TryParse(Path.GetFileName(full), out _))
+            if (!PathRules.AreEqual(Path.GetDirectoryName(full), updates) || !UpdateVersion.TryParse(Path.GetFileName(full), out _))
             {
                 return null;
             }

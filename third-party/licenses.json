@@ -109,6 +109,19 @@
       ]
     },
     {
+      "id": "bblanchon.PDFium.macOS",
+      "kind": "nuget",
+      "version": "157.0.8100",
+      "license": "Apache-2.0",
+      "licenseFile": "third-party/pdfium/LICENSE",
+      "licenseFiles": [
+        "third-party/pdfium/licenses/"
+      ],
+      "files": [
+        "libpdfium.dylib"
+      ]
+    },
+    {
       "id": "bblanchon.PDFium.Win32",
       "kind": "nuget",
       "version": "157.0.8100",
@@ -365,7 +378,8 @@
       "licenseFile": "third-party/tesseract/LICENSE",
       "files": [
         "tesseract.dll",
-        "libtesseract.so"
+        "libtesseract.so",
+        "libtesseract.dylib"
       ]
     },
     {

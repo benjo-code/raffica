@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Raffica.Core.Saving;
 using Raffica.Core.Viewing;
 
 namespace Raffica.Core.Settings;
@@ -38,16 +39,15 @@ public sealed record RememberedView(ViewState View, double Zoom, ZoomMode ZoomMo
 public sealed record RecentFile(string Path, DateTimeOffset LastOpened, RememberedView? View);
 
 /// <summary>
-/// The list of recently opened files, newest first, at most <see cref="MaxEntries"/>. Paths are compared without
-/// regard to case on Windows and with it elsewhere. Not thread-safe: use it from the UI thread only.
+/// The list of recently opened files, newest first, at most <see cref="MaxEntries"/>. Paths are compared by the rule
+/// of <see cref="PathRules"/> (case-insensitive on Windows, by case on Linux, on macOS the Unicode-normalized form). Not thread-safe: use it from the UI thread only.
 /// </summary>
 public sealed class RecentFiles
 {
     /// <summary>The most entries the list holds; the oldest fall away.</summary>
     public const int MaxEntries = 30;
 
-    private static readonly StringComparer PathComparer =
-        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static readonly StringComparer PathComparer = PathRules.Comparer;
 
     private readonly List<RecentFile> _items = [];
 
