@@ -176,7 +176,8 @@ public sealed class MacSwapScriptTests : IDisposable
 
     private int Run(string old, string fresh, string backup, string verifier, bool restore, int? processId = null)
     {
-        var start = new ProcessStartInfo("/bin/sh") { UseShellExecute = false };
+        // The working folder is the test folder, so a relative "touch injected" in a name would leave its marker there.
+        var start = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, WorkingDirectory = _root };
 
         // A process id that does not exist ends the wait at once.
         foreach (var argument in MacSwapScript.Arguments(processId ?? 2_000_000_000, old, fresh, backup, _opener, verifier, restore))
