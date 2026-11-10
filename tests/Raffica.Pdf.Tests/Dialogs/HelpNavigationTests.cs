@@ -35,8 +35,8 @@ public sealed class HelpNavigationTests : IDisposable
         Assert.Equal(Written("Alt+↑") + " / " + Written("Alt+↓"), keys["Organize pages: move the selected pages by one"]);
         Assert.Equal(Written("Alt+Home") + " / " + Written("Alt+End"), keys["Organize pages: move to the start or the end"]);
         Assert.Equal("[ / ]", keys["Organize pages: turn left or right"]);
-        Assert.Equal(Written("Ctrl+D"), keys["Organize pages: duplicate"]);
-        Assert.Equal(Written("Ctrl+A"), keys["Organize pages: select all pages"]);
+        Assert.Equal(Written(Command + "+D"), keys["Organize pages: duplicate"]);
+        Assert.Equal(Written(Command + "+A"), keys["Organize pages: select all pages"]);
         Assert.Equal(Written("Delete"), keys["Organize pages: delete"]);
         Assert.Equal(Written("Tab") + " / " + Written("Shift+Tab"), keys["Forms: next or previous field"]);
         Assert.Equal(Written("Enter") + " / Space", keys["Forms: fill in the field with the focus"]);
@@ -44,6 +44,15 @@ public sealed class HelpNavigationTests : IDisposable
         Assert.Equal(Written(Command + "+Enter"), keys["Finish a text box or a comment"]);
         Assert.Equal(Written(Command + "+Shift+G"), keys["Edit text: whole line in the replacement font"]);
         Assert.Equal(17, navigation.Count);
+    }
+
+    [Fact]
+    public void OnMacTheOrganizerLinesUseTheCommandKey()
+    {
+        PdfStrings.Culture = CultureInfo.GetCultureInfo("en");
+        var entries = NavigationHelp.Entries(macOs: true);
+        Assert.EndsWith("⌘D", entries.Single(e => e.Name == PdfStrings.HelpNavOrganizeDuplicate).Shortcut, StringComparison.Ordinal);
+        Assert.EndsWith("⌘A", entries.Single(e => e.Name == PdfStrings.HelpNavOrganizeSelectAll).Shortcut, StringComparison.Ordinal);
     }
 
     [Fact]

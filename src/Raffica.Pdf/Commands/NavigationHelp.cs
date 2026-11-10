@@ -13,13 +13,16 @@ namespace Raffica.Pdf.Commands;
 internal static class NavigationHelp
 {
     /// <summary>The lines of the section, in the order of the help card.</summary>
-    public static IReadOnlyList<HelpEntry> Entries()
+    public static IReadOnlyList<HelpEntry> Entries() => Entries(OperatingSystem.IsMacOS());
+
+    /// <summary>The lines written for macOS (Cmd) or for the other systems (Ctrl).</summary>
+    internal static IReadOnlyList<HelpEntry> Entries(bool macOs)
     {
         var ui = PdfStrings.Culture;
         var group = PdfStrings.HelpGroupNavigation;
-        var command = OperatingSystem.IsMacOS() ? "Meta" : "Ctrl";
+        var command = macOs ? "Meta" : "Ctrl";
 
-        HelpEntry Line(string name, params string[] keys) => new(group, name, string.Join(" / ", keys.Select(k => KeyNames.Format(k, ui))));
+        HelpEntry Line(string name, params string[] keys) => new(group, name, string.Join(" / ", keys.Select(k => KeyNames.Format(k, ui, macOs))));
 
         return
         [
@@ -32,8 +35,8 @@ internal static class NavigationHelp
             Line(PdfStrings.HelpNavOrganizeMove, "Alt+↑", "Alt+↓"),
             Line(PdfStrings.HelpNavOrganizeEnds, "Alt+" + PdfStrings.HelpKeyHome, "Alt+" + PdfStrings.HelpKeyEnd),
             Line(PdfStrings.HelpNavOrganizeRotate, "[", "]"),
-            Line(PdfStrings.HelpNavOrganizeDuplicate, "Ctrl+D"),
-            Line(PdfStrings.HelpNavOrganizeSelectAll, "Ctrl+A"),
+            Line(PdfStrings.HelpNavOrganizeDuplicate, command + "+D"),
+            Line(PdfStrings.HelpNavOrganizeSelectAll, command + "+A"),
             Line(PdfStrings.HelpNavOrganizeDelete, "Delete"),
             Line(PdfStrings.HelpNavFormWalk, "Tab", "Shift+Tab"),
             Line(PdfStrings.HelpNavFormFill, "Enter", PdfStrings.HelpKeySpace),
@@ -44,13 +47,13 @@ internal static class NavigationHelp
     }
 
     /// <summary>The same lines for a language other than the current one (tests).</summary>
-    internal static IReadOnlyList<HelpEntry> EntriesIn(CultureInfo culture)
+    internal static IReadOnlyList<HelpEntry> EntriesIn(CultureInfo culture, bool macOs = false)
     {
         var before = PdfStrings.Culture;
         PdfStrings.Culture = culture;
         try
         {
-            return Entries();
+            return Entries(macOs);
         }
         finally
         {

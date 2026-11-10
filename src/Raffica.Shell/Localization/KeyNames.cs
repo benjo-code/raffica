@@ -57,7 +57,7 @@ public static class KeyNames
         return Join(parts, ui, macOs);
     }
 
-    internal static string Format(string shortcut, CultureInfo ui, bool macOs)
+    public static string Format(string shortcut, CultureInfo ui, bool macOs)
     {
         ArgumentNullException.ThrowIfNull(shortcut);
         if (shortcut.Length == 0)

@@ -12,6 +12,7 @@ using Raffica.Core.Pages;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Viewing;
+using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf.Organizing;
 
@@ -602,8 +603,26 @@ internal sealed class OrganizeList : UserControl, IDisposable
         }
     }
 
+    /// <summary>The modifier of the page list's everyday keys (duplicate, select all): Ctrl, Cmd on macOS; settable for tests.</summary>
+    internal KeyModifiers CommandModifier { get; set; } = KeyNames.CommandModifier;
+
     private void HandleKey(KeyEventArgs e, int wasFocused)
     {
+        if (e.KeyModifiers == CommandModifier)
+        {
+            if (e.Key == Key.D)
+            {
+                e.Handled = Edit(_session.Duplicate);
+            }
+            else if (e.Key == Key.A)
+            {
+                e.Handled = true;
+                _session.Selection.SelectAll();
+            }
+
+            return;
+        }
+
         switch (e.KeyModifiers)
         {
             case KeyModifiers.Alt:
@@ -615,18 +634,6 @@ internal sealed class OrganizeList : UserControl, IDisposable
                     Key.End => Edit(() => _session.Move(_items.Count)),
                     _ => false,
                 };
-                break;
-            case KeyModifiers.Control:
-                if (e.Key == Key.D)
-                {
-                    e.Handled = Edit(_session.Duplicate);
-                }
-                else if (e.Key == Key.A)
-                {
-                    e.Handled = true;
-                    _session.Selection.SelectAll();
-                }
-
                 break;
             case KeyModifiers.None:
                 if (e.Key == Key.Delete)

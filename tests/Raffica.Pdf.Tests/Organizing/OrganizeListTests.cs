@@ -318,6 +318,35 @@ public sealed class OrganizeListTests
     }
 
     [AvaloniaFact]
+    public async Task CommandDDuplicatesWhenTheCommandModifierIsMeta()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        f.List.CommandModifier = KeyModifiers.Meta;
+        f.Click(1);
+        f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Control);
+        Assert.Equal(6, f.Session.Plan.Slots.Count);
+        f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Meta);
+        Assert.Equal(7, f.Session.Plan.Slots.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task CommandADoesSelectAllWhenTheCommandModifierIsMeta()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        f.List.CommandModifier = KeyModifiers.Meta;
+        f.Click(1);
+        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Meta);
+        Assert.Equal(f.Session.Plan.Slots.Count, f.Session.Selection.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task ControlStaysTheModifierWhereItIsTheCommandModifier()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        Assert.Equal(Raffica.Shell.Localization.KeyNames.CommandModifier, f.List.CommandModifier);
+    }
+
+    [AvaloniaFact]
     public async Task BracketKeysRotateWithAltGrOnGermanLayouts()
     {
         using var f = await OrganizeListFixture.OpenAsync();
