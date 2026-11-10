@@ -9,6 +9,7 @@ using Xunit;
 namespace Raffica.Pdf.Tests.Platform;
 
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
 public sealed class CupsPrintServiceTests
 {
     /// <summary>Names a CUPS-PDF queue to print through for real (its output folder is <see cref="OutputVariable"/>).</summary>

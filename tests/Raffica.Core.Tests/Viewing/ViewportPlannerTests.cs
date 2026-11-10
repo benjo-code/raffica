@@ -128,6 +128,24 @@ public sealed class ViewportPlannerTests
     }
 
     [Fact]
+    public void AtScalingTwoTilesAskForTwiceThePixels()
+    {
+        // A Retina display (scaling 2) needs a sharp request of twice the pixels in each direction, not the 96-dpi size stretched.
+        var layout = Pages(1, 0.5);
+        var viewport = new DipRect(0, 0, 800, 600);
+
+        var atOne = ViewportPlanner.Plan(layout, viewport, 1.0).Single(request => !request.Key.IsPreview);
+        var atTwo = ViewportPlanner.Plan(layout, viewport, 2.0).Single(request => !request.Key.IsPreview);
+
+        // The scale key is rounded to thousandths, so it matches twice the key within one.
+        Assert.InRange(atTwo.Key.ScaleKey, (2 * atOne.Key.ScaleKey) - 1, (2 * atOne.Key.ScaleKey) + 1);
+        Assert.InRange(atTwo.Scale, (2 * atOne.Scale) - 0.002, (2 * atOne.Scale) + 0.002);
+        // The pixel sizes are rounded per scale, so they match twice the size within two.
+        Assert.InRange(atTwo.Rect.Width, (2 * atOne.Rect.Width) - 2, (2 * atOne.Rect.Width) + 2);
+        Assert.InRange(atTwo.Rect.Height, (2 * atOne.Rect.Height) - 2, (2 * atOne.Rect.Height) + 2);
+    }
+
+    [Fact]
     public void HorizontalScrollLimitsTheTiles()
     {
         // Zoom 8: a page is about 6349 DIPs wide; the 800 DIP viewport sees only a part of it.

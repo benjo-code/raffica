@@ -155,7 +155,7 @@ public sealed class PaneFocusTests
     [AvaloniaFact]
     public async Task PaneJoinsTheF6RingWithFieldCode7()
     {
-        using var windows = WindowFixture.Create();
+        using var windows = WindowFixture.Create(keyTips: true);
         var tab = await windows.OpenAsync("outline.pdf");
         var window = windows.Window;
         var view = window.ViewOf(tab)!;

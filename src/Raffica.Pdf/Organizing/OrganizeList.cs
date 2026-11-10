@@ -12,6 +12,7 @@ using Raffica.Core.Pages;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Panes;
 using Raffica.Pdf.Viewing;
+using Raffica.Shell.Localization;
 
 namespace Raffica.Pdf.Organizing;
 
@@ -20,7 +21,7 @@ namespace Raffica.Pdf.Organizing;
 /// what is pending for the page as icon plus text) and a counter above it. The list shows the plan and the selection of the
 /// <see cref="OrganizeSession"/> and changes them only through it. Mouse: click, Ctrl+click and Shift+click select, a drag of the selection
 /// reorders (the pages keep their order and are gathered at the drop). Keys inside the list: Alt+Up and Alt+Down move the selection by one,
-/// Alt+Home and Alt+End to the ends, Delete deletes, <c>[</c> and <c>]</c> turn, Ctrl+D duplicates, Esc collapses the selection to the focused
+/// Alt+Home and Alt+End to the ends, Delete deletes, <c>[</c> and <c>]</c> turn, Ctrl+D (Cmd+D on macOS) duplicates, Esc collapses the selection to the focused
 /// page; Tab leaves the list. The thumbnails follow the rules of the navigation list (<see cref="PagesPane"/>): only after the first sharp page
 /// of the tab, only while shown, only for the realised items.
 /// </summary>
@@ -602,8 +603,26 @@ internal sealed class OrganizeList : UserControl, IDisposable
         }
     }
 
+    /// <summary>The modifier of the page list's everyday keys (duplicate, select all): Ctrl, Cmd on macOS; settable for tests.</summary>
+    internal KeyModifiers CommandModifier { get; set; } = KeyNames.CommandModifier;
+
     private void HandleKey(KeyEventArgs e, int wasFocused)
     {
+        if (e.KeyModifiers == CommandModifier)
+        {
+            if (e.Key == Key.D)
+            {
+                e.Handled = Edit(_session.Duplicate);
+            }
+            else if (e.Key == Key.A)
+            {
+                e.Handled = true;
+                _session.Selection.SelectAll();
+            }
+
+            return;
+        }
+
         switch (e.KeyModifiers)
         {
             case KeyModifiers.Alt:
@@ -615,18 +634,6 @@ internal sealed class OrganizeList : UserControl, IDisposable
                     Key.End => Edit(() => _session.Move(_items.Count)),
                     _ => false,
                 };
-                break;
-            case KeyModifiers.Control:
-                if (e.Key == Key.D)
-                {
-                    e.Handled = Edit(_session.Duplicate);
-                }
-                else if (e.Key == Key.A)
-                {
-                    e.Handled = true;
-                    _session.Selection.SelectAll();
-                }
-
                 break;
             case KeyModifiers.None:
                 if (e.Key == Key.Delete)

@@ -18,13 +18,14 @@ public sealed class StartupCreatesNoPackagingWorkTests
 
     private static void RestoreTheme() => ShellTheme.Apply(Avalonia.Application.Current!, ThemeMode.System, AppInk.Pdf, null);
 
-    // The bridge to the Finder and the Dock exists only on macOS: elsewhere a window has none and it costs nothing.
+    // The bridge to the Finder and the Dock belongs to the window host of the app (macOS): a window owns none, on any system.
     [AvaloniaFact]
-    public void NoFileActivationBridgeOutsideMacOS()
+    public void TheWindowOwnsNoFileActivationBridge()
     {
-        Assert.SkipWhen(OperatingSystem.IsMacOS(), "macOS makes the bridge in App");
-        using var fixture = WindowFixture.Create();
-        Assert.Null(fixture.Window.FileActivation);
+        const System.Reflection.BindingFlags all = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        var members = typeof(PdfWindow).GetMembers(all);
+        Assert.DoesNotContain(members, member => (member as System.Reflection.PropertyInfo)?.PropertyType == typeof(Raffica.Pdf.Hosting.FileActivationBridge));
+        Assert.DoesNotContain(members, member => (member as System.Reflection.FieldInfo)?.FieldType == typeof(Raffica.Pdf.Hosting.FileActivationBridge));
     }
 
     // The service is the only thing that could start a process or read the registry: if it is never made, nothing of the packaging runs.

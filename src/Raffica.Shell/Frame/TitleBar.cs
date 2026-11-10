@@ -63,7 +63,7 @@ public class TitleBar : TemplatedControl
             bar._caption.IsVisible = e.GetNewValue<bool>();
             bar.InvalidateMeasure();
         });
-        LeadingInsetProperty.Changed.AddClassHandler<TitleBar>((bar, e) => bar._insetColumn.Width = new GridLength(e.GetNewValue<double>()));
+        LeadingInsetProperty.Changed.AddClassHandler<TitleBar>((bar, _) => bar.ApplyInset());
     }
 
     public TitleBar()
@@ -78,7 +78,7 @@ public class TitleBar : TemplatedControl
         _caption.Children.Add(_maximize);
         _caption.Children.Add(_close);
         _caption.IsVisible = ShowCaptionButtons;
-        _insetColumn.Width = new GridLength(LeadingInset);
+        _insetColumn.Width = new GridLength(CurrentInset);
 
         _minimize.Click += (_, _) =>
         {
@@ -152,7 +152,7 @@ public class TitleBar : TemplatedControl
         {
             _mark.Measure(new Size(double.PositiveInfinity, availableSize.Height));
             _trailing.Measure(new Size(double.PositiveInfinity, availableSize.Height));
-            var taken = LeadingInset + _mark.DesiredSize.Width + _trailing.DesiredSize.Width + (ShowCaptionButtons ? 3 * 46 : 0) + 28 + TabsRoom + Search.Margin.Right + Tabs.Margin.Right;
+            var taken = CurrentInset + _mark.DesiredSize.Width + _trailing.DesiredSize.Width + (ShowCaptionButtons ? 3 * 46 : 0) + 28 + TabsRoom + Search.Margin.Right + Tabs.Margin.Right;
             _searchColumn.Width = new GridLength(Math.Clamp(availableSize.Width - taken, SearchMin, SearchMax));
         }
 
@@ -184,6 +184,7 @@ public class TitleBar : TemplatedControl
             PrepareWindow(window, ShowCaptionButtons);
             window.PropertyChanged += OnWindowPropertyChanged;
             UpdateMaximizeButton();
+            ApplyInset();
         }
     }
 
@@ -203,7 +204,23 @@ public class TitleBar : TemplatedControl
         if (e.Property == Window.WindowStateProperty)
         {
             UpdateMaximizeButton();
+            ApplyInset();
         }
+    }
+
+    /// <summary>
+    /// The width the bar keeps free on the left: <paramref name="inset"/>, except in full screen on macOS, where the system hides the window buttons and the
+    /// column would be an empty gap.
+    /// </summary>
+    public static double EffectiveInset(double inset, WindowState state, bool macOs) =>
+        macOs && state == WindowState.FullScreen ? 0 : inset;
+
+    private double CurrentInset => EffectiveInset(LeadingInset, _window?.WindowState ?? WindowState.Normal, OperatingSystem.IsMacOS());
+
+    private void ApplyInset()
+    {
+        _insetColumn.Width = new GridLength(CurrentInset);
+        InvalidateMeasure();
     }
 
     private void UpdateMaximizeButton()

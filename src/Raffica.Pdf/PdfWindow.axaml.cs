@@ -39,7 +39,7 @@ namespace Raffica.Pdf;
 /// pages pane on the left (204 px), the marks pane on the right (256 px, closed until asked for), the document slot and the status bar. Without
 /// a document tab it shows the start view (no panes, no status bar). The document slot shows the page view of the active tab.
 /// </summary>
-internal sealed partial class PdfWindow : Window
+internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
 {
     /// <summary>Width of the pages pane in device-independent pixels.</summary>
     internal const double PagesPaneWidth = 204;
@@ -60,7 +60,10 @@ internal sealed partial class PdfWindow : Window
     private const int MaxHandoverErrorCards = 3;
     private const int MaxShownNameLength = 120;
 
-    private readonly IDisposable _fieldCodes;
+    private readonly IDisposable? _fieldCodes;
+
+    /// <summary>Whether the Alt key tips (field codes) exist in this window; never on macOS, where Option types characters.</summary>
+    internal bool HasKeyTips { get; }
     private readonly EventHandler? _processExit;
     private readonly IDisposable _selectedSubscription;
     private readonly CloseGuard _closeGuard;
@@ -91,6 +94,7 @@ internal sealed partial class PdfWindow : Window
     private int _closeRuns;
     private bool IsCloseRunning => _closeRuns > 0;
     private readonly List<string> _pendingHandover = [];
+    private readonly List<string> _undelivered = [];
     private bool _handoverDrainPosted;
     private SingleInstance? _instance;
     private PdfEngine? _engine;
@@ -108,9 +112,11 @@ internal sealed partial class PdfWindow : Window
     /// <param name="printService">The print service (tests give a fake; null: the one of the system, made on the first print).</param>
     /// <param name="saveRunner">Replaces the save of Core (tests; null: the real save).</param>
     /// <param name="savePicker">Replaces the save dialog of the system (tests; null: the system dialog).</param>
-    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null, SaveRunner? saveRunner = null, Func<PdfTab, Task<string?>>? savePicker = null)
+    /// <param name="keyTips">Whether the Alt key tips exist (tests force either; null: every system except macOS).</param>
+    public PdfWindow(PdfOptions options, ShellSettings settings, AppSettings? appSettings = null, Action<Uri>? launcher = null, TimeProvider? time = null, IPrintService? printService = null, SaveRunner? saveRunner = null, Func<PdfTab, Task<string?>>? savePicker = null, bool? keyTips = null)
     {
         ArgumentNullException.ThrowIfNull(options);
+        HasKeyTips = keyTips ?? KeyTips.Offered(OperatingSystem.IsMacOS());
         ArgumentNullException.ThrowIfNull(settings);
         _launcher = launcher;
         _time = time;
@@ -149,8 +155,11 @@ internal sealed partial class PdfWindow : Window
         NavigationPane = new Pane { Title = PdfStrings.PanePages, Width = PagesPaneWidth };
         DocumentPane = new Pane { IsDocument = true, PaneName = ShellStrings.PaneDocument };
         CommentsPane = new Pane { Title = PdfStrings.PaneMarks, Width = MarksPaneWidth, IsOpen = false };
-        FieldCodeBadge.SetCode(NavigationPane, "6");
-        FieldCodeBadge.SetCode(CommentsPane, "7");
+        if (HasKeyTips)
+        {
+            FieldCodeBadge.SetCode(NavigationPane, "6");
+            FieldCodeBadge.SetCode(CommentsPane, "7");
+        }
 
         Status = new StatusBar();
         Start = new StartView { Tiles = StartTile.OpenPdfOnly(), Recent = [], OwnApp = StartApp.Pdf };
@@ -208,13 +217,17 @@ internal sealed partial class PdfWindow : Window
         FrameKeys.Attach(this, TitleSearch);
         AttachShortcuts(definition);
         var paneFocus = new PaneFocus(this, [NavigationPane, DocumentPane, CommentsPane], Status);
-        FieldCodeTarget[] targets =
-        [
-            new("Q", TitleSearch.FocusAndSelect),
-            new("6", () => paneFocus.Focus(NavigationPane)),
-            new("7", () => paneFocus.Focus(CommentsPane)),
-        ];
-        _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
+        if (HasKeyTips)
+        {
+            FieldCodeTarget[] targets =
+            [
+                new("Q", TitleSearch.FocusAndSelect),
+                new("6", () => paneFocus.Focus(NavigationPane)),
+                new("7", () => paneFocus.Focus(CommentsPane)),
+            ];
+            _fieldCodes = FieldCodeInput.Attach(this, new FieldCodeSession(definition), Ribbon, Status, targets);
+        }
+
         Closing += OnWindowClosing;
         Closed += OnWindowClosed;
 
@@ -399,7 +412,7 @@ internal sealed partial class PdfWindow : Window
         Step(() => _exportFlow?.Cancel());
         Step(() => _defaultAppCancel?.Cancel());
         Step(EndUpdates);
-        Step(_fieldCodes.Dispose);
+        Step(() => _fieldCodes?.Dispose());
         Step(_selectedSubscription.Dispose);
         Step(() => _firstSharpFallback?.Stop());
         Step(() => AppDomain.CurrentDomain.ProcessExit -= _processExit);
@@ -704,7 +717,20 @@ internal sealed partial class PdfWindow : Window
         ArgumentException.ThrowIfNullOrEmpty(logDirectory);
         var open = openFolder ?? FolderLauncher.Open;
         var shown = Dialogs.ShowAsync<bool>(done => CrashCard.Create(() => open(logDirectory), () => done(true)));
-        _ = shown.ContinueWith(_ => closed?.Invoke(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        // The callback runs once: when the card is gone, or when the window closes first (the card is then shown or queued behind another one and never finishes),
+        // so the crash guard never waits for a card that cannot come back.
+        var called = 0;
+        void Done()
+        {
+            if (closed is not null && Interlocked.Exchange(ref called, 1) == 0)
+            {
+                closed();
+            }
+        }
+
+        Closed += (_, _) => Done();
+        _ = shown.ContinueWith(_ => Done(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
@@ -727,9 +753,6 @@ internal sealed partial class PdfWindow : Window
         _instance = instance;
     }
 
-    /// <summary>The files the system hands to the running app (macOS); set by the app before the window opens, null elsewhere and in a measurement run.</summary>
-    internal Hosting.FileActivationBridge? FileActivation { get; set; }
-
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
@@ -738,8 +761,6 @@ internal sealed partial class PdfWindow : Window
         // what arrives still waits for the UI (ShowHandover).
         StartListening();
 
-        // Files the Finder or the Dock handed over before this point wait in the bridge (macOS only). Like the pipe, the file check runs off the UI thread.
-        FileActivation?.Attach(paths => _ = Task.Run(() => OnHandover(paths)));
         if (_options.Files.Count > 0)
         {
             // Not awaited: a password question of the first file must not hold back the work after the first page. The page view of the
@@ -834,6 +855,7 @@ internal sealed partial class PdfWindow : Window
             Dispatcher.Post(() => HandoverArrived?.Invoke());
             if (_closeConfirmed)
             {
+                Undeliver(paths);
                 return;
             }
 
@@ -857,6 +879,7 @@ internal sealed partial class PdfWindow : Window
     {
         if (_closeConfirmed)
         {
+            Undeliver(accepted);
             return;
         }
 
@@ -960,6 +983,29 @@ internal sealed partial class PdfWindow : Window
         var files = _pendingHandover.ToList();
         _pendingHandover.Clear();
         _ = GuardAsync(() => OpenFilesAsync(files));
+    }
+
+    // Files this window will not open because it is going away: the host gives them to the next window (TakeUndelivered). Called on any thread.
+    private void Undeliver(IReadOnlyList<string> paths)
+    {
+        lock (_undelivered)
+        {
+            _undelivered.AddRange(paths);
+        }
+    }
+
+    /// <summary>The files this window was handed but will not open: the ones queued behind a card or a close question and the ones that arrived once the close was confirmed. Cleared by the call.</summary>
+    public IReadOnlyList<string> TakeUndelivered()
+    {
+        List<string> taken;
+        lock (_undelivered)
+        {
+            taken = [.. _pendingHandover, .. _undelivered];
+            _pendingHandover.Clear();
+            _undelivered.Clear();
+        }
+
+        return taken;
     }
 
     /// <summary>The files of a hand-over that wait for a card or a close question to end (tests).</summary>
@@ -1824,7 +1870,7 @@ internal sealed partial class PdfWindow : Window
     }
 
     // Restores a minimized window and brings it to the front (a hand-over, a close question that waited).
-    private void BringToFront()
+    public void BringToFront()
     {
         if (WindowState == WindowState.Minimized)
         {
@@ -1849,13 +1895,38 @@ internal sealed partial class PdfWindow : Window
         }
 
         e.Cancel = true;
+        await RunCloseAsync(e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown);
+    }
 
-        // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions.
-        if (IsCloseRunning)
+    /// <summary>True while a close that came from a quit (the application or the system shuts down) is under way: the host ends the app once this window has closed.</summary>
+    public bool QuitRequested { get; private set; }
+
+    /// <summary>True once every close question was answered and the window has not closed yet.</summary>
+    public bool IsClosing => _closeConfirmed;
+
+    /// <summary>The files of the host (macOS) go through the same check off the UI thread as the files of the pipe.</summary>
+    public void Handover(IReadOnlyList<string> paths) => _ = Task.Run(() => OnHandover(paths));
+
+    /// <summary>
+    /// The close questions and, when all are answered, the close itself (the seam of <see cref="OnWindowClosing"/>; <c>Window.Close()</c> cannot carry a reason headless).
+    /// <paramref name="quit"/> arms <see cref="QuitRequested"/> for this attempt; a Cancel answer or an exception disarms it again.
+    /// </summary>
+    internal async Task RunCloseAsync(bool quit)
+    {
+        if (_closeConfirmed)
         {
             return;
         }
 
+        // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions
+        // (a quit that arrives during a plain close upgrades it, a plain close never downgrades a quit).
+        if (IsCloseRunning)
+        {
+            QuitRequested |= quit;
+            return;
+        }
+
+        QuitRequested = quit;
         _closeRuns++;
         try
         {
@@ -1865,10 +1936,15 @@ internal sealed partial class PdfWindow : Window
                 _closeConfirmed = true;
                 Dispatcher.UIThread.Post(Close);
             }
+            else
+            {
+                QuitRequested = false;
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // An exception in the close guard keeps the window open; it must not take the app down.
+            QuitRequested = false;
         }
         finally
         {

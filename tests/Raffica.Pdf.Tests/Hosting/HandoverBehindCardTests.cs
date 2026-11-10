@@ -57,6 +57,37 @@ public sealed class HandoverBehindCardTests
     }
 
     [AvaloniaFact]
+    public void AWindowThatClosesWithTheCrashCardOpenStillReportsTheCardClosedOnce()
+    {
+        using var fixture = WindowFixture.Create();
+        var window = fixture.Window;
+        var closed = 0;
+        window.ShowCrashCard(fixture.Folder, _ => { }, () => Interlocked.Increment(ref closed));
+        Pump();
+        Assert.True(window.Host.IsOpen);
+        Assert.Equal(0, closed);
+
+        window.Close();
+        Pump();
+        Assert.Equal(1, closed);
+    }
+
+    [AvaloniaFact]
+    public async Task TheCrashCardReportsClosedOnceWhenItIsDismissedAndTheWindowCloses()
+    {
+        using var fixture = WindowFixture.Create();
+        var window = fixture.Window;
+        var closed = 0;
+        window.ShowCrashCard(fixture.Folder, _ => { }, () => Interlocked.Increment(ref closed));
+        Pump();
+        Click(window, "PART_Ok");
+        await WaitAsync(() => Volatile.Read(ref closed) == 1);
+        window.Close();
+        Pump();
+        Assert.Equal(1, closed);
+    }
+
+    [AvaloniaFact]
     public async Task ATabThatOpensBehindACardDoesNotTakeTheFocusFromIt()
     {
         using var fixture = WindowFixture.Create();

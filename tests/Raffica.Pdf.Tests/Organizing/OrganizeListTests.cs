@@ -74,6 +74,13 @@ internal sealed class OrganizeListFixture : IDisposable
 
 public sealed class OrganizeListTests
 {
+    // The page list's own D / A keys use the platform command key (OrganizeList.CommandModifier).
+    private static RawInputModifiers CommandKey => OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
+    // The click toggle belongs to Avalonia's ListBox, which asks PlatformHotkeyConfiguration.CommandModifiers. A real macOS app binds Meta there,
+    // but the headless platform binds the default configuration (Control) on every OS, so a headless click toggles on Control everywhere.
+    private static RawInputModifiers ToggleKey => RawInputModifiers.Control;
+
     [AvaloniaFact]
     public async Task ListShowsOneItemPerSlotInPlanOrder()
     {
@@ -171,18 +178,18 @@ public sealed class OrganizeListTests
         using var f = await OrganizeListFixture.OpenAsync();
         f.Click(0);
         Assert.Equal([0], f.Session.Selection.Positions);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, ToggleKey);
         Assert.Equal([0, 2], f.Session.Selection.Positions);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, ToggleKey);
         Assert.Equal([0], f.Session.Selection.Positions);
         f.Click(0);
         f.Click(3, RawInputModifiers.Shift);
         Assert.Equal([0, 1, 2, 3], f.Session.Selection.Positions);
-        f.Click(1, RawInputModifiers.Control);
+        f.Click(1, ToggleKey);
         Assert.Equal([0, 2, 3], f.Session.Selection.Positions);
 
         Assert.True(f.Item(1).Focus());
-        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Control);
+        f.Key(Key.A, PhysicalKey.A, CommandKey);
         Assert.Equal([0, 1, 2, 3, 4, 5], f.Session.Selection.Positions);
         Assert.Equal(6, f.List.List.Selection.SelectedIndexes.Count);
     }
@@ -192,7 +199,7 @@ public sealed class OrganizeListTests
     {
         using var f = await OrganizeListFixture.OpenAsync();
         f.Click(0);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, ToggleKey);
         Assert.Equal([0, 2], f.Session.Selection.Positions);
 
         // Press on a selected page, move below the middle of the third item (the gap before the fourth), release.
@@ -231,7 +238,7 @@ public sealed class OrganizeListTests
 
         // A multi-selection pressed and released without a move collapses to the pressed page, as a click does.
         f.Click(0);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, ToggleKey);
         f.Click(0);
         Assert.Equal([0], f.Session.Selection.Positions);
         Assert.True(OrganizeDrag.IsNoOp([2, 3], 2));
@@ -313,8 +320,37 @@ public sealed class OrganizeListTests
         f.Key(Key.OemOpenBrackets, PhysicalKey.BracketLeft);
         f.Key(Key.OemOpenBrackets, PhysicalKey.BracketLeft);
         Assert.Equal(270, f.Session.Plan.Slots[1].ExtraRotation);
-        f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Control);
+        f.Key(Key.D, PhysicalKey.D, CommandKey);
         Assert.Equal(7, f.Session.Plan.Slots.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task CommandDDuplicatesWhenTheCommandModifierIsMeta()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        f.List.CommandModifier = KeyModifiers.Meta;
+        f.Click(1);
+        f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Control);
+        Assert.Equal(6, f.Session.Plan.Slots.Count);
+        f.Key(Key.D, PhysicalKey.D, RawInputModifiers.Meta);
+        Assert.Equal(7, f.Session.Plan.Slots.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task CommandADoesSelectAllWhenTheCommandModifierIsMeta()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        f.List.CommandModifier = KeyModifiers.Meta;
+        f.Click(1);
+        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Meta);
+        Assert.Equal(f.Session.Plan.Slots.Count, f.Session.Selection.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task TheDefaultCommandModifierIsMetaOnMacAndControlElsewhere()
+    {
+        using var f = await OrganizeListFixture.OpenAsync();
+        Assert.Equal(OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control, f.List.CommandModifier);
     }
 
     [AvaloniaFact]
@@ -358,7 +394,7 @@ public sealed class OrganizeListTests
         f.Click(500);
         Assert.Equal(500, NavList.FocusedIndex(list));
 
-        f.Key(Key.A, PhysicalKey.A, RawInputModifiers.Control);
+        f.Key(Key.A, PhysicalKey.A, CommandKey);
         Assert.Equal(1000, f.Session.Selection.Count);
         Assert.Equal(500, NavList.FocusedIndex(list));
         Assert.Contains(500, f.List.RealizedPositions);

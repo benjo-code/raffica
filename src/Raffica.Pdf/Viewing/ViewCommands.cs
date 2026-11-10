@@ -37,6 +37,13 @@ internal static class ViewCommands
         return zoom;
     }
 
+    /// <summary>
+    /// The zoom after a touch pad pinch: <paramref name="magnification"/> is the relative change of the gesture (0.5 enlarges by half, -0.5 halves).
+    /// The pinch is continuous between the limits of <see cref="ZoomSteps"/> and does not snap to its table. A value that is not a number changes nothing.
+    /// </summary>
+    public static double ZoomByMagnify(double zoom, double magnification) =>
+        double.IsFinite(magnification) ? ZoomSteps.Clamp(zoom * (1 + magnification)) : zoom;
+
     /// <summary>The zoom cell: the zoom as a whole percentage, for example <c>125%</c>.</summary>
     public static string ZoomText(double zoom) =>
         (double.IsFinite(zoom) ? Math.Round(zoom * 100, MidpointRounding.AwayFromZero) : 100).ToString("0", PdfStrings.Culture) + "%";
