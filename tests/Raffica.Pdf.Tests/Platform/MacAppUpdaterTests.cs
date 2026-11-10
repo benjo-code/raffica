@@ -20,6 +20,9 @@ internal sealed class MacRunner : IProcessRunner
 
     public int AttachExit { get; set; }
 
+    /// <summary>The attach did not end in time or could not be started (<see cref="IProcessRunner"/> answers <see langword="null"/>); the image may still have been mounted.</summary>
+    public bool AttachTimesOut { get; set; }
+
     public int DittoExit { get; set; }
 
     public int CodesignExit { get; set; }
@@ -55,6 +58,12 @@ internal sealed class MacRunner : IProcessRunner
                     foreach (var app in Apps)
                     {
                         Directory.CreateDirectory(Path.Combine(mount, app));
+                    }
+
+                    if (AttachTimesOut)
+                    {
+                        // The worst case: the image did get mounted, the answer just never came.
+                        return Task.FromResult<ProcessOutcome?>(null);
                     }
                 }
 
@@ -114,7 +123,7 @@ public sealed class MacAppUpdaterTests : IDisposable
 
     public void Dispose() => _kit.Dispose();
 
-    private MacAppUpdater Updater(string? bundle = null, Action<string>? createFolder = null, PackageForm form = PackageForm.MacAppArm64) => new(new MacAppUpdaterSetup(
+    private MacAppUpdater Updater(string? bundle = null, Action<string>? createFolder = null, PackageForm form = PackageForm.MacAppArm64, Action<string>? deleteEntry = null) => new(new MacAppUpdaterSetup(
         bundle ?? Bundle,
         form,
         _kit.Config,
@@ -124,7 +133,8 @@ public sealed class MacAppUpdaterTests : IDisposable
         _runner,
         _starter,
         () => _shutdowns++,
-        createFolder));
+        createFolder,
+        deleteEntry));
 
     private StagedUpdate Stage(string? bundle = null)
     {
@@ -323,6 +333,53 @@ public sealed class MacAppUpdaterTests : IDisposable
         Assert.Empty(_starter.Starts);
         Assert.DoesNotContain(_runner.Runs, run => run.File.EndsWith("ditto", StringComparison.Ordinal));
         Assert.False(Directory.Exists(NewBundle));
+    }
+
+    [Fact]
+    public async Task AnAttachThatGaveNoAnswerIsInstallFailedAndStillDetaches()
+    {
+        // Not started or not ended within 60 s: the runner answers null. That is never success, and the image may have been mounted
+        // just before the time ran out, so the mount point is detached.
+        var staged = Stage();
+        _runner.AttachTimesOut = true;
+        await File.WriteAllTextAsync(_kit.SessionPath, "{}", TestContext.Current.CancellationToken);
+
+        var result = await Updater().ApplyAsync(staged, CancellationToken.None);
+
+        Assert.False(result.IsRestarting);
+        Assert.Equal(UpdateWording.ForApplier(UpdateApplyProblem.InstallFailed, PdfStrings.Culture), result.Message);
+        Assert.Contains($"/usr/bin/hdiutil detach {Mount(staged)}", _runner.Lines);
+        Assert.DoesNotContain(_runner.Runs, run => run.File.EndsWith("ditto", StringComparison.Ordinal));
+        Assert.Empty(_starter.Starts);
+        Assert.False(File.Exists(_kit.SessionPath));
+        Assert.False(Directory.Exists(NewBundle));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AStaleStagedOrBackupEntryThatStaysFailsWithTheFolderInsteadOfMerging(bool staleStaged)
+    {
+        // A leftover that cannot be deleted (the delete is made to leave it) must not be merged into by the copy.
+        var staged = Stage();
+        await File.WriteAllTextAsync(_kit.SessionPath, "{}", TestContext.Current.CancellationToken);
+        var stale = staleStaged ? NewBundle : BackupBundle;
+        Directory.CreateDirectory(stale);
+
+        var result = await Updater(deleteEntry: path =>
+        {
+            if (path != stale)
+            {
+                MacAppUpdater.DeleteEntryByDefault(path);
+            }
+        }).ApplyAsync(staged, CancellationToken.None);
+
+        Assert.False(result.IsRestarting);
+        Assert.True(result.OffersDownloadPage);
+        Assert.Equal(UpdateWording.ForApplier(UpdateApplyProblem.FolderWriteProtected, PdfStrings.Culture, Parent), result.Message);
+        Assert.Empty(_runner.Runs);
+        Assert.Empty(_starter.Starts);
+        Assert.False(File.Exists(_kit.SessionPath));
     }
 
     [Theory]

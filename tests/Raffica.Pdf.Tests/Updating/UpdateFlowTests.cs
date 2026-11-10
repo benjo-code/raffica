@@ -161,6 +161,43 @@ public sealed class UpdateFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task AHookGetsTheStagingFolderBeforeItIsDeleted()
+    {
+        _kit.Release("0.2.0");
+        var staging = _kit.StagingOf("0.2.0");
+        Directory.CreateDirectory(Path.Combine(staging, "mnt"));
+        await File.WriteAllTextAsync(Path.Combine(staging, "left-over.txt"), "x", Ct);
+        var seen = new List<(string Directory, bool FolderThere, bool LeftOverThere)>();
+        using var flow = _kit.Flow();
+        flow.BeforeStagingDelete = directory =>
+        {
+            seen.Add((directory, Directory.Exists(Path.Combine(directory, "mnt")), File.Exists(Path.Combine(directory, "left-over.txt"))));
+            return Task.CompletedTask;
+        };
+        await flow.CheckNowAsync(Ct);
+
+        await flow.DownloadAndStageAsync(Ct);
+
+        // Called once, with the old staging folder still in place (a mount that blocks the delete must be detached by then), and the download went on.
+        Assert.Equal([(staging, true, true)], seen);
+        Assert.Equal(UpdateStage.Ready, flow.State.Stage);
+        Assert.False(File.Exists(Path.Combine(staging, "left-over.txt")));
+    }
+
+    [Fact]
+    public async Task AHookThatFailsDoesNotStopTheDownload()
+    {
+        _kit.Release("0.2.0");
+        using var flow = _kit.Flow();
+        flow.BeforeStagingDelete = _ => throw new IOException("no hdiutil");
+        await flow.CheckNowAsync(Ct);
+
+        await flow.DownloadAndStageAsync(Ct);
+
+        Assert.Equal(UpdateStage.Ready, flow.State.Stage);
+    }
+
+    [Fact]
     public async Task AWrongChecksumDeletesTheFileAndFailsWithChecksum()
     {
         var payload = new byte[2000];

@@ -14,6 +14,7 @@ namespace Raffica.Pdf.Platform.MacOS;
 /// <param name="Starter">Starts the swap script.</param>
 /// <param name="Shutdown">Ends the app once the script runs.</param>
 /// <param name="CreateFolder">Makes the folder entry of the staged bundle (a seam: tests make it fail the way a write-protected folder does); <see langword="null"/> is <see cref="Directory.CreateDirectory(string)"/>.</param>
+/// <param name="DeleteEntry">Removes a folder, file or link entry (a seam: tests leave an entry behind the way a protected one stays); <see langword="null"/> is <see cref="MacAppUpdater.DeleteEntryByDefault(string)"/>.</param>
 internal sealed record MacAppUpdaterSetup(
     string BundlePath,
     PackageForm Form,
@@ -24,7 +25,8 @@ internal sealed record MacAppUpdaterSetup(
     IProcessRunner Runner,
     IUpdateProcessStarter Starter,
     Action Shutdown,
-    Action<string>? CreateFolder = null);
+    Action<string>? CreateFolder = null,
+    Action<string>? DeleteEntry = null);
 
 /// <summary>
 /// Installs a verified update of a macOS bundle: the disk image is mounted read-only at a mount point of our own (so no output is parsed), the one <c>.app</c> on it is
@@ -133,6 +135,17 @@ internal sealed class MacAppUpdater(MacAppUpdaterSetup setup) : IUpdateApplier
         {
             DeleteEntry(newBundle);
             DeleteEntry(backup);
+
+            // A leftover that stayed (a protected entry, a busy file) is not merged into: the copy would mix old and new files, and the swap
+            // would move a backup entry that is not ours. The folder is named as not writable.
+            foreach (var stale in new[] { newBundle, backup })
+            {
+                if (EntryExists(stale))
+                {
+                    throw new UnauthorizedAccessException($"A leftover of an earlier update could not be removed: {stale}");
+                }
+            }
+
             (setup.CreateFolder ?? (path => Directory.CreateDirectory(path)))(newBundle);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -186,10 +199,12 @@ internal sealed class MacAppUpdater(MacAppUpdaterSetup setup) : IUpdateApplier
             mounted = true;
             var attach = await setup.Runner.RunAsync(
                 Hdiutil, ["attach", "-readonly", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mount, image], AttachTimeout, ct).ConfigureAwait(false);
-            if (attach is { ExitCode: not 0 })
+            if (attach is not { ExitCode: 0 })
             {
-                // Nothing was mounted.
-                mounted = false;
+                // A null outcome (not started, or no answer within the time limit) is a failure like a non-zero exit, never success. Only a
+                // real exit code proves that nothing was mounted: after a timeout the image may have been attached just before, so it stays
+                // in the detach below.
+                mounted = attach is null;
                 return UpdateApplierSupport.Fail(UpdateApplyProblem.InstallFailed);
             }
 
@@ -257,8 +272,15 @@ internal sealed class MacAppUpdater(MacAppUpdaterSetup setup) : IUpdateApplier
         return outcome is { ExitCode: 0 } ? outcome.Output.Trim() : null;
     }
 
-    // Removes a folder, file or link as an entry (a link is never followed).
-    private static void DeleteEntry(string path)
+    private void DeleteEntry(string path) => (setup.DeleteEntry ?? DeleteEntryByDefault)(path);
+
+    // Whether anything (a folder, a file, a link even to nothing) is at the path.
+    private static bool EntryExists(string path) =>
+        Directory.Exists(path) || File.Exists(path) || new FileInfo(path).LinkTarget is not null;
+
+    /// <summary>Removes a folder, file or link as an entry (a link is never followed); a failure leaves it in place.</summary>
+    /// <param name="path">The entry.</param>
+    internal static void DeleteEntryByDefault(string path)
     {
         try
         {
@@ -273,7 +295,7 @@ internal sealed class MacAppUpdater(MacAppUpdaterSetup setup) : IUpdateApplier
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // A leftover is removed by the next attempt.
+            // The caller looks again whether the entry is gone (EntryExists); a leftover that stays is a failure there.
         }
     }
 

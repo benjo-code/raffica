@@ -13,6 +13,15 @@ internal static class MacSwapScript
     /// 6 verifier (<c>/usr/bin/codesign</c>), 7 restore flag (<c>1</c> or <c>0</c>).
     /// </summary>
     public const string Text = """
+        reopen() {
+          # A function has its own positional parameters: opener, bundle, restore flag. The same rule on every path, so a failed
+          # swap brings the old version back with the tabs, as the success path does.
+          if [ "$3" = "1" ]; then
+            "$1" "$2" --args --restore-session
+          else
+            "$1" "$2"
+          fi
+        }
         n=0
         while kill -0 "$1" 2>/dev/null && [ "$n" -lt 30 ]; do
           sleep 1
@@ -20,24 +29,20 @@ internal static class MacSwapScript
         done
         if ! "$6" --verify --deep --strict "$3"; then
           rm -rf "$3"
-          "$5" "$2"
+          reopen "$5" "$2" "$7"
           exit 1
         fi
         if ! mv "$2" "$4"; then
-          "$5" "$2"
+          reopen "$5" "$2" "$7"
           exit 1
         fi
         if ! mv "$3" "$2"; then
           mv "$4" "$2"
-          "$5" "$2"
+          reopen "$5" "$2" "$7"
           exit 1
         fi
         rm -rf "$4"
-        if [ "$7" = "1" ]; then
-          "$5" "$2" --args --restore-session
-        else
-          "$5" "$2"
-        fi
+        reopen "$5" "$2" "$7"
         """;
 
     /// <summary>The argument list for <c>/bin/sh</c>: the script and its seven positional parameters.</summary>

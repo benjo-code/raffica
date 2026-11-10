@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Raffica.Core.Updates;
 using Raffica.Pdf.Platform;
+using Raffica.Pdf.Platform.MacOS;
 using Raffica.Pdf.Settings;
 
 namespace Raffica.Pdf.Updating;
@@ -54,6 +55,16 @@ internal static class UpdateServices
         {
             ProcessPath = processPath,
             TargetDirectory = target,
+            BeforeStagingDelete = StagingReleaseFor(OperatingSystem.IsMacOS()),
         };
     }
+
+    /// <summary>
+    /// What runs before a staging folder is deleted: on macOS the detach of a disk image an earlier update left mounted inside it, elsewhere nothing
+    /// (<see langword="null"/>). The runner is made when the hook runs, never at startup.
+    /// </summary>
+    /// <param name="isMacOS">Whether the program runs on macOS.</param>
+    /// <param name="runner">The runner of the system programs; <see langword="null"/> is <see cref="SystemProcessRunner"/> (tests pass a fake).</param>
+    internal static Func<string, Task>? StagingReleaseFor(bool isMacOS, IProcessRunner? runner = null) =>
+        isMacOS ? directory => MacStagingMount.ReleaseAsync(runner ?? new SystemProcessRunner(), directory) : null;
 }

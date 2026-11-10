@@ -66,48 +66,54 @@ public sealed class MacSwapScriptTests : IDisposable
         Assert.Equal([old], File.ReadAllLines(_openerLog));
     }
 
-    [Fact]
-    public void AFailedVerifyKeepsTheOldBundleRemovesTheNewAndReopensTheOld()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AFailedVerifyKeepsTheOldBundleRemovesTheNewAndReopensTheOld(bool restore)
     {
         SkipOnWindows();
         var (old, fresh, backup) = Bundles();
 
-        var code = Run(old, fresh, backup, FalseTool, restore: true);
+        var code = Run(old, fresh, backup, FalseTool, restore);
 
         Assert.Equal(1, code);
         Assert.Equal("old", File.ReadAllText(Path.Combine(old, "Contents", "id.txt")));
         Assert.False(Directory.Exists(fresh));
         Assert.False(Directory.Exists(backup));
-        Assert.Equal([old], File.ReadAllLines(_openerLog));
+        Assert.Equal(Reopened(old, restore), File.ReadAllLines(_openerLog));
     }
 
-    [Fact]
-    public void AFailedMoveRestoresTheBackup()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AFailedMoveRestoresTheBackup(bool restore)
     {
         SkipOnWindows();
         var (old, fresh, backup) = Bundles();
         Directory.Delete(fresh, recursive: true); // the verifier is a stub, so the second move is what fails
 
-        var code = Run(old, fresh, backup, TrueTool, restore: true);
+        var code = Run(old, fresh, backup, TrueTool, restore);
 
         Assert.Equal(1, code);
         Assert.Equal("old", File.ReadAllText(Path.Combine(old, "Contents", "id.txt")));
         Assert.False(Directory.Exists(backup));
-        Assert.Equal([old], File.ReadAllLines(_openerLog));
+        Assert.Equal(Reopened(old, restore), File.ReadAllLines(_openerLog));
     }
 
-    [Fact]
-    public void AFailedFirstMoveReopensTheOldBundle()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AFailedFirstMoveReopensTheOldBundle(bool restore)
     {
         SkipOnWindows();
         var (old, fresh, _) = Bundles();
         var backup = Path.Combine(_root, "missing folder", "backup.app");
 
-        var code = Run(old, fresh, backup, TrueTool, restore: true);
+        var code = Run(old, fresh, backup, TrueTool, restore);
 
         Assert.Equal(1, code);
         Assert.Equal("old", File.ReadAllText(Path.Combine(old, "Contents", "id.txt")));
-        Assert.Equal([old], File.ReadAllLines(_openerLog));
+        Assert.Equal(Reopened(old, restore), File.ReadAllLines(_openerLog));
     }
 
     [Fact]
@@ -155,6 +161,9 @@ public sealed class MacSwapScriptTests : IDisposable
             args);
         Assert.DoesNotContain("/o ld", MacSwapScript.Text, StringComparison.Ordinal);
     }
+
+    // What the opener receives: a failed swap reopens the old bundle with the same restore rule as a successful one (the tabs come back).
+    private static string[] Reopened(string bundle, bool restore) => restore ? [bundle, "--args", "--restore-session"] : [bundle];
 
     private static void SkipOnWindows() =>
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows: needs /bin/sh");
