@@ -18,7 +18,6 @@ internal sealed partial class App : Application
 {
     private readonly PdfOptions _options;
     private readonly SingleInstance? _instance;
-    private readonly SettingsStore _store;
     private readonly ShellSettings _settings;
     private readonly Raffica.Core.Settings.AppSettings _appSettings;
     private IDisposable[]? _crashSubscriptions;
@@ -27,8 +26,7 @@ internal sealed partial class App : Application
     {
         _options = options;
         _instance = instance;
-        _store = new SettingsStore(PdfSettingsFiles.ShellPathFor(options.SettingsFile));
-        _settings = _store.Load();
+        _settings = new SettingsStore(PdfSettingsFiles.ShellPathFor(options.SettingsFile)).Load();
 
         // The settings of the viewer (default layout and zoom mode) are a tiny file, read once here and handed to the window: opening a tab reads nothing.
         _appSettings = new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(options.SettingsFile)).LoadReadOnly();
@@ -57,31 +55,36 @@ internal sealed partial class App : Application
                 return;
             }
 
-            var window = new PdfWindow(_options, _settings, _appSettings);
-            if (_instance is not null)
+            // macOS keeps the app alive when its last window closes (the Dock icon stays, Finder files and "reopen" make a new window): the host owns the windows.
+            // Windows and Linux end with the last window, as before. A measurement run measures one window.
+            var hosted = OperatingSystem.IsMacOS() && !_options.IsMeasuring;
+            if (hosted)
             {
-                window.Listen(_instance);
+                desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
             }
 
-            // The system's default app service is made on first use (the offer after the first sharp page, the command); a measurement run has none.
-            window.DefaultAppServices = _options.IsMeasuring ? null : Platform.PlatformDefaultAppServices.Create;
-
-            // The update flow is made on first use (the check after the first sharp page, the command); a measurement run has none, so it opens no connection.
-            // The installer of the system ends the app through the window (its close question was answered before the installer was called) and the lifetime.
-            window.UpdateFlows = Updating.UpdateServices.MeasurementKeepsUpdatesOff(_options)
-                ? null
-                : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled, () => window.EndForUpdate(() => desktop.Shutdown()));
-
-            // macOS hands files to the running app through the activation events, not the command line: the bridge subscribes now so nothing is lost before the window opens.
-            if (OperatingSystem.IsMacOS() && !_options.IsMeasuring && this.TryGetFeature<IActivatableLifetime>() is { } activatable)
+            var window = CreateWindow(null, desktop);
+            Hosting.WindowHost? host = null;
+            if (hosted)
             {
-                window.FileActivation = new Hosting.FileActivationBridge(new Hosting.AvaloniaFileActivationSource(activatable));
+                host = new Hosting.WindowHost(files =>
+                {
+                    var next = CreateWindow(files, desktop);
+                    next.Show();
+                    return next;
+                }, () => desktop.Shutdown(), Dispatcher.UIThread);
+                host.Adopt(window);
+                StartHostedInput(window, host);
+            }
+            else if (_instance is not null)
+            {
+                window.Listen(_instance);
             }
 
             desktop.MainWindow = window;
             if (!_options.IsMeasuring)
             {
-                AttachCrashGuard(window, desktop);
+                AttachCrashGuard(host is null ? () => window : () => host.Current as PdfWindow, desktop);
             }
 
             if (_options.IsMeasuring)
@@ -94,9 +97,70 @@ internal sealed partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    private int _windowsMade;
+
+    // One window with its services. The first one has the settings read at the start of the process; every later one (macOS) reads them again from their
+    // files, because the window before it wrote the placement and the compact bar when it closed.
+    private PdfWindow CreateWindow(IReadOnlyList<string>? files, IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        var options = files is null ? _options : _options.WithFiles(files);
+        var settings = _settings;
+        var appSettings = _appSettings;
+        if (_windowsMade++ > 0)
+        {
+            (settings, appSettings) = Hosting.FreshSettings.Read(_options.SettingsFile);
+        }
+
+        var window = new PdfWindow(options, settings, appSettings);
+
+        // The system's default app service is made on first use (the offer after the first sharp page, the command); a measurement run has none.
+        window.DefaultAppServices = _options.IsMeasuring ? null : Platform.PlatformDefaultAppServices.Create;
+
+        // The update flow is made on first use (the check after the first sharp page, the command); a measurement run has none, so it opens no connection.
+        // The installer of the system ends the app through the window (its close question was answered before the installer was called) and the lifetime.
+        window.UpdateFlows = Updating.UpdateServices.MeasurementKeepsUpdatesOff(_options)
+            ? null
+            : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled, () => window.EndForUpdate(() => desktop.Shutdown()));
+        return window;
+    }
+
+    // macOS hands files to the running app through the activation events, not the command line: the bridge subscribes now so nothing is lost before the first
+    // window opens, and the pipe of a later launch starts at that window's Opened. Both feed the host, which decides which window gets the files.
+    private void StartHostedInput(PdfWindow first, Hosting.WindowHost host)
+    {
+        Hosting.FileActivationBridge? bridge = null;
+        if (this.TryGetFeature<IActivatableLifetime>() is { } activatable)
+        {
+            var source = new Hosting.AvaloniaFileActivationSource(activatable);
+            bridge = new Hosting.FileActivationBridge(source);
+            source.Reopened += host.Reopen;
+        }
+
+        void OnOpened(object? sender, EventArgs e)
+        {
+            first.Opened -= OnOpened;
+            if (_instance is not null)
+            {
+                try
+                {
+                    _instance.StartListening(host.OpenFiles);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    // Without the listener a later launch opens a process of its own.
+                }
+            }
+
+            bridge?.Attach(host.OpenFiles);
+        }
+
+        first.Opened += OnOpened;
+    }
+
     // The last net: an uncaught exception goes to crash.log, a UI one also shows one card. The dispatcher is captured here, on the UI thread, because the
     // callbacks of the other events run on pool threads. Only subscriptions are made now; the file and the card exist after the first exception.
-    private void AttachCrashGuard(PdfWindow window, IClassicDesktopStyleApplicationLifetime desktop)
+    // With no window (macOS after the last one closed) there is no card to show, so the guard is told it is closed at once.
+    private void AttachCrashGuard(Func<PdfWindow?> current, IClassicDesktopStyleApplicationLifetime desktop)
     {
         var ui = Dispatcher.UIThread;
         var folder = PdfSettingsFiles.ConfigDirectoryFor(_options.SettingsFile);
@@ -104,7 +168,17 @@ internal sealed partial class App : Application
         guard = new Hosting.CrashGuard(
             folder,
             TimeProvider.System,
-            _ => ui.Post(() => window.ShowCrashCard(folder, closed: () => guard!.CardClosed())),
+            _ => ui.Post(() =>
+            {
+                if (current() is { } window)
+                {
+                    window.ShowCrashCard(folder, closed: () => guard!.CardClosed());
+                }
+                else
+                {
+                    guard!.CardClosed();
+                }
+            }),
             () => ui.Post(() => desktop.Shutdown(1)));
         _crashSubscriptions =
         [

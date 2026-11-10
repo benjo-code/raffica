@@ -39,7 +39,7 @@ namespace Raffica.Pdf;
 /// pages pane on the left (204 px), the marks pane on the right (256 px, closed until asked for), the document slot and the status bar. Without
 /// a document tab it shows the start view (no panes, no status bar). The document slot shows the page view of the active tab.
 /// </summary>
-internal sealed partial class PdfWindow : Window
+internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
 {
     /// <summary>Width of the pages pane in device-independent pixels.</summary>
     internal const double PagesPaneWidth = 204;
@@ -739,9 +739,6 @@ internal sealed partial class PdfWindow : Window
         _instance = instance;
     }
 
-    /// <summary>The files the system hands to the running app (macOS); set by the app before the window opens, null elsewhere and in a measurement run.</summary>
-    internal Hosting.FileActivationBridge? FileActivation { get; set; }
-
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
@@ -750,8 +747,6 @@ internal sealed partial class PdfWindow : Window
         // what arrives still waits for the UI (ShowHandover).
         StartListening();
 
-        // Files the Finder or the Dock handed over before this point wait in the bridge (macOS only). Like the pipe, the file check runs off the UI thread.
-        FileActivation?.Attach(paths => _ = Task.Run(() => OnHandover(paths)));
         if (_options.Files.Count > 0)
         {
             // Not awaited: a password question of the first file must not hold back the work after the first page. The page view of the
@@ -1836,7 +1831,7 @@ internal sealed partial class PdfWindow : Window
     }
 
     // Restores a minimized window and brings it to the front (a hand-over, a close question that waited).
-    private void BringToFront()
+    public void BringToFront()
     {
         if (WindowState == WindowState.Minimized)
         {
@@ -1861,13 +1856,38 @@ internal sealed partial class PdfWindow : Window
         }
 
         e.Cancel = true;
+        await RunCloseAsync(e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown);
+    }
 
-        // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions.
-        if (IsCloseRunning)
+    /// <summary>True while a close that came from a quit (the application or the system shuts down) is under way: the host ends the app once this window has closed.</summary>
+    public bool QuitRequested { get; private set; }
+
+    /// <summary>True once every close question was answered and the window has not closed yet.</summary>
+    public bool IsClosing => _closeConfirmed;
+
+    /// <summary>The files of the host (macOS) go through the same check off the UI thread as the files of the pipe.</summary>
+    public void Handover(IReadOnlyList<string> paths) => _ = Task.Run(() => OnHandover(paths));
+
+    /// <summary>
+    /// The close questions and, when all are answered, the close itself (the seam of <see cref="OnWindowClosing"/>; <c>Window.Close()</c> cannot carry a reason headless).
+    /// <paramref name="quit"/> arms <see cref="QuitRequested"/> for this attempt; a Cancel answer or an exception disarms it again.
+    /// </summary>
+    internal async Task RunCloseAsync(bool quit)
+    {
+        if (_closeConfirmed)
         {
             return;
         }
 
+        // A second request to close while the questions of the first are open or queued is the same wish: it does not stack a second set of questions
+        // (a quit that arrives during a plain close upgrades it, a plain close never downgrades a quit).
+        if (IsCloseRunning)
+        {
+            QuitRequested |= quit;
+            return;
+        }
+
+        QuitRequested = quit;
         _closeRuns++;
         try
         {
@@ -1877,10 +1897,15 @@ internal sealed partial class PdfWindow : Window
                 _closeConfirmed = true;
                 Dispatcher.UIThread.Post(Close);
             }
+            else
+            {
+                QuitRequested = false;
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // An exception in the close guard keeps the window open; it must not take the app down.
+            QuitRequested = false;
         }
         finally
         {
