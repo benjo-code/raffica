@@ -37,7 +37,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
 | 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
 | 3.1 | Runs on the Mac | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | – |
-| 3.2 | Feels like a Mac app | 4 – macOS | ⬜ open | – | – |
+| 3.2 | Feels like a Mac app | 4 – macOS | 🟡 planned | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | – |
 | 3.3 | Package and release | 4 – macOS | ⬜ open | – | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -506,7 +506,7 @@ Goal: Raffica PDF builds, passes its tests and opens PDFs from the Finder on Int
 - [ ] On the owner's Mac the same build recognizes text with OCR (manual check, recorded) – OPEN, needs the owner's Mac. Command: step 4d of `packaging/README.md`, section "Manual check on a Mac (M3.1)" (open a scanned page, run OCR). CI only proves that the pinned library loads and runs on the arm64 runner and that the x64 file passes `check-binary`'s Mach-O rules.
 
 ## Milestone 3.2 – Feels like a Mac app
-**Status:** ⬜ open · **Plan:** – · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
+**Status:** 🟡 planned · **Plan:** [2026-11-10-milestone-03-2-feels-like-a-mac-app.md](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
 
 Goal: Raffica PDF behaves like a Mac app: menu bar, ⌘ shortcuts without key tips, life cycle without windows, trackpad, Retina and printing.
 
