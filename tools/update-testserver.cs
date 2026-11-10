@@ -107,6 +107,8 @@ static partial class Prepare
         ("win-x64-portable", v => $"RafficaPdf-{v}-win-x64-portable.zip"),
         ("linux-appimage", v => $"RafficaPdf-{v}-x86_64.AppImage"),
         ("linux-deb", v => $"raffica-pdf_{v}_amd64.deb"),
+        ("macos-arm64-dmg", v => $"RafficaPdf-{v}-macos-arm64.dmg"),
+        ("macos-x64-dmg", v => $"RafficaPdf-{v}-macos-x64.dmg"),
     ];
 
     public static int Run(string[] args)
@@ -694,6 +696,19 @@ static class SelfTest
             "\"},{\"kind\":\"linux-appimage\",\"name\":\"RafficaPdf-0.0.2-x86_64.AppImage\",\"size\":1,\"sha256\":\"" + Convert.ToHexStringLower(SHA256.HashData(new byte[] { 1 })) + "\"}]}");
         Expect("prepare: latest.json names the tag", File.ReadAllText(Path.Combine(good, Prepare.LatestName)).Contains("\"tag_name\":\"v0.0.2\"", StringComparison.Ordinal), true);
         Expect("prepare: files copied", File.Exists(Path.Combine(good, "RafficaPdf-0.0.2-win-x64-setup.exe")) && File.Exists(Path.Combine(good, "RafficaPdf-0.0.2-x86_64.AppImage")), true);
+
+        var dmgArm = Path.Combine(input, "RafficaPdf-0.0.2-macos-arm64.dmg");
+        File.WriteAllBytes(dmgArm, [5, 5]);
+        var dmgX64 = Path.Combine(input, "RafficaPdf-0.0.2-macos-x64.dmg");
+        File.WriteAllBytes(dmgX64, [6]);
+        var mac = Path.Combine(temp, "mac");
+        Expect("TheTestServerPreparesMacDmgs: Exit 0", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", mac, dmgX64, dmgArm])), 0);
+        Expect("TheTestServerPreparesMacDmgs: signature matches", Verifies(mac), true);
+        var macManifest = File.ReadAllText(Path.Combine(mac, Prepare.ManifestName));
+        Expect("TheTestServerPreparesMacDmgs: both kinds in the order of the release", macManifest,
+            "{\"format\":1,\"version\":\"0.0.2\",\"files\":[{\"kind\":\"macos-arm64-dmg\",\"name\":\"RafficaPdf-0.0.2-macos-arm64.dmg\",\"size\":2,\"sha256\":\"" + Convert.ToHexStringLower(SHA256.HashData(new byte[] { 5, 5 })) +
+            "\"},{\"kind\":\"macos-x64-dmg\",\"name\":\"RafficaPdf-0.0.2-macos-x64.dmg\",\"size\":1,\"sha256\":\"" + Convert.ToHexStringLower(SHA256.HashData(new byte[] { 6 })) + "\"}]}");
+        Expect("TheTestServerPreparesMacDmgs: files copied", File.Exists(Path.Combine(mac, "RafficaPdf-0.0.2-macos-arm64.dmg")) && File.Exists(Path.Combine(mac, "RafficaPdf-0.0.2-macos-x64.dmg")), true);
 
         var badSignature = Path.Combine(temp, "bad-signature");
         Expect("prepare --tamper signature: Exit 0", Quiet(() => Prepare.Run(["--version", "0.0.2", "--key", keyFile, "--out", badSignature, "--tamper", "signature", setup])), 0);

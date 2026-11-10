@@ -10,7 +10,7 @@
 //   dotnet run tools/package.cs -- installer-smoke <setup.exe> [--repo <root>]          (Windows)
 //   dotnet run tools/package.cs -- update-smoke <setup-old.exe> <setup-new.exe> --key <test-key.txt> [--key-id <id>]   (Windows, test build)
 //   dotnet run tools/package.cs -- update-keygen --id <id> --private-out <file>   (the owner, once; never in a repository)
-//   dotnet run tools/package.cs -- update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <assets.json> --out <update-manifest.json>
+//   dotnet run tools/package.cs -- update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <assets.json> --out <update-manifest.json>
 //   dotnet run tools/package.cs -- update-sign --manifest <file> --key-env RAFFICA_UPDATE_SIGNING_KEY --id <id> --out <file.sig> [--source <UpdateTrust.cs>]
 //   dotnet run tools/package.cs -- update-verify [--manifest <file> --sig <file>] (--keys-from-source | --source <file>)
 //   dotnet run tools/package.cs -- deb --layout <dir> --version <x.y.z> --out <raffica-pdf_x.y.z_amd64.deb> [--repo <root>]   (Linux)
@@ -44,7 +44,7 @@ static class Cli
         "  installer-smoke <setup.exe>                                       installs silently, checks, installs again, uninstalls (Windows)\n" +
         "  update-smoke <setup-old.exe> <setup-new.exe> --key <test-key.txt> [--key-id <id>]   update through the helper mode (Windows, test build)\n" +
         "  update-keygen --id <id> --private-out <file>                      creates the signing key: private half only into the file, public half as an entry for UpdateTrust.Keys\n" +
-        "  update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <assets.json> --out <file>   update manifest of the release\n" +
+        "  update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <assets.json> --out <file>   update manifest of the release\n" +
         "  update-sign --manifest <file> --key-env <variable> --id <id> --out <file.sig> [--source <UpdateTrust.cs>]   signs (the key comes only from the environment) and verifies\n" +
         "  update-verify [--manifest <file> --sig <file>] (--keys-from-source | --source <file>)   checks signature and content like the app (without a manifest only the keys)\n" +
         "  deb --layout <dir> --version <x.y.z> --out <file>                 builds raffica-pdf_<version>_amd64.deb (Linux, dpkg-deb)\n" +
@@ -1708,18 +1708,21 @@ static partial class UpdateManifestRules
     public const long MaxFileSize = 1L << 30;
     private const int MaxFiles = 64;
 
-    // UpdateFileKinds.All in their order, with the release file name of a version.
-    public static readonly (string Kind, Func<string, string> Name)[] Kinds =
+    // UpdateFileKinds.All in their order, with the release file name of a version. The four Windows and Linux kinds are
+    // required; the two macOS disk images are optional as a pair (both or neither: a release is never half a Mac).
+    public static readonly (string Kind, Func<string, string> Name, bool Required)[] Kinds =
     [
-        ("win-x64-setup", v => $"RafficaPdf-{v}-win-x64-setup.exe"),
-        ("win-x64-portable", v => $"RafficaPdf-{v}-win-x64-portable.zip"),
-        ("linux-appimage", v => $"RafficaPdf-{v}-x86_64.AppImage"),
-        ("linux-deb", v => $"raffica-pdf_{v}_amd64.deb"),
+        ("win-x64-setup", v => $"RafficaPdf-{v}-win-x64-setup.exe", true),
+        ("win-x64-portable", v => $"RafficaPdf-{v}-win-x64-portable.zip", true),
+        ("linux-appimage", v => $"RafficaPdf-{v}-x86_64.AppImage", true),
+        ("linux-deb", v => $"raffica-pdf_{v}_amd64.deb", true),
+        ("macos-arm64-dmg", v => $"RafficaPdf-{v}-macos-arm64.dmg", false),
+        ("macos-x64-dmg", v => $"RafficaPdf-{v}-macos-x64.dmg", false),
     ];
 
     // The endings that make a release file one of the known kinds; a file with such an ending but another version is an
     // error, every other file (source archives, checksums) is not part of the manifest.
-    public static readonly string[] KnownEndings = ["-win-x64-setup.exe", "-win-x64-portable.zip", "-x86_64.AppImage", "_amd64.deb"];
+    public static readonly string[] KnownEndings = ["-win-x64-setup.exe", "-win-x64-portable.zip", "-x86_64.AppImage", "_amd64.deb", "-macos-arm64.dmg", "-macos-x64.dmg"];
 
     // UpdateVersion.TryParse without the "v": the app reads only stable X.Y.Z versions.
     [GeneratedRegex(@"^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\z")]
@@ -2074,14 +2077,14 @@ static class UpdateKeygen
     }
 }
 
-// update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <gh release view --json assets> --out <file>
+// update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <gh release view --json assets> --out <file>
 static partial class UpdateManifestCommand
 {
     // sums: "<sha256>  <file name>" (Sums.Line)
     [GeneratedRegex(@"^(?<h>[0-9a-f]{64})  (?<n>[^\s/\\]+)$")]
     private static partial Regex SumsLine();
 
-    private const string Usage = "Usage: update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> --sizes <assets.json> --out <update-manifest.json>";
+    private const string Usage = "Usage: update-manifest --version <x.y.z> --sums <SHA256SUMS-windows.txt> <SHA256SUMS-linux.txt> [<SHA256SUMS-macos.txt>] --sizes <assets.json> --out <update-manifest.json>";
 
     public static int Run(string[] args)
     {
@@ -2158,10 +2161,30 @@ static partial class UpdateManifestCommand
             }
         }
 
+        // The optional kinds come as a pair: when one is in the checksums, the other must be too.
+        var optional = UpdateManifestRules.Kinds.Where(k => !k.Required).ToList();
+        var optionalPresent = optional.Where(k => hashes.ContainsKey(k.Name(version))).ToList();
+        var skipOptional = optionalPresent.Count == 0;
+        if (!skipOptional)
+        {
+            foreach (var (kind, nameOf, _) in optional.Where(k => !optionalPresent.Contains(k)))
+            {
+                problems.Add($"{kind}: {nameOf(version)} is missing in the checksums (the macOS images come as a pair: arm64 and x64, or neither)");
+            }
+        }
+
         var files = new List<(string Kind, string Name, long Size, string Sha256)>();
-        foreach (var (kind, nameOf) in UpdateManifestRules.Kinds)
+        foreach (var (kind, nameOf, required) in UpdateManifestRules.Kinds)
         {
             var name = nameOf(version);
+            if (!required)
+            {
+                if (skipOptional || !optionalPresent.Any(k => k.Kind == kind))
+                {
+                    continue; // absent (the pair problem is already listed) or not part of this release
+                }
+            }
+
             if (!hashes.TryGetValue(name, out var hash))
             {
                 problems.Add($"{kind}: {name} is missing in the checksums");
@@ -5172,6 +5195,36 @@ static class SelfTest
             var vectorManifest = Path.Combine(VectorDirectory, "update-manifest.json");
             Expect($"update-manifest: writes exactly the bytes of {vectorManifest} (test vector of the app)",
                 File.Exists(manifest) && File.Exists(vectorManifest) && File.ReadAllBytes(manifest).AsSpan().SequenceEqual(File.ReadAllBytes(vectorManifest)), true);
+
+            // The two macOS disk images: optional as a pair, listed after the four others in the order of Kinds.
+            var macSums = Path.Combine(dir, "SHA256SUMS-macos.txt");
+            var macNames = new[] { "RafficaPdf-0.2.0-macos-arm64.dmg", "RafficaPdf-0.2.0-macos-x64.dmg" };
+            File.WriteAllText(macSums, SumsOf(macNames[1], macNames[0]));
+            var macAssets = assets.Concat(macNames.Select(n => (n, 60_000_000L))).Concat([("SHA256SUMS-macos.txt", 300L)]).ToList();
+            var macSizes = Path.Combine(dir, "assets-macos.json");
+            File.WriteAllText(macSizes, AssetsJson(macAssets));
+            var sixManifest = Path.Combine(dir, "update-manifest-six.json");
+            Expect("ManifestWithThreeSumsHasSixKindsInOrder: success", Cli.Run(ManifestArgs("0.2.0", sixManifest, macSizes, win, linux, macSums)), 0);
+            var sixFiles = ManifestFiles(sixManifest);
+            Expect("ManifestWithThreeSumsHasSixKindsInOrder: kinds", string.Join(",", sixFiles.Select(f => f.Kind)),
+                "win-x64-setup,win-x64-portable,linux-appimage,linux-deb,macos-arm64-dmg,macos-x64-dmg");
+            Expect("ManifestWithThreeSumsHasSixKindsInOrder: dmg size and SHA-256", sixFiles.Contains(("macos-x64-dmg", macNames[1], 60_000_000L, NameHash(macNames[1]))), true);
+            Expect("ManifestWithTwoSumsIsByteIdenticalToTheVector: the extra macOS files in the release change nothing",
+                Cli.Run(ManifestArgs("0.2.0", Path.Combine(dir, "four.json"), macSizes, win, linux)) == 0 &&
+                File.ReadAllBytes(Path.Combine(dir, "four.json")).AsSpan().SequenceEqual(File.ReadAllBytes(vectorManifest)), true);
+            var oneMac = Path.Combine(dir, "SHA256SUMS-macos-one.txt");
+            File.WriteAllText(oneMac, SumsOf(macNames[0]));
+            var oneRefused = Path.Combine(dir, "one-refused.json");
+            var (oneCode, _, oneErr) = Capture(ManifestArgs("0.2.0", oneRefused, macSizes, win, linux, oneMac));
+            Expect("OnlyOneMacArchitectureIsRefused: returns 1", oneCode, 1);
+            Expect("OnlyOneMacArchitectureIsRefused: names the missing kind", oneErr.Contains("macos-x64-dmg", StringComparison.Ordinal), true);
+            Expect("OnlyOneMacArchitectureIsRefused: no file", File.Exists(oneRefused), false);
+            var otherMac = Path.Combine(dir, "SHA256SUMS-macos-other.txt");
+            File.WriteAllText(otherMac, SumsOf(macNames[0], macNames[1], "RafficaPdf-0.1.0-macos-x64.dmg"));
+            var (otherCode, _, otherErr) = Capture(ManifestArgs("0.2.0", oneRefused, macSizes, win, linux, otherMac));
+            Expect("AMacDmgOfAnotherVersionIsListedAsNotBelongingToTheVersion: returns 1", otherCode, 1);
+            Expect("AMacDmgOfAnotherVersionIsListedAsNotBelongingToTheVersion: message",
+                otherErr.Contains("RafficaPdf-0.1.0-macos-x64.dmg does not belong to version 0.2.0", StringComparison.Ordinal), true);
 
             var refused = Path.Combine(dir, "refused.json");
             Expect("update-manifest: a prerelease returns 2 (the app reads only X.Y.Z)", Cli.Run(ManifestArgs("0.2.0-rc.1", refused, sizes, win, linux)), 2);

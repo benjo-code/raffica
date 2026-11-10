@@ -228,7 +228,7 @@ try
 
     // A real run, when the package has the library and the language data next to the binary.
     var binaryFolder = Path.GetDirectoryName(binary)!;
-    var libraryName = OperatingSystem.IsWindows() ? "tesseract.dll" : "libtesseract.so";
+    var libraryName = OperatingSystem.IsWindows() ? "tesseract.dll" : OperatingSystem.IsMacOS() ? "libtesseract.dylib" : "libtesseract.so";
     var shippedData = new[] { Path.Combine(binaryFolder, "tessdata"), Path.Combine(binaryFolder, "..", "tessdata") }.FirstOrDefault(Directory.Exists);
     if (File.Exists(Path.Combine(binaryFolder, libraryName)) && shippedData is not null)
     {
