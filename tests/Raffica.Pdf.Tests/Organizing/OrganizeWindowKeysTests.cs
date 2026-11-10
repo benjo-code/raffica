@@ -71,7 +71,7 @@ public sealed class OrganizeWindowKeysTests
             tab.Organize.Selection.Select(1);
             Assert.True(list.ContainerOf(1)!.Focus());
 
-            Press(fixture, Key.C, PhysicalKey.C, RawInputModifiers.Control);
+            Press(fixture, Key.C, PhysicalKey.C, CommandKey);
 
             Assert.True(tab.Organize.Plan.IsIdentity);
             Assert.Equal([1], tab.Organize.Selection.Positions.ToArray());

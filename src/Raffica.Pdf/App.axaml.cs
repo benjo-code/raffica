@@ -67,7 +67,7 @@ internal sealed partial class App : Application
             Hosting.WindowHost? host = null;
             if (hosted)
             {
-                host = new Hosting.WindowHost(files =>
+                _host = host = new Hosting.WindowHost(files =>
                 {
                     var next = CreateWindow(files, desktop);
                     next.Show();
@@ -99,6 +99,13 @@ internal sealed partial class App : Application
     }
 
     private Hosting.WindowSettingsSource? _settingsSource;
+    private Hosting.WindowHost? _host;
+
+    /// <summary>
+    /// What ends the app for an installer that took over: the host's <c>Quit</c> when macOS hosts the windows (it ends the app once and makes no window afterwards, so
+    /// a file that waits or a Dock click cannot create one while the app shuts down), else the plain shutdown.
+    /// </summary>
+    internal static Action EndAction(Hosting.WindowHost? host, Action shutdown) => host is null ? shutdown : host.Quit;
 
     // One window with its services. The first one has the settings read at the start of the process; every later one (macOS) reads them again from their
     // files, because the window before it wrote the placement and the compact bar when it closed.
@@ -116,7 +123,7 @@ internal sealed partial class App : Application
         // The installer of the system ends the app through the window (its close question was answered before the installer was called) and the lifetime.
         window.UpdateFlows = Updating.UpdateServices.MeasurementKeepsUpdatesOff(_options)
             ? null
-            : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled, () => window.EndForUpdate(() => desktop.Shutdown()));
+            : enabled => Updating.UpdateServices.Create(_options.SettingsFile, enabled, () => window.EndForUpdate(EndAction(_host, () => desktop.Shutdown())));
         return window;
     }
 
@@ -159,9 +166,12 @@ internal sealed partial class App : Application
     private void AttachMenu(Hosting.WindowHost host)
     {
         var ui = Dispatcher.UIThread;
-        var binder = new Platform.MacOS.MacMenuBinder(() => host.Current as Platform.MacOS.IMenuWindow, () => OpenWindowThenPickerAsync(host, ui));
+        var binder = new Platform.MacOS.MacMenuBinder(() => host.Current as Platform.MacOS.IMenuWindow, () => PdfWindow.GuardAsync(() => OpenWindowThenPickerAsync(host, ui)));
         host.CurrentChanged += binder.Refresh;
         Avalonia.Controls.NativeMenu.SetMenu(this, binder.Menu);
+
+        // The first window exists already: the binder follows it (and its states) from now on, without waiting for the system to ask.
+        binder.Refresh();
     }
 
     private static async Task OpenWindowThenPickerAsync(Hosting.WindowHost host, Dispatcher ui)

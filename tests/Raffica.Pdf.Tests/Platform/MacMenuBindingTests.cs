@@ -48,7 +48,21 @@ public sealed class MacMenuBindingTests : IDisposable
 
         public bool DialogOpen { get; set; }
 
-        public IReadOnlyList<RecentFile> RecentFiles { get; set; } = [];
+        public bool OwnsEditKeys { get; set; }
+
+        public int RecentReads { get; private set; }
+
+        private IReadOnlyList<RecentFile> _recent = [];
+
+        public IReadOnlyList<RecentFile> RecentFiles
+        {
+            get
+            {
+                RecentReads++;
+                return _recent;
+            }
+            set => _recent = value;
+        }
 
         public void OpenRecent(RecentFile file) => Calls.Add("recent:" + file.Name);
 
@@ -395,6 +409,87 @@ public sealed class MacMenuBindingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void TheListThatOwnsTheEditKeysKeepsCopyAndSelectAllFromTheMenu()
+    {
+        var window = new FakeMenuWindow { OwnsEditKeys = true };
+        var binder = Make(window);
+        Assert.False(Can(ItemOfCommand(binder, PdfCommandIds.Copy)));
+        Assert.False(Can(ItemOfCommand(binder, PdfCommandIds.SelectAll)));
+        ItemOfCommand(binder, PdfCommandIds.Copy).Command!.Execute(null);
+        ItemOfCommand(binder, PdfCommandIds.SelectAll).Command!.Execute(null);
+        Assert.Equal(0, window.Runs[PdfCommandIds.Copy]);
+        Assert.Equal(0, window.Runs[PdfCommandIds.SelectAll]);
+
+        // Everything else is unaffected, Undo and Redo included (the window sends them to the plan).
+        foreach (var node in CommandNodes().Where(n => n.CommandId is not (PdfCommandIds.Copy or PdfCommandIds.SelectAll)))
+        {
+            Assert.True(Can(ItemOfCommand(binder, node.CommandId)), node.CommandId);
+        }
+
+        // A focused text box still has priority.
+        window.FocusedTextBox = new TextBox { Text = "x" };
+        binder.Refresh();
+        Assert.True(Can(ItemOfCommand(binder, PdfCommandIds.Copy)));
+        Assert.True(Can(ItemOfCommand(binder, PdfCommandIds.SelectAll)));
+    }
+
+    [AvaloniaFact]
+    public void OpenRecentItemsRespectAnOpenCard()
+    {
+        var window = new FakeMenuWindow { RecentFiles = [new RecentFile("a.pdf", "/docs", DateTimeOffset.UnixEpoch)] };
+        var binder = Make(window);
+        var entry = ItemOf(binder, "a.pdf");
+        Assert.True(Can(entry));
+        window.DialogOpen = true;
+        Assert.False(Can(entry));
+        entry.Command!.Execute(null);
+        Assert.Empty(window.Calls);
+        window.DialogOpen = false;
+        entry.Command.Execute(null);
+        Assert.Equal(["recent:a.pdf"], window.Calls);
+    }
+
+    // The system raises it through an explicit, non-public member of Avalonia (the native side is not there in a test).
+    private static void RaiseNeedsUpdate(NativeMenu menu) =>
+        typeof(NativeMenu)
+            .GetMethod("Avalonia.Controls.INativeMenuExporterEventsImplBridge.RaiseNeedsUpdate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(menu, null);
+
+    [AvaloniaFact]
+    public void EverySubmenuAsksForARefreshWhenItNeedsAnUpdateExactlyOnce()
+    {
+        var window = new FakeMenuWindow();
+        var binder = Make(window);
+        var menus = Items(binder.Menu).Where(i => i.Menu is not null).Select(i => i.Menu!).Prepend(binder.Menu).ToList();
+        Assert.True(menus.Count >= 7);
+
+        // Several refreshes (which rebuild the recent list) must not stack subscriptions.
+        window.RecentFiles = [new RecentFile("a.pdf", "/d", DateTimeOffset.UnixEpoch)];
+        binder.Refresh();
+        window.RecentFiles = [];
+        binder.Refresh();
+
+        foreach (var menu in menus)
+        {
+            var before = window.RecentReads;
+            RaiseNeedsUpdate(menu);
+            Assert.Equal(before + 1, window.RecentReads);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ASubmenuNeedsUpdateReadsTheCheckedStateAndTheRecentFiles()
+    {
+        var window = new FakeMenuWindow();
+        var binder = Make(window);
+        window.Checked[PdfCommandIds.DarkPage] = true;
+        window.RecentFiles = [new RecentFile("a.pdf", "/d", DateTimeOffset.UnixEpoch)];
+        RaiseNeedsUpdate(ItemOf(binder, PdfStrings.MenuFile).Menu!);
+        Assert.True(ItemOfCommand(binder, PdfCommandIds.DarkPage).IsChecked);
+        Assert.Equal("a.pdf", ItemOf(binder, PdfStrings.MenuOpenRecent).Menu!.Items.OfType<NativeMenuItem>().Single().Header);
+    }
+
+    [AvaloniaFact]
     public async Task TheRealWindowAnswersEveryCommandNodeWithTheRibbonsDefinition()
     {
         using var fixture = WindowFixture.Create();
@@ -414,6 +509,7 @@ public sealed class MacMenuBindingTests : IDisposable
         Assert.True(changes > 0);
         Assert.Null(window.FocusedTextBox);
         Assert.False(window.DialogOpen);
+        Assert.False(window.OwnsEditKeys);
         Assert.NotNull(window.CommandOf(PdfCommandIds.Print));
     }
 }

@@ -62,6 +62,37 @@ public sealed class WindowHostTests
     }
 
     [AvaloniaFact]
+    public void TheUpdateEndsTheHostedAppThroughQuitSoNoWindowIsMadeAfterwards()
+    {
+        var rig = new Rig();
+        var first = new FakeWindow();
+        rig.Host.Adopt(first);
+        var ended = 0;
+        var end = App.EndAction(rig.Host, () => ended++);
+
+        end();
+        Assert.Equal(1, rig.Shutdowns);
+        Assert.Equal(0, ended);
+
+        // A file that was waiting and a Dock click arrive while the windows go: nothing is made.
+        first.Undelivered.Add("late.pdf");
+        first.Close();
+        rig.Host.OpenFiles(["a.pdf"]);
+        rig.Host.Reopen();
+        Pump();
+        Assert.Empty(rig.Made);
+        Assert.Equal(1, rig.Shutdowns);
+    }
+
+    [AvaloniaFact]
+    public void WithoutAHostTheUpdateEndsWithThePlainShutdown()
+    {
+        var ended = 0;
+        App.EndAction(null, () => ended++)();
+        Assert.Equal(1, ended);
+    }
+
+    [AvaloniaFact]
     public void WithNoWindowOpenFilesMakesOneWithThosePaths()
     {
         var rig = new Rig();

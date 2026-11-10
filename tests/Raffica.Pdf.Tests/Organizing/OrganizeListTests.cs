@@ -173,14 +173,14 @@ public sealed class OrganizeListTests
         using var f = await OrganizeListFixture.OpenAsync();
         f.Click(0);
         Assert.Equal([0], f.Session.Selection.Positions);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, CommandKey);
         Assert.Equal([0, 2], f.Session.Selection.Positions);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, CommandKey);
         Assert.Equal([0], f.Session.Selection.Positions);
         f.Click(0);
         f.Click(3, RawInputModifiers.Shift);
         Assert.Equal([0, 1, 2, 3], f.Session.Selection.Positions);
-        f.Click(1, RawInputModifiers.Control);
+        f.Click(1, CommandKey);
         Assert.Equal([0, 2, 3], f.Session.Selection.Positions);
 
         Assert.True(f.Item(1).Focus());
@@ -194,7 +194,7 @@ public sealed class OrganizeListTests
     {
         using var f = await OrganizeListFixture.OpenAsync();
         f.Click(0);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, CommandKey);
         Assert.Equal([0, 2], f.Session.Selection.Positions);
 
         // Press on a selected page, move below the middle of the third item (the gap before the fourth), release.
@@ -233,7 +233,7 @@ public sealed class OrganizeListTests
 
         // A multi-selection pressed and released without a move collapses to the pressed page, as a click does.
         f.Click(0);
-        f.Click(2, RawInputModifiers.Control);
+        f.Click(2, CommandKey);
         f.Click(0);
         Assert.Equal([0], f.Session.Selection.Positions);
         Assert.True(OrganizeDrag.IsNoOp([2, 3], 2));

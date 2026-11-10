@@ -18,6 +18,8 @@ internal sealed partial class PdfWindow : IMenuWindow
 
     public bool DialogOpen => Host.IsOpen;
 
+    public bool OwnsEditKeys => FocusIsInOrganizeList();
+
     public IReadOnlyList<RecentFile> RecentFiles => Start.Recent;
 
     public void OpenRecent(RecentFile file) => _ = GuardAsync(() => OpenRecentAsync(file));

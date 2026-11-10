@@ -18,6 +18,12 @@ internal interface IMenuWindow
     /// <summary>True while a card is open: the window is modal then and its commands do nothing (as its shortcuts).</summary>
     bool DialogOpen { get; }
 
+    /// <summary>
+    /// True while the focus is in a list that owns Copy and Select all (the page list of the organize mode): the menu leaves those two keys to the list, as the
+    /// window's own shortcut handler does, by disabling the items so the system passes the key on.
+    /// </summary>
+    bool OwnsEditKeys { get; }
+
     IReadOnlyList<RecentFile> RecentFiles { get; }
 
     void OpenRecent(RecentFile file);
@@ -49,6 +55,7 @@ internal sealed class MacMenuBinder
     private readonly List<Entry> _entries = [];
     private readonly List<(NativeMenuItem Item, string Key)> _submenus = [];
     private readonly Action _onStatesChanged;
+    private readonly EventHandler<EventArgs> _onNeedsUpdate;
     private NativeMenuItem? _recentItem;
     private IMenuWindow? _subscribed;
     private IReadOnlyList<RecentFile>? _shownRecent;
@@ -60,13 +67,14 @@ internal sealed class MacMenuBinder
         _current = current;
         _openWithoutWindow = openWithoutWindow;
         _onStatesChanged = Refresh;
+        _onNeedsUpdate = (_, _) => Refresh();
         Menu = new NativeMenu();
         foreach (var submenu in MacMenuModel.Build())
         {
             Menu.Items.Add(BuildSubmenu(submenu));
         }
 
-        Menu.NeedsUpdate += (_, _) => Refresh();
+        Menu.NeedsUpdate += _onNeedsUpdate;
     }
 
     public NativeMenu Menu { get; }
@@ -114,6 +122,9 @@ internal sealed class MacMenuBinder
     private NativeMenuItem BuildSubmenu(SubmenuNode node)
     {
         var item = new NativeMenuItem(PdfStrings.Get(node.HeaderKey)) { Menu = new NativeMenu() };
+
+        // The system asks the menu that is about to open, not only the bar: each submenu reads the states again. Made once here; a refresh only replaces items.
+        item.Menu.NeedsUpdate += _onNeedsUpdate;
         _submenus.Add((item, node.HeaderKey));
         if (node.Fill == MenuAction.OpenRecent)
         {
@@ -216,6 +227,12 @@ internal sealed class MacMenuBinder
             return true;
         }
 
+        // The list of the organize mode owns Copy and Select all: a disabled item makes the system hand the key to the list.
+        if (routed && id is PdfCommandIds.Copy or PdfCommandIds.SelectAll && window.OwnsEditKeys)
+        {
+            return false;
+        }
+
         return !window.DialogOpen && window.CommandOf(id)?.IsEnabled == true;
     }
 
@@ -252,7 +269,7 @@ internal sealed class MacMenuBinder
             return;
         }
 
-        if (!window.DialogOpen && window.CommandOf(id) is { IsEnabled: true } definition)
+        if (!window.DialogOpen && !(id is PdfCommandIds.Copy or PdfCommandIds.SelectAll && window.OwnsEditKeys) && window.CommandOf(id) is { IsEnabled: true } definition)
         {
             definition.Run?.Invoke();
         }
@@ -336,7 +353,7 @@ internal sealed class MacMenuBinder
             var entry = file;
             submenu.Items.Add(new NativeMenuItem(entry.Name)
             {
-                Command = new MenuCommand(() => _current() is not null, () => _current()?.OpenRecent(entry)),
+                Command = new MenuCommand(() => _current() is { DialogOpen: false }, () => _current()?.OpenRecent(entry)),
             });
         }
     }

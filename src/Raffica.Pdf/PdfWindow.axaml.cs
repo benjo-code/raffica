@@ -717,7 +717,20 @@ internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
         ArgumentException.ThrowIfNullOrEmpty(logDirectory);
         var open = openFolder ?? FolderLauncher.Open;
         var shown = Dialogs.ShowAsync<bool>(done => CrashCard.Create(() => open(logDirectory), () => done(true)));
-        _ = shown.ContinueWith(_ => closed?.Invoke(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        // The callback runs once: when the card is gone, or when the window closes first (the card is then shown or queued behind another one and never finishes),
+        // so the crash guard never waits for a card that cannot come back.
+        var called = 0;
+        void Done()
+        {
+            if (closed is not null && Interlocked.Exchange(ref called, 1) == 0)
+            {
+                closed();
+            }
+        }
+
+        Closed += (_, _) => Done();
+        _ = shown.ContinueWith(_ => Done(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
