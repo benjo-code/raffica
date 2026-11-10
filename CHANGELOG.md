@@ -6,6 +6,12 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ## [Unreleased]
 
+### Added
+
+- Raffica PDF for macOS (Milestone 3.3): two disk images, `RafficaPdf-<version>-macos-arm64.dmg` for Apple silicon and `RafficaPdf-<version>-macos-x64.dmg` for Intel Macs, each with `Raffica PDF.app` (the command line tool `raffica` is inside the app) and a link to Applications; macOS 15 or newer. The app is ad-hoc signed only, with no Developer ID and no notarization, so the first launch needs System Settings, Privacy & Security, "Open Anyway" (the README has the steps and the terminal alternative). The Apple-silicon image was built and smoke-tested on a hosted runner but not tried by hand; the Finder, the default-app offer and the update have not been tried on a real Mac yet.
+- Raffica PDF on macOS asks at start whether to become the default PDF app (through LaunchServices, from an installed copy in Applications) and updates itself from the `.dmg` of its own architecture after a confirmation, with the same checks as elsewhere (signature of the release information, size and SHA-256 of the file, and the signature of the new app before the swap). Started from the mounted disk image, it says that it cannot replace itself and points to the download page.
+- `RAFFICA_RENDERING=software` selects Avalonia's software rendering on macOS too (for comparison; the macOS default is unchanged).
+
 ### Fixed
 
 - Opening a file in the running Raffica PDF from a second start could lose the file when the first instance was slow to read the message (a heavily loaded machine); the message is now delivered whenever it arrived whole.
