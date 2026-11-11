@@ -1240,15 +1240,17 @@ static class CheckCommand
     // "Raffica PDF: published size budgets after the OCR payload (M2.5)" (the owner chose to count the OCR library and its language data). Never loosen a number
     // here to make a check pass; a change is a new decisions entry. macOS is not exempt (only the gallery is indicative there): its entry holds the
     // four size metrics of the entry "Raffica PDF on macOS: published sizes and the hosted record (M3.3)": the medians of three CI runs of the
-    // larger architecture (osx-x64), rounded up to 1 MiB as in M2.5, and they bind both architectures through the one entry. It has NO time and
-    // no memory limit on purpose: those bind only the owner's Intel Mac (measure.yml, platform macos), which has not been measured, so such a
-    // metric is "unrecorded" (a check that asks for it exits 1) instead of passing; the size check asks only for size, zip, app and dmg.
+    // larger architecture (osx-x64), rounded up to 1 MiB as in M2.5, and they bind both architectures through the one entry. Its time and memory
+    // budgets (cold, warm, thousand, second, scroll, memory) bind only the owner's Intel Mac (measure.yml, platform macos): the medians of the run of
+    // 2026-11-11 on Avalonia's own rendering path (rendering=default, run 43089378750, CSVs in Docs/measurements/pdf-viewer-2026-11-11-macos/default),
+    // rounded up as in M1 (time to 10 ms, memory to 5 MiB), per the entry "Raffica on macOS: the Intel budgets and the rendering default (M3.3)";
+    // the software variant measured worse on memory, the second file and scrolling, so the macOS default stays Avalonia's own path.
     // The metrics "app" (bundle bytes) and "dmg" (file bytes) exist for macOS only and are judged only when given (size --app, --dmg, or rows size/app and size/dmg).
     private static readonly Dictionary<string, Dictionary<string, double>> s_pdfBudgets = new()
     {
         ["windows"] = new() { ["cold"] = 200, ["warm"] = 210, ["thousand"] = 200, ["second"] = 20, ["scroll"] = 20, ["memory"] = 40, ["size"] = 66, ["zip"] = 29 },
         ["linux"] = new() { ["cold"] = 230, ["warm"] = 230, ["thousand"] = 220, ["second"] = 40, ["scroll"] = 40, ["memory"] = 155, ["size"] = 65, ["zip"] = 30 },
-        ["macos"] = new() { ["size"] = 69, ["zip"] = 32, ["app"] = 76, ["dmg"] = 38 },
+        ["macos"] = new() { ["cold"] = 780, ["warm"] = 720, ["thousand"] = 740, ["second"] = 60, ["scroll"] = 30, ["memory"] = 115, ["size"] = 69, ["zip"] = 32, ["app"] = 76, ["dmg"] = 38 },
     };
 
     /// <summary>The message of a check of the PDF app against an empty limit table.</summary>
@@ -1766,6 +1768,7 @@ static class SelfTest
         [
             ("windows", "cold", 200), ("windows", "warm", 210), ("windows", "thousand", 200), ("windows", "second", 20), ("windows", "scroll", 20), ("windows", "memory", 40), ("windows", "size", 66), ("windows", "zip", 29),
             ("linux", "cold", 230), ("linux", "warm", 230), ("linux", "thousand", 220), ("linux", "second", 40), ("linux", "scroll", 40), ("linux", "memory", 155), ("linux", "size", 65), ("linux", "zip", 30),
+            ("macos", "cold", 780), ("macos", "warm", 720), ("macos", "thousand", 740), ("macos", "second", 60), ("macos", "scroll", 30), ("macos", "memory", 115),
             ("macos", "size", 69), ("macos", "zip", 32), ("macos", "app", 76), ("macos", "dmg", 38),
         ];
         foreach (var (platform, key, budget) in recorded)
@@ -1777,10 +1780,11 @@ static class SelfTest
         Expect("pdf limits: linux has limits", CheckCommand.PdfHasNoLimits("linux"), false);
         Expect("pdf limits: every binding metric is recorded", CheckCommand.PdfTable["windows"].Count == s_pdfKeys.Length && CheckCommand.PdfTable["linux"].Count == s_pdfKeys.Length, true);
         Expect("pdf limits: macOS has limits", CheckCommand.PdfHasNoLimits("macos"), false);
-        Expect("pdf limits: macOS holds the four size metrics and no time or memory limit (not measured on an Intel Mac yet)", string.Join(',', CheckCommand.PdfTable["macos"].Keys.Order()), "app,dmg,size,zip");
+        Expect("pdf limits: macOS holds the six time and memory metrics and the four size metrics", string.Join(',', CheckCommand.PdfTable["macos"].Keys.Order()), "app,cold,dmg,memory,scroll,second,size,thousand,warm,zip");
         foreach (var key in new[] { "cold", "warm", "thousand", "second", "scroll", "memory" })
         {
-            Expect($"pdf limits: macOS {key} stays unrecorded", CheckCommand.JudgePdf("macos", new Dictionary<string, double?> { [key] = 1 }, key)[0].Verdict, "unrecorded");
+            Expect($"pdf limits: macOS {key} judges a value inside the limit ok", CheckCommand.JudgePdf("macos", new Dictionary<string, double?> { [key] = 1 }, key)[0].Verdict, "ok");
+            Expect($"pdf limits: macOS {key} judges a value above the limit over", CheckCommand.JudgePdf("macos", new Dictionary<string, double?> { [key] = 100000 }, key)[0].Verdict, "over");
         }
 
         // The committed first measurements (CSVs of the owner's runs) are inside the recorded limits: the same files `check` is run on.
@@ -1882,8 +1886,8 @@ static class SelfTest
         string? folder = null;
         for (var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir is not null && folder is null; dir = dir.Parent)
         {
-            var candidate = Path.Combine(dir.FullName, "Docs", "measurements", "pdf-viewer-2026-11-04");
-            folder = Directory.Exists(candidate) ? candidate : null;
+            var candidate = Path.Combine(dir.FullName, "Docs", "measurements");
+            folder = Directory.Exists(Path.Combine(candidate, "pdf-viewer-2026-11-04")) ? candidate : null;
         }
 
         Expect("pdf measurements: the committed CSVs are found (run the selftest from the repository)", folder is not null, true);
@@ -1892,7 +1896,12 @@ static class SelfTest
             return;
         }
 
-        foreach (var (platform, subfolder) in new[] { ("windows", Path.Combine("rendering", "software")), ("linux", "linux") })
+        foreach (var (platform, subfolder) in new[]
+        {
+            ("windows", Path.Combine("pdf-viewer-2026-11-04", "rendering", "software")),
+            ("linux", Path.Combine("pdf-viewer-2026-11-04", "linux")),
+            ("macos", Path.Combine("pdf-viewer-2026-11-11-macos", "default")),
+        })
         {
             var pattern = Path.Combine(folder, subfolder, "*.csv");
             Expect($"pdf measurements {platform}: check exits 0 on the committed CSVs", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", platform, "--in", pattern], out _)!), 0);
