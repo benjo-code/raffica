@@ -170,7 +170,7 @@ cycle (M3.2)" in `Docs/DECISIONS.md`) is proven by CI as far as headless tests r
 app as in "Manual check on a Mac (M3.1)", steps 1 to 3 (artifact `raffica-pdf-macos-x64-dmg` of the `build-macos` run of the
 pull request, installed from the image); start it from Applications or with `open -a "/Applications/Raffica PDF.app"`. Write down what you see in your own words; the roadmap evidence of milestone 3.2
 takes it from there. Apple silicon stays "not tested by hand" (the CI build is x64, which runs under Rosetta there). Every box
-stays unticked until it is done. Done by the owner on 2026-11-11 (macOS 15.8.2, Intel) except box h: it was marked OK with the note "no PDF printer", but whether a page was printed to a real printer is not confirmed.
+stays unticked until it is done. Done by the owner on 2026-11-11 (macOS 15.8.2, Intel); box h on a real printer (the Mac has no PDF printer).
 
 - [x] a. **Menu bar.** (First check on a Mac, 2026-11-11: the bar showed only "Avalonia Application"; the menus now belong to the window, see `Docs/DECISIONS.md`, "... the menus belong to the window ...", so repeat this box with a build that has the fix.) The bar shows the app menu, File, Edit, View, Window and Help. The app menu has About, Check for updates
   and Settings, and below them Services, Hide, Hide others, Show all and Quit (these five come from Avalonia's native side;
@@ -194,7 +194,7 @@ stays unticked until it is done. Done by the owner on 2026-11-11 (macOS 15.8.2, 
   both enter and leave full screen, and there is no empty gap on the left in full screen.
 - [x] g. **Option key.** Option types `@`, the euro sign and friends in a text box on the German layout and nothing flashes in
   the ribbon (no key tips). Shift+Cmd+R recognizes text; Shift+Cmd+Q is the system's Log Out dialog and not ours (cancel it).
-- [ ] h. **Printing.** A page prints through the app's own print card to a real printer and to a PDF printer (the print card
+- [x] h. **Printing.** A page prints through the app's own print card to a real printer and to a PDF printer (the print card
   lists the printers of the Mac; check the paper, the duplex choice and that the output matches the page).
 - [x] i. **Search and Tab.** The title-bar search (Cmd+K) and F6 still work, and no Alt field codes appear.
 - [x] j. **Shortcut once.** A single Cmd+S saves exactly once (watch the file or the marks flag) and Shift+Cmd+D flips the

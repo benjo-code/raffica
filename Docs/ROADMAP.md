@@ -37,7 +37,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 2.7 | Release readiness | 3 – Raffica PDF | ✅ done | [Plan](superpowers/plans/2026-11-08-milestone-02-7-release-readiness.md) | 2026-11-09 |
 | 3 | Create spec for macOS | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-macos-spec.md) | 2026-11-09 |
 | 3.1 | Runs on the Mac | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | 2026-11-11 |
-| 3.2 | Feels like a Mac app | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | – |
+| 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | 🔵 in progress | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | – |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
@@ -513,7 +513,7 @@ Goal: Raffica PDF builds, passes its tests and opens PDFs from the Finder on Int
 - [x] On the owner's Mac the same build recognizes text with OCR (manual check, recorded) – Owner's Mac (macOS 15.8.2, Intel Core i5), 2026-11-11, M3.1 d: a scanned page (`testdata/pdfs/ocr-scan.pdf`) opened and OCR run, the text recognized (the Tesseract library of the bundle loads); recorded OK. The CLI check (M3.3 g) printed `raffica info` for the same file.
 
 ## Milestone 3.2 – Feels like a Mac app
-**Status:** 🔵 in progress · **Plan:** [2026-11-10-milestone-03-2-feels-like-a-mac-app.md](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
+**Status:** ✅ done (2026-11-11) · **Plan:** [2026-11-10-milestone-03-2-feels-like-a-mac-app.md](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.1
 
 Goal: Raffica PDF behaves like a Mac app: menu bar, ⌘ shortcuts without key tips, life cycle without windows, trackpad, Retina and printing.
 
@@ -532,7 +532,7 @@ Goal: Raffica PDF behaves like a Mac app: menu bar, ⌘ shortcuts without key ti
 - [x] On the owner's Mac the menu bar acts on the document and on a focused text box, and ⌘Q with unsaved marks asks the close questions (manual checks, recorded) – Owner's Mac (macOS 15.8.2, Intel Core i5), 2026-11-11, checklist "Manual check on a Mac (M3.2)" boxes a, b, c, k. The first pass (image of run 42885692478) found the bar showing only an application menu "Avalonia Application" (box a); fixed in PR #72 (menus belong to the window, see `Docs/DECISIONS.md`, "... the menus belong to the window ..."). Re-checked with the image of run 43076744033: the menu bar shows everything, the items act on the document and on a focused text box, Cmd+Q with unsaved marks asks the close questions, the Edit menu follows the focus. All recorded OK.
 - [x] On the owner's Mac a Dock click with no window open shows a new window, and a Finder file opened with no window creates one (manual checks, recorded) – Owner's Mac (macOS 15.8.2, Intel Core i5), 2026-11-11, box d (close the last window, Dock click, Finder file with no window, second file as a tab, a file dropped on the Dock during the close question) and box n (window comes and goes) recorded OK, image of run 43076744033.
 - [x] On the owner's Mac pinch zoom works, pages are sharp at 2×, and the title bar, its inset and full screen look right (manual checks, recorded) – Owner's Mac (macOS 15.8.2, Intel Core i5), 2026-11-11, boxes e and f recorded OK, image of run 43076744033: pinch zoom, sharp pages on Retina, title bar, full screen. Ctrl+Cmd+F did nothing in the first pass and works after PR #72. Boxes g, i, j, l, m (Cmd+A and Cmd+D in the organize list work with the plan open) and o (restart and log out) are recorded OK as well.
-- [ ] On the owner's Mac a page prints through the own print card with a real or a PDF printer (manual check, recorded) – OPEN. Box h was marked OK by the owner on 2026-11-11 with the note "no PDF printer"; whether a page was printed to a real printer is not confirmed, so the criterion stays open. Command: `packaging/README.md`, "Manual check on a Mac (M3.2)", box h.
+- [x] On the owner's Mac a page prints through the own print card with a real or a PDF printer (manual check, recorded) – Owner's Mac (macOS 15.8.2, Intel Core i5), 2026-11-11, `packaging/README.md`, "Manual check on a Mac (M3.2)" box h, image of CI run 43076744033: a page printed through the app's own print card to a real printer and the printout was right; the owner confirmed it in chat after first marking the box OK with the note that the Mac has no PDF printer.
 
 ## Milestone 3.3 – Package and release
 **Status:** 🔵 in progress · **Plan:** [2026-11-10-milestone-03-3-package-and-release.md](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) · **Spec:** [2026-11-09-raffica-macos-design.md](superpowers/specs/2026-11-09-raffica-macos-design.md) · **Prerequisites:** M3.2
