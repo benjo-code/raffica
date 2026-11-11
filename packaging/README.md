@@ -225,7 +225,7 @@ otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under 
 - [ ] a. **Open the image.** Open the `.dmg`: it shows `Raffica PDF.app` and the `Applications` link. Drag the app into
   Applications and start it. macOS blocks the first launch; System Settings, Privacy & Security, "Open Anyway" (as the README
   says) starts it. Note whether macOS asks twice, and what the message says.
-- [ ] b. **Icon and Open With.** The Raffica PDF icon shows in the Finder (also in a folder with Icon view), in the Dock
+- [ ] b. **Icon and Open With.** (First check on a Mac, 2026-11-11: a PDF had another icon than the app; the document type now names the app icon, see `Docs/DECISIONS.md`, "... the PDF document type shows the app icon ...", so repeat this box with a build that has the fix and look at a PDF that Raffica is the default for.) The Raffica PDF icon shows in the Finder (also in a folder with Icon view), in the Dock
   and in the app switcher. A PDF's Open With list names Raffica PDF.
 - [ ] c. **Default app.** Start the app from Applications while another program is the default for PDF files: the card offers
   the default; "Set as default" makes Raffica PDF the default (Finder, Get Info on a PDF shows it) and a double-click on a PDF
