@@ -976,7 +976,11 @@
     },
     {
       "title": "Flaky macOS UI tests on the hosted runner",
-      "text": "Two macOS UI tests each failed once in earlier `build-macos` attempts of milestone 3.3 and passed on a re-run: `OrganizeListTests.FocusStaysOnItsRowAfterSelectAllAndMoves` and `TextEditRobustnessTests.EmptyTextThroughEnterInTheRealWindowRemovesTheLineAndUndoBringsItBack`. Whether they were flaky before 3.3 was not examined (not proven pre-existing). Look for a focus or dispatcher timing dependence on the hosted `macos-15` runner and fix the test or the code; do not skip them."
+      "text": "Two macOS UI tests each failed once in earlier `build-macos` attempts of milestone 3.3 and passed on a re-run: `OrganizeListTests.FocusStaysOnItsRowAfterSelectAllAndMoves` and `TextEditRobustnessTests.EmptyTextThroughEnterInTheRealWindowRemovesTheLineAndUndoBringsItBack`. Whether they were flaky before 3.3 was not examined (not proven pre-existing). Look for a focus or dispatcher timing dependence on the hosted `macos-15` runner and fix the test or the code; do not skip them. Seen since: `TextEditKeysTests.EnterCommitsEscDiscardsTabLeavesAndNeverTraps` failed once on the first `build-macos` attempt of PR #72 (`Assert.NotNull` at the text-edit field) and passed on the re-run; `WindowHostWindowTests.QuitRequestedIsClearedByACancelledAttempt` failed once in a full local run on Windows (`DirtyTabAsync`, an assertion that the tab is dirty) and passed three times alone."
+    },
+    {
+      "title": "RenderSchedulerTests.InvalidatePagesDoesNotWaitForARunningHandler can kill the test process",
+      "text": "On the Windows job of PR #75 the `Raffica.Core.Tests` run ended with an unhandled `ObjectDisposedException` ('System.Threading.ManualResetEventSlim') and exit code -532462766; a re-run passed. The stack is the test's own handler (`RenderSchedulerTests.InvalidatePagesDoesNotWaitForARunningHandler`, a lambda that waits on a `ManualResetEventSlim`) called by `RenderScheduler.Raise` on a pool thread, so the test disposes the event while the handler thread still waits on it; an unhandled exception on a pool thread ends the whole test host. Not a proven product bug. Make the test wait for the handler to finish (or release the event only after it) before it disposes anything, and check whether the other `RenderSchedulerTests` handlers have the same shape."
     }
   ]
 }
