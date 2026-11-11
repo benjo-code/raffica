@@ -1,0 +1,5 @@
+machine,mode,case,run,value,unit
+macbook-intel,pdf,size,total,61319760,bytes
+macbook-intel,pdf,size,zip,27871734,bytes
+macbook-intel,pdf,size,fonts,3027784,bytes
+macbook-intel,pdf,size,native,27384088,bytes

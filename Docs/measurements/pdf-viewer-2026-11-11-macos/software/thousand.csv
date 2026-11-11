@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+macbook-intel,pdf,thousand,1,740.32,ms
+macbook-intel,pdf,thousand,2,756.95,ms
+macbook-intel,pdf,thousand,3,761.79,ms
+macbook-intel,pdf,thousand,4,756.2,ms
+macbook-intel,pdf,thousand,5,752.34,ms
+macbook-intel,pdf,thousand,6,749.83,ms
+macbook-intel,pdf,thousand,7,753.17,ms
+macbook-intel,pdf,thousand,8,752.4,ms
+macbook-intel,pdf,thousand,9,735.48,ms
+macbook-intel,pdf,thousand,10,754.96,ms
