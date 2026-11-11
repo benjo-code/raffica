@@ -32,13 +32,23 @@ internal enum MenuAction
 
 /// <summary>
 /// The menu bar of Raffica PDF on macOS as data. Services, Hide, Hide others, Show all and Quit are added to the
-/// first menu by the native side and are not part of the model.
+/// application menu by the native side and are not part of the model. Avalonia fills the menu bar from two places: the menu of the application is the
+/// application menu only, the menus of a window (File, Edit, ...) come from the menu set on that window.
 /// </summary>
 internal static class MacMenuModel
 {
     private static readonly SeparatorNode Separator = new();
 
     private static CommandNode Command(string id) => new(id);
+
+    /// <summary>
+    /// The items of the application menu (the leftmost menu, under the name of the app): the first menu of <see cref="Build"/> without its header, then Open.
+    /// Open is shown only while no window exists (the File menu belongs to a window and is gone then), so Cmd+O never has two items.
+    /// </summary>
+    public static IReadOnlyList<MenuNode> AppItems() => [.. Build()[0].Items, Command(PdfCommandIds.Open)];
+
+    /// <summary>The menus a window brings to the menu bar (File, Edit, View, Window, Help): every menu of <see cref="Build"/> after the application menu.</summary>
+    public static IReadOnlyList<SubmenuNode> WindowMenus() => [.. Build().Skip(1)];
 
     public static IReadOnlyList<SubmenuNode> Build() =>
     [

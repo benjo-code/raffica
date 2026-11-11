@@ -58,6 +58,7 @@ internal sealed partial class App : Application
             // macOS keeps the app alive when its last window closes (the Dock icon stays, Finder files and "reopen" make a new window): the host owns the windows.
             // Windows and Linux end with the last window, as before. A measurement run measures one window.
             var hosted = OperatingSystem.IsMacOS() && !_options.IsMeasuring;
+            _menusOnWindows = hosted;
             if (hosted)
             {
                 desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
@@ -101,6 +102,9 @@ internal sealed partial class App : Application
     private Hosting.WindowSettingsSource? _settingsSource;
     private Hosting.WindowHost? _host;
 
+    // True on macOS outside a measurement run: every window carries its own menus (File ... Help) in the menu bar.
+    private bool _menusOnWindows;
+
     /// <summary>
     /// What ends the app for an installer that took over: the host's <c>Quit</c> when macOS hosts the windows (it ends the app once and makes no window afterwards, so
     /// a file that waits or a Dock click cannot create one while the app shuts down), else the plain shutdown.
@@ -115,6 +119,10 @@ internal sealed partial class App : Application
         _settingsSource ??= new Hosting.WindowSettingsSource(_options.SettingsFile, _settings, _appSettings);
         var (settings, appSettings) = _settingsSource.Next();
         var window = new PdfWindow(options, settings, appSettings);
+        if (_menusOnWindows)
+        {
+            Platform.MacOS.MacWindowMenu.Attach(window, window);
+        }
 
         // The system's default app service is made on first use (the offer after the first sharp page, the command); a measurement run has none.
         window.DefaultAppServices = _options.IsMeasuring ? null : Platform.PlatformDefaultAppServices.Create;
@@ -160,13 +168,17 @@ internal sealed partial class App : Application
         first.Opened += OnOpened;
     }
 
-    // The menu bar of macOS: one native menu for the app, bound to the current window of the host. It is read again when the current window changes, when that
-    // window reports new command states and when the system asks. "Open" with no window makes one through the host (the dispatcher runs the host's own post first),
-    // then runs the command of the new window, so the picker has a window to belong to.
+    // The application menu of macOS (the one under the name of the app), bound to the current window of the host. Avalonia takes the menu set on the application as
+    // this menu only; File, Edit, View, Window and Help belong to each window (CreateWindow, MacWindowMenu). It is read again when the current window changes,
+    // when that window reports new command states and when the system asks. "Open" with no window makes one through the host (the dispatcher runs the host's own
+    // post first), then runs the command of the new window, so the picker has a window to belong to.
     private void AttachMenu(Hosting.WindowHost host)
     {
         var ui = Dispatcher.UIThread;
-        var binder = new Platform.MacOS.MacMenuBinder(() => host.Current as Platform.MacOS.IMenuWindow, () => PdfWindow.GuardAsync(() => OpenWindowThenPickerAsync(host, ui)));
+        var binder = new Platform.MacOS.MacMenuBinder(
+            () => host.Current as Platform.MacOS.IMenuWindow,
+            () => PdfWindow.GuardAsync(() => OpenWindowThenPickerAsync(host, ui)),
+            Platform.MacOS.MenuPart.App);
         host.CurrentChanged += binder.Refresh;
         Avalonia.Controls.NativeMenu.SetMenu(this, binder.Menu);
 
