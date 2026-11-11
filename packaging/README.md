@@ -172,7 +172,7 @@ pull request, installed from the image); start it from Applications or with `ope
 takes it from there. Apple silicon stays "not tested by hand" (the CI build is x64, which runs under Rosetta there). Every box
 stays unticked until it is done.
 
-- [ ] a. **Menu bar.** The bar shows the app menu, File, Edit, View, Window and Help. The app menu has About, Check for updates
+- [ ] a. **Menu bar.** (First check on a Mac, 2026-11-11: the bar showed only "Avalonia Application"; the menus now belong to the window, see `Docs/DECISIONS.md`, "... the menus belong to the window ...", so repeat this box with a build that has the fix.) The bar shows the app menu, File, Edit, View, Window and Help. The app menu has About, Check for updates
   and Settings, and below them Services, Hide, Hide others, Show all and Quit (these five come from Avalonia's native side;
   if one is missing, report which: `Docs/DECISIONS.md` names the fallback). No item is twice in the bar (Enter Full Screen,
   Minimize, Zoom). Start with `--lang de` (`open -a "/Applications/Raffica PDF.app" --args --lang de`, or run
@@ -205,7 +205,7 @@ stays unticked until it is done.
   This is the `NeedsUpdate` check of the submenus: with the page view focused, Cut and Paste are disabled; with a text box
   focused they are enabled, each time you open the Edit menu (no click elsewhere in between).
 - [ ] l. **Paste once.** Cmd+V in a text box pastes once, not twice.
-- [ ] m. **Page list.** In organize mode (Pages tab) with the page list focused, Cmd+A selects pages and not page text, Cmd+C
+- [ ] m. **Page list.** In organize mode (Pages tab, click Organize first: the list owns these keys only while a plan is open) with the page list focused, Cmd+A selects pages and not page text, Cmd+C
   does not copy page text, and Cmd+D duplicates the selection (the Edit menu shows Copy and Select all disabled then).
 - [ ] n. **Window comes and goes.** Close the first window, click the Dock icon, close that window and open one again, repeat a
   few times: no beach ball, the app still opens a new window each time, and a crash or update card shown after that is still

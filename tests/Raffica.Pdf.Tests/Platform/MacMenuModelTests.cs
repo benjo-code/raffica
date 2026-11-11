@@ -74,6 +74,30 @@ public sealed class MacMenuModelTests
     }
 
     [Fact]
+    public void TheApplicationMenuHoldsTheFirstMenuAndOpenForTheNoWindowCase()
+    {
+        Assert.Equal(["@About", "app.update", "file.settings", "file.open"], MacMenuModel.AppItems().Select(Shape).ToArray());
+    }
+
+    [Fact]
+    public void TheWindowMenusAreEveryMenuAfterTheApplicationMenu()
+    {
+        var all = MacMenuModel.Build();
+        Assert.Equal(["MenuFile", "MenuEdit", "MenuView", "MenuWindow", "MenuHelp"], MacMenuModel.WindowMenus().Select(m => m.HeaderKey).ToArray());
+        Assert.Equal(
+            all.Skip(1).SelectMany(m => m.Items.Select(Shape)).ToArray(),
+            MacMenuModel.WindowMenus().SelectMany(m => m.Items.Select(Shape)).ToArray());
+    }
+
+    [Fact]
+    public void OnlyOpenIsInBothTheApplicationMenuAndTheWindowMenus()
+    {
+        var inApp = CommandIds(MacMenuModel.AppItems());
+        var inWindows = CommandIds(MacMenuModel.WindowMenus());
+        Assert.Equal([PdfCommandIds.Open], inApp.Intersect(inWindows).ToArray());
+    }
+
+    [Fact]
     public void EveryHeaderKeyExistsInBothLanguages()
     {
         var keys = new List<string>();

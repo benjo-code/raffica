@@ -42,6 +42,19 @@ internal interface IMenuWindow
     event Action? StatesChanged;
 }
 
+/// <summary>Which part of the menu bar a <see cref="MacMenuBinder"/> builds: Avalonia takes the menu of the application as the application menu only.</summary>
+internal enum MenuPart
+{
+    /// <summary>Every menu of the model as top-level items (what the tests read).</summary>
+    All,
+
+    /// <summary>The items of the application menu, set on the application.</summary>
+    App,
+
+    /// <summary>File, Edit, View, Window and Help, set on a window.</summary>
+    Window,
+}
+
 /// <summary>
 /// Builds the native menu bar from <see cref="MacMenuModel"/> and keeps it in step with the current window: a command item has the catalog label and shortcut
 /// and runs the command of the ribbon; the items that macOS defines act on the window. The menu is read again when the system asks (<see cref="NativeMenu.NeedsUpdate"/>),
@@ -60,18 +73,41 @@ internal sealed class MacMenuBinder
     private IMenuWindow? _subscribed;
     private IReadOnlyList<RecentFile>? _shownRecent;
 
-    public MacMenuBinder(Func<IMenuWindow?> current, Func<Task> openWithoutWindow)
+    private readonly MenuPart _part;
+
+    public MacMenuBinder(Func<IMenuWindow?> current, Func<Task> openWithoutWindow, MenuPart part = MenuPart.All)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(openWithoutWindow);
         _current = current;
         _openWithoutWindow = openWithoutWindow;
+        _part = part;
         _onStatesChanged = Refresh;
         _onNeedsUpdate = (_, _) => Refresh();
         Menu = new NativeMenu();
-        foreach (var submenu in MacMenuModel.Build())
+        switch (part)
         {
-            Menu.Items.Add(BuildSubmenu(submenu));
+            case MenuPart.App:
+                foreach (var node in MacMenuModel.AppItems())
+                {
+                    Menu.Items.Add(BuildNode(node));
+                }
+
+                break;
+            case MenuPart.Window:
+                foreach (var submenu in MacMenuModel.WindowMenus())
+                {
+                    Menu.Items.Add(BuildSubmenu(submenu));
+                }
+
+                break;
+            default:
+                foreach (var submenu in MacMenuModel.Build())
+                {
+                    Menu.Items.Add(BuildSubmenu(submenu));
+                }
+
+                break;
         }
 
         Menu.NeedsUpdate += _onNeedsUpdate;
@@ -133,25 +169,19 @@ internal sealed class MacMenuBinder
 
         foreach (var child in node.Items)
         {
-            switch (child)
-            {
-                case CommandNode command:
-                    item.Menu.Items.Add(BuildCommand(command));
-                    break;
-                case ActionNode action:
-                    item.Menu.Items.Add(BuildAction(action));
-                    break;
-                case SubmenuNode inner:
-                    item.Menu.Items.Add(BuildSubmenu(inner));
-                    break;
-                default:
-                    item.Menu.Items.Add(new NativeMenuItemSeparator());
-                    break;
-            }
+            item.Menu.Items.Add(BuildNode(child));
         }
 
         return item;
     }
+
+    private NativeMenuItem BuildNode(MenuNode node) => node switch
+    {
+        CommandNode command => BuildCommand(command),
+        ActionNode action => BuildAction(action),
+        SubmenuNode inner => BuildSubmenu(inner),
+        _ => new NativeMenuItemSeparator(),
+    };
 
     private NativeMenuItem BuildCommand(CommandNode node)
     {
@@ -167,10 +197,16 @@ internal sealed class MacMenuBinder
             Gesture = catalog.ShortcutFor(true) is { } shortcut ? GestureOf(shortcut) : null,
             ToggleType = catalog.Toggle ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
         };
+        // In the application menu Open is the item for "no window": the File menu of a window carries it otherwise, with the same key.
+        var onlyWithoutWindow = _part == MenuPart.App && id == PdfCommandIds.Open;
         _entries.Add(new Entry(item, command, window =>
         {
             item.Header = catalog.Name;
             item.IsChecked = catalog.Toggle && window?.CommandOf(id) is { IsToggle: true } definition && definition.IsChecked;
+            if (onlyWithoutWindow)
+            {
+                item.IsVisible = window is null;
+            }
         }));
         return item;
     }

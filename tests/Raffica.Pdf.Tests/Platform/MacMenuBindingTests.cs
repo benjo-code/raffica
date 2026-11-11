@@ -383,6 +383,84 @@ public sealed class MacMenuBindingTests : IDisposable
         Assert.Equal(PdfStrings.MenuEnterFullScreen, item.Header);
     }
 
+    // The bug of the first Mac check: Avalonia takes the menu set on the application as the application menu only, so File, Edit, View, Window and Help
+    // (all items of one application menu) never reached the menu bar. A window brings its own menus.
+    [AvaloniaFact]
+    public void AWindowGetsFileThroughHelpAsTopLevelMenusAndNoApplicationItems()
+    {
+        var host = new Window();
+        var binder = MacWindowMenu.Attach(host, new FakeMenuWindow());
+        var menu = NativeMenu.GetMenu(host);
+        Assert.Same(binder.Menu, menu);
+        Assert.Equal(
+            [PdfStrings.MenuFile, PdfStrings.MenuEdit, PdfStrings.MenuView, PdfStrings.MenuWindow, PdfStrings.MenuHelp],
+            menu!.Items.OfType<NativeMenuItem>().Select(i => i.Header ?? string.Empty).ToArray());
+        Assert.DoesNotContain(Items(menu), i => i.Header is string h && (h == PdfStrings.MenuAbout || h == Catalog(PdfCommandIds.Update).Name));
+    }
+
+    [AvaloniaFact]
+    public void TheMenusOfAWindowActOnThatWindowOnly()
+    {
+        var first = new FakeMenuWindow();
+        var second = new FakeMenuWindow();
+        var firstBinder = MacWindowMenu.Attach(new Window(), first);
+        var secondBinder = MacWindowMenu.Attach(new Window(), second);
+        ItemOfCommand(firstBinder, PdfCommandIds.Save).Command!.Execute(null);
+        Assert.Equal(1, first.Runs[PdfCommandIds.Save]);
+        Assert.Equal(0, second.Runs[PdfCommandIds.Save]);
+        second.Enabled[PdfCommandIds.Save] = false;
+        second.RaiseStatesChanged();
+        Assert.False(Can(ItemOfCommand(secondBinder, PdfCommandIds.Save)));
+        Assert.True(Can(ItemOfCommand(firstBinder, PdfCommandIds.Save)));
+    }
+
+    [AvaloniaFact]
+    public void TheApplicationMenuIsFlatAndOpenShowsOnlyWithoutAWindow()
+    {
+        var window = new FakeMenuWindow();
+        IMenuWindow? current = window;
+        var opened = new List<string>();
+        var binder = new MacMenuBinder(() => current, () =>
+        {
+            opened.Add("open-without-window");
+            return Task.CompletedTask;
+        }, MenuPart.App);
+        binder.Refresh();
+
+        // Flat items, no File or Edit submenu: the application menu is the menu under the name of the app.
+        var top = binder.Menu.Items.OfType<NativeMenuItem>().ToList();
+        Assert.All(top, item => Assert.Null(item.Menu));
+        Assert.Equal(
+            [PdfStrings.MenuAbout, Catalog(PdfCommandIds.Update).Name, Catalog(PdfCommandIds.Settings).Name, Catalog(PdfCommandIds.Open).Name],
+            top.Select(i => i.Header ?? string.Empty).ToArray());
+
+        var open = ItemOfCommand(binder, PdfCommandIds.Open);
+        Assert.False(open.IsVisible);
+
+        current = null;
+        binder.Refresh();
+        Assert.True(open.IsVisible);
+        Assert.True(Can(open));
+        open.Command!.Execute(null);
+        Assert.Equal(["open-without-window"], opened);
+
+        current = window;
+        binder.Refresh();
+        Assert.False(open.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void TheApplicationItemsActOnTheCurrentWindow()
+    {
+        var window = new FakeMenuWindow();
+        var binder = new MacMenuBinder(() => window, () => Task.CompletedTask, MenuPart.App);
+        binder.Refresh();
+        ItemOf(binder, PdfStrings.MenuAbout).Command!.Execute(null);
+        ItemOfCommand(binder, PdfCommandIds.Settings).Command!.Execute(null);
+        Assert.Equal(["about"], window.Calls);
+        Assert.Equal(1, window.Runs[PdfCommandIds.Settings]);
+    }
+
     [AvaloniaFact]
     public void TheBinderFollowsTheCurrentWindowAndLetsGoOfAClosedOne()
     {
