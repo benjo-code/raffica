@@ -15,6 +15,13 @@ Log of architecture and technology decisions. Newest entries on top.
 **Rejected alternatives:** <What else was considered and why not>
 -->
 
+## 2026-11-11 – Raffica PDF on macOS: the PDF document type shows the app icon (M3.3 follow-up)
+**Context:** The owner's first check on a real Mac (`packaging/README.md`, "Manual check on a Mac (M3.3)", box b) showed that a PDF opened by Raffica had a different icon than the app. The `Info.plist` declared the PDF document type (`com.adobe.pdf`, Editor, Alternate) without `CFBundleTypeIconFile`, so macOS composed an icon itself. On Windows the file type of the installer carries the app icon.
+**Decision:** The document type names the same icon file as the app: `CFBundleTypeIconFile` is `RafficaPdf`, the `RafficaPdf.icns` that `macos-app` already makes (no second file). `package.cs selftest` checks that the document type names the same file as `CFBundleIconFile`; the check was seen to fail with the key removed.
+**Rationale:** One icon, as on Windows, and no new artwork to maintain. The icon shows for PDFs only where Raffica is the default app for the type; PDFs that another app opens keep that app's icon, and the Finder shows a page preview instead of an icon in some views.
+**Rejected alternatives:** A page-shaped document icon with the Raffica mark (the usual Mac look, but new artwork to design and review; can be done later as a replacement of the one key). No document icon (what macOS composes is not the app's own icon).
+**Consequences:** **Open (only a real Mac answers):** that the Finder shows the Raffica icon for a PDF when Raffica is the default app (list view and Get Info; the Finder may need a moment or `killall Finder` to refresh its icon cache), and what the icon looks like at the sizes of the list and icon views.
+
 ## 2026-11-11 – Raffica PDF on macOS: the menus belong to the window, the app menu to the application (M3.2 follow-up)
 **Context:** The owner's first check on a real Mac (macOS 15.8.2, Intel; `packaging/README.md`, "Manual check on a Mac (M3.2)", box a) found that the menu bar showed only an application menu titled "Avalonia Application": no File, Edit, View, Window or Help. `App.AttachMenu` had set one `NativeMenu` with all six menus on the application. Avalonia's documentation says that on macOS the menu set on the **Application** is the application menu only (the leftmost one), and the other menus of the bar come from the `NativeMenu` set on a **Window**. All our menus were therefore nested inside the application menu, never top-level. The headless tests read the `NativeMenu` object and could not see where the system puts it. The title "Avalonia Application" is Avalonia's fallback when `Application.Name` is not set.
 **Decision:**

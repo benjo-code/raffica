@@ -14,6 +14,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- Raffica PDF on macOS: a PDF that Raffica is the default app for shows the Raffica icon in the Finder instead of an icon macOS composed itself.
 - Raffica PDF on macOS: the menu bar showed only an application menu named "Avalonia Application" and none of File, Edit, View, Window and Help. The menus now belong to each window and the application menu is named Raffica PDF; with no window open, Open stays in the application menu.
 - Opening a file in the running Raffica PDF from a second start could lose the file when the first instance was slow to read the message (a heavily loaded machine); the message is now delivered whenever it arrived whole.
 

@@ -3859,6 +3859,8 @@ static partial class MacApp
                 <dict>
                   <key>CFBundleTypeName</key>
                   <string>PDF Document</string>
+                  <key>CFBundleTypeIconFile</key>
+                  <string>RafficaPdf</string>
                   <key>CFBundleTypeRole</key>
                   <string>Editor</string>
                   <key>LSHandlerRank</key>
@@ -6121,6 +6123,12 @@ static class SelfTest
         var typeText = types.Count == 1 ? string.Join('|', types[0].Descendants().Select(e => e.Value)) : "";
         Expect("macos-app: document type is com.adobe.pdf, Editor, Alternate",
             typeText.Contains("com.adobe.pdf", StringComparison.Ordinal) && typeText.Contains("Editor", StringComparison.Ordinal) && typeText.Contains("Alternate", StringComparison.Ordinal), true);
+
+        // A PDF the app is the default for shows the app's own icon (the same RafficaPdf.icns), as the file type does on Windows; without the key macOS composes one.
+        var typeKeys = types.Count == 1 ? types[0].Elements().ToList() : [];
+        var iconKey = typeKeys.FindIndex(e => e.Name.LocalName == "key" && e.Value == "CFBundleTypeIconFile");
+        Expect("macos-app: the document type names the app icon file",
+            iconKey >= 0 && iconKey + 1 < typeKeys.Count ? typeKeys[iconKey + 1].Value : "(missing)", values.TryGetValue("CFBundleIconFile", out var appIcon) ? appIcon.Value : "(no app icon)");
 
         var versionsFile = Path.Combine("packaging", "native", "versions.txt");
         Expect("macos-app: versions.txt present", File.Exists(versionsFile), true);
