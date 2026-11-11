@@ -170,47 +170,47 @@ cycle (M3.2)" in `Docs/DECISIONS.md`) is proven by CI as far as headless tests r
 app as in "Manual check on a Mac (M3.1)", steps 1 to 3 (artifact `raffica-pdf-macos-x64-dmg` of the `build-macos` run of the
 pull request, installed from the image); start it from Applications or with `open -a "/Applications/Raffica PDF.app"`. Write down what you see in your own words; the roadmap evidence of milestone 3.2
 takes it from there. Apple silicon stays "not tested by hand" (the CI build is x64, which runs under Rosetta there). Every box
-stays unticked until it is done.
+stays unticked until it is done. Done by the owner on 2026-11-11 (macOS 15.8.2, Intel) except box h: it was marked OK with the note "no PDF printer", but whether a page was printed to a real printer is not confirmed.
 
-- [ ] a. **Menu bar.** (First check on a Mac, 2026-11-11: the bar showed only "Avalonia Application"; the menus now belong to the window, see `Docs/DECISIONS.md`, "... the menus belong to the window ...", so repeat this box with a build that has the fix.) The bar shows the app menu, File, Edit, View, Window and Help. The app menu has About, Check for updates
+- [x] a. **Menu bar.** (First check on a Mac, 2026-11-11: the bar showed only "Avalonia Application"; the menus now belong to the window, see `Docs/DECISIONS.md`, "... the menus belong to the window ...", so repeat this box with a build that has the fix.) The bar shows the app menu, File, Edit, View, Window and Help. The app menu has About, Check for updates
   and Settings, and below them Services, Hide, Hide others, Show all and Quit (these five come from Avalonia's native side;
   if one is missing, report which: `Docs/DECISIONS.md` names the fallback). No item is twice in the bar (Enter Full Screen,
   Minimize, Zoom). Start with `--lang de` (`open -a "/Applications/Raffica PDF.app" --args --lang de`, or run
   `"/Applications/Raffica PDF.app/Contents/MacOS/RafficaPdf" --lang de`): the German wording reads right, the system items
   in Apple's terms, the rest as in the ribbon.
-- [ ] b. **Items act.** With a document open, the File, Edit and View items act on the document (Open, Open Recent, Close, Save,
+- [x] b. **Items act.** With a document open, the File, Edit and View items act on the document (Open, Open Recent, Close, Save,
   Save as, Print, Undo, Redo, Copy, Select all, Find, zoom, layouts, panes, dark page, Enter Full Screen). With a comment
   box (or the text-box editor or the search field) focused, Cmd+Z, Cmd+C, Cmd+A, Cmd+X and Cmd+V act on the box and not on
   the document or the marks history.
-- [ ] c. **Cmd+Q.** With unsaved marks, Cmd+Q asks the close questions; Cancel keeps the app and the window; a later plain
+- [x] c. **Cmd+Q.** With unsaved marks, Cmd+Q asks the close questions; Cancel keeps the app and the window; a later plain
   close of the window does not quit the app; answering Save or Don't save quits.
-- [ ] d. **Life cycle.** Close the last window: the app stays in the Dock and in the menu bar (only Open works in it), a Dock
+- [x] d. **Life cycle.** Close the last window: the app stays in the Dock and in the menu bar (only Open works in it), a Dock
   click shows a new window, a PDF opened from the Finder (`open -a "/Applications/Raffica PDF.app" a.pdf`) with no window
   creates one, a second Finder file while a window is open becomes a tab. A PDF dropped on the Dock icon while the last window
   is closing (a close question is open) opens in the next window and is not lost.
-- [ ] e. **Pinch and Retina.** Pinch zoom on the trackpad zooms around the pointer; the zoom commands (Cmd+plus, Cmd+minus, fit)
+- [x] e. **Pinch and Retina.** Pinch zoom on the trackpad zooms around the pointer; the zoom commands (Cmd+plus, Cmd+minus, fit)
   step on from the pinched value. On a Retina display pages are sharp at 2x: zoom in on text and compare with Preview.
-- [ ] f. **Title bar.** The traffic lights sit in the 80 px inset, the bar drags the window, Ctrl+Cmd+F and the View menu item
+- [x] f. **Title bar.** The traffic lights sit in the 80 px inset, the bar drags the window, Ctrl+Cmd+F and the View menu item
   both enter and leave full screen, and there is no empty gap on the left in full screen.
-- [ ] g. **Option key.** Option types `@`, the euro sign and friends in a text box on the German layout and nothing flashes in
+- [x] g. **Option key.** Option types `@`, the euro sign and friends in a text box on the German layout and nothing flashes in
   the ribbon (no key tips). Shift+Cmd+R recognizes text; Shift+Cmd+Q is the system's Log Out dialog and not ours (cancel it).
 - [ ] h. **Printing.** A page prints through the app's own print card to a real printer and to a PDF printer (the print card
   lists the printers of the Mac; check the paper, the duplex choice and that the output matches the page).
-- [ ] i. **Search and Tab.** The title-bar search (Cmd+K) and F6 still work, and no Alt field codes appear.
-- [ ] j. **Shortcut once.** A single Cmd+S saves exactly once (watch the file or the marks flag) and Shift+Cmd+D flips the
+- [x] i. **Search and Tab.** The title-bar search (Cmd+K) and F6 still work, and no Alt field codes appear.
+- [x] j. **Shortcut once.** A single Cmd+S saves exactly once (watch the file or the marks flag) and Shift+Cmd+D flips the
   dark page once, not twice (the native menu key equivalent and the window's own shortcut handler must not both act); holding
   a one-shot key (Cmd+S, Shift+Cmd+D) does not repeat the command.
-- [ ] k. **Menu follows the focus.** Open the Edit menu with a comment box focused and again with the page focused: Cut, Copy,
+- [x] k. **Menu follows the focus.** Open the Edit menu with a comment box focused and again with the page focused: Cut, Copy,
   Paste, Undo and Redo are enabled and act as the focused part says (the menu refreshes when it opens).
   This is the `NeedsUpdate` check of the submenus: with the page view focused, Cut and Paste are disabled; with a text box
   focused they are enabled, each time you open the Edit menu (no click elsewhere in between).
-- [ ] l. **Paste once.** Cmd+V in a text box pastes once, not twice.
-- [ ] m. **Page list.** In organize mode (Pages tab, click Organize first: the list owns these keys only while a plan is open) with the page list focused, Cmd+A selects pages and not page text, Cmd+C
+- [x] l. **Paste once.** Cmd+V in a text box pastes once, not twice.
+- [x] m. **Page list.** In organize mode (Pages tab, click Organize first: the list owns these keys only while a plan is open) with the page list focused, Cmd+A selects pages and not page text, Cmd+C
   does not copy page text, and Cmd+D duplicates the selection (the Edit menu shows Copy and Select all disabled then).
-- [ ] n. **Window comes and goes.** Close the first window, click the Dock icon, close that window and open one again, repeat a
+- [x] n. **Window comes and goes.** Close the first window, click the Dock icon, close that window and open one again, repeat a
   few times: no beach ball, the app still opens a new window each time, and a crash or update card shown after that is still
   answered.
-- [ ] o. **Restart and log out.** With Raffica open and nothing unsaved, restart the Mac (and log out in a second try): Raffica must
+- [x] o. **Restart and log out.** With Raffica open and nothing unsaved, restart the Mac (and log out in a second try): Raffica must
   not abort the restart or the log out. (Known risk: the window cancels every close, also the system's; see the known limits of
   the decision.) With unsaved marks the close question may appear; that is expected.
 
@@ -222,16 +222,16 @@ images and checks the signature (`codesign --verify --deep --strict`), the Mach-
 (green on CI run 42860216762, head e1ca1b3, both architectures). What follows needs a real Mac. Install the app from the Intel image as in "Manual check on a Mac (M3.1)", steps 1 to 3, unless a box says
 otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under Rosetta there; the arm64 image has not been run by hand). Every box stays unticked until it is done; write what you see in your own words.
 
-- [ ] a. **Open the image.** Open the `.dmg`: it shows `Raffica PDF.app` and the `Applications` link. Drag the app into
+- [x] a. **Open the image.** Open the `.dmg`: it shows `Raffica PDF.app` and the `Applications` link. Drag the app into
   Applications and start it. macOS blocks the first launch; System Settings, Privacy & Security, "Open Anyway" (as the README
   says) starts it. Note whether macOS asks twice, and what the message says.
-- [ ] b. **Icon and Open With.** (First check on a Mac, 2026-11-11: a PDF had another icon than the app; the document type now names the app icon, see `Docs/DECISIONS.md`, "... the PDF document type shows the app icon ...", so repeat this box with a build that has the fix and look at a PDF that Raffica is the default for.) The Raffica PDF icon shows in the Finder (also in a folder with Icon view), in the Dock
+- [x] b. **Icon and Open With.** (First check on a Mac, 2026-11-11: a PDF had another icon than the app; the document type now names the app icon, see `Docs/DECISIONS.md`, "... the PDF document type shows the app icon ...", so repeat this box with a build that has the fix and look at a PDF that Raffica is the default for.) The Raffica PDF icon shows in the Finder (also in a folder with Icon view), in the Dock
   and in the app switcher. A PDF's Open With list names Raffica PDF.
-- [ ] c. **Default app.** Start the app from Applications while another program is the default for PDF files: the card offers
+- [x] c. **Default app.** Start the app from Applications while another program is the default for PDF files: the card offers
   the default; "Set as default" makes Raffica PDF the default (Finder, Get Info on a PDF shows it) and a double-click on a PDF
   opens it. The call `LSSetDefaultRoleHandlerForContentType` is deprecated; if it fails on this macOS, write down the card's
   text. Also check that the card does not appear when the app runs from the mounted image.
-- [ ] d. **Update.** Build two test versions, 0.0.1 and 0.0.2, as in "Manual update check": publish `osx-x64` (or `osx-arm64` on
+- [x] d. **Update.** Build two test versions, 0.0.1 and 0.0.2, as in "Manual update check": publish `osx-x64` (or `osx-arm64` on
   your Mac) with `-p:Version=<version> -p:RafficaUpdateTestBuild=true -p:RafficaUpdateTestPort=<port>
   -p:RafficaUpdateTestKey=<public test key>`, make a bundle with `package.cs macos-app ... --version <version>` and an image with
   `package.cs dmg ... --version <version> --out RafficaPdf-<version>-macos-<arch>.dmg` for each version (`<arch>` is `x64` or
@@ -255,13 +255,13 @@ otherwise. Apple silicon stays "not tested by hand" (the Intel image runs under 
   itself. Whether App Management lets an ad-hoc signed app replace itself in `/Applications` is **unverified**: the swap is
   made by a shell script that `/bin/sh` runs after the app has quit, and nothing here has run on a Mac yet. If the prompt
   appears or the swap fails, the user's Privacy & Security setting "App Management" for Raffica PDF is the first thing to look at.
-- [ ] e. **From the mounted image.** Start the app from the open image (not copied): "Update available" and "Install" end with
+- [x] e. **From the mounted image.** Start the app from the open image (not copied): "Update available" and "Install" end with
   the sentence "Raffica is running from the downloaded disk image ... Move Raffica PDF to the Applications folder ..." in
   English and, with `--lang de`, in German, and nothing is replaced. Note that the image is downloaded before this sentence
   appears (a known limit).
-- [ ] f. **Write-protected folder.** Put the app into a folder you cannot write to (for example make the folder read-only with
+- [x] f. **Write-protected folder.** Put the app into a folder you cannot write to (for example make the folder read-only with
   Get Info) and try the update: the card says the folder is write-protected and names it, and offers the download page.
-- [ ] g. **Command line link.** `ln -s "/Applications/Raffica PDF.app/Contents/MacOS/raffica" /usr/local/bin/raffica` (a folder
+- [x] g. **Command line link.** `ln -s "/Applications/Raffica PDF.app/Contents/MacOS/raffica" /usr/local/bin/raffica` (a folder
   that does not exist or needs `sudo` is fine to note), then `raffica info <file.pdf>` and, with a scanned file, `raffica ocr`
   work from Terminal.
 
