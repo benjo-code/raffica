@@ -4,13 +4,16 @@ namespace Raffica.Pdf.Platform.MacOS;
 
 /// <summary>
 /// The shell script that replaces the running bundle after the app has quit. Every value is a positional parameter of
-/// <c>sh -c</c> (<c>$1</c> to <c>$7</c>), never part of the script text, so spaces and quotes in a path are harmless.
+/// <c>sh -c</c> (<c>$1</c> to <c>$8</c>), never part of the script text, so spaces and quotes in a path are harmless.
 /// </summary>
 internal static class MacSwapScript
 {
+    /// <summary>How long the script waits for the app to quit before it gives up.</summary>
+    public const int DefaultWaitSeconds = 30;
+
     /// <summary>
     /// Parameters: 1 process id, 2 old bundle, 3 new bundle, 4 backup bundle, 5 opener (<c>/usr/bin/open</c>),
-    /// 6 verifier (<c>/usr/bin/codesign</c>), 7 restore flag (<c>1</c> or <c>0</c>).
+    /// 6 verifier (<c>/usr/bin/codesign</c>), 7 restore flag (<c>1</c> or <c>0</c>), 8 seconds to wait for the process.
     /// </summary>
     public const string Text = """
         reopen() {
@@ -23,10 +26,16 @@ internal static class MacSwapScript
           fi
         }
         n=0
-        while kill -0 "$1" 2>/dev/null && [ "$n" -lt 30 ]; do
+        while kill -0 "$1" 2>/dev/null && [ "$n" -lt "$8" ]; do
           sleep 1
           n=$((n + 1))
         done
+        # The old process is still there after the wait: swapping the bundle under a running app is never right (the opener would
+        # only bring that process to the front). Drop the staged copy; the next update check stages it again.
+        if kill -0 "$1" 2>/dev/null; then
+          rm -rf "$3"
+          exit 2
+        fi
         if ! "$6" --verify --deep --strict "$3"; then
           rm -rf "$3"
           reopen "$5" "$2" "$7"
@@ -53,7 +62,8 @@ internal static class MacSwapScript
         string backupBundle,
         string opener,
         string verifier,
-        bool restoreSession) =>
+        bool restoreSession,
+        int waitSeconds = DefaultWaitSeconds) =>
     [
         "-c",
         Text,
@@ -65,5 +75,6 @@ internal static class MacSwapScript
         opener,
         verifier,
         restoreSession ? "1" : "0",
+        waitSeconds.ToString(CultureInfo.InvariantCulture),
     ];
 }

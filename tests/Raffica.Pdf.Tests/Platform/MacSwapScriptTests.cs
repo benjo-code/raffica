@@ -134,6 +134,28 @@ public sealed class MacSwapScriptTests : IDisposable
     }
 
     [Fact]
+    public void ARunningProcessAfterTheWaitMeansNoSwapAndNoReopen()
+    {
+        SkipOnWindows();
+        var (old, fresh, backup) = Bundles();
+        using var sleeper = Process.Start(new ProcessStartInfo("sleep", "30") { UseShellExecute = false })!;
+        try
+        {
+            var code = Run(old, fresh, backup, TrueTool, restore: true, processId: sleeper.Id, waitSeconds: 1);
+
+            Assert.Equal(2, code);
+            Assert.Equal("old", File.ReadAllText(Path.Combine(old, "Contents", "id.txt")));
+            Assert.False(Directory.Exists(fresh));
+            Assert.False(Directory.Exists(backup));
+            Assert.False(File.Exists(_openerLog));
+        }
+        finally
+        {
+            sleeper.Kill();
+        }
+    }
+
+    [Fact]
     public void PathsWithSpacesAndQuotesAreArgumentsNotCode()
     {
         SkipOnWindows();
@@ -157,7 +179,7 @@ public sealed class MacSwapScriptTests : IDisposable
         var args = MacSwapScript.Arguments(42, "/o ld", "/n'ew", "/b", "/usr/bin/open", "/usr/bin/codesign", restoreSession: true);
 
         Assert.Equal(
-            ["-c", MacSwapScript.Text, "sh", "42", "/o ld", "/n'ew", "/b", "/usr/bin/open", "/usr/bin/codesign", "1"],
+            ["-c", MacSwapScript.Text, "sh", "42", "/o ld", "/n'ew", "/b", "/usr/bin/open", "/usr/bin/codesign", "1", "30"],
             args);
         Assert.DoesNotContain("/o ld", MacSwapScript.Text, StringComparison.Ordinal);
     }
@@ -183,13 +205,13 @@ public sealed class MacSwapScriptTests : IDisposable
         return (old, fresh, Path.Combine(_root, "Raffica PDF backup.app"));
     }
 
-    private int Run(string old, string fresh, string backup, string verifier, bool restore, int? processId = null)
+    private int Run(string old, string fresh, string backup, string verifier, bool restore, int? processId = null, int waitSeconds = MacSwapScript.DefaultWaitSeconds)
     {
         // The working folder is the test folder, so a relative "touch injected" in a name would leave its marker there.
         var start = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, WorkingDirectory = _root };
 
         // A process id that does not exist ends the wait at once.
-        foreach (var argument in MacSwapScript.Arguments(processId ?? 2_000_000_000, old, fresh, backup, _opener, verifier, restore))
+        foreach (var argument in MacSwapScript.Arguments(processId ?? 2_000_000_000, old, fresh, backup, _opener, verifier, restore, waitSeconds))
         {
             start.ArgumentList.Add(argument);
         }
