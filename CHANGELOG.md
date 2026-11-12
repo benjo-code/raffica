@@ -6,19 +6,20 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-11-12
+
+Raffica PDF now runs on macOS (Milestones 3.1, 3.2 and 3.3).
+
 ### Added
 
-- Raffica PDF runs on macOS 15 or newer, on Apple silicon and Intel (Milestone 3.1): the PDF engine, the OCR library, printing through CUPS, files opened from the Finder, "Open With", and paths that follow the macOS rules for names that differ only by case or Unicode form.
-- Raffica PDF feels like a Mac app (Milestone 3.2): the menu bar (Raffica PDF, File, Edit, View, Window, Help) with the shortcuts on the Command key, Cmd+Q and Cmd+W, the app stays open without a window and opens a new one from the Dock or the Finder, a full-screen toggle (Ctrl+Cmd+F), no key tips, and the page list takes Cmd+A.
-- Raffica PDF for macOS (Milestone 3.3): two disk images, `RafficaPdf-<version>-macos-arm64.dmg` for Apple silicon and `RafficaPdf-<version>-macos-x64.dmg` for Intel Macs, each with `Raffica PDF.app` (the command line tool `raffica` is inside the app) and a link to Applications; macOS 15 or newer. The app is ad-hoc signed only, with no Developer ID and no notarization, so the first launch needs System Settings, Privacy & Security, "Open Anyway" (the README has the steps and the terminal alternative). The Intel image was checked by hand on a Mac with macOS 15 (first launch, Finder, default app, update, menu bar, printing dialog); the Apple-silicon image is not tested by hand.
-- Raffica PDF on macOS asks at start whether to become the default PDF app (through LaunchServices, from an installed copy, not from the disk image or a translocated copy) and updates itself from the `.dmg` of its own architecture after a confirmation, with the same checks as elsewhere (signature of the release information, size and SHA-256 of the file, and the signature of the new app before the swap). Started from the mounted disk image, it says that it cannot replace itself and points to the download page.
-- `RAFFICA_RENDERING=software` selects Avalonia's software rendering on macOS too (for comparison; the macOS default is unchanged).
+- **Raffica PDF for macOS 15 or newer**, as a disk image for Apple silicon (`arm64`) and one for Intel Macs (`x64`). Open the image that matches your Mac and drag Raffica PDF into Applications. It has the Mac menu bar and shortcuts, opens PDFs from the Finder and can become your default PDF app.
+- **First start:** the app is not notarized by Apple (there is no Apple developer account behind this project), so macOS blocks it once. Allow it under System Settings, Privacy & Security, "Open Anyway"; the README has the steps.
+- **Updates:** Raffica PDF on macOS offers new versions itself, from the next release on.
+- **Tested:** the Intel version was checked on a real Mac, the Apple-silicon version has not been tried on one yet.
 
 ### Fixed
 
-- Raffica PDF on macOS: a PDF that Raffica is the default app for shows the Raffica icon in the Finder instead of an icon macOS composed itself.
-- Raffica PDF on macOS: the menu bar showed only an application menu named "Avalonia Application" and none of File, Edit, View, Window and Help. The menus now belong to each window and the application menu is named Raffica PDF; with no window open, Open stays in the application menu.
-- Opening a file in the running Raffica PDF from a second start could lose the file when the first instance was slow to read the message (a heavily loaded machine); the message is now delivered whenever it arrived whole.
+- Opening a file in the running app from a second start could lose the file on a slow computer.
 
 ## [0.1.0] – 2026-11-09
 
