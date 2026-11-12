@@ -21,12 +21,14 @@ public static class Program
                         return 2;
                     }
                     return Bench.Run(opts);
+                case "compare-lines":
+                    return Bench.CompareLines(opts);
                 case "render":
                     return Bench.Render(opts, positional);
                 case "child":
                     return Bench.Child(positional.FirstOrDefault() ?? "", opts);
                 default:
-                    Console.Error.WriteLine("usage: layout-bench check --engine <csharp|rust> [--doc <path>] | run --engine <e> [--doc <path>] --runs 10 --warmup 2 --machine <label> --out <csv> | render <page-number> <out.png> --engine <e> | child <metric> --engine <e> --doc <path>");
+                    Console.Error.WriteLine("usage: layout-bench check --engine <csharp|rust> [--doc <path>] | run --engine <e> [--doc <path>] --runs 10 --warmup 2 --machine <label> --out <csv> | compare-lines [--doc <path>] | render <page-number> <out.png> --engine <e> | child <metric> --engine <e> --doc <path>");
                     return 2;
             }
         }

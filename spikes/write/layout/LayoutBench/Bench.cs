@@ -131,6 +131,34 @@ public static class Bench
         }
     }
 
+    /// <summary>Line count per paragraph for both engines and the number of paragraphs that differ (a sanity check, recorded, not a failure).</summary>
+    public static int CompareLines(Options o)
+    {
+        var root = FontSet.FindRepoRoot();
+        using var fonts = FontSet.LoadSpikeFonts(root);
+        using var a = Engines.Create("csharp", fonts);
+        using var b = Engines.Create("rust", fonts);
+        var doc = DocxReader.Read(o.Doc);
+        int total = 0, differ = 0, shown = 0;
+        long linesA = 0, linesB = 0;
+        foreach (var block in doc.Blocks)
+        {
+            if (block is not Paragraph p) continue;
+            float w = PageSetup.A4.TextWidth - p.Format.LeftIndent;
+            using var la = a.Layout(p, w);
+            using var lb = b.Layout(p, w);
+            total++;
+            linesA += la.Lines.Count; linesB += lb.Lines.Count;
+            if (la.Lines.Count != lb.Lines.Count)
+            {
+                differ++;
+                if (shown++ < 5) Console.WriteLine($"  differs: C# {la.Lines.Count} lines, Rust {lb.Lines.Count} lines: \"{p.Text[..Math.Min(50, p.Text.Length)]}\"");
+            }
+        }
+        Console.WriteLine($"paragraphs {total}, line count differs in {differ} ({100.0 * differ / Math.Max(1, total):F2} %), total lines C# {linesA}, Rust {linesB}");
+        return 0;
+    }
+
     /// <summary>Writes one page as a PNG (a visual check of the layout) and prints the page count.</summary>
     public static int Render(Options o, List<string> positional)
     {

@@ -10,5 +10,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Layout.Common\Layout.Common.csproj" />
     <ProjectReference Include="..\Layout.CSharp\Layout.CSharp.csproj" />
+    <ProjectReference Include="..\Layout.Rust\Layout.Rust.csproj" />
+  </ItemGroup>
+  <!-- The Parley library (cargo build in the folder parley-core, release profile) is copied next to the exe when it exists. -->
+  <PropertyGroup>
+    <ParleyDir>$(MSBuildThisFileDirectory)../parley-core/target/release/</ParleyDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(ParleyDir)parley_core.dll" Condition="$([MSBuild]::IsOSPlatform('Windows')) And Exists('$(ParleyDir)parley_core.dll')" Link="parley_core.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(ParleyDir)libparley_core.so" Condition="$([MSBuild]::IsOSPlatform('Linux')) And Exists('$(ParleyDir)libparley_core.so')" Link="libparley_core.so" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(ParleyDir)libparley_core.dylib" Condition="$([MSBuild]::IsOSPlatform('OSX')) And Exists('$(ParleyDir)libparley_core.dylib')" Link="libparley_core.dylib" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
