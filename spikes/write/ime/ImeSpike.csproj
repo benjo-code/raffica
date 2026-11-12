@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ImeSpike</RootNamespace>
+    <AssemblyName>ime-spike</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Licence checks: Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent are MIT -->
+    <PackageReference Include="Avalonia" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+  </ItemGroup>
+</Project>

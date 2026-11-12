@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PrintSpike</RootNamespace>
+    <AssemblyName>print-spike</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Licence checks: Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent are MIT -->
+    <PackageReference Include="Avalonia" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+    <ProjectReference Include="..\layout\Layout.Common\Layout.Common.csproj" />
+    <ProjectReference Include="..\layout\Layout.CSharp\Layout.CSharp.csproj" />
+    <ProjectReference Include="..\..\..\src\Raffica.Core\Raffica.Core.csproj" />
+  </ItemGroup>
+</Project>

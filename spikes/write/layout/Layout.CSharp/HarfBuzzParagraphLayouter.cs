@@ -18,7 +18,7 @@ public sealed class HarfBuzzParagraphLayouter : IParagraphLayouter
 
     public void Dispose() { }
 
-    sealed class HbLayout : IParagraphLayout
+    sealed class HbLayout : IParagraphLayout, IGlyphSource
     {
         readonly ParagraphFormat _format;
         readonly float _width;
@@ -32,6 +32,8 @@ public sealed class HarfBuzzParagraphLayouter : IParagraphLayouter
         readonly float[] _glyphX;
         readonly int[] _glyphRun;
         readonly SKFont[] _runFonts;
+        readonly float[] _glyphAdv;
+        readonly IReadOnlyList<TextRun> _textRuns;
 
         public IReadOnlyList<LineMetrics> Lines => _lines;
 
@@ -42,12 +44,14 @@ public sealed class HarfBuzzParagraphLayouter : IParagraphLayouter
             _text = p.Text;
             int n = _text.Length;
             var runs = p.Runs;
+            _textRuns = runs;
             _runFonts = new SKFont[runs.Count];
             var charAdv = new float[n + 1];
             var ids = new List<ushort>(n + 4);
             var gx = new List<float>(n + 4);
             var clusters = new List<int>(n + 4);
             var glyphRun = new List<int>(n + 4);
+            var advs = new List<float>(n + 4);
 
             // Shape every run on its own; advances are collected per cluster start.
             float cursor = 0;
@@ -73,6 +77,7 @@ public sealed class HarfBuzzParagraphLayouter : IParagraphLayouter
                     gx.Add(cursor + poss[g].XOffset / (float)ScaleUnit);
                     clusters.Add((int)infos[g].Cluster);
                     glyphRun.Add(r);
+                    advs.Add(adv);
                     charAdv[infos[g].Cluster] += adv;
                     cursor += adv;
                 }
@@ -80,6 +85,7 @@ public sealed class HarfBuzzParagraphLayouter : IParagraphLayouter
             _glyphIds = ids.ToArray();
             _glyphX = gx.ToArray();
             _glyphRun = glyphRun.ToArray();
+            _glyphAdv = advs.ToArray();
             _charX = new float[n + 1];
             for (int i = 0; i < n; i++) _charX[i + 1] = _charX[i] + charAdv[i];
 
@@ -200,6 +206,26 @@ public sealed class HarfBuzzParagraphLayouter : IParagraphLayouter
                     g = e;
                 }
             }
+        }
+
+        public IReadOnlyList<GlyphRun> LineRuns(int line)
+        {
+            var result = new List<GlyphRun>();
+            int g = _lineGlyph[line], end = _lineGlyph[line + 1];
+            float origin = _charX[_lines[line].Start];
+            while (g < end)
+            {
+                int run = _glyphRun[g], e = g;
+                while (e < end && _glyphRun[e] == run) e++;
+                var tr = _textRuns[run];
+                var ids = new ushort[e - g];
+                var xs = new float[e - g];
+                var adv = new float[e - g];
+                for (int k = g; k < e; k++) { ids[k - g] = _glyphIds[k]; xs[k - g] = _glyphX[k] - origin; adv[k - g] = _glyphAdv[k]; }
+                result.Add(new GlyphRun(tr.Family, tr.Bold, tr.Italic, tr.Size, ids, xs, adv));
+                g = e;
+            }
+            return result;
         }
 
         public void Dispose()

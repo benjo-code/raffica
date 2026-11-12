@@ -446,12 +446,12 @@ public sealed class PageBreaker : IDisposable
 
     public IParagraphLayout ParagraphLayoutOf(int block) => ((ParaLayout)Ensure(block)).Layout;
     public float[] LineTopsOf(int block) => ((ParaLayout)Ensure(block)).Tops;
-    internal (IParagraphLayout[][] Cells, float[] RowTops, float[] ColumnX, float[] ColumnW) TableOf(int block)
+    public (IParagraphLayout[][] Cells, float[] RowTops, float[] ColumnX, float[] ColumnW) TableOf(int block)
     {
         var t = (TableLayout)Ensure(block);
         return (t.Cells, t.RowTops, t.ColumnX, t.ColumnW);
     }
-    internal (IParagraphLayout Layout, float Height) FootnoteOf(int id)
+    public (IParagraphLayout Layout, float Height) FootnoteOf(int id)
     {
         var f = GetFootnote(id);
         return (f.Layout, f.Height);

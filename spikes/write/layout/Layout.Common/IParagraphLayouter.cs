@@ -55,3 +55,12 @@ public static class LineGeometry
     public static float XOffset(in LineMetrics m, float width, ParagraphFormat f) =>
         f.Alignment == Alignment.Center ? Math.Max(0, (width - m.Width) / 2) : 0;
 }
+
+/// <summary>The glyphs of one run on one line: glyph ids of the font, x of every glyph from the left edge of the line's text, advance of every glyph. For printing.</summary>
+public sealed record GlyphRun(string Family, bool Bold, bool Italic, float Size, ushort[] Glyphs, float[] X, float[] Advances);
+
+/// <summary>Optional: a layout that can hand out its shaped glyphs (the C# candidate), so a printer can draw them itself.</summary>
+public interface IGlyphSource
+{
+    IReadOnlyList<GlyphRun> LineRuns(int line);
+}
