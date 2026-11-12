@@ -1,0 +1,87 @@
+# Milestone 4 only: runs the Write spikes on GitHub-hosted runners (Linux x64, macOS arm64 and Intel) so the owner does not have to run them by hand.
+# Throwaway: removed again before the milestone's PR is merged. Hosted virtual machines are no measuring machines; timings from here are a record,
+# not the binding numbers of the Linux laptop.
+name: spikes-write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/m04-write-spikes-spec]
+    paths: ['spikes/**', '.github/workflows/spikes-write.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  spikes:
+    name: spikes-${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, rid: linux-x64 }
+          - { os: macos-15, rid: osx-arm64 }
+          - { os: macos-15-intel, rid: osx-x64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Spike 1 - Open XML SDK under Native AOT
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish spikes/write/openxml-aot -c Release -r ${{ matrix.rid }} 2>&1 | tee publish-openxml.log
+          echo "IL warnings: $(grep -cE 'IL[23][0-9]{3}' publish-openxml.log || true)"
+          X=spikes/write/openxml-aot/bin/Release/net10.0/${{ matrix.rid }}/publish/openxml-aot
+          ls -l "$X"
+          O=artifacts/oxa; mkdir -p $O
+          $X selftest
+          $X docx spikes/write/testdoc/thesis.docx $O/thesis-edited.docx
+          $X compare spikes/write/testdoc/thesis.docx $O/thesis-edited.docx --touched word/document.xml,word/styles.xml
+          $X xlsx-make $O/plain.xlsx $O/formulas.xlsx
+          for f in plain formulas; do
+            $X xlsx $O/$f.xlsx $O/$f-edited.xlsx --first-part
+            $X compare $O/$f.xlsx $O/$f-edited.xlsx --touched xl/worksheets/sheet1.xml
+          done
+          $X docx spikes/write/testdoc/thesis.docx $O/bench.docx --runs 10
+
+      - name: Open the saved files in LibreOffice (Linux)
+        if: matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libreoffice-writer libreoffice-calc
+          cd artifacts/oxa
+          for f in thesis-edited.docx plain-edited.xlsx formulas-edited.xlsx; do
+            soffice --headless --convert-to pdf "$f" >/dev/null 2>&1
+            test -s "${f%.*}.pdf" && echo "LibreOffice opened $f ($(stat -c %s "${f%.*}.pdf") bytes of PDF)"
+          done
+          pdfinfo thesis-edited.pdf | grep Pages || true
+
+      - name: Spike 2 - layout, C# candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish spikes/write/layout/LayoutBench -c Release -r ${{ matrix.rid }} 2>&1 | tee publish-layout.log
+          echo "IL warnings: $(grep -cE 'IL[23][0-9]{3}' publish-layout.log || true)"
+          L=spikes/write/layout/LayoutBench/bin/Release/net10.0/${{ matrix.rid }}/publish/layout-bench
+          ls -l "$L"
+          $L check --engine csharp
+          $L run --engine csharp --machine hosted-${{ matrix.rid }} --commit "$(git rev-parse --short HEAD)" --out artifacts/layout-${{ matrix.rid }}.csv
+          cat artifacts/layout-${{ matrix.rid }}.csv
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: spikes-write-${{ matrix.rid }}
+          path: |
+            artifacts/layout-${{ matrix.rid }}.csv
+            artifacts/oxa/*.docx
+            artifacts/oxa/*.xlsx
+            publish-*.log
+          retention-days: 7
