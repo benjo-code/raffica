@@ -3,7 +3,7 @@
 Writes the document every Write spike reads: a thesis of about 300 pages A4 (2.5 cm margins), Caladea 11 pt body at 1.5 line spacing, Carlito headings.
 
 ```
-dotnet run --project spikes/write/testdoc -c Release -- generate --out artifacts/spikes/write/thesis.docx [--words 105000]
+dotnet run --project spikes/write/testdoc -c Release -- generate --out artifacts/spikes/write/thesis.docx [--words 75000]
 dotnet run --project spikes/write/testdoc -c Release -- verify artifacts/spikes/write/thesis.docx
 dotnet run --project spikes/write/testdoc -c Release -- selftest      # an empty DOCX must fail verify (exit 1)
 ```

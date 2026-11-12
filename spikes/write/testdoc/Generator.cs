@@ -15,7 +15,7 @@ namespace TestDoc;
 /// </summary>
 public static class Generator
 {
-    public const int DefaultWords = 105_000;
+    public const int DefaultWords = 75_000;
 
     const string Ns =
         "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" " +

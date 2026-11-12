@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>LayoutBench</RootNamespace>
+    <AssemblyName>layout-bench</AssemblyName>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Layout.Common\Layout.Common.csproj" />
+    <ProjectReference Include="..\Layout.CSharp\Layout.CSharp.csproj" />
+  </ItemGroup>
+</Project>
