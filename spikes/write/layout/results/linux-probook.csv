@@ -1,0 +1,11 @@
+date,machine,os,engine,metric,median,min,max,unit,commit
+2026-11-12,linux-probook,CachyOS,csharp,first-page,108.897,107.248,110.367,ms,b65b11c
+2026-11-12,linux-probook,CachyOS,csharp,full-layout,402.734,397.875,403.888,ms,b65b11c
+2026-11-12,linux-probook,CachyOS,csharp,memory,85.800,85.300,86.100,MB,b65b11c
+2026-11-12,linux-probook,CachyOS,csharp,keystroke,0.262,0.260,0.264,ms,b65b11c
+2026-11-12,linux-probook,CachyOS,csharp,hit-test,0.792,0.778,0.816,us,b65b11c
+2026-11-12,linux-probook,CachyOS,rust,first-page,110.480,107.263,111.396,ms,b65b11c
+2026-11-12,linux-probook,CachyOS,rust,full-layout,392.350,390.094,397.117,ms,b65b11c
+2026-11-12,linux-probook,CachyOS,rust,memory,131.400,131.100,131.800,MB,b65b11c
+2026-11-12,linux-probook,CachyOS,rust,keystroke,0.259,0.259,0.261,ms,b65b11c
+2026-11-12,linux-probook,CachyOS,rust,hit-test,3.989,3.934,4.161,us,b65b11c

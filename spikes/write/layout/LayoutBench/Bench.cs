@@ -91,8 +91,31 @@ public static class Bench
 
     // ---- the child process --------------------------------------------------------------------------------------------
 
+    /// <summary>Where the time of the first page goes: process start to Main, fonts, engine, DOCX read, layout, drawing (a child process, as the metric).</summary>
+    static int Phases(Options o)
+    {
+        double sinceStart = (DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds;
+        var sw = Stopwatch.StartNew();
+        double Lap() { double t = sw.Elapsed.TotalMilliseconds; sw.Restart(); return t; }
+        var root = FontSet.FindRepoRoot();
+        using var fonts = FontSet.LoadSpikeFonts(root);
+        double tFonts = Lap();
+        using var layouter = Engines.Create(o.Engine, fonts);
+        double tEngine = Lap();
+        var doc = DocxReader.Read(o.Doc, FirstPageBlocks);
+        double tRead = Lap();
+        using var pb = new PageBreaker(doc, layouter, PageSetup.A4);
+        pb.LayoutUntil(0);
+        double tLayout = Lap();
+        DrawPage(pb, 0);
+        double tDraw = Lap();
+        Console.WriteLine($"done start-to-Main {sinceStart:F1} ms, fonts {tFonts:F1}, engine {tEngine:F1}, DOCX read {tRead:F1}, layout of page 1 {tLayout:F1}, drawing {tDraw:F1}");
+        return 0;
+    }
+
     public static int Child(string metric, Options o)
     {
+        if (metric == "first-page-phases") return Phases(o);
         var root = FontSet.FindRepoRoot();
         using var fonts = FontSet.LoadSpikeFonts(root);
         using var layouter = Engines.Create(o.Engine, fonts);
