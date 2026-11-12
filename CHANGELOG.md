@@ -6,6 +6,10 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-11-12
+
+Raffica PDF for macOS, with Milestones 3.1 (runs on macOS), 3.2 (feels like a Mac app) and 3.3 (package, default app and updates for macOS).
+
 ### Added
 
 - Raffica PDF runs on macOS 15 or newer, on Apple silicon and Intel (Milestone 3.1): the PDF engine, the OCR library, printing through CUPS, files opened from the Finder, "Open With", and paths that follow the macOS rules for names that differ only by case or Unicode form.
