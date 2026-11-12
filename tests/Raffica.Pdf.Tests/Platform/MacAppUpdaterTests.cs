@@ -171,7 +171,7 @@ public sealed class MacAppUpdaterTests : IDisposable
         var start = Assert.Single(_starter.Starts);
         Assert.Equal("/bin/sh", start.File);
         Assert.Equal(MacSwapScript.Arguments(4242, Bundle, NewBundle, BackupBundle, "/usr/bin/open", "/usr/bin/codesign", restoreSession: true), start.Arguments);
-        Assert.Equal("1", start.Arguments[^1]);
+        Assert.Equal("1", start.Arguments[^2]);
         Assert.Equal(1, _shutdowns);
         Assert.False(Directory.Exists(staged.Directory));
     }
@@ -184,7 +184,7 @@ public sealed class MacAppUpdaterTests : IDisposable
         var result = await Updater().ApplyAsync(staged, CancellationToken.None);
 
         Assert.True(result.IsRestarting);
-        Assert.Equal("0", Assert.Single(_starter.Starts).Arguments[^1]);
+        Assert.Equal("0", Assert.Single(_starter.Starts).Arguments[^2]);
     }
 
     [Theory]

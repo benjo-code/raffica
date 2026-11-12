@@ -27,8 +27,7 @@ public static class UpdateTrust
 
     /// <summary>
     /// The address of the newest stable release (GitHub lists no pre-releases or drafts there). The three addresses point at
-    /// the releases of this repository, which has none yet; a separate releases repository is possible and is decided at the
-    /// first release milestone (Docs/DECISIONS.md, entry "Updater: key and addresses until the first release").
+    /// the releases of this repository (Docs/DECISIONS.md, entry "Updater: key and addresses until the first release").
     /// </summary>
     public static string ReleasesLatestUrl => "https://api.github.com/repos/benjo-code/raffica/releases/latest";
 
