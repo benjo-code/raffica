@@ -40,7 +40,7 @@ public static class Program
         //   --pdf <out.pdf>                  every system: write the PDF of route b / CUPS to a file and report its size
         if (args.Length >= 1 && args[0] == "--pdf" && args.Length == 2) return PdfOnly(args[1]);
         if (args.Length == 3 && args[0] == "--text") return TextOf(args[1], int.Parse(args[2]));
-        if (args.Length >= 1 && args[0] == "--cups" && (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())) return Cups(args.Length > 1 ? args[1] : null);
+        if (args.Length >= 1 && args[0] == "--cups" && (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())) return Cups(args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null);
         if (args.Length == 4 && args[0] == "--auto" && OperatingSystem.IsWindows()) return Auto(args[1], args[2], args[3]);
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
@@ -60,7 +60,7 @@ public static class Program
     /// <summary>Linux and macOS without a window: list the CUPS printers and hand the test document to one as a job (the first one when none is named).</summary>
     [System.Runtime.Versioning.SupportedOSPlatform("linux")]
     [System.Runtime.Versioning.SupportedOSPlatform("macos")]
-    static int Cups(string? printer)
+    static int Cups(string? printer, string? range)
     {
         var printers = CupsJob.Printers();
         Console.WriteLine("CUPS printers: " + (printers.Count == 0 ? "(none)" : string.Join(", ", printers)));
@@ -68,11 +68,24 @@ public static class Program
         if (printer is null) { Console.Error.WriteLine("no printer"); return 2; }
         using var job = new Job();
         var sw = Stopwatch.StartNew();
-        using var pdf = PdfRoute.Render(job.Layout);
+        using var pdf = RenderRange(job.Layout, range);
         double renderMs = sw.Elapsed.TotalMilliseconds;
         int id = CupsJob.Print(printer, pdf, "Write spike");
         Console.WriteLine($"CUPS job {id} on {printer}: PDF {pdf.Length} bytes in memory ({renderMs:F0} ms), handed over in {sw.Elapsed.TotalMilliseconds:F0} ms in total");
         return 0;
+    }
+
+    /// <summary>The PDF of a page range such as "1-6", "5" or "" (all pages).</summary>
+    internal static MemoryStream RenderRange(PageBreaker layout, string? range)
+    {
+        int from = 1, to = int.MaxValue;
+        if (!string.IsNullOrWhiteSpace(range))
+        {
+            var parts = range.Split('-');
+            from = int.Parse(parts[0].Trim());
+            to = parts.Length > 1 && parts[1].Trim().Length > 0 ? int.Parse(parts[1].Trim()) : from;
+        }
+        return PdfRoute.Render(layout, from, to);
     }
 
     static int PdfOnly(string path)
@@ -136,6 +149,7 @@ public sealed class MainWindow : Window
 {
     readonly TextBlock _status = new() { Text = "Loading the test document...", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
     readonly ComboBox _printers = new() { MinWidth = 300 };
+    readonly TextBox _range = new() { Text = "1-6", Watermark = "pages, e.g. 1-6 or 304-311 (empty = all)", MinWidth = 300 };
     Job? _job;
 
     public MainWindow()
@@ -156,6 +170,7 @@ public sealed class MainWindow : Window
         else
         {
             panel.Children.Add(_printers);
+            panel.Children.Add(_range);
             var print = new Button { Content = "Print (PDF in memory to CUPS)" };
             print.Click += (_, _) => RunCups();
             panel.Children.Add(print);
@@ -210,7 +225,7 @@ public sealed class MainWindow : Window
         try
         {
             var sw = Stopwatch.StartNew();
-            using var pdf = PdfRoute.Render(_job.Layout);
+            using var pdf = Program.RenderRange(_job.Layout, _range.Text);
             double renderMs = sw.Elapsed.TotalMilliseconds;
             int id = CupsJob.Print(printer, pdf, "Write spike");
             _status.Text = $"CUPS job {id}: PDF {pdf.Length / 1024} KiB in memory ({renderMs:F0} ms), handed over in {sw.Elapsed.TotalMilliseconds:F0} ms in total.";

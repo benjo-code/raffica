@@ -11,13 +11,14 @@ namespace PrintSpike;
 /// <summary>Route b (and the format CUPS takes): the laid-out pages drawn into a PDF in memory.</summary>
 public static class PdfRoute
 {
-    public static MemoryStream Render(PageBreaker layout)
+    /// <summary>The pages <paramref name="from"/> to <paramref name="to"/> (1-based, default all) as a PDF in memory; page numbers in the footers are those of the whole document.</summary>
+    public static MemoryStream Render(PageBreaker layout, int from = 1, int to = int.MaxValue)
     {
         layout.LayoutAll();
         var stream = new MemoryStream();
         using (var doc = SKDocument.CreatePdf(stream))
         {
-            for (int i = 0; i < layout.PageCount; i++)
+            for (int i = Math.Max(0, from - 1); i < Math.Min(layout.PageCount, to); i++)
             {
                 using var canvas = doc.BeginPage(layout.Setup.Width, layout.Setup.Height);
                 PageRenderer.Draw(layout, i, canvas);
