@@ -1,0 +1,10 @@
+Note: MacBook Pro, Intel Core i5 2 GHz, macOS 15.8.2; power adapter and caffeinate per the owner, display setting not stated; confirming run with the limits in force, the day after the first runs
+Platform: macos
+Date (UTC): 2026-11-12 12:33:38
+Commit: 824bf59b24b994ab13db75f6b875994258027f4d (refs/heads/dev)
+OS: macOS 15.8.2 (build 24H232), x86_64
+Processor: Intel(R) Core(TM) i5-6360U CPU @ 2.00GHz, 4 logical processors
+RAM: 8,0 GiB
+Rendering override: app
+Measured app: commit 824bf59b24b994ab13db75f6b875994258027f4d (from the dispatch ref)
+Measuring tool, limits and test files: the commit on the line "Commit" above (the dispatch ref)
