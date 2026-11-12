@@ -39,7 +39,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.1 | Runs on the Mac | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | 2026-11-11 |
 | 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
-| 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | – |
+| 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
 | 6 | Create spec for Raffica Slides | 7 – Raffica Slides | ⬜ open | – | – |
 
@@ -571,7 +571,7 @@ Every task and every criterion is ticked. The owner's checks on a real Mac (2026
 **Spec:** not written yet (created in its first milestone)
 
 ## Milestone 4 – Spikes & spec for Raffica Write
-**Status:** 🟡 planned · **Plan:** [2026-11-12-milestone-04-write-spikes-spec.md](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) · **Spec:** [2026-11-12-raffica-write-spikes-design.md](superpowers/specs/2026-11-12-raffica-write-spikes-design.md) · **Prerequisites:** M3.3
+**Status:** 🔵 in progress · **Plan:** [2026-11-12-milestone-04-write-spikes-spec.md](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) · **Spec:** [2026-11-12-raffica-write-spikes-design.md](superpowers/specs/2026-11-12-raffica-write-spikes-design.md) · **Prerequisites:** M3.3
 
 Goal: The layout engine decision for Write rests on measurements and the spec is written.
 

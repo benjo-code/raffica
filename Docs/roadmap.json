@@ -771,7 +771,7 @@
         {
           "id": "4",
           "title": "Spikes & spec for Raffica Write",
-          "status": "planned",
+          "status": "in-progress",
           "plan": "superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md",
           "spec": "superpowers/specs/2026-11-12-raffica-write-spikes-design.md",
           "prerequisites": ["3.3"],
