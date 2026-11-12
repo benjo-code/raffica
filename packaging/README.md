@@ -291,7 +291,7 @@ macOS: native libraries, paths and activation (M3.1)", lessons from the Tesserac
 
 ## Open checks on real machines
 
-Each item below was not verified during Milestone 2.6; the command or step says how to check it. Still open for macOS: the manifest job with `upload=true`, the real upload and the first release (the dry run with `upload=false` is green, run 42883424963). Done and not listed any
+Each item below was not verified during Milestone 2.6; the command or step says how to check it. The first release with the macOS images, v0.2.0, was published on 2026-11-12 (release run 43238663941, dry run 43232994234). Still open for macOS: the Apple-silicon image on a real Apple-silicon Mac and an update on a Mac from a real release to a later one; Windows and Linux can now try the update from 0.1.0 to 0.2.0. Done and not listed any
 more: the release dry run, the container build with `deb-smoke` and `appimage-smoke`, `desktop-file-validate` and
 `StartupWMClass=RafficaPdf` on X11 (see `Docs/DECISIONS.md`, "Raffica PDF: packaging and release (M2.6)", "Dry run and Linux build").
 
