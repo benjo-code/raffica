@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>TestDoc</RootNamespace>
+    <AssemblyName>testdoc</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Licence checks: DocumentFormat.OpenXml MIT, SkiaSharp MIT (see README.md) -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
+  </ItemGroup>
+</Project>
