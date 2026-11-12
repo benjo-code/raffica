@@ -1,6 +1,6 @@
 # Spike 2: layout engine (C# against Rust with Parley)
 
-Status: both candidates are built and measured on Windows (the owner's PC) and on GitHub-hosted runners for Linux x64, macOS arm64 and macOS Intel. The binding numbers (the Linux laptop) are open, so the engine decision is not recorded yet (Task 6 of the plan).
+Status: both candidates are built and measured on Windows (the owner's PC), on the binding Linux laptop and on GitHub-hosted runners. The decision is recorded in `Docs/DECISIONS.md`, "Raffica Write: the layout engine (M4)": **C#**.
 
 - `Layout.Common`: `DocxReader` (streaming, Open XML SDK), `PageBreaker` (own page breaking, incremental re-layout), `PageRenderer`, `FontSet` (Carlito from `src/Raffica.Shell/Assets/Fonts`, Caladea from `spikes/write/fonts`; no system fonts), the candidate interface `IParagraphLayouter`.
 - `Layout.CSharp`: the C# candidate (HarfBuzzSharp 8.3.1.3 shaping, UAX #14 breaks from Avalonia 12.1.5 `LineBreakEnumerator`, SkiaSharp 3.119.4 drawing). Licences: HarfBuzzSharp, SkiaSharp, Avalonia: MIT.
@@ -37,15 +37,16 @@ Limits (spec section 5, binding on the Linux laptop): first page 100 ms, full la
 | | Rust | 76.1 ms | 344 ms | 0.19 ms | 4.38 us | 122 MB |
 | macOS Intel, hosted `macos-15-intel` | C# | 99.7 ms | 557 ms | 0.40 ms | 1.04 us | 64 MB |
 | | Rust | 114.0 ms | 779 ms | 0.32 ms | 6.76 us | 104 MB |
-| **Linux laptop (HP ProBook, i5-8265U), binding** | C# and Rust | open | open | open | open | open |
-| Intel Mac (owner's) | C# and Rust | open | open | open | open | open |
+| **Linux laptop (HP ProBook, i5-8265U), binding** | C# | **108.9 ms** | 403 ms | 0.26 ms | 0.79 us | 86 MB |
+| | Rust | **110.5 ms** | 392 ms | 0.26 ms | 3.99 us | 131 MB |
+| Intel Mac (owner's) | C# and Rust | open (a record, cannot change the decision) | | | | |
 
-All rows except one (CSVs in `results/`) meet every limit with room. The exception: on the hosted Intel Mac (a shared virtual machine; the same C# build measured 84.5 ms in the first run and 99.7 ms in the second) the Rust first page was 114 ms, above the 100 ms limit; the limits bind on the Linux laptop, not here. The hosted rows are virtual machines: a record, not the binding numbers (the hosted rows are virtual machines: a record, not the binding numbers). The laptop is slower than any of them, so the first-page limit (100 ms) is the one to watch: it is the cold-start metric that includes the process start, the fonts, the DOCX read and the first page.
+On the binding Linux laptop both candidates miss only the first-page limit (100 ms) by about 10 %; every other value is far inside its limit. The cause is shared startup work, not the engine: laying out and drawing page 1 takes about 5 ms, and `layout-bench child first-page-phases` (Windows PC) shows about 30 ms from process start to `Main`, about 30 ms to load the eight font files, about 15 ms to read the DOCX, 0.6 ms of layout and 4 ms of drawing. The hosted rows are virtual machines: a record, not the binding numbers (the hosted Intel Mac measured 84.5 ms and 99.7 ms for the same C# build in two runs).
 
 Line breaking: **0 of 1,484 paragraphs differ** between HarfBuzz with UAX #14 (C#) and Parley (Rust); both give 9,532 lines (`compare-lines`, the same on Windows, Linux and macOS arm64).
 
 Native size added by Rust: `parley_core.dll` 1.74 MB (win-x64), `libparley_core.so` 2.19 MB (linux-x64), `libparley_core.dylib` 2.00 MB (macOS arm64), 2.07 MB (macOS x64). Rust also costs about 50 MB more working memory (107 MB against 58 MB on Windows) and about 5 times the hit-test time (a call across the C boundary per query).
 
-## Open: the binding machines (owner, 10 minutes each)
+## Open (optional): the owner's Intel Mac
 
-On the Linux laptop and the Intel Mac, on mains power and the balanced profile, with the display on (as `bench/shell-probe/RUNNERS.md`): install `rustup`, then run the block under "Run it" for `<rid>` = `linux-x64` or `osx-x64`, `--machine linux-probook` or `--machine macos-intel`, both engines, and send back the two CSVs and the `compare-lines` line. Linux needs `clang` and `zlib1g-dev`, macOS the Xcode command line tools. Then the layout engine decision is made by the rule (C# wins when both meet every limit).
+A record only, it cannot change the decision. On mains power with the display on: install `rustup` and the Xcode command line tools, run the block under "Run it" with `<rid>` = `osx-x64` and `--machine macos-intel` for both engines, and send back the CSV.
