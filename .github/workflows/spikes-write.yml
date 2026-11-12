@@ -63,16 +63,28 @@ jobs:
           done
           pdfinfo thesis-edited.pdf | grep Pages || true
 
-      - name: Spike 2 - layout, C# candidate
+      - name: Spike 2 - layout, Rust library (Parley)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo build --release --manifest-path spikes/write/layout/parley-core/Cargo.toml
+          ls -l spikes/write/layout/parley-core/target/release/ | grep -E "parley_core"
+
+      - name: Spike 2 - layout, both candidates
         shell: bash
         run: |
           set -euo pipefail
           dotnet publish spikes/write/layout/LayoutBench -c Release -r ${{ matrix.rid }} 2>&1 | tee publish-layout.log
           echo "IL warnings: $(grep -cE 'IL[23][0-9]{3}' publish-layout.log || true)"
-          L=spikes/write/layout/LayoutBench/bin/Release/net10.0/${{ matrix.rid }}/publish/layout-bench
-          ls -l "$L"
-          $L check --engine csharp
-          $L run --engine csharp --machine hosted-${{ matrix.rid }} --commit "$(git rev-parse --short HEAD)" --out artifacts/layout-${{ matrix.rid }}.csv
+          P=spikes/write/layout/LayoutBench/bin/Release/net10.0/${{ matrix.rid }}/publish
+          L=$P/layout-bench
+          ls -l $P | grep -E "layout-bench|parley_core"
+          for e in csharp rust; do
+            $L check --engine $e
+            $L run --engine $e --machine hosted-${{ matrix.rid }} --commit "$(git rev-parse --short HEAD)" --out artifacts/layout-${{ matrix.rid }}.csv
+          done
+          $L compare-lines
           cat artifacts/layout-${{ matrix.rid }}.csv
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
