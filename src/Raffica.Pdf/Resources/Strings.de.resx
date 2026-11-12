@@ -3380,6 +3380,9 @@
   <data name="UpdateFailureNoInstaller" xml:space="preserve">
     <value>Diese Installation kann sich nicht selbst aktualisieren. Laden Sie die neue Version von der Download-Seite herunter.</value>
   </data>
+  <data name="UpdateFailureRunsFromDownload" xml:space="preserve">
+    <value>Raffica läuft vom heruntergeladenen Disk-Image oder von einer Kopie, die macOS beiseitegelegt hat, und kann sich deshalb nicht selbst ersetzen. Verschieben Sie Raffica PDF in den Ordner „Programme“, starten Sie es von dort und suchen Sie erneut nach Updates, oder laden Sie die neue Version von der Download-Seite herunter.</value>
+  </data>
   <data name="UpdateFailureInstallFailed" xml:space="preserve">
     <value>Die Installation wurde nicht abgeschlossen. Die laufende Version ist unverändert.</value>
   </data>
@@ -3484,5 +3487,51 @@
   </data>
   <data name="DescRedo" xml:space="preserve">
     <value>Rückgängig gemachte Änderung wiederholen</value>
+  </data>
+  <!-- macOS menu bar (M3.2) -->
+  <data name="MenuFile" xml:space="preserve">
+    <value>Ablage</value>
+  </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="MenuView" xml:space="preserve">
+    <value>Darstellung</value>
+  </data>
+  <data name="MenuWindow" xml:space="preserve">
+    <value>Fenster</value>
+  </data>
+  <data name="MenuHelp" xml:space="preserve">
+    <value>Hilfe</value>
+  </data>
+  <data name="MenuAbout" xml:space="preserve">
+    <value>Über Raffica PDF</value>
+  </data>
+  <data name="MenuCut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="MenuPaste" xml:space="preserve">
+    <value>Einsetzen</value>
+  </data>
+  <data name="MenuOpenRecent" xml:space="preserve">
+    <value>Benutzte Dokumente</value>
+  </data>
+  <data name="MenuNoRecent" xml:space="preserve">
+    <value>Keine Dokumente</value>
+  </data>
+  <data name="MenuMinimize" xml:space="preserve">
+    <value>Im Dock ablegen</value>
+  </data>
+  <data name="MenuZoomWindow" xml:space="preserve">
+    <value>Zoomen</value>
+  </data>
+  <data name="MenuBringAllToFront" xml:space="preserve">
+    <value>Alle nach vorne bringen</value>
+  </data>
+  <data name="MenuEnterFullScreen" xml:space="preserve">
+    <value>Vollbildmodus aktivieren</value>
+  </data>
+  <data name="MenuExitFullScreen" xml:space="preserve">
+    <value>Vollbildmodus beenden</value>
   </data>
 </root>

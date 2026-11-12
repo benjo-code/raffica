@@ -28,6 +28,6 @@ public sealed class TesseractBindingsTests
     [Fact]
     public void TheLibraryNameIsPerSystem()
     {
-        Assert.Equal(OperatingSystem.IsWindows() ? "tesseract.dll" : "libtesseract.so", TesseractLibrary.FileName);
+        Assert.Equal(OperatingSystem.IsWindows() ? "tesseract.dll" : OperatingSystem.IsMacOS() ? "libtesseract.dylib" : "libtesseract.so", TesseractLibrary.FileName);
     }
 }

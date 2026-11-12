@@ -15,6 +15,8 @@ namespace Raffica.Pdf.Tests.Organizing;
 /// </summary>
 public sealed class OrganizeWindowKeysTests
 {
+    private static RawInputModifiers CommandKey => OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
     private static async Task<(WindowFixture Fixture, PdfTab Tab, OrganizeList List)> OpenAsync()
     {
         var fixture = WindowFixture.Create(height: 1800);
@@ -53,7 +55,7 @@ public sealed class OrganizeWindowKeysTests
             tab.Organize.Selection.Select(1);
             Assert.True(list.ContainerOf(1)!.Focus());
 
-            Press(fixture, Key.A, PhysicalKey.A, RawInputModifiers.Control);
+            Press(fixture, Key.A, PhysicalKey.A, CommandKey);
 
             Assert.Equal(6, tab.Organize.Selection.Positions.Count);
             Assert.True(tab.Organize.Plan.IsIdentity);
@@ -69,7 +71,7 @@ public sealed class OrganizeWindowKeysTests
             tab.Organize.Selection.Select(1);
             Assert.True(list.ContainerOf(1)!.Focus());
 
-            Press(fixture, Key.C, PhysicalKey.C, RawInputModifiers.Control);
+            Press(fixture, Key.C, PhysicalKey.C, CommandKey);
 
             Assert.True(tab.Organize.Plan.IsIdentity);
             Assert.Equal([1], tab.Organize.Selection.Positions.ToArray());
@@ -107,7 +109,7 @@ public sealed class OrganizeWindowKeysTests
             Assert.Equal(90, tab.Organize.Plan.Slots[1].ExtraRotation);
 
             // Ctrl+D duplicates (Ctrl+Shift+D is the dark page, a different shortcut).
-            Press(fixture, Key.D, PhysicalKey.D, RawInputModifiers.Control);
+            Press(fixture, Key.D, PhysicalKey.D, CommandKey);
             Assert.Equal(7, tab.Organize.Plan.Slots.Count);
 
             // Delete deletes the selection.

@@ -255,9 +255,9 @@ public sealed class SearchFieldTests
         try
         {
             ShellStrings.Culture = CultureInfo.GetCultureInfo("en");
-            Assert.Equal("Search (Ctrl+K)", SearchField.CreateTooltip().Title);
+            Assert.Equal(OperatingSystem.IsMacOS() ? "Search (⌘K)" : "Search (Ctrl+K)", SearchField.CreateTooltip().Title);
             ShellStrings.Culture = CultureInfo.GetCultureInfo("de");
-            Assert.Equal("Suchen (Strg+K)", SearchField.CreateTooltip().Title);
+            Assert.Equal(OperatingSystem.IsMacOS() ? "Suchen (⌘K)" : "Suchen (Strg+K)", SearchField.CreateTooltip().Title);
         }
         finally
         {
@@ -368,7 +368,7 @@ public sealed class SearchFieldTests
         var rows = Rows(search);
         Assert.Equal(2, rows.Count);
         var texts = rows.Select(r => ControlHarness.Descendants(r).OfType<TextBlock>().Select(t => t.Text).ToList()).ToList();
-        Assert.Contains("Ctrl+Z", texts[0]);
+        Assert.Contains(OperatingSystem.IsMacOS() ? "⌃Z" : "Ctrl+Z", texts[0]);
         Assert.DoesNotContain("Undo the last change", texts[0]);
         Assert.Contains("Undo the last page change", texts[1]);
     }

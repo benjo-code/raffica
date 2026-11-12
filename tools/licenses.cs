@@ -299,8 +299,11 @@ static partial class Inventory
     [GeneratedRegex("""<PackageVersion\s+Include="(?<id>bblanchon\.PDFium\.[^"]+)"\s+Version="(?<v>[^"]+)""")]
     private static partial Regex PdfiumVersion();
 
-    // Own executables and debug symbols are not third-party files.
-    private static bool IsIgnoredPublishFile(string name) =>
+    // Own executables and debug symbols are not third-party files; the files of a *.dSYM folder (the symbols of a macOS AOT publish) are debug symbols too.
+    private static bool IsIgnoredPublishFile(string relative) => IsIgnoredName(Path.GetFileName(relative)) ||
+        relative.Split('/', '\\')[..^1].Any(segment => segment.EndsWith(".dSYM", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsIgnoredName(string name) =>
         name.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase) ||
         name.EndsWith(".dbg", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("raffica", StringComparison.OrdinalIgnoreCase) ||
@@ -494,7 +497,7 @@ static partial class Inventory
             foreach (var full in Directory.GetFiles(dir, "*", SearchOption.AllDirectories).OrderBy(f => f, StringComparer.Ordinal))
             {
                 var relative = Path.GetRelativePath(dir, full).Replace('\\', '/');
-                if (!IsIgnoredPublishFile(Path.GetFileName(full)) && !owners.ContainsKey(relative))
+                if (!IsIgnoredPublishFile(relative) && !owners.ContainsKey(relative))
                 {
                     errors.Add($"{dir.TrimEnd('/', '\\')}/{relative}: file belongs to no entry in {where} (files)");
                 }
@@ -789,6 +792,15 @@ static class SelfTest
         Case("native file in a subfolder without an owner", f => f.Write("publish/sub/libnew.so", "x"),
             "publish/sub/libnew.so: file belongs to no entry");
 
+        Case("a file inside a .dSYM folder (debug symbols of a macOS AOT publish) needs no owner", f =>
+        {
+            f.Write("publish/RafficaPdf.dSYM/Contents/Info.plist", "plist");
+            f.Write("publish/RafficaPdf.dSYM/Contents/Resources/DWARF/RafficaPdf", "dwarf");
+        }, null);
+
+        Case("a file in a folder that only ends like .dSYM is still checked", f => f.Write("publish/Foo.dSYMx/libnew.dylib", "x"),
+            "publish/Foo.dSYMx/libnew.dylib: file belongs to no entry");
+
         Case("outdated notices file", f => File.AppendAllText(f.Paths.Notices, "x"),
             "src/Raffica.Pdf/Resources/ThirdPartyNotices.txt: outdated");
 
@@ -831,6 +843,7 @@ static class SelfTest
         Case("unknown kind", f => f.WriteManifest(Fixture.Manifest().Replace("\"runtime\"", "\"magic\"", StringComparison.Ordinal)),
             "unknown kind \"magic\"");
 
+        RepositoryManifest();
         Rendering();
         PackageJson();
         EndToEnd();
@@ -858,6 +871,28 @@ static class SelfTest
             {
                 Console.Error.WriteLine($"  Errors were: {string.Join(" | ", errors)}");
             }
+        }
+    }
+
+    // The macOS publish folder carries libAvaloniaNative, libSkiaSharp, libHarfBuzzSharp, libpdfium and libtesseract (.dylib); each needs an owner
+    // that is shipped (so its licence is in the notices). The real manifest is read from the repository root (the tool runs from there).
+    private static void RepositoryManifest()
+    {
+        var paths = new Paths(".");
+        if (!File.Exists(paths.Manifest))
+        {
+            Console.WriteLine("selftest: no third-party/licenses.json in the current folder, the macOS owner checks are skipped (run from the repository root)");
+            return;
+        }
+
+        var errors = new List<string>();
+        var manifest = Inventory.LoadManifest(paths, errors);
+        Expect("the real manifest loads", errors.Count, 0);
+        foreach (var dylib in new[] { "libAvaloniaNative.dylib", "libSkiaSharp.dylib", "libHarfBuzzSharp.dylib", "libpdfium.dylib", "libtesseract.dylib" })
+        {
+            var owners = manifest?.Where(e => e.Files.Contains(dylib, StringComparer.OrdinalIgnoreCase)).ToList() ?? [];
+            Expect($"macOS: {dylib} has exactly one owner", owners.Count, 1);
+            Expect($"macOS: the owner of {dylib} is shipped (its licence is in the notices)", owners.Count == 1 && owners[0].Shipped, true);
         }
     }
 

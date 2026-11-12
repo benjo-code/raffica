@@ -6,7 +6,9 @@ namespace Raffica.Core.Saving;
 /// <summary>
 /// Tells whether two paths name the same file, by what the file system says about the file and not by how the paths are
 /// spelled: Windows by volume serial number and file ID (<c>GetFileInformationByHandleEx(FileIdInfo)</c>, else
-/// <c>GetFileInformationByHandle</c>), Linux by <c>st_dev</c> and <c>st_ino</c> (<c>statx</c>). Directory junctions, symbolic
+/// <c>GetFileInformationByHandle</c>), Linux by <c>st_dev</c> and <c>st_ino</c> (<c>statx</c>), macOS by <c>st_dev</c> and
+/// <c>st_ino</c> (<c>stat</c>, so the volume decides whether <c>Bericht.pdf</c> and <c>bericht.pdf</c> or two Unicode normalizations of a
+/// name are one file). Directory junctions, symbolic
 /// links in any part of the path, <c>subst</c> drives, 8.3 names and hard links all give the same identity. Loaded only
 /// when a command that writes a file checks its output against its input.
 /// </summary>
@@ -40,6 +42,13 @@ public static partial class FileIdentity
             {
                 var first = LinuxId(a);
                 var second = LinuxId(b);
+                return first is null || second is null ? null : first.AsSpan().SequenceEqual(second);
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                var first = MacId(a);
+                var second = MacId(b);
                 return first is null || second is null ? null : first.AsSpan().SequenceEqual(second);
             }
         }
@@ -113,6 +122,42 @@ public static partial class FileIdentity
         return id;
     }
 
+    // ---- macOS ----
+
+    private const int DarwinStatLength = 256;
+
+    /// <summary>
+    /// The identity of the file at <paramref name="fullPath"/> from <c>stat</c>, or <see langword="null"/> when the call fails.
+    /// On x86_64 the plain <c>stat</c> symbol is the legacy variant with 32-bit inodes, so the 64-bit <c>stat$INODE64</c> is used;
+    /// on arm64 only <c>stat</c> exists and it is 64-bit.
+    /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("macos")]
+    private static byte[]? MacId(string fullPath)
+    {
+        var buffer = new byte[DarwinStatLength];
+        var result = RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+            ? MacOS.Stat(fullPath, buffer)
+            : MacOS.StatInode64(fullPath, buffer);
+        return result != 0 ? null : IdentityFromDarwinStat(buffer);
+    }
+
+    /// <summary>
+    /// The identity from a Darwin <c>struct stat</c> with 64-bit inodes: <c>st_ino</c> (8 bytes at offset 8), then <c>st_dev</c>
+    /// (4 bytes at offset 0) zero-padded to 8 bytes. <see langword="null"/> for a buffer shorter than 16 bytes.
+    /// </summary>
+    internal static byte[]? IdentityFromDarwinStat(ReadOnlySpan<byte> stat)
+    {
+        if (stat.Length < 16)
+        {
+            return null;
+        }
+
+        var id = new byte[16];
+        stat.Slice(8, 8).CopyTo(id);
+        stat[..4].CopyTo(id.AsSpan(8));
+        return id;
+    }
+
     private static partial class Windows
     {
         [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
@@ -131,5 +176,14 @@ public static partial class FileIdentity
     {
         [LibraryImport("libc.so.6", EntryPoint = "statx", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
         internal static partial int Statx(int directoryFd, string path, int flags, uint mask, [Out] byte[] buffer);
+    }
+
+    private static partial class MacOS
+    {
+        [LibraryImport("libSystem.dylib", EntryPoint = "stat$INODE64", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+        internal static partial int StatInode64(string path, [Out] byte[] buffer);
+
+        [LibraryImport("libSystem.dylib", EntryPoint = "stat", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+        internal static partial int Stat(string path, [Out] byte[] buffer);
     }
 }

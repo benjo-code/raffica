@@ -1,5 +1,6 @@
 using Raffica.Core.Updates;
 using Raffica.Pdf.Platform.Linux;
+using Raffica.Pdf.Platform.MacOS;
 using Raffica.Pdf.Platform.Windows;
 
 namespace Raffica.Pdf.Platform;
@@ -24,10 +25,11 @@ internal static class PlatformUpdateApplier
             Environment.GetEnvironmentVariable("APPDIR"),
             configDirectory,
             shutdown,
-            new SystemUpdateProcessStarter());
+            new SystemUpdateProcessStarter(),
+            OperatingSystem.IsMacOS());
 
     /// <summary>
-    /// <see cref="Create(PackageForm, string, Action)"/> with the system, the program path, the <c>APPIMAGE</c> and <c>APPDIR</c> variables and the process starter as arguments (tests).
+    /// <see cref="Create(PackageForm, string, Action)"/> with the system, the program path, the <c>APPIMAGE</c> and <c>APPDIR</c> variables, the process starter and (macOS) the process runner as arguments (tests).
     /// </summary>
     internal static IUpdateApplier? Create(
         PackageForm form,
@@ -38,7 +40,9 @@ internal static class PlatformUpdateApplier
         string? appDir,
         string configDirectory,
         Action shutdown,
-        IUpdateProcessStarter starter)
+        IUpdateProcessStarter starter,
+        bool isMacOS = false,
+        IProcessRunner? runner = null)
     {
         ArgumentNullException.ThrowIfNull(configDirectory);
         ArgumentNullException.ThrowIfNull(shutdown);
@@ -83,6 +87,20 @@ internal static class PlatformUpdateApplier
                 starter,
                 shutdown,
                 new PhysicalAppImageFileSystem()));
+        }
+
+        if (isMacOS && form is PackageForm.MacAppArm64 or PackageForm.MacAppX64 && MacBundle.PathOf(processPath) is { } bundle)
+        {
+            return new MacAppUpdater(new MacAppUpdaterSetup(
+                bundle,
+                form,
+                configDirectory,
+                UpdateTrust.Keys,
+                UpdateApplierSupport.RunningVersion(),
+                Environment.ProcessId,
+                runner ?? new SystemProcessRunner(),
+                starter,
+                shutdown));
         }
 
         return null;

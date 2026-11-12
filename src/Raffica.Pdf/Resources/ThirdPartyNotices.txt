@@ -3184,6 +3184,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ====
 bblanchon.PDFium.Linux 157.0.8100
+bblanchon.PDFium.macOS 157.0.8100
 bblanchon.PDFium.Win32 157.0.8100
 Apache-2.0
 
@@ -5882,8 +5883,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ====
 HarfBuzzSharp.NativeAssets.Linux 8.3.1.3
+HarfBuzzSharp.NativeAssets.macOS 8.3.1.3
 HarfBuzzSharp.NativeAssets.Win32 8.3.1.3
 SkiaSharp.NativeAssets.Linux 3.119.4
+SkiaSharp.NativeAssets.macOS 3.119.4
 SkiaSharp.NativeAssets.Win32 3.119.4
 MIT
 

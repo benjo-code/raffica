@@ -132,15 +132,15 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
 
     public IReadOnlyList<CatalogCommand> Commands => _commands;
 
-    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, bool describe = false)
+    internal CatalogGroup Add(string id, string nameKey, string icon, string code, PdfShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, bool describe = false, PdfShortcut? macShortcut = null)
     {
-        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, describe));
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, describe, macShortcut));
         return this;
     }
 }
 
 /// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
-internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size, bool toggle, bool describe)
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, PdfShortcut? shortcut, CommandSize size, bool toggle, bool describe, PdfShortcut? macShortcut = null)
 {
     public CatalogGroup Group { get; } = group;
 
@@ -158,7 +158,14 @@ internal sealed class CatalogCommand(CatalogGroup group, string id, string nameK
     /// <summary>The field code inside its tab: the group digit plus the position (<c>11</c> is the first command of the first group).</summary>
     public string FieldCode { get; } = fieldCode;
 
-    public PdfShortcut? Shortcut { get; } = shortcut;
+    /// <summary>The shortcut of this system: <see cref="ShortcutFor"/> with <see cref="OperatingSystem.IsMacOS"/>.</summary>
+    public PdfShortcut? Shortcut => ShortcutFor(OperatingSystem.IsMacOS());
+
+    /// <summary>The shortcut as set in the table for the default system (Windows and Linux), before any macOS replacement.</summary>
+    public PdfShortcut? DefaultShortcut { get; } = shortcut;
+
+    /// <summary>The shortcut on a system: the macOS one when the command has its own there (a default that macOS reserves), else the default.</summary>
+    public PdfShortcut? ShortcutFor(bool macOs) => macOs && macShortcut is not null ? macShortcut : DefaultShortcut;
 
     public CommandSize Size { get; } = size;
 
@@ -300,7 +307,7 @@ internal static class PdfCommandCatalog
             .Add(PdfCommandIds.TextEdit, "CmdTextEdit", "SquarePen", "11", Cmd(Key.W, "W", shift: true), CommandSize.Large)
             .Add(PdfCommandIds.TextEditDone, "CmdTextEditDone", "CornerDownLeft", "12");
         edit.Group("GroupScan", "2")
-            .Add(PdfCommandIds.OcrRun, "CmdOcrRun", "ScanText", "21", Cmd(Key.Q, "Q", shift: true), CommandSize.Large)
+            .Add(PdfCommandIds.OcrRun, "CmdOcrRun", "ScanText", "21", Cmd(Key.Q, "Q", shift: true), CommandSize.Large, macShortcut: Cmd(Key.R, "R", shift: true))
             .Add(PdfCommandIds.OcrLanguages, "CmdOcrLanguages", "Languages", "22")
             .Add(PdfCommandIds.OcrCancel, "CmdOcrCancel", "OctagonX", "23");
 
@@ -333,11 +340,12 @@ internal static class PdfCommandCatalog
     public static IReadOnlyList<CatalogCommand> Commands { get; }
 
     /// <summary>The command a key press stands for, or null. <paramref name="command"/> is the command modifier of the platform.</summary>
-    public static CatalogCommand? Find(Key key, KeyModifiers modifiers, KeyModifiers command)
+    public static CatalogCommand? Find(Key key, KeyModifiers modifiers, KeyModifiers command, bool? macOs = null)
     {
+        var mac = macOs ?? OperatingSystem.IsMacOS();
         foreach (var candidate in Commands)
         {
-            if (candidate.Shortcut is { } shortcut && shortcut.Matches(key, modifiers, command))
+            if (candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate;
             }

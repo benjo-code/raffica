@@ -581,6 +581,7 @@ internal sealed partial class PdfWindow
     {
         _checkedStates = CheckedStates();
         Ribbon.RefreshCommandStates();
+        StatesChanged?.Invoke();
     }
 
     // What the switch and choice commands of the View tab show, as one value: the ribbon is asked again only when it changes (the view

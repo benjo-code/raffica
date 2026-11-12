@@ -104,9 +104,13 @@ internal sealed class ApplierKit : IDisposable
     public StagedUpdate Stage(string version, string kind, byte[]? payload = null, string? exePath = null, string? targetDirectory = null, PackageForm form = PackageForm.WindowsInstaller)
     {
         payload ??= RandomNumberGenerator.GetBytes(3000);
-        var name = kind == UpdateFileKinds.LinuxAppImage
-            ? $"RafficaPdf-{version}-x86_64.AppImage"
-            : $"RafficaPdf-{version}-win-x64-setup.exe";
+        var name = kind switch
+        {
+            UpdateFileKinds.LinuxAppImage => $"RafficaPdf-{version}-x86_64.AppImage",
+            UpdateFileKinds.MacOsArm64Dmg => $"RafficaPdf-{version}-osx-arm64.dmg",
+            UpdateFileKinds.MacOsX64Dmg => $"RafficaPdf-{version}-osx-x64.dmg",
+            _ => $"RafficaPdf-{version}-win-x64-setup.exe",
+        };
         var directory = UpdateStaging.DirectoryFor(Config, UpdateVersion.TryParse(version, out var parsed) ? parsed : default);
         Directory.CreateDirectory(directory);
         File.WriteAllBytes(Path.Combine(directory, name), payload);

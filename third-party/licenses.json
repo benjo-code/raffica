@@ -58,7 +58,10 @@
       "kind": "nuget",
       "version": "12.1.5",
       "license": "MIT",
-      "licenseFile": "third-party/avalonia/LICENSE"
+      "licenseFile": "third-party/avalonia/LICENSE",
+      "files": [
+        "libAvaloniaNative.dylib"
+      ]
     },
     {
       "id": "Avalonia.Remote.Protocol",
@@ -109,6 +112,19 @@
       ]
     },
     {
+      "id": "bblanchon.PDFium.macOS",
+      "kind": "nuget",
+      "version": "157.0.8100",
+      "license": "Apache-2.0",
+      "licenseFile": "third-party/pdfium/LICENSE",
+      "licenseFiles": [
+        "third-party/pdfium/licenses/"
+      ],
+      "files": [
+        "libpdfium.dylib"
+      ]
+    },
+    {
       "id": "bblanchon.PDFium.Win32",
       "kind": "nuget",
       "version": "157.0.8100",
@@ -150,7 +166,9 @@
       "licenseFiles": [
         "third-party/skiasharp/THIRD-PARTY-NOTICES.txt"
       ],
-      "shipped": false
+      "files": [
+        "libHarfBuzzSharp.dylib"
+      ]
     },
     {
       "id": "HarfBuzzSharp.NativeAssets.WebAssembly",
@@ -230,7 +248,9 @@
       "licenseFiles": [
         "third-party/skiasharp/THIRD-PARTY-NOTICES.txt"
       ],
-      "shipped": false
+      "files": [
+        "libSkiaSharp.dylib"
+      ]
     },
     {
       "id": "SkiaSharp.NativeAssets.WebAssembly",
@@ -365,7 +385,8 @@
       "licenseFile": "third-party/tesseract/LICENSE",
       "files": [
         "tesseract.dll",
-        "libtesseract.so"
+        "libtesseract.so",
+        "libtesseract.dylib"
       ]
     },
     {

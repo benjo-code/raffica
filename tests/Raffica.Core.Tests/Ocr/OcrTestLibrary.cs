@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Raffica.Core.Pdf;
 using Raffica.Core.Text;
 using Raffica.Ocr;
@@ -36,8 +37,10 @@ internal static class OcrTestLibrary
 
     private static string? Find()
     {
-        var rid = OperatingSystem.IsWindows() ? "win-x64" : "linux-x64";
-        var file = OperatingSystem.IsWindows() ? "tesseract.dll" : "libtesseract.so";
+        var rid = OperatingSystem.IsWindows() ? "win-x64"
+            : OperatingSystem.IsMacOS() ? (RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64")
+            : "linux-x64";
+        var file = TesseractLibrary.FileName;
         var candidates = new[] { Environment.GetEnvironmentVariable("RAFFICA_TESSERACT_DIR"), Path.Combine(TestData.Root, "artifacts", "native", rid) };
         return candidates.FirstOrDefault(folder => !string.IsNullOrEmpty(folder) && File.Exists(Path.Combine(folder, file)));
     }

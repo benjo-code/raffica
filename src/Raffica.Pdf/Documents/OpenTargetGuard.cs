@@ -14,7 +14,7 @@ internal static class OpenTargetGuard
     /// The other open tab (never <paramref name="self"/>) whose path is <paramref name="target"/> or another name of the same file, or null.
     /// The spelling is compared first (<see cref="JobRunner.SamePath"/>); the file system answers for links, hard links and short names, off the UI thread.
     /// <paramref name="sameFile"/> replaces the file system question (tests); null: <see cref="FileIdentity.AreSameFile"/>.
-    /// A null answer of <see cref="FileIdentity.AreSameFile"/> counts as the same file on Windows and Linux (a refused write costs a click, a replaced open file costs data);
+    /// A null answer of <see cref="FileIdentity.AreSameFile"/> counts as the same file on Windows, Linux and macOS (a refused write costs a click, a replaced open file costs data);
     /// <paramref name="identitySupported"/> replaces that OS test (tests); on other systems the answer is "another file" and only the spelling decides.
     /// </summary>
     public static async Task<PdfTab?> FindOtherTabAsync(Workspace workspace, PdfTab self, string target, CancellationToken token, Func<string, string, bool?>? sameFile = null, bool? identitySupported = null)
@@ -33,10 +33,10 @@ internal static class OpenTargetGuard
 
         var identity = sameFile ?? FileIdentity.AreSameFile;
 
-        // FileIdentity answers null for "cannot tell". On Windows and Linux that is a real failure (the file could not be asked), which counts as the same file.
+        // FileIdentity answers null for "cannot tell". On Windows, Linux and macOS that is a real failure (the file could not be asked), which counts as the same file.
         // On any other OS it is the answer for every pair (no identity call exists there): counting it as the same file would refuse every target, so
         // only the spelling decides there.
-        var nullMeansSame = identitySupported ?? (OperatingSystem.IsWindows() || OperatingSystem.IsLinux());
+        var nullMeansSame = identitySupported ?? (OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS());
         if (others.Count == 0)
         {
             return null;

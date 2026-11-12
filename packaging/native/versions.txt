@@ -1,4 +1,4 @@
-# Pinned sources of the native OCR library (read by build-windows.ps1, build-linux.sh and the workflow native-tesseract.yml).
+# Pinned sources of the native OCR library (read by build-windows.ps1, build-linux.sh, build-macos.sh and the workflow native-tesseract.yml).
 # A change is an entry in Docs/DECISIONS.md and a new release "native-tesseract-<TESSERACT_TAG>-<n>" (Pins.Libraries in tools/native-fetch.cs).
 TESSERACT_URL=https://github.com/tesseract-ocr/tesseract
 TESSERACT_TAG=5.5.4
@@ -6,3 +6,8 @@ TESSERACT_COMMIT=7e548e6eff172f38f97664afe7f7ce40db36c8d6
 LEPTONICA_URL=https://github.com/DanBloomberg/leptonica
 LEPTONICA_TAG=1.87.0
 LEPTONICA_COMMIT=13275a278eb55b5746e33f95fbf5a2c8f604b3ab
+# Lowest macOS the app runs on, used as the deployment target of the macOS library (build-macos.sh, native-tesseract.yml).
+# .NET 10: oldest supported macOS is 15 (https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md, "macOS | 27, 26, 15").
+# Avalonia 12: gives tiers only and no numeric minimum; macOS 26 Tier 1, 15 and 14 Tier 2 (https://docs.avaloniaui.net/docs/supported-platforms).
+# The higher stated minimum wins: 15.0 (also the macOS of the owner's Mac).
+MACOS_DEPLOYMENT_TARGET=15.0

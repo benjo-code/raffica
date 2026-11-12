@@ -33,6 +33,7 @@ public sealed class OrganizeThumbnailTests
         {
             frame.CopyPixels(new PixelRect(size), buffer, pixels.Length, stride);
             Marshal.Copy(buffer, pixels, 0, pixels.Length);
+            Raffica.Pdf.Tests.Viewing.PixelOrder.ToBgra(pixels, frame.Format);
         }
         finally
         {

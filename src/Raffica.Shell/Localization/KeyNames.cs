@@ -57,7 +57,8 @@ public static class KeyNames
         return Join(parts, ui, macOs);
     }
 
-    internal static string Format(string shortcut, CultureInfo ui, bool macOs)
+    /// <summary>A shortcut written with English names as text for the given platform, whatever platform the process runs on (the help card, tests).</summary>
+    public static string Format(string shortcut, CultureInfo ui, bool macOs)
     {
         ArgumentNullException.ThrowIfNull(shortcut);
         if (shortcut.Length == 0)

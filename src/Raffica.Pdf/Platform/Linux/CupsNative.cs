@@ -24,14 +24,22 @@ internal unsafe struct CupsDest
 
 /// <summary>
 /// The few functions of libcups 2 that printing needs (<c>cups/cups.h</c>, <c>cups/dest.h</c>). The library is looked
-/// for on first use, never at startup; <see cref="IsAvailable"/> says whether it is there. Only on Linux.
+/// for on first use, never at startup; <see cref="IsAvailable"/> says whether it is there. On Linux and macOS.
+/// The imports use the logical name <c>cups</c>; a resolver set in the static constructor maps it to the file name
+/// of the system.
 /// </summary>
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("macos")]
 internal static unsafe partial class CupsNative
 {
-    private const string Library = "libcups.so.2";
+    private const string Library = "cups";
 
     private static readonly Lazy<bool> Available = new(Probe);
+
+    static CupsNative()
+    {
+        NativeLibrary.SetDllImportResolver(typeof(CupsNative).Assembly, Resolve);
+    }
 
     /// <summary>Gets whether libcups can be loaded.</summary>
     public static bool IsAvailable => Available.Value;
@@ -67,9 +75,30 @@ internal static unsafe partial class CupsNative
     [LibraryImport(Library)]
     public static partial byte* cupsLastErrorString();
 
+    /// <summary>Gets the file name of libcups on a system: <c>libcups.so.2</c> on Linux, <c>libcups.2.dylib</c> on macOS (found in <c>/usr/lib</c>), else <see langword="null"/>.</summary>
+    /// <param name="linux">Whether the system is Linux.</param>
+    /// <param name="macOs">Whether the system is macOS.</param>
+    /// <returns>The file name, or <see langword="null"/> when CUPS is not used on this system.</returns>
+    internal static string? LibraryNameFor(bool linux, bool macOs) =>
+        linux ? "libcups.so.2" : macOs ? "libcups.2.dylib" : null;
+
+    private static string? CurrentLibraryName() => LibraryNameFor(OperatingSystem.IsLinux(), OperatingSystem.IsMacOS());
+
+    private static nint Resolve(string libraryName, System.Reflection.Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName != Library)
+        {
+            return 0;
+        }
+
+        var name = CurrentLibraryName();
+        return name is not null && NativeLibrary.TryLoad(name, assembly, searchPath, out var handle) ? handle : 0;
+    }
+
     private static bool Probe()
     {
-        if (!NativeLibrary.TryLoad(Library, typeof(CupsNative).Assembly, null, out var handle))
+        var name = CurrentLibraryName();
+        if (name is null || !NativeLibrary.TryLoad(name, typeof(CupsNative).Assembly, null, out var handle))
         {
             return false;
         }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Raffica.Core.Saving;
 using Raffica.Core.Updates;
 using Raffica.Pdf.Updating;
 
@@ -166,14 +167,13 @@ internal sealed class WindowsUpdateHelper : IDisposable
     {
         var target = request.TargetDirectory;
         var exe = request.ExePath;
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var usable = UpdateVersion.TryParse(request.Version, out var version)
             && UpdateVersion.TryParse(Path.GetFileName(staging), out var folder) && folder == version
             && request.Form == PackageForm.WindowsInstaller
             && target is not null && Path.IsPathFullyQualified(target)
             && exe is not null && Path.IsPathFullyQualified(exe)
-            && string.Equals(Path.GetFileName(exe), WindowsUpdateInstaller.ExeName, comparison)
-            && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(exe) ?? string.Empty), Path.TrimEndingDirectorySeparator(target), comparison);
+            && PathRules.AreEqual(Path.GetFileName(exe), WindowsUpdateInstaller.ExeName)
+            && PathRules.AreEqual(Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(exe) ?? string.Empty), Path.TrimEndingDirectorySeparator(target));
         return usable ? version : null;
     }
 

@@ -1,7 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:shell="using:Raffica.Shell"
-             x:Class="Raffica.Pdf.App">
+             x:Class="Raffica.Pdf.App"
+             Name="Raffica PDF">
   <Application.Styles>
     <shell:RafficaStyles />
     <StyleInclude Source="avares://RafficaPdf/Styles/PageView.axaml" />

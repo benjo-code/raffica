@@ -6,6 +6,21 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-11-12
+
+Raffica PDF now runs on macOS (Milestones 3.1, 3.2 and 3.3).
+
+### Added
+
+- **Raffica PDF for macOS 15 or newer**, as a disk image for Apple silicon (`arm64`) and one for Intel Macs (`x64`). Open the image that matches your Mac and drag Raffica PDF into Applications. It has the Mac menu bar and shortcuts, opens PDFs from the Finder and can become your default PDF app.
+- **First start:** the app is not notarized by Apple (there is no Apple developer account behind this project), so macOS blocks it once. Allow it under System Settings, Privacy & Security, "Open Anyway"; the README has the steps.
+- **Updates:** Raffica PDF on macOS offers new versions itself, from the next release on.
+- **Tested:** the Intel version was checked on a real Mac, the Apple-silicon version has not been tried on one yet.
+
+### Fixed
+
+- Opening a file in the running app from a second start could lose the file on a slow computer.
+
 ## [0.1.0] – 2026-11-09
 
 First release: Raffica PDF, with Milestones 0 (repository skeleton and CI), 1, 1.1 and 1.2 (design system and app frame), 2.1 (viewer), 2.2 (annotate), 2.3 (forms and signing), 2.4 (organize pages), 2.5 (redact, OCR and line editing), 2.6 (packaging and release) and 2.7 (release readiness).

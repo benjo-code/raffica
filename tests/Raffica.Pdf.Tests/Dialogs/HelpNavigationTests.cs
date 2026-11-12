@@ -28,22 +28,41 @@ public sealed class HelpNavigationTests : IDisposable
         string Written(string shortcut) => Raffica.Shell.Localization.KeyNames.Format(shortcut, PdfStrings.Culture);
         Assert.Equal(Written(Command + "+K"), keys["Go to the search field"]);
         Assert.Equal(Written("F6") + " / " + Written("Shift+F6"), keys["Move between the panes"]);
-        Assert.Equal("Alt", keys["Field codes: show them, then type one"]);
+        // The Alt field codes are offered only where key tips exist (not on macOS, spec 5.4).
+        var keyTips = Raffica.Pdf.Commands.KeyTips.Offered(OperatingSystem.IsMacOS());
+        if (keyTips)
+        {
+            Assert.Equal(Written("Alt"), keys["Field codes: show them, then type one"]);
+        }
+        else
+        {
+            Assert.DoesNotContain("Field codes: show them, then type one", keys.Keys);
+        }
+
         Assert.Equal(Written(Command + "+Y"), keys["Redo"]);
         Assert.Equal(Written("Enter"), keys["Search field: next match"]);
         Assert.Equal(Written("Shift+Enter"), keys["Search field: previous match"]);
         Assert.Equal(Written("Alt+↑") + " / " + Written("Alt+↓"), keys["Organize pages: move the selected pages by one"]);
         Assert.Equal(Written("Alt+Home") + " / " + Written("Alt+End"), keys["Organize pages: move to the start or the end"]);
         Assert.Equal("[ / ]", keys["Organize pages: turn left or right"]);
-        Assert.Equal(Written("Ctrl+D"), keys["Organize pages: duplicate"]);
-        Assert.Equal(Written("Ctrl+A"), keys["Organize pages: select all pages"]);
+        Assert.Equal(Written(Command + "+D"), keys["Organize pages: duplicate"]);
+        Assert.Equal(Written(Command + "+A"), keys["Organize pages: select all pages"]);
         Assert.Equal(Written("Delete"), keys["Organize pages: delete"]);
         Assert.Equal(Written("Tab") + " / " + Written("Shift+Tab"), keys["Forms: next or previous field"]);
         Assert.Equal(Written("Enter") + " / Space", keys["Forms: fill in the field with the focus"]);
         Assert.Equal(Written("Esc"), keys["Forms: leave the field"]);
         Assert.Equal(Written(Command + "+Enter"), keys["Finish a text box or a comment"]);
         Assert.Equal(Written(Command + "+Shift+G"), keys["Edit text: whole line in the replacement font"]);
-        Assert.Equal(17, navigation.Count);
+        Assert.Equal(keyTips ? 17 : 16, navigation.Count);
+    }
+
+    [Fact]
+    public void OnMacTheOrganizerLinesUseTheCommandKey()
+    {
+        PdfStrings.Culture = CultureInfo.GetCultureInfo("en");
+        var entries = NavigationHelp.Entries(macOs: true);
+        Assert.EndsWith("⌘D", entries.Single(e => e.Name == PdfStrings.HelpNavOrganizeDuplicate).Shortcut, StringComparison.Ordinal);
+        Assert.EndsWith("⌘A", entries.Single(e => e.Name == PdfStrings.HelpNavOrganizeSelectAll).Shortcut, StringComparison.Ordinal);
     }
 
     [Fact]

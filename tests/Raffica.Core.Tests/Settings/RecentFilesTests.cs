@@ -125,7 +125,7 @@ public sealed class RecentFilesTests : IDisposable
     }
 
     [Fact]
-    public void OtherSystemsComparePathsCaseSensitively()
+    public void LinuxComparesPathsCaseSensitivelyAndMacOsDoesNot()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -136,8 +136,17 @@ public sealed class RecentFilesTests : IDisposable
         files.Touch("/docs/A.pdf", Start);
         files.Touch("/docs/a.pdf", Start.AddMinutes(1));
 
-        Assert.Equal(2, files.Items.Count);
-        Assert.Null(files.TryGet("/DOCS/a.pdf"));
+        if (OperatingSystem.IsMacOS())
+        {
+            // Volumes of macOS ignore the case (the rule is PathRules').
+            Assert.Single(files.Items);
+            Assert.NotNull(files.TryGet("/DOCS/a.pdf"));
+        }
+        else
+        {
+            Assert.Equal(2, files.Items.Count);
+            Assert.Null(files.TryGet("/DOCS/a.pdf"));
+        }
     }
 
     [Fact]

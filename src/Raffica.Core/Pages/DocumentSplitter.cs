@@ -321,7 +321,6 @@ public static class DocumentSplitter
         ArgumentNullException.ThrowIfNull(parts);
         ArgumentException.ThrowIfNullOrEmpty(directory);
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var names = OutputNames.Unique(parts.Select(static part => part.Stem), ".pdf", static _ => false);
         var paths = new List<string>(names.Count);
         foreach (var name in names)
@@ -331,8 +330,8 @@ public static class DocumentSplitter
             var parent = Path.GetDirectoryName(full);
             if (name.AsSpan().IndexOfAny('/', '\\') >= 0
                 || parent is null
-                || !string.Equals(Path.TrimEndingDirectorySeparator(parent), root, comparison)
-                || !string.Equals(Path.GetFileName(full), name, comparison))
+                || !PathRules.AreEqual(Path.TrimEndingDirectorySeparator(parent), root)
+                || !PathRules.AreEqual(Path.GetFileName(full), name))
             {
                 throw new DocumentSplitException(DocumentSplitError.UnsafeName, "A file name would lead out of the target folder.");
             }
@@ -485,7 +484,7 @@ public static class DocumentSplitter
         }
 
         // The file that is open is never a target: the same file under another name (link, 8.3 name, hard link) counts.
-        if (string.Equals(target, sourcePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+        if (PathRules.AreEqual(target, sourcePath)
             || FileIdentity.AreSameFile(target, sourcePath) == true)
         {
             return DocumentSplitError.TargetIsSource;

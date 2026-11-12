@@ -358,10 +358,13 @@ public sealed class OcrOptionsTests
     [AvaloniaFact]
     public async Task NoLibraryMeansCommandDisabledWithReason()
     {
-        var (f, _) = await OpenedAsync("eng");
+        var (f, tab) = await OpenedAsync("eng");
         using var _ = f;
         var window = f.Window;
         var command = Command(window, "ocr.run");
+
+        // The command needs the first sharp page (the pages are ready); on a slow runner it is not there yet when the file has just opened.
+        await ViewFixture.WaitAsync(() => window.ViewOf(tab)?.FirstSharpPageShown == true);
 
         // Library there and a starter wired: the command is on.
         window.OcrLibraryProbe = () => true;

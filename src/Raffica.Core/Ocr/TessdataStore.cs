@@ -106,8 +106,9 @@ public sealed class TessdataStore
 
     /// <summary>
     /// The folder of the shipped files for an application in <paramref name="baseDirectory"/>: its <c>tessdata</c> folder, or, only for the command
-    /// line (it sits in <c>cli/</c> and shares the one at the root of the package), the one of the parent folder. No other program folder ever reads
-    /// the folder next to it (Downloads, Programs, ...).
+    /// line (it sits in <c>cli/</c> and shares the one at the root of the package), the one of the parent folder. In an application bundle
+    /// (<c>X.app/Contents/MacOS</c>) it is <c>Contents/Resources/tessdata</c>, because macOS signs every folder inside <c>Contents/MacOS</c> as code.
+    /// No other program folder ever reads the folder next to it (Downloads, Programs, ...).
     /// </summary>
     public static string ShippedDirectoryFor(string baseDirectory)
     {
@@ -118,6 +119,13 @@ public sealed class TessdataStore
         }
 
         var trimmed = Path.TrimEndingDirectorySeparator(baseDirectory);
+        if (IsBundleExecutableFolder(trimmed))
+        {
+            // macOS signs every folder inside Contents/MacOS as code, so a bundle keeps the data in Contents/Resources.
+            var resources = Path.Combine(trimmed, "..", "Resources", "tessdata");
+            return Directory.Exists(resources) ? Path.GetFullPath(resources) : own;
+        }
+
         if (!string.Equals(Path.GetFileName(trimmed), "cli", StringComparison.OrdinalIgnoreCase))
         {
             return own;
@@ -125,6 +133,21 @@ public sealed class TessdataStore
 
         var parent = Directory.GetParent(trimmed)?.FullName;
         return parent is not null && Directory.Exists(Path.Combine(parent, "tessdata")) ? Path.Combine(parent, "tessdata") : own;
+    }
+
+    // <Something>.app/Contents/MacOS, and nothing else: no other folder ever reads a Resources folder next to it.
+    private static bool IsBundleExecutableFolder(string trimmed)
+    {
+        if (!string.Equals(Path.GetFileName(trimmed), "MacOS", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var contents = Path.GetDirectoryName(trimmed);
+        var bundle = contents is null ? null : Path.GetDirectoryName(contents);
+        return contents is not null && bundle is not null &&
+            string.Equals(Path.GetFileName(contents), "Contents", StringComparison.Ordinal) &&
+            Path.GetFileName(bundle).EndsWith(".app", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The installed languages, sorted by name; for a name that has both, the imported file.</summary>

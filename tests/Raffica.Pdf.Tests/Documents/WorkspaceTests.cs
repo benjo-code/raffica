@@ -53,6 +53,27 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public async Task OpeningTheSameFileUnderAnotherSpellingSelectsTheExistingTab()
+    {
+        var folder = Directory.CreateTempSubdirectory("raffica-workspace-").FullName;
+        try
+        {
+            var path = Path.Combine(folder, "Bericht.pdf");
+            File.Copy(TestData.Pdf("hello_world.pdf"), path);
+            var ignoresCase = File.Exists(Path.Combine(folder, "bericht.pdf"));
+            Assert.SkipUnless(ignoresCase, "macOS/Windows only: the volume must ignore case");
+
+            var workspace = NewWorkspace();
+            var tab = workspace.Add(await OpenAsync(), path);
+            Assert.Same(tab, workspace.Find(Path.Combine(folder, "BERICHT.PDF")));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ClosingTheActiveTabSelectsTheNeighbour()
     {
         var workspace = NewWorkspace();

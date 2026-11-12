@@ -38,7 +38,8 @@ public sealed class TitleBarTests
     [AvaloniaFact]
     public void CaptionButtonsAre46By36()
     {
-        var (window, bar) = Show();
+        // macOS has the system's window buttons instead (ShowCaptionButtons is false there by default).
+        var (window, bar) = Show(b => b.ShowCaptionButtons = true);
 
         foreach (var name in new[] { "Minimize", "Maximize", "Close" })
         {
@@ -52,7 +53,8 @@ public sealed class TitleBarTests
         Assert.Equal(ShellStrings.Maximize, Avalonia.Automation.AutomationProperties.GetName(Caption(bar, "Maximize")));
 
         // The window decorations are the borderless-with-resize mode and the buttons carry their roles.
-        Assert.Equal(WindowDecorations.BorderOnly, window.WindowDecorations);
+        // (macOS keeps the system's decorations: PrepareWindow leaves them alone there.)
+        Assert.Equal(OperatingSystem.IsMacOS() ? WindowDecorations.Full : WindowDecorations.BorderOnly, window.WindowDecorations);
         Assert.Equal(WindowDecorationsElementRole.CloseButton, WindowDecorationProperties.GetElementRole(Caption(bar, "Close")));
         Assert.Equal(WindowDecorationsElementRole.MinimizeButton, WindowDecorationProperties.GetElementRole(Caption(bar, "Minimize")));
         Assert.Equal(WindowDecorationsElementRole.MaximizeButton, WindowDecorationProperties.GetElementRole(Caption(bar, "Maximize")));
@@ -65,7 +67,7 @@ public sealed class TitleBarTests
     [InlineData(ThemeMode.Dark)]
     public void CloseButtonHoverIsNotRed(ThemeMode mode)
     {
-        var (window, bar) = Show(mode: mode);
+        var (window, bar) = Show(b => b.ShowCaptionButtons = true, mode);
         var close = Caption(bar, "Close");
         var normal = ControlHarness.Presenter(close);
         Assert.Equal(Avalonia.Media.Colors.Transparent, ControlHarness.ColorOf(normal.Background));
@@ -98,7 +100,11 @@ public sealed class TitleBarTests
     [AvaloniaFact]
     public void LeadingInsetMovesTheContentRightForTheSystemButtons()
     {
-        var (_, plain) = Show(b => b.Mark = new TextBlock { Text = "R" });
+        var (_, plain) = Show(b =>
+        {
+            b.Mark = new TextBlock { Text = "R" };
+            b.LeadingInset = 0;
+        });
         var (_, inset) = Show(b =>
         {
             b.Mark = new TextBlock { Text = "R" };

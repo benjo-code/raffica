@@ -1,6 +1,6 @@
 # Tesseract, Leptonica and tessdata_fast – third-party licenses
 
-Raffica uses the OCR library (`tesseract.dll` or `libtesseract.so`, Tesseract 5.5.4 with statically linked Leptonica 1.87.0) and the language data `eng` and `deu`. The library is built by the workflow `native-tesseract.yml` of this repository from the unmodified sources of the tags named below (without OpenMP, without libcurl, without libarchive, without image decoders). The prerelease is `native-tesseract-5.5.4-1`; `tools/native-fetch.cs` fetches the pinned files and checks their size and SHA-256.
+Raffica uses the OCR library (`tesseract.dll`, `libtesseract.dylib` or `libtesseract.so`, Tesseract 5.5.4 with statically linked Leptonica 1.87.0) and the language data `eng` and `deu`. The library is built by the workflow `native-tesseract.yml` of this repository from the unmodified sources of the tags named below (without OpenMP, without libcurl, without libarchive, without image decoders). The prerelease is `native-tesseract-5.5.4-1` (Windows and Linux) and `native-tesseract-5.5.4-2` (macOS); `tools/native-fetch.cs` fetches the pinned files and checks their size and SHA-256.
 
 | File | Component (version) | Source | SHA-256 of the file |
 | --- | --- | --- | --- |

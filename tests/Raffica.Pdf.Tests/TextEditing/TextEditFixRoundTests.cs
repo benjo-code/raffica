@@ -66,15 +66,15 @@ public sealed class TextEditSwitchAndScrollTests
         Assert.False(rig.Session.WholeRun);
 
         // Ctrl+Shift+G (Cmd+Shift+G on a Mac), through the real window with the field focused; no Alt, so AltGr layouts are not touched.
-        rig.Press(PhysicalKey.G, RawInputModifiers.Control | RawInputModifiers.Shift);
+        rig.Press(PhysicalKey.G, (OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control) | RawInputModifiers.Shift);
         Assert.True(rig.Session.WholeRun);
         Assert.True(bar.WholeSwitchOn);
         Assert.True(rig.Session.HasDraft);
         Assert.True(rig.FieldHasFocus);
-        Assert.Contains("Ctrl+Shift+G", bar.WholeSwitch.Content as string ?? string.Empty, StringComparison.Ordinal);
-        rig.Press(PhysicalKey.G, RawInputModifiers.Control | RawInputModifiers.Shift);
+        Assert.Contains(TextEditHintBar.WholeRunKeyName, bar.WholeSwitch.Content as string ?? string.Empty, StringComparison.Ordinal);
+        rig.Press(PhysicalKey.G, (OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control) | RawInputModifiers.Shift);
         Assert.False(rig.Session.WholeRun);
-        rig.Press(PhysicalKey.G, RawInputModifiers.Control | RawInputModifiers.Shift);
+        rig.Press(PhysicalKey.G, (OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control) | RawInputModifiers.Shift);
         rig.Press(PhysicalKey.Enter);
         await rig.Interaction.Completion;
         await rig.SettleAsync();

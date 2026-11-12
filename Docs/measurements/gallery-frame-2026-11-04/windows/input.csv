@@ -1,4 +1,4 @@
 machine,mode,case,run,value,unit
-PC-VON-BENNI,gallery,input,median,4.53,ms
-PC-VON-BENNI,gallery,input,p99,9.59,ms
-PC-VON-BENNI,gallery,input,max,15.98,ms
+windows-main-pc,gallery,input,median,4.53,ms
+windows-main-pc,gallery,input,p99,9.59,ms
+windows-main-pc,gallery,input,max,15.98,ms

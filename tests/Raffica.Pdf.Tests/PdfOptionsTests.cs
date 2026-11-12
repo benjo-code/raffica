@@ -6,6 +6,18 @@ namespace Raffica.Pdf.Tests;
 public sealed class PdfOptionsTests
 {
     [Fact]
+    public void ProcessSerialNumberArgumentIsIgnored()
+    {
+        Assert.Equal(["a.pdf"], PdfOptions.Parse(["-psn_0_12345", "a.pdf"]).Files);
+    }
+
+    [Fact]
+    public void ADashedFileNameThatIsNotPsnStaysAFile()
+    {
+        Assert.Equal(["-report.pdf"], PdfOptions.Parse(["-report.pdf"]).Files);
+    }
+
+    [Fact]
     public void RegistrationSwitchesParse()
     {
         var register = PdfOptions.Parse(["--register-file-types=user"]);

@@ -82,7 +82,7 @@ internal sealed class UpdateFlow : IDisposable
     public PackageForm Form { get; }
 
     /// <summary>Gets whether this installation can install a newer version by itself (a form with an installer and an applier for it); otherwise it is only pointed to the download page.</summary>
-    public bool CanInstall => _applier is not null && Form is PackageForm.WindowsInstaller or PackageForm.AppImage;
+    public bool CanInstall => _applier is not null && Form is PackageForm.WindowsInstaller or PackageForm.AppImage or PackageForm.MacAppArm64 or PackageForm.MacAppX64;
 
     /// <summary>Gets the verified update that waits for the installer (<see cref="UpdateStage.Ready"/>), or <see langword="null"/>.</summary>
     public StagedUpdate? Staged { get; private set; }
@@ -104,6 +104,12 @@ internal sealed class UpdateFlow : IDisposable
 
     /// <summary>Gets or sets the folder the program is installed in (for an AppImage the folder of the AppImage), for the request.</summary>
     internal string? TargetDirectory { get; init; }
+
+    /// <summary>
+    /// Gets or sets what runs just before a staging folder is deleted for a new download, with that folder (macOS: detaches a disk image a crashed update left mounted inside it,
+    /// see <see cref="Raffica.Pdf.Platform.MacOS.MacStagingMount"/>). It runs on a pool thread, its failure is ignored, and <see langword="null"/> (Windows, Linux) does nothing.
+    /// </summary>
+    internal Func<string, Task>? BeforeStagingDelete { get; set; }
 
     /// <summary>Gets or sets where the progress window lies (position in physical pixels, size in device-independent pixels), for the request of the installer.</summary>
     internal Func<(int Left, int Top, double Width, double Height)?>? ProgressWindowBounds { get; set; }
@@ -402,9 +408,10 @@ internal sealed class UpdateFlow : IDisposable
             SetState(new UpdateState(UpdateStage.Downloading, offered, file, 0, null));
             var target = Path.Combine(directory, file.Name);
             await Task.Run(
-                () =>
+                async () =>
                 {
                     UpdateStaging.DeleteOld(_configDirectory, _checker.Current, _clock.GetUtcNow());
+                    await ReleaseBeforeDeleteAsync(directory).ConfigureAwait(false);
                     PrepareStaging(directory);
                 },
                 ct).ConfigureAwait(true);
@@ -529,6 +536,24 @@ internal sealed class UpdateFlow : IDisposable
             Width = bounds?.Width,
             Height = bounds?.Height,
         };
+    }
+
+    // Lets the platform release what blocks the delete of the staging folder (a mount); best effort.
+    private async Task ReleaseBeforeDeleteAsync(string directory)
+    {
+        if (BeforeStagingDelete is not { } release)
+        {
+            return;
+        }
+
+        try
+        {
+            await release(directory).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not OperationCanceledException)
+        {
+            // The delete that follows reports what is still in the way.
+        }
     }
 
     // A staging folder left by an earlier attempt (or a crash) is ours: it goes, so nothing old is mixed in. On Unix the

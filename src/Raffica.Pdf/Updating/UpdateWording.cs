@@ -32,6 +32,9 @@ internal enum UpdateApplyProblem
 
     /// <summary>This program cannot be proven to be the installation to update.</summary>
     NoInstaller,
+
+    /// <summary>The program runs from a mounted disk image or a copy macOS moved aside, so it cannot replace itself; the user moves it to Applications or installs by hand.</summary>
+    RunsFromDownload,
 }
 
 /// <summary>
@@ -83,6 +86,7 @@ internal static class UpdateWording
             UpdateApplyProblem.VersionMismatch => PdfStrings.GetIn("UpdateFailureVersionMismatch", culture),
             UpdateApplyProblem.HelperInstallFailed => PdfStrings.GetIn("UpdateFailureHelperInstallFailed", culture),
             UpdateApplyProblem.NoInstaller => PdfStrings.GetIn("UpdateFailureNoInstaller", culture),
+            UpdateApplyProblem.RunsFromDownload => PdfStrings.GetIn("UpdateFailureRunsFromDownload", culture),
             _ => throw new ArgumentOutOfRangeException(nameof(problem), problem, "This applier problem has no text."),
         };
         return text.Replace("{0}", folder ?? string.Empty, StringComparison.Ordinal);
