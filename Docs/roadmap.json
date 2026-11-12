@@ -312,6 +312,11 @@
       "date": "2026-11-10",
       "context": "Milestone 3.3",
       "text": "The size budgets of the PDF app on macOS are one `macos` entry of `s_pdfBudgets` (size, zip, app, dmg; the larger architecture binds both) and have no time or memory limit until the Intel measurement; see \"Raffica PDF on macOS: published sizes and the hosted record (M3.3)\" in `Docs/DECISIONS.md`."
+    },
+    {
+      "date": "2026-11-12",
+      "context": "Milestone 4",
+      "text": "The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`."
     }
   ],
   "subprojects": [
@@ -766,13 +771,15 @@
         {
           "id": "4",
           "title": "Spikes & spec for Raffica Write",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md",
+          "spec": "superpowers/specs/2026-11-12-raffica-write-spikes-design.md",
           "prerequisites": ["3.3"],
           "goal": "The layout engine decision for Write rests on measurements and the spec is written.",
           "tasks": [
             { "text": "Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)", "done": false },
             { "text": "Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)", "done": false },
-            { "text": "Spike: printing per operating system and IME behaviour on Windows and Linux", "done": false },
+            { "text": "Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS", "done": false },
             { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
           ],
           "acceptance": [

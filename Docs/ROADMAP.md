@@ -39,7 +39,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.1 | Runs on the Mac | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | 2026-11-11 |
 | 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
-| 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ⬜ open | – | – |
+| 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
 | 6 | Create spec for Raffica Slides | 7 – Raffica Slides | ⬜ open | – | – |
 
@@ -107,6 +107,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-10 (Milestone 3.3):** tessdata lives in `Contents/Resources/tessdata` of the bundle, not in `Contents/MacOS`, because `codesign` treats a folder in `Contents/MacOS` as a nested code component; `TessdataStore.ShippedDirectoryFor` finds it through one bundle-specific rule (`Docs/DECISIONS.md`, "Raffica on macOS: packaging, default app and updates (M3.3)").
 - **2026-11-10 (Milestone 3.3):** `third-party/licenses.json` owns the macOS natives (`libAvaloniaNative.dylib`, `libSkiaSharp.dylib`, `libHarfBuzzSharp.dylib`), and `tools/check-binary.cs` reads universal Mach-O files and ignores a dylib's own install name when it lists dependencies.
 - **2026-11-10 (Milestone 3.3):** The size budgets of the PDF app on macOS are one `macos` entry of `s_pdfBudgets` (size, zip, app, dmg; the larger architecture binds both) and have no time or memory limit until the Intel measurement; see "Raffica PDF on macOS: published sizes and the hosted record (M3.3)" in `Docs/DECISIONS.md`.
+- **2026-11-12 (Milestone 4):** The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`.
 
 ---
 
@@ -570,14 +571,14 @@ Every task and every criterion is ticked. The owner's checks on a real Mac (2026
 **Spec:** not written yet (created in its first milestone)
 
 ## Milestone 4 – Spikes & spec for Raffica Write
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M3.3
+**Status:** 🟡 planned · **Plan:** [2026-11-12-milestone-04-write-spikes-spec.md](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) · **Spec:** [2026-11-12-raffica-write-spikes-design.md](superpowers/specs/2026-11-12-raffica-write-spikes-design.md) · **Prerequisites:** M3.3
 
 Goal: The layout engine decision for Write rests on measurements and the spec is written.
 
 **Tasks**
 - [ ] Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)
 - [ ] Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)
-- [ ] Spike: printing per operating system and IME behaviour on Windows and Linux
+- [ ] Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS
 - [ ] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
