@@ -1,0 +1,11 @@
+machine,mode,case,run,value,unit
+macos-macbook,pdf,cold,1,1872.86,ms
+macos-macbook,pdf,cold,2,791.98,ms
+macos-macbook,pdf,cold,3,699.39,ms
+macos-macbook,pdf,cold,4,629.75,ms
+macos-macbook,pdf,cold,5,653.47,ms
+macos-macbook,pdf,cold,6,646.73,ms
+macos-macbook,pdf,cold,7,645.86,ms
+macos-macbook,pdf,cold,8,648.67,ms
+macos-macbook,pdf,cold,9,649.9,ms
+macos-macbook,pdf,cold,10,634.48,ms
