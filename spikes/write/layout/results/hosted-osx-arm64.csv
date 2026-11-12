@@ -1,0 +1,11 @@
+date,machine,os,engine,metric,median,min,max,unit,commit
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,csharp,first-page,74.365,56.903,90.335,ms,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,csharp,full-layout,448.649,386.844,519.010,ms,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,csharp,hit-test,1.304,0.692,2.159,us,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,csharp,keystroke,0.232,0.229,0.297,ms,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,csharp,memory,68.600,68.500,68.800,MB,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,rust,first-page,76.096,54.684,99.209,ms,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,rust,full-layout,343.779,317.381,516.574,ms,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,rust,hit-test,4.377,3.234,5.785,us,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,rust,keystroke,0.192,0.175,0.230,ms,9fa4191
+2026-11-12,hosted-osx-arm64,macOS 15.8.2,rust,memory,122.300,122.100,122.500,MB,9fa4191

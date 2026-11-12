@@ -35,7 +35,7 @@ done
 $X docx spikes/write/testdoc/thesis.docx artifacts/spikes/write/oxa/bench.docx --runs 10
 ```
 
-On Windows replace `$X` by `...\win-x64\publish\openxml-aot.exe`. Owner on the Linux laptop and the Mac: run the same with `-r linux-x64` or `-r osx-x64` (Linux needs `clang` and `zlib1g-dev`; macOS needs the Xcode command line tools) and send back the output.
+On Windows replace `$X` by `...\win-x64\publish\openxml-aot.exe`. Optional on the owner's Linux laptop and Mac: the same with `-r linux-x64` or `-r osx-x64` (Linux needs `clang` and `zlib1g-dev`; macOS needs the Xcode command line tools) and send back the output.
 
 ## Results
 
@@ -56,24 +56,31 @@ On Windows replace `$X` by `...\win-x64\publish\openxml-aot.exe`. Owner on the L
 
 The SDK re-serialises every part whose DOM it loaded, also when the code only reads it. In the `xlsx` case that finds the sheet through the workbook, `/xl/workbook.xml` is loaded and written back with the namespace declarations in another place (same content, other bytes: `xmlns:r` moves from the `x:sheet` element to the root). A part that is never loaded stays byte-identical: with `--first-part`, which takes the first worksheet part without touching the workbook, only the sheet changes. The same holds for the DOCX: only the two loaded parts differ. Consequence for Write: keep a part unloaded unless it is edited, and treat a loaded part as rewritten (equal content, not equal bytes). Parts Write does not understand must never be loaded at all.
 
-### Open in Word, Excel and LibreOffice (open)
+### GitHub-hosted runners (workflow `spikes-write`, run 43281967899, commit `b575087`, all three jobs green)
 
-Not yet checked: Word and Excel are on the owner's Windows machine, LibreOffice on the Linux laptop. Checklist for the owner, one line each in the table below: opens without a repair prompt; the edit is visible (`Edited by the spike.` in chapter 1, Heading2 at 15 pt; cell B2 = 42; the formulas workbook shows SUM, VLOOKUP, the cross-sheet value, the merged title and the colour scale).
+Hosted virtual machines, so the times are a record and not the binding numbers. Linux x64 on `ubuntu-24.04`, macOS arm64 on `macos-15`, macOS x64 on `macos-15-intel`; the .NET SDK 10.0.x of `actions/setup-dotnet`.
 
-| File | Word / Excel (Windows) | LibreOffice (Linux) |
-|---|---|---|
-| `thesis-edited.docx` | open | open |
-| `plain-edited.xlsx` | open | open |
-| `formulas-edited.xlsx` | open | open |
+| Machine | Publish warnings | Published size | `docx` median of 10 | `selftest` | `compare` results |
+|---|---|---|---|---|---|
+| Linux x64 | 0 (`IL2xxx`/`IL3xxx`) | 27.3 MB | 101.3 ms | 5 of 5 ok | DOCX: only `/word/document.xml` and `/word/styles.xml` changed; both XLSX with `--first-part`: only `/xl/worksheets/sheet1.xml` |
+| macOS arm64 | 0 | 25.6 MB | 103.3 ms | 5 of 5 ok | the same |
+| macOS x64 (Intel) | 0 | 27.5 MB | 243.5 ms | 5 of 5 ok | the same |
 
-LibreOffice open check on Linux: `soffice --headless --convert-to pdf <file>` is enough.
+LibreOffice (Linux job, `libreoffice-writer` and `libreoffice-calc`, `soffice --headless --convert-to pdf`): the edited DOCX (2.46 MB of PDF), `plain-edited.xlsx` and `formulas-edited.xlsx` all open and convert; no error.
 
-### Linux laptop and Intel Mac (open)
+### Open in Word and Excel (owner, Windows)
 
-| Machine | Publish warnings | Published size | `docx` median of 10 | Compare results |
-|---|---|---|---|---|
-| Linux laptop, `linux-x64` | open | open | open | open |
-| Intel Mac, `osx-x64` | open | open | open | open |
+Not yet checked: Word and Excel are only on the owner's Windows machine. The saved files are the artifacts `spikes-write-linux-x64` of the workflow run (or regenerate them with the commands above). Checklist, one line each: opens without a repair prompt; the edit is visible (`Edited by the spike.` in chapter 1, Heading2 at 15 pt; cell B2 = 42; the formulas workbook shows SUM, VLOOKUP, the cross-sheet value, the merged title and the colour scale).
+
+| File | Word / Excel (Windows) |
+|---|---|
+| `thesis-edited.docx` | open |
+| `plain-edited.xlsx` | open |
+| `formulas-edited.xlsx` | open |
+
+### Linux laptop and Intel Mac (binding machines, open)
+
+The same commands on the owner's own machines (optional for this spike: the hosted runs above are the same operating systems and architectures; the owner's machines add the real-hardware timing).
 
 ### Plan B
 
