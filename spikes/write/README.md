@@ -19,3 +19,5 @@ Spike code never becomes product code. This folder is outside `Raffica.slnx`; `s
 - **Carlito:** already in the repository (`third-party/carlito/OFL.txt`, files in `src/Raffica.Shell/Assets/Fonts`); the spikes read the files from there (the plan named `third-party/carlito`, which holds only the licence text and README).
 - **DocumentFormat.OpenXml 3.5.1:** MIT.
 - **SkiaSharp 3.119.4** (with `SkiaSharp.NativeAssets.Linux.NoDependencies`): MIT.
+- **HarfBuzzSharp 8.3.1.3** (with `HarfBuzzSharp.NativeAssets.Linux`) and **Avalonia 12.1.5** (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`): MIT.
+- **Parley 0.13.0** (Rust crate, default features off) and its dependencies in `layout/parley-core/Cargo.lock`: Apache-2.0 or MIT (the Rust code is not part of any product build).
