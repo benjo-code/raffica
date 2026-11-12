@@ -1,5 +1,5 @@
 machine,mode,case,run,value,unit
-ProBook-BENNI,pdf,size,total,49927456,bytes
-ProBook-BENNI,pdf,size,zip,22222251,bytes
-ProBook-BENNI,pdf,size,fonts,3027784,bytes
-ProBook-BENNI,pdf,size,native,21943288,bytes
+linux-probook,pdf,size,total,49927456,bytes
+linux-probook,pdf,size,zip,22222251,bytes
+linux-probook,pdf,size,fonts,3027784,bytes
+linux-probook,pdf,size,native,21943288,bytes
