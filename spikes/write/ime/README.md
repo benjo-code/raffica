@@ -17,6 +17,6 @@ dotnet run --project spikes/write/ime -c Release
 - `FormattedText` has no hit-testing in 12; the caret rectangle comes from `TextLayout.HitTestTextPosition`.
 - `OnGotFocus` and `OnLostFocus` take `FocusChangedEventArgs`.
 
-## Results
+## Results (2026-11-13)
 
-Not yet: see `CHECKLIST.md`. The spike builds and opens on Windows; no input method has been tried (needs a person at the keyboard).
+Works in `ComposeBox` and in Avalonia's `TextBox` on Windows (Microsoft Japanese IME and Pinyin), on Linux Wayland (Fcitx5 with Mozc and Pinyin) and on macOS 15.8.2 Intel (Japanese - Romaji): compose, candidates, commit, cancel, Backspace. Details, flaws and what was not tested are in `CHECKLIST.md`; the decision is the entry "Raffica Write: IME in a custom text control (M4)" in `Docs/DECISIONS.md`.

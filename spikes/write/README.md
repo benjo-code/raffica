@@ -10,7 +10,7 @@ Spike code never becomes product code. This folder is outside `Raffica.slnx`; `s
 | `openxml-aot/` | spike 1: Open XML SDK under Native AOT | works on win-x64, linux-x64, osx-arm64, osx-x64 with 0 IL warnings; untouched parts stay byte-identical when never loaded; LibreOffice, Word and Excel open the saved files (owner, 2026-11-13). Decision entry "Raffica Write: Open XML SDK under Native AOT (M4)" |
 | `layout/` | spike 2: layout engine, C# against Rust (Parley) | both candidates pass all checks; on the binding Linux laptop both miss only the first-page limit by about 10 % (shared startup cost, not the engine); decision: **C#**. Decision entry "Raffica Write: the layout engine (M4)"; see `layout/README.md` |
 | `print/` | spike 3: Write prints itself | Windows draws directly onto the printer (11 s, 1.66 MB, real text), PDF through PDFium is 42 times slower and 60 times larger; Linux and macOS hand a PDF in memory to CUPS (works on hosted runners); real printers confirmed on Windows and the Linux laptop, the Intel Mac is open. Decision entry "Raffica Write: printing per operating system (M4)" |
-| `ime/` | spike 4: IME in a custom text control | the spike is built and starts; nothing is tested yet (needs a person with the input methods), see `ime/CHECKLIST.md` |
+| `ime/` | spike 4: IME in a custom text control | a custom control with `TextInputMethodClient` composes, converts and commits like `TextBox` on Windows, Linux (Wayland, Fcitx5) and macOS Intel; IBus and X11 are not tested. Decision entry "Raffica Write: IME in a custom text control (M4)"; see `ime/CHECKLIST.md` |
 | `fonts/` | Caladea (the fonts for the test document; Carlito comes from `src/Raffica.Shell/Assets/Fonts`) | n/a |
 
 ## Licence checks (suite spec, "License guardrails")
