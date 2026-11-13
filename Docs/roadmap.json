@@ -777,13 +777,13 @@
           "prerequisites": ["3.3"],
           "goal": "The layout engine decision for Write rests on measurements and the spec is written.",
           "tasks": [
-            { "text": "Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)", "done": false },
-            { "text": "Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)", "done": false },
-            { "text": "Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS", "done": false },
+            { "text": "Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)", "done": true },
+            { "text": "Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)", "done": true },
+            { "text": "Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS", "done": true },
             { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
           ],
           "acceptance": [
-            { "text": "The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md`", "done": false },
+            { "text": "The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md`", "done": true, "evidence": "four entries of 2026-11-12 and 2026-11-13 in `Docs/DECISIONS.md` (Open XML SDK, layout engine, printing, IME), the layout decision \"Raffica Write: the layout engine (M4)\" names C#" },
             { "text": "The spec is approved and linked here", "done": false }
           ]
         }

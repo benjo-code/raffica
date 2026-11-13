@@ -576,13 +576,13 @@ Every task and every criterion is ticked. The owner's checks on a real Mac (2026
 Goal: The layout engine decision for Write rests on measurements and the spec is written.
 
 **Tasks**
-- [ ] Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)
-- [ ] Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)
-- [ ] Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS
+- [x] Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)
+- [x] Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)
+- [x] Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS
 - [ ] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
-- [ ] The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md`
+- [x] The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md` – four entries of 2026-11-12 and 2026-11-13 in `Docs/DECISIONS.md` (Open XML SDK, layout engine, printing, IME), the layout decision "Raffica Write: the layout engine (M4)" names C#
 - [ ] The spec is approved and linked here
 
 ---
