@@ -13,6 +13,9 @@ public class Story : OoxmlElement
 
     public IList<Block> Blocks { get; } = new List<Block>();
 
+    /// <summary>The body-level <c>w:sectPr</c> (the last section), body stories only. A sectPr that is not the last child of the body is moved to the end.</summary>
+    public SectionProperties? FinalSection { get; set; }
+
     /// <summary>Children of the root before the block container (for a document: before <c>w:body</c>, for example <c>w:background</c>), kept in order. <see cref="OoxmlElement.UnknownAttributes"/> of a story holds the attributes of <c>w:body</c>.</summary>
     public IList<UnknownContent> LeadingContent { get; } = new List<UnknownContent>();
 

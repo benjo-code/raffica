@@ -10,4 +10,5 @@ public enum PropertyKind
     TableCell,
     Section,
     Style,
+    ContentControl,
 }

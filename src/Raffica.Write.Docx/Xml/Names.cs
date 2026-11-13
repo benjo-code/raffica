@@ -17,6 +17,8 @@ internal static class Names
     public static readonly XName Body = W + "body";
 
     // Attributes.
+    public static readonly XName GridCol = W + "gridCol";
+    public static readonly XName Width = W + "w";
     public static readonly XName Id = W + "id";
     public static readonly XName Name = W + "name";
     public static readonly XName Author = W + "author";

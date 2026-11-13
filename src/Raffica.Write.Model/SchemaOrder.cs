@@ -89,6 +89,7 @@ public static class SchemaOrder
             (PropertyKind.TableCell, s_tableCell),
             (PropertyKind.Section, s_section),
             (PropertyKind.Style, s_style),
+            (PropertyKind.ContentControl, []),
         })
         {
             var map = new Dictionary<XName, int>();

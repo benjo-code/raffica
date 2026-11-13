@@ -56,7 +56,7 @@ internal static class StoryXml
             {
                 seenBody = true;
                 XmlKit.KeepRest(story, XmlKit.ReadAttributes(reader));
-                ReadBlocks(reader, story.Blocks);
+                ReadBlockList(reader, story.Blocks, story);
             }
             else
             {
@@ -68,7 +68,10 @@ internal static class StoryXml
     }
 
     /// <summary>Reads the block children of the element the reader is on (its attributes are the caller's) and moves past it. Used by every story root.</summary>
-    public static void ReadBlocks(XmlReader reader, IList<Block> blocks)
+    public static void ReadBlocks(XmlReader reader, IList<Block> blocks) => ReadBlockList(reader, blocks, null);
+
+    /// <summary>As <see cref="ReadBlocks"/>; with an owner (the body of a document) the first <c>w:sectPr</c> becomes its <see cref="Story.FinalSection"/>.</summary>
+    private static void ReadBlockList(XmlReader reader, IList<Block> blocks, Story? owner)
     {
         if (!XmlKit.Enter(reader))
         {
@@ -81,13 +84,284 @@ internal static class StoryXml
             {
                 reader.Read();
             }
-            else if (XmlKit.IsWord(reader, "p"))
+            else if (owner is not null && owner.FinalSection is null && XmlKit.IsWord(reader, "sectPr"))
             {
-                blocks.Add(ReadParagraph(reader));
+                owner.FinalSection = ReadSection(reader);
             }
             else
             {
-                blocks.Add(new UnknownBlock(new UnknownContent(XmlKit.ReadKept(reader))));
+                blocks.Add(ReadBlock(reader));
+            }
+        }
+
+        XmlKit.Leave(reader);
+    }
+
+    private static Block ReadBlock(XmlReader reader)
+    {
+        if (reader.NamespaceURI == Names.WordUri)
+        {
+            switch (reader.LocalName)
+            {
+                case "p":
+                    return ReadParagraph(reader);
+                case "tbl":
+                    return ReadTable(reader);
+                case "sdt":
+                    var control = new ContentControlBlock();
+                    XmlKit.KeepRest(control, XmlKit.ReadAttributes(reader));
+                    ReadControl(reader, control.Frame, r => ReadBlocks(r, control.Content));
+                    return control;
+            }
+        }
+
+        return new UnknownBlock(new UnknownContent(XmlKit.ReadKept(reader)));
+    }
+
+    // Tables.
+
+    private static Table ReadTable(XmlReader reader)
+    {
+        var table = new Table();
+        XmlKit.KeepRest(table, XmlKit.ReadAttributes(reader));
+        if (!XmlKit.Enter(reader))
+        {
+            return table;
+        }
+
+        var seenProperties = false;
+        var seenGrid = false;
+        while (XmlKit.More(reader))
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+            }
+            else if (!seenProperties && XmlKit.IsWord(reader, "tblPr"))
+            {
+                seenProperties = true;
+                table.PropertiesPosition = table.Rows.Count;
+                ReadProperties(reader, table.Properties);
+            }
+            else if (!seenGrid && XmlKit.IsWord(reader, "tblGrid"))
+            {
+                seenGrid = true;
+                table.GridPosition = table.Rows.Count;
+                ReadGrid(reader, table);
+            }
+            else if (XmlKit.IsWord(reader, "tr"))
+            {
+                table.Rows.Add(ReadRow(reader));
+            }
+            else
+            {
+                table.Rows.Add(new UnknownRowItem(new UnknownContent(XmlKit.ReadKept(reader))));
+            }
+        }
+
+        XmlKit.Leave(reader);
+        return table;
+    }
+
+    private static void ReadGrid(XmlReader reader, Table table)
+    {
+        var element = XmlKit.ReadKept(reader);
+        var widths = new List<int>();
+        foreach (var column in element.Elements(Names.GridCol))
+        {
+            widths.Add(TryInt((string?)column.Attribute(Names.Width), out var width) ? width : 0);
+        }
+
+        table.SetKeptGrid(new UnknownContent(element), widths);
+    }
+
+    private static TableRow ReadRow(XmlReader reader)
+    {
+        var row = new TableRow();
+        XmlKit.KeepRest(row, XmlKit.ReadAttributes(reader));
+        if (!XmlKit.Enter(reader))
+        {
+            return row;
+        }
+
+        var seenProperties = false;
+        while (XmlKit.More(reader))
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+            }
+            else if (!seenProperties && XmlKit.IsWord(reader, "trPr"))
+            {
+                seenProperties = true;
+                row.PropertiesPosition = row.Items.Count;
+                ReadProperties(reader, row.Properties);
+            }
+            else if (XmlKit.IsWord(reader, "tc"))
+            {
+                row.Items.Add(ReadCell(reader));
+            }
+            else
+            {
+                row.Items.Add(new UnknownRowItem(new UnknownContent(XmlKit.ReadKept(reader))));
+            }
+        }
+
+        XmlKit.Leave(reader);
+        return row;
+    }
+
+    private static TableCell ReadCell(XmlReader reader)
+    {
+        var cell = new TableCell();
+        XmlKit.KeepRest(cell, XmlKit.ReadAttributes(reader));
+        if (!XmlKit.Enter(reader))
+        {
+            return cell;
+        }
+
+        var seenProperties = false;
+        while (XmlKit.More(reader))
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+            }
+            else if (!seenProperties && XmlKit.IsWord(reader, "tcPr"))
+            {
+                seenProperties = true;
+                cell.PropertiesPosition = cell.Blocks.Count;
+                ReadProperties(reader, cell.Properties);
+            }
+            else
+            {
+                cell.Blocks.Add(ReadBlock(reader));
+            }
+        }
+
+        XmlKit.Leave(reader);
+        return cell;
+    }
+
+    // Sections.
+
+    private static SectionProperties ReadSection(XmlReader reader)
+    {
+        var section = new SectionProperties();
+        XmlKit.KeepRest(section, XmlKit.ReadAttributes(reader));
+        if (!XmlKit.Enter(reader))
+        {
+            return section;
+        }
+
+        while (XmlKit.More(reader))
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+                continue;
+            }
+
+            var element = XmlKit.ReadKept(reader);
+            var reference = ConvertReference(element);
+            if (reference is null)
+            {
+                section.AddLoaded(element);
+            }
+            else
+            {
+                reference.BagPosition = section.Children.Count;
+                section.HeaderFooterReferences.Add(reference);
+            }
+        }
+
+        XmlKit.Leave(reader);
+        return section;
+    }
+
+    private static HeaderFooterReference? ConvertReference(XElement element)
+    {
+        if (element.HasElements || element.Name.Namespace != Names.W)
+        {
+            return null;
+        }
+
+        HeaderFooterKind kind;
+        switch (element.Name.LocalName)
+        {
+            case "headerReference":
+                kind = HeaderFooterKind.Header;
+                break;
+            case "footerReference":
+                kind = HeaderFooterKind.Footer;
+                break;
+            default:
+                return null;
+        }
+
+        var type = (string?)element.Attribute(Names.Type) switch
+        {
+            "default" => (HeaderFooterType?)HeaderFooterType.Default,
+            "first" => HeaderFooterType.First,
+            "even" => HeaderFooterType.Even,
+            _ => null,
+        };
+        var id = (string?)element.Attribute(Names.RelationshipId);
+        if (type is null || id is null)
+        {
+            return null;
+        }
+
+        var reference = new HeaderFooterReference(kind, type.Value, id);
+        XmlKit.KeepOthers(reference, element, Names.Type, Names.RelationshipId);
+        return reference;
+    }
+
+    // Content controls.
+
+    /// <summary>Reads the children of a <c>w:sdt</c> the reader is on (attributes already taken): properties, end properties and content go to the frame, anything else is kept in place.</summary>
+    private static void ReadControl(XmlReader reader, ContentControlFrame frame, Action<XmlReader> readContent)
+    {
+        frame.HasContent = false;
+        var seenProperties = false;
+        var seenEnd = false;
+        if (!XmlKit.Enter(reader))
+        {
+            return;
+        }
+
+        while (XmlKit.More(reader))
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+            }
+            else if (!seenProperties && XmlKit.IsWord(reader, "sdtPr"))
+            {
+                seenProperties = true;
+                frame.PropertiesPosition = frame.OtherChildren.Count;
+                ReadProperties(reader, frame.Properties);
+            }
+            else if (!seenEnd && XmlKit.IsWord(reader, "sdtEndPr"))
+            {
+                seenEnd = true;
+                frame.EndPropertiesPosition = frame.OtherChildren.Count;
+                frame.EndProperties = new UnknownContent(XmlKit.ReadKept(reader));
+            }
+            else if (!frame.HasContent && XmlKit.IsWord(reader, "sdtContent"))
+            {
+                frame.HasContent = true;
+                frame.ContentPosition = frame.OtherChildren.Count;
+                foreach (var attribute in XmlKit.ReadAttributes(reader))
+                {
+                    frame.ContentAttributes.Add(attribute);
+                }
+
+                readContent(reader);
+            }
+            else
+            {
+                frame.OtherChildren.Add(new UnknownContent(XmlKit.ReadKept(reader)));
             }
         }
 
@@ -111,7 +385,7 @@ internal static class StoryXml
             }
             else if (XmlKit.IsWord(reader, "pPr"))
             {
-                ReadProperties(reader, paragraph.Properties);
+                ReadParagraphProperties(reader, paragraph);
             }
             else
             {
@@ -123,8 +397,40 @@ internal static class StoryXml
         return paragraph;
     }
 
+    /// <summary>Reads <c>w:pPr</c>; its first <c>w:sectPr</c> becomes the paragraph's section break (remembering its place among the other children).</summary>
+    private static void ReadParagraphProperties(XmlReader reader, Paragraph paragraph)
+    {
+        var bag = paragraph.Properties;
+        bag.WasPresent = true;
+        XmlKit.KeepRest(bag, XmlKit.ReadAttributes(reader));
+        if (!XmlKit.Enter(reader))
+        {
+            return;
+        }
+
+        while (XmlKit.More(reader))
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                reader.Read();
+            }
+            else if (paragraph.SectionBreak is null && XmlKit.IsWord(reader, "sectPr"))
+            {
+                paragraph.SectionBreakIndex = bag.Children.Count;
+                paragraph.SectionBreak = ReadSection(reader);
+            }
+            else
+            {
+                bag.AddLoaded(XmlKit.ReadKept(reader));
+            }
+        }
+
+        XmlKit.Leave(reader);
+    }
+
     private static void ReadProperties(XmlReader reader, PropertyBag bag)
     {
+        bag.WasPresent = true;
         XmlKit.KeepRest(bag, XmlKit.ReadAttributes(reader));
         if (!XmlKit.Enter(reader))
         {
@@ -188,6 +494,11 @@ internal static class StoryXml
                     return ReadChange(reader, TrackedChangeKind.MoveFrom);
                 case "moveTo":
                     return ReadChange(reader, TrackedChangeKind.MoveTo);
+                case "sdt":
+                    var control = new ContentControlInline();
+                    XmlKit.KeepRest(control, XmlKit.ReadAttributes(reader));
+                    ReadControl(reader, control.Frame, r => ReadInlines(r, control.Inlines));
+                    return control;
                 case "bookmarkStart":
                 case "bookmarkEnd":
                 case "commentRangeStart":
@@ -428,6 +739,11 @@ internal static class StoryXml
             XmlKit.Start(writer, Names.Body);
             XmlKit.UnknownAttributes(writer, story);
             WriteBlocks(story.Blocks, writer);
+            if (story.FinalSection is not null)
+            {
+                WriteSection(story.FinalSection, writer);
+            }
+
             writer.WriteEndElement();
             foreach (var trailing in story.TrailingContent)
             {
@@ -465,6 +781,12 @@ internal static class StoryXml
                 case Paragraph paragraph:
                     WriteParagraph(paragraph, writer);
                     break;
+                case Table table:
+                    WriteTable(table, writer);
+                    break;
+                case ContentControlBlock control:
+                    WriteControl(control, control.Frame, writer, w => WriteBlocks(control.Content, w));
+                    break;
                 case UnknownBlock unknown:
                     XmlKit.Kept(writer, unknown.Content);
                     break;
@@ -474,19 +796,231 @@ internal static class StoryXml
         }
     }
 
+    /// <summary>
+    /// Writes the items in order and puts each fixed part (properties, grid, ...) in front of the item at its remembered
+    /// position, so what the reader found between the parts stays between them. A part whose position is beyond the
+    /// items is written after the last one; parts that share a position are written in the order given.
+    /// </summary>
+    private static void Interleave<T>(IList<T> items, Action<T> writeItem, params (int Position, Action Write)[] parts) =>
+        Interleave(items.Count, i => writeItem(items[i]), parts);
+
+    private static void Interleave<T>(IReadOnlyList<T> items, Action<T> writeItem, params (int Position, Action Write)[] parts) =>
+        Interleave(items.Count, i => writeItem(items[i]), parts);
+
+    private static void Interleave(int count, Action<int> writeAt, (int Position, Action Write)[] parts)
+    {
+        var written = new bool[parts.Length];
+        for (var i = 0; i <= count; i++)
+        {
+            for (var p = 0; p < parts.Length; p++)
+            {
+                if (!written[p] && parts[p].Position <= i)
+                {
+                    written[p] = true;
+                    parts[p].Write();
+                }
+            }
+
+            if (i < count)
+            {
+                writeAt(i);
+            }
+        }
+    }
+
+    private static void WriteTable(Table table, XmlWriter writer)
+    {
+        XmlKit.Start(writer, Names.W + "tbl");
+        XmlKit.UnknownAttributes(writer, table);
+        Interleave(
+            table.Rows,
+            item => WriteRowItem(item, writer),
+            (table.PropertiesPosition, () => WriteProperties(Names.W + "tblPr", table.Properties, writer)),
+            (table.GridPosition, () => WriteGrid(table, writer)));
+        writer.WriteEndElement();
+    }
+
+    private static void WriteGrid(Table table, XmlWriter writer)
+    {
+        if (table.KeptGrid is not null && table.GridIsUnedited)
+        {
+            XmlKit.Kept(writer, table.KeptGrid);
+            return;
+        }
+
+        if (table.KeptGrid is null && table.GridColumns.Count == 0)
+        {
+            return;
+        }
+
+        var source = table.KeptGrid?.Element;
+        XmlKit.Start(writer, Names.W + "tblGrid");
+        if (source is not null)
+        {
+            XmlKit.Attributes(writer, source.Attributes());
+        }
+
+        // Extra attributes of a gridCol stay with the column at the same place while the column count is unchanged.
+        var sourceColumns = source?.Elements(Names.GridCol).ToList();
+        for (var i = 0; i < table.GridColumns.Count; i++)
+        {
+            XmlKit.Start(writer, Names.GridCol);
+            XmlKit.Attribute(writer, Names.Width, table.GridColumns[i].ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (sourceColumns is not null && i < sourceColumns.Count)
+            {
+                XmlKit.Attributes(writer, sourceColumns[i].Attributes().Where(a => a.Name != Names.Width));
+            }
+
+            writer.WriteEndElement();
+        }
+
+        if (source is not null)
+        {
+            foreach (var child in source.Elements().Where(e => e.Name != Names.GridCol))
+            {
+                child.WriteTo(writer);
+            }
+        }
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteRowItem(RowItem item, XmlWriter writer)
+    {
+        switch (item)
+        {
+            case TableRow row:
+                XmlKit.Start(writer, Names.W + "tr");
+                XmlKit.UnknownAttributes(writer, row);
+                Interleave(
+                    row.Items,
+                    child => WriteRowItem(child, writer),
+                    (row.PropertiesPosition, () => WriteProperties(Names.W + "trPr", row.Properties, writer)));
+                writer.WriteEndElement();
+                break;
+            case TableCell cell:
+                XmlKit.Start(writer, Names.W + "tc");
+                XmlKit.UnknownAttributes(writer, cell);
+                Interleave(
+                    cell.Blocks,
+                    block => WriteBlocks([block], writer),
+                    (cell.PropertiesPosition, () => WriteProperties(Names.W + "tcPr", cell.Properties, writer)));
+                writer.WriteEndElement();
+                break;
+            case UnknownRowItem unknown:
+                XmlKit.Kept(writer, unknown.Content);
+                break;
+            default:
+                throw new NotSupportedException($"No writer for the row item type {item.GetType().Name}.");
+        }
+    }
+
+    private static void WriteSection(SectionProperties section, XmlWriter writer)
+    {
+        XmlKit.Start(writer, Names.W + "sectPr");
+        XmlKit.UnknownAttributes(writer, section);
+        var references = section.HeaderFooterReferences;
+        var parts = new (int Position, Action Write)[references.Count];
+        for (var i = 0; i < parts.Length; i++)
+        {
+            var reference = references[i];
+            parts[i] = (reference.BagPosition ?? 0, () => WriteReference(reference, writer));
+        }
+
+        Interleave(section.Children, child => child.WriteTo(writer), parts);
+        writer.WriteEndElement();
+    }
+
+    private static void WriteReference(HeaderFooterReference reference, XmlWriter writer)
+    {
+        XmlKit.Start(writer, Names.W + (reference.Kind == HeaderFooterKind.Header ? "headerReference" : "footerReference"));
+        XmlKit.Attribute(writer, Names.Type, reference.Type switch
+        {
+            HeaderFooterType.First => "first",
+            HeaderFooterType.Even => "even",
+            _ => "default",
+        });
+        XmlKit.Attribute(writer, Names.RelationshipId, reference.RelationshipId);
+        XmlKit.UnknownAttributes(writer, reference);
+        writer.WriteEndElement();
+    }
+
+    private static void WriteControl(OoxmlElement element, ContentControlFrame frame, XmlWriter writer, Action<XmlWriter> writeContent)
+    {
+        XmlKit.Start(writer, Names.W + "sdt");
+        XmlKit.UnknownAttributes(writer, element);
+        var parts = new List<(int Position, Action Write)>
+        {
+            (frame.PropertiesPosition, () => WriteProperties(Names.W + "sdtPr", frame.Properties, writer)),
+        };
+        if (frame.EndProperties is not null)
+        {
+            parts.Add((frame.EndPropertiesPosition, () => XmlKit.Kept(writer, frame.EndProperties)));
+        }
+
+        parts.Add((frame.ContentPosition, WriteContent));
+        Interleave(frame.OtherChildren, other => XmlKit.Kept(writer, other), [.. parts]);
+        writer.WriteEndElement();
+
+        void WriteContent()
+        {
+            if (!frame.HasContent)
+            {
+                return;
+            }
+
+            XmlKit.Start(writer, Names.W + "sdtContent");
+            XmlKit.Attributes(writer, frame.ContentAttributes);
+            writeContent(writer);
+            writer.WriteEndElement();
+        }
+    }
+
     private static void WriteParagraph(Paragraph paragraph, XmlWriter writer)
     {
         XmlKit.Start(writer, Names.W + "p");
         XmlKit.UnknownAttributes(writer, paragraph);
-        WriteProperties(Names.W + "pPr", paragraph.Properties, writer);
+        WriteParagraphProperties(paragraph, writer);
         WriteInlines(paragraph.Inlines, writer);
         writer.WriteEndElement();
     }
 
+    private static void WriteParagraphProperties(Paragraph paragraph, XmlWriter writer)
+    {
+        var bag = paragraph.Properties;
+        var section = paragraph.SectionBreak;
+        if (section is null)
+        {
+            WriteProperties(Names.W + "pPr", bag, writer);
+            return;
+        }
+
+        var position = paragraph.SectionBreakIndex ?? SchemaPosition(bag);
+        XmlKit.Start(writer, Names.W + "pPr");
+        XmlKit.UnknownAttributes(writer, bag);
+        Interleave(bag.Children, child => child.WriteTo(writer), (position, () => WriteSection(section, writer)));
+        writer.WriteEndElement();
+    }
+
+    /// <summary>Where a section break that was not read from a file goes: before the first child the schema order puts after <c>w:sectPr</c>.</summary>
+    private static int SchemaPosition(PropertyBag bag)
+    {
+        var mine = SchemaOrder.IndexOf(PropertyKind.Paragraph, Names.W + "sectPr");
+        for (var i = 0; i < bag.Children.Count; i++)
+        {
+            if (SchemaOrder.IndexOf(PropertyKind.Paragraph, bag.Children[i].Name) is int other && other > mine)
+            {
+                return i;
+            }
+        }
+
+        return bag.Children.Count;
+    }
+
     private static void WriteProperties(XName name, PropertyBag bag, XmlWriter writer)
     {
-        // An empty bag without attributes is not written: an empty properties element carries nothing.
-        if (bag.Children.Count == 0 && bag.UnknownAttributes.Count == 0)
+        // An empty bag without attributes is written only when the source had that empty element.
+        if (bag.Children.Count == 0 && bag.UnknownAttributes.Count == 0 && !bag.WasPresent)
         {
             return;
         }
@@ -561,6 +1095,9 @@ internal static class StoryXml
                     break;
                 case CommentRangeEnd rangeEnd:
                     WriteMarker("commentRangeEnd", rangeEnd, rangeEnd.Id, writer, null);
+                    break;
+                case ContentControlInline control:
+                    WriteControl(control, control.Frame, writer, w => WriteInlines(control.Inlines, w));
                     break;
                 case UnknownInline unknown:
                     XmlKit.Kept(writer, unknown.Content);

@@ -251,7 +251,8 @@ public sealed class InlineXmlTests
         var (story, written) = RoundTrip(XmlSnippets.Document(
             """<w:p><w:r><w:t>x</w:t></w:r></w:p><w:sectPr w:rsidR="00AA"><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>"""));
 
-        Assert.Equal(2, story.Blocks.Count);
+        Assert.Single(story.Blocks);
+        Assert.NotNull(story.FinalSection);
         Assert.Equal(W + "sectPr", written.Element(W + "body")!.Elements().Last().Name);
     }
 

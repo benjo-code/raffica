@@ -19,6 +19,9 @@ public class PropertyBag : OoxmlElement
 
     public IReadOnlyList<XElement> Children => _children;
 
+    /// <summary>True when the bag was read from an element that was there but empty (for example <c>&lt;w:tcPr/&gt;</c>); the writer then writes the empty element again. A bag created in code that stays empty is not written.</summary>
+    public bool WasPresent { get; set; }
+
     /// <summary>Appends a child as read from a file, without reordering. A detached copy is stored (see <see cref="UnknownContent.Capture"/>), so prefixes declared on an ancestor survive and the source tree is not kept alive.</summary>
     public void AddLoaded(XElement child)
     {
