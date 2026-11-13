@@ -42,10 +42,20 @@ The PDF in memory, which CUPS gets: 2.17 MB for 311 pages, made in 0.7 s on Wind
 
 No temporary file was needed: streaming a PDF from memory works on both. A real printer on Linux and on the Intel Mac still has to confirm sharp text and page numbers (open, below).
 
+### Linux laptop (the binding machine), CUPS with a printer chosen in the window, 2026-11-13
+
+| Page range | Result reported by the owner |
+|---|---|
+| `1-6` | CUPS job 1: PDF 604 KiB in memory (59 ms), handed over in 84 ms in total |
+| `304-311` | CUPS job 2: PDF 618 KiB in memory (66 ms), handed over in 73 ms in total |
+
+Both jobs were accepted by CUPS through `cupsCreateJob` and the streaming calls, and a range of pages is made in about 60 ms. The paper itself (sharp text, page number "1" on page 3, "A-1" on the first appendix page) has not been reported yet, so it counts as open until the owner says so.
+
 ## Open (needs the owner's hands)
 
 - **Windows, a real printer:** `Print (route a)` from the window on the owner's printer; sharp text, page numbers "1" on page 3 and "A-1" in the appendix, margins. Also open `route-a.pdf` (made by the `--auto a` command above) in Edge and select text.
-- **Linux laptop and Intel Mac, a real printer:** `dotnet run --project spikes/write/print -c Release`, choose the printer, Print; sharp text, page numbers; record the time and the job size.
+- **Linux laptop, the paper:** the two jobs above went through; what the printed pages look like (sharp text, "1" on page 3 of the range `1-6`, "A-1" in `304-311`) is still to be confirmed.
+- **Intel Mac, a real printer:** `dotnet run --project spikes/write/print -c Release`, choose the printer, Print; sharp text, page numbers; record the time and the job size.
 - The first-page speed of the window and the print dialog of Write are questions for the spec (shared print project with Raffica PDF, Write's own dialog, the native macOS print panel from the backlog).
 
 ## What failed or was left out
