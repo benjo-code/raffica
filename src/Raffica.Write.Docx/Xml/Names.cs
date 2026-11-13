@@ -39,9 +39,3 @@ internal static class Names
     public static readonly XName RelationshipId = R + "id";
     public static readonly XName XmlSpace = XNamespace.Xml + "space";
 }
-
-/// <summary>The assemblies this library is allowed to build on; naming them keeps the references real, which ProjectGuardTests checks.</summary>
-internal static class Dependencies
-{
-    public static readonly Type[] Anchors = [typeof(Raffica.Write.Model.OoxmlElement), typeof(Raffica.Core.Saving.PathRules)];
-}

@@ -60,7 +60,8 @@ public static class AtomicFile
 
     /// <summary>
     /// The file a symbolic link at <paramref name="path"/> finally points to (a full path), or <paramref name="path"/> itself when
-    /// it is no link, the chain cannot be followed or the system refuses to look.
+    /// it is no link, the chain cannot be followed or the system refuses to look. Never throws for I/O or permission errors: the
+    /// input path is returned then.
     /// </summary>
     public static string ResolveLink(string path)
     {
@@ -180,8 +181,8 @@ public static class AtomicFile
     /// <summary>
     /// Moves a finished temporary file over (or, without <paramref name="replaceExisting"/>, next to) <paramref name="target"/>
     /// with the same rules as the save of a document: atomic where the file system allows it, and without
-    /// <paramref name="replaceExisting"/> never replacing a file that appears at the target meanwhile. For files other than
-    /// documents (the PNG files of an image export) that are written to a temporary file in the folder of the target first.
+    /// <paramref name="replaceExisting"/> never replacing a file that appears at the target meanwhile. For any file the caller wrote
+    /// to a temporary file in the folder of the target first.
     /// </summary>
     /// <param name="temporary">The full path of the finished temporary file, in the folder of <paramref name="target"/>.</param>
     /// <param name="target">The full path of the file to create or replace.</param>
