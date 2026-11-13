@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <Compile Include="..\Shared\TestData.cs" Link="Shared\TestData.cs" />
     <ProjectReference Include="..\..\src\Raffica.Write.Model\Raffica.Write.Model.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
   </ItemGroup>

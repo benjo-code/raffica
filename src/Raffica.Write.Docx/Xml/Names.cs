@@ -26,6 +26,12 @@ internal static class Names
     public static readonly XName Anchor = W + "anchor";
     public static readonly XName Instr = W + "instr";
     public static readonly XName Type = W + "type";
+    public static readonly XName Val = W + "val";
+    public static readonly XName StyleId = W + "styleId";
+    public static readonly XName Default = W + "default";
+    public static readonly XName Ilvl = W + "ilvl";
+    public static readonly XName NumId = W + "numId";
+    public static readonly XName AbstractNumId = W + "abstractNumId";
     public static readonly XName Clear = W + "clear";
     public static readonly XName FldCharType = W + "fldCharType";
     public static readonly XName Dirty = W + "dirty";

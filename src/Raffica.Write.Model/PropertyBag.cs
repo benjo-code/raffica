@@ -115,18 +115,31 @@ public class PropertyBag : OoxmlElement
     }
 
     /// <summary>True when <c>w:b</c> is present and its value is not off (<c>0</c>, <c>false</c>, <c>off</c>).</summary>
-    public bool Bold
-    {
-        get
-        {
-            var element = Get(W + "b");
-            if (element is null)
-            {
-                return false;
-            }
+    public bool Bold => GetFlag(W + "b");
 
-            var value = (string?)element.Attribute(W + "val");
-            return value is not ("0" or "false" or "off");
+    /// <summary>True when the on/off child of this name is present and its <c>w:val</c> is not off (<c>0</c>, <c>false</c>, <c>off</c>).</summary>
+    public bool GetFlag(XName name)
+    {
+        var element = Get(name);
+        if (element is null)
+        {
+            return false;
+        }
+
+        var value = (string?)element.Attribute(W + "val");
+        return value is not ("0" or "false" or "off");
+    }
+
+    /// <summary>Turns an on/off child on (a bare element; one already on stays as it is) or removes it.</summary>
+    public void SetFlag(XName name, bool on)
+    {
+        if (!on)
+        {
+            Remove(name);
+        }
+        else if (!GetFlag(name))
+        {
+            Set(name, new XElement(name));
         }
     }
 

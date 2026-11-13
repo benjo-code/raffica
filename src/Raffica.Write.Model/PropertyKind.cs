@@ -11,4 +11,5 @@ public enum PropertyKind
     Section,
     Style,
     ContentControl,
+    Settings,
 }

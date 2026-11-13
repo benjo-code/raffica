@@ -764,7 +764,7 @@ internal static class StoryXml
         writer.WriteEndElement();
     }
 
-    private static string? RootPrefix(OoxmlRoot root)
+    internal static string? RootPrefix(OoxmlRoot root)
     {
         var uri = root.Name.NamespaceName;
         foreach (var attribute in root.Attributes)
@@ -1035,7 +1035,7 @@ internal static class StoryXml
         return bag.Children.Count;
     }
 
-    private static void WriteProperties(XName name, PropertyBag bag, XmlWriter writer)
+    internal static void WriteProperties(XName name, PropertyBag bag, XmlWriter writer)
     {
         // An empty bag without attributes is written only when the source had that empty element.
         if (bag.Children.Count == 0 && bag.UnknownAttributes.Count == 0 && !bag.WasPresent)
