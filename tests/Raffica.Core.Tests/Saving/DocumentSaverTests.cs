@@ -154,21 +154,21 @@ public sealed class DocumentSaverTests : IDisposable
     {
         if (OperatingSystem.IsWindows())
         {
-            Assert.True(DocumentSaver.IsDiskFull(new IOException("full", unchecked((int)0x80070070))));
-            Assert.True(DocumentSaver.IsDiskFull(new IOException("full", unchecked((int)0x80070027))));
-            Assert.False(DocumentSaver.IsDiskFull(new IOException("sharing", unchecked((int)0x80070020))));
-            Assert.False(DocumentSaver.IsDiskFull(new IOException("errno-like", 28)));
+            Assert.True(AtomicFile.IsDiskFull(new IOException("full", unchecked((int)0x80070070))));
+            Assert.True(AtomicFile.IsDiskFull(new IOException("full", unchecked((int)0x80070027))));
+            Assert.False(AtomicFile.IsDiskFull(new IOException("sharing", unchecked((int)0x80070020))));
+            Assert.False(AtomicFile.IsDiskFull(new IOException("errno-like", 28)));
         }
         else
         {
-            Assert.True(DocumentSaver.IsDiskFull(new IOException("full", 28)));
-            Assert.True(DocumentSaver.IsDiskFull(new IOException("quota", 122)));
-            Assert.False(DocumentSaver.IsDiskFull(new IOException("io", 5)));
+            Assert.True(AtomicFile.IsDiskFull(new IOException("full", 28)));
+            Assert.True(AtomicFile.IsDiskFull(new IOException("quota", 122)));
+            Assert.False(AtomicFile.IsDiskFull(new IOException("io", 5)));
         }
 
-        Assert.True(DocumentSaver.IsDiskFull(new IOException("wrapped", new IOException("full", OperatingSystem.IsWindows() ? unchecked((int)0x80070070) : 28))));
-        Assert.False(DocumentSaver.IsDiskFull(new IOException("plain")));
-        Assert.False(DocumentSaver.IsDiskFull(null));
+        Assert.True(AtomicFile.IsDiskFull(new IOException("wrapped", new IOException("full", OperatingSystem.IsWindows() ? unchecked((int)0x80070070) : 28))));
+        Assert.False(AtomicFile.IsDiskFull(new IOException("plain")));
+        Assert.False(AtomicFile.IsDiskFull(null));
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class DocumentSaverTests : IDisposable
             stream.Write(new byte[4096]);
             stream.Flush(flushToDisk: true);
         });
-        Assert.True(DocumentSaver.IsDiskFull(error), $"HResult {error.HResult}: {error.Message}");
+        Assert.True(AtomicFile.IsDiskFull(error), $"HResult {error.HResult}: {error.Message}");
     }
 
     [Fact]
