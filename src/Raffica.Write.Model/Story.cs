@@ -12,4 +12,10 @@ public class Story : OoxmlElement
     public OoxmlRoot Root { get; }
 
     public IList<Block> Blocks { get; } = new List<Block>();
+
+    /// <summary>Children of the root before the block container (for a document: before <c>w:body</c>, for example <c>w:background</c>), kept in order. <see cref="OoxmlElement.UnknownAttributes"/> of a story holds the attributes of <c>w:body</c>.</summary>
+    public IList<UnknownContent> LeadingContent { get; } = new List<UnknownContent>();
+
+    /// <summary>Children of the root after the block container, kept in order.</summary>
+    public IList<UnknownContent> TrailingContent { get; } = new List<UnknownContent>();
 }
