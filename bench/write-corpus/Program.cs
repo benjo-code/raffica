@@ -129,7 +129,10 @@ internal static partial class Program
         if (options.Value("--out") is { } json)
         {
             var text = JsonSerializer.Serialize(facts, PageFactsJson.Default.PageFacts).Replace("\r\n", "\n", StringComparison.Ordinal) + "\n";
-            File.WriteAllText(json, text, new System.Text.UTF8Encoding(false));
+            if (!TryWrite(json, text, error))
+            {
+                return 2;
+            }
         }
 
         // The page count and the length of each page's text only: the text of a document is never printed.
@@ -186,17 +189,43 @@ internal static partial class Program
         string text;
         try
         {
+            if (CorpusManifest.Load(root).Schema != CorpusManifest.CurrentSchema)
+            {
+                error.WriteLine($"write-corpus: the manifest schema is not {CorpusManifest.CurrentSchema}");
+                return 2;
+            }
+
             text = CorpusTable.BuildAsync(root).GetAwaiter().GetResult();
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            error.WriteLine($"write-corpus: {CorpusManifest.FileName} cannot be read");
+            // The exception type only: its message can name a path or a value of the file.
+            error.WriteLine($"write-corpus: the corpus cannot be read ({ex.GetType().Name})");
             return 2;
         }
 
-        File.WriteAllText(outPath, text, new System.Text.UTF8Encoding(false));
+        if (!TryWrite(outPath, text, error))
+        {
+            return 2;
+        }
+
         output.WriteLine("write-corpus table: written");
         return 0;
+    }
+
+    /// <summary>Writes a UTF-8 file without a byte order mark; an I/O problem is one line on <paramref name="error"/> and false.</summary>
+    private static bool TryWrite(string path, string text, TextWriter error)
+    {
+        try
+        {
+            File.WriteAllText(path, text, new System.Text.UTF8Encoding(false));
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"write-corpus: the output file cannot be written ({ex.GetType().Name})");
+            return false;
+        }
     }
 
     /// <summary>Facts from a <c>.json</c> file or a PDF; on an unreadable input writes one line to <paramref name="error"/> and returns null.</summary>
@@ -214,9 +243,9 @@ internal static partial class Program
                 ? PageFacts.Load(path)
                 : PdfPageFacts.ReadAsync(path).GetAwaiter().GetResult();
         }
-        catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException)
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            error.WriteLine("write-corpus: an input file is not readable");
+            error.WriteLine($"write-corpus: an input file is not readable ({ex.GetType().Name})");
             return null;
         }
     }

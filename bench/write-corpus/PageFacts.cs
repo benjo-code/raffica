@@ -9,11 +9,20 @@ namespace WriteCorpus;
 /// </summary>
 public sealed record PageFacts(int PageCount, IReadOnlyList<string> PageTexts)
 {
-    /// <summary>Reads facts from a JSON file written by <c>pdf-facts --out</c>; throws <see cref="JsonException"/> for anything else.</summary>
+    /// <summary>
+    /// Reads facts from a JSON file written by <c>pdf-facts --out</c>. Throws <see cref="JsonException"/> when the JSON is not facts: a missing or
+    /// null <c>pageTexts</c>, a null page text, or a <c>pageCount</c> that is not equal to the number of page texts.
+    /// </summary>
     internal static PageFacts Load(string path)
     {
         using var stream = File.OpenRead(path);
         var facts = JsonSerializer.Deserialize(stream, PageFactsJson.Default.PageFacts) ?? throw new JsonException("The facts file is empty.");
+        // The nullable annotations do not hold for a file that omits or nulls a value, so check what the type promises.
+        if ((object?)facts.PageTexts is null || facts.PageTexts.Any(text => (object?)text is null))
+        {
+            throw new JsonException("The page texts are missing or contain a null.");
+        }
+
         return facts.PageCount == facts.PageTexts.Count ? facts : throw new JsonException("The page count does not match the page texts.");
     }
 }

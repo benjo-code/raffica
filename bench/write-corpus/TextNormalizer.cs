@@ -7,8 +7,10 @@ namespace WriteCorpus;
 internal static class TextNormalizer
 {
     /// <summary>
-    /// NFC; soft hyphens (U+00AD) and control characters (Unicode category Cc) removed; every run of whitespace, no-break space
-    /// included, becomes one space; trimmed.
+    /// NFC; every run of whitespace (a newline, a tab and a no-break space included) becomes one space; every control character
+    /// (Unicode category Cc) and every format character (category Cf: soft hyphen U+00AD, zero-width space U+200B, ZWNJ/ZWJ, U+2060,
+    /// the byte order mark U+FEFF, the left-to-right and right-to-left marks and the bidi embedding, override and isolate controls)
+    /// is removed without leaving a space; trimmed. Ligatures (for example U+FB01) are not folded: a known limitation of the comparison.
     /// </summary>
     public static string Normalize(string text)
     {
@@ -18,18 +20,13 @@ internal static class TextNormalizer
         var pendingSpace = false;
         foreach (var c in composed)
         {
-            if (c == '­')
-            {
-                continue;
-            }
-
             if (char.IsWhiteSpace(c))
             {
                 pendingSpace = builder.Length > 0;
                 continue;
             }
 
-            if (char.GetUnicodeCategory(c) == UnicodeCategory.Control)
+            if (char.GetUnicodeCategory(c) is UnicodeCategory.Control or UnicodeCategory.Format)
             {
                 continue;
             }
