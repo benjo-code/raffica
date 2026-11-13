@@ -416,10 +416,7 @@ internal static class StoryXml
         ArgumentNullException.ThrowIfNull(writer);
         var root = story.Root;
         writer.WriteStartElement(RootPrefix(root), root.Name.LocalName, root.Name.NamespaceName);
-        foreach (var attribute in root.Attributes)
-        {
-            XmlKit.Attribute(writer, attribute);
-        }
+        XmlKit.Attributes(writer, root.Attributes);
 
         if (root.Name == Names.Document)
         {

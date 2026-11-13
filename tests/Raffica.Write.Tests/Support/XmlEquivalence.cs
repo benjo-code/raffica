@@ -5,7 +5,10 @@ namespace Raffica.Write.Tests.Support;
 /// <summary>
 /// Equivalence of two XML trees for round-trip tests. Equal means: the same element names, the same attribute set
 /// regardless of order, namespace declarations ignored, the same child order, text compared exactly (for mixed
-/// content the non-whitespace text nodes in order), and whitespace-only text between elements ignored.
+/// content the non-whitespace text nodes in order), and whitespace-only text between elements ignored. On a leaf
+/// element (no element children) an <c>xml:space="preserve"</c> present on one side only is ignored when the text has
+/// no leading or trailing XML whitespace (space, tab, CR, LF): there it changes nothing, and other producers write it
+/// on nearly every run while the writer here writes it only where it matters.
 /// </summary>
 internal static class XmlEquivalence
 {
@@ -23,6 +26,14 @@ internal static class XmlEquivalence
 
         var attributesA = a.Attributes().Where(x => !x.IsNamespaceDeclaration).ToDictionary(x => x.Name, x => x.Value);
         var attributesB = b.Attributes().Where(x => !x.IsNamespaceDeclaration).ToDictionary(x => x.Name, x => x.Value);
+        var childrenA = a.Elements().ToList();
+        var childrenB = b.Elements().ToList();
+        if (childrenA.Count == 0 && childrenB.Count == 0 && !HasEdgeWhitespace(a.Value) && !HasEdgeWhitespace(b.Value))
+        {
+            DropRedundantPreserve(attributesA);
+            DropRedundantPreserve(attributesB);
+        }
+
         foreach (var (name, value) in attributesA)
         {
             if (!attributesB.TryGetValue(name, out var other))
@@ -44,8 +55,6 @@ internal static class XmlEquivalence
             }
         }
 
-        var childrenA = a.Elements().ToList();
-        var childrenB = b.Elements().ToList();
         if (childrenA.Count == 0 && childrenB.Count == 0)
         {
             return a.Value == b.Value ? null : $"{path}: text \"{a.Value}\" differs from \"{b.Value}\"";
@@ -71,6 +80,19 @@ internal static class XmlEquivalence
         return childrenA.Count == childrenB.Count
             ? null
             : $"{path}: {childrenA.Count} child elements on the left, {childrenB.Count} on the right";
+    }
+
+    private static bool HasEdgeWhitespace(string text) =>
+        text.Length > 0 && (IsXmlSpace(text[0]) || IsXmlSpace(text[^1]));
+
+    private static bool IsXmlSpace(char c) => c is ' ' or '\t' or '\r' or '\n';
+
+    private static void DropRedundantPreserve(Dictionary<XName, string> attributes)
+    {
+        if (attributes.TryGetValue(XNamespace.Xml + "space", out var value) && value == "preserve")
+        {
+            attributes.Remove(XNamespace.Xml + "space");
+        }
     }
 
     private static List<string> Texts(XElement element) =>

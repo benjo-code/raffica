@@ -262,4 +262,45 @@ public sealed class InlineXmlTests
 
         Assert.Equal(W + "background", written.Elements().First().Name);
     }
+
+    [Fact]
+    public void RedundantPreserveFromOtherProducersRoundTrips()
+    {
+        var (story, written) = RoundTrip(XmlSnippets.Document("""<w:p><w:r><w:t xml:space="preserve">a</w:t></w:r></w:p>"""));
+
+        var run = Assert.IsType<Run>(Assert.Single(FirstParagraph(story).Inlines));
+        Assert.Equal("a", Assert.IsType<TextContent>(Assert.Single(run.Content)).Text);
+        Assert.Null(written.Descendants(W + "t").Single().Attribute(XNamespace.Xml + "space"));
+    }
+
+    [Fact]
+    public void NamespaceDeclarationAfterTheAttributeThatUsesItKeepsThePrefix()
+    {
+        const string Xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p w14:paraId="AB12" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"/></w:body></w:document>""";
+        using var input = new MemoryStream(Encoding.UTF8.GetBytes(Xml));
+        var story = DocumentXml.Read(input);
+        using var output = new MemoryStream();
+        DocumentXml.Write(story, output);
+        var text = Encoding.UTF8.GetString(output.ToArray());
+
+        Assert.Contains("w14:paraId=\"AB12\"", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("d1p1", text, StringComparison.Ordinal);
+        Assert.True(XmlEquivalence.AreEqual(XElement.Parse(Xml), XElement.Parse(text)));
+    }
+
+    [Fact]
+    public void UnknownElementsBetweenKnownSiblingsKeepTheirPlace()
+    {
+        const string Foo = """<x:foo xmlns:x="urn:test"/>""";
+        var (story, written) = RoundTrip(XmlSnippets.Document(
+            $"<w:p><w:r><w:t>a</w:t></w:r>{Foo}<w:r><w:t>b</w:t>{Foo}<w:t>c</w:t></w:r></w:p>"));
+
+        var inlines = FirstParagraph(story).Inlines;
+        Assert.IsType<Run>(inlines[0]);
+        Assert.IsType<UnknownInline>(inlines[1]);
+        var run = Assert.IsType<Run>(inlines[2]);
+        Assert.Equal(["b", null, "c"], run.Content.Select(c => (c as TextContent)?.Text));
+        Assert.IsType<UnknownRunContent>(run.Content[1]);
+        Assert.Equal(["r", "foo", "r"], written.Descendants(W + "p").Single().Elements().Select(e => e.Name.LocalName));
+    }
 }

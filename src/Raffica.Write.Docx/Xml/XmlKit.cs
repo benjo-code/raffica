@@ -138,11 +138,25 @@ internal static class XmlKit
         }
     }
 
-    public static void UnknownAttributes(XmlWriter writer, OoxmlElement element)
+    public static void UnknownAttributes(XmlWriter writer, OoxmlElement element) => Attributes(writer, element.UnknownAttributes);
+
+    /// <summary>Writes all namespace declarations first, then the other attributes in source order, so a prefix is never used before it is declared.</summary>
+    public static void Attributes(XmlWriter writer, IEnumerable<XAttribute> attributes)
     {
-        foreach (var attribute in element.UnknownAttributes)
+        foreach (var attribute in attributes)
         {
-            Attribute(writer, attribute);
+            if (attribute.IsNamespaceDeclaration)
+            {
+                Attribute(writer, attribute);
+            }
+        }
+
+        foreach (var attribute in attributes)
+        {
+            if (!attribute.IsNamespaceDeclaration)
+            {
+                Attribute(writer, attribute);
+            }
         }
     }
 

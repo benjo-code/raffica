@@ -76,4 +76,22 @@ public sealed class XmlEquivalenceTests
         Assert.NotNull(explanation);
         Assert.StartsWith("/w:document[1]/w:body[1]/w:p[2]/w:r[1]/w:t[1]", explanation);
     }
+
+    [Fact]
+    public void RedundantPreserveOnOneSideIsIgnoredForPlainText()
+    {
+        var a = Parse($"<w:t {Ns} xml:space=\"preserve\">a</w:t>");
+        var b = Parse($"<w:t {Ns}>a</w:t>");
+        Assert.True(XmlEquivalence.AreEqual(a, b));
+        Assert.True(XmlEquivalence.AreEqual(b, a));
+    }
+
+    [Fact]
+    public void MissingPreserveIsStillADifferenceWhenTheTextHasEdgeSpace()
+    {
+        var a = Parse($"<w:t {Ns} xml:space=\"preserve\"> a</w:t>");
+        var b = Parse($"<w:t {Ns}> a</w:t>");
+        Assert.False(XmlEquivalence.AreEqual(a, b));
+        Assert.False(XmlEquivalence.AreEqual(b, a));
+    }
 }
