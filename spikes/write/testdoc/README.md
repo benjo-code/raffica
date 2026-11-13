@@ -19,10 +19,6 @@ dotnet run --project spikes/write/testdoc -c Release -- selftest      # an empty
 
 Deterministic: seed 4242, fixed package timestamps, explicit relationship ids, a normalised zip. Two runs give the same SHA-256 (checked 2026-11-12). The result is committed as `thesis.docx` (under 1 MB) so a machine without the generator can run the spikes; the generator is the source.
 
-## Owner check on Windows (open)
+## Owner check on Windows (2026-11-13)
 
-Open `thesis.docx` in Word, update the table of contents, then note here: Word version, page count, whether physical page 3 shows "1" and the first appendix page shows "A-1".
-
-- Word version: _not yet checked_
-- Page count: _not yet checked_
-- Page 3 shows "1" / appendix shows "A-1": _not yet checked_
+The owner opened `thesis.docx` in Word and reported that it is fine ("passt"). Word's version and page count were not reported; the page count of the spike's own layout is 311, the check of "1" on physical page 3 and "A-1" on the first appendix page is covered by the printed pages of the print spike (`spikes/write/print/README.md`).

@@ -68,15 +68,15 @@ Hosted virtual machines, so the times are a record and not the binding numbers. 
 
 LibreOffice (Linux job, `libreoffice-writer` and `libreoffice-calc`, `soffice --headless --convert-to pdf`): the edited DOCX (2.46 MB of PDF), `plain-edited.xlsx` and `formulas-edited.xlsx` all open and convert; no error.
 
-### Open in Word and Excel (owner, Windows)
+### Word and Excel on Windows (owner, 2026-11-13)
 
-Not yet checked: Word and Excel are only on the owner's Windows machine. The saved files are the artifacts `spikes-write-linux-x64` of the workflow run (or regenerate them with the commands above). Checklist, one line each: opens without a repair prompt; the edit is visible (`Edited by the spike.` in chapter 1, Heading2 at 15 pt; cell B2 = 42; the formulas workbook shows SUM, VLOOKUP, the cross-sheet value, the merged title and the colour scale).
+The three saved files were opened by the owner (versions not reported). Checklist: opens without a repair prompt; the edit is visible (`Edited by the spike.` in chapter 1, Heading2 at 15 pt; cell B2 = 42; the formulas workbook shows SUM, VLOOKUP, the cross-sheet value, the merged title `Merged title` and the colour scale).
 
 | File | Word / Excel (Windows) |
 |---|---|
-| `thesis-edited.docx` | open |
-| `plain-edited.xlsx` | open |
-| `formulas-edited.xlsx` | open |
+| `thesis-edited.docx` | all checks fine |
+| `plain-edited.xlsx` | all checks fine |
+| `formulas-edited.xlsx` | all checks fine (the merged title reads "Merged title", as the spike writes it) |
 
 ### Linux laptop and Intel Mac (binding machines, open)
 
