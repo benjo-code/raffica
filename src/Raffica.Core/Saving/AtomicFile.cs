@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.Versioning;
+using System.Security;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
 
 namespace Raffica.Core.Saving;
@@ -270,5 +272,197 @@ public static class AtomicFile
             112 or 39 => new SaveFailureException(SaveFailureReason.DiskFull, "The disk is full.", inner),
             _ => new SaveFailureException(SaveFailureReason.WriteFailed, "The file could not be replaced.", inner),
         };
+    }
+
+    /// <summary>
+    /// Flushes a finished file to disk (the data, not only the file system cache), so a crash right after the replace cannot
+    /// leave a target with missing content. For a file another component wrote and closed.
+    /// </summary>
+    public static void FlushToDisk(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+            stream.Flush(flushToDisk: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw FailureOf(ex, "The file could not be written.");
+        }
+    }
+
+    /// <summary>
+    /// What an existing target passes on to the file that replaces it: the permissions on Unix, the Hidden attribute and the
+    /// access rules on Windows. Shared by the save of a PDF and the save of a DOCX. Read it before the temporary file is made,
+    /// give it to the finished temporary file with <see cref="ApplyTo(string)"/> and, after the replace, call <see cref="AfterReplace"/>.
+    /// </summary>
+    public sealed class TargetMetadata
+    {
+        private bool _hidden;
+        private byte[]? _accessList;
+        private byte[]? _lateAccessList;
+
+        internal TargetMetadata()
+        {
+        }
+
+        /// <summary>The permission bits of the replaced file on Unix (to create the temporary file with), otherwise null.</summary>
+        public UnixFileMode? UnixMode { get; private init; }
+
+        /// <summary>Gives the temporary file the metadata (call after its content is written and flushed).</summary>
+        public void ApplyTo(string temporary) => ApplyTo(temporary, null);
+
+        internal void ApplyTo(string temporary, SaveFaults? faults)
+        {
+            CopyTargetMetadata(temporary);
+            _lateAccessList = OperatingSystem.IsWindows() ? GiveAccessList(temporary, _accessList, faults) : null;
+        }
+
+        /// <summary>After the replace: sets the access rules that could not be on the temporary file while it was renamed (see <see cref="GiveAccessList"/>).</summary>
+        public void AfterReplace(string target)
+        {
+            if (_lateAccessList is not null && OperatingSystem.IsWindows())
+            {
+                // The rules could not be on the file while it was renamed; the replaced file gets them now.
+                WriteAccessList(target, _lateAccessList);
+            }
+        }
+
+        /// <summary>
+        /// What an existing target passes on to its replacement; a read-only target is refused here (<see cref="SaveFailureReason.NotWritable"/>).
+        /// A target that does not exist (or cannot be read) passes on nothing.
+        /// </summary>
+        public static TargetMetadata Read(string target)
+        {
+            FileAttributes attributes;
+            UnixFileMode? mode = null;
+            byte[]? acl = null;
+            try
+            {
+                if (!File.Exists(target))
+                {
+                    return new TargetMetadata();
+                }
+
+                attributes = File.GetAttributes(target);
+                if (!OperatingSystem.IsWindows())
+                {
+                    const UnixFileMode Permissions = (UnixFileMode)0x1FF;
+                    mode = File.GetUnixFileMode(target) & Permissions;
+                }
+                else
+                {
+                    acl = ReadAccessList(target);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The target went away or cannot be read; the save then goes on as for a new file.
+                return new TargetMetadata();
+            }
+
+            if ((attributes & FileAttributes.ReadOnly) != 0)
+            {
+                throw new SaveFailureException(SaveFailureReason.NotWritable, "The file is read-only.");
+            }
+
+            return new TargetMetadata { _hidden = (attributes & FileAttributes.Hidden) != 0, UnixMode = mode, _accessList = acl };
+        }
+
+        /// <summary>
+        /// The access rules (DACL, with the flag that switches inheritance off) of the target as a security descriptor, or
+        /// <see langword="null"/> when they cannot be read: the replacement then gets the rules of the folder, as before.
+        /// </summary>
+        [SupportedOSPlatform("windows")]
+        private static byte[]? ReadAccessList(string target)
+        {
+            try
+            {
+                return new FileInfo(target).GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorBinaryForm();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or PlatformNotSupportedException or SecurityException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gives the temporary file the access rules of the replaced target, after its content is written (it was open with
+        /// <see cref="FileShare.None"/> until now, so nobody else could read it; from its creation until here it has the rules of
+        /// the folder, as before the rules were copied). Without this, a file that only its owner may read would come back with
+        /// the rules of its folder, which are often much wider. The rename that replaces the target needs DELETE on the
+        /// temporary file: if the copied rules do not give that (probed with exactly that access), the rules of the folder are
+        /// put back and the target's rules are set on the replaced file instead, right after the rename; the save never fails
+        /// for this. A file system without access rules (FAT, some network shares) keeps the rules it has.
+        /// </summary>
+        /// <returns>The rules to set after the rename, or <see langword="null"/> when there is nothing left to do.</returns>
+        [SupportedOSPlatform("windows")]
+        private static byte[]? GiveAccessList(string temporary, byte[]? accessList, SaveFaults? faults)
+        {
+            if (accessList is null)
+            {
+                return null;
+            }
+
+            var inherited = ReadAccessList(temporary);
+            if (!WriteAccessList(temporary, accessList))
+            {
+                return null;
+            }
+
+            var canDelete = faults?.CanDelete is { } probe ? probe(temporary) : WindowsFileRename.CanOpenForDelete(temporary);
+            if (canDelete)
+            {
+                return null;
+            }
+
+            if (inherited is not null)
+            {
+                WriteAccessList(temporary, inherited);
+            }
+
+            return accessList;
+        }
+
+        [SupportedOSPlatform("windows")]
+        private static bool WriteAccessList(string file, byte[] descriptor)
+        {
+            try
+            {
+                var security = new FileSecurity();
+                security.SetSecurityDescriptorBinaryForm(descriptor, AccessControlSections.Access);
+                new FileInfo(file).SetAccessControl(security);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or PlatformNotSupportedException or SecurityException)
+            {
+                // The rules the file has stay; the save itself goes on.
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gives the temporary file the permissions of the target on Unix (exactly, without the umask that applied when it was
+        /// created) and its Hidden attribute on Windows.
+        /// </summary>
+        private void CopyTargetMetadata(string temporary)
+        {
+            try
+            {
+                if (UnixMode is { } mode && !OperatingSystem.IsWindows())
+                {
+                    File.SetUnixFileMode(temporary, mode);
+                }
+
+                if (_hidden && OperatingSystem.IsWindows())
+                {
+                    File.SetAttributes(temporary, File.GetAttributes(temporary) | FileAttributes.Hidden);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw AtomicFile.FailureOf(ex, "The file could not be written.");
+            }
+        }
     }
 }

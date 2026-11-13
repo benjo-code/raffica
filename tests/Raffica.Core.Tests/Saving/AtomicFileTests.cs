@@ -110,6 +110,39 @@ public sealed partial class AtomicFileTests : IDisposable
         Assert.Equal(sub, Path.GetDirectoryName(AtomicFile.NewTemporaryPath(link)));
     }
 
+    [Fact]
+    public async Task FlushToDiskKeepsTheContent()
+    {
+        var path = Path.Combine(folder.Path, "flush.bin");
+        await File.WriteAllBytesAsync(path, [1, 2, 3], TestContext.Current.CancellationToken);
+
+        AtomicFile.FlushToDisk(path);
+
+        Assert.Equal([1, 2, 3], await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task TargetMetadataOfAReadOnlyFileIsRefusedAndOfAMissingFileIsEmpty()
+    {
+        var path = Path.Combine(folder.Path, "readonly.bin");
+        await File.WriteAllBytesAsync(path, [1], TestContext.Current.CancellationToken);
+        File.SetAttributes(path, FileAttributes.ReadOnly);
+        try
+        {
+            var error = Assert.Throws<SaveFailureException>(() => AtomicFile.TargetMetadata.Read(path));
+            Assert.Equal(SaveFailureReason.NotWritable, error.Reason);
+        }
+        finally
+        {
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
+
+        var missing = AtomicFile.TargetMetadata.Read(Path.Combine(folder.Path, "missing.bin"));
+        Assert.Null(missing.UnixMode);
+        missing.ApplyTo(path);
+        missing.AfterReplace(path);
+    }
+
     [GeneratedRegex(@"^\.pw-[0-9a-f]{12}\.tmp$")]
     private static partial Regex TemporaryName();
 }

@@ -186,6 +186,16 @@ public sealed class DocxFileTests
     }
 
     [Fact]
+    public void AMacroEnabledTemplateIsADocm()
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("template.dotm");
+        DocxBuilder.MacroTemplate(path);
+        using var file = DocxFile.Open(path);
+        Assert.Equal(DocxKind.Docm, file.Kind);
+    }
+
+    [Fact]
     public void ADocxIsNotADocm()
     {
         using var folder = new TempFolder();

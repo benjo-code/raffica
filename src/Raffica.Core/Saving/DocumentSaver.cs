@@ -289,7 +289,7 @@ public static class DocumentSaver
             throw new SaveFailureException(SaveFailureReason.OriginalChanged, "Another file stands at the path of the original since it was opened.");
         }
 
-        var existing = ReadTarget(target);
+        var existing = AtomicFile.TargetMetadata.Read(target);
         var wasEncrypted = (await document.GetPrintInfoAsync(cancellationToken).ConfigureAwait(false)).IsEncrypted;
         var temporary = Path.Combine(folder, faults?.TemporaryName?.Invoke() ?? AtomicFile.ShortName(".tmp"));
         var file = CreateTemporary(temporary, existing.UnixMode);
@@ -298,8 +298,7 @@ public static class DocumentSaver
         try
         {
             await WriteAsync(job.Write, file, sourceLength, progress, faults, cancellationToken).ConfigureAwait(false);
-            CopyTargetMetadata(temporary, existing);
-            var lateAccessList = OperatingSystem.IsWindows() ? GiveAccessList(temporary, existing.AccessList, faults) : null;
+            existing.ApplyTo(temporary, faults);
             faults?.AfterWrite?.Invoke();
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -319,11 +318,7 @@ public static class DocumentSaver
             CheckSources(document, job);
             var leftover = AtomicFile.Replace(temporary, target, folder, job.ReplaceExisting, faults);
             committed = true;
-            if (lateAccessList is not null && OperatingSystem.IsWindows())
-            {
-                // The rules could not be on the file while it was renamed (see GiveAccessList); the replaced file gets them now.
-                WriteAccessList(target, lateAccessList);
-            }
+            existing.AfterReplace(target);
 
             return new SaveResult(reopened, StampOf(reopened), leftover);
         }
@@ -432,44 +427,6 @@ public static class DocumentSaver
         }
     }
 
-    /// <summary>What an existing target passes on to its replacement; a read-only target is refused here.</summary>
-    private static TargetInfo ReadTarget(string target)
-    {
-        FileAttributes attributes;
-        UnixFileMode? mode = null;
-        byte[]? acl = null;
-        try
-        {
-            if (!File.Exists(target))
-            {
-                return default;
-            }
-
-            attributes = File.GetAttributes(target);
-            if (!OperatingSystem.IsWindows())
-            {
-                const UnixFileMode Permissions = (UnixFileMode)0x1FF;
-                mode = File.GetUnixFileMode(target) & Permissions;
-            }
-            else
-            {
-                acl = ReadAccessList(target);
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The target went away or cannot be read; the save then goes on as for a new file.
-            return default;
-        }
-
-        if ((attributes & FileAttributes.ReadOnly) != 0)
-        {
-            throw new SaveFailureException(SaveFailureReason.NotWritable, "The file is read-only.");
-        }
-
-        return new TargetInfo(Exists: true, Hidden: (attributes & FileAttributes.Hidden) != 0, UnixMode: mode, AccessList: acl);
-    }
-
     private static FileStream CreateTemporary(string temporary, UnixFileMode? mode)
     {
         var options = new FileStreamOptions
@@ -495,102 +452,6 @@ public static class DocumentSaver
         catch (IOException ex)
         {
             throw AtomicFile.FailureOf(ex, "The temporary file could not be created.");
-        }
-    }
-
-    /// <summary>
-    /// The access rules (DACL, with the flag that switches inheritance off) of the target as a security descriptor, or
-    /// <see langword="null"/> when they cannot be read: the replacement then gets the rules of the folder, as before.
-    /// </summary>
-    [SupportedOSPlatform("windows")]
-    private static byte[]? ReadAccessList(string target)
-    {
-        try
-        {
-            return new FileInfo(target).GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorBinaryForm();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or PlatformNotSupportedException or SecurityException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Gives the temporary file the access rules of the replaced target, after its content is written (it was open with
-    /// <see cref="FileShare.None"/> until now, so nobody else could read it; from its creation until here it has the rules of
-    /// the folder, as before the rules were copied). Without this, a file that only its owner may read would come back with
-    /// the rules of its folder, which are often much wider. The rename that replaces the target needs DELETE on the
-    /// temporary file: if the copied rules do not give that (probed with exactly that access), the rules of the folder are
-    /// put back and the target's rules are set on the replaced file instead, right after the rename; the save never fails
-    /// for this. A file system without access rules (FAT, some network shares) keeps the rules it has.
-    /// </summary>
-    /// <returns>The rules to set after the rename, or <see langword="null"/> when there is nothing left to do.</returns>
-    [SupportedOSPlatform("windows")]
-    private static byte[]? GiveAccessList(string temporary, byte[]? accessList, SaveFaults? faults)
-    {
-        if (accessList is null)
-        {
-            return null;
-        }
-
-        var inherited = ReadAccessList(temporary);
-        if (!WriteAccessList(temporary, accessList))
-        {
-            return null;
-        }
-
-        var canDelete = faults?.CanDelete is { } probe ? probe(temporary) : WindowsFileRename.CanOpenForDelete(temporary);
-        if (canDelete)
-        {
-            return null;
-        }
-
-        if (inherited is not null)
-        {
-            WriteAccessList(temporary, inherited);
-        }
-
-        return accessList;
-    }
-
-    [SupportedOSPlatform("windows")]
-    private static bool WriteAccessList(string file, byte[] descriptor)
-    {
-        try
-        {
-            var security = new FileSecurity();
-            security.SetSecurityDescriptorBinaryForm(descriptor, AccessControlSections.Access);
-            new FileInfo(file).SetAccessControl(security);
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or PlatformNotSupportedException or SecurityException)
-        {
-            // The rules the file has stay; the save itself goes on.
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Gives the temporary file the permissions of the target on Unix (exactly, without the umask that applied when it was
-    /// created) and its Hidden attribute on Windows.
-    /// </summary>
-    private static void CopyTargetMetadata(string temporary, TargetInfo existing)
-    {
-        try
-        {
-            if (existing.UnixMode is { } mode && !OperatingSystem.IsWindows())
-            {
-                File.SetUnixFileMode(temporary, mode);
-            }
-
-            if (existing.Hidden && OperatingSystem.IsWindows())
-            {
-                File.SetAttributes(temporary, File.GetAttributes(temporary) | FileAttributes.Hidden);
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw AtomicFile.FailureOf(ex, "The file could not be written.");
         }
     }
 
@@ -803,9 +664,6 @@ public static class DocumentSaver
         Func<PdfDocument, bool, string, CancellationToken, Task> Check,
         bool ReplaceExisting = true,
         bool RequiresListedSources = false);
-
-    /// <summary>What an existing target passes on to the file that replaces it.</summary>
-    private readonly record struct TargetInfo(bool Exists, bool Hidden, UnixFileMode? UnixMode, byte[]? AccessList = null);
 
     /// <summary>
     /// Passes the writes of PDFium on, reports the progress and stops the writer on cancellation (PDFium only learns

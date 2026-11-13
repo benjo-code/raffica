@@ -225,17 +225,22 @@ public sealed class DocxFile : IDisposable
         var temporary = AtomicFile.NewTemporaryPath(target);
         try
         {
-            RefuseReadOnly(resolved);
+            // A read-only target is refused here; what an existing target passes on (permissions, Hidden, access rules) is
+            // given to the temporary file below, with the same code the save of a PDF uses.
+            var metadata = AtomicFile.TargetMetadata.Read(resolved);
             var intended = Serialise();
             cancellationToken.ThrowIfCancellationRequested();
-            CopySnapshot(temporary);
+            CopySnapshot(temporary, metadata);
             var written = WritePackage(temporary, intended);
             AfterPackageWritten?.Invoke(temporary);
             Guard(temporary, written);
+            AtomicFile.FlushToDisk(temporary);
+            metadata.ApplyTo(temporary);
             cancellationToken.ThrowIfCancellationRequested();
             BeforeReplace?.Invoke();
             cancellationToken.ThrowIfCancellationRequested();
             AtomicFile.MoveIntoPlace(temporary, resolved, replaceExisting: true);
+            metadata.AfterReplace(resolved);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -251,27 +256,16 @@ public sealed class DocxFile : IDisposable
         }
     }
 
-    private static void RefuseReadOnly(string target)
+    private void CopySnapshot(string temporary, AtomicFile.TargetMetadata metadata)
     {
-        FileAttributes attributes;
-        try
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (metadata.UnixMode is { } mode && !OperatingSystem.IsWindows())
         {
-            attributes = File.GetAttributes(target);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return;
+            // Created with the permissions of the replaced file, so a private file is never readable by others, not even briefly.
+            options.UnixCreateMode = mode;
         }
 
-        if ((attributes & FileAttributes.ReadOnly) != 0)
-        {
-            throw new SaveFailureException(SaveFailureReason.NotWritable, "The file is read-only.");
-        }
-    }
-
-    private void CopySnapshot(string temporary)
-    {
-        using var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        using var stream = new FileStream(temporary, options);
         stream.Write(_snapshot);
     }
 
@@ -356,13 +350,15 @@ public sealed class DocxFile : IDisposable
 
     private sealed record Intent(WrittenKind Kind, string? Id, byte[] Bytes, HeaderFooterKind HeaderKind = HeaderFooterKind.Header);
 
-    private List<Written> WritePackage(string temporary, List<Intent> intents)
+    private (List<Written> Parts, string MainName) WritePackage(string temporary, List<Intent> intents)
     {
         var written = new List<Written>();
         var writtenUris = new HashSet<string>(StringComparer.Ordinal);
+        string mainName;
         using (var package = WordprocessingDocument.Open(temporary, true, new OpenSettings { AutoSave = false }))
         {
             var main = package.MainDocumentPart ?? throw new DocxSaveException(DocxSaveReason.PartsChanged, "/word/document.xml");
+            mainName = main.Uri.OriginalString;
             OpenXmlPart? commentsPart = null;
             foreach (var intent in intents)
             {
@@ -375,7 +371,9 @@ public sealed class DocxFile : IDisposable
                 var name = part.Uri.OriginalString;
                 if (!writtenUris.Add(name))
                 {
-                    continue;
+                    // Two different model objects resolve to one part (two relationship ids, one part): which content wins is
+                    // not decided, and the save refuses instead of dropping one. The part is named, not its text.
+                    throw new DocxSaveException(DocxSaveReason.PartsChanged, name);
                 }
 
                 using (var raw = part.GetStream(FileMode.Create, FileAccess.Write))
@@ -388,7 +386,7 @@ public sealed class DocxFile : IDisposable
             }
         }
 
-        return written;
+        return (written, mainName);
     }
 
     /// <summary>Finds the part of an intent in the copy, or creates it (with its relationship and content type) when the file had none. A part is never deleted.</summary>
@@ -446,14 +444,20 @@ public sealed class DocxFile : IDisposable
 
     // The check.
 
-    private void Guard(string temporary, List<Written> written)
+    private void Guard(string temporary, (List<Written> Parts, string MainName) package)
     {
+        var written = package.Parts;
         using var snapshotStream = new MemoryStream(_snapshot, writable: false);
         using var original = new ZipArchive(snapshotStream, ZipArchiveMode.Read);
         using var saved = ZipFile.OpenRead(temporary);
 
         var writtenNames = new HashSet<string>(written.Select(w => w.Name.TrimStart('/')), StringComparer.Ordinal);
-        var createdNames = new HashSet<string>(written.Where(w => w.Created).Select(w => w.Name.TrimStart('/')), StringComparer.Ordinal);
+        var created = written.Where(w => w.Created).Select(w => w.Name).ToList();
+        var createdNames = new HashSet<string>(created.Select(n => n.TrimStart('/')), StringComparer.Ordinal);
+
+        // Creating a part adds relationships to the main part. When the main part had none, the SDK also creates its
+        // relationships part; that entry (and only that one) may appear, and its content is checked below.
+        var mainRels = created.Count > 0 ? RelationshipsPartOf(package.MainName).TrimStart('/') : null;
 
         foreach (var entry in original.Entries)
         {
@@ -463,7 +467,7 @@ public sealed class DocxFile : IDisposable
             }
 
             var other = saved.GetEntry(entry.FullName) ?? throw new DocxSaveException(DocxSaveReason.PartsChanged, "/" + entry.FullName);
-            if (IsStructural(entry.FullName) ? !StructureKept(entry, other) : !SameContent(entry, other))
+            if (IsStructural(entry.FullName) ? !StructureKept(entry, other, package.MainName, created) : !SameContent(entry, other))
             {
                 throw new DocxSaveException(DocxSaveReason.PartsChanged, "/" + entry.FullName);
             }
@@ -471,7 +475,14 @@ public sealed class DocxFile : IDisposable
 
         foreach (var entry in saved.Entries)
         {
-            if (!IsFolder(entry) && original.GetEntry(entry.FullName) is null && !createdNames.Contains(entry.FullName))
+            if (IsFolder(entry) || original.GetEntry(entry.FullName) is not null)
+            {
+                continue;
+            }
+
+            var allowed = createdNames.Contains(entry.FullName)
+                || (entry.FullName == mainRels && AddsOnlyRelationshipsTo(entry, package.MainName, created));
+            if (!allowed)
             {
                 throw new DocxSaveException(DocxSaveReason.PartsChanged, "/" + entry.FullName);
             }
@@ -593,11 +604,18 @@ public sealed class DocxFile : IDisposable
         return total;
     }
 
+    /// <summary>The name of the relationships part of a part: <c>/word/document.xml</c> has <c>/word/_rels/document.xml.rels</c>.</summary>
+    private static string RelationshipsPartOf(string partName)
+    {
+        var slash = partName.LastIndexOf('/');
+        return partName[..(slash + 1)] + "_rels/" + partName[(slash + 1)..] + ".rels";
+    }
+
     /// <summary>
-    /// The content types and the relationship parts may gain entries (a part the save created) but must keep every entry the
-    /// file had, unchanged. Identical bytes pass at once.
+    /// The content types and the relationship parts may gain entries that belong to the parts the save created, and nothing
+    /// else: every entry the file had must still be there, unchanged. Identical bytes pass at once.
     /// </summary>
-    private static bool StructureKept(ZipArchiveEntry original, ZipArchiveEntry saved)
+    private static bool StructureKept(ZipArchiveEntry original, ZipArchiveEntry saved, string mainName, List<string> created)
     {
         if (SameContent(original, saved))
         {
@@ -613,13 +631,67 @@ public sealed class DocxFile : IDisposable
                 return false;
             }
 
+            var had = new HashSet<string>(before.Elements().Select(Describe), StringComparer.Ordinal);
             var kept = new HashSet<string>(after.Elements().Select(Describe), StringComparer.Ordinal);
-            return before.Elements().All(e => kept.Contains(Describe(e)));
+            if (!had.All(kept.Contains))
+            {
+                return false;
+            }
+
+            var added = after.Elements().Where(e => !had.Contains(Describe(e)));
+            if (original.FullName == "[Content_Types].xml")
+            {
+                return added.All(e => IsContentTypeOfCreated(e, created));
+            }
+
+            return original.FullName == RelationshipsPartOf(mainName).TrimStart('/') && added.All(e => IsRelationshipToCreated(e, mainName, created));
         }
         catch (XmlException)
         {
             return false;
         }
+    }
+
+    private static bool AddsOnlyRelationshipsTo(ZipArchiveEntry entry, string mainName, List<string> created)
+    {
+        try
+        {
+            return Load(entry).Elements().All(e => IsRelationshipToCreated(e, mainName, created));
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>An <c>Override</c> for a created part, or a <c>Default</c> for the extension of one.</summary>
+    private static bool IsContentTypeOfCreated(XElement element, List<string> created)
+    {
+        if (element.Name.LocalName == "Override")
+        {
+            return created.Contains((string?)element.Attribute("PartName") ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return element.Name.LocalName == "Default"
+            && created.Any(n => string.Equals(Path.GetExtension(n).TrimStart('.'), (string?)element.Attribute("Extension"), StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>An internal relationship of the main part whose target is a created part.</summary>
+    private static bool IsRelationshipToCreated(XElement element, string mainName, List<string> created)
+    {
+        if (element.Name.LocalName != "Relationship" || (string?)element.Attribute("TargetMode") == "External")
+        {
+            return false;
+        }
+
+        var target = (string?)element.Attribute("Target");
+        if (string.IsNullOrEmpty(target))
+        {
+            return false;
+        }
+
+        var baseUri = new Uri("http://parts" + mainName[..(mainName.LastIndexOf('/') + 1)], UriKind.Absolute);
+        return Uri.TryCreate(baseUri, target, out var resolved) && created.Contains(Uri.UnescapeDataString(resolved.AbsolutePath), StringComparer.OrdinalIgnoreCase);
     }
 
     private static XElement Load(ZipArchiveEntry entry)

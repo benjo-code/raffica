@@ -1,4 +1,5 @@
 using System.Text;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 
@@ -35,6 +36,81 @@ internal static class DocxBuilder
             "<w:p><w:hyperlink r:id=\"rIdLink\"><w:r><w:t>link</w:t></w:r></w:hyperlink></w:p>"
             + "<w:p><w:r><w:drawing><wp:inline><wp:extent cx=\"100\" cy=\"200\"/><wp:docPr id=\"1\" name=\"Linked\" descr=\"alt\"/>"
             + "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic><pic:blipFill><a:blip r:link=\"rIdPic\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>");
+    }
+
+    /// <summary>A package with a main part and no other part at all (the main part has no relationships part).</summary>
+    public static void Bare(string path)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        var main = package.AddMainDocumentPart();
+        WriteMain(main, "<w:p><w:r><w:t>Bare</w:t></w:r></w:p>");
+    }
+
+    /// <summary>A macro-enabled template (<c>.dotm</c>).</summary>
+    public static void MacroTemplate(string path)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.MacroEnabledTemplate);
+        var main = package.AddMainDocumentPart();
+        WriteMain(main, "<w:p><w:r><w:t>Template</w:t></w:r></w:p>");
+    }
+
+    /// <summary>A document with one header part that two relationships (<c>rIdA</c>, <c>rIdB</c>) point to, both used by the section.</summary>
+    public static void SharedHeader(string path)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        var main = package.AddMainDocumentPart();
+        var header = main.AddNewPart<HeaderPart>("rIdA");
+        WritePart(header, "<w:hdr xmlns:w=\"" + XmlSnippets.W + "\"><w:p><w:r><w:t>Shared</w:t></w:r></w:p></w:hdr>");
+        WriteMain(
+            main,
+            "<w:p><w:r><w:t>Text</w:t></w:r></w:p><w:sectPr><w:headerReference w:type=\"default\" r:id=\"rIdA\"/><w:headerReference w:type=\"first\" r:id=\"rIdB\"/></w:sectPr>");
+
+        package.Dispose();
+        EditXml(path, "word/_rels/document.xml.rels", rels =>
+        {
+            var header = rels.Root!.Elements().Single(e => (string?)e.Attribute("Id") == "rIdA");
+            var second = new XElement(header);
+            second.SetAttributeValue("Id", "rIdB");
+            rels.Root.Add(second);
+        });
+    }
+
+    public const string ExtendedParaId = "1A2B3C4D";
+
+    /// <summary>A document with one done comment whose extension part (<c>commentsExtended</c>) is related from the comments part, not from the main part.</summary>
+    public static void ExtensionOnTheCommentsPart(string path)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        var main = package.AddMainDocumentPart();
+        WriteMain(main, "<w:p><w:commentRangeStart w:id=\"0\"/><w:r><w:t>Text</w:t></w:r><w:commentRangeEnd w:id=\"0\"/><w:r><w:commentReference w:id=\"0\"/></w:r></w:p>");
+        var comments = main.AddNewPart<WordprocessingCommentsPart>();
+        WritePart(
+            comments,
+            "<w:comments xmlns:w=\"" + XmlSnippets.W + "\" xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\"><w:comment w:id=\"0\" w:author=\"Ann\"><w:p w14:paraId=\"" + ExtendedParaId + "\"><w:r><w:t>Note</w:t></w:r></w:p></w:comment></w:comments>");
+        package.Dispose();
+        EditXml(path, "[Content_Types].xml", types => types.Root!.Add(new XElement(
+            types.Root.Name.Namespace + "Override",
+            new XAttribute("PartName", "/word/commentsExtended.xml"),
+            new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml"))));
+        EditEntry(path, "word/commentsExtended.xml", Encoding.UTF8.GetBytes(
+            "<w15:commentsEx xmlns:w15=\"http://schemas.microsoft.com/office/word/2012/wordml\"><w15:commentEx w15:paraId=\"" + ExtendedParaId + "\" w15:done=\"1\"/></w15:commentsEx>"));
+        EditEntry(path, "word/_rels/comments.xml.rels", Encoding.UTF8.GetBytes(
+            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.microsoft.com/office/2011/relationships/commentsExtended\" Target=\"commentsExtended.xml\"/></Relationships>"));
+    }
+
+    private static void EditEntry(string path, string name, byte[] content) => EditInPlace(path, name, content);
+
+    private static void EditXml(string path, string name, Action<XDocument> change)
+    {
+        XDocument document;
+        using (var archive = System.IO.Compression.ZipFile.OpenRead(path))
+        using (var stream = archive.GetEntry(name)!.Open())
+        {
+            document = XDocument.Load(stream);
+        }
+
+        change(document);
+        EditInPlace(path, name, Encoding.UTF8.GetBytes(document.ToString(SaveOptions.DisableFormatting)));
     }
 
     /// <summary>A document whose section refers to a header by an id nothing defines and by the id of the styles part (not a header).</summary>

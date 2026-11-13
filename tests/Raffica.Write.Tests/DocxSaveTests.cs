@@ -1,4 +1,7 @@
 using System.IO.Compression;
+using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -404,6 +407,281 @@ public sealed class DocxSaveTests
         var file = DocxFile.Open(folder.CopyThesis());
         file.Dispose();
         await Assert.ThrowsAsync<ObjectDisposedException>(() => file.SaveAsync(folder.File("x.docx"), Cancel));
+    }
+
+    private const string OfficeContent = "application/vnd.openxmlformats-officedocument.wordprocessingml.";
+
+    private static async Task<string> SaveCreating(TempFolder folder, string name, Action<WordDocument> change)
+    {
+        var path = folder.File(name + ".docx");
+        DocxBuilder.Bare(path);
+        var saved = folder.File(name + "-saved.docx");
+        using var file = DocxFile.Open(path);
+        change(file.Model);
+        await file.SaveAsync(saved, Cancel);
+        var diff = PartComparer.Diff(path, saved);
+        Assert.Empty(diff.Removed);
+        Assert.Contains("/word/_rels/document.xml.rels", diff.Added);
+        Assert.Contains("/[Content_Types].xml", diff.Changed);
+        return saved;
+    }
+
+    [Fact]
+    public async Task AStylesPartIsCreatedInAPackageWithoutAnyChildPart()
+    {
+        using var folder = new TempFolder();
+        var saved = await SaveCreating(folder, "styles", model => model.Styles = new StyleSheet(new OoxmlRoot(W + "styles", [new XAttribute(XNamespace.Xmlns + "w", XmlSnippets.W)])));
+
+        using var package = WordprocessingDocument.Open(saved, false);
+        var part = package.MainDocumentPart!.StyleDefinitionsPart!;
+        Assert.Equal("/word/styles.xml", part.Uri.OriginalString);
+        Assert.Equal(OfficeContent + "styles+xml", part.ContentType);
+        Assert.Equal(PartMap.StylesType, part.RelationshipType);
+        Assert.NotNull(DocxFile.Open(saved).Model.Styles);
+    }
+
+    [Fact]
+    public async Task ACommentsPartIsCreatedInAPackageWithoutAnyChildPart()
+    {
+        using var folder = new TempFolder();
+        var saved = await SaveCreating(folder, "comments", model =>
+        {
+            var comments = new CommentCollection(new OoxmlRoot(W + "comments", [new XAttribute(XNamespace.Xmlns + "w", XmlSnippets.W)]));
+            var comment = new Comment(0, NewStory("comment")) { Author = "Ann" };
+            comment.Content.Blocks.Add(TextParagraph("Hello"));
+            comments.Comments.Add(comment);
+            comments.EnsureParaId(comment);
+            comment.Done = true;
+            model.Comments = comments;
+        });
+
+        using var package = WordprocessingDocument.Open(saved, false);
+        var parts = package.MainDocumentPart!.Parts.ToDictionary(p => p.OpenXmlPart.RelationshipType, p => p.OpenXmlPart);
+        Assert.Equal(OfficeContent + "comments+xml", parts[PartMap.CommentsType].ContentType);
+        Assert.Equal("/word/comments.xml", parts[PartMap.CommentsType].Uri.OriginalString);
+        Assert.Equal(OfficeContent + "commentsExtended+xml", parts[PartMap.CommentsExtendedType].ContentType);
+        Assert.Equal("/word/commentsExtended.xml", parts[PartMap.CommentsExtendedType].Uri.OriginalString);
+        using var reopened = DocxFile.Open(saved);
+        Assert.True(reopened.Model.Comments!.Comments[0].Done);
+    }
+
+    [Fact]
+    public async Task AHeaderPartIsCreatedInAPackageWithoutAnyChildPart()
+    {
+        using var folder = new TempFolder();
+        var saved = await SaveCreating(folder, "header", model =>
+        {
+            var header = NewStory("hdr");
+            header.Blocks.Add(TextParagraph("Head"));
+            model.HeadersFooters["rIdNewHeader"] = new HeaderFooterPart(header);
+        });
+
+        using var package = WordprocessingDocument.Open(saved, false);
+        var pair = Assert.Single(package.MainDocumentPart!.Parts);
+        Assert.Equal("rIdNewHeader", pair.RelationshipId);
+        Assert.Equal(PartMap.HeaderType, pair.OpenXmlPart.RelationshipType);
+        Assert.Equal(OfficeContent + "header+xml", pair.OpenXmlPart.ContentType);
+    }
+
+    [Fact]
+    public async Task AFooterPartKeepsItsOwnRelationshipAndContentType()
+    {
+        using var folder = new TempFolder();
+        var saved = await SaveCreating(folder, "footer", model =>
+        {
+            var footer = NewStory("ftr");
+            footer.Blocks.Add(TextParagraph("Foot"));
+            model.HeadersFooters["rIdNewFooter"] = new HeaderFooterPart(footer);
+        });
+
+        using var package = WordprocessingDocument.Open(saved, false);
+        var pair = Assert.Single(package.MainDocumentPart!.Parts);
+        Assert.Equal(PartMap.FooterType, pair.OpenXmlPart.RelationshipType);
+        Assert.Equal(OfficeContent + "footer+xml", pair.OpenXmlPart.ContentType);
+    }
+
+    [Fact]
+    public async Task AHeaderSharedByTwoRelationshipsIsOneModelObjectAndIsWrittenOnce()
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("shared.docx");
+        DocxBuilder.SharedHeader(path);
+        var saved = folder.File("saved.docx");
+        using (var file = DocxFile.Open(path))
+        {
+            Assert.Same(file.Model.HeadersFooters["rIdA"], file.Model.HeadersFooters["rIdB"]);
+            file.Model.HeadersFooters["rIdA"].Content.Blocks.Add(TextParagraph("Added"));
+            await file.SaveAsync(saved, Cancel);
+        }
+
+        using var reopened = DocxFile.Open(saved);
+        Assert.Equal(2, reopened.Model.HeadersFooters["rIdB"].Content.Blocks.Count);
+        using var package = WordprocessingDocument.Open(saved, false);
+        Assert.Equal(2, package.MainDocumentPart!.Parts.Count(p => p.OpenXmlPart.RelationshipType == PartMap.HeaderType));
+        var diff = PartComparer.Diff(path, saved);
+        Assert.Empty(diff.Added);
+        Assert.Empty(diff.Removed);
+    }
+
+    [Fact]
+    public async Task TwoDifferentModelObjectsForOnePartAreRefused()
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("shared.docx");
+        DocxBuilder.SharedHeader(path);
+        var target = folder.File("target.docx");
+        await File.WriteAllBytesAsync(target, [1, 2], Cancel);
+        var names = folder.Names();
+        using var file = DocxFile.Open(path);
+        var other = NewStory("hdr");
+        other.Blocks.Add(TextParagraph("Another"));
+        file.Model.HeadersFooters["rIdB"] = new HeaderFooterPart(other);
+
+        var error = await Assert.ThrowsAsync<DocxSaveException>(() => file.SaveAsync(target, Cancel));
+
+        Assert.Equal(DocxSaveReason.PartsChanged, error.Reason);
+        Assert.Equal(new byte[] { 1, 2 }, await File.ReadAllBytesAsync(target, Cancel));
+        Assert.Equal(names, folder.Names());
+    }
+
+    [Fact]
+    public async Task AnExtensionPartRelatedFromTheCommentsPartIsKeptThere()
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("ext.docx");
+        DocxBuilder.ExtensionOnTheCommentsPart(path);
+        var saved = folder.File("saved.docx");
+        using (var file = DocxFile.Open(path))
+        {
+            Assert.True(file.Model.Comments!.Comments[0].Done);
+            await file.SaveAsync(saved, Cancel);
+        }
+
+        var diff = PartComparer.Diff(path, saved);
+        Assert.Empty(diff.Added);
+        Assert.Empty(diff.Removed);
+        using var package = WordprocessingDocument.Open(saved, false);
+        var main = package.MainDocumentPart!;
+        Assert.DoesNotContain(main.Parts, p => p.OpenXmlPart.RelationshipType == PartMap.CommentsExtendedType);
+        var comments = main.Parts.Single(p => p.OpenXmlPart.RelationshipType == PartMap.CommentsType).OpenXmlPart;
+        Assert.Contains(comments.Parts, p => p.OpenXmlPart.RelationshipType == PartMap.CommentsExtendedType);
+        using var reopened = DocxFile.Open(saved);
+        Assert.True(reopened.Model.Comments!.Comments[0].Done);
+    }
+
+    [Fact]
+    public async Task SaveThroughASymlinkInAnotherFolderKeepsTheTemporaryFileNextToTheRealTarget()
+    {
+        using var folder = new TempFolder();
+        var sub = Directory.CreateDirectory(folder.File("sub")).FullName;
+        var real = Path.Combine(sub, "real.docx");
+        File.Copy(TempFolder.ThesisPath, real);
+        var link = folder.File("link.docx");
+        try
+        {
+            File.CreateSymbolicLink(link, real);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Skip($"This account cannot create symbolic links here ({ex.GetType().Name}); on Windows that needs developer mode or administrator rights.");
+        }
+
+        string[] inSubDuringSave = [];
+        string[] inLinkFolderDuringSave = [];
+        using (var file = DocxFile.Open(link))
+        {
+            file.Model.Body.Blocks.Add(TextParagraph("Through the link"));
+            file.BeforeReplace = () =>
+            {
+                inSubDuringSave = [.. Directory.GetFiles(sub).Select(p => Path.GetFileName(p))];
+                inLinkFolderDuringSave = [.. Directory.GetFiles(folder.Path).Select(p => Path.GetFileName(p))];
+            };
+            await file.SaveAsync(link, Cancel);
+        }
+
+        Assert.Contains(inSubDuringSave, n => n.StartsWith(".pw-", StringComparison.Ordinal) && n.EndsWith(".tmp", StringComparison.Ordinal));
+        Assert.Equal(["link.docx"], inLinkFolderDuringSave);
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+        Assert.Equal(["real.docx"], Directory.GetFiles(sub).Select(p => Path.GetFileName(p)).ToArray());
+        Assert.Equal(["link.docx", "sub"], folder.Names());
+        using var reopened = DocxFile.Open(real);
+        Assert.Contains(reopened.Model.Body.Blocks.OfType<Paragraph>(), p => p.Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<TextContent>().Any(t => t.Text == "Through the link"));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public async Task UnixPermissionsOfTheTargetAreKept()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix file modes exist on Linux and macOS only.");
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        const UnixFileMode Private = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        const UnixFileMode Shared = Private | UnixFileMode.GroupRead | UnixFileMode.GroupWrite;
+        foreach (var mode in new[] { Private, Shared })
+        {
+            File.SetUnixFileMode(path, mode);
+            using (var file = DocxFile.Open(path))
+            {
+                await file.SaveAsync(path, Cancel);
+            }
+
+            Assert.Equal(mode, File.GetUnixFileMode(path) & (UnixFileMode)0x1FF);
+        }
+
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
+    [Fact]
+    public async Task HiddenTargetStaysHidden()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The Hidden attribute exists on Windows only.");
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.Hidden);
+        using (var file = DocxFile.Open(path))
+        {
+            await file.SaveAsync(path, Cancel);
+        }
+
+        Assert.True(File.GetAttributes(path).HasFlag(FileAttributes.Hidden));
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task ThePrivateAccessListOfTheTargetIsKeptOnWindows()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Access control lists of NTFS exist on Windows only.");
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        var user = WindowsIdentity.GetCurrent().User!;
+        var security = new FileInfo(path).GetAccessControl();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        security.AddAccessRule(new FileSystemAccessRule(user, FileSystemRights.FullControl, AccessControlType.Allow));
+        new FileInfo(path).SetAccessControl(security);
+        var before = Describe(path);
+        Assert.True(before.Protected);
+
+        using (var file = DocxFile.Open(path))
+        {
+            await file.SaveAsync(path, Cancel);
+        }
+
+        var after = Describe(path);
+        Assert.Equal(before.Protected, after.Protected);
+        Assert.Equal(before.Rules, after.Rules);
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static (bool Protected, string Rules) Describe(string file)
+    {
+        var acl = new FileInfo(file).GetAccessControl(AccessControlSections.Access);
+        var rules = acl.GetAccessRules(true, false, typeof(SecurityIdentifier))
+            .Cast<FileSystemAccessRule>()
+            .Select(rule => $"{rule.IdentityReference.Value}|{rule.FileSystemRights}|{rule.AccessControlType}|{rule.IsInherited}")
+            .Order(StringComparer.Ordinal);
+        return (acl.AreAccessRulesProtected, string.Join(Environment.NewLine, rules));
     }
 
     /// <summary>Passes the bytes through but flips the first one, so the part is no longer what the codec produced.</summary>
