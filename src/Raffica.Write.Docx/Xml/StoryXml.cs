@@ -70,7 +70,7 @@ internal static class StoryXml
     /// <summary>Reads the block children of the element the reader is on (its attributes are the caller's) and moves past it. Used by every story root.</summary>
     public static void ReadBlocks(XmlReader reader, IList<Block> blocks) => ReadBlockList(reader, blocks, null);
 
-    /// <summary>As <see cref="ReadBlocks"/>; with an owner (the body of a document) the first <c>w:sectPr</c> becomes its <see cref="Story.FinalSection"/>.</summary>
+    /// <summary>As <see cref="ReadBlocks"/>; with an owner (the body of a document) a <c>w:sectPr</c> that is the last child becomes its <see cref="Story.FinalSection"/>. One that is followed by anything else stays an <see cref="UnknownBlock"/> at its place.</summary>
     private static void ReadBlockList(XmlReader reader, IList<Block> blocks, Story? owner)
     {
         if (!XmlKit.Enter(reader))
@@ -78,20 +78,34 @@ internal static class StoryXml
             return;
         }
 
+        XElement? pending = null;
         while (XmlKit.More(reader))
         {
             if (reader.NodeType != XmlNodeType.Element)
             {
                 reader.Read();
+                continue;
             }
-            else if (owner is not null && owner.FinalSection is null && XmlKit.IsWord(reader, "sectPr"))
+
+            if (pending is not null)
             {
-                owner.FinalSection = ReadSection(reader);
+                blocks.Add(new UnknownBlock(new UnknownContent(pending)));
+                pending = null;
+            }
+
+            if (owner is not null && XmlKit.IsWord(reader, "sectPr"))
+            {
+                pending = XmlKit.ReadKept(reader);
             }
             else
             {
                 blocks.Add(ReadBlock(reader));
             }
+        }
+
+        if (pending is not null)
+        {
+            owner!.FinalSection = ConvertSection(pending);
         }
 
         XmlKit.Leave(reader);
@@ -245,24 +259,18 @@ internal static class StoryXml
 
     // Sections.
 
-    private static SectionProperties ReadSection(XmlReader reader)
+    private static SectionProperties ReadSection(XmlReader reader) => ConvertSection(XmlKit.ReadKept(reader));
+
+    private static SectionProperties ConvertSection(XElement source)
     {
         var section = new SectionProperties();
-        XmlKit.KeepRest(section, XmlKit.ReadAttributes(reader));
-        if (!XmlKit.Enter(reader))
+        foreach (var attribute in source.Attributes())
         {
-            return section;
+            section.UnknownAttributes.Add(new XAttribute(attribute));
         }
 
-        while (XmlKit.More(reader))
+        foreach (var element in source.Elements())
         {
-            if (reader.NodeType != XmlNodeType.Element)
-            {
-                reader.Read();
-                continue;
-            }
-
-            var element = XmlKit.ReadKept(reader);
             var reference = ConvertReference(element);
             if (reference is null)
             {
@@ -275,7 +283,6 @@ internal static class StoryXml
             }
         }
 
-        XmlKit.Leave(reader);
         return section;
     }
 
@@ -416,7 +423,6 @@ internal static class StoryXml
             }
             else if (paragraph.SectionBreak is null && XmlKit.IsWord(reader, "sectPr"))
             {
-                paragraph.SectionBreakIndex = bag.Children.Count;
                 paragraph.SectionBreak = ReadSection(reader);
             }
             else
@@ -860,15 +866,27 @@ internal static class StoryXml
             XmlKit.Attributes(writer, source.Attributes());
         }
 
-        // Extra attributes of a gridCol stay with the column at the same place while the column count is unchanged.
+        // Extra attributes of a gridCol (and the original text of a width) stay with the column at the same place while the column count is unchanged; otherwise only w:w is written.
         var sourceColumns = source?.Elements(Names.GridCol).ToList();
+        var sameCount = sourceColumns is not null && sourceColumns.Count == table.GridColumns.Count;
         for (var i = 0; i < table.GridColumns.Count; i++)
         {
             XmlKit.Start(writer, Names.GridCol);
-            XmlKit.Attribute(writer, Names.Width, table.GridColumns[i].ToString(System.Globalization.CultureInfo.InvariantCulture));
-            if (sourceColumns is not null && i < sourceColumns.Count)
+            var original = sameCount ? sourceColumns![i] : null;
+            var originalWidth = (string?)original?.Attribute(Names.Width);
+            if (original is not null && originalWidth is null && table.KeptWidthAt(i) == table.GridColumns[i])
             {
-                XmlKit.Attributes(writer, sourceColumns[i].Attributes().Where(a => a.Name != Names.Width));
+                // The source column had no usable width and it was not edited: write none.
+            }
+            else
+            {
+                var unchanged = original is not null && table.KeptWidthAt(i) == table.GridColumns[i];
+                XmlKit.Attribute(writer, Names.Width, unchanged && originalWidth is not null ? originalWidth : table.GridColumns[i].ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            if (original is not null)
+            {
+                XmlKit.Attributes(writer, original.Attributes().Where(a => a.Name != Names.Width));
             }
 
             writer.WriteEndElement();
@@ -995,14 +1013,14 @@ internal static class StoryXml
             return;
         }
 
-        var position = paragraph.SectionBreakIndex ?? SchemaPosition(bag);
+        var position = SchemaPosition(bag);
         XmlKit.Start(writer, Names.W + "pPr");
         XmlKit.UnknownAttributes(writer, bag);
         Interleave(bag.Children, child => child.WriteTo(writer), (position, () => WriteSection(section, writer)));
         writer.WriteEndElement();
     }
 
-    /// <summary>Where a section break that was not read from a file goes: before the first child the schema order puts after <c>w:sectPr</c>.</summary>
+    /// <summary>Where the section break goes: before the first known child the schema order puts after <c>w:sectPr</c> (<c>w:pPrChange</c>), else last. Computed on every write, so edits to the bag never leave it out of order.</summary>
     private static int SchemaPosition(PropertyBag bag)
     {
         var mine = SchemaOrder.IndexOf(PropertyKind.Paragraph, Names.W + "sectPr");

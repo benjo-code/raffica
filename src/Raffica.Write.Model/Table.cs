@@ -22,6 +22,9 @@ public sealed class Table : Block
     /// <summary>True when the grid was read from a file and <see cref="GridColumns"/> still holds what was read.</summary>
     public bool GridIsUnedited => _keptWidths is not null && _keptWidths.AsSpan().SequenceEqual(GridColumns.ToArray());
 
+    /// <summary>The width read for a column, or null for an index beyond the grid as read.</summary>
+    public int? KeptWidthAt(int index) => _keptWidths is not null && index >= 0 && index < _keptWidths.Length ? _keptWidths[index] : null;
+
     /// <summary>Remembers the grid element and the widths read from it, and fills <see cref="GridColumns"/>. Used by the reader.</summary>
     public void SetKeptGrid(UnknownContent grid, IEnumerable<int> widths)
     {

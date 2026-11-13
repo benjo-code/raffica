@@ -65,15 +65,89 @@ public sealed class BlockXmlTests
 
         var table = Assert.IsType<Table>(story.Blocks[0]);
         Assert.Equal([100, 200], table.GridColumns);
-        table.GridColumns[1] = 250;
-        using var output = new MemoryStream();
-        DocumentXml.Write(story, output);
-        var edited = XElement.Parse(Encoding.UTF8.GetString(output.ToArray()));
-        var grid = edited.Descendants(W + "tblGrid").First();
-        Assert.Equal("250", (string?)grid.Elements(W + "gridCol").ElementAt(1).Attribute(W + "w"));
+        table.GridColumns[0] = 150;
+        var grid = WriteAndFindGrid(story);
+        Assert.Equal("150", (string?)grid.Elements(W + "gridCol").ElementAt(0).Attribute(W + "w"));
+        Assert.Equal("e", (string?)grid.Elements(W + "gridCol").ElementAt(0).Attribute(W + "extra"));
+        Assert.Equal("200", (string?)grid.Elements(W + "gridCol").ElementAt(1).Attribute(W + "w"));
         Assert.NotNull(grid.Element(W + "tblGridChange"));
         Assert.Equal("1", (string?)grid.Attribute(W + "x"));
-        Assert.NotNull(written);
+
+        // A changed column count drops the per-column extras but keeps the grid's own attributes and children.
+        table.GridColumns.Add(300);
+        grid = WriteAndFindGrid(story);
+        Assert.Equal(3, grid.Elements(W + "gridCol").Count());
+        Assert.Null(grid.Elements(W + "gridCol").ElementAt(0).Attribute(W + "extra"));
+        Assert.NotNull(grid.Element(W + "tblGridChange"));
+    }
+
+    [Fact]
+    public void AGridColumnWithoutWidthIsNotRewrittenAsZero()
+    {
+        var (story, _) = RoundTrip(XmlSnippets.Document(
+            """<w:tbl><w:tblGrid><w:gridCol/><w:gridCol w:w="200"/></w:tblGrid></w:tbl>"""));
+
+        var table = Assert.IsType<Table>(story.Blocks[0]);
+        table.GridColumns[1] = 210;
+        var grid = WriteAndFindGrid(story);
+        Assert.Null(grid.Elements(W + "gridCol").ElementAt(0).Attribute(W + "w"));
+        Assert.Equal("210", (string?)grid.Elements(W + "gridCol").ElementAt(1).Attribute(W + "w"));
+    }
+
+    private static XElement WriteStory(Story story)
+    {
+        using var output = new MemoryStream();
+        DocumentXml.Write(story, output);
+        return XElement.Parse(Encoding.UTF8.GetString(output.ToArray()));
+    }
+
+    private static XElement WriteAndFindGrid(Story story) => WriteStory(story).Descendants(W + "tblGrid").First();
+
+    [Fact]
+    public void ParagraphSectionBreakStaysAfterPropertiesSetLater()
+    {
+        var (story, _) = RoundTrip(XmlSnippets.Document(
+            """<w:p><w:pPr><w:sectPr><w:pgSz w:w="1" w:h="2"/></w:sectPr></w:pPr></w:p><w:p><w:pPr><w:rPr><w:b/></w:rPr><w:sectPr/><w:pPrChange w:id="1" w:author="A"><w:pPr/></w:pPrChange></w:pPr></w:p>"""));
+
+        var first = Assert.IsType<Paragraph>(story.Blocks[0]);
+        first.Properties.StyleId = "X";
+        first.Properties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "center")));
+        var second = Assert.IsType<Paragraph>(story.Blocks[1]);
+        second.Properties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "left")));
+
+        var body = WriteStory(story).Element(W + "body")!;
+        var firstNames = body.Elements(W + "p").First().Element(W + "pPr")!.Elements().Select(e => e.Name.LocalName);
+        Assert.Equal(["pStyle", "jc", "sectPr"], firstNames);
+        var secondNames = body.Elements(W + "p").ElementAt(1).Element(W + "pPr")!.Elements().Select(e => e.Name.LocalName);
+        Assert.Equal(["jc", "rPr", "sectPr", "pPrChange"], secondNames);
+    }
+
+    [Fact]
+    public void ASectionBreakCreatedInCodeIsPlacedBySchemaOrder()
+    {
+        var (story, _) = RoundTrip(XmlSnippets.Document("<w:p/>"));
+        var paragraph = Assert.IsType<Paragraph>(story.Blocks[0]);
+        paragraph.Properties.StyleId = "S";
+        paragraph.Properties.Set(W + "rPr", new XElement(W + "rPr", new XElement(W + "b")));
+        paragraph.SectionBreak = new SectionProperties();
+        paragraph.SectionBreak.Set(W + "pgSz", new XElement(W + "pgSz", new XAttribute(W + "w", "1")));
+        paragraph.SectionBreak.HeaderFooterReferences.Add(new HeaderFooterReference(HeaderFooterKind.Header, HeaderFooterType.First, "rId9"));
+
+        var pPr = WriteStory(story).Descendants(W + "pPr").Single();
+        Assert.Equal(["pStyle", "rPr", "sectPr"], pPr.Elements().Select(e => e.Name.LocalName));
+        Assert.Equal(["headerReference", "pgSz"], pPr.Element(W + "sectPr")!.Elements().Select(e => e.Name.LocalName));
+    }
+
+    [Fact]
+    public void ABodySectionFollowedByContentStaysWhereItWas()
+    {
+        var (story, written) = RoundTrip(XmlSnippets.Document(
+            """<w:p/><w:sectPr><w:pgSz w:w="1" w:h="2"/></w:sectPr><w:p/>"""));
+
+        Assert.Null(story.FinalSection);
+        Assert.Equal(3, story.Blocks.Count);
+        Assert.IsType<UnknownBlock>(story.Blocks[1]);
+        Assert.Equal(["p", "sectPr", "p"], written.Element(W + "body")!.Elements().Select(e => e.Name.LocalName));
     }
 
     [Fact]
