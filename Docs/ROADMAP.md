@@ -40,7 +40,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
-| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ⬜ open | – | – |
+| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | – |
 | 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | ⬜ open | – | – |
 | 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
@@ -117,6 +117,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-10 (Milestone 3.3):** `third-party/licenses.json` owns the macOS natives (`libAvaloniaNative.dylib`, `libSkiaSharp.dylib`, `libHarfBuzzSharp.dylib`), and `tools/check-binary.cs` reads universal Mach-O files and ignores a dylib's own install name when it lists dependencies.
 - **2026-11-10 (Milestone 3.3):** The size budgets of the PDF app on macOS are one `macos` entry of `s_pdfBudgets` (size, zip, app, dmg; the larger architecture binds both) and have no time or memory limit until the Intel measurement; see "Raffica PDF on macOS: published sizes and the hosted record (M3.3)" in `Docs/DECISIONS.md`.
 - **2026-11-12 (Milestone 4):** The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`.
+- **2026-11-13 (Milestone 4.1):** The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision "Raffica Write: Open XML SDK under Native AOT (M4)"). Word's PDFs of the corpus are made by the owner and are listed as open.
 
 ---
 
@@ -595,7 +596,7 @@ Goal: The layout engine decision for Write rests on measurements and the spec is
 - [x] The spec is approved and linked here – `superpowers/specs/2026-11-13-raffica-write-design.md`, approved by the owner on 2026-11-13 after the builder check and one round of the owner's answers (corpus sources, layout differences recorded, right-to-left in the backlog); linked as the spec of subproject 5, its milestones 4.1 to 4.9 entered below
 
 ## Milestone 4.1 – Document model and DOCX round trip
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4
+**Status:** 🟡 planned · **Plan:** [2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) · **Prerequisites:** M4
 
 Goal: A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.
 

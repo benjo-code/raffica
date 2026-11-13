@@ -317,6 +317,11 @@
       "date": "2026-11-12",
       "context": "Milestone 4",
       "text": "The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`."
+    },
+    {
+      "date": "2026-11-13",
+      "context": "Milestone 4.1",
+      "text": "The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision \"Raffica Write: Open XML SDK under Native AOT (M4)\"). Word's PDFs of the corpus are made by the owner and are listed as open."
     }
   ],
   "subprojects": [
@@ -791,7 +796,8 @@
         {
           "id": "4.1",
           "title": "Document model and DOCX round trip",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md",
           "prerequisites": ["4"],
           "goal": "A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.",
           "tasks": [
