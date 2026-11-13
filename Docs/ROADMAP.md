@@ -601,14 +601,19 @@ Goal: The layout engine decision for Write rests on measurements and the spec is
 Goal: A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.
 
 **Tasks**
-- [ ] The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept
-- [ ] DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save
-- [ ] The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)
+- [x] The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept
+- [x] DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save
+- [x] The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)
 
 **Acceptance criteria**
-- [ ] Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests)
-- [ ] A model change saved and read again gives the same model (tests)
-- [ ] The Native AOT publish has no IL warnings in the library
+- [x] Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests) – `CorpusRoundTripTests.EveryCorpusFileRoundTrips` (one case per corpus file, 16 files) and `DocxSaveTests.PartsNotLoadedStayByteIdentical`, `SavedWithoutChangesKeepsEveryOtherPartByteIdentical` pass (full run of the solution with `RAFFICA_REQUIRE_OCR=1` at commit 00c69af: 6798 total, 6749 passed, 49 skipped, 0 failed); the published Native AOT `write-corpus run --root testdata/write-corpus` prints `true,true,true,true` (opens, saves, unloadedIdentical, loadedEquivalent) for all 16 files, exit 0, and `check` exit 0
+- [x] A model change saved and read again gives the same model (tests) – `DocxSaveTests.ModelChangeRoundTrips` (renames a style, appends a paragraph, deletes a table row and adds a footnote to the thesis, reads the saved file again and compares with `ModelSnapshot` by `XmlEquivalence`) and `DocxSaveTests.ACommentIsAddedToADocumentWithoutACommentsPart` pass at commit 00c69af
+- [ ] The Native AOT publish has no IL warnings in the library – Local proof only: `dotnet publish bench/write-corpus -c Release -r win-x64` (Native AOT, vswhere folder on PATH) at commit 00c69af, log searched for `IL[23][0-9]{3}`: 0 matches, the published exe ran `check` and `run` (exit 0). The CI steps "Publish the Write corpus tool (Native AOT, Linux)" and "(Native AOT, Windows)" in the build job and the macOS step in `build-macos` search the same log; their result is pending the first run on the pull request, so this criterion stays open until then
+
+**Open items**
+**Owner (Word):** the reference PDFs of the corpus are made in Word by the owner: `word.pdf` next to every entry and `word-accept.pdf` and `word-reject.pdf` next to `poi-tika-792` (how: `testdata/write-corpus/README.md`, "Word PDFs"). From the PDF of `thesis` read Word's page count and whether Word shows "1" on physical page 3 and "A-1" on the first appendix page. Check: `dotnet run --project bench/write-corpus -c Release -- table --root testdata/write-corpus --out Docs/write-corpus.md`, then commit the regenerated `Docs/write-corpus.md` (no CI check regenerates it).
+
+**CI only:** the Native AOT publish of the tool on Linux and macOS and the Unix-mode save test (`DocxSaveTests.UnixPermissionsOfTheTargetAreKept`, skipped on the Windows host) are proven by the first CI run of the pull request.
 
 ## Milestone 4.2 – Write as a fast DOCX viewer
 **Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.1
