@@ -71,7 +71,16 @@ public sealed class DocxFile : IDisposable
         // The stamp is taken before the bytes are read (as for a PDF): a file replaced during the read then makes a later save
         // to the same path warn instead of overwriting the newer file.
         var stamp = FileStamp.Of(AtomicFile.ResolveLink(full));
-        return Load(File.ReadAllBytes(full), parts, full, stamp);
+        return Load(ReadAll(full), parts, full, stamp);
+    }
+
+    /// <summary>Reads a file whole; it may be open for writing by another program (the share allows readers, writers and deletion).</summary>
+    private static byte[] ReadAll(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var memory = new MemoryStream(stream.CanSeek && stream.Length < int.MaxValue ? (int)stream.Length : 0);
+        stream.CopyTo(memory);
+        return memory.ToArray();
     }
 
     /// <summary>Copies <paramref name="bytes"/> and loads the asked-for parts.</summary>
@@ -278,13 +287,16 @@ public sealed class DocxFile : IDisposable
                 _originStamp = FileStamp.Of(resolved);
             }
         }
-        catch (UnauthorizedAccessException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw new SaveFailureException(SaveFailureReason.NotWritable, "The file cannot be written.", ex);
+            // A full disk, a file in use and no access are told apart as for a PDF.
+            throw AtomicFile.FailureOf(ex, "The file could not be written.");
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is OpenXmlPackageException or InvalidDataException)
         {
-            throw new SaveFailureException(SaveFailureReason.WriteFailed, "The file could not be written.", ex);
+            // The package layer failed on the temporary copy (not a model problem, not a difference the check found): a failed
+            // write. The temporary file is removed below and the target is untouched.
+            throw new SaveFailureException(SaveFailureReason.WriteFailed, "The package could not be written.", ex);
         }
         finally
         {

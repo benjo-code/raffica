@@ -535,6 +535,41 @@ public sealed class DocxSaveTests
         Assert.Equal(["link.docx", "real.docx"], folder.Names());
     }
 
+    [Fact]
+    public async Task APackageFailureWhileWritingIsAWriteFailureAndLeavesNothingBehind()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        var target = folder.File("target.docx");
+        await File.WriteAllBytesAsync(target, [4, 5], Cancel);
+        var names = folder.Names();
+        using var file = DocxFile.Open(path);
+        file.WrapPartWrite = (_, _) => throw new InvalidDataException("the package layer failed");
+
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(target, Cancel));
+
+        Assert.Equal(SaveFailureReason.WriteFailed, error.Reason);
+        Assert.IsType<InvalidDataException>(error.InnerException);
+        Assert.Equal(new byte[] { 4, 5 }, await File.ReadAllBytesAsync(target, Cancel));
+        Assert.Equal(names, folder.Names());
+    }
+
+    [Fact]
+    public async Task AFullDiskWhileWritingIsDiskFullAsForAPdf()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        var names = folder.Names();
+        using var file = DocxFile.Open(path);
+        var diskFull = OperatingSystem.IsWindows() ? unchecked((int)0x80070070) : 28;
+        file.WrapPartWrite = (_, _) => throw new IOException("no room", diskFull);
+
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(folder.File("x.docx"), Cancel));
+
+        Assert.Equal(SaveFailureReason.DiskFull, error.Reason);
+        Assert.Equal(names, folder.Names());
+    }
+
     private const string OfficeContent = "application/vnd.openxmlformats-officedocument.wordprocessingml.";
 
     private static async Task<string> SaveCreating(TempFolder folder, string name, Action<WordDocument> change)

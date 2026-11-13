@@ -244,7 +244,7 @@ public static class AtomicFile
         new(SaveFailureReason.TargetExists, "A file already exists at the target.", inner);
 
     /// <summary>Maps a write or replace error: full disk, file in use, no access, anything else.</summary>
-    internal static SaveFailureException FailureOf(Exception error, string message)
+    public static SaveFailureException FailureOf(Exception error, string message)
     {
         if (IsDiskFull(error))
         {

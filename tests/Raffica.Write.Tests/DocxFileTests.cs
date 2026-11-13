@@ -196,6 +196,18 @@ public sealed class DocxFileTests
     }
 
     [Fact]
+    public void AFileAnotherProgramHoldsOpenForWritingCanStillBeOpened()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+
+        using var file = DocxFile.Open(path);
+
+        Assert.Equal(20, file.Model.Body.Blocks.OfType<Table>().Count());
+    }
+
+    [Fact]
     public void ADocxIsNotADocm()
     {
         using var folder = new TempFolder();
