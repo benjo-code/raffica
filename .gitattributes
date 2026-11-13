@@ -13,6 +13,8 @@
 *.webp binary
 *.pdf binary
 *.zip binary
+*.docx binary
+*.docm binary
 *.7z binary
 *.gz binary
 *.ttf binary

@@ -9,8 +9,7 @@ internal static class CorpusCheck
 {
     /// <summary>
     /// The problems of the corpus at <paramref name="root"/>, empty when it is consistent. With <paramref name="requireCoverage"/> a
-    /// required feature that no file covers is a problem too (the default; the CI of the first milestone turns it off with
-    /// <c>--allow-uncovered</c> until the corpus is filled).
+    /// required feature that no file covers is a problem too (the default; <c>--allow-uncovered</c> turns it off for a corpus that is still being filled).
     /// </summary>
     public static IReadOnlyList<string> Run(string root, bool requireCoverage = true)
     {
