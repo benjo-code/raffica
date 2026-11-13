@@ -47,7 +47,7 @@ On Windows replace `$X` by `...\win-x64\publish\openxml-aot.exe`. Optional on th
 | Published size | 31.9 MB (`openxml-aot.exe`, one file; the SDK's generated typed classes dominate it) |
 | `selftest` (published exe) | 5 of 5 ok |
 | `docx` on `thesis.docx`, `compare --touched word/document.xml,word/styles.xml` | exit 0; changed exactly `/word/document.xml` and `/word/styles.xml`, nothing added or removed. Footnotes, numbering, headers, footers, settings, images and the package properties are byte-identical on the decompressed bytes |
-| `docx --runs 10` (open + edit + save of the 468 KB, 300-page DOCX) | median **149 ms** (AOT, includes the file copy) |
+| `docx --runs 10` (open + edit + save of the first generated `thesis.docx`, 468 KB, 393 pages in the spike layout; the committed file of 392,700 bytes was timed only on the hosted runners) | median **149 ms** (AOT, includes the file copy) |
 | `xlsx-make`, then `xlsx --first-part`, `compare --touched xl/worksheets/sheet1.xml` | exit 0 for both workbooks; only `/xl/worksheets/sheet1.xml` changed |
 | `xlsx` without `--first-part` | exit 1: `/xl/workbook.xml` also changed (see below) |
 | The edited DOCX through `testdoc verify` | ok, the edit text and the 15 pt style are in the saved file |

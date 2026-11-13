@@ -21,4 +21,4 @@ Deterministic: seed 4242, fixed package timestamps, explicit relationship ids, a
 
 ## Owner check on Windows (2026-11-13)
 
-The owner opened `thesis.docx` in Word and reported that it is fine ("passt"). Word's version and page count were not reported; the page count of the spike's own layout is 311, the check of "1" on physical page 3 and "A-1" on the first appendix page is covered by the printed pages of the print spike (`spikes/write/print/README.md`).
+The owner opened `thesis.docx` in Word and reported that it is fine ("passt"). Word's version and page count were not reported; the page count of the spike's own layout is 311. Open (owner, Word on Windows): Word's page count, and whether Word shows "1" on physical page 3 and "A-1" on the first appendix page; the printed pages of the print spike (`spikes/write/print/README.md`) show the spike's own layout, not Word's.

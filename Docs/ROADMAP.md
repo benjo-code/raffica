@@ -601,11 +601,11 @@ Goal: A UI-free library reads and writes DOCX into a model that follows OOXML an
 
 **Tasks**
 - [ ] The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept
-- [ ] DOCX read and write through the Open XML SDK under Native AOT; parts not loaded are copied byte for byte; atomic save
+- [ ] DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save
 - [ ] The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)
 
 **Acceptance criteria**
-- [ ] Every corpus file opens and saves; parts not loaded are byte-identical after a save (tests)
+- [ ] Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests)
 - [ ] A model change saved and read again gives the same model (tests)
 - [ ] The Native AOT publish has no IL warnings in the library
 
@@ -615,16 +615,16 @@ Goal: A UI-free library reads and writes DOCX into a model that follows OOXML an
 Goal: Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.
 
 **Tasks**
-- [ ] The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`
+- [ ] The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`; `WindowHost` and what else a second app needs moved out of `Raffica.Pdf` (the PDF tests stay green)
 - [ ] The C# layout library with the layout features of the spec (section 6), the shipped fonts and font fallback
 - [ ] Page view and writing view, scrolling, zoom, outline pane for navigation
 - [ ] Startup work for the first page (font loading, reading only what page 1 needs)
 - [ ] App speed budgets: `measure.yml` target `write`, a Write budget table in `CheckCommand`, measured on the Windows PC, the Linux laptop and the Intel Mac
 
 **Acceptance criteria**
-- [ ] First page of the 311-page test document ≤ 100 ms on the Linux laptop (`measure.yml`)
-- [ ] The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25)
-- [ ] The corpus comparison table exists and the generated thesis has Word's page count
+- [ ] The engine's first page of the generated thesis ≤ 100 ms on the Linux laptop (headless benchmark over the UI-free library, as in the spike; Write spec, section 5)
+- [ ] The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25) and checked by `measure.yml`
+- [ ] The corpus comparison table exists and the generated thesis has the page count of Word's PDF of it
 
 ## Milestone 4.3 – Editing
 **Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.2
@@ -639,8 +639,8 @@ Goal: Text, formatting and styles can be edited in every story of a document, wi
 - [ ] Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash
 
 **Acceptance criteria**
-- [ ] Typing ≤ 16 ms per keystroke in the app on the 311-page document
-- [ ] IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, and a German keyboard layout works (owner, recorded)
+- [ ] Typing ≤ 16 ms per keystroke in the app on the generated thesis
+- [ ] IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, a German keyboard layout works, the log shows the commit on macOS, and IBus and an X11 session on Linux work (owner, recorded)
 - [ ] Recovery after a killed process restores the text (test)
 
 ## Milestone 4.4 – Structure
@@ -666,7 +666,7 @@ Goal: A thesis can be written in Write from scratch, with tables, pictures, note
 **Tasks**
 - [ ] Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes
 - [ ] Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`
-- [ ] Hyperlinks with Ctrl+K in Write (command search on Alt+Q in Write, an app-level option of the frame), bookmarks
+- [ ] Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit; bookmarks
 - [ ] Find and replace (match case, whole words)
 
 **Acceptance criteria**
@@ -684,7 +684,7 @@ Goal: Comments and tracked changes from Word files can be worked through, and sp
 - [ ] Tracked changes: show, accept, reject (one, all, by author), formatting changes filtered by default; the "edits are not tracked" bar
 
 **Acceptance criteria**
-- [ ] Accept and reject give the same text as Word on corpus files (tests on the model)
+- [ ] "Accept all" and "Reject all" give the same text as Word's PDFs of them on the corpus files with tracked changes (corpus tool)
 - [ ] Spelling marks and suggestions in both languages (tests)
 
 ## Milestone 4.7 – Print and PDF
@@ -698,7 +698,7 @@ Goal: Write prints itself on each system and exports a PDF with real text.
 - [ ] PDF export with real text and embedded font subsets
 
 **Acceptance criteria**
-- [ ] Real printers on Windows and Linux print the test document's ranges with the right page numbers (owner, recorded)
+- [ ] Real printers on Windows, Linux and the Intel Mac print the test document's ranges with the right page numbers (owner, recorded)
 - [ ] The exported PDF has text on every page (PDFium test)
 
 ## Milestone 4.8 – Release readiness and security check

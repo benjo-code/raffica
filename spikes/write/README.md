@@ -20,4 +20,4 @@ Spike code never becomes product code. This folder is outside `Raffica.slnx`; `s
 - **DocumentFormat.OpenXml 3.5.1:** MIT.
 - **SkiaSharp 3.119.4** (with `SkiaSharp.NativeAssets.Linux.NoDependencies`): MIT.
 - **HarfBuzzSharp 8.3.1.3** (with `HarfBuzzSharp.NativeAssets.Linux`) and **Avalonia 12.1.5** (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`): MIT.
-- **Parley 0.13.0** (Rust crate, default features off) and its dependencies in `layout/parley-core/Cargo.lock`: Apache-2.0 or MIT (the Rust code is not part of any product build).
+- **Parley 0.13.0** (Rust crate, default features off) and its dependencies in `layout/parley-core/Cargo.lock`: Apache-2.0 or MIT, except the ICU4X crates (`icu_*`, `zerovec`, `yoke`, `tinystr`, `litemap`, `writeable`, `zerofrom`, `zerotrie`, `potential_utf`) under Unicode-3.0 and `unicode-ident` under (MIT or Apache-2.0) and Unicode-3.0; all permissive, and the Rust code is not part of any product build.

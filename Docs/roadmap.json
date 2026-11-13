@@ -796,11 +796,11 @@
           "goal": "A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.",
           "tasks": [
             { "text": "The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept", "done": false },
-            { "text": "DOCX read and write through the Open XML SDK under Native AOT; parts not loaded are copied byte for byte; atomic save", "done": false },
+            { "text": "DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save", "done": false },
             { "text": "The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)", "done": false }
           ],
           "acceptance": [
-            { "text": "Every corpus file opens and saves; parts not loaded are byte-identical after a save (tests)", "done": false },
+            { "text": "Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests)", "done": false },
             { "text": "A model change saved and read again gives the same model (tests)", "done": false },
             { "text": "The Native AOT publish has no IL warnings in the library", "done": false }
           ]
@@ -812,16 +812,16 @@
           "prerequisites": ["4.1"],
           "goal": "Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.",
           "tasks": [
-            { "text": "The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`", "done": false },
+            { "text": "The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`; `WindowHost` and what else a second app needs moved out of `Raffica.Pdf` (the PDF tests stay green)", "done": false },
             { "text": "The C# layout library with the layout features of the spec (section 6), the shipped fonts and font fallback", "done": false },
             { "text": "Page view and writing view, scrolling, zoom, outline pane for navigation", "done": false },
             { "text": "Startup work for the first page (font loading, reading only what page 1 needs)", "done": false },
             { "text": "App speed budgets: `measure.yml` target `write`, a Write budget table in `CheckCommand`, measured on the Windows PC, the Linux laptop and the Intel Mac", "done": false }
           ],
           "acceptance": [
-            { "text": "First page of the 311-page test document ≤ 100 ms on the Linux laptop (`measure.yml`)", "done": false },
-            { "text": "The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25)", "done": false },
-            { "text": "The corpus comparison table exists and the generated thesis has Word's page count", "done": false }
+            { "text": "The engine's first page of the generated thesis ≤ 100 ms on the Linux laptop (headless benchmark over the UI-free library, as in the spike; Write spec, section 5)", "done": false },
+            { "text": "The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25) and checked by `measure.yml`", "done": false },
+            { "text": "The corpus comparison table exists and the generated thesis has the page count of Word's PDF of it", "done": false }
           ]
         },
         {
@@ -838,8 +838,8 @@
             { "text": "Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash", "done": false }
           ],
           "acceptance": [
-            { "text": "Typing ≤ 16 ms per keystroke in the app on the 311-page document", "done": false },
-            { "text": "IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, and a German keyboard layout works (owner, recorded)", "done": false },
+            { "text": "Typing ≤ 16 ms per keystroke in the app on the generated thesis", "done": false },
+            { "text": "IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, a German keyboard layout works, the log shows the commit on macOS, and IBus and an X11 session on Linux work (owner, recorded)", "done": false },
             { "text": "Recovery after a killed process restores the text (test)", "done": false }
           ]
         },
@@ -869,7 +869,7 @@
           "tasks": [
             { "text": "Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes", "done": false },
             { "text": "Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`", "done": false },
-            { "text": "Hyperlinks with Ctrl+K in Write (command search on Alt+Q in Write, an app-level option of the frame), bookmarks", "done": false },
+            { "text": "Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit; bookmarks", "done": false },
             { "text": "Find and replace (match case, whole words)", "done": false }
           ],
           "acceptance": [
@@ -889,7 +889,7 @@
             { "text": "Tracked changes: show, accept, reject (one, all, by author), formatting changes filtered by default; the \"edits are not tracked\" bar", "done": false }
           ],
           "acceptance": [
-            { "text": "Accept and reject give the same text as Word on corpus files (tests on the model)", "done": false },
+            { "text": "\"Accept all\" and \"Reject all\" give the same text as Word's PDFs of them on the corpus files with tracked changes (corpus tool)", "done": false },
             { "text": "Spelling marks and suggestions in both languages (tests)", "done": false }
           ]
         },
@@ -905,7 +905,7 @@
             { "text": "PDF export with real text and embedded font subsets", "done": false }
           ],
           "acceptance": [
-            { "text": "Real printers on Windows and Linux print the test document's ranges with the right page numbers (owner, recorded)", "done": false },
+            { "text": "Real printers on Windows, Linux and the Intel Mac print the test document's ranges with the right page numbers (owner, recorded)", "done": false },
             { "text": "The exported PDF has text on every page (PDFium test)", "done": false }
           ]
         },
