@@ -413,7 +413,7 @@ public static class PageImageExporter
     // Writes the bytes to a temporary file in the target folder, then moves it into place with the rules of the document save.
     private static async Task WriteAsync(byte[] bytes, string root, string target, bool overwrite, int page, CancellationToken cancellationToken)
     {
-        var temporary = Path.Combine(root, DocumentSaver.TemporaryName());
+        var temporary = Path.Combine(root, AtomicFile.TemporaryName());
         try
         {
             var stream = new FileStream(temporary, new FileStreamOptions
@@ -431,7 +431,7 @@ public static class PageImageExporter
 
             // Once the file is moved into place the page is complete, whatever the token says now.
             cancellationToken.ThrowIfCancellationRequested();
-            DocumentSaver.MoveIntoPlace(temporary, target, overwrite);
+            AtomicFile.MoveIntoPlace(temporary, target, overwrite);
         }
         catch (SaveFailureException ex) when (ex.Reason == SaveFailureReason.TargetExists)
         {

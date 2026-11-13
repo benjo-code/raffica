@@ -1,0 +1,419 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml;
+
+namespace WriteCorpus;
+
+/// <summary>
+/// <c>write-corpus</c>: the compatibility corpus of Raffica Write (testdata/write-corpus). Commands: <c>check</c>, <c>run</c> and
+/// <c>add</c>, plus the page comparison commands <c>pdf-facts</c>, <c>compare</c> and <c>table</c>. Exit codes: 0 ok, 1 findings, 2 usage
+/// or unreadable input (also: the PDF engine cannot start). Output is plain text or CSV with root-relative paths and never contains
+/// document text.
+/// </summary>
+internal static partial class Program
+{
+    private const string Usage = """
+        usage:
+          write-corpus check --root <dir> [--allow-uncovered]
+          write-corpus run --root <dir> [--out <csv>]
+          write-corpus add <docx> --root <dir> --id <id> --source <url|text> --license <spdx> --license-file <path>
+          write-corpus pdf-facts <pdf> [--out <json>]
+          write-corpus compare --reference <pdf|json> --candidate <pdf|json> [--require-same-page-count]
+          write-corpus table --root <dir> --out <md>
+        """;
+
+    private static int Main(string[] args) => Run(args, Console.Out, Console.Error);
+
+    internal static int Run(string[] args, TextWriter output, TextWriter error)
+    {
+        if (args.Length == 0)
+        {
+            error.WriteLine(Usage);
+            return 2;
+        }
+
+        try
+        {
+            return args[0] switch
+            {
+                "check" => Check(args[1..], output, error),
+                "run" => RunCommand(args[1..], output, error),
+                "add" => Add(args[1..], output, error),
+                "pdf-facts" => PdfFacts(args[1..], output, error),
+                "compare" => Compare(args[1..], output, error),
+                "table" => Table(args[1..], output, error),
+                _ => Fail(error, $"unknown command '{args[0]}'"),
+            };
+        }
+        catch (PdfEngineUnavailableException)
+        {
+            error.WriteLine("write-corpus: the PDF engine (PDFium) could not be started; its native library was not found next to the tool");
+            return 2;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The exception type only: its message can contain absolute paths or values of the files read.
+            error.WriteLine($"write-corpus: failed ({ex.GetType().Name})");
+            return 1;
+        }
+    }
+
+    private static int Fail(TextWriter error, string message)
+    {
+        error.WriteLine("write-corpus: " + message);
+        error.WriteLine(Usage);
+        return 2;
+    }
+
+    private static int Check(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--root"], ["--allow-uncovered"], 0, out var options, out var problem) || options.Value("--root") is not { } root)
+        {
+            return Fail(error, problem ?? "check needs --root");
+        }
+
+        var problems = CorpusCheck.Run(root, requireCoverage: !options.Has("--allow-uncovered"));
+        foreach (var line in problems)
+        {
+            output.WriteLine(line);
+        }
+
+        output.WriteLine(problems.Count == 0 ? "write-corpus check: ok" : string.Create(CultureInfo.InvariantCulture, $"write-corpus check: {problems.Count} problem(s)"));
+        return problems.Count == 0 ? 0 : 1;
+    }
+
+    private static int RunCommand(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--root", "--out"], [], 0, out var options, out var problem) || options.Value("--root") is not { } root)
+        {
+            return Fail(error, problem ?? "run needs --root");
+        }
+
+        if (!File.Exists(CorpusManifest.PathIn(root)))
+        {
+            error.WriteLine($"write-corpus: {CorpusManifest.FileName} is missing in the root");
+            return 1;
+        }
+
+        if (CorpusManifest.Load(root).Schema != CorpusManifest.CurrentSchema)
+        {
+            error.WriteLine($"write-corpus: the manifest schema is not {CorpusManifest.CurrentSchema}");
+            return 1;
+        }
+
+        using var buffer = new StringWriter(CultureInfo.InvariantCulture);
+        var code = CorpusRun.Run(root, buffer);
+        output.Write(buffer.ToString());
+        if (options.Value("--out") is { } csv)
+        {
+            File.WriteAllText(csv, buffer.ToString().Replace("\r\n", "\n", StringComparison.Ordinal), new System.Text.UTF8Encoding(false));
+        }
+
+        return code;
+    }
+
+    private static int PdfFacts(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--out"], [], 1, out var options, out var problem))
+        {
+            return Fail(error, problem ?? "pdf-facts needs a PDF");
+        }
+
+        var facts = LoadFacts(options.Positional[0], error);
+        if (facts is null)
+        {
+            return 2;
+        }
+
+        if (options.Value("--out") is { } json)
+        {
+            var text = JsonSerializer.Serialize(facts, PageFactsJson.Default.PageFacts).Replace("\r\n", "\n", StringComparison.Ordinal) + "\n";
+            if (!TryWrite(json, text, error))
+            {
+                return 2;
+            }
+        }
+
+        // The page count and the length of each page's text only: the text of a document is never printed.
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"pages: {facts.PageCount}"));
+        for (var i = 0; i < facts.PageCount; i++)
+        {
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"page {i + 1}: {TextNormalizer.Normalize(facts.PageTexts[i]).Length} characters"));
+        }
+
+        return 0;
+    }
+
+    private static int Compare(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--reference", "--candidate"], ["--require-same-page-count"], 0, out var options, out var problem)
+            || options.Value("--reference") is not { } referencePath
+            || options.Value("--candidate") is not { } candidatePath)
+        {
+            return Fail(error, problem ?? "compare needs --reference and --candidate");
+        }
+
+        var reference = LoadFacts(referencePath, error);
+        var candidate = reference is null ? null : LoadFacts(candidatePath, error);
+        if (reference is null || candidate is null)
+        {
+            return 2;
+        }
+
+        var result = PageComparer.Compare(reference, candidate);
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"reference pages: {result.ReferencePages}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"candidate pages: {result.CandidatePages}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"page count equal: {(result.PageCountEqual ? "yes" : "no")}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"equal pages: {result.EqualPages}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"mean dice: {result.MeanDice:0.0000}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"first different page: {(result.FirstDifferentPage is { } page ? page.ToString(CultureInfo.InvariantCulture) : "none")}"));
+        return options.Has("--require-same-page-count") && !result.PageCountEqual ? 1 : 0;
+    }
+
+    private static int Table(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--root", "--out"], [], 0, out var options, out var problem)
+            || options.Value("--root") is not { } root
+            || options.Value("--out") is not { } outPath)
+        {
+            return Fail(error, problem ?? "table needs --root and --out");
+        }
+
+        if (!File.Exists(CorpusManifest.PathIn(root)))
+        {
+            error.WriteLine($"write-corpus: {CorpusManifest.FileName} is missing in the root");
+            return 2;
+        }
+
+        string text;
+        try
+        {
+            if (CorpusManifest.Load(root).Schema != CorpusManifest.CurrentSchema)
+            {
+                error.WriteLine($"write-corpus: the manifest schema is not {CorpusManifest.CurrentSchema}");
+                return 2;
+            }
+
+            text = CorpusTable.BuildAsync(root).GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // The exception type only: its message can name a path or a value of the file.
+            error.WriteLine($"write-corpus: the corpus cannot be read ({ex.GetType().Name})");
+            return 2;
+        }
+
+        if (!TryWrite(outPath, text, error))
+        {
+            return 2;
+        }
+
+        output.WriteLine("write-corpus table: written");
+        return 0;
+    }
+
+    /// <summary>Writes a UTF-8 file without a byte order mark; an I/O problem is one line on <paramref name="error"/> and false.</summary>
+    private static bool TryWrite(string path, string text, TextWriter error)
+    {
+        try
+        {
+            File.WriteAllText(path, text, new System.Text.UTF8Encoding(false));
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"write-corpus: the output file cannot be written ({ex.GetType().Name})");
+            return false;
+        }
+    }
+
+    /// <summary>Facts from a <c>.json</c> file or a PDF; on an unreadable input writes one line to <paramref name="error"/> and returns null.</summary>
+    private static PageFacts? LoadFacts(string path, TextWriter error)
+    {
+        if (!File.Exists(path))
+        {
+            error.WriteLine("write-corpus: an input file does not exist");
+            return null;
+        }
+
+        try
+        {
+            return path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                ? PageFacts.Load(path)
+                : PdfPageFacts.ReadAsync(path).GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"write-corpus: an input file is not readable ({ex.GetType().Name})");
+            return null;
+        }
+    }
+
+    private static int Add(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--root", "--id", "--source", "--license", "--license-file"], [], 1, out var options, out var problem))
+        {
+            return Fail(error, problem ?? "add needs a file");
+        }
+
+        string?[] values = [options.Value("--root"), options.Value("--id"), options.Value("--source"), options.Value("--license"), options.Value("--license-file")];
+        if (values.Any(string.IsNullOrWhiteSpace))
+        {
+            return Fail(error, "add needs --root, --id, --source, --license and --license-file");
+        }
+
+        var (root, id, source, license, licenseFile) = (values[0]!, values[1]!, values[2]!, values[3]!, values[4]!);
+        var docx = options.Positional[0];
+        var extension = Path.GetExtension(docx).ToLowerInvariant();
+        if (!IdPattern().IsMatch(id))
+        {
+            error.WriteLine("write-corpus: the id must be lower-case letters, digits and hyphens");
+            return 1;
+        }
+
+        if (!CorpusFeatures.AllowedLicenses.Contains(license, StringComparer.Ordinal))
+        {
+            error.WriteLine($"write-corpus: the licence '{license}' is not in the allowed list ({string.Join(", ", CorpusFeatures.AllowedLicenses)})");
+            return 1;
+        }
+
+        if (extension is not (".docx" or ".docm") || !File.Exists(docx) || !File.Exists(licenseFile))
+        {
+            error.WriteLine("write-corpus: the file must be an existing .docx or .docm and the licence file must exist");
+            return 1;
+        }
+
+        var manifest = File.Exists(CorpusManifest.PathIn(root)) ? CorpusManifest.Load(root) : new CorpusManifest();
+        if (manifest.Files.Any(f => string.Equals(f.Id, id, StringComparison.Ordinal)))
+        {
+            error.WriteLine($"write-corpus: the id '{id}' is already in the manifest");
+            return 1;
+        }
+
+        IReadOnlySet<string> features;
+        try
+        {
+            features = FeatureDetector.Detect(docx);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or XmlException)
+        {
+            error.WriteLine("write-corpus: the file is not a readable package");
+            return 1;
+        }
+
+        // Everything the add creates is remembered and removed again unless the manifest was written: a failing add leaves the root as it was.
+        var relativePath = $"{id}/{id}{extension}";
+        var relativeLicense = $"licenses/{id}-{Path.GetFileName(licenseFile)}";
+        var createdFiles = new List<string>();
+        var createdFolders = new List<string>();
+        var committed = false;
+        try
+        {
+            foreach (var folder in new[] { Path.Combine(root, "licenses"), Path.Combine(root, id) })
+            {
+                if (!Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                    createdFolders.Add(folder);
+                }
+            }
+
+            File.Copy(licenseFile, Path.Combine(root, relativeLicense), overwrite: false);
+            createdFiles.Add(Path.Combine(root, relativeLicense));
+            File.Copy(docx, Path.Combine(root, relativePath), overwrite: false);
+            createdFiles.Add(Path.Combine(root, relativePath));
+            manifest.Files.Add(new CorpusEntry
+            {
+                Id = id,
+                Path = relativePath,
+                Sha256 = CorpusCheck.HashOf(Path.Combine(root, relativePath)),
+                Source = source,
+                License = license,
+                LicenseFile = relativeLicense,
+                Retrieved = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Features = [.. features.Order(StringComparer.Ordinal)],
+            });
+            manifest.Save(root);
+            committed = true;
+        }
+        finally
+        {
+            if (!committed)
+            {
+                foreach (var file in createdFiles)
+                {
+                    File.Delete(file);
+                }
+
+                foreach (var folder in createdFolders.AsEnumerable().Reverse())
+                {
+                    if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+                    {
+                        Directory.Delete(folder);
+                    }
+                }
+            }
+        }
+
+        output.WriteLine($"write-corpus add: {id} ({features.Count} feature(s))");
+        return 0;
+    }
+
+    [GeneratedRegex("^[a-z0-9][a-z0-9-]*$")]
+    private static partial Regex IdPattern();
+}
+
+/// <summary>A minimal option parser: named values, switches and a fixed number of positional arguments.</summary>
+internal sealed class Options
+{
+    private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _switches = new(StringComparer.Ordinal);
+
+    public List<string> Positional { get; } = [];
+
+    public string? Value(string name) => _values.GetValueOrDefault(name);
+
+    public bool Has(string name) => _switches.Contains(name);
+
+    public static bool TryParse(string[] args, string[] valueNames, string[] switchNames, int positional, out Options options, out string? problem)
+    {
+        options = new Options();
+        problem = null;
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            if (valueNames.Contains(arg, StringComparer.Ordinal))
+            {
+                if (i + 1 >= args.Length)
+                {
+                    problem = $"{arg} needs a value";
+                    return false;
+                }
+
+                options._values[arg] = args[++i];
+            }
+            else if (switchNames.Contains(arg, StringComparer.Ordinal))
+            {
+                options._switches.Add(arg);
+            }
+            else if (!arg.StartsWith("--", StringComparison.Ordinal) && options.Positional.Count < positional)
+            {
+                options.Positional.Add(arg);
+            }
+            else
+            {
+                problem = $"unexpected argument '{arg}'";
+                return false;
+            }
+        }
+
+        if (options.Positional.Count != positional)
+        {
+            problem = "a file argument is missing";
+            return false;
+        }
+
+        return true;
+    }
+}

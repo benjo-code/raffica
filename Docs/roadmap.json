@@ -317,6 +317,11 @@
       "date": "2026-11-12",
       "context": "Milestone 4",
       "text": "The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`."
+    },
+    {
+      "date": "2026-11-13",
+      "context": "Milestone 4.1",
+      "text": "The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision \"Raffica Write: Open XML SDK under Native AOT (M4)\"). Word's PDFs of the corpus are made by the owner and are listed as open."
     }
   ],
   "subprojects": [
@@ -791,18 +796,26 @@
         {
           "id": "4.1",
           "title": "Document model and DOCX round trip",
-          "status": "open",
+          "status": "done",
+          "completedOn": "2026-11-13",
+          "plan": "superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md",
           "prerequisites": ["4"],
           "goal": "A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.",
           "tasks": [
-            { "text": "The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept", "done": false },
-            { "text": "DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save", "done": false },
-            { "text": "The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)", "done": false }
+            { "text": "The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept", "done": true },
+            { "text": "DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save", "done": true },
+            { "text": "The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)", "done": true }
           ],
           "acceptance": [
-            { "text": "Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests)", "done": false },
-            { "text": "A model change saved and read again gives the same model (tests)", "done": false },
-            { "text": "The Native AOT publish has no IL warnings in the library", "done": false }
+            { "text": "Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests)", "done": true, "evidence": "`CorpusRoundTripTests.EveryCorpusFileRoundTrips` (one case per corpus file, 16 files) and `DocxSaveTests.PartsNotLoadedStayByteIdentical`, `SavedWithoutChangesKeepsEveryOtherPartByteIdentical` pass (full run of the solution with `RAFFICA_REQUIRE_OCR=1` at commit 00c69af: 6798 total, 6749 passed, 49 skipped, 0 failed); the published Native AOT `write-corpus run --root testdata/write-corpus` prints `true,true,true,true` (opens, saves, unloadedIdentical, loadedEquivalent) for all 16 files, exit 0, and `check` exit 0" },
+            { "text": "A model change saved and read again gives the same model (tests)", "done": true, "evidence": "`DocxSaveTests.ModelChangeRoundTrips` (renames a style, appends a paragraph, deletes a table row and adds a footnote to the thesis, reads the saved file again and compares with `ModelSnapshot` by `XmlEquivalence`) and `DocxSaveTests.ACommentIsAddedToADocumentWithoutACommentsPart` pass at commit 00c69af" },
+            { "text": "The Native AOT publish has no IL warnings in the library", "done": true, "evidence": "Local: `dotnet publish bench/write-corpus -c Release -r win-x64` (Native AOT, vswhere folder on PATH) at commit 00c69af, log searched for `IL[23][0-9]{3}`: 0 matches, the published exe ran `check` and `run` (exit 0). CI of pull request #85 (run 43505487736, head f363ca5, all checks green): \"Publish the Write corpus tool (Native AOT, Linux)\" and \"(Native AOT, Windows)\" in the build job and \"Publish the PDF app, the CLI and the Write corpus tool (Native AOT, both architectures)\" in `build-macos` succeeded (each fails on a log match of `IL[23][0-9]{3}`), and the steps \"Corpus check and round trip of the published tool\" (Linux, Windows, macOS) succeeded" }
+          ],
+          "blocks": [
+            {
+              "title": "Open items",
+              "text": "**Owner (Word):** the reference PDFs of the corpus are made in Word by the owner: `word.pdf` next to every entry and `word-accept.pdf` and `word-reject.pdf` next to `poi-tika-792` (how: `testdata/write-corpus/README.md`, \"Word PDFs\"). From the PDF of `thesis` read Word's page count and whether Word shows \"1\" on physical page 3 and \"A-1\" on the first appendix page. Check: `dotnet run --project bench/write-corpus -c Release -- table --root testdata/write-corpus --out Docs/write-corpus.md`, then commit the regenerated `Docs/write-corpus.md` (no CI check regenerates it).\n\n**Proven by CI (pull request #85, run 43505487736):** the Native AOT publish of the tool on Linux and macOS (both architectures) and the Unix-mode save test (`DocxSaveTests.UnixPermissionsOfTheTargetAreKept`, skipped on the Windows host, ran and passed in `build-linux`). The Apple-silicon and Intel macOS runs of the published tool's `check` and `run` executed in `build-macos`."
+            }
           ]
         },
         {
@@ -1168,6 +1181,10 @@
     {
       "title": "RenderSchedulerTests.InvalidatePagesDoesNotWaitForARunningHandler can kill the test process",
       "text": "On the Windows job of PR #75 the `Raffica.Core.Tests` run ended with an unhandled `ObjectDisposedException` ('System.Threading.ManualResetEventSlim') and exit code -532462766; a re-run passed. The stack is the test's own handler (`RenderSchedulerTests.InvalidatePagesDoesNotWaitForARunningHandler`, a lambda that waits on a `ManualResetEventSlim`) called by `RenderScheduler.Raise` on a pool thread, so the test disposes the event while the handler thread still waits on it; an unhandled exception on a pool thread ends the whole test host. Not a proven product bug. Make the test wait for the handler to finish (or release the event only after it) before it disposes anything, and check whether the other `RenderSchedulerTests` handlers have the same shape."
+    },
+    {
+      "title": "Third-party licences of the Write projects",
+      "text": "Extend `tools/licenses.cs` and the third-party notices to the Write projects (Open XML SDK `DocumentFormat.OpenXml` and `.Framework` 3.5.1, `System.IO.Packaging`, transitive packages) before Write ships. `PackageList.Projects` lists only `src/Raffica.Pdf` and `src/Raffica.Cli`, so the check is blind to the SDK (all declare MIT in their NuGet metadata). See `Docs/DECISIONS.md`, \"Raffica Write: document model and DOCX package layer (M4.1)\"."
     }
   ]
 }
