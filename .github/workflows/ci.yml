@@ -259,6 +259,39 @@ jobs:
       - name: Publish the PDF app (Native AOT)
         run: dotnet publish src/Raffica.Pdf -c Release -r ${{ matrix.rid }} -o out/pdf
 
+      # The Write corpus tool (bench/write-corpus) is the Native AOT proof of the DOCX libraries: it must publish without trim or AOT
+      # warnings (any IL2xxx or IL3xxx in the log fails the step) and the published binary must run its checks. The check runs with
+      # --allow-uncovered until the corpus covers every required feature (milestone 4.1, Task 11 removes it).
+      - name: Publish the Write corpus tool (Native AOT, Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -o pipefail
+          mkdir -p out
+          dotnet publish bench/write-corpus -c Release -r ${{ matrix.rid }} -o out/write-corpus 2>&1 | tee out/write-corpus-publish.log
+          if grep -E 'IL[23][0-9]{3}' out/write-corpus-publish.log; then echo "the Write corpus tool publish has trim or AOT warnings" >&2; exit 1; fi
+
+      - name: Publish the Write corpus tool (Native AOT, Windows)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          dotnet publish bench/write-corpus -c Release -r ${{ matrix.rid }} -o out/write-corpus 2>&1 | Tee-Object -FilePath out/write-corpus-publish.log
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish exited with $LASTEXITCODE" }
+          if (Select-String -Path out/write-corpus-publish.log -Pattern 'IL[23][0-9]{3}' -Quiet) { throw 'the Write corpus tool publish has trim or AOT warnings' }
+
+      - name: Corpus check and round trip of the published tool (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./out/write-corpus/write-corpus check --root testdata/write-corpus --allow-uncovered
+          ./out/write-corpus/write-corpus run --root testdata/write-corpus
+
+      - name: Corpus check and round trip of the published tool (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          & ./out/write-corpus/write-corpus.exe check --root testdata/write-corpus --allow-uncovered
+          if ($LASTEXITCODE -ne 0) { throw "check exited with $LASTEXITCODE" }
+          & ./out/write-corpus/write-corpus.exe run --root testdata/write-corpus
+          if ($LASTEXITCODE -ne 0) { throw "run exited with $LASTEXITCODE" }
+
       # The published size of the PDF app and its zip against the limits (budget x 1.25) recorded from the owner's measurement runs
       # (Docs/DECISIONS.md, "Raffica PDF speed budgets (M2.1)"; the single copy of the table is CheckCommand in measure.cs): exit 1 above a
       # limit, no CSV. A miss is a finding for the owner, never a loosened limit. --no-cache for the reason given at the gallery step.
@@ -378,12 +411,25 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: dotnet run tools/native-fetch.cs -- --rid osx-x64 --out artifacts/native/osx-x64
 
-      - name: Publish the PDF app and the CLI (Native AOT, both architectures)
+      - name: Publish the PDF app, the CLI and the Write corpus tool (Native AOT, both architectures)
         run: |
-          set -e
+          set -eo pipefail
           for rid in osx-arm64 osx-x64; do
             dotnet publish src/Raffica.Pdf -c Release -r "$rid" -o "out/pdf-$rid"
             dotnet publish src/Raffica.Cli -c Release -r "$rid" -o "out/cli-$rid"
+            dotnet publish bench/write-corpus -c Release -r "$rid" -o "out/write-corpus-$rid" 2>&1 | tee "$RUNNER_TEMP/write-corpus-publish-$rid.log"
+            if grep -E 'IL[23][0-9]{3}' "$RUNNER_TEMP/write-corpus-publish-$rid.log"; then echo "$rid: the Write corpus tool publish has trim or AOT warnings" >&2; exit 1; fi
+          done
+
+      # The Write corpus tool runs natively (arm64) and the Intel build through Rosetta. --allow-uncovered: see the build job.
+      - name: Corpus check and round trip of the published tool
+        run: |
+          set -e
+          for pair in osx-arm64: osx-x64:"arch -x86_64"; do
+            rid=${pair%%:*}; runner=${pair#*:}
+            exe="out/write-corpus-$rid/write-corpus"
+            $runner "$exe" check --root testdata/write-corpus --allow-uncovered
+            $runner "$exe" run --root testdata/write-corpus
           done
 
       - name: Check the architecture of the executables

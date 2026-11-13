@@ -1,5 +1,6 @@
 using System.Text;
 using System.Xml.Linq;
+using Raffica.Write.Docx;
 using Raffica.Write.Docx.Xml;
 using Raffica.Write.Model;
 using Raffica.Write.Tests.Support;

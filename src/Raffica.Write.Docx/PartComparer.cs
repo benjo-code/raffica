@@ -1,6 +1,6 @@
 using System.IO.Compression;
 
-namespace Raffica.Write.Tests.Support;
+namespace Raffica.Write.Docx;
 
 /// <summary>The parts that differ between two DOCX files, as part names with a leading slash (for example <c>/word/document.xml</c>).</summary>
 internal sealed record PartDiff(IReadOnlyList<string> Added, IReadOnlyList<string> Removed, IReadOnlyList<string> Changed)

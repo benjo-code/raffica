@@ -19,5 +19,6 @@
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/shell-probe/ShellProbe/ShellProbe.csproj" />
+    <Project Path="bench/write-corpus/WriteCorpus.csproj" />
   </Folder>
 </Solution>

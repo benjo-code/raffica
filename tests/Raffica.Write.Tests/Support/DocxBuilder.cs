@@ -24,6 +24,13 @@ internal static class DocxBuilder
         WritePart(styles, "<w:styles xmlns:w=\"" + XmlSnippets.W + "\"><w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/></w:style></w:styles>");
     }
 
+    /// <summary>A document whose body is the given XML (inside the body element, usual prefixes declared) and no other part.</summary>
+    public static void WithBody(string path, string bodyXml)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        WriteMain(package.AddMainDocumentPart(), bodyXml);
+    }
+
     /// <summary>A document with a linked picture (external relationship) and a hyperlink to the same address.</summary>
     public static void WithExternalPicture(string path)
     {

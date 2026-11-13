@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace Raffica.Write.Tests.Support;
+namespace Raffica.Write.Docx;
 
 /// <summary>
 /// Equivalence of two XML trees for round-trip tests. Equal means: the same element names, the same attribute set

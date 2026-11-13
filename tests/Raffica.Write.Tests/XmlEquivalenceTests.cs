@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Raffica.Write.Docx;
 using Raffica.Write.Tests.Support;
 using Xunit;
 
