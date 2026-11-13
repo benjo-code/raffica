@@ -1180,6 +1180,10 @@
     {
       "title": "RenderSchedulerTests.InvalidatePagesDoesNotWaitForARunningHandler can kill the test process",
       "text": "On the Windows job of PR #75 the `Raffica.Core.Tests` run ended with an unhandled `ObjectDisposedException` ('System.Threading.ManualResetEventSlim') and exit code -532462766; a re-run passed. The stack is the test's own handler (`RenderSchedulerTests.InvalidatePagesDoesNotWaitForARunningHandler`, a lambda that waits on a `ManualResetEventSlim`) called by `RenderScheduler.Raise` on a pool thread, so the test disposes the event while the handler thread still waits on it; an unhandled exception on a pool thread ends the whole test host. Not a proven product bug. Make the test wait for the handler to finish (or release the event only after it) before it disposes anything, and check whether the other `RenderSchedulerTests` handlers have the same shape."
+    },
+    {
+      "title": "Third-party licences of the Write projects",
+      "text": "Extend `tools/licenses.cs` and the third-party notices to the Write projects (Open XML SDK `DocumentFormat.OpenXml` and `.Framework` 3.5.1, `System.IO.Packaging`, transitive packages) before Write ships. `PackageList.Projects` lists only `src/Raffica.Pdf` and `src/Raffica.Cli`, so the check is blind to the SDK (all declare MIT in their NuGet metadata). See `Docs/DECISIONS.md`, \"Raffica Write: document model and DOCX package layer (M4.1)\"."
     }
   ]
 }

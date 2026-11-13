@@ -1,6 +1,6 @@
 # Write compatibility corpus
 
-DOCX files that Raffica Write opens, saves and (from Task 11 on) lays out, with the manifest that says where each file comes from. The file `corpus.json` lists every file; the tool `bench/write-corpus` checks it and runs the round trip. The files are real-world documents from permissively licensed test suites plus the generated thesis; nothing here is made by Word unless the manifest says so.
+DOCX files that Raffica Write opens and saves (the layout columns come with milestone 4.2), with the manifest that says where each file comes from. The file `corpus.json` lists every file; the tool `bench/write-corpus` checks it and runs the round trip. The files are real-world documents from permissively licensed test suites plus the generated thesis; nothing here is made by Word unless the manifest says so.
 
 ## Layout
 
