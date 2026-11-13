@@ -796,7 +796,7 @@
         {
           "id": "4.1",
           "title": "Document model and DOCX round trip",
-          "status": "planned",
+          "status": "in-progress",
           "plan": "superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md",
           "prerequisites": ["4"],
           "goal": "A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.",

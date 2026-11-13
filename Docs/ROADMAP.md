@@ -40,7 +40,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
-| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | – |
+| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | – |
 | 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | ⬜ open | – | – |
 | 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
@@ -596,7 +596,7 @@ Goal: The layout engine decision for Write rests on measurements and the spec is
 - [x] The spec is approved and linked here – `superpowers/specs/2026-11-13-raffica-write-design.md`, approved by the owner on 2026-11-13 after the builder check and one round of the owner's answers (corpus sources, layout differences recorded, right-to-left in the backlog); linked as the spec of subproject 5, its milestones 4.1 to 4.9 entered below
 
 ## Milestone 4.1 – Document model and DOCX round trip
-**Status:** 🟡 planned · **Plan:** [2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) · **Prerequisites:** M4
+**Status:** 🔵 in progress · **Plan:** [2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) · **Prerequisites:** M4
 
 Goal: A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.
 
