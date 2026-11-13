@@ -40,7 +40,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
-| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | – |
+| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | 2026-11-13 |
 | 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | ⬜ open | – | – |
 | 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
@@ -596,7 +596,7 @@ Goal: The layout engine decision for Write rests on measurements and the spec is
 - [x] The spec is approved and linked here – `superpowers/specs/2026-11-13-raffica-write-design.md`, approved by the owner on 2026-11-13 after the builder check and one round of the owner's answers (corpus sources, layout differences recorded, right-to-left in the backlog); linked as the spec of subproject 5, its milestones 4.1 to 4.9 entered below
 
 ## Milestone 4.1 – Document model and DOCX round trip
-**Status:** 🔵 in progress · **Plan:** [2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) · **Prerequisites:** M4
+**Status:** ✅ done (2026-11-13) · **Plan:** [2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) · **Prerequisites:** M4
 
 Goal: A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.
 
@@ -608,12 +608,12 @@ Goal: A UI-free library reads and writes DOCX into a model that follows OOXML an
 **Acceptance criteria**
 - [x] Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests) – `CorpusRoundTripTests.EveryCorpusFileRoundTrips` (one case per corpus file, 16 files) and `DocxSaveTests.PartsNotLoadedStayByteIdentical`, `SavedWithoutChangesKeepsEveryOtherPartByteIdentical` pass (full run of the solution with `RAFFICA_REQUIRE_OCR=1` at commit 00c69af: 6798 total, 6749 passed, 49 skipped, 0 failed); the published Native AOT `write-corpus run --root testdata/write-corpus` prints `true,true,true,true` (opens, saves, unloadedIdentical, loadedEquivalent) for all 16 files, exit 0, and `check` exit 0
 - [x] A model change saved and read again gives the same model (tests) – `DocxSaveTests.ModelChangeRoundTrips` (renames a style, appends a paragraph, deletes a table row and adds a footnote to the thesis, reads the saved file again and compares with `ModelSnapshot` by `XmlEquivalence`) and `DocxSaveTests.ACommentIsAddedToADocumentWithoutACommentsPart` pass at commit 00c69af
-- [ ] The Native AOT publish has no IL warnings in the library – Local proof only: `dotnet publish bench/write-corpus -c Release -r win-x64` (Native AOT, vswhere folder on PATH) at commit 00c69af, log searched for `IL[23][0-9]{3}`: 0 matches, the published exe ran `check` and `run` (exit 0). The CI steps "Publish the Write corpus tool (Native AOT, Linux)" and "(Native AOT, Windows)" in the build job and the macOS step in `build-macos` search the same log; their result is pending the first run on the pull request, so this criterion stays open until then
+- [x] The Native AOT publish has no IL warnings in the library – Local: `dotnet publish bench/write-corpus -c Release -r win-x64` (Native AOT, vswhere folder on PATH) at commit 00c69af, log searched for `IL[23][0-9]{3}`: 0 matches, the published exe ran `check` and `run` (exit 0). CI of pull request #85 (run 43505487736, head f363ca5, all checks green): "Publish the Write corpus tool (Native AOT, Linux)" and "(Native AOT, Windows)" in the build job and "Publish the PDF app, the CLI and the Write corpus tool (Native AOT, both architectures)" in `build-macos` succeeded (each fails on a log match of `IL[23][0-9]{3}`), and the steps "Corpus check and round trip of the published tool" (Linux, Windows, macOS) succeeded
 
 **Open items**
 **Owner (Word):** the reference PDFs of the corpus are made in Word by the owner: `word.pdf` next to every entry and `word-accept.pdf` and `word-reject.pdf` next to `poi-tika-792` (how: `testdata/write-corpus/README.md`, "Word PDFs"). From the PDF of `thesis` read Word's page count and whether Word shows "1" on physical page 3 and "A-1" on the first appendix page. Check: `dotnet run --project bench/write-corpus -c Release -- table --root testdata/write-corpus --out Docs/write-corpus.md`, then commit the regenerated `Docs/write-corpus.md` (no CI check regenerates it).
 
-**CI only:** the Native AOT publish of the tool on Linux and macOS and the Unix-mode save test (`DocxSaveTests.UnixPermissionsOfTheTargetAreKept`, skipped on the Windows host) are proven by the first CI run of the pull request.
+**Proven by CI (pull request #85, run 43505487736):** the Native AOT publish of the tool on Linux and macOS (both architectures) and the Unix-mode save test (`DocxSaveTests.UnixPermissionsOfTheTargetAreKept`, skipped on the Windows host, ran and passed in `build-linux`). The Apple-silicon and Intel macOS runs of the published tool's `check` and `run` executed in `build-macos`.
 
 ## Milestone 4.2 – Write as a fast DOCX viewer
 **Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.1
