@@ -1,8 +1,8 @@
 # Raffica Write – Design
 
-Status: draft for approval (builder check done, owner's answers of 2026-11-13 entered) · Date: 2026-11-13 · Author: brainstorming session (M4)
+Status: approved by the owner on 2026-11-13 · Date: 2026-11-13 · Author: brainstorming session (M4)
 
-Items marked **(call)** are decisions made by the author of this document, not by the project owner. The owner checks them before approving. Everything else was decided by the owner (in this session or in the spike design `2026-11-12-raffica-write-spikes-design.md`, section 2) or is settled in an existing document that this one names.
+Items marked **(call)** are decisions made by the author of this document, not by the project owner; they are part of the document the owner approved on 2026-11-13 as handed over. Everything else was decided by the owner (in this session or in the spike design `2026-11-12-raffica-write-spikes-design.md`, section 2) or is settled in an existing document that this one names.
 
 ## 1. Intent
 

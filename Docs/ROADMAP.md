@@ -39,7 +39,16 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.1 | Runs on the Mac | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-09-milestone-03-1-runs-on-the-mac.md) | 2026-11-11 |
 | 3.2 | Feels like a Mac app | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-2-feels-like-a-mac-app.md) | 2026-11-11 |
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
-| 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | – |
+| 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
+| 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ⬜ open | – | – |
+| 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | ⬜ open | – | – |
+| 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
+| 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
+| 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
+| 4.6 | Review and proofing | 5 – Raffica Write | ⬜ open | – | – |
+| 4.7 | Print and PDF | 5 – Raffica Write | ⬜ open | – | – |
+| 4.8 | Release readiness and security check | 5 – Raffica Write | ⬜ open | – | – |
+| 4.9 | Release | 5 – Raffica Write | ⬜ open | – | – |
 | 5 | Create spec for Raffica Sheets | 6 – Raffica Sheets | ⬜ open | – | – |
 | 6 | Create spec for Raffica Slides | 7 – Raffica Slides | ⬜ open | – | – |
 
@@ -568,10 +577,10 @@ Every task and every criterion is ticked. The owner's checks on a real Mac (2026
 
 # Subproject 5 – Raffica Write
 
-**Spec:** not written yet (created in its first milestone)
+**Spec:** [2026-11-13-raffica-write-design.md](superpowers/specs/2026-11-13-raffica-write-design.md) Raffica Write design, approved 2026-11-13
 
 ## Milestone 4 – Spikes & spec for Raffica Write
-**Status:** 🔵 in progress · **Plan:** [2026-11-12-milestone-04-write-spikes-spec.md](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) · **Spec:** [2026-11-12-raffica-write-spikes-design.md](superpowers/specs/2026-11-12-raffica-write-spikes-design.md) · **Prerequisites:** M3.3
+**Status:** ✅ done (2026-11-13) · **Plan:** [2026-11-12-milestone-04-write-spikes-spec.md](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) · **Spec:** [2026-11-12-raffica-write-spikes-design.md](superpowers/specs/2026-11-12-raffica-write-spikes-design.md) · **Prerequisites:** M3.3
 
 Goal: The layout engine decision for Write rests on measurements and the spec is written.
 
@@ -579,11 +588,150 @@ Goal: The layout engine decision for Write rests on measurements and the spec is
 - [x] Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)
 - [x] Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)
 - [x] Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS
-- [ ] Create the spec (brainstorming) and enter its milestones
+- [x] Create the spec (brainstorming) and enter its milestones
 
 **Acceptance criteria**
 - [x] The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md` – four entries of 2026-11-12 and 2026-11-13 in `Docs/DECISIONS.md` (Open XML SDK, layout engine, printing, IME), the layout decision "Raffica Write: the layout engine (M4)" names C#
-- [ ] The spec is approved and linked here
+- [x] The spec is approved and linked here – `superpowers/specs/2026-11-13-raffica-write-design.md`, approved by the owner on 2026-11-13 after the builder check and one round of the owner's answers (corpus sources, layout differences recorded, right-to-left in the backlog); linked as the spec of subproject 5, its milestones 4.1 to 4.9 entered below
+
+## Milestone 4.1 – Document model and DOCX round trip
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4
+
+Goal: A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.
+
+**Tasks**
+- [ ] The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept
+- [ ] DOCX read and write through the Open XML SDK under Native AOT; parts not loaded are copied byte for byte; atomic save
+- [ ] The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)
+
+**Acceptance criteria**
+- [ ] Every corpus file opens and saves; parts not loaded are byte-identical after a save (tests)
+- [ ] A model change saved and read again gives the same model (tests)
+- [ ] The Native AOT publish has no IL warnings in the library
+
+## Milestone 4.2 – Write as a fast DOCX viewer
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.1
+
+Goal: Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.
+
+**Tasks**
+- [ ] The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`
+- [ ] The C# layout library with the layout features of the spec (section 6), the shipped fonts and font fallback
+- [ ] Page view and writing view, scrolling, zoom, outline pane for navigation
+- [ ] Startup work for the first page (font loading, reading only what page 1 needs)
+- [ ] App speed budgets: `measure.yml` target `write`, a Write budget table in `CheckCommand`, measured on the Windows PC, the Linux laptop and the Intel Mac
+
+**Acceptance criteria**
+- [ ] First page of the 311-page test document ≤ 100 ms on the Linux laptop (`measure.yml`)
+- [ ] The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25)
+- [ ] The corpus comparison table exists and the generated thesis has Word's page count
+
+## Milestone 4.3 – Editing
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.2
+
+Goal: Text, formatting and styles can be edited in every story of a document, with IME, undo, saving and recovery.
+
+**Tasks**
+- [ ] Caret, selection, typing, delete, clipboard (rich within Write, plain text outside), undo and redo in every story (body, table cells, notes, headers and footers, comments)
+- [ ] IME through `TextInputMethodClient` with Write's own preedit caret
+- [ ] Paragraph and character formatting, styles, the formatting inspector (remove one override, update style to match, clear direct formatting)
+- [ ] New document with Write's built-in style set; save, Save as, dirty state and close prompt
+- [ ] Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash
+
+**Acceptance criteria**
+- [ ] Typing ≤ 16 ms per keystroke in the app on the 311-page document
+- [ ] IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, and a German keyboard layout works (owner, recorded)
+- [ ] Recovery after a killed process restores the text (test)
+
+## Milestone 4.4 – Structure
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3
+
+Goal: Headings, numbering, sections and page numbers are built by Write in one action and never break.
+
+**Tasks**
+- [ ] Headings, lists and numbering on the document's numbering definitions
+- [ ] Outline pane: drag and keys move a heading with its content, promote and demote
+- [ ] Sections and "start page numbering here" as one command with a removable marker; headers and footers (first, odd and even)
+- [ ] Page setup: size, margins, orientation, columns
+
+**Acceptance criteria**
+- [ ] Moving and deleting headings never leaves stale numbers (tests)
+- [ ] The page-3 "1" and the "A-1" appendix made with the one command open in Word as intended (owner, recorded)
+
+## Milestone 4.5 – Long-document tools
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4
+
+Goal: A thesis can be written in Write from scratch, with tables, pictures, notes and fields that are always current.
+
+**Tasks**
+- [ ] Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes
+- [ ] Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`
+- [ ] Hyperlinks with Ctrl+K in Write (command search on Alt+Q in Write, an app-level option of the frame), bookmarks
+- [ ] Find and replace (match case, whole words)
+
+**Acceptance criteria**
+- [ ] Fields are current after every edit that moves them (tests)
+- [ ] A thesis made in Write from scratch opens in Word with working fields (owner, recorded)
+
+## Milestone 4.6 – Review and proofing
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.5
+
+Goal: Comments and tracked changes from Word files can be worked through, and spelling is checked in English and German offline.
+
+**Tasks**
+- [ ] Spelling with Hunspell, English (US, UK) and German dictionaries shipped, user dictionary
+- [ ] Comments pane: add, reply, delete, resolve
+- [ ] Tracked changes: show, accept, reject (one, all, by author), formatting changes filtered by default; the "edits are not tracked" bar
+
+**Acceptance criteria**
+- [ ] Accept and reject give the same text as Word on corpus files (tests on the model)
+- [ ] Spelling marks and suggestions in both languages (tests)
+
+## Milestone 4.7 – Print and PDF
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.6
+
+Goal: Write prints itself on each system and exports a PDF with real text.
+
+**Tasks**
+- [ ] Move the platform print services out of `Raffica.Pdf` into a shared project; the PDF tests stay green
+- [ ] Windows: GDI printing with glyph indices and the Win32 print dialog; Linux and macOS: a PDF in memory to CUPS with the shared print dialog; copies, range, duplex, orientation
+- [ ] PDF export with real text and embedded font subsets
+
+**Acceptance criteria**
+- [ ] Real printers on Windows and Linux print the test document's ranges with the right page numbers (owner, recorded)
+- [ ] The exported PDF has text on every page (PDFium test)
+
+## Milestone 4.8 – Release readiness and security check
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.7
+
+Goal: Write is checked for hostile files, dependencies, wording, crashes and speed before it is released.
+
+**Tasks**
+- [ ] Security: malformed and hostile DOCX (oversized parts, zip bombs, deep nesting, broken relationships) refused or opened safely, fuzzed in CI; no external fetch, no macro run, no OLE activation
+- [ ] Dependency licence and vulnerability check
+- [ ] Readiness: live UI pass on the Native AOT build on all three systems, German wording, crash handling, screen reader names the caret's text
+- [ ] Speed: the app budgets with a control run of the same day, typing with the outline pane open and with tracked changes in the file
+- [ ] Release dry run
+
+**Acceptance criteria**
+- [ ] Fuzzing finds no crash in its run time, and every security rule has a test
+- [ ] The live pass findings are fixed or recorded for the owner
+- [ ] `measure.yml` is within the budgets or the miss is recorded with the numbers
+- [ ] The release dry run is green
+
+## Milestone 4.9 – Release
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.8
+
+Goal: The first release of Raffica Write is published on the owner's instruction.
+
+**Tasks**
+- [ ] Packaging: Write in the installers (one suite installer or its own, decided with the owner), the default-app offer for `.docx`, the update path
+- [ ] Release number decided with the owner; CHANGELOG and README
+- [ ] The release, on the owner's instruction only
+
+**Acceptance criteria**
+- [ ] The release run is green and the published files are the checked ones
+- [ ] An installed build opens a `.docx` from the file manager on each system
 
 ---
 
@@ -637,7 +785,11 @@ Deliberately not planned. Ideas that `/ideen` puts here are listed; if needed, o
 - **Real-time collaboration:** Several people editing one document at the same time, someday, not for the beginning.
 - **What the field-code group numbers should do:** In field-code mode the group digits are shown as a legend only; Q, 6 and 7 act. Decide whether typing a group digit should do something (for example jump to the group).
 - **German wording for "System" in the settings dialog:** The German label "Wie System" (`SettingsThemeSystem`, the follow-the-system theme choice) needs the owner's decision on the wording.
-- **Ctrl+K and hyperlinks in Write:** The frame binds Ctrl+K to the search field. Word and other editors use Ctrl+K for inserting a hyperlink; settle this in the Write spec (note for the Write spec).
+- **Write: record tracked changes:** The first release of Write shows, accepts and rejects tracked changes but does not record the user's own edits (Write spec, section 3).
+- **Write: equations, mail merge, shapes, SmartArt and charts:** Kept and shown in the first release of Write, not edited: an equation editor (OMML), mail merge, drawing shapes, SmartArt, charts (Write spec, section 3).
+- **Write: grammar check:** LanguageTool (LGPL) needs Java; a grammar check is left out of Write's first release (Write spec, section 3).
+- **Write: right-to-left scripts:** Arabic, Hebrew and bidirectional text: layout, caret and selection in both directions. The first release keeps such text without loss but shows it left to right with a note (owner, 2026-11-13; Write spec, section 3).
+- **Write: templates, regular expressions, tagged PDF:** Templates (`.dotx`, `.dotm`), regular expressions in find and replace, tagged PDF and PDF/A export (Write spec, sections 3 and 6).
 - **Accessibility items deferred from the frame:** Not done in milestone 1.2: the selected state of ribbon tabs is not exposed to assistive technology (only a style class; the document tabs expose it since milestone 2.1), the search results list has no selection semantics, and a document tab has two tab stops (tab and close button).
 - **macOS print panel:** Print through the native macOS print panel (Preview, PDF export, presets) instead of the app's own CUPS print card. Left out of subproject 4 because it needs Objective-C interop for NSPrintOperation; the own card over CUPS is the decided path (spec 5.6).
 - **Tabs between windows and open in a new window:** Pagewing 1.0 let a tab be moved to its own window (menu "Open in new window", M4) and dragged between windows (M4.1, Windows only). Raffica PDF 2.1 has one window with tabs; the frame's `DocumentTabs` has no drag-out. Revisit after 2.6 or when the owner asks.

@@ -49,6 +49,7 @@ Raffica is a fast, open-source office suite for Windows, Linux and macOS, growin
 ### Write spikes (M4)
 
 - `spikes/write/` holds the throwaway spikes of milestone 4 (test document generator, Open XML SDK under AOT, layout engine C# against Rust, printing, IME). It is outside `Raffica.slnx` and isolated by `spikes/Directory.Build.props` and `spikes/Directory.Packages.props` (no repo analyzers, no central package management, each spike pins its own versions); it may reference `Raffica.Core` but never `Raffica.Pdf` or `Raffica.Shell`, and `dotnet format` does not run on it. The test document comes from `dotnet run --project spikes/write/testdoc -c Release -- generate --out <path>` (`thesis.docx` is committed; seed 4242, byte-identical output). Spike code never becomes product code: whatever is kept later is rewritten under the Write milestones with tests. The results and decisions are the M4 entries of `Docs/DECISIONS.md` ("Raffica Write: ..."). The Rust library of the layout spike needs `rustup`; `spikes/**/target/` is ignored.
+- **Write spec:** `Docs/superpowers/specs/2026-11-13-raffica-write-design.md` (approved 2026-11-13), milestones 4.1 to 4.9 in the roadmap; the lasting calls (autosave as a recovery copy, Ctrl+K for links and Alt+Q for command search in Write, field results without `updateFields`, shared code moves out of `Raffica.Pdf` instead of being copied, layout differences from Word recorded in the corpus table) are in `Docs/DECISIONS.md`, "Raffica Write: the spec and the first release (M4)".
 
 ### Shell
 
