@@ -19,16 +19,16 @@ Result per cell: `works`, `flaw: <what>`, or `fails`. Paste the event log of any
 |---|---|---|---|---|---|---|---|---|
 | Microsoft Japanese IME | ComposeBox | works | works | works | works | works | works | log: `にほんご` → `日本語` (candidate), commit `日本語`, Esc left nothing, Backspace `にほ` → `に`; position at the caret (owner's report) |
 | Microsoft Japanese IME | TextBox | works | works | works | works | works | works | owner's report (no log of the TextBox kept) |
-| Microsoft Pinyin | ComposeBox | works | works | works | works | works | works | log: preedit `y'hong'wen` (the owner typed `zhongwen` on a German keyboard and got `y`, probably the physical key position, not the control), Enter committed the letters, Esc left nothing, Backspace removed one letter at a time; the log shows no candidate pick, the candidates are from the owner's report, who also confirmed that the candidate window stood at the caret |
-| Microsoft Pinyin | TextBox | works | works | works | works | works | works | owner's report (no log of the TextBox kept) |
+| Microsoft Pinyin | ComposeBox | works | works | works | works | works | works | log: preedit `y'hong'wen` (the owner typed `zhongwen` on a German keyboard and got `y`, probably the physical key position, not the control), Enter committed the letters, Esc left nothing, Backspace removed one letter at a time; the candidates are from the owner's report, who also confirmed that the candidate window stood at the caret; the second run with `nihao`, Space or 1, committed Chinese characters (owner, 2026-11-13) |
+| Microsoft Pinyin | TextBox | works | works | works | works | works | works | owner's report (no log of the TextBox kept); `nihao` with Space or 1 worked too |
 
-## Linux, Wayland session (HP ProBook, CachyOS)
+## Linux, Wayland session (HP ProBook, CachyOS; the log's first line reads `desktop wayland`)
 
 | Input method | Control | 1 | 2 | 3 | 4 | 5 | 6 | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Fcitx5 + Mozc | ComposeBox | | | | | | | |
+| Fcitx5 + Mozc | ComposeBox | works | works | works | works | | works | owner: Japanese worked; the log has the commit `日本語` but no preedit line at all, so whether the composition was drawn in the field is not confirmed; the position (5) was not reported |
 | Fcitx5 + Mozc | TextBox | | | | | | | |
-| Fcitx5 + Pinyin | ComposeBox | | | | | | | |
+| Fcitx5 + Pinyin | ComposeBox | works | works | works | works | | works | log: preedit `zhong wen` with the preedit cursor always 0 (never at the end), candidates always shown (owner), Esc and Backspace as expected; `nihao` with Space or 1 committed characters (owner); the position (5) was not reported. Enter commits the letters, as it should |
 | Fcitx5 + Pinyin | TextBox | | | | | | | |
 | IBus + Mozc (or Anthy) | ComposeBox | | | | | | | |
 | IBus + Mozc (or Anthy) | TextBox | | | | | | | |
@@ -46,4 +46,4 @@ The same eight rows as under Wayland.
 | Japanese - Romaji | ComposeBox | | | | | | | |
 | Japanese - Romaji | TextBox | | | | | | | |
 
-_Filled in so far (2026-11-13): the four Windows rows (Windows 11 build 26200, German keyboard); `ComposeBox` from the owner's event log and report, `TextBox` from the owner's report. Linux and macOS are not filled in yet._
+_Filled in so far (2026-11-13): the four Windows rows (Windows 11 build 26200, German keyboard; `ComposeBox` from the owner's event log and report, `TextBox` from the owner's report) and the two `ComposeBox` rows of Fcitx5 on Wayland. Not filled in: the `TextBox` rows on Linux, IBus, X11 and macOS._
