@@ -234,6 +234,132 @@ public sealed class CorpusToolTests
         Assert.Single(CorpusManifest.Load(root).Files);
     }
 
+    private static (int Code, string Output, string Error) Invoke(params string[] args)
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var code = Program.Run(args, output, error);
+        return (code, output.ToString(), error.ToString());
+    }
+
+    [Theory]
+    [InlineData("{ \"schema\": 1, \"files\": null }")]
+    [InlineData("{ \"files\": [] }")]
+    [InlineData("{ \"schema\": 2, \"files\": [] }")]
+    [InlineData("{ \"schema\": 1, \"files\": [ { \"id\": null, \"path\": \"a/a.docx\" } ] }")]
+    [InlineData("{ \"schema\": 1, \"files\": [ { \"id\": \"a\", \"path\": null } ] }")]
+    [InlineData("{ \"schema\": 1, \"files\": [ { \"id\": \"a\", \"sha256\": null } ] }")]
+    [InlineData("{ \"schema\": 1, \"files\": [ { \"id\": \"a\", \"features\": null } ] }")]
+    [InlineData("{ \"schema\": 1, \"files\": [ null ] }")]
+    [InlineData("not json at all")]
+    [InlineData("")]
+    public void AMalformedManifestEndsInExitOneWithoutACrash(string manifest)
+    {
+        using var folder = new TempFolder();
+        File.WriteAllText(CorpusManifest.PathIn(folder.Path), manifest);
+        foreach (var command in new[] { "check", "run" })
+        {
+            var (code, _, error) = Invoke(command, "--root", folder.Path);
+            Assert.Equal(1, code);
+            Assert.DoesNotContain(folder.Path, error, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void AMissingManifestIsAProblemNotACrash()
+    {
+        using var folder = new TempFolder();
+        Assert.Equal(1, Invoke("check", "--root", folder.Path).Code);
+        Assert.Equal(1, Invoke("run", "--root", folder.Path).Code);
+    }
+
+    [Theory]
+    [InlineData("a\0b/x.docx")]
+    [InlineData("../../x.docx")]
+    [InlineData("..\\..\\x.docx")]
+    [InlineData("/etc/x.docx")]
+    [InlineData("C:\\x.docx")]
+    [InlineData("")]
+    public void AnEntryWithAnUnusablePathIsReportedAndTheOthersStillRun(string badPath)
+    {
+        using var folder = new TempFolder();
+        var manifest = MakeRoot(folder, ("bad", PlainBody), ("good", PlainBody));
+        manifest.Files[0].Path = badPath;
+        manifest.Files[0].LicenseFile = "a\0b";
+        manifest.Save(folder.Path);
+
+        var check = Invoke("check", "--root", folder.Path, "--allow-uncovered");
+        Assert.Equal(1, check.Code);
+        Assert.Contains("bad", check.Output, StringComparison.Ordinal);
+
+        var run = Invoke("run", "--root", folder.Path);
+        Assert.Equal(1, run.Code);
+        var lines = run.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.StartsWith("bad,false,false,false,false,", lines[1], StringComparison.Ordinal);
+        Assert.StartsWith("good,true,true,true,true,", lines[2], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ANameThatOnlyStartsWithTwoDotsIsInsideTheRoot()
+    {
+        Assert.NotNull(CorpusCheck.Resolve(Path.GetTempPath(), "..foo/x.docx"));
+        Assert.NotNull(CorpusCheck.Resolve(Path.GetTempPath(), "a/../b/x.docx"));
+        Assert.Null(CorpusCheck.Resolve(Path.GetTempPath(), "a/../../x.docx"));
+        Assert.Null(CorpusCheck.Resolve(Path.GetTempPath(), ".."));
+    }
+
+    [Fact]
+    public void CheckRejectsAPathOutsideTheRoot()
+    {
+        using var folder = new TempFolder();
+        var manifest = MakeRoot(folder, ("plain", PlainBody));
+        manifest.Files[0].Path = "../plain.docx";
+        manifest.Save(folder.Path);
+        Assert.Contains(Check(folder), p => p.Contains("not inside the corpus root", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CheckRejectsADuplicateId()
+    {
+        using var folder = new TempFolder();
+        var manifest = MakeRoot(folder, ("plain", PlainBody), ("other", PlainBody));
+        manifest.Files[1].Id = "plain";
+        manifest.Save(folder.Path);
+        Assert.Contains(Check(folder), p => p.Contains("plain", StringComparison.Ordinal) && p.Contains("used twice", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CheckRejectsAManifestWithoutASchema()
+    {
+        using var folder = new TempFolder();
+        File.WriteAllText(CorpusManifest.PathIn(folder.Path), "{ \"files\": [] }");
+        Assert.Contains(Check(folder), p => p.Contains("cannot be read", StringComparison.Ordinal));
+    }
+
+    private static string[] Snapshot(string root) =>
+        [.. Directory.EnumerateFileSystemEntries(root, "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(root, f) + (File.Exists(f) ? ":" + Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(f))) : "")).Order(StringComparer.Ordinal)];
+
+    [Fact]
+    public void AFailingAddLeavesTheRootUnchanged()
+    {
+        using var folder = new TempFolder();
+        var source = folder.File("source.docx");
+        DocxBuilder.WithBody(source, PlainBody);
+        var license = folder.File("LICENSE-in.txt");
+        File.WriteAllText(license, "licence text");
+        var root = folder.File("root");
+        Directory.CreateDirectory(Path.Combine(root, "x"));
+        File.WriteAllText(Path.Combine(root, "x", "x.docx"), "an orphan that is in the way");
+        File.WriteAllText(CorpusManifest.PathIn(root), "{\n  \"schema\": 1,\n  \"files\": []\n}\n");
+        var before = Snapshot(root);
+
+        var (code, _, error) = Invoke("add", source, "--root", root, "--id", "x", "--source", "s", "--license", "MIT", "--license-file", license);
+
+        Assert.Equal(1, code);
+        Assert.Equal(before, Snapshot(root));
+        Assert.DoesNotContain(root, error, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void UsageErrorsExitWithTwo()
     {

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -40,9 +39,10 @@ internal static partial class Program
                 _ => Fail(error, $"unknown command '{args[0]}'"),
             };
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or XmlException or InvalidDataException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            error.WriteLine($"write-corpus: {ex.GetType().Name}: {ex.Message}");
+            // The exception type only: its message can contain absolute paths or values of the files read.
+            error.WriteLine($"write-corpus: failed ({ex.GetType().Name})");
             return 1;
         }
     }
@@ -81,6 +81,12 @@ internal static partial class Program
         if (!File.Exists(CorpusManifest.PathIn(root)))
         {
             error.WriteLine($"write-corpus: {CorpusManifest.FileName} is missing in the root");
+            return 1;
+        }
+
+        if (CorpusManifest.Load(root).Schema != CorpusManifest.CurrentSchema)
+        {
+            error.WriteLine($"write-corpus: the manifest schema is not {CorpusManifest.CurrentSchema}");
             return 1;
         }
 
@@ -147,24 +153,60 @@ internal static partial class Program
             return 1;
         }
 
-        Directory.CreateDirectory(Path.Combine(root, id));
-        Directory.CreateDirectory(Path.Combine(root, "licenses"));
+        // Everything the add creates is remembered and removed again unless the manifest was written: a failing add leaves the root as it was.
         var relativePath = $"{id}/{id}{extension}";
         var relativeLicense = $"licenses/{id}-{Path.GetFileName(licenseFile)}";
-        File.Copy(docx, Path.Combine(root, relativePath), overwrite: false);
-        File.Copy(licenseFile, Path.Combine(root, relativeLicense), overwrite: false);
-        manifest.Files.Add(new CorpusEntry
+        var createdFiles = new List<string>();
+        var createdFolders = new List<string>();
+        var committed = false;
+        try
         {
-            Id = id,
-            Path = relativePath,
-            Sha256 = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, relativePath)))),
-            Source = source,
-            License = license,
-            LicenseFile = relativeLicense,
-            Retrieved = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            Features = [.. features.Order(StringComparer.Ordinal)],
-        });
-        manifest.Save(root);
+            foreach (var folder in new[] { Path.Combine(root, "licenses"), Path.Combine(root, id) })
+            {
+                if (!Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                    createdFolders.Add(folder);
+                }
+            }
+
+            File.Copy(licenseFile, Path.Combine(root, relativeLicense), overwrite: false);
+            createdFiles.Add(Path.Combine(root, relativeLicense));
+            File.Copy(docx, Path.Combine(root, relativePath), overwrite: false);
+            createdFiles.Add(Path.Combine(root, relativePath));
+            manifest.Files.Add(new CorpusEntry
+            {
+                Id = id,
+                Path = relativePath,
+                Sha256 = CorpusCheck.HashOf(Path.Combine(root, relativePath)),
+                Source = source,
+                License = license,
+                LicenseFile = relativeLicense,
+                Retrieved = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Features = [.. features.Order(StringComparer.Ordinal)],
+            });
+            manifest.Save(root);
+            committed = true;
+        }
+        finally
+        {
+            if (!committed)
+            {
+                foreach (var file in createdFiles)
+                {
+                    File.Delete(file);
+                }
+
+                foreach (var folder in createdFolders.AsEnumerable().Reverse())
+                {
+                    if (Directory.Exists(folder) && !Directory.EnumerateFileSystemEntries(folder).Any())
+                    {
+                        Directory.Delete(folder);
+                    }
+                }
+            }
+        }
+
         output.WriteLine($"write-corpus add: {id} ({features.Count} feature(s))");
         return 0;
     }

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Xml;
 using Raffica.Core.Saving;
 using Raffica.Write.Docx;
 
@@ -57,7 +56,7 @@ internal static class CorpusRun
         {
             file = DocxFile.Open(path);
         }
-        catch (Exception ex) when (ex is DocxFormatException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             return new Row(false, false, false, false, watch.ElapsedMilliseconds);
         }
@@ -69,7 +68,7 @@ internal static class CorpusRun
             {
                 file.SaveAsync(saved).GetAwaiter().GetResult();
             }
-            catch (Exception ex) when (ex is DocxSaveException or SaveFailureException or IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 return new Row(true, false, false, false, watch.ElapsedMilliseconds);
             }
@@ -79,7 +78,7 @@ internal static class CorpusRun
                 var verdict = PackageVerifier.Compare(path, saved);
                 return new Row(true, true, verdict.UnloadedIdentical, verdict.LoadedEquivalent, watch.ElapsedMilliseconds);
             }
-            catch (Exception ex) when (ex is InvalidDataException or IOException or XmlException)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 return new Row(true, true, false, false, watch.ElapsedMilliseconds);
             }

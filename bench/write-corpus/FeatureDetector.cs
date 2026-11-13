@@ -165,7 +165,9 @@ internal static class FeatureDetector
                     }
 
                     _tags.Add("fields");
-                    more = reader.Read();
+
+                    // ReadElementContentAsString already moved to the next node; reading again would skip it.
+                    more = !reader.EOF;
                     continue;
                 }
 

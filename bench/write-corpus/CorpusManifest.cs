@@ -9,6 +9,8 @@ internal sealed class CorpusManifest
     public const int CurrentSchema = 1;
     public const string FileName = "corpus.json";
 
+    /// <summary>Required in the file: a manifest without a schema is unreadable, never silently schema 1.</summary>
+    [JsonRequired]
     public int Schema { get; set; } = CurrentSchema;
 
     public List<CorpusEntry> Files { get; set; } = [];
@@ -25,9 +27,20 @@ internal sealed class CorpusManifest
     public void Save(string root)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(this, CorpusJson.Default.CorpusManifest);
-        // LF line endings and a final newline, whatever the platform.
+        // LF line endings and a final newline, whatever the platform. The file is written next to the manifest and moved into
+        // place, so a failure never leaves a half-written manifest.
         var text = System.Text.Encoding.UTF8.GetString(bytes).Replace("\r\n", "\n", StringComparison.Ordinal) + "\n";
-        File.WriteAllBytes(PathIn(root), new System.Text.UTF8Encoding(false).GetBytes(text));
+        var path = PathIn(root);
+        var temporary = path + ".tmp";
+        try
+        {
+            File.WriteAllBytes(temporary, new System.Text.UTF8Encoding(false).GetBytes(text));
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
     }
 }
 
@@ -70,6 +83,8 @@ internal static class CorpusFeatures
     ];
 }
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = true, IndentSize = 2)]
+// RespectNullableAnnotations: a null where the manifest declares a value ("files": null, "id": null) is a JsonException, which the
+// tool reports as an unreadable manifest, never a NullReferenceException later.
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = true, IndentSize = 2, RespectNullableAnnotations = true)]
 [JsonSerializable(typeof(CorpusManifest))]
 internal sealed partial class CorpusJson : JsonSerializerContext;

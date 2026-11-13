@@ -29,7 +29,8 @@ internal static class CorpusCheck
         }
         catch (JsonException ex)
         {
-            problems.Add($"{CorpusManifest.FileName}: the manifest cannot be read ({ex.GetType().Name})");
+            // The exception type only: its message can name a path or a value of the file.
+            problems.Add($"{CorpusManifest.FileName}: the manifest cannot be read ({ex.GetType().Name}); schema must be present and every value valid");
             return problems;
         }
 
@@ -116,7 +117,7 @@ internal static class CorpusCheck
             return;
         }
 
-        var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
+        var hash = HashOf(path);
         if (!string.Equals(hash, entry.Sha256, StringComparison.OrdinalIgnoreCase))
         {
             problems.Add($"{label}: the hash of {relative} differs from the manifest");
@@ -146,17 +147,37 @@ internal static class CorpusCheck
         }
     }
 
-    /// <summary>The full path of a root-relative path, or null when it is rooted or leaves the root.</summary>
+    /// <summary>The lower-case SHA-256 of a file, read as a stream.</summary>
+    internal static string HashOf(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexStringLower(SHA256.HashData(stream));
+    }
+
+    /// <summary>The full path of a root-relative path, or null when it is empty, rooted, malformed (for example a NUL character) or leaves the root.</summary>
     internal static string? Resolve(string root, string relative)
     {
-        if (string.IsNullOrEmpty(relative) || Path.IsPathRooted(relative))
+        if (string.IsNullOrEmpty(relative))
         {
             return null;
         }
 
-        var rootFull = Path.GetFullPath(root);
-        var full = Path.GetFullPath(Path.Combine(rootFull, relative));
-        var inside = Path.GetRelativePath(rootFull, full);
-        return inside.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(inside) ? null : full;
+        try
+        {
+            if (Path.IsPathRooted(relative))
+            {
+                return null;
+            }
+
+            var rootFull = Path.GetFullPath(root);
+            var full = Path.GetFullPath(Path.Combine(rootFull, relative));
+            var inside = Path.GetRelativePath(rootFull, full);
+            var leaves = inside == ".." || inside.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || inside.StartsWith("../", StringComparison.Ordinal);
+            return leaves || Path.IsPathRooted(inside) ? null : full;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 }
