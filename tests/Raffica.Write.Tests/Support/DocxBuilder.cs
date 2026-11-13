@@ -31,6 +31,33 @@ internal static class DocxBuilder
         WriteMain(package.AddMainDocumentPart(), bodyXml);
     }
 
+    /// <summary>
+    /// The generated right-to-left corpus file: short neutral greetings of our own in Hebrew and Arabic (escaped, so the source stays
+    /// plain ASCII), <c>w:bidi</c> paragraphs, <c>w:rtl</c> runs with a Latin word inside, and a bidi table.
+    /// </summary>
+    public static void RightToLeft(string path)
+    {
+        const string hello = "שלום עולם";
+        const string thanks = "תודה רבה";
+        const string arabicHello = "مرحبا بالعالم";
+        const string arabicThanks = "شكرا جزيلا";
+        static string RtlRun(string text, string lang) =>
+            "<w:r><w:rPr><w:rtl/><w:lang w:bidi=\"" + lang + "\"/></w:rPr><w:t>" + text + "</w:t></w:r>";
+        static string BidiParagraph(params string[] runs) =>
+            "<w:p><w:pPr><w:bidi/><w:jc w:val=\"left\"/></w:pPr>" + string.Concat(runs) + "</w:p>";
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        WriteMain(
+            package.AddMainDocumentPart(),
+            "<w:p><w:r><w:t>Right-to-left text, written for this corpus.</w:t></w:r></w:p>"
+            + BidiParagraph(RtlRun(hello, "he-IL"))
+            + BidiParagraph(RtlRun(arabicHello, "ar-SA"))
+            + BidiParagraph(RtlRun(thanks, "he-IL"), "<w:r><w:t xml:space=\"preserve\"> Raffica </w:t></w:r>", RtlRun(hello, "he-IL"))
+            + "<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/><w:bidiVisual/></w:tblPr><w:tblGrid><w:gridCol w:w=\"3000\"/><w:gridCol w:w=\"3000\"/></w:tblGrid>"
+            + "<w:tr><w:tc><w:tcPr><w:tcW w:w=\"3000\" w:type=\"dxa\"/></w:tcPr>" + BidiParagraph(RtlRun(arabicThanks, "ar-SA")) + "</w:tc>"
+            + "<w:tc><w:tcPr><w:tcW w:w=\"3000\" w:type=\"dxa\"/></w:tcPr>" + BidiParagraph(RtlRun(thanks, "he-IL")) + "</w:tc></w:tr></w:tbl>"
+            + "<w:p><w:r><w:t>End.</w:t></w:r></w:p>");
+    }
+
     /// <summary>A document with a linked picture (external relationship) and a hyperlink to the same address.</summary>
     public static void WithExternalPicture(string path)
     {

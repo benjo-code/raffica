@@ -38,7 +38,16 @@ dotnet run --project bench/write-corpus -c Release -- add <docx> --root testdata
 | --- | --- | --- | --- |
 | generated: `spikes/write/testdoc`, seed 4242 | GPL-3.0-or-later | `thesis` | `licenses/thesis-LICENSE` (the repository LICENSE) |
 | Apache POI, `test-data/document`, commit `e0658769cb7f` | Apache-2.0 | ids `poi-*` | `licenses/apache-poi/LICENSE` and `NOTICE` (the `legal` folder of the repository) |
+| generated: `DocxBuilder.RightToLeft` (`tests/Raffica.Write.Tests/Support`) | GPL-3.0-or-later | `generated-rtl` | `licenses/thesis-LICENSE` (the repository LICENSE) |
 | Open XML SDK, `test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage`, commit `431ab05cf160` | MIT | `oxml-sdk-equation` | `licenses/open-xml-sdk/LICENSE` |
+
+### Licence stance
+
+- For the kept Apache POI and Open XML SDK files the licence is the **repository's**. Neither repository states a licence per file and no exception for the test-data folders was found. The provenance of text inside a document was not independently verified.
+- Files whose content evidently derives from third-party sources (Wikipedia excerpts, news sites, web downloads) are excluded. Removed after review, with the reason: `poi-delins` (hyperlinks to Wikipedia, probably excerpted text), `poi-drawing` (links to a news site, embeds an OLE object), `poi-bib-chernigovka` (the file name is a download from a third-party website), `poi-rtl` (Arabic Wikipedia links), `poi-word-with-attachments` (Wikipedia links in three languages, five embedded OLE parts).
+- `generated-rtl` replaces the RTL coverage: built by `DocxBuilder.RightToLeft` with short greetings written for it (Hebrew and Arabic, `w:bidi` paragraphs, `w:rtl` runs, a bidi table). `GeneratedCorpusFileTests` checks the builder; to write the file again run that class with `RAFFICA_WRITE_RTL=<path>` and add the result with `write-corpus add`.
+- `sections`, `toc` and `rtl-text` come from our own generated files only (`thesis`, `generated-rtl`), `equations` rests on the single file `oxml-sdk-equation`, and `comments`, `hyperlinks` and `tracked-changes` rest on one real file each (`poi-comment`, `poi-test-document`, `poi-tika-792`); Word-made specimens are to be added in milestone 4.2.
+- `poi-60316` has an external `attachedTemplate` relationship (a local file path); nothing ever fetches it.
 
 ## Adding a file
 
