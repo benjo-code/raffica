@@ -129,7 +129,7 @@ public sealed class StylesNumberingSettingsTests
         var b = again.Elements(W + "style").Last();
         Assert.Equal("1", (string?)b.Attribute(W + "default"));
         Assert.Equal("paragraph", (string?)b.Attribute(W + "type"));
-        Assert.NotEmpty(written);
+        Assert.Contains("w:default=\"true\"", Encoding.UTF8.GetString(written));
     }
 
     [Fact]
@@ -279,5 +279,139 @@ public sealed class StylesNumberingSettingsTests
         var bytes = output.ToArray();
         Assert.NotEqual(0xEF, bytes[0]);
         Assert.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>", Encoding.UTF8.GetString(bytes));
+    }
+
+    private static List<string> ChildNames(byte[] part, string? parent = null)
+    {
+        var root = XElement.Parse(Encoding.UTF8.GetString(part));
+        var element = parent is null ? root : root.Descendants().First(e => e.Name.LocalName == parent);
+        return element.Elements().Select(e => e.Name.LocalName).ToList();
+    }
+
+    private static byte[] WriteStyles(StyleSheet model)
+    {
+        using var output = new MemoryStream();
+        StylesXml.Write(model, output);
+        return output.ToArray();
+    }
+
+    private static byte[] WriteNumbering(NumberingDefinitions model)
+    {
+        using var output = new MemoryStream();
+        NumberingXml.Write(model, output);
+        return output.ToArray();
+    }
+
+    private static StyleSheet ReadStyles(string inner)
+    {
+        using var input = new MemoryStream(Bytes(Wrap("styles", inner)));
+        return StylesXml.Read(input);
+    }
+
+    private static NumberingDefinitions ReadNumbering(string inner)
+    {
+        using var input = new MemoryStream(Bytes(Wrap("numbering", inner)));
+        return NumberingXml.Read(input);
+    }
+
+    [Fact]
+    public void AddedStyleGoesAfterTheLastReadStyleAndDefaultsBeforeTheStyles()
+    {
+        var model = ReadStyles("""<x:first/><w:style w:type="paragraph" w:styleId="A"/><x:last/>""");
+        model.Styles.Add(new Style { Id = "B", Type = "paragraph", Name = "B" });
+        var written = WriteStyles(model);
+        Assert.Equal(["first", "style", "style", "last"], ChildNames(written));
+        using var again = new MemoryStream(written);
+        Assert.Equal(["A", "B"], StylesXml.Read(again).Styles.Select(x => x.Id).ToArray());
+
+        var bare = ReadStyles("""<x:first/><w:style w:styleId="A"/><x:last/>""");
+        bare.Defaults = new XElement(W + "docDefaults");
+        bare.LatentStyles = new XElement(W + "latentStyles");
+        Assert.Equal(["first", "docDefaults", "latentStyles", "style", "last"], ChildNames(WriteStyles(bare)));
+    }
+
+    [Fact]
+    public void BasedOnAndNextSetOnAReadStyleComeBeforeItsPropertiesAndTheKeptChildren()
+    {
+        var model = ReadStyles("""<w:style w:type="paragraph" w:styleId="S"><w:name w:val="S"/><w:qFormat/><w:pPr><w:jc w:val="left"/></w:pPr><w:rPr><w:b/></w:rPr></w:style>""");
+        var style = model.Find("S")!;
+        style.BasedOn = "Normal";
+        style.Next = "Normal";
+        style.Link = "SChar";
+        var written = WriteStyles(model);
+        Assert.Equal(["name", "basedOn", "next", "link", "qFormat", "pPr", "rPr"], ChildNames(written, "style"));
+        using var again = new MemoryStream(written);
+        var reread = StylesXml.Read(again).Find("S")!;
+        Assert.Equal("Normal", reread.BasedOn);
+        Assert.Equal("SChar", reread.Link);
+        Assert.True(reread.RunProperties.Bold);
+    }
+
+    [Fact]
+    public void ParagraphPropertiesGivenToAReadStyleWithOnlyRunPropertiesComeFirst()
+    {
+        var model = ReadStyles("""<w:style w:type="paragraph" w:styleId="S"><w:name w:val="S"/><w:rPr><w:b/></w:rPr></w:style>""");
+        model.Find("S")!.ParagraphProperties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "center")));
+        var written = WriteStyles(model);
+        Assert.Equal(["name", "pPr", "rPr"], ChildNames(written, "style"));
+        using var again = new MemoryStream(written);
+        Assert.NotNull(StylesXml.Read(again).Find("S")!.ParagraphProperties.Get(W + "jc"));
+    }
+
+    [Fact]
+    public void RemovedStyleLeavesTheOthersAndTheUnknownElementsInPlace()
+    {
+        var model = ReadStyles("""<x:a/><w:style w:styleId="A"/><x:b/><w:style w:styleId="B"/><w:style w:styleId="C"/><x:c/>""");
+        model.Styles.Remove(model.Find("B")!);
+        var written = WriteStyles(model);
+        Assert.Equal(["a", "style", "b", "style", "c"], ChildNames(written));
+        using var again = new MemoryStream(written);
+        Assert.Equal(["A", "C"], StylesXml.Read(again).Styles.Select(x => x.Id).ToArray());
+    }
+
+    [Fact]
+    public void AddedAbstractAndInstanceKeepTheNumberingOrder()
+    {
+        var model = ReadNumbering(
+            """<w:numPicBullet w:numPicBulletId="0"/><w:abstractNum w:abstractNumId="1"/><w:num w:numId="1"><w:abstractNumId w:val="1"/></w:num><w:numIdMacAtCleanup w:val="1"/>""");
+        model.Abstracts.Add(new AbstractNumbering { AbstractNumId = 2 });
+        model.Instances.Add(new NumberingInstance { NumId = 2, AbstractNumId = 2 });
+        var written = WriteNumbering(model);
+        Assert.Equal(["numPicBullet", "abstractNum", "abstractNum", "num", "num", "numIdMacAtCleanup"], ChildNames(written));
+        using var again = new MemoryStream(written);
+        var reread = NumberingXml.Read(again);
+        Assert.Equal([1, 2], reread.Abstracts.Select(a => a.AbstractNumId).ToArray());
+        Assert.Equal([1, 2], reread.Instances.Select(i => i.NumId).ToArray());
+    }
+
+    [Fact]
+    public void FormatAndJustificationSetOnAReadLevelComeBeforeItsProperties()
+    {
+        var model = ReadNumbering(
+            """<w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:start w:val="1"/><x:k/><w:lvlText w:val="%1"/><w:pPr><w:ind w:left="1"/></w:pPr><w:rPr><w:b/></w:rPr></w:lvl></w:abstractNum>""");
+        var level = model.Abstracts[0].Levels[0];
+        level.Format = "decimal";
+        level.Justification = "left";
+        var written = WriteNumbering(model);
+        Assert.Equal(["start", "k", "numFmt", "lvlText", "lvlJc", "pPr", "rPr"], ChildNames(written, "lvl"));
+        using var again = new MemoryStream(written);
+        var reread = NumberingXml.Read(again).Abstracts[0].Levels[0];
+        Assert.Equal("decimal", reread.Format);
+        Assert.Equal("left", reread.Justification);
+    }
+
+    [Fact]
+    public void ThesisEditedKeepsEverythingElse()
+    {
+        using var input = new MemoryStream(PartComparer.ReadPart(Thesis, "word/styles.xml"));
+        var model = StylesXml.Read(input);
+        var before = model.Styles.Count;
+        model.Styles.Add(new Style { Id = "Added", Type = "paragraph", Name = "Added", BasedOn = "Normal" });
+        var written = WriteStyles(model);
+        using var again = new MemoryStream(written);
+        var reread = StylesXml.Read(again);
+        Assert.Equal(before + 1, reread.Styles.Count);
+        Assert.Equal("Added", reread.Styles[^1].Id);
+        Assert.NotNull(reread.Defaults);
     }
 }

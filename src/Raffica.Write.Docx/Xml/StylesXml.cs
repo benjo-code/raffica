@@ -124,7 +124,7 @@ internal static class StylesXml
                 entries.Add(new PartXml.Entry(style.Position, 2, w => WriteStyle(style, w)));
             }
 
-            PartXml.AddKept(entries, sheet);
+            PartXml.AddKept(entries, sheet, PartXml.OrderOf(["docDefaults", "latentStyles", "style"]));
             PartXml.Flush(writer, entries);
         });
     }
@@ -158,7 +158,7 @@ internal static class StylesXml
         PartXml.AddBag(entries, style, "pPr", Tie("pPr"), style.ParagraphProperties);
         PartXml.AddBag(entries, style, "rPr", Tie("rPr"), style.RunProperties);
         PartXml.AddBag(entries, style, "tblPr", Tie("tblPr"), style.TableProperties);
-        PartXml.AddKept(entries, style);
+        PartXml.AddKept(entries, style, name => SchemaOrder.IndexOf(PropertyKind.Style, name));
         PartXml.Flush(writer, entries);
         writer.WriteEndElement();
     }

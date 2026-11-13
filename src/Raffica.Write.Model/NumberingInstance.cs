@@ -8,6 +8,7 @@ public sealed class NumberingInstance : OrderedElement
 
     public int? AbstractNumId { get; set; }
 
+    /// <summary>The overrides are written at the position they were read in (reordering read items is not reflected: they are sorted by <see cref="OrderedElement.Position"/>); items added in code go in schema order after those read.</summary>
     public IList<LevelOverride> Overrides { get; } = new List<LevelOverride>();
 }
 

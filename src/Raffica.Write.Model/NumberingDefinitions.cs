@@ -11,8 +11,10 @@ public sealed class NumberingDefinitions : OrderedElement
 
     public OoxmlRoot Root { get; }
 
+    /// <summary>The abstract definitions are written at the position they were read in (reordering read items is not reflected: they are sorted by <see cref="OrderedElement.Position"/>); items added in code go in schema order after those read.</summary>
     public IList<AbstractNumbering> Abstracts { get; } = new List<AbstractNumbering>();
 
+    /// <summary>The instances are written at the position they were read in (reordering read items is not reflected: they are sorted by <see cref="OrderedElement.Position"/>); items added in code go in schema order after those read.</summary>
     public IList<NumberingInstance> Instances { get; } = new List<NumberingInstance>();
 
     public AbstractNumbering? FindAbstract(int abstractNumId) => Abstracts.FirstOrDefault(a => a.AbstractNumId == abstractNumId);

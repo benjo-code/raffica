@@ -11,6 +11,11 @@ internal static class NumberingXml
     private static readonly string[] s_levelOrder =
         ["start", "numFmt", "lvlRestart", "pStyle", "isLgl", "suff", "lvlText", "lvlPicBulletId", "legacy", "lvlJc", "pPr", "rPr"];
 
+    private static readonly string[] s_rootOrder = ["numPicBullet", "abstractNum", "num", "numIdMacAtCleanup"];
+    private static readonly string[] s_abstractOrder = ["nsid", "multiLevelType", "tmpl", "name", "styleLink", "numStyleLink", "lvl"];
+    private static readonly string[] s_instanceOrder = ["abstractNumId", "lvlOverride"];
+    private static readonly string[] s_overrideOrder = ["startOverride", "lvl"];
+
     public static NumberingDefinitions Read(Stream stream) => PartXml.Read(stream, root => new NumberingDefinitions(root), ReadChild);
 
     private static void ReadChild(NumberingDefinitions model, XElement element, int index)
@@ -177,15 +182,15 @@ internal static class NumberingXml
             var entries = new List<PartXml.Entry>();
             foreach (var abstractNumbering in model.Abstracts)
             {
-                entries.Add(new PartXml.Entry(abstractNumbering.Position, 0, w => WriteAbstract(abstractNumbering, w)));
+                entries.Add(new PartXml.Entry(abstractNumbering.Position, 1, w => WriteAbstract(abstractNumbering, w)));
             }
 
             foreach (var instance in model.Instances)
             {
-                entries.Add(new PartXml.Entry(instance.Position, 1, w => WriteInstance(instance, w)));
+                entries.Add(new PartXml.Entry(instance.Position, 2, w => WriteInstance(instance, w)));
             }
 
-            PartXml.AddKept(entries, model);
+            PartXml.AddKept(entries, model, PartXml.OrderOf(s_rootOrder));
             PartXml.Flush(writer, entries);
         });
     }
@@ -198,10 +203,10 @@ internal static class NumberingXml
         var entries = new List<PartXml.Entry>();
         foreach (var level in abstractNumbering.Levels)
         {
-            entries.Add(new PartXml.Entry(level.Position, 0, w => WriteLevel(level, w)));
+            entries.Add(new PartXml.Entry(level.Position, 6, w => WriteLevel(level, w)));
         }
 
-        PartXml.AddKept(entries, abstractNumbering);
+        PartXml.AddKept(entries, abstractNumbering, PartXml.OrderOf(s_abstractOrder));
         PartXml.Flush(writer, entries);
         writer.WriteEndElement();
     }
@@ -220,7 +225,7 @@ internal static class NumberingXml
         PartXml.AddValue(entries, level, "lvlJc", LevelTie("lvlJc"), level.Justification);
         PartXml.AddBag(entries, level, "pPr", LevelTie("pPr"), level.ParagraphProperties);
         PartXml.AddBag(entries, level, "rPr", LevelTie("rPr"), level.RunProperties);
-        PartXml.AddKept(entries, level);
+        PartXml.AddKept(entries, level, PartXml.OrderOf(s_levelOrder));
         PartXml.Flush(writer, entries);
         writer.WriteEndElement();
     }
@@ -237,7 +242,7 @@ internal static class NumberingXml
             entries.Add(new PartXml.Entry(levelOverride.Position, 1, w => WriteOverride(levelOverride, w)));
         }
 
-        PartXml.AddKept(entries, instance);
+        PartXml.AddKept(entries, instance, PartXml.OrderOf(s_instanceOrder));
         PartXml.Flush(writer, entries);
         writer.WriteEndElement();
     }
@@ -254,7 +259,7 @@ internal static class NumberingXml
             entries.Add(new PartXml.Entry(levelOverride.PositionOf("lvl"), 1, w => WriteLevel(definition, w)));
         }
 
-        PartXml.AddKept(entries, levelOverride);
+        PartXml.AddKept(entries, levelOverride, PartXml.OrderOf(s_overrideOrder));
         PartXml.Flush(writer, entries);
         writer.WriteEndElement();
     }

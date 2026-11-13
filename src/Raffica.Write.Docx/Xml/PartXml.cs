@@ -13,8 +13,8 @@ namespace Raffica.Write.Docx.Xml;
 /// </summary>
 internal static class PartXml
 {
-    /// <summary>One child to write: where it goes, a tie-breaker for children made in code (the schema index) and how to write it.</summary>
-    internal readonly record struct Entry(int Position, int Tie, Action<XmlWriter> Write);
+    /// <summary>One child to write: where it was read (<see cref="OrderedElement.NewPosition"/> when made in code), its schema index (null when the schema order does not know it) and how to write it.</summary>
+    internal readonly record struct Entry(int Position, int? Tie, Action<XmlWriter> Write);
 
     // Reading.
 
@@ -150,21 +150,46 @@ internal static class PartXml
         writer.WriteEndDocument();
     }
 
-    /// <summary>Writes the entries ordered by position, then tie; entries with the same position and tie keep the order they were added in.</summary>
+    /// <summary>
+    /// Writes the entries. Children that were read keep their file order. A child made in code goes just before the first
+    /// child whose schema index is greater; when none is greater, right after the last child whose index is not greater
+    /// (and at the end when no index is known). Children the schema order does not know keep their place.
+    /// </summary>
     public static void Flush(XmlWriter writer, List<Entry> entries)
     {
-        foreach (var entry in entries.OrderBy(e => e.Position).ThenBy(e => e.Tie))
+        var result = entries.Where(e => e.Position != OrderedElement.NewPosition).OrderBy(e => e.Position).ToList();
+        foreach (var added in entries.Where(e => e.Position == OrderedElement.NewPosition))
+        {
+            var at = result.Count;
+            if (added.Tie is int tie)
+            {
+                var greater = result.FindIndex(r => r.Tie is int other && other > tie);
+                at = greater >= 0 ? greater : result.FindLastIndex(r => r.Tie is int other && other <= tie) + 1;
+                if (at == 0 && greater < 0)
+                {
+                    at = result.Count;
+                }
+            }
+
+            result.Insert(at, added);
+        }
+
+        foreach (var entry in result)
         {
             entry.Write(writer);
         }
     }
 
-    public static void AddKept(List<Entry> entries, OrderedElement owner)
+    /// <summary>The schema index of a child by name from a table of local names in the WordprocessingML namespace; null for any other name.</summary>
+    public static Func<XName, int?> OrderOf(string[] table) =>
+        name => name.Namespace == Names.W && Array.IndexOf(table, name.LocalName) is var i and >= 0 ? i : null;
+
+    public static void AddKept(List<Entry> entries, OrderedElement owner, Func<XName, int?> tieOf)
     {
         foreach (var kept in owner.KeptChildren)
         {
             var content = kept.Content;
-            entries.Add(new Entry(kept.Position, 0, w => XmlKit.Kept(w, content)));
+            entries.Add(new Entry(kept.Position, tieOf(content.Element.Name), w => XmlKit.Kept(w, content)));
         }
     }
 
