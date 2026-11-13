@@ -6,7 +6,7 @@ For each row and each of the two controls, do these six checks in this order:
 
 1. **Compose:** type a word in the input method (Japanese: `nihongo`, Chinese Pinyin: `zhongwen`); the composition shows underlined in the control.
 2. **Candidates:** move the candidate selection (Space or arrow keys).
-3. **Commit:** commit with Enter; the text stays in the control and the log shows a commit.
+3. **Commit:** commit with Enter (Japanese) or Space or a number key (Chinese Pinyin: there Enter commits the typed letters, not a character); the text stays in the control and the log shows a commit of the converted text (Japanese `日本語`, Pinyin `你好` for `nihao`; avoid `z` and `y` on a German keyboard, Microsoft Pinyin reads the key positions of a US keyboard).
 4. **Cancel:** compose again and cancel with Esc; the composition disappears, nothing is committed.
 5. **Position:** while composing, the candidate window sits at the caret (note it if it appears at the window corner or on another screen).
 6. **Backspace:** inside the composition Backspace removes one composed character and the composition stays.
