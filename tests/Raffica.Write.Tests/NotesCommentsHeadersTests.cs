@@ -360,4 +360,94 @@ public sealed class NotesCommentsHeadersTests
 
         Assert.Throws<System.Xml.XmlException>(() => StoryXml.ReadPart(new MemoryStream(Bytes(Wrap("document", "<w:body/>")))));
     }
+
+    private const string BareComments =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:comments xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:comment w:id=\"0\" w:author=\"Ann\"><w:p><w:r><w:t>x</w:t></w:r></w:p></w:comment></w:comments>";
+
+    [Fact]
+    public void WritingADoneOrReplyCommentWithoutAParaIdThrows()
+    {
+        var model = CommentsXml.Read(new MemoryStream(Bytes(BareComments)), null);
+        var added = new Comment(1, NewStory("comment")) { Done = true };
+        added.Content.Blocks.Add(Para("y"));
+        model.Comments.Add(added);
+        using var comments = new MemoryStream();
+        using var extended = new MemoryStream();
+        Assert.Throws<InvalidOperationException>(() => CommentsXml.Write(model, comments, extended));
+        Assert.Equal(0, comments.Length);
+        Assert.Equal(0, extended.Length);
+
+        added.Done = false;
+        added.ParentParaId = "11111111";
+        Assert.Throws<InvalidOperationException>(() => CommentsXml.Write(model, comments, extended));
+        Assert.Equal(0, comments.Length);
+    }
+
+    [Fact]
+    public void EnsureParaIdLetsADoneCommentWriteItsStateAndDeclaresW14()
+    {
+        var model = CommentsXml.Read(new MemoryStream(Bytes(BareComments)), null);
+        var added = new Comment(1, NewStory("comment")) { Done = true, Author = "Bob" };
+        added.Content.Blocks.Add(Para("y"));
+        model.Comments.Add(added);
+
+        var id = model.EnsureParaId(added);
+        Assert.Equal(added.ParaId, id);
+        Assert.Matches("^[0-9A-F]{8}$", id);
+        Assert.True(Convert.ToUInt32(id, 16) < 0x80000000u);
+
+        using var comments = new MemoryStream();
+        using var extended = new MemoryStream();
+        Assert.True(CommentsXml.Write(model, comments, extended));
+        var text = Encoding.UTF8.GetString(comments.ToArray());
+        Assert.Contains("xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\"", text, StringComparison.Ordinal);
+        Assert.Contains("w14:paraId=\"" + id + "\"", text, StringComparison.Ordinal);
+        var entry = Assert.Single(XElement.Parse(Encoding.UTF8.GetString(extended.ToArray())).Elements());
+        Assert.Equal(id, (string?)entry.Attribute(W15 + "paraId"));
+        Assert.Equal("1", (string?)entry.Attribute(W15 + "done"));
+
+        var back = CommentsXml.Read(new MemoryStream(comments.ToArray()), new MemoryStream(extended.ToArray()));
+        Assert.True(back.Find(1)!.Done);
+        Assert.Equal(id, back.Find(1)!.ParaId);
+        Assert.False(back.Find(0)!.Done);
+    }
+
+    [Fact]
+    public void AReplyToAReadCommentRoundTrips()
+    {
+        var comments = Wrap("comments", """<w:comment w:id="0" w:author="Ann"><w:p w14:paraId="11111111"/></w:comment>""");
+        var (model, _, _) = CommentsRoundTrip(comments, null);
+        var reply = new Comment(1, NewStory("comment")) { Author = "Bob", ParentParaId = model.Find(0)!.ParaId };
+        reply.Content.Blocks.Add(Para("re"));
+        model.Comments.Add(reply);
+        var id = model.EnsureParaId(reply);
+        Assert.NotEqual("11111111", id);
+
+        using var commentsOut = new MemoryStream();
+        using var extendedOut = new MemoryStream();
+        Assert.True(CommentsXml.Write(model, commentsOut, extendedOut));
+        var back = CommentsXml.Read(new MemoryStream(commentsOut.ToArray()), new MemoryStream(extendedOut.ToArray()));
+        Assert.Equal("11111111", back.Find(1)!.ParentParaId);
+        Assert.Equal(id, back.Find(1)!.ParaId);
+        Assert.Equal("w14 w15", back.Root.Attributes.Single(a => a.Name.LocalName == "Ignorable").Value);
+    }
+
+    [Fact]
+    public void EnsureParaIdKeepsAnExistingIdAndMakesDistinctNewOnes()
+    {
+        var comments = Wrap("comments", """<w:comment w:id="0"><w:p w14:paraId="0000ABCD"/></w:comment>""");
+        var (model, _, _) = CommentsRoundTrip(comments, null);
+        Assert.Equal("0000ABCD", model.EnsureParaId(model.Find(0)!));
+
+        var first = new Comment(1, NewStory("comment"));
+        var second = new Comment(2, NewStory("comment"));
+        model.Comments.Add(first);
+        model.Comments.Add(second);
+        var one = model.EnsureParaId(first);
+        var two = model.EnsureParaId(second);
+        Assert.NotEqual(one, two);
+        Assert.NotEqual("0000ABCD", one);
+        Assert.IsType<Paragraph>(Assert.Single(first.Content.Blocks));
+        Assert.Equal(one, model.EnsureParaId(first));
+    }
 }

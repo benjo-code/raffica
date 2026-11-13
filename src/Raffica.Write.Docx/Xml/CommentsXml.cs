@@ -69,11 +69,23 @@ internal static class CommentsXml
     /// <summary>
     /// Writes the comments part and, when needed, the extended part. The extended part is needed when one was read or any
     /// comment has done state or a parent; a comment without such state gets no entry. Returns whether it is needed; it is
-    /// written to <paramref name="commentsExtended"/> when that stream is given. The streams stay open.
+    /// written to <paramref name="commentsExtended"/> when that stream is given. Callers must always pass an extended stream
+    /// and store the part (creating it and its relationship when the file had none) whenever the result is true. A comment
+    /// that is done or a reply but has no <see cref="Comment.ParaId"/> cannot be written: that throws
+    /// <see cref="InvalidOperationException"/> before anything is written (use <see cref="CommentCollection.EnsureParaId"/>).
+    /// The streams stay open.
     /// </summary>
     public static bool Write(CommentCollection model, Stream comments, Stream? commentsExtended)
     {
         ArgumentNullException.ThrowIfNull(model);
+        foreach (var comment in model.Comments)
+        {
+            if ((comment.Done || comment.ParentParaId is not null) && comment.ParaId is null)
+            {
+                throw new InvalidOperationException($"Comment {comment.Id.ToString(CultureInfo.InvariantCulture)} is done or a reply but its last paragraph has no w14:paraId; call EnsureParaId first.");
+            }
+        }
+
         PartXml.Write(comments, model.Root, writer =>
         {
             var entries = new List<PartXml.Entry>();

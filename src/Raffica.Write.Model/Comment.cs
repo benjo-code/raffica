@@ -31,7 +31,8 @@ public sealed class Comment : OrderedElement
     /// <summary>
     /// The <c>w14:paraId</c> of the last paragraph of the comment, read from that paragraph (the attribute stays on the
     /// paragraph, there is one copy); null when the comment has no paragraph or the paragraph has none. This is the key
-    /// that joins the comment to its <c>w15:commentEx</c> entry.
+    /// that joins the comment to its <c>w15:commentEx</c> entry. Only top-level paragraphs of <see cref="Content"/> count (the
+    /// last top-level paragraph, never one inside a table); <see cref="CommentCollection.EnsureParaId"/> gives a comment one.
     /// </summary>
     public string? ParaId
     {
