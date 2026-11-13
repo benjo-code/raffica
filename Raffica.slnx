@@ -7,12 +7,15 @@
     <Project Path="src/Raffica.Pdf/Raffica.Pdf.csproj" />
     <Project Path="src/Raffica.Pdfium/Raffica.Pdfium.csproj" />
     <Project Path="src/Raffica.Shell/Raffica.Shell.csproj" />
+    <Project Path="src/Raffica.Write.Docx/Raffica.Write.Docx.csproj" />
+    <Project Path="src/Raffica.Write.Model/Raffica.Write.Model.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Raffica.Core.Tests/Raffica.Core.Tests.csproj" />
     <Project Path="tests/Raffica.Pdf.Tests/Raffica.Pdf.Tests.csproj" />
     <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
     <Project Path="tests/Raffica.Shell.Tests/Raffica.Shell.Tests.csproj" />
+    <Project Path="tests/Raffica.Write.Tests/Raffica.Write.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/shell-probe/ShellProbe/ShellProbe.csproj" />
