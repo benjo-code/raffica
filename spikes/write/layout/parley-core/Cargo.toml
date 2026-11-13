@@ -1,0 +1,16 @@
+[package]
+name = "parley-core"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+parley = { version = "*", default-features = false, features = ["std"] }
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1

@@ -31,3 +31,6 @@ BenchmarkDotNet.Artifacts/
 
 # Local native builds (packaging/native)
 artifacts/
+
+# Rust build output of the Write spikes
+spikes/**/target/

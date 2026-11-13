@@ -312,6 +312,11 @@
       "date": "2026-11-10",
       "context": "Milestone 3.3",
       "text": "The size budgets of the PDF app on macOS are one `macos` entry of `s_pdfBudgets` (size, zip, app, dmg; the larger architecture binds both) and have no time or memory limit until the Intel measurement; see \"Raffica PDF on macOS: published sizes and the hosted record (M3.3)\" in `Docs/DECISIONS.md`."
+    },
+    {
+      "date": "2026-11-12",
+      "context": "Milestone 4",
+      "text": "The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`."
     }
   ],
   "subprojects": [
@@ -761,23 +766,183 @@
     {
       "number": 5,
       "name": "Raffica Write",
-      "spec": { "text": "not written yet (created in its first milestone)" },
+      "spec": { "text": "Raffica Write design, approved 2026-11-13", "link": "superpowers/specs/2026-11-13-raffica-write-design.md" },
       "milestones": [
         {
           "id": "4",
           "title": "Spikes & spec for Raffica Write",
-          "status": "open",
+          "status": "done",
+          "completedOn": "2026-11-13",
+          "plan": "superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md",
+          "spec": "superpowers/specs/2026-11-12-raffica-write-spikes-design.md",
           "prerequisites": ["3.3"],
           "goal": "The layout engine decision for Write rests on measurements and the spec is written.",
           "tasks": [
-            { "text": "Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)", "done": false },
-            { "text": "Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)", "done": false },
-            { "text": "Spike: printing per operating system and IME behaviour on Windows and Linux", "done": false },
-            { "text": "Create the spec (brainstorming) and enter its milestones", "done": false }
+            { "text": "Spike: Open XML SDK 3.x under Native AOT (open, edit, save DOCX and XLSX)", "done": true },
+            { "text": "Spike: text layout speed on a long document (Avalonia/Skia/HarfBuzz versus a Rust candidate)", "done": true },
+            { "text": "Spike: printing per operating system (Write prints itself) and IME behaviour on Windows, Linux and macOS", "done": true },
+            { "text": "Create the spec (brainstorming) and enter its milestones", "done": true }
           ],
           "acceptance": [
-            { "text": "The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md`", "done": false },
-            { "text": "The spec is approved and linked here", "done": false }
+            { "text": "The spike results are recorded and the layout engine decision is in `Docs/DECISIONS.md`", "done": true, "evidence": "four entries of 2026-11-12 and 2026-11-13 in `Docs/DECISIONS.md` (Open XML SDK, layout engine, printing, IME), the layout decision \"Raffica Write: the layout engine (M4)\" names C#" },
+            { "text": "The spec is approved and linked here", "done": true, "evidence": "`superpowers/specs/2026-11-13-raffica-write-design.md`, approved by the owner on 2026-11-13 after the builder check and one round of the owner's answers (corpus sources, layout differences recorded, right-to-left in the backlog); linked as the spec of subproject 5, its milestones 4.1 to 4.9 entered below" }
+          ]
+        },
+        {
+          "id": "4.1",
+          "title": "Document model and DOCX round trip",
+          "status": "open",
+          "prerequisites": ["4"],
+          "goal": "A UI-free library reads and writes DOCX into a model that follows OOXML and keeps everything it does not understand, measured against a corpus.",
+          "tasks": [
+            { "text": "The UI-free library (no Avalonia type): paragraphs, runs, styles, numbering, sections, tables, footnotes and endnotes, fields, comments, tracked changes, pictures, unknown content kept", "done": false },
+            { "text": "DOCX read and write through the Open XML SDK under Native AOT; parts not loaded keep their decompressed bytes; atomic save", "done": false },
+            { "text": "The compatibility corpus (generated files and freely licensed public DOCX with source and licence check) and the comparison tool against Word's PDFs (page count and text per page through PDFium)", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Every corpus file opens and saves; parts not loaded are byte-identical (decompressed) after a save (tests)", "done": false },
+            { "text": "A model change saved and read again gives the same model (tests)", "done": false },
+            { "text": "The Native AOT publish has no IL warnings in the library", "done": false }
+          ]
+        },
+        {
+          "id": "4.2",
+          "title": "Write as a fast DOCX viewer",
+          "status": "open",
+          "prerequisites": ["4.1"],
+          "goal": "Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.",
+          "tasks": [
+            { "text": "The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`; `WindowHost` and what else a second app needs moved out of `Raffica.Pdf` (the PDF tests stay green)", "done": false },
+            { "text": "The C# layout library with the layout features of the spec (section 6), the shipped fonts and font fallback", "done": false },
+            { "text": "Page view and writing view, scrolling, zoom, outline pane for navigation", "done": false },
+            { "text": "Startup work for the first page (font loading, reading only what page 1 needs)", "done": false },
+            { "text": "App speed budgets: `measure.yml` target `write`, a Write budget table in `CheckCommand`, measured on the Windows PC, the Linux laptop and the Intel Mac", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The engine's first page of the generated thesis ≤ 100 ms on the Linux laptop (headless benchmark over the UI-free library, as in the spike; Write spec, section 5)", "done": false },
+            { "text": "The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25) and checked by `measure.yml`", "done": false },
+            { "text": "The corpus comparison table exists and the generated thesis has the page count of Word's PDF of it", "done": false }
+          ]
+        },
+        {
+          "id": "4.3",
+          "title": "Editing",
+          "status": "open",
+          "prerequisites": ["4.2"],
+          "goal": "Text, formatting and styles can be edited in every story of a document, with IME, undo, saving and recovery.",
+          "tasks": [
+            { "text": "Caret, selection, typing, delete, clipboard (rich within Write, plain text outside), undo and redo in every story (body, table cells, notes, headers and footers, comments)", "done": false },
+            { "text": "IME through `TextInputMethodClient` with Write's own preedit caret", "done": false },
+            { "text": "Paragraph and character formatting, styles, the formatting inspector (remove one override, update style to match, clear direct formatting)", "done": false },
+            { "text": "New document with Write's built-in style set; save, Save as, dirty state and close prompt", "done": false },
+            { "text": "Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Typing ≤ 16 ms per keystroke in the app on the generated thesis", "done": false },
+            { "text": "IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, a German keyboard layout works, the log shows the commit on macOS, and IBus and an X11 session on Linux work (owner, recorded)", "done": false },
+            { "text": "Recovery after a killed process restores the text (test)", "done": false }
+          ]
+        },
+        {
+          "id": "4.4",
+          "title": "Structure",
+          "status": "open",
+          "prerequisites": ["4.3"],
+          "goal": "Headings, numbering, sections and page numbers are built by Write in one action and never break.",
+          "tasks": [
+            { "text": "Headings, lists and numbering on the document's numbering definitions", "done": false },
+            { "text": "Outline pane: drag and keys move a heading with its content, promote and demote", "done": false },
+            { "text": "Sections and \"start page numbering here\" as one command with a removable marker; headers and footers (first, odd and even)", "done": false },
+            { "text": "Page setup: size, margins, orientation, columns", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Moving and deleting headings never leaves stale numbers (tests)", "done": false },
+            { "text": "The page-3 \"1\" and the \"A-1\" appendix made with the one command open in Word as intended (owner, recorded)", "done": false }
+          ]
+        },
+        {
+          "id": "4.5",
+          "title": "Long-document tools",
+          "status": "open",
+          "prerequisites": ["4.4"],
+          "goal": "A thesis can be written in Write from scratch, with tables, pictures, notes and fields that are always current.",
+          "tasks": [
+            { "text": "Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes", "done": false },
+            { "text": "Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`", "done": false },
+            { "text": "Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit; bookmarks", "done": false },
+            { "text": "Find and replace (match case, whole words)", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Fields are current after every edit that moves them (tests)", "done": false },
+            { "text": "A thesis made in Write from scratch opens in Word with working fields (owner, recorded)", "done": false }
+          ]
+        },
+        {
+          "id": "4.6",
+          "title": "Review and proofing",
+          "status": "open",
+          "prerequisites": ["4.5"],
+          "goal": "Comments and tracked changes from Word files can be worked through, and spelling is checked in English and German offline.",
+          "tasks": [
+            { "text": "Spelling with Hunspell, English (US, UK) and German dictionaries shipped, user dictionary", "done": false },
+            { "text": "Comments pane: add, reply, delete, resolve", "done": false },
+            { "text": "Tracked changes: show, accept, reject (one, all, by author), formatting changes filtered by default; the \"edits are not tracked\" bar", "done": false }
+          ],
+          "acceptance": [
+            { "text": "\"Accept all\" and \"Reject all\" give the same text as Word's PDFs of them on the corpus files with tracked changes (corpus tool)", "done": false },
+            { "text": "Spelling marks and suggestions in both languages (tests)", "done": false }
+          ]
+        },
+        {
+          "id": "4.7",
+          "title": "Print and PDF",
+          "status": "open",
+          "prerequisites": ["4.6"],
+          "goal": "Write prints itself on each system and exports a PDF with real text.",
+          "tasks": [
+            { "text": "Move the platform print services out of `Raffica.Pdf` into a shared project; the PDF tests stay green", "done": false },
+            { "text": "Windows: GDI printing with glyph indices and the Win32 print dialog; Linux and macOS: a PDF in memory to CUPS with the shared print dialog; copies, range, duplex, orientation", "done": false },
+            { "text": "PDF export with real text and embedded font subsets", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Real printers on Windows, Linux and the Intel Mac print the test document's ranges with the right page numbers (owner, recorded)", "done": false },
+            { "text": "The exported PDF has text on every page (PDFium test)", "done": false }
+          ]
+        },
+        {
+          "id": "4.8",
+          "title": "Release readiness and security check",
+          "status": "open",
+          "prerequisites": ["4.7"],
+          "goal": "Write is checked for hostile files, dependencies, wording, crashes and speed before it is released.",
+          "tasks": [
+            { "text": "Security: malformed and hostile DOCX (oversized parts, zip bombs, deep nesting, broken relationships) refused or opened safely, fuzzed in CI; no external fetch, no macro run, no OLE activation", "done": false },
+            { "text": "Dependency licence and vulnerability check", "done": false },
+            { "text": "Readiness: live UI pass on the Native AOT build on all three systems, German wording, crash handling, screen reader names the caret's text", "done": false },
+            { "text": "Speed: the app budgets with a control run of the same day, typing with the outline pane open and with tracked changes in the file", "done": false },
+            { "text": "Release dry run", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Fuzzing finds no crash in its run time, and every security rule has a test", "done": false },
+            { "text": "The live pass findings are fixed or recorded for the owner", "done": false },
+            { "text": "`measure.yml` is within the budgets or the miss is recorded with the numbers", "done": false },
+            { "text": "The release dry run is green", "done": false }
+          ]
+        },
+        {
+          "id": "4.9",
+          "title": "Release",
+          "status": "open",
+          "prerequisites": ["4.8"],
+          "goal": "The first release of Raffica Write is published on the owner's instruction.",
+          "tasks": [
+            { "text": "Packaging: Write in the installers (one suite installer or its own, decided with the owner), the default-app offer for `.docx`, the update path", "done": false },
+            { "text": "Release number decided with the owner; CHANGELOG and README", "done": false },
+            { "text": "The release, on the owner's instruction only", "done": false }
+          ],
+          "acceptance": [
+            { "text": "The release run is green and the published files are the checked ones", "done": false },
+            { "text": "An installed build opens a `.docx` from the file manager on each system", "done": false }
           ]
         }
       ]
@@ -881,8 +1046,24 @@
       "text": "The German label \"Wie System\" (`SettingsThemeSystem`, the follow-the-system theme choice) needs the owner's decision on the wording."
     },
     {
-      "title": "Ctrl+K and hyperlinks in Write",
-      "text": "The frame binds Ctrl+K to the search field. Word and other editors use Ctrl+K for inserting a hyperlink; settle this in the Write spec (note for the Write spec)."
+      "title": "Write: record tracked changes",
+      "text": "The first release of Write shows, accepts and rejects tracked changes but does not record the user's own edits (Write spec, section 3)."
+    },
+    {
+      "title": "Write: equations, mail merge, shapes, SmartArt and charts",
+      "text": "Kept and shown in the first release of Write, not edited: an equation editor (OMML), mail merge, drawing shapes, SmartArt, charts (Write spec, section 3)."
+    },
+    {
+      "title": "Write: grammar check",
+      "text": "LanguageTool (LGPL) needs Java; a grammar check is left out of Write's first release (Write spec, section 3)."
+    },
+    {
+      "title": "Write: right-to-left scripts",
+      "text": "Arabic, Hebrew and bidirectional text: layout, caret and selection in both directions. The first release keeps such text without loss but shows it left to right with a note (owner, 2026-11-13; Write spec, section 3)."
+    },
+    {
+      "title": "Write: templates, regular expressions, tagged PDF",
+      "text": "Templates (`.dotx`, `.dotm`), regular expressions in find and replace, tagged PDF and PDF/A export (Write spec, sections 3 and 6)."
     },
     {
       "title": "Accessibility items deferred from the frame",

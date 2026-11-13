@@ -1,0 +1,6 @@
+date,machine,os,engine,metric,median,min,max,unit,commit
+2026-11-12,windows-ryzen-7800x3d,Microsoft Windows 10.0.26200,rust,first-page,90.547,87.090,100.563,ms,b575087
+2026-11-12,windows-ryzen-7800x3d,Microsoft Windows 10.0.26200,rust,full-layout,428.633,405.053,442.291,ms,b575087
+2026-11-12,windows-ryzen-7800x3d,Microsoft Windows 10.0.26200,rust,memory,107.100,107.000,107.300,MB,b575087
+2026-11-12,windows-ryzen-7800x3d,Microsoft Windows 10.0.26200,rust,keystroke,0.265,0.256,0.288,ms,b575087
+2026-11-12,windows-ryzen-7800x3d,Microsoft Windows 10.0.26200,rust,hit-test,4.337,4.120,5.134,us,b575087

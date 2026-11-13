@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Throwaway spikes (milestone 4). Nothing of the repository root is inherited: no warnings as errors, no repo analyzers,
+    no central package management. Every spike project pins its package versions itself. global.json still applies.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>

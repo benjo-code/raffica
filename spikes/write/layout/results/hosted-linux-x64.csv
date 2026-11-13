@@ -1,0 +1,11 @@
+date,machine,os,engine,metric,median,min,max,unit,commit
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,csharp,first-page,38.841,38.342,44.223,ms,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,csharp,full-layout,266.238,256.160,365.827,ms,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,csharp,hit-test,0.661,0.649,0.676,us,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,csharp,keystroke,0.183,0.181,0.205,ms,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,csharp,memory,84.500,84.300,84.600,MB,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,rust,first-page,45.981,39.890,110.008,ms,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,rust,full-layout,288.678,280.676,293.019,ms,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,rust,hit-test,3.597,3.455,4.052,us,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,rust,keystroke,0.194,0.193,0.196,ms,9fa4191
+2026-11-12,hosted-linux-x64,Ubuntu 24.04.5 LTS,rust,memory,134.100,133.900,134.600,MB,9fa4191
