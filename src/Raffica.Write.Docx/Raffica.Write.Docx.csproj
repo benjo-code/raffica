@@ -3,6 +3,9 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="bblanchon.PDFium.Linux" />
+    <PackageReference Include="bblanchon.PDFium.macOS" />
+    <PackageReference Include="bblanchon.PDFium.Win32" />
     <PackageReference Include="DocumentFormat.OpenXml" />
     <ProjectReference Include="..\Raffica.Write.Model\Raffica.Write.Model.csproj" />
     <ProjectReference Include="..\Raffica.Core\Raffica.Core.csproj" />
