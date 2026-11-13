@@ -17,7 +17,13 @@ namespace Raffica.Write.Docx;
 /// </summary>
 /// <remarks>
 /// The file is read into memory once, so a later change of the file on disk cannot corrupt a save. <see cref="Model"/> must
-/// not be changed while a save runs. A part that exists in the file but was not asked for (<see cref="DocxParts"/>) stays
+/// not be changed while a save runs. A file opened from a path remembers that path and its <see cref="FileStamp"/> (length and
+/// last write time, taken before the bytes were read, as the PDF side does); a save to the same file (links resolved) refuses
+/// with <see cref="SaveFailureReason.OriginalChanged"/> when the file on disk has another stamp or is gone, unless the caller
+/// passes <c>overwriteChangedOriginal</c>, so a change made by another program since the open is never lost silently. A
+/// successful save over the opened file records the stamp of the new file; a save to another path changes neither the stamp
+/// nor the snapshot (the snapshot stays the file as it was opened, which is what every later save starts from). Opening
+/// from bytes has no origin and no check. A part that exists in the file but was not asked for (<see cref="DocxParts"/>) stays
 /// untouched unless the caller sets its model property, which then replaces the content of that part.
 /// </remarks>
 public sealed class DocxFile : IDisposable
@@ -27,10 +33,14 @@ public sealed class DocxFile : IDisposable
 
     private readonly byte[] _snapshot;
     private readonly PartMap _map;
+    private readonly string? _originPath;
+    private FileStamp? _originStamp;
     private bool _disposed;
 
-    private DocxFile(byte[] snapshot, WordDocument model, DocxKind kind, PartMap map)
+    private DocxFile(byte[] snapshot, WordDocument model, DocxKind kind, PartMap map, string? originPath, FileStamp? originStamp)
     {
+        _originPath = originPath;
+        _originStamp = originStamp;
         _snapshot = snapshot;
         Model = model;
         Kind = kind;
@@ -56,12 +66,17 @@ public sealed class DocxFile : IDisposable
     public static DocxFile Open(string path, DocxParts parts = DocxParts.All)
     {
         ArgumentNullException.ThrowIfNull(path);
-        return Load(File.ReadAllBytes(path), parts);
+        var full = Path.GetFullPath(path);
+
+        // The stamp is taken before the bytes are read (as for a PDF): a file replaced during the read then makes a later save
+        // to the same path warn instead of overwriting the newer file.
+        var stamp = FileStamp.Of(AtomicFile.ResolveLink(full));
+        return Load(File.ReadAllBytes(full), parts, full, stamp);
     }
 
     /// <summary>Copies <paramref name="bytes"/> and loads the asked-for parts.</summary>
     /// <exception cref="DocxFormatException">The data is not a usable DOCX package.</exception>
-    public static DocxFile Open(ReadOnlyMemory<byte> bytes, DocxParts parts = DocxParts.All) => Load(bytes.ToArray(), parts);
+    public static DocxFile Open(ReadOnlyMemory<byte> bytes, DocxParts parts = DocxParts.All) => Load(bytes.ToArray(), parts, null, null);
 
     /// <summary>
     /// Saves to <paramref name="targetPath"/> (which may be the opened file): a temporary file next to the file a symbolic link
@@ -69,22 +84,33 @@ public sealed class DocxFile : IDisposable
     /// written with the snapshot and reads each written part back, and only then the temporary file replaces the target
     /// atomically. Any failure deletes the temporary file and leaves the target and its folder as they were.
     /// </summary>
+    /// <param name="targetPath">The file to create or replace.</param>
+    /// <param name="cancellationToken">Cancels the save before the replace.</param>
+    /// <remarks>
+    /// Saving to the path of the opened file ends in <see cref="SaveFailureReason.OriginalChanged"/>, before anything is written,
+    /// when the file on disk has changed or is gone since it was opened; the overload with <c>overwriteChangedOriginal</c>
+    /// is for the caller that asked the user and got a yes.
+    /// </remarks>
     /// <exception cref="DocxSaveException">The check found a difference.</exception>
-    /// <exception cref="SaveFailureException">The file could not be written or replaced.</exception>
+    /// <exception cref="SaveFailureException">The file could not be written or replaced, or (<see cref="SaveFailureReason.OriginalChanged"/>) it changed on disk since it was opened.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled before the replace.</exception>
-    public async Task SaveAsync(string targetPath, CancellationToken cancellationToken = default)
+    public Task SaveAsync(string targetPath, CancellationToken cancellationToken = default) => SaveAsync(targetPath, overwriteChangedOriginal: false, cancellationToken);
+
+    /// <inheritdoc cref="SaveAsync(string, CancellationToken)"/>
+    /// <param name="overwriteChangedOriginal">Whether the caller confirmed overwriting a changed original (see the other overload).</param>
+    public async Task SaveAsync(string targetPath, bool overwriteChangedOriginal, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(targetPath);
         ObjectDisposedException.ThrowIf(_disposed, this);
         var full = Path.GetFullPath(targetPath);
-        await Task.Run(() => Save(full, cancellationToken), cancellationToken).ConfigureAwait(false);
+        await Task.Run(() => Save(full, overwriteChangedOriginal, cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose() => _disposed = true;
 
     // Opening.
 
-    private static DocxFile Load(byte[] snapshot, DocxParts parts)
+    private static DocxFile Load(byte[] snapshot, DocxParts parts, string? originPath, FileStamp? originStamp)
     {
         try
         {
@@ -95,7 +121,7 @@ public sealed class DocxFile : IDisposable
             var model = ReadModel(main, map, parts);
             var contentType = main.ContentType;
             var kind = contentType is MacroMainType or MacroTemplateMainType ? DocxKind.Docm : DocxKind.Docx;
-            return new DocxFile(snapshot, model, kind, map);
+            return new DocxFile(snapshot, model, kind, map, originPath, originStamp);
         }
         catch (XmlException ex)
         {
@@ -218,10 +244,16 @@ public sealed class DocxFile : IDisposable
         HeaderFooter,
     }
 
-    private void Save(string target, CancellationToken cancellationToken)
+    private void Save(string target, bool overwriteChangedOriginal, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var resolved = AtomicFile.ResolveLink(target);
+        var overOrigin = _originPath is not null && PathRules.AreEqual(AtomicFile.ResolveLink(_originPath), resolved);
+        if (overOrigin && !overwriteChangedOriginal && FileStamp.Of(resolved) != _originStamp)
+        {
+            throw new SaveFailureException(SaveFailureReason.OriginalChanged, "Another file stands at the path of the original since it was opened.");
+        }
+
         var temporary = AtomicFile.NewTemporaryPath(target);
         try
         {
@@ -241,6 +273,10 @@ public sealed class DocxFile : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             AtomicFile.MoveIntoPlace(temporary, resolved, replaceExisting: true);
             metadata.AfterReplace(resolved);
+            if (overOrigin)
+            {
+                _originStamp = FileStamp.Of(resolved);
+            }
         }
         catch (UnauthorizedAccessException ex)
         {

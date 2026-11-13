@@ -409,6 +409,132 @@ public sealed class DocxSaveTests
         await Assert.ThrowsAsync<ObjectDisposedException>(() => file.SaveAsync(folder.File("x.docx"), Cancel));
     }
 
+    private static void ChangeOnDisk(string path) => File.WriteAllBytes(path, [.. File.ReadAllBytes(path), 0, 0, 0]);
+
+    [Fact]
+    public async Task AFileChangedOnDiskSinceOpenIsNotOverwrittenByASaveToTheSamePath()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        ChangeOnDisk(path);
+        var external = await File.ReadAllBytesAsync(path, Cancel);
+        var names = folder.Names();
+        file.Model.Body.Blocks.Add(TextParagraph("Mine"));
+
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(path, Cancel));
+
+        Assert.Equal(SaveFailureReason.OriginalChanged, error.Reason);
+        Assert.Equal(external, await File.ReadAllBytesAsync(path, Cancel));
+        Assert.Equal(names, folder.Names());
+    }
+
+    [Fact]
+    public async Task TheCallerCanConfirmOverwritingAChangedOriginal()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        File.WriteAllBytes(path, [1, 2, 3]);
+        file.Model.Body.Blocks.Add(TextParagraph("Confirmed"));
+
+        await file.SaveAsync(path, overwriteChangedOriginal: true, Cancel);
+
+        using var reopened = DocxFile.Open(path);
+        Assert.Contains(reopened.Model.Body.Blocks.OfType<Paragraph>(), p => p.Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<TextContent>().Any(t => t.Text == "Confirmed"));
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
+    [Fact]
+    public async Task AnUnchangedFileCanBeSavedOverItselfTwiceInARow()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+
+        file.Model.Body.Blocks.Add(TextParagraph("First"));
+        await file.SaveAsync(path, Cancel);
+        file.Model.Body.Blocks.Add(TextParagraph("Second"));
+        await file.SaveAsync(path, Cancel);
+
+        using var reopened = DocxFile.Open(path);
+        var texts = reopened.Model.Body.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).SelectMany(r => r.Content).OfType<TextContent>().Select(t => t.Text).ToList();
+        Assert.Contains("First", texts);
+        Assert.Contains("Second", texts);
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
+    [Fact]
+    public async Task ASaveToAnotherPathIsNeverCheckedAndLeavesTheOriginalCheckAsItWas()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        ChangeOnDisk(path);
+
+        await file.SaveAsync(folder.File("copy.docx"), Cancel);
+
+        Assert.True(File.Exists(folder.File("copy.docx")));
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(path, Cancel));
+        Assert.Equal(SaveFailureReason.OriginalChanged, error.Reason);
+    }
+
+    [Fact]
+    public async Task OpeningFromBytesHasNoOriginToCheck()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(File.ReadAllBytes(path));
+        ChangeOnDisk(path);
+
+        await file.SaveAsync(path, Cancel);
+
+        using var reopened = DocxFile.Open(path);
+        Assert.Equal(20, reopened.Model.Body.Blocks.OfType<Table>().Count());
+    }
+
+    [Fact]
+    public async Task ADeletedOriginalIsReportedAsChanged()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        File.Delete(path);
+
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(path, Cancel));
+
+        Assert.Equal(SaveFailureReason.OriginalChanged, error.Reason);
+        Assert.Empty(folder.Names());
+    }
+
+    [Fact]
+    public async Task AChangedTargetBehindALinkIsNotOverwrittenThroughTheLink()
+    {
+        using var folder = new TempFolder();
+        var real = folder.CopyThesis("real.docx");
+        var link = folder.File("link.docx");
+        try
+        {
+            File.CreateSymbolicLink(link, real);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Skip($"This account cannot create symbolic links here ({ex.GetType().Name}); on Windows that needs developer mode or administrator rights.");
+        }
+
+        using var file = DocxFile.Open(link);
+        ChangeOnDisk(real);
+        var external = await File.ReadAllBytesAsync(real, Cancel);
+
+        var viaLink = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(link, Cancel));
+        var direct = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(real, Cancel));
+
+        Assert.Equal(SaveFailureReason.OriginalChanged, viaLink.Reason);
+        Assert.Equal(SaveFailureReason.OriginalChanged, direct.Reason);
+        Assert.Equal(external, await File.ReadAllBytesAsync(real, Cancel));
+        Assert.Equal(["link.docx", "real.docx"], folder.Names());
+    }
+
     private const string OfficeContent = "application/vnd.openxmlformats-officedocument.wordprocessingml.";
 
     private static async Task<string> SaveCreating(TempFolder folder, string name, Action<WordDocument> change)
