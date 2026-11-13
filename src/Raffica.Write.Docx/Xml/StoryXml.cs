@@ -38,6 +38,27 @@ internal static class StoryXml
         return story;
     }
 
+    /// <summary>Reads a header or footer part. The root must be <c>w:hdr</c> or <c>w:ftr</c>; anything else is an <see cref="XmlException"/>.</summary>
+    public static HeaderFooterPart ReadPart(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        using var reader = XmlReader.Create(stream, XmlKit.ReaderSettings());
+        var story = Read(reader);
+        if (story.Root.Name != Names.W + "hdr" && story.Root.Name != Names.W + "ftr")
+        {
+            throw new XmlException("The part's root is neither w:hdr nor w:ftr.");
+        }
+
+        return new HeaderFooterPart(story);
+    }
+
+    /// <summary>Writes a header or footer part: UTF-8 without a byte order mark, <c>standalone="yes"</c>. The stream stays open.</summary>
+    public static void WritePart(HeaderFooterPart part, Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        DocumentXml.Write(part.Content, stream);
+    }
+
     private static void ReadDocumentChildren(XmlReader reader, Story story)
     {
         if (!XmlKit.Enter(reader))

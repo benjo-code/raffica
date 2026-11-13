@@ -22,6 +22,7 @@ internal static class Names
     public static readonly XName Id = W + "id";
     public static readonly XName Name = W + "name";
     public static readonly XName Author = W + "author";
+    public static readonly XName Initials = W + "initials";
     public static readonly XName Date = W + "date";
     public static readonly XName Anchor = W + "anchor";
     public static readonly XName Instr = W + "instr";

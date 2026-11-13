@@ -52,6 +52,43 @@ internal static class PartXml
         return model;
     }
 
+    /// <summary>
+    /// As <see cref="Read{T}"/>, but the callback gets the reader on each child element and must move past it (read it
+    /// with the story reader or <see cref="XmlKit.ReadKept"/>), so a child with content is never held as a detached tree.
+    /// </summary>
+    public static T ReadStreaming<T>(Stream stream, Func<OoxmlRoot, T> create, Action<T, XmlReader, int> onChild)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        using var reader = XmlReader.Create(stream, XmlKit.ReaderSettings());
+        reader.MoveToContent();
+        if (reader.NodeType != XmlNodeType.Element)
+        {
+            throw new XmlException("The part has no root element.");
+        }
+
+        var name = XNamespace.Get(reader.NamespaceURI) + reader.LocalName;
+        var model = create(new OoxmlRoot(name, XmlKit.ReadAttributes(reader)));
+        if (XmlKit.Enter(reader))
+        {
+            var index = 0;
+            while (XmlKit.More(reader))
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    onChild(model, reader, index++);
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            XmlKit.Leave(reader);
+        }
+
+        return model;
+    }
+
     /// <summary>The <c>w:val</c> of an element that has nothing else (no other attribute, no content), or null.</summary>
     public static string? SimpleValue(XElement element)
     {
@@ -76,6 +113,29 @@ internal static class PartXml
         return text is not null
             && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value)
             && value.ToString(CultureInfo.InvariantCulture) == text;
+    }
+
+    /// <summary>An integer, sign allowed, that writes back as the same text (no leading zeros, no plus): note ids are -1 and 0 in Word files.</summary>
+    public static bool TryCanonicalSignedInt(string? text, out int value)
+    {
+        value = 0;
+        return text is not null
+            && int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out value)
+            && value.ToString(CultureInfo.InvariantCulture) == text;
+    }
+
+    /// <summary>Takes <c>w:id</c> out of the attributes when it is a canonical integer; otherwise false and the list is untouched.</summary>
+    public static bool TakeItemId(List<XAttribute> attributes, out int id)
+    {
+        id = 0;
+        var index = attributes.FindIndex(a => a.Name == Names.Id);
+        if (index < 0 || !TryCanonicalSignedInt(attributes[index].Value, out id))
+        {
+            return false;
+        }
+
+        attributes.RemoveAt(index);
+        return true;
     }
 
     /// <summary>True the first time a single typed child with this key is seen on the owner, and records its place; a repeat is false (it is kept instead).</summary>
