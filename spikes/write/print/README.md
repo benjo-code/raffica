@@ -51,9 +51,17 @@ No temporary file was needed: streaming a PDF from memory works on both. A real 
 
 Both jobs were accepted by CUPS through `cupsCreateJob` and the streaming calls, and a range of pages is made in about 60 ms. On paper (owner, 2026-11-13) the page number "1" stands on page 3 of the range `1-6` and "A-1" on the first page of `304-311`. Sharpness of the text was not reported separately.
 
+### Windows, a real printer (owner, 2026-11-13), route a from the window
+
+| Page range | Result |
+|---|---|
+| `1-6` | 6 pages handed to the spooler in 215 ms |
+| `304-311` | 8 pages handed to the spooler in 162 ms |
+
+On paper the owner found everything fine ("passt alles"): sharp text, "1" on page 3 of the first range, "A-1" on the first page of the second, margins, table borders and images. The make and model of the printer were not reported.
+
 ## Open (needs the owner's hands)
 
-- **Windows, a real printer:** `Print (route a)` from the window on the owner's printer; sharp text, page numbers "1" on page 3 and "A-1" in the appendix, margins. Also open `route-a.pdf` (made by the `--auto a` command above) in Edge and select text.
 - **Intel Mac, a real printer:** `dotnet run --project spikes/write/print -c Release`, choose the printer, Print; sharp text, page numbers; record the time and the job size.
 - The first-page speed of the window and the print dialog of Write are questions for the spec (shared print project with Raffica PDF, Write's own dialog, the native macOS print panel from the backlog).
 
