@@ -61,4 +61,24 @@ Required: `paragraphs-runs`, `styles`, `numbering`, `sections`, `tables`, `merge
 
 ## Word PDFs
 
-The reference PDFs (`word.pdf` and the accept/reject variants) are made by the owner in Word on Windows; the steps are added with the layout comparison (Task 12).
+The reference PDFs are made by the owner in Word on Windows (a Raffica Write layout is later compared with Word's, milestone 4.2). They are not committed in milestone 4.1 unless the owner adds them. File names, in the folder of the entry (next to `<id>.docx`):
+
+| File | What it is |
+| --- | --- |
+| `word.pdf` | The file as Word shows it. |
+| `word-accept.pdf` | Only for entries with the feature `tracked-changes`: the file after "Accept All" (Review > Accept > Accept All Changes). |
+| `word-reject.pdf` | Only for entries with `tracked-changes`: the file after "Reject All" (Review > Reject > Reject All Changes). |
+
+How: open the `.docx` in Word (Windows; note the Word build in the commit message), then File > Save As (or File > Export > Create PDF/XPS) and choose PDF with the options "Standard (publishing online and printing)" and no "ISO 19005-1 compliant" tick, so the page text stays plain. For a tracked-changes file save `word.pdf` with the changes as they are, then Accept All and save `word-accept.pdf` (do not save the document), then reopen, Reject All and save `word-reject.pdf`. The Word PDF of `thesis` is also where to read whether Word numbers physical page 3 as "1" and the first appendix page as "A-1".
+
+Tools:
+
+```
+dotnet run --project bench/write-corpus -c Release -- pdf-facts <pdf> [--out <json>]
+dotnet run --project bench/write-corpus -c Release -- compare --reference <pdf|json> --candidate <pdf|json> [--require-same-page-count]
+dotnet run --project bench/write-corpus -c Release -- table --root testdata/write-corpus --out Docs/write-corpus.md
+```
+
+- `pdf-facts` prints the page count and the length of each page's text (never the text itself); `--out` writes the page count and the text of every page as JSON.
+- `compare` normalises the page texts (NFC, whitespace runs and no-break spaces to one space, soft hyphens and control characters removed), pairs the pages by index and prints the page counts, the number of identical pages, the mean Dice coefficient over the multiset of words (a page that exists on one side only scores 0 and counts in the mean) and the first different page (1-based). Exit 0, or 1 with `--require-same-page-count` when the counts differ, or 2 for unreadable input.
+- `table` writes `Docs/write-corpus.md` (generated; do not edit): one row per entry sorted by id, with the round trip and, when the PDFs above exist, Word's page counts; without a PDF the cell is an en dash. The text has no time and no absolute path, so a regenerated file diffs cleanly. It needs PDFium (the engine of the PDF app); if that cannot start, the tool says so and exits 2.

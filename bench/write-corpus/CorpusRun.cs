@@ -40,9 +40,10 @@ internal static class CorpusRun
         return failed ? 1 : 0;
     }
 
-    private sealed record Row(bool Opens, bool Saves, bool UnloadedIdentical, bool LoadedEquivalent, long Milliseconds);
+    /// <summary>The verdict of one entry's round trip.</summary>
+    internal sealed record Row(bool Opens, bool Saves, bool UnloadedIdentical, bool LoadedEquivalent, long Milliseconds);
 
-    private static Row RoundTrip(string root, CorpusEntry entry, string temp)
+    internal static Row RoundTrip(string root, CorpusEntry entry, string temp)
     {
         var path = CorpusCheck.Resolve(root, entry.Path);
         var watch = Stopwatch.StartNew();
@@ -86,6 +87,23 @@ internal static class CorpusRun
             {
                 File.Delete(saved);
             }
+        }
+    }
+
+    /// <summary>Round-trips every entry of the manifest (in manifest order) and returns the verdicts.</summary>
+    internal static IReadOnlyList<(CorpusEntry Entry, Row Row)> Evaluate(string root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var manifest = CorpusManifest.Load(root);
+        var temp = Path.Combine(Path.GetTempPath(), "write-corpus-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temp);
+        try
+        {
+            return [.. manifest.Files.Select(entry => (entry, RoundTrip(root, entry, temp)))];
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
         }
     }
 

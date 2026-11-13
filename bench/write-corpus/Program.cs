@@ -7,7 +7,8 @@ namespace WriteCorpus;
 
 /// <summary>
 /// <c>write-corpus</c>: the compatibility corpus of Raffica Write (testdata/write-corpus). Commands: <c>check</c>, <c>run</c> and
-/// <c>add</c>. Exit codes: 0 ok, 1 findings, 2 usage. Output is plain text or CSV with root-relative paths and never contains
+/// <c>add</c>, plus the page comparison commands <c>pdf-facts</c>, <c>compare</c> and <c>table</c>. Exit codes: 0 ok, 1 findings, 2 usage
+/// or unreadable input (also: the PDF engine cannot start). Output is plain text or CSV with root-relative paths and never contains
 /// document text.
 /// </summary>
 internal static partial class Program
@@ -17,6 +18,9 @@ internal static partial class Program
           write-corpus check --root <dir> [--allow-uncovered]
           write-corpus run --root <dir> [--out <csv>]
           write-corpus add <docx> --root <dir> --id <id> --source <url|text> --license <spdx> --license-file <path>
+          write-corpus pdf-facts <pdf> [--out <json>]
+          write-corpus compare --reference <pdf|json> --candidate <pdf|json> [--require-same-page-count]
+          write-corpus table --root <dir> --out <md>
         """;
 
     private static int Main(string[] args) => Run(args, Console.Out, Console.Error);
@@ -36,8 +40,16 @@ internal static partial class Program
                 "check" => Check(args[1..], output, error),
                 "run" => RunCommand(args[1..], output, error),
                 "add" => Add(args[1..], output, error),
+                "pdf-facts" => PdfFacts(args[1..], output, error),
+                "compare" => Compare(args[1..], output, error),
+                "table" => Table(args[1..], output, error),
                 _ => Fail(error, $"unknown command '{args[0]}'"),
             };
+        }
+        catch (PdfEngineUnavailableException)
+        {
+            error.WriteLine("write-corpus: the PDF engine (PDFium) could not be started; its native library was not found next to the tool");
+            return 2;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -99,6 +111,114 @@ internal static partial class Program
         }
 
         return code;
+    }
+
+    private static int PdfFacts(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--out"], [], 1, out var options, out var problem))
+        {
+            return Fail(error, problem ?? "pdf-facts needs a PDF");
+        }
+
+        var facts = LoadFacts(options.Positional[0], error);
+        if (facts is null)
+        {
+            return 2;
+        }
+
+        if (options.Value("--out") is { } json)
+        {
+            var text = JsonSerializer.Serialize(facts, PageFactsJson.Default.PageFacts).Replace("\r\n", "\n", StringComparison.Ordinal) + "\n";
+            File.WriteAllText(json, text, new System.Text.UTF8Encoding(false));
+        }
+
+        // The page count and the length of each page's text only: the text of a document is never printed.
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"pages: {facts.PageCount}"));
+        for (var i = 0; i < facts.PageCount; i++)
+        {
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"page {i + 1}: {TextNormalizer.Normalize(facts.PageTexts[i]).Length} characters"));
+        }
+
+        return 0;
+    }
+
+    private static int Compare(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--reference", "--candidate"], ["--require-same-page-count"], 0, out var options, out var problem)
+            || options.Value("--reference") is not { } referencePath
+            || options.Value("--candidate") is not { } candidatePath)
+        {
+            return Fail(error, problem ?? "compare needs --reference and --candidate");
+        }
+
+        var reference = LoadFacts(referencePath, error);
+        var candidate = reference is null ? null : LoadFacts(candidatePath, error);
+        if (reference is null || candidate is null)
+        {
+            return 2;
+        }
+
+        var result = PageComparer.Compare(reference, candidate);
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"reference pages: {result.ReferencePages}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"candidate pages: {result.CandidatePages}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"page count equal: {(result.PageCountEqual ? "yes" : "no")}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"equal pages: {result.EqualPages}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"mean dice: {result.MeanDice:0.0000}"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"first different page: {(result.FirstDifferentPage is { } page ? page.ToString(CultureInfo.InvariantCulture) : "none")}"));
+        return options.Has("--require-same-page-count") && !result.PageCountEqual ? 1 : 0;
+    }
+
+    private static int Table(string[] args, TextWriter output, TextWriter error)
+    {
+        if (!Options.TryParse(args, ["--root", "--out"], [], 0, out var options, out var problem)
+            || options.Value("--root") is not { } root
+            || options.Value("--out") is not { } outPath)
+        {
+            return Fail(error, problem ?? "table needs --root and --out");
+        }
+
+        if (!File.Exists(CorpusManifest.PathIn(root)))
+        {
+            error.WriteLine($"write-corpus: {CorpusManifest.FileName} is missing in the root");
+            return 2;
+        }
+
+        string text;
+        try
+        {
+            text = CorpusTable.BuildAsync(root).GetAwaiter().GetResult();
+        }
+        catch (JsonException)
+        {
+            error.WriteLine($"write-corpus: {CorpusManifest.FileName} cannot be read");
+            return 2;
+        }
+
+        File.WriteAllText(outPath, text, new System.Text.UTF8Encoding(false));
+        output.WriteLine("write-corpus table: written");
+        return 0;
+    }
+
+    /// <summary>Facts from a <c>.json</c> file or a PDF; on an unreadable input writes one line to <paramref name="error"/> and returns null.</summary>
+    private static PageFacts? LoadFacts(string path, TextWriter error)
+    {
+        if (!File.Exists(path))
+        {
+            error.WriteLine("write-corpus: an input file does not exist");
+            return null;
+        }
+
+        try
+        {
+            return path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                ? PageFacts.Load(path)
+                : PdfPageFacts.ReadAsync(path).GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException)
+        {
+            error.WriteLine("write-corpus: an input file is not readable");
+            return null;
+        }
     }
 
     private static int Add(string[] args, TextWriter output, TextWriter error)
