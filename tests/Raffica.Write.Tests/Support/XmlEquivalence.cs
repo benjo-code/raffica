@@ -4,8 +4,8 @@ namespace Raffica.Write.Tests.Support;
 
 /// <summary>
 /// Equivalence of two XML trees for round-trip tests. Equal means: the same element names, the same attribute set
-/// regardless of order, namespace declarations ignored, the same child order, text compared exactly for elements
-/// without element children, and whitespace-only text between elements ignored.
+/// regardless of order, namespace declarations ignored, the same child order, text compared exactly (for mixed
+/// content the non-whitespace text nodes in order), and whitespace-only text between elements ignored.
 /// </summary>
 internal static class XmlEquivalence
 {
@@ -51,7 +51,9 @@ internal static class XmlEquivalence
             return a.Value == b.Value ? null : $"{path}: text \"{a.Value}\" differs from \"{b.Value}\"";
         }
 
-        if (!HasOnlyWhitespaceText(a) || !HasOnlyWhitespaceText(b))
+        var textA = Texts(a);
+        var textB = Texts(b);
+        if (!textA.SequenceEqual(textB))
         {
             return $"{path}: text mixed with child elements differs";
         }
@@ -71,8 +73,8 @@ internal static class XmlEquivalence
             : $"{path}: {childrenA.Count} child elements on the left, {childrenB.Count} on the right";
     }
 
-    private static bool HasOnlyWhitespaceText(XElement element) =>
-        element.Nodes().OfType<XText>().All(t => string.IsNullOrWhiteSpace(t.Value));
+    private static List<string> Texts(XElement element) =>
+        element.Nodes().OfType<XText>().Select(t => t.Value).Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
 
     private static int Position(List<XElement> siblings, int index) =>
         siblings.Take(index + 1).Count(s => s.Name == siblings[index].Name);

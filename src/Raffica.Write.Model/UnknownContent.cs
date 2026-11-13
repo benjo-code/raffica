@@ -2,8 +2,8 @@ using System.Xml.Linq;
 
 namespace Raffica.Write.Model;
 
-/// <summary>One element the model does not understand, kept so a save writes it back. Later tasks derive the typed variants (block, inline, run content, row item) from it.</summary>
-public class UnknownContent : OoxmlElement
+/// <summary>One element the model does not understand, kept so a save writes it back. The typed unknown variants (block, inline, run content, row item) derive their own base and hold one of these.</summary>
+public sealed class UnknownContent
 {
     public UnknownContent(XElement source)
     {

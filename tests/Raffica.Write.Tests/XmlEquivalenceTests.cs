@@ -52,6 +52,22 @@ public sealed class XmlEquivalenceTests
     }
 
     [Fact]
+    public void IdenticalMixedContentIsEqual()
+    {
+        var a = Parse($"<w:p {Ns}>x<w:b/>y</w:p>");
+        var b = Parse($"<w:p {Ns}>x<w:b/>y</w:p>");
+        Assert.True(XmlEquivalence.AreEqual(a, b));
+    }
+
+    [Fact]
+    public void DifferingMixedContentTextIsUnequal()
+    {
+        var a = Parse($"<w:p {Ns}>x<w:b/></w:p>");
+        var b = Parse($"<w:p {Ns}>z<w:b/></w:p>");
+        Assert.False(XmlEquivalence.AreEqual(a, b));
+    }
+
+    [Fact]
     public void ExplainNamesThePathOfTheDifference()
     {
         var a = Parse($"<w:document {Ns}><w:body><w:p/><w:p><w:r><w:t>a</w:t></w:r></w:p></w:body></w:document>");

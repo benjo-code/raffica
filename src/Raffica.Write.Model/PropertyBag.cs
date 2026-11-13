@@ -19,20 +19,30 @@ public class PropertyBag : OoxmlElement
 
     public IReadOnlyList<XElement> Children => _children;
 
-    /// <summary>Appends a child as read from a file, without reordering.</summary>
+    /// <summary>Appends a child as read from a file, without reordering. A detached copy is stored (see <see cref="UnknownContent.Capture"/>), so prefixes declared on an ancestor survive and the source tree is not kept alive.</summary>
     public void AddLoaded(XElement child)
     {
         ArgumentNullException.ThrowIfNull(child);
-        _children.Add(child);
+        _children.Add(UnknownContent.Capture(child));
     }
 
-    public XElement? Get(XName name) => _children.Find(c => c.Name == name);
+    /// <summary>The first child of this name, or null. (Get, Set and Remove act on the first match; repeatable children such as <c>w:headerReference</c> belong to <c>SectionProperties</c>.)</summary>
+    public XElement? Get(XName name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return _children.Find(c => c.Name == name);
+    }
 
     /// <summary>Replaces the child of this name in place, or inserts it where the schema order of this kind puts it. A name the order does not know is appended.</summary>
     public void Set(XName name, XElement value)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);
+        if (value.Name != name)
+        {
+            throw new ArgumentException("The element name does not match the name it is set under.", nameof(value));
+        }
+
         var existing = _children.FindIndex(c => c.Name == name);
         if (existing >= 0)
         {
@@ -60,6 +70,7 @@ public class PropertyBag : OoxmlElement
 
     public bool Remove(XName name)
     {
+        ArgumentNullException.ThrowIfNull(name);
         var existing = _children.FindIndex(c => c.Name == name);
         if (existing < 0)
         {
@@ -116,6 +127,7 @@ public class PropertyBag : OoxmlElement
         }
     }
 
+    /// <summary>The list id of <c>w:numPr</c>; 0 means "no list" and is returned as 0.</summary>
     public int? NumberingId => NumberingValue("numId");
 
     public int? NumberingLevel => NumberingValue("ilvl");

@@ -52,6 +52,28 @@ public sealed class PropertyBagTests
     }
 
     [Fact]
+    public void SetRefusesAnElementWithAnotherName()
+    {
+        var bag = Bag(PropertyKind.Run);
+        Assert.Throws<ArgumentException>(() => bag.Set(W + "b", new XElement(W + "i")));
+    }
+
+    [Fact]
+    public void AddLoadedKeepsAPrefixDeclaredOnAnInnerAncestorAndDetaches()
+    {
+        var doc = XElement.Parse(
+            "<w:rPr xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:holder xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\"><w14:ligatures w14:val=\"all\"/></w:holder></w:rPr>");
+        var child = doc.Descendants(W14 + "ligatures").Single();
+        var bag = new PropertyBag(PropertyKind.Run);
+        bag.AddLoaded(child);
+        var stored = bag.Children.Single();
+        Assert.Null(stored.Parent);
+        Assert.Contains("w14:ligatures", stored.ToString());
+        Assert.DoesNotContain("p1:", stored.ToString());
+        Assert.NotNull(child.Parent);
+    }
+
+    [Fact]
     public void SetReplacesAnExistingChildInPlace()
     {
         var bag = Bag(PropertyKind.Run, new XElement(W + "b"), new XElement(W + "sz", new XAttribute(W + "val", "20")), new XElement(W + "lang"));
@@ -79,6 +101,7 @@ public sealed class PropertyBagTests
         Assert.True(Bag(PropertyKind.Run, new XElement(W + "b")).Bold);
         Assert.False(Bag(PropertyKind.Run, new XElement(W + "b", new XAttribute(W + "val", "0"))).Bold);
         Assert.False(Bag(PropertyKind.Run, new XElement(W + "b", new XAttribute(W + "val", "false"))).Bold);
+        Assert.False(Bag(PropertyKind.Run, new XElement(W + "b", new XAttribute(W + "val", "off"))).Bold);
         Assert.True(Bag(PropertyKind.Run, new XElement(W + "b", new XAttribute(W + "val", "1"))).Bold);
     }
 
