@@ -76,6 +76,72 @@ public sealed class PageLayoutTests
     }
 
     [Fact]
+    public void AContinuousSectionNeverStartsInTheBottomMargin()
+    {
+        // Section 1 fills the page to the last line (exactly, and with less than a line left); the continuous section after it
+        // starts on the next page, and nothing is drawn below the body.
+        var exact = Sect(string.Empty, 612f, 72f + (10 * LineHeight()) + 0.01f, 36f);
+        var roomy = TallFor(10);
+        foreach (var (first, next) in new[] { (exact, exact.Replace("<w:sectPr>", "<w:sectPr>" + Continuous, StringComparison.Ordinal)), (roomy, TallFor(10, Continuous)) })
+        {
+            var body = Numbered("one {0}", 9) + PEnd("one 10", first) + P("next") + next;
+            var layout = Complete(body);
+            Assert.Equal(2, layout.LaidOutPages);
+            Assert.Equal(10, TextLines(layout.Page(0)).Length);
+            Assert.Equal(["next"], TextLines(layout.Page(1)));
+            foreach (var page in Pages(layout))
+            {
+                Assert.All(Runs(page), r => Assert.True(r.Baseline <= page.Height - 36f, "nothing is drawn in the bottom margin"));
+            }
+        }
+
+        // A multi-line paragraph that does not fit the room left on a mid-page band moves whole to the next page.
+        var tall = TallFor(10);
+        var moved = Complete(Numbered("one {0}", 8) + PEnd("one 9", tall) + Lines("L", 3) + TallFor(10, Continuous));
+        Assert.Equal(9, TextLines(moved.Page(0)).Length);
+        Assert.Equal(["L1", "L2", "L3"], TextLines(moved.Page(1)));
+    }
+
+    [Fact]
+    public void NonFiniteAndNegativeGeometryIsRepaired()
+    {
+        const string Cols = "<w:cols w:num=\"2\" w:space=\"{0}\"/>";
+        var bad = new[] { "NaN", "Infinity", "-Infinity", "1e300", "1e30", "-1440", "-1e300" };
+        var cases = new List<string>();
+        foreach (var value in bad)
+        {
+            foreach (var attribute in new[] { "left", "right", "top", "bottom", "gutter" })
+            {
+                var margins = new Dictionary<string, string> { ["top"] = "1440", ["right"] = "1440", ["bottom"] = "1440", ["left"] = "1440", ["gutter"] = "0" };
+                margins[attribute] = value;
+                cases.Add("<w:sectPr>" + Pgsz(612f, 792f) + $"<w:pgMar w:top=\"{margins["top"]}\" w:right=\"{margins["right"]}\" w:bottom=\"{margins["bottom"]}\" w:left=\"{margins["left"]}\" w:header=\"720\" w:footer=\"720\" w:gutter=\"{margins["gutter"]}\"/></w:sectPr>");
+            }
+
+            cases.Add("<w:sectPr>" + string.Format(System.Globalization.CultureInfo.InvariantCulture, Cols, value) + Pgsz(612f, 792f) + Margins(72, 72, 72, 72) + "</w:sectPr>");
+            cases.Add("<w:sectPr><w:cols w:num=\"2\" w:equalWidth=\"0\"><w:col w:w=\"" + value + "\" w:space=\"720\"/><w:col w:w=\"3000\"/></w:cols>" + Pgsz(612f, 792f) + Margins(72, 72, 72, 72) + "</w:sectPr>");
+            cases.Add("<w:sectPr><w:pgSz w:w=\"" + value + "\" w:h=\"" + value + "\"/>" + Margins(72, 72, 72, 72) + "</w:sectPr>");
+        }
+
+        foreach (var sect in cases)
+        {
+            var layout = Complete(P(Repeat("word ", 300)) + sect);
+            Assert.NotEmpty(layout.Notes);
+            Assert.InRange(layout.LaidOutPages, 1, 400);
+            foreach (var page in Pages(layout))
+            {
+                Assert.True(float.IsFinite(page.Width) && float.IsFinite(page.Height) && page.Width > 0 && page.Height > 0, sect);
+                Assert.NotEmpty(Runs(page));
+                foreach (var run in Runs(page))
+                {
+                    Assert.True(float.IsFinite(run.X) && float.IsFinite(run.Baseline) && run.X >= 0f, sect);
+                    Assert.True(page.Width - run.X >= PageGeometry.MinimumText - 0.01f, sect);
+                    Assert.All(run.Xs.ToArray(), x => Assert.True(float.IsFinite(x), sect));
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void PageSizeMarginsAndOrientation()
     {
         var a4 = Complete(P("x") + "<w:sectPr>" + Pgsz(595.3f, 841.9f) + Margins(56.7f, 70.9f, 56.7f, 70.9f) + "</w:sectPr>").Page(0);

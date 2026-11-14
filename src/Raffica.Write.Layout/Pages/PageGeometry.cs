@@ -96,8 +96,8 @@ internal sealed class PageGeometry
     public static PageGeometry Read(SectionProperties? section, string where, List<string> notes)
     {
         var size = section?.Get(W + "pgSz");
-        var width = Points(size, "w") ?? DefaultWidth;
-        var height = Points(size, "h") ?? DefaultHeight;
+        var width = Length(size, "w", where, notes) ?? DefaultWidth;
+        var height = Length(size, "h", where, notes) ?? DefaultHeight;
         var sizeRepaired = false;
         if (!float.IsFinite(width) || !float.IsFinite(height) || width <= 0f || height <= 0f)
         {
@@ -117,13 +117,13 @@ internal sealed class PageGeometry
         }
 
         var margins = section?.Get(W + "pgMar");
-        var left = Math.Abs(Points(margins, "left") ?? DefaultMargin);
-        var right = Math.Abs(Points(margins, "right") ?? DefaultMargin);
-        var top = Math.Abs(Points(margins, "top") ?? DefaultMargin);
-        var bottom = Math.Abs(Points(margins, "bottom") ?? DefaultMargin);
-        var gutter = Math.Abs(Points(margins, "gutter") ?? 0f);
-        var header = Math.Abs(Points(margins, "header") ?? 36f);
-        var footer = Math.Abs(Points(margins, "footer") ?? 36f);
+        var left = Distance(margins, "left", DefaultMargin, where, notes);
+        var right = Distance(margins, "right", DefaultMargin, where, notes);
+        var top = Distance(margins, "top", DefaultMargin, where, notes);
+        var bottom = Distance(margins, "bottom", DefaultMargin, where, notes);
+        var gutter = Distance(margins, "gutter", 0f, where, notes);
+        var header = Distance(margins, "header", 36f, where, notes);
+        var footer = Distance(margins, "footer", 36f, where, notes);
         left += gutter;
 
         var horizontal = left + right;
@@ -158,7 +158,7 @@ internal sealed class PageGeometry
         }
 
         var separator = Flag(cols, "sep");
-        var space = Points(cols, "space") ?? 36f;
+        var space = Distance(cols, "space", 36f, where, notes);
         var explicitColumns = cols.Elements(W + "col").ToList();
         var equal = Flag(cols, "equalWidth", defaultValue: true);
         if (!equal && explicitColumns.Count > 0)
@@ -168,8 +168,8 @@ internal sealed class PageGeometry
             var gaps = new float[count];
             for (var i = 0; i < count; i++)
             {
-                widths[i] = Math.Max(MinimumColumn, Points(explicitColumns[i], "w") ?? MinimumColumn);
-                gaps[i] = Math.Max(0f, Points(explicitColumns[i], "space") ?? space);
+                widths[i] = Math.Max(MinimumColumn, Distance(explicitColumns[i], "w", MinimumColumn, where, notes));
+                gaps[i] = Distance(explicitColumns[i], "space", space, where, notes);
             }
 
             var total = widths.Sum() + gaps.Take(count - 1).Sum();
@@ -224,10 +224,52 @@ internal sealed class PageGeometry
         return value is null ? defaultValue : value is not ("0" or "false" or "off");
     }
 
-    private static float? Points(XElement? element, string name)
+    // A length attribute in points; null when it is absent. One that is there but is not a finite number (NaN, Infinity, 1e300)
+    // is ignored with a note, so no later arithmetic ever sees a non-finite value.
+    private static float? Length(XElement? element, string name, string where, List<string> notes)
     {
         var text = (string?)element?.Attribute(W + name);
-        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var twips) ? (float)(twips / 20.0) : null;
+        if (text is null)
+        {
+            return null;
+        }
+
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var twips) && double.IsFinite(twips))
+        {
+            var points = (float)(twips / 20.0);
+            if (float.IsFinite(points))
+            {
+                return points;
+            }
+        }
+
+        notes.Add($"{where}: w:{name} of w:{element!.Name.LocalName} is not a usable length; the default is used.");
+        return null;
+    }
+
+    // A margin, gutter, header or footer distance, column width or gap: never negative (the absolute value is used, as Word does for
+    // margins) and never above the largest page; both repairs are noted.
+    private static float Distance(XElement? element, string name, float fallback, string where, List<string> notes)
+    {
+        var value = Length(element, name, where, notes);
+        if (value is not { } length)
+        {
+            return fallback;
+        }
+
+        if (length < 0f)
+        {
+            notes.Add($"{where}: w:{name} of w:{element!.Name.LocalName} is negative; its absolute value is used.");
+            length = -length;
+        }
+
+        if (length > MaximumPage)
+        {
+            notes.Add($"{where}: w:{name} of w:{element!.Name.LocalName} is larger than any page; {MaximumPage.ToString("0", CultureInfo.InvariantCulture)} pt is used.");
+            length = MaximumPage;
+        }
+
+        return length;
     }
 
     private static string Format(float value) => float.IsFinite(value) ? value.ToString("0.#", CultureInfo.InvariantCulture) : "NaN";

@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Raffica.Write.Model;
 
 namespace Raffica.Write.Layout;
@@ -40,6 +41,7 @@ public sealed class DocumentLayout
     private readonly List<string> _notes;
     private bool _complete;
     private bool _firstPageFinal;
+    private ExceptionDispatchInfo? _fault;
 
     private DocumentLayout(WordDocument document, FontCatalog fonts, LayoutOptions options)
     {
@@ -71,10 +73,17 @@ public sealed class DocumentLayout
         return new DocumentLayout(document, fonts, options);
     }
 
+    // Test seam: called before each page is laid out, with the number of pages published so far.
+    internal Action<int>? BeforePage { get; set; }
+
     /// <summary>The number of pages published so far.</summary>
     public int LaidOutPages => _pages.Count;
 
-    /// <summary>True once every page is published.</summary>
+    /// <summary>
+    /// True once the layout has run out of pages. It is set by the call that asks for a page and finds none, so one step after the
+    /// last page is published; <see cref="LayOutThrough"/> of the last page alone does not set it, and <see cref="LayOutRestAsync"/>
+    /// does.
+    /// </summary>
     public bool IsComplete => Volatile.Read(ref _complete);
 
     /// <summary>
@@ -171,24 +180,39 @@ public sealed class DocumentLayout
     {
         lock (_gate)
         {
+            // A fault (a bug in the layout, never a document) stops the layout for good: the iterator is dead and would otherwise
+            // report "no more pages" and hand out a silently truncated document.
+            _fault?.Throw();
             if (IsComplete)
             {
                 return false;
             }
 
-            if (!_fill.MoveNext())
+            bool more;
+            try
+            {
+                BeforePage?.Invoke(_pages.Count);
+                more = _fill.MoveNext();
+            }
+            catch (Exception e)
+            {
+                _fault = ExceptionDispatchInfo.Capture(e);
+                throw;
+            }
+
+            if (!more)
             {
                 Volatile.Write(ref _complete, true);
                 return false;
             }
 
-            var first = _pages.Count == 0;
-            _pages.Add(_fill.Current);
-            if (first)
+            // The flag is set before the page is published, so a reader that sees page 1 sees the final answer.
+            if (_pages.Count == 0)
             {
                 Volatile.Write(ref _firstPageFinal, _filler.MaxTouchedBodyIndex < _lastBodyIndex);
             }
 
+            _pages.Add(_fill.Current);
             return true;
         }
     }

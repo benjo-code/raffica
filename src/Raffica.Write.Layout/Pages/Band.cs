@@ -65,6 +65,13 @@ internal sealed class Band
     /// <summary>True when something was already placed on the page before this band (a page break before a block is then a real break).</summary>
     public bool PageHadContent { get; }
 
+    /// <summary>
+    /// True when this band starts at the top of the body of a page that has nothing on it yet. Only there must a flow give a head
+    /// that does not fit (so content bigger than a page is clipped); anywhere else a flow that does not fit goes to the next
+    /// column or page, never into the bottom margin.
+    /// </summary>
+    public bool AtPageTop => !PageHadContent && Column == 0;
+
     /// <summary>True in a trial fill: page breaks before blocks are not asked again.</summary>
     public bool IgnorePageBreaks { get; init; }
 
@@ -106,10 +113,10 @@ internal sealed class Band
                 continue;
             }
 
-            var split = flow.Split(available, _columnEmpty);
+            var split = flow.Split(available, _columnEmpty && AtPageTop);
             if (split.Head is not { } head)
             {
-                if (_columnEmpty)
+                if (_columnEmpty && AtPageTop)
                 {
                     throw new InvalidOperationException("A flow gave no head at the top of an empty column.");
                 }

@@ -148,6 +148,38 @@ public sealed class DocumentLayoutApiTests
     }
 
     [Fact]
+    public async Task AFaultStopsTheLayoutForGoodInsteadOfCompletingIt()
+    {
+        var layout = Create(LongDocument(400));
+        layout.BeforePage = published =>
+        {
+            if (published == 2)
+            {
+                throw new InvalidOperationException("injected");
+            }
+        };
+
+        Assert.Throws<InvalidOperationException>(() => layout.LayOutThrough(5));
+        Assert.Equal(2, layout.LaidOutPages);
+        Assert.False(layout.IsComplete);
+        Assert.Throws<InvalidOperationException>(() => layout.LayOutThrough(5));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => layout.LayOutRestAsync(null, CancellationToken.None));
+        Assert.False(layout.IsComplete);
+        Assert.Equal(2, layout.LaidOutPages);
+    }
+
+    [Fact]
+    public void FirstPageIsFinalIsSetBeforePageOneIsVisible()
+    {
+        var layout = Create(LongDocument(400));
+        var seen = new List<bool>();
+        layout.BeforePage = _ => { };
+        layout.LayOutFirstPage();
+        seen.Add(layout.LaidOutPages == 1 && layout.FirstPageIsFinal);
+        Assert.Equal([true], seen);
+    }
+
+    [Fact]
     public void PageNumbersFollowTheFormatAndStartOfTheSection()
     {
         // Section 1: lower roman from 3 (two pages); section 2: decimal again from 1; section 3: upper letters from 2; section 4: lower letters from 27.
