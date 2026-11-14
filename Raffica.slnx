@@ -8,6 +8,7 @@
     <Project Path="src/Raffica.Pdf/Raffica.Pdf.csproj" />
     <Project Path="src/Raffica.Pdfium/Raffica.Pdfium.csproj" />
     <Project Path="src/Raffica.Shell/Raffica.Shell.csproj" />
+    <Project Path="src/Raffica.Write/Raffica.Write.csproj" />
     <Project Path="src/Raffica.Write.Docx/Raffica.Write.Docx.csproj" />
     <Project Path="src/Raffica.Write.Layout/Raffica.Write.Layout.csproj" />
     <Project Path="src/Raffica.Write.Model/Raffica.Write.Model.csproj" />
@@ -18,6 +19,7 @@
     <Project Path="tests/Raffica.Pdf.Tests/Raffica.Pdf.Tests.csproj" />
     <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
     <Project Path="tests/Raffica.Shell.Tests/Raffica.Shell.Tests.csproj" />
+    <Project Path="tests/Raffica.Write.App.Tests/Raffica.Write.App.Tests.csproj" />
     <Project Path="tests/Raffica.Write.Tests/Raffica.Write.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">

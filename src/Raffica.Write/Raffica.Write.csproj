@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>RafficaWrite</AssemblyName>
+    <RootNamespace>Raffica.Write</RootNamespace>
+    <!-- The name the system shows for the program (the version resource of the exe): "Raffica Write", not the assembly name. -->
+    <Product>Raffica Write</Product>
+    <Company>Raffica</Company>
+    <AssemblyTitle>Raffica Write</AssemblyTitle>
+    <Description>Raffica Write</Description>
+    <!-- The placeholder icon derived from Docs/design/icons/brand/write.png (see Docs/design/icons/README.md): the file icon, the taskbar and the Start menu. -->
+    <ApplicationIcon>Assets/raffica-write.ico</ApplicationIcon>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- German number and date formats are needed by the texts of the app. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SatelliteResourceLanguages>en;de</SatelliteResourceLanguages>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+    <ProjectReference Include="..\Raffica.Core\Raffica.Core.csproj" />
+    <ProjectReference Include="..\Raffica.Hosting\Raffica.Hosting.csproj" />
+    <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
+    <ProjectReference Include="..\Raffica.Write.Model\Raffica.Write.Model.csproj" />
+    <ProjectReference Include="..\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
+    <ProjectReference Include="..\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
+    <TrimmerRootAssembly Include="Raffica.Shell" />
+    <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Write.App.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Both languages are embedded in this assembly (no satellite assemblies, which need runtime assembly loading under Native AOT). -->
+    <EmbeddedResource Update="Resources\Strings.en.resx" WithCulture="false" LogicalName="Raffica.Write.Strings.en.resources" />
+    <EmbeddedResource Update="Resources\Strings.de.resx" WithCulture="false" LogicalName="Raffica.Write.Strings.de.resources" />
+  </ItemGroup>
+</Project>
