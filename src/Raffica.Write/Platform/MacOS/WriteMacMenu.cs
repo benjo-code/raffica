@@ -2,6 +2,7 @@ using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Raffica.Shell.Frame;
+using Raffica.Write.Commands;
 
 namespace Raffica.Write.Platform.MacOS;
 
@@ -19,6 +20,18 @@ internal interface IWriteMenuWindow
     void Open();
 
     void CloseActiveTab();
+
+    /// <summary>Closes the active tab; without one (the start view) closes the window, as Cmd+W does in every Mac app.</summary>
+    void CloseTabOrWindow();
+
+    /// <summary>Whether the command of the catalog (by id) may run now.</summary>
+    bool CanRun(string commandId);
+
+    /// <summary>Runs the command of the catalog (by id); does nothing when it may not run.</summary>
+    void RunCommand(string commandId);
+
+    /// <summary>Whether a switch command (a view, a zoom mode) is on now.</summary>
+    bool IsOn(string commandId);
 
     void OpenRecent(RecentFile file);
 
@@ -40,15 +53,15 @@ internal enum WriteMenuPart
     /// <summary>The items of the application menu, set on the application (Settings, and Open while no window exists).</summary>
     App,
 
-    /// <summary>File and Window, set on each window.</summary>
+    /// <summary>File, View and Window, set on each window.</summary>
     Window,
 }
 
 /// <summary>
 /// The macOS menu bar of Write. It follows the same rule as the PDF app (<c>Docs/DECISIONS.md</c>, "Raffica PDF on macOS: the menus belong to the window"): the
 /// application menu belongs to the application and is only Settings and Open (Open shows while no window exists, so Cmd+O never has two items); File and Window
-/// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone, and the
-/// View menu (page view, writing view, zoom) joins with the commands of the window in the next step, so it is not stubbed here. The menu is read again when the
+/// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone. The View menu
+/// (page view, writing view, zoom in and out, actual size, fit width, fit page) runs the commands of the catalog by id on the window. The menu is read again when the
 /// system asks, when the window reports new states and when the current window changes (the owner calls <see cref="Refresh"/>).
 /// </summary>
 internal sealed class WriteMacMenu
@@ -88,8 +101,21 @@ internal sealed class WriteMacMenu
             _recentItem = new NativeMenuItem(WriteStrings.MenuOpenRecent) { Menu = new NativeMenu() };
             file.Menu.Items.Add(_recentItem);
             file.Menu.Items.Add(new NativeMenuItemSeparator());
-            file.Menu.Items.Add(Item(() => WriteStrings.MenuCloseTab, "Meta+W", window => window?.CloseActiveTab(), always: false, needsTab: true));
+            file.Menu.Items.Add(Item(() => WriteStrings.MenuCloseTab, "Meta+W", window => window?.CloseTabOrWindow(), always: false));
             Menu.Items.Add(file);
+
+            var viewMenu = new NativeMenuItem(WriteStrings.TabView) { Menu = new NativeMenu() };
+            viewMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageView, () => WriteStrings.CmdPageView, null, radio: true));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.WritingView, () => WriteStrings.CmdWritingView, null, radio: true));
+            viewMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.ZoomIn, () => WriteStrings.CmdZoomIn, "Meta+OemPlus"));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.ZoomOut, () => WriteStrings.CmdZoomOut, "Meta+OemMinus"));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.ActualSize, () => WriteStrings.CmdActualSize, "Meta+D0"));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FitWidth, () => WriteStrings.CmdFitWidth, "Meta+D1"));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FitPage, () => WriteStrings.CmdFitPage, "Meta+D2"));
+            Menu.Items.Add(viewMenu);
+            _headers.Add((viewMenu, () => WriteStrings.TabView));
 
             var window = new NativeMenuItem(WriteStrings.MenuWindow) { Menu = new NativeMenu() };
             window.Menu!.NeedsUpdate += _onNeedsUpdate;
@@ -121,6 +147,11 @@ internal sealed class WriteMacMenu
             if (entry.OnlyWithoutWindow)
             {
                 entry.Item.IsVisible = window is null;
+            }
+
+            if (entry.Checked is { } isChecked)
+            {
+                entry.Item.IsChecked = isChecked(window);
             }
         }
 
@@ -176,6 +207,28 @@ internal sealed class WriteMacMenu
         return item;
     }
 
+    // An item of the View menu: it runs a command of the catalog by id on the window that is current, and is enabled by the rules of the window (a switch shows its state).
+    private NativeMenuItem CommandItem(string id, Func<string> text, string? gesture, bool radio = false)
+    {
+        var command = new MenuCommand(
+            () => _current() is { } window && !window.DialogOpen && window.HasTab && window.CanRun(id),
+            () =>
+            {
+                if (_current() is { } window && !window.DialogOpen && window.HasTab && window.CanRun(id))
+                {
+                    window.RunCommand(id);
+                }
+            });
+        var item = new NativeMenuItem(text()) { Command = command, Gesture = gesture is null ? null : KeyGesture.Parse(gesture) };
+        if (radio)
+        {
+            item.ToggleType = MenuItemToggleType.Radio;
+        }
+
+        _entries.Add(new Entry(item, command, text, false, radio ? window => window?.IsOn(id) == true : null));
+        return item;
+    }
+
     // The recent files change rarely: the submenu is rebuilt only when the list (or the presence of a window) changed, not on every refresh.
     private void RefreshRecent(IWriteMenuWindow? window)
     {
@@ -209,7 +262,7 @@ internal sealed class WriteMacMenu
         }
     }
 
-    private sealed record Entry(NativeMenuItem Item, MenuCommand Command, Func<string> Text, bool OnlyWithoutWindow);
+    private sealed record Entry(NativeMenuItem Item, MenuCommand Command, Func<string> Text, bool OnlyWithoutWindow, Func<IWriteMenuWindow?, bool>? Checked = null);
 
     private sealed class MenuCommand(Func<bool> canExecute, Action execute) : ICommand
     {
@@ -228,7 +281,7 @@ internal sealed class WriteMacMenu
         public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Makes the File and Window menus of <paramref name="menuWindow"/> and sets them on <paramref name="window"/> (the same object in the app, two in a test).</summary>
+    /// <summary>Makes the File, View and Window menus of <paramref name="menuWindow"/> and sets them on <paramref name="window"/> (the same object in the app, two in a test).</summary>
     public static WriteMacMenu Attach(Window window, IWriteMenuWindow menuWindow)
     {
         ArgumentNullException.ThrowIfNull(window);

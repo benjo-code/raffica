@@ -83,7 +83,7 @@ public sealed class WriteWindowTests
     }
 
     [AvaloniaFact]
-    public async Task AnOpenedFileIsATabWithItsNameAndAnEmptyDocumentArea()
+    public async Task AnOpenedFileIsATabWithItsNameAndAPageView()
     {
         using var fixture = new WindowFixture();
         var window = fixture.Show();
@@ -98,8 +98,9 @@ public sealed class WriteWindowTests
         Assert.Equal("poi-test-document.docx", Assert.Single(window.Tabs.Items).Title);
         Assert.Same(window.DocumentPane, window.Frame.Document);
         Assert.Same(window.Status, window.Frame.StatusBar);
-        var area = Assert.IsType<Border>(window.DocumentPane.Content);
-        Assert.Equal("poi-test-document.docx", Assert.IsType<TextBlock>(area.Child).Text);
+        var view = Assert.IsType<Raffica.Write.Viewing.PageView>(window.DocumentPane.Content);
+        Assert.Same(tab, view.Tab);
+        Assert.StartsWith("Document: poi-test-document.docx", Avalonia.Automation.AutomationProperties.GetName(view), StringComparison.Ordinal);
         Assert.True(tab.Layout.LaidOutPages >= 1);
         Assert.False(tab.Token.IsCancellationRequested);
 

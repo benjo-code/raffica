@@ -12,6 +12,7 @@ using Raffica.Hosting;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
+using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
 using Raffica.Write.Platform.MacOS;
@@ -22,9 +23,8 @@ namespace Raffica.Write;
 
 /// <summary>
 /// The window of the Write app: the shared frame with the drawn title bar (mark, document tabs, command search), the document slot and the status bar. Without a
-/// document tab it shows the start view (the one tile "Open document", the recent files, no status bar). The document slot shows the area of the active tab; the
-/// next step puts the page view there (<see cref="CreateDocumentArea"/>) and the ribbon into <see cref="AppFrame.TabRow"/> and <see cref="AppFrame.Band"/> (see
-/// <see cref="Refresh"/>). Nothing of the layout, the fonts or a file exists before the first file is opened.
+/// document tab it shows the start view (the one tile "Open document", the recent files, no status bar). The document slot shows the page view of the active tab (<see cref="CreateDocumentArea"/>) and the ribbon sits in <see cref="AppFrame.TabRow"/> and
+/// <see cref="AppFrame.Band"/> (see <see cref="Refresh"/> and <c>WriteWindow.View.cs</c>). Nothing of the layout, the fonts or a file exists before the first file is opened.
 /// </summary>
 internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWindow
 {
@@ -75,6 +75,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         Frame = new AppFrame();
         var titleBar = new TitleBar { Mark = CreateAppMark() };
         TitleSearch = titleBar.Search;
+        CreateRibbon();
         Tabs = titleBar.Tabs;
         Tabs.CloseRequested += OnCloseRequested;
         Tabs.NewButtonLabel = WriteStrings.OpenFileButton;
@@ -94,6 +95,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         Dialogs = new DialogQueue(Host);
         Settings = new WriteSettingsController(options, Host, settings, appSettings ?? WriteSettings.Default, SetCompact);
         Flow = new OpenFlow(Workspace, Work, ShowOpenError, ShowOpenFailures);
+        Status.ZoomChanged += (_, percent) => ActiveView?.SetZoom(percent / 100.0);
         Start.NewRequested += OnStartTile;
         Start.BrowseRequested += () => _ = GuardAsync(OpenFromDialogAsync);
         Start.OpenRequested += entry => _ = GuardAsync(() => OpenRecentAsync(entry));
@@ -177,7 +179,11 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     internal Control? AreaOf(WriteTab tab) => _areas.GetValueOrDefault(tab);
 
     /// <summary>The one place that sets the compact command bar.</summary>
-    internal void SetCompact(bool compact) => Frame.IsCompact = compact;
+    internal void SetCompact(bool compact)
+    {
+        Frame.IsCompact = compact;
+        Ribbon.IsCompact = compact;
+    }
 
     // The mark of the title bar: a small ink tile with the initial.
     private static Border CreateAppMark()
@@ -620,6 +626,8 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     {
         Tabs.Selected = Workspace.Active?.Tab;
         ShowActiveDocument();
+        UpdateViewStatus();
+        FocusActiveView();
         StatesChanged?.Invoke();
     }
 
@@ -641,15 +649,6 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         DocumentPane.Content = area;
     }
 
-    // The area of a tab before its pages are drawn: the desk with the name of the file. The next step puts the page view here.
-    private static Border CreateDocumentArea(WriteTab tab)
-    {
-        var area = new Border { Child = new TextBlock { Text = tab.Title } };
-        area.Classes.Add("document-area");
-        AutomationProperties.SetName(area, tab.Title);
-        return area;
-    }
-
     /// <summary>The start view while no tab is open (no status bar), else the document view with the frame parts that exist.</summary>
     private void Refresh()
     {
@@ -664,7 +663,8 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             return;
         }
 
-        // The ribbon of the next step goes into Frame.TabRow and Frame.Band here.
+        Frame.TabRow = Ribbon.TabRow;
+        Frame.Band = Ribbon.Band;
         Frame.Document = DocumentPane;
         Frame.StatusBar = Status;
         DocumentPane.IsOpen = true;
@@ -700,20 +700,20 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 return;
             }
 
-            if (e.KeyModifiers == command && e.Key == Key.O)
+            if (WriteCommandCatalog.Find(e.Key, e.KeyModifiers, command) is { } found)
             {
+                // The shortcuts of the catalog (Open, Close tab, Settings, zoom). A key held down repeats only where the shortcut says so; a disabled command still takes its key.
                 e.Handled = true;
-                if (!repeat)
+                if (!repeat || found.Shortcut?.AllowsRepeat == true)
                 {
-                    _ = GuardAsync(OpenFromDialogAsync);
-                }
-            }
-            else if (e.KeyModifiers == command && e.Key == Key.W)
-            {
-                e.Handled = true;
-                if (!repeat)
-                {
-                    CloseActiveTab();
+                    if (found.Id == WriteCommandIds.CloseTab && Workspace.Active is null && OperatingSystem.IsMacOS())
+                    {
+                        Close();
+                    }
+                    else
+                    {
+                        RunCommand(found.Id);
+                    }
                 }
             }
             else if (e.Key == Key.Tab && e.KeyModifiers == KeyModifiers.Control)
@@ -746,6 +746,25 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             Workspace.Close(tab);
         }
     }
+
+    /// <summary>Closes the active tab; with no tab open closes the window (Cmd+W on a Mac).</summary>
+    public void CloseTabOrWindow()
+    {
+        if (Workspace.Active is null)
+        {
+            Close();
+        }
+        else
+        {
+            CloseActiveTab();
+        }
+    }
+
+    bool IWriteMenuWindow.CanRun(string commandId) => _rules.Allows(commandId) && _actions.ContainsKey(commandId);
+
+    void IWriteMenuWindow.RunCommand(string commandId) => RunCommand(commandId);
+
+    bool IWriteMenuWindow.IsOn(string commandId) => IsCommandOn(commandId);
 
     void IWriteMenuWindow.OpenRecent(RecentFile file) => _ = GuardAsync(() => OpenRecentAsync(file));
 

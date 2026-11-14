@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Raffica.Shell.Frame;
+using Raffica.Write.Commands;
 using Raffica.Write.Platform.MacOS;
 using Xunit;
 
@@ -23,7 +24,19 @@ public sealed class WriteMacMenuTests
 
         public void Open() => Calls.Add("open");
 
-        public void CloseActiveTab() => Calls.Add("close");
+        public void CloseActiveTab() => Calls.Add("close tab");
+
+        public void CloseTabOrWindow() => Calls.Add("close");
+
+        public HashSet<string> Allowed { get; } = [];
+
+        public HashSet<string> On { get; } = [];
+
+        public bool CanRun(string commandId) => Allowed.Contains(commandId);
+
+        public void RunCommand(string commandId) => Calls.Add("run " + commandId);
+
+        public bool IsOn(string commandId) => On.Contains(commandId);
 
         public void OpenRecent(RecentFile file) => Calls.Add("recent " + file.Name);
 
@@ -43,21 +56,21 @@ public sealed class WriteMacMenuTests
     private static NativeMenuItem Item(NativeMenu menu, string header) => menu.Items.OfType<NativeMenuItem>().Single(i => i.Header == header);
 
     [AvaloniaFact]
-    public void TheWindowMenuHasFileAndWindowAndActsOnItsWindow()
+    public void TheWindowMenuHasFileViewAndWindowAndActsOnItsWindow()
     {
         var window = new FakeWindow();
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var file = Item(menu.Menu, "File").Menu!;
         var open = Item(file, "Open…");
         var close = Item(file, "Close tab");
         Assert.Equal("Meta+O", open.Gesture!.ToString().Replace("Cmd", "Meta", StringComparison.Ordinal));
         Assert.True(Enabled(open));
 
-        // Close tab needs a tab; a card that is open disables everything.
-        Assert.False(Enabled(close));
+        // Close closes the tab, or the window when there is no tab (Cmd+W of every Mac app); a card that is open disables everything.
+        Assert.True(Enabled(close));
         window.HasTab = true;
         Assert.True(Enabled(close));
         close.Command!.Execute(null);
@@ -67,6 +80,44 @@ public sealed class WriteMacMenuTests
         Assert.False(Enabled(close));
         open.Command.Execute(null);
         Assert.Equal(["close", "open"], window.Calls);
+    }
+
+    [AvaloniaFact]
+    public void TheViewMenuRunsTheCommandsOfTheCatalogAndShowsTheView()
+    {
+        var window = new FakeWindow { HasTab = true };
+        window.Allowed.UnionWith([WriteCommandIds.PageView, WriteCommandIds.WritingView, WriteCommandIds.ZoomIn, WriteCommandIds.FitWidth]);
+        window.On.Add(WriteCommandIds.PageView);
+        var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
+        menu.Refresh();
+        var view = Item(menu.Menu, "View").Menu!;
+        Assert.Equal(["Page view", "Writing view", "Zoom in", "Zoom out", "Actual size", "Fit width", "Fit page"], view.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).Select(i => i.Header!).ToArray());
+
+        var page = Item(view, "Page view");
+        var writing = Item(view, "Writing view");
+        Assert.True(page.IsChecked);
+        Assert.False(writing.IsChecked);
+        window.On.Clear();
+        window.On.Add(WriteCommandIds.WritingView);
+        window.Raise();
+        Assert.False(page.IsChecked);
+        Assert.True(writing.IsChecked);
+
+        // What the rules do not allow is disabled (zoom out at the smallest zoom, actual size and fit page here); the others run by id.
+        Assert.False(Enabled(Item(view, "Zoom out")));
+        Assert.False(Enabled(Item(view, "Actual size")));
+        Assert.True(Enabled(Item(view, "Zoom in")));
+        Item(view, "Zoom in").Command!.Execute(null);
+        Item(view, "Fit width").Command!.Execute(null);
+        Item(view, "Zoom out").Command!.Execute(null);
+        Assert.Equal(["run view.zoomIn", "run view.fitWidth"], window.Calls);
+
+        // No tab, no view commands; a card that is open disables them too.
+        window.HasTab = false;
+        Assert.False(Enabled(Item(view, "Zoom in")));
+        window.HasTab = true;
+        window.DialogOpen = true;
+        Assert.False(Enabled(Item(view, "Zoom in")));
     }
 
     [AvaloniaFact]
@@ -127,13 +178,15 @@ public sealed class WriteMacMenuTests
         current = second;
         menu.Refresh();
 
-        // The first window's states no longer reach the menu (no handler is left on it).
+        // The first window's states no longer reach the menu (no handler is left on it): the zoom items follow the second window only.
+        var zoomIn = Item(Item(menu.Menu, "View").Menu!, "Zoom in");
         first.HasTab = true;
+        first.Allowed.Add(WriteCommandIds.ZoomIn);
         first.Raise();
-        var close = Item(Item(menu.Menu, "File").Menu!, "Close tab");
-        Assert.False(Enabled(close));
+        Assert.False(Enabled(zoomIn));
         second.HasTab = true;
+        second.Allowed.Add(WriteCommandIds.ZoomIn);
         second.Raise();
-        Assert.True(Enabled(close));
+        Assert.True(Enabled(zoomIn));
     }
 }

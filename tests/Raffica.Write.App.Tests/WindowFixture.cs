@@ -26,10 +26,13 @@ internal sealed class WindowFixture : IDisposable
 
     public static string Thesis => RepoPaths.Corpus("thesis");
 
-    public WriteWindow Show(OpenWork? work = null, params string[] files)
+    public WriteWindow Show(OpenWork? work = null, params string[] files) => ShowWith(null, work, files);
+
+    /// <summary>Like <see cref="Show"/>, with the Write settings the window starts with (the view and zoom a new tab opens in).</summary>
+    public WriteWindow ShowWith(Raffica.Write.Settings.WriteSettings? app, OpenWork? work = null, params string[] files)
     {
         var options = WriteOptions.Parse(["--settings-file", SettingsFile, .. files]);
-        var window = new WriteWindow(options, new SettingsStore(SettingsFile).Load(), null, work);
+        var window = new WriteWindow(options, new SettingsStore(SettingsFile).Load(), app, work);
         _windows.Add(window);
         window.Show();
         Pump();
