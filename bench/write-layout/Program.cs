@@ -11,7 +11,7 @@ internal static class Program
 {
     private const string Usage = """
         usage:
-          write-layout-bench check [--file <docx>] [--root <dir>]
+          write-layout-bench check [--file <docx>] [--root <dir>] [--budget-ms <n>]
           write-layout-bench first-page --file <docx> [--phases]
           write-layout-bench phases --file <docx> [--runs 5]
           write-layout-bench run --file <docx> [--runs 10] [--warmup 2] [--csv <path>]

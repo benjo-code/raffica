@@ -63,6 +63,12 @@ internal static class Check
             findings.Add("a page is still provisional after the layout is complete");
         }
 
+        // Optional: the spec's limit for the full layout of the thesis (3 s on the Linux laptop). Not asserted unless asked for.
+        if (options.Value("--budget-ms") is not null && secondMs > options.Int("--budget-ms", 0))
+        {
+            findings.Add(string.Create(CultureInfo.InvariantCulture, $"the full layout took {secondMs:0} ms, more than the budget of {options.Int("--budget-ms", 0)} ms"));
+        }
+
         output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"pages={first.Count} run1 ms={firstMs:0} run2 ms={secondMs:0}"));
         foreach (var finding in findings)
         {

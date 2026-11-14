@@ -27,6 +27,18 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void CheckAssertsTheBudgetOnlyWhenAskedFor()
+    {
+        var (okCode, _, okError) = Run("check", "--file", Thesis, "--budget-ms", "600000");
+        Assert.True(okCode == 0, okError);
+
+        var (code, output, error) = Run("check", "--file", Thesis, "--budget-ms", "0");
+        Assert.Equal(1, code);
+        Assert.Contains("pages=", output, StringComparison.Ordinal);
+        Assert.Contains("budget of 0 ms", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CheckRefusesAMissingFile()
     {
         var (code, _, error) = Run("check", "--file", Path.Combine(TestData.Root, "no-such.docx"));
