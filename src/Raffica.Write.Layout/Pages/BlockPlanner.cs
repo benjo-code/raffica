@@ -12,7 +12,7 @@ namespace Raffica.Write.Layout;
 /// </summary>
 internal sealed class BlockPlanner
 {
-    private const float PlaceholderHeight = 24f;
+    internal const float PlaceholderHeight = 24f;
     private const float MaximumBoxSize = 2000f;
     private const float EmuPerPoint = 12700f;
 

@@ -218,16 +218,36 @@ internal static class TableReader
         var resolved = styles.ForTable(table);
         var model = new TableModel { Depth = depth };
 
-        var rows = new List<(TableRow Row, List<TableCell> Cells)>();
+        // A null row stands for an element the model keeps as unknown between the rows (an sdt around rows); a null cell for one between
+        // the cells. Both are shown as a marked box, never left out.
+        var rows = new List<(TableRow? Row, List<TableCell?> Cells)>();
         foreach (var item in table.Rows)
         {
-            if (item is not TableRow row || row.Properties.Get(Ooxml.W + "del") is not null)
+            if (item is TableRow row)
             {
-                // A row with a tracked deletion is gone in the accepted view; a wrapper the model keeps as unknown is not laid out.
-                continue;
-            }
+                if (row.Properties.Get(Ooxml.W + "del") is null)
+                {
+                    // A row with a tracked deletion is gone in the accepted view.
+                    var cells = new List<TableCell?>(row.Items.Count);
+                    foreach (var part in row.Items)
+                    {
+                        if (part is TableCell cell)
+                        {
+                            cells.Add(cell);
+                        }
+                        else if (part is UnknownRowItem unknown && Takes(unknown))
+                        {
+                            cells.Add(null);
+                        }
+                    }
 
-            rows.Add((row, [.. row.Items.OfType<TableCell>()]));
+                    rows.Add((row, cells));
+                }
+            }
+            else if (item is UnknownRowItem unknownRow && Takes(unknownRow))
+            {
+                rows.Add((null, [null]));
+            }
         }
 
         // The columns: the grid, widened to the widest row.
@@ -245,12 +265,12 @@ internal static class TableReader
         var spans = new List<int[]>(rows.Count);
         foreach (var (row, cells) in rows)
         {
-            var at = Math.Min(Math.Max(Value(row.Properties.Get(Ooxml.W + "gridBefore")) ?? 0, 0), TableLimits.MaximumColumns - 1);
+            var at = row is null ? 0 : Math.Min(Math.Max(Value(row.Properties.Get(Ooxml.W + "gridBefore")) ?? 0, 0), TableLimits.MaximumColumns - 1);
             var rowStarts = new int[cells.Count];
             var rowSpans = new int[cells.Count];
             for (var c = 0; c < cells.Count; c++)
             {
-                var span = Math.Clamp(Value(cells[c].Properties.Get(Ooxml.W + "gridSpan")) ?? 1, 1, TableLimits.MaximumColumns);
+                var span = Math.Clamp(cells[c] is { } own ? Value(own.Properties.Get(Ooxml.W + "gridSpan")) ?? 1 : 1, 1, TableLimits.MaximumColumns);
                 var start = Math.Min(at, TableLimits.MaximumColumns - 1);
                 span = Math.Min(span, TableLimits.MaximumColumns - start);
                 rowStarts[c] = start;
@@ -261,6 +281,16 @@ internal static class TableReader
 
             starts.Add(rowStarts);
             spans.Add(rowSpans);
+        }
+
+        // An unknown row spans the whole grid.
+        columns = Math.Max(columns, 1);
+        for (var r = 0; r < rows.Count; r++)
+        {
+            if (rows[r].Row is null)
+            {
+                spans[r][0] = columns;
+            }
         }
 
         while (grid.Count < columns)
@@ -299,7 +329,11 @@ internal static class TableReader
         {
             var (row, cells) = rows[r];
             var rowModel = new RowModel { Cells = new CellModel[cells.Count] };
-            ReadRow(row, rowModel);
+            if (row is not null)
+            {
+                ReadRow(row, rowModel);
+            }
+
             rowModels[r] = rowModel;
             if (counting && rowModel.IsHeader)
             {
@@ -333,7 +367,7 @@ internal static class TableReader
                 ReadCell(cell, cellModel, resolved);
 
                 // Vertical merge: a restart or a lone continuation heads a group, a continuation joins the one above.
-                var merge = cell.Properties.Get(Ooxml.W + "vMerge");
+                var merge = cell?.Properties.Get(Ooxml.W + "vMerge");
                 var continues = merge is not null && Ooxml.Val(merge) is null or "continue";
 
                 if (continues && open[start] is { } head && head.Row + head.RowSpan == r && head.Span == span)
@@ -359,7 +393,7 @@ internal static class TableReader
                 }
 
                 seen[start] = true;
-                PlanContent(planner, cell, cellModel, bodyIndex, r, start, rowCount, columns, resolved, depth);
+                PlanContent(planner, cell, cellModel, bodyIndex, depth);
             }
 
             // A group that no cell of this row continues is closed.
@@ -393,6 +427,15 @@ internal static class TableReader
         return new TablePlan(bodyIndex, model, planner.TableTextAtIndent);
     }
 
+    // Marks that sit between rows or cells take no room; any other element the model keeps there (an sdt, a custom XML wrapper) hides content.
+    private static readonly HashSet<string> s_marks = new(StringComparer.Ordinal)
+    {
+        "tblPrEx", "bookmarkStart", "bookmarkEnd", "commentRangeStart", "commentRangeEnd", "permStart", "permEnd", "proofErr",
+        "moveFromRangeStart", "moveFromRangeEnd", "moveToRangeStart", "moveToRangeEnd",
+    };
+
+    private static bool Takes(UnknownRowItem item) => !s_marks.Contains(item.Content.Element.Name.LocalName);
+
     private static int? Value(XElement? element) => element is null ? null : Ooxml.IntAttr(element, "val");
 
     private static void ReadRow(TableRow row, RowModel model)
@@ -418,12 +461,12 @@ internal static class TableReader
         model.IsHeader = properties.Get(Ooxml.W + "tblHeader") is { } header && Ooxml.OnOff(header);
     }
 
-    private static void ReadCell(TableCell cell, CellModel model, ResolvedTable table)
+    private static void ReadCell(TableCell? cell, CellModel model, ResolvedTable table)
     {
-        var properties = cell.Properties;
-        model.Width = PreferredWidth.Read(properties.Get(Ooxml.W + "tcW"));
+        var properties = cell?.Properties;
+        model.Width = PreferredWidth.Read(properties?.Get(Ooxml.W + "tcW"));
         var margins = new[] { table.CellMarginTop, table.CellMarginLeft, table.CellMarginBottom, table.CellMarginRight };
-        if (properties.Get(Ooxml.W + "tcMar") is { } own)
+        if (properties?.Get(Ooxml.W + "tcMar") is { } own)
         {
             TableStyleData.ReadMargins(own, margins);
         }
@@ -432,7 +475,7 @@ internal static class TableReader
         model.MarginLeft = TableLimits.Length(margins[1]);
         model.MarginBottom = TableLimits.Length(margins[2]);
         model.MarginRight = TableLimits.Length(margins[3]);
-        model.Alignment = properties.Get(Ooxml.W + "vAlign") is { } align
+        model.Alignment = properties?.Get(Ooxml.W + "vAlign") is { } align
             ? Ooxml.Val(align) switch
             {
                 "center" => CellVerticalAlignment.Center,
@@ -442,8 +485,14 @@ internal static class TableReader
             : CellVerticalAlignment.Top;
     }
 
-    private static void PlanContent(BlockPlanner planner, TableCell cell, CellModel model, int bodyIndex, int row, int column, int rowCount, int columns, ResolvedTable table, int depth)
+    private static void PlanContent(BlockPlanner planner, TableCell? cell, CellModel model, int bodyIndex, int depth)
     {
+        if (cell is null)
+        {
+            model.Content.Add(new PlaceholderPlan(bodyIndex, BlockPlanner.PlaceholderHeight));
+            return;
+        }
+
         var format = model.Format;
         foreach (var flat in FlatBlocks.From(cell.Blocks, bodyIndex))
         {

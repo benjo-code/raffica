@@ -13,10 +13,12 @@ internal sealed class CellStack
 
     private readonly IBlockFlow[] _flows;
     private readonly float[] _tops;
+    private readonly bool _continuation;
     private IReadOnlyList<NoteRef>? _notes;
 
     private CellStack(IBlockFlow[] flows, bool continuation, bool trailingSpace)
     {
+        _continuation = continuation;
         _flows = flows;
         _tops = new float[flows.Length];
         var y = 0f;
@@ -142,7 +144,7 @@ internal sealed class CellStack
                 tail.Add(_flows[k]);
             }
 
-            return (new CellStack([.. head], continuation: false, trailingSpace: false), tail.Count == 0 ? null : new CellStack([.. tail], continuation: true, trailingSpace: true));
+            return (new CellStack([.. head], _continuation, trailingSpace: false), tail.Count == 0 ? null : new CellStack([.. tail], continuation: true, trailingSpace: true));
         }
 
         return (this, null);

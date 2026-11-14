@@ -539,6 +539,61 @@ public sealed class TableLayoutTests
         Assert.Equal(400f, fills.Sum(f => f.Width), 0.2f);
     }
 
+    private static string Sdt(string inner) => $"<w:sdt><w:sdtPr/><w:sdtContent>{inner}</w:sdtContent></w:sdt>";
+
+    [Fact]
+    public void ARowInAnUnknownWrapperIsAMarkedBoxAndTheRestStillLaysOut()
+    {
+        var lh = LineHeight();
+        var layout = Lay(
+            Tbl(Fixed, Grid(2000, 2000), Row(Cell("a", Shade("FF0000")) + Cell("b")), Sdt(Row(Cell("hidden") + Cell("text"))), Row(Cell("c", Shade("00FF00")) + Cell("d"))) + Sect());
+        var page = layout.Page(0);
+        var box = Assert.Single(page.Items.OfType<PlaceholderItem>());
+        Assert.Equal(Left + Margin, box.X, Tolerance);
+        Assert.Equal(200f - (2f * Margin), box.Width, Tolerance);
+        var fills = Fills(page);
+        Assert.Equal(box.Y, fills[0].Y + fills[0].Height, Tolerance);
+        Assert.Equal(box.Y + box.Height + 8f, fills[1].Y, Tolerance);
+        Assert.Equal(["a", "b", "c", "d"], Lines(page));
+        Assert.Equal(lh, fills[0].Height, Tolerance);
+    }
+
+    [Fact]
+    public void ACellInAnUnknownWrapperIsAMarkedCellAndKeepsTheGridOfTheOthers()
+    {
+        var layout = Lay(
+            Tbl(Fixed, Grid(2000, 2000, 2000), Row(Cell("a", Shade("FF0000")) + Sdt(Cell("hidden")) + Cell("c", Shade("00FF00")))) + Sect());
+        var page = layout.Page(0);
+        var box = Assert.Single(page.Items.OfType<PlaceholderItem>());
+        Assert.Equal(Left + Margin + 100f, box.X, Tolerance);
+        var fills = Fills(page);
+        Assert.Equal(Left, fills[0].X, Tolerance);
+        Assert.Equal(Left + 200f, fills[1].X, Tolerance);
+        Assert.Equal(["a", "c"], Lines(page));
+    }
+
+    [Fact]
+    public void ARowMarkBetweenRowsAndCellsTakesNoRoom()
+    {
+        var layout = Lay(
+            Tbl(Fixed, Grid(2000), "<w:bookmarkStart w:id=\"1\" w:name=\"x\"/>" + Row(Cell("a") + "<w:bookmarkEnd w:id=\"1\"/>")) + Sect());
+        Assert.Empty(layout.Page(0).Items.OfType<PlaceholderItem>());
+    }
+
+    [Fact]
+    public void ACellThatSpansThreePagesAddsNoSpaceBeforeOnTheLaterPages()
+    {
+        // One-line paragraphs with 10 pt before: the cut falls between paragraphs, so each later page starts with a whole paragraph.
+        var paragraphs = string.Concat(Enumerable.Range(1, 18).Select(i => $"<w:p><w:pPr><w:spacing w:before=\"200\"/></w:pPr><w:r><w:t>p{i}</w:t></w:r></w:p>"));
+        var layout = Lay(Tbl(Fixed, Grid(2000), Row($"<w:tc><w:tcPr/>{paragraphs}</w:tc>")) + TallFor(5));
+        var pages = Pages(layout);
+        Assert.True(pages.Count >= 3);
+        var first = Baselines(pages[0])[0];
+        Assert.Equal(10f, first - Baselines(pages[1])[0], Tolerance);
+        Assert.Equal(Baselines(pages[1])[0], Baselines(pages[2])[0], Tolerance);
+        Assert.Equal(18, pages.Sum(p => Lines(p).Length));
+    }
+
     [Fact]
     public void ManyRowsLayOutQuickly()
     {
