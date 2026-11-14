@@ -253,9 +253,9 @@ public sealed class PageComparerTests
         var rows = text.Split('\n').Where(l => l.StartsWith("| alpha ", StringComparison.Ordinal) || l.StartsWith("| zeta ", StringComparison.Ordinal)).ToArray();
         Assert.Equal(2, rows.Length);
         Assert.StartsWith("| alpha ", rows[0], StringComparison.Ordinal);
-        Assert.EndsWith("| – | – | – |", rows[0], StringComparison.Ordinal);
-        Assert.EndsWith("| – | – | – |", rows[1], StringComparison.Ordinal);
-        Assert.Contains("| true | true | true | – |", rows[1], StringComparison.Ordinal);
+        Assert.EndsWith("| – | – | – | 1 | – | – |", rows[0], StringComparison.Ordinal);
+        Assert.EndsWith("| – | – | – | 1 | – | – |", rows[1], StringComparison.Ordinal);
+        Assert.Contains("| true | true | true | – | – | – | 1 |", rows[1], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -277,6 +277,6 @@ public sealed class PageComparerTests
         var outPath = folder.File("table.md");
         Assert.Equal(0, RunTool("table", "--root", root, "--out", outPath).Code);
         var row = (await File.ReadAllLinesAsync(outPath, TestContext.Current.CancellationToken)).Single(l => l.StartsWith("| a ", StringComparison.Ordinal));
-        Assert.EndsWith("| 2 | – | – |", row, StringComparison.Ordinal);
+        Assert.EndsWith("| 2 | – | – | 1 | no | 0.0000 |", row, StringComparison.Ordinal);
     }
 }

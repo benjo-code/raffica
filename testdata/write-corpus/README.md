@@ -1,6 +1,6 @@
 # Write compatibility corpus
 
-DOCX files that Raffica Write opens and saves (the layout columns come with milestone 4.2), with the manifest that says where each file comes from. The file `corpus.json` lists every file; the tool `bench/write-corpus` checks it and runs the round trip. The files are real-world documents from permissively licensed test suites plus the generated thesis; nothing here is made by Word unless the manifest says so.
+DOCX files that Raffica Write opens and saves (with its page count under Write's own layout), with the manifest that says where each file comes from. The file `corpus.json` lists every file; the tool `bench/write-corpus` checks it and runs the round trip. The files are real-world documents from permissively licensed test suites plus the generated thesis; nothing here is made by Word unless the manifest says so.
 
 ## Layout
 
@@ -25,12 +25,21 @@ All commands take the corpus root explicitly. Exit codes: 0 ok, 1 findings, 2 us
 ```
 dotnet run --project bench/write-corpus -c Release -- check --root testdata/write-corpus
 dotnet run --project bench/write-corpus -c Release -- run --root testdata/write-corpus [--out <csv>]
+dotnet run --project bench/write-corpus -c Release -- table --root testdata/write-corpus --out Docs/write-corpus.md
+dotnet run --project bench/write-corpus -c Release -- compare --id <id> [--root testdata/write-corpus] [--require-same-page-count]
 dotnet run --project bench/write-corpus -c Release -- add <docx> --root testdata/write-corpus --id <id> --source <url|text> --license <spdx> --license-file <path>
 ```
 
 - `check` reports a file that is not in the manifest, an entry without its file, a hash mismatch, a licence outside the list or without a licence file, a `features` tag the detector does not find in the file, a required feature that no file covers, and a missing `source` or `retrieved`. `--allow-uncovered` leaves out the uncovered required features (for a work-in-progress corpus; CI does not use it, so a required feature without a file fails the build).
 - `run` opens every file, saves it to a temporary file and prints `id,opens,saves,unloadedIdentical,loadedEquivalent,ms`: parts the model did not load must be byte-identical, parts it loaded must be equivalent (the rule of the save tests). Exit 1 when any entry fails; an entry that is not a package reports `opens` false and the others still run.
 - `add` copies the file to `<id>/<id>.docx` (or `.docm`), copies the licence text to `licenses/`, computes the hash, detects the features and appends the entry. It refuses an id that exists and a licence outside the list.
+
+- `table` writes `Docs/write-corpus.md` (regenerate by hand and commit it when the corpus, the round trip or the layout changes). Besides the round trip it has the columns **Write pages** (the page count of Raffica Write's own layout, shown for every file), **Pages equal** (Write's count equals the count of `word.pdf`) and **Text match** (mean Dice of the per-page word multisets against `word.pdf`; 1.0000 is the same words on every page). The last two are "–" without a `word.pdf`.
+- `compare --id <id>` lays the entry's DOCX out and compares it with its `word.pdf` (`--reference <pdf|json>` names another reference). Exit 0 ok, 1 when `--require-same-page-count` is given and the counts differ (the output names the first different page), 2 when `word.pdf` is missing or the id is unknown. `compare --reference <pdf|json> --candidate <docx> --layout` compares any file.
+
+### Word's PDFs
+
+The owner makes them in Word: open `<id>/<id>.docx`, update all fields (Ctrl+A, F9), export as PDF to `<id>/word.pdf`. For a file with tracked changes also `word-accept.pdf` (all changes accepted) and `word-reject.pdf` (all rejected). Nothing else is needed: the tool picks them up by name. The thesis page count gate is `compare --id thesis --require-same-page-count` and needs `thesis/word.pdf`.
 
 ## Sources
 

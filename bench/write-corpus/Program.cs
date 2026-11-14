@@ -13,13 +13,17 @@ namespace WriteCorpus;
 /// </summary>
 internal static partial class Program
 {
+    /// <summary>The corpus root <c>compare --id</c> uses without <c>--root</c> (relative to the working directory, the repository root).</summary>
+    private const string DefaultRoot = "testdata/write-corpus";
+
     private const string Usage = """
         usage:
           write-corpus check --root <dir> [--allow-uncovered]
           write-corpus run --root <dir> [--out <csv>]
           write-corpus add <docx> --root <dir> --id <id> --source <url|text> --license <spdx> --license-file <path>
           write-corpus pdf-facts <pdf> [--out <json>]
-          write-corpus compare --reference <pdf|json> --candidate <pdf|json> [--require-same-page-count]
+          write-corpus compare --reference <pdf|json> --candidate <pdf|json|docx with --layout> [--layout] [--require-same-page-count]
+          write-corpus compare --id <id> [--root <dir>] [--reference <pdf|json>] [--require-same-page-count]   (word.pdf of the entry against Write's layout)
           write-corpus table --root <dir> --out <md>
         """;
 
@@ -147,15 +151,60 @@ internal static partial class Program
 
     private static int Compare(string[] args, TextWriter output, TextWriter error)
     {
-        if (!Options.TryParse(args, ["--reference", "--candidate"], ["--require-same-page-count"], 0, out var options, out var problem)
-            || options.Value("--reference") is not { } referencePath
-            || options.Value("--candidate") is not { } candidatePath)
+        if (!Options.TryParse(args, ["--reference", "--candidate", "--id", "--root"], ["--require-same-page-count", "--layout"], 0, out var options, out var problem))
         {
-            return Fail(error, problem ?? "compare needs --reference and --candidate");
+            return Fail(error, problem ?? "compare needs --id or --reference and --candidate");
         }
 
-        var reference = LoadFacts(referencePath, error);
-        var candidate = reference is null ? null : LoadFacts(candidatePath, error);
+        PageFacts? reference, candidate;
+        if (options.Value("--id") is { } id)
+        {
+            // Word's PDF of a corpus entry against Write's layout of its DOCX.
+            var root = options.Value("--root") ?? DefaultRoot;
+            if (!File.Exists(CorpusManifest.PathIn(root)))
+            {
+                error.WriteLine($"write-corpus: {CorpusManifest.FileName} is missing in the root");
+                return 2;
+            }
+
+            CorpusEntry? entry;
+            try
+            {
+                entry = CorpusManifest.Load(root).Files.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.Ordinal));
+            }
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+            {
+                error.WriteLine($"write-corpus: the corpus cannot be read ({ex.GetType().Name})");
+                return 2;
+            }
+
+            var docx = entry is null ? null : CorpusCheck.Resolve(root, entry.Path);
+            if (entry is null || docx is null || !File.Exists(docx))
+            {
+                error.WriteLine("write-corpus: the id is not a file of the corpus");
+                return 2;
+            }
+
+            var referencePath = options.Value("--reference") ?? Path.Combine(Path.GetDirectoryName(docx)!, CorpusTable.WordPdf);
+            if (!File.Exists(referencePath))
+            {
+                error.WriteLine($"write-corpus: there is no {CorpusTable.WordPdf} for this id (the owner's Word PDF, see testdata/write-corpus/README.md); a page count comparison needs it");
+                return 2;
+            }
+
+            reference = LoadFacts(referencePath, error);
+            candidate = reference is null ? null : LoadWriteFacts(docx, error);
+        }
+        else if (options.Value("--reference") is { } referenceFile && options.Value("--candidate") is { } candidateFile)
+        {
+            reference = LoadFacts(referenceFile, error);
+            candidate = reference is null ? null : options.Has("--layout") ? LoadWriteFacts(candidateFile, error) : LoadFacts(candidateFile, error);
+        }
+        else
+        {
+            return Fail(error, "compare needs --id or --reference and --candidate");
+        }
+
         if (reference is null || candidate is null)
         {
             return 2;
@@ -225,6 +274,26 @@ internal static partial class Program
         {
             error.WriteLine($"write-corpus: the output file cannot be written ({ex.GetType().Name})");
             return false;
+        }
+    }
+
+    /// <summary>The pages of Write's layout of a DOCX; on an unreadable input writes one line to <paramref name="error"/> and returns null.</summary>
+    private static PageFacts? LoadWriteFacts(string path, TextWriter error)
+    {
+        if (!File.Exists(path))
+        {
+            error.WriteLine("write-corpus: an input file does not exist");
+            return null;
+        }
+
+        try
+        {
+            return WriteLayoutFacts.Load(path);
+        }
+        catch (Exception ex) when (ex is Raffica.Write.Docx.DocxFormatException or IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"write-corpus: an input file is not readable ({ex.GetType().Name})");
+            return null;
         }
     }
 

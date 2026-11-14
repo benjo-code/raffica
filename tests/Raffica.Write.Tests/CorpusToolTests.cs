@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Raffica.TestSupport;
 using Raffica.Write.Tests.Support;
 using WriteCorpus;
 using Xunit;
@@ -366,5 +367,72 @@ public sealed class CorpusToolTests
         Assert.Equal(2, Program.Run([], new StringWriter(), new StringWriter()));
         Assert.Equal(2, Program.Run(["check"], new StringWriter(), new StringWriter()));
         Assert.Equal(2, Program.Run(["frobnicate"], new StringWriter(), new StringWriter()));
+    }
+
+    private static (int Code, string Out, string Err) RunTool(params string[] args)
+    {
+        using var output = new StringWriter(System.Globalization.CultureInfo.InvariantCulture);
+        using var error = new StringWriter(System.Globalization.CultureInfo.InvariantCulture);
+        var code = Program.Run(args, output, error);
+        return (code, output.ToString(), error.ToString());
+    }
+
+    [Fact]
+    public async Task TableHasTheWriteColumns()
+    {
+        using var folder = new TempFolder();
+        MakeRoot(folder, ("with-pdf", PlainBody), ("no-pdf", PlainBody));
+        // text-basic.pdf has two pages; the one-page document does not equal that.
+        File.Copy(TestData.Pdf("text-basic.pdf"), folder.File("with-pdf/word.pdf"));
+        var outPath = folder.File("table.md");
+        Assert.Equal(0, RunTool("table", "--root", folder.Path, "--out", outPath).Code);
+        var lines = await File.ReadAllLinesAsync(outPath, TestContext.Current.CancellationToken);
+        Assert.EndsWith("| Write pages | Pages equal | Text match |", lines.Single(l => l.StartsWith("| id ", StringComparison.Ordinal)), StringComparison.Ordinal);
+        var withPdf = lines.Single(l => l.StartsWith("| with-pdf ", StringComparison.Ordinal));
+        Assert.EndsWith("| 2 | – | – | 1 | no | 0.0000 |", withPdf, StringComparison.Ordinal);
+        var noPdf = lines.Single(l => l.StartsWith("| no-pdf ", StringComparison.Ordinal));
+        Assert.EndsWith("| – | – | – | 1 | – | – |", noPdf, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompareRequiresSameCountExitCodes()
+    {
+        using var folder = new TempFolder();
+        MakeRoot(folder, ("one", PlainBody), ("none", PlainBody));
+        var pdf = TestData.Pdf("text-basic.pdf");
+        Directory.CreateDirectory(folder.File("same"));
+
+        // 0: the facts of the candidate equal the reference (one page each).
+        var facts = folder.File("one-page.json");
+        File.WriteAllText(facts, """{"pageCount":1,"pageTexts":["Plain"]}""");
+        Assert.Equal(0, RunTool("compare", "--id", "one", "--root", folder.Path, "--reference", facts, "--require-same-page-count").Code);
+
+        // 1: Word's PDF has two pages, Write's layout one.
+        File.Copy(pdf, folder.File("one/word.pdf"));
+        var different = RunTool("compare", "--id", "one", "--root", folder.Path, "--require-same-page-count");
+        Assert.Equal(1, different.Code);
+        Assert.Contains("first different page: 1", different.Out, StringComparison.Ordinal);
+        Assert.Equal(0, RunTool("compare", "--id", "one", "--root", folder.Path).Code);
+
+        // 2: no word.pdf, an unknown id, or no way to name the documents.
+        var missing = RunTool("compare", "--id", "none", "--root", folder.Path, "--require-same-page-count");
+        Assert.Equal(2, missing.Code);
+        Assert.Contains("word.pdf", missing.Err, StringComparison.Ordinal);
+        Assert.DoesNotContain(folder.Path, missing.Err, StringComparison.Ordinal);
+        Assert.Equal(2, RunTool("compare", "--id", "nope", "--root", folder.Path).Code);
+        Assert.Equal(2, RunTool("compare", "--require-same-page-count").Code);
+    }
+
+    [Fact]
+    public void CompareLayoutLaysOutADocxAsTheCandidate()
+    {
+        using var folder = new TempFolder();
+        MakeRoot(folder, ("one", PlainBody));
+        var facts = folder.File("ref.json");
+        File.WriteAllText(facts, """{"pageCount":1,"pageTexts":["Plain"]}""");
+        var docx = folder.File("one/one.docx");
+        var result = RunTool("compare", "--reference", facts, "--candidate", docx, "--layout", "--require-same-page-count");
+        Assert.Equal(0, result.Code);
+        Assert.Contains("mean dice: 1.0000", result.Out, StringComparison.Ordinal);
     }
 }

@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Core\Raffica.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
