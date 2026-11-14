@@ -185,6 +185,10 @@ jobs:
       - name: Self-test of the OCR library fetch
         run: dotnet run tools/native-fetch.cs -- selftest
 
+      # The line break table of Raffica Write is generated from the Unicode files in third-party/unicode; a stale table fails here.
+      - name: Check that the line break data is current
+        run: dotnet run tools/gen-linebreak.cs -- --check
+
       - name: Publish the CLI (Native AOT)
         run: dotnet publish src/Raffica.Cli -c Release -r ${{ matrix.rid }} -o out/cli
 
