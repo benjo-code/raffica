@@ -1,6 +1,6 @@
 using Raffica.Core.Hosting;
 
-namespace Raffica.Pdf.Hosting;
+namespace Raffica.Hosting;
 
 /// <summary>
 /// The two ends of the single-instance hand-over: a later launch sends its files to the running app

@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Raffica.Core.Hosting;
 using Raffica.Core.Updates;
+using Raffica.Hosting;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Platform.Windows;
 using Raffica.Pdf.Settings;
@@ -65,10 +66,10 @@ internal sealed partial class App : Application
             }
 
             var window = CreateWindow(null, desktop);
-            Hosting.WindowHost? host = null;
+            WindowHost? host = null;
             if (hosted)
             {
-                _host = host = new Hosting.WindowHost(files =>
+                _host = host = new WindowHost(files =>
                 {
                     var next = CreateWindow(files, desktop);
                     next.Show();
@@ -99,8 +100,8 @@ internal sealed partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private Hosting.WindowSettingsSource? _settingsSource;
-    private Hosting.WindowHost? _host;
+    private WindowSettingsSource<Raffica.Core.Settings.AppSettings>? _settingsSource;
+    private WindowHost? _host;
 
     // True on macOS outside a measurement run: every window carries its own menus (File ... Help) in the menu bar.
     private bool _menusOnWindows;
@@ -109,14 +110,14 @@ internal sealed partial class App : Application
     /// What ends the app for an installer that took over: the host's <c>Quit</c> when macOS hosts the windows (it ends the app once and makes no window afterwards, so
     /// a file that waits or a Dock click cannot create one while the app shuts down), else the plain shutdown.
     /// </summary>
-    internal static Action EndAction(Hosting.WindowHost? host, Action shutdown) => host is null ? shutdown : host.Quit;
+    internal static Action EndAction(WindowHost? host, Action shutdown) => host is null ? shutdown : host.Quit;
 
     // One window with its services. The first one has the settings read at the start of the process; every later one (macOS) reads them again from their
     // files, because the window before it wrote the placement and the compact bar when it closed.
     private PdfWindow CreateWindow(IReadOnlyList<string>? files, IClassicDesktopStyleApplicationLifetime desktop)
     {
         var options = files is null ? _options : _options.WithFiles(files);
-        _settingsSource ??= new Hosting.WindowSettingsSource(_options.SettingsFile, _settings, _appSettings);
+        _settingsSource ??= new WindowSettingsSource<Raffica.Core.Settings.AppSettings>(AppFiles.Pdf, _options.SettingsFile, _settings, _appSettings, file => new Raffica.Core.Settings.SettingsStore(PdfSettingsFiles.PdfSettingsPathFor(file)).LoadReadOnly());
         var (settings, appSettings) = _settingsSource.Next();
         var window = new PdfWindow(options, settings, appSettings);
         if (_menusOnWindows)
@@ -137,13 +138,13 @@ internal sealed partial class App : Application
 
     // macOS hands files to the running app through the activation events, not the command line: the bridge subscribes now so nothing is lost before the first
     // window opens, and the pipe of a later launch starts at that window's Opened. Both feed the host, which decides which window gets the files.
-    private void StartHostedInput(PdfWindow first, Hosting.WindowHost host)
+    private void StartHostedInput(PdfWindow first, WindowHost host)
     {
-        Hosting.FileActivationBridge? bridge = null;
+        FileActivationBridge? bridge = null;
         if (this.TryGetFeature<IActivatableLifetime>() is { } activatable)
         {
-            var source = new Hosting.AvaloniaFileActivationSource(activatable);
-            bridge = new Hosting.FileActivationBridge(source);
+            var source = new AvaloniaFileActivationSource(activatable);
+            bridge = new FileActivationBridge(source);
             source.Reopened += host.Reopen;
         }
 
@@ -172,7 +173,7 @@ internal sealed partial class App : Application
     // this menu only; File, Edit, View, Window and Help belong to each window (CreateWindow, MacWindowMenu). It is read again when the current window changes,
     // when that window reports new command states and when the system asks. "Open" with no window makes one through the host (the dispatcher runs the host's own
     // post first), then runs the command of the new window, so the picker has a window to belong to.
-    private void AttachMenu(Hosting.WindowHost host)
+    private void AttachMenu(WindowHost host)
     {
         var ui = Dispatcher.UIThread;
         var binder = new Platform.MacOS.MacMenuBinder(
@@ -186,7 +187,7 @@ internal sealed partial class App : Application
         binder.Refresh();
     }
 
-    private static async Task OpenWindowThenPickerAsync(Hosting.WindowHost host, Dispatcher ui)
+    private static async Task OpenWindowThenPickerAsync(WindowHost host, Dispatcher ui)
     {
         host.Reopen();
 

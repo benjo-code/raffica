@@ -1,8 +1,8 @@
 using Raffica.Core.Hosting;
-using Raffica.Pdf.Hosting;
+using Raffica.Hosting;
 using Xunit;
 
-namespace Raffica.Pdf.Tests.Hosting;
+namespace Raffica.Hosting.Tests;
 
 public sealed class InstanceHandoverTests : IDisposable
 {

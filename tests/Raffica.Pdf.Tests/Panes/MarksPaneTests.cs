@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Raffica.Core.Annotations;
 using Raffica.Core.Text;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;

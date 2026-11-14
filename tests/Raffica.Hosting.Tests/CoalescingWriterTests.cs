@@ -1,7 +1,7 @@
-using Raffica.Pdf.Settings;
+using Raffica.Hosting;
 using Xunit;
 
-namespace Raffica.Pdf.Tests.Settings;
+namespace Raffica.Hosting.Tests;
 
 public sealed class CoalescingWriterTests
 {

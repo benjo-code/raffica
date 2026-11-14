@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
 using Raffica.Core.Viewing;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;

@@ -1,4 +1,4 @@
-namespace Raffica.Pdf.Hosting;
+namespace Raffica.Hosting;
 
 /// <summary>Where the system hands files to the running app (the Finder and the Dock on macOS): local file paths only, in the order the system gave them.</summary>
 internal interface IFileActivationSource

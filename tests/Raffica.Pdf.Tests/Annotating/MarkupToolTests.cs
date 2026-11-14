@@ -6,6 +6,7 @@ using Raffica.Core.Annotations;
 using Raffica.Core.Pdf;
 using Raffica.Core.Settings;
 using Raffica.Core.Text;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Tests.Viewing;
 using Xunit;
@@ -204,8 +205,8 @@ public sealed class MarkupToolTests
         var inner = await ViewFixture.OpenAsync("text-rich.pdf", show: false);
         var holder = AppSettings.Default;
         var tools = new ToolState(() => holder, s => holder = s);
-        using var text = new Raffica.Pdf.Text.TextInteraction(inner.Tab, inner.View, new Raffica.Pdf.Dialogs.DialogQueue(new Raffica.Shell.Controls.DialogHost()), yield: () => true);
-        using var interaction = new AnnotateInteraction(inner.Tab, inner.View, tools, text.Selection, new Raffica.Pdf.Dialogs.DialogQueue(new Raffica.Shell.Controls.DialogHost()));
+        using var text = new Raffica.Pdf.Text.TextInteraction(inner.Tab, inner.View, new Raffica.Hosting.DialogQueue(new Raffica.Shell.Controls.DialogHost()), yield: () => true);
+        using var interaction = new AnnotateInteraction(inner.Tab, inner.View, tools, text.Selection, new Raffica.Hosting.DialogQueue(new Raffica.Shell.Controls.DialogHost()));
         try
         {
             Assert.False(inner.View.FirstSharpPageShown);

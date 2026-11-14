@@ -9,6 +9,7 @@ using Raffica.Core.Annotations;
 using Raffica.Core.Pdf;
 using Raffica.Core.Signatures;
 using Raffica.Core.Text;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Signing;

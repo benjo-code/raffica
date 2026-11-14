@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\Raffica.Core\Raffica.Core.csproj" />
+    <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Hosting.Tests" />
+    <InternalsVisibleTo Include="Raffica.Pdf.Tests" />
+    <InternalsVisibleTo Include="Raffica.Write.App.Tests" />
+    <InternalsVisibleTo Include="RafficaPdf" />
+    <InternalsVisibleTo Include="RafficaWrite" />
+  </ItemGroup>
+</Project>

@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Threading;
 using Raffica.Shell.Controls;
 
-namespace Raffica.Pdf.Dialogs;
+namespace Raffica.Hosting;
 
 /// <summary>
 /// Shows the cards of the open flow one at a time in a <see cref="DialogHost"/>: a card that arrives while a dialog is open (one of this

@@ -8,6 +8,7 @@ using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
 using Raffica.Core.Text;
 using Raffica.Core.Viewing;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;

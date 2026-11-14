@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Raffica.Core.Distribution;
 using Raffica.Core.Settings;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Packaging;
 using Raffica.Pdf.Tests.Text;

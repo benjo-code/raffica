@@ -1,7 +1,7 @@
 using Raffica.Core.Settings;
 using RecentEntry = Raffica.Shell.Frame.RecentFile;
 
-namespace Raffica.Pdf.Settings;
+namespace Raffica.Hosting;
 
 /// <summary>
 /// The recently opened files and the position per file. Nothing is read before <see cref="LoadAsync"/>, which the window calls after

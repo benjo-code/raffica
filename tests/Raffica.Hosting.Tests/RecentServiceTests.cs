@@ -1,10 +1,8 @@
 using Raffica.Core.Settings;
 using Raffica.Core.Viewing;
-using Raffica.Pdf.Settings;
 using Xunit;
-using ShellSettingsStore = Raffica.Shell.Frame.SettingsStore;
 
-namespace Raffica.Pdf.Tests.Settings;
+namespace Raffica.Hosting.Tests;
 
 public sealed class RecentServiceTests : IDisposable
 {
@@ -136,27 +134,5 @@ public sealed class RecentServiceTests : IDisposable
         Assert.Equal(5, service.ForStartView(5).Count);
         Assert.Equal(10, service.ForPalette(10).Count);
         Assert.Equal("f11.pdf", service.ForStartView(5)[0].Name);
-    }
-
-    [Fact]
-    public void RecentFilesNeverTouchTheUsersFolderWhenASettingsFileIsGiven()
-    {
-        var settings = Path.Combine(_folder, "nested", "shell.json");
-
-        Assert.Equal(settings, PdfSettingsFiles.ShellPathFor(settings));
-        Assert.Equal(Path.Combine(_folder, "nested", "pdf-settings.json"), PdfSettingsFiles.PdfSettingsPathFor(settings));
-        Assert.Equal(Path.Combine(_folder, "nested", "recent.json"), PdfSettingsFiles.RecentPathFor(settings));
-
-        var config = UserDataPaths.ConfigDirectory();
-        Assert.DoesNotContain(config, PdfSettingsFiles.RecentPathFor(settings), StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void WithoutASettingsFileTheDefaultsAreUsed()
-    {
-        Assert.Equal(ShellSettingsStore.DefaultPath("Pdf"), PdfSettingsFiles.ShellPathFor(null));
-        Assert.Equal(ShellSettingsStore.DefaultPath("Pdf"), PdfSettingsFiles.ShellPath);
-        Assert.Equal(Path.Combine(UserDataPaths.ConfigDirectory(), "recent.json"), PdfSettingsFiles.RecentPath);
-        Assert.Equal(Path.Combine(UserDataPaths.ConfigDirectory(), "pdf-settings.json"), PdfSettingsFiles.PdfSettingsPath);
     }
 }

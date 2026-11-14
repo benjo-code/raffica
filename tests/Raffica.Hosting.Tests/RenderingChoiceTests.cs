@@ -1,7 +1,7 @@
-using Raffica.Pdf.Hosting;
+using Raffica.Hosting;
 using Xunit;
 
-namespace Raffica.Pdf.Tests;
+namespace Raffica.Hosting.Tests;
 
 public sealed class RenderingChoiceTests
 {

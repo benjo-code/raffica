@@ -14,6 +14,7 @@ using Raffica.Core.Printing;
 using Raffica.Core.Settings;
 using Raffica.Core.Signatures;
 using Raffica.Core.Viewing;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Dialogs;
@@ -39,7 +40,7 @@ namespace Raffica.Pdf;
 /// pages pane on the left (204 px), the marks pane on the right (256 px, closed until asked for), the document slot and the status bar. Without
 /// a document tab it shows the start view (no panes, no status bar). The document slot shows the page view of the active tab.
 /// </summary>
-internal sealed partial class PdfWindow : Window, Hosting.IHostedWindow
+internal sealed partial class PdfWindow : Window, IHostedWindow
 {
     /// <summary>Width of the pages pane in device-independent pixels.</summary>
     internal const double PagesPaneWidth = 204;

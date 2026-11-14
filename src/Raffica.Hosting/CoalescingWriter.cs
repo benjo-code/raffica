@@ -1,4 +1,4 @@
-namespace Raffica.Pdf.Settings;
+namespace Raffica.Hosting;
 
 /// <summary>
 /// Writes a file in the background so the UI thread never waits for the disk: a post hands over the complete write (a snapshot taken on

@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Settings;
+using Raffica.Hosting;
 using Raffica.Pdf.Commands;
 using Raffica.Pdf.Tests.Viewing;
 using Raffica.Pdf.Updating;
@@ -24,8 +25,8 @@ public sealed class StartupCreatesNoPackagingWorkTests
     {
         const System.Reflection.BindingFlags all = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
         var members = typeof(PdfWindow).GetMembers(all);
-        Assert.DoesNotContain(members, member => (member as System.Reflection.PropertyInfo)?.PropertyType == typeof(Raffica.Pdf.Hosting.FileActivationBridge));
-        Assert.DoesNotContain(members, member => (member as System.Reflection.FieldInfo)?.FieldType == typeof(Raffica.Pdf.Hosting.FileActivationBridge));
+        Assert.DoesNotContain(members, member => (member as System.Reflection.PropertyInfo)?.PropertyType == typeof(Raffica.Hosting.FileActivationBridge));
+        Assert.DoesNotContain(members, member => (member as System.Reflection.FieldInfo)?.FieldType == typeof(Raffica.Hosting.FileActivationBridge));
     }
 
     // The service is the only thing that could start a process or read the registry: if it is never made, nothing of the packaging runs.

@@ -1,4 +1,4 @@
-namespace Raffica.Pdf.Hosting;
+namespace Raffica.Hosting;
 
 /// <summary>Which Avalonia rendering path the app asks for. On Windows software is the app's default and <c>Default</c> the opt-out; on macOS software is an opt-in.</summary>
 internal enum RenderingChoice

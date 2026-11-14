@@ -1,7 +1,7 @@
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 
-namespace Raffica.Pdf.Hosting;
+namespace Raffica.Hosting;
 
 /// <summary>The files the system hands over through Avalonia's activation events (macOS: Finder, Dock, "Open With") and its reopen request. The only place that touches <see cref="IActivatableLifetime"/>.</summary>
 internal sealed class AvaloniaFileActivationSource : IFileActivationSource, IReopenSource

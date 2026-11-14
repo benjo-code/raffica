@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Raffica.Hosting;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Tests.Annotating;
@@ -119,7 +120,12 @@ public sealed class WindowHostWindowTests
         {
             var file = Path.Combine(folder, "settings.json");
             var options = PdfOptions.Parse(["--settings-file", file]);
-            var source = new WindowSettingsSource(options.SettingsFile, new ShellSettings(), Raffica.Core.Settings.AppSettings.Default);
+            var source = new WindowSettingsSource<Raffica.Core.Settings.AppSettings>(
+                AppFiles.Pdf,
+                options.SettingsFile,
+                new ShellSettings(),
+                Raffica.Core.Settings.AppSettings.Default,
+                f => new Raffica.Core.Settings.SettingsStore(AppFiles.Pdf.AppSettingsPathFor(f)).LoadReadOnly());
 
             var (shell, app) = source.Next();
             Assert.Null(shell.WindowPlacement);

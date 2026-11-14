@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Raffica.Core.Printing;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 
 namespace Raffica.Pdf.Printing;

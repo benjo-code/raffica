@@ -1,6 +1,6 @@
 using Avalonia.Threading;
 
-namespace Raffica.Pdf.Hosting;
+namespace Raffica.Hosting;
 
 /// <summary>What the host needs of a window (macOS keeps the app alive when the last window closes, so something outside the window decides what happens next).</summary>
 internal interface IHostedWindow

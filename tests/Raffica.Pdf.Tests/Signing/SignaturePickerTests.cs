@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Annotations;
 using Raffica.Core.Signatures;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Signing;

@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Viewing;
+using Raffica.Hosting;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;
 using Raffica.Pdf.Tests.Annotating;
@@ -28,7 +29,7 @@ internal sealed class SplitRig : IDisposable
         _copy = copy;
         Tab = tab;
         Flow = new SplitFlow(
-            new Raffica.Pdf.Dialogs.DialogQueue(_host.Host),
+            new Raffica.Hosting.DialogQueue(_host.Host),
             (_, name) =>
             {
                 SuggestedNames.Add(name);
