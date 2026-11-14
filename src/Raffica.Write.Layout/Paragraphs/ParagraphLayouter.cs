@@ -18,7 +18,7 @@ public sealed class ParagraphLayouter
         _fonts = fonts;
     }
 
-    /// <summary>Finds hyphenation points. Not used yet: a later task makes the layouter break words with it.</summary>
+    /// <summary>Finds hyphenation points; used for a paragraph whose <see cref="ParagraphInput.AutoHyphenation"/> is on (and whose style does not suppress it).</summary>
     public IHyphenator? Hyphenator { get; set; }
 
     /// <summary>Lays out <paramref name="input"/> in a text area <paramref name="width"/> points wide.</summary>
@@ -28,7 +28,7 @@ public sealed class ParagraphLayouter
     public ParagraphLayout Layout(ParagraphInput input, float width, IWrapSource? wrap = null)
     {
         ArgumentNullException.ThrowIfNull(input);
-        using var session = new ParagraphSession(_fonts, input, float.IsFinite(width) ? width : 0f, wrap);
+        using var session = new ParagraphSession(_fonts, input, float.IsFinite(width) ? width : 0f, wrap, Hyphenator);
         return session.Run();
     }
 }
@@ -46,6 +46,8 @@ internal sealed class ParagraphSession : IDisposable
     private readonly ParagraphInput _input;
     private readonly ResolvedParagraph _para;
     private readonly IWrapSource? _wrap;
+    private readonly IHyphenator? _hyphenator;
+    private readonly List<int> _points = [];
     private readonly ParagraphShaper _shaper;
     private readonly List<LineBox> _lines = [];
     private readonly List<Piece> _chunk = [];
@@ -74,12 +76,14 @@ internal sealed class ParagraphSession : IDisposable
     private float _desc;
     private float _gap;
     private int _lineStartOffset;
+    private int _chunkEnd;
     private int _placedEnd;
     private GlyphRun? _lastText;
     private Pending? _pending;
 
-    public ParagraphSession(FontCatalog fonts, ParagraphInput input, float width, IWrapSource? wrap)
+    public ParagraphSession(FontCatalog fonts, ParagraphInput input, float width, IWrapSource? wrap, IHyphenator? hyphenator)
     {
+        _hyphenator = input.AutoHyphenation && !input.Paragraph.SuppressAutoHyphens ? hyphenator : null;
         _input = input;
         _para = input.Paragraph;
         _wrap = wrap;
@@ -121,6 +125,7 @@ internal sealed class ParagraphSession : IDisposable
             }
 
             BuildPieces(previous, end);
+            _chunkEnd = end;
             PlaceChunk(previous);
             if (breaks[k].Mandatory && end > previous)
             {
@@ -408,7 +413,13 @@ internal sealed class ParagraphSession : IDisposable
 
             var start = i == 0 ? chunkStart : _chunk[i].TextStart;
             EnsureLine(start);
-            if (_hasContent && Extent(fit) > _lineRight + Epsilon)
+            var overflows = Extent(fit) > _lineRight + Epsilon;
+            if (overflows && _hyphenator is not null && n == end && i == 0 && TryHyphenate(chunkStart))
+            {
+                return;
+            }
+
+            if (_hasContent && overflows)
             {
                 FinishLine(_placedEnd, false, false);
                 EnsureLine(start);
@@ -421,6 +432,77 @@ internal sealed class ParagraphSession : IDisposable
 
             i = end;
         }
+    }
+
+    // The chunk (a word with the spaces that hang after it, no tab, text pieces only) does not fit: put the longest hyphenated start
+    // that fits, with a hyphen, on this line and lay out the rest as a chunk of its own. False when no start fits or the chunk is no word.
+    private bool TryHyphenate(int chunkStart)
+    {
+        var language = _chunk[0].Run?.Language;
+        foreach (var piece in _chunk)
+        {
+            if (piece.Kind != PieceKind.Text || piece.Run is null || !string.Equals(piece.Run.Language, language, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        var text = _text.AsSpan(chunkStart, _chunkEnd - chunkStart);
+        var lead = 0;
+        while (lead < text.Length && !char.IsLetter(text[lead]))
+        {
+            lead++;
+        }
+
+        var stop = text.Length;
+        while (stop > lead && !char.IsLetter(text[stop - 1]))
+        {
+            stop--;
+        }
+
+        if (stop - lead < 5)
+        {
+            return false;
+        }
+
+        _points.Clear();
+        _hyphenator!.Find(text[lead..stop], language, _points);
+        for (var k = _points.Count - 1; k >= 0; k--)
+        {
+            var cut = chunkStart + lead + _points[k];
+            BuildPieces(chunkStart, cut);
+            if (_chunk.Count == 0 || _chunk[^1].Kind != PieceKind.Text || _chunk[^1].Run is not { } run)
+            {
+                continue;
+            }
+
+            var tail = _chunk[^1];
+            var hyphen = _shaper.Hyphen(run, tail.Size, tail.Raise, cut);
+            var fit = hyphen.Width;
+            foreach (var piece in _chunk)
+            {
+                fit += piece.Width;
+            }
+
+            if (Extent(fit) > _lineRight + Epsilon)
+            {
+                continue;
+            }
+
+            foreach (var piece in _chunk)
+            {
+                Place(piece);
+            }
+
+            Place(hyphen);
+            FinishLine(cut, false, false);
+            BuildPieces(cut, _chunkEnd);
+            PlaceChunk(cut);
+            return true;
+        }
+
+        BuildPieces(chunkStart, _chunkEnd);
+        return false;
     }
 
     private void Place(Piece piece)
@@ -478,6 +560,7 @@ internal sealed class ParagraphSession : IDisposable
             label ? _lineStartOffset : piece.TextStart, label ? _lineStartOffset : piece.TextEnd)
         {
             IsLabel = label,
+            IsHyphen = piece.IsHyphen,
             Spaces = piece.Spaces,
             TrailStart = piece.TrailStart,
         };
@@ -876,6 +959,7 @@ internal sealed class ParagraphSession : IDisposable
 
     private static bool CanMerge(GlyphRun left, GlyphRun right) =>
         !left.IsLabel && !left.IsLeader && !right.IsLabel && !right.IsLeader
+        && !left.IsHyphen && !right.IsHyphen
         && ReferenceEquals(left.Run, right.Run) && ReferenceEquals(left.Face, right.Face)
         && left.Size == right.Size && left.Raise == right.Raise
         && MathF.Abs(left.X + left.Width - right.X) < 0.01f;

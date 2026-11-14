@@ -53,6 +53,9 @@ public sealed class GlyphRun
     /// <summary>True for the dots, hyphens or underscores that fill a tab.</summary>
     public bool IsLeader { get; internal init; }
 
+    /// <summary>True for the hyphen added where automatic hyphenation breaks a word; it draws no text (<see cref="TextStart"/> equals <see cref="TextEnd"/>).</summary>
+    public bool IsHyphen { get; internal init; }
+
     // The glyph indices of the spaces that justification may stretch, and the first glyph of the spaces that end the text of the run.
     internal int[]? Spaces { get; init; }
 

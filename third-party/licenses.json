@@ -385,6 +385,27 @@
       "licenseFile": "third-party/unicode/LICENSE-Unicode.txt"
     },
     {
+      "id": "hyph-utf8 patterns: American English",
+      "kind": "asset",
+      "version": "tex-hyphen 5684c0f",
+      "license": "FSFAP",
+      "licenseFile": "third-party/hyph-utf8/LICENSE-en-us.txt"
+    },
+    {
+      "id": "hyph-utf8 patterns: British English",
+      "kind": "asset",
+      "version": "tex-hyphen 5684c0f",
+      "license": "MIT",
+      "licenseFile": "third-party/hyph-utf8/LICENSE-en-gb.txt"
+    },
+    {
+      "id": "hyph-utf8 patterns: German (reformed spelling)",
+      "kind": "asset",
+      "version": "tex-hyphen 5684c0f",
+      "license": "MIT",
+      "licenseFile": "third-party/hyph-utf8/LICENSE-de-1996.txt"
+    },
+    {
       "id": "Lucide",
       "kind": "asset",
       "version": "1.63.0",

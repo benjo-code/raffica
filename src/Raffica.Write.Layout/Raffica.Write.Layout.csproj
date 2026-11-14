@@ -12,6 +12,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\Raffica.Shell\Assets\Fonts\Carlito-*.ttf" LogicalName="Raffica.Write.Layout.Fonts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Fonts\Caladea-*.ttf" LogicalName="Raffica.Write.Layout.Fonts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Text\Patterns\*.pat.txt" LogicalName="Raffica.Write.Layout.Patterns.%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Raffica.Write.Tests" />

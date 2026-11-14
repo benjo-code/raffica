@@ -46,6 +46,8 @@ internal sealed class Piece
     public float Gap { get; init; }
 
     public InlineBox? Box { get; init; }
+
+    public bool IsHyphen { get; init; }
 }
 
 /// <summary>
@@ -133,6 +135,14 @@ internal sealed class ParagraphShaper : IDisposable
         }
 
         into.Add(Build(face, run, size, raise, text, offset, endsChunk));
+    }
+
+    /// <summary>The visible hyphen that ends a line at <paramref name="offset"/>, in the face and size of the text before it. It draws no text of the paragraph.</summary>
+    public Piece Hyphen(ResolvedRun run, float size, float raise, int offset)
+    {
+        var face = FaceFor(run);
+        ShapeRaw(face, "-");
+        return Build(face, run, size, raise, "-", offset, false, hyphen: true);
     }
 
     private int ShapeRaw(FontFace face, ReadOnlySpan<char> text)
@@ -224,7 +234,7 @@ internal sealed class ParagraphShaper : IDisposable
         return _segments.Count > 0;
     }
 
-    private Piece Build(FontFace face, ResolvedRun run, float size, float raise, ReadOnlySpan<char> text, int offset, bool endsChunk)
+    private Piece Build(FontFace face, ResolvedRun run, float size, float raise, ReadOnlySpan<char> text, int offset, bool endsChunk, bool hyphen = false)
     {
         var infos = _buffer.GlyphInfos;
         var positions = _buffer.GlyphPositions;
@@ -283,10 +293,11 @@ internal sealed class ParagraphShaper : IDisposable
             TrailingWidth = trailGlyph < n ? pen - trailPen : 0f,
             TrailStart = trailGlyph,
             TextStart = offset,
-            TextEnd = offset + text.Length,
+            TextEnd = hyphen ? offset : offset + text.Length,
             Ascent = Math.Max(0f, (face.Ascent * size) + raise),
             Descent = Math.Max(0f, (face.Descent * size) - raise),
             Gap = face.LineGap * size,
+            IsHyphen = hyphen,
         };
     }
 }

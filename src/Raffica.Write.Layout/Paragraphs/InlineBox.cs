@@ -42,6 +42,9 @@ public sealed record ParagraphInput(ResolvedParagraph Paragraph, IReadOnlyList<P
 
     /// <summary>Whether a justified line that ends in a manual line break is stretched (Word's default; off with the doNotExpandShiftReturn compatibility setting).</summary>
     public bool ExpandShiftReturn { get; init; } = true;
+
+    /// <summary>Whether words may be hyphenated at the line end (the document setting w:autoHyphenation; a paragraph that suppresses it still never is).</summary>
+    public bool AutoHyphenation { get; init; }
 }
 
 /// <summary>The horizontal room of one line, in paragraph coordinates (0 is the left edge of the text area).</summary>
@@ -58,7 +61,7 @@ public interface IWrapSource
     LineBounds BoundsAt(float y, float lineHeight, float left, float right);
 }
 
-/// <summary>Finds hyphenation points of a word (a later task provides an implementation; the layouter does not use it yet).</summary>
+/// <summary>Finds hyphenation points of a word.</summary>
 public interface IHyphenator
 {
     /// <summary>Appends to <paramref name="positions"/> the offsets within <paramref name="word"/> before which a hyphen may be put.</summary>
