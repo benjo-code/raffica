@@ -8,6 +8,18 @@ namespace WriteLayoutBench;
 /// <summary>A cold child process of this tool.</summary>
 internal static class ChildProcess
 {
+    /// <summary>The one rule for every command that times cold children: only a Native AOT publish is timed. Returns true (and says why on <paramref name="error"/>) when this is a JIT build.</summary>
+    public static bool RefuseJit(TextWriter error)
+    {
+        if (!RuntimeFeature.IsDynamicCodeSupported)
+        {
+            return false;
+        }
+
+        error.WriteLine("write-layout-bench: refusing to time anything but a Native AOT publish (this is a JIT build). Use dotnet publish bench/write-layout -c Release -r <rid>.");
+        return true;
+    }
+
     /// <summary>Runs <c>first-page</c> and returns its output lines, or null (with a message on <paramref name="error"/>) when it fails.</summary>
     public static List<string>? FirstPage(string file, bool withPhases, TextWriter error)
     {
@@ -46,9 +58,8 @@ internal static class RunCommand
 {
     public static int Run(Options options, TextWriter output, TextWriter error)
     {
-        if (RuntimeFeature.IsDynamicCodeSupported)
+        if (ChildProcess.RefuseJit(error))
         {
-            error.WriteLine("write-layout-bench: refusing to time anything but a Native AOT publish (this is a JIT build). Use dotnet publish bench/write-layout -c Release -r <rid>.");
             return 2;
         }
 
@@ -68,6 +79,11 @@ internal static class RunCommand
             var ms = lines is null ? null : ChildProcess.ParseDone(lines);
             if (ms is null)
             {
+                if (lines is not null)
+                {
+                    error.WriteLine($"write-layout-bench: run {i + 1}: the child printed no 'done ms=' line");
+                }
+
                 return 2;
             }
 

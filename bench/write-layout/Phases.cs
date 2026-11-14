@@ -8,6 +8,11 @@ internal static class Phases
 {
     public static int Run(Options options, TextWriter output, TextWriter error)
     {
+        if (ChildProcess.RefuseJit(error))
+        {
+            return 2;
+        }
+
         var file = options.RequireFile();
         if (!File.Exists(file))
         {
@@ -22,6 +27,11 @@ internal static class Phases
             var times = lines?.Select(PhaseTimes.Parse).FirstOrDefault(t => t is not null);
             if (times is null)
             {
+                if (lines is not null)
+                {
+                    error.WriteLine($"write-layout-bench: run {i + 1}: the child printed no phases line");
+                }
+
                 return 2;
             }
 
@@ -36,7 +46,7 @@ internal static class Phases
     internal static string Format(IReadOnlyList<PhaseTimes> runs)
     {
         var text = new StringBuilder();
-        text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{"phase",-20}{"median ms",10}   ({runs.Count} cold run(s))"));
+        text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{"phase",-20}{"median ms",10}   ({runs.Count} cold run(s), no warm-up)"));
         for (var i = 0; i < PhaseTimes.Names.Length; i++)
         {
             var median = Median([.. runs.Select(r => r.Values[i])]);

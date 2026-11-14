@@ -44,6 +44,15 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void PhasesRefusesAJitBuild()
+    {
+        var (code, output, error) = Run("phases", "--file", Thesis, "--runs", "1");
+        Assert.Equal(2, code);
+        Assert.Contains("Native AOT", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("median", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FirstPageChildPrintsDone()
     {
         using (var result = FirstPage.Draw(Thesis, new PhaseTimes()))
