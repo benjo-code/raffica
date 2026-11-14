@@ -826,7 +826,7 @@
         {
           "id": "4.2",
           "title": "Write as a fast DOCX viewer",
-          "status": "planned",
+          "status": "in-progress",
           "plan": "superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md",
           "prerequisites": ["4.1"],
           "goal": "Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.",

@@ -41,7 +41,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
 | 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | 2026-11-13 |
-| 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) | – |
+| 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) | – |
 | 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
 | 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
@@ -617,7 +617,7 @@ Goal: A UI-free library reads and writes DOCX into a model that follows OOXML an
 **Proven by CI (pull request #85, run 43505487736):** the Native AOT publish of the tool on Linux and macOS (both architectures) and the Unix-mode save test (`DocxSaveTests.UnixPermissionsOfTheTargetAreKept`, skipped on the Windows host, ran and passed in `build-linux`). The Apple-silicon and Intel macOS runs of the published tool's `check` and `run` executed in `build-macos`.
 
 ## Milestone 4.2 – Write as a fast DOCX viewer
-**Status:** 🟡 planned · **Plan:** [2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) · **Prerequisites:** M4.1
+**Status:** 🔵 in progress · **Plan:** [2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) · **Prerequisites:** M4.1
 
 Goal: Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.
 
