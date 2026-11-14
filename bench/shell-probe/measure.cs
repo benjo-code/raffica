@@ -1463,7 +1463,7 @@ static class CheckCommand
 
     /// <summary>
     /// True when none of the metrics named in <paramref name="only"/> (all when empty) has a limit on the platform, so a check of the Write app
-    /// cannot pass. A metric without a limit next to one with a limit is not judged (see <see cref="JudgeWrite"/>).
+    /// cannot pass. See <see cref="JudgeWrite"/> for what a metric without a limit does next to one that has a limit.
     /// </summary>
     public static bool WriteHasNoLimits(string platform, params string[] only) =>
         !s_writeMetrics.Any(m => (only.Length == 0 || only.Contains(m.Key)) && LimitOf(WriteTable, platform, m.Key) is not null);
@@ -1507,12 +1507,18 @@ static class CheckCommand
         Judge(PdfTable, [.. s_pdfMetrics.Where(m => m.Key is not ("app" or "dmg") || (platform == "macos" && only.Contains(m.Key)))], platform, measured, only, indicativeOnMac: false);
 
     /// <summary>
-    /// The verdicts of the Write app against <see cref="WriteTable"/>. Only the metrics that have a limit on the platform are judged (the app rows are
-    /// empty until the owner's runs are recorded, the engine limit exists now); one without a limit is listed as <c>not judged</c> and never fails the
-    /// check; when none of the metrics has a limit the caller exits 2 (<see cref="WriteHasNoLimits"/>).
+    /// The verdicts of the Write app against <see cref="WriteTable"/>. The rule: as soon as a platform has at least ONE app row (any metric but
+    /// <c>engine</c>), every app metric without a limit is <c>unrecorded</c> and fails the check (exit 1), as for the PDF target, so a half-filled table
+    /// never goes green. While the platform has no app row at all (the state before the owner's runs are recorded) the app metrics are <c>not judged</c>
+    /// and never fail; <c>engine</c> without a limit on a platform is always <c>not judged</c> (its fixed limit exists for linux only). When none of the
+    /// requested metrics has a limit the caller exits 2 (<see cref="WriteHasNoLimits"/>).
     /// </summary>
-    public static List<Result> JudgeWrite(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only) =>
-        [.. Judge(WriteTable, s_writeMetrics, platform, measured, only, indicativeOnMac: false).Select(r => r.Verdict == "unrecorded" ? r with { Verdict = "not judged" } : r)];
+    public static List<Result> JudgeWrite(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
+    {
+        var hasAppRow = s_writeMetrics.Any(m => m.Key != "engine" && LimitOf(WriteTable, platform, m.Key) is not null);
+        return [.. Judge(WriteTable, s_writeMetrics, platform, measured, only, indicativeOnMac: false)
+            .Select(r => r.Verdict == "unrecorded" && (r.Key == "engine" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
+    }
 
     private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only, bool indicativeOnMac)
     {
@@ -1705,7 +1711,7 @@ static class CheckCommand
         }
         else if (write && results.Any(r => r.Verdict == "not judged"))
         {
-            text.AppendLine("> A metric marked \"not judged\" has no recorded limit yet (milestone 4.2 sets them from the owner's runs); it does not fail the check.").AppendLine();
+            text.AppendLine("> A metric marked \"not judged\" has no recorded limit yet (milestone 4.2 sets them from the owner's runs; the engine limit exists for Linux only); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
         }
 
         text.Append(Render(results));
@@ -2344,12 +2350,28 @@ static class SelfTest
             PdfCsv(csv, WriteRows("windows"));
             Expect("check command write: rows of the Write app do not count for the PDF app", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "windows", "--in", csv], out _)!), 1);
 
-            // A partly filled table judges what it has and lists the rest as not judged.
+            // A half-filled table never passes: one app row set, the other app rows unrecorded (exit 1); engine without a limit stays not judged.
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
             var partial = CheckCommand.EvaluateWrite("windows", WriteRows("windows"));
-            Expect("check write: a metric without a limit is not judged", partial.Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
-            Expect("check write: not judged never fails", CheckCommand.ExitCode(partial), 0);
-            Expect("check write: the judged metric still can fail", CheckCommand.ExitCode(CheckCommand.EvaluateWrite("windows", WriteRows("windows", "cold", 0.1))), 1);
+            Expect("check write: with one app row set, the other app metrics are unrecorded", string.Join(',', partial.Where(r => r.Verdict == "unrecorded").Select(r => r.Key)), "warm,thesis,second,scroll,memory,size,zip");
+            Expect("check write: engine without a limit stays not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine");
+            Expect("check write: a half-filled table exits 1", CheckCommand.ExitCode(partial), 1);
+            PdfCsv(csv, WriteRows("windows"));
+            Expect("check command write: a half-filled table exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 1);
+            Expect("check write: the judged metric is ok at its limit", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "cold").Verdict, "ok");
+            Expect("check write: the judged metric still can fail", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "cold", 0.1)).First(r => r.Key == "cold").Verdict, "over");
+
+            // No app row on the platform and an engine limit (the recorded state of linux): the engine is judged, the app metrics are not judged, exit 0 at the limit.
+            CheckCommand.WriteTableForTests = new() { ["windows"] = [], ["linux"] = new() { ["engine"] = 80 }, ["macos"] = [] };
+            var engineOnly = CheckCommand.EvaluateWrite("linux", WriteRows("linux"));
+            Expect("check write: engine only, the engine is judged ok", engineOnly.First(r => r.Key == "engine").Verdict, "ok");
+            Expect("check write: engine only, the app metrics are not judged", engineOnly.Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+            Expect("check write: engine only, exit 0 at the limit", CheckCommand.ExitCode(engineOnly), 0);
+            Expect("check write: engine only, exit 1 above the limit", CheckCommand.ExitCode(CheckCommand.EvaluateWrite("linux", WriteRows("linux", "engine", 0.1))), 1);
+
+            // All app rows: as before (the test table has every metric).
+            CheckCommand.WriteTableForTests = WriteTestTable();
+            Expect("check write: all rows set, no metric is unrecorded or not judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict is "unrecorded" or "not judged"), 0);
 
             CheckCommand.WriteTableForTests = WriteTestTable();
             WriteSizeCheckTests();
@@ -2397,6 +2419,10 @@ static class SelfTest
         Expect("size --check write: an empty table exits 2 on macOS", Check("osx-x64", 10), 2);
 
         // The recorded table has only the engine limit: no size limit exists yet, so no platform can pass a size check.
+        // Half filled: size set, zip not: the zip is unrecorded and fails (exit 1), a platform with no app row still exits 2.
+        CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["size"] = 40 }, ["linux"] = [], ["macos"] = [] };
+        Expect("size --check write: size set and zip unset fails", Check("win-x64", 10), 1);
+        Expect("size --check write: a platform with no app row still exits 2", Check("linux-x64", 10), 2);
         CheckCommand.WriteTableForTests = null;
         Expect("size --check write (recorded): no size limit yet on Linux exits 2", Check("linux-x64", 10), 2);
         Expect("size --check write (recorded): no size limit yet on Windows exits 2", Check("win-x64", 10), 2);
