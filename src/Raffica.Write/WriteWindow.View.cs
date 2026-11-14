@@ -5,6 +5,7 @@ using Raffica.Core.Viewing;
 using Raffica.Shell.Frame;
 using Raffica.Write.Commands;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 using Raffica.Write.Settings;
 using Raffica.Write.Viewing;
 
@@ -15,6 +16,7 @@ internal sealed partial class WriteWindow
 {
     private WriteCommandRules _rules = null!;
     private Dictionary<string, Action> _actions = null!;
+    private readonly HashSet<WriteTab> _faultShown = [];
 
     /// <summary>The ribbon (the tabs Home and View); its parts sit in the frame while a document tab is open.</summary>
     public RibbonView Ribbon { get; private set; } = null!;
@@ -103,17 +105,81 @@ internal sealed partial class WriteWindow
                 UpdateViewStatus();
             }
         };
-        view.FirstSharpPage += tab.Runner.Start;
+        view.FirstSharpPage += () =>
+        {
+            tab.Runner.Start();
+            if (ReferenceEquals(ActiveView, view))
+            {
+                FocusActiveView();
+            }
+        };
+        view.AttachedToVisualTree += (_, _) =>
+        {
+            if (ReferenceEquals(ActiveView, view))
+            {
+                FocusActiveView();
+            }
+        };
+        tab.Runner.Faulted += () => OnLayoutFaulted(tab);
         return view;
     }
 
-    // Puts the focus on the page view of the active tab once the slot shows it, so the keys scroll it.
-    private void FocusActiveView()
+    // A layout failed (the whole file could not be read after page 1, or a bug of the layout): one card per tab, in the wording of the open errors (never the text of
+    // the exception). The tab stays open on what is laid out; the status no longer promises more pages. Nothing is shown for a window that is closing or a closed tab.
+    private void OnLayoutFaulted(WriteTab tab)
     {
-        if (ActiveView is { } view)
+        if (_closeConfirmed || tab.IsDisposed || !_faultShown.Add(tab))
         {
-            Dispatcher.UIThread.Post(() => view.Focus(), DispatcherPriority.Background);
+            return;
         }
+
+        ShowOpenError(tab.Path, tab.Runner.Fault is DocxFormatException or InvalidDataException ? OpenError.Corrupt : OpenError.Other);
+        if (ReferenceEquals(Workspace.Active, tab))
+        {
+            UpdateViewStatus();
+        }
+    }
+
+    // Puts the focus on the page view of the active tab so the keys scroll it. A focus that does not take (the view is not on screen yet) is tried again a few times; a
+    // text box that has the focus (the command search) keeps it.
+    private void FocusActiveView(int attempts = 6)
+    {
+        if (ActiveView is not { } view)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (!ReferenceEquals(ActiveView, view) || view.IsFocused || FocusedElement() is TextBox)
+                {
+                    return;
+                }
+
+                if (!(view.IsEffectivelyVisible && view.Focus()) && attempts > 1)
+                {
+                    DispatcherTimer.RunOnce(() => FocusActiveView(attempts - 1), TimeSpan.FromMilliseconds(50));
+                }
+            },
+            DispatcherPriority.Background);
+    }
+
+    private IInputElement? FocusedElement() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+
+    // Navigation keys that reach the window while the page view does not have the focus: they scroll the active view, so a lost focus cannot swallow them. The arrows
+    // only when nothing has the focus (they move inside the ribbon and the tabs); PageUp, PageDown, Home and End also when a button or tab has it, never a text box.
+    private bool ForwardNavigationKey(KeyEventArgs e)
+    {
+        if (ActiveView is not { IsFocused: false } view || !PageView.IsNavigationKey(e.Key, e.KeyModifiers))
+        {
+            return false;
+        }
+
+        var focused = FocusedElement();
+        var arrow = e.Key is Key.Up or Key.Down or Key.Left or Key.Right;
+        var allowed = focused is null || ReferenceEquals(focused, this) || (!arrow && focused is not TextBox and not ComboBox and not Slider);
+        return allowed && view.HandleNavigationKey(e.Key, e.KeyModifiers);
     }
 
     /// <summary>The cells of the status bar follow the view of the active tab: the page (with a plus while the count may still grow) and the zoom.</summary>

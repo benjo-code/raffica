@@ -9,14 +9,16 @@ using SkiaSharp;
 namespace Raffica.Write.Viewing;
 
 /// <summary>
-/// Lets draws and the end of the pictures meet safely: the render thread enters the gate for the length of one draw, and the tab closing closes it, which waits for
-/// the draws that run and refuses every later one. The image cache of a view may only be cleared or disposed after <see cref="Close"/> returned true.
+/// Lets draws and the end of the pictures meet safely: the render thread enters the gate for the length of one draw, and the tab closing closes it with an action that
+/// frees what the draws use. Closing never waits: the action runs at once when no draw is in flight, otherwise on the thread of the last draw that ends (never before
+/// it ends), and a draw that starts after the close is refused, so nothing uses what was freed.
 /// </summary>
 internal sealed class DrawGate
 {
     private readonly object _lock = new();
     private int _inFlight;
     private bool _closed;
+    private Action? _whenIdle;
 
     /// <summary>Whether the gate is closed (no draw may start).</summary>
     public bool IsClosed
@@ -45,36 +47,49 @@ internal sealed class DrawGate
         }
     }
 
-    /// <summary>Leaves after a draw that <see cref="TryEnter"/> let in.</summary>
+    /// <summary>Leaves after a draw that <see cref="TryEnter"/> let in; the last one out after a close runs the action of the close.</summary>
     public void Exit()
     {
+        Action? run = null;
         lock (_lock)
         {
             _inFlight--;
             if (_inFlight == 0 && _closed)
             {
-                Monitor.PulseAll(_lock);
+                run = _whenIdle;
+                _whenIdle = null;
             }
         }
+
+        run?.Invoke();
     }
 
-    /// <summary>Refuses later draws and waits (at most <paramref name="timeout"/>) for the ones that run; true when none runs any more.</summary>
-    public bool Close(TimeSpan timeout)
+    /// <summary>Refuses later draws and runs <paramref name="whenIdle"/> once no draw is in flight (at once, or when the last one ends). Never waits. A second close does nothing.</summary>
+    public void Close(Action whenIdle)
     {
+        ArgumentNullException.ThrowIfNull(whenIdle);
+        var runNow = false;
         lock (_lock)
         {
-            _closed = true;
-            var deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
-            while (_inFlight > 0)
+            if (_closed)
             {
-                var left = deadline - Environment.TickCount64;
-                if (left <= 0 || !Monitor.Wait(_lock, (int)left))
-                {
-                    return _inFlight == 0;
-                }
+                return;
             }
 
-            return true;
+            _closed = true;
+            if (_inFlight == 0)
+            {
+                runNow = true;
+            }
+            else
+            {
+                _whenIdle = whenIdle;
+            }
+        }
+
+        if (runNow)
+        {
+            whenIdle();
         }
     }
 }

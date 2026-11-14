@@ -37,9 +37,6 @@ internal sealed class PageView : Control, IDisposable
     /// <summary>In the writing view the text column is never made wider than this by fit width (a line of 1000 DIPs is hard to read).</summary>
     internal const double WritingFitLimit = 1.5;
 
-    // The longest the closing of a tab waits for a draw that runs on the render thread.
-    private static readonly TimeSpan DrawWait = TimeSpan.FromSeconds(2);
-
     private static readonly IBrush Paper = Brushes.White;
 
     private readonly WriteTab _tab;
@@ -172,8 +169,8 @@ internal sealed class PageView : Control, IDisposable
     /// <summary>The pages of the current view published so far.</summary>
     public int PageCount => _scroller?.Count ?? 0;
 
-    /// <summary>True once the layout of the current view has run out of pages (the page count is final).</summary>
-    public bool IsLayoutComplete => _runner.LayoutFor(ToLayoutMode(_mode)) is { IsComplete: true };
+    /// <summary>True once the page count is final: the layout of the current view ran out of pages, or a layout failed (what is laid out is all there will be).</summary>
+    public bool IsLayoutComplete => _runner.IsFaulted || _runner.LayoutFor(ToLayoutMode(_mode)) is { IsComplete: true };
 
     /// <summary>The page in the middle of the view, from 0.</summary>
     public int CurrentPage => _scroller is { Count: > 0 } scroller ? scroller.PageAt(_offsetY + (_viewport.Height / 2)) : 0;
@@ -219,7 +216,7 @@ internal sealed class PageView : Control, IDisposable
 
     private bool _picturesReleased;
 
-    // The tab closes: no draw starts any more, the ones that run end, and then the pictures go. The runner and the file are let go by the tab after this.
+    // The tab closes: no draw starts any more and the pictures go once the ones that run have ended. The runner and the file are let go by the tab after this.
     public void Dispose() => Release();
 
     private void Release()
@@ -232,11 +229,12 @@ internal sealed class PageView : Control, IDisposable
         _released = true;
         _runner.Changed -= OnRunnerChanged;
         _tab.Disposing -= Release;
-        if (_gate.Close(DrawWait))
+        // Never waits: the pictures go now when no draw runs, otherwise when the draw that runs ends (on the render thread).
+        _gate.Close(() =>
         {
             _images.Dispose();
             Volatile.Write(ref _picturesReleased, true);
-        }
+        });
     }
 
     // Layout.
@@ -586,12 +584,26 @@ internal sealed class PageView : Control, IDisposable
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Handled || (e.KeyModifiers & (KeyModifiers.Alt | KeyModifiers.Meta | KeyModifiers.Control)) != 0)
+        if (!e.Handled && HandleNavigationKey(e.Key, e.KeyModifiers))
         {
-            return;
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Whether a key is one that scrolls the view (PageUp, PageDown, Home, End, the arrows, with no Ctrl, Alt or Meta).</summary>
+    internal static bool IsNavigationKey(Key key, KeyModifiers modifiers) =>
+        (modifiers & (KeyModifiers.Alt | KeyModifiers.Meta | KeyModifiers.Control)) == 0
+        && key is Key.PageDown or Key.PageUp or Key.Home or Key.End or Key.Down or Key.Up or Key.Left or Key.Right;
+
+    /// <summary>Scrolls for a navigation key; false (nothing done) for any other key. The window forwards these keys here when the view does not have the focus.</summary>
+    internal bool HandleNavigationKey(Key key, KeyModifiers modifiers)
+    {
+        if (!IsNavigationKey(key, modifiers))
+        {
+            return false;
         }
 
-        switch (e.Key)
+        switch (key)
         {
             case Key.PageDown:
                 PageDown();
@@ -618,10 +630,10 @@ internal sealed class PageView : Control, IDisposable
                 ScrollByWheel(0, 1);
                 break;
             default:
-                return;
+                return false;
         }
 
-        e.Handled = true;
+        return true;
     }
 
     private void OnBarMoved(bool vertical, double value)

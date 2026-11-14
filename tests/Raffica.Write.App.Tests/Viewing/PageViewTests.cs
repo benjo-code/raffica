@@ -293,24 +293,25 @@ public sealed class PageViewTests
     }
 
     [AvaloniaFact]
-    public async Task ADrawThatRunsKeepsThePicturesAliveUntilItEnds()
+    public void ADrawThatRunsKeepsThePicturesAliveUntilItEndsAndTheCloseNeverWaits()
     {
         var harness = new ViewHarness(WindowFixture.Thesis);
         try
         {
             var view = harness.View;
             Assert.True(view.Gate.TryEnter(), "a draw is in flight");
-            var closing = Task.Run(harness.Tab.Dispose);
-            await ViewHarness.WaitAsync(() => view.Gate.IsClosed);
 
-            // The tab is closing, but the draw that runs has not ended: the pictures are still there and no new draw may start.
+            // Closing the tab returns at once although the draw has not ended: no wait on the UI thread.
+            var watch = Stopwatch.StartNew();
+            harness.Tab.Dispose();
+            Assert.True(watch.ElapsedMilliseconds < 500, $"the close took {watch.ElapsedMilliseconds} ms");
+
+            // The draw that runs still has its pictures, and no new draw may start.
+            Assert.True(view.Gate.IsClosed);
             Assert.False(view.PicturesReleased);
             Assert.False(view.Gate.TryEnter());
-            await Task.Delay(100);
-            Assert.False(closing.IsCompleted);
 
             view.Gate.Exit();
-            await closing;
             Assert.True(view.PicturesReleased);
             Assert.True(view.IsReleased);
         }
@@ -320,18 +321,42 @@ public sealed class PageViewTests
         }
     }
 
+    [AvaloniaFact]
+    public void ClosingATabWithNoDrawInFlightReleasesThePicturesAtOnce()
+    {
+        var harness = new ViewHarness(WindowFixture.Thesis);
+        harness.Capture();
+        harness.Tab.Dispose();
+        Assert.True(harness.View.PicturesReleased);
+        harness.Dispose();
+    }
+
     [Fact]
-    public void TheGateWaitsForTheDrawsThatRunAndRefusesTheLaterOnes()
+    public async Task TheGateFreesAfterTheLastDrawEndsAndNeverBefore()
     {
         var gate = new DrawGate();
+        var freed = 0;
         Assert.True(gate.TryEnter());
         Assert.True(gate.TryEnter());
-        Assert.False(gate.Close(TimeSpan.FromMilliseconds(30)), "two draws are still in flight");
+        gate.Close(() => Interlocked.Increment(ref freed));
+        Assert.True(gate.IsClosed);
         Assert.False(gate.TryEnter());
         gate.Exit();
-        gate.Exit();
-        Assert.True(gate.Close(TimeSpan.FromMilliseconds(30)));
-        Assert.True(gate.IsClosed);
+        Assert.Equal(0, Volatile.Read(ref freed));
+
+        // The last draw ends on another thread (the render thread): the action runs there, after it ended.
+        var thread = Task.Run(gate.Exit, TestContext.Current.CancellationToken);
+        await thread;
+        Assert.Equal(1, Volatile.Read(ref freed));
+
+        // A second close does nothing; a gate with no draw in flight frees at once.
+        gate.Close(() => Interlocked.Increment(ref freed));
+        Assert.Equal(1, Volatile.Read(ref freed));
+        var idle = new DrawGate();
+        var ran = false;
+        idle.Close(() => ran = true);
+        Assert.True(ran);
+        Assert.False(idle.TryEnter());
     }
 
     [Fact]

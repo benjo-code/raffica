@@ -96,6 +96,15 @@ internal sealed class LayoutRunner : IDisposable
     /// <summary>The background work of the strip layout (completed until <see cref="EnsureFlow"/> started it).</summary>
     public Task FlowTask => Volatile.Read(ref _flowTask);
 
+    /// <summary>Raised once on the UI thread when a layout ended with an error (the full open of a body that is damaged after the prefix, or a bug of the layout); never after the runner was disposed. Read <see cref="Fault"/>.</summary>
+    public event Action? Faulted;
+
+    /// <summary>True once a layout ended with an error: what is laid out stays, nothing more will come.</summary>
+    public bool IsFaulted => Volatile.Read(ref _fault) is not null;
+
+    /// <summary>Test seam: runs just before the whole file is opened; a throw is a failed full open.</summary>
+    internal Action? BeforeFullOpen { get; set; }
+
     /// <summary>Test seam: runs just before the prefix layout takes the whole model; a throw makes it a refused one.</summary>
     internal Action? BeforeReplaceModel { get; set; }
 
@@ -161,13 +170,14 @@ internal sealed class LayoutRunner : IDisposable
 
     private async Task RunPagesAsync()
     {
-        var token = _cancellation.Token;
         try
         {
+            var token = _cancellation.Token;
             var layout = PageLayout;
             if (_tab.Docx.IsPrefix)
             {
                 token.ThrowIfCancellationRequested();
+                BeforeFullOpen?.Invoke();
                 var full = DocxFile.Open(_tab.Docx.Package);
 
                 // The tab owns the whole file from here on (and lets go of it if it was closed meanwhile).
@@ -203,17 +213,38 @@ internal sealed class LayoutRunner : IDisposable
 
             await layout.LayOutRestAsync(_progress, token).ConfigureAwait(false);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException && IsDisposed)
+        {
+            // The tab closed.
+        }
         catch (OperationCanceledException)
         {
             // The tab closed.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Interlocked.CompareExchange(ref _fault, ex, null);
+            Fail(ex);
         }
         finally
         {
             PostChanged();
+        }
+    }
+
+    // A layout ended with an error: remember the first one and tell the UI thread once (nothing is told for a runner that was disposed).
+    private void Fail(Exception ex)
+    {
+        if (Interlocked.CompareExchange(ref _fault, ex, null) is null && !IsDisposed)
+        {
+            _ui.Post(RaiseFaulted, DispatcherPriority.Normal);
+        }
+    }
+
+    private void RaiseFaulted()
+    {
+        if (!IsDisposed)
+        {
+            Faulted?.Invoke();
         }
     }
 
@@ -234,9 +265,9 @@ internal sealed class LayoutRunner : IDisposable
 
     private async Task RunFlowAsync()
     {
-        var token = _cancellation.Token;
         try
         {
+            var token = _cancellation.Token;
             token.ThrowIfCancellationRequested();
             var layout = DocumentLayout.Create(_tab.Docx.Model, _tab.Fonts, Options(LayoutMode.Flow));
             layout.LayOutFirstPage();
@@ -244,13 +275,17 @@ internal sealed class LayoutRunner : IDisposable
             PostChanged();
             await layout.LayOutRestAsync(_progress, token).ConfigureAwait(false);
         }
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException && IsDisposed)
+        {
+            // The tab closed.
+        }
         catch (OperationCanceledException)
         {
             // The tab closed.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Interlocked.CompareExchange(ref _fault, ex, null);
+            Fail(ex);
         }
         finally
         {

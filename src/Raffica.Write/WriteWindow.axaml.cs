@@ -616,6 +616,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         {
             var tab = (WriteTab)e.OldItems![0]!;
             _areas.Remove(tab);
+            _faultShown.Remove(tab);
             Tabs.Items.Remove(tab.Tab);
         }
 
@@ -692,6 +693,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             ?? (OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control);
         AddHandler(KeyUpEvent, (_, e) => _keysDown.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
         Deactivated += (_, _) => _keysDown.Clear();
+        Activated += (_, _) => FocusActiveView(2);
         AddHandler(KeyDownEvent, (_, e) =>
         {
             var repeat = !_keysDown.Add(e.Key);
@@ -700,7 +702,12 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 return;
             }
 
-            if (WriteCommandCatalog.Find(e.Key, e.KeyModifiers, command) is { } found)
+            if (ForwardNavigationKey(e))
+            {
+                // The page view does not have the focus (it was lost or never taken): the keys that scroll still scroll it.
+                e.Handled = true;
+            }
+            else if (WriteCommandCatalog.Find(e.Key, e.KeyModifiers, command) is { } found)
             {
                 // The shortcuts of the catalog (Open, Close tab, Settings, zoom). A key held down repeats only where the shortcut says so; a disabled command still takes its key.
                 e.Handled = true;
