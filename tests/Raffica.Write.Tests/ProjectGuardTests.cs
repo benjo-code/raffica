@@ -9,6 +9,8 @@ public sealed class ProjectGuardTests
     private static readonly Assembly s_model = typeof(OoxmlElement).Assembly;
     private static readonly Assembly s_docx = Assembly.Load("Raffica.Write.Docx");
 
+    private static readonly Assembly s_layout = Assembly.Load("Raffica.Write.Layout");
+
     private static readonly string[] s_expectedDocxReferences = ["Raffica.Core", "Raffica.Write.Model"];
 
     private static string[] References(Assembly assembly) =>
@@ -30,18 +32,26 @@ public sealed class ProjectGuardTests
     }
 
     [Fact]
+    public void LayoutReferencesOnlyModelAmongRafficaAssemblies()
+    {
+        var refs = References(s_layout);
+        Assert.All(refs.Where(n => n.StartsWith("Raffica.", StringComparison.Ordinal)), n => Assert.Equal("Raffica.Write.Model", n));
+        Assert.DoesNotContain(refs, n => n.StartsWith("Avalonia", StringComparison.Ordinal) || n is "Raffica.Core" or "Raffica.Write.Docx");
+    }
+
+    [Fact]
     public void NoNetworkAssemblyIsReferenced()
     {
-        foreach (var assembly in new[] { s_model, s_docx })
+        foreach (var assembly in new[] { s_model, s_docx, s_layout })
         {
             Assert.DoesNotContain(References(assembly), n => n == "System.Net.Http" || n == "System.Net.Sockets");
         }
     }
 
     [Fact]
-    public void BothLibrariesAreAotCompatible()
+    public void AllLibrariesAreAotCompatible()
     {
-        foreach (var assembly in new[] { s_model, s_docx })
+        foreach (var assembly in new[] { s_model, s_docx, s_layout })
         {
             Assert.Contains(assembly.GetCustomAttributes<AssemblyMetadataAttribute>(), a => a.Key == "IsTrimmable" && a.Value == "True");
         }

@@ -1,6 +1,7 @@
 using Avalonia.Threading;
 using Raffica.Core.Annotations;
 using Raffica.Core.Ocr;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 

@@ -60,8 +60,23 @@ public class SearchField : TemplatedControl
     /// </summary>
     public Func<string, IReadOnlyList<SearchEntry>>? ExtraResults { get => GetValue(ExtraResultsProperty); set => SetValue(ExtraResultsProperty, value); }
 
-    /// <summary>The tooltip: "Search (Ctrl+K)" / "Suchen (Strg+K)", the shortcut written by <see cref="KeyNames"/> (Cmd+K on macOS).</summary>
-    internal static TooltipContent CreateTooltip() => new() { Title = ShellStrings.SearchTooltip(KeyNames.Format(OperatingSystem.IsMacOS() ? "Meta+K" : "Ctrl+K", ShellStrings.Culture)) };
+    /// <summary>The key the app made the search field's shortcut (<see cref="FrameKeys.Attach"/> sets it); the tooltip names it.</summary>
+    public SearchShortcut Shortcut
+    {
+        get;
+        set
+        {
+            if (field != value)
+            {
+                field = value;
+                ToolTip.SetTip(this, CreateTooltip(value));
+            }
+        }
+    }
+
+    /// <summary>The tooltip: "Search (Ctrl+K)" / "Suchen (Strg+K)", the shortcut written by <see cref="KeyNames"/> (Cmd+K on macOS, "Alt+Q" for <see cref="SearchShortcut.AltQ"/>).</summary>
+    internal static TooltipContent CreateTooltip(SearchShortcut shortcut = SearchShortcut.CtrlK) =>
+        new() { Title = ShellStrings.SearchTooltip(KeyNames.Format(FrameKeys.TextOf(shortcut, OperatingSystem.IsMacOS()), ShellStrings.Culture)) };
 
     /// <summary>Puts the keyboard focus into the field and selects its text.</summary>
     public void FocusAndSelect()

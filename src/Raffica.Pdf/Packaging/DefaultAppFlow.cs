@@ -1,5 +1,6 @@
 using Raffica.Core.Distribution;
 using Raffica.Core.Settings;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 
 namespace Raffica.Pdf.Packaging;

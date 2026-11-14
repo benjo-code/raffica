@@ -1,5 +1,6 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Viewing;

@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Raffica.Core.Pdf;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Organizing;

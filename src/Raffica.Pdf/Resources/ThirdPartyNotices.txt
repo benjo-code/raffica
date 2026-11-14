@@ -5657,6 +5657,105 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   (zlib format), rfc1951 (deflate format) and rfc1952 (gzip format).
 */
 ====
+Caladea google/fonts 13c010f
+OFL-1.1
+
+--- third-party/caladea/OFL.txt ---
+
+Copyright 2012 The Caladea Project Authors (https://github.com/huertatipografica/Caladea)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded, 
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+====
 Carlito google/fonts 2fe1e8c
 OFL-1.1
 
@@ -8631,6 +8730,201 @@ mozzconf.h is distributed under the MPL 1.1/GPL 2.0/LGPL 2.1 tri-license.
 # END: zlib
 ################################################################################
 ====
+hyph-utf8 patterns: American English tex-hyphen 5684c0f
+FSFAP
+
+--- third-party/hyph-utf8/LICENSE-en-us.txt ---
+
+title: Hyphenation patterns for American English
+copyright: Copyright (C) 1990, 2004, 2005 Gerard D.C. Kuiken
+notice: This file is part of the hyph-utf8 package.
+    See http://www.hyphenation.org/tex for more information.
+language:
+    name: English, American spelling
+    tag: en-us
+version: 2005-05-30
+authors:
+  -
+    name: Gerard D.C. Kuiken
+licence:
+    text: >
+        Copying and distribution of this file, with or without modification,
+        are permitted in any medium without royalty provided the copyright
+        notice and this notice are preserved.
+hyphenmins:
+    typesetting:
+        left: 2
+        right: 3
+changes:
+    March 1, 1990 Initial release
+    May 30, 2005 Added copyright notice, no patterns change.
+texlive:
+    encoding: ascii
+    babelname: usenglishmax
+    legacy_patterns: ushyphmax.tex
+    message: Hyphenation patterns for American English
+    package: english
+known_bugs:
+    de-mo-c-rat: 'instead of dem-o-crat (see GitHub issue #15)'
+==========================================
+
+ushyphmax.tex -- patterns for more hyphenation pattern memory (12000+).
+Also known as ushyphen.max.
+
+Needs extended pattern memory.
+Hyphenation trie becomes 7283 with 377 ops.
+
+These patterns are based on the Hyphenation Exception Log
+published in TUGboat, Volume 10 (1989), No. 3, pp. 337-341,
+and a large number of incorrectly hyphenated words not yet published.
+If added to Liang's before the closing bracket } of \patterns,
+the patterns run errorfree as far as known at this moment.
+
+These patterns find all admissible hyphens of the words in
+the Exception Log.  ushyph2.tex is a smaller set.
+
+Please send bugs or suggestions to tex-live (at) tug.org.
+
+2005-05-30 (karl): in the past, ushyphmax.tex was a file containing
+only the additional patterns, without the \patterns command, etc.
+This turned out not to be very useful, since in practice the TeX
+distributions need one self-contained file for a language.  Therefore,
+ushyphmax.tex now contains both the additional patterns from
+Dr. Kuiken, and the original patterns and hyphenations from Knuth's
+hyphen.tex.
+
+The Plain TeX hyphenation tables.
+====
+hyph-utf8 patterns: British English tex-hyphen 5684c0f
+MIT
+
+--- third-party/hyph-utf8/LICENSE-en-gb.txt ---
+
+title: Hyphenation patterns for British English
+copyright: Copyright (C) 1992, 1996, 2005, 2016 Dominik Wujastyk, Graham Toal
+notice: This file is part of the hyph-utf8 package.
+    See http://www.hyphenation.org/tex for more information.
+language:
+    name: English, British spelling
+    tag: en-gb
+authors:
+  -
+    name: Dominik Wujastyk
+    contact: wujastyk (at) gmail.com
+  -
+    name: Graham Toal
+licence:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+    text: >
+          Permission is hereby granted, free of charge, to any person
+          obtaining a copy of this software and associated documentation
+          files (the “Software”), to deal in the Software without
+          restriction, including without limitation the rights to use,
+          copy, modify, merge, publish, distribute, sublicense, and/or
+          sell copies of the Software, and to permit persons to whom the
+          Software is furnished to do so, subject to the following
+          conditions:
+
+          The above copyright notice and this permission notice shall be
+          included in all copies or substantial portions of the Software.
+
+          THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,
+          EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+          OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+          NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+          HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+          WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+          FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+          OTHER DEALINGS IN THE SOFTWARE.
+hyphenmins:
+    typesetting:
+        left: 2
+        right: 3
+changes:
+    - Version 1.0  Released 17 April 1992.
+    - Revision 2.0  1996/09/10 15:04:04  ucgadkw
+      o  added list of hyphenation exceptions at the end of this file.
+    - Version 1.0a.  Released 18th October 2005/PT.
+texlive:
+    synonyms:
+        - british
+        - UKenglish
+    encoding: ascii
+    babelname: ukenglish
+    legacy_patterns: ukhyphen.tex
+    message: Hyphenation patterns for British English
+    package: english
+==========================================
+This file has been renamed from ukhyphen.tex to hyph-en-gb.tex in June 2008
+for consistency with other files with hyphenation patterns in hyph-utf8 package.
+No other changes made. See http://www.hyphenation.org/tex for more details.
+
+Created by Dominik Wujastyk and Graham Toal using Frank Liang's PATGEN 1.0.
+Like the US patterns, these UK patterns correctly hyphenate about 90% of
+the words in the input list, and produce no hyphens not in the list
+(see TeXbook pp. 451--2).
+
+These patterns are based on a file of 114925 British-hyphenated words
+generously made available to Dominik Wujastyk by Oxford University Press.
+This list of words is copyright to the OUP and may not be redistributed.
+The hyphenation break points in the words in the abovementioned file is
+also copyright to the OUP.
+
+We are very grateful to Oxford University Press for allowing us to use
+their list of hyphenated words to produce the following TeX hyphenation
+patterns.  This file of hyphenation patterns may be freely distributed.
+
+These patterns require a value of about 14000 for TeX's pattern memory size.
+====
+hyph-utf8 patterns: German (reformed spelling) tex-hyphen 5684c0f
+MIT
+
+--- third-party/hyph-utf8/LICENSE-de-1996.txt ---
+
+title: German Hyphenation Patterns (Reformed Orthography, 2006)
+
+notice: TeX-Trennmuster für die reformierte (2006) deutsche Rechtschreibung
+
+version: 2024-02-28
+
+authors:
+  -
+    name:    Deutschsprachige Trennmustermannschaft
+    contact: trennmuster@dante.de
+
+copyright: Copyright (c) 2013-2024
+           Stephan Hennig, Werner Lemberg, Günter Milde,
+           Sander van Geloven, Georg Pfeiffer, Gisbert W. Selke,
+           Tobias Wendorf, Keno Wehr
+
+licence:
+    name: MIT
+    url:  https://opensource.org/licenses/mit-license.php
+    text: >
+          Permission is hereby granted, free of charge, to any person
+          obtaining a copy of this software and associated documentation
+          files (the “Software”), to deal in the Software without
+          restriction, including without limitation the rights to use,
+          copy, modify, merge, publish, distribute, sublicense, and/or
+          sell copies of the Software, and to permit persons to whom the
+          Software is furnished to do so, subject to the following
+          conditions:
+
+          The above copyright notice and this permission notice shall be
+          included in all copies or substantial portions of the Software.
+
+          THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,
+          EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+          OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+          NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+          HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+          WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+          FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+          OTHER DEALINGS IN THE SOFTWARE.
+
+source: https://repo.or.cz/w/wortliste.git?a=commit;h=304aaa2188a75e57afe36bad0443d90a9c715b8e
+====
 Leptonica (statically linked in Tesseract) 1.87.0
 BSD-2-Clause
 
@@ -9280,4 +9574,49 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+====
+Unicode Character Database 18.0.0
+Unicode-3.0
+
+--- third-party/unicode/LICENSE-Unicode.txt ---
+
+UNICODE LICENSE V3
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright © 1991-2026 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in the
+Data Files or Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, and/or sell
+copies of the Data Files or Software, and to permit persons to whom the
+Data Files or Software are furnished to do so, provided that either (a)
+this copyright and permission notice appear with all copies of the Data
+Files or Software, or (b) this copyright and permission notice appear in
+associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.
 ====

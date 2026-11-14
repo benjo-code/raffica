@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Raffica.Core.Forms;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Forms;
 using Raffica.Pdf.Tests.Viewing;

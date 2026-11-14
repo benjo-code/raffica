@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using Raffica.Core.Annotations;
 using Raffica.Core.Forms;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Forms;
 using Raffica.Pdf.Tests.Annotating;
@@ -496,7 +497,7 @@ public sealed class FieldEditTests
     {
         using var f = await FormEditFixture.OpenAsync();
         var name = f.Field("Name");
-        var gate = new FormInteraction(f.Tab, f.View, f.Window.Tools, f.Forms, new FormFocus(), new Raffica.Pdf.Dialogs.DialogQueue(f.Window.Host), () => false);
+        var gate = new FormInteraction(f.Tab, f.View, f.Window.Tools, f.Forms, new FormFocus(), new Raffica.Hosting.DialogQueue(f.Window.Host), () => false);
         f.Interaction.Dispose();
         using (gate)
         {
@@ -514,7 +515,7 @@ public sealed class FieldEditTests
     {
         using var f = await FormEditFixture.OpenAsync();
         var name = f.Field("Name");
-        var locked = new FormInteraction(f.Tab, f.View, f.Window.Tools, f.Forms, new FormFocus(), new Raffica.Pdf.Dialogs.DialogQueue(f.Window.Host), () => true, () => PdfStrings.ModeRedactReason);
+        var locked = new FormInteraction(f.Tab, f.View, f.Window.Tools, f.Forms, new FormFocus(), new Raffica.Hosting.DialogQueue(f.Window.Host), () => true, () => PdfStrings.ModeRedactReason);
         f.Interaction.Dispose();
         using (locked)
         {

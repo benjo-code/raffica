@@ -2,6 +2,7 @@ using System.Globalization;
 using Raffica.Core.Pages;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Shell.Controls;

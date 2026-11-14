@@ -1,6 +1,7 @@
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Raffica.Core.Hosting;
+using Raffica.Hosting;
 using Raffica.Pdf.Hosting;
 using Raffica.Shell.Frame;
 using Raffica.TestSupport;

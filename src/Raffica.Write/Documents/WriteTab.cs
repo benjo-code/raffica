@@ -1,0 +1,142 @@
+using Raffica.Shell.Frame;
+using Raffica.Write.Docx;
+using Raffica.Write.Layout;
+using Raffica.Write.Viewing;
+
+namespace Raffica.Write.Documents;
+
+/// <summary>
+/// An open document of the app: the model the title bar shows (<see cref="Tab"/>), the opened file, its layout with page 1 laid out, the pieces the layout
+/// draws with and a token that ends when the tab closes. The tab owns what it holds and lets go of it in <see cref="Dispose"/>; the font catalog belongs
+/// to the process and stays. The file is a prefix of the document (<see cref="DocxFile.IsPrefix"/>) until the full open has replaced it.
+/// </summary>
+internal sealed class WriteTab : IDisposable
+{
+    private readonly PackageImageSource _images;
+    private readonly FontCatalog _fonts;
+    private readonly int _prefixBlocks;
+    private DocxFile _docx;
+    private DocumentLayout _layout;
+    private LayoutRunner? _runner;
+    private readonly CancellationTokenSource _cancellation = new();
+    private int _disposed;
+
+    public WriteTab(string path, OpenedDocument opened)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(opened);
+        _images = opened.Images;
+        _fonts = opened.Fonts;
+        _prefixBlocks = opened.PrefixBlocks;
+        _docx = opened.Docx;
+        _layout = opened.Layout;
+        Path = System.IO.Path.GetFullPath(path);
+        Title = System.IO.Path.GetFileName(Path);
+        Tab = new DocumentTab(Title, Path);
+        Token = _cancellation.Token;
+    }
+
+    /// <summary>Raised once, at the start of <see cref="Dispose"/> and after the token was cancelled: whatever works on the document stops here.</summary>
+    public event Action? Disposing;
+
+    /// <summary>The model of the tab in the title bar.</summary>
+    public DocumentTab Tab { get; }
+
+    public string Title { get; }
+
+    /// <summary>The full path of the file.</summary>
+    public string Path { get; }
+
+    /// <summary>The opened file; a prefix while <see cref="DocxFile.IsPrefix"/>. Not to be edited or saved.</summary>
+    public DocxFile Docx => Volatile.Read(ref _docx);
+
+    /// <summary>The layout of the document; page 1 is laid out. Safe to read from any thread (see <see cref="DocumentLayout"/>).</summary>
+    public DocumentLayout Layout => Volatile.Read(ref _layout);
+
+    /// <summary>The font catalog of the process the layout draws with (not owned by the tab).</summary>
+    public FontCatalog Fonts => _fonts;
+
+    /// <summary>Reads the pictures of the package; pass <see cref="PackageImageSource.Read"/> to an image cache. Throws once the tab is disposed.</summary>
+    public PackageImageSource Images => _images;
+
+    /// <summary>The prefix size the first page was made from (0: the file was opened whole).</summary>
+    public int PrefixBlocks => _prefixBlocks;
+
+    /// <summary>Ends when the tab is closed: the layout and every other background step of this document watch it.</summary>
+    public CancellationToken Token { get; }
+
+    public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+    /// <summary>
+    /// The background layout of the tab: made on first use, on the UI thread (it keeps that thread's dispatcher for its progress). Its page layout starts as <see cref="Layout"/>.
+    /// </summary>
+    public LayoutRunner Runner => _runner ??= new LayoutRunner(this);
+
+    /// <summary>
+    /// The whole file has been read: it replaces the prefix (which is disposed), and the pictures are read from its package from now on so the prefix bytes can go.
+    /// Called by the <see cref="Runner"/> on a pool thread.
+    /// </summary>
+    internal void CompleteOpen(DocxFile full)
+    {
+        ArgumentNullException.ThrowIfNull(full);
+        var previous = Interlocked.Exchange(ref _docx, full);
+        if (IsDisposed)
+        {
+            full.Dispose();
+        }
+
+        try
+        {
+            _images.Retarget(full.Package);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The tab closed while the file was read.
+        }
+
+        if (!ReferenceEquals(previous, full))
+        {
+            previous.Dispose();
+        }
+    }
+
+    /// <summary>The layout of the pages is another object now (the prefix layout could not take the whole model); called by the <see cref="Runner"/>.</summary>
+    internal void ReplaceLayout(DocumentLayout layout) => Volatile.Write(ref _layout, layout ?? throw new ArgumentNullException(nameof(layout)));
+
+    /// <summary>Cancels what runs on the document, then lets go of the file and the picture source. Safe to call twice; the token source is disposed last.</summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _cancellation.Cancel();
+        }
+        catch (AggregateException)
+        {
+            // A callback of the token threw; the tab is closing anyway.
+        }
+
+        try
+        {
+            Disposing?.Invoke();
+        }
+        finally
+        {
+            try
+            {
+                _runner?.Dispose();
+            }
+            finally
+            {
+                Docx.Dispose();
+                _images.Dispose();
+            }
+
+            _cancellation.Dispose();
+        }
+    }
+}

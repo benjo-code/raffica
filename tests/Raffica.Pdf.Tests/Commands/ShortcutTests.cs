@@ -257,6 +257,18 @@ public sealed class ShortcutTests
     }
 
     [AvaloniaFact]
+    public async Task PdfKeepsCtrlK()
+    {
+        // The command search shortcut became an option of the frame (Write takes Alt+Q); the PDF app stays on Ctrl+K and says so in the tooltip.
+        using var windows = WindowFixture.Create();
+        await windows.OpenAsync("text-basic.pdf");
+        var window = windows.Window;
+        Assert.Equal(Raffica.Shell.Frame.SearchShortcut.CtrlK, window.TitleSearch.Shortcut);
+        var tip = Assert.IsType<Raffica.Shell.Controls.TooltipContent>(ToolTip.GetTip(window.TitleSearch));
+        Assert.Contains(OperatingSystem.IsMacOS() ? "⌘K" : "Ctrl+K", tip.Title, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
     public async Task F1OpensTheHelpCardAndEscapeClosesIt()
     {
         using var windows = WindowFixture.Create();

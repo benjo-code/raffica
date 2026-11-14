@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <RootNamespace>Raffica.Write.Layout</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="HarfBuzzSharp" />
+    <ProjectReference Include="..\Raffica.Write.Model\Raffica.Write.Model.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\Raffica.Shell\Assets\Fonts\Carlito-*.ttf" LogicalName="Raffica.Write.Layout.Fonts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Fonts\Caladea-*.ttf" LogicalName="Raffica.Write.Layout.Fonts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Text\Patterns\*.pat.txt" LogicalName="Raffica.Write.Layout.Patterns.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Write.Tests" />
+  </ItemGroup>
+</Project>

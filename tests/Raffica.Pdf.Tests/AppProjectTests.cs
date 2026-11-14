@@ -6,7 +6,7 @@ namespace Raffica.Pdf.Tests;
 public sealed class AppProjectTests
 {
     [Fact]
-    public void TheAppReferencesOnlyCoreAndShell()
+    public void TheAppReferencesOnlyCoreShellAndHosting()
     {
         var referenced = typeof(PdfOptions).Assembly.GetReferencedAssemblies().Select(a => a.Name).ToList();
         Assert.DoesNotContain("Raffica.Pdfium", referenced);
@@ -14,9 +14,10 @@ public sealed class AppProjectTests
 
         var project = XDocument.Load(RepoPaths.Combine("src", "Raffica.Pdf", "Raffica.Pdf.csproj"));
         var references = project.Descendants("ProjectReference").Select(r => (string?)r.Attribute("Include")).ToList();
-        Assert.Equal(2, references.Count);
+        Assert.Equal(3, references.Count);
         Assert.Contains(references, r => r!.EndsWith("Raffica.Core.csproj", StringComparison.Ordinal));
         Assert.Contains(references, r => r!.EndsWith("Raffica.Shell.csproj", StringComparison.Ordinal));
+        Assert.Contains(references, r => r!.EndsWith("Raffica.Hosting.csproj", StringComparison.Ordinal));
     }
 
     [Fact]

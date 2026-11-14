@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using Raffica.Core.Saving;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Shell.Controls;

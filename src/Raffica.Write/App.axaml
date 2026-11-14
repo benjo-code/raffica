@@ -1,0 +1,11 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:shell="using:Raffica.Shell"
+             x:Class="Raffica.Write.App"
+             Name="Raffica Write">
+  <Application.Styles>
+    <shell:RafficaStyles />
+    <StyleInclude Source="avares://RafficaWrite/Styles/PageView.axaml" />
+    <StyleInclude Source="avares://RafficaWrite/Styles/OutlinePane.axaml" />
+  </Application.Styles>
+</Application>

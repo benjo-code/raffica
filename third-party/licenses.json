@@ -371,6 +371,41 @@
       "licenseFile": "third-party/carlito/OFL.txt"
     },
     {
+      "id": "Caladea",
+      "kind": "asset",
+      "version": "google/fonts 13c010f",
+      "license": "OFL-1.1",
+      "licenseFile": "third-party/caladea/OFL.txt"
+    },
+    {
+      "id": "Unicode Character Database",
+      "kind": "asset",
+      "version": "18.0.0",
+      "license": "Unicode-3.0",
+      "licenseFile": "third-party/unicode/LICENSE-Unicode.txt"
+    },
+    {
+      "id": "hyph-utf8 patterns: American English",
+      "kind": "asset",
+      "version": "tex-hyphen 5684c0f",
+      "license": "FSFAP",
+      "licenseFile": "third-party/hyph-utf8/LICENSE-en-us.txt"
+    },
+    {
+      "id": "hyph-utf8 patterns: British English",
+      "kind": "asset",
+      "version": "tex-hyphen 5684c0f",
+      "license": "MIT",
+      "licenseFile": "third-party/hyph-utf8/LICENSE-en-gb.txt"
+    },
+    {
+      "id": "hyph-utf8 patterns: German (reformed spelling)",
+      "kind": "asset",
+      "version": "tex-hyphen 5684c0f",
+      "license": "MIT",
+      "licenseFile": "third-party/hyph-utf8/LICENSE-de-1996.txt"
+    },
+    {
       "id": "Lucide",
       "kind": "asset",
       "version": "1.63.0",

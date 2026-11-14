@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>write-layout-bench</AssemblyName>
+    <RootNamespace>WriteLayoutBench</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
+    <ProjectReference Include="..\..\src\Raffica.Write.Model\Raffica.Write.Model.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Write.Tests" />
+  </ItemGroup>
+</Project>

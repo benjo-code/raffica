@@ -3,6 +3,7 @@ using System.Text;
 using Avalonia;
 using Raffica.Core.Hosting;
 using Raffica.Core.Updates;
+using Raffica.Hosting;
 using Raffica.Pdf.Hosting;
 using Raffica.Pdf.Platform;
 using Raffica.Pdf.Settings;
@@ -64,7 +65,7 @@ internal static class Program
 
         // The first instance keeps the lock; a later one hands its files over and ends before any Avalonia start. If the first one
         // does not answer within a second, this process starts as an ordinary window.
-        var name = InstanceName(options);
+        var name = AppFiles.Pdf.InstanceName(options.SettingsFile);
         using var instance = SingleInstance.TryBecomePrimary(name);
         if (instance is null && TryHandOver(name, options))
         {
@@ -144,27 +145,6 @@ internal static class Program
         {
             return false;
         }
-    }
-
-    /// <summary>One instance per user; a run with its own settings file (measurements, tests) is an instance of its own and never meets the app of the user.</summary>
-    private static string InstanceName(PdfOptions options)
-    {
-        if (string.IsNullOrWhiteSpace(options.SettingsFile))
-        {
-            return SingleInstance.DefaultName;
-        }
-
-        string full;
-        try
-        {
-            full = Path.GetFullPath(options.SettingsFile);
-        }
-        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
-        {
-            full = options.SettingsFile;
-        }
-
-        return SingleInstance.DefaultName + "-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(full)), 0, 6);
     }
 
     private static AppBuilder BuildAvaloniaApp(PdfOptions options, SingleInstance? instance)

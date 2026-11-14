@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Raffica.Core.Annotations;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 
 namespace Raffica.Pdf.Documents;

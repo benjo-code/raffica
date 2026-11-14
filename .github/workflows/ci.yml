@@ -185,6 +185,10 @@ jobs:
       - name: Self-test of the OCR library fetch
         run: dotnet run tools/native-fetch.cs -- selftest
 
+      # The line break table of Raffica Write is generated from the Unicode files in third-party/unicode; a stale table fails here.
+      - name: Check that the line break data is current
+        run: dotnet run tools/gen-linebreak.cs -- --check
+
       - name: Publish the CLI (Native AOT)
         run: dotnet publish src/Raffica.Cli -c Release -r ${{ matrix.rid }} -o out/cli
 
@@ -278,11 +282,41 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish exited with $LASTEXITCODE" }
           if (Select-String -Path out/write-corpus-publish.log -Pattern 'IL[23][0-9]{3}' -Quiet) { throw 'the Write corpus tool publish has trim or AOT warnings' }
 
+      # The Write layout benchmark (bench/write-layout) is the Native AOT proof of the layout engine (SkiaSharp and HarfBuzzSharp
+      # included): same rule, then its check (determinism, page numbers) runs on the published binary against the thesis.
+      - name: Publish the Write layout benchmark (Native AOT, Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -o pipefail
+          mkdir -p out
+          dotnet publish bench/write-layout -c Release -r ${{ matrix.rid }} -o out/write-layout 2>&1 | tee out/write-layout-publish.log
+          if grep -E 'IL[23][0-9]{3}' out/write-layout-publish.log; then echo "the Write layout benchmark publish has trim or AOT warnings" >&2; exit 1; fi
+
+      - name: Publish the Write layout benchmark (Native AOT, Windows)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          dotnet publish bench/write-layout -c Release -r ${{ matrix.rid }} -o out/write-layout 2>&1 | Tee-Object -FilePath out/write-layout-publish.log
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish exited with $LASTEXITCODE" }
+          if (Select-String -Path out/write-layout-publish.log -Pattern 'IL[23][0-9]{3}' -Quiet) { throw 'the Write layout benchmark publish has trim or AOT warnings' }
+
+      - name: Layout check of the published benchmark (Linux)
+        if: runner.os == 'Linux'
+        run: ./out/write-layout/write-layout-bench check --root .
+
+      - name: Layout check of the published benchmark (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          & ./out/write-layout/write-layout-bench.exe check --root .
+          if ($LASTEXITCODE -ne 0) { throw "check exited with $LASTEXITCODE" }
+
       - name: Corpus check and round trip of the published tool (Linux)
         if: runner.os == 'Linux'
         run: |
           ./out/write-corpus/write-corpus check --root testdata/write-corpus
           ./out/write-corpus/write-corpus run --root testdata/write-corpus
+          # The table lays every file out: a missing Skia or HarfBuzz native library fails here.
+          ./out/write-corpus/write-corpus table --root testdata/write-corpus --out "$RUNNER_TEMP/write-corpus.md"
 
       - name: Corpus check and round trip of the published tool (Windows)
         if: runner.os == 'Windows'
@@ -291,6 +325,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "check exited with $LASTEXITCODE" }
           & ./out/write-corpus/write-corpus.exe run --root testdata/write-corpus
           if ($LASTEXITCODE -ne 0) { throw "run exited with $LASTEXITCODE" }
+          & ./out/write-corpus/write-corpus.exe table --root testdata/write-corpus --out "$env:RUNNER_TEMP/write-corpus.md"
+          if ($LASTEXITCODE -ne 0) { throw "table exited with $LASTEXITCODE" }
 
       # The published size of the PDF app and its zip against the limits (budget x 1.25) recorded from the owner's measurement runs
       # (Docs/DECISIONS.md, "Raffica PDF speed budgets (M2.1)"; the single copy of the table is CheckCommand in measure.cs): exit 1 above a
@@ -326,6 +362,60 @@ jobs:
             if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
           }
           Write-Host 'the published PDF app prints German and English strings'
+
+      # The Write app (milestone 4.2): the same proofs as for the PDF app. The publish is the Native AOT proof of the app with Skia and HarfBuzz (any
+      # IL2xxx or IL3xxx in the log fails the step). Write is not packaged before milestone 4.9, so there is no licence or notice step for it.
+      - name: Publish the Write app (Native AOT, Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -o pipefail
+          mkdir -p out
+          dotnet publish src/Raffica.Write -c Release -r ${{ matrix.rid }} -o out/write 2>&1 | tee out/write-publish.log
+          if grep -E 'IL[23][0-9]{3}' out/write-publish.log; then echo "the Write app publish has trim or AOT warnings" >&2; exit 1; fi
+
+      - name: Publish the Write app (Native AOT, Windows)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          dotnet publish src/Raffica.Write -c Release -r ${{ matrix.rid }} -o out/write 2>&1 | Tee-Object -FilePath out/write-publish.log
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish exited with $LASTEXITCODE" }
+          if (Select-String -Path out/write-publish.log -Pattern 'IL[23][0-9]{3}' -Quiet) { throw 'the Write app publish has trim or AOT warnings' }
+
+      # The recording form: the published sizes of the Write app (the rows of the CSV go to the log) so that the owner can read them next to the
+      # first measurement runs. There is no `--check` yet: the limit table of the Write app is empty until the owner's runs of milestone 4.2 are
+      # recorded (Docs/DECISIONS.md, "Raffica Write: speed budgets (M4.2)"), and a check without a limit exits 2. --no-cache and the job temp folder
+      # for the reason given at the gallery step.
+      - name: Size of the published Write app
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: dotnet run --no-cache bench/shell-probe/measure.cs -- size --target write --publish-dir out/write --fonts-dir src/Raffica.Shell/Assets/Fonts --out ${{ runner.temp }}/write-size.csv
+
+      - name: Smoke test of the Write app binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          de=$(./out/write/RafficaWrite --print-string TabView --lang de)
+          [ "$de" = "Ansicht" ] || { echo "expected 'Ansicht' with --lang de, got: $de" >&2; exit 1; }
+          en=$(./out/write/RafficaWrite --print-string TabView --lang en)
+          [ "$en" = "View" ] || { echo "expected 'View' with --lang en, got: $en" >&2; exit 1; }
+          echo "the published Write app prints German and English strings"
+
+      # RafficaWrite.exe is a GUI-subsystem program, like the gallery: Start-Process -Wait with redirected output files.
+      - name: Smoke test of the Write app binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $exe = (Resolve-Path ./out/write/RafficaWrite.exe).Path
+          foreach ($case in @(@('de', 'Ansicht'), @('en', 'View'))) {
+            $lang = $case[0]; $expected = $case[1]
+            $out = Join-Path $env:RUNNER_TEMP "write-$lang.out"
+            $err = Join-Path $env:RUNNER_TEMP "write-$lang.err"
+            $p = Start-Process -FilePath $exe -ArgumentList '--print-string', 'TabView', '--lang', $lang -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($p.ExitCode -ne 0) { throw "--lang $lang exited with $($p.ExitCode): $(Get-Content $err -Raw)" }
+            $text = (Get-Content $out -Raw).Trim()
+            if ($text -ne $expected) { throw "expected '$expected' with --lang $lang, got: '$text'" }
+          }
+          Write-Host 'the published Write app prints German and English strings'
 
   # macOS (spec 2026-11-09-raffica-macos-design.md, section 7): the build, the tests, the Native AOT publish for both architectures
   # and the smoke tests, the Intel build through Rosetta. Hosted runner only. It is part of the required check "ci" only when the
@@ -411,14 +501,18 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: dotnet run tools/native-fetch.cs -- --rid osx-x64 --out artifacts/native/osx-x64
 
-      - name: Publish the PDF app, the CLI and the Write corpus tool (Native AOT, both architectures)
+      - name: Publish the PDF app, the CLI, the Write app and the Write tools (Native AOT, both architectures)
         run: |
           set -eo pipefail
           for rid in osx-arm64 osx-x64; do
             dotnet publish src/Raffica.Pdf -c Release -r "$rid" -o "out/pdf-$rid"
             dotnet publish src/Raffica.Cli -c Release -r "$rid" -o "out/cli-$rid"
+            dotnet publish src/Raffica.Write -c Release -r "$rid" -o "out/write-$rid" 2>&1 | tee "$RUNNER_TEMP/write-publish-$rid.log"
+            if grep -E 'IL[23][0-9]{3}' "$RUNNER_TEMP/write-publish-$rid.log"; then echo "$rid: the Write app publish has trim or AOT warnings" >&2; exit 1; fi
             dotnet publish bench/write-corpus -c Release -r "$rid" -o "out/write-corpus-$rid" 2>&1 | tee "$RUNNER_TEMP/write-corpus-publish-$rid.log"
             if grep -E 'IL[23][0-9]{3}' "$RUNNER_TEMP/write-corpus-publish-$rid.log"; then echo "$rid: the Write corpus tool publish has trim or AOT warnings" >&2; exit 1; fi
+            dotnet publish bench/write-layout -c Release -r "$rid" -o "out/write-layout-$rid" 2>&1 | tee "$RUNNER_TEMP/write-layout-publish-$rid.log"
+            if grep -E 'IL[23][0-9]{3}' "$RUNNER_TEMP/write-layout-publish-$rid.log"; then echo "$rid: the Write layout benchmark publish has trim or AOT warnings" >&2; exit 1; fi
           done
 
       # The Write corpus tool runs natively (arm64) and the Intel build through Rosetta.
@@ -430,6 +524,8 @@ jobs:
             exe="out/write-corpus-$rid/write-corpus"
             $runner "$exe" check --root testdata/write-corpus
             $runner "$exe" run --root testdata/write-corpus
+            $runner "$exe" table --root testdata/write-corpus --out "$RUNNER_TEMP/write-corpus-$rid.md"
+            $runner "out/write-layout-$rid/write-layout-bench" check --root .
           done
 
       - name: Check the architecture of the executables
@@ -437,7 +533,7 @@ jobs:
           set -e
           for pair in osx-arm64:arm64 osx-x64:x86_64; do
             rid=${pair%%:*}; want=${pair##*:}
-            for exe in "out/pdf-$rid/RafficaPdf" "out/cli-$rid/raffica"; do
+            for exe in "out/pdf-$rid/RafficaPdf" "out/cli-$rid/raffica" "out/write-$rid/RafficaWrite"; do
               got=$(lipo -archs "$exe")
               [ "$got" = "$want" ] || { echo "$exe: expected '$want', lipo says '$got'" >&2; exit 1; }
               echo "$exe: $got"
@@ -456,6 +552,20 @@ jobs:
             en=$($runner "$exe" --print-string TabView --lang en)
             [ "$en" = "View" ] || { echo "$rid: expected 'View' with --lang en, got: $en" >&2; exit 1; }
             echo "$rid: the published PDF app prints German and English strings"
+          done
+
+      # The Write app, the same way. Not part of any bundle or image before milestone 4.9.
+      - name: Smoke test of the Write app binary
+        run: |
+          set -e
+          for pair in osx-arm64: osx-x64:"arch -x86_64"; do
+            rid=${pair%%:*}; runner=${pair#*:}
+            exe="out/write-$rid/RafficaWrite"
+            de=$($runner "$exe" --print-string TabView --lang de)
+            [ "$de" = "Ansicht" ] || { echo "$rid: expected 'Ansicht' with --lang de, got: $de" >&2; exit 1; }
+            en=$($runner "$exe" --print-string TabView --lang en)
+            [ "$en" = "View" ] || { echo "$rid: expected 'View' with --lang en, got: $en" >&2; exit 1; }
+            echo "$rid: the published Write app prints German and English strings"
           done
 
       - name: Smoke test of the CLI binary
@@ -537,6 +647,32 @@ jobs:
             fi
           done
           exit "$failed"
+
+      # The recording form for the Write app: the sizes of both architectures into the log and the step summary, no limit yet (the limit table of the
+      # Write app is empty until the owner's runs of milestone 4.2 are recorded, and a `--check` without a limit exits 2). It has no bundle: the macOS
+      # bundle of Write is milestone 4.9's.
+      - name: Sizes of the published Write app
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          for rid in osx-arm64 osx-x64; do
+            echo "=== Write sizes $rid ==="
+            out="$RUNNER_TEMP/write-sizes-$rid.txt"
+            dotnet run --no-cache bench/shell-probe/measure.cs -- size --target write --publish-dir "out/write-$rid" --fonts-dir src/Raffica.Shell/Assets/Fonts --out "$RUNNER_TEMP/write-size-$rid.csv" | tee "$out"
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              {
+                echo "### Published sizes of the Write app $rid (bytes, recorded, not judged)"
+                echo
+                echo '```'
+                grep ',write,size,' "$out" || true
+                echo '```'
+                echo
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       # The default macOS volume ignores case: Bericht.pdf and bericht.pdf are one file. The CLI must see that (PathRules) and refuse,
       # not overwrite its own input. This is the path comparison; the file identity is the next step.

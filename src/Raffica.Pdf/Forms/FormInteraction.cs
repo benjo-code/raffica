@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Raffica.Core.Forms;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;

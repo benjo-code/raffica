@@ -22,6 +22,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
     <ProjectReference Include="..\Raffica.Core\Raffica.Core.csproj" />
+    <ProjectReference Include="..\Raffica.Hosting\Raffica.Hosting.csproj" />
     <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
     <TrimmerRootAssembly Include="Raffica.Shell" />
     <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />

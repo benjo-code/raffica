@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Raffica.Core.Text;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Tests.Viewing;

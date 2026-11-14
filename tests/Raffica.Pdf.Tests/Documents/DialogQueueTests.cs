@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Shell.Controls;
 using Xunit;

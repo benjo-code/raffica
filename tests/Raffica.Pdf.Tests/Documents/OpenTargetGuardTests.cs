@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Raffica.Core.Pdf;
 using Raffica.Core.Saving;
 using Raffica.Core.Viewing;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Tests.Annotating;

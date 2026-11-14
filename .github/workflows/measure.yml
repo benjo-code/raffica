@@ -1,4 +1,4 @@
-# Speed measurement of the shell probe, of the gallery app's frame, of the PDF app and of a reference app (the predecessor,
+# Speed measurement of the shell probe, of the gallery app's frame, of the PDF app, of the Write app and of a reference app (the predecessor,
 # pinned by commit) on the project owner's own machines (real GPU, active display).
 #
 # SECURITY: This workflow executes repository code on personal machines, with the owner's user rights.
@@ -19,12 +19,14 @@
 #   branch while the workflow file runs from the dispatch ref (the runner group allows `dev` only). It is checked before anything is fetched:
 #   empty, a 40-hex commit id or a plain branch name, never pull/N/head or refs/pull/... (the check of linux-update-check.yml and
 #   windows-update-check.yml). Only the app comes from `ref`: it is checked out into `measured/` and published from there. The measuring tool
-#   (bench/shell-probe/measure.cs with its limit tables), the test files (testdata/pdfs) and this file stay those of the dispatch ref, so the
+#   (bench/shell-probe/measure.cs with its limit tables), the test files (testdata/pdfs, testdata/write-corpus) and this file stay those of the dispatch ref, so the
 #   limits are always the current ones. The target `reference` takes its commit from `reference_ref` and rejects a `ref`.
 # Procedure: bench/shell-probe/RUNNERS.md and bench/shell-probe/README.md; spec section 9.3.
 #
 #   gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>"
 #   gh workflow run measure.yml --ref dev -f platform=linux -f target=pdf -f note="<machine note>" -f ref=<branch or 40-hex commit>
+#   gh workflow run measure.yml --ref dev -f platform=linux -f target=write -f note="<machine note>" -f ref=<branch or 40-hex commit>
+#   gh workflow run measure.yml --ref dev -f platform=macos-hosted -f target=write -f note="hosted record"
 #
 # The platform macos-hosted is the one exception to the owner's runners: it runs on the GitHub-hosted macos-15 runner (Apple silicon, osx-arm64,
 # no raffica-measure label, nothing of the owner's machines), so it needs no runner of the owner and executes the same repository code as ci.yml does
@@ -48,17 +50,17 @@ on:
         type: string
         required: true
       target:
-        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1), the throwaway shell probe or a reference app (the predecessor, by its own startup protocol)
+        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1), the Write app (the cases of milestone 4.2, with the engine benchmark), the throwaway shell probe or a reference app (the predecessor, by its own startup protocol)
         type: choice
         default: gallery
-        options: [gallery, probe, pdf, reference]
+        options: [gallery, probe, pdf, write, reference]
       cases:
         description: all, or cold-reboot (one cold run of the frame, right after a reboot; not for the reference)
         type: choice
         default: all
         options: [all, cold-reboot]
       rendering:
-        description: 'PDF app on Windows and macOS: rendering path. app = the app''s own default (nothing set: software on Windows, Avalonia''s own path on macOS), software = RAFFICA_RENDERING=software, default = Avalonia''s default path (ANGLE on Windows) via RAFFICA_RENDERING=default'
+        description: 'PDF and Write app on Windows and macOS: rendering path. app = the app''s own default (nothing set: software on Windows, Avalonia''s own path on macOS), software = RAFFICA_RENDERING=software, default = Avalonia''s default path (ANGLE on Windows) via RAFFICA_RENDERING=default'
         type: choice
         default: app
         options: [app, software, default]
@@ -92,16 +94,18 @@ permissions:
 env:
   AVALONIA_TELEMETRY_OPTOUT: '1'
   RID: ${{ fromJSON('{"windows":"win-x64","linux":"linux-x64","macos":"osx-x64","macos-hosted":"osx-arm64"}')[inputs.platform] }}
-  EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || inputs.target == 'pdf' && 'RafficaPdf' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
-  PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || inputs.target == 'pdf' && 'src/Raffica.Pdf' || 'bench/shell-probe/ShellProbe' }}
+  EXE: out/app/${{ inputs.target == 'gallery' && 'RafficaGallery' || inputs.target == 'pdf' && 'RafficaPdf' || inputs.target == 'write' && 'RafficaWrite' || 'ShellProbe' }}${{ inputs.platform == 'windows' && '.exe' || '' }}
+  PROJECT: ${{ inputs.target == 'gallery' && 'src/Raffica.Gallery' || inputs.target == 'pdf' && 'src/Raffica.Pdf' || inputs.target == 'write' && 'src/Raffica.Write' || 'bench/shell-probe/ShellProbe' }}
+  # The engine benchmark of the target write (bench/write-layout, published to out/engine next to the app).
+  ENGINE_EXE: out/engine/write-layout-bench${{ inputs.platform == 'windows' && '.exe' || '' }}
   OUT: out/measure-${{ github.run_id }}
   # The folder of the measured app inside the workspace: "measured/" when `ref` is given (never for the target reference), else the root.
   MEASURED_PREFIX: ${{ inputs.ref != '' && inputs.target != 'reference' && 'measured/' || '' }}
   FONTS: ${{ inputs.target == 'probe' && 'bench/shell-probe/ShellProbe/Assets/Fonts' || 'src/Raffica.Shell/Assets/Fonts' }}
-  # Only the PDF app on Windows and macOS reads it (bench/shell-probe/README.md); the child processes of measure.cs inherit it. Empty for every
+  # Only the PDF and the Write app on Windows and macOS read it (bench/shell-probe/README.md; the Write app takes the same choice as the PDF app); the child processes of measure.cs inherit it. Empty for every
   # other target and platform (Linux ignores it) and for the input "app" (the app's own default: software on Windows, Avalonia's own path on
   # macOS); "software" asks for software rendering, "default" opts out to Avalonia's own default path on Windows.
-  RAFFICA_RENDERING: ${{ inputs.target == 'pdf' && (inputs.platform == 'windows' || inputs.platform == 'macos' || inputs.platform == 'macos-hosted') && inputs.rendering != 'app' && inputs.rendering || '' }}
+  RAFFICA_RENDERING: ${{ (inputs.target == 'pdf' || inputs.target == 'write') && (inputs.platform == 'windows' || inputs.platform == 'macos' || inputs.platform == 'macos-hosted') && inputs.rendering != 'app' && inputs.rendering || '' }}
 
 jobs:
   measure:
@@ -295,6 +299,12 @@ jobs:
         working-directory: ${{ inputs.ref != '' && 'measured' || '.' }}
         run: dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} -o "${{ github.workspace }}/out/app"
 
+      # The engine benchmark of the target write, from the same folder (Native AOT; the case engine runs the published binary).
+      - name: Publish the engine benchmark (Native AOT, write)
+        if: inputs.target == 'write'
+        working-directory: ${{ inputs.ref != '' && 'measured' || '.' }}
+        run: dotnet publish bench/write-layout -c Release -r ${{ env.RID }} -o "${{ github.workspace }}/out/engine"
+
       # The reference app, from its own checkout (the SDK picks up that repository's global.json and NuGet.config). The inputs
       # were validated by the first step. Its publish needs nothing else: the native OCR library that its CI fetches is
       # only for its tests, the app project does not reference it.
@@ -328,7 +338,7 @@ jobs:
             $lines += "GPU: $($gpu.Name), driver $($gpu.DriverVersion), $($gpu.CurrentHorizontalResolution) x $($gpu.CurrentVerticalResolution) at $($gpu.CurrentRefreshRate) Hz"
           }
           $lines += "Power plan: " + ((powercfg /getactivescheme) -join ' ')
-          if ($env:TARGET -eq 'pdf') {
+          if ($env:TARGET -eq 'pdf' -or $env:TARGET -eq 'write') {
             $rendering = if ($env:RAFFICA_RENDERING) { $env:RAFFICA_RENDERING } else { 'app' }
             $lines += "Rendering override: $rendering"
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "Rendering override: $rendering" -Encoding utf8
@@ -377,7 +387,7 @@ jobs:
             echo "OS: $(sw_vers -productName) $(sw_vers -productVersion) (build $(sw_vers -buildVersion)), $(uname -m)"
             echo "Processor: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.logicalcpu) logical processors"
             echo "RAM: $(sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }') GiB"
-            if [ "$TARGET" = pdf ]; then echo "Rendering override: ${RAFFICA_RENDERING:-app}"; fi
+            if [ "$TARGET" = pdf ] || [ "$TARGET" = write ]; then echo "Rendering override: ${RAFFICA_RENDERING:-app}"; fi
           } | tee "$OUT/machine.txt"
 
       # The measured app: the full commit id that was published (a branch name moves, so it is recorded), appended to the machine notes written
@@ -727,6 +737,10 @@ jobs:
         if: inputs.cases == 'cold-reboot' && inputs.target == 'pdf'
         run: dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe ${{ env.EXE }} --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
 
+      - name: Cold start after a reboot (write)
+        if: inputs.cases == 'cold-reboot' && inputs.target == 'write'
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case cold --runs 1 --label cold-reboot --out ${{ env.OUT }}/cold-reboot.csv
+
       # The cases of spec 9.1, both modes (target probe). A failing case does not stop the others, so that every CSV exists; the job
       # fails afterwards. The script warns before the runs and next to the result when the machine has no usable
       # compositor rate.
@@ -827,6 +841,55 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'pdf' && runner.os != 'Windows' && inputs.platform != 'macos-hosted' }}
         shell: bash
         run: dotnet run bench/shell-probe/measure.cs -- check --target pdf --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
+
+      # The Write app (target write), the cases of milestone 4.2 (the method is the PDF app's, the entry "Raffica PDF measurement method (M2.1)" in
+      # Docs/DECISIONS.md). Every run gets a settings folder of its own, so a measurement never reads or writes the settings, the recent files or the
+      # instance pipe of the user. The mode in the CSV is "write". The test files come from testdata/write-corpus of the checkout (bench/shell-probe/README.md,
+      # "Measuring the Write app"). The case engine runs write-layout-bench (published to out/engine) and records its median as the row write/engine.
+      - name: Cold start (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case cold --out ${{ env.OUT }}/cold.csv
+
+      - name: Warm start (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case warm --out ${{ env.OUT }}/warm.csv
+
+      - name: Thesis to the first page (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case thesis --out ${{ env.OUT }}/thesis.csv
+
+      - name: Second file in a running instance (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case second --out ${{ env.OUT }}/second.csv
+
+      - name: Scrolling the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case scroll --out ${{ env.OUT }}/scroll.csv
+
+      - name: Memory with the thesis open (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case memory --out ${{ env.OUT }}/memory.csv
+
+      - name: Engine first page of the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.ENGINE_EXE }} --case engine --out ${{ env.OUT }}/engine.csv
+
+      - name: Size (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- size --target write --publish-dir out/app --fonts-dir ${{ env.MEASURED_PREFIX }}${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
+
+      # The verdict against the limits of the Write app. The app rows of the table are empty until the owner's runs are recorded (milestone 4.2): the
+      # check judges the metrics that have a limit (today the fixed engine limit on Linux, 100 ms), lists the others as "not judged" and fails with
+      # "no limits recorded for target write" (exit code 2) when none has a limit, never a pass.
+      - name: Check against the limits (write, Windows)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os == 'Windows' }}
+        shell: powershell
+        run: dotnet run bench/shell-probe/measure.cs -- check --target write --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$env:GITHUB_STEP_SUMMARY"
+
+      - name: Check against the limits (write, Linux, macOS)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os != 'Windows' && inputs.platform != 'macos-hosted' }}
+        shell: bash
+        run: dotnet run bench/shell-probe/measure.cs -- check --target write --platform ${{ inputs.platform }} --in "${{ env.OUT }}/*.csv" --summary "$GITHUB_STEP_SUMMARY"
 
       # The verdict against the limits of Docs/DECISIONS.md ("Speed targets of the frame (M1)"), written to the job summary. It
       # fails the job above a limit or with a missing CSV; macOS has no limits and is indicative only. Two steps, because the

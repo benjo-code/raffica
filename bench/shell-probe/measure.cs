@@ -2,18 +2,22 @@
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
-//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
-//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf] [--app <bundle dir> --dmg <file>: pdf on macOS]
-//   dotnet run bench/shell-probe/measure.cs -- check --platform windows|linux|macos --in "<csv glob>" [--target gallery|pdf] [--summary <md>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <write-layout-bench> --case engine --out <csv> [--runs <n>] [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf|write] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
+//   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf|write] [--app <bundle dir> --dmg <file>: pdf on macOS]
+//   dotnet run bench/shell-probe/measure.cs -- check --platform windows|linux|macos --in "<csv glob>" [--target gallery|pdf|write] [--summary <md>]
 //   dotnet run bench/shell-probe/measure.cs -- budgets --in <csv>... --out <md>
 //   dotnet run bench/shell-probe/measure.cs -- selftest
 // CSV columns: machine,mode,case,run,value,unit. unit is ms or bytes. Rows of the case input carry the statistic
 // (median, p99, max) in the column run; rows of the case size carry total, zip, fonts, native, app or dmg (the last two: the macOS bundle and disk image). The gallery
 // (--target gallery) writes the mode gallery, the PDF app (--target pdf) the mode pdf; its cases are cold, warm, thousand, second, scroll
 // (rows p99 and max per run in the column run) and memory. check --target pdf judges against the recorded limits (see CheckCommand).
+// The Write app (--target write) writes the mode write; its cases are cold, warm, thesis, second, scroll, memory and engine (the median of
+// write-layout-bench run, one row). check --target write judges only the metrics that have a limit (see s_writeBudgets).
 //
 // Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for the binding
-// platform of target pdf: a table without limits never passes).
+// platform of target pdf, or none of the judged metrics of target write: a table without limits never passes).
 
 using System.Diagnostics;
 using System.Globalization;
@@ -392,20 +396,25 @@ static class RunCommand
     }
 
     /// <summary>The value of the CSV column <c>mode</c>: <c>gallery</c> for the gallery, else the probe's mode.</summary>
-    public static string CsvMode(string target, string? mode) => target is "gallery" or "pdf" ? target : mode!;
+    public static string CsvMode(string target, string? mode) => target is "gallery" or "pdf" or "write" ? target : mode!;
 
     public static int Execute(Options o)
     {
         var target = o.Get("--target") ?? "probe";
-        if (target is not ("probe" or "gallery" or "pdf"))
+        if (target is not ("probe" or "gallery" or "pdf" or "write"))
         {
-            Console.Error.WriteLine("--target must be probe, gallery or pdf.");
+            Console.Error.WriteLine("--target must be probe, gallery, pdf or write.");
             return 2;
         }
 
         if (target == "pdf")
         {
             return PdfRun.Execute(o);
+        }
+
+        if (target == "write")
+        {
+            return WriteRun.Execute(o);
         }
 
         string[] required = target == "probe" ? ["--exe", "--mode", "--case", "--out"] : ["--exe", "--case", "--out"];
@@ -599,16 +608,23 @@ static class PdfRun
     ];
 
     /// <summary>The arguments of one run of the app: the switch, the settings file and the file to open.</summary>
-    public static string[] Arguments(string caseName, string settingsFile, string testdata)
-    {
-        var c = Cases.First(x => x.Name == caseName);
-        return [c.Switch, "--settings-file", settingsFile, Path.Combine(testdata, c.File)];
-    }
+    public static string[] Arguments(string caseName, string settingsFile, string testdata) => ArgumentsOf(Cases.First(x => x.Name == caseName), settingsFile, testdata);
+
+    /// <summary>The arguments of one run of a case (of this target or of the Write target, which shares the run loop).</summary>
+    public static string[] ArgumentsOf(Case c, string settingsFile, string testdata) => [c.Switch, "--settings-file", settingsFile, Path.Combine(testdata, c.File)];
 
     /// <summary>The arguments of the second launch of the case <c>second</c>: the same settings file (so it finds the running instance) and the second file.</summary>
-    public static string[] SecondArguments(string settingsFile, string testdata) => ["--settings-file", settingsFile, Path.Combine(testdata, SecondFile)];
+    public static string[] SecondArguments(string settingsFile, string testdata, string secondFile = SecondFile) => ["--settings-file", settingsFile, Path.Combine(testdata, secondFile)];
 
-    public static int Execute(Options o)
+    public static int Execute(Options o) => ExecuteFor(o, "pdf", "the PDF app", Cases, Path.Combine("testdata", "pdfs"), SecondFile);
+
+    /// <summary>The names of the cases for a message: <c>a, b or c</c>.</summary>
+    public static string CaseList(IReadOnlyList<Case> cases) => string.Join(", ", cases.Take(cases.Count - 1).Select(x => x.Name)) + " or " + cases[^1].Name;
+
+    /// <summary>
+    /// The run loop of an app target (<c>pdf</c> or <c>write</c>): warm-ups, runs, the rows of the CSV with <paramref name="target"/> as the mode.
+    /// </summary>
+    public static int ExecuteFor(Options o, string target, string appName, IReadOnlyList<Case> cases, string defaultTestdata, string secondFile)
     {
         if (o.Require("--exe", "--case", "--out") is { } missing)
         {
@@ -618,20 +634,20 @@ static class PdfRun
 
         if (o.Get("--mode") is not null)
         {
-            Console.Error.WriteLine("--mode belongs to the probe; the PDF app has none.");
+            Console.Error.WriteLine($"--mode belongs to the probe; {appName} has none.");
             return 2;
         }
 
         var exe = Path.GetFullPath(o.Get("--exe")!);
-        var c = Cases.FirstOrDefault(x => x.Name == o.Get("--case"));
+        var c = cases.FirstOrDefault(x => x.Name == o.Get("--case"));
         if (c is null || !File.Exists(exe))
         {
-            Console.Error.WriteLine(!File.Exists(exe) ? $"file not found: {exe}" : "--case must be cold, warm, thousand, second, scroll or memory (--target pdf).");
+            Console.Error.WriteLine(!File.Exists(exe) ? $"file not found: {exe}" : $"--case must be {CaseList(cases)} (--target {target}).");
             return 2;
         }
 
-        var testdata = Path.GetFullPath(o.Get("--testdata") ?? Path.Combine("testdata", "pdfs"));
-        var files = c.Name == "second" ? new[] { c.File, SecondFile } : [c.File];
+        var testdata = Path.GetFullPath(o.Get("--testdata") ?? defaultTestdata);
+        var files = c.Name == "second" ? new[] { c.File, secondFile } : [c.File];
         if (files.FirstOrDefault(f => !File.Exists(Path.Combine(testdata, f))) is { } absent)
         {
             Console.Error.WriteLine($"file not found: {Path.Combine(testdata, absent)} (--testdata <folder> names the folder with the test files).");
@@ -639,8 +655,8 @@ static class PdfRun
         }
 
         var machine = o.Get("--machine") ?? Environment.MachineName;
-        var name = $"pdf/{c.Name}";
-        Console.WriteLine($"{name}: {exe} {string.Join(' ', Arguments(c.Name, "<settings file>", testdata))}");
+        var name = $"{target}/{c.Name}";
+        Console.WriteLine($"{name}: {exe} {string.Join(' ', ArgumentsOf(c, "<settings file>", testdata))}");
         if (c.Name == "cold")
         {
             Console.WriteLine("note: \"cold\" does not empty the file cache of the operating system; a real cold start is a manual measurement right after a reboot (cold-reboot).");
@@ -652,7 +668,7 @@ static class PdfRun
             Console.WriteLine(warning);
             if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
             {
-                Console.WriteLine($"::warning title=PDF measurement::{FrameCadence.ForAnnotation(warning)}");
+                Console.WriteLine($"::warning title={target} measurement::{FrameCadence.ForAnnotation(warning)}");
             }
         }
 
@@ -668,7 +684,7 @@ static class PdfRun
             (double? Value, double? Second, string? Error) result;
             try
             {
-                result = RunOnce(exe, c, settingsFile, testdata);
+                result = RunOnce(exe, c, settingsFile, testdata, secondFile);
             }
             finally
             {
@@ -695,8 +711,8 @@ static class PdfRun
                 if (run > 0)
                 {
                     values.Add(result.Value!.Value);
-                    rows.Add(Lines.Csv(machine, "pdf", RunCommand.Label(o), "p99", result.Value!.Value, "ms"));
-                    rows.Add(Lines.Csv(machine, "pdf", RunCommand.Label(o), "max", result.Second!.Value, "ms"));
+                    rows.Add(Lines.Csv(machine, target, RunCommand.Label(o), "p99", result.Value!.Value, "ms"));
+                    rows.Add(Lines.Csv(machine, target, RunCommand.Label(o), "max", result.Second!.Value, "ms"));
                 }
             }
             else
@@ -709,7 +725,7 @@ static class PdfRun
                 if (run > 0)
                 {
                     values.Add(v);
-                    rows.Add(Lines.Csv(machine, "pdf", RunCommand.Label(o), run.ToString(CultureInfo.InvariantCulture), v, unit));
+                    rows.Add(Lines.Csv(machine, target, RunCommand.Label(o), run.ToString(CultureInfo.InvariantCulture), v, unit));
                 }
             }
 
@@ -743,15 +759,15 @@ static class PdfRun
     }
 
     /// <summary>One run: the value (ms for the time cases and the scroll p99, bytes for memory), the scroll maximum and an error text.</summary>
-    private static (double? Value, double? Second, string? Error) RunOnce(string exe, Case c, string settingsFile, string testdata)
+    private static (double? Value, double? Second, string? Error) RunOnce(string exe, Case c, string settingsFile, string testdata, string secondFile)
     {
         if (c.Name == "second")
         {
-            var (ms, secondError) = RunSecond(exe, Arguments(c.Name, settingsFile, testdata), SecondArguments(settingsFile, testdata));
+            var (ms, secondError) = RunSecond(exe, ArgumentsOf(c, settingsFile, testdata), SecondArguments(settingsFile, testdata, secondFile));
             return (ms, null, secondError);
         }
 
-        var (output, lineMs, error) = Runner.RunOnce(exe, Arguments(c.Name, settingsFile, testdata), c.Line);
+        var (output, lineMs, error) = Runner.RunOnce(exe, ArgumentsOf(c, settingsFile, testdata), c.Line);
         if (error is not null)
         {
             return (null, null, error);
@@ -874,6 +890,149 @@ static class PdfRun
     }
 }
 
+/// <summary>
+/// <c>run --target write</c>: the cases of the Write app (milestone 4.2). The app is started like the PDF app (the measurement switch, a file of
+/// <c>testdata/write-corpus</c>, a settings file in a fresh temporary folder per run) and the run loop is the PDF's (<see cref="PdfRun.ExecuteFor"/>);
+/// the CSV mode is <c>write</c>. The case <c>engine</c> runs <c>write-layout-bench run</c> (the headless engine benchmark, a Native AOT publish of
+/// <c>bench/write-layout</c>) as <c>--exe</c> and records its median as the one row <c>write/engine</c>; it needs no settings file.
+/// </summary>
+static class WriteRun
+{
+    /// <summary>The file a second launch hands to the running instance in the case <c>second</c> (relative to the corpus root).</summary>
+    public const string SecondFile = "poi-comment/poi-comment.docx";
+
+    /// <summary>The corpus file of the cold and warm cases.</summary>
+    public const string SmallFile = "poi-test-document/poi-test-document.docx";
+
+    /// <summary>The corpus file of the thesis, scroll, memory and engine cases (the generated 311-page thesis).</summary>
+    public const string ThesisFile = "thesis/thesis.docx";
+
+    public const string EngineCase = "engine";
+
+    public static readonly PdfRun.Case[] Cases =
+    [
+        new("cold", 10, 0, 5000, "--measure-startup", SmallFile, "first-page"),
+        new("warm", 10, 3, 500, "--measure-startup", SmallFile, "first-page"),
+        new("thesis", 10, 3, 500, "--measure-startup", ThesisFile, "first-page"),
+        new("second", 10, 1, 500, "--measure-second", SmallFile, "second-page"),
+        new("scroll", 5, 1, 500, "--measure-scroll", ThesisFile, "scroll"),
+        new("memory", 10, 0, 500, "--measure-memory", ThesisFile, "memory-bytes"),
+        new(EngineCase, 10, 2, 0, string.Empty, ThesisFile, "median first page:"),
+    ];
+
+    /// <summary>The arguments of one run of the app for a case (not for <c>engine</c>).</summary>
+    public static string[] Arguments(string caseName, string settingsFile, string testdata) => PdfRun.ArgumentsOf(Cases.First(x => x.Name == caseName), settingsFile, testdata);
+
+    /// <summary>The arguments of the second launch of the case <c>second</c>.</summary>
+    public static string[] SecondArguments(string settingsFile, string testdata) => PdfRun.SecondArguments(settingsFile, testdata, SecondFile);
+
+    /// <summary>The arguments of the engine benchmark: cold child processes of its first-page command on the thesis.</summary>
+    public static string[] EngineArguments(string testdata, int runs) =>
+        ["run", "--file", Path.Combine(testdata, ThesisFile), "--runs", runs.ToString(CultureInfo.InvariantCulture), "--warmup", Cases.First(x => x.Name == EngineCase).Warmup.ToString(CultureInfo.InvariantCulture)];
+
+    /// <summary>Reads <c>median first page: &lt;ms&gt; ms over &lt;n&gt; cold runs</c> of the benchmark (invariant culture).</summary>
+    public static bool TryParseEngineMedian(string text, out double ms)
+    {
+        const string Prefix = "median first page:";
+        ms = 0;
+        var line = text.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith(Prefix, StringComparison.Ordinal));
+        if (line is null)
+        {
+            return false;
+        }
+
+        var parts = line[Prefix.Length..].Trim().Split(' ');
+        return parts.Length > 1 && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out ms) && double.IsFinite(ms);
+    }
+
+    public static int Execute(Options o) =>
+        o.Get("--case") == EngineCase
+            ? ExecuteEngine(o)
+            : PdfRun.ExecuteFor(o, "write", "the Write app", Cases, Path.Combine("testdata", "write-corpus"), SecondFile);
+
+    private static int ExecuteEngine(Options o)
+    {
+        if (o.Require("--exe", "--out") is { } missing)
+        {
+            Console.Error.WriteLine($"{missing} is required.");
+            return 2;
+        }
+
+        if (o.Get("--mode") is not null)
+        {
+            Console.Error.WriteLine("--mode belongs to the probe; the engine benchmark has none.");
+            return 2;
+        }
+
+        var exe = Path.GetFullPath(o.Get("--exe")!);
+        var testdata = Path.GetFullPath(o.Get("--testdata") ?? Path.Combine("testdata", "write-corpus"));
+        if (!File.Exists(exe))
+        {
+            Console.Error.WriteLine($"file not found: {exe} (--exe names the published write-layout-bench for the case engine).");
+            return 2;
+        }
+
+        if (!File.Exists(Path.Combine(testdata, ThesisFile)))
+        {
+            Console.Error.WriteLine($"file not found: {Path.Combine(testdata, ThesisFile)} (--testdata <folder> names the folder with the test files).");
+            return 2;
+        }
+
+        var machine = o.Get("--machine") ?? Environment.MachineName;
+        var runs = RunCommand.RunCount(o, 10);
+        var arguments = EngineArguments(testdata, runs);
+        Console.WriteLine($"write/engine: {exe} {string.Join(' ', arguments)}");
+        var info = new ProcessStartInfo(exe)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = new UTF8Encoding(false),
+            StandardErrorEncoding = new UTF8Encoding(false),
+        };
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(info);
+        if (process is null)
+        {
+            Console.Error.WriteLine($"FAILED: write/engine: {exe} could not be started");
+            return 1;
+        }
+
+        var errorTask = process.StandardError.ReadToEndAsync();
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        if (!process.WaitForExit(TimeSpan.FromMinutes(5)))
+        {
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit();
+            Console.Error.WriteLine("FAILED: write/engine: the benchmark did not end within 5 minutes, process killed");
+            return 1;
+        }
+
+        var text = outputTask.GetAwaiter().GetResult();
+        var error = errorTask.GetAwaiter().GetResult().Trim();
+        Console.Write(text);
+        if (process.ExitCode != 0)
+        {
+            Console.Error.WriteLine($"FAILED: write/engine: exit code {process.ExitCode}{(error.Length > 0 ? $", stderr: {error}" : string.Empty)}");
+            return 1;
+        }
+
+        if (!TryParseEngineMedian(text, out var median))
+        {
+            Console.Error.WriteLine("FAILED: write/engine: the benchmark printed no median line");
+            return 1;
+        }
+
+        RunCommand.WriteCsv(o.Get("--out")!, [Lines.Csv(machine, "write", RunCommand.Label(o), "1", median, "ms")]);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"write/engine: median {median:0.0} ({runs} runs, the median of the benchmark)"));
+        return 0;
+    }
+}
+
 /// <summary><c>size</c>: the published folder, the zip, the share of fonts and of native libraries.</summary>
 static class SizeCommand
 {
@@ -888,9 +1047,9 @@ static class SizeCommand
         }
 
         var target = o.Get("--target") ?? (check is null ? "probe" : "gallery");
-        if (target is not ("probe" or "gallery" or "pdf"))
+        if (target is not ("probe" or "gallery" or "pdf" or "write"))
         {
-            Console.Error.WriteLine("--target must be probe, gallery or pdf.");
+            Console.Error.WriteLine("--target must be probe, gallery, pdf or write.");
             return 2;
         }
 
@@ -909,7 +1068,7 @@ static class SizeCommand
             return 2;
         }
 
-        var mainExe = target == "gallery" ? "RafficaGallery" : target == "pdf" ? "RafficaPdf" : "ShellProbe";
+        var mainExe = target == "gallery" ? "RafficaGallery" : target == "pdf" ? "RafficaPdf" : target == "write" ? "RafficaWrite" : "ShellProbe";
         if (check is not null && !File.Exists(Path.Combine(publish, mainExe + ".exe")) && !File.Exists(Path.Combine(publish, mainExe)))
         {
             // A failed publish leaves an empty folder; zero bytes would pass every limit.
@@ -922,7 +1081,7 @@ static class SizeCommand
         var dmgFile = o.Get("--dmg") is { } d ? Path.GetFullPath(d) : null;
         if ((appDir is not null || dmgFile is not null) && (target != "pdf" || (platform is not null && platform != "macos")))
         {
-            Console.Error.WriteLine("--app and --dmg belong to --target pdf (and, with --check, to osx-x64 or osx-arm64).");
+            Console.Error.WriteLine("--app and --dmg belong to --target pdf (and, with --check, to osx-x64 or osx-arm64); the macOS bundle of Write is milestone 4.9's.");
             return 2;
         }
 
@@ -957,7 +1116,10 @@ static class SizeCommand
             }
 
             var pdf = target == "pdf";
-            var results = pdf ? CheckCommand.JudgePdf(platform, measured, [.. keys]) : CheckCommand.Judge(platform, measured, [.. keys]);
+            var write = target == "write";
+            var results = write ? CheckCommand.JudgeWrite(platform, measured, [.. keys])
+                : pdf ? CheckCommand.JudgePdf(platform, measured, [.. keys])
+                : CheckCommand.Judge(platform, measured, [.. keys]);
             Console.WriteLine($"Published {target} ({check}):");
             Console.Write(CheckCommand.Render(results));
             if (pdf && CheckCommand.PdfHasNoLimits(platform))
@@ -967,12 +1129,18 @@ static class SizeCommand
                 return 2;
             }
 
+            if (write && CheckCommand.WriteHasNoLimits(platform, [.. keys]))
+            {
+                Console.Error.WriteLine(CheckCommand.NoWriteLimits);
+                return 2;
+            }
+
             Console.WriteLine(CheckCommand.ExitCode(results) == 1 ? "size check: FAILED (above the limit)" : "size check: ok");
             return CheckCommand.ExitCode(results);
         }
 
         var machine = o.Get("--machine") ?? Environment.MachineName;
-        var mode = o.Get("--mode") ?? (target is "gallery" or "pdf" ? target : "frame");
+        var mode = o.Get("--mode") ?? (target is "gallery" or "pdf" or "write" ? target : "frame");
 
         List<(string, long)> sizes = [("total", total), ("zip", zip), ("fonts", fontBytes), ("native", native)];
         if (appBytes is { } appRow)
@@ -1256,6 +1424,50 @@ static class CheckCommand
     /// <summary>The message of a check of the PDF app against an empty limit table.</summary>
     public const string NoPdfLimits = "no limits recorded for target pdf";
 
+    // The metrics of the Write app (target write), in the order of the table. "engine" is the median of write-layout-bench run (the headless
+    // first page of the thesis); the other time and memory metrics are the app's (the case thesis is the thesis to the first page).
+    private static readonly (string Key, string Label)[] s_writeMetrics =
+    [
+        ("cold", "cold (ms)"),
+        ("warm", "warm (ms)"),
+        ("thesis", "thesis first page (ms)"),
+        ("second", "second file (ms)"),
+        ("scroll", "scroll p99 (ms)"),
+        ("memory", "memory (MiB)"),
+        ("size", "size (MiB)"),
+        ("zip", "zip (MiB)"),
+        ("engine", "engine first page (ms)"),
+    ];
+
+    // THE limit table of the Write app (target write), the only place for these numbers. The app rows (cold, warm, thesis, second, scroll, memory,
+    // size, zip) stay EMPTY until the owner's runs of milestone 4.2 are recorded (Docs/DECISIONS.md, "Raffica Write: speed budgets (M4.2)"; time to
+    // 10 ms, memory to 5 MiB, size to 1 MiB, limit = budget x 1.25). The one entry that exists now is a FIXED limit, not a measured one: the engine
+    // first page of the thesis on the Linux laptop, 100 ms = budget 80 x 1.25 (spec "Raffica Write", section 5, and the layout decision "Raffica Write:
+    // the layout engine (M4)"). It is the Linux laptop's limit, so it is entered for linux only; a miss is a finding for the owner, never a loosened number.
+    // A platform with no entry at all (windows, macos) has no limits: a check there exits 2.
+    private static readonly Dictionary<string, Dictionary<string, double>> s_writeBudgets = new()
+    {
+        ["windows"] = [],
+        ["linux"] = new() { ["engine"] = 80 },
+        ["macos"] = [],
+    };
+
+    /// <summary>The message of a check of the Write app when none of the metrics it judges has a limit.</summary>
+    public const string NoWriteLimits = "no limits recorded for target write";
+
+    /// <summary>Selftest only: replaces the production table of the Write app; null restores it. Never set outside the selftest.</summary>
+    public static Dictionary<string, Dictionary<string, double>>? WriteTableForTests { get; set; }
+
+    /// <summary>The limit table of the Write app in force.</summary>
+    public static Dictionary<string, Dictionary<string, double>> WriteTable => WriteTableForTests ?? s_writeBudgets;
+
+    /// <summary>
+    /// True when none of the metrics named in <paramref name="only"/> (all when empty) has a limit on the platform, so a check of the Write app
+    /// cannot pass. See <see cref="JudgeWrite"/> for what a metric without a limit does next to one that has a limit.
+    /// </summary>
+    public static bool WriteHasNoLimits(string platform, params string[] only) =>
+        !s_writeMetrics.Any(m => (only.Length == 0 || only.Contains(m.Key)) && LimitOf(WriteTable, platform, m.Key) is not null);
+
     /// <summary>Selftest only: replaces the production table of the PDF app; null restores it. Never set outside the selftest.</summary>
     public static Dictionary<string, Dictionary<string, double>>? PdfTableForTests { get; set; }
 
@@ -1293,6 +1505,20 @@ static class CheckCommand
     /// </summary>
     public static List<Result> JudgePdf(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only) =>
         Judge(PdfTable, [.. s_pdfMetrics.Where(m => m.Key is not ("app" or "dmg") || (platform == "macos" && only.Contains(m.Key)))], platform, measured, only, indicativeOnMac: false);
+
+    /// <summary>
+    /// The verdicts of the Write app against <see cref="WriteTable"/>. The rule: as soon as a platform has at least ONE app row (any metric but
+    /// <c>engine</c>), every app metric without a limit is <c>unrecorded</c> and fails the check (exit 1), as for the PDF target, so a half-filled table
+    /// never goes green. While the platform has no app row at all (the state before the owner's runs are recorded) the app metrics are <c>not judged</c>
+    /// and never fail; <c>engine</c> without a limit on a platform is always <c>not judged</c> (its fixed limit exists for linux only). When none of the
+    /// requested metrics has a limit the caller exits 2 (<see cref="WriteHasNoLimits"/>).
+    /// </summary>
+    public static List<Result> JudgeWrite(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
+    {
+        var hasAppRow = s_writeMetrics.Any(m => m.Key != "engine" && LimitOf(WriteTable, platform, m.Key) is not null);
+        return [.. Judge(WriteTable, s_writeMetrics, platform, measured, only, indicativeOnMac: false)
+            .Select(r => r.Verdict == "unrecorded" && (r.Key == "engine" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
+    }
 
     private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only, bool indicativeOnMac)
     {
@@ -1359,6 +1585,26 @@ static class CheckCommand
         return JudgePdf(platform, measured, [.. only]);
     }
 
+    /// <summary>The medians of the rows of the Write app (mode <c>write</c>; scroll: the p99 of each run; engine: the benchmark's median), then their verdicts.</summary>
+    public static List<Result> EvaluateWrite(string platform, IReadOnlyList<BudgetsCommand.Row> rows)
+    {
+        double? Median(string @case, string? run) => MedianOf(rows, "write", @case, run);
+
+        var measured = new Dictionary<string, double?>
+        {
+            ["cold"] = Median("cold", null),
+            ["warm"] = Median("warm", null),
+            ["thesis"] = Median("thesis", null),
+            ["second"] = Median("second", null),
+            ["scroll"] = Median("scroll", "p99"),
+            ["memory"] = Median("memory", null),
+            ["size"] = Median("size", "total"),
+            ["zip"] = Median("size", "zip"),
+            ["engine"] = Median("engine", null),
+        };
+        return JudgeWrite(platform, measured, [.. s_writeMetrics.Select(m => m.Key)]);
+    }
+
     private static double? MedianOf(IReadOnlyList<BudgetsCommand.Row> rows, string mode, string @case, string? run)
     {
         var values = rows
@@ -1400,9 +1646,9 @@ static class CheckCommand
         }
 
         var target = o.Get("--target") ?? "gallery";
-        if (target is not ("gallery" or "pdf"))
+        if (target is not ("gallery" or "pdf" or "write"))
         {
-            Console.Error.WriteLine("--target must be gallery or pdf.");
+            Console.Error.WriteLine("--target must be gallery, pdf or write.");
             return 2;
         }
 
@@ -1448,17 +1694,24 @@ static class CheckCommand
         }
 
         var pdf = target == "pdf";
-        var results = pdf ? EvaluatePdf(platform, rows) : Evaluate(platform, rows);
-        var text = new StringBuilder(pdf ? $"## PDF app measurement ({platform})\n\n" : $"## Frame measurement ({platform})\n\n");
-        if (platform == "macos" && !pdf)
+        var write = target == "write";
+        var results = write ? EvaluateWrite(platform, rows) : pdf ? EvaluatePdf(platform, rows) : Evaluate(platform, rows);
+        var text = new StringBuilder(write ? $"## Write app measurement ({platform})\n\n" : pdf ? $"## PDF app measurement ({platform})\n\n" : $"## Frame measurement ({platform})\n\n");
+        if (platform == "macos" && !pdf && !write)
         {
             text.AppendLine("macOS has no limits; the values are indicative only.").AppendLine();
         }
 
-        var noLimits = pdf && PdfHasNoLimits(platform);
+        var noLimits = (pdf && PdfHasNoLimits(platform)) || (write && WriteHasNoLimits(platform));
         if (noLimits)
         {
-            text.AppendLine($"> **{NoPdfLimits}:** the medians below are the input for the budgets of milestone 2.1; they are not checked against anything yet.").AppendLine();
+            text.AppendLine(write
+                ? $"> **{NoWriteLimits}:** the medians below are the input for the budgets of milestone 4.2; they are not checked against anything yet."
+                : $"> **{NoPdfLimits}:** the medians below are the input for the budgets of milestone 2.1; they are not checked against anything yet.").AppendLine();
+        }
+        else if (write && results.Any(r => r.Verdict == "not judged"))
+        {
+            text.AppendLine("> A metric marked \"not judged\" has no recorded limit yet (milestone 4.2 sets them from the owner's runs; the engine limit exists for Linux only); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
         }
 
         text.Append(Render(results));
@@ -1481,12 +1734,12 @@ static class CheckCommand
         if (noLimits)
         {
             // Nothing to check against: never a pass. The medians above are still printed and written to the summary.
-            Console.Error.WriteLine(NoPdfLimits);
+            Console.Error.WriteLine(write ? NoWriteLimits : NoPdfLimits);
             return 2;
         }
 
         // A missing or unreadable CSV fails the check on every platform that has limits.
-        var failed = ExitCode(results) == 1 || ((platform != "macos" || pdf) && problems.Count > 0);
+        var failed = ExitCode(results) == 1 || ((platform != "macos" || pdf || write) && problems.Count > 0);
         Console.WriteLine(failed ? "check: FAILED (a value is over its limit, a limit is not recorded or a CSV is missing)" : "check: ok");
         return failed ? 1 : 0;
     }
@@ -1583,6 +1836,8 @@ static class SelfTest
         SizeCheckTests();
         PdfTests();
         EveryCommandAcceptsThePdfTarget();
+        WriteTests();
+        EveryCommandAcceptsTheWriteTarget();
 
         Console.WriteLine($"selftest: {s_checks - s_failures}/{s_checks} checks passed");
         return s_failures == 0 ? 0 : 1;
@@ -1922,6 +2177,304 @@ static class SelfTest
             // The budget is the median rounded up, so no median is above its budget.
             Expect($"pdf measurements {platform}: no median is above its budget", results.All(r => r.Measured <= r.Budget), true);
         }
+    }
+
+    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine"];
+
+    // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The recorded table is s_writeBudgets in CheckCommand.
+    private static Dictionary<string, Dictionary<string, double>> WriteTestTable() => new()
+    {
+        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70 },
+        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80 },
+        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90 },
+    };
+
+    /// <summary>Rows of the Write app with every metric at <c>limit + delta</c> of the platform in the table in force; <paramref name="only"/> restricts the delta to one metric, <paramref name="without"/> leaves a metric out.</summary>
+    private static List<BudgetsCommand.Row> WriteRows(string platform, string? only = null, double delta = 0, string? without = null)
+    {
+        double At(string key) => (CheckCommand.LimitOf(CheckCommand.WriteTable, platform, key) ?? 1000) + (only is null || only == key ? delta : 0);
+
+        List<BudgetsCommand.Row> rows =
+        [
+            new("pc", "write", "cold", "1", 99999, "ms"), new("pc", "write", "cold", "2", At("cold"), "ms"), new("pc", "write", "cold", "3", 1, "ms"),
+            new("pc", "write", "warm", "1", At("warm"), "ms"),
+            new("pc", "write", "thesis", "1", At("thesis"), "ms"),
+            new("pc", "write", "second", "1", At("second"), "ms"),
+            new("pc", "write", "scroll", "p99", At("scroll"), "ms"), new("pc", "write", "scroll", "max", 999, "ms"),
+            new("pc", "write", "memory", "1", At("memory") * MiBd, "bytes"),
+            new("pc", "write", "size", "total", At("size") * MiBd, "bytes"),
+            new("pc", "write", "size", "zip", At("zip") * MiBd, "bytes"),
+            new("pc", "write", "engine", "1", At("engine"), "ms"),
+        ];
+        return without is null ? rows : [.. rows.Where(r => without == "size" ? !(r.Case == "size" && r.Run == "total") : without == "zip" ? !(r.Case == "size" && r.Run == "zip") : r.Case != without)];
+    }
+
+    /// <summary>A stand-in for write-layout-bench: prints the lines of its <c>run</c> command, ignoring its arguments.</summary>
+    private static string FakeEngine(string folder, string name, string median)
+    {
+        Directory.CreateDirectory(folder);
+        if (OperatingSystem.IsWindows())
+        {
+            var path = Path.Combine(folder, name + ".cmd");
+            File.WriteAllText(path, $"@echo off\r\necho run 1: 80.0 ms\r\necho median first page: {median} ms over 3 cold runs\r\n");
+            return path;
+        }
+
+        var script = Path.Combine(folder, name + ".sh");
+        File.WriteAllText(script, $"#!/bin/sh\necho 'run 1: 80.0 ms'\necho 'median first page: {median} ms over 3 cold runs'\n");
+        File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return script;
+    }
+
+    /// <summary>The target write: the arguments of a run, the engine case, the CSV mode, the recorded table (only the fixed engine limit), the exit 2 without limits and the verdicts with a test-only table.</summary>
+    private static void WriteTests()
+    {
+        var td = Path.Combine("some", "testdata");
+        Expect("write run: arguments", string.Join(' ', WriteRun.Arguments("warm", "s.json", td)), $"--measure-startup --settings-file s.json {Path.Combine(td, "poi-test-document/poi-test-document.docx")}");
+        Expect("write run: cold uses the same file as warm", WriteRun.Arguments("cold", "s.json", td)[3], WriteRun.Arguments("warm", "s.json", td)[3]);
+        Expect("write run: thesis opens the thesis", WriteRun.Arguments("thesis", "s.json", td)[3], Path.Combine(td, "thesis/thesis.docx"));
+        Expect("write run: scroll opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("scroll", "s.json", td)), $"--measure-scroll --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
+        Expect("write run: memory opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("memory", "s.json", td)), $"--measure-memory --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
+        Expect("write run: second switch and first file", string.Join(' ', WriteRun.Arguments("second", "s.json", td)), $"--measure-second --settings-file s.json {Path.Combine(td, "poi-test-document/poi-test-document.docx")}");
+        Expect("write run: the second launch shares the settings file and opens poi-comment", string.Join(' ', WriteRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, "poi-comment/poi-comment.docx")}");
+        Expect("write run: every app run has a settings file of its own", WriteRun.Cases.Where(c => c.Name != "engine").All(c => WriteRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
+        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,engine");
+        Expect("write run: the engine runs the benchmark on the thesis", string.Join(' ', WriteRun.EngineArguments(td, 7)), $"run --file {Path.Combine(td, "thesis/thesis.docx")} --runs 7 --warmup 2");
+        Expect("write run: CSV mode is write", RunCommand.CsvMode("write", null), "write");
+        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory or engine");
+        Expect("pdf run: the case list in the message is the old text", PdfRun.CaseList(PdfRun.Cases), "cold, warm, thousand, second, scroll or memory");
+
+        var saved = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            Expect("write engine: the median line parses under de-DE", WriteRun.TryParseEngineMedian("run 1: 80.0 ms\nmedian first page: 84.7 ms over 10 cold runs\n", out var median) ? median : -1, 84.7);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = saved;
+        }
+
+        Expect("write engine: no median line", WriteRun.TryParseEngineMedian("run 1: 80.0 ms\n", out _), false);
+        Expect("write engine: an unreadable median", WriteRun.TryParseEngineMedian("median first page: x ms over 3 cold runs", out _), false);
+
+        var fake = FakeProbe.Create("hang");
+        var folder = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "writerun");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        Directory.CreateDirectory(folder);
+        var csvPath = Path.Combine(folder, "w.csv");
+        var nope = Path.Combine(folder, "nope");
+        Expect("write run: --mode is a usage error", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", fake, "--mode", "frame", "--case", "warm", "--out", csvPath], out _)!), 2);
+        Expect("write run: an unknown case is a usage error", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", fake, "--case", "thousand", "--out", csvPath], out _)!), 2);
+        Expect("write run: a missing test folder is a usage error", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", fake, "--case", "warm", "--testdata", nope, "--out", csvPath], out _)!), 2);
+        Expect("write run: the second case needs both files", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", fake, "--case", "second", "--testdata", nope, "--out", csvPath], out _)!), 2);
+        Expect("write run: the engine without its executable is a usage error", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", Path.Combine(folder, "gone.exe"), "--case", "engine", "--out", csvPath], out _)!), 2);
+        Expect("write run: the engine without the thesis is a usage error", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", fake, "--case", "engine", "--testdata", nope, "--out", csvPath], out _)!), 2);
+
+        // The engine case end to end with a stand-in benchmark: one row write/engine with the median of the benchmark.
+        var testdata = Path.Combine(folder, "corpus");
+        Directory.CreateDirectory(Path.Combine(testdata, "thesis"));
+        File.WriteAllBytes(Path.Combine(testdata, "thesis", "thesis.docx"), new byte[4]);
+        var engine = FakeEngine(folder, "engine", "82.5");
+        Expect("write run: the engine case with a stand-in benchmark exits 0", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", engine, "--case", "engine", "--testdata", testdata, "--machine", "pc", "--out", csvPath], out _)!), 0);
+        Expect("write run: the engine CSV is one row with the median", File.Exists(csvPath) ? string.Join('|', File.ReadAllLines(csvPath)) : "-", $"{Lines.CsvHeader}|pc,write,engine,1,82.5,ms");
+        var broken = FakeEngine(folder, "engine-broken", "x");
+        Expect("write run: an unreadable benchmark median fails the run", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", broken, "--case", "engine", "--testdata", testdata, "--out", csvPath], out _)!), 1);
+
+        // The production table: only the fixed engine limit of the Linux laptop, 100 ms = budget 80 x 1.25; the app rows wait for the owner's runs.
+        Expect("write limits: linux engine is budget 80 x 1.25 = 100 ms", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
+        Expect("write limits: linux holds only the engine entry", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "engine");
+        Expect("write limits: windows has no limits", CheckCommand.WriteHasNoLimits("windows"), true);
+        Expect("write limits: macos has no limits", CheckCommand.WriteHasNoLimits("macos"), true);
+        Expect("write limits: linux has the engine limit", CheckCommand.WriteHasNoLimits("linux"), false);
+        Expect("write limits: linux has no size or zip limit yet", CheckCommand.WriteHasNoLimits("linux", "size", "zip"), true);
+        Expect("write limits: the engine limit is not an app limit on windows", CheckCommand.LimitOf(CheckCommand.WriteTable, "windows", "engine"), (double?)null);
+
+        // check --target write against the production table: windows and macos have no limit (exit 2), linux judges the engine row alone.
+        var csv = Path.Combine(folder, "w-in.csv");
+        var summary = Path.Combine(folder, "summary.md");
+        PdfCsv(csv, WriteRows("windows"));
+        foreach (var platform in new[] { "windows", "macos" })
+        {
+            Expect($"check write {platform} (recorded): no limits exits 2", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv, "--summary", summary], out _)!), 2);
+        }
+
+        var text = File.Exists(summary) ? File.ReadAllText(summary) : string.Empty;
+        Expect("check write: the summary names the missing limits", text.Contains(CheckCommand.NoWriteLimits, StringComparison.Ordinal), true);
+        Expect("check write: the summary still has the medians", text.Contains("| thesis first page (ms) |", StringComparison.Ordinal), true);
+        PdfCsv(csv, WriteRows("linux"));
+        Expect("check write linux (recorded): the engine row at 100 ms exits 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 0);
+        PdfCsv(csv, WriteRows("linux", "engine", 0.1));
+        Expect("check write linux (recorded): the engine row 0.1 ms above 100 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 1);
+        PdfCsv(csv, WriteRows("linux", without: "engine"));
+        Expect("check write linux (recorded): a missing engine row exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 1);
+        Expect("check write linux (recorded): the app rows are not judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+
+        // An empty table never passes, on any platform.
+        CheckCommand.WriteTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
+        PdfCsv(csv, WriteRows("windows"));
+        foreach (var platform in new[] { "windows", "linux", "macos" })
+        {
+            Expect($"check write {platform}: an empty table exits 2", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 2);
+        }
+
+        // The verdict logic with the test table.
+        CheckCommand.WriteTableForTests = WriteTestTable();
+        try
+        {
+            Expect("write limits (test table): windows cold", CheckCommand.LimitOf(CheckCommand.WriteTable, "windows", "cold"), 125.0);
+            foreach (var platform in new[] { "windows", "linux", "macos" })
+            {
+                Expect($"check write {platform}: every value exactly at its limit passes", CheckCommand.ExitCode(CheckCommand.EvaluateWrite(platform, WriteRows(platform))), 0);
+                Expect($"check write {platform}: verdicts at the limit are ok", CheckCommand.EvaluateWrite(platform, WriteRows(platform)).All(r => r.Verdict == "ok"), true);
+                foreach (var key in s_writeKeys)
+                {
+                    var over = CheckCommand.EvaluateWrite(platform, WriteRows(platform, key, 0.1));
+                    Expect($"check write {platform}: {key} 0.1 above its limit fails", CheckCommand.ExitCode(over), 1);
+                    Expect($"check write {platform}: only {key} is over", string.Join(',', over.Where(r => r.Verdict == "over").Select(r => r.Key)), key);
+                    Expect($"check write {platform}: {key} 0.1 below its limit passes", CheckCommand.ExitCode(CheckCommand.EvaluateWrite(platform, WriteRows(platform, key, -0.1))), 0);
+                    var gone = CheckCommand.EvaluateWrite(platform, WriteRows(platform, without: key));
+                    Expect($"check write {platform}: a missing {key} fails", string.Join(',', gone.Where(r => r.Verdict == "missing").Select(r => r.Key)), key);
+                }
+            }
+
+            Expect("check write: the scroll metric is the p99 of the rows, not the maximum", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "scroll").Measured, 37.5);
+            PdfCsv(csv, WriteRows("windows"));
+            Expect("check command write: CSVs at the limit exit 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 0);
+            PdfCsv(csv, WriteRows("windows", "warm", 0.1));
+            Expect("check command write: a value 0.1 above exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 1);
+            PdfCsv(csv, WriteRows("windows"));
+            Expect("check command write: rows of the Write app do not count for the PDF app", CheckCommand.Execute(Options.Parse(["--target", "pdf", "--platform", "windows", "--in", csv], out _)!), 1);
+
+            // A half-filled table never passes: one app row set, the other app rows unrecorded (exit 1); engine without a limit stays not judged.
+            CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
+            var partial = CheckCommand.EvaluateWrite("windows", WriteRows("windows"));
+            Expect("check write: with one app row set, the other app metrics are unrecorded", string.Join(',', partial.Where(r => r.Verdict == "unrecorded").Select(r => r.Key)), "warm,thesis,second,scroll,memory,size,zip");
+            Expect("check write: engine without a limit stays not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine");
+            Expect("check write: a half-filled table exits 1", CheckCommand.ExitCode(partial), 1);
+            PdfCsv(csv, WriteRows("windows"));
+            Expect("check command write: a half-filled table exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 1);
+            Expect("check write: the judged metric is ok at its limit", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "cold").Verdict, "ok");
+            Expect("check write: the judged metric still can fail", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "cold", 0.1)).First(r => r.Key == "cold").Verdict, "over");
+
+            // No app row on the platform and an engine limit (the recorded state of linux): the engine is judged, the app metrics are not judged, exit 0 at the limit.
+            CheckCommand.WriteTableForTests = new() { ["windows"] = [], ["linux"] = new() { ["engine"] = 80 }, ["macos"] = [] };
+            var engineOnly = CheckCommand.EvaluateWrite("linux", WriteRows("linux"));
+            Expect("check write: engine only, the engine is judged ok", engineOnly.First(r => r.Key == "engine").Verdict, "ok");
+            Expect("check write: engine only, the app metrics are not judged", engineOnly.Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+            Expect("check write: engine only, exit 0 at the limit", CheckCommand.ExitCode(engineOnly), 0);
+            Expect("check write: engine only, exit 1 above the limit", CheckCommand.ExitCode(CheckCommand.EvaluateWrite("linux", WriteRows("linux", "engine", 0.1))), 1);
+
+            // All app rows: as before (the test table has every metric).
+            CheckCommand.WriteTableForTests = WriteTestTable();
+            Expect("check write: all rows set, no metric is unrecorded or not judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict is "unrecorded" or "not judged"), 0);
+
+            CheckCommand.WriteTableForTests = WriteTestTable();
+            WriteSizeCheckTests();
+        }
+        finally
+        {
+            CheckCommand.WriteTableForTests = null;
+        }
+
+        Expect("write limits: the test table is gone again", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
+        Directory.Delete(folder, recursive: true);
+    }
+
+    private static void WriteSizeCheckTests()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "writesize");
+        var fonts = root + "-fonts";
+        Directory.CreateDirectory(fonts);
+        File.WriteAllBytes(Path.Combine(fonts, "a.ttf"), new byte[7]);
+
+        int Check(string rid, long bytes, params string[] more)
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+
+            Directory.CreateDirectory(root);
+            File.WriteAllBytes(Path.Combine(root, "RafficaWrite.exe"), new byte[bytes]);
+            return SizeCommand.Execute(Options.Parse(["--publish-dir", root, "--fonts-dir", fonts, "--target", "write", "--check", rid, .. more], out _)!);
+        }
+
+        const long Win = 50 * 1024 * 1024; // 40 MiB x 1.25 (test table)
+        Expect("size --check write (test table): exactly at the limit passes", Check("win-x64", Win), 0);
+        Expect("size --check write (test table): one byte above fails", Check("win-x64", Win + 1), 1);
+        const long Mac = 56 * 1024 * 1024 + 256 * 1024; // 45 MiB x 1.25 (test table)
+        Expect("size --check write (test table): macOS exactly at the limit passes", Check("osx-x64", Mac), 0);
+        Expect("size --check write (test table): macOS one byte above fails", Check("osx-x64", Mac + 1), 1);
+        Expect("size --check write (test table): the same size passes on arm64 and x64", Check("osx-arm64", Mac), 0);
+        Expect("size --check write: the bundle options belong to the PDF app until 4.9", Check("osx-x64", 10, "--app", root), 2);
+
+        CheckCommand.WriteTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
+        Expect("size --check write: an empty table exits 2", Check("win-x64", 10), 2);
+        Expect("size --check write: an empty table exits 2 on Linux", Check("linux-x64", 10), 2);
+        Expect("size --check write: an empty table exits 2 on macOS", Check("osx-x64", 10), 2);
+
+        // The recorded table has only the engine limit: no size limit exists yet, so no platform can pass a size check.
+        // Half filled: size set, zip not: the zip is unrecorded and fails (exit 1), a platform with no app row still exits 2.
+        CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["size"] = 40 }, ["linux"] = [], ["macos"] = [] };
+        Expect("size --check write: size set and zip unset fails", Check("win-x64", 10), 1);
+        Expect("size --check write: a platform with no app row still exits 2", Check("linux-x64", 10), 2);
+        CheckCommand.WriteTableForTests = null;
+        Expect("size --check write (recorded): no size limit yet on Linux exits 2", Check("linux-x64", 10), 2);
+        Expect("size --check write (recorded): no size limit yet on Windows exits 2", Check("win-x64", 10), 2);
+        CheckCommand.WriteTableForTests = WriteTestTable();
+        Directory.Delete(root, recursive: true);
+    }
+
+    /// <summary>
+    /// The CI step "Size of the published Write app" calls <c>size --target write ... --out</c>. Every subcommand that takes <c>--target</c> must accept
+    /// <c>write</c> in its argument check and refuse an unknown target with a message that names it.
+    /// </summary>
+    private static void EveryCommandAcceptsTheWriteTarget()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "shell-probe-selftest", "writetarget");
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        var publish = Path.Combine(root, "publish");
+        var fonts = Path.Combine(root, "fonts");
+        Directory.CreateDirectory(publish);
+        Directory.CreateDirectory(fonts);
+        File.WriteAllBytes(Path.Combine(publish, "RafficaWrite.exe"), new byte[10]);
+        File.WriteAllBytes(Path.Combine(fonts, "a.ttf"), new byte[7]);
+        var csv = Path.Combine(root, "in.csv");
+        PdfCsv(csv, WriteRows("windows"));
+        var fake = FakeProbe.Create("hang");
+
+        // The size CSV of the CI step (no --check, with --out): exit 0 and rows of the mode write.
+        var sizeCsv = Path.Combine(root, "size.csv");
+        Expect("size --target write --out: exit 0", SizeCommand.Execute(Options.Parse(["--target", "write", "--publish-dir", publish, "--fonts-dir", fonts, "--out", sizeCsv], out _)!), 0);
+        var sizeRows = File.Exists(sizeCsv) ? File.ReadAllLines(sizeCsv) : [];
+        Expect("size --target write --out: the rows have the mode write", sizeRows.Length > 1 && sizeRows.Skip(1).All(r => r.Contains(",write,size,", StringComparison.Ordinal)), true);
+        Expect("size --target write: a publish folder without RafficaWrite is refused with --check", SizeCommand.Execute(Options.Parse(["--target", "write", "--check", "win-x64", "--publish-dir", fonts, "--fonts-dir", fonts], out _)!), 2);
+
+        var commands = new (string Name, Func<string, int> Run)[]
+        {
+            ("run", t => RunCommand.Execute(Options.Parse(["--target", t, "--exe", fake, "--case", "nonexistent", "--out", Path.Combine(root, "run.csv")], out _)!)),
+            ("size", t => SizeCommand.Execute(Options.Parse(["--target", t, "--publish-dir", publish, "--fonts-dir", fonts, "--out", Path.Combine(root, "s.csv")], out _)!)),
+            ("size --check", t => SizeCommand.Execute(Options.Parse(["--target", t, "--check", "win-x64", "--publish-dir", publish, "--fonts-dir", fonts], out _)!)),
+            ("check", t => CheckCommand.Execute(Options.Parse(["--target", t, "--platform", "windows", "--in", csv], out _)!)),
+        };
+        foreach (var (name, run) in commands)
+        {
+            var (_, writeMessage) = Capture(() => run("write"));
+            Expect($"{name} --target write: the target is accepted", writeMessage.Contains("--target must be", StringComparison.Ordinal), false);
+            var (_, badMessage) = Capture(() => run("amiga"));
+            Expect($"{name} --target amiga: refused with a message naming write", badMessage.Contains("--target must be", StringComparison.Ordinal) && badMessage.Contains("write", StringComparison.Ordinal), true);
+        }
+
+        Directory.Delete(root, recursive: true);
     }
 
     /// <summary>

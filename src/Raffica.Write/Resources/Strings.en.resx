@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Raffica Write</value>
+  </data>
+  <data name="AppMarkName" xml:space="preserve">
+    <value>Raffica Write</value>
+  </data>
+  <data name="OpenFileButton" xml:space="preserve">
+    <value>Open file</value>
+  </data>
+  <data name="OpenDialogTitle" xml:space="preserve">
+    <value>Open document</value>
+  </data>
+  <data name="OpenFilterDocx" xml:space="preserve">
+    <value>Word documents</value>
+  </data>
+  <data name="ErrorTitle" xml:space="preserve">
+    <value>The file could not be opened</value>
+  </data>
+  <data name="OpenErrorNotFound" xml:space="preserve">
+    <value>The file does not exist (any more).</value>
+  </data>
+  <data name="OpenErrorAccessDenied" xml:space="preserve">
+    <value>The file is in use, or you are not allowed to read it.</value>
+  </data>
+  <data name="OpenErrorNotADocx" xml:space="preserve">
+    <value>This is not a Word document (.docx).</value>
+  </data>
+  <data name="OpenErrorCorrupt" xml:space="preserve">
+    <value>The file is damaged and cannot be read.</value>
+  </data>
+  <data name="OpenErrorTooLarge" xml:space="preserve">
+    <value>The file is too large to open.</value>
+  </data>
+  <data name="OpenErrorOther" xml:space="preserve">
+    <value>The file could not be read.</value>
+  </data>
+  <data name="OpenFailuresTitle" xml:space="preserve">
+    <value>Some files could not be opened</value>
+  </data>
+  <data name="OpenFailuresMessage" xml:space="preserve">
+    <value>These files are missing, are not Word documents or cannot be read:</value>
+  </data>
+  <data name="OpenFailuresMoreFormat" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="SettingsDefaultView" xml:space="preserve">
+    <value>Default view</value>
+  </data>
+  <data name="SettingsDefaultZoom" xml:space="preserve">
+    <value>Default zoom</value>
+  </data>
+  <data name="ViewPage" xml:space="preserve">
+    <value>Page view</value>
+  </data>
+  <data name="ViewWriting" xml:space="preserve">
+    <value>Writing view</value>
+  </data>
+  <data name="ZoomActualSize" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="ZoomFitWidth" xml:space="preserve">
+    <value>Fit width</value>
+  </data>
+  <data name="ZoomFitPage" xml:space="preserve">
+    <value>Fit page</value>
+  </data>
+  <data name="MenuFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="MenuOpen" xml:space="preserve">
+    <value>Open…</value>
+  </data>
+  <data name="MenuOpenRecent" xml:space="preserve">
+    <value>Open Recent</value>
+  </data>
+  <data name="MenuNoRecent" xml:space="preserve">
+    <value>No recent files</value>
+  </data>
+  <data name="MenuCloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="MenuSettings" xml:space="preserve">
+    <value>Settings…</value>
+  </data>
+  <data name="MenuWindow" xml:space="preserve">
+    <value>Window</value>
+  </data>
+  <data name="MenuMinimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="MenuZoomWindow" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="MenuBringAllToFront" xml:space="preserve">
+    <value>Bring All to Front</value>
+  </data>
+  <data name="TabHome" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="TabView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="GroupFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="GroupSearch" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="GroupZoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="GroupViews" xml:space="preserve">
+    <value>Views</value>
+  </data>
+  <data name="GroupPanes" xml:space="preserve">
+    <value>Panes</value>
+  </data>
+  <data name="CmdOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="CmdCloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="CmdSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="CmdSearch" xml:space="preserve">
+    <value>Search commands</value>
+  </data>
+  <data name="CmdZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="CmdZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="CmdActualSize" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="CmdFitWidth" xml:space="preserve">
+    <value>Fit width</value>
+  </data>
+  <data name="CmdFitPage" xml:space="preserve">
+    <value>Fit page</value>
+  </data>
+  <data name="CmdPageView" xml:space="preserve">
+    <value>Page view</value>
+  </data>
+  <data name="CmdWritingView" xml:space="preserve">
+    <value>Writing view</value>
+  </data>
+  <data name="CmdOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="ReasonZoomMax" xml:space="preserve">
+    <value>Already at the largest zoom.</value>
+  </data>
+  <data name="ReasonZoomMin" xml:space="preserve">
+    <value>Already at the smallest zoom.</value>
+  </data>
+  <data name="ReasonOutlineSoon" xml:space="preserve">
+    <value>The outline is not available yet.</value>
+  </data>
+  <data name="StatusPositionFormat" xml:space="preserve">
+    <value>Page {0} of {1}</value>
+  </data>
+  <data name="StatusPositionMoreFormat" xml:space="preserve">
+    <value>Page {0} of {1}+</value>
+  </data>
+  <data name="PageViewNameFormat" xml:space="preserve">
+    <value>Document: {0}</value>
+  </data>
+  <data name="PageViewPageNameFormat" xml:space="preserve">
+    <value>Document: {0}, page {1} of {2}</value>
+  </data>
+  <data name="PaneOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="OutlineLoading" xml:space="preserve">
+    <value>Reading the headings…</value>
+  </data>
+  <data name="OutlineEmpty" xml:space="preserve">
+    <value>This document has no headings.</value>
+  </data>
+  <data name="OutlineEntryNameFormat" xml:space="preserve">
+    <value>{0}, heading level {1}</value>
+  </data>
+  <data name="OutlineWaiting" xml:space="preserve">
+    <value>Laying out the pages up to the heading…</value>
+  </data>
+</root>

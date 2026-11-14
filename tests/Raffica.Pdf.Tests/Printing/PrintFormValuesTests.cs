@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using Raffica.Core.Pdf;
 using Raffica.Core.Printing;
 using Raffica.Core.Settings;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Forms;
 using Raffica.Pdf.Platform.Windows;

@@ -322,6 +322,16 @@
       "date": "2026-11-13",
       "context": "Milestone 4.1",
       "text": "The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision \"Raffica Write: Open XML SDK under Native AOT (M4)\"). Word's PDFs of the corpus are made by the owner and are listed as open."
+    },
+    {
+      "date": "2026-11-14",
+      "context": "Milestone 4.2",
+      "text": "What a second app needs from `Raffica.Pdf` moves into a new shared project `Raffica.Hosting` (window host and file activation, the names of the settings and recent files and of the instance, recent files, the dialog queue); the crash guard, the update flow, the default-app services and the print services stay in `Raffica.Pdf` until a Write milestone first needs them (4.7 to 4.9). Write's macOS menu bar is its own small `WriteMacMenu`, because `MacMenuBinder` is bound to the PDF command catalog; generalizing it is left until the Write menu grows. The layout library has its own UAX #14 line breaker, generated from the Unicode data files and checked against `LineBreakTest.txt` (owner's choice of 2026-11-14), so the library keeps the spec's rule that it references no Avalonia type and the headless first page does not load Avalonia. In 4.2 the layout shows tracked changes as accepted text and shows no comments (the review UI is 4.6). The headless engine benchmark is a new tool `bench/write-layout`. The app's command search is Alt+Q through an app-level option of the frame (spec section 6); on macOS it stays on ⌘K until 4.5 chooses the ⌘ shortcut. The page-count gate of the generated thesis needs Word's PDF of it, which is the owner's and is open."
+    },
+    {
+      "date": "2026-11-14",
+      "context": "Milestone 4.2",
+      "text": "Reality diverged from the planning-time entry in these points: `Raffica.Hosting` also holds `WindowPlacementTracker` (moved out of the PDF window after a review, instead of a reduced copy in Write); the Write app has its own small command catalog types (`WriteCommandCatalog`), because the PDF catalog stays in `Raffica.Pdf`; `DocxFile.OpenPrefix`, `IsPrefix` and `Package` were added to the 4.1 library for the first page; `Raffica.Write` excludes the native PDFium assets that `Raffica.Core` brings in; the writing view shows strips and the status bar still counts them as pages. The three criteria of this milestone are open owner gates (see the milestone), so it stays in progress."
     }
   ],
   "subprojects": [
@@ -821,20 +831,31 @@
         {
           "id": "4.2",
           "title": "Write as a fast DOCX viewer",
-          "status": "open",
+          "status": "in-progress",
+          "plan": "superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md",
           "prerequisites": ["4.1"],
           "goal": "Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.",
           "tasks": [
-            { "text": "The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`; `WindowHost` and what else a second app needs moved out of `Raffica.Pdf` (the PDF tests stay green)", "done": false },
-            { "text": "The C# layout library with the layout features of the spec (section 6), the shipped fonts and font fallback", "done": false },
-            { "text": "Page view and writing view, scrolling, zoom, outline pane for navigation", "done": false },
-            { "text": "Startup work for the first page (font loading, reading only what page 1 needs)", "done": false },
+            { "text": "The Write app on the frame (start view, tabs, recent files, single instance, settings), ink `Raffica.Color.Ink.Write`; `WindowHost` and what else a second app needs moved out of `Raffica.Pdf` (the PDF tests stay green)", "done": true },
+            { "text": "The C# layout library with the layout features of the spec (section 6), the shipped fonts and font fallback", "done": true },
+            { "text": "Page view and writing view, scrolling, zoom, outline pane for navigation", "done": true },
+            { "text": "Startup work for the first page (font loading, reading only what page 1 needs)", "done": true },
             { "text": "App speed budgets: `measure.yml` target `write`, a Write budget table in `CheckCommand`, measured on the Windows PC, the Linux laptop and the Intel Mac", "done": false }
           ],
           "acceptance": [
-            { "text": "The engine's first page of the generated thesis ≤ 100 ms on the Linux laptop (headless benchmark over the UI-free library, as in the spike; Write spec, section 5)", "done": false },
-            { "text": "The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25) and checked by `measure.yml`", "done": false },
-            { "text": "The corpus comparison table exists and the generated thesis has the page count of Word's PDF of it", "done": false }
+            { "text": "The engine's first page of the generated thesis ≤ 100 ms on the Linux laptop (headless benchmark over the UI-free library, as in the spike; Write spec, section 5)", "done": false, "evidence": "Open: needs the Linux laptop. The Windows PC median is 46.0 ms (Native AOT, `write-layout-bench run`, thesis, median of 10 after 2 warm-ups); command for the laptop: `write-layout-bench run --file testdata/write-corpus/thesis/thesis.docx`." },
+            { "text": "The app budgets are recorded in `Docs/DECISIONS.md` (median, limit × 1.25) and checked by `measure.yml`", "done": false, "evidence": "Open: needs the owner's `measure.yml` runs (`target=write`) and the filled `s_writeBudgets`; the entry \"Raffica Write: speed budgets (M4.2)\" is not written yet." },
+            { "text": "The corpus comparison table exists and the generated thesis has the page count of Word's PDF of it", "done": false, "evidence": "Open: the corpus table with Write's columns exists (`Docs/write-corpus.md`, `write-corpus table`), but the thesis page count against Word needs the owner's `testdata/write-corpus/thesis/word.pdf`; Write's count is 311; gate: `dotnet run --project bench/write-corpus -c Release -- compare --id thesis --require-same-page-count`." }
+          ],
+          "blocks": [
+            {
+              "title": "State of the tasks (2026-11-14)",
+              "text": "Tasks 1 to 4 are done. 1: `src/Raffica.Write` on the frame and `src/Raffica.Hosting` (`WindowHost`, file activation, `AppFiles`, `RecentService`, `DialogQueue`, `WindowSettingsSource<T>`, `WindowPlacementTracker`); the Pdf suite kept its results across the move (2090 tests before; 2024 after plus 71 in `Raffica.Hosting.Tests`; the same 23 skips); crash guard, update flow, default-app and print services stay in `Raffica.Pdf` (scope change of 2026-11-14). 2: `src/Raffica.Write.Layout` (fonts and fallback, own UAX #14 breaker checked against `LineBreakTest.txt`, styles and numbering, paragraphs, hyphenation, pages, sections, columns, headers and footers, notes, tables, pictures, floats, placeholders, `PageRenderer`); proof: `tests/Raffica.Write.Tests` (`Layout/*`, `LineBreakConformanceTests`, `CorpusLayoutTests`: all 16 corpus files lay out); equality with Word is not proven (criterion 3). 3: `PageView` (page view and writing view as strips), `PageScroller`, zoom, `OutlinePane`; proof: `PageViewTests`, `PageScrollerTests`, `WriteCommandTests`, `OutlinePaneTests` in `Raffica.Write.App.Tests` and a live look at the Native AOT build on the Windows PC (Linux and macOS not seen). 4: `DocxFile.OpenPrefix`, `DocumentLayout.ReplaceModel`, the warm-up on the pool and the main part inflated on the pool; proof: `DocxPrefixTests`, `StartupTests` and `write-layout-bench run` on the thesis (Native AOT, Windows PC): 84.5 ms to 46.0 ms. Task 5 is partly done: the `write` target of `measure.cs`, the app's measurement switches, `s_writeBudgets` (engine limit 100 ms for Linux, no app rows yet), the CI publish, smoke test and size record, and `measure.yml` (proof: `dotnet run bench/shell-probe/measure.cs -- selftest`, `MeasurementTests`); the measurement runs on the three machines and the filled budget table are the owner's, so the task stays open."
+            },
+            {
+              "title": "Open owner gates (the milestone stays in progress)",
+              "text": "1. First page of the thesis on the Linux laptop, limit 100 ms (the Windows PC measured 46.0 ms): `write-layout-bench run --file testdata/write-corpus/thesis/thesis.docx` on a Native AOT publish of this branch, CSV under `Docs/measurements/write-engine-2026-11-xx/`.\n2. Write speed budgets: `gh workflow run measure.yml --ref dev -f platform=<windows|linux|macos> -f target=write -f note=\"<machine>\" -f ref=<ref>` on the three machines (and `macos-hosted` as a record) with a `target=reference` control run of the same day; then fill `s_writeBudgets`, pin it in the `measure.cs` selftest, write the entry \"Raffica Write: speed budgets (M4.2)\" in `Docs/DECISIONS.md`, and make `dotnet run bench/shell-probe/measure.cs -- check --target write --platform <p> --in \"<csv glob>\"` and `size --check <rid> --target write ...` exit 0.\n3. Thesis page count against Word: the owner's `testdata/write-corpus/thesis/word.pdf` (and the other `word.pdf`, `word-accept.pdf`, `word-reject.pdf` files); `dotnet run --project bench/write-corpus -c Release -- compare --id thesis --require-same-page-count` must exit 0 (Write's count is 311), then add the CI step \"Thesis page count against Word's PDF\" and regenerate `Docs/write-corpus.md`.\n4. The full layout of the generated thesis, limit 3 s on the Linux laptop (spec section 5): `write-layout-bench check --root . --budget-ms 3000` on a Native AOT publish prints `run2 ms` and exits 1 above the budget (the Windows PC measured run2 374 ms).\n5. A look at the Native AOT Write app on the Linux laptop (Wayland) and the Intel Mac, and the Linux and macOS AOT publish of the Write app (CI).\n\nFollow-ups of the branch review (details in `Docs/DECISIONS.md`, entry \"Raffica Write: the layout library and the viewer (M4.2)\"): image cache budget, pixel cap and off-thread decode (4.3 or 4.8, before 4.9); crash guard and a try/catch around `PageRenderer.Draw` (before 4.9); hostile-file allocations of `InflateMain`, `PackageImageSource.Part` and `NumberingCounter.Letters` (4.8); strips counted as pages and the doubled open entry on the start view; the `ReplaceModel` guard; per-app third-party notices."
+            }
           ]
         },
         {

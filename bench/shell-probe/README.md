@@ -172,6 +172,32 @@ Owner steps (what is still open):
 2. Measure the references on the same machines: the predecessor with `-f target=reference` (section "Measuring the reference app" below: startup to the first sharp page, the 1000-page file and a file handed to the running instance; the predecessor's script has no scroll or memory case) and Chrome by the method of the predecessor's comparison entry, and add the numbers to the entry "Raffica PDF speed budgets (M2.1)" with a finding for every case that is slower than the predecessor.
 3. A new budget or a loosened limit is a new decisions entry and a change of `s_pdfBudgets` together with the selftest lines that pin it, never an edit to make a check pass.
 
+## Measuring the Write app (milestone 4.2)
+
+The Write app has the same measurement switches as the PDF app (`--measure-startup`, `--measure-second`, `--measure-scroll`, `--measure-memory`; each needs
+`--settings-file` and a file, so a measurement never touches the settings, the recent files or the instance pipe of the user) and the same protocol
+(`first-page` when page 1 is drawn, `second-page ms=`, `scroll p99-ms= max-ms=` over 600 wheel steps, `memory-bytes` two seconds after the first page).
+`--target write` has the cases `cold`, `warm`, `thesis`, `second`, `scroll`, `memory` and `engine`; the CSV column `mode` is `write`; the test files come
+from `testdata/write-corpus` (`--testdata <folder>`; the case to file table is in `testdata/write-corpus/README.md`). The case `engine` takes
+`--exe <write-layout-bench>` (a Native AOT publish of `bench/write-layout`) and records the median of `write-layout-bench run` on the thesis as the one row
+`write/engine`; it is the headless first page of the engine, the spec's fixed limit of 100 ms on the Linux laptop.
+
+```
+dotnet publish src/Raffica.Write -c Release -r win-x64 -o artifacts/write/win-x64
+dotnet publish bench/write-layout -c Release -r win-x64 -o artifacts/write-layout/win-x64
+dotnet run bench/shell-probe/measure.cs -- run --target write --exe artifacts/write/win-x64/RafficaWrite.exe --case warm --out artifacts/write/warm.csv
+dotnet run bench/shell-probe/measure.cs -- run --target write --exe artifacts/write-layout/win-x64/write-layout-bench.exe --case engine --out artifacts/write/engine.csv
+dotnet run bench/shell-probe/measure.cs -- size --target write --publish-dir artifacts/write/win-x64 --fonts-dir src/Raffica.Shell/Assets/Fonts --out artifacts/write/size.csv
+dotnet run bench/shell-probe/measure.cs -- check --target write --platform windows --in "artifacts/write/*.csv" --summary artifacts/write/summary.md
+```
+
+**The limit table of the Write app (`s_writeBudgets`) is empty for the app metrics until the owner's runs are recorded** (milestone 4.2, step 3; the entry
+"Raffica Write: speed budgets (M4.2)" in `Docs/DECISIONS.md`). The one entry that exists is a fixed limit: `engine` 80 on Linux, so the limit is 80 x 1.25 =
+100 ms (the Linux laptop's first-page limit of the spec). `check --target write` judges the metrics that have a limit, lists the others as `not judged`
+(they never fail) and exits 2 ("no limits recorded for target write") when none of them has a limit, as the PDF target did before its budgets existed;
+`size --check <rid> --target write` exits 2 the same way until a size limit is recorded. `--app` and `--dmg` are the PDF app's: the macOS bundle of Write is
+milestone 4.9's. A miss of the engine limit is a finding for the owner, never a loosened number.
+
 ## Measuring another commit (the `ref` input)
 
 The workflow file runs from the dispatch ref (`--ref dev`; the runner group allows only `dev`), but the optional input `ref` names the commit

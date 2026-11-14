@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using Raffica.Core.Pdf;
 using Raffica.Core.Settings;
 using Raffica.Core.Viewing;
+using Raffica.Hosting;
 using Raffica.Shell;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;

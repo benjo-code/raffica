@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Raffica.Core.Annotations;
 using Raffica.Core.Pdf;
+using Raffica.Hosting;
 using Raffica.Pdf.Annotating;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;

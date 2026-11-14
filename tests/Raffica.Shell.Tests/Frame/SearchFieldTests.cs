@@ -247,6 +247,89 @@ public sealed class SearchFieldTests
         Assert.Equal(3, input.SelectionEnd);
     }
 
+    private static (Window Window, TextBox Input, Button Other) ShowWithAltQ()
+    {
+        var button = new Button { Content = "Other" };
+        var search = new SearchField { Source = SampleRibbon.Create(), Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
+        var window = ControlHarness.Show(new StackPanel { Children = { button, search } }, ThemeMode.Light);
+        FrameKeys.Attach(window, search, SearchShortcut.AltQ);
+        var input = ControlHarness.Part<TextBox>(search, "PART_Input");
+        button.Focus();
+        ControlHarness.Settle(window);
+        Assert.False(input.IsFocused);
+        return (window, input, button);
+    }
+
+    // The key that stands for Cmd/Ctrl in a window: the hotkey configuration of the platform, as FrameKeys reads it. A real macOS app binds Meta there, but the
+    // headless platform binds the default configuration (Control) on every OS, so a headless window takes Control even on macOS.
+    private static RawInputModifiers CommandKey => (RawInputModifiers)(int)Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+
+    [AvaloniaFact]
+    public void AltQFocusesTheFieldWhenTheAppAsksForIt()
+    {
+        var (window, input, _) = ShowWithAltQ();
+
+        if (OperatingSystem.IsMacOS())
+        {
+            // macOS keeps Cmd+K for this option (the command key of the platform), and Alt+Q does nothing.
+            Press(window, PhysicalKey.Q, RawInputModifiers.Alt);
+            Assert.False(input.IsFocused);
+            Press(window, PhysicalKey.K, CommandKey);
+        }
+        else
+        {
+            // Ctrl+K is not the key of this frame.
+            Press(window, PhysicalKey.K, RawInputModifiers.Control);
+            Assert.False(input.IsFocused);
+            Press(window, PhysicalKey.Q, RawInputModifiers.Alt);
+        }
+
+        Assert.True(input.IsFocused);
+    }
+
+    [Fact]
+    public void TheAltQGestureIsAltQOnWindowsAndLinuxAndTheCommandKeyOnMacOs()
+    {
+        var other = FrameKeys.GestureOf(SearchShortcut.AltQ, KeyModifiers.Control, macOs: false);
+        Assert.Equal(Key.Q, other.Key);
+        Assert.Equal(KeyModifiers.Alt, other.KeyModifiers);
+        Assert.Equal("Alt+Q", FrameKeys.TextOf(SearchShortcut.AltQ, macOs: false));
+
+        var mac = FrameKeys.GestureOf(SearchShortcut.AltQ, KeyModifiers.Meta, macOs: true);
+        Assert.Equal(Key.K, mac.Key);
+        Assert.Equal(KeyModifiers.Meta, mac.KeyModifiers);
+        Assert.Equal("Meta+K", FrameKeys.TextOf(SearchShortcut.AltQ, macOs: true));
+
+        Assert.Equal(new KeyGesture(Key.K, KeyModifiers.Control), FrameKeys.GestureOf(SearchShortcut.CtrlK, KeyModifiers.Control, macOs: false));
+        Assert.Equal(new KeyGesture(Key.K, KeyModifiers.Meta), FrameKeys.GestureOf(SearchShortcut.CtrlK, KeyModifiers.Meta, macOs: true));
+    }
+
+    [AvaloniaFact]
+    public void CtrlAltQIsAltGrAndNeverFocusesTheField()
+    {
+        // AltGr+Q types "@" on some layouts and Windows reports it as Ctrl+Alt.
+        var (window, input, _) = ShowWithAltQ();
+        Press(window, PhysicalKey.Q, RawInputModifiers.Control | RawInputModifiers.Alt);
+        Assert.False(input.IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void TheTooltipNamesAltQ()
+    {
+        var original = ShellStrings.Culture;
+        try
+        {
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("en");
+            Assert.Equal(OperatingSystem.IsMacOS() ? "Search (⌘K)" : "Search (Alt+Q)", SearchField.CreateTooltip(SearchShortcut.AltQ).Title);
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal(OperatingSystem.IsMacOS() ? "Suchen (⌘K)" : "Suchen (Alt+Q)", SearchField.CreateTooltip(SearchShortcut.AltQ).Title);
+        }
+        finally
+        {
+            ShellStrings.Culture = original;
+        }
+    }
+
     [AvaloniaFact]
     public void TooltipNamesTheShortcut()
     {

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Raffica.Core.Text;
+using Raffica.Hosting;
 using Raffica.Pdf.Dialogs;
 using Raffica.Pdf.Documents;
 using Raffica.Pdf.Viewing;

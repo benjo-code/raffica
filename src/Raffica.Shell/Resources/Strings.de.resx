@@ -138,6 +138,9 @@
   <data name="StartOpenPdf" xml:space="preserve">
     <value>PDF öffnen</value>
   </data>
+  <data name="StartOpenDocument" xml:space="preserve">
+    <value>Dokument öffnen</value>
+  </data>
   <data name="SettingsTitle" xml:space="preserve">
     <value>Einstellungen</value>
   </data>
