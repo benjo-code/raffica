@@ -17,7 +17,9 @@ check() {
 
 check match src/Raffica.Pdf/Platform/Windows/X.cs
 check match src/Raffica.Core/Hosting/SingleInstance.cs
-check match src/Raffica.Pdf/Hosting/WindowHost.cs
+check match src/Raffica.Pdf/Hosting/CrashGuard.cs
+check match src/Raffica.Hosting/WindowHost.cs
+check match src/Raffica.Hosting/WindowPlacementTracker.cs
 check match src/Raffica.Pdf/App.axaml.cs
 check match src/Raffica.Write/App.axaml.cs
 check match src/Raffica.Write/Platform/MacOS/WriteMacMenu.cs
