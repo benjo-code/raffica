@@ -45,6 +45,9 @@ public sealed record ParagraphInput(ResolvedParagraph Paragraph, IReadOnlyList<P
 
     /// <summary>Whether words may be hyphenated at the line end (the document setting w:autoHyphenation; a paragraph that suppresses it still never is).</summary>
     public bool AutoHyphenation { get; init; }
+
+    /// <summary>The footnote references of the paragraph, by the item that draws their number (the page layout finds the line each one lands on).</summary>
+    internal IReadOnlyList<NoteMark>? NoteMarks { get; init; }
 }
 
 /// <summary>The horizontal room of one line, in paragraph coordinates (0 is the left edge of the text area).</summary>

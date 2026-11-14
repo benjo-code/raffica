@@ -26,6 +26,17 @@ internal sealed class PageList
         }
     }
 
+    /// <summary>Puts a new version of a published page in its place (the total of a page count that was unknown). Only the layout thread calls this.</summary>
+    public void Replace(int index, LaidOutPage page)
+    {
+        if ((uint)index >= (uint)_count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), index, "Only a published page can be replaced.");
+        }
+
+        Volatile.Write(ref _items[index], page);
+    }
+
     /// <summary>Adds a page. Only the layout thread calls this, one call at a time.</summary>
     public void Add(LaidOutPage page)
     {

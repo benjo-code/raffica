@@ -145,3 +145,38 @@ internal static class PageNumbers
         return count > 64 ? number.ToString(CultureInfo.InvariantCulture) : new string(letter, count);
     }
 }
+
+/// <summary>Flattens the blocks of a story: a block content control's blocks stand in its place.</summary>
+internal static class FlatBlocks
+{
+    private const int MaximumDepth = 32;
+    private const int TopLevelIndex = -2;
+
+    /// <summary>The blocks in reading order; every one carries <paramref name="bodyIndex"/>, or the index of its top-level block when that is left out (the body).</summary>
+    public static List<FlatBlock> From(IList<Block> blocks, int bodyIndex = TopLevelIndex)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+        var flat = new List<FlatBlock>(blocks.Count);
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            Add(flat, blocks[i], bodyIndex == TopLevelIndex ? i : bodyIndex, 0);
+        }
+
+        return flat;
+    }
+
+    private static void Add(List<FlatBlock> flat, Block block, int bodyIndex, int depth)
+    {
+        if (block is ContentControlBlock control && depth < MaximumDepth)
+        {
+            foreach (var inner in control.Content)
+            {
+                Add(flat, inner, bodyIndex, depth + 1);
+            }
+
+            return;
+        }
+
+        flat.Add(new FlatBlock(block, bodyIndex));
+    }
+}

@@ -38,6 +38,9 @@ internal interface IBlockFlow
     /// <summary>The height of the smallest head this block allows (the lines that must stay together at a page end); the filler uses it to keep a heading with the next block.</summary>
     float MinimumHead { get; }
 
+    /// <summary>The footnote references that this piece draws (their notes go to the bottom of the page the piece lands on). Empty for almost every piece.</summary>
+    IReadOnlyList<NoteRef> Notes { get; }
+
     /// <summary>A page or column break that ends this piece (a manual break inside a paragraph); null otherwise.</summary>
     BreakKind? EndBreak { get; }
 

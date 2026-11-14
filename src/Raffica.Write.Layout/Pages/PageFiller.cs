@@ -16,6 +16,7 @@ namespace Raffica.Write.Layout;
 internal sealed class PageFiller
 {
     private const uint Black = 0xFF000000;
+    private const int MaximumNotePages = 10_000;
 
     private readonly IReadOnlyList<SectionPlan> _sections;
     private readonly IReadOnlyList<FlatBlock> _blocks;
@@ -23,6 +24,10 @@ internal sealed class PageFiller
     private readonly bool _flowMode;
     private readonly int[] _blockPage;
     private readonly float[] _blockY;
+    private readonly HashSet<int> _startedSections = [];
+    private readonly List<int> _sectionPages = [];
+    private readonly List<(PageBuilder Page, float Height)> _revisable = [];
+    private int _pageCount;
     private int _maxTouched = -1;
 
     public PageFiller(IReadOnlyList<SectionPlan> sections, IReadOnlyList<FlatBlock> blocks, BlockPlanner planner, bool flowMode, int[] blockPage, float[] blockY)
@@ -35,7 +40,7 @@ internal sealed class PageFiller
         _blockY = blockY;
     }
 
-    /// <summary>Headers, footers and notes; null until Task 9.</summary>
+    /// <summary>Headers, footers and notes; null in the writing view.</summary>
     public IPageChrome? Chrome { get; set; }
 
     /// <summary>The highest body block index the filler has looked at so far, placed or only measured ahead.</summary>
@@ -47,6 +52,8 @@ internal sealed class PageFiller
         List<Band> bands = [];
         var pageIndex = 0;
         var nextNumber = 1;
+        var lastFilled = LastNonEmpty();
+        SectionPlan? current = null;
 
         for (var s = 0; s < _sections.Count; s++)
         {
@@ -55,6 +62,8 @@ internal sealed class PageFiller
             {
                 continue;
             }
+
+            current = section;
 
             var geometry = section.Geometry;
             var continuous = page is not null && !_flowMode && section.Start == SectionStart.Continuous && page.Geometry.SamePaper(geometry);
@@ -75,17 +84,21 @@ internal sealed class PageFiller
 
                 page = Begin(pageIndex++, number, section);
                 nextNumber = number + 1;
-                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, false, false)];
+                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, false, false, page.Notes)];
             }
             else
             {
                 var last = bands[^1];
                 Balance(last);
+                CountSectionPage(section);
+
+                // The room is what the page has left after header, footer and notes; a section with margins of its own can only narrow it.
+                var bottom = Math.Min(geometry.BodyBottom, page.BodyBottom);
                 var top = last.MaxY + last.SpaceAfterLast;
-                bands.Add(new Band(geometry, Math.Min(top, geometry.BodyBottom), geometry.BodyBottom, false, true));
+                bands.Add(new Band(geometry, Math.Min(top, bottom), bottom, false, true, page.Notes));
             }
 
-            var source = new SectionSource(_planner, _blocks, section.FirstBlock, section.EndBlock, Touch);
+            var source = new SectionSource(_planner, _blocks, section.FirstBlock, section.EndBlock, Touch, s == lastFilled ? Chrome?.Trailer() : null);
             IBlockFlow? carry = null;
             while (true)
             {
@@ -107,7 +120,7 @@ internal sealed class PageFiller
                 yield return Finish(page, bands);
                 page = Begin(pageIndex++, nextNumber, section);
                 nextNumber++;
-                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, result.SuppressSpaceBefore, false)];
+                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, result.SuppressSpaceBefore, false, page.Notes)];
                 carry = result.Carry;
             }
         }
@@ -119,8 +132,60 @@ internal sealed class PageFiller
         else if (pageIndex == 0)
         {
             // An empty body (or sections with nothing in them) is still one blank page.
-            yield return Finish(Begin(0, 1, _sections[0]), []);
+            pageIndex = 1;
+            nextNumber = 2;
+            current = _sections[0];
+            yield return Finish(Begin(0, 1, current), []);
         }
+
+        // A note that is longer than the room left continues on pages of its own until it has ended: each page takes at least one line
+        // of it, so this ends; the limit only guards against a fault.
+        for (var extra = 0; Chrome is { HasCarry: true } && extra < MaximumNotePages; extra++)
+        {
+            yield return Finish(Begin(pageIndex++, nextNumber++, current ?? _sections[0]), []);
+        }
+    }
+
+    /// <summary>The pages of the layout with the header or footer made again now that the page counts are known (call once, when the last page is out).</summary>
+    public IReadOnlyList<(int Index, LaidOutPage Page)> Revisions()
+    {
+        if (Chrome is null || _revisable.Count == 0)
+        {
+            return [];
+        }
+
+        var revised = new List<(int, LaidOutPage)>(_revisable.Count);
+        foreach (var (page, height) in _revisable)
+        {
+            Chrome.Revise(page, _pageCount, _sectionPages);
+            revised.Add((page.Index, Build(page, height)));
+        }
+
+        _revisable.Clear();
+        return revised;
+    }
+
+    private int LastNonEmpty()
+    {
+        for (var i = _sections.Count - 1; i >= 0; i--)
+        {
+            if (!_sections[i].IsEmpty)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void CountSectionPage(SectionPlan section)
+    {
+        while (_sectionPages.Count <= section.Index)
+        {
+            _sectionPages.Add(0);
+        }
+
+        _sectionPages[section.Index]++;
     }
 
     private void Touch(int bodyIndex) => _maxTouched = Math.Max(_maxTouched, bodyIndex);
@@ -132,7 +197,9 @@ internal sealed class PageFiller
     private PageBuilder Begin(int index, int number, SectionPlan section)
     {
         var text = _flowMode ? (index + 1).ToString(CultureInfo.InvariantCulture) : PageNumbers.Format(number, section.PageNumberFormat);
-        var page = new PageBuilder(index, number, text, section);
+        var page = new PageBuilder(index, number, text, section, _startedSections.Add(section.Index));
+        _pageCount++;
+        CountSectionPage(section);
         Chrome?.Begin(page);
         return page;
     }
@@ -147,6 +214,12 @@ internal sealed class PageFiller
             {
                 var flow = placed.Flow;
                 flow.Emit(page, placed.X, placed.Y);
+                if (flow.BodyIndex < 0)
+                {
+                    // An endnote block: not a block of the body.
+                    continue;
+                }
+
                 page.AddSpan(new BlockSpan(flow.BodyIndex, placed.Y, placed.Y + flow.Height));
                 if (flow.IsFirstPiece && _blockPage[flow.BodyIndex] < 0)
                 {
@@ -169,8 +242,16 @@ internal sealed class PageFiller
 
         Chrome?.End(page);
         var height = geometry.IsStrip ? Math.Max(1f, end) : geometry.Height;
-        return new LaidOutPage(page.Index, page.NumberText, geometry.Width, height, geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray());
+        if (page.NeedsTotals)
+        {
+            _revisable.Add((page, height));
+        }
+
+        return Build(page, height);
     }
+
+    private static LaidOutPage Build(PageBuilder page, float height) =>
+        new(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray());
 
     // A continuous section break after columns balances them: the least column height at which everything still fits is found by
     // trial fills of the same flows.
@@ -248,15 +329,17 @@ internal sealed class PageFiller
         private readonly int _end;
         private readonly Action<int> _touch;
         private readonly List<BlockPlan> _ahead = [];
+        private IEnumerator<BlockPlan>? _trailer;
         private int _next;
 
-        public SectionSource(BlockPlanner planner, IReadOnlyList<FlatBlock> blocks, int first, int end, Action<int> touch)
+        public SectionSource(BlockPlanner planner, IReadOnlyList<FlatBlock> blocks, int first, int end, Action<int> touch, IEnumerable<BlockPlan>? trailer = null)
         {
             _planner = planner;
             _blocks = blocks;
             _next = first;
             _end = end;
             _touch = touch;
+            _trailer = trailer?.GetEnumerator();
         }
 
         public IBlockFlow? Take(float width)
@@ -280,14 +363,30 @@ internal sealed class PageFiller
 
         private void Prepare(int ahead)
         {
-            while (_ahead.Count <= ahead && _next < _end)
+            while (_ahead.Count <= ahead)
             {
-                var flat = _blocks[_next++];
-                _touch(flat.BodyIndex);
-                if (_planner.Plan(flat) is { } plan)
+                if (_next < _end)
                 {
-                    _ahead.Add(plan);
+                    var flat = _blocks[_next++];
+                    _touch(flat.BodyIndex);
+                    if (_planner.Plan(flat) is { } plan)
+                    {
+                        _ahead.Add(plan);
+                    }
+
+                    continue;
                 }
+
+                // After the last block of the document come the endnotes (every reference is numbered by now).
+                if (_trailer is not null && _trailer.MoveNext())
+                {
+                    _ahead.Add(_trailer.Current);
+                    continue;
+                }
+
+                _trailer?.Dispose();
+                _trailer = null;
+                break;
             }
         }
     }

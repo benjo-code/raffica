@@ -31,6 +31,8 @@ internal sealed class BlockPlanner
     private readonly bool _expandShiftReturn;
     private readonly bool _autoHyphenation;
     private readonly Dictionary<ResolvedParagraph, ResolvedRun> _markRuns = new(ReferenceEqualityComparer.Instance);
+    private readonly List<FieldFrame> _frames = [];
+    private List<NoteMark>? _marks;
 
     public BlockPlanner(StyleResolver styles, NumberingCounter numbering, ParagraphLayouter layouter, DocumentSettings? settings)
     {
@@ -52,6 +54,28 @@ internal sealed class BlockPlanner
         }
     }
 
+    /// <summary>What the stories planned next are planned for (fields, note references); the default evaluates nothing and numbers nothing.</summary>
+    internal PlanContext Context { get; set; } = new();
+
+    /// <summary>True for a block that takes no room (a bookmark mark at block level).</summary>
+    internal static bool TakesNoRoom(Block block) =>
+        block is UnknownBlock unknown && s_invisibleBlocks.Contains(unknown.Content.Element.Name.LocalName);
+
+    /// <summary>The flows of a header, footer or note: its blocks laid out at <paramref name="width"/>, in order. Never throws on content.</summary>
+    internal List<IBlockFlow> PlanStory(IList<Block> blocks, float width)
+    {
+        var flows = new List<IBlockFlow>();
+        foreach (var flat in FlatBlocks.From(blocks, -1))
+        {
+            if (Plan(flat) is { } plan)
+            {
+                flows.Add(plan.Layout(width));
+            }
+        }
+
+        return flows;
+    }
+
     /// <summary>The plan of a block, or null for a block that takes no room (a bookmark mark at block level).</summary>
     public BlockPlan? Plan(FlatBlock flat)
     {
@@ -59,7 +83,7 @@ internal sealed class BlockPlanner
         {
             case Paragraph paragraph:
                 return new ParagraphPlan(flat.BodyIndex, Input(paragraph), _layouter, isContinuation: false);
-            case UnknownBlock unknown when s_invisibleBlocks.Contains(unknown.Content.Element.Name.LocalName):
+            case var block when TakesNoRoom(block):
                 return null;
             default:
                 // A table (until Task 10) or an element the layout cannot draw: a marked box, the model keeps the content.
@@ -74,13 +98,17 @@ internal sealed class BlockPlanner
         var items = new List<ParagraphItem>();
         var text = new StringBuilder();
         ResolvedRun? textRun = null;
+        _frames.Clear();
+        _marks = null;
         AddInlines(paragraph.Inlines, resolved, items, text, ref textRun);
         Flush(items, text, ref textRun);
+        _frames.Clear();
         return new ParagraphInput(resolved, items, MarkRun(resolved), label)
         {
             DefaultTabStop = _defaultTabStop,
             ExpandShiftReturn = _expandShiftReturn,
             AutoHyphenation = _autoHyphenation,
+            NoteMarks = _marks,
         };
     }
 
@@ -124,6 +152,17 @@ internal sealed class BlockPlanner
                     AddInlines(link.Inlines, owner, items, text, ref textRun);
                     break;
                 case SimpleField field:
+                    if (!Visible(_frames.Count))
+                    {
+                        break;
+                    }
+
+                    if (Context.Fields?.Evaluate(field.Instruction) is { } value)
+                    {
+                        Append(value, FieldFormat(owner, field.Inlines), items, text, ref textRun);
+                        break;
+                    }
+
                     AddInlines(field.Inlines, owner, items, text, ref textRun);
                     break;
                 case ContentControlInline control:
@@ -144,8 +183,48 @@ internal sealed class BlockPlanner
         var format = _styles.ForRun(owner, run);
         foreach (var content in run.Content)
         {
+            if (content is FieldChar fieldChar)
+            {
+                FieldChange(fieldChar.Kind, format, items, text, ref textRun);
+                continue;
+            }
+
+            if (content is InstructionText instruction)
+            {
+                if (_frames.Count > 0 && !_frames[^1].InResult)
+                {
+                    _frames[^1].Instruction.Append(instruction.Text);
+                }
+
+                continue;
+            }
+
+            if (!Visible(_frames.Count))
+            {
+                // Inside the instruction of a field, or in the result of a field the layout evaluates: the first text of such a result
+                // is replaced by the value, the rest is dropped.
+                if (content is TextContent && _frames.Count > 0 && _frames[^1] is { Value: not null, Emitted: false } top && Visible(_frames.Count - 1))
+                {
+                    top.Emitted = true;
+                    Append(top.Value, format, items, text, ref textRun);
+                }
+
+                continue;
+            }
+
             switch (content)
             {
+                case FootnoteReference reference when Context.Notes is { } notes:
+                    Flush(items, text, ref textRun);
+                    var mark = notes.Register(false, reference.Id);
+                    items.Add(new TextSpan(mark.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                    (_marks ??= []).Add(new NoteMark(items.Count - 1, mark));
+                    break;
+                case EndnoteReference reference when Context.Notes is { } notes:
+                    Flush(items, text, ref textRun);
+                    var endnote = notes.Register(true, reference.Id);
+                    items.Add(new TextSpan(endnote.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                    break;
                 case TextContent t:
                     Append(t.Text, format, items, text, ref textRun);
                     break;
@@ -169,6 +248,10 @@ internal sealed class BlockPlanner
                     }
 
                     break;
+                case UnknownRunContent { Content.Element.Name.LocalName: "footnoteRef" or "endnoteRef" } when Context.NoteMark is { } own:
+                    Flush(items, text, ref textRun);
+                    items.Add(new TextSpan(own, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                    break;
                 case UnknownRunContent unknown:
                     AddUnknown(unknown.Content.Element, format, items, text, ref textRun);
                     break;
@@ -176,6 +259,86 @@ internal sealed class BlockPlanner
                     break;
             }
         }
+    }
+
+    // One open complex field while a paragraph is read.
+    private sealed class FieldFrame
+    {
+        public StringBuilder Instruction { get; } = new();
+
+        public bool InResult { get; set; }
+
+        public bool Decided { get; set; }
+
+        /// <summary>The text of a field the layout evaluates; null for every other field (its stored result shows).</summary>
+        public string? Value { get; set; }
+
+        public bool Emitted { get; set; }
+    }
+
+    // True when the content at this depth is shown: no enclosing field is in its instruction part and none is replaced by a value.
+    private bool Visible(int depth)
+    {
+        for (var i = 0; i < depth; i++)
+        {
+            if (!_frames[i].InResult || _frames[i].Value is not null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void FieldChange(FieldCharKind kind, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    {
+        switch (kind)
+        {
+            case FieldCharKind.Begin:
+                _frames.Add(new FieldFrame());
+                break;
+            case FieldCharKind.Separate when _frames.Count > 0:
+                _frames[^1].InResult = true;
+                Decide(_frames[^1]);
+                break;
+            case FieldCharKind.End when _frames.Count > 0:
+                var closed = _frames[^1];
+                _frames.RemoveAt(_frames.Count - 1);
+                Decide(closed);
+                if (closed is { Value: not null, Emitted: false } && Visible(_frames.Count))
+                {
+                    Append(closed.Value, format, items, text, ref textRun);
+                }
+
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void Decide(FieldFrame frame)
+    {
+        if (frame.Decided)
+        {
+            return;
+        }
+
+        frame.Decided = true;
+        frame.Value = Context.Fields?.Evaluate(frame.Instruction.ToString());
+    }
+
+    // A simple field is drawn in the format of its first run, or of the paragraph mark when it has none.
+    private ResolvedRun FieldFormat(ResolvedParagraph owner, IEnumerable<Inline> inlines)
+    {
+        foreach (var inline in inlines)
+        {
+            if (inline is Run run)
+            {
+                return _styles.ForRun(owner, run);
+            }
+        }
+
+        return MarkRun(owner) with { ParagraphMarkOnly = false };
     }
 
     private static void AddUnknown(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
@@ -277,6 +440,8 @@ internal sealed class PlaceholderFlow : IBlockFlow
     public float MinimumHead => Height;
 
     public BreakKind? EndBreak => null;
+
+    public IReadOnlyList<NoteRef> Notes => [];
 
     public IBlockFlow? AfterBreak(float width) => null;
 

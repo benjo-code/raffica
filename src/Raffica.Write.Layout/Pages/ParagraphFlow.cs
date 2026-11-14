@@ -29,6 +29,7 @@ internal abstract class BlockPlan
 internal sealed class ParagraphPlan : BlockPlan
 {
     private readonly ParagraphLayouter _layouter;
+    private int[]? _markOffsets;
 
     public ParagraphPlan(int bodyIndex, ParagraphInput input, ParagraphLayouter layouter, bool isContinuation)
         : base(bodyIndex)
@@ -47,7 +48,46 @@ internal sealed class ParagraphPlan : BlockPlan
     public ParagraphPlan After(int item)
     {
         var rest = item >= Input.Items.Count ? [] : Input.Items.Skip(item).ToArray();
-        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null }, _layouter, isContinuation: true);
+        var marks = Input.NoteMarks?.Where(m => m.ItemIndex >= item).Select(m => m with { ItemIndex = m.ItemIndex - item }).ToArray();
+        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks }, _layouter, isContinuation: true);
+    }
+
+    /// <summary>The text offset of each note mark of <see cref="ParagraphInput.NoteMarks"/> (counted as the layouter counts text).</summary>
+    public int[] MarkOffsets
+    {
+        get
+        {
+            if (_markOffsets is { } known)
+            {
+                return known;
+            }
+
+            var marks = Input.NoteMarks ?? [];
+            var offsets = new int[marks.Count];
+            var items = Input.Items;
+            var next = 0;
+            var length = 0;
+            for (var i = 0; i < items.Count && next < marks.Count; i++)
+            {
+                for (var k = 0; k < marks.Count; k++)
+                {
+                    if (marks[k].ItemIndex == i)
+                    {
+                        offsets[k] = length;
+                        next++;
+                    }
+                }
+
+                length += items[i] switch
+                {
+                    TextSpan span => span.Run.Hidden ? 0 : span.Text.Length,
+                    _ => 1,
+                };
+            }
+
+            _markOffsets = offsets;
+            return offsets;
+        }
     }
 
     protected override IBlockFlow Make(float width) =>
@@ -65,6 +105,7 @@ internal sealed class ParagraphFlow : IBlockFlow
     private readonly int _from;
     private readonly int _to;
     private readonly float _top;
+    private IReadOnlyList<NoteRef>? _notes;
 
     public ParagraphFlow(ParagraphPlan plan, ParagraphLayout layout, int from, int to)
     {
@@ -117,6 +158,8 @@ internal sealed class ParagraphFlow : IBlockFlow
     }
 
     public BreakKind? EndBreak => IsLastPiece ? _layout.EndBreak : null;
+
+    public IReadOnlyList<NoteRef> Notes => _notes ??= FindNotes();
 
     public IBlockFlow? AfterBreak(float width) =>
         EndBreak is null ? null : _plan.After(_layout.RemainderItem).Layout(width);
@@ -179,6 +222,30 @@ internal sealed class ParagraphFlow : IBlockFlow
             var text = _layout.TextOf(line);
             page.AddLine(i == 0 && IsFirstPiece && _plan.Input.Label is { } label ? label.Text + " " + text : text);
         }
+    }
+
+    // The note marks whose number is drawn on one of this piece's lines.
+    private List<NoteRef> FindNotes()
+    {
+        var marks = _plan.Input.NoteMarks;
+        if (marks is null || marks.Count == 0 || _to <= _from)
+        {
+            return [];
+        }
+
+        var start = _layout.Lines[_from].Start;
+        var end = _layout.Lines[_to - 1].End;
+        var offsets = _plan.MarkOffsets;
+        List<NoteRef>? found = null;
+        for (var i = 0; i < marks.Count; i++)
+        {
+            if (offsets[i] >= start && offsets[i] < end)
+            {
+                (found ??= []).Add(marks[i].Note);
+            }
+        }
+
+        return found ?? [];
     }
 
     // How many lines from the start of this range fit into the room.

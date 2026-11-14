@@ -29,17 +29,20 @@ internal interface IFlowLookahead
 internal sealed class Band
 {
     private const int MaximumChain = 8;
+    private const float Epsilon = 0.01f;
 
+    private readonly float _bottom;
     private bool _columnEmpty = true;
     private bool _suppress;
     private float _prevAfter;
     private string? _prevGroup;
 
-    public Band(PageGeometry geometry, float top, float bottom, bool suppressSpaceBefore, bool pageHadContent)
+    public Band(PageGeometry geometry, float top, float bottom, bool suppressSpaceBefore, bool pageHadContent, PageNotes? notes = null)
     {
         Geometry = geometry;
         Top = top;
-        Bottom = bottom;
+        _bottom = bottom;
+        Notes = notes;
         Y = top;
         MaxY = top;
         _suppress = suppressSpaceBefore;
@@ -51,7 +54,11 @@ internal sealed class Band
 
     public float Top { get; }
 
-    public float Bottom { get; }
+    /// <summary>The footnotes of the page this band is on (shared by every band of the page); null in a trial fill and in the writing view.</summary>
+    public PageNotes? Notes { get; }
+
+    /// <summary>Where the body ends now: the bottom of the text area less the room the footnotes of the page have taken so far.</summary>
+    public float Bottom => _bottom - (Notes?.Reserved ?? 0f);
 
     public int Column { get; private set; }
 
@@ -113,7 +120,7 @@ internal sealed class Band
                 continue;
             }
 
-            var split = flow.Split(available, _columnEmpty && AtPageTop);
+            var split = SplitWithNotes(flow, Y + gap, available, _columnEmpty && AtPageTop);
             if (split.Head is not { } head)
             {
                 if (_columnEmpty && AtPageTop)
@@ -133,6 +140,12 @@ internal sealed class Band
             Placed.Add(new Placed(head, Geometry.Columns.Lefts[Column], y, Column));
             Y = y + head.Height;
             MaxY = Math.Max(MaxY, Y);
+            if (Notes is not null)
+            {
+                Notes.Add(head.Notes);
+                Notes.ContentReaches(Y);
+            }
+
             _columnEmpty = false;
             _suppress = false;
             _prevAfter = head.SpaceAfter;
@@ -179,6 +192,42 @@ internal sealed class Band
 
             _suppress = false;
         }
+    }
+
+    // Cuts the flow for the room there is, then takes back lines until the notes of the references on the lines that stay fit as well: the
+    // room of a note is reserved when its line is placed. Two things must hold: the piece ends above the area the notes would take, and
+    // so does everything already on the page (another column). At the top of the page a piece is kept whatever the notes ask (the
+    // notes are cut to a share of the page and continue on the next one), which is what keeps the layout moving.
+    private FlowSplit SplitWithNotes(IBlockFlow flow, float y, float available, bool mustProgress)
+    {
+        var split = flow.Split(available, mustProgress);
+        if (Notes is null)
+        {
+            return split;
+        }
+
+        while (split.Head is { } head && head.Notes.Count > 0)
+        {
+            var limit = _bottom - Notes.ReservedWith(head.Notes);
+            var fitsBelow = y + head.Height <= limit + Epsilon;
+            if (fitsBelow && Notes.ContentBottom <= limit + Epsilon)
+            {
+                break;
+            }
+
+            // Fewer lines: the room that is left, or one line less when the trouble is what other columns hold.
+            var room = fitsBelow ? head.Height - Epsilon : Math.Min(limit - y, head.Height - Epsilon);
+            var smaller = flow.Split(room, mustProgress);
+            if (smaller.Head is { } next && next.Height >= head.Height - (Epsilon / 2f))
+            {
+                // Nothing smaller exists (a single line at the top of the page): keep it.
+                return smaller;
+            }
+
+            split = smaller;
+        }
+
+        return split;
     }
 
     // Space between two blocks is the space after the first plus the space before the second (as Word does, not the larger of the two);

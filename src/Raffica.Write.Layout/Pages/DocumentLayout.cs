@@ -28,6 +28,12 @@ public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float Flo
 /// <see cref="IsComplete"/>, <see cref="FirstPageIsFinal"/> and <see cref="Notes"/> at any time. The methods that lay out take a
 /// gate, one at a time; a call from the UI thread waits for the page the background thread is on, not for the whole document. The
 /// document model must not change while a layout runs on it.
+/// <para>
+/// A page whose header or footer shows NUMPAGES or SECTIONPAGES shows "…" there until the layout is complete; the layout then
+/// publishes a new page object in the same place (only the header and footer differ) just before <see cref="IsComplete"/> turns true.
+/// A caller that keeps a page object across the end of the layout holds the earlier version; reading <see cref="Page"/> again after
+/// <see cref="IsComplete"/> gives the final one.
+/// </para>
 /// </remarks>
 public sealed class DocumentLayout
 {
@@ -39,6 +45,7 @@ public sealed class DocumentLayout
     private readonly float[] _blockY;
     private readonly int _lastBodyIndex;
     private readonly List<string> _notes;
+    private readonly HeaderFooterPlan? _chrome;
     private bool _complete;
     private bool _firstPageFinal;
     private ExceptionDispatchInfo? _fault;
@@ -47,7 +54,7 @@ public sealed class DocumentLayout
     {
         var flow = options.Mode == LayoutMode.Flow;
         _notes = [];
-        var flat = Flatten(document.Body);
+        var flat = FlatBlocks.From(document.Body.Blocks);
         _lastBodyIndex = document.Body.Blocks.Count - 1;
         _blockPage = new int[document.Body.Blocks.Count];
         _blockY = new float[document.Body.Blocks.Count];
@@ -61,6 +68,16 @@ public sealed class DocumentLayout
         var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
         var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings);
         _filler = new PageFiller(sections, flat, planner, flow, _blockPage, _blockY);
+        if (!flow)
+        {
+            // Headers, footers and notes make their own planners: list numbers in them never disturb the numbering of the body.
+            BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings);
+            var notes = new NotePlanner(document, Aux);
+            planner.Context = new PlanContext { Notes = notes };
+            _chrome = new HeaderFooterPlan(document, sections, Aux, notes);
+            _filler.Chrome = _chrome;
+        }
+
         _fill = _filler.Fill().GetEnumerator();
     }
 
@@ -75,6 +92,9 @@ public sealed class DocumentLayout
 
     // Test seam: called before each page is laid out, with the number of pages published so far.
     internal Action<int>? BeforePage { get; set; }
+
+    /// <summary>How many headers and footers were laid out (reuse not counted).</summary>
+    internal int ChromeLayouts => _chrome?.LayoutCount ?? 0;
 
     /// <summary>The number of pages published so far.</summary>
     public int LaidOutPages => _pages.Count;
@@ -202,6 +222,20 @@ public sealed class DocumentLayout
 
             if (!more)
             {
+                // Pages that show a page count are published again with the count, before the layout calls itself complete.
+                try
+                {
+                    foreach (var (index, revised) in _filler.Revisions())
+                    {
+                        _pages.Replace(index, revised);
+                    }
+                }
+                catch (Exception e)
+                {
+                    _fault = ExceptionDispatchInfo.Capture(e);
+                    throw;
+                }
+
                 Volatile.Write(ref _complete, true);
                 return false;
             }
@@ -215,32 +249,5 @@ public sealed class DocumentLayout
             _pages.Add(_fill.Current);
             return true;
         }
-    }
-
-    // The body blocks in reading order with the top-level index each came from; a content control's blocks stand in its place.
-    private static List<FlatBlock> Flatten(Story body)
-    {
-        var flat = new List<FlatBlock>(body.Blocks.Count);
-        for (var i = 0; i < body.Blocks.Count; i++)
-        {
-            Add(flat, body.Blocks[i], i, 0);
-        }
-
-        return flat;
-    }
-
-    private static void Add(List<FlatBlock> flat, Block block, int bodyIndex, int depth)
-    {
-        if (block is ContentControlBlock control && depth < 32)
-        {
-            foreach (var inner in control.Content)
-            {
-                Add(flat, inner, bodyIndex, depth + 1);
-            }
-
-            return;
-        }
-
-        flat.Add(new FlatBlock(block, bodyIndex));
     }
 }
