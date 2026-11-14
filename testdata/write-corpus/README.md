@@ -37,6 +37,18 @@ dotnet run --project bench/write-corpus -c Release -- add <docx> --root testdata
 - `table` writes `Docs/write-corpus.md` (regenerate by hand and commit it when the corpus, the round trip or the layout changes). Besides the round trip it has the columns **Write pages** (the page count of Raffica Write's own layout, shown for every file), **Pages equal** (Write's count equals the count of `word.pdf`) and **Text match** (mean Dice of the per-page word multisets against `word.pdf`; 1.0000 is the same words on every page). The last two are "–" without a `word.pdf`.
 - `compare --id <id>` lays the entry's DOCX out and compares it with its `word.pdf` (`--reference <pdf|json>` names another reference). Exit 0 ok, 1 when `--require-same-page-count` is given and the counts differ (the output names the first different page), 2 when `word.pdf` is missing or the id is unknown. `compare --reference <pdf|json> --candidate <docx> --layout` compares any file.
 
+### Measurement cases
+
+`bench/shell-probe/measure.cs --target write` opens these files (`--testdata testdata/write-corpus`; the files are relative to the corpus root):
+
+| Case | File | Why |
+|---|---|---|
+| `cold`, `warm` | `poi-test-document/poi-test-document.docx` | a small document: the start of the app, nothing to scroll |
+| `second` | `poi-test-document/poi-test-document.docx`, then `poi-comment/poi-comment.docx` handed over by a second launch | the second file in the running instance |
+| `thesis`, `scroll`, `memory`, `engine` | `thesis/thesis.docx` | the generated 311-page thesis: the first page of a long file, 600 wheel steps down it, memory with it open, the headless engine first page |
+
+Do not replace these files without re-measuring: the budgets of milestone 4.2 are medians over exactly these.
+
 ### Word's PDFs
 
 The owner makes them in Word: open `<id>/<id>.docx`, update all fields (Ctrl+A, F9), export as PDF to `<id>/word.pdf`. For a file with tracked changes also `word-accept.pdf` (all changes accepted) and `word-reject.pdf` (all rejected). Nothing else is needed: the tool picks them up by name. The thesis page count gate is `compare --id thesis --require-same-page-count` and needs `thesis/word.pdf`.
