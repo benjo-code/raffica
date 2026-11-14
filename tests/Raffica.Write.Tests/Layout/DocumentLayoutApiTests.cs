@@ -206,8 +206,8 @@ public sealed class DocumentLayoutApiTests
     [Fact]
     public void ABlockTheLayoutCannotDrawIsAMarkedBox()
     {
-        const string Table = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"2000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
-        var layout = Complete(P("before") + Table + P("after") + Sect());
+        const string Unknown = "<w:altChunk/>";
+        var layout = Complete(P("before") + Unknown + P("after") + Sect());
         var page = layout.Page(0);
         Assert.Single(page.Items.OfType<PlaceholderItem>());
         Assert.Equal(["before", "after"], Lines(page));

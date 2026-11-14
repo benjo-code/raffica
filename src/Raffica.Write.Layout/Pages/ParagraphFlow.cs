@@ -23,13 +23,19 @@ internal abstract class BlockPlan
     }
 
     protected abstract IBlockFlow Make(float width);
+
+    /// <summary>The narrowest this block goes (its longest word) and the width of its content on one line, for an automatic table column.</summary>
+    public virtual (float Min, float Max) ContentWidths() => (0f, 0f);
 }
 
 /// <summary>A paragraph with its input built; <see cref="Make"/> runs the paragraph layouter.</summary>
 internal sealed class ParagraphPlan : BlockPlan
 {
     private readonly ParagraphLayouter _layouter;
+    private const float MeasureWidth = 20_000f;
+
     private int[]? _markOffsets;
+    private (float Min, float Max)? _widths;
 
     public ParagraphPlan(int bodyIndex, ParagraphInput input, ParagraphLayouter layouter, bool isContinuation)
         : base(bodyIndex)
@@ -92,6 +98,55 @@ internal sealed class ParagraphPlan : BlockPlan
 
     protected override IBlockFlow Make(float width) =>
         new ParagraphFlow(this, _layouter.Layout(Input, width), 0, int.MaxValue);
+
+    /// <summary>Laid out at one point and at an unlimited width: the longest word and the whole text on a line.</summary>
+    public override (float Min, float Max) ContentWidths()
+    {
+        if (_widths is { } known)
+        {
+            return known;
+        }
+
+        if (Input.Items.Count == 0)
+        {
+            return (_widths = (0f, 0f)).Value;
+        }
+
+        var probe = Input with { AutoHyphenation = false, ExpandShiftReturn = false };
+        var indents = Input.Paragraph.LeftIndent + Input.Paragraph.RightIndent;
+        var narrow = Extent(_layouter.Layout(probe, 1f)) + indents;
+        var wide = Extent(_layouter.Layout(probe, MeasureWidth)) + indents;
+        return (_widths = (TableLimits.Length(narrow), TableLimits.Length(Math.Max(wide, narrow)))).Value;
+    }
+
+    // The widest line, measured from where its first thing starts to where its last ends (alignment does not matter).
+    private static float Extent(ParagraphLayout layout)
+    {
+        var widest = 0f;
+        foreach (var line in layout.Lines)
+        {
+            var left = float.MaxValue;
+            var right = float.MinValue;
+            foreach (var run in line.Runs)
+            {
+                left = Math.Min(left, run.X);
+                right = Math.Max(right, run.X + run.Width);
+            }
+
+            foreach (var box in line.Boxes)
+            {
+                left = Math.Min(left, box.X);
+                right = Math.Max(right, box.X + box.Box.Width);
+            }
+
+            if (right > left)
+            {
+                widest = Math.Max(widest, right - left);
+            }
+        }
+
+        return widest;
+    }
 }
 
 /// <summary>

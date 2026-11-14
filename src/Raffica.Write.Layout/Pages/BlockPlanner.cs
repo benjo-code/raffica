@@ -42,6 +42,7 @@ internal sealed class BlockPlanner
         _autoHyphenation = styles.AutoHyphenation;
         _defaultTabStop = 36f;
         _expandShiftReturn = true;
+        TableTextAtIndent = true;
         if (settings is not null)
         {
             var tab = (string?)settings.Properties.Get(W + "defaultTabStop")?.Attribute(W + "val");
@@ -50,9 +51,18 @@ internal sealed class BlockPlanner
                 _defaultTabStop = (float)(twips / 20.0);
             }
 
-            _expandShiftReturn = settings.Properties.Get(W + "compat")?.Element(W + "doNotExpandShiftReturn") is null;
+            var compat = settings.Properties.Get(W + "compat");
+            _expandShiftReturn = compat?.Element(W + "doNotExpandShiftReturn") is null;
+            var mode = compat?.Elements(W + "compatSetting").FirstOrDefault(e => (string?)e.Attribute(W + "name") == "compatibilityMode");
+            TableTextAtIndent = !int.TryParse((string?)mode?.Attribute(W + "val"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var level) || level < 15;
         }
     }
+
+    /// <summary>The styles of the document: the one resolver every planner of a layout shares.</summary>
+    internal StyleResolver Styles => _styles;
+
+    /// <summary>True when the table border sits one cell margin left of the indent (a document in a compatibility mode below 15 aligns the text of the first cell, not its border).</summary>
+    internal bool TableTextAtIndent { get; }
 
     /// <summary>What the stories planned next are planned for (fields, note references); the default evaluates nothing and numbers nothing.</summary>
     internal PlanContext Context { get; set; } = new();
@@ -77,23 +87,28 @@ internal sealed class BlockPlanner
     }
 
     /// <summary>The plan of a block, or null for a block that takes no room (a bookmark mark at block level).</summary>
-    public BlockPlan? Plan(FlatBlock flat)
+    public BlockPlan? Plan(FlatBlock flat) => PlanBlock(flat, null, 0);
+
+    /// <summary>The plan of a block of the body (<paramref name="cell"/> null) or of a table cell, where the paragraph properties of the table style apply.</summary>
+    internal BlockPlan? PlanBlock(FlatBlock flat, ResolvedCellFormat? cell, int depth)
     {
         switch (flat.Block)
         {
             case Paragraph paragraph:
-                return new ParagraphPlan(flat.BodyIndex, Input(paragraph), _layouter, isContinuation: false);
+                return new ParagraphPlan(flat.BodyIndex, Input(paragraph, cell), _layouter, isContinuation: false);
+            case Table table when depth < TableLimits.MaximumDepth:
+                return TableReader.Read(this, table, flat.BodyIndex, depth);
             case var block when TakesNoRoom(block):
                 return null;
             default:
-                // A table (until Task 10) or an element the layout cannot draw: a marked box, the model keeps the content.
+                // An element the layout cannot draw: a marked box, the model keeps the content.
                 return new PlaceholderPlan(flat.BodyIndex, PlaceholderHeight);
         }
     }
 
-    private ParagraphInput Input(Paragraph paragraph)
+    private ParagraphInput Input(Paragraph paragraph, ResolvedCellFormat? cell)
     {
-        var resolved = _styles.ForParagraph(paragraph);
+        var resolved = _styles.ForParagraph(paragraph, cell);
         var label = _numbering.Next(resolved);
         var items = new List<ParagraphItem>();
         var text = new StringBuilder();
