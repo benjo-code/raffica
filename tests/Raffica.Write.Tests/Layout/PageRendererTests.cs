@@ -223,6 +223,57 @@ public sealed class PageRendererTests
         Assert.Equal(SKColors.White, bitmap.GetPixel(140, 40));
     }
 
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(1.3333f)]
+    [InlineData(0.75f)]
+    public void AHairlineRuleStaysOnePixelAndDark(float scale)
+    {
+        var horizontal = Hand(100f, 100f, new RuleItem(10f, 50.2f, 60f, 0.5f, 0xFF000000));
+        using var bitmap = Render(horizontal, scale);
+        var darkest = 255;
+        var rowsInk = 0;
+        var x = (int)(40 * scale);
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            var c = bitmap.GetPixel(x, y).Red;
+            darkest = Math.Min(darkest, c);
+            if (c < 250)
+            {
+                rowsInk++;
+            }
+        }
+
+        Assert.True(darkest <= 128);
+        Assert.Equal(1, rowsInk);
+
+        var vertical = Hand(100f, 100f, new RuleItem(50.3f, 10f, 0.5f, 60f, 0xFF000000));
+        using var vbitmap = Render(vertical, scale);
+        var vdarkest = Enumerable.Range(0, vbitmap.Width).Min(px => vbitmap.GetPixel(px, (int)(40 * scale)).Red);
+        Assert.True(vdarkest <= 128);
+    }
+
+    [Fact]
+    public void ARuleOfTwoPointsIsDrawnAsItIs()
+    {
+        var page = Hand(100f, 100f, new RuleItem(10f, 50f, 60f, 2f, 0xFF000000));
+        using var bitmap = Render(page, 1f);
+        Assert.Equal(SKColors.Black, bitmap.GetPixel(40, 50));
+        Assert.Equal(SKColors.Black, bitmap.GetPixel(40, 51));
+        Assert.Equal(SKColors.White, bitmap.GetPixel(40, 49));
+        Assert.Equal(SKColors.White, bitmap.GetPixel(40, 52));
+    }
+
+    [Fact]
+    public void AGlyphRunWithANonNumberOffsetDrawsNothing()
+    {
+        var real = Runs(FirstPage(P("Text")))[0];
+        var run = new GlyphRunItem(real.Face, real.Size, 0xFF000000, real.Glyphs, new float[real.Glyphs.Length].Select((_, i) => i == 1 ? float.NaN : i * 5f).ToArray(), 20f, 40f);
+        var page = Hand(100f, 100f, run);
+        using var bitmap = Render(page, 2f);
+        Assert.Null(Bounds(bitmap, c => c != SKColors.White));
+    }
+
     [Fact]
     public void NullArgumentsAreProgrammingErrors()
     {

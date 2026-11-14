@@ -59,6 +59,14 @@ internal static class GlyphDrawing
             return;
         }
 
+        for (var i = 0; i < count; i++)
+        {
+            if (!float.IsFinite(xs[i]))
+            {
+                return;
+            }
+        }
+
         try
         {
             var font = FontFor(run.Face, size);
@@ -69,8 +77,7 @@ internal static class GlyphDrawing
             for (var i = 0; i < count; i++)
             {
                 glyphSpan[i] = glyphs[i];
-                var x = run.X + xs[i];
-                positions[i] = float.IsFinite(x) ? x : 0f;
+                positions[i] = run.X + xs[i];
             }
 
             using var blob = builder.Build();
@@ -81,9 +88,10 @@ internal static class GlyphDrawing
                 canvas.DrawText(blob, 0f, 0f, paint);
             }
         }
-        catch (Exception ex) when (ex is ObjectDisposedException or ArgumentException or InvalidOperationException)
+        catch (ObjectDisposedException)
         {
-            // A face that was disposed under a late draw: the run is skipped, never thrown at the caller.
+            // A managed wrapper that was disposed under a late draw: the run is skipped. The builder may be half-filled, so drop it.
+            t_builder = null;
         }
     }
 }

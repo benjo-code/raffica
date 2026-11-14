@@ -57,7 +57,7 @@ public static class PageRenderer
                         GlyphDrawing.Draw(canvas, run, paint);
                         break;
                     case RuleItem rule:
-                        Rectangle(canvas, paint, rule.X, rule.Y, rule.Width, rule.Height, rule.Color);
+                        Hairline(canvas, paint, rule, scale);
                         break;
                     case ImageItem picture:
                         Picture(canvas, paint, picture, images);
@@ -90,6 +90,34 @@ public static class PageRenderer
         paint.Color = new SKColor(color);
         canvas.DrawRect(x, y, width, height, paint);
     }
+
+    // A rule thinner than one device pixel is widened to one pixel about its centre, and the centre is put on the middle of a pixel
+    // row (or column), so a 0.5 pt border is a crisp line at every zoom instead of a faint smear over two rows.
+    private static void Hairline(SKCanvas canvas, SKPaint paint, RuleItem rule, float scale)
+    {
+        var x = rule.X;
+        var y = rule.Y;
+        var width = rule.Width;
+        var height = rule.Height;
+        if (Sane(x, y, width, height))
+        {
+            if (width >= height && height * scale < 1f)
+            {
+                y = Snap(y + (height / 2f), scale) - (0.5f / scale);
+                height = 1f / scale;
+            }
+            else if (width < height && width * scale < 1f)
+            {
+                x = Snap(x + (width / 2f), scale) - (0.5f / scale);
+                width = 1f / scale;
+            }
+        }
+
+        Rectangle(canvas, paint, x, y, width, height, rule.Color);
+    }
+
+    // The centre moved to the middle of the device pixel it lies in (in points).
+    private static float Snap(float center, float scale) => (MathF.Floor(center * scale) + 0.5f) / scale;
 
     private static void Picture(SKCanvas canvas, SKPaint paint, ImageItem item, ImageCache images)
     {
