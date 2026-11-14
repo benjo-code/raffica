@@ -59,6 +59,19 @@ public sealed class DocxPrefixTests
     }
 
     [Fact]
+    public void PackageIsTheBytesTheFileWasReadFrom()
+    {
+        var bytes = File.ReadAllBytes(Thesis);
+        using var full = DocxFile.Open(Thesis);
+        using var prefix = DocxFile.OpenPrefix(Thesis, 64);
+        using var fromBytes = DocxFile.OpenPrefix(prefix.Package, 8);
+
+        Assert.True(bytes.AsSpan().SequenceEqual(full.Package.Span));
+        Assert.True(bytes.AsSpan().SequenceEqual(prefix.Package.Span));
+        Assert.True(bytes.AsSpan().SequenceEqual(fromBytes.Package.Span));
+    }
+
+    [Fact]
     public void PrefixHasTheFirstBlocksAndTheFinalSection()
     {
         using var full = DocxFile.Open(Thesis);

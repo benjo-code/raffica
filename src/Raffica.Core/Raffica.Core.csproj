@@ -18,6 +18,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Raffica.Core.Tests" />
     <InternalsVisibleTo Include="Raffica.Pdf.Tests" />
+    <!-- JsonFile: the settings file of Raffica Write is written the way the settings of the PDF app are. -->
+    <InternalsVisibleTo Include="RafficaWrite" />
   </ItemGroup>
   <!--
     Test build of the updater (Milestone 8.1, packaging/README.md, section "Manual update check"). A normal build, and so every

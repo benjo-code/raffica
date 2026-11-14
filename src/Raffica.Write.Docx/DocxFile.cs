@@ -62,6 +62,12 @@ public sealed class DocxFile : IDisposable
     public DocxKind Kind { get; }
 
     /// <summary>
+    /// The bytes of the file as they were read (the snapshot every part and every later save starts from; it is not a copy, so it is not changed and holds
+    /// no file handle). A viewer reads pictures from it on demand without opening the file again.
+    /// </summary>
+    public ReadOnlyMemory<byte> Package => _snapshot;
+
+    /// <summary>
     /// True when this file came from <see cref="OpenPrefix(string, int)"/> and its body was cut short: <see cref="Model"/> holds the
     /// first blocks only (the final section is complete), so the file cannot be saved. False for a full open, and for a prefix open of
     /// a document whose body fitted in the prefix (it is then the whole file, though its comments were not loaded).
