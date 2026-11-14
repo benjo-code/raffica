@@ -11,6 +11,7 @@ namespace Raffica.Write.Documents;
 internal sealed class WriteWorkspace
 {
     private readonly TabList<WriteTab> _tabs = [];
+    private bool _sealed;
 
     public WriteWorkspace()
     {
@@ -36,11 +37,23 @@ internal sealed class WriteWorkspace
         return _tabs.FirstOrDefault(t => PathRules.AreEqual(t.Path, full));
     }
 
-    /// <summary>Adds an opened tab next to the active one and makes it active.</summary>
-    public void Add(WriteTab tab)
+    /// <summary>True once the window is closing: no tab is added any more (an open that finishes late must not leave a tab nobody disposes).</summary>
+    public bool IsSealed => _sealed;
+
+    /// <summary>Refuses every later <see cref="TryAdd"/>; the window calls it first thing when it closes.</summary>
+    public void Seal() => _sealed = true;
+
+    /// <summary>Adds an opened tab next to the active one and makes it active; false (and nothing added) once the workspace is sealed.</summary>
+    public bool TryAdd(WriteTab tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
+        if (_sealed)
+        {
+            return false;
+        }
+
         _tabs.Add(tab);
+        return true;
     }
 
     /// <summary>Removes the tab and disposes it (its layout is cancelled and its file and pictures are let go).</summary>

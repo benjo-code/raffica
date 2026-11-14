@@ -51,8 +51,10 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     private bool _watchingHost;
     private bool _pickerShowing;
     private bool _closeConfirmed;
-    private WindowPlacement? _restoreBounds;
-    private bool _maximized;
+    private readonly CloseSignal _closing = new();
+
+    /// <summary>Ends when the window starts to close: every open of this window watches it (a file that finishes late adds no tab).</summary>
+    private readonly CancellationToken _closeToken;
 
     /// <param name="options">The command line.</param>
     /// <param name="settings">The shell settings, read by the caller at startup.</param>
@@ -63,6 +65,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
         _options = options;
+        _closeToken = _closing.Token;
         Work = work ?? new OpenWork();
         _recent = new RecentService(new RecentFilesStore(AppFiles.Write.RecentPathFor(options.SettingsFile)));
         InitializeComponent();
@@ -110,7 +113,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         {
             TitleBar.PrepareWindow(this);
             ApplyPlacement(settings.WindowPlacement);
-            TrackPlacement();
+            Placement.Attach(this);
         }
 
         Refresh();
@@ -191,7 +194,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     // Opening.
 
     /// <summary>Opens the files in order; the last one opened is active, files that cannot be opened end in a card (one card for two or more).</summary>
-    internal Task OpenFilesAsync(IEnumerable<string> paths) => Flow.OpenManyAsync(paths);
+    internal Task OpenFilesAsync(IEnumerable<string> paths) => Flow.OpenManyAsync(paths, _closeToken);
 
     /// <summary>
     /// Opens the file of an entry of the recent list. A file that does not exist any more ends in the error card as usual and leaves the list, so the entry does
@@ -201,7 +204,17 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     {
         ArgumentNullException.ThrowIfNull(entry);
         var path = Path.Combine(entry.Folder, entry.Name);
-        var result = await Flow.OpenAsync(path);
+        OpenResult result;
+        try
+        {
+            result = await Flow.OpenAsync(path, _closeToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // The window closed while the file was read: no tab, no card, the list stays as it is.
+            return null;
+        }
+
         if (result is Failed failed)
         {
             Flow.Report([new OpenFailure(path, failed.Error)]);
@@ -770,11 +783,10 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             Height = fit.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
             Position = new PixelPoint((int)fit.X, (int)fit.Y);
-            _restoreBounds = fit with { Maximized = false };
+            Placement.Start(fit);
             if (fit.Maximized)
             {
                 WindowState = WindowState.Maximized;
-                _maximized = true;
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -783,49 +795,8 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         }
     }
 
-    // The restore bounds are the last ones seen in the normal state; the position of a minimized window (the sentinel) and a size of zero are never bounds.
-    private void TrackPlacement()
-    {
-        PositionChanged += (_, _) => TrackBounds();
-        Resized += (_, _) => TrackBounds();
-        this.GetObservable(WindowStateProperty).Subscribe(new WindowStateObserver(this));
-    }
-
-    private void TrackBounds()
-    {
-        if (WindowState == WindowState.Normal && IsVisible && Position.X > -30000 && Position.Y > -30000)
-        {
-            var bounds = new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, false);
-            if (bounds.IsUsable)
-            {
-                _restoreBounds = bounds;
-            }
-        }
-    }
-
-    private sealed class WindowStateObserver(WriteWindow window) : IObserver<WindowState>
-    {
-        public void OnCompleted()
-        {
-        }
-
-        public void OnError(Exception error)
-        {
-        }
-
-        public void OnNext(WindowState value)
-        {
-            if (value != WindowState.Minimized)
-            {
-                window._maximized = value is WindowState.Maximized or WindowState.FullScreen;
-            }
-
-            if (value == WindowState.Normal)
-            {
-                window.TrackBounds();
-            }
-        }
-    }
+    /// <summary>The placement the window stores when it closes; the shared logic of <see cref="WindowPlacementTracker"/> (maximize and minimize transitions included).</summary>
+    internal WindowPlacementTracker Placement { get; } = new();
 
     // Closing.
 
@@ -834,6 +805,10 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     {
         QuitRequested = e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown;
         _closeConfirmed = true;
+
+        // Before anything is flushed or disposed: an open that is still reading a file ends without a tab, a recent entry or a card, and the files queued behind it never start.
+        Workspace.Seal();
+        Step(_closing.Cancel);
     }
 
     private void FlushWriters()
@@ -847,9 +822,9 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         Step(() => AppDomain.CurrentDomain.ProcessExit -= _processExit);
         Step(() =>
         {
-            if (!_options.IsMeasuring && _restoreBounds is { } bounds)
+            if (!_options.IsMeasuring && Placement.ToStore() is { } placement)
             {
-                Settings.RememberWindow(bounds with { Maximized = _maximized });
+                Settings.RememberWindow(placement);
             }
         });
 
@@ -860,6 +835,33 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         }
 
         Step(FlushWriters);
+    }
+
+    // The signal of a closing window: cancelled once and then disposed (the token of a cancelled source stays usable), so the window itself needs no dispose.
+    private sealed class CloseSignal
+    {
+        private Action? _cancel;
+
+        public CloseSignal()
+        {
+            var source = new CancellationTokenSource();
+            Token = source.Token;
+            _cancel = () =>
+            {
+                try
+                {
+                    source.Cancel();
+                }
+                finally
+                {
+                    source.Dispose();
+                }
+            };
+        }
+
+        public CancellationToken Token { get; }
+
+        public void Cancel() => Interlocked.Exchange(ref _cancel, null)?.Invoke();
     }
 
     // Every step runs even when one before it throws: a failing Dispose must not leave the other tabs open or the positions unremembered.

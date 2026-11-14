@@ -29,7 +29,7 @@ internal sealed class WindowFixture : IDisposable
     public WriteWindow Show(OpenWork? work = null, params string[] files)
     {
         var options = WriteOptions.Parse(["--settings-file", SettingsFile, .. files]);
-        var window = new WriteWindow(options, new ShellSettings(), null, work);
+        var window = new WriteWindow(options, new SettingsStore(SettingsFile).Load(), null, work);
         _windows.Add(window);
         window.Show();
         Pump();

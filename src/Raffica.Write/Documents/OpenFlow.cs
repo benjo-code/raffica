@@ -16,6 +16,9 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
     private readonly object _gate = new();
     private Task _tail = Task.CompletedTask;
 
+    /// <summary>The work of one file on the pool thread (tests replace it with a gated one); <see cref="DocumentOpener.Open"/> by default.</summary>
+    internal Func<string, OpenWork, long, CancellationToken, OpenAttempt> Opener { get; set; } = (path, work, max, token) => DocumentOpener.Open(path, work, max, token);
+
     /// <summary>Opens one file and makes its tab active; shows nothing (see <see cref="Report"/>).</summary>
     /// <exception cref="OperationCanceledException">The token was cancelled before the open ended; no tab was made.</exception>
     public async Task<OpenResult> OpenAsync(string path, CancellationToken token = default)
@@ -40,17 +43,27 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
         }
     }
 
-    /// <summary>Opens the files in order; the last one that was opened is active. Failures of two or more files end in one summary instead of one card each.</summary>
+    /// <summary>
+    /// Opens the files in order; the last one that was opened is active. Failures of two or more files end in one summary instead of one card each. A cancelled
+    /// token (the window closes) stops at once: the file in progress adds no tab, the rest are never started, and no card is shown.
+    /// </summary>
     public async Task OpenManyAsync(IEnumerable<string> paths, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(paths);
         var failures = new List<OpenFailure>();
-        foreach (var path in paths)
+        try
         {
-            if (await OpenAsync(path, token) is Failed failed)
+            foreach (var path in paths)
             {
-                failures.Add(new OpenFailure(path, failed.Error));
+                if (await OpenAsync(path, token) is Failed failed)
+                {
+                    failures.Add(new OpenFailure(path, failed.Error));
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
 
         Report(failures);
@@ -108,12 +121,19 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
         OpenAttempt attempt;
         try
         {
-            attempt = await Task.Run(() => DocumentOpener.Open(full, work, maxFileLength, token), token);
+            attempt = await Task.Run(() => Opener(full, work, maxFileLength, token), token);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
         {
             // Nothing a file does may take the app down; DocumentOpener already answers every file problem itself.
             return new Failed(OpenError.Other);
+        }
+
+        // The window closed while the file was read: a document that finished late is let go and nothing else happens (no tab, no recent entry, no card).
+        if (token.IsCancellationRequested)
+        {
+            attempt.Document?.Dispose();
+            token.ThrowIfCancellationRequested();
         }
 
         if (attempt.Document is not { } document)
@@ -123,9 +143,14 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
 
         try
         {
-            token.ThrowIfCancellationRequested();
             var tab = new WriteTab(full, document);
-            workspace.Add(tab);
+            if (!workspace.TryAdd(tab))
+            {
+                // Sealed: the window is closing and nobody would ever dispose this tab.
+                tab.Dispose();
+                throw new OperationCanceledException(token);
+            }
+
             return new Opened(tab);
         }
         catch
