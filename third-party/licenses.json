@@ -371,6 +371,13 @@
       "licenseFile": "third-party/carlito/OFL.txt"
     },
     {
+      "id": "Caladea",
+      "kind": "asset",
+      "version": "google/fonts 13c010f",
+      "license": "OFL-1.1",
+      "licenseFile": "third-party/caladea/OFL.txt"
+    },
+    {
       "id": "Lucide",
       "kind": "asset",
       "version": "1.63.0",

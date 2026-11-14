@@ -5,9 +5,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <Compile Include="..\Shared\TestData.cs" Link="Shared\TestData.cs" />
     <ProjectReference Include="..\..\src\Raffica.Write.Model\Raffica.Write.Model.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
     <ProjectReference Include="..\..\bench\write-corpus\WriteCorpus.csproj" />
   </ItemGroup>
 </Project>
