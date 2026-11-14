@@ -171,4 +171,35 @@ public sealed class HyphenatorTests
         Hyphenated(hyphenator, "Silbentrennung", "de-DE");
         Assert.Equal(2, hyphenator.PatternSetsLoaded);
     }
+
+    [Fact]
+    public void HugeWordsLayOutInBoundedTimeAndLoseNoText()
+    {
+        var huge = new string('a', 200_000);
+        var many = string.Join(' ', Enumerable.Repeat("abcdefghijkl", 30_000));
+        foreach (var text in new[] { huge, many })
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var layout = Lay(Input(text), 200f);
+            watch.Stop();
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"took {watch.Elapsed}");
+            var length = layout.Lines.Sum(l => l.End - l.Start);
+            Assert.Equal(text.Length, length);
+        }
+    }
+
+    [Fact]
+    public void WordsLongerThanTheCapAreNotHyphenated()
+    {
+        var width = Natural("go hyphen-") + 1f;
+        var shorter = string.Concat(Enumerable.Repeat("hyphenation", 5)) + "hyph";
+        var longer = shorter + "hy";
+        Assert.Equal(59, shorter.Length);
+        Assert.Equal(61, longer.Length);
+        var allowed = Lay(Input("go " + shorter), width);
+        Assert.Contains(allowed.Lines.SelectMany(l => l.Runs), r => r.IsHyphen);
+        var refused = Lay(Input("go " + longer), width);
+        Assert.DoesNotContain(refused.Lines.SelectMany(l => l.Runs), r => r.IsHyphen);
+        Assert.Equal(["go", longer], refused.Lines.Select(refused.TextOf).ToList());
+    }
 }

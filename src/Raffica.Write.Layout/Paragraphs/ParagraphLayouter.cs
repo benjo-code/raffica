@@ -42,6 +42,8 @@ internal sealed class ParagraphSession : IDisposable
     private const float SuperRaise = 0.35f;
     private const float SubLower = 0.14f;
     private const float SmallCapsScale = 0.8f;
+    // No real word is longer; a longer run of letters is not hyphenated, which keeps the work per line bounded (it is quadratic in the word).
+    private const int MaxHyphenatedLetters = 60;
 
     private readonly ParagraphInput _input;
     private readonly ResolvedParagraph _para;
@@ -460,7 +462,7 @@ internal sealed class ParagraphSession : IDisposable
             stop--;
         }
 
-        if (stop - lead < 5)
+        if (stop - lead < 5 || stop - lead > MaxHyphenatedLetters)
         {
             return false;
         }
