@@ -48,6 +48,32 @@ internal static class WriteStrings
     public static string MenuMinimize => Table.Get("MenuMinimize");
     public static string MenuZoomWindow => Table.Get("MenuZoomWindow");
     public static string MenuBringAllToFront => Table.Get("MenuBringAllToFront");
+    public static string TabHome => Table.Get("TabHome");
+    public static string TabView => Table.Get("TabView");
+    public static string GroupFile => Table.Get("GroupFile");
+    public static string GroupSearch => Table.Get("GroupSearch");
+    public static string GroupZoom => Table.Get("GroupZoom");
+    public static string GroupViews => Table.Get("GroupViews");
+    public static string GroupPanes => Table.Get("GroupPanes");
+    public static string CmdOpen => Table.Get("CmdOpen");
+    public static string CmdCloseTab => Table.Get("CmdCloseTab");
+    public static string CmdSettings => Table.Get("CmdSettings");
+    public static string CmdSearch => Table.Get("CmdSearch");
+    public static string CmdZoomIn => Table.Get("CmdZoomIn");
+    public static string CmdZoomOut => Table.Get("CmdZoomOut");
+    public static string CmdActualSize => Table.Get("CmdActualSize");
+    public static string CmdFitWidth => Table.Get("CmdFitWidth");
+    public static string CmdFitPage => Table.Get("CmdFitPage");
+    public static string CmdPageView => Table.Get("CmdPageView");
+    public static string CmdWritingView => Table.Get("CmdWritingView");
+    public static string CmdOutline => Table.Get("CmdOutline");
+    public static string ReasonZoomMax => Table.Get("ReasonZoomMax");
+    public static string ReasonZoomMin => Table.Get("ReasonZoomMin");
+    public static string ReasonOutlineSoon => Table.Get("ReasonOutlineSoon");
+    public static string StatusPositionFormat => Table.Get("StatusPositionFormat");
+    public static string StatusPositionMoreFormat => Table.Get("StatusPositionMoreFormat");
+    public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
+    public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
 
     /// <summary>The key of the wording of an open error (one text per <see cref="OpenError"/> value).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
@@ -68,4 +94,12 @@ internal static class WriteStrings
     /// <summary>Fills the <c>{0}</c> of a template.</summary>
     public static string Fill(string template, object? first) =>
         template.Replace("{0}", Convert.ToString(first, Culture), StringComparison.Ordinal);
+
+    /// <summary>Fills the <c>{0}</c> and <c>{1}</c> of a template.</summary>
+    public static string Fill(string template, object? first, object? second) =>
+        Fill(template, first).Replace("{1}", Convert.ToString(second, Culture), StringComparison.Ordinal);
+
+    /// <summary>Fills the <c>{0}</c>, <c>{1}</c> and <c>{2}</c> of a template.</summary>
+    public static string Fill(string template, object? first, object? second, object? third) =>
+        Fill(template, first, second).Replace("{2}", Convert.ToString(third, Culture), StringComparison.Ordinal);
 }

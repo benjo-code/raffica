@@ -15,7 +15,7 @@ namespace Raffica.Write.Documents;
 /// external or malformed relationship and a part over <see cref="MaxPartLength"/> throw, which the layout and the image cache answer with a marked box. After
 /// <see cref="Dispose"/> every ask throws <see cref="ObjectDisposedException"/>. Nothing the file refers to by an external relationship is fetched.
 /// </remarks>
-internal sealed class PackageImageSource(ReadOnlyMemory<byte> package) : IDisposable
+internal sealed class PackageImageSource : IDisposable
 {
     /// <summary>The largest part that is read as a picture (the hardening of hostile files is a later milestone).</summary>
     internal const long MaxPartLength = 64L * 1024 * 1024;
@@ -28,6 +28,28 @@ internal sealed class PackageImageSource(ReadOnlyMemory<byte> package) : IDispos
     private Dictionary<string, ZipArchiveEntry>? _entries;
     private string? _main;
     private bool _disposed;
+    private ReadOnlyMemory<byte> _package;
+
+    /// <param name="package">The snapshot of the file the pictures are read from.</param>
+    public PackageImageSource(ReadOnlyMemory<byte> package) => _package = package;
+
+    /// <summary>
+    /// Reads from <paramref name="package"/> from now on (the whole file that replaces the prefix the first page was made from, so the prefix bytes can go): the archive and
+    /// the relationship tables are made again on the next ask. The ids stay valid because both snapshots are the same file.
+    /// </summary>
+    public void Retarget(ReadOnlyMemory<byte> package)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _zip?.Dispose();
+            _zip = null;
+            _entries = null;
+            _main = null;
+            _tables.Clear();
+            _package = package;
+        }
+    }
 
     private sealed record Relationship(string Type, string Target, bool External);
 
@@ -80,9 +102,9 @@ internal sealed class PackageImageSource(ReadOnlyMemory<byte> package) : IDispos
             return _main;
         }
 
-        var stream = MemoryMarshal.TryGetArray(package, out var segment) && segment.Array is { } array
+        var stream = MemoryMarshal.TryGetArray(_package, out var segment) && segment.Array is { } array
             ? new MemoryStream(array, segment.Offset, segment.Count, writable: false)
-            : new MemoryStream(package.ToArray(), writable: false);
+            : new MemoryStream(_package.ToArray(), writable: false);
         _zip = new ZipArchive(stream, ZipArchiveMode.Read);
         var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in _zip.Entries)

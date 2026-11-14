@@ -108,4 +108,82 @@
   <data name="MenuBringAllToFront" xml:space="preserve">
     <value>Alle nach vorne bringen</value>
   </data>
+  <data name="TabHome" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="TabView" xml:space="preserve">
+    <value>Ansicht</value>
+  </data>
+  <data name="GroupFile" xml:space="preserve">
+    <value>Datei</value>
+  </data>
+  <data name="GroupSearch" xml:space="preserve">
+    <value>Suche</value>
+  </data>
+  <data name="GroupZoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="GroupViews" xml:space="preserve">
+    <value>Ansichten</value>
+  </data>
+  <data name="GroupPanes" xml:space="preserve">
+    <value>Bereiche</value>
+  </data>
+  <data name="CmdOpen" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="CmdCloseTab" xml:space="preserve">
+    <value>Tab schließen</value>
+  </data>
+  <data name="CmdSettings" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="CmdSearch" xml:space="preserve">
+    <value>Befehle suchen</value>
+  </data>
+  <data name="CmdZoomIn" xml:space="preserve">
+    <value>Vergrößern</value>
+  </data>
+  <data name="CmdZoomOut" xml:space="preserve">
+    <value>Verkleinern</value>
+  </data>
+  <data name="CmdActualSize" xml:space="preserve">
+    <value>Originalgröße</value>
+  </data>
+  <data name="CmdFitWidth" xml:space="preserve">
+    <value>Seitenbreite</value>
+  </data>
+  <data name="CmdFitPage" xml:space="preserve">
+    <value>Ganze Seite</value>
+  </data>
+  <data name="CmdPageView" xml:space="preserve">
+    <value>Seitenansicht</value>
+  </data>
+  <data name="CmdWritingView" xml:space="preserve">
+    <value>Schreibansicht</value>
+  </data>
+  <data name="CmdOutline" xml:space="preserve">
+    <value>Gliederung</value>
+  </data>
+  <data name="ReasonZoomMax" xml:space="preserve">
+    <value>Die größte Vergrößerung ist erreicht.</value>
+  </data>
+  <data name="ReasonZoomMin" xml:space="preserve">
+    <value>Die kleinste Vergrößerung ist erreicht.</value>
+  </data>
+  <data name="ReasonOutlineSoon" xml:space="preserve">
+    <value>Die Gliederung ist noch nicht verfügbar.</value>
+  </data>
+  <data name="StatusPositionFormat" xml:space="preserve">
+    <value>Seite {0} von {1}</value>
+  </data>
+  <data name="StatusPositionMoreFormat" xml:space="preserve">
+    <value>Seite {0} von {1}+</value>
+  </data>
+  <data name="PageViewNameFormat" xml:space="preserve">
+    <value>Dokument: {0}</value>
+  </data>
+  <data name="PageViewPageNameFormat" xml:space="preserve">
+    <value>Dokument: {0}, Seite {1} von {2}</value>
+  </data>
 </root>
