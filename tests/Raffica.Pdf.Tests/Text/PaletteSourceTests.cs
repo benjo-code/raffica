@@ -44,7 +44,17 @@ public sealed class PaletteSourceTests
 
         await fixture.OpenAsync("outline.pdf");
         await fixture.LoadRecentAsync();
+
+        // The outline entries arrive in the background after the first sharp page; on a slow runner the palette can be asked
+        // before they are there, so wait (bounded, pumping the dispatcher) for them instead of asserting a race.
         var found = palette("abschnitt");
+        for (var i = 0; i < 400 && found.Count <= 1; i++)
+        {
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+            ViewFixture.Pump();
+            found = palette("abschnitt");
+        }
+
         Assert.True(found.Count > 1);
         var last = found[^1];
         Assert.Equal(PdfStrings.PaletteGroupDocument, last.Group);
