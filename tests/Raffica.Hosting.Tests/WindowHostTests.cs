@@ -197,8 +197,9 @@ public sealed class WindowHostTests
             return new FakeWindow { Initial = paths };
         }, () => { }, Dispatcher.UIThread);
 
+        // The await may hand the UI thread to the dispatcher, which can already run the posted job, so nothing is asserted
+        // about "not yet": the property is that the window is made on the UI thread and never on the pool thread.
         await Task.Run(() => host.OpenFiles(["a.pdf"]), TestContext.Current.CancellationToken);
-        Assert.Equal(-1, madeOn);
         Pump();
 
         Assert.Equal(uiThread, madeOn);
