@@ -34,6 +34,8 @@ internal sealed class BlockPlanner
     private readonly List<FieldFrame> _frames = [];
     private readonly ImageProbe _probe;
     private readonly bool _flowMode;
+    private bool _placeable;
+    private bool _planningBox;
     private List<NoteMark>? _marks;
     private List<FloatSpec>? _floats;
     private List<InlineBox>? _flowBoxes;
@@ -66,6 +68,16 @@ internal sealed class BlockPlanner
 
     /// <summary>The height of the text area of the section being filled: an inline picture taller than this is shrunk to it (aspect kept). Set by the page filler.</summary>
     internal float TextAreaHeight { get; set; } = float.MaxValue;
+
+    /// <summary>The story the planner reads (<see cref="ImageRef"/> says how it qualifies picture ids): the body unless a header, footer or note planner sets it.</summary>
+    internal string StoryKey { get; set; } = ImageRef.DocumentStory;
+
+    /// <summary>
+    /// True for the planner of the body in the page view, outside table cells: only there does the page filler place floating objects. A
+    /// planner that cannot place them (headers, footers, notes) shows each as an inline box of its size, as the writing view does, so
+    /// nothing is lost; the table planner switches it off for the cells of a table.
+    /// </summary>
+    internal bool CanPlaceFloats { get; set; } = true;
 
     /// <summary>The styles of the document: the one resolver every planner of a layout shares.</summary>
     internal StyleResolver Styles => _styles;
@@ -126,6 +138,7 @@ internal sealed class BlockPlanner
         _marks = null;
         _floats = null;
         _flowBoxes = null;
+        _placeable = CanPlaceFloats && cell is null && !_planningBox && !_flowMode;
         AddInlines(paragraph.Inlines, resolved, items, text, ref textRun);
         Flush(items, text, ref textRun);
         _frames.Clear();
@@ -160,19 +173,28 @@ internal sealed class BlockPlanner
         // The paragraphs of a text box are planned after the paragraph that holds it: planning one is not re-entrant.
         if (floats is not null)
         {
-            foreach (var spec in floats)
+            _planningBox = true;
+            try
             {
-                if (spec is { Kind: FloatKind.TextBox, Content: { } content })
+                foreach (var spec in floats)
                 {
-                    spec.Plans = [.. content.Select(p => new ParagraphPlan(-1, Input(p, null), _layouter, isContinuation: false))];
+                    if (spec is { Kind: FloatKind.TextBox, Content: { } content })
+                    {
+                        spec.Plans = [.. content.Select(p => new ParagraphPlan(-1, Input(p, null), _layouter, isContinuation: false))];
+                    }
                 }
+            }
+            finally
+            {
+                _planningBox = false;
             }
         }
 
         return input;
     }
 
-    // A floating object read from a drawing: kept for the page layout, or (writing view) made an inline box above the paragraph.
+    // A floating object read from a drawing: kept for the page layout when this paragraph is placed by the page filler; otherwise (writing view,
+    // header, footer, note, table cell, text box) made an inline box above the paragraph, a picture or a marked box of its size, so nothing vanishes.
     private void AddFloat(FloatSpec? spec, List<ParagraphItem> items)
     {
         if (spec is null)
@@ -180,7 +202,7 @@ internal sealed class BlockPlanner
             return;
         }
 
-        if (_flowMode)
+        if (!_placeable)
         {
             var cap = Math.Min(1f, MaximumBoxSize / Math.Max(spec.Width, spec.Height));
             var width = spec.Width * cap;
@@ -329,7 +351,7 @@ internal sealed class BlockPlanner
                     else
                     {
                         Flush(items, text, ref textRun);
-                        AddFloat(FloatReader.FromDrawing(picture.Raw, _probe), items);
+                        AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey), items);
                     }
 
                     break;
@@ -442,7 +464,7 @@ internal sealed class BlockPlanner
                 break;
             case "AlternateContent" or "pict":
                 Flush(items, text, ref textRun);
-                var spec = element.Name.LocalName == "pict" ? FloatReader.FromVml(element, _probe) : FloatReader.FromAlternate(element, _probe);
+                var spec = element.Name.LocalName == "pict" ? FloatReader.FromVml(element, _probe, StoryKey) : FloatReader.FromAlternate(element, _probe, StoryKey);
                 if (spec is null)
                 {
                     items.Add(InlineBox.Placeholder(format));
@@ -489,6 +511,7 @@ internal sealed class BlockPlanner
         }
 
         // Only the header of the picture is read, and only to see whether it can be drawn and, when the file states no size, how big it is.
+        id = ImageRef.Qualify(StoryKey, id);
         var info = _probe.Info(id);
         if (info is { Width: > 0, Height: > 0 } px && (width < 1f || height < 1f))
         {

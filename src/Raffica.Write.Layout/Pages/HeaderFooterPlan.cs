@@ -177,7 +177,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
             _blocks.Clear();
         }
 
-        var block = Layout(part, page, totals, width, out var usesPage);
+        var block = Layout(id, part, page, totals, width, out var usesPage);
         if (usesPage && _pageDependent.Add(id))
         {
             key = KeyFor(id, page, totals, width);
@@ -190,12 +190,14 @@ internal sealed class HeaderFooterPlan : IPageChrome
     private ChromeKey KeyFor(string id, PageBuilder page, Totals? totals, float width) =>
         new(id, _pageDependent.Contains(id) ? page.NumberText : string.Empty, page.Section.Index, totals?.Pages ?? -1, totals?.SectionPages ?? -1, width);
 
-    private ChromeBlock Layout(HeaderFooterPart part, PageBuilder page, Totals? totals, float width, out bool usesPage)
+    private ChromeBlock Layout(string id, HeaderFooterPart part, PageBuilder page, Totals? totals, float width, out bool usesPage)
     {
         LayoutCount++;
         var fields = new FieldContext(page.Number, page.NumberText, page.Section.Index + 1, totals?.Pages, totals?.SectionPages);
         var planner = _planners();
         planner.Context = new PlanContext { Fields = fields };
+        planner.StoryKey = ImageRef.HeaderFooterStory(id);
+        planner.CanPlaceFloats = false;
         var flows = planner.PlanStory(part.Content.Blocks, width);
         usesPage = fields.UsedPage;
         if (flows.Count == 0)

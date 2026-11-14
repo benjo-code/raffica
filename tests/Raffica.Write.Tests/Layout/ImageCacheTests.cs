@@ -19,27 +19,32 @@ public sealed class ImageCacheTests
     public void ImagesDecodeOnceAndLazily()
     {
         var bytes = Png();
-        var reads = 0;
-        using var cache = new ImageCache(id =>
+        var reads = new Dictionary<string, int>();
+        ReadOnlyMemory<byte> Read(string id)
         {
-            reads++;
+            reads[id] = reads.GetValueOrDefault(id) + 1;
             return bytes;
-        });
+        }
 
-        // Laying out a picture does not touch the cache: only a draw does.
+        using var cache = new ImageCache(Read);
+
+        // The layout gets the same function: it reads each picture's header at most once and decodes no bitmap; the cache is not touched.
         var body = FloatLayoutTests.InlinePicture(40f, 30f, "a") + FloatLayoutTests.InlinePicture(40f, 30f, "a");
-        var layout = PageTestKit.Complete($"<w:p>{body}</w:p>" + PageTestKit.Sect());
+        var layout = PageTestKit.Complete($"<w:p>{body}</w:p>" + PageTestKit.Sect(), options: new LayoutOptions(ImageBytes: Read));
         Assert.Equal(0, cache.DecodeCount);
-        Assert.Equal(0, reads);
-        Assert.Equal(2, layout.Page(0).Items.OfType<ImageItem>().Count());
+        Assert.Equal(1, reads["document#a"]);
+        var items = layout.Page(0).Items.OfType<ImageItem>().ToList();
+        Assert.Equal(2, items.Count);
 
-        var first = cache.Get(new ImageRef("a"));
-        var second = cache.Get(new ImageRef("a"));
+        // The first draw decodes; the second does not.
+        var first = cache.Get(items[0].Image);
         Assert.NotNull(first);
+        Assert.Equal(1, cache.DecodeCount);
+        var second = cache.Get(items[1].Image);
         Assert.Same(first, second);
         Assert.Equal(8, first.Width);
         Assert.Equal(1, cache.DecodeCount);
-        Assert.Equal(1, reads);
+        Assert.Equal(2, reads["document#a"]);
     }
 
     [Fact]

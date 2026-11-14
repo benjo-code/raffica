@@ -51,6 +51,9 @@ public sealed class FloatLayoutTests
     private static DocumentLayout Lay(string body, LayoutOptions? options = null) =>
         Finish(DocumentLayout.Create(LayoutModel.Document(body + Sect()), Fonts, options ?? new LayoutOptions()));
 
+    // The relationship id without the story: ids are handed out as "story#rId".
+    private static string Local(string id) => id[(id.IndexOf('#', StringComparison.Ordinal) + 1)..];
+
     private static List<ImageItem> Images(LaidOutPage page) => page.Items.OfType<ImageItem>().ToList();
 
     private static List<PlaceholderItem> Placeholders(LaidOutPage page) => page.Items.OfType<PlaceholderItem>().ToList();
@@ -81,19 +84,29 @@ public sealed class FloatLayoutTests
 
     private static byte[] Wmf() => [0xD7, 0xCD, 0xC6, 0x9A, 0, 0, 0, 0, 0, 0, 0x10, 0x10, 0, 0, 0, 0, 0, 0];
 
+    // A run with a floating text box (mc:AlternateContent with a wps text box and an empty VML fallback): 183 x 100 pt, yellow, two paragraphs.
+    private static string TextBoxRun()
+    {
+        return $"<w:r><mc:AlternateContent {Namespaces}><mc:Choice Requires=\"wps\"><w:drawing><wp:anchor distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\" behindDoc=\"0\">" +
+            "<wp:simplePos x=\"0\" y=\"0\"/><wp:positionH relativeFrom=\"column\"><wp:posOffset>228600</wp:posOffset></wp:positionH><wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>0</wp:posOffset></wp:positionV>" +
+            "<wp:extent cx=\"2324100\" cy=\"1270000\"/><wp:wrapNone/><wp:docPr id=\"2\" name=\"TextBox 1\"/><a:graphic><a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
+            "<wps:wsp><wps:spPr><a:solidFill><a:srgbClr val=\"FFFF00\"/></a:solidFill></wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:t>Floating text box</w:t></w:r></w:p><w:p><w:r><w:t>second line</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp>" +
+            "</a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice><mc:Fallback><w:pict/></mc:Fallback></mc:AlternateContent></w:r>";
+    }
+
     [Fact]
     public void InlinePictureUsesExtentAndScalesToTheTextWidth()
     {
         var layout = Lay(Para(InlinePicture(100f, 50f, "a")) + Para(InlinePicture(936f, 468f, "b")));
         var images = Images(layout.Page(0));
         Assert.Equal(2, images.Count);
-        Assert.Equal("a", images[0].Image.Id);
+        Assert.Equal("document#a", images[0].Image.Id);
         Assert.Equal(100f, images[0].Width, Tolerance);
         Assert.Equal(50f, images[0].Height, Tolerance);
         Assert.Equal(72f, images[0].X, Tolerance);
 
         // Wider than the 468 pt text area: shrunk to it, aspect ratio kept.
-        Assert.Equal("b", images[1].Image.Id);
+        Assert.Equal("document#b", images[1].Image.Id);
         Assert.Equal(468f, images[1].Width, Tolerance);
         Assert.Equal(234f, images[1].Height, Tolerance);
         Assert.Equal(72f, images[1].X, Tolerance);
@@ -184,7 +197,7 @@ public sealed class FloatLayoutTests
                 Anchored(20f, 10f, none, "margin", 0f, "margin", 0f, "right", hAlign: "right", vAlign: "bottom"),
                 Anchored(20f, 10f, none, "margin", 0f, "margin", 0f, "center", hAlign: "center", vAlign: "center"));
         var page = Lay(body).Page(0);
-        var byId = Images(page).ToDictionary(i => i.Image.Id);
+        var byId = Images(page).ToDictionary(i => Local(i.Image.Id));
         var top = 72f + LineHeight();
 
         Assert.Equal(10f, byId["page"].X, Tolerance);
@@ -216,7 +229,7 @@ public sealed class FloatLayoutTests
             Assert.True(image.Y + image.Height <= page.Height + Tolerance, $"{image.Image.Id} bottom edge {image.Y + image.Height}");
         }
 
-        var far = Images(page).Single(i => i.Image.Id == "far");
+        var far = Images(page).Single(i => Local(i.Image.Id) == "far");
         Assert.Equal(612f - 50f, far.X, Tolerance);
         Assert.Equal(792f - 40f, far.Y, Tolerance);
     }
@@ -295,7 +308,7 @@ public sealed class FloatLayoutTests
     public void UnsupportedPictureFormatIsAPlaceholder()
     {
         var bytes = new Dictionary<string, byte[]> { ["emf"] = Emf(), ["wmf"] = Wmf(), ["ok"] = Png() };
-        var options = new LayoutOptions(ImageBytes: id => bytes[id]);
+        var options = new LayoutOptions(ImageBytes: id => bytes[Local(id)]);
         var body = Para(InlinePicture(120f, 60f, "emf"), Text(" x ")) + Para(InlinePicture(80f, 40f, "wmf")) + Para(InlinePicture(50f, 50f, "ok")) +
             Para(Anchored(90f, 30f, "<wp:wrapNone/>", "page", 300f, "page", 500f, "emf"));
         var page = Lay(body, options).Page(0);
@@ -304,7 +317,7 @@ public sealed class FloatLayoutTests
         Assert.Contains(placeholders, p => Math.Abs(p.Width - 120f) < Tolerance && Math.Abs(p.Height - 60f) < Tolerance);
         Assert.Contains(placeholders, p => Math.Abs(p.Width - 80f) < Tolerance && Math.Abs(p.Height - 40f) < Tolerance);
         Assert.Contains(placeholders, p => Math.Abs(p.Width - 90f) < Tolerance && Math.Abs(p.Height - 30f) < Tolerance && Math.Abs(p.X - 300f) < Tolerance);
-        Assert.Equal("ok", Assert.Single(Images(page)).Image.Id);
+        Assert.Equal("document#ok", Assert.Single(Images(page)).Image.Id);
     }
 
     [Fact]
@@ -312,7 +325,7 @@ public sealed class FloatLayoutTests
     {
         var truncated = Png()[..20];
         var bytes = new Dictionary<string, byte[]> { ["junk"] = [1, 2, 3, 4, 5], ["cut"] = truncated, ["empty"] = [] };
-        var options = new LayoutOptions(ImageBytes: id => bytes.TryGetValue(id, out var b) ? b : throw new InvalidOperationException("no such part"));
+        var options = new LayoutOptions(ImageBytes: id => bytes.TryGetValue(Local(id), out var b) ? b : throw new InvalidOperationException("no such part"));
         var body = Para(InlinePicture(70f, 30f, "junk")) + Para(InlinePicture(71f, 31f, "cut")) + Para(InlinePicture(72f, 32f, "empty")) + Para(InlinePicture(73f, 33f, "missing")) +
             Para(Text("still here"));
         var page = Lay(body, options).Page(0);
@@ -335,11 +348,7 @@ public sealed class FloatLayoutTests
     [Fact]
     public void TextBoxLaysOutItsParagraphsInsideItsBox()
     {
-        var box = $"<w:r><mc:AlternateContent {Namespaces}><mc:Choice Requires=\"wps\"><w:drawing><wp:anchor distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\" behindDoc=\"0\">" +
-            "<wp:simplePos x=\"0\" y=\"0\"/><wp:positionH relativeFrom=\"column\"><wp:posOffset>228600</wp:posOffset></wp:positionH><wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>0</wp:posOffset></wp:positionV>" +
-            "<wp:extent cx=\"2324100\" cy=\"1270000\"/><wp:wrapNone/><wp:docPr id=\"2\" name=\"TextBox 1\"/><a:graphic><a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
-            "<wps:wsp><wps:spPr><a:solidFill><a:srgbClr val=\"FFFF00\"/></a:solidFill></wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:t>Floating text box</w:t></w:r></w:p><w:p><w:r><w:t>second line</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp>" +
-            "</a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice><mc:Fallback><w:pict/></mc:Fallback></mc:AlternateContent></w:r>";
+        var box = TextBoxRun();
         var page = Lay(Para(box, Text("Body text"))).Page(0);
         var fill = Assert.Single(page.Items.OfType<FillItem>());
         Assert.Equal(72f + 18f, fill.X, Tolerance);
@@ -355,6 +364,105 @@ public sealed class FloatLayoutTests
         Assert.Equal(2, inside.Select(r => r.Baseline).Distinct().Count());
         Assert.All(inside, r => Assert.True(r.X >= fill.X + 7f - Tolerance && r.Baseline <= fill.Y + fill.Height));
         Assert.Equal(72f, Runs(page).Where(r => r.X < fill.X).Min(r => r.X), Tolerance);
+    }
+
+    private const string VmlNamespaces = "xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"";
+
+    private static string VmlShape(float width, float height, bool picture) =>
+        $"<w:r><w:pict {VmlNamespaces}><v:shape style=\"position:absolute;margin-left:10pt;margin-top:5pt;width:{width.ToString(CultureInfo.InvariantCulture)}pt;height:{height.ToString(CultureInfo.InvariantCulture)}pt\">" +
+        (picture ? "<v:imagedata r:id=\"vml\"/>" : string.Empty) + "</v:shape></w:pict></w:r>";
+
+    [Fact]
+    public void ImageIdsAreQualifiedByTheirStoryAndEachStoryGetsItsOwnVerdict()
+    {
+        var asked = new List<string>();
+        var png40 = Png(40, 20);
+        var png80 = Png(80, 40);
+        ReadOnlyMemory<byte> Bytes(string id)
+        {
+            asked.Add(id);
+            return id switch
+            {
+                "document#rId1" => png40,
+                "header:hA#rId1" => png80,
+                "header:hB#rId1" => Emf(),
+                _ => throw new InvalidOperationException(id),
+            };
+        }
+
+        var parts = new Dictionary<string, string>
+        {
+            ["hA"] = ChromeTestKit.HeaderPart(Para(InlinePicture(0f, 0f, "rId1"))),
+            ["hB"] = ChromeTestKit.HeaderPart(Para(InlinePicture(50f, 25f, "rId1"))),
+        };
+        var body = $"<w:p><w:pPr>{Sect(ChromeTestKit.Header("default", "hA"))}</w:pPr>{InlinePicture(0f, 0f, "rId1")}</w:p>" + Para(Text("second section")) +
+            Sect(ChromeTestKit.Header("default", "hB"));
+        var layout = Finish(DocumentLayout.Create(ChromeTestKit.Document(body, parts), Fonts, new LayoutOptions(ImageBytes: Bytes)));
+
+        Assert.Equal(2, layout.LaidOutPages);
+        var first = Images(layout.Page(0)).OrderBy(i => i.Y).ToList();
+        Assert.Equal(["header:hA#rId1", "document#rId1"], first.Select(i => i.Image.Id));
+        Assert.Equal(60f, first[0].Width, Tolerance);
+        Assert.Equal(30f, first[1].Width, Tolerance);
+        Assert.Empty(Images(layout.Page(1)));
+        var box = Assert.Single(Placeholders(layout.Page(1)));
+        Assert.Equal(50f, box.Width, Tolerance);
+        Assert.Equal(25f, box.Height, Tolerance);
+        Assert.Equal(3, asked.Distinct().Count());
+        Assert.All(asked.GroupBy(a => a), g => Assert.Single(g));
+    }
+
+    [Fact]
+    public void FloatsInAHeaderAreShownInline()
+    {
+        var parts = new Dictionary<string, string>
+        {
+            ["hA"] = ChromeTestKit.HeaderPart(Para(Anchored(30f, 30f, id: "logo"), Text("Header"), VmlShape(50f, 20f, false))),
+        };
+        var body = Para(Text("body")) + Sect(ChromeTestKit.Header("default", "hA"));
+        var page = Finish(DocumentLayout.Create(ChromeTestKit.Document(body, parts), Fonts, new LayoutOptions())).Page(0);
+        var logo = Assert.Single(Images(page));
+        Assert.Equal("header:hA#logo", logo.Image.Id);
+        Assert.Equal(30f, logo.Width, Tolerance);
+        var shape = Assert.Single(Placeholders(page));
+        Assert.Equal(50f, shape.Width, Tolerance);
+        Assert.Equal(20f, shape.Height, Tolerance);
+        Assert.Contains("Header", page.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FloatsInATableCellAreShownInlineAndATextBoxIsAMarkedBox()
+    {
+        var cell = $"<w:tc><w:tcPr><w:tcW w:w=\"6000\" w:type=\"dxa\"/></w:tcPr><w:p>{Anchored(30f, 20f, id: "cellpic")}{Text("cell text")}</w:p><w:p>{TextBoxRun()}</w:p></w:tc>";
+        var body = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"6000\"/></w:tblGrid><w:tr>" + cell + "</w:tr></w:tbl>";
+        var page = Lay(body).Page(0);
+        var picture = Assert.Single(Images(page));
+        Assert.Equal("document#cellpic", picture.Image.Id);
+        Assert.Equal(30f, picture.Width, Tolerance);
+        Assert.Contains("cell text", page.Text, StringComparison.Ordinal);
+
+        // As in the writing view, a text box that cannot be placed is a marked box of its size (183 x 100 pt); its text stays in the model.
+        var box = Assert.Single(Placeholders(page));
+        Assert.Equal(183f, box.Width, Tolerance);
+        Assert.Equal(100f, box.Height, Tolerance);
+    }
+
+    [Fact]
+    public void AFloatAnchoredAroundAPageBreakIsPlacedOnceOnItsOwnPage()
+    {
+        var pageBreak = "<w:r><w:br w:type=\"page\"/></w:r>";
+        var after = Lay(Para(Text("before"), pageBreak, Anchored(50f, 40f, "<wp:wrapNone/>", "page", 100f, "page", 100f, "late"), Text("after")));
+        Assert.Equal(2, after.LaidOutPages);
+        Assert.Empty(Images(after.Page(0)));
+        var late = Assert.Single(Images(after.Page(1)));
+        Assert.Equal(100f, late.X, Tolerance);
+        Assert.Equal(100f, late.Y, Tolerance);
+        Assert.Single(Pages(after).SelectMany(Images));
+
+        var before = Lay(Para(Text("before"), Anchored(50f, 40f, "<wp:wrapNone/>", "page", 100f, "page", 100f, "early"), pageBreak, Text("after")));
+        Assert.Equal(2, before.LaidOutPages);
+        Assert.Single(Images(before.Page(0)));
+        Assert.Empty(Images(before.Page(1)));
     }
 
     [Fact]

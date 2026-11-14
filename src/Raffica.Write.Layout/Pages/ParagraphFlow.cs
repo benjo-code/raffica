@@ -299,7 +299,8 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
     public IBlockFlow AtPlace(FloatContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var specs = _plan.Input.Floats;
+        // Objects anchored after a manual page or column break belong to the part after it (ParagraphPlan.After hands them on), not to this one.
+        var specs = _plan.Input.Floats?.Where(f => _layout.EndBreak is null || f.ItemIndex < _layout.RemainderItem).ToList();
         var boxes = specs is { Count: > 0 } ? FloatPlanner.Place(specs, context) : [];
         var layout = _layout;
         List<FloatBox> obstacles = [.. context.Page.Boxes];

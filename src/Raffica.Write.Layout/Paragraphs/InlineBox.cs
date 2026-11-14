@@ -8,8 +8,32 @@ public enum BreakKind
     Column,
 }
 
-/// <summary>A reference to a picture by an id the caller resolves (a relationship id); the layout only carries it.</summary>
-public readonly record struct ImageRef(string Id);
+/// <summary>
+/// A reference to a picture by an id the caller resolves; the layout only carries it. The id is qualified by the story it is read
+/// in, because relationship ids are only unique inside one part (header1.xml and the body both have an <c>rId1</c>):
+/// <c>"&lt;story&gt;#&lt;relationship id&gt;"</c>. The story is <c>document</c> for the body (and its tables and text boxes),
+/// <c>header:&lt;id&gt;</c> for a header or footer part, where &lt;id&gt; is the relationship id the document's
+/// <c>w:headerReference</c> or <c>w:footerReference</c> uses (the key of <c>WordDocument.HeadersFooters</c>), and
+/// <c>footnotes</c> or <c>endnotes</c> for the notes parts. This string is what <see cref="LayoutOptions.ImageBytes"/> and
+/// <see cref="ImageCache"/> receive: the caller finds the part of the story, then the relationship in that part's own rels.
+/// </summary>
+public readonly record struct ImageRef(string Id)
+{
+    /// <summary>The story of the main document body.</summary>
+    public const string DocumentStory = "document";
+
+    /// <summary>The story of the footnotes part.</summary>
+    public const string FootnotesStory = "footnotes";
+
+    /// <summary>The story of the endnotes part.</summary>
+    public const string EndnotesStory = "endnotes";
+
+    /// <summary>The story of a header or footer part, by the relationship id the document uses for it.</summary>
+    public static string HeaderFooterStory(string documentRelationshipId) => "header:" + documentRelationshipId;
+
+    /// <summary>The id handed out for relationship <paramref name="relationshipId"/> read in <paramref name="story"/>.</summary>
+    public static string Qualify(string story, string relationshipId) => story + "#" + relationshipId;
+}
 
 /// <summary>One flattened piece of a paragraph: a <see cref="TextSpan"/>, an <see cref="InlineBox"/> or a <see cref="BreakItem"/>.</summary>
 public abstract record ParagraphItem;

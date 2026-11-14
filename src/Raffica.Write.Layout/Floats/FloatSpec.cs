@@ -163,7 +163,7 @@ internal static class FloatReader
     private static readonly XNamespace W10 = "urn:schemas-microsoft-com:office:word";
 
     /// <summary>The floating object of a <c>w:drawing</c>; null for an inline drawing, one the layout cannot read, or one with no size.</summary>
-    public static FloatSpec? FromDrawing(XElement drawing, ImageProbe probe)
+    public static FloatSpec? FromDrawing(XElement drawing, ImageProbe probe, string story)
     {
         var anchor = drawing.Element(Wp + "anchor");
         if (anchor is null)
@@ -174,7 +174,7 @@ internal static class FloatReader
         var extent = anchor.Element(Wp + "extent");
         var width = Emu(extent, "cx");
         var height = Emu(extent, "cy");
-        var (kind, image, content, look) = Content(anchor, probe, ref width, ref height);
+        var (kind, image, content, look) = Content(anchor, probe, story, ref width, ref height);
         if (width < 1f || height < 1f)
         {
             return null;
@@ -210,26 +210,26 @@ internal static class FloatReader
     }
 
     /// <summary>The floating object of an <c>mc:AlternateContent</c>: its drawing choice, else its VML fallback; null when there is none.</summary>
-    public static FloatSpec? FromAlternate(XElement alternate, ImageProbe probe)
+    public static FloatSpec? FromAlternate(XElement alternate, ImageProbe probe, string story)
     {
         foreach (var choice in alternate.Elements(Mc + "Choice"))
         {
             if (choice.Descendants(W + "drawing").FirstOrDefault() is { } drawing)
             {
-                return FromDrawing(drawing, probe);
+                return FromDrawing(drawing, probe, story);
             }
         }
 
         if (alternate.Element(Mc + "Fallback")?.Element(W + "pict") is { } pict)
         {
-            return FromVml(pict, probe);
+            return FromVml(pict, probe, story);
         }
 
         return null;
     }
 
     /// <summary>The floating object of a VML <c>w:pict</c>: a shape with absolute position (a picture or a text box); null for anything else.</summary>
-    public static FloatSpec? FromVml(XElement pict, ImageProbe probe)
+    public static FloatSpec? FromVml(XElement pict, ImageProbe probe, string story)
     {
         var shape = pict.Elements().FirstOrDefault(e => e.Name.Namespace == V && e.Name.LocalName is "shape" or "rect" or "roundrect" or "oval");
         if (shape is null)
@@ -257,8 +257,9 @@ internal static class FloatReader
             content = TextBoxContent.Read(textbox);
             look = new TextBoxLook(Color((string?)shape.Attribute("fillcolor")), Color((string?)shape.Attribute("strokecolor")) ?? 0xFF000000, 0.75f, 7.2f, 3.6f, 7.2f, 3.6f, false);
         }
-        else if (imageData is not null && (string?)imageData.Attribute(R + "id") is { } id)
+        else if (imageData is not null && (string?)imageData.Attribute(R + "id") is { } rid)
         {
+            var id = ImageRef.Qualify(story, rid);
             var info = probe.Info(id);
             kind = info is null ? FloatKind.Placeholder : FloatKind.Image;
             image = new ImageRef(id);
@@ -339,7 +340,7 @@ internal static class FloatReader
     }
 
     // What the drawing shows: a picture, a text box or something the layout cannot draw. A missing extent takes the pixel size of a picture.
-    private static (FloatKind Kind, ImageRef? Image, IReadOnlyList<Paragraph>? Content, TextBoxLook? Look) Content(XElement anchor, ImageProbe probe, ref float width, ref float height)
+    private static (FloatKind Kind, ImageRef? Image, IReadOnlyList<Paragraph>? Content, TextBoxLook? Look) Content(XElement anchor, ImageProbe probe, string story, ref float width, ref float height)
     {
         var graphic = anchor.Element(A + "graphic")?.Element(A + "graphicData");
         if (graphic?.Descendants(Wps + "txbx").FirstOrDefault()?.Element(W + "txbxContent") is { } box)
@@ -349,8 +350,9 @@ internal static class FloatReader
         }
 
         var blip = graphic?.Descendants(A + "blip").FirstOrDefault();
-        if (blip is not null && (string?)blip.Attribute(R + "embed") is { } id)
+        if (blip is not null && (string?)blip.Attribute(R + "embed") is { } rid)
         {
+            var id = ImageRef.Qualify(story, rid);
             var info = probe.Info(id);
             if (info is { Width: > 0, Height: > 0 } px && (width < 1f || height < 1f))
             {
