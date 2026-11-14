@@ -126,7 +126,9 @@ public sealed class FaultAndFocusTests
         var (window, tab) = await OpenThesisAsync(fixture);
         var view = window.ViewOf(tab)!;
         await ViewHarness.WaitAsync(() => view.IsFocused);
-        await ViewHarness.WaitAsync(() => view.PageCount >= 3 || view.Runner.PageLayout.IsComplete, 30000);
+        // The whole layout first: while it still grows (a slower machine), the content height, and with it the End offset, changes after the key.
+        await ViewHarness.WaitAsync(() => view.IsLayoutComplete, 60000);
+        ViewHarness.Pump();
 
         // The focus is on a button of the ribbon (or gone, when the start tile left the tree): the keys that scroll still reach the view.
         var other = window.GetVisualDescendants().OfType<InputElement>().First(e => e.Focusable && e.IsEffectivelyEnabled && e.IsEffectivelyVisible && e is not Raffica.Write.Viewing.PageView && e is not TextBox && e is not Avalonia.Controls.Primitives.ScrollBar);

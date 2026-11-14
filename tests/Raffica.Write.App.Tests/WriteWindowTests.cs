@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -276,15 +277,21 @@ public sealed class WriteWindowTests
         WindowFixture.Pump();
         Assert.False(input.IsFocused);
 
-        // Ctrl+K is the key of the PDF app; here it does nothing to the search.
-        window.KeyPressQwerty(PhysicalKey.K, RawInputModifiers.Control);
-        window.KeyReleaseQwerty(PhysicalKey.K, RawInputModifiers.Control);
-        WindowFixture.Pump();
-        Assert.False(input.IsFocused);
+        // The command key of the window is the platform's hotkey configuration (Meta in a real macOS app; the headless platform binds Control on every OS).
+        var command = (RawInputModifiers)(int)Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+        var mac = OperatingSystem.IsMacOS();
+        if (!mac)
+        {
+            // Ctrl+K is the key of the PDF app; here it does nothing to the search.
+            window.KeyPressQwerty(PhysicalKey.K, command);
+            window.KeyReleaseQwerty(PhysicalKey.K, command);
+            WindowFixture.Pump();
+            Assert.False(input.IsFocused);
+        }
 
-        // Alt+Q focuses it (macOS keeps Cmd+K for this option).
-        var modifiers = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Alt;
-        var key = OperatingSystem.IsMacOS() ? PhysicalKey.K : PhysicalKey.Q;
+        // Alt+Q focuses it; macOS keeps Cmd+K for this option until milestone 4.5 chooses the Write shortcut there.
+        var modifiers = mac ? command : RawInputModifiers.Alt;
+        var key = mac ? PhysicalKey.K : PhysicalKey.Q;
         window.KeyPressQwerty(key, modifiers);
         window.KeyReleaseQwerty(key, modifiers);
         WindowFixture.Pump();
@@ -303,7 +310,7 @@ public sealed class WriteWindowTests
             calls++;
             return Task.FromResult<IReadOnlyList<string>>([WindowFixture.Poi]);
         };
-        var command = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        var command = (RawInputModifiers)(int)Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
 
         window.KeyPressQwerty(PhysicalKey.O, command);
         window.KeyReleaseQwerty(PhysicalKey.O, command);

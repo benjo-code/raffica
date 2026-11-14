@@ -16,7 +16,7 @@ public sealed class WriteProjectTests
         Assert.DoesNotContain("Raffica.Ocr", referenced);
 
         var project = XDocument.Load(RepoPaths.Combine("src", "Raffica.Write", "Raffica.Write.csproj"));
-        var references = project.Descendants("ProjectReference").Select(r => Path.GetFileNameWithoutExtension((string)r.Attribute("Include")!)).Order(StringComparer.Ordinal).ToList();
+        var references = project.Descendants("ProjectReference").Select(r => Path.GetFileNameWithoutExtension(((string)r.Attribute("Include")!).Replace('\\', '/'))).Order(StringComparer.Ordinal).ToList();
         Assert.Equal(["Raffica.Core", "Raffica.Hosting", "Raffica.Shell", "Raffica.Write.Docx", "Raffica.Write.Layout", "Raffica.Write.Model"], references);
     }
 

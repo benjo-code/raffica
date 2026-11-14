@@ -260,26 +260,48 @@ public sealed class SearchFieldTests
         return (window, input, button);
     }
 
+    // The key that stands for Cmd/Ctrl in a window: the hotkey configuration of the platform, as FrameKeys reads it. A real macOS app binds Meta there, but the
+    // headless platform binds the default configuration (Control) on every OS, so a headless window takes Control even on macOS.
+    private static RawInputModifiers CommandKey => (RawInputModifiers)(int)Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+
     [AvaloniaFact]
     public void AltQFocusesTheFieldWhenTheAppAsksForIt()
     {
         var (window, input, _) = ShowWithAltQ();
 
-        // Ctrl+K is not the key of this frame.
-        Press(window, PhysicalKey.K, RawInputModifiers.Control);
-        Assert.False(input.IsFocused);
-
-        // macOS keeps Cmd+K for this option.
         if (OperatingSystem.IsMacOS())
         {
-            Press(window, PhysicalKey.K, RawInputModifiers.Meta);
+            // macOS keeps Cmd+K for this option (the command key of the platform), and Alt+Q does nothing.
+            Press(window, PhysicalKey.Q, RawInputModifiers.Alt);
+            Assert.False(input.IsFocused);
+            Press(window, PhysicalKey.K, CommandKey);
         }
         else
         {
+            // Ctrl+K is not the key of this frame.
+            Press(window, PhysicalKey.K, RawInputModifiers.Control);
+            Assert.False(input.IsFocused);
             Press(window, PhysicalKey.Q, RawInputModifiers.Alt);
         }
 
         Assert.True(input.IsFocused);
+    }
+
+    [Fact]
+    public void TheAltQGestureIsAltQOnWindowsAndLinuxAndTheCommandKeyOnMacOs()
+    {
+        var other = FrameKeys.GestureOf(SearchShortcut.AltQ, KeyModifiers.Control, macOs: false);
+        Assert.Equal(Key.Q, other.Key);
+        Assert.Equal(KeyModifiers.Alt, other.KeyModifiers);
+        Assert.Equal("Alt+Q", FrameKeys.TextOf(SearchShortcut.AltQ, macOs: false));
+
+        var mac = FrameKeys.GestureOf(SearchShortcut.AltQ, KeyModifiers.Meta, macOs: true);
+        Assert.Equal(Key.K, mac.Key);
+        Assert.Equal(KeyModifiers.Meta, mac.KeyModifiers);
+        Assert.Equal("Meta+K", FrameKeys.TextOf(SearchShortcut.AltQ, macOs: true));
+
+        Assert.Equal(new KeyGesture(Key.K, KeyModifiers.Control), FrameKeys.GestureOf(SearchShortcut.CtrlK, KeyModifiers.Control, macOs: false));
+        Assert.Equal(new KeyGesture(Key.K, KeyModifiers.Meta), FrameKeys.GestureOf(SearchShortcut.CtrlK, KeyModifiers.Meta, macOs: true));
     }
 
     [AvaloniaFact]
