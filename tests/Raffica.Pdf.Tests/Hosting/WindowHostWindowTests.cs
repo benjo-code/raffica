@@ -145,7 +145,7 @@ public sealed class WindowHostWindowTests
 
             // The first window is moved and closes: its own close writes the placement.
             var placed = new WindowPlacement(60, 70, 1100, 700, false);
-            first.NoteBounds(placed, Environment.TickCount64);
+            first.Placement.NoteBounds(placed, Environment.TickCount64);
             first.Close();
             Pump();
             Assert.Equal(placed, new SettingsStore(file).Load().WindowPlacement);

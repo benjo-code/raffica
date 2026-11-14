@@ -100,8 +100,6 @@ internal sealed partial class PdfWindow : Window, IHostedWindow
     private SingleInstance? _instance;
     private PdfEngine? _engine;
     private bool _closeConfirmed;
-    private WindowPlacement? _restoreBounds;
-    private bool _maximized;
     private SaveController _saves = null!; // made in the constructor, after the dialog queue it needs
     private readonly Func<PdfTab, Task<string?>>? _savePicker;
 
@@ -209,7 +207,7 @@ internal sealed partial class PdfWindow : Window, IHostedWindow
         {
             TitleBar.PrepareWindow(this);
             ApplyPlacement(settings.WindowPlacement);
-            TrackPlacement();
+            Placement.Attach(this);
         }
 
         Refresh();
@@ -284,11 +282,10 @@ internal sealed partial class PdfWindow : Window, IHostedWindow
             Height = fit.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
             Position = new PixelPoint((int)fit.X, (int)fit.Y);
-            NoteBounds(fit, long.MinValue / 2);
+            Placement.Start(fit);
             if (fit.Maximized)
             {
                 WindowState = WindowState.Maximized;
-                _maximized = true;
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -297,103 +294,15 @@ internal sealed partial class PdfWindow : Window, IHostedWindow
         }
     }
 
-    // The restore bounds are the last ones seen in the normal state. A real window system may raise the position or size event of a maximize or a minimize before the
-    // window state changes (Win32 does), so such a snapshot looks like a normal one. Every snapshot is kept with its time; when the state turns Maximized or Minimized, the
-    // snapshots of the last TransitionMs are dropped and the newest older one is the restore bounds. The minimized sentinel position (-32000) and a size of zero are never
-    // snapshots.
-    private void TrackPlacement()
-    {
-        PositionChanged += (_, _) => TrackBounds();
-        Resized += (_, _) => TrackBounds();
-        this.GetObservable(WindowStateProperty).Subscribe(new WindowStateObserver(this));
-    }
-
-    private void TrackBounds()
-    {
-        if (WindowState == WindowState.Normal && IsVisible)
-        {
-            NoteBounds(new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, false), Environment.TickCount64);
-        }
-    }
-
-    private void TrackState(WindowState state) => NoteState(state, Environment.TickCount64);
-
-    /// <summary>How long before a change of the window state a position or size is still counted as part of that change.</summary>
-    internal const long TransitionMs = 300;
-
-    /// <summary>Positions at or below this are the sentinel of a minimized window, not a place.</summary>
-    internal const double MinimizedSentinel = -30000;
-
-    private readonly List<(WindowPlacement Bounds, long At)> _boundsHistory = [];
-
-    /// <summary>The bounds that would be stored for the restore now (tests).</summary>
-    internal WindowPlacement? RestoreBounds => _restoreBounds;
-
-    /// <summary>Notes the bounds the window has in the normal state at time <paramref name="now"/> (milliseconds); a sentinel position or an empty size is ignored.</summary>
-    internal void NoteBounds(WindowPlacement bounds, long now)
-    {
-        if (!bounds.IsUsable || bounds.X <= MinimizedSentinel || bounds.Y <= MinimizedSentinel)
-        {
-            return;
-        }
-
-        if (_restoreBounds is { } current && current == bounds with { Maximized = false })
-        {
-            return;
-        }
-
-        _restoreBounds = bounds with { Maximized = false };
-        _boundsHistory.Add((_restoreBounds, now));
-        if (_boundsHistory.Count > 16)
-        {
-            _boundsHistory.RemoveAt(0);
-        }
-    }
-
-    /// <summary>Notes a change of the window state at time <paramref name="now"/> (milliseconds).</summary>
-    internal void NoteState(WindowState state, long now)
-    {
-        if (state != WindowState.Minimized)
-        {
-            _maximized = state is WindowState.Maximized or WindowState.FullScreen;
-        }
-
-        if (state is WindowState.Maximized or WindowState.Minimized or WindowState.FullScreen)
-        {
-            // What arrived just before is part of this change: the newest older snapshot (the oldest one there is, when all are that young) is the restore bounds.
-            var stable = _boundsHistory.FindLastIndex(entry => now - entry.At >= TransitionMs);
-            var keep = stable >= 0 ? stable : (_boundsHistory.Count > 0 ? 0 : -1);
-            if (keep >= 0)
-            {
-                _restoreBounds = _boundsHistory[keep].Bounds;
-                _boundsHistory.RemoveRange(keep + 1, _boundsHistory.Count - keep - 1);
-            }
-        }
-        else
-        {
-            TrackBounds();
-        }
-    }
+    /// <summary>The placement the window stores when it closes (the restore bounds and the maximized flag); the shared logic of <see cref="WindowPlacementTracker"/>.</summary>
+    internal WindowPlacementTracker Placement { get; } = new();
 
     private void RememberPlacement()
     {
-        if (!_options.IsMeasuring && _restoreBounds is { } bounds)
+        if (!_options.IsMeasuring && Placement.ToStore() is { } placement)
         {
-            Settings.RememberWindow(bounds with { Maximized = _maximized });
+            Settings.RememberWindow(placement);
         }
-    }
-
-    private sealed class WindowStateObserver(PdfWindow window) : IObserver<WindowState>
-    {
-        public void OnCompleted()
-        {
-        }
-
-        public void OnError(Exception error)
-        {
-        }
-
-        public void OnNext(WindowState value) => window.TrackState(value);
     }
 
     private void FlushWriters()
