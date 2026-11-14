@@ -322,6 +322,11 @@
       "date": "2026-11-13",
       "context": "Milestone 4.1",
       "text": "The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision \"Raffica Write: Open XML SDK under Native AOT (M4)\"). Word's PDFs of the corpus are made by the owner and are listed as open."
+    },
+    {
+      "date": "2026-11-14",
+      "context": "Milestone 4.2",
+      "text": "What a second app needs from `Raffica.Pdf` moves into a new shared project `Raffica.Hosting` (window host and file activation, the names of the settings and recent files and of the instance, recent files, the dialog queue); the crash guard, the update flow, the default-app services and the print services stay in `Raffica.Pdf` until a Write milestone first needs them (4.7 to 4.9). Write's macOS menu bar is its own small `WriteMacMenu`, because `MacMenuBinder` is bound to the PDF command catalog; generalizing it is left until the Write menu grows. The layout library has its own UAX #14 line breaker, generated from the Unicode data files and checked against `LineBreakTest.txt` (owner's choice of 2026-11-14), so the library keeps the spec's rule that it references no Avalonia type and the headless first page does not load Avalonia. In 4.2 the layout shows tracked changes as accepted text and shows no comments (the review UI is 4.6). The headless engine benchmark is a new tool `bench/write-layout`. The app's command search is Alt+Q through an app-level option of the frame (spec section 6); on macOS it stays on ⌘K until 4.5 chooses the ⌘ shortcut. The page-count gate of the generated thesis needs Word's PDF of it, which is the owner's and is open."
     }
   ],
   "subprojects": [
@@ -821,7 +826,8 @@
         {
           "id": "4.2",
           "title": "Write as a fast DOCX viewer",
-          "status": "open",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md",
           "prerequisites": ["4.1"],
           "goal": "Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.",
           "tasks": [

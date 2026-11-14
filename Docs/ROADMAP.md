@@ -41,7 +41,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 3.3 | Package and release | 4 – macOS | ✅ done | [Plan](superpowers/plans/2026-11-10-milestone-03-3-package-and-release.md) | 2026-11-12 |
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
 | 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | 2026-11-13 |
-| 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | ⬜ open | – | – |
+| 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) | – |
 | 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
 | 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
@@ -118,6 +118,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-10 (Milestone 3.3):** The size budgets of the PDF app on macOS are one `macos` entry of `s_pdfBudgets` (size, zip, app, dmg; the larger architecture binds both) and have no time or memory limit until the Intel measurement; see "Raffica PDF on macOS: published sizes and the hosted record (M3.3)" in `Docs/DECISIONS.md`.
 - **2026-11-12 (Milestone 4):** The printing and IME spikes also cover macOS (a supported platform since milestone 3), and printing is checked as Write printing itself (Windows draws directly onto the printer, Linux and macOS hand CUPS a PDF in memory), not through Raffica PDF; see the spike design `superpowers/specs/2026-11-12-raffica-write-spikes-design.md`.
 - **2026-11-13 (Milestone 4.1):** The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision "Raffica Write: Open XML SDK under Native AOT (M4)"). Word's PDFs of the corpus are made by the owner and are listed as open.
+- **2026-11-14 (Milestone 4.2):** What a second app needs from `Raffica.Pdf` moves into a new shared project `Raffica.Hosting` (window host and file activation, the names of the settings and recent files and of the instance, recent files, the dialog queue); the crash guard, the update flow, the default-app services and the print services stay in `Raffica.Pdf` until a Write milestone first needs them (4.7 to 4.9). Write's macOS menu bar is its own small `WriteMacMenu`, because `MacMenuBinder` is bound to the PDF command catalog; generalizing it is left until the Write menu grows. The layout library has its own UAX #14 line breaker, generated from the Unicode data files and checked against `LineBreakTest.txt` (owner's choice of 2026-11-14), so the library keeps the spec's rule that it references no Avalonia type and the headless first page does not load Avalonia. In 4.2 the layout shows tracked changes as accepted text and shows no comments (the review UI is 4.6). The headless engine benchmark is a new tool `bench/write-layout`. The app's command search is Alt+Q through an app-level option of the frame (spec section 6); on macOS it stays on ⌘K until 4.5 chooses the ⌘ shortcut. The page-count gate of the generated thesis needs Word's PDF of it, which is the owner's and is open.
 
 ---
 
@@ -616,7 +617,7 @@ Goal: A UI-free library reads and writes DOCX into a model that follows OOXML an
 **Proven by CI (pull request #85, run 43505487736):** the Native AOT publish of the tool on Linux and macOS (both architectures) and the Unix-mode save test (`DocxSaveTests.UnixPermissionsOfTheTargetAreKept`, skipped on the Windows host, ran and passed in `build-linux`). The Apple-silicon and Intel macOS runs of the published tool's `check` and `run` executed in `build-macos`.
 
 ## Milestone 4.2 – Write as a fast DOCX viewer
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.1
+**Status:** 🟡 planned · **Plan:** [2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) · **Prerequisites:** M4.1
 
 Goal: Write opens a long DOCX on the frame fast, in a page view and a writing view, and its speed budgets are set.
 
