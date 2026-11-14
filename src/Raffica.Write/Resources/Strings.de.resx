@@ -186,4 +186,19 @@
   <data name="PageViewPageNameFormat" xml:space="preserve">
     <value>Dokument: {0}, Seite {1} von {2}</value>
   </data>
+  <data name="PaneOutline" xml:space="preserve">
+    <value>Gliederung</value>
+  </data>
+  <data name="OutlineLoading" xml:space="preserve">
+    <value>Die Überschriften werden gelesen…</value>
+  </data>
+  <data name="OutlineEmpty" xml:space="preserve">
+    <value>Dieses Dokument hat keine Überschriften.</value>
+  </data>
+  <data name="OutlineEntryNameFormat" xml:space="preserve">
+    <value>{0}, Überschrift Ebene {1}</value>
+  </data>
+  <data name="OutlineWaiting" xml:space="preserve">
+    <value>Die Seiten bis zur Überschrift werden gesetzt…</value>
+  </data>
 </root>

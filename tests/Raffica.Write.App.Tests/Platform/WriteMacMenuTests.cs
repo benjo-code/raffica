@@ -86,12 +86,12 @@ public sealed class WriteMacMenuTests
     public void TheViewMenuRunsTheCommandsOfTheCatalogAndShowsTheView()
     {
         var window = new FakeWindow { HasTab = true };
-        window.Allowed.UnionWith([WriteCommandIds.PageView, WriteCommandIds.WritingView, WriteCommandIds.ZoomIn, WriteCommandIds.FitWidth]);
+        window.Allowed.UnionWith([WriteCommandIds.PageView, WriteCommandIds.WritingView, WriteCommandIds.ZoomIn, WriteCommandIds.FitWidth, WriteCommandIds.Outline]);
         window.On.Add(WriteCommandIds.PageView);
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
         var view = Item(menu.Menu, "View").Menu!;
-        Assert.Equal(["Page view", "Writing view", "Zoom in", "Zoom out", "Actual size", "Fit width", "Fit page"], view.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).Select(i => i.Header!).ToArray());
+        Assert.Equal(["Page view", "Writing view", "Zoom in", "Zoom out", "Actual size", "Fit width", "Fit page", "Outline"], view.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).Select(i => i.Header!).ToArray());
 
         var page = Item(view, "Page view");
         var writing = Item(view, "Writing view");
@@ -110,7 +110,9 @@ public sealed class WriteMacMenuTests
         Item(view, "Zoom in").Command!.Execute(null);
         Item(view, "Fit width").Command!.Execute(null);
         Item(view, "Zoom out").Command!.Execute(null);
-        Assert.Equal(["run view.zoomIn", "run view.fitWidth"], window.Calls);
+        Assert.True(Enabled(Item(view, "Outline")));
+        Item(view, "Outline").Command!.Execute(null);
+        Assert.Equal(["run view.zoomIn", "run view.fitWidth", "run view.outline"], window.Calls);
 
         // No tab, no view commands; a card that is open disables them too.
         window.HasTab = false;

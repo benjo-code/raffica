@@ -387,11 +387,7 @@ public sealed class WriteCommandTests
         Assert.Same(window.Ribbon.TabRow, window.Frame.TabRow);
         var view = window.ViewOf(tab)!;
         var commands = RibbonCommands(window).ToDictionary(c => c.Id);
-        Assert.All(commands.Values.Where(c => c.Id != WriteCommandIds.Outline), c => Assert.True(c.IsEnabled, c.Id));
-
-        // The outline waits for its pane: disabled, with its reason.
-        Assert.False(commands[WriteCommandIds.Outline].IsEnabled);
-        Assert.Equal("The outline is not available yet.", commands[WriteCommandIds.Outline].CurrentDisabledReason);
+        Assert.All(commands.Values, c => Assert.True(c.IsEnabled, c.Id));
 
         commands[WriteCommandIds.WritingView].Run!();
         Assert.Equal(WriteView.Writing, view.Mode);

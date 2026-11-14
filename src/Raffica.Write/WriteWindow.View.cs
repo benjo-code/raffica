@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Raffica.Core.Viewing;
 using Raffica.Shell.Frame;
 using Raffica.Write.Commands;
@@ -30,7 +31,7 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default);
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true);
         _actions = CreateActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
@@ -38,7 +39,7 @@ internal sealed partial class WriteWindow
         TitleSearch.CommandChosen += command => command.Run?.Invoke();
     }
 
-    // What each command does. The outline has no entry until its pane exists: it stays disabled, with its reason.
+    // What each command does.
     private Dictionary<string, Action> CreateActions() => new()
     {
         [WriteCommandIds.Open] = () => _ = GuardAsync(OpenFromDialogAsync),
@@ -52,6 +53,7 @@ internal sealed partial class WriteWindow
         [WriteCommandIds.FitPage] = () => ActiveView?.FitPage(),
         [WriteCommandIds.PageView] = () => SetView(WriteView.Page),
         [WriteCommandIds.WritingView] = () => SetView(WriteView.Writing),
+        [WriteCommandIds.Outline] = ToggleOutline,
     };
 
     // Whether a switch of the ribbon is on: the view in force and the zoom mode of the active tab.
@@ -69,6 +71,7 @@ internal sealed partial class WriteWindow
             WriteCommandIds.ActualSize => view.ZoomMode == ZoomMode.ActualSize,
             WriteCommandIds.FitWidth => view.ZoomMode == ZoomMode.FitWidth,
             WriteCommandIds.FitPage => view.ZoomMode == ZoomMode.FitPage,
+            WriteCommandIds.Outline => _outlineWanted,
             _ => false,
         };
     }
@@ -168,7 +171,7 @@ internal sealed partial class WriteWindow
     private IInputElement? FocusedElement() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
 
     // Navigation keys that reach the window while the page view does not have the focus: they scroll the active view, so a lost focus cannot swallow them. The arrows
-    // only when nothing has the focus (they move inside the ribbon and the tabs); PageUp, PageDown, Home and End also when a button or tab has it, never a text box.
+    // only when nothing has the focus (they move inside the ribbon and the tabs); PageUp, PageDown, Home and End also when a button or tab has it, never a text box, a slider or the outline list (they are its own keys).
     private bool ForwardNavigationKey(KeyEventArgs e)
     {
         if (ActiveView is not { IsFocused: false } view || !PageView.IsNavigationKey(e.Key, e.KeyModifiers))
@@ -178,7 +181,8 @@ internal sealed partial class WriteWindow
 
         var focused = FocusedElement();
         var arrow = e.Key is Key.Up or Key.Down or Key.Left or Key.Right;
-        var allowed = focused is null || ReferenceEquals(focused, this) || (!arrow && focused is not TextBox and not ComboBox and not Slider);
+        var inOutline = _outlineHost is { } host && focused is Avalonia.Visual visual && host.IsVisualAncestorOf(visual);
+        var allowed = focused is null || ReferenceEquals(focused, this) || (!arrow && !inOutline && focused is not TextBox and not ComboBox and not Slider);
         return allowed && view.HandleNavigationKey(e.Key, e.KeyModifiers);
     }
 

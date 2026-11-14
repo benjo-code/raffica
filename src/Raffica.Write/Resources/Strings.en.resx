@@ -186,4 +186,19 @@
   <data name="PageViewPageNameFormat" xml:space="preserve">
     <value>Document: {0}, page {1} of {2}</value>
   </data>
+  <data name="PaneOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="OutlineLoading" xml:space="preserve">
+    <value>Reading the headings…</value>
+  </data>
+  <data name="OutlineEmpty" xml:space="preserve">
+    <value>This document has no headings.</value>
+  </data>
+  <data name="OutlineEntryNameFormat" xml:space="preserve">
+    <value>{0}, heading level {1}</value>
+  </data>
+  <data name="OutlineWaiting" xml:space="preserve">
+    <value>Laying out the pages up to the heading…</value>
+  </data>
 </root>

@@ -72,6 +72,11 @@ internal static class WriteStrings
     public static string ReasonOutlineSoon => Table.Get("ReasonOutlineSoon");
     public static string StatusPositionFormat => Table.Get("StatusPositionFormat");
     public static string StatusPositionMoreFormat => Table.Get("StatusPositionMoreFormat");
+    public static string PaneOutline => Table.Get("PaneOutline");
+    public static string OutlineLoading => Table.Get("OutlineLoading");
+    public static string OutlineEmpty => Table.Get("OutlineEmpty");
+    public static string OutlineEntryNameFormat => Table.Get("OutlineEntryNameFormat");
+    public static string OutlineWaiting => Table.Get("OutlineWaiting");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
 

@@ -617,6 +617,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             var tab = (WriteTab)e.OldItems![0]!;
             _areas.Remove(tab);
             _faultShown.Remove(tab);
+            ForgetOutline(tab);
             Tabs.Items.Remove(tab.Tab);
         }
 
@@ -627,6 +628,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     {
         Tabs.Selected = Workspace.Active?.Tab;
         ShowActiveDocument();
+        PlaceOutline();
         UpdateViewStatus();
         FocusActiveView();
         StatesChanged?.Invoke();
@@ -660,6 +662,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             Frame.TabRow = null;
             Frame.Band = null;
             Frame.Notification = null;
+            PlaceOutline();
             Frame.Document = Start;
             return;
         }
@@ -668,6 +671,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         Frame.Band = Ribbon.Band;
         Frame.Document = DocumentPane;
         Frame.StatusBar = Status;
+        PlaceOutline();
         DocumentPane.IsOpen = true;
     }
 

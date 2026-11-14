@@ -6,5 +6,6 @@
   <Application.Styles>
     <shell:RafficaStyles />
     <StyleInclude Source="avares://RafficaWrite/Styles/PageView.axaml" />
+    <StyleInclude Source="avares://RafficaWrite/Styles/OutlinePane.axaml" />
   </Application.Styles>
 </Application>

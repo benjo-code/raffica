@@ -374,6 +374,12 @@ internal sealed class PageView : Control, IDisposable
     /// <summary>Scrolls to the place of a block (the outline); waits for it when its page is not laid out yet.</summary>
     public void ScrollToBlock(int block) => ScrollToAnchor(new ViewAnchor(block, 0));
 
+    /// <summary>True while the view waits for a place whose page is not laid out yet (a scroll by the user, a zoom or <see cref="CancelPendingAnchor"/> ends the wait).</summary>
+    public bool IsWaitingForAnchor => _pending is not null;
+
+    /// <summary>Ends the wait for a place that is not laid out (the view stays where it is).</summary>
+    public void CancelPendingAnchor() => _pending = null;
+
     /// <summary>Scrolls so that an anchor is at the top of the view; waits for it when its page is not laid out yet.</summary>
     public void ScrollToAnchor(ViewAnchor anchor)
     {

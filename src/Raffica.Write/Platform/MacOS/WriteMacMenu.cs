@@ -114,6 +114,8 @@ internal sealed class WriteMacMenu
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.ActualSize, () => WriteStrings.CmdActualSize, "Meta+D0"));
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FitWidth, () => WriteStrings.CmdFitWidth, "Meta+D1"));
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FitPage, () => WriteStrings.CmdFitPage, "Meta+D2"));
+            viewMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Outline, () => WriteStrings.CmdOutline, null, check: true));
             Menu.Items.Add(viewMenu);
             _headers.Add((viewMenu, () => WriteStrings.TabView));
 
@@ -208,7 +210,7 @@ internal sealed class WriteMacMenu
     }
 
     // An item of the View menu: it runs a command of the catalog by id on the window that is current, and is enabled by the rules of the window (a switch shows its state).
-    private NativeMenuItem CommandItem(string id, Func<string> text, string? gesture, bool radio = false)
+    private NativeMenuItem CommandItem(string id, Func<string> text, string? gesture, bool radio = false, bool check = false)
     {
         var command = new MenuCommand(
             () => _current() is { } window && !window.DialogOpen && window.HasTab && window.CanRun(id),
@@ -220,12 +222,12 @@ internal sealed class WriteMacMenu
                 }
             });
         var item = new NativeMenuItem(text()) { Command = command, Gesture = gesture is null ? null : KeyGesture.Parse(gesture) };
-        if (radio)
+        if (radio || check)
         {
-            item.ToggleType = MenuItemToggleType.Radio;
+            item.ToggleType = radio ? MenuItemToggleType.Radio : MenuItemToggleType.CheckBox;
         }
 
-        _entries.Add(new Entry(item, command, text, false, radio ? window => window?.IsOn(id) == true : null));
+        _entries.Add(new Entry(item, command, text, false, radio || check ? window => window?.IsOn(id) == true : null));
         return item;
     }
 
