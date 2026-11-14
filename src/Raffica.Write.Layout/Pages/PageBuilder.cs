@@ -77,6 +77,13 @@ internal sealed class PageBuilder
         _text[(int)region].Clear();
     }
 
+    internal int ItemCount(PageRegion region) => _items[(int)region].Count;
+
+    internal PageItem[] ItemsOf(PageRegion region) => [.. _items[(int)region]];
+
+    /// <summary>The text of a region as it is added (every line ends with a line feed).</summary>
+    internal string RawTextOf(PageRegion region) => _text[(int)region].ToString();
+
     internal PageItem[] ItemArray()
     {
         var count = 0;

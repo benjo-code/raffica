@@ -125,6 +125,85 @@ public sealed class HeaderFooterTests
         Assert.Equal(provisional.Spans.Length, layout.Page(0).Spans.Length);
     }
 
+    private static Raffica.Write.Model.WordDocument CountedDocument(bool withTotal)
+    {
+        var footer = withTotal
+            ? Text("p") + Field("PAGE", "0") + Text(" of ") + Field("NUMPAGES", "0")
+            : Text("p") + Field("PAGE", "0");
+        var parts = Parts(("fX", FooterPart(Para(footer))));
+        return Document(Body("body", 5) + PEnd("six", Sect(Footer("default", "fX")), Break) + PEnd("seven", Sect(), Break), parts);
+    }
+
+    [Fact]
+    public void ProvisionalPagesAreMarkedAndReplacedOnceWhenTheLayoutCompletes()
+    {
+        var layout = DocumentLayout.Create(CountedDocument(withTotal: true), Fonts, new LayoutOptions());
+        layout.LayOutThrough(1);
+        Assert.Equal(0, layout.Revision);
+        var early = new[] { layout.Page(0), layout.Page(1) };
+        Assert.All(early, p => Assert.True(p.IsProvisional));
+
+        Finish(layout);
+        Assert.True(layout.IsComplete);
+        Assert.Equal(1, layout.Revision);
+        var pages = Pages(layout);
+        Assert.Equal(3, pages.Count);
+        Assert.All(pages, p => Assert.False(p.IsProvisional));
+        Assert.NotSame(early[0], pages[0]);
+        Assert.NotSame(early[1], pages[1]);
+        Assert.True(early[0].IsProvisional);
+        Assert.Equal("p1 of …", LastLine(early[0]));
+        Assert.Equal("p1 of 3", LastLine(pages[0]));
+        Assert.Equal("p3 of 3", LastLine(pages[2]));
+
+        // The body is the same objects and the same text; only the footer was made again.
+        Assert.Same(early[0].Items[0], pages[0].Items[0]);
+        Assert.Equal(early[0].Items.Count, pages[0].Items.Count);
+        Assert.Equal(Lines(early[0])[..^1], Lines(pages[0])[..^1]);
+        Assert.Equal(1, layout.Revision);
+        Finish(layout);
+        Assert.Equal(1, layout.Revision);
+    }
+
+    [Fact]
+    public void WithoutATotalNoPageIsProvisionalAndTheRevisionNeverChanges()
+    {
+        var layout = DocumentLayout.Create(CountedDocument(withTotal: false), Fonts, new LayoutOptions());
+        layout.LayOutThrough(0);
+        Assert.False(layout.Page(0).IsProvisional);
+        Finish(layout);
+        Assert.Equal(0, layout.Revision);
+        Assert.All(Pages(layout), p => Assert.False(p.IsProvisional));
+        Assert.Equal("p3", LastLine(layout.Page(2)));
+    }
+
+    [Fact]
+    public void NoPageBuilderIsKeptAfterItsPageIsMade()
+    {
+        var layout = DocumentLayout.Create(CountedDocument(withTotal: true), Fonts, new LayoutOptions());
+        WeakReference? first = null;
+        layout.PageFinished = builder =>
+        {
+            if (builder.Index == 0)
+            {
+                first = new WeakReference(builder);
+            }
+        };
+        layout.LayOutThrough(1);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Assert.NotNull(first);
+        Assert.False(first.IsAlive);
+
+        // What waits for the page count holds pages, not builders.
+        var kept = typeof(PageFiller).GetNestedType("Revisable", System.Reflection.BindingFlags.NonPublic)!;
+        Assert.DoesNotContain(kept.GetProperties(), p => p.PropertyType == typeof(PageBuilder));
+        Assert.DoesNotContain(kept.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public), f => f.FieldType == typeof(PageBuilder));
+        var list = typeof(PageFiller).GetField("_revisable", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        Assert.Equal(kept, list.FieldType.GetGenericArguments()[0]);
+    }
+
     [Fact]
     public void UnknownFieldShowsItsCachedResult()
     {

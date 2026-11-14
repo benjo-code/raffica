@@ -9,8 +9,10 @@ internal readonly record struct BlockSpan(int BodyIndex, float Top, float Bottom
 /// </summary>
 public sealed class LaidOutPage
 {
-    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans)
+    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false)
     {
+        IsProvisional = isProvisional;
+        ItemArray = items;
         Index = index;
         Number = number;
         Width = width;
@@ -35,6 +37,15 @@ public sealed class LaidOutPage
     public bool IsStrip { get; }
 
     public IReadOnlyList<PageItem> Items { get; }
+
+    /// <summary>
+    /// True for a page whose header or footer shows a page count (NUMPAGES, SECTIONPAGES) that was not known when it was published: it
+    /// shows "…" there, and the layout replaces it by a final page object (this one stays as it is). False on the replacement and on
+    /// every page of a document without such fields. See <see cref="DocumentLayout.Revision"/>.
+    /// </summary>
+    public bool IsProvisional { get; }
+
+    internal PageItem[] ItemArray { get; }
 
     /// <summary>
     /// The text of the page for the corpus comparison: the label of a numbered paragraph, a space, then the lines of each paragraph,

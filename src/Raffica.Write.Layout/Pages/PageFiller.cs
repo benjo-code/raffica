@@ -26,7 +26,7 @@ internal sealed class PageFiller
     private readonly float[] _blockY;
     private readonly HashSet<int> _startedSections = [];
     private readonly List<int> _sectionPages = [];
-    private readonly List<(PageBuilder Page, float Height)> _revisable = [];
+    private readonly List<Revisable> _revisable = [];
     private int _pageCount;
     private int _maxTouched = -1;
 
@@ -155,14 +155,39 @@ internal sealed class PageFiller
         }
 
         var revised = new List<(int, LaidOutPage)>(_revisable.Count);
-        foreach (var (page, height) in _revisable)
+        foreach (var r in _revisable)
         {
-            Chrome.Revise(page, _pageCount, _sectionPages);
-            revised.Add((page.Index, Build(page, height)));
+            // Header and footer are drawn again into an empty builder; the body and note items and their text are the published page's own.
+            var scratch = new PageBuilder(r.Published.Index, r.Number, r.Published.Number, r.Section, r.IsFirstOfSection);
+            Chrome.Revise(scratch, _pageCount, _sectionPages);
+            revised.Add((r.Published.Index, r.Rebuild(scratch)));
         }
 
         _revisable.Clear();
         return revised;
+    }
+
+    /// <summary>
+    /// What a page with a provisional page count keeps until the layout is complete: the published page (its item array and text are
+    /// shared, not copied) and the sizes of the header and footer parts in them. It holds no <see cref="PageBuilder"/>.
+    /// </summary>
+    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderRaw, int FooterRaw, int RawLength)
+    {
+        public LaidOutPage Rebuild(PageBuilder scratch)
+        {
+            var header = scratch.ItemsOf(PageRegion.Header);
+            var footer = scratch.ItemsOf(PageRegion.Footer);
+            var old = Published.ItemArray;
+            var items = new PageItem[header.Length + (old.Length - HeaderItems - FooterItems) + footer.Length];
+            header.CopyTo(items, 0);
+            Array.Copy(old, HeaderItems, items, header.Length, old.Length - HeaderItems - FooterItems);
+            footer.CopyTo(items, items.Length - footer.Length);
+
+            var raw = Published.Text.Length < RawLength ? Published.Text + '\n' : Published.Text;
+            var raw2 = string.Concat(scratch.RawTextOf(PageRegion.Header), raw.AsSpan(HeaderRaw, RawLength - HeaderRaw - FooterRaw), scratch.RawTextOf(PageRegion.Footer));
+            var text = raw2.Length == 0 ? string.Empty : raw2[..^1];
+            return new LaidOutPage(Published.Index, Published.Number, Published.Width, Published.Height, Published.IsStrip, items, text, Published.Spans);
+        }
     }
 
     private int LastNonEmpty()
@@ -242,16 +267,21 @@ internal sealed class PageFiller
 
         Chrome?.End(page);
         var height = geometry.IsStrip ? Math.Max(1f, end) : geometry.Height;
+        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals);
         if (page.NeedsTotals)
         {
-            _revisable.Add((page, height));
+            var header = page.RawTextOf(PageRegion.Header).Length;
+            var footer = page.RawTextOf(PageRegion.Footer).Length;
+            var rawLength = header + footer + page.RawTextOf(PageRegion.Body).Length + page.RawTextOf(PageRegion.Notes).Length;
+            _revisable.Add(new Revisable(built, page.Section, page.Number, page.IsFirstOfSection, page.ItemCount(PageRegion.Header), page.ItemCount(PageRegion.Footer), header, footer, rawLength));
         }
 
-        return Build(page, height);
+        PageFinished?.Invoke(page);
+        return built;
     }
 
-    private static LaidOutPage Build(PageBuilder page, float height) =>
-        new(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray());
+    /// <summary>Test seam: called with each page builder when its page is made.</summary>
+    internal Action<PageBuilder>? PageFinished { get; set; }
 
     // A continuous section break after columns balances them: the least column height at which everything still fits is found by
     // trial fills of the same flows.

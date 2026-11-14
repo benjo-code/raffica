@@ -29,10 +29,11 @@ public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float Flo
 /// gate, one at a time; a call from the UI thread waits for the page the background thread is on, not for the whole document. The
 /// document model must not change while a layout runs on it.
 /// <para>
-/// A page whose header or footer shows NUMPAGES or SECTIONPAGES shows "…" there until the layout is complete; the layout then
-/// publishes a new page object in the same place (only the header and footer differ) just before <see cref="IsComplete"/> turns true.
-/// A caller that keeps a page object across the end of the layout holds the earlier version; reading <see cref="Page"/> again after
-/// <see cref="IsComplete"/> gives the final one.
+/// A page whose header or footer shows NUMPAGES or SECTIONPAGES shows "…" there until the layout is complete and has
+/// <see cref="LaidOutPage.IsProvisional"/> set; the layout then publishes a new page object in the same place (only the header and
+/// footer differ, the body items are shared), raises <see cref="Revision"/> once, and only then sets <see cref="IsComplete"/>. A caller
+/// that keeps a page object (or a bitmap of it) must re-read the pages that were provisional when <see cref="Revision"/> changes;
+/// the old object stays unchanged.
 /// </para>
 /// </remarks>
 public sealed class DocumentLayout
@@ -46,6 +47,7 @@ public sealed class DocumentLayout
     private readonly int _lastBodyIndex;
     private readonly List<string> _notes;
     private readonly HeaderFooterPlan? _chrome;
+    private int _revision;
     private bool _complete;
     private bool _firstPageFinal;
     private ExceptionDispatchInfo? _fault;
@@ -94,6 +96,20 @@ public sealed class DocumentLayout
     internal Action<int>? BeforePage { get; set; }
 
     /// <summary>How many headers and footers were laid out (reuse not counted).</summary>
+    /// <summary>Test seam: called with each page builder when its page is made.</summary>
+    internal Action<PageBuilder>? PageFinished
+    {
+        get => _filler.PageFinished;
+        set => _filler.PageFinished = value;
+    }
+
+    /// <summary>
+    /// Counts how often published pages were replaced by final ones: it is 0 until the layout completes, then 1 if any page was provisional
+    /// (<see cref="LaidOutPage.IsProvisional"/>), and stays 0 for a document without NUMPAGES or SECTIONPAGES. It changes before
+    /// <see cref="IsComplete"/> turns true. When it changes, read again the pages that were provisional; every other page object is as it was.
+    /// </summary>
+    public int Revision => Volatile.Read(ref _revision);
+
     internal int ChromeLayouts => _chrome?.LayoutCount ?? 0;
 
     /// <summary>The number of pages published so far.</summary>
@@ -225,9 +241,15 @@ public sealed class DocumentLayout
                 // Pages that show a page count are published again with the count, before the layout calls itself complete.
                 try
                 {
-                    foreach (var (index, revised) in _filler.Revisions())
+                    var revisions = _filler.Revisions();
+                    foreach (var (index, revised) in revisions)
                     {
                         _pages.Replace(index, revised);
+                    }
+
+                    if (revisions.Count > 0)
+                    {
+                        Volatile.Write(ref _revision, _revision + 1);
                     }
                 }
                 catch (Exception e)
