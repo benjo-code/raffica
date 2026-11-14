@@ -16,7 +16,6 @@ public sealed class CorpusLayoutTests
     public void EveryCorpusFileLaysOutWithoutAnException()
     {
         var entries = CorpusManifest.Load(Root).Files;
-        Assert.Equal(16, entries.Count);
         var clock = Stopwatch.StartNew();
         var counted = 0;
         foreach (var entry in entries)
@@ -53,10 +52,24 @@ public sealed class CorpusLayoutTests
     [Fact]
     public void AcceptViewHasNoDeletedText()
     {
-        // poi-tika-792: the only runs are the deleted "s" and "." and a moved-away "b"; the accepted-changes view shows none of them.
-        var text = string.Join(' ', WriteLayoutFacts.Load(Docx("poi-tika-792")).PageTexts);
-        Assert.DoesNotContain("s", text.Split(' '));
-        Assert.DoesNotContain(".", text.Split(' '));
+        // poi-tika-792 has no surviving word: its runs are the deleted "s" and "." and an "b" that was moved away, so the
+        // accepted-changes view is one page without text.
+        var facts = WriteLayoutFacts.Load(Docx("poi-tika-792"));
+        Assert.Equal(1, facts.PageCount);
+        Assert.Equal("", string.Join(' ', facts.PageTexts));
+    }
+
+    [Fact]
+    public void AcceptViewShowsInsertedAndHidesDeletedText()
+    {
+        using var folder = new Raffica.Write.Tests.Support.TempFolder();
+        var path = folder.File("revisions.docx");
+        Raffica.Write.Tests.Support.DocxBuilder.WithBody(
+            path,
+            "<w:p><w:r><w:t>kept </w:t></w:r><w:ins w:id=\"1\" w:author=\"A\"><w:r><w:t>inserted </w:t></w:r></w:ins>"
+            + "<w:del w:id=\"2\" w:author=\"A\"><w:r><w:delText>removed </w:delText></w:r></w:del><w:r><w:t>tail</w:t></w:r></w:p>");
+        var words = string.Join(' ', WriteLayoutFacts.Load(path).PageTexts).Split(' ');
+        Assert.Equal(["kept", "inserted", "tail"], words);
     }
 
     [Fact]

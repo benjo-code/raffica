@@ -315,6 +315,8 @@ jobs:
         run: |
           ./out/write-corpus/write-corpus check --root testdata/write-corpus
           ./out/write-corpus/write-corpus run --root testdata/write-corpus
+          # The table lays every file out: a missing Skia or HarfBuzz native library fails here.
+          ./out/write-corpus/write-corpus table --root testdata/write-corpus --out "$RUNNER_TEMP/write-corpus.md"
 
       - name: Corpus check and round trip of the published tool (Windows)
         if: runner.os == 'Windows'
@@ -323,6 +325,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "check exited with $LASTEXITCODE" }
           & ./out/write-corpus/write-corpus.exe run --root testdata/write-corpus
           if ($LASTEXITCODE -ne 0) { throw "run exited with $LASTEXITCODE" }
+          & ./out/write-corpus/write-corpus.exe table --root testdata/write-corpus --out "$env:RUNNER_TEMP/write-corpus.md"
+          if ($LASTEXITCODE -ne 0) { throw "table exited with $LASTEXITCODE" }
 
       # The published size of the PDF app and its zip against the limits (budget x 1.25) recorded from the owner's measurement runs
       # (Docs/DECISIONS.md, "Raffica PDF speed budgets (M2.1)"; the single copy of the table is CheckCommand in measure.cs): exit 1 above a
@@ -464,6 +468,7 @@ jobs:
             exe="out/write-corpus-$rid/write-corpus"
             $runner "$exe" check --root testdata/write-corpus
             $runner "$exe" run --root testdata/write-corpus
+            $runner "$exe" table --root testdata/write-corpus --out "$RUNNER_TEMP/write-corpus-$rid.md"
             $runner "out/write-layout-$rid/write-layout-bench" check --root .
           done
 
