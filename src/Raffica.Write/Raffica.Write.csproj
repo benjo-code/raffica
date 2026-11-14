@@ -20,6 +20,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <!-- Write never opens a PDF, but Raffica.Core references Raffica.Pdfium, whose PDFium packages would copy pdfium.dll (7.2 MiB on Windows) into every publish.
+         These direct references win over the transitive ones and drop the native files (the managed side of Raffica.Pdfium stays, nothing here calls it). -->
+    <PackageReference Include="bblanchon.PDFium.Linux" ExcludeAssets="native" />
+    <PackageReference Include="bblanchon.PDFium.macOS" ExcludeAssets="native" />
+    <PackageReference Include="bblanchon.PDFium.Win32" ExcludeAssets="native" />
     <ProjectReference Include="..\Raffica.Core\Raffica.Core.csproj" />
     <ProjectReference Include="..\Raffica.Hosting\Raffica.Hosting.csproj" />
     <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
