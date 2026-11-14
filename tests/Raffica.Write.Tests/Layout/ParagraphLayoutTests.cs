@@ -153,8 +153,9 @@ public sealed class ParagraphLayoutTests
         {
             Assert.Equal(150f, layout.Lines[i].Width, 0.05f);
             var line = layout.Lines[i];
-            Assert.True(line.Runs[^1].X < 150f);
-            Assert.True(line.Runs[^1].X > line.Runs[0].X);
+            Assert.Single(line.Runs);
+            Assert.True(line.Runs[0].X + line.Runs[0].Xs[^1] <= 150.05f);
+            Assert.True(line.Runs[0].Xs[^1] > 100f);
         }
 
         var lastLine = layout.Lines[2];
@@ -382,6 +383,55 @@ public sealed class ParagraphLayoutTests
         Assert.True(wrapped.Lines.Count > 1000);
         Assert.True(sw.ElapsedMilliseconds < 3000, $"words took {sw.ElapsedMilliseconds} ms");
         Assert.Equal(words.Length, wrapped.Lines[^1].End);
+    }
+
+    [Fact]
+    public void JustifyStretchesALineEndedByAManualBreak()
+    {
+        var run = Run();
+        var jc = Para("<w:jc w:val=\"both\"/>");
+        ParagraphItem[] items = [new TextSpan("The quick brown", run), new BreakItem(BreakKind.Line), new TextSpan("fox jumps", run)];
+        var input = new ParagraphInput(jc, items, run);
+
+        var stretched = Lay(input, 200f);
+        Assert.Equal(2, stretched.Lines.Count);
+        Assert.Equal(200f, stretched.Lines[0].Width, 0.05f);
+        Assert.Equal(Natural("fox jumps"), stretched.Lines[1].Width, 0.05f);
+
+        var natural = Lay(input with { ExpandShiftReturn = false }, 200f);
+        Assert.Equal(Natural("The quick brown"), natural.Lines[0].Width, 0.05f);
+
+        ParagraphItem[] paged = [new TextSpan("The quick brown", run), new BreakItem(BreakKind.Page), new TextSpan("fox", run)];
+        var page = Lay(new ParagraphInput(jc, paged, run), 200f);
+        Assert.Equal(Natural("The quick brown"), page.Lines[0].Width, 0.05f);
+    }
+
+    [Fact]
+    public void GlyphRunsAreMergedPerSourceRunAndLine()
+    {
+        const string Text = "alpha beta gamma delta";
+        var one = Lay(Input(Text), 300f).Lines[0];
+        Assert.Single(one.Runs);
+        Assert.Equal(Text.Length, one.Runs[0].Glyphs.Length);
+        Assert.Equal(one.Width, one.Runs[0].Width, 0.01f);
+        Assert.Equal(0f, one.Runs[0].Xs[0]);
+        for (var i = 1; i < one.Runs[0].Xs.Length; i++)
+        {
+            Assert.True(one.Runs[0].Xs[i] > one.Runs[0].Xs[i - 1]);
+        }
+
+        var sans = Run();
+        var serif = Run("Cambria");
+        var two = Lay(new ParagraphInput(Para(), [new TextSpan("alpha beta ", sans), new TextSpan("gamma delta", serif)], sans), 300f).Lines[0];
+        Assert.Equal(2, two.Runs.Count);
+        Assert.Equal("alpha beta ".Length, two.Runs[0].Glyphs.Length);
+        Assert.Equal("gamma delta".Length, two.Runs[1].Glyphs.Length);
+
+        // A justified, merged line keeps the stretched positions.
+        var justified = Lay(Input(Sentence, "<w:jc w:val=\"both\"/>"), 150f).Lines[0];
+        Assert.Single(justified.Runs);
+        Assert.Equal(justified.Runs[0].Glyphs.Length, justified.Runs[0].Xs.Length);
+        Assert.Equal(150f, justified.Width, 0.05f);
     }
 
     [Fact]

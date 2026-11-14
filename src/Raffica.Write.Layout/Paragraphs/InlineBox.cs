@@ -39,6 +39,9 @@ public sealed record ParagraphInput(ResolvedParagraph Paragraph, IReadOnlyList<P
 {
     /// <summary>The default tab interval in points (720 twips unless the document settings say otherwise).</summary>
     public float DefaultTabStop { get; init; } = 36f;
+
+    /// <summary>Whether a justified line that ends in a manual line break is stretched (Word's default; off with the doNotExpandShiftReturn compatibility setting).</summary>
+    public bool ExpandShiftReturn { get; init; } = true;
 }
 
 /// <summary>The horizontal room of one line, in paragraph coordinates (0 is the left edge of the text area).</summary>

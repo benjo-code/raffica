@@ -787,7 +787,7 @@ internal sealed class ParagraphSession : IDisposable
         var free = _lineRight - contentRight;
         if (_para.Alignment == ParagraphAlignment.Justify)
         {
-            if (!last && !mandatory && !_hadTab && Justifier.Apply(_runs, _boxes, _lastText, free))
+            if (!last && (!mandatory || _input.ExpandShiftReturn) && !_hadTab && Justifier.Apply(_runs, _boxes, _lastText, free))
             {
                 width = _lineRight - _lineLeft;
             }
@@ -817,11 +817,66 @@ internal sealed class ParagraphSession : IDisposable
 
         _lines.Add(new LineBox(
             _lineTop, height, asc, desc, baseline, _lineLeft + shift, width, _lineStartOffset, Math.Max(end, _lineStartOffset),
-            [.. _runs], [.. _boxes]));
+            MergeRuns(_runs), [.. _boxes]));
         _y = _lineTop + height;
         _first = false;
         _lineOpen = false;
         _runs.Clear();
         _boxes.Clear();
     }
+
+    // One glyph run per source run and line: neighbours with the same run, face, size and raise that touch each other become one.
+    private static GlyphRun[] MergeRuns(List<GlyphRun> runs)
+    {
+        var result = new List<GlyphRun>(Math.Min(runs.Count, 8));
+        var i = 0;
+        while (i < runs.Count)
+        {
+            var first = runs[i];
+            var j = i + 1;
+            var glyphs = first.Glyphs.Length;
+            var end = first;
+            while (j < runs.Count && CanMerge(end, runs[j]))
+            {
+                end = runs[j];
+                glyphs += end.Glyphs.Length;
+                j++;
+            }
+
+            if (j == i + 1)
+            {
+                result.Add(first);
+            }
+            else
+            {
+                var ids = new ushort[glyphs];
+                var xs = new float[glyphs];
+                var at = 0;
+                for (var k = i; k < j; k++)
+                {
+                    var part = runs[k];
+                    part.Glyphs.CopyTo(ids.AsSpan(at));
+                    var partXs = part.Xs;
+                    for (var g = 0; g < partXs.Length; g++)
+                    {
+                        xs[at + g] = part.X - first.X + partXs[g];
+                    }
+
+                    at += partXs.Length;
+                }
+
+                result.Add(new GlyphRun(first.Face, first.Run, first.Size, first.Raise, ids, xs, first.X, end.X + end.Width - first.X, first.TextStart, end.TextEnd));
+            }
+
+            i = j;
+        }
+
+        return [.. result];
+    }
+
+    private static bool CanMerge(GlyphRun left, GlyphRun right) =>
+        !left.IsLabel && !left.IsLeader && !right.IsLabel && !right.IsLeader
+        && ReferenceEquals(left.Run, right.Run) && ReferenceEquals(left.Face, right.Face)
+        && left.Size == right.Size && left.Raise == right.Raise
+        && MathF.Abs(left.X + left.Width - right.X) < 0.01f;
 }
