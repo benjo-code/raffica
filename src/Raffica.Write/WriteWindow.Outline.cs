@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Raffica.Shell.Frame;
 using Raffica.Write.Documents;
 using Raffica.Write.Layout;
@@ -79,7 +80,26 @@ internal sealed partial class WriteWindow
         if (!_outlines.TryGetValue(tab, out var pane))
         {
             pane = new OutlinePane(tab, ViewOf(tab) ?? throw new InvalidOperationException("The tab has no view yet."));
-            pane.Navigate += block => NavigateTo(tab, block);
+            pane.Navigate += block =>
+            {
+                NavigateTo(tab, block);
+
+                // As in the PDF app: after a choice the keys belong to the page again (PageUp and PageDown scroll it), at once, also while the target is still waited for.
+                // Posted once more because a click gives the focus to the row after this handler ran.
+                if (ViewOf(tab) is { } chosenView)
+                {
+                    chosenView.Focus();
+                    Dispatcher.UIThread.Post(
+                        () =>
+                        {
+                            if (!tab.IsDisposed && ReferenceEquals(ActiveView, chosenView))
+                            {
+                                chosenView.Focus();
+                            }
+                        },
+                        DispatcherPriority.Input);
+                }
+            };
             _outlines[tab] = pane;
         }
 
@@ -129,6 +149,7 @@ internal sealed partial class WriteWindow
             return;
         }
 
+        view.Runner.Start();
         var navigation = new Navigation(tab, view, CancellationTokenSource.CreateLinkedTokenSource(tab.Token));
         _navigation = navigation;
         Status.Hint = WriteStrings.OutlineWaiting;
@@ -146,27 +167,33 @@ internal sealed partial class WriteWindow
     // The layout of the view's mode now (the runner may replace it; the strips may not exist yet).
     private static DocumentLayout? CurrentLayout(PageView view) => view.Runner.LayoutFor(view.Mode == WriteView.Writing ? LayoutMode.Flow : LayoutMode.Pages);
 
-    // Nothing more will come: the layout of the mode is complete and it works on the whole model (a layout of the prefix model is "complete" before the full open has
-    // replaced it), or the layout failed.
-    private static bool Settled(PageView view) =>
-        view.Runner.IsFaulted || (CurrentLayout(view) is { IsComplete: true } && view.Runner.FullModelReady);
+    // Nothing more will come: the layout of the mode is complete and it works on the whole model, or the layout failed. The readiness is read first: the runner makes the
+    // whole-model layout current before it says "ready", so the layout read after it is the right one.
+    private static bool Settled(PageView view)
+    {
+        var runner = view.Runner;
+        var ready = runner.FullModelReady;
+        return runner.IsFaulted || (ready && CurrentLayout(view) is { IsComplete: true });
+    }
 
-    // The pages up to the block are laid out on the pool (the layout takes one caller at a time, so this shares the work with the background run and never repeats it); then the
-    // view is asked again, on the UI thread. While the whole model or the strips are not there yet the pool thread only waits for them.
+    // Waits for the whole model first (a layout of the prefix model must not get a second page: the whole model takes its place only while page 1 is the only one), then lays
+    // out the pages up to the block on the pool (the layout takes one caller at a time, so this shares the work with the background run and never repeats it); then the view
+    // is asked again, on the UI thread.
     private async Task WaitForBlockAsync(Navigation navigation, int block)
     {
         var token = navigation.Source.Token;
         var view = navigation.View;
         try
         {
+            await view.Runner.FullModelTask.WaitAsync(token);
             await Task.Run(
                 async () =>
                 {
                     while (!token.IsCancellationRequested && !Settled(view))
                     {
-                        var layout = CurrentLayout(view);
-                        if (layout is null || (layout.IsComplete && !view.Runner.FullModelReady))
+                        if (CurrentLayout(view) is not { } layout)
                         {
+                            // The strips of the writing view are not made yet (they start once the whole model is there).
                             await Task.Delay(5, CancellationToken.None).ConfigureAwait(false);
                             continue;
                         }
@@ -183,7 +210,7 @@ internal sealed partial class WriteWindow
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            // A layout that failed is reported by its runner; the wish just ends.
+            // A cancelled wait, or a layout that failed (its runner reports that): the wish just ends.
         }
 
         if (navigation.Ended)

@@ -88,7 +88,7 @@ public sealed class OutlinePaneTests
     private static string TempFolder() => Directory.CreateTempSubdirectory("raffica-outline-").FullName;
 
     [Fact]
-    public void ThesisOutlineHasThirtyChaptersAndTheirSections()
+    public void ThesisOutlineHasItsChaptersAndSections()
     {
         var entries = ReadOutline(WindowFixture.Thesis);
 
@@ -128,8 +128,10 @@ public sealed class OutlinePaneTests
         var chapters = entries.Count(e => e.Level == 1);
         Assert.Equal(expected.Count(e => e.Level == 1), chapters);
 
-        // The seeded thesis has 32 level-1 headings (30 numbered chapters plus the two that are not: the notes of the front and back matter); every entry has text.
+        // The seeded thesis has 32 level-1 headings: its 30 numbered chapters and the two appendices ("Appendix A", "Appendix B"); every entry has text.
         Assert.Equal(32, chapters);
+        Assert.Equal(2, entries.Count(e => e.Level == 1 && e.Text.StartsWith("Appendix ", StringComparison.Ordinal)));
+        Assert.Equal(30, entries.Count(e => e.Level == 1 && !e.Text.StartsWith("Appendix ", StringComparison.Ordinal)));
         Assert.Equal(32 + 90 + 180, entries.Count);
         Assert.All(entries, e => Assert.False(string.IsNullOrWhiteSpace(e.Text)));
         Assert.Equal(entries.OrderBy(e => e.BodyBlockIndex).ToList(), entries);
@@ -349,12 +351,24 @@ public sealed class OutlinePaneTests
         Assert.Equal($"{entries[0].Text}, heading level {entries[0].Level}", AutomationProperties.GetName(row));
     }
 
+    // The full open is held at a gate, so the navigation is issued while only the prefix model exists, as it is when the outline is used straight after an open.
+    private static async Task<(WriteWindow Window, WriteTab Tab, ManualResetEventSlim Gate)> OpenGatedThesisAsync(WindowFixture fixture)
+    {
+        var window = fixture.Show();
+        var gate = new ManualResetEventSlim(false);
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        tab.Runner.BeforeFullOpen = () => gate.Wait(TimeSpan.FromSeconds(60));
+        WindowFixture.Pump();
+        Assert.False(tab.Runner.FullModelReady);
+        return (window, tab, gate);
+    }
+
     [AvaloniaFact]
     public async Task NavigateToALateHeadingWaitsForTheLayout()
     {
         using var fixture = new WindowFixture();
-        var window = fixture.Show();
-        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        var (window, tab, gate) = await OpenGatedThesisAsync(fixture);
+        using var held = gate;
         var view = window.ViewOf(tab)!;
         var chapters = ReadOutline(WindowFixture.Thesis).Where(e => e.Level == 1).ToList();
         var target = chapters[20].BodyBlockIndex;
@@ -368,16 +382,19 @@ public sealed class OutlinePaneTests
             window.NavigateTo(tab, target);
             clock.Stop();
 
-            // The call returned at once with the wish pending and the status bar saying what it waits for: the layout is not done and the UI thread did not wait for it.
+            // The call returned at once with the wish pending and the status bar saying what it waits for: nothing is laid out beyond page 1 (the whole model is held back)
+            // and the UI thread did not wait for anything.
             Assert.True(clock.ElapsedMilliseconds < 300, $"NavigateTo took {clock.ElapsedMilliseconds} ms");
-            Assert.False(tab.Runner.PageLayout.IsComplete);
             Assert.True(view.IsWaitingForAnchor);
             Assert.True(window.IsNavigationWaiting);
             Assert.Equal("Laying out the pages up to the heading…", window.Status.Hint);
-
             var before = ticks;
+            await ViewHarness.WaitAsync(() => ticks > before + 8, 5000);
+            Assert.True(window.IsNavigationWaiting);
+            Assert.Equal(1, tab.Runner.PageLayout.LaidOutPages);
+
+            gate.Set();
             await ViewHarness.WaitAsync(() => !view.IsWaitingForAnchor, 60000);
-            Assert.True(ticks > before, "the dispatcher kept running while the navigation waited");
         }
         finally
         {
@@ -397,6 +414,90 @@ public sealed class OutlinePaneTests
         window.NavigateTo(tab, chapters[^1].BodyBlockIndex);
         await ViewHarness.WaitAsync(() => !window.IsNavigationWaiting, 60000);
         Assert.True(view.OffsetY > 0);
+    }
+
+    [AvaloniaFact]
+    public async Task ANavigationBeforeTheWholeModelNeverGivesThePrefixLayoutASecondPage()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, gate) = await OpenGatedThesisAsync(fixture);
+        using var held = gate;
+        var view = window.ViewOf(tab)!;
+        var prefixLayout = tab.Runner.PageLayout;
+        window.NavigateTo(tab, ReadOutline(WindowFixture.Thesis).Where(e => e.Level == 1).ElementAt(10).BodyBlockIndex);
+
+        // While only the prefix model exists the navigation waits without laying out: ReplaceModel needs page 1 to be the only published page.
+        for (var i = 0; i < 12; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+            Assert.Equal(1, prefixLayout.LaidOutPages);
+        }
+
+        Assert.True(window.IsNavigationWaiting);
+        gate.Set();
+        await ViewHarness.WaitAsync(() => !view.IsWaitingForAnchor && !window.IsNavigationWaiting, 60000);
+        Assert.Equal(0, tab.Runner.RestartCount);
+        Assert.Same(prefixLayout, tab.Runner.PageLayout);
+        Assert.True(view.OffsetY > 0);
+    }
+
+    [AvaloniaFact]
+    public async Task TheOutlineListKeepsTheFocusWhenTheWindowIsActivated()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        WindowFixture.Pump();
+        window.RunCommand(WriteCommandIds.Outline);
+        var pane = window.OutlineOf(tab)!;
+        await ViewHarness.WaitAsync(() => pane.LoadTask.IsCompleted, 30000);
+        pane.FocusContent();
+        WindowFixture.Pump();
+        Assert.False(window.ViewOf(tab)!.IsFocused);
+        var focused = window.FocusManager!.GetFocusedElement();
+        Assert.NotNull(focused);
+
+        // The window is activated again (Alt-Tab) and the view shows its first page: the focus stays where the user put it.
+        window.Activate();
+        WindowFixture.Pump();
+        ViewHarness.Pump();
+        await Task.Delay(300);
+        ViewHarness.Pump();
+        Assert.Same(focused, window.FocusManager!.GetFocusedElement());
+        Assert.False(window.ViewOf(tab)!.IsFocused);
+    }
+
+    [AvaloniaFact]
+    public async Task AfterEnterOnAnEntryThePageKeysScrollThePage()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        var view = window.ViewOf(tab)!;
+        window.RunCommand(WriteCommandIds.Outline);
+        var pane = window.OutlineOf(tab)!;
+        await ViewHarness.WaitAsync(() => pane.LoadTask.IsCompleted, 30000);
+        await ViewHarness.WaitAsync(() => view.IsLayoutComplete, 60000);
+        pane.FocusContent();
+        WindowFixture.Pump();
+        window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        WindowFixture.Pump();
+        Assert.True(view.IsFocused);
+
+        var offset = view.OffsetY;
+        window.KeyPressQwerty(PhysicalKey.PageDown, RawInputModifiers.None);
+        WindowFixture.Pump();
+        Assert.True(view.OffsetY > offset);
+
+        // The list keys work again once the list has the focus.
+        pane.FocusContent();
+        WindowFixture.Pump();
+        var selected = pane.List.SelectedIndex;
+        window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+        WindowFixture.Pump();
+        Assert.Equal(selected + 1, pane.List.SelectedIndex);
     }
 
     [AvaloniaFact]

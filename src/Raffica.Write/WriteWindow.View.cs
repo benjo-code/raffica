@@ -144,7 +144,7 @@ internal sealed partial class WriteWindow
     }
 
     // Puts the focus on the page view of the active tab so the keys scroll it. A focus that does not take (the view is not on screen yet) is tried again a few times; a
-    // text box that has the focus (the command search) keeps it.
+    // text box that has the focus (the command search) and the outline list keep it.
     private void FocusActiveView(int attempts = 6)
     {
         if (ActiveView is not { } view)
@@ -155,7 +155,7 @@ internal sealed partial class WriteWindow
         Dispatcher.UIThread.Post(
             () =>
             {
-                if (!ReferenceEquals(ActiveView, view) || view.IsFocused || FocusedElement() is TextBox)
+                if (!ReferenceEquals(ActiveView, view) || view.IsFocused || FocusedElement() is TextBox || InOutline(FocusedElement()))
                 {
                     return;
                 }
@@ -167,6 +167,9 @@ internal sealed partial class WriteWindow
             },
             DispatcherPriority.Background);
     }
+
+    // Whether the focus is inside the outline pane: its list keeps the focus (and its keys) until the user chooses a heading or leaves it.
+    private bool InOutline(IInputElement? focused) => _outlineHost is { } host && focused is Avalonia.Visual visual && host.IsVisualAncestorOf(visual);
 
     private IInputElement? FocusedElement() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
 
@@ -181,7 +184,7 @@ internal sealed partial class WriteWindow
 
         var focused = FocusedElement();
         var arrow = e.Key is Key.Up or Key.Down or Key.Left or Key.Right;
-        var inOutline = _outlineHost is { } host && focused is Avalonia.Visual visual && host.IsVisualAncestorOf(visual);
+        var inOutline = InOutline(focused);
         var allowed = focused is null || ReferenceEquals(focused, this) || (!arrow && !inOutline && focused is not TextBox and not ComboBox and not Slider);
         return allowed && view.HandleNavigationKey(e.Key, e.KeyModifiers);
     }

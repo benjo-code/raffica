@@ -34,10 +34,12 @@ internal sealed class LayoutRunner : IDisposable
     private bool _fullReady;
     private int _disposed;
     private int _postPending;
+    private int _restarts;
     private long _lastRaise;
     private Exception? _fault;
     private Task _pageTask = Task.CompletedTask;
     private Task _flowTask = Task.CompletedTask;
+    private readonly TaskCompletionSource _fullModel = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <param name="tab">The tab; made on the UI thread (the runner keeps that thread's dispatcher).</param>
     public LayoutRunner(WriteTab tab)
@@ -47,6 +49,11 @@ internal sealed class LayoutRunner : IDisposable
         _ui = Dispatcher.UIThread;
         _page = tab.Layout;
         _fullReady = !tab.Docx.IsPrefix;
+        if (_fullReady)
+        {
+            _fullModel.TrySetResult();
+        }
+
         _progress = new Progress(this);
         try
         {
@@ -86,6 +93,12 @@ internal sealed class LayoutRunner : IDisposable
             }
         }
     }
+
+    /// <summary>Completes when the layouts work on the whole model (at once for a file opened whole), or when the runner ended without it (a failed full open, a disposed runner). Never faults.</summary>
+    public Task FullModelTask => _fullModel.Task;
+
+    /// <summary>How many times the prefix layout refused the whole model and a new layout over it took its place (tests: a navigation must never cause one).</summary>
+    internal int RestartCount => Volatile.Read(ref _restarts);
 
     /// <summary>What ended a layout with an error (a programming error of the layout, never a document); null when nothing did. Cancellation is no error.</summary>
     public Exception? Fault => Volatile.Read(ref _fault);
@@ -153,6 +166,8 @@ internal sealed class LayoutRunner : IDisposable
             return;
         }
 
+        _fullModel.TrySetResult();
+
         try
         {
             _cancellation.Cancel();
@@ -191,6 +206,7 @@ internal sealed class LayoutRunner : IDisposable
                 catch (InvalidOperationException)
                 {
                     // Page 1 of the prefix is not page 1 of the whole file: start over on the whole model; the prefix layout is dropped and nothing is told.
+                    Interlocked.Increment(ref _restarts);
                     layout = DocumentLayout.Create(full.Model, _tab.Fonts, Options(LayoutMode.Pages));
                     layout.LayOutFirstPage();
                     Volatile.Write(ref _page, layout);
@@ -204,6 +220,8 @@ internal sealed class LayoutRunner : IDisposable
                     _fullReady = true;
                     startFlow = _flowRequested;
                 }
+
+                _fullModel.TrySetResult();
 
                 if (startFlow)
                 {
@@ -234,6 +252,7 @@ internal sealed class LayoutRunner : IDisposable
     // A layout ended with an error: remember the first one and tell the UI thread once (nothing is told for a runner that was disposed).
     private void Fail(Exception ex)
     {
+        _fullModel.TrySetResult();
         if (Interlocked.CompareExchange(ref _fault, ex, null) is null && !IsDisposed)
         {
             _ui.Post(RaiseFaulted, DispatcherPriority.Normal);
