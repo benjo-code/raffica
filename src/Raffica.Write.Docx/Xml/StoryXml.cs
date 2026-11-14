@@ -14,6 +14,12 @@ internal static class StoryXml
 {
     // Reading.
 
+    /// <summary>
+    /// Test seam: when a counter is set (one element), every block read (at every nesting level) by the code that runs under this
+    /// execution context, also on a pool thread it started, adds one to it.
+    /// </summary>
+    internal static readonly AsyncLocal<int[]?> BlocksCounter = new();
+
     /// <summary>Reads the root element the reader is on (or before) and everything inside it.</summary>
     public static Story Read(XmlReader reader)
     {
@@ -134,6 +140,11 @@ internal static class StoryXml
 
     private static Block ReadBlock(XmlReader reader)
     {
+        if (BlocksCounter.Value is { } counter)
+        {
+            Interlocked.Increment(ref counter[0]);
+        }
+
         if (reader.NamespaceURI == Names.WordUri)
         {
             switch (reader.LocalName)
@@ -279,6 +290,12 @@ internal static class StoryXml
     }
 
     // Sections.
+
+    /// <summary>Reads the block element the reader is on (a block cut out of a body on its own).</summary>
+    public static Block ReadBlockFragment(XmlReader reader) => ReadBlock(reader);
+
+    /// <summary>Reads a <c>w:sectPr</c> element on its own (the final section of a body, cut out of the part's bytes) as the model's section.</summary>
+    public static SectionProperties ReadFinalSection(XmlReader reader) => ConvertSection(XmlKit.ReadKept(reader));
 
     private static SectionProperties ReadSection(XmlReader reader) => ConvertSection(XmlKit.ReadKept(reader));
 

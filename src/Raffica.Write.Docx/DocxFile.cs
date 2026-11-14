@@ -25,6 +25,14 @@ namespace Raffica.Write.Docx;
 /// nor the snapshot (the snapshot stays the file as it was opened, which is what every later save starts from). Opening
 /// from bytes has no origin and no check. A part that exists in the file but was not asked for (<see cref="DocxParts"/>) stays
 /// untouched unless the caller sets its model property, which then replaces the content of that part.
+/// <para>
+/// A file from <see cref="OpenPrefix(string, int)"/> is a prefix: <see cref="IsPrefix"/> is true when the body holds only its first
+/// blocks. It exists to show the first page fast and is read-only: <see cref="SaveAsync(string, CancellationToken)"/> throws
+/// <see cref="InvalidOperationException"/>, and a caller must not edit its model. The parts that were asked for are whole. The
+/// body's <see cref="Story.FinalSection"/> is, for a prefix, the properties of the section that holds the last block read (the first
+/// block after the prefix that ends a section, or the file's own final section when none does), so a layout of the prefix and of the
+/// full file agree on every page that ends before the prefix does.
+/// </para>
 /// </remarks>
 public sealed class DocxFile : IDisposable
 {
@@ -37,8 +45,9 @@ public sealed class DocxFile : IDisposable
     private FileStamp? _originStamp;
     private bool _disposed;
 
-    private DocxFile(byte[] snapshot, WordDocument model, DocxKind kind, PartMap map, string? originPath, FileStamp? originStamp)
+    private DocxFile(byte[] snapshot, WordDocument model, DocxKind kind, PartMap map, string? originPath, FileStamp? originStamp, bool isPrefix)
     {
+        IsPrefix = isPrefix;
         _originPath = originPath;
         _originStamp = originStamp;
         _snapshot = snapshot;
@@ -51,6 +60,13 @@ public sealed class DocxFile : IDisposable
     public WordDocument Model { get; }
 
     public DocxKind Kind { get; }
+
+    /// <summary>
+    /// True when this file came from <see cref="OpenPrefix(string, int)"/> and its body was cut short: <see cref="Model"/> holds the
+    /// first blocks only (the final section is complete), so the file cannot be saved. False for a full open, and for a prefix open of
+    /// a document whose body fitted in the prefix (it is then the whole file, though its comments were not loaded).
+    /// </summary>
+    public bool IsPrefix { get; }
 
     /// <summary>Test seam: runs after the checks and before the temporary file replaces the target.</summary>
     internal Action? BeforeReplace { get; set; }
@@ -72,6 +88,36 @@ public sealed class DocxFile : IDisposable
         // to the same path warn instead of overwriting the newer file.
         var stamp = FileStamp.Of(AtomicFile.ResolveLink(full));
         return Load(ReadAll(full), parts, full, stamp);
+    }
+
+    /// <summary>The parts <see cref="OpenPrefix(string, int)"/> loads: everything a first page can need (comments are not shown).</summary>
+    private const DocxParts PrefixParts = DocxParts.Styles | DocxParts.Numbering | DocxParts.Settings | DocxParts.Notes | DocxParts.HeadersFooters;
+
+    /// <summary>
+    /// Opens the start of a file for a quick first page: styles, numbering, settings, notes, headers and footers, the first
+    /// <paramref name="maxBlocks"/> top-level blocks of the body and, as <see cref="Story.FinalSection"/>, the properties of the
+    /// section those blocks end in (cut out of the part's bytes, so the section of page 1 is right even when no section break lies in
+    /// the prefix; the headers and footers that section names are loaded). The rest of the body is neither parsed nor kept. <see cref="IsPrefix"/> says whether anything was cut off; the result cannot be saved. A body that cannot be cut safely
+    /// (the end of the part is not recognizable) is read whole.
+    /// </summary>
+    /// <param name="path">The file.</param>
+    /// <param name="maxBlocks">How many top-level body blocks to keep, at least 1.</param>
+    /// <exception cref="DocxFormatException">The file is not a usable DOCX package.</exception>
+    public static DocxFile OpenPrefix(string path, int maxBlocks)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxBlocks, 1);
+        var full = Path.GetFullPath(path);
+        var stamp = FileStamp.Of(AtomicFile.ResolveLink(full));
+        return Load(ReadAll(full), PrefixParts, full, stamp, maxBlocks);
+    }
+
+    /// <summary>Copies <paramref name="bytes"/> and opens its start as <see cref="OpenPrefix(string, int)"/> does.</summary>
+    /// <exception cref="DocxFormatException">The data is not a usable DOCX package.</exception>
+    public static DocxFile OpenPrefix(ReadOnlyMemory<byte> bytes, int maxBlocks)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxBlocks, 1);
+        return Load(bytes.ToArray(), PrefixParts, null, null, maxBlocks);
     }
 
     /// <summary>Reads a file whole; it may be open for writing by another program (the share allows readers, writers and deletion).</summary>
@@ -107,9 +153,15 @@ public sealed class DocxFile : IDisposable
 
     /// <inheritdoc cref="SaveAsync(string, CancellationToken)"/>
     /// <param name="overwriteChangedOriginal">Whether the caller confirmed overwriting a changed original (see the other overload).</param>
+    /// <exception cref="InvalidOperationException">This file is a prefix (<see cref="IsPrefix"/>).</exception>
     public async Task SaveAsync(string targetPath, bool overwriteChangedOriginal, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(targetPath);
+        if (IsPrefix)
+        {
+            throw new InvalidOperationException("A file opened as a prefix holds only the start of the document and cannot be saved.");
+        }
+
         ObjectDisposedException.ThrowIf(_disposed, this);
         var full = Path.GetFullPath(targetPath);
         await Task.Run(() => Save(full, overwriteChangedOriginal, cancellationToken), cancellationToken).ConfigureAwait(false);
@@ -119,18 +171,21 @@ public sealed class DocxFile : IDisposable
 
     // Opening.
 
-    private static DocxFile Load(byte[] snapshot, DocxParts parts, string? originPath, FileStamp? originStamp)
+    private static DocxFile Load(byte[] snapshot, DocxParts parts, string? originPath, FileStamp? originStamp, int? maxBlocks = null)
     {
         try
         {
+            // The usual place of the main part is inflated on the pool while the package layer starts up (that start is the biggest
+            // single cost of a prefix open); the bytes are used only when the package says the main part is that one.
+            var early = maxBlocks is not null ? Task.Run(() => InflateMain(snapshot)) : null;
             using var memory = new MemoryStream(snapshot, writable: false);
             using var package = WordprocessingDocument.Open(memory, false, new OpenSettings { AutoSave = false });
             var main = package.MainDocumentPart ?? throw new DocxFormatException("The file has no main document part.");
             var map = PartMap.Locate(main);
-            var model = ReadModel(main, map, parts);
+            var model = ReadModel(main, map, parts, maxBlocks, early, out var truncated);
             var contentType = main.ContentType;
             var kind = contentType is MacroMainType or MacroTemplateMainType ? DocxKind.Docm : DocxKind.Docx;
-            return new DocxFile(snapshot, model, kind, map, originPath, originStamp);
+            return new DocxFile(snapshot, model, kind, map, originPath, originStamp, truncated);
         }
         catch (XmlException ex)
         {
@@ -142,13 +197,9 @@ public sealed class DocxFile : IDisposable
         }
     }
 
-    private static WordDocument ReadModel(MainDocumentPart main, PartMap map, DocxParts parts)
+    private static WordDocument ReadModel(MainDocumentPart main, PartMap map, DocxParts parts, int? maxBlocks, Task<byte[]?>? early, out bool truncated)
     {
-        Story body;
-        using (var stream = main.GetStream(FileMode.Open, FileAccess.Read))
-        {
-            body = DocumentXml.Read(stream);
-        }
+        var body = ReadBody(main, maxBlocks, early, out truncated);
 
         if (body.Root.Name != Names.Document)
         {
@@ -216,6 +267,71 @@ public sealed class DocxFile : IDisposable
         }
 
         return model;
+    }
+
+    private const string UsualMainPartName = "/word/document.xml";
+
+    /// <summary>Inflates the usual main part without the package layer, or returns null when the package has none there or cannot be read that way.</summary>
+    private static byte[]? InflateMain(byte[] snapshot)
+    {
+        try
+        {
+            using var memory = new MemoryStream(snapshot, writable: false);
+            using var zip = new ZipArchive(memory, ZipArchiveMode.Read);
+            if (zip.GetEntry(UsualMainPartName[1..]) is not { } entry || entry.Length > Array.MaxLength)
+            {
+                return null;
+            }
+
+            var bytes = new byte[(int)entry.Length];
+            using var stream = entry.Open();
+            stream.ReadExactly(bytes);
+            return bytes;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or EndOfStreamException or NotSupportedException)
+        {
+            // Whatever is wrong shows again, with the proper exception, when the package layer reads the part.
+            return null;
+        }
+    }
+
+    private static Story ReadBody(MainDocumentPart main, int? maxBlocks, Task<byte[]?>? early, out bool truncated)
+    {
+        truncated = false;
+        if (maxBlocks is not { } limit)
+        {
+            using var whole = main.GetStream(FileMode.Open, FileAccess.Read);
+            return DocumentXml.Read(whole);
+        }
+
+        var bytes = (main.Uri.OriginalString == UsualMainPartName ? early?.GetAwaiter().GetResult() : null) ?? ReadPartBytes(main);
+        if (DocumentXml.ReadPrefix(bytes, limit, out truncated) is { } prefix)
+        {
+            return prefix;
+        }
+
+        truncated = false;
+        using var all = new MemoryStream(bytes, writable: false);
+        return DocumentXml.Read(all);
+    }
+
+    private static byte[] ReadPartBytes(MainDocumentPart main)
+    {
+        using var stream = main.GetStream(FileMode.Open, FileAccess.Read);
+        byte[] bytes;
+        if (stream.CanSeek && stream.Length <= Array.MaxLength)
+        {
+            bytes = new byte[(int)stream.Length];
+            stream.ReadExactly(bytes);
+        }
+        else
+        {
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            bytes = memory.ToArray();
+        }
+
+        return bytes;
     }
 
     private static T Read<T>(OpenXmlPart part, Func<Stream, T> read)

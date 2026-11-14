@@ -31,6 +31,15 @@ internal static class DocxBuilder
         WriteMain(package.AddMainDocumentPart(), bodyXml);
     }
 
+    /// <summary>A document whose main part is exactly the given bytes (any root, prefix, encoding or byte order mark) and no other part.</summary>
+    public static void WithMainBytes(string path, byte[] mainPart)
+    {
+        using var package = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
+        var main = package.AddMainDocumentPart();
+        using var stream = main.GetStream(FileMode.Create, FileAccess.Write);
+        stream.Write(mainPart);
+    }
+
     /// <summary>
     /// The generated right-to-left corpus file: short neutral greetings of our own in Hebrew and Arabic (escaped, so the source stays
     /// plain ASCII), <c>w:bidi</c> paragraphs, <c>w:rtl</c> runs with a Latin word inside, and a bidi table.
