@@ -34,6 +34,11 @@ public sealed class GlyphRun
 
     public ReadOnlySpan<ushort> Glyphs => _glyphs;
 
+    // The backing arrays, for page items that share them (never changed once the line is final).
+    internal ushort[] GlyphArray => _glyphs;
+
+    internal float[] XArray => _xs;
+
     /// <summary>The x offset of each glyph from <see cref="X"/>.</summary>
     public ReadOnlySpan<float> Xs => _xs;
 
