@@ -46,13 +46,11 @@ public sealed class DocumentLayout
 {
     private readonly object _gate = new();
     private readonly PageList _pages = new();
-    private readonly PageFiller _filler;
-    private readonly IEnumerator<LaidOutPage> _fill;
-    private readonly int[] _blockPage;
-    private readonly float[] _blockY;
-    private readonly int _lastBodyIndex;
-    private readonly List<string> _notes;
-    private readonly HeaderFooterPlan? _chrome;
+    private readonly FontCatalog _fonts;
+    private readonly LayoutOptions _options;
+    private List<string> _notes;
+    private Engine _engine;
+    private Action<PageBuilder>? _pageFinished;
     private int _revision;
     private bool _complete;
     private bool _firstPageFinal;
@@ -60,34 +58,65 @@ public sealed class DocumentLayout
 
     private DocumentLayout(WordDocument document, FontCatalog fonts, LayoutOptions options)
     {
-        var flow = options.Mode == LayoutMode.Flow;
+        _fonts = fonts;
+        _options = options;
         _notes = [];
-        var flat = FlatBlocks.From(document.Body.Blocks);
-        _lastBodyIndex = document.Body.Blocks.Count - 1;
-        _blockPage = new int[document.Body.Blocks.Count];
-        _blockY = new float[document.Body.Blocks.Count];
-        Array.Fill(_blockPage, -1);
+        _engine = Engine.Build(document, fonts, options, _notes);
+    }
 
-        var sections = flow
-            ? [SectionPlan.ForStrips(FlowSegmenter.Geometry(options), flat.Count)]
-            : SectionPlan.Build(flat, document.Body.FinalSection, _notes);
+    /// <summary>Everything that depends on the document model: the filler and its iterator, the block tables and the planners. A replaced model gets a new one.</summary>
+    private sealed class Engine
+    {
+        public required PageFiller Filler { get; init; }
 
-        var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
-        var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
-        var probe = new ImageProbe(options.ImageBytes);
-        var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow);
-        _filler = new PageFiller(sections, flat, planner, flow, _blockPage, _blockY);
-        if (!flow)
+        public required IEnumerator<LaidOutPage> Fill { get; init; }
+
+        public required int[] BlockPage { get; init; }
+
+        public required float[] BlockY { get; init; }
+
+        public required int LastBodyIndex { get; init; }
+
+        public required HeaderFooterPlan? Chrome { get; init; }
+
+        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes)
         {
-            // Headers, footers and notes make their own planners: list numbers in them never disturb the numbering of the body.
-            BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe);
-            var notes = new NotePlanner(document, Aux);
-            planner.Context = new PlanContext { Notes = notes };
-            _chrome = new HeaderFooterPlan(document, sections, Aux, notes);
-            _filler.Chrome = _chrome;
-        }
+            var flow = options.Mode == LayoutMode.Flow;
+            var flat = FlatBlocks.From(document.Body.Blocks);
+            var blockPage = new int[document.Body.Blocks.Count];
+            var blockY = new float[document.Body.Blocks.Count];
+            Array.Fill(blockPage, -1);
 
-        _fill = _filler.Fill().GetEnumerator();
+            var sections = flow
+                ? [SectionPlan.ForStrips(FlowSegmenter.Geometry(options), flat.Count)]
+                : SectionPlan.Build(flat, document.Body.FinalSection, notes);
+
+            var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
+            var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
+            var probe = new ImageProbe(options.ImageBytes);
+            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow);
+            var filler = new PageFiller(sections, flat, planner, flow, blockPage, blockY);
+            HeaderFooterPlan? chrome = null;
+            if (!flow)
+            {
+                // Headers, footers and notes make their own planners: list numbers in them never disturb the numbering of the body.
+                BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe);
+                var noteSource = new NotePlanner(document, Aux);
+                planner.Context = new PlanContext { Notes = noteSource };
+                chrome = new HeaderFooterPlan(document, sections, Aux, noteSource);
+                filler.Chrome = chrome;
+            }
+
+            return new Engine
+            {
+                Filler = filler,
+                Fill = filler.Fill().GetEnumerator(),
+                BlockPage = blockPage,
+                BlockY = blockY,
+                LastBodyIndex = document.Body.Blocks.Count - 1,
+                Chrome = chrome,
+            };
+        }
     }
 
     /// <summary>Starts a layout; nothing is laid out until one of the <c>LayOut</c> methods is called. Page geometry repairs are in <see cref="Notes"/> from the start.</summary>
@@ -106,8 +135,12 @@ public sealed class DocumentLayout
     /// <summary>Test seam: called with each page builder when its page is made.</summary>
     internal Action<PageBuilder>? PageFinished
     {
-        get => _filler.PageFinished;
-        set => _filler.PageFinished = value;
+        get => _engine.Filler.PageFinished;
+        set
+        {
+            _pageFinished = value;
+            _engine.Filler.PageFinished = value;
+        }
     }
 
     /// <summary>
@@ -117,7 +150,7 @@ public sealed class DocumentLayout
     /// </summary>
     public int Revision => Volatile.Read(ref _revision);
 
-    internal int ChromeLayouts => _chrome?.LayoutCount ?? 0;
+    internal int ChromeLayouts => _engine.Chrome?.LayoutCount ?? 0;
 
     /// <summary>The number of pages published so far.</summary>
     public int LaidOutPages => _pages.Count;
@@ -136,8 +169,8 @@ public sealed class DocumentLayout
     /// </summary>
     public bool FirstPageIsFinal => Volatile.Read(ref _firstPageFinal);
 
-    /// <summary>What the layout repaired or could not honour (an absurd page size, margins larger than the page, columns that do not fit), one sentence each. Known from <see cref="Create"/> on; never changes.</summary>
-    public IReadOnlyList<string> Notes => _notes;
+    /// <summary>What the layout repaired or could not honour (an absurd page size, margins larger than the page, columns that do not fit), one sentence each. Known from <see cref="Create"/> on; replaced once by <see cref="ReplaceModel"/>.</summary>
+    public IReadOnlyList<string> Notes => Volatile.Read(ref _notes);
 
     /// <summary>A finished page; <paramref name="index"/> must be below <see cref="LaidOutPages"/>.</summary>
     public LaidOutPage Page(int index) => _pages[index];
@@ -174,18 +207,72 @@ public sealed class DocumentLayout
             },
             token);
 
+    /// <summary>
+    /// Swaps the document model of a layout that holds only the start of a document (a prefix model) for the whole document, once
+    /// page 1 is final (<see cref="FirstPageIsFinal"/>) and nothing but page 1 is published. The published page 1 stays as it is;
+    /// the layout goes on from page 2 over the whole model, as if it had been created with it. The blocks of the prefix must be the
+    /// first blocks of <paramref name="full"/> and its final section and parts must be the real ones (the first page then comes out
+    /// the same, which this method checks by laying page 1 out once more on the new model and comparing its text).
+    /// </summary>
+    /// <remarks>
+    /// The cost is one more layout of page 1 (a few milliseconds, on the calling thread: call it from the background thread that
+    /// lays out the rest). Nothing the layout published is invalidated: <see cref="Locate"/> and <see cref="BlockAt"/> answer for page 1
+    /// before and after, and the block tables grow to the whole document. <see cref="Notes"/> are those of the new model from then on (they are the only thing that changes); <see cref="Revision"/> is not reset.
+    /// The new model must not change while the layout runs on it.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Page 1 is not final, other pages are already published, or the first page of the new model differs (the prefix was not the start of it).</exception>
+    public void ReplaceModel(WordDocument full)
+    {
+        ArgumentNullException.ThrowIfNull(full);
+        lock (_gate)
+        {
+            _fault?.Throw();
+            if (!FirstPageIsFinal)
+            {
+                throw new InvalidOperationException("The model can be replaced only after page 1 was laid out and is final.");
+            }
+
+            if (_pages.Count != 1)
+            {
+                throw new InvalidOperationException("The model can be replaced only while page 1 is the only published page.");
+            }
+
+            // Page 1 again on the new model, so that the filler, the planners and the numbering stand where they would stand after
+            // page 1 of a layout made with the whole document; the page itself is dropped, the published one stays.
+            var notes = new List<string>();
+            var engine = Engine.Build(full, _fonts, _options, notes);
+            try
+            {
+                if (!engine.Fill.MoveNext() || !string.Equals(engine.Fill.Current.Text, _pages[0].Text, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("The first page of the new model differs from the published page 1.");
+                }
+            }
+            catch (Exception e) when (e is not InvalidOperationException)
+            {
+                _fault = ExceptionDispatchInfo.Capture(e);
+                throw;
+            }
+
+            engine.Filler.PageFinished = _pageFinished;
+            Volatile.Write(ref _notes, notes);
+            Volatile.Write(ref _engine, engine);
+        }
+    }
+
     /// <summary>The page and y of the start of a top-level body block, or null when that page is not laid out yet (or the block takes no room).</summary>
     public (int Page, float Y)? Locate(int bodyBlockIndex)
     {
-        if ((uint)bodyBlockIndex >= (uint)_blockPage.Length)
+        var engine = Volatile.Read(ref _engine);
+        if ((uint)bodyBlockIndex >= (uint)engine.BlockPage.Length)
         {
             return null;
         }
 
         // Read the count first: an entry for a page below it was written before that page was published.
         var count = LaidOutPages;
-        var page = Volatile.Read(ref _blockPage[bodyBlockIndex]);
-        return page >= 0 && page < count ? (page, Volatile.Read(ref _blockY[bodyBlockIndex])) : null;
+        var page = Volatile.Read(ref engine.BlockPage[bodyBlockIndex]);
+        return page >= 0 && page < count ? (page, Volatile.Read(ref engine.BlockY[bodyBlockIndex])) : null;
     }
 
     /// <summary>
@@ -235,7 +322,7 @@ public sealed class DocumentLayout
             try
             {
                 BeforePage?.Invoke(_pages.Count);
-                more = _fill.MoveNext();
+                more = _engine.Fill.MoveNext();
             }
             catch (Exception e)
             {
@@ -248,7 +335,7 @@ public sealed class DocumentLayout
                 // Pages that show a page count are published again with the count, before the layout calls itself complete.
                 try
                 {
-                    var revisions = _filler.Revisions();
+                    var revisions = _engine.Filler.Revisions();
                     foreach (var (index, revised) in revisions)
                     {
                         _pages.Replace(index, revised);
@@ -272,10 +359,10 @@ public sealed class DocumentLayout
             // The flag is set before the page is published, so a reader that sees page 1 sees the final answer.
             if (_pages.Count == 0)
             {
-                Volatile.Write(ref _firstPageFinal, _filler.MaxTouchedBodyIndex < _lastBodyIndex);
+                Volatile.Write(ref _firstPageFinal, _engine.Filler.MaxTouchedBodyIndex < _engine.LastBodyIndex);
             }
 
-            _pages.Add(_fill.Current);
+            _pages.Add(_engine.Fill.Current);
             return true;
         }
     }

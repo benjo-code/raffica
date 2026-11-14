@@ -74,8 +74,8 @@ internal sealed class FirstPageResult(SKBitmap bitmap, double milliseconds) : ID
 
 /// <summary>
 /// The path the app takes to its first page: fonts, open the file, lay out page 1 only, draw it at 96 dpi. The child command and the
-/// tests call this one method; the step that opens the document is <see cref="OpenDocument"/>, the only line the prefix open
-/// (Task 14) has to replace.
+/// tests call this one method. The document is opened as a prefix (<see cref="FirstPageOpener"/> holds the fallback for a page 1 that
+/// reaches the end of the prefix).
 /// </summary>
 internal static class FirstPage
 {
@@ -91,17 +91,27 @@ internal static class FirstPage
     {
         var step = Stopwatch.StartNew();
         var fonts = FontCatalog.CreateShipped();
+        var warm = FirstPageOpener.WarmUp(fonts);
         times.FontsMs = Lap(step);
 
         var bytes = File.ReadAllBytes(file);
         times.ReadFileMs = Lap(step);
 
-        using var docx = OpenDocument(bytes);
-        times.ParseMs = Lap(step);
-
         var images = new PackageImages(bytes);
-        var layout = DocumentLayout.Create(docx.Model, fonts, new LayoutOptions(LayoutMode.Pages, ImageBytes: images.Read));
+        var options = new LayoutOptions(LayoutMode.Pages, ImageBytes: images.Read);
+        using var docx = DocxFile.OpenPrefix(bytes, FirstPageOpener.DefaultPrefixBlocks);
+        times.ParseMs = Lap(step);
+        warm.GetAwaiter().GetResult();
+
+        var layout = DocumentLayout.Create(docx.Model, fonts, options);
         layout.LayOutFirstPage();
+        if (docx.IsPrefix && !layout.FirstPageIsFinal)
+        {
+            // Rare: page 1 reaches the end of the prefix. The shared helper starts again with a bigger prefix.
+            using var opened = FirstPageOpener.Open(bytes, fonts, options, FirstPageOpener.DefaultPrefixBlocks * FirstPageOpener.Growth);
+            layout = opened.Layout;
+        }
+
         times.LayoutMs = Lap(step);
 
         using var cache = new ImageCache(images.Read);
@@ -112,9 +122,6 @@ internal static class FirstPage
         using var process = Process.GetCurrentProcess();
         return new FirstPageResult(bitmap, Math.Max(times.TotalMs, (DateTime.Now - process.StartTime).TotalMilliseconds));
     }
-
-    /// <summary>The open step. Today the whole file; Task 14 swaps in the prefix open here.</summary>
-    internal static DocxFile OpenDocument(byte[] bytes) => DocxFile.Open(bytes);
 
     internal static SKBitmap DrawPage(LaidOutPage page, ImageCache images)
     {
