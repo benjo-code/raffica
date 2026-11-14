@@ -12,5 +12,6 @@
     <ProjectReference Include="..\..\src\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
     <ProjectReference Include="..\..\bench\write-corpus\WriteCorpus.csproj" />
+    <ProjectReference Include="..\..\bench\write-layout\WriteLayoutBench.csproj" />
   </ItemGroup>
 </Project>

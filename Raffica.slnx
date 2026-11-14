@@ -23,5 +23,6 @@
   <Folder Name="/bench/">
     <Project Path="bench/shell-probe/ShellProbe/ShellProbe.csproj" />
     <Project Path="bench/write-corpus/WriteCorpus.csproj" />
+    <Project Path="bench/write-layout/WriteLayoutBench.csproj" />
   </Folder>
 </Solution>
