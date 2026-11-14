@@ -378,6 +378,13 @@
       "licenseFile": "third-party/caladea/OFL.txt"
     },
     {
+      "id": "Unicode Character Database",
+      "kind": "asset",
+      "version": "18.0.0",
+      "license": "Unicode-3.0",
+      "licenseFile": "third-party/unicode/LICENSE-Unicode.txt"
+    },
+    {
       "id": "Lucide",
       "kind": "asset",
       "version": "1.63.0",
