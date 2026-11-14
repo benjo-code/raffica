@@ -25,8 +25,9 @@ internal sealed class WriteOptions
     public string? PrintString { get; private init; }
 
     /// <summary>
-    /// The measurement switch of the run (at most one): <c>--measure-startup</c>, <c>--measure-second</c>, <c>--measure-scroll</c> or <c>--measure-memory</c>;
-    /// null for a normal run. The switches are read here so the measurement step of the Write milestone adds no option; nothing acts on them yet.
+    /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
+    /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll ...</c>) or
+    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>); null for a normal run. See <see cref="Measurement"/>.
     /// </summary>
     public string? MeasureSwitch { get; private init; }
 
@@ -109,6 +110,20 @@ internal sealed class WriteOptions
                 default:
                     files.Add(args[i]);
                     break;
+            }
+        }
+
+        if (measure is not null)
+        {
+            // A measurement never meets the settings, the recent files or the instance pipe of the user: they all follow --settings-file.
+            if (string.IsNullOrWhiteSpace(settingsFile))
+            {
+                throw new ArgumentException($"'{measure}' needs --settings-file (a measurement never reads or writes the settings of the user)");
+            }
+
+            if (files.Count == 0)
+            {
+                throw new ArgumentException($"'{measure}' needs the file to open");
             }
         }
 

@@ -135,6 +135,9 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     /// <summary>Raised when the files of a later launch arrive in the running instance, before anything is checked or opened.</summary>
     internal event Action? HandoverArrived;
 
+    /// <summary>Raised when the page view of a tab has drawn page 1 (the measurement of the first and the second file listens).</summary>
+    internal event Action<WriteTab>? FirstSharpPageDrawn;
+
     /// <summary>Raised when the states the macOS menu shows may have changed.</summary>
     public event Action? StatesChanged;
 

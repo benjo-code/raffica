@@ -110,6 +110,7 @@ internal sealed partial class WriteWindow
         };
         view.FirstSharpPage += () =>
         {
+            FirstSharpPageDrawn?.Invoke(tab);
             tab.Runner.Start();
             if (ReferenceEquals(ActiveView, view))
             {
