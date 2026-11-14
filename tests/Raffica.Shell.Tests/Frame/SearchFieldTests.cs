@@ -247,6 +247,67 @@ public sealed class SearchFieldTests
         Assert.Equal(3, input.SelectionEnd);
     }
 
+    private static (Window Window, TextBox Input, Button Other) ShowWithAltQ()
+    {
+        var button = new Button { Content = "Other" };
+        var search = new SearchField { Source = SampleRibbon.Create(), Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
+        var window = ControlHarness.Show(new StackPanel { Children = { button, search } }, ThemeMode.Light);
+        FrameKeys.Attach(window, search, SearchShortcut.AltQ);
+        var input = ControlHarness.Part<TextBox>(search, "PART_Input");
+        button.Focus();
+        ControlHarness.Settle(window);
+        Assert.False(input.IsFocused);
+        return (window, input, button);
+    }
+
+    [AvaloniaFact]
+    public void AltQFocusesTheFieldWhenTheAppAsksForIt()
+    {
+        var (window, input, _) = ShowWithAltQ();
+
+        // Ctrl+K is not the key of this frame.
+        Press(window, PhysicalKey.K, RawInputModifiers.Control);
+        Assert.False(input.IsFocused);
+
+        // macOS keeps Cmd+K for this option.
+        if (OperatingSystem.IsMacOS())
+        {
+            Press(window, PhysicalKey.K, RawInputModifiers.Meta);
+        }
+        else
+        {
+            Press(window, PhysicalKey.Q, RawInputModifiers.Alt);
+        }
+
+        Assert.True(input.IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void CtrlAltQIsAltGrAndNeverFocusesTheField()
+    {
+        // AltGr+Q types "@" on some layouts and Windows reports it as Ctrl+Alt.
+        var (window, input, _) = ShowWithAltQ();
+        Press(window, PhysicalKey.Q, RawInputModifiers.Control | RawInputModifiers.Alt);
+        Assert.False(input.IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void TheTooltipNamesAltQ()
+    {
+        var original = ShellStrings.Culture;
+        try
+        {
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("en");
+            Assert.Equal(OperatingSystem.IsMacOS() ? "Search (⌘K)" : "Search (Alt+Q)", SearchField.CreateTooltip(SearchShortcut.AltQ).Title);
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal(OperatingSystem.IsMacOS() ? "Suchen (⌘K)" : "Suchen (Alt+Q)", SearchField.CreateTooltip(SearchShortcut.AltQ).Title);
+        }
+        finally
+        {
+            ShellStrings.Culture = original;
+        }
+    }
+
     [AvaloniaFact]
     public void TooltipNamesTheShortcut()
     {

@@ -65,6 +65,7 @@ public static class ShellStrings
     public static string StartBlankSpreadsheet => Table.Get("StartBlankSpreadsheet");
     public static string StartBlankPresentation => Table.Get("StartBlankPresentation");
     public static string StartOpenPdf => Table.Get("StartOpenPdf");
+    public static string StartOpenDocument => Table.Get("StartOpenDocument");
     public static string SettingsTitle => Table.Get("SettingsTitle");
     public static string SettingsTheme => Table.Get("SettingsTheme");
     public static string SettingsThemeLight => Table.Get("SettingsThemeLight");

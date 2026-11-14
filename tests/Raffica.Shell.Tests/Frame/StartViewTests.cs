@@ -92,6 +92,25 @@ public sealed class StartViewTests
     }
 
     [AvaloniaFact]
+    public void OpenDocumentOnlyIsOneTileOfTheWriteApp()
+    {
+        var previous = ShellStrings.Culture;
+        try
+        {
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("de");
+            var tile = Assert.Single(StartTile.OpenDocumentOnly());
+            Assert.Equal(StartApp.Write, tile.App);
+            Assert.Equal("Dokument öffnen", tile.Label);
+            ShellStrings.Culture = CultureInfo.GetCultureInfo("en");
+            Assert.Equal("Open document", Assert.Single(StartTile.OpenDocumentOnly()).Label);
+        }
+        finally
+        {
+            ShellStrings.Culture = previous;
+        }
+    }
+
+    [AvaloniaFact]
     public void TheNewButtonLabelDefaultsToNewDocumentAndCanBeChanged()
     {
         var tabs = new DocumentTabs();
