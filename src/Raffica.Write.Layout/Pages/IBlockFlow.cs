@@ -58,3 +58,20 @@ internal interface IBlockFlow
     /// <summary>Adds the items of this piece, whose top left corner is (<paramref name="x"/>, <paramref name="y"/>) on the page, and its text.</summary>
     void Emit(PageBuilder page, float x, float y);
 }
+
+/// <summary>
+/// A flow whose layout depends on where it is placed because of floating objects: its own, or the ones of earlier blocks on the page.
+/// The band asks before it places a flow; a flow that wants it is laid out again at its place and gives the objects it owns, which
+/// the band then registers for the blocks that follow. Flows that do not implement it are placed as they are.
+/// </summary>
+internal interface IFloatAware : IBlockFlow
+{
+    /// <summary>True when this flow, placed with its top at <paramref name="y"/>, has to be laid out again at its place.</summary>
+    bool NeedsPlacement(PageFloats page, float y);
+
+    /// <summary>This flow laid out for its place; its <see cref="Owned"/> objects are positioned. The result does not need placement again.</summary>
+    IBlockFlow AtPlace(FloatContext context);
+
+    /// <summary>The floating objects this piece draws (only the piece that holds the start of the paragraph has any).</summary>
+    IReadOnlyList<FloatBox> Owned { get; }
+}

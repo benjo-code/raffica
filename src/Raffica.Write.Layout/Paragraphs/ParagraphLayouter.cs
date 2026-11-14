@@ -28,8 +28,27 @@ public sealed class ParagraphLayouter
     public ParagraphLayout Layout(ParagraphInput input, float width, IWrapSource? wrap = null)
     {
         ArgumentNullException.ThrowIfNull(input);
-        using var session = new ParagraphSession(_fonts, input, float.IsFinite(width) ? width : 0f, wrap, Hyphenator);
+        var usable = float.IsFinite(width) ? width : 0f;
+        using var session = new ParagraphSession(_fonts, input.ScaleBoxes ? ScaleBoxes(input, usable) : input, usable, wrap, Hyphenator);
         return session.Run();
+    }
+
+    // An inline picture or placeholder wider than the text area is shrunk to it with its aspect ratio kept, so it can never push content off the page.
+    private static ParagraphInput ScaleBoxes(ParagraphInput input, float width)
+    {
+        var room = Math.Max(1f, width - input.Paragraph.LeftIndent - input.Paragraph.RightIndent);
+        List<ParagraphItem>? scaled = null;
+        for (var i = 0; i < input.Items.Count; i++)
+        {
+            if (input.Items[i] is InlineBox { Width: > 0f } box && float.IsFinite(box.Width) && box.Width > room + 0.01f)
+            {
+                var factor = room / box.Width;
+                scaled ??= [.. input.Items];
+                scaled[i] = box with { Width = room, Height = box.Height * factor };
+            }
+        }
+
+        return scaled is null ? input : input with { Items = scaled };
     }
 }
 

@@ -48,6 +48,12 @@ public sealed record ParagraphInput(ResolvedParagraph Paragraph, IReadOnlyList<P
 
     /// <summary>The footnote references of the paragraph, by the item that draws their number (the page layout finds the line each one lands on).</summary>
     internal IReadOnlyList<NoteMark>? NoteMarks { get; init; }
+
+    /// <summary>The floating objects anchored in the paragraph (null for almost every paragraph). The page layout places them; the paragraph layouter ignores them.</summary>
+    internal IReadOnlyList<FloatSpec>? Floats { get; init; }
+
+    /// <summary>Whether an inline box wider than the text area is scaled down to it (aspect ratio kept). The measuring of table columns turns it off to see the natural size.</summary>
+    internal bool ScaleBoxes { get; init; } = true;
 }
 
 /// <summary>The horizontal room of one line, in paragraph coordinates (0 is the left edge of the text area).</summary>

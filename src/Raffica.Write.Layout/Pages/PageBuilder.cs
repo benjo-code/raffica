@@ -2,10 +2,13 @@ using System.Text;
 
 namespace Raffica.Write.Layout;
 
-/// <summary>Which part of a page the items being added belong to; the finished page lists header, body, notes and footer in that order.</summary>
+/// <summary>Which part of a page the items being added belong to; the finished page lists header, behind-text objects, body, notes and footer in that order.</summary>
 internal enum PageRegion
 {
     Header,
+
+    /// <summary>Floating objects behind the text of the body: painted after the header and before the body text.</summary>
+    Behind,
     Body,
     Notes,
     Footer,
@@ -17,8 +20,8 @@ internal enum PageRegion
 /// </summary>
 internal sealed class PageBuilder
 {
-    private readonly List<PageItem>[] _items = [[], [], [], []];
-    private readonly StringBuilder[] _text = [new(), new(), new(), new()];
+    private readonly List<PageItem>[] _items = [[], [], [], [], []];
+    private readonly StringBuilder[] _text = [new(), new(), new(), new(), new()];
     private readonly List<BlockSpan> _spans = [];
 
     public PageBuilder(int index, int number, string numberText, SectionPlan section, bool isFirstOfSection)
@@ -64,7 +67,30 @@ internal sealed class PageBuilder
     /// <summary>Where <see cref="Add"/> and <see cref="AddLine"/> write.</summary>
     public PageRegion Region { get; set; } = PageRegion.Body;
 
-    public void Add(PageItem item) => _items[(int)Region].Add(item);
+    /// <summary>The floating objects placed on this page so far: the text of later paragraphs keeps clear of them.</summary>
+    public PageFloats Floats { get; } = new();
+
+    private bool _behind;
+
+    public void Add(PageItem item) => _items[(int)(_behind ? PageRegion.Behind : Region)].Add(item);
+
+    /// <summary>Until the returned scope is disposed, <see cref="Add"/> writes to the items painted behind the body text (the text of the page is not affected).</summary>
+    public IDisposable PaintBehind() => new BehindScope(this);
+
+    private sealed class BehindScope : IDisposable
+    {
+        private readonly PageBuilder _page;
+        private readonly bool _before;
+
+        public BehindScope(PageBuilder page)
+        {
+            _page = page;
+            _before = page._behind;
+            page._behind = true;
+        }
+
+        public void Dispose() => _page._behind = _before;
+    }
 
     public void AddLine(string line) => _text[(int)Region].Append(line).Append('\n');
 

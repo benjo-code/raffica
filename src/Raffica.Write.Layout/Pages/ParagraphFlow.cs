@@ -55,7 +55,10 @@ internal sealed class ParagraphPlan : BlockPlan
     {
         var rest = item >= Input.Items.Count ? [] : Input.Items.Skip(item).ToArray();
         var marks = Input.NoteMarks?.Where(m => m.ItemIndex >= item).Select(m => m with { ItemIndex = m.ItemIndex - item }).ToArray();
-        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks }, _layouter, isContinuation: true);
+
+        // A floating object anchored after the break belongs to the part after it.
+        var floats = Input.Floats?.Where(f => f.ItemIndex >= item).Select(f => f.WithItemIndex(f.ItemIndex - item)).ToArray();
+        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks, Floats = floats is { Length: > 0 } ? floats : null }, _layouter, isContinuation: true);
     }
 
     /// <summary>The text offset of each note mark of <see cref="ParagraphInput.NoteMarks"/> (counted as the layouter counts text).</summary>
@@ -97,7 +100,10 @@ internal sealed class ParagraphPlan : BlockPlan
     }
 
     protected override IBlockFlow Make(float width) =>
-        new ParagraphFlow(this, _layouter.Layout(Input, width), 0, int.MaxValue);
+        new ParagraphFlow(this, LayOut(width, null), 0, int.MaxValue);
+
+    /// <summary>The paragraph laid out at <paramref name="width"/>, with its lines narrowed by <paramref name="wrap"/> when it is not null. Not cached.</summary>
+    internal ParagraphLayout LayOut(float width, IWrapSource? wrap) => _layouter.Layout(Input, width, wrap);
 
     /// <summary>Laid out at one point and at an unlimited width: the longest word and the whole text on a line.</summary>
     public override (float Min, float Max) ContentWidths()
@@ -112,7 +118,7 @@ internal sealed class ParagraphPlan : BlockPlan
             return (_widths = (0f, 0f)).Value;
         }
 
-        var probe = Input with { AutoHyphenation = false, ExpandShiftReturn = false };
+        var probe = Input with { AutoHyphenation = false, ExpandShiftReturn = false, ScaleBoxes = false };
         var indents = Input.Paragraph.LeftIndent + Input.Paragraph.RightIndent;
         var narrow = Extent(_layouter.Layout(probe, 1f)) + indents;
         var wide = Extent(_layouter.Layout(probe, MeasureWidth)) + indents;
@@ -153,24 +159,29 @@ internal sealed class ParagraphPlan : BlockPlan
 /// A range of lines of one laid-out paragraph. Split keeps the rules of Word: widow and orphan control (never one line alone at the
 /// bottom or the top of a page, when <c>w:widowControl</c> is on) and "keep lines together".
 /// </summary>
-internal sealed class ParagraphFlow : IBlockFlow
+internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
 {
     private readonly ParagraphPlan _plan;
     private readonly ParagraphLayout _layout;
     private readonly int _from;
     private readonly int _to;
     private readonly float _top;
+    private readonly bool _placed;
+    private readonly IReadOnlyList<FloatBox>? _boxes;
     private IReadOnlyList<NoteRef>? _notes;
 
-    public ParagraphFlow(ParagraphPlan plan, ParagraphLayout layout, int from, int to)
+    public ParagraphFlow(ParagraphPlan plan, ParagraphLayout layout, int from, int to, bool placed = false, IReadOnlyList<FloatBox>? boxes = null)
     {
         _plan = plan;
         _layout = layout;
         _from = from;
         _to = Math.Min(to, layout.Lines.Count);
+        _placed = placed;
+        _boxes = boxes;
         if (_to > _from)
         {
-            _top = layout.Lines[_from].Top;
+            // The first piece starts at the top of the paragraph, so room that wrapping left above its first line is part of it.
+            _top = from == 0 ? 0f : layout.Lines[_from].Top;
             var last = layout.Lines[_to - 1];
             Height = last.Top + last.Height - _top;
         }
@@ -263,7 +274,43 @@ internal sealed class ParagraphFlow : IBlockFlow
             return new FlowSplit(this, null);
         }
 
-        return new FlowSplit(new ParagraphFlow(_plan, _layout, _from, _from + count), new ParagraphFlow(_plan, _layout, _from + count, _to));
+        return new FlowSplit(
+            new ParagraphFlow(_plan, _layout, _from, _from + count, _placed, _from == 0 ? _boxes : null),
+            new ParagraphFlow(_plan, _layout, _from + count, _to, _placed));
+    }
+
+    public IReadOnlyList<FloatBox> Owned => _boxes ?? [];
+
+    /// <summary>
+    /// True for a whole paragraph that has not been placed yet and either holds floating objects or sits where an object of the page
+    /// reaches: its lines depend on where it lands, so it is laid out again at its place (<see cref="AtPlace"/>). Every other
+    /// paragraph keeps the layout it was planned with.
+    /// </summary>
+    public bool NeedsPlacement(PageFloats page, float y)
+    {
+        if (_placed || _from != 0 || LineCount == 0)
+        {
+            return false;
+        }
+
+        return _plan.Input.Floats is { Count: > 0 } || page.Reaches(y, y + Height);
+    }
+
+    public IBlockFlow AtPlace(FloatContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var specs = _plan.Input.Floats;
+        var boxes = specs is { Count: > 0 } ? FloatPlanner.Place(specs, context) : [];
+        var layout = _layout;
+        List<FloatBox> obstacles = [.. context.Page.Boxes];
+        obstacles.AddRange(boxes.Where(b => b.Wraps));
+        var top = context.Y;
+        if (obstacles.Any(b => b.ClearTop < top + Height && b.ClearBottom > top))
+        {
+            layout = _plan.LayOut(context.ColumnWidth, new WrapSource(obstacles, context.ColumnLeft, context.Y, context.Bottom));
+        }
+
+        return new ParagraphFlow(_plan, layout, 0, int.MaxValue, true, boxes);
     }
 
     public void Emit(PageBuilder page, float x, float y)
@@ -276,6 +323,15 @@ internal sealed class ParagraphFlow : IBlockFlow
             LineItems.Emit(page, line, x, lineTop);
             var text = _layout.TextOf(line);
             page.AddLine(i == 0 && IsFirstPiece && _plan.Input.Label is { } label ? label.Text + " " + text : text);
+        }
+
+        if (_boxes is not null)
+        {
+            // Objects in front of the text are drawn after it; the ones behind it go to their own region.
+            foreach (var box in _boxes)
+            {
+                box.Emit(page);
+            }
         }
     }
 
@@ -344,6 +400,6 @@ internal sealed class ParagraphFlow : IBlockFlow
     private float HeightOf(int from, int to)
     {
         var last = _layout.Lines[to - 1];
-        return last.Top + last.Height - _layout.Lines[from].Top;
+        return last.Top + last.Height - (from == _from ? _top : _layout.Lines[from].Top);
     }
 }

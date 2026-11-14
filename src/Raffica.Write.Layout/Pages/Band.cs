@@ -37,12 +37,13 @@ internal sealed class Band
     private float _prevAfter;
     private string? _prevGroup;
 
-    public Band(PageGeometry geometry, float top, float bottom, bool suppressSpaceBefore, bool pageHadContent, PageNotes? notes = null)
+    public Band(PageGeometry geometry, float top, float bottom, bool suppressSpaceBefore, bool pageHadContent, PageNotes? notes = null, PageFloats? floats = null)
     {
         Geometry = geometry;
         Top = top;
         _bottom = bottom;
         Notes = notes;
+        Floats = floats ?? new PageFloats();
         Y = top;
         MaxY = top;
         _suppress = suppressSpaceBefore;
@@ -56,6 +57,9 @@ internal sealed class Band
 
     /// <summary>The footnotes of the page this band is on (shared by every band of the page); null in a trial fill and in the writing view.</summary>
     public PageNotes? Notes { get; }
+
+    /// <summary>The floating objects of the page this band is on (shared by every band of the page); a trial fill has its own.</summary>
+    public PageFloats Floats { get; }
 
     /// <summary>Where the body ends now: the bottom of the text area less the room the footnotes of the page have taken so far.</summary>
     public float Bottom => _bottom - (Notes?.Reserved ?? 0f);
@@ -109,8 +113,17 @@ internal sealed class Band
             }
 
             var gap = GapBefore(flow);
+
+            // A paragraph that floating objects touch is laid out again here, where its place is known; the flow itself is kept as it was
+            // so that a move to the next column lays it out again there.
+            var current = flow;
+            if (!strip && flow is IFloatAware aware && aware.NeedsPlacement(Floats, Y + gap))
+            {
+                current = aware.AtPlace(new FloatContext(Geometry, Geometry.Columns.Lefts[Column], ColumnWidth, Y + gap, Bottom, Floats));
+            }
+
             var available = Bottom - Y - gap;
-            if (look is not null && !strip && flow.KeepNext && !_columnEmpty && MustMoveWithNext(flow, look, available))
+            if (look is not null && !strip && current.KeepNext && !_columnEmpty && MustMoveWithNext(current, look, available))
             {
                 if (!AdvanceColumn())
                 {
@@ -120,7 +133,7 @@ internal sealed class Band
                 continue;
             }
 
-            var split = SplitWithNotes(flow, Y + gap, available, _columnEmpty && AtPageTop);
+            var split = SplitWithNotes(current, Y + gap, available, _columnEmpty && AtPageTop);
             if (split.Head is not { } head)
             {
                 if (_columnEmpty && AtPageTop)
@@ -138,6 +151,11 @@ internal sealed class Band
 
             var y = Y + gap;
             Placed.Add(new Placed(head, Geometry.Columns.Lefts[Column], y, Column));
+            if (head is IFloatAware { Owned.Count: > 0 } owner)
+            {
+                Floats.Add(owner.Owned);
+            }
+
             Y = y + head.Height;
             MaxY = Math.Max(MaxY, Y);
             if (Notes is not null)

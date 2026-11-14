@@ -32,10 +32,16 @@ internal sealed class BlockPlanner
     private readonly bool _autoHyphenation;
     private readonly Dictionary<ResolvedParagraph, ResolvedRun> _markRuns = new(ReferenceEqualityComparer.Instance);
     private readonly List<FieldFrame> _frames = [];
+    private readonly ImageProbe _probe;
+    private readonly bool _flowMode;
     private List<NoteMark>? _marks;
+    private List<FloatSpec>? _floats;
+    private List<InlineBox>? _flowBoxes;
 
-    public BlockPlanner(StyleResolver styles, NumberingCounter numbering, ParagraphLayouter layouter, DocumentSettings? settings)
+    public BlockPlanner(StyleResolver styles, NumberingCounter numbering, ParagraphLayouter layouter, DocumentSettings? settings, ImageProbe? probe = null, bool flowMode = false)
     {
+        _probe = probe ?? new ImageProbe(null);
+        _flowMode = flowMode;
         _styles = styles;
         _numbering = numbering;
         _layouter = layouter;
@@ -57,6 +63,9 @@ internal sealed class BlockPlanner
             TableTextAtIndent = !int.TryParse((string?)mode?.Attribute(W + "val"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var level) || level < 15;
         }
     }
+
+    /// <summary>The height of the text area of the section being filled: an inline picture taller than this is shrunk to it (aspect kept). Set by the page filler.</summary>
+    internal float TextAreaHeight { get; set; } = float.MaxValue;
 
     /// <summary>The styles of the document: the one resolver every planner of a layout shares.</summary>
     internal StyleResolver Styles => _styles;
@@ -115,16 +124,72 @@ internal sealed class BlockPlanner
         ResolvedRun? textRun = null;
         _frames.Clear();
         _marks = null;
+        _floats = null;
+        _flowBoxes = null;
         AddInlines(paragraph.Inlines, resolved, items, text, ref textRun);
         Flush(items, text, ref textRun);
         _frames.Clear();
-        return new ParagraphInput(resolved, items, MarkRun(resolved), label)
+        IReadOnlyList<NoteMark>? marks = _marks;
+        var floats = _floats;
+        if (_flowBoxes is { Count: > 0 } lead)
+        {
+            // The writing view does not wrap text around objects: each one is a block of its own above the paragraph (a line of its own, then the text).
+            var front = new List<ParagraphItem>(lead.Count * 2);
+            foreach (var box in lead)
+            {
+                front.Add(box);
+                if (items.Count > 0 || lead.Count > 1)
+                {
+                    front.Add(new BreakItem(BreakKind.Line));
+                }
+            }
+
+            items.InsertRange(0, front);
+            marks = marks?.Select(m => m with { ItemIndex = m.ItemIndex + front.Count }).ToList();
+        }
+
+        var input = new ParagraphInput(resolved, items, MarkRun(resolved), label)
         {
             DefaultTabStop = _defaultTabStop,
             ExpandShiftReturn = _expandShiftReturn,
             AutoHyphenation = _autoHyphenation,
-            NoteMarks = _marks,
+            NoteMarks = marks,
+            Floats = floats,
         };
+
+        // The paragraphs of a text box are planned after the paragraph that holds it: planning one is not re-entrant.
+        if (floats is not null)
+        {
+            foreach (var spec in floats)
+            {
+                if (spec is { Kind: FloatKind.TextBox, Content: { } content })
+                {
+                    spec.Plans = [.. content.Select(p => new ParagraphPlan(-1, Input(p, null), _layouter, isContinuation: false))];
+                }
+            }
+        }
+
+        return input;
+    }
+
+    // A floating object read from a drawing: kept for the page layout, or (writing view) made an inline box above the paragraph.
+    private void AddFloat(FloatSpec? spec, List<ParagraphItem> items)
+    {
+        if (spec is null)
+        {
+            return;
+        }
+
+        if (_flowMode)
+        {
+            var cap = Math.Min(1f, MaximumBoxSize / Math.Max(spec.Width, spec.Height));
+            var width = spec.Width * cap;
+            var height = spec.Height * cap;
+            (_flowBoxes ??= []).Add(new InlineBox(width, height, spec.Kind == FloatKind.Image ? spec.Image : null));
+            return;
+        }
+
+        (_floats ??= []).Add(spec.WithItemIndex(items.Count));
     }
 
     private ResolvedRun MarkRun(ResolvedParagraph resolved)
@@ -261,6 +326,11 @@ internal sealed class BlockPlanner
                         Flush(items, text, ref textRun);
                         items.Add(Box(picture, format));
                     }
+                    else
+                    {
+                        Flush(items, text, ref textRun);
+                        AddFloat(FloatReader.FromDrawing(picture.Raw, _probe), items);
+                    }
 
                     break;
                 case UnknownRunContent { Content.Element.Name.LocalName: "footnoteRef" or "endnoteRef" } when Context.NoteMark is { } own:
@@ -356,7 +426,7 @@ internal sealed class BlockPlanner
         return MarkRun(owner) with { ParagraphMarkOnly = false };
     }
 
-    private static void AddUnknown(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    private void AddUnknown(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
     {
         switch (element.Name.LocalName)
         {
@@ -370,7 +440,20 @@ internal sealed class BlockPlanner
             case "ptab":
                 Append("\t", format, items, text, ref textRun);
                 break;
-            case "pict" or "object" or "AlternateContent":
+            case "AlternateContent" or "pict":
+                Flush(items, text, ref textRun);
+                var spec = element.Name.LocalName == "pict" ? FloatReader.FromVml(element, _probe) : FloatReader.FromAlternate(element, _probe);
+                if (spec is null)
+                {
+                    items.Add(InlineBox.Placeholder(format));
+                }
+                else
+                {
+                    AddFloat(spec, items);
+                }
+
+                break;
+            case "object":
                 Flush(items, text, ref textRun);
                 items.Add(InlineBox.Placeholder(format));
                 break;
@@ -395,16 +478,40 @@ internal sealed class BlockPlanner
         text.Append(value);
     }
 
-    private static InlineBox Box(Picture picture, ResolvedRun format)
+    private InlineBox Box(Picture picture, ResolvedRun format)
     {
         var width = picture.WidthEmu / EmuPerPoint;
         var height = picture.HeightEmu / EmuPerPoint;
-        if (picture.EmbedRelationshipId is not { } id || width < 1f || height < 1f)
+        if (picture.EmbedRelationshipId is not { } id)
+        {
+            var cap = width >= 1f && height >= 1f ? Math.Min(1f, MaximumBoxSize / Math.Max(width, height)) : 0f;
+            return cap > 0f ? new InlineBox(width * cap, height * cap, null) : InlineBox.Placeholder(format);
+        }
+
+        // Only the header of the picture is read, and only to see whether it can be drawn and, when the file states no size, how big it is.
+        var info = _probe.Info(id);
+        if (info is { Width: > 0, Height: > 0 } px && (width < 1f || height < 1f))
+        {
+            width = px.Width * 0.75f;
+            height = px.Height * 0.75f;
+        }
+
+        if (width < 1f || height < 1f)
         {
             return InlineBox.Placeholder(format);
         }
 
-        return new InlineBox(Math.Min(width, MaximumBoxSize), Math.Min(height, MaximumBoxSize), new ImageRef(id));
+        var limit = Math.Min(1f, MaximumBoxSize / Math.Max(width, height));
+        width *= limit;
+        height *= limit;
+        if (height > TextAreaHeight)
+        {
+            // Taller than the text area: shrunk to it, aspect ratio kept (the width is scaled to the line width when the paragraph is laid out).
+            width *= TextAreaHeight / height;
+            height = TextAreaHeight;
+        }
+
+        return new InlineBox(width, height, info is null ? null : new ImageRef(id));
     }
 }
 

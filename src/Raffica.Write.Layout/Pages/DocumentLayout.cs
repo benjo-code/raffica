@@ -16,7 +16,13 @@ public enum LayoutMode
 /// <summary>Options of a layout. Lengths are points.</summary>
 /// <param name="Mode">The view.</param>
 /// <param name="FlowTextWidth">The width of the text column in <see cref="LayoutMode.Flow"/> (520 pt is about 85 characters of Carlito 11 pt).</param>
-public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float FlowTextWidth = 520f);
+/// <param name="ImageBytes">
+/// Gives the bytes of the picture a relationship id stands for (the same function an <see cref="ImageCache"/> takes). The layout reads
+/// only the header of each picture, once, to tell a picture Skia can draw from a metafile, corrupt bytes or a missing part (those become
+/// a marked box of the stated size) and to size a picture whose extent is missing; it never decodes a bitmap. Null: every picture is
+/// assumed drawable. The function may throw for a missing part.
+/// </param>
+public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float FlowTextWidth = 520f, Func<string, ReadOnlyMemory<byte>>? ImageBytes = null);
 
 /// <summary>
 /// The pages of one document. <see cref="LayOutFirstPage"/> makes page 1, <see cref="LayOutRestAsync"/> the rest on another thread;
@@ -68,12 +74,13 @@ public sealed class DocumentLayout
 
         var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
         var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
-        var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings);
+        var probe = new ImageProbe(options.ImageBytes);
+        var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow);
         _filler = new PageFiller(sections, flat, planner, flow, _blockPage, _blockY);
         if (!flow)
         {
             // Headers, footers and notes make their own planners: list numbers in them never disturb the numbering of the body.
-            BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings);
+            BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe);
             var notes = new NotePlanner(document, Aux);
             planner.Context = new PlanContext { Notes = notes };
             _chrome = new HeaderFooterPlan(document, sections, Aux, notes);

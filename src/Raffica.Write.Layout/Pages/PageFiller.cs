@@ -84,7 +84,7 @@ internal sealed class PageFiller
 
                 page = Begin(pageIndex++, number, section);
                 nextNumber = number + 1;
-                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, false, false, page.Notes)];
+                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, false, false, page.Notes, page.Floats)];
             }
             else
             {
@@ -95,9 +95,11 @@ internal sealed class PageFiller
                 // The room is what the page has left after header, footer and notes; a section with margins of its own can only narrow it.
                 var bottom = Math.Min(geometry.BodyBottom, page.BodyBottom);
                 var top = last.MaxY + last.SpaceAfterLast;
-                bands.Add(new Band(geometry, Math.Min(top, bottom), bottom, false, true, page.Notes));
+                bands.Add(new Band(geometry, Math.Min(top, bottom), bottom, false, true, page.Notes, page.Floats));
             }
 
+            // A picture is shrunk to the text area of the section it is in (plans are made lazily, while this section is filled).
+            _planner.TextAreaHeight = Math.Max(PageGeometry.MinimumText, geometry.Height - geometry.Top - geometry.Bottom);
             var source = new SectionSource(_planner, _blocks, section.FirstBlock, section.EndBlock, Touch, s == lastFilled ? Chrome?.Trailer() : null);
             IBlockFlow? carry = null;
             while (true)
@@ -120,7 +122,7 @@ internal sealed class PageFiller
                 yield return Finish(page, bands);
                 page = Begin(pageIndex++, nextNumber, section);
                 nextNumber++;
-                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, result.SuppressSpaceBefore, false, page.Notes)];
+                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, result.SuppressSpaceBefore, false, page.Notes, page.Floats)];
                 carry = result.Carry;
             }
         }
