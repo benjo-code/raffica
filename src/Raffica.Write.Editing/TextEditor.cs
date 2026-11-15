@@ -83,7 +83,7 @@ public sealed class TextEditor
         }
 
         var map = Map(span.Story, paragraph);
-        offset = Snap(map, offset);
+        offset = EditRules.Snap(map, offset);
         var point = ResolvePoint(map, offset);
         TextPosition caret;
         var added = 1;
@@ -125,7 +125,7 @@ public sealed class TextEditor
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
-        var offset = Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
+        var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
         if (offset == 0)
         {
             if (index > 0 && container[index - 1] is Paragraph previous)
@@ -134,6 +134,11 @@ public sealed class TextEditor
             }
 
             return null;
+        }
+
+        if (EditRules.FieldUnitAt(map.Projection, offset - 1) is { } fieldBefore)
+        {
+            return Select(caret, fieldBefore);
         }
 
         var start = unit == DeleteUnit.Word
@@ -148,7 +153,7 @@ public sealed class TextEditor
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
-        var offset = Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
+        var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
         if (offset == text.Length)
         {
             if (index + 1 < container.Count && container[index + 1] is Paragraph next)
@@ -159,6 +164,11 @@ public sealed class TextEditor
             return null;
         }
 
+        if (EditRules.FieldUnitAt(map.Projection, offset) is { } fieldAfter)
+        {
+            return Select(caret, fieldAfter);
+        }
+
         var end = unit == DeleteUnit.Word
             ? TextBoundaries.NextWord(text, offset)
             : map.Projection.AtomicAt(offset) is { } atom ? atom.End : TextBoundaries.NextCluster(text, offset);
@@ -167,6 +177,10 @@ public sealed class TextEditor
 
     /// <summary>Replaces the selection with a paragraph break: the second paragraph has the properties of the first and takes what follows the caret.</summary>
     public EditResult SplitParagraph(TextRange selection) => InsertText(selection, "\n");
+
+    // The first Backspace or Delete next to a field: it selects the unit and changes nothing; the caller deletes the selection next.
+    private static EditResult Select(TextPosition caret, (int Start, int End) unit) =>
+        new(caret, [], new TextRange(caret with { Offset = unit.Start }, caret with { Offset = unit.End }));
 
     private static EditResult NoChange(TextPosition caret) => new(caret, []);
 
@@ -198,17 +212,6 @@ public sealed class TextEditor
         {
             list.Insert(index++, item);
         }
-    }
-
-    private static int Snap(ParagraphMap map, int offset)
-    {
-        var clamped = Math.Clamp(offset, 0, map.Projection.Text.Length);
-        if (map.Projection.AtomicAt(clamped) is { } atom && atom.Start < clamped)
-        {
-            return clamped - atom.Start < atom.End - clamped ? atom.Start : atom.End;
-        }
-
-        return clamped;
     }
 
     private static List<RunContent> Contents(string line)
@@ -487,15 +490,7 @@ public sealed class TextEditor
     private static bool DeleteInParagraph(ParagraphMap map, ref int start, int end)
     {
         var projection = map.Projection;
-        if (projection.AtomicAt(start) is { } startAtom && startAtom.Start < start)
-        {
-            start = startAtom.Start;
-        }
-
-        if (end > start && projection.AtomicAt(end - 1) is { } endAtom && endAtom.End > end)
-        {
-            end = endAtom.End;
-        }
+        EditRules.WidenToUnits(projection, ref start, ref end);
 
         var kill = new HashSet<int>();
         var cuts = new Dictionary<int, (int From, int To)>();
@@ -517,7 +512,7 @@ public sealed class TextEditor
             }
 
             var flat = map.FlatOf(piece);
-            if (flat < 0)
+            if (flat < 0 || EditRules.SurvivesTextDelete(piece))
             {
                 continue;
             }
@@ -569,14 +564,7 @@ public sealed class TextEditor
             return false;
         }
 
-        // Unknown content between two removed items is inside the range.
-        for (var i = lowest + 1; i < highest; i++)
-        {
-            if (map.Items[i].Content is UnknownRunContent)
-            {
-                kill.Add(i);
-            }
-        }
+        EditRules.KillUnknownBetween(map, lowest, highest, kill);
 
         var touched = new HashSet<Run>();
         foreach (var (flat, cut) in cuts)
@@ -769,7 +757,7 @@ public sealed class TextEditor
         }
 
         var removed = span.LastIndex - span.FirstIndex + 1;
-        var anchors = AnchorsOfBlocks(span.Container, span.FirstIndex + 1, span.LastIndex);
+        var anchors = EditRules.AnchorsOfBlocks(span.Container, span.FirstIndex + 1, span.LastIndex);
         var remaining = Map(span.Story, span.First).Projection.Text.Length;
         if (remaining > 0)
         {
@@ -797,91 +785,6 @@ public sealed class TextEditor
 
         RemoveRange(span.Container, span.FirstIndex, span.LastIndex - span.FirstIndex);
         return new Deleted(span.Last, 0, removed, true);
-    }
-
-    // The zero-width anchors (bookmark and comment range marks, comment references) of the blocks [from, to) in document order: when the
-    // blocks are removed they move to the join point, so no anchor is left without its partner and a comment keeps its reference.
-    private static List<Inline> AnchorsOfBlocks(IList<Block> blocks, int from, int to)
-    {
-        var anchors = new List<Inline>();
-        for (var i = from; i < to; i++)
-        {
-            CollectAnchors(blocks[i], anchors);
-        }
-
-        return anchors;
-    }
-
-    private static void CollectAnchors(Block block, List<Inline> anchors)
-    {
-        switch (block)
-        {
-            case Paragraph paragraph:
-                CollectAnchors(paragraph.Inlines, anchors);
-                break;
-            case Table table:
-                foreach (var row in table.Rows)
-                {
-                    CollectAnchors(row, anchors);
-                }
-
-                break;
-            default:
-                break;
-        }
-    }
-
-    private static void CollectAnchors(RowItem item, List<Inline> anchors)
-    {
-        switch (item)
-        {
-            case TableRow row:
-                foreach (var child in row.Items)
-                {
-                    CollectAnchors(child, anchors);
-                }
-
-                break;
-            case TableCell cell:
-                foreach (var block in cell.Blocks)
-                {
-                    CollectAnchors(block, anchors);
-                }
-
-                break;
-            default:
-                break;
-        }
-    }
-
-    private static void CollectAnchors(IList<Inline> inlines, List<Inline> anchors)
-    {
-        foreach (var inline in inlines)
-        {
-            switch (inline)
-            {
-                case BookmarkStart or BookmarkEnd or CommentRangeStart or CommentRangeEnd:
-                    anchors.Add(inline);
-                    break;
-                case Run run when run.Content.Any(c => c is CommentReference):
-                    var reference = run.Clone();
-                    reference.Content.Clear();
-                    foreach (var content in run.Content.Where(c => c is CommentReference))
-                    {
-                        reference.Content.Add(content);
-                    }
-
-                    anchors.Add(reference);
-                    break;
-                default:
-                    if (ParagraphMap.ChildrenOf(inline) is { } children)
-                    {
-                        CollectAnchors(children, anchors);
-                    }
-
-                    break;
-            }
-        }
     }
 
     // Inserts the lines of a multi-line text at the point; the paragraph keeps the first line, the lines in between become new paragraphs

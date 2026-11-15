@@ -4,9 +4,10 @@ namespace Raffica.Write.Editing;
 
 /// <summary>
 /// What an editing operation did: where the caret goes and which blocks changed. <paramref name="Changes"/> is empty when the operation
-/// found nothing to change (an empty selection, an empty insert); the document revision was then not raised either.
+/// found nothing to change (an empty selection, an empty insert); the document revision was then not raised either. <paramref name="Selected"/>
+/// is the unit a first Backspace or Delete selected instead of deleting (a field): nothing changed, and deleting that range removes it.
 /// </summary>
-public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes);
+public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null);
 
 /// <summary>How far a <see cref="TextEditor.Backspace"/> or <see cref="TextEditor.DeleteForward"/> reaches.</summary>
 public enum DeleteUnit

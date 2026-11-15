@@ -801,10 +801,12 @@ public sealed class TextEditorTests
         AddComplexField(p, "123");
         var editor = Editor(Doc(p));
 
-        var result = editor.Backspace(At(p, 5), DeleteUnit.Cluster);
+        var first = editor.Backspace(At(p, 5), DeleteUnit.Cluster);
+        Assert.Equal(new TextRange(At(p, 2), At(p, 5)), first!.Selected);
+        var result = editor.Delete(first.Selected!.Value);
 
         Assert.Equal("ab", Text(p));
-        Assert.Equal(At(p, 2), result!.Caret);
+        Assert.Equal(At(p, 2), result.Caret);
         Assert.DoesNotContain(p.Inlines.OfType<Run>().SelectMany(r => r.Content), c => c is FieldChar or InstructionText);
     }
 

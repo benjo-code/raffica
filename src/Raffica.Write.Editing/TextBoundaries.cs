@@ -128,7 +128,7 @@ internal static class TextBoundaries
                 line.Append(c).Append(text[i + 1]);
                 i++;
             }
-            else if (c == '\t' || !(char.IsControl(c) || char.IsSurrogate(c) || c is '￾' or '￿'))
+            else if (c == '\t' || !(char.IsControl(c) || char.IsSurrogate(c) || c is '\uFFFE' or '\uFFFF'))
             {
                 line.Append(c);
             }
