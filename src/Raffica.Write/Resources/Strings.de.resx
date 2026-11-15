@@ -267,4 +267,7 @@
   <data name="ReasonNothingToRedo" xml:space="preserve">
     <value>Es gibt nichts zum Wiederholen.</value>
   </data>
+  <data name="EditFailed" xml:space="preserve">
+    <value>Das Bearbeiten wurde wegen eines internen Fehlers beendet. Die Datei auf dem Datenträger wurde nicht verändert. Schließen Sie das Dokument und öffnen Sie es erneut.</value>
+  </data>
 </root>

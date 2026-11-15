@@ -720,7 +720,7 @@ public sealed class TypingTests : IDisposable
         WindowFixture.Pump();
 
         Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
-        Assert.Equal([WriteStrings.EditUnavailable], hints);
+        Assert.Equal([WriteStrings.EditFailed], hints);
     }
 
     private sealed class TraceCapture : TraceListener

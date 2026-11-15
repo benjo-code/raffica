@@ -79,6 +79,7 @@ internal static class WriteStrings
     public static string OutlineWaiting => Table.Get("OutlineWaiting");
     public static string EditStillOpening => Table.Get("EditStillOpening");
     public static string EditUnavailable => Table.Get("EditUnavailable");
+    public static string EditFailed => Table.Get("EditFailed");
     public static string MenuEdit => Table.Get("MenuEdit");
     public static string GroupUndo => Table.Get("GroupUndo");
     public static string GroupClipboard => Table.Get("GroupClipboard");

@@ -437,7 +437,20 @@ internal sealed class LayoutRunner : IDisposable
     internal TimeSpan LeaseWaitTimeout { get; set; } = Timeout.InfiniteTimeSpan;
 
     /// <summary>An edit could not be brought into a layout: the runner is faulted like after a failed layout step (<see cref="Fault"/>, <see cref="Faulted"/>), so nothing is edited or laid out any more.</summary>
-    internal void FailEdit(Exception ex) => Fail(ex);
+    internal void FailEdit(Exception ex)
+    {
+        if (Volatile.Read(ref _fault) is null)
+        {
+            Volatile.Write(ref _faultedByEdit, true);
+        }
+
+        Fail(ex);
+    }
+
+    private bool _faultedByEdit;
+
+    /// <summary>True when the runner's fault came from an edit (<see cref="FailEdit"/>) and not from opening or laying out the file: the file on disk is untouched and the document was open; the window says so in its own words and shows no open error.</summary>
+    internal bool FaultedByEdit => Volatile.Read(ref _faultedByEdit);
 
     private static int Remaining(long deadline) => deadline == long.MaxValue ? Timeout.Infinite : (int)Math.Max(0, deadline - Environment.TickCount64);
 

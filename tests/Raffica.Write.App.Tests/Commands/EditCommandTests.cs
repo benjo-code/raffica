@@ -9,7 +9,9 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using Raffica.Core.Viewing;
+using Raffica.Shell.Frame;
 using Raffica.Write.Commands;
 using Raffica.Write.Editing;
 using Raffica.Write.Model;
@@ -483,7 +485,7 @@ public sealed class EditCommandTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task UndoRedoCommandsRestoreTextAndSelection()
+    public async Task UndoRedoCommandsRestoreTextAndTheCaretAsAnEmptySelection()
     {
         using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Hello world</w:t></w:r>"));
         var session = Place(h, P(h, 0), 5);
@@ -854,5 +856,154 @@ public sealed class EditCommandTests : IDisposable
         Assert.False(menuWindow.CanRun(WriteCommandIds.Copy));
         Assert.False(menuWindow.CanRun(WriteCommandIds.Paste));
         Assert.True(menuWindow.CanRun(WriteCommandIds.ZoomIn));
+    }
+
+    private static async Task<(Raffica.Write.WriteWindow Window, Raffica.Write.Documents.WriteTab Tab, PageView View)> OpenWindowAsync(Raffica.WriteApp.Tests.WindowFixture fixture)
+    {
+        var window = fixture.Show();
+        var tab = Assert.IsType<Raffica.Write.Documents.Opened>(await window.Flow.OpenAsync(Raffica.WriteApp.Tests.WindowFixture.Poi)).Tab;
+        Raffica.WriteApp.Tests.WindowFixture.Pump();
+        tab.Runner.Start();
+        await ViewHarness.WaitAsync(() => tab.Runner.FullModelReady, 30000);
+        var session = tab.EnsureEditor();
+        _ = session.Selection;
+        var view = window.ViewOf(tab)!;
+        view.Focus();
+        ViewHarness.Pump();
+        return (window, tab, view);
+    }
+
+    private static RibbonButton ButtonOf(Raffica.Write.WriteWindow window, string id) =>
+        window.GetVisualDescendants().OfType<RibbonButton>().First(b => b.Definition.Id == id);
+
+    [AvaloniaFact]
+    public async Task ARibbonEditCommandReturnsTheFocusToThePageView()
+    {
+        using var fixture = new Raffica.WriteApp.Tests.WindowFixture();
+        var (window, tab, view) = await OpenWindowAsync(fixture);
+        var session = tab.EnsureEditor();
+        window.KeyTextInput("Z");
+        ViewHarness.Pump();
+        Assert.True(session.CanUndo);
+        var first = session.Selection!.Value.Start with { Offset = 0 };
+        session.SetSelection(new TextRange(first, first with { Offset = 3 }));
+        view.EditClipboard = new FakeClipboard();
+
+        // A click on a ribbon button gives the button the focus, then runs the command of the definition, as the ribbon does.
+        foreach (var id in new[] { WriteCommandIds.Copy, WriteCommandIds.SelectAll, WriteCommandIds.Undo })
+        {
+            window.Ribbon.RefreshCommandStates();
+            var button = ButtonOf(window, id);
+            Assert.True(button.Focus(), id + " cannot take the focus in this test");
+            Assert.True(button.IsFocused);
+            button.Definition.Run!();
+            ViewHarness.Pump();
+            Assert.True(view.IsFocused, id + " left the focus on the ribbon");
+        }
+
+        // Typing goes to the page, not to a button.
+        var before = tab.Docx.Model.Edits.Revision;
+        window.KeyTextInput("Q");
+        ViewHarness.Pump();
+        Assert.NotEqual(before, tab.Docx.Model.Edits.Revision);
+    }
+
+    [AvaloniaFact]
+    public async Task TheRibbonStateOfCutAndCopyFollowsTheSelectionAfterAnEditCollapsedIt()
+    {
+        using var fixture = new Raffica.WriteApp.Tests.WindowFixture();
+        var (window, _, _) = await OpenWindowAsync(fixture);
+        var copy = ButtonOf(window, WriteCommandIds.Copy);
+        var cut = ButtonOf(window, WriteCommandIds.Cut);
+        Assert.False(copy.IsEnabled);
+
+        // Select with the keys, type over the selection (it collapses), then select everything.
+        for (var i = 0; i < 3; i++)
+        {
+            window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.Shift);
+            window.KeyReleaseQwerty(PhysicalKey.ArrowRight, RawInputModifiers.Shift);
+        }
+
+        ViewHarness.Pump();
+        Assert.True(copy.IsEnabled && cut.IsEnabled);
+        window.KeyTextInput("X");
+        ViewHarness.Pump();
+        Assert.False(copy.IsEnabled || cut.IsEnabled);
+
+        window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Control);
+        window.KeyReleaseQwerty(PhysicalKey.A, RawInputModifiers.Control);
+        ViewHarness.Pump();
+        Assert.True(copy.IsEnabled && cut.IsEnabled, "the ribbon still says nothing is selected");
+        Assert.Null(copy.Definition.CurrentDisabledReason);
+        Assert.Null(cut.Definition.CurrentDisabledReason);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditFailureShowsTheEditFailureWordingAndNoOpenErrorCard()
+    {
+        using var fixture = new Raffica.WriteApp.Tests.WindowFixture();
+        var (window, tab, view) = await OpenWindowAsync(fixture);
+        var model = tab.Docx.Model;
+
+        // An operation that changed the model and then failed.
+        view.ApplyOperation(ed =>
+        {
+            ed.InsertText(tab.Editor!.Selection!.Value, "Y");
+            throw new InvalidOperationException("failed after a change");
+        });
+        ViewHarness.Pump();
+        await Task.Delay(100);
+        ViewHarness.Pump();
+
+        Assert.Equal(EditBlockedReason.Faulted, tab.Editor!.BlockedReason);
+        Assert.False(window.Host.IsOpen, "the card of a file that could not be read came up for an edit failure");
+        Assert.Equal(WriteStrings.EditFailed, window.Status.Hint);
+        Assert.Contains("file on disk has not been changed", WriteStrings.EditFailed, StringComparison.Ordinal);
+        Assert.NotEqual(0, model.Edits.Revision);
+    }
+
+    [AvaloniaFact]
+    public async Task ALayoutFailureDuringAnEditAlsoShowsTheEditFailureWordingAndNoCard()
+    {
+        using var fixture = new Raffica.WriteApp.Tests.WindowFixture();
+        var (window, tab, _) = await OpenWindowAsync(fixture);
+
+        tab.Runner.FailEdit(new InvalidOperationException("layout failed"));
+        ViewHarness.Pump();
+        await Task.Delay(100);
+        ViewHarness.Pump();
+
+        Assert.False(window.Host.IsOpen);
+        Assert.Equal(WriteStrings.EditFailed, window.Status.Hint);
+    }
+
+    [AvaloniaFact]
+    public async Task PasteOfNothingUsableChangesNothingAndKeepsTheSelection()
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Keep this text</w:t></w:r>"));
+        var clipboard = new FakeClipboard();
+        h.View.EditClipboard = clipboard;
+        var session = Place(h, P(h, 0), 0, 4);
+        var revision = h.View.Tab.Docx.Model.Edits.Revision;
+
+        // Empty text and no fragment; empty text and an unreadable fragment: nothing is pasted and the selection is not deleted.
+        clipboard.Content = new ClipboardContent(string.Empty, null);
+        await h.View.RunEditCommandAsync(WriteCommandIds.Paste);
+        clipboard.Content = new ClipboardContent(string.Empty, [0xFF, 0x00, 0x13, 0x37], "x", "document");
+        await h.View.RunEditCommandAsync(WriteCommandIds.Paste);
+
+        Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+        Assert.Equal("Keep this text", TextOf(h, P(h, 0)));
+        Assert.False(session.CanUndo);
+        Assert.False(h.View.Selection!.Value.IsEmpty);
+
+        // A readable fragment with no text still pastes.
+        Select(h, P(h, 0), 0, P(h, 0), 4);
+        await h.View.RunEditCommandAsync(WriteCommandIds.Copy);
+        var copied = clipboard.Content!;
+        clipboard.Content = copied with { PlainText = string.Empty };
+        Place(h, P(h, 0), 14);
+        await h.View.RunEditCommandAsync(WriteCommandIds.Paste);
+        Assert.Equal("Keep this textKeep", TextOf(h, P(h, 0)));
     }
 }

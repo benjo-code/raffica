@@ -267,4 +267,7 @@
   <data name="ReasonNothingToRedo" xml:space="preserve">
     <value>There is nothing to redo.</value>
   </data>
+  <data name="EditFailed" xml:space="preserve">
+    <value>Editing stopped because of an internal error. The file on disk has not been changed. Close the document and open it again.</value>
+  </data>
 </root>

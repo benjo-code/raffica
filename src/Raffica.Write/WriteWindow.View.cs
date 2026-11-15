@@ -60,12 +60,12 @@ internal sealed partial class WriteWindow
         [WriteCommandIds.PageView] = () => SetView(WriteView.Page),
         [WriteCommandIds.WritingView] = () => SetView(WriteView.Writing),
         [WriteCommandIds.Outline] = ToggleOutline,
-        [WriteCommandIds.Undo] = () => ActiveView?.RunEditCommand(WriteCommandIds.Undo),
-        [WriteCommandIds.Redo] = () => ActiveView?.RunEditCommand(WriteCommandIds.Redo),
-        [WriteCommandIds.Cut] = () => ActiveView?.RunEditCommand(WriteCommandIds.Cut),
-        [WriteCommandIds.Copy] = () => ActiveView?.RunEditCommand(WriteCommandIds.Copy),
-        [WriteCommandIds.Paste] = () => ActiveView?.RunEditCommand(WriteCommandIds.Paste),
-        [WriteCommandIds.SelectAll] = () => ActiveView?.RunEditCommand(WriteCommandIds.SelectAll),
+        [WriteCommandIds.Undo] = () => RunEditFromUi(WriteCommandIds.Undo),
+        [WriteCommandIds.Redo] = () => RunEditFromUi(WriteCommandIds.Redo),
+        [WriteCommandIds.Cut] = () => RunEditFromUi(WriteCommandIds.Cut),
+        [WriteCommandIds.Copy] = () => RunEditFromUi(WriteCommandIds.Copy),
+        [WriteCommandIds.Paste] = () => RunEditFromUi(WriteCommandIds.Paste),
+        [WriteCommandIds.SelectAll] = () => RunEditFromUi(WriteCommandIds.SelectAll),
     };
 
     // Whether a switch of the ribbon is on: the view in force and the zoom mode of the active tab.
@@ -86,6 +86,22 @@ internal sealed partial class WriteWindow
             WriteCommandIds.Outline => _outlineWanted,
             _ => false,
         };
+    }
+
+    // An edit command that came from the ribbon, the command search or the menu works on the view's selection, so the view takes the focus back: a ribbon button that kept it would
+    // swallow the typing and run the command again on Space or Enter. The keys of the page view do not come here.
+    private void RunEditFromUi(string id)
+    {
+        if (ActiveView is not { } view)
+        {
+            return;
+        }
+
+        view.RunEditCommand(id);
+        if (!view.IsFocused)
+        {
+            view.Focus();
+        }
     }
 
     /// <summary>Runs a command of the catalog by id (the keys, the macOS menu and the tests); false when it is not allowed or has no action.</summary>
@@ -120,7 +136,8 @@ internal sealed partial class WriteWindow
                 UpdateViewStatus();
             }
         };
-        view.EditCommandHandler = RunCommand;
+        // The keys of the page view run the command on the view that has the focus and the rules decide (no focus change: the view has it).
+        view.EditCommandHandler = id => _rules.Allows(id) && view.RunEditCommand(id);
         view.SelectionStateChanged += () =>
         {
             if (ReferenceEquals(ActiveView, view))
@@ -158,7 +175,7 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        var text = reason == EditBlockedReason.StillOpening ? WriteStrings.EditStillOpening : WriteStrings.EditUnavailable;
+        var text = reason == EditBlockedReason.StillOpening ? WriteStrings.EditStillOpening : tab.Runner.FaultedByEdit ? WriteStrings.EditFailed : WriteStrings.EditUnavailable;
         if (_editHint == text && Status.Hint == text)
         {
             return;
@@ -192,7 +209,24 @@ internal sealed partial class WriteWindow
     // the exception). The tab stays open on what is laid out; the status no longer promises more pages. Nothing is shown for a window that is closing or a closed tab.
     private void OnLayoutFaulted(WriteTab tab)
     {
-        if (_closeConfirmed || tab.IsDisposed || !_faultShown.Add(tab))
+        if (_closeConfirmed || tab.IsDisposed)
+        {
+            return;
+        }
+
+        if (tab.Runner.FaultedByEdit)
+        {
+            // Editing failed in an open document: the file on disk is as it was, so no card about a file that cannot be read; the status says editing stopped.
+            if (ActiveView is { } active && ReferenceEquals(active.Tab, tab))
+            {
+                OnInputRefused(active, tab, EditBlockedReason.Faulted);
+                UpdateViewStatus();
+            }
+
+            return;
+        }
+
+        if (!_faultShown.Add(tab))
         {
             return;
         }
