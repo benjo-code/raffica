@@ -238,8 +238,10 @@ public sealed class CorpusIncrementalTests
         var change = EditInStory(new StoryRef(StoryKind.HeaderFooter, id), part.Content.Blocks, paragraph, " EDITED");
         var refill = layout.ApplyEdit(change, 3);
 
-        Assert.True(refill.Restarted);
-        Assert.Equal(0, refill.FirstPage);
+        // " EDITED" keeps the height of the header on every page: only the chrome of the pages that show it is made again (not a restart; every page at once, not only up to page 3).
+        Assert.False(refill.Restarted);
+        Assert.True(refill.ChromeOnly);
+        Assert.Equal(showing[0], refill.FirstPage);
         for (var i = 0; i <= 3 && i < layout.LaidOutPages; i++)
         {
             if (showing.Contains(i))
@@ -256,7 +258,8 @@ public sealed class CorpusIncrementalTests
 
         Assert.Equal(showing.Count, Enumerable.Range(0, layout.LaidOutPages).Count(i => layout.Page(i).Text.Contains("EDITED", StringComparison.Ordinal)));
         LayoutOracle.AssertEqualToFull(layout, model, label: "header edit");
-        Assert.True(layout.Stats.Restarts >= 1);
+        Assert.Equal(0, layout.Stats.Restarts);
+        Assert.Equal(1, layout.Stats.ChromeOnly);
     }
 
     private static Dictionary<string, string> Parts(params (string Id, string Xml)[] parts) => parts.ToDictionary(p => p.Id, p => p.Xml);
@@ -315,7 +318,9 @@ public sealed class CorpusIncrementalTests
         var layout = await LaidAsync(model, LayoutMode.Pages);
         var (id, part) = model.HeadersFooters.First(h => h.Value.Content.Blocks.OfType<Paragraph>().Any(p => TestEdit.TextOf(p).Length > 0));
         var paragraph = part.Content.Blocks.OfType<Paragraph>().First(p => TestEdit.TextOf(p).Length > 0);
-        var refill = layout.ApplyEdit(EditInStory(new StoryRef(StoryKind.HeaderFooter, id), part.Content.Blocks, paragraph, " FORCED"), 5);
+
+        // Long enough to make the header taller, so that the fallback (the restart) is what runs; the edit that keeps the height is a chrome-only refresh (ChromeRefreshTests).
+        var refill = layout.ApplyEdit(EditInStory(new StoryRef(StoryKind.HeaderFooter, id), part.Content.Blocks, paragraph, string.Concat(Enumerable.Repeat(" FORCED header words that wrap", 12))), 5);
 
         Assert.True(refill.Restarted);
         Assert.False(layout.IsComplete);

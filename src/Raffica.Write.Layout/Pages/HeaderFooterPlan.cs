@@ -136,6 +136,24 @@ internal sealed class HeaderFooterPlan : IPageChrome
         Place(page, new Totals(totalPages, section < sectionPages.Count ? sectionPages[section] : 0));
     }
 
+    /// <summary>
+    /// Draws the header and the footer of a page again into <paramref name="page"/> (an empty builder of the page) after an edit of a part. With the totals of a complete layout a page
+    /// that shows a total gets the real one; without them (<paramref name="totalPages"/> null) it gets the pending mark as when it was first made. The builder then holds the heights
+    /// and the parts (<see cref="PageBuilder.HeaderHeight"/>) the caller compares with the page's own.
+    /// </summary>
+    public void Refresh(PageBuilder page, int? totalPages, IReadOnlyList<int>? sectionPages)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        Totals? totals = null;
+        if (totalPages is { } pages && sectionPages is not null)
+        {
+            var section = page.Section.Index;
+            totals = new Totals(pages, section < sectionPages.Count ? sectionPages[section] : 0);
+        }
+
+        Place(page, totals);
+    }
+
     private readonly record struct Totals(int Pages, int SectionPages);
 
     private readonly record struct ChromeKey(string Part, string NumberText, int Section, int Pages, int SectionPages, float Width);
@@ -143,15 +161,19 @@ internal sealed class HeaderFooterPlan : IPageChrome
     /// <summary>A header or footer laid out at one width: its flows, where each goes below the top of the block, and its height.</summary>
     private sealed class ChromeBlock
     {
-        public static readonly ChromeBlock Empty = new([], [], 0f, false);
+        public static readonly ChromeBlock Empty = new([], [], 0f, false, null);
 
-        public ChromeBlock(IBlockFlow[] flows, float[] ys, float height, bool needsTotals)
+        public ChromeBlock(IBlockFlow[] flows, float[] ys, float height, bool needsTotals, string? part)
         {
+            Part = part;
             Flows = flows;
             Ys = ys;
             Height = height;
             NeedsTotals = needsTotals;
         }
+
+        /// <summary>The relationship id of the part the block is made from; null for no part.</summary>
+        public string? Part { get; }
 
         public IBlockFlow[] Flows { get; }
 
@@ -170,6 +192,10 @@ internal sealed class HeaderFooterPlan : IPageChrome
         var header = BlockFor(page, HeaderFooterKind.Header, totals);
         var footer = BlockFor(page, HeaderFooterKind.Footer, totals);
         page.NeedsTotals = header.NeedsTotals || footer.NeedsTotals;
+        page.HeaderHeight = header.Height;
+        page.FooterHeight = footer.Height;
+        page.HeaderPart = header.Part;
+        page.FooterPart = footer.Part;
         Draw(page, PageRegion.Header, header, x, geometry.HeaderDistance);
         Draw(page, PageRegion.Footer, footer, x, geometry.Height - geometry.FooterDistance - footer.Height);
         return (header, footer);
@@ -245,7 +271,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         usesPage = fields.UsedPage;
         if (flows.Count == 0)
         {
-            return new ChromeBlock([], [], 0f, fields.UsedPendingTotal);
+            return new ChromeBlock([], [], 0f, fields.UsedPendingTotal, id);
         }
 
         var ys = new float[flows.Count];
@@ -262,7 +288,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         }
 
         y += flows[^1].SpaceAfter;
-        return new ChromeBlock([.. flows], ys, y, fields.UsedPendingTotal);
+        return new ChromeBlock([.. flows], ys, y, fields.UsedPendingTotal, id);
     }
 
     // The first page of a section with w:titlePg has its own parts; with w:evenAndOddHeaders the even pages (by number) have theirs.

@@ -372,29 +372,8 @@ internal sealed class PageFiller
     /// </summary>
     internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderLines, int FooterLines, int HeaderRaw, int FooterRaw, int RawLength)
     {
-        public LaidOutPage Rebuild(PageBuilder scratch)
-        {
-            var header = scratch.ItemsOf(PageRegion.Header);
-            var footer = scratch.ItemsOf(PageRegion.Footer);
-            var old = Published.ItemArray;
-            var items = new PageItem[header.Length + (old.Length - HeaderItems - FooterItems) + footer.Length];
-            header.CopyTo(items, 0);
-            Array.Copy(old, HeaderItems, items, header.Length, old.Length - HeaderItems - FooterItems);
-            footer.CopyTo(items, items.Length - footer.Length);
-
-            var raw = Published.Text.Length < RawLength ? Published.Text + '\n' : Published.Text;
-            var raw2 = string.Concat(scratch.RawTextOf(PageRegion.Header), raw.AsSpan(HeaderRaw, RawLength - HeaderRaw - FooterRaw), scratch.RawTextOf(PageRegion.Footer));
-            var text = raw2.Length == 0 ? string.Empty : raw2[..^1];
-
-            var headerLines = scratch.LinesOf(PageRegion.Header);
-            var footerLines = scratch.LinesOf(PageRegion.Footer);
-            var oldLines = Published.TextLines;
-            var lines = new TextLine[headerLines.Length + (oldLines.Length - HeaderLines - FooterLines) + footerLines.Length];
-            headerLines.CopyTo(lines, 0);
-            Array.Copy(oldLines, HeaderLines, lines, headerLines.Length, oldLines.Length - HeaderLines - FooterLines);
-            footerLines.CopyTo(lines, lines.Length - footerLines.Length);
-            return new LaidOutPage(Published.Index, Published.Number, Published.Width, Published.Height, Published.IsStrip, items, text, Published.Spans, textLines: lines);
-        }
+        public LaidOutPage Rebuild(PageBuilder scratch) =>
+            new ChromeInfo(Section, Number, IsFirstOfSection, HeaderItems, FooterItems, HeaderLines, FooterLines, HeaderRaw, FooterRaw, RawLength, 0f, 0f, null, null).Rebuild(Published, scratch, false);
     }
 
     private int LastNonEmpty()
@@ -474,13 +453,11 @@ internal sealed class PageFiller
 
         Chrome?.End(page);
         var height = geometry.IsStrip ? Math.Max(1f, end) : geometry.Height;
-        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray());
+        var info = ChromeInfo.Of(page);
+        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray(), chrome: Chrome is null ? null : info);
         if (page.NeedsTotals)
         {
-            var header = page.RawTextOf(PageRegion.Header).Length;
-            var footer = page.RawTextOf(PageRegion.Footer).Length;
-            var rawLength = header + footer + page.RawTextOf(PageRegion.Body).Length + page.RawTextOf(PageRegion.Notes).Length;
-            _revisable.Add(new Revisable(built, page.Section, page.Number, page.IsFirstOfSection, page.ItemCount(PageRegion.Header), page.ItemCount(PageRegion.Footer), page.LineCount(PageRegion.Header), page.LineCount(PageRegion.Footer), header, footer, rawLength));
+            _revisable.Add(new Revisable(built, info.Section, info.Number, info.IsFirstOfSection, info.HeaderItems, info.FooterItems, info.HeaderLines, info.FooterLines, info.HeaderRaw, info.FooterRaw, info.RawLength));
         }
 
         PageFinished?.Invoke(page);

@@ -524,7 +524,7 @@ public sealed class IncrementalCoverageTests
     }
 
     [Fact]
-    public async Task EditingAHeaderStartsOverAndStaysCorrect()
+    public async Task EditingAHeaderThatGrowsTakesTheRestartAndStaysCorrect()
     {
         using var file = DocxFile.Open(Corpus("thesis"));
         var model = file.Model;
@@ -533,11 +533,14 @@ public sealed class IncrementalCoverageTests
         var paragraph = part.Content.Blocks.OfType<Paragraph>().First(p => TestEdit.TextOf(p).Length > 0);
         var before = paragraph.Clone();
         var run = paragraph.Inlines.OfType<Run>().First(r => r.Content.OfType<TextContent>().Any());
-        run.Content.OfType<TextContent>().First().Text += " edited header";
+        
+        // So long that it wraps: the header gets taller and the body of every page moves, which a chrome-only refresh cannot do (ChromeRefreshTests has the edits that keep the height).
+        run.Content.OfType<TextContent>().First().Text += string.Concat(Enumerable.Repeat(" edited header that wraps over several lines", 12));
         var change = new BlockChange(new StoryRef(StoryKind.HeaderFooter, id), part.Content.Blocks, part.Content.Blocks.IndexOf(paragraph), 1, 1, [before]);
         var refill = layout.ApplyEdit(change, 2);
 
         Assert.True(refill.Restarted);
+        Assert.False(refill.ChromeOnly);
         await CheckAsync(layout, model, refill, LayoutMode.Pages, "header");
     }
 

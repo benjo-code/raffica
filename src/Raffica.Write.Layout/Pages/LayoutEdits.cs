@@ -77,11 +77,11 @@ public sealed partial class DocumentLayout
     public IReadOnlyList<TextBox> SelectionBoxes(TextRange range, int pageIndex) => Navigator.SelectionBoxes(range, pageIndex);
 }
 
-/// <summary>What <see cref="DocumentLayout.ApplyEdit"/> did: the pages that were laid out again (<paramref name="FirstPage"/> to <paramref name="LastPage"/>, both inclusive; <c>LastPage</c> is <c>FirstPage - 1</c> when none was) and whether it had to start from the first page.</summary>
-public readonly record struct EditRefill(int FirstPage, int LastPage, bool Restarted);
+/// <summary>What <see cref="DocumentLayout.ApplyEdit"/> did: the pages that were laid out again (<paramref name="FirstPage"/> to <paramref name="LastPage"/>, both inclusive; <c>LastPage</c> is <c>FirstPage - 1</c> when none was) and whether it had to start from the first page. <paramref name="ChromeOnly"/> is true when only the header and footer of the pages that show an edited part were made again (the body of every page is as it was; not a restart).</summary>
+public readonly record struct EditRefill(int FirstPage, int LastPage, bool Restarted, bool ChromeOnly = false);
 
-/// <summary>How many edits <see cref="DocumentLayout.ApplyEdit"/> has brought up to date and how many of them had to start from the first page.</summary>
-public readonly record struct EditStats(int Edits, int Restarts);
+/// <summary>How many edits <see cref="DocumentLayout.ApplyEdit"/> has brought up to date how many of them had to start from the first page and how many only made the header and footer of the pages again (<see cref="EditRefill.ChromeOnly"/>).</summary>
+public readonly record struct EditStats(int Edits, int Restarts, int ChromeOnly = 0);
 
 public sealed partial class DocumentLayout
 {
@@ -90,9 +90,10 @@ public sealed partial class DocumentLayout
 
     private int _edits;
     private int _restarts;
+    private int _chromeOnly;
 
     /// <summary>The edits applied so far and how many restarted from the first page (the spike and the bench read it to see how often the fast path holds).</summary>
-    public EditStats Stats => new(Volatile.Read(ref _edits), Volatile.Read(ref _restarts));
+    public EditStats Stats => new(Volatile.Read(ref _edits), Volatile.Read(ref _restarts), Volatile.Read(ref _chromeOnly));
 
     /// <summary>How many pages the last <see cref="ApplyEdit"/> laid out (a test seam; the spike measured how often a refill is longer than one page).</summary>
     internal int PagesLaidOut { get; private set; }
@@ -183,6 +184,11 @@ public sealed partial class DocumentLayout
                     Volatile.Write(ref _restarts, _restarts + 1);
                 }
 
+                if (refill.ChromeOnly)
+                {
+                    Volatile.Write(ref _chromeOnly, _chromeOnly + 1);
+                }
+
                 return refill;
             }
             catch (Exception e)
@@ -201,6 +207,10 @@ public sealed partial class DocumentLayout
         if (change.Story.Kind == StoryKind.Body)
         {
             chosen = PlanEdit(change, old, oldCount, _options);
+        }
+        else if (TryRefreshChrome(change, old, oldCount) is { } refreshed)
+        {
+            return refreshed;
         }
         else
         {
@@ -410,6 +420,71 @@ public sealed partial class DocumentLayout
         return new EditRefill(first, first + fresh.Count - 1, plan.StartsOver);
     }
 
+    // An edit of a header or footer part whose laid-out block keeps its height on every page that shows it changes no body item: the body of every page is
+    // as it was, only the header and footer items, text lines and text of those pages differ. They are made again here, for all the pages that show the part and
+    // are published, in one pass under the gate (a page costs a few microseconds against the filler's tens), and the engine, its plans and its records stay as
+    // they are; the pages that are not laid out yet get the new part from the invalidated chrome. Returns null when this cannot be shown (the caller then
+    // starts over, which is always right): the part is not shown by any section, a page does not know its chrome, or any page's header or footer height differs
+    // from the one it was made with (the body moves, the first or even page variants included, because every page is compared with its own).
+    private EditRefill? TryRefreshChrome(BlockChange change, Engine old, int oldCount)
+    {
+        if (change.Story.Kind != StoryKind.HeaderFooter || old.Chrome is not HeaderFooterPlan chrome || change.Story.Key is not { } key
+            || oldCount == 0 || !chrome.Shows(key))
+        {
+            return null;
+        }
+
+        chrome.Invalidate(change.Story);
+        var complete = IsComplete;
+        var rebuilt = new List<(LaidOutPage Old, LaidOutPage New)>();
+        for (var i = 0; i < oldCount; i++)
+        {
+            var page = _pages[i];
+            if (page.Chrome is not { } info)
+            {
+                return null;
+            }
+
+            var shownHere = string.Equals(info.HeaderPart, key, StringComparison.Ordinal) || string.Equals(info.FooterPart, key, StringComparison.Ordinal);
+            if (!shownHere)
+            {
+                continue;
+            }
+
+            var scratch = new PageBuilder(i, info.Number, page.Number, info.Section, info.IsFirstOfSection);
+            chrome.Refresh(scratch, complete ? old.FinalPages : null, complete ? old.FinalSectionPages : null);
+            if (scratch.HeaderHeight != info.HeaderHeight || scratch.FooterHeight != info.FooterHeight
+                || !string.Equals(scratch.HeaderPart, info.HeaderPart, StringComparison.Ordinal) || !string.Equals(scratch.FooterPart, info.FooterPart, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            rebuilt.Add((page, info.Rebuild(page, scratch, scratch.NeedsTotals)));
+        }
+
+        // Publication as for any refill: the map first, then the pages, then the stale entries of the old pages.
+        foreach (var (_, page) in rebuilt)
+        {
+            _paragraphPages.Register(page);
+        }
+
+        foreach (var (_, page) in rebuilt)
+        {
+            _pages.Replace(page.Index, page);
+        }
+
+        foreach (var (previous, page) in rebuilt)
+        {
+            _paragraphPages.Unregister(previous, page);
+        }
+
+        PagesLaidOut = rebuilt.Count;
+        Volatile.Write(ref _revision, _revision + 1);
+        return rebuilt.Count == 0
+            ? new EditRefill(0, -1, false, true)
+            : new EditRefill(rebuilt[0].New.Index, rebuilt[^1].New.Index, false, true);
+    }
+
     // Starts again from the first page on a fresh engine over the model as it is now: everything is planned again. The pages up to throughPage
     // are laid out before anything is published, so the old pages stay in place until the new ones can take over.
     private EditRefill Restart(int throughPage)
@@ -519,7 +594,7 @@ public sealed partial class DocumentLayout
             spans[i] = span.BodyIndex >= from ? span with { BodyIndex = span.BodyIndex + by } : span;
         }
 
-        return new LaidOutPage(page.Index, page.Number, page.Width, page.Height, page.IsStrip, page.ItemArray, page.Text, spans, page.IsProvisional, page.TextLines);
+        return new LaidOutPage(page.Index, page.Number, page.Width, page.Height, page.IsStrip, page.ItemArray, page.Text, spans, page.IsProvisional, page.TextLines, page.Chrome);
     }
 
     /// <summary>What an edit of the body changes in the tables the filler works on, and where the refill starts.</summary>
