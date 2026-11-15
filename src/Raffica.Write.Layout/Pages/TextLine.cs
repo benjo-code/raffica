@@ -98,9 +98,10 @@ internal sealed class OffsetMap
     /// <summary>Builds the map piece by piece, in the order of the projection.</summary>
     public sealed class Builder
     {
-        private readonly List<int> _layout = [0];
-        private readonly List<int> _projection = [0];
-        private readonly List<bool> _flat = [false];
+        // Allocated on the first step that is not the identity: until then the state is the single entry (0, 0, linear).
+        private List<int>? _layout;
+        private List<int>? _projection;
+        private List<bool>? _flat;
         private int _at;
 
         /// <summary>The layout length that has been described so far.</summary>
@@ -133,26 +134,44 @@ internal sealed class OffsetMap
                 return;
             }
 
-            for (var i = 0; i < _layout.Count; i++)
+            Allocate();
+            for (var i = 0; i < _layout!.Count; i++)
             {
                 _layout[i] += count;
             }
 
             _layout.Insert(0, 0);
-            _projection.Insert(0, 0);
-            _flat.Insert(0, true);
+            _projection!.Insert(0, 0);
+            _flat!.Insert(0, true);
             _at += count;
         }
 
         public OffsetMap Build() =>
-            _layout.Count == 1 && _layout[0] == 0 && _projection[0] == 0 && !_flat[0] ? Identity : new OffsetMap([.. _layout], [.. _projection], [.. _flat]);
+            _layout is null || (_layout.Count == 1 && _layout[0] == 0 && _projection![0] == 0 && !_flat![0]) ? Identity : new OffsetMap([.. _layout], [.. _projection!], [.. _flat!]);
+
+        private void Allocate()
+        {
+            _layout ??= [0];
+            _projection ??= [0];
+            _flat ??= [false];
+        }
 
         private void Linear(int layout, int projection)
         {
-            var last = _layout.Count - 1;
-            if (!_flat[last] && _projection[last] - _layout[last] == projection - layout)
+            if (_layout is null)
             {
-                return;
+                if (projection == layout)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                var at = _layout.Count - 1;
+                if (!_flat![at] && _projection![at] - _layout[at] == projection - layout)
+                {
+                    return;
+                }
             }
 
             Put(layout, projection, false);
@@ -160,17 +179,18 @@ internal sealed class OffsetMap
 
         private void Put(int layout, int projection, bool flat)
         {
-            var last = _layout.Count - 1;
+            Allocate();
+            var last = _layout!.Count - 1;
             if (_layout[last] == layout)
             {
-                _projection[last] = projection;
-                _flat[last] = flat;
+                _projection![last] = projection;
+                _flat![last] = flat;
                 return;
             }
 
             _layout.Add(layout);
-            _projection.Add(projection);
-            _flat.Add(flat);
+            _projection!.Add(projection);
+            _flat!.Add(flat);
         }
     }
 }

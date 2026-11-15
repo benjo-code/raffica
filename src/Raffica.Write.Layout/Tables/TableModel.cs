@@ -523,6 +523,27 @@ internal sealed class TablePlan : BlockPlan
 
     protected override IBlockFlow Make(float width) => TableFlow.Create(this, width);
 
+    /// <summary>The plans inside the cells carry the index of the table's body block as well.</summary>
+    public override void Rebase(int bodyIndex)
+    {
+        if (BodyIndex == bodyIndex)
+        {
+            return;
+        }
+
+        base.Rebase(bodyIndex);
+        foreach (var row in Model.Rows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                foreach (var plan in cell.Content)
+                {
+                    plan.Rebase(bodyIndex);
+                }
+            }
+        }
+    }
+
     public override (float Min, float Max) ContentWidths()
     {
         _widths ??= GridSolver.ContentWidths(Model);

@@ -82,6 +82,38 @@ public sealed class NumberingCounter
         return new NumberingLabel(label.Text, run.ToResolved(paragraphMarkOnly: true), facts.Suffix);
     }
 
+    /// <summary>
+    /// Everything that changes while <see cref="Next"/> runs: the counters and started flags of every list, and the set of levels whose
+    /// start override was applied. (The facts cache is derived from the immutable definitions and is not state.)
+    /// </summary>
+    internal NumberingState Snapshot()
+    {
+        var lists = new Dictionary<int, (int[] Counters, bool[] Started)>(_states.Count);
+        foreach (var (id, state) in _states)
+        {
+            lists[id] = ((int[])state.Counters.Clone(), (bool[])state.Started.Clone());
+        }
+
+        return new NumberingState(lists, [.. _overridden]);
+    }
+
+    /// <summary>Makes the counters exactly what they were when <paramref name="state"/> was taken; the state itself stays unchanged and can be restored again.</summary>
+    internal void Restore(NumberingState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _states.Clear();
+        foreach (var (id, list) in state.Lists)
+        {
+            var copy = new ListState();
+            list.Counters.CopyTo(copy.Counters, 0);
+            list.Started.CopyTo(copy.Started, 0);
+            _states[id] = copy;
+        }
+
+        _overridden.Clear();
+        _overridden.UnionWith(state.Overridden);
+    }
+
     private static string Letters(int value, bool upper)
     {
         var letter = (char)((upper ? 'A' : 'a') + ((value - 1) % 26));
@@ -271,4 +303,18 @@ public sealed class NumberingCounter
 
         public NumberSuffix Suffix { get; } = NumberSuffix.Tab;
     }
+}
+
+/// <summary>A copy of the counters of a <see cref="NumberingCounter"/> at one moment; never changes.</summary>
+internal sealed class NumberingState
+{
+    internal NumberingState(Dictionary<int, (int[] Counters, bool[] Started)> lists, (int NumId, int Level)[] overridden)
+    {
+        Lists = lists;
+        Overridden = overridden;
+    }
+
+    internal IReadOnlyDictionary<int, (int[] Counters, bool[] Started)> Lists { get; }
+
+    internal (int NumId, int Level)[] Overridden { get; }
 }

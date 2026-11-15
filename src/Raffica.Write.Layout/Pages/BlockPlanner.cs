@@ -30,6 +30,7 @@ internal sealed class BlockPlanner
     private readonly float _defaultTabStop;
     private readonly bool _expandShiftReturn;
     private readonly bool _autoHyphenation;
+    private readonly Dictionary<Block, BlockPlan?> _plans = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ResolvedParagraph, ResolvedRun> _markRuns = new(ReferenceEqualityComparer.Instance);
     private readonly ImageProbe _probe;
     private readonly bool _flowMode;
@@ -112,8 +113,50 @@ internal sealed class BlockPlanner
         return flows;
     }
 
-    /// <summary>The plan of a block, or null for a block that takes no room (a bookmark mark at block level).</summary>
+    /// <summary>The plan of a block, or null for a block that takes no room (a bookmark mark at block level). Not cached: headers, footers and notes plan through this.</summary>
     public BlockPlan? Plan(FlatBlock flat) => PlanBlock(flat, null, 0);
+
+    /// <summary>How many plans <see cref="PlanFor"/> has made (a cache hit makes none): a test seam.</summary>
+    internal int PlansMade { get; private set; }
+
+    /// <summary>The numbering counters, for snapshots.</summary>
+    internal NumberingCounter Numbering => _numbering;
+
+    /// <summary>
+    /// The plan of a body block, kept by block reference: a block inserted or removed elsewhere shifts no entry. A hit does not plan
+    /// again, so it advances no list counter and registers no note: whoever resumes after an edit restores the snapshots of the
+    /// resume point first, and replans (<see cref="Forget"/>) every block whose numbers can differ. The index of the plan is made
+    /// current from <paramref name="flat"/> on every call. Like planning, this runs under the layout gate only.
+    /// </summary>
+    internal BlockPlan? PlanFor(FlatBlock flat)
+    {
+        if (_plans.TryGetValue(flat.Block, out var known))
+        {
+            known?.Rebase(flat.BodyIndex);
+            return known;
+        }
+
+        var plan = Plan(flat);
+        PlansMade++;
+        _plans[flat.Block] = plan;
+        return plan;
+    }
+
+    /// <summary>True when <see cref="PlanFor"/> would answer from the cache.</summary>
+    internal bool HasPlan(Block block) => _plans.ContainsKey(block);
+
+    /// <summary>Drops the plan of a block (it was edited or removed): the entry and every reference it held go.</summary>
+    internal void Forget(Block block) => _plans.Remove(block);
+
+    /// <summary>Drops every plan whose block is no longer in <paramref name="live"/>, so removed blocks can be collected.</summary>
+    internal void Retain(IEnumerable<Block> live)
+    {
+        var keep = new HashSet<Block>(live, ReferenceEqualityComparer.Instance);
+        foreach (var block in _plans.Keys.Where(b => !keep.Contains(b)).ToList())
+        {
+            _plans.Remove(block);
+        }
+    }
 
     /// <summary>The plan of a block of the body (<paramref name="cell"/> null) or of a table cell, where the paragraph properties of the table style apply.</summary>
     internal BlockPlan? PlanBlock(FlatBlock flat, ResolvedCellFormat? cell, int depth)

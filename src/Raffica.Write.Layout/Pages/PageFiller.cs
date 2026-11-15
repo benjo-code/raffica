@@ -409,7 +409,7 @@ internal sealed class PageFiller
                 {
                     var flat = _blocks[_next++];
                     _touch(flat.BodyIndex);
-                    if (_planner.Plan(flat) is { } plan)
+                    if (_planner.PlanFor(flat) is { } plan)
                     {
                         _ahead.Add(plan);
                     }

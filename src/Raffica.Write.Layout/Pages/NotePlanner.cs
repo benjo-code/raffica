@@ -114,6 +114,18 @@ internal sealed class NotePlanner
         _endnoteFormat = (string?)settings?.Get(W + "endnotePr")?.Element(W + "numFmt")?.Attribute(W + "val") ?? "lowerRoman";
     }
 
+    /// <summary>The numbering state: the footnote count and the endnote references so far (the list only grows and its entries never change, so a shallow copy is exact).</summary>
+    public NoteState Snapshot() => new(_footnotes, [.. _endnotes]);
+
+    /// <summary>Makes the numbering exactly what it was when <paramref name="state"/> was taken.</summary>
+    public void Restore(NoteState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _footnotes = state.Footnotes;
+        _endnotes.Clear();
+        _endnotes.AddRange(state.Endnotes);
+    }
+
     /// <summary>Numbers a reference. A reference to a note that does not exist is numbered like any other (it just has no text).</summary>
     public NoteRef Register(bool isEndnote, int id)
     {
@@ -192,6 +204,9 @@ internal sealed class NotePlanner
         }
     }
 }
+
+/// <summary>The numbering of a <see cref="NotePlanner"/> at one moment; never changes.</summary>
+internal sealed record NoteState(int Footnotes, NoteRef[] Endnotes);
 
 /// <summary>The measures of the note area, in points.</summary>
 internal static class NoteLayout

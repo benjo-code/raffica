@@ -8,7 +8,20 @@ internal abstract class BlockPlan
 
     protected BlockPlan(int bodyIndex) => BodyIndex = bodyIndex;
 
-    public int BodyIndex { get; }
+    public int BodyIndex { get; private set; }
+
+    /// <summary>
+    /// Moves the plan to another body index (a block was inserted or removed before it). The flow memoised for the last width carries the
+    /// old index, so it is dropped and made again on the next <see cref="Layout"/>.
+    /// </summary>
+    public virtual void Rebase(int bodyIndex)
+    {
+        if (BodyIndex != bodyIndex)
+        {
+            BodyIndex = bodyIndex;
+            _flow = null;
+        }
+    }
 
     /// <summary>The flow at this width. The answer for the last width asked is kept, because the filler measures ahead and then places.</summary>
     public IBlockFlow Layout(float width)
