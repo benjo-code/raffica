@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
@@ -39,6 +40,9 @@ internal sealed class EditSession
 {
     /// <summary>The most operations that are kept while a save runs; more are refused (counted in <see cref="DroppedWhileSaving"/>).</summary>
     public const int MaxQueued = 10_000;
+
+    // The codec of the clipboard fragment (stateless, shared by every editor).
+    private static readonly DocxFragmentCodec s_fragmentCodec = new();
 
     private readonly WriteTab _tab;
     private readonly Dispatcher _ui;
@@ -324,7 +328,7 @@ internal sealed class EditSession
         if (_editor is null || !ReferenceEquals(_bound, model))
         {
             _editor?.History.Clear();
-            _editor = new TextEditor(model, Host);
+            _editor = new TextEditor(model, Host) { FragmentCodec = s_fragmentCodec };
             _bound = model;
             _selection = StartOf(model);
         }

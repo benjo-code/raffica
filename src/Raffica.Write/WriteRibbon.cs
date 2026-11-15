@@ -34,7 +34,7 @@ internal static class WriteRibbon
                 CompactPlacement.Inline,
                 IconOnly: false,
                 Shortcut: command.ShortcutFor(mac)?.Text(mac),
-                Description: null,
+                Description: command.Description,
                 EnabledWhen: () => run is not null && (rules is null || rules.Allows(command.Id)),
                 DisabledReason: () => rules?.ReasonFor(command.Id),
                 CheckedWhen: command.Toggle ? () => isOn?.Invoke(command.Id) == true : null);

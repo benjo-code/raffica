@@ -207,4 +207,64 @@
   <data name="EditUnavailable" xml:space="preserve">
     <value>Editing is not available for this document because of an error.</value>
   </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="GroupUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="GroupClipboard" xml:space="preserve">
+    <value>Clipboard</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="CmdCut" xml:space="preserve">
+    <value>Cut</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="CmdPaste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Takes back the last change.</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Applies the change again that you took back.</value>
+  </data>
+  <data name="DescCut" xml:space="preserve">
+    <value>Removes the selected text and puts it on the clipboard.</value>
+  </data>
+  <data name="DescCopy" xml:space="preserve">
+    <value>Puts the selected text on the clipboard.</value>
+  </data>
+  <data name="DescPaste" xml:space="preserve">
+    <value>Inserts the clipboard at the caret, in place of the selection.</value>
+  </data>
+  <data name="DescSelectAll" xml:space="preserve">
+    <value>Selects all the text of the part you are in.</value>
+  </data>
+  <data name="ReasonEditOpening" xml:space="preserve">
+    <value>The document is still opening.</value>
+  </data>
+  <data name="ReasonEditSaving" xml:space="preserve">
+    <value>A save is running.</value>
+  </data>
+  <data name="ReasonNoSelection" xml:space="preserve">
+    <value>Nothing is selected.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>There is nothing to undo.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>There is nothing to redo.</value>
+  </data>
 </root>

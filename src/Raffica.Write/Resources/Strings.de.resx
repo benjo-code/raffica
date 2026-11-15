@@ -207,4 +207,64 @@
   <data name="EditUnavailable" xml:space="preserve">
     <value>Das Bearbeiten ist für dieses Dokument wegen eines Fehlers nicht verfügbar.</value>
   </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="GroupUndo" xml:space="preserve">
+    <value>Rückgängig</value>
+  </data>
+  <data name="GroupClipboard" xml:space="preserve">
+    <value>Zwischenablage</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Rückgängig</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Wiederholen</value>
+  </data>
+  <data name="CmdCut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="CmdPaste" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Alles auswählen</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Nimmt die letzte Änderung zurück.</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Führt die zuletzt zurückgenommene Änderung erneut aus.</value>
+  </data>
+  <data name="DescCut" xml:space="preserve">
+    <value>Entfernt den ausgewählten Text und legt ihn in die Zwischenablage.</value>
+  </data>
+  <data name="DescCopy" xml:space="preserve">
+    <value>Legt den ausgewählten Text in die Zwischenablage.</value>
+  </data>
+  <data name="DescPaste" xml:space="preserve">
+    <value>Fügt die Zwischenablage an der Schreibmarke ein und ersetzt die Auswahl.</value>
+  </data>
+  <data name="DescSelectAll" xml:space="preserve">
+    <value>Wählt den gesamten Text des Bereichs aus, in dem Sie sich befinden.</value>
+  </data>
+  <data name="ReasonEditOpening" xml:space="preserve">
+    <value>Das Dokument wird noch geöffnet.</value>
+  </data>
+  <data name="ReasonEditSaving" xml:space="preserve">
+    <value>Das Speichern läuft gerade.</value>
+  </data>
+  <data name="ReasonNoSelection" xml:space="preserve">
+    <value>Es ist nichts ausgewählt.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>Es gibt nichts zum Rückgängigmachen.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>Es gibt nichts zum Wiederholen.</value>
+  </data>
 </root>

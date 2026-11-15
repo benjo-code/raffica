@@ -194,11 +194,8 @@ internal sealed partial class PageView
     }
 
     /// <summary>
-    /// One edit of the session for one key. The session is made on first use (the whole model must be there, checked here). What can fail: the layout (then <see cref="EditSession.Apply"/>
-    /// has failed the runner, the session is faulted and <see cref="InputRefused"/> says so once per key), or the operation itself, for example the text editor refusing a stale position
-    /// with an <see cref="ArgumentException"/>. The text editor checks positions before it changes anything, so such a failure leaves model, history and layout as they were (other failures of
-    /// the editor are programming errors, and nothing guarantees the model then: the key is still refused). That is a bug and no state of the document: a Debug build rethrows it, a Release
-    /// build refuses the key, shows no hint and traces only the exception type (no message, no stack, no text). Write has no crash guard yet (shared crash handling is a later milestone).
+    /// One edit of the session for one key. The session is made on first use (the whole model must be there, checked here); the edit itself goes through <see cref="ApplyGuarded"/>,
+    /// the one place that decides what a failure means (shared with the commands of undo, redo and the clipboard).
     /// </summary>
     private void ApplyKey(Func<EditSession, Func<TextEditor, EditResult?>> operation)
     {
@@ -213,9 +210,25 @@ internal sealed partial class PageView
         SyncActiveMode();
         ResetAffinity();
         _goalFor = null;
+        ApplyGuarded(session, operation(session));
+    }
+
+    /// <summary>
+    /// Runs an editing operation on the session through <see cref="EditSession.Apply"/> with the pages through the caret's page and the last page in view, and decides what a failure
+    /// means. What can fail: the layout (then <see cref="EditSession.Apply"/> has failed the runner, the session is faulted and shows no more caret, and <see cref="InputRefused"/> says so
+    /// once); the operation itself after it changed the model (the revision of the document differs from the one before: model, history and layout may now disagree, so the session is
+    /// failed on purpose, through the runner, and <see cref="InputRefused"/> says editing is unavailable); or the operation before any change, for example the text editor refusing a stale
+    /// position with an <see cref="ArgumentException"/> (it checks positions before it changes anything, so model, history and layout are as they were: the operation is refused). That last
+    /// kind is a bug and no state of the document: a Debug build rethrows it, a Release build refuses silently and traces only the exception type (no message, no stack, no text). Write has
+    /// no crash guard yet (shared crash handling is a later milestone). Returns the result of the operation, or null when it was refused, queued, blocked or failed.
+    /// </summary>
+    private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation)
+    {
+        var model = _tab.Docx.Model;
+        var revision = model.Edits.Revision;
         try
         {
-            session.Apply(operation(session), ThroughPage());
+            return session.Apply(operation, ThroughPage());
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -223,10 +236,22 @@ internal sealed partial class PageView
             {
                 // The layout failed for good (EditSession.Apply failed the runner and rethrew): the session is faulted (no caret, no more edits) and said so through Changed; the window's hint says editing is unavailable.
                 InputRefused?.Invoke(EditBlockedReason.Faulted);
-                return;
+                return null;
+            }
+
+            if (model.Edits.Revision != revision)
+            {
+                // The model changed and the operation then failed: nothing guarantees that model, history and layout still agree, and the session was not told (Apply raises Changed only for
+                // a result). Fault it visibly rather than let the user type on into a document that may be out of step with its pages.
+                _runner.FailEdit(ex);
+                InputRefused?.Invoke(EditBlockedReason.Faulted);
+                InvalidateAll();
+                NotifyViewChanged();
+                return null;
             }
 
             ReportKeyFailure(ex);
+            return null;
         }
     }
 

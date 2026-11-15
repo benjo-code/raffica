@@ -10,7 +10,7 @@ namespace Raffica.WriteApp.Tests.Platform;
 /// <summary>The macOS menu of Write is plain Avalonia menu objects, so its structure and states are tested on every system.</summary>
 public sealed class WriteMacMenuTests
 {
-    private sealed class FakeWindow : IWriteMenuWindow
+    internal sealed class FakeWindow : IWriteMenuWindow
     {
         public bool DialogOpen { get; set; }
 
@@ -62,7 +62,7 @@ public sealed class WriteMacMenuTests
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var file = Item(menu.Menu, "File").Menu!;
         var open = Item(file, "Open…");
         var close = Item(file, "Close tab");

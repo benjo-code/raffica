@@ -555,7 +555,18 @@ internal sealed partial class PageView
 
         RestartBlink();
         _overlay.InvalidateVisual();
+        var hasSelection = !range.IsEmpty;
+        if (hasSelection != _hadSelection)
+        {
+            _hadSelection = hasSelection;
+            SelectionStateChanged?.Invoke();
+        }
     }
+
+    private bool _hadSelection;
+
+    /// <summary>Raised when the selection turns from a caret into a selection or back (the ribbon and the menu read the states of cut and copy again).</summary>
+    internal event Action? SelectionStateChanged;
 
     // The nearest paragraph before a position's paragraph in its container (the fallback when the paragraph is gone when a queued selection runs), or null.
     private Paragraph? PreviousParagraph(TextPosition position)

@@ -97,4 +97,6 @@
   <StreamGeometry x:Key="Raffica.Icon.Moon">M20.985 12.486a9 9 0 1 1 -9.473 -9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.BookCopy">M5 7 a2 2 0 0 0 -2 2 v11 M5.803 18 H5 a2 2 0 0 0 0 4 h9.5 a.5 .5 0 0 0 .5 -.5 V21 M9 15 V4 a2 2 0 0 1 2 -2 h9.5 a.5 .5 0 0 1 .5 .5 v14 a.5 .5 0 0 1 -.5 .5 H11 a2 2 0 0 1 0 -4 h10</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.RefreshCw">M3 12 a9 9 0 0 1 9 -9 9.75 9.75 0 0 1 6.74 2.74 L21 8 M21 3 v5 h-5 M21 12 a9 9 0 0 1 -9 9 9.75 9.75 0 0 1 -6.74 -2.74 L3 16 M8 16 H3 v5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Redo2">M15 14 20 9 15 4 M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ClipboardPaste">M11 14h10 M16 4h2a2 2 0 0 1 2 2v1.344 M17 18 21 14 17 10 M8 4H6a2 2 0 0 0 -2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793 -1.113 M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1H9a1 1 0 0 1 -1 -1V3a1 1 0 0 1 1 -1z</StreamGeometry>
 </ResourceDictionary>

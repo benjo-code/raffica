@@ -53,7 +53,7 @@ internal enum WriteMenuPart
     /// <summary>The items of the application menu, set on the application (Settings, and Open while no window exists).</summary>
     App,
 
-    /// <summary>File, View and Window, set on each window.</summary>
+    /// <summary>File, Edit, View and Window, set on each window.</summary>
     Window,
 }
 
@@ -61,7 +61,7 @@ internal enum WriteMenuPart
 /// The macOS menu bar of Write. It follows the same rule as the PDF app (<c>Docs/DECISIONS.md</c>, "Raffica PDF on macOS: the menus belong to the window"): the
 /// application menu belongs to the application and is only Settings and Open (Open shows while no window exists, so Cmd+O never has two items); File and Window
 /// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone. The View menu
-/// (page view, writing view, zoom in and out, actual size, fit width, fit page) runs the commands of the catalog by id on the window. The menu is read again when the
+/// (page view, writing view, zoom in and out, actual size, fit width, fit page) and the Edit menu (undo, redo, cut, copy, paste, select all) run the commands of the catalog by id on the window. The menu is read again when the
 /// system asks, when the window reports new states and when the current window changes (the owner calls <see cref="Refresh"/>).
 /// </summary>
 internal sealed class WriteMacMenu
@@ -104,6 +104,19 @@ internal sealed class WriteMacMenu
             file.Menu.Items.Add(Item(() => WriteStrings.MenuCloseTab, "Meta+W", window => window?.CloseTabOrWindow(), always: false));
             Menu.Items.Add(file);
 
+            var editMenu = new NativeMenuItem(WriteStrings.MenuEdit) { Menu = new NativeMenu() };
+            editMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            editMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Undo, () => WriteStrings.CmdUndo, MacGesture(WriteCommandIds.Undo)));
+            editMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Redo, () => WriteStrings.CmdRedo, MacGesture(WriteCommandIds.Redo)));
+            editMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            editMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Cut, () => WriteStrings.CmdCut, MacGesture(WriteCommandIds.Cut)));
+            editMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Copy, () => WriteStrings.CmdCopy, MacGesture(WriteCommandIds.Copy)));
+            editMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Paste, () => WriteStrings.CmdPaste, MacGesture(WriteCommandIds.Paste)));
+            editMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            editMenu.Menu.Items.Add(CommandItem(WriteCommandIds.SelectAll, () => WriteStrings.CmdSelectAll, MacGesture(WriteCommandIds.SelectAll)));
+            Menu.Items.Add(editMenu);
+            _headers.Add((editMenu, () => WriteStrings.MenuEdit));
+
             var viewMenu = new NativeMenuItem(WriteStrings.TabView) { Menu = new NativeMenu() };
             viewMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageView, () => WriteStrings.CmdPageView, null, radio: true));
@@ -134,6 +147,9 @@ internal sealed class WriteMacMenu
     }
 
     private readonly List<(NativeMenuItem Item, Func<string> Text)> _headers = [];
+
+    // The key equivalent of an edit command on the Mac: the shortcut of the catalog (Cmd+Z, Cmd+Shift+Z for redo, Cmd+X, Cmd+C, Cmd+V, Cmd+A).
+    private static string MacGesture(string id) => WriteCommandCatalog.Commands.Single(c => c.Id == id).ShortcutFor(macOs: true)!.Text(macOs: true);
 
     public NativeMenu Menu { get; }
 

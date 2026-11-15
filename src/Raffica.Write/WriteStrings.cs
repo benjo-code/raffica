@@ -79,6 +79,26 @@ internal static class WriteStrings
     public static string OutlineWaiting => Table.Get("OutlineWaiting");
     public static string EditStillOpening => Table.Get("EditStillOpening");
     public static string EditUnavailable => Table.Get("EditUnavailable");
+    public static string MenuEdit => Table.Get("MenuEdit");
+    public static string GroupUndo => Table.Get("GroupUndo");
+    public static string GroupClipboard => Table.Get("GroupClipboard");
+    public static string CmdUndo => Table.Get("CmdUndo");
+    public static string CmdRedo => Table.Get("CmdRedo");
+    public static string CmdCut => Table.Get("CmdCut");
+    public static string CmdCopy => Table.Get("CmdCopy");
+    public static string CmdPaste => Table.Get("CmdPaste");
+    public static string CmdSelectAll => Table.Get("CmdSelectAll");
+    public static string DescUndo => Table.Get("DescUndo");
+    public static string DescRedo => Table.Get("DescRedo");
+    public static string DescCut => Table.Get("DescCut");
+    public static string DescCopy => Table.Get("DescCopy");
+    public static string DescPaste => Table.Get("DescPaste");
+    public static string DescSelectAll => Table.Get("DescSelectAll");
+    public static string ReasonEditOpening => Table.Get("ReasonEditOpening");
+    public static string ReasonEditSaving => Table.Get("ReasonEditSaving");
+    public static string ReasonNoSelection => Table.Get("ReasonNoSelection");
+    public static string ReasonNothingToUndo => Table.Get("ReasonNothingToUndo");
+    public static string ReasonNothingToRedo => Table.Get("ReasonNothingToRedo");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
 

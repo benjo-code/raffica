@@ -97,7 +97,7 @@ public sealed class EditingKeysTests
     }
 
     // The shortcuts macOS keeps for itself (copied from the PDF app's list: Write never references the PDF app).
-    private static readonly (Key Key, KeyModifiers Modifiers)[] s_reservedOnMac =
+    internal static readonly (Key Key, KeyModifiers Modifiers)[] s_reservedOnMac =
     [
         (Key.H, Cmd), (Key.H, Alt | Cmd), (Key.M, Cmd), (Key.Q, Cmd), (Key.Q, Shift | Cmd), (Key.Tab, Cmd), (Key.Space, Cmd), (Key.OemTilde, Cmd),
         (Key.F, Ctrl | Cmd), (Key.D3, Shift | Cmd), (Key.D4, Shift | Cmd), (Key.D5, Shift | Cmd),

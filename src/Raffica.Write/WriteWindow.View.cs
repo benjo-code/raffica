@@ -37,7 +37,7 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true);
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active));
         _actions = CreateActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
@@ -60,6 +60,12 @@ internal sealed partial class WriteWindow
         [WriteCommandIds.PageView] = () => SetView(WriteView.Page),
         [WriteCommandIds.WritingView] = () => SetView(WriteView.Writing),
         [WriteCommandIds.Outline] = ToggleOutline,
+        [WriteCommandIds.Undo] = () => ActiveView?.RunEditCommand(WriteCommandIds.Undo),
+        [WriteCommandIds.Redo] = () => ActiveView?.RunEditCommand(WriteCommandIds.Redo),
+        [WriteCommandIds.Cut] = () => ActiveView?.RunEditCommand(WriteCommandIds.Cut),
+        [WriteCommandIds.Copy] = () => ActiveView?.RunEditCommand(WriteCommandIds.Copy),
+        [WriteCommandIds.Paste] = () => ActiveView?.RunEditCommand(WriteCommandIds.Paste),
+        [WriteCommandIds.SelectAll] = () => ActiveView?.RunEditCommand(WriteCommandIds.SelectAll),
     };
 
     // Whether a switch of the ribbon is on: the view in force and the zoom mode of the active tab.
@@ -115,6 +121,13 @@ internal sealed partial class WriteWindow
             }
         };
         view.EditCommandHandler = RunCommand;
+        view.SelectionStateChanged += () =>
+        {
+            if (ReferenceEquals(ActiveView, view))
+            {
+                RefreshCommandStates();
+            }
+        };
         view.InputRefused += reason => OnInputRefused(view, tab, reason);
         view.FirstSharpPage += () =>
         {
