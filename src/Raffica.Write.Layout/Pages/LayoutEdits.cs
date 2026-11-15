@@ -73,10 +73,19 @@ public sealed partial class DocumentLayout
 /// <summary>What <see cref="DocumentLayout.ApplyEdit"/> did: the pages that were laid out again (<paramref name="FirstPage"/> to <paramref name="LastPage"/>, both inclusive; <c>LastPage</c> is <c>FirstPage - 1</c> when none was) and whether it had to start from the first page.</summary>
 public readonly record struct EditRefill(int FirstPage, int LastPage, bool Restarted);
 
+/// <summary>How many edits <see cref="DocumentLayout.ApplyEdit"/> has brought up to date and how many of them had to start from the first page.</summary>
+public readonly record struct EditStats(int Edits, int Restarts);
+
 public sealed partial class DocumentLayout
 {
     // The look-ahead of the filler (keep with next) looks at most this many blocks on (Band.MaximumChain).
     private const int LookAhead = 8;
+
+    private int _edits;
+    private int _restarts;
+
+    /// <summary>The edits applied so far and how many restarted from the first page (the spike and the bench read it to see how often the fast path holds).</summary>
+    public EditStats Stats => new(Volatile.Read(ref _edits), Volatile.Read(ref _restarts));
 
     /// <summary>How many pages the last <see cref="ApplyEdit"/> laid out (a test seam; the spike measured how often a refill is longer than one page).</summary>
     internal int PagesLaidOut { get; private set; }
@@ -137,11 +146,14 @@ public sealed partial class DocumentLayout
     /// </summary>
     /// <remarks>
     /// Synchronous; the caller holds the edit gate (no layout runs on the model while it changes, and the background layout has stopped or
-    /// waits for the gate this takes). Only edits of the body are refilled; an edit in a header, footer or note, an edit of a block that ends a
-    /// section (one with a section break) and anything the engine cannot place (a list it does not know, a block it cannot find) start from the
-    /// first page (<see cref="EditRefill.Restarted"/>): the pages up to <paramref name="throughPage"/> are made at once and published
-    /// together, the rest follows in the background. That is slower, never wrong. The result is equal to a layout of the same model made from
-    /// scratch once the rest has been laid out (the tests compare page count, text, numbers, items, spans and lines).
+    /// waits for the gate this takes). What starts over from the first page (<see cref="EditRefill.Restarted"/>), always correct and slower: an edit of
+    /// a header or footer part that a section shows (the engine and its plans are kept, the part's laid-out blocks are dropped), an edit of a block that
+    /// ends a section in the page view (one with a section break), a change of the section structure, a note nothing shows yet, and anything the engine
+    /// cannot place (a list it does not know, a block it cannot find, no recorded page start to resume from). An edit of a note is laid out again from the
+    /// page its reference is on (back to a page that no notes run over onto) and may stop after the last page that showed it; an edit of a comment, of a
+    /// part no section shows and of any non-body story in the writing view changes nothing and returns an empty refill. The pages up to
+    /// <paramref name="throughPage"/> are made at once and published together, the rest follows in the background. The result is equal to a layout of the
+    /// same model made from scratch once the rest has been laid out (the tests compare page count, text, numbers, items, spans, lines, glyph runs and the block tables).
     /// <para>
     /// Readers: the pages are published in one step (see <c>PageList</c>), <see cref="Revision"/> rises (a view re-reads <c>Page(i)</c>),
     /// <see cref="LaidOutPages"/> may be smaller afterwards, <see cref="Locate"/> and <see cref="BlockAt"/> answer for the new model from
@@ -157,7 +169,14 @@ public sealed partial class DocumentLayout
             _fault?.Throw();
             try
             {
-                return Refill(change, Math.Max(0, throughPage));
+                var refill = Refill(change, Math.Max(0, throughPage));
+                Volatile.Write(ref _edits, _edits + 1);
+                if (refill.Restarted)
+                {
+                    Volatile.Write(ref _restarts, _restarts + 1);
+                }
+
+                return refill;
             }
             catch (Exception e)
             {
@@ -171,7 +190,23 @@ public sealed partial class DocumentLayout
     {
         var old = _engine;
         var oldCount = _pages.Count;
-        if (PlanEdit(change, old, oldCount, _options) is not { } plan)
+        EditPlan? chosen;
+        if (change.Story.Kind == StoryKind.Body)
+        {
+            chosen = PlanEdit(change, old, oldCount, _options);
+        }
+        else
+        {
+            switch (PlanStoryEdit(change, old, oldCount, _options, out chosen))
+            {
+                case StoryEffect.None:
+                    return new EditRefill(0, -1, false);
+                case StoryEffect.Restart:
+                    return Restart(throughPage);
+            }
+        }
+
+        if (chosen is not { } plan)
         {
             return Restart(throughPage);
         }
@@ -213,16 +248,22 @@ public sealed partial class DocumentLayout
 
         // The old pages after the stop must be there to be put back, and an unfinished layout must have the state of its next page to go on from.
         var canStop = oldComplete || (oldRecords.Count > oldCount && oldRecords[oldCount] is not null);
-        filler.StopProbe = state => canStop && state.PageIndex <= oldCount && oldRecords.Count > state.PageIndex && IsOldStart(filler, plan, state, oldRecords[state.PageIndex]);
+        filler.StopProbe = state => canStop && state.PageIndex > plan.StopAfterPage && state.PageIndex <= oldCount && oldRecords.Count > state.PageIndex && IsOldStart(filler, plan, state, oldRecords[state.PageIndex]);
 
         var fresh = new List<LaidOutPage>();
         var fill = filler.FillFrom(resume).GetEnumerator();
         var paused = false;
+        var firstTouched = old.FirstTouched;
         try
         {
             while (fill.MoveNext())
             {
                 fresh.Add(fill.Current);
+                if (first == 0 && fresh.Count == 1)
+                {
+                    firstTouched = filler.MaxTouchedBodyIndex;
+                }
+
                 if (fill.Current.Index >= throughPage && !filler.StopMatched)
                 {
                     paused = true;
@@ -249,6 +290,7 @@ public sealed partial class DocumentLayout
             Sections = plan.Sections,
             FinalPages = old.FinalPages,
             FinalSectionPages = old.FinalSectionPages,
+            FirstTouched = firstTouched,
         };
 
         int keepFrom;
@@ -339,6 +381,7 @@ public sealed partial class DocumentLayout
         }
 
         Volatile.Write(ref _engine, engine);
+        Volatile.Write(ref _firstPageFinal, firstTouched < engine.LastBodyIndex);
         _pages.Splice(first, fresh, keepFrom, adjust);
         foreach (var (index, revised) in prefixRevised)
         {
@@ -357,7 +400,7 @@ public sealed partial class DocumentLayout
             Volatile.Write(ref _complete, true);
         }
 
-        return new EditRefill(first, first + fresh.Count - 1, false);
+        return new EditRefill(first, first + fresh.Count - 1, plan.StartsOver);
     }
 
     // Starts again from the first page on a fresh engine over the model as it is now: everything is planned again. The pages up to throughPage
@@ -375,6 +418,11 @@ public sealed partial class DocumentLayout
         while (engine.Fill.MoveNext())
         {
             fresh.Add(engine.Fill.Current);
+            if (fresh.Count == 1)
+            {
+                engine.FirstTouched = engine.Filler.MaxTouchedBodyIndex;
+            }
+
             if (engine.Fill.Current.Index >= throughPage)
             {
                 paused = true;
@@ -406,6 +454,7 @@ public sealed partial class DocumentLayout
         Volatile.Write(ref _complete, false);
         Volatile.Write(ref _notes, notes);
         Volatile.Write(ref _engine, engine);
+        Volatile.Write(ref _firstPageFinal, engine.FirstTouched < engine.LastBodyIndex);
         _pages.Splice(0, fresh, int.MaxValue);
         for (var k = 0; k < replaced.Count; k++)
         {
@@ -492,6 +541,12 @@ public sealed partial class DocumentLayout
 
         public required int ResetFromBody { get; init; }
 
+        /// <summary>No state of a page up to this index may end the refill (the pages that show an edited header or note must all be laid out again); -1 for an edit of the body.</summary>
+        public int StopAfterPage { get; init; } = -1;
+
+        /// <summary>The refill goes back to the first page (a header or footer changed): it is a restart for <see cref="EditRefill.Restarted"/>, although the engine and its plans are kept.</summary>
+        public bool StartsOver { get; init; }
+
         public required int[] ShiftedPage { get; init; }
 
         public required float[] ShiftedY { get; init; }
@@ -544,7 +599,7 @@ public sealed partial class DocumentLayout
         }
 
         var oldBodyCount = old.BlockPage.Length;
-        if (lo < 0 || lo > oldBodyCount || body.Count != oldBodyCount - removed + added || lo + added > body.Count || HasSectionBreak(change))
+        if (lo < 0 || lo > oldBodyCount || body.Count != oldBodyCount - removed + added || lo + added > body.Count || (options.Mode != LayoutMode.Flow && HasSectionBreak(change)))
         {
             return null;
         }
@@ -593,46 +648,12 @@ public sealed partial class DocumentLayout
 
         var page = bodyIndex >= 0 ? old.BlockPage[bodyIndex] : 0;
         page = Math.Min(page, Math.Min(oldCount, records.Count) - 1);
-        FillerState? resume = null;
-        var startFlat = 0;
-        for (; page >= 0; page--)
-        {
-            if (records[page] is not { } record)
-            {
-                continue;
-            }
-
-            if (record.Kind == PageStartKind.Carry)
-            {
-                // The carried block must be an untouched block before the run of keep-with-next blocks that ends at the edit (its flow is kept as it was). A page
-                // that starts with a member of the run was started by the decision to move the run on, which the edit may reverse: the page before it is laid out again.
-                var at = IndexOf(flat, record.Start.Block!, target);
-                if (at < 0 || record.Start.SectionIndex >= sections.Count)
-                {
-                    continue;
-                }
-
-                resume = record;
-                startFlat = at;
-                break;
-            }
-
-            if (record.Start.SectionIndex >= sections.Count || sections[record.Start.SectionIndex].IsEmpty)
-            {
-                continue;
-            }
-
-            resume = record;
-            startFlat = sections[record.Start.SectionIndex].FirstBlock;
-            break;
-        }
-
-        if (resume is null)
+        if (FindResume(records, page, flat, sections, target, requireNoCarry: false, out var resume, out var startFlat) is false)
         {
             return null;
         }
 
-        var resetFrom = EditPlan.BodyIndexAfterPlaced(flat, resume, startFlat);
+        var resetFrom = EditPlan.BodyIndexAfterPlaced(flat, resume!, startFlat);
         var pages = new int[body.Count];
         var ys = new float[body.Count];
         if (nested)
@@ -660,11 +681,163 @@ public sealed partial class DocumentLayout
             Sections = sections,
             FirstFlat = firstFlat,
             EndFlat = endFlat,
-            Resume = resume,
+            Resume = resume!,
             ResetFromBody = resetFrom,
             ShiftedPage = pages,
             ShiftedY = ys,
         };
+    }
+
+    // The latest page at or before startPage that a refill can begin at: a page whose start was recorded (and, when requireNoCarry, that has no notes
+    // running over onto it: those hold the laid-out flows of notes that may have changed). A Carry start must carry an untouched block before
+    // limit (the run of keep-with-next blocks that ends at the edit is laid out again: a page that starts with a member of the run was started by the
+    // decision to move the run on, which the edit may reverse), a Section start a section that has blocks.
+    private static bool FindResume(List<FillerState?> records, int startPage, List<FlatBlock> flat, List<SectionPlan> sections, int limit, bool requireNoCarry, out FillerState? resume, out int startFlat)
+    {
+        resume = null;
+        startFlat = 0;
+        for (var page = startPage; page >= 0; page--)
+        {
+            if (records[page] is not { } record || (requireNoCarry && record.ChromeCarry is not null))
+            {
+                continue;
+            }
+
+            if (record.Kind == PageStartKind.Carry)
+            {
+                var at = IndexOf(flat, record.Start.Block!, limit);
+                if (at < 0 || record.Start.SectionIndex >= sections.Count)
+                {
+                    continue;
+                }
+
+                resume = record;
+                startFlat = at;
+                return true;
+            }
+
+            if (record.Start.SectionIndex >= sections.Count || sections[record.Start.SectionIndex].IsEmpty)
+            {
+                continue;
+            }
+
+            resume = record;
+            startFlat = sections[record.Start.SectionIndex].FirstBlock;
+            return true;
+        }
+
+        return false;
+    }
+
+    private enum StoryEffect
+    {
+        /// <summary>The edit changes nothing that is laid out (a comment, a header in the writing view, a part no section shows).</summary>
+        None,
+        Restart,
+        Refill,
+    }
+
+    // An edit of a story other than the body. The writing view shows no header, footer, note or comment; a comment is never laid out; a header or footer
+    // part makes the layout start over from page 1 on the same engine (the body plans and the numbering are still good, the chrome blocks of the part are
+    // dropped); a note is laid out again from the page whose notes it can have changed (back to a page that no notes run over onto) to the last page
+    // that shows it, and the refill may stop after that as for the body.
+    private StoryEffect PlanStoryEdit(BlockChange change, Engine old, int oldCount, LayoutOptions options, out EditPlan? plan)
+    {
+        plan = null;
+        var chrome = old.Chrome;
+        if (change.Story.Kind == StoryKind.Comment || chrome is null || change.Story.Key is not { } key)
+        {
+            return change.Story.Kind == StoryKind.Comment || chrome is null ? StoryEffect.None : StoryEffect.Restart;
+        }
+
+        var records = old.Filler.Records;
+        var body = old.Document.Body.Blocks;
+        if (oldCount == 0 || records.Count == 0 || body.Count != old.BlockPage.Length)
+        {
+            return StoryEffect.Restart;
+        }
+
+        var stopAfter = int.MaxValue;
+        var startPage = 0;
+        var startsOver = true;
+        var requireNoCarry = false;
+        switch (change.Story.Kind)
+        {
+            case StoryKind.HeaderFooter:
+                chrome.Invalidate(change.Story);
+                if (!chrome.Shows(key))
+                {
+                    return StoryEffect.None;
+                }
+
+                break;
+            case StoryKind.Note:
+                chrome.Notes.Invalidate(key);
+                var first = -1;
+                var last = -1;
+                for (var i = 0; i < oldCount; i++)
+                {
+                    if (ShowsStory(_pages[i], change.Story))
+                    {
+                        first = first < 0 ? i : first;
+                        last = i;
+                    }
+                }
+
+                if (first < 0)
+                {
+                    // Nothing shows the note: either it is cited later (an unfinished layout) or it was empty and now takes room; start over to be safe.
+                    return StoryEffect.Restart;
+                }
+
+                startPage = Math.Min(first, records.Count - 1);
+                stopAfter = last;
+                startsOver = false;
+                requireNoCarry = true;
+                break;
+            default:
+                return StoryEffect.Restart;
+        }
+
+        var flat = FlatBlocks.From(body);
+        var sections = old.Sections;
+        if (!FindResume(records, startPage, flat, sections, flat.Count, requireNoCarry, out var resume, out var startFlat))
+        {
+            return StoryEffect.Restart;
+        }
+
+        plan = new EditPlan
+        {
+            Lo = 0,
+            Added = 0,
+            Removed = 0,
+            Nested = true,
+            BodyCount = body.Count,
+            Flat = flat,
+            Sections = sections,
+            FirstFlat = 0,
+            EndFlat = 0,
+            Resume = resume!,
+            ResetFromBody = EditPlan.BodyIndexAfterPlaced(flat, resume!, startFlat),
+            ShiftedPage = (int[])old.BlockPage.Clone(),
+            ShiftedY = (float[])old.BlockY.Clone(),
+            StopAfterPage = stopAfter,
+            StartsOver = startsOver,
+        };
+        return StoryEffect.Refill;
+    }
+
+    private static bool ShowsStory(LaidOutPage page, StoryRef story)
+    {
+        foreach (var line in page.TextLines)
+        {
+            if (line.Story == story)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The first index of the flat list whose block has a body index of at least bodyIndex (the list's body indexes never decrease).

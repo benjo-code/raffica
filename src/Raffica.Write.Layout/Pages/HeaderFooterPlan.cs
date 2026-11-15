@@ -40,6 +40,43 @@ internal sealed class HeaderFooterPlan : IPageChrome
 
     public bool HasCarry => _carry.Count > 0;
 
+    /// <summary>The planner of the notes of this layout (an edit of a note drops what it laid out).</summary>
+    public NotePlanner Notes => _notes;
+
+    /// <summary>
+    /// Forgets every header or footer block laid out from the part, so the next page that shows it lays it out again from the model as it is now. The
+    /// pages already made are not touched: the caller lays them out again.
+    /// </summary>
+    public void Invalidate(StoryRef part)
+    {
+        if (part.Key is not { } id)
+        {
+            return;
+        }
+
+        foreach (var key in _blocks.Keys.Where(k => string.Equals(k.Part, id, StringComparison.Ordinal)).ToList())
+        {
+            _blocks.Remove(key);
+        }
+
+        // Whether the part shows the page number is found out when it is laid out; it may have changed.
+        _pageDependent.Remove(id);
+    }
+
+    /// <summary>True when a section refers to the part (a part no section refers to is never drawn).</summary>
+    public bool Shows(string relationshipId)
+    {
+        foreach (var slots in _references)
+        {
+            if (slots.Contains(relationshipId, StringComparer.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // The list is replaced, never changed, once a page has been ended with it, so it can be kept and put back as it is.
     public object? CarryState => _carry.Count == 0 ? null : _carry;
 

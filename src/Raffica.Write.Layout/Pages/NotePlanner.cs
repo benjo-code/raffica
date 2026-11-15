@@ -40,6 +40,9 @@ internal sealed class NoteRef
 
     internal NoteBody? Body { get; set; }
 
+    /// <summary>The version of the note's text (see <see cref="NotePlanner.Invalidate"/>) <see cref="Body"/> was laid out from.</summary>
+    internal int BodyVersion { get; set; }
+
     internal float BodyWidth { get; set; } = float.NaN;
 }
 
@@ -102,6 +105,7 @@ internal sealed class NotePlanner
     private readonly string? _footnoteFormat;
     private readonly string? _endnoteFormat;
     private readonly List<NoteRef> _endnotes = [];
+    private readonly Dictionary<string, int> _versions = new(StringComparer.Ordinal);
     private int _footnotes;
     private int _version;
     private NoteState? _cached;
@@ -164,7 +168,8 @@ internal sealed class NotePlanner
     public NoteBody BodyOf(NoteRef reference, float width)
     {
         ArgumentNullException.ThrowIfNull(reference);
-        if (reference.Body is { } known && reference.BodyWidth == width)
+        var version = VersionOf(reference);
+        if (reference.Body is { } known && reference.BodyWidth == width && reference.BodyVersion == version)
         {
             return known;
         }
@@ -188,8 +193,23 @@ internal sealed class NotePlanner
 
         reference.Body = body;
         reference.BodyWidth = width;
+        reference.BodyVersion = version;
         return body;
     }
+
+    /// <summary>
+    /// Says that the text of a note changed: the laid-out body of every reference to it is dropped and made again from the model on its next use.
+    /// <paramref name="noteId"/> is the story key (<c>"5"</c> for a footnote, <c>"endnote:5"</c> for an endnote). Flows that were already handed to a page
+    /// (notes carried over, a recorded page start) keep the old text: a refill must not resume from a page whose carry holds the note.
+    /// </summary>
+    public void Invalidate(string noteId)
+    {
+        ArgumentNullException.ThrowIfNull(noteId);
+        _versions[noteId] = _versions.GetValueOrDefault(noteId) + 1;
+    }
+
+    private int VersionOf(NoteRef reference) =>
+        _versions.Count == 0 ? 0 : _versions.GetValueOrDefault((reference.IsEndnote ? "endnote:" : string.Empty) + reference.Id.ToString(CultureInfo.InvariantCulture));
 
     /// <summary>The blocks that end the document: a separator and every endnote in order. Enumerate it only after the body is planned, so every reference is numbered.</summary>
     public IEnumerable<BlockPlan> EndnotePlans()

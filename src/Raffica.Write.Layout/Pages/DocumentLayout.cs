@@ -92,6 +92,9 @@ public sealed partial class DocumentLayout
 
         public int[] FinalSectionPages { get; set; } = [];
 
+        /// <summary>The highest body index the filler had looked at when page 1 was made (-1 before that); page 1 is final when the document goes on beyond it.</summary>
+        public int FirstTouched { get; set; } = -1;
+
         public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes, object gate)
         {
             var flow = options.Mode == LayoutMode.Flow;
@@ -277,6 +280,7 @@ public sealed partial class DocumentLayout
             }
 
             engine.Filler.PageFinished = _pageFinished;
+            engine.FirstTouched = engine.Filler.MaxTouchedBodyIndex;
             _paragraphPages.Register(engine.Fill.Current);
             _pages.Replace(0, engine.Fill.Current);
             Volatile.Write(ref _notes, notes);
@@ -385,7 +389,8 @@ public sealed partial class DocumentLayout
             // The flag is set before the page is published, so a reader that sees page 1 sees the final answer.
             if (_pages.Count == 0)
             {
-                Volatile.Write(ref _firstPageFinal, _engine.Filler.MaxTouchedBodyIndex < _engine.LastBodyIndex);
+                _engine.FirstTouched = _engine.Filler.MaxTouchedBodyIndex;
+                Volatile.Write(ref _firstPageFinal, _engine.FirstTouched < _engine.LastBodyIndex);
             }
 
             // The map first: a reader that finds an entry for a page that is not published yet skips it by the count.
