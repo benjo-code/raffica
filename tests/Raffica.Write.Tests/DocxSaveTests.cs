@@ -600,18 +600,43 @@ public sealed class DocxSaveTests
         var path = folder.CopyThesis();
         using var file = DocxFile.Open(path);
         var order = new List<string>();
+        file.BeforeModelRead = () => order.Add("before");
         file.AfterModelRead = () => order.Add("read");
         file.BeforeReplace = () => order.Add("replace");
 
         await file.SaveAsAsync(path, replaceExisting: true, Cancel);
 
-        Assert.Equal(["read", "replace"], order);
+        Assert.Equal(["before", "read", "replace"], order);
 
         // A save that is refused before the model is read never calls it.
         order.Clear();
         ChangeOnDisk(path);
         await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(path, Cancel));
         Assert.Empty(order);
+    }
+
+    [Fact]
+    public async Task TheHoldAfterTheModelReadIsReleasedWhenTheModelCannotBeWrittenAndWhenTheBeforeHookThrows()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        var order = new List<string>();
+        file.BeforeModelRead = () => order.Add("before");
+        file.AfterModelRead = () => order.Add("after");
+
+        // A model that cannot be serialised: the save fails, and the caller that took its hold in the before hook still gets the after hook (on the same thread).
+        file.Model.Body.Blocks.Add(null!);
+        await Assert.ThrowsAnyAsync<Exception>(() => file.SaveAsync(path, Cancel));
+        Assert.Equal(["before", "after"], order);
+        file.Model.Body.Blocks.RemoveAt(file.Model.Body.Blocks.Count - 1);
+
+        // A before hook that throws failed the save before the model was read: the after hook is not called (the hook released what it took itself).
+        order.Clear();
+        file.BeforeModelRead = () => throw new InvalidOperationException("no hold");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => file.SaveAsync(path, Cancel));
+        Assert.Empty(order);
+        Assert.Equal(["thesis.docx"], folder.Names());
     }
 
     [Fact]

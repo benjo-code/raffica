@@ -84,29 +84,36 @@ public sealed class SaveFlowTests
         var runner = tab.Runner;
         runner.LeaseWaitTimeout = Gate;
 
+        // The save thread takes the lease (the hook runs on it, right after the lease was taken) and gives it back once the model has been read.
         var leaseHeldAtStart = false;
         var savingAtStart = false;
+        var leaseThread = 0;
         window.Saves.AfterLeaseTaken = t =>
         {
             leaseHeldAtStart = t.Runner.IsLeased;
             savingAtStart = t.Editor!.IsSaving;
+            leaseThread = Environment.CurrentManagedThreadId;
         };
 
         // The save is held on its pool thread right after the model was read: the lease is back, the scope is not.
         using var reached = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var leasedAtRead = true;
+        var readThread = 0;
         tab.Docx.AfterModelRead = () =>
         {
             leasedAtRead = runner.IsLeased;
+            readThread = Environment.CurrentManagedThreadId;
             reached.Set();
             release.Wait(Gate);
         };
 
         var task = window.SaveActiveAsync();
-        Assert.True(leaseHeldAtStart, "the save takes the edit lease before it writes");
-        Assert.True(savingAtStart);
         await WindowFixture.WaitAsync(() => reached.IsSet);
+        Assert.True(leaseHeldAtStart, "the save takes the edit lease before it reads the model");
+        Assert.True(savingAtStart);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, leaseThread);
+        Assert.Equal(leaseThread, readThread);
         Assert.False(leasedAtRead, "the lease is given back as soon as the model has been read");
         Assert.False(runner.IsLeased);
         Assert.False(session.CanEdit);
@@ -556,6 +563,141 @@ public sealed class SaveFlowTests
         Assert.True(session.SetPreedit(start, null, 0));
         release.Set();
         Assert.IsType<Saved>(await SaveHarness.AwaitAsync(task));
+    }
+
+    // Holds the save on its pool thread inside the read of the model (it has the lease); the test gives the gate back after a while from another thread, so a request of
+    // the UI thread for the lease blocks for that time and then goes on.
+    private static async Task<(Task<SaveOutcome> Save, ManualResetEventSlim Release)> HoldTheReadAsync(WriteWindow window, WriteTab tab)
+    {
+        tab.Runner.LeaseWaitTimeout = TimeSpan.FromSeconds(20);
+        var reached = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        tab.Docx.BeforeModelRead = () =>
+        {
+            reached.Set();
+            release.Wait(Gate);
+        };
+        var task = window.SaveActiveAsync();
+        await WindowFixture.WaitAsync(() => reached.IsSet);
+        Assert.True(tab.Runner.IsLeased, "the saving thread holds the lease while it reads the model");
+        return (task, release);
+    }
+
+    [AvaloniaFact]
+    public async Task APreeditWhileThePoolThreadReadsTheModelWaitsAndDoesNotFaultTheSession()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var (tab, _) = await SaveHarness.OpenCopyAsync(fixture, window);
+        SaveHarness.Edit(tab);
+        var session = tab.Editor!;
+        var (task, release) = await HoldTheReadAsync(window, tab);
+        using var gate = release;
+        var start = session.Selection!.Value.Start;
+
+        // The input method shows its preedit now, on the UI thread: it asks for the lease the pool thread holds, waits for it and then goes on (before the fix the UI thread
+        // was the owner of the lease, and the request threw and faulted the session).
+        _ = Task.Run(() =>
+        {
+            Thread.Sleep(300);
+            gate.Set();
+        });
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var shown = session.SetPreedit(start, "ni", 0);
+        clock.Stop();
+
+        Assert.True(shown);
+        Assert.True(clock.ElapsedMilliseconds >= 200, "the preedit did not wait for the lease");
+        Assert.True(session.SetPreedit(start, null, 0));
+        Assert.Null(tab.Runner.Fault);
+        Assert.NotEqual(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.IsType<Saved>(await SaveHarness.AwaitAsync(task));
+        Assert.False(tab.Runner.IsLeased);
+        Assert.False(tab.Tab.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public async Task ARebuildOfThePagesLayoutWhilePoolThreadReadsTheModelWaitsAndDoesNotThrow()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var (tab, _) = await SaveHarness.OpenCopyAsync(fixture, window);
+        var runner = tab.Runner;
+        runner.EnsureFlow();
+        await WindowFixture.WaitAsync(() => runner.FlowLayout is not null);
+        var session = tab.Editor!;
+
+        // An edit in the writing view leaves the pages layout stale; switching back to the pages asks for the lease to make it again.
+        session.ActiveMode = Raffica.Write.Layout.LayoutMode.Flow;
+        SaveHarness.Edit(tab);
+        Assert.True(runner.PageLayoutIsStale);
+        var (task, release) = await HoldTheReadAsync(window, tab);
+        using var gate = release;
+        _ = Task.Run(() =>
+        {
+            Thread.Sleep(300);
+            gate.Set();
+        });
+
+        session.ActiveMode = Raffica.Write.Layout.LayoutMode.Pages;
+
+        Assert.False(runner.PageLayoutIsStale);
+        Assert.Null(runner.Fault);
+        Assert.IsType<Saved>(await SaveHarness.AwaitAsync(task));
+        Assert.False(runner.IsLeased);
+    }
+
+    [AvaloniaFact]
+    public async Task ASaveThatFailsBeforeOrWhileItReadsTheModelGivesTheLeaseBack()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var (tab, path) = await SaveHarness.OpenCopyAsync(fixture, window);
+        SaveHarness.Edit(tab);
+        var runner = tab.Runner;
+        runner.LeaseWaitTimeout = TimeSpan.FromSeconds(20);
+
+        void AssertLeaseFree()
+        {
+            Assert.False(runner.IsLeased);
+            using var lease = runner.PauseForEdit();
+            Assert.True(runner.IsLeased);
+        }
+
+        // A read-only target is refused before the model is read: no lease was ever taken.
+        File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);
+        try
+        {
+            var task = window.SaveActiveAsync();
+            await SaveHarness.WaitForCardAsync(window);
+            SaveHarness.Click(window, "PART_Ok");
+            Assert.IsType<SaveFailed>(await SaveHarness.AwaitAsync(task));
+            AssertLeaseFree();
+        }
+        finally
+        {
+            File.SetAttributes(path, File.GetAttributes(path) & ~FileAttributes.ReadOnly);
+        }
+
+        // A failure after the lease was taken (the hook of the caller throws): the thread that took it gives it back.
+        tab.Docx.BeforeModelRead = () => throw new InvalidOperationException("after the lease");
+        var failing = window.SaveActiveAsync();
+        await SaveHarness.WaitForCardAsync(window);
+        Assert.Equal(WriteStrings.SaveErrorTitle, window.Host.ActiveDialog!.Title);
+        SaveHarness.Click(window, "PART_Ok");
+        Assert.IsType<SaveFailed>(await SaveHarness.AwaitAsync(failing));
+        tab.Docx.BeforeModelRead = null;
+        AssertLeaseFree();
+        // A changed original, answered Cancel.
+        File.WriteAllBytes(path, [.. File.ReadAllBytes(path), 0]);
+        var changed = window.SaveActiveAsync();
+        await SaveHarness.WaitForCardAsync(window);
+        SaveHarness.Click(window, "PART_Cancel");
+        Assert.IsType<SaveCancelled>(await SaveHarness.AwaitAsync(changed));
+        AssertLeaseFree();
+
+        Assert.True(tab.Tab.IsDirty);
+        Assert.True(tab.Editor!.CanEdit);
     }
 
     [AvaloniaFact]

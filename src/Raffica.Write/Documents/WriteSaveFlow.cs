@@ -38,20 +38,21 @@ internal interface ISaveInteraction
 /// </summary>
 /// <remarks>
 /// <b>Threading.</b> The flow starts on the UI thread and so does everything that touches the tab: it opens a save scope on the editing session (<see cref="Editing.EditSession.BeginSave"/>:
-/// input is queued and replayed after the save), takes the edit lease (<see cref="Viewing.LayoutRunner.PauseForEdit"/>: the layout stops at a page boundary and nothing changes
-/// the model) and writes the file on a pool thread. The lease is held only while the model is read into memory (<see cref="DocxFile.AfterModelRead"/> gives it back on the
-/// saving thread: the lease can be disposed from any thread), because a save of a big file spends its time compressing and writing bytes that no longer depend on the model, and
-/// a lease that stayed would hold a preedit of the input method (it takes the lease too) for the whole write; the save scope stays until the file is on disk, so typing
-/// is queued, not lost, and cannot change the model before <c>MarkSaved</c> names the revision that was written. Success marks that revision saved, then the scope ends and
-/// replays what was typed meanwhile (which makes the document dirty again, as it should). A failure marks nothing, so the document stays dirty and the history is as it was.
-/// The continuations run on the UI thread (the synchronization context of the caller); nothing here reads <c>Dispatcher.UIThread</c> and the pool thread touches only the file and
+/// input is queued and replayed after the save) and writes the file on a pool thread. The pool thread takes the edit lease (<see cref="Viewing.LayoutRunner.PauseForEdit"/>: the
+/// layout stops at a page boundary and nothing changes the model) in <see cref="DocxFile.BeforeModelRead"/> and gives it back in <see cref="DocxFile.AfterModelRead"/>, which the
+/// file calls on every path once the first ran: the thread that took the lease releases it, and the UI thread never holds it across the write. The lease covers only the read of the
+/// model into memory, because a save of a big file spends its time compressing and writing bytes that no longer depend on the model; a request for the lease from the UI thread
+/// meanwhile (the preedit of an input method takes it too) waits for that read, a few milliseconds, instead of for the whole write. The save scope stays until the file is on disk,
+/// so typing is queued, not lost, and cannot change the model before <c>MarkSaved</c> names the revision that was written. Success marks that revision saved, then the scope ends
+/// and replays what was typed meanwhile (which makes the document dirty again, as it should). A failure marks nothing, so the document stays dirty and the history is as it was.
+/// The continuations run on the UI thread (the synchronization context of the caller); nothing here reads <c>Dispatcher.UIThread</c>; the pool thread touches only the file and
 /// the lease. One save per tab at a time (<see cref="IsRunning"/>).
 /// </remarks>
 internal sealed class WriteSaveFlow(ISaveInteraction ui)
 {
     private readonly Dictionary<WriteTab, TaskCompletionSource> _running = [];
 
-    /// <summary>Test seam: runs on the UI thread right after the edit lease was taken for a write, before the file is written.</summary>
+    /// <summary>Test seam: runs on the saving (pool) thread right after it took the edit lease, before the model is read.</summary>
     internal Action<WriteTab>? AfterLeaseTaken { get; set; }
 
     /// <summary>Raised on the UI thread when a save starts or ends (the commands read their states again).</summary>
@@ -210,17 +211,31 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         var model = docx.Model;
         var revision = model.Edits.Revision;
         var scope = session.BeginSave();
+        var previousBefore = docx.BeforeModelRead;
+        var previousAfter = docx.AfterModelRead;
         Editing.EditLease? lease = null;
-        var previous = docx.AfterModelRead;
         try
         {
-            lease = tab.Runner.PauseForEdit();
-            AfterLeaseTaken?.Invoke(tab);
-            var held = lease;
+            // The lease is taken and released by the saving (pool) thread around the read of the model, never by the UI thread: the UI thread stays free during the write, and a
+            // request for the lease from it (the preedit of an input method, a rebuild of the pages layout) waits for the end of that read instead of meeting "this thread holds it".
+            docx.BeforeModelRead = () =>
+            {
+                lease = tab.Runner.PauseForEdit();
+                try
+                {
+                    AfterLeaseTaken?.Invoke(tab);
+                    previousBefore?.Invoke();
+                }
+                catch
+                {
+                    Interlocked.Exchange(ref lease, null)?.Dispose();
+                    throw;
+                }
+            };
             docx.AfterModelRead = () =>
             {
-                held.Dispose();
-                previous?.Invoke();
+                Interlocked.Exchange(ref lease, null)?.Dispose();
+                previousAfter?.Invoke();
             };
             var report = await save(docx, tab.Token);
 
@@ -239,8 +254,8 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         }
         finally
         {
-            docx.AfterModelRead = previous;
-            lease?.Dispose();
+            docx.BeforeModelRead = previousBefore;
+            docx.AfterModelRead = previousAfter;
             try
             {
                 // Ends the save: what was typed meanwhile is replayed now. A replay that fails has faulted the session and the runner (the window shows it as any edit failure); the save itself is done.

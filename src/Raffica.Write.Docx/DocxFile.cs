@@ -77,9 +77,16 @@ public sealed class DocxFile : IDisposable
     public bool IsPrefix { get; }
 
     /// <summary>
-    /// Called on the saving thread (a pool thread) once the model has been written into memory, before anything is created on disk: from then on the save no longer reads
-    /// <see cref="Model"/>, so the caller that kept the model still until now may let it change again while the package is written. It is not called for a save that is refused or fails
-    /// before that point (the caller releases whatever it holds in its own <c>finally</c>). A throw from it fails the save and goes to the caller.
+    /// Called on the saving thread (a pool thread) just before the model is read into memory, after the checks that refuse a save (a changed original, an existing
+    /// target, a read-only file) and before anything is created on disk. The caller that must keep the model still takes its hold here, on the thread that will release it
+    /// in <see cref="AfterModelRead"/>. A throw from it fails the save and <see cref="AfterModelRead"/> is not called (the hook releases what it took before it throws).
+    /// </summary>
+    public Action? BeforeModelRead { get; set; }
+
+    /// <summary>
+    /// Called on the saving thread once the model has been written into memory (also when that fails, so a hold taken in <see cref="BeforeModelRead"/> is released on every path
+    /// by the thread that took it); from then on the save no longer reads <see cref="Model"/>, so the caller may let it change again while the package is written. It is called
+    /// exactly when <see cref="BeforeModelRead"/> returned, and never for a save that is refused before that point. A throw from it fails the save and goes to the caller.
     /// </summary>
     public Action? AfterModelRead { get; set; }
 
@@ -436,8 +443,17 @@ public sealed class DocxFile : IDisposable
             // A read-only target is refused here; what an existing target passes on (permissions, Hidden, access rules) is
             // given to the temporary file below, with the same code the save of a PDF uses.
             var metadata = AtomicFile.TargetMetadata.Read(resolved);
-            var intended = Serialise();
-            AfterModelRead?.Invoke();
+            BeforeModelRead?.Invoke();
+            List<Intent> intended;
+            try
+            {
+                intended = Serialise();
+            }
+            finally
+            {
+                AfterModelRead?.Invoke();
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             CopySnapshot(temporary, metadata);
             var written = WritePackage(temporary, intended);
