@@ -71,6 +71,9 @@ internal sealed class PageBuilder
 
     internal string? FooterPart { get; set; }
 
+    /// <summary>True when the header or footer shows a page count (known or not): the page has to be revised when the count changes.</summary>
+    internal bool UsesTotals { get; set; }
+
     /// <summary>True when the header or footer shows a total that was not known yet; the page is made again when the layout is complete.</summary>
     public bool NeedsTotals { get; set; }
 

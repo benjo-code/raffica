@@ -425,7 +425,8 @@ public sealed partial class DocumentLayout
     // are published, in one pass under the gate (a page costs a few microseconds against the filler's tens), and the engine, its plans and its records stay as
     // they are; the pages that are not laid out yet get the new part from the invalidated chrome. Returns null when this cannot be shown (the caller then
     // starts over, which is always right): the part is not shown by any section, a page does not know its chrome, or any page's header or footer height differs
-    // from the one it was made with (the body moves, the first or even page variants included, because every page is compared with its own).
+    // from the one it was made with (the body moves, the first or even page variants included, because every page is compared with its own), or the part gained or lost
+    // a page count field (the filler would not know to revise the page).
     private EditRefill? TryRefreshChrome(BlockChange change, Engine old, int oldCount)
     {
         if (change.Story.Kind != StoryKind.HeaderFooter || old.Chrome is not HeaderFooterPlan chrome || change.Story.Key is not { } key
@@ -454,8 +455,11 @@ public sealed partial class DocumentLayout
             var scratch = new PageBuilder(i, info.Number, page.Number, info.Section, info.IsFirstOfSection);
             chrome.Refresh(scratch, complete ? old.FinalPages : null, complete ? old.FinalSectionPages : null);
             if (scratch.HeaderHeight != info.HeaderHeight || scratch.FooterHeight != info.FooterHeight
-                || !string.Equals(scratch.HeaderPart, info.HeaderPart, StringComparison.Ordinal) || !string.Equals(scratch.FooterPart, info.FooterPart, StringComparison.Ordinal))
+                || !string.Equals(scratch.HeaderPart, info.HeaderPart, StringComparison.Ordinal) || !string.Equals(scratch.FooterPart, info.FooterPart, StringComparison.Ordinal)
+                || scratch.UsesTotals != info.UsesTotals)
             {
+                // Also when the part gained or lost a page count: the filler revises only the pages that showed one when they were made (its list of revisable pages), so such a
+                // page would keep a pending or a stale total; the restart builds that list again.
                 return null;
             }
 

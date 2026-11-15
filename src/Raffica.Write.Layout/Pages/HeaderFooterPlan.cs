@@ -161,16 +161,20 @@ internal sealed class HeaderFooterPlan : IPageChrome
     /// <summary>A header or footer laid out at one width: its flows, where each goes below the top of the block, and its height.</summary>
     private sealed class ChromeBlock
     {
-        public static readonly ChromeBlock Empty = new([], [], 0f, false, null);
+        public static readonly ChromeBlock Empty = new([], [], 0f, false, null, false);
 
-        public ChromeBlock(IBlockFlow[] flows, float[] ys, float height, bool needsTotals, string? part)
+        public ChromeBlock(IBlockFlow[] flows, float[] ys, float height, bool needsTotals, string? part, bool usesTotals)
         {
             Part = part;
+            UsesTotals = usesTotals;
             Flows = flows;
             Ys = ys;
             Height = height;
             NeedsTotals = needsTotals;
         }
+
+        /// <summary>True when the block shows a page count (known or not).</summary>
+        public bool UsesTotals { get; }
 
         /// <summary>The relationship id of the part the block is made from; null for no part.</summary>
         public string? Part { get; }
@@ -192,6 +196,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         var header = BlockFor(page, HeaderFooterKind.Header, totals);
         var footer = BlockFor(page, HeaderFooterKind.Footer, totals);
         page.NeedsTotals = header.NeedsTotals || footer.NeedsTotals;
+        page.UsesTotals = header.UsesTotals || footer.UsesTotals;
         page.HeaderHeight = header.Height;
         page.FooterHeight = footer.Height;
         page.HeaderPart = header.Part;
@@ -271,7 +276,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         usesPage = fields.UsedPage;
         if (flows.Count == 0)
         {
-            return new ChromeBlock([], [], 0f, fields.UsedPendingTotal, id);
+            return new ChromeBlock([], [], 0f, fields.UsedPendingTotal, id, fields.UsedTotal);
         }
 
         var ys = new float[flows.Count];
@@ -288,7 +293,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         }
 
         y += flows[^1].SpaceAfter;
-        return new ChromeBlock([.. flows], ys, y, fields.UsedPendingTotal, id);
+        return new ChromeBlock([.. flows], ys, y, fields.UsedPendingTotal, id, fields.UsedTotal);
     }
 
     // The first page of a section with w:titlePg has its own parts; with w:evenAndOddHeaders the even pages (by number) have theirs.

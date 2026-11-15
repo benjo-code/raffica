@@ -1,3 +1,5 @@
+using Raffica.TestSupport;
+using Raffica.Write.Docx;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
 using Xunit;
@@ -223,5 +225,121 @@ public sealed class ChromeRefreshTests
         }
 
         LayoutOracle.AssertEqualToFull(layout, model, label: "body after chrome refresh");
+    }
+
+    /// <summary>Replaces the first paragraph of the part by the one the XML makes (a field added or taken away, as an undo does), as one change.</summary>
+    private static BlockChange Replace(WordDocument model, string id, string paragraphXml)
+    {
+        var blocks = model.HeadersFooters[id].Content.Blocks;
+        var before = (Paragraph)blocks[0];
+        var donor = Document(string.Empty, Parts(("donor", HeaderPart(paragraphXml))));
+        var replacement = (Paragraph)donor.HeadersFooters["donor"].Content.Blocks[0];
+        blocks[0] = replacement;
+        return new BlockChange(new StoryRef(StoryKind.HeaderFooter, id), blocks, 0, 1, 1, [before]);
+    }
+
+    private static string WithTotal => Para(Text("DEFAULT ") + Field("NUMPAGES", "0"));
+
+    private static string WithoutTotal => Para(Text("DEFAULT"));
+
+    private static async Task AssertNoStaleTotals(DocumentLayout layout, WordDocument model, string label)
+    {
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.True(layout.IsComplete);
+        Assert.Equal(0, Enumerable.Range(0, layout.LaidOutPages).Count(i => layout.Page(i).IsProvisional));
+        LayoutOracle.AssertEqualToFull(layout, model, label: label);
+    }
+
+    [Fact]
+    public async Task AddingATotalFieldToAHeaderWhileTheLayoutIsIncompleteEndsWithTheRealTotalEverywhere()
+    {
+        var model = Document(Document8Pages(Header("default", "hD")), Parts(("hD", HeaderPart(Line("DEFAULT")))));
+        var layout = DocumentLayout.Create(model, Fonts, new LayoutOptions());
+        layout.LayOutThrough(2);
+        Assert.False(layout.IsComplete);
+
+        layout.ApplyEdit(Replace(model, "hD", WithTotal), 1);
+        await AssertNoStaleTotals(layout, model, "total added while incomplete");
+
+        Assert.Equal($"DEFAULT {layout.LaidOutPages}", FirstLine(layout.Page(0)));
+        Assert.Equal($"DEFAULT {layout.LaidOutPages}", FirstLine(layout.Page(layout.LaidOutPages - 1)));
+    }
+
+    [Fact]
+    public async Task TakingATotalFieldOutOfAHeaderWhileTheLayoutIsIncompleteLeavesNothingProvisional()
+    {
+        var model = Document(Document8Pages(Header("default", "hD")), Parts(("hD", HeaderPart(WithTotal))));
+        var layout = DocumentLayout.Create(model, Fonts, new LayoutOptions());
+        layout.LayOutThrough(2);
+        Assert.False(layout.IsComplete);
+        Assert.True(layout.Page(0).IsProvisional);
+
+        layout.ApplyEdit(Replace(model, "hD", WithoutTotal), 1);
+        await AssertNoStaleTotals(layout, model, "total removed while incomplete");
+
+        Assert.Equal("DEFAULT", FirstLine(layout.Page(0)));
+    }
+
+    [Fact]
+    public async Task AddingATotalFieldToACompleteLayoutIsRightAndStaysRightWhenThePageCountChanges()
+    {
+        var model = Document(Document8Pages(Header("default", "hD")), Parts(("hD", HeaderPart(Line("DEFAULT")))));
+        var layout = await LaidAsync(model);
+        var pages = layout.LaidOutPages;
+
+        // A part that gains a page count field cannot be refreshed in place (the filler revises only pages that showed one): the restart makes the right pages.
+        var refill = layout.ApplyEdit(Replace(model, "hD", WithTotal), 1);
+        Assert.True(refill.Restarted);
+        Assert.False(refill.ChromeOnly);
+        await AssertNoStaleTotals(layout, model, "total added to a complete layout");
+        Assert.Equal($"DEFAULT {pages}", FirstLine(layout.Page(0)));
+
+        // Body edits that add pages: every page, those kept before the edit included, must show the new total.
+        var middle = (Paragraph)model.Body.Blocks[40];
+        layout.ApplyEdit(TestEdit.InsertText(model, middle, 0, string.Concat(Enumerable.Repeat("a long insert that wraps and adds lines ", 90))), 3);
+        await AssertNoStaleTotals(layout, model, "page count changed after a total was added");
+        Assert.True(layout.LaidOutPages > pages);
+        Assert.Equal($"DEFAULT {layout.LaidOutPages}", FirstLine(layout.Page(0)));
+    }
+
+    [Fact]
+    public async Task TakingATotalFieldOutOfACompleteLayoutStaysRightWhenThePageCountChanges()
+    {
+        var model = Document(Document8Pages(Header("default", "hD")), Parts(("hD", HeaderPart(WithTotal))));
+        var layout = await LaidAsync(model);
+
+        layout.ApplyEdit(Replace(model, "hD", WithoutTotal), 1);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "total removed from a complete layout");
+
+        var middle = (Paragraph)model.Body.Blocks[40];
+        layout.ApplyEdit(TestEdit.InsertText(model, middle, 0, string.Concat(Enumerable.Repeat("a long insert that wraps and adds lines ", 90))), 3);
+        await AssertNoStaleTotals(layout, model, "page count changed after a total was removed");
+        Assert.Equal("DEFAULT", FirstLine(layout.Page(0)));
+    }
+
+    [Fact]
+    public async Task AChromeRefreshOfPageOneRepublishedByReplaceModelEqualsAFullLayout()
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(TestData.Root, "testdata", "write-corpus", "thesis", "thesis.docx"));
+        using var prefix = DocxFile.OpenPrefix(bytes, 64);
+        var layout = DocumentLayout.Create(prefix.Model, Fonts, new LayoutOptions());
+        layout.LayOutFirstPage();
+        using var full = DocxFile.Open(bytes);
+        var model = full.Model;
+        layout.ReplaceModel(model);
+
+        // Only page 1 exists, republished by ReplaceModel with the prefix model's chrome record: a short edit of a part it shows keeps its height.
+        var (id, part) = model.HeadersFooters.First(h => h.Value.Content.Blocks.OfType<Paragraph>().Any(p => TestEdit.TextOf(p).Length > 0)
+            && layout.Page(0).Text.Contains(TestEdit.TextOf(h.Value.Content.Blocks.OfType<Paragraph>().First(p => TestEdit.TextOf(p).Length > 0)), StringComparison.Ordinal));
+        var paragraph = part.Content.Blocks.OfType<Paragraph>().First(p => TestEdit.TextOf(p).Length > 0);
+        var before = paragraph.Clone();
+        paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content.OfType<TextContent>()).Last().Text += "!";
+        var refill = layout.ApplyEdit(new BlockChange(new StoryRef(StoryKind.HeaderFooter, id), part.Content.Blocks, part.Content.Blocks.IndexOf(paragraph), 1, 1, [before]), 0);
+
+        Assert.True(refill.ChromeOnly, "the short edit keeps the height, so page 1 is refreshed in place");
+        Assert.False(refill.Restarted);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.True(layout.IsComplete);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome refresh after ReplaceModel");
     }
 }
