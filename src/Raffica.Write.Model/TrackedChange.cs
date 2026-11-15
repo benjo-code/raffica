@@ -23,4 +23,12 @@ public sealed class TrackedChange : Inline
     public RevisionInfo Info { get; }
 
     public IList<Inline> Inlines { get; } = new List<Inline>();
+
+    public override TrackedChange Clone()
+    {
+        var copy = new TrackedChange(Kind, new RevisionInfo(Info.Id, Info.Author, Info.DateText));
+        CopyAttributesTo(copy);
+        CloneInto(Inlines, copy.Inlines);
+        return copy;
+    }
 }

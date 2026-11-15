@@ -9,4 +9,16 @@ public sealed class SectionProperties : PropertyBag
     }
 
     public IList<HeaderFooterReference> HeaderFooterReferences { get; } = new List<HeaderFooterReference>();
+
+    public override SectionProperties Clone()
+    {
+        var copy = new SectionProperties();
+        CopyStateTo(copy);
+        foreach (var reference in HeaderFooterReferences)
+        {
+            copy.HeaderFooterReferences.Add(reference.Clone());
+        }
+
+        return copy;
+    }
 }
