@@ -207,6 +207,7 @@ internal sealed partial class PageView
         RestartBlink();
         EnsureCaretVisible();
         InvalidateAll();
+        PublishSelectionState();
         NotifyViewChanged();
     }
 
@@ -555,18 +556,25 @@ internal sealed partial class PageView
 
         RestartBlink();
         _overlay.InvalidateVisual();
-        var hasSelection = !range.IsEmpty;
-        if (hasSelection != _hadSelection)
-        {
-            _hadSelection = hasSelection;
-            SelectionStateChanged?.Invoke();
-        }
+        PublishSelectionState();
     }
 
-    private bool _hadSelection;
+    private bool _publishedSelection;
 
     /// <summary>Raised when the selection turns from a caret into a selection or back (the ribbon and the menu read the states of cut and copy again).</summary>
     internal event Action? SelectionStateChanged;
+
+    // Compares the live selection of the session (not what one path last set) with what was last published and raises on any difference. Every place the selection can change calls
+    // it: Place (pointer, caret keys, select all, header and footer), OnEditChanged (an edit, undo, redo, the replay of a queue after a save).
+    private void PublishSelectionState()
+    {
+        var now = CurrentSelection() is { IsEmpty: false };
+        if (now != _publishedSelection)
+        {
+            _publishedSelection = now;
+            SelectionStateChanged?.Invoke();
+        }
+    }
 
     // The nearest paragraph before a position's paragraph in its container (the fallback when the paragraph is gone when a queued selection runs), or null.
     private Paragraph? PreviousParagraph(TextPosition position)

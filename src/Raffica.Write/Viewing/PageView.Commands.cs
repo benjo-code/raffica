@@ -179,15 +179,16 @@ internal sealed partial class PageView
         }
 
         var content = await ReadSafeAsync(ClipboardOfView);
-        if (content is null)
+        if (content is null || (content.PlainText.Length == 0 && !(content.Fragment is { } bytes && EditSession.FragmentReadable(bytes))))
         {
+            // Nothing usable: no text and no readable fragment. Pasting "" over a selection would delete it, so nothing happens at all.
             return true;
         }
 
         // The continuation belongs to the UI thread (the clipboard of the system may finish elsewhere).
         if (!Dispatcher.CheckAccess())
         {
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplyPaste(session, content));
+            await Dispatcher.InvokeAsync(() => ApplyPaste(session, content));
             return true;
         }
 

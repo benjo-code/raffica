@@ -44,6 +44,19 @@ internal sealed class EditSession
     // The codec of the clipboard fragment (stateless, shared by every editor).
     private static readonly DocxFragmentCodec s_fragmentCodec = new();
 
+    /// <summary>Whether the bytes of a clipboard fragment can be read by the codec (the editor treats a fragment that cannot as absent). The bytes are untrusted: a refusal of any kind is "no".</summary>
+    internal static bool FragmentReadable(byte[] bytes)
+    {
+        try
+        {
+            return s_fragmentCodec.Read(bytes).Count > 0;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return false;
+        }
+    }
+
     private readonly WriteTab _tab;
     private readonly Dispatcher _ui;
     private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key)> _queue = [];
