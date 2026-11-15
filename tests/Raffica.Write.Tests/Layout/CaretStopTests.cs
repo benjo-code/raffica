@@ -89,6 +89,7 @@ public sealed class CaretStopTests
                 foreach (var stop in run.CaretStops)
                 {
                     var x = run.CaretX(stop);
+                    Assert.InRange(x, run.X - 0.01f, run.X + run.Width + 0.01f);
                     Assert.True(x >= previous - 0.001f, $"{x} < {previous}");
                     previous = x;
                 }
@@ -99,10 +100,20 @@ public sealed class CaretStopTests
     [Fact]
     public void HyphenRunsHaveNoStops()
     {
-        var layout = Lay("internationalization internationalization internationalization", "<w:autoHyphenation/>", 80f);
-        foreach (var run in layout.Lines.SelectMany(l => l.Runs).Where(r => r.IsHyphen))
+        var body = "<w:p><w:r><w:t>x</w:t></w:r></w:p>";
+        var document = LayoutModel.Document(body);
+        var resolver = new StyleResolver(document.Styles, document.Settings, document.Numbering);
+        var paragraph = resolver.ForParagraph(LayoutModel.Para(document, 0));
+        var run = Run("Calibri") with { Language = "en-US" };
+        var input = new ParagraphInput(paragraph, [new TextSpan("go hyphenation hyphenation hyphenation", run)], run) { AutoHyphenation = true };
+        var layout = new ParagraphLayouter(s_fonts) { Hyphenator = Hyphenator.Default }.Layout(input, 60f, null);
+
+        var hyphens = layout.Lines.SelectMany(l => l.Runs).Where(r => r.IsHyphen).ToList();
+        Assert.NotEmpty(hyphens);
+        foreach (var hyphen in hyphens)
         {
-            Assert.Empty(run.CaretStops);
+            Assert.Empty(hyphen.CaretStops);
+            Assert.Equal(hyphen.X, hyphen.CaretX(hyphen.TextStart), 0.001f);
         }
     }
 }
