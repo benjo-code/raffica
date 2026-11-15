@@ -72,6 +72,12 @@ internal sealed class BlockPlanner
     internal string StoryKey { get; set; } = ImageRef.DocumentStory;
 
     /// <summary>
+    /// The story of the model the planner reads, for the text lines of its paragraphs: the body unless a header, footer or note planner sets
+    /// it (a header or footer: the document's relationship id; a footnote: its id; an endnote: <c>endnote:</c> and its id).
+    /// </summary>
+    internal StoryRef Story { get; set; } = StoryRef.Body;
+
+    /// <summary>
     /// True for the planner of the body in the page view, outside table cells: only there does the page filler place floating objects. A
     /// planner that cannot place them (headers, footers, notes) shows each as an inline box of its size, as the writing view does, so
     /// nothing is lost; the table planner switches it off for the cells of a table.
@@ -139,7 +145,8 @@ internal sealed class BlockPlanner
         _placeable = CanPlaceFloats && cell is null && !_planningBox && !_flowMode;
         var host = new LayoutProjectionHost(_styles, Context, resolved);
         var projection = ParagraphProjection.Build(paragraph, host);
-        AddPieces(projection, host, resolved, items, text, ref textRun);
+        var map = new OffsetMap.Builder();
+        AddPieces(projection, host, resolved, items, text, ref textRun, map);
         Flush(items, text, ref textRun);
         IReadOnlyList<NoteMark>? marks = _marks;
         var floats = _floats;
@@ -157,6 +164,7 @@ internal sealed class BlockPlanner
             }
 
             items.InsertRange(0, front);
+            map.Lead(front.Count);
             marks = marks?.Select(m => m with { ItemIndex = m.ItemIndex + front.Count }).ToList();
         }
 
@@ -168,6 +176,8 @@ internal sealed class BlockPlanner
             NoteMarks = marks,
             Floats = floats,
             Projection = projection,
+            ProjectionMap = map.Build(),
+            Source = _planningBox ? null : new ParagraphSource(Story, paragraph),
         };
 
         // The paragraphs of a text box are planned after the paragraph that holds it: planning one is not re-entrant.
@@ -242,8 +252,10 @@ internal sealed class BlockPlanner
     }
 
     // Turns the pieces of the projection into items: the projection decides what is visible and what a field shows, this decides how it is drawn.
-    private void AddPieces(ParagraphProjection projection, LayoutProjectionHost host, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    private void AddPieces(ParagraphProjection projection, LayoutProjectionHost host, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun, OffsetMap.Builder map)
     {
+        var counted = 0;
+        var itemLength = 0;
         foreach (var piece in projection.Pieces)
         {
             var format = piece.Run is { } run ? host.Format(run) : FieldFormat(owner);
@@ -267,6 +279,12 @@ internal sealed class BlockPlanner
                 default:
                     break;
             }
+
+            // What the layouter will count of everything added so far: the items made (a hidden span has no length, a box or break one) and the text not yet flushed.
+            itemLength += ParagraphPlan.LayoutLength(items, counted, items.Count);
+            counted = items.Count;
+            var total = itemLength + (textRun is { Hidden: false } ? text.Length : 0);
+            map.Add(piece.Start, piece.Length, total - map.LayoutLength);
         }
     }
 

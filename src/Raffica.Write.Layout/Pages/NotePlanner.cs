@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 using Raffica.Write.Model;
 
@@ -149,6 +150,7 @@ internal sealed class NotePlanner
             var planner = _planners();
             planner.Context = new PlanContext { NoteMark = reference.Text };
             planner.StoryKey = reference.IsEndnote ? ImageRef.EndnotesStory : ImageRef.FootnotesStory;
+            planner.Story = new StoryRef(StoryKind.Note, (reference.IsEndnote ? "endnote:" : string.Empty) + reference.Id.ToString(CultureInfo.InvariantCulture));
             planner.CanPlaceFloats = false;
             body = new NoteBody(planner.PlanStory(note.Content.Blocks, width));
         }

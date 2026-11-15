@@ -173,7 +173,7 @@ internal sealed class PageFiller
     /// What a page with a provisional page count keeps until the layout is complete: the published page (its item array and text are
     /// shared, not copied) and the sizes of the header and footer parts in them. It holds no <see cref="PageBuilder"/>.
     /// </summary>
-    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderRaw, int FooterRaw, int RawLength)
+    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderLines, int FooterLines, int HeaderRaw, int FooterRaw, int RawLength)
     {
         public LaidOutPage Rebuild(PageBuilder scratch)
         {
@@ -188,7 +188,15 @@ internal sealed class PageFiller
             var raw = Published.Text.Length < RawLength ? Published.Text + '\n' : Published.Text;
             var raw2 = string.Concat(scratch.RawTextOf(PageRegion.Header), raw.AsSpan(HeaderRaw, RawLength - HeaderRaw - FooterRaw), scratch.RawTextOf(PageRegion.Footer));
             var text = raw2.Length == 0 ? string.Empty : raw2[..^1];
-            return new LaidOutPage(Published.Index, Published.Number, Published.Width, Published.Height, Published.IsStrip, items, text, Published.Spans);
+
+            var headerLines = scratch.LinesOf(PageRegion.Header);
+            var footerLines = scratch.LinesOf(PageRegion.Footer);
+            var oldLines = Published.TextLines;
+            var lines = new TextLine[headerLines.Length + (oldLines.Length - HeaderLines - FooterLines) + footerLines.Length];
+            headerLines.CopyTo(lines, 0);
+            Array.Copy(oldLines, HeaderLines, lines, headerLines.Length, oldLines.Length - HeaderLines - FooterLines);
+            footerLines.CopyTo(lines, lines.Length - footerLines.Length);
+            return new LaidOutPage(Published.Index, Published.Number, Published.Width, Published.Height, Published.IsStrip, items, text, Published.Spans, textLines: lines);
         }
     }
 
@@ -269,13 +277,13 @@ internal sealed class PageFiller
 
         Chrome?.End(page);
         var height = geometry.IsStrip ? Math.Max(1f, end) : geometry.Height;
-        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals);
+        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray());
         if (page.NeedsTotals)
         {
             var header = page.RawTextOf(PageRegion.Header).Length;
             var footer = page.RawTextOf(PageRegion.Footer).Length;
             var rawLength = header + footer + page.RawTextOf(PageRegion.Body).Length + page.RawTextOf(PageRegion.Notes).Length;
-            _revisable.Add(new Revisable(built, page.Section, page.Number, page.IsFirstOfSection, page.ItemCount(PageRegion.Header), page.ItemCount(PageRegion.Footer), header, footer, rawLength));
+            _revisable.Add(new Revisable(built, page.Section, page.Number, page.IsFirstOfSection, page.ItemCount(PageRegion.Header), page.ItemCount(PageRegion.Footer), page.LineCount(PageRegion.Header), page.LineCount(PageRegion.Footer), header, footer, rawLength));
         }
 
         PageFinished?.Invoke(page);

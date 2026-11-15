@@ -23,6 +23,7 @@ internal sealed class PageBuilder
     private readonly List<PageItem>[] _items = [[], [], [], [], []];
     private readonly StringBuilder[] _text = [new(), new(), new(), new(), new()];
     private readonly List<BlockSpan> _spans = [];
+    private readonly List<TextLine>[] _lines = [[], [], [], [], []];
 
     public PageBuilder(int index, int number, string numberText, SectionPlan section, bool isFirstOfSection)
     {
@@ -96,11 +97,38 @@ internal sealed class PageBuilder
 
     internal void AddSpan(BlockSpan span) => _spans.Add(span);
 
+    /// <summary>Adds the record of a line to the current region.</summary>
+    internal void AddTextLine(TextLine line) => _lines[(int)Region].Add(line);
+
     /// <summary>Forgets what a region holds (the header and footer are made again at the end).</summary>
     internal void Clear(PageRegion region)
     {
         _items[(int)region].Clear();
         _text[(int)region].Clear();
+        _lines[(int)region].Clear();
+    }
+
+    internal int LineCount(PageRegion region) => _lines[(int)region].Count;
+
+    internal TextLine[] LinesOf(PageRegion region) => [.. _lines[(int)region]];
+
+    internal TextLine[] TextLineArray()
+    {
+        var count = 0;
+        foreach (var list in _lines)
+        {
+            count += list.Count;
+        }
+
+        var all = new TextLine[count];
+        var at = 0;
+        foreach (var list in _lines)
+        {
+            list.CopyTo(all, at);
+            at += list.Count;
+        }
+
+        return all;
     }
 
     internal int ItemCount(PageRegion region) => _items[(int)region].Count;

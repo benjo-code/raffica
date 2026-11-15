@@ -91,7 +91,8 @@ public sealed class GlyphRun
     public IReadOnlyList<int> CaretStops => Map().Offsets;
 
     /// <summary>
-    /// The x of a caret at <paramref name="textOffset"/>, in points from the left edge of the text area, final after justification.
+    /// The x of a caret at <paramref name="textOffset"/>, in points relative to the line (from the left edge of its text area, the origin
+    /// <c>TextLine.X</c> puts on the page), final after justification.
     /// An offset inside a ligature divides it equally; an offset that is no stop snaps to the previous stop. A run without stops answers <see cref="X"/>.
     /// </summary>
     public float CaretX(int textOffset)

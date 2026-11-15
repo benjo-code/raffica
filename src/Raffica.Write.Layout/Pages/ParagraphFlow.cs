@@ -58,7 +58,27 @@ internal sealed class ParagraphPlan : BlockPlan
 
         // A floating object anchored after the break belongs to the part after it.
         var floats = Input.Floats?.Where(f => f.ItemIndex >= item).Select(f => f.WithItemIndex(f.ItemIndex - item)).ToArray();
-        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks, Floats = floats is { Length: > 0 } ? floats : null }, _layouter, isContinuation: true);
+        var map = (Input.ProjectionMap ?? OffsetMap.Identity).Slice(LayoutLength(Input.Items, item));
+        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks, Floats = floats is { Length: > 0 } ? floats : null, ProjectionMap = map }, _layouter, isContinuation: true);
+    }
+
+    /// <summary>The length of the layout text of the first <paramref name="count"/> items (a hidden span has none, every box and break counts one).</summary>
+    internal static int LayoutLength(IReadOnlyList<ParagraphItem> items, int count) => LayoutLength(items, 0, count);
+
+    /// <summary>The length of the layout text of the items from <paramref name="from"/> up to <paramref name="to"/>.</summary>
+    internal static int LayoutLength(IReadOnlyList<ParagraphItem> items, int from, int to)
+    {
+        var length = 0;
+        for (var i = from; i < to && i < items.Count; i++)
+        {
+            length += items[i] switch
+            {
+                TextSpan span => span.Run.Hidden ? 0 : span.Text.Length,
+                _ => 1,
+            };
+        }
+
+        return length;
     }
 
     /// <summary>The text offset of each note mark of <see cref="ParagraphInput.NoteMarks"/> (counted as the layouter counts text).</summary>
@@ -322,6 +342,11 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
             var line = _layout.Lines[i];
             var lineTop = y + (line.Top - _top);
             LineItems.Emit(page, line, x, lineTop);
+            if (_plan.Input is { Source: { } source, Projection: { } projection } input)
+            {
+                page.AddTextLine(new TextLine(source.Story, source.Paragraph, projection, RunsOf(line), StartOf(input, line, i), EndOf(input, line, i), x, lineTop, lineTop + line.Baseline, line.Height));
+            }
+
             var text = _layout.TextOf(line);
             page.AddLine(i == 0 && IsFirstPiece && _plan.Input.Label is { } label ? label.Text + " " + text : text);
         }
@@ -335,6 +360,16 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
             }
         }
     }
+
+    private static GlyphRun[] RunsOf(LineBox line) => line.Runs as GlyphRun[] ?? [.. line.Runs];
+
+    // The first line of a paragraph starts at 0 (a leading character the layout gave no room belongs to it); a continuation starts where its map says.
+    private int StartOf(ParagraphInput input, LineBox line, int index) =>
+        index == 0 && !_plan.IsContinuation ? 0 : (input.ProjectionMap ?? OffsetMap.Identity).Map(line.Start);
+
+    // The last line of a paragraph ends at the end of the projection text; a line that ends in a manual break ends where the continuation starts.
+    private int EndOf(ParagraphInput input, LineBox line, int index) =>
+        _layout.EndBreak is null && index == _layout.Lines.Count - 1 ? input.Projection!.Text.Length : (input.ProjectionMap ?? OffsetMap.Identity).Map(line.End);
 
     // The note marks whose number is drawn on one of this piece's lines.
     private List<NoteRef> FindNotes()

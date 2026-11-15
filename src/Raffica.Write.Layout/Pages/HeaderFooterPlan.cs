@@ -197,6 +197,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         var planner = _planners();
         planner.Context = new PlanContext { Fields = fields };
         planner.StoryKey = ImageRef.HeaderFooterStory(id);
+        planner.Story = new StoryRef(StoryKind.HeaderFooter, id);
         planner.CanPlaceFloats = false;
         var flows = planner.PlanStory(part.Content.Blocks, width);
         usesPage = fields.UsedPage;

@@ -9,7 +9,7 @@ internal readonly record struct BlockSpan(int BodyIndex, float Top, float Bottom
 /// </summary>
 public sealed class LaidOutPage
 {
-    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false)
+    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false, TextLine[]? textLines = null)
     {
         IsProvisional = isProvisional;
         ItemArray = items;
@@ -21,6 +21,7 @@ public sealed class LaidOutPage
         Items = items;
         Text = text;
         Spans = spans;
+        TextLines = textLines ?? [];
     }
 
     /// <summary>The position in the document, from 0.</summary>
@@ -56,4 +57,7 @@ public sealed class LaidOutPage
     public string Text { get; }
 
     internal BlockSpan[] Spans { get; }
+
+    /// <summary>The line records of the page in reading order (header, body, notes, footer): the way back from what is drawn to the model.</summary>
+    internal TextLine[] TextLines { get; }
 }
