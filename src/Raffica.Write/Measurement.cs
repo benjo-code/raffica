@@ -74,9 +74,10 @@ internal sealed partial class Measurement : IDisposable
         _error = error ?? Console.Error;
         _finish = finish;
         _exitProcess = exitProcess ?? Environment.Exit;
-        _timeout = timeout ?? (options.MeasureSwitch == "--measure-typing" ? s_typingTimeout : s_defaultTimeout);
+        _timeout = timeout ?? (options.MeasureSwitch is "--measure-typing" or "--measure-typing-background" ? s_typingTimeout : s_defaultTimeout);
         _scrollSteps = scrollSteps;
         _typingKeys = typingKeys;
+        _background = options.MeasureSwitch == "--measure-typing-background";
     }
 
     /// <summary>Starts the watchdog and listens for the first sharp page (and for the hand-over of the second file).</summary>
@@ -177,7 +178,7 @@ internal sealed partial class Measurement : IDisposable
                 _lastFrame = 0;
                 _window.RequestAnimationFrame(_ => ScrollFrame());
                 break;
-            case "--measure-typing":
+            case "--measure-typing" or "--measure-typing-background":
                 StartTyping();
                 break;
             case "--measure-second":

@@ -52,6 +52,7 @@ internal sealed record EditRow(string Case, string View, string When, double[] M
 internal static class EditCommand
 {
     private const int DefaultKeystrokes = 200;
+    private const int BackgroundKeystrokes = 50;
     private const int HitTestCalls = 2000;
     private const int Seed = 4242;
 
@@ -66,6 +67,13 @@ internal static class EditCommand
         if (!File.Exists(file))
         {
             return Program.Fail(error, "the file does not exist");
+        }
+
+        if (options.Flag("--background"))
+        {
+            var background = MeasureBackground(file, Math.Max(1, options.Int("--runs", BackgroundKeystrokes)));
+            output.Write(BackgroundTable(background));
+            return 0;
         }
 
         var rows = Measure(file, Math.Max(1, options.Int("--runs", DefaultKeystrokes)), error, options.Flag("--phases") ? output : null);
@@ -134,6 +142,111 @@ internal static class EditCommand
         }
 
         return rows;
+    }
+
+    /// <summary>The keystrokes of <see cref="MeasureBackground"/>: <paramref name="Millis"/> with the lease wait in them, <paramref name="LeaseMillis"/> the wait alone, <paramref name="IncompleteKeys"/> how many started with the layout incomplete.</summary>
+    internal sealed record BackgroundResult(double[] Millis, double[] LeaseMillis, int IncompleteKeys, int Restarts);
+
+    /// <summary>
+    /// Typing while the layout of the rest of the document is still running: the first page exists, the rest is laid out on a pool thread, and the keystrokes go into the first paragraph
+    /// with text on the first pages (a typist at the top of a document that was just opened). Every key takes the lease as the app does: the background layout is told to stop at its page
+    /// boundary and awaited (that wait is the lease wait), the editor and <see cref="DocumentLayout.ApplyEdit"/> run, and the background layout is started again; the typist waits 16 ms between
+    /// keys (outside the timing). The time of a key includes the lease wait. Not a timing guard: <see cref="Run"/> refuses a JIT build.
+    /// </summary>
+    internal static BackgroundResult MeasureBackground(string file, int keystrokes)
+    {
+        var bytes = File.ReadAllBytes(file);
+        using var docx = DocxFile.Open(bytes);
+        var model = docx.Model;
+        var fonts = FontCatalog.CreateShipped();
+        var images = new PackageImages(bytes);
+        var layout = DocumentLayout.Create(model, fonts, new LayoutOptions(LayoutMode.Pages, ImageBytes: images.Read));
+        layout.LayOutFirstPage();
+
+        Paragraph? target = null;
+        var offset = 0;
+        for (var i = 0; i < Math.Min(30, model.Body.Blocks.Count) && target is null; i++)
+        {
+            if (model.Body.Blocks[i] is Paragraph { SectionBreak: null } p)
+            {
+                var length = ParagraphProjection.Build(p, layout.ProjectionHost(StoryRef.Body, p)).Text.Length;
+                if (length >= 30)
+                {
+                    target = p;
+                    offset = length;
+                }
+            }
+        }
+
+        if (target is null)
+        {
+            throw new InvalidOperationException("the document has no paragraph with text near its start");
+        }
+
+        var editor = new TextEditor(model, (story, paragraph) => layout.ProjectionHost(story, paragraph));
+        var position = new TextPosition(StoryRef.Body, target, offset);
+        var random = new Random(Seed);
+        var millis = new double[keystrokes];
+        var lease = new double[keystrokes];
+        var incomplete = 0;
+        var before = layout.Stats;
+        var cts = new CancellationTokenSource();
+        var running = Task.Run(() => RunRest(layout, cts.Token));
+        for (var i = 0; i < keystrokes; i++)
+        {
+            Thread.Sleep(16);
+            if (!layout.IsComplete)
+            {
+                incomplete++;
+            }
+
+            var through = Math.Min(Math.Max(0, layout.LaidOutPages - 1), 1);
+            var start = Stopwatch.GetTimestamp();
+            cts.Cancel();
+            running.GetAwaiter().GetResult();
+            lease[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            var result = editor.InsertText(new TextRange(position, position), EditCases.KeyText(random, i));
+            foreach (var change in result.Changes)
+            {
+                layout.ApplyEdit(change, through);
+            }
+
+            millis[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            position = result.Caret;
+            cts.Dispose();
+            cts = new CancellationTokenSource();
+            var token = cts.Token;
+            running = Task.Run(() => RunRest(layout, token));
+        }
+
+        cts.Cancel();
+        running.GetAwaiter().GetResult();
+        cts.Dispose();
+        return new BackgroundResult(millis, lease, incomplete, layout.Stats.Restarts - before.Restarts);
+    }
+
+    // The background layout of the lease protocol: ends at a page boundary when cancelled (not an error) and at once when the layout is complete.
+    private static void RunRest(DocumentLayout layout, CancellationToken token)
+    {
+        try
+        {
+            layout.LayOutRestAsync(null, token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped for a key.
+        }
+    }
+
+    internal static string BackgroundTable(BackgroundResult result)
+    {
+        var text = new StringBuilder();
+        text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{"background typing",-20}{"n",5}{"median ms",11}{"p95 ms",9}{"max ms",9}{"lease med",10}{"lease p95",10}{"lease max",10}{"incomplete",11}{"restarts",9}"));
+        text.AppendLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{"background",-20}{result.Millis.Length,5}{EditRow.Percentile(result.Millis, 0.5),11:0.000}{EditRow.Percentile(result.Millis, 0.95),9:0.000}{result.Millis.Max(),9:0.000}{EditRow.Percentile(result.LeaseMillis, 0.5),10:0.000}{EditRow.Percentile(result.LeaseMillis, 0.95),10:0.000}{result.LeaseMillis.Max(),10:0.000}{result.IncompleteKeys,11}{result.Restarts,9}"));
+        text.AppendLine("no limit: the key includes the lease wait; incomplete = keys that started with the layout of the rest still running.");
+        return text.ToString();
     }
 
     private static DocumentLayout LayOut(WordDocument model, FontCatalog fonts, PackageImages images, LayoutMode mode)

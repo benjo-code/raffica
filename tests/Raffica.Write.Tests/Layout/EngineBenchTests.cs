@@ -103,6 +103,34 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void EditBackgroundRefusesAJitBuild()
+    {
+        var (code, output, error) = Run("edit", "--background", "--file", Thesis, "--runs", "1");
+        Assert.Equal(2, code);
+        Assert.Contains("Native AOT", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("background", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EditBackgroundTypesWhileTheLayoutRunsAndSeparatesTheLeaseWait()
+    {
+        var result = EditCommand.MeasureBackground(Thesis, 6);
+
+        Assert.Equal(6, result.Millis.Length);
+        Assert.Equal(6, result.LeaseMillis.Length);
+        Assert.All(result.Millis, ms => Assert.True(ms >= 0 && double.IsFinite(ms)));
+        Assert.All(result.LeaseMillis, ms => Assert.True(ms >= 0 && double.IsFinite(ms)));
+        for (var i = 0; i < 6; i++)
+        {
+            // The lease wait is part of the keystroke.
+            Assert.True(result.LeaseMillis[i] <= result.Millis[i] + 0.001);
+        }
+
+        Assert.InRange(result.IncompleteKeys, 0, 6);
+        Assert.Contains("background", EditCommand.BackgroundTable(result), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EditPercentilesAreNearestRankAndTheMeanOfTheMiddleForTheMedian()
     {
         Assert.Equal(2.5, EditRow.Percentile([4, 1, 3, 2], 0.5));

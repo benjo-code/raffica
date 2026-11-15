@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -221,6 +221,47 @@ public sealed class MeasurementTests
             {
                 Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d$", rows[index++]);
             }
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TypingBackgroundMeasurementWritesOneRowWithTheLeaseWait()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-typing-background", typingKeys: 6);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 2400 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        Assert.Equal("first-page", probe.Lines[0]);
+        Assert.Equal(2, probe.Lines.Length);
+        Assert.Matches(@"^typing-background n=6 incomplete=\d+ median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d lease-median-ms=\d+\.\d\d lease-p95-ms=\d+\.\d\d lease-max-ms=\d+\.\d\d incomplete-median-ms=\d+\.\d\d incomplete-max-ms=\d+\.\d\d$", probe.Lines[1]);
+    }
+
+    [Fact]
+    public void TypingBackgroundLineSeparatesTheLeaseAndTheKeysThatStartedIncomplete()
+    {
+        var saved = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            Assert.Equal(
+                "typing-background n=4 incomplete=2 median-ms=2.50 p95-ms=9.00 max-ms=9.00 lease-median-ms=0.75 lease-p95-ms=4.00 lease-max-ms=4.00 incomplete-median-ms=6.50 incomplete-max-ms=9.00",
+                Measurement.TypingBackgroundLine([1.0, 2.0, 3.0, 9.0], [0.5, 0.5, 1.0, 4.0], [4.0, 9.0]));
+            Assert.Equal(
+                "typing-background n=1 incomplete=0 median-ms=1.00 p95-ms=1.00 max-ms=1.00 lease-median-ms=0.00 lease-p95-ms=0.00 lease-max-ms=0.00 incomplete-median-ms=0.00 incomplete-max-ms=0.00",
+                Measurement.TypingBackgroundLine([1.0], [0.0], []));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = saved;
         }
     }
 

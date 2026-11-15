@@ -34,16 +34,26 @@ internal sealed partial class Measurement
     /// <summary>The keys typed per case and view.</summary>
     public const int TypingKeys = 100;
 
+    /// <summary>The keys typed by <c>--measure-typing-background</c> (when the count is the default one).</summary>
+    public const int BackgroundKeys = 50;
+
     private const int Seed = 4242;
     private static readonly TimeSpan s_typingTimeout = TimeSpan.FromSeconds(240);
     private static readonly TimeSpan s_noFrameAfterKey = TimeSpan.FromSeconds(5);
 
     private sealed record Job(string Case, WriteView View, string? FirstWhen, TypingPlace Place, int Keys);
 
+    private static readonly TimeSpan s_notReady = TimeSpan.FromSeconds(60);
+
     private readonly int _typingKeys;
+    private readonly bool _background;
+    private long _waitStarted;
     private readonly List<double> _samples = [];
     private readonly List<double> _handlerSamples = [];
     private readonly List<double> _frameSamples = [];
+    private readonly List<double> _leaseSamples = [];
+    private readonly List<double> _incompleteSamples = [];
+    private bool _keyIncomplete;
     private List<Job>? _jobs;
     private Job? _job;
     private int _jobIndex;
@@ -80,6 +90,23 @@ internal sealed partial class Measurement
         }
 
         return line;
+    }
+
+    /// <summary>
+    /// The line <c>typing-background n=... incomplete=... median-ms=... p95-ms=... max-ms=... lease-median-ms=... lease-p95-ms=... lease-max-ms=... incomplete-median-ms=... incomplete-max-ms=...</c>:
+    /// the keys typed while the layout of the rest was still running (the judged time of each, which includes the wait for the edit lease), the lease wait alone, and the keys among them that
+    /// started with the layout incomplete (<c>incomplete</c> counts them; the last two fields are zero for none). Never judged.
+    /// </summary>
+    public static string TypingBackgroundLine(IReadOnlyList<double> milliseconds, IReadOnlyList<double> leaseMilliseconds, IReadOnlyList<double> incompleteMilliseconds)
+    {
+        var all = milliseconds.Order().ToArray();
+        var lease = leaseMilliseconds.Order().ToArray();
+        var incomplete = incompleteMilliseconds.Order().ToArray();
+        var incompleteMedian = incomplete.Length == 0 ? 0 : Median(incomplete);
+        var incompleteMax = incomplete.Length == 0 ? 0 : incomplete[^1];
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"typing-background n={all.Length} incomplete={incomplete.Length} median-ms={Median(all):0.00} p95-ms={Percentile95(all):0.00} max-ms={all[^1]:0.00} lease-median-ms={Median(lease):0.00} lease-p95-ms={Percentile95(lease):0.00} lease-max-ms={lease[^1]:0.00} incomplete-median-ms={incompleteMedian:0.00} incomplete-max-ms={incompleteMax:0.00}");
     }
 
     private static double Median(double[] sorted)
@@ -184,13 +211,25 @@ internal sealed partial class Measurement
 
         if (_jobs is null)
         {
-            if (!view.Runner.FullModelReady || !view.IsLayoutComplete)
+            // The background run starts as soon as the whole model is there, with the layout of the rest still running; the others wait for the complete layout.
+            if (!view.Runner.FullModelReady || (!_background && !view.IsLayoutComplete))
             {
+                if (_waitStarted == 0)
+                {
+                    _waitStarted = Stopwatch.GetTimestamp();
+                }
+
+                if (Stopwatch.GetElapsedTime(_waitStarted) > s_notReady)
+                {
+                    FailTyping("the document was not ready to be edited within 60 s");
+                    return;
+                }
+
                 NextTypingFrame();
                 return;
             }
 
-            _jobs = Plan(view);
+            _jobs = _background ? PlanBackground(view) : Plan(view);
             if (_jobs.Count == 0)
             {
                 FailTyping("the document has no place to type at");
@@ -220,7 +259,14 @@ internal sealed partial class Measurement
             _handlerSamples.Add(handler);
             _frameSamples.Add(Stopwatch.GetElapsedTime(_keyAt, end).TotalMilliseconds);
             var drawing = Stopwatch.GetElapsedTime(0, Volatile.Read(ref _drawTicks) - _drawTicksAtRender).TotalMilliseconds;
-            _samples.Add(handler + Stopwatch.GetElapsedTime(_renderStart, _renderStamp).TotalMilliseconds + drawing);
+            var judged = handler + Stopwatch.GetElapsedTime(_renderStart, _renderStamp).TotalMilliseconds + drawing;
+            _samples.Add(judged);
+            _leaseSamples.Add(view.Runner.LastLeaseWaitMilliseconds);
+            if (_keyIncomplete)
+            {
+                _incompleteSamples.Add(judged);
+            }
+
             _awaiting = false;
             _keyInJob++;
         }
@@ -229,7 +275,7 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples));
             }
 
             if (_jobIndex >= _jobs.Count)
@@ -244,6 +290,8 @@ internal sealed partial class Measurement
             _samples.Clear();
             _handlerSamples.Clear();
             _frameSamples.Clear();
+            _leaseSamples.Clear();
+            _incompleteSamples.Clear();
             _placeStage = 0;
         }
 
@@ -255,7 +303,7 @@ internal sealed partial class Measurement
             return;
         }
 
-        if (!view.IsLayoutComplete)
+        if (!_background && !view.IsLayoutComplete)
         {
             NextTypingFrame();
             return;
@@ -284,6 +332,7 @@ internal sealed partial class Measurement
         }
 
         var text = TypingPlaces.KeyText(_random, _keySequence++);
+        _keyIncomplete = !view.IsLayoutComplete;
         _renderSeen = false;
         _renderStart = 0;
         _awaiting = true;
@@ -291,6 +340,26 @@ internal sealed partial class Measurement
         view.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text, Source = view });
         _handlerEnd = Stopwatch.GetTimestamp();
         NextTypingFrame();
+    }
+
+    // One job: the first paragraph with text near the start of the document (the layout there exists already), at its end.
+    private List<Job> PlanBackground(PageView view)
+    {
+        var model = view.Tab.Docx.Model;
+        var layout = view.Runner.PageLayout;
+        for (var i = 0; i < Math.Min(30, model.Body.Blocks.Count); i++)
+        {
+            if (model.Body.Blocks[i] is Paragraph { SectionBreak: null } paragraph)
+            {
+                var length = ParagraphProjection.Build(paragraph, layout.ProjectionHost(StoryRef.Body, paragraph)).Text.Length;
+                if (length >= 30)
+                {
+                    return [new Job("background", WriteView.Page, null, new TypingPlace("background", StoryRef.Body, paragraph, length, i), _typingKeys == TypingKeys ? BackgroundKeys : _typingKeys)];
+                }
+            }
+        }
+
+        return [];
     }
 
     private List<Job> Plan(PageView view)

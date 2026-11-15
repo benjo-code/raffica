@@ -387,6 +387,7 @@ internal sealed class LayoutRunner : IDisposable
     /// <exception cref="ObjectDisposedException">The runner is disposed.</exception>
     public EditLease PauseForEdit()
     {
+        var requested = System.Diagnostics.Stopwatch.GetTimestamp();
         var me = Environment.CurrentManagedThreadId;
         lock (_gate)
         {
@@ -430,8 +431,14 @@ internal sealed class LayoutRunner : IDisposable
             }
         }
 
+        Volatile.Write(ref _lastLeaseWaitTicks, System.Diagnostics.Stopwatch.GetTimestamp() - requested);
         return new EditLease(this);
     }
+
+    private long _lastLeaseWaitTicks;
+
+    /// <summary>How long the last <see cref="PauseForEdit"/> took to get the lease (another lease and the stop of the layout at its page boundary), in milliseconds; for the typing measurement.</summary>
+    internal double LastLeaseWaitMilliseconds => System.Diagnostics.Stopwatch.GetElapsedTime(0, Volatile.Read(ref _lastLeaseWaitTicks)).TotalMilliseconds;
 
     /// <summary>How long <see cref="PauseForEdit"/> waits for another lease and for the loops to stop before it throws <see cref="TimeoutException"/>; infinite by default (tests bound it so a gate that stands still fails).</summary>
     internal TimeSpan LeaseWaitTimeout { get; set; } = Timeout.InfiniteTimeSpan;

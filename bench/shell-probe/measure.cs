@@ -165,6 +165,31 @@ static class Lines
         return name.Length > 0 && view.Length > 0 && TryValue(c, "median-ms=", out median) && TryValue(d, "p95-ms=", out p95) && TryValue(e, "max-ms=", out max);
     }
 
+    /// <summary>Reads <c>typing-background n=... incomplete=... median-ms=... ...</c> of the Write app: every key=value word as a number (invariant culture).</summary>
+    public static bool TryParseTypingBackground(string line, out Dictionary<string, double> values)
+    {
+        values = [];
+        var parts = line.Split(' ');
+        if (parts.Length < 2 || parts[0] != "typing-background")
+        {
+            return false;
+        }
+
+        foreach (var part in parts.Skip(1))
+        {
+            var at = part.IndexOf('=', StringComparison.Ordinal);
+            if (at <= 0 || !double.TryParse(part.AsSpan(at + 1), NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                return false;
+            }
+
+            values[part[..at]] = value;
+        }
+
+        string[] required = ["n", "incomplete", "median-ms", "p95-ms", "max-ms", "lease-median-ms", "lease-p95-ms", "lease-max-ms", "incomplete-median-ms", "incomplete-max-ms"];
+        return required.All(values.ContainsKey);
+    }
+
     /// <summary>Reads <c>typing-first when=… view=… ms=…</c> of the Write app (invariant culture).</summary>
     public static bool TryParseTypingFirst(string line, out string when, out string view, out double ms)
     {
@@ -722,7 +747,9 @@ static class PdfRun
             {
                 result = c.Name == WriteRun.TypingCase
                     ? RunTyping(exe, c, settingsFile, testdata, out typing)
-                    : RunOnce(exe, c, settingsFile, testdata, secondFile);
+                    : c.Name == WriteRun.TypingBackgroundCase
+                        ? RunTypingBackground(exe, c, settingsFile, testdata, out typing)
+                        : RunOnce(exe, c, settingsFile, testdata, secondFile);
             }
             finally
             {
@@ -743,7 +770,17 @@ static class PdfRun
             }
 
             var label = run <= 0 ? $"warm-up {run + c.Warmup}" : $"run {run}";
-            if (c.Name == WriteRun.TypingCase)
+            if (c.Name == WriteRun.TypingBackgroundCase)
+            {
+                // Value: the median of the keys (with the lease wait in them), Second: the 95th percentile. Recorded for the owner, not judged.
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: median {result.Value:0.00} ms, p95 {result.Second:0.00} ms (no limit)"));
+                if (run > 0)
+                {
+                    values.Add(result.Value!.Value);
+                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Run is "n" or "incomplete" ? "count" : "ms")));
+                }
+            }
+            else if (c.Name == WriteRun.TypingCase)
             {
                 // Value: the worst 95th percentile of the cases (the number check judges), Second: the worst median.
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: worst p95 {result.Value:0.00} ms, worst median {result.Second:0.00} ms over {WriteRun.TypingCases.Length * WriteRun.TypingViews.Length} cases"));
@@ -797,13 +834,45 @@ static class PdfRun
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name == WriteRun.TypingCase ? ", worst p95 in ms" : string.Empty)})"));
+            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name == WriteRun.TypingCase ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
         if (warning is not null)
         {
             Console.WriteLine($"Result with reservation: {warning}");
         }
 
         return 0;
+    }
+
+    /// <summary>One launch of the case typing-background: one line; the rows <c>typing-background/&lt;field&gt;</c> hold every number of it. Value is its median, Second its 95th percentile.</summary>
+    private static (double? Value, double? Second, string? Error) RunTypingBackground(string exe, Case c, string settingsFile, string testdata, out List<(string Case, string Run, double Value)>? rows)
+    {
+        rows = null;
+        var saved = Runner.Timeout;
+        Runner.Timeout = WriteRun.TypingTimeout;
+        string? output;
+        string? error;
+        try
+        {
+            (output, _, error) = Runner.RunOnce(exe, ArgumentsOf(c, settingsFile, testdata), c.Line);
+        }
+        finally
+        {
+            Runner.Timeout = saved;
+        }
+
+        if (error is not null)
+        {
+            return (null, null, error);
+        }
+
+        var line = output!.Split((char)10).Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith("typing-background ", StringComparison.Ordinal));
+        if (line is null || !Lines.TryParseTypingBackground(line, out var values))
+        {
+            return (null, null, $"no readable typing-background line: {line}");
+        }
+
+        rows = [.. values.Select(v => (WriteRun.TypingBackgroundCase, v.Key, v.Value))];
+        return (values["median-ms"], values["p95-ms"], null);
     }
 
     /// <summary>
@@ -994,6 +1063,9 @@ static class WriteRun
     /// <summary>The typing run of the app: one launch types at every case in both views and prints one row per case and view.</summary>
     public const string TypingCase = "typing";
 
+    /// <summary>Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded, never judged.</summary>
+    public const string TypingBackgroundCase = "typing-background";
+
     /// <summary>The cases of the typing run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.Names</c>).</summary>
     public static readonly string[] TypingCases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header"];
 
@@ -1046,6 +1118,7 @@ static class WriteRun
         new("scroll", 5, 1, 500, "--measure-scroll", ThesisFile, "scroll"),
         new("memory", 10, 0, 500, "--measure-memory", ThesisFile, "memory-bytes"),
         new(TypingCase, 3, 0, 500, "--measure-typing", ThesisFile, "first-page"),
+        new(TypingBackgroundCase, 5, 0, 500, "--measure-typing-background", ThesisFile, "first-page"),
         new(EngineCase, 10, 2, 0, string.Empty, ThesisFile, "median first page:"),
     ];
 
@@ -1586,6 +1659,9 @@ static class CheckCommand
     /// The budget of <c>typing</c> in the table: the limit is a FIXED 16 ms (budget 12.8 x 1.25, exactly 16.0 in double), the spec criterion of milestone 4.3a ("typing at most 16 ms per keystroke,
     /// median and 95th percentile of every measured case", Docs/superpowers/specs/2026-11-15-raffica-write-editing-engine-design.md, section 5), not a measured number: it is entered for every platform
     /// (the Windows PC binds first, the Linux laptop and the Intel Mac as in 4.2). Never loosened to make a run pass.
+    /// What the judged time is: the CPU work a key causes in the app (the key handler, the render pass on the UI thread and the page draws on the render thread, see Measurement.Typing.cs of
+    /// the Write app), NOT the latency to the display. The latency from the key to the frame (frame-median-ms, frame-p95-ms in the app's rows) holds the idle wait for the next vsync (up to one
+    /// frame period, 16.7 ms at 60 Hz) and can never meet 16 ms, so it is recorded and not judged.
     /// </summary>
     public const double TypingBudget = 12.8;
 
@@ -2398,13 +2474,14 @@ static class SelfTest
         Expect("write run: the second launch shares the settings file and opens poi-comment", string.Join(' ', WriteRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, "poi-comment/poi-comment.docx")}");
         Expect("write run: typing opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("typing", "s.json", td)), $"--measure-typing --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
         Expect("write run: every app run has a settings file of its own", WriteRun.Cases.Where(c => c.Name != "engine").All(c => WriteRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
-        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,engine");
+        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,engine");
         Expect("write run: the engine runs the benchmark on the thesis", string.Join(' ', WriteRun.EngineArguments(td, 7)), $"run --file {Path.Combine(td, "thesis/thesis.docx")} --runs 7 --warmup 2");
         Expect("write run: CSV mode is write", RunCommand.CsvMode("write", null), "write");
-        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing or engine");
+        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background or engine");
         Expect("pdf run: the case list in the message is the old text", PdfRun.CaseList(PdfRun.Cases), "cold, warm, thousand, second, scroll or memory");
 
         TypingTests();
+        Expect("write run: typing-background opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("typing-background", "s.json", td)), $"--measure-typing-background --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
 
         var saved = CultureInfo.CurrentCulture;
         try
@@ -2574,6 +2651,12 @@ static class SelfTest
         Expect("parse typing line of another kind", Lines.TryParseTyping("typing-first when=after-open view=page ms=3.00", out _, out _, out _, out _, out _), false);
         Expect("parse typing-first line", Lines.TryParseTypingFirst("typing-first when=after-switch view=writing ms=12.50", out var when, out var firstView, out var ms) ? string.Create(CultureInfo.InvariantCulture, $"{when}|{firstView}|{ms}") : "-", "after-switch|writing|12.5");
         Expect("parse typing-first line without a value", Lines.TryParseTypingFirst("typing-first when=after-open view=page ms=", out _, out _, out _), false);
+
+        var background = "typing-background n=50 incomplete=7 median-ms=2.50 p95-ms=9.00 max-ms=12.00 lease-median-ms=0.75 lease-p95-ms=4.00 lease-max-ms=5.00 incomplete-median-ms=6.50 incomplete-max-ms=12.00";
+        Expect("parse typing-background line", Lines.TryParseTypingBackground(background, out var bg) ? string.Create(CultureInfo.InvariantCulture, $"{bg["n"]}|{bg["incomplete"]}|{bg["median-ms"]}|{bg["lease-p95-ms"]}|{bg["incomplete-max-ms"]}") : "-", "50|7|2.5|4|12");
+        Expect("parse typing-background line without a field", Lines.TryParseTypingBackground("typing-background n=50 incomplete=7 median-ms=2.50", out _), false);
+        Expect("parse typing-background line with a bad value", Lines.TryParseTypingBackground(background.Replace("p95-ms=9.00", "p95-ms=x", StringComparison.Ordinal), out _), false);
+        Expect("parse typing-background: a typing row is not one", Lines.TryParseTypingBackground("typing case=a view=page n=1 median-ms=1 p95-ms=1 max-ms=1", out _), false);
 
         var output = new StringBuilder("first-page\n");
         output.Append("typing-first when=after-open view=page ms=9.00\ntyping-first when=after-switch view=writing ms=20.00\n");

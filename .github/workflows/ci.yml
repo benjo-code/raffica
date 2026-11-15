@@ -314,13 +314,17 @@ jobs:
       # (the numbers of such a run mean nothing; the measurement is measure.yml, case typing).
       - name: Typing smoke of the published benchmark (Linux)
         if: runner.os == 'Linux'
-        run: ./out/write-layout/write-layout-bench edit --root . --runs 3
+        run: |
+          ./out/write-layout/write-layout-bench edit --root . --runs 3
+          ./out/write-layout/write-layout-bench edit --root . --background --runs 3
 
       - name: Typing smoke of the published benchmark (Windows)
         if: runner.os == 'Windows'
         run: |
           & ./out/write-layout/write-layout-bench.exe edit --root . --runs 3
           if ($LASTEXITCODE -ne 0) { throw "edit exited with $LASTEXITCODE" }
+          & ./out/write-layout/write-layout-bench.exe edit --root . --background --runs 3
+          if ($LASTEXITCODE -ne 0) { throw "edit --background exited with $LASTEXITCODE" }
 
       - name: Corpus check and round trip of the published tool (Linux)
         if: runner.os == 'Linux'
@@ -539,6 +543,7 @@ jobs:
             $runner "$exe" table --root testdata/write-corpus --out "$RUNNER_TEMP/write-corpus-$rid.md"
             $runner "out/write-layout-$rid/write-layout-bench" check --root .
             $runner "out/write-layout-$rid/write-layout-bench" edit --root . --runs 3
+            $runner "out/write-layout-$rid/write-layout-bench" edit --root . --background --runs 3
           done
 
       - name: Check the architecture of the executables

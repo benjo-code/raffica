@@ -877,12 +877,17 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing --out ${{ env.OUT }}/typing.csv
 
+      # Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded for the owner, never judged.
+      - name: Typing during the background layout (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-background --out ${{ env.OUT }}/typing-background.csv
+
       # The engine alone, without a window (write-layout-bench edit): the same keystrokes through TextEditor and DocumentLayout.ApplyEdit, with the restarts and the hit test.
       # Recorded for the owner, never judged (a .txt so that the check's CSV glob does not read it).
       - name: Typing, engine only (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         shell: bash
-        run: ${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt
+        run: ${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
 
       - name: Engine first page of the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
