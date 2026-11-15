@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Raffica.Write.Tests.Layout;
 
+// The font catalog must not read installed fonts: glyph widths of a fallback face change line and page breaks per machine, and the golden must not.
 /// <summary>
 /// The layout of every corpus file, recorded per file and mode: the page count and, per page, the SHA-256 of the page text and the number of
 /// items. A refactor of the planner must leave it unchanged. <c>RAFFICA_WRITE_GOLDEN=update</c> rewrites the record instead of checking it.
@@ -24,7 +25,7 @@ public sealed class LayoutGoldenTests
     [Fact]
     public async Task EveryCorpusFileLaysOutAsBefore()
     {
-        var fonts = FontCatalog.CreateShipped();
+        var fonts = PageTestKit.Fonts;
         var actual = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var entry in CorpusManifest.Load(Root).Files)
         {
