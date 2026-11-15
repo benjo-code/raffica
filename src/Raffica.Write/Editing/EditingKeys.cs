@@ -220,13 +220,21 @@ internal static class EditingKeys
     public static bool IsTextInput(KeyEventArgs e, string? text)
     {
         ArgumentNullException.ThrowIfNull(e);
-        return IsTextInput(e.KeyModifiers, text, OperatingSystem.IsMacOS());
+        return IsTextInput(e.Key, e.KeyModifiers, text, OperatingSystem.IsMacOS());
     }
+
+    /// <summary>
+    /// The rule of <see cref="IsTextInput(KeyEventArgs, string?)"/> for a given key, modifiers and system. A chord that <see cref="For"/> maps to an action is never text, whatever the key's text is
+    /// (on macOS the key text of Option with an arrow or Backspace can be a private-use character).
+    /// </summary>
+    public static bool IsTextInput(Key key, KeyModifiers modifiers, string? text, bool macOs) =>
+        IsTextInput(modifiers, text, macOs) && For(key, modifiers, macOs) is null;
 
     /// <summary>The rule of <see cref="IsTextInput(KeyEventArgs, string?)"/> for given modifiers and system.</summary>
     public static bool IsTextInput(KeyModifiers modifiers, string? text, bool macOs)
     {
-        if (string.IsNullOrEmpty(text) || char.IsControl(text[0]))
+        // A control character, or a private-use character (U+E000 to U+F8FF: what macOS reports as the text of a function or arrow key), is no text.
+        if (string.IsNullOrEmpty(text) || char.IsControl(text[0]) || text[0] is >= '' and <= '')
         {
             return false;
         }

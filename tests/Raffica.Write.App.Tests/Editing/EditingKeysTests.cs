@@ -164,6 +164,40 @@ public sealed class EditingKeysTests
     public void WhichKeyEventsAreText(KeyModifiers modifiers, string? text, bool macOs, bool expected) =>
         Assert.Equal(expected, EditingKeys.IsTextInput(modifiers, text, macOs));
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("")]
+    [InlineData("")]
+    [InlineData("")]
+    public void APrivateUseSymbolIsNeverText(string symbol)
+    {
+        Assert.False(EditingKeys.IsTextInput(None, symbol, macOs: true));
+        Assert.False(EditingKeys.IsTextInput(Key.Left, Alt, symbol, macOs: true));
+        Assert.False(EditingKeys.IsTextInput(Key.Back, Alt, symbol, macOs: true));
+    }
+
+    [Fact]
+    public void AChordThatMapsToAnActionIsNeverTextWhateverItsSymbolIs()
+    {
+        var wrong = new List<string>();
+        foreach (var row in s_table.Where(r => r.Expected is not null))
+        {
+            foreach (var symbol in new[] { "a", "", "x" })
+            {
+                if (EditingKeys.IsTextInput(row.Key, row.Modifiers, symbol, row.MacOs))
+                {
+                    wrong.Add($"{row.Modifiers}+{row.Key} '{symbol}' (mac {row.MacOs})");
+                }
+            }
+        }
+
+        Assert.Empty(wrong);
+        // Real text stays text: letters, and AltGr with a letter key.
+        Assert.True(EditingKeys.IsTextInput(Key.A, None, "a", macOs: false));
+        Assert.True(EditingKeys.IsTextInput(Key.Q, Ctrl | Alt, "@", macOs: false));
+        Assert.True(EditingKeys.IsTextInput(Key.L, Alt, "@", macOs: true));
+    }
+
     [Fact]
     public void ATypedKeyEventIsTextAndAnAltGrKeyEventToo()
     {
