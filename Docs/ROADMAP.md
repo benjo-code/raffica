@@ -42,7 +42,9 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 4 | Spikes & spec for Raffica Write | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-12-milestone-04-write-spikes-spec.md) | 2026-11-13 |
 | 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | 2026-11-13 |
 | 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) | – |
-| 4.3 | Editing | 5 – Raffica Write | ⬜ open | – | – |
+| 4.3.1 | The editing engine (4.3a) | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-15-milestone-04-3a-the-editing-engine.md) | – |
+| 4.3.2 | Formatting and styles (4.3b) | 5 – Raffica Write | ⬜ open | – | – |
+| 4.3.3 | New documents and recovery (4.3c) | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
 | 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
 | 4.6 | Review and proofing | 5 – Raffica Write | ⬜ open | – | – |
@@ -120,6 +122,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-13 (Milestone 4.1):** The comparison tool of 4.1 has the Word side only (page count and text per page of Word's PDF through PDFium, and a corpus table with the round-trip results and Word's page counts): Write's own layout does not exist before 4.2, which adds the Write columns to the same table and the page-count gate of the generated thesis. The reader and writer keep the Open XML SDK to the package layer (parts, relationships, content types) and read and write the model with XmlReader and XmlWriter, so a loaded part is rewritten with equal content and every other part keeps its bytes (decision "Raffica Write: Open XML SDK under Native AOT (M4)"). Word's PDFs of the corpus are made by the owner and are listed as open.
 - **2026-11-14 (Milestone 4.2):** What a second app needs from `Raffica.Pdf` moves into a new shared project `Raffica.Hosting` (window host and file activation, the names of the settings and recent files and of the instance, recent files, the dialog queue); the crash guard, the update flow, the default-app services and the print services stay in `Raffica.Pdf` until a Write milestone first needs them (4.7 to 4.9). Write's macOS menu bar is its own small `WriteMacMenu`, because `MacMenuBinder` is bound to the PDF command catalog; generalizing it is left until the Write menu grows. The layout library has its own UAX #14 line breaker, generated from the Unicode data files and checked against `LineBreakTest.txt` (owner's choice of 2026-11-14), so the library keeps the spec's rule that it references no Avalonia type and the headless first page does not load Avalonia. In 4.2 the layout shows tracked changes as accepted text and shows no comments (the review UI is 4.6). The headless engine benchmark is a new tool `bench/write-layout`. The app's command search is Alt+Q through an app-level option of the frame (spec section 6); on macOS it stays on ⌘K until 4.5 chooses the ⌘ shortcut. The page-count gate of the generated thesis needs Word's PDF of it, which is the owner's and is open.
 - **2026-11-14 (Milestone 4.2):** Reality diverged from the planning-time entry in these points: `Raffica.Hosting` also holds `WindowPlacementTracker` (moved out of the PDF window after a review, instead of a reduced copy in Write); the Write app has its own small command catalog types (`WriteCommandCatalog`), because the PDF catalog stays in `Raffica.Pdf`; `DocxFile.OpenPrefix`, `IsPrefix` and `Package` were added to the 4.1 library for the first page; `Raffica.Write` excludes the native PDFium assets that `Raffica.Core` brings in; the writing view shows strips and the status bar still counts them as pages. The three criteria of this milestone are open owner gates (see the milestone), so it stays in progress.
+- **2026-11-15 (Milestone 4.3):** Milestone 4.3 is split into 4.3a (the editing engine: layout source map, hit test and incremental re-layout, editing library, caret, selection, typing, IME, clipboard, undo, save and close prompt), 4.3b (formatting, styles and the inspector) and 4.3c (new documents, autosave and recovery, and the image cache budget). The roadmap ids are 4.3.1, 4.3.2 and 4.3.3 because the schema allows only dotted numbers; the design, the plan and the commits call them 4.3a, 4.3b and 4.3c. 4.4 now needs 4.3.3. The 16 ms criterion and the IME criterion belong to 4.3a, the recovery test to 4.3c. In 4.3a comments' text is editable in the editing core but has no screen before the comments pane of 4.6, and Write has no update flow before 4.9, so the update question of the close prompt does not exist yet. Design: `Docs/superpowers/specs/2026-11-15-raffica-write-editing-engine-design.md`.
 
 ---
 
@@ -646,25 +649,50 @@ Tasks 1 to 4 are done. 1: `src/Raffica.Write` on the frame and `src/Raffica.Host
 
 Follow-ups of the branch review (details in `Docs/DECISIONS.md`, entry "Raffica Write: the layout library and the viewer (M4.2)"): image cache budget, pixel cap and off-thread decode (4.3 or 4.8, before 4.9); crash guard and a try/catch around `PageRenderer.Draw` (before 4.9); hostile-file allocations of `InflateMain`, `PackageImageSource.Part` and `NumberingCounter.Letters` (4.8); strips counted as pages and the doubled open entry on the start view; the `ReplaceModel` guard; per-app third-party notices.
 
-## Milestone 4.3 – Editing
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.2
+## Milestone 4.3.1 – The editing engine (4.3a)
+**Status:** 🟡 planned · **Plan:** [2026-11-15-milestone-04-3a-the-editing-engine.md](superpowers/plans/2026-11-15-milestone-04-3a-the-editing-engine.md) · **Prerequisites:** M4.2
 
-Goal: Text, formatting and styles can be edited in every story of a document, with IME, undo, saving and recovery.
+Goal: Text can be edited in every story of a document (caret, selection, typing with IME, delete, clipboard, undo and redo) and saved, with a keystroke inside the 16 ms limit on the generated thesis.
 
 **Tasks**
-- [ ] Caret, selection, typing, delete, clipboard (rich within Write, plain text outside), undo and redo in every story (body, table cells, notes, headers and footers, comments)
+- [ ] Layout: source map, hit test, caret geometry and a resumable engine with incremental re-layout (one definition of a paragraph's text in the model)
+- [ ] Editing library: positions, operations, editing rules, undo and redo history, dirty state, clipboard fragments
+- [ ] Caret, selection, typing, delete, clipboard (rich within Write, plain text outside), undo and redo in the body, table cells, notes, headers and footers (comments' text in the editing core; its screen comes with 4.6)
 - [ ] IME through `TextInputMethodClient` with Write's own preedit caret
-- [ ] Paragraph and character formatting, styles, the formatting inspector (remove one override, update style to match, clear direct formatting)
-- [ ] New document with Write's built-in style set; save, Save as, dirty state and close prompt
-- [ ] Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash
+- [ ] Dirty state, Save, Save as and the close prompt
+- [ ] Typing measurement: engine bench case, app measurement switch and the budget row
 
 **Acceptance criteria**
+- [ ] The incremental layout equals a full layout after seeded edits on every corpus file, in both views (test)
 - [ ] Typing ≤ 16 ms per keystroke in the app on the generated thesis
 - [ ] IME on Windows, Linux and macOS: the candidate window follows the caret in a page of text, a German keyboard layout works, the log shows the commit on macOS, and IBus and an X11 session on Linux work (owner, recorded)
+
+## Milestone 4.3.2 – Formatting and styles (4.3b)
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3.1
+
+Goal: Paragraph and character formatting and styles can be edited, and the formatting inspector shows and removes every override.
+
+**Tasks**
+- [ ] Paragraph and character formatting, styles, the formatting inspector (remove one override, update style to match, clear direct formatting)
+
+**Acceptance criteria**
+- [ ] Every override row of the inspector removes exactly that override and nothing else (tests)
+
+## Milestone 4.3.3 – New documents and recovery (4.3c)
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3.2
+
+Goal: A new document starts from Write's built-in style set, and a crash loses no text.
+
+**Tasks**
+- [ ] New document with Write's built-in style set
+- [ ] Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash
+- [ ] Image cache budget, pixel cap and off-thread decode (follow-up of 4.2)
+
+**Acceptance criteria**
 - [ ] Recovery after a killed process restores the text (test)
 
 ## Milestone 4.4 – Structure
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3.3
 
 Goal: Headings, numbering, sections and page numbers are built by Write in one action and never break.
 
