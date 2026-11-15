@@ -26,6 +26,10 @@ internal static class LayoutOracle
         Assert.True(full.IsComplete, label + ": the full layout is not complete");
 
         Assert.True(full.LaidOutPages == incremental.LaidOutPages, $"{label}: page count {incremental.LaidOutPages} (incremental) against {full.LaidOutPages} (full)");
+        Assert.True(full.FirstPageIsFinal == incremental.FirstPageIsFinal, label + ": FirstPageIsFinal");
+        Assert.True(full.Notes.SequenceEqual(incremental.Notes, StringComparer.Ordinal), $"{label}: layout notes differ ({string.Join(" | ", incremental.Notes)} against {string.Join(" | ", full.Notes)})");
+        var cells = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
+        var cellsBack = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
         for (var i = 0; i < full.LaidOutPages; i++)
         {
             var expected = full.Page(i);
@@ -56,6 +60,33 @@ internal static class LayoutOracle
                 Assert.True(
                     ReferenceEquals(e.Paragraph, a.Paragraph) && e.Story == a.Story && e.Start == a.Start && e.End == a.End && e.X == a.X && e.Top == a.Top && e.Baseline == a.Baseline && e.Height == a.Height && e.Runs.Length == a.Runs.Length,
                     $"{where}: text line {k} differs");
+                Assert.True(e.ContentLeft == a.ContentLeft && e.ContentRight == a.ContentRight, $"{where}: text line {k} content edges");
+                Assert.True(string.Equals(e.Projection.Text, a.Projection.Text, StringComparison.Ordinal), $"{where}: text line {k} projection text");
+                Assert.True((e.Host is null) == (a.Host is null) && e.Host?.GetType() == a.Host?.GetType(), $"{where}: text line {k} host");
+                for (var o = 0; o <= (e.End - e.Start) + 3; o++)
+                {
+                    Assert.True(e.Map.Map(o) == a.Map.Map(o), $"{where}: text line {k} offset map at {o}");
+                }
+
+                Assert.True((e.Cell is null) == (a.Cell is null), $"{where}: text line {k} cell");
+                if (e.Cell is not null && a.Cell is not null)
+                {
+                    // Cells are objects of their own layout: the two layouts must group the lines into cells the same way.
+                    Assert.True(cells.TryAdd(a.Cell, e.Cell) || ReferenceEquals(cells[a.Cell], e.Cell), $"{where}: text line {k} cell grouping");
+                    Assert.True(cellsBack.TryAdd(e.Cell, a.Cell) || ReferenceEquals(cellsBack[e.Cell], a.Cell), $"{where}: text line {k} cell grouping (back)");
+                }
+
+                for (var r = 0; r < e.Runs.Length; r++)
+                {
+                    var er = e.Runs[r];
+                    var ar = a.Runs[r];
+                    Assert.True(er.TextStart == ar.TextStart && er.TextEnd == ar.TextEnd && er.IsHyphen == ar.IsHyphen && er.X == ar.X && er.Width == ar.Width && er.Size == ar.Size && er.Raise == ar.Raise, $"{where}: text line {k} glyph run {r}");
+                }
+            }
+
+            foreach (var y in new[] { 0f, expected.Height * 0.25f, expected.Height * 0.5f, expected.Height * 0.75f, expected.Height }.Concat(expected.Spans.SelectMany(s => new[] { s.Top, s.Bottom - 0.01f })))
+            {
+                Assert.True(full.BlockAt(i, y) == incremental.BlockAt(i, y), $"{where}: BlockAt({y})");
             }
         }
 
