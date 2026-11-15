@@ -429,6 +429,35 @@ public sealed class IncrementalCoverageTests
     }
 
     [Fact]
+    public async Task ACitedNoteThatChangesLeavesAnOldCarryOnNoPage()
+    {
+        // The body does not change at all: the reference cites another note, so the page counts, the note counts and every block start stay, and only the text
+        // that runs over from page to page differs.
+        var body = new StringBuilder();
+        for (var chapter = 0; chapter < 5; chapter++)
+        {
+            body.Append("<w:p><w:pPr><w:pageBreakBefore/></w:pPr><w:r><w:t>Chapter " + chapter.ToString(CultureInfo.InvariantCulture) + "</w:t></w:r></w:p>");
+            for (var i = 0; i < 18; i++)
+            {
+                body.Append(i == 1 && chapter == 0 ? Para(Text("chapter 0 paragraph 1 with the reference") + FootnoteRef(1)) : Plain($"chapter {chapter} paragraph {i} with some words that fill a couple of lines of the page and some more"));
+            }
+        }
+
+        var first = Footnote(1, string.Join(' ', Enumerable.Repeat("the first footnote that runs on over several pages", 250)));
+        var second = Footnote(2, string.Join(' ', Enumerable.Repeat("a second note with other words but as long as that", 250)));
+        var model = Document(body.ToString(), footnotes: FootnotesPart(first, second));
+        var layout = await LaidAsync(model);
+        Assert.True(layout.Page(3).TextLines.Any(l => l.Story.Kind == StoryKind.Note), "the note runs over the chapter starts");
+
+        var holder = (Paragraph)model.Body.Blocks[2];
+        var refill = layout.ApplyEdit(TestEdit.RetargetFootnoteReferences(model, holder, 2), 1000);
+
+        Assert.False(refill.Restarted);
+        Assert.True(layout.PagesLaidOut > 2, "the refill went on past the chapter heading: " + layout.PagesLaidOut);
+        await CheckAsync(layout, model, refill, LayoutMode.Pages, "another note");
+    }
+
+    [Fact]
     public async Task AHeadingThatKeepsWithTheNextBlockIsFoundWhenTheNextBlockChanges()
     {
         // Nine lines and a heading fill a page of ten lines; the next block has a page break before it, so the heading stays. Without the break the heading goes

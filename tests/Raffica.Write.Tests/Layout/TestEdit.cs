@@ -278,4 +278,20 @@ internal static class TestEdit
 
         return new BlockChange(StoryRef.Body, container, index, 1, 1, [before]);
     }
+
+    /// <summary>Makes every footnote reference of the paragraph cite the note <paramref name="id"/> instead, in place.</summary>
+    public static BlockChange RetargetFootnoteReferences(WordDocument document, Paragraph paragraph, int id)
+    {
+        var (container, index) = Find(document, paragraph);
+        var before = paragraph.Clone();
+        foreach (var run in paragraph.Inlines.OfType<Run>())
+        {
+            foreach (var reference in run.Content.OfType<FootnoteReference>())
+            {
+                reference.Id = id;
+            }
+        }
+
+        return new BlockChange(StoryRef.Body, container, index, 1, 1, [before]);
+    }
 }
