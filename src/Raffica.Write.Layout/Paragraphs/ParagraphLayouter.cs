@@ -584,6 +584,8 @@ internal sealed class ParagraphSession : IDisposable
             IsHyphen = piece.IsHyphen,
             Spaces = piece.Spaces,
             TrailStart = piece.TrailStart,
+            Clusters = label || piece.IsHyphen ? null : piece.Clusters,
+            Text = _text,
         };
         _runs.Add(run);
         _lastText = label ? null : run;
@@ -955,11 +957,13 @@ internal sealed class ParagraphSession : IDisposable
             {
                 var ids = new ushort[glyphs];
                 var xs = new float[glyphs];
+                var clusters = new int[glyphs];
                 var at = 0;
                 for (var k = i; k < j; k++)
                 {
                     var part = runs[k];
                     part.Glyphs.CopyTo(ids.AsSpan(at));
+                    part.Clusters?.CopyTo(clusters, at);
                     var partXs = part.Xs;
                     for (var g = 0; g < partXs.Length; g++)
                     {
@@ -969,7 +973,7 @@ internal sealed class ParagraphSession : IDisposable
                     at += partXs.Length;
                 }
 
-                result.Add(new GlyphRun(first.Face, first.Run, first.Size, first.Raise, ids, xs, first.X, end.X + end.Width - first.X, first.TextStart, end.TextEnd));
+                result.Add(new GlyphRun(first.Face, first.Run, first.Size, first.Raise, ids, xs, first.X, end.X + end.Width - first.X, first.TextStart, end.TextEnd) { Clusters = clusters, Text = first.Text });
             }
 
             i = j;
