@@ -996,6 +996,115 @@ public sealed class TextEditorTests
         Assert.True(Runs(second)[0].Properties.Bold);
     }
 
+    private static List<string> AnchorsOf(Paragraph paragraph)
+    {
+        var found = new List<string>();
+
+        void Walk(IList<Inline> list)
+        {
+            foreach (var inline in list)
+            {
+                switch (inline)
+                {
+                    case BookmarkStart:
+                        found.Add("BS");
+                        break;
+                    case BookmarkEnd:
+                        found.Add("BE");
+                        break;
+                    case CommentRangeStart:
+                        found.Add("CS");
+                        break;
+                    case CommentRangeEnd:
+                        found.Add("CE");
+                        break;
+                    case Run run:
+                        found.AddRange(run.Content.OfType<CommentReference>().Select(_ => "CR"));
+                        break;
+                    default:
+                        if (inline is Hyperlink link)
+                        {
+                            Walk(link.Inlines);
+                        }
+
+                        break;
+                }
+            }
+        }
+
+        Walk(paragraph.Inlines);
+        return found;
+    }
+
+    private static Run CommentReferenceRun()
+    {
+        var run = new Run();
+        run.Content.Add(new CommentReference(1));
+        return run;
+    }
+
+    [Fact]
+    public void DeleteAcrossParagraphsKeepsBookmarkAnchorsOfTheRemovedMiddle()
+    {
+        var p1 = P("Hello");
+        var p2 = P("mid");
+        p2.Inlines.Insert(0, new BookmarkStart(1, "b"));
+        var p3 = P("World");
+        p3.Inlines.Add(new BookmarkEnd(1));
+        var document = Doc(p1, p2, p3);
+
+        Editor(document).Delete(Sel(p1, 2, p3, 3));
+
+        Assert.Equal(["Held"], Texts(document));
+        Assert.Equal(["BS", "BE"], AnchorsOf(p1));
+    }
+
+    [Fact]
+    public void DeleteAcrossParagraphsKeepsCommentAnchorsOfTheRemovedMiddle()
+    {
+        var p1 = P("Hello");
+        p1.Inlines.Insert(0, new CommentRangeStart(1));
+        var p2 = P("mid");
+        p2.Inlines.Add(new CommentRangeEnd(1));
+        p2.Inlines.Add(CommentReferenceRun());
+        var p3 = P("World");
+        var document = Doc(p1, p2, p3);
+
+        Editor(document).Delete(Sel(p1, 2, p3, 3));
+
+        // The plain test host shows a comment reference as one object character; the layout's host gives it no length.
+        Assert.Equal(["He￼ld"], Texts(document));
+        Assert.Equal(["CS", "CE", "CR"], AnchorsOf(p1));
+    }
+
+    [Fact]
+    public void AnchorsOfTheRemovedMiddleSurviveAReversedSelectionAndAnEmptiedFirstParagraph()
+    {
+        var p1 = P("Hello");
+        var p2 = P("mid");
+        p2.Inlines.Add(new BookmarkStart(1, "b"));
+        p2.Inlines.Add(new BookmarkEnd(1));
+        var p3 = P("World");
+        var document = Doc(p1, p2, p3);
+
+        Editor(document).Delete(Sel(p3, 3, p1, 2));
+        Assert.Equal(["Held"], Texts(document));
+        Assert.Equal(["BS", "BE"], AnchorsOf(p1));
+
+        var q1 = P("Hello");
+        var q2 = P("mid");
+        q2.Inlines.Add(new BookmarkStart(2, "c"));
+        q2.Inlines.Add(new BookmarkEnd(2));
+        var q3 = P("World");
+        var other = Doc(q1, q2, q3);
+
+        Editor(other).Delete(Sel(q3, 2, q1, 0));
+        Assert.Single(other.Body.Blocks);
+        Assert.Same(q3, other.Body.Blocks[0]);
+        Assert.Equal(["BS", "BE"], AnchorsOf(q3));
+        Assert.Equal("rld", Text(q3));
+    }
+
     private static void AddComplexField(Paragraph paragraph, string result)
     {
         Run Of(params RunContent[] content)

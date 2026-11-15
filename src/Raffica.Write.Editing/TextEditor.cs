@@ -741,9 +741,15 @@ public sealed class TextEditor
         }
 
         var removed = span.LastIndex - span.FirstIndex + 1;
+        var anchors = AnchorsOfBlocks(span.Container, span.FirstIndex + 1, span.LastIndex);
         var remaining = Map(span.Story, span.First).Projection.Text.Length;
         if (remaining > 0)
         {
+            foreach (var anchor in anchors)
+            {
+                span.First.Inlines.Add(anchor);
+            }
+
             foreach (var inline in span.Last.Inlines)
             {
                 span.First.Inlines.Add(inline);
@@ -754,7 +760,7 @@ public sealed class TextEditor
             return new Deleted(span.First, remaining, removed, true);
         }
 
-        var inlines = span.First.Inlines.Concat(span.Last.Inlines).ToList();
+        var inlines = span.First.Inlines.Concat(anchors).Concat(span.Last.Inlines).ToList();
         span.Last.Inlines.Clear();
         foreach (var inline in inlines)
         {
@@ -764,6 +770,91 @@ public sealed class TextEditor
         span.Last.SectionBreak ??= span.First.SectionBreak;
         RemoveRange(span.Container, span.FirstIndex, span.LastIndex - span.FirstIndex);
         return new Deleted(span.Last, 0, removed, true);
+    }
+
+    // The zero-width anchors (bookmark and comment range marks, comment references) of the blocks [from, to) in document order: when the
+    // blocks are removed they move to the join point, so no anchor is left without its partner and a comment keeps its reference.
+    private static List<Inline> AnchorsOfBlocks(IList<Block> blocks, int from, int to)
+    {
+        var anchors = new List<Inline>();
+        for (var i = from; i < to; i++)
+        {
+            CollectAnchors(blocks[i], anchors);
+        }
+
+        return anchors;
+    }
+
+    private static void CollectAnchors(Block block, List<Inline> anchors)
+    {
+        switch (block)
+        {
+            case Paragraph paragraph:
+                CollectAnchors(paragraph.Inlines, anchors);
+                break;
+            case Table table:
+                foreach (var row in table.Rows)
+                {
+                    CollectAnchors(row, anchors);
+                }
+
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void CollectAnchors(RowItem item, List<Inline> anchors)
+    {
+        switch (item)
+        {
+            case TableRow row:
+                foreach (var child in row.Items)
+                {
+                    CollectAnchors(child, anchors);
+                }
+
+                break;
+            case TableCell cell:
+                foreach (var block in cell.Blocks)
+                {
+                    CollectAnchors(block, anchors);
+                }
+
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void CollectAnchors(IList<Inline> inlines, List<Inline> anchors)
+    {
+        foreach (var inline in inlines)
+        {
+            switch (inline)
+            {
+                case BookmarkStart or BookmarkEnd or CommentRangeStart or CommentRangeEnd:
+                    anchors.Add(inline);
+                    break;
+                case Run run when run.Content.Any(c => c is CommentReference):
+                    var reference = run.Clone();
+                    reference.Content.Clear();
+                    foreach (var content in run.Content.Where(c => c is CommentReference))
+                    {
+                        reference.Content.Add(content);
+                    }
+
+                    anchors.Add(reference);
+                    break;
+                default:
+                    if (ParagraphMap.ChildrenOf(inline) is { } children)
+                    {
+                        CollectAnchors(children, anchors);
+                    }
+
+                    break;
+            }
+        }
     }
 
     // Inserts the lines of a multi-line text at the point; the paragraph keeps the first line, the lines in between become new paragraphs
