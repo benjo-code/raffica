@@ -33,7 +33,8 @@ public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float Flo
 /// Threads: any thread may read <see cref="LaidOutPages"/>, <see cref="Page"/>, <see cref="Locate"/>, <see cref="BlockAt"/>,
 /// <see cref="IsComplete"/>, <see cref="FirstPageIsFinal"/> and <see cref="Notes"/> at any time. The methods that lay out take a
 /// gate, one at a time; a call from the UI thread waits for the page the background thread is on, not for the whole document. The
-/// document model must not change while a layout runs on it.
+/// document model must not change while a layout runs on it; <see cref="ApplyEdit"/> is the one way to follow a change of the model (it
+/// can make <see cref="LaidOutPages"/> smaller and raises <see cref="Revision"/>; see there for what readers can rely on).
 /// <para>
 /// A page whose header or footer shows NUMPAGES or SECTIONPAGES shows "…" there until the layout is complete and has
 /// <see cref="LaidOutPage.IsProvisional"/> set; the layout then publishes a new page object in the same place (only the header and
@@ -62,7 +63,7 @@ public sealed partial class DocumentLayout
         _fonts = fonts;
         _options = options;
         _notes = [];
-        _engine = Engine.Build(document, fonts, options, _notes);
+        _engine = Engine.Build(document, fonts, options, _notes, _gate);
     }
 
     /// <summary>Everything that depends on the document model: the filler and its iterator, the block tables and the planners. A replaced model gets a new one.</summary>
@@ -70,7 +71,7 @@ public sealed partial class DocumentLayout
     {
         public required PageFiller Filler { get; init; }
 
-        public required IEnumerator<LaidOutPage> Fill { get; init; }
+        public required IEnumerator<LaidOutPage> Fill { get; set; }
 
         public required int[] BlockPage { get; init; }
 
@@ -80,7 +81,18 @@ public sealed partial class DocumentLayout
 
         public required HeaderFooterPlan? Chrome { get; init; }
 
-        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes)
+        public required WordDocument Document { get; init; }
+
+        public required BlockPlanner Planner { get; init; }
+
+        public required List<SectionPlan> Sections { get; init; }
+
+        /// <summary>The page count and the pages per section of the finished layout; set when the last page was out (read under the gate by an edit that needs the totals of the old layout).</summary>
+        public int FinalPages { get; set; }
+
+        public int[] FinalSectionPages { get; set; } = [];
+
+        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes, object gate)
         {
             var flow = options.Mode == LayoutMode.Flow;
             var flat = FlatBlocks.From(document.Body.Blocks);
@@ -95,7 +107,7 @@ public sealed partial class DocumentLayout
             var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
             var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
             var probe = new ImageProbe(options.ImageBytes);
-            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow);
+            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow) { Gate = gate };
             var filler = new PageFiller(sections, flat, planner, flow, blockPage, blockY);
             HeaderFooterPlan? chrome = null;
             if (!flow)
@@ -116,6 +128,9 @@ public sealed partial class DocumentLayout
                 BlockY = blockY,
                 LastBodyIndex = document.Body.Blocks.Count - 1,
                 Chrome = chrome,
+                Document = document,
+                Planner = planner,
+                Sections = sections,
             };
         }
     }
@@ -173,7 +188,10 @@ public sealed partial class DocumentLayout
     /// <summary>What the layout repaired or could not honour (an absurd page size, margins larger than the page, columns that do not fit), one sentence each. Known from <see cref="Create"/> on; replaced once by <see cref="ReplaceModel"/>.</summary>
     public IReadOnlyList<string> Notes => Volatile.Read(ref _notes);
 
-    /// <summary>A finished page; <paramref name="index"/> must be below <see cref="LaidOutPages"/>.</summary>
+    /// <summary>
+    /// A finished page; <paramref name="index"/> must be below <see cref="LaidOutPages"/>. After <see cref="ApplyEdit"/> the number of pages can
+    /// fall, so a reader that read <see cref="LaidOutPages"/> earlier can find the index gone: it throws then (<see cref="TryGetPage"/> says so instead).
+    /// </summary>
     public LaidOutPage Page(int index) => _pages[index];
 
     /// <summary>Lays out until page 1 is published (or the document is complete).</summary>
@@ -244,7 +262,7 @@ public sealed partial class DocumentLayout
             // page 1 of a layout made with the whole document. The page it makes (equal text, checked below) replaces the published one,
             // so page 1 holds the paragraphs of the new model: a position made on them is found by Caret, Move and HitTest.
             var notes = new List<string>();
-            var engine = Engine.Build(full, _fonts, _options, notes);
+            var engine = Engine.Build(full, _fonts, _options, notes, _gate);
             try
             {
                 if (!engine.Fill.MoveNext() || !string.Equals(engine.Fill.Current.Text, _pages[0].Text, StringComparison.Ordinal))
@@ -341,6 +359,7 @@ public sealed partial class DocumentLayout
                 // Pages that show a page count are published again with the count, before the layout calls itself complete.
                 try
                 {
+                    (_engine.FinalPages, _engine.FinalSectionPages) = _engine.Filler.Totals();
                     var revisions = _engine.Filler.Revisions();
                     foreach (var (index, revised) in revisions)
                     {

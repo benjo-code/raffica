@@ -58,6 +58,63 @@ internal sealed class ParagraphPageMap
             _pages[line.Paragraph] = grown;
         }
     }
+
+    /// <summary>
+    /// Drops the entries a replaced page leaves behind: for each paragraph on <paramref name="old"/> that the page which took its place
+    /// (<paramref name="replacement"/>, the same index; null when there is none) does not show, the index goes from the paragraph's list. A
+    /// stale entry is harmless (a reader scans the page and finds no line of the paragraph), this keeps the map small and lets a removed
+    /// paragraph be collected. Pages that are only cut off (the layout is shorter for a while) are not unregistered: the pages that
+    /// replace them list the same paragraphs again. Only the layout thread calls this, after the new pages are published.
+    /// </summary>
+    public void Unregister(LaidOutPage old, LaidOutPage? replacement)
+    {
+        HashSet<Paragraph>? kept = null;
+        if (replacement is not null)
+        {
+            kept = new HashSet<Paragraph>(ReferenceEqualityComparer.Instance);
+            foreach (var line in replacement.TextLines)
+            {
+                kept.Add(line.Paragraph);
+            }
+        }
+
+        Paragraph? last = null;
+        foreach (var line in old.TextLines)
+        {
+            if (ReferenceEquals(line.Paragraph, last))
+            {
+                continue;
+            }
+
+            last = line.Paragraph;
+            if (kept is not null && kept.Contains(line.Paragraph))
+            {
+                continue;
+            }
+
+            if (!_pages.TryGetValue(line.Paragraph, out var pages))
+            {
+                continue;
+            }
+
+            var at = Array.BinarySearch(pages, old.Index);
+            if (at < 0)
+            {
+                continue;
+            }
+
+            if (pages.Length == 1)
+            {
+                _pages.TryRemove(line.Paragraph, out _);
+                continue;
+            }
+
+            var shrunk = new int[pages.Length - 1];
+            Array.Copy(pages, shrunk, at);
+            Array.Copy(pages, at + 1, shrunk, at, pages.Length - at - 1);
+            _pages[line.Paragraph] = shrunk;
+        }
+    }
 }
 
 /// <summary>

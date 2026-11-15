@@ -62,6 +62,9 @@ internal sealed class PageFiller
     /// <summary>True when the last run ended because <see cref="StopProbe"/> answered true (and not because the document ended).</summary>
     public bool StopMatched { get; private set; }
 
+    /// <summary>The index of the page whose start made <see cref="StopProbe"/> answer true.</summary>
+    public int StopIndex { get; private set; } = -1;
+
     /// <summary>The index in the flat block list of a block of the document, or -1.</summary>
     public int FlatIndexOf(Block block)
     {
@@ -273,6 +276,7 @@ internal sealed class PageFiller
         if (StopProbe is { } probe && probe(state))
         {
             StopMatched = true;
+            StopIndex = state.PageIndex;
             return true;
         }
 
@@ -294,14 +298,15 @@ internal sealed class PageFiller
     // the endnotes at the end of the document, or its block has no plan on record).
     private FillerState? CarryStateOf(PlaceResult result, int sectionIndex, int pageIndex, int nextNumber, SectionSource source)
     {
+        // The state after the carried block, as this run left it when it planned that block: the cache entry may stem from an older run.
         var block = source.LastTaken;
-        if (block is null || result.Carry is not { } piece || !_planner.TryGetStateAfter(block, out var numbers, out var notes))
+        if (block is null || source.LastTakenNumbers is not { } numbers || result.Carry is not { } piece)
         {
             SetRecord(pageIndex, null);
             return null;
         }
 
-        return Make(PageStartKind.Carry, new PageStart(block, piece.StartLine, sectionIndex), piece, result.SuppressSpaceBefore, pageIndex, nextNumber, numbers, notes);
+        return Make(PageStartKind.Carry, new PageStart(block, piece.StartLine, sectionIndex), piece, result.SuppressSpaceBefore, pageIndex, nextNumber, numbers, source.LastTakenNotes);
     }
 
     private FillerState Make(PageStartKind kind, PageStart start, IBlockFlow? carry, bool suppress, int pageIndex, int nextNumber, NumberingState numbers, NoteState? notes)
@@ -560,7 +565,7 @@ internal sealed class PageFiller
         private readonly IReadOnlyList<FlatBlock> _blocks;
         private readonly int _end;
         private readonly Action<int> _touch;
-        private readonly List<(BlockPlan Plan, Block? Block)> _ahead = [];
+        private readonly List<Ahead> _ahead = [];
         private IEnumerator<BlockPlan>? _trailer;
         private int _next;
 
@@ -582,11 +587,20 @@ internal sealed class PageFiller
                 return null;
             }
 
-            var (plan, block) = _ahead[0];
+            var next = _ahead[0];
             _ahead.RemoveAt(0);
-            LastTaken = block;
-            return plan.Layout(width);
+            LastTaken = next.Block;
+            LastTakenNumbers = next.Numbers;
+            LastTakenNotes = next.Notes;
+            return next.Plan.Layout(width);
         }
+
+        /// <summary>The numbering and note state right after the last block taken was planned in this run (what a page that starts after it resumes from).</summary>
+        public NumberingState? LastTakenNumbers { get; private set; }
+
+        public NoteState? LastTakenNotes { get; private set; }
+
+        private readonly record struct Ahead(BlockPlan Plan, Block? Block, NumberingState? Numbers, NoteState? Notes);
 
         /// <summary>The block of the plan last taken (null for an endnote block, or before the first take): every piece that carries over onto the next page belongs to it.</summary>
         public Block? LastTaken { get; private set; }
@@ -607,7 +621,8 @@ internal sealed class PageFiller
                     _touch(flat.BodyIndex);
                     if (_planner.PlanFor(flat) is { } plan)
                     {
-                        _ahead.Add((plan, flat.Block));
+                        var (numbers, notes) = _planner.CurrentState();
+                        _ahead.Add(new Ahead(plan, flat.Block, numbers, notes));
                     }
 
                     continue;
@@ -616,7 +631,7 @@ internal sealed class PageFiller
                 // After the last block of the document come the endnotes (every reference is numbered by now).
                 if (_trailer is not null && _trailer.MoveNext())
                 {
-                    _ahead.Add((_trailer.Current, null));
+                    _ahead.Add(new Ahead(_trailer.Current, null, null, null));
                     continue;
                 }
 

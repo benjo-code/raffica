@@ -66,6 +66,16 @@ internal sealed class BlockPlanner
         }
     }
 
+    /// <summary>
+    /// The lock of the layout this planner serves, when it serves one: planning, the plan cache and the list counters have no lock of their own and
+    /// are used under that one only. Debug builds assert it in <see cref="PlanFor"/>, <see cref="Forget"/>, <see cref="Retain"/>, <see cref="RebaseAll"/>,
+    /// <see cref="CurrentState"/> and <see cref="RestoreState"/>. Null (no check) for a planner used on its own, as the tests do.
+    /// </summary>
+    internal object? Gate { get; set; }
+
+    [System.Diagnostics.Conditional("DEBUG")]
+    private void AssertGate() => System.Diagnostics.Debug.Assert(Gate is null || Monitor.IsEntered(Gate), "The plan cache and the counters are used under the layout gate only.");
+
     /// <summary>The height of the text area of the section being filled: an inline picture taller than this is shrunk to it (aspect kept). Set by the page filler.</summary>
     internal float TextAreaHeight { get; set; } = float.MaxValue;
 
@@ -132,6 +142,7 @@ internal sealed class BlockPlanner
     /// </summary>
     internal BlockPlan? PlanFor(FlatBlock flat)
     {
+        AssertGate();
         var notes = Context.Notes;
         var numbers = _numbering.Snapshot();
         var counts = notes?.Snapshot();
@@ -165,30 +176,27 @@ internal sealed class BlockPlanner
     /// <summary>True when <see cref="PlanFor"/> would find an entry (it may still plan again when the block has numbers that depend on the state).</summary>
     internal bool HasPlan(Block block) => _plans.ContainsKey(block);
 
+    /// <summary>
+    /// False only for a block whose plan is on record and does not keep with the next block (a paragraph without <c>keepNext</c>, a table, a
+    /// placeholder): the filler looks ahead of a block only through such a request. A block without an entry, or one that takes no room, may.
+    /// </summary>
+    internal bool MayKeepWithNext(Block block) =>
+        !_plans.TryGetValue(block, out var entry) || entry.Plan is null || (entry.Plan is ParagraphPlan paragraph && paragraph.Input.Paragraph.KeepNext);
+
     /// <summary>How many entries the cache holds.</summary>
     internal int CachedPlans => _plans.Count;
 
-    /// <summary>The numbering and note state right after <paramref name="block"/> was planned; false when the block has no entry.</summary>
-    internal bool TryGetStateAfter(Block block, out NumberingState numbers, out NoteState? notes)
-    {
-        if (_plans.TryGetValue(block, out var entry))
-        {
-            numbers = entry.NumbersAfter;
-            notes = entry.NotesAfter;
-            return true;
-        }
-
-        numbers = null!;
-        notes = null;
-        return false;
-    }
-
     /// <summary>The numbering and note state now.</summary>
-    internal (NumberingState Numbers, NoteState? Notes) CurrentState() => (_numbering.Snapshot(), Context.Notes?.Snapshot());
+    internal (NumberingState Numbers, NoteState? Notes) CurrentState()
+    {
+        AssertGate();
+        return (_numbering.Snapshot(), Context.Notes?.Snapshot());
+    }
 
     /// <summary>Makes the list counters and the note numbers what they were when <see cref="CurrentState"/> returned these.</summary>
     internal void RestoreState(NumberingState numbers, NoteState? notes)
     {
+        AssertGate();
         _numbering.Restore(numbers);
         if (notes is not null)
         {
@@ -201,7 +209,11 @@ internal sealed class BlockPlanner
     /// block registered stay in the note planner until a <see cref="RestoreState"/> to an earlier state (the resume of the page filler)
     /// drops them; an endnote list is only complete after the blocks have been planned again. Layout gate only.
     /// </summary>
-    internal void Forget(Block block) => _plans.Remove(block);
+    internal void Forget(Block block)
+    {
+        AssertGate();
+        _plans.Remove(block);
+    }
 
     /// <summary>
     /// Drops every plan whose block is not in <paramref name="live"/>, so removed blocks can be collected. It walks the whole cache, so it
@@ -209,6 +221,7 @@ internal sealed class BlockPlanner
     /// </summary>
     internal void Retain(IReadOnlyList<FlatBlock> live)
     {
+        AssertGate();
         var keep = new HashSet<Block>(live.Count, ReferenceEqualityComparer.Instance);
         foreach (var flat in live)
         {
@@ -229,6 +242,22 @@ internal sealed class BlockPlanner
             foreach (var block in gone)
             {
                 _plans.Remove(block);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Moves every cached plan of a block in <paramref name="live"/> to the body index the list now gives it (blocks were inserted or removed
+    /// before it). A plan that is not asked for again would keep its old index, and so would the flows a page start has saved. Layout gate only.
+    /// </summary>
+    internal void RebaseAll(IReadOnlyList<FlatBlock> live)
+    {
+        AssertGate();
+        foreach (var flat in live)
+        {
+            if (_plans.TryGetValue(flat.Block, out var entry))
+            {
+                entry.Plan?.Rebase(flat.BodyIndex);
             }
         }
     }

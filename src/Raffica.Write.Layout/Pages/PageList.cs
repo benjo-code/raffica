@@ -94,7 +94,9 @@ internal sealed class PageList
 
     /// <summary>
     /// Publishes in one step the pages <c>[0, first)</c> of the list as they are, then <paramref name="pages"/>, then the old pages from
-    /// <paramref name="keepFrom"/> on (none when it is at or past the count): the list afterwards is that sequence. Every page must have its position as its index.
+    /// <paramref name="keepFrom"/> on (none when it is at or past the count): the list afterwards is that sequence. Every page must have its position as its index,
+    /// so a caller that keeps pages from <c>keepFrom</c> makes the new pages end right before it (<c>first + pages.Count == keepFrom</c>) or keeps none;
+    /// <paramref name="adjustKept"/> may replace a kept page by a version with the same index.
     /// </summary>
     public void Splice(int first, IReadOnlyList<LaidOutPage> pages, int keepFrom, Func<LaidOutPage, LaidOutPage>? adjustKept = null)
     {
