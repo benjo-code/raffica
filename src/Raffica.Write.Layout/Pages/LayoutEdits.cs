@@ -49,6 +49,13 @@ public sealed partial class DocumentLayout
     public TextHit? HitTest(int pageIndex, float x, float y) => Navigator.HitTest(pageIndex, x, y);
 
     /// <summary>
+    /// The position in the header or footer of a page for a point in its region: the point is on the header side (upper half of the page) or the footer side
+    /// (lower half) and at most 18 points beyond the lines of that header or footer, which the editor uses for the explicit gesture that enters a header or
+    /// footer (<see cref="HitTest"/> prefers the body for blank space). Null when the page shows no header or footer there. Lengths are points from the top left of the page.
+    /// </summary>
+    public TextHit? HitTestHeaderFooter(int pageIndex, float x, float y) => Navigator.HitTestHeaderFooter(pageIndex, x, y);
+
+    /// <summary>
     /// The caret at a position, or null when no published page shows it. <paramref name="pageHint"/> is searched first (a header or footer is
     /// on many pages), then the pages that show the paragraph, from the first. A position at the end of a line that wrapped is the start
     /// of the next line (there is no caret affinity); a position past the paragraph's text is not found. A position made on a paragraph of

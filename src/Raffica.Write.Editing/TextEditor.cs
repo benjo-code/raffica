@@ -452,7 +452,7 @@ public sealed partial class TextEditor
         return result;
     }
 
-    private static (IList<Block> Container, int Index)? FindIn(IList<Block> blocks, Paragraph paragraph)
+    internal static (IList<Block> Container, int Index)? FindIn(IList<Block> blocks, Paragraph paragraph)
     {
         for (var i = 0; i < blocks.Count; i++)
         {
@@ -479,7 +479,7 @@ public sealed partial class TextEditor
         return null;
     }
 
-    private static (IList<Block> Container, int Index)? FindInRowItem(RowItem item, Paragraph paragraph)
+    internal static (IList<Block> Container, int Index)? FindInRowItem(RowItem item, Paragraph paragraph)
     {
         switch (item)
         {

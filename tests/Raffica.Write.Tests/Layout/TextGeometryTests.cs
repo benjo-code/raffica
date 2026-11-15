@@ -664,6 +664,35 @@ public sealed class TextGeometryTests
     }
 
     [Fact]
+    public void TheHeaderAndFooterRegionsAreFoundForTheEntryGesture()
+    {
+        var parts = new Dictionary<string, string> { ["hD"] = HeaderPart(Line("HEADER")), ["fD"] = FooterPart(Line("FOOTER")) };
+        var section = Sect(Header("default", "hD") + Footer("default", "fD"), 612f, 400f, 72f);
+        var layout = Laid(Document(Para(Text("body one")) + PEnd("body two", section), parts));
+        var lines = layout.Page(0).TextLines;
+        var header = lines.First(l => l.Story.Kind == StoryKind.HeaderFooter && l.Projection.Text == "HEADER");
+        var footer = lines.First(l => l.Story.Kind == StoryKind.HeaderFooter && l.Projection.Text == "FOOTER");
+        var x = 500f;
+
+        // Right of the text and a little below or above the lines: in the region of that header or footer.
+        var inHeader = layout.HitTestHeaderFooter(0, x, header.Top + header.Height + 5f);
+        Assert.NotNull(inHeader);
+        Assert.Equal(header.Paragraph, inHeader!.Value.Position.Paragraph);
+        Assert.Equal(header.Paragraph, layout.HitTestHeaderFooter(0, x, 2f)!.Value.Position.Paragraph);
+        var inFooter = layout.HitTestHeaderFooter(0, x, footer.Top - 5f);
+        Assert.Equal(footer.Paragraph, inFooter!.Value.Position.Paragraph);
+        Assert.Equal(footer.Paragraph, layout.HitTestHeaderFooter(0, x, 398f)!.Value.Position.Paragraph);
+
+        // The body, and far from the lines, is no region; neither is a page that does not exist.
+        Assert.Null(layout.HitTestHeaderFooter(0, x, 200f));
+        Assert.Null(layout.HitTestHeaderFooter(0, x, header.Top + header.Height + 40f));
+        Assert.Null(layout.HitTestHeaderFooter(7, x, 20f));
+
+        // A page without a header or footer has no region at all.
+        Assert.Null(Laid(Document(Para(Text("only a body")) + Sect())).HitTestHeaderFooter(0, 100f, 20f));
+    }
+
+    [Fact]
     public async Task ReplaceModelPublishesPageOneWithTheParagraphsOfTheNewModel()
     {
         var bytes = File.ReadAllBytes(Path.Combine(TestData.Root, "testdata", "write-corpus", "thesis", "thesis.docx"));

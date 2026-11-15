@@ -102,6 +102,39 @@ internal static class TextBoundaries
     }
 
     /// <summary>
+    /// The run of one kind of character around <paramref name="offset"/> (the word, the blanks or the punctuation the character at the offset belongs to; at the end of the text the
+    /// one before it): what a double click selects. An empty text gives (0, 0).
+    /// </summary>
+    public static (int Start, int End) RunAt(string text, int offset)
+    {
+        if (text.Length == 0)
+        {
+            return (0, 0);
+        }
+
+        var at = Math.Clamp(offset, 0, text.Length);
+        if (at == text.Length)
+        {
+            at--;
+        }
+
+        var kind = Classify(text[at]);
+        var start = at;
+        while (start > 0 && Classify(text[start - 1]) == kind)
+        {
+            start--;
+        }
+
+        var end = at + 1;
+        while (end < text.Length && Classify(text[end]) == kind)
+        {
+            end++;
+        }
+
+        return (start, end);
+    }
+
+    /// <summary>
     /// Typed or pasted text as lines: <c>\r\n</c>, <c>\n</c> and <c>\r</c> each end a line once, a tab stays (the caller makes a tab content of
     /// it), every other control character is dropped, and so is
     /// what XML cannot hold (a lone surrogate, U+FFFE, U+FFFF); a valid surrogate pair stays.

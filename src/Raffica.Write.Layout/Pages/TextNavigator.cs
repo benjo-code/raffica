@@ -312,7 +312,63 @@ internal sealed class TextNavigator(PageList pages, ParagraphPageMap map)
             return null;
         }
 
-        var hit = lines[best];
+        return HitOnLine(pageIndex, lines[best], x);
+    }
+
+    // How far (points) beyond the text of a header or footer a point still counts as inside its region.
+    private const float HeaderFooterSlack = 18f;
+
+    public TextHit? HitTestHeaderFooter(int pageIndex, float x, float y)
+    {
+        if ((uint)pageIndex >= (uint)pages.Count)
+        {
+            return null;
+        }
+
+        var page = pages[pageIndex];
+        var lines = page.TextLines;
+        var middle = page.Height / 2f;
+        var best = -1;
+        var bestDy = float.MaxValue;
+        var bestDx = float.MaxValue;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (line.Story.Kind != StoryKind.HeaderFooter)
+            {
+                continue;
+            }
+
+            // The header lines lie in the upper half of the page, the footer lines in the lower half; a point belongs to the region of the lines on its side.
+            var header = line.Top + (line.Height / 2f) < middle;
+            if (header != (y < middle))
+            {
+                continue;
+            }
+
+            var left = line.X + line.ContentLeft;
+            var right = line.X + line.ContentRight;
+            var dx = x < left ? left - x : (x > right ? x - right : 0f);
+            var dy = y < line.Top ? line.Top - y : (y > line.Top + line.Height ? y - line.Top - line.Height : 0f);
+            var outside = header ? y > line.Top + line.Height + HeaderFooterSlack : y < line.Top - HeaderFooterSlack;
+            if (outside)
+            {
+                continue;
+            }
+
+            if (dy < bestDy || (dy == bestDy && dx < bestDx))
+            {
+                best = i;
+                bestDy = dy;
+                bestDx = dx;
+            }
+        }
+
+        return best < 0 ? null : HitOnLine(pageIndex, lines[best], x);
+    }
+
+    private static TextHit HitOnLine(int pageIndex, TextLine hit, float x)
+    {
         var stops = hit.Stops;
         var offset = stops.OffsetAt(x, out var trailing);
         if (hit.Projection.AtomicAt(offset) is var (atomicStart, atomicEnd) && offset > atomicStart)
