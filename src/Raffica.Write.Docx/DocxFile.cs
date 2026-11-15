@@ -23,7 +23,9 @@ namespace Raffica.Write.Docx;
 /// passes <c>overwriteChangedOriginal</c>, so a change made by another program since the open is never lost silently. A
 /// successful save over the opened file records the stamp of the new file; a save to another path changes neither the stamp
 /// nor the snapshot (the snapshot stays the file as it was opened, which is what every later save starts from). Opening
-/// from bytes has no origin and no check. A part that exists in the file but was not asked for (<see cref="DocxParts"/>) stays
+/// from bytes has no origin and no check. <see cref="SaveAsAsync(string, bool, CancellationToken)"/> is the save that moves the document to a new
+/// path: after it succeeded, that path (and the stamp of the file it wrote) is the origin, so every later save is checked against the new file; the snapshot stays the file as it was
+/// opened (it is what every save starts from), and a save to the path of the opened file is checked as an overwrite of the original. A part that exists in the file but was not asked for (<see cref="DocxParts"/>) stays
 /// untouched unless the caller sets its model property, which then replaces the content of that part.
 /// <para>
 /// A file from <see cref="OpenPrefix(string, int)"/> is a prefix: <see cref="IsPrefix"/> is true when the body holds only its first
@@ -41,7 +43,7 @@ public sealed class DocxFile : IDisposable
 
     private readonly byte[] _snapshot;
     private readonly PartMap _map;
-    private readonly string? _originPath;
+    private string? _originPath;
     private FileStamp? _originStamp;
     private bool _disposed;
 
@@ -73,6 +75,19 @@ public sealed class DocxFile : IDisposable
     /// a document whose body fitted in the prefix (it is then the whole file, though its comments were not loaded).
     /// </summary>
     public bool IsPrefix { get; }
+
+    /// <summary>
+    /// Called on the saving thread (a pool thread) once the model has been written into memory, before anything is created on disk: from then on the save no longer reads
+    /// <see cref="Model"/>, so the caller that kept the model still until now may let it change again while the package is written. It is not called for a save that is refused or fails
+    /// before that point (the caller releases whatever it holds in its own <c>finally</c>). A throw from it fails the save and goes to the caller.
+    /// </summary>
+    public Action? AfterModelRead { get; set; }
+
+    /// <summary>The full path of the file this document was opened from or last saved to with <see cref="SaveAsAsync(string, bool, CancellationToken)"/>; null for a document opened from bytes.</summary>
+    public string? OriginPath => _originPath;
+
+    /// <summary>Test seam: replaces the move of the finished temporary file (temporary, target, replace existing); returns the leftover path like <see cref="AtomicFile.MoveIntoPlace"/>.</summary>
+    internal Func<string, string, bool, string?>? MoveIntoPlace { get; set; }
 
     /// <summary>Test seam: runs after the checks and before the temporary file replaces the target.</summary>
     internal Action? BeforeReplace { get; set; }
@@ -155,12 +170,36 @@ public sealed class DocxFile : IDisposable
     /// <exception cref="DocxSaveException">The check found a difference.</exception>
     /// <exception cref="SaveFailureException">The file could not be written or replaced, or (<see cref="SaveFailureReason.OriginalChanged"/>) it changed on disk since it was opened.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled before the replace.</exception>
-    public Task SaveAsync(string targetPath, CancellationToken cancellationToken = default) => SaveAsync(targetPath, overwriteChangedOriginal: false, cancellationToken);
+    public Task<SaveReport> SaveAsync(string targetPath, CancellationToken cancellationToken = default) => SaveAsync(targetPath, overwriteChangedOriginal: false, cancellationToken);
 
     /// <inheritdoc cref="SaveAsync(string, CancellationToken)"/>
     /// <param name="overwriteChangedOriginal">Whether the caller confirmed overwriting a changed original (see the other overload).</param>
     /// <exception cref="InvalidOperationException">This file is a prefix (<see cref="IsPrefix"/>).</exception>
-    public async Task SaveAsync(string targetPath, bool overwriteChangedOriginal, CancellationToken cancellationToken = default)
+    public Task<SaveReport> SaveAsync(string targetPath, bool overwriteChangedOriginal, CancellationToken cancellationToken = default) =>
+        StartSave(targetPath, replaceExisting: true, overwriteChangedOriginal, rebind: false, cancellationToken);
+
+    /// <summary>
+    /// Saves the document under the path the user chose and makes that path its origin ("Save as"). Like <see cref="SaveAsync(string, CancellationToken)"/> in every
+    /// other respect, with these differences. <paramref name="replaceExisting"/> false means the user named a file that did not exist: a file that exists at the
+    /// target when the call starts ends in <see cref="SaveFailureReason.TargetExists"/> before anything is written, and one that appears while the file is written is never
+    /// replaced (the move itself refuses, atomically) and ends in the same failure; true means the picker confirmed replacing an existing file. A target that is the opened
+    /// file is an overwrite of the original and is checked as such (<see cref="SaveFailureReason.OriginalChanged"/>). After a successful save <see cref="OriginPath"/> and the
+    /// stamp the next save is checked against are those of the new file; a failed save changes neither.
+    /// </summary>
+    /// <param name="targetPath">The file to create, or to replace when <paramref name="replaceExisting"/> is true.</param>
+    /// <param name="replaceExisting">Whether an existing file at the target may be replaced.</param>
+    /// <param name="cancellationToken">Cancels the save before the replace.</param>
+    /// <returns>What the save left to tell: the path written and a leftover file the replace could not delete.</returns>
+    /// <exception cref="InvalidOperationException">This file is a prefix (<see cref="IsPrefix"/>).</exception>
+    public Task<SaveReport> SaveAsAsync(string targetPath, bool replaceExisting, CancellationToken cancellationToken = default) =>
+        StartSave(targetPath, replaceExisting, overwriteChangedOriginal: false, rebind: true, cancellationToken);
+
+    /// <inheritdoc cref="SaveAsAsync(string, bool, CancellationToken)"/>
+    /// <param name="overwriteChangedOriginal">Whether the caller confirmed overwriting a changed original (the target is the opened file and it changed on disk since it was opened).</param>
+    public Task<SaveReport> SaveAsAsync(string targetPath, bool replaceExisting, bool overwriteChangedOriginal, CancellationToken cancellationToken = default) =>
+        StartSave(targetPath, replaceExisting, overwriteChangedOriginal, rebind: true, cancellationToken);
+
+    private async Task<SaveReport> StartSave(string targetPath, bool replaceExisting, bool overwriteChangedOriginal, bool rebind, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(targetPath);
         if (IsPrefix)
@@ -170,7 +209,7 @@ public sealed class DocxFile : IDisposable
 
         ObjectDisposedException.ThrowIf(_disposed, this);
         var full = Path.GetFullPath(targetPath);
-        await Task.Run(() => Save(full, overwriteChangedOriginal, cancellationToken), cancellationToken).ConfigureAwait(false);
+        return await Task.Run(() => Save(full, replaceExisting, overwriteChangedOriginal, rebind, cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose() => _disposed = true;
@@ -375,7 +414,7 @@ public sealed class DocxFile : IDisposable
         HeaderFooter,
     }
 
-    private void Save(string target, bool overwriteChangedOriginal, CancellationToken cancellationToken)
+    private SaveReport Save(string target, bool replaceExisting, bool overwriteChangedOriginal, bool rebind, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var resolved = AtomicFile.ResolveLink(target);
@@ -385,6 +424,12 @@ public sealed class DocxFile : IDisposable
             throw new SaveFailureException(SaveFailureReason.OriginalChanged, "Another file stands at the path of the original since it was opened.");
         }
 
+        if (!replaceExisting && !overOrigin && (File.Exists(resolved) || Directory.Exists(resolved)))
+        {
+            // Told before anything is written; the move below refuses again for a file that appears from here on.
+            throw new SaveFailureException(SaveFailureReason.TargetExists, "A file already exists at the target.");
+        }
+
         var temporary = AtomicFile.NewTemporaryPath(target);
         try
         {
@@ -392,6 +437,7 @@ public sealed class DocxFile : IDisposable
             // given to the temporary file below, with the same code the save of a PDF uses.
             var metadata = AtomicFile.TargetMetadata.Read(resolved);
             var intended = Serialise();
+            AfterModelRead?.Invoke();
             cancellationToken.ThrowIfCancellationRequested();
             CopySnapshot(temporary, metadata);
             var written = WritePackage(temporary, intended);
@@ -402,12 +448,21 @@ public sealed class DocxFile : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             BeforeReplace?.Invoke();
             cancellationToken.ThrowIfCancellationRequested();
-            AtomicFile.MoveIntoPlace(temporary, resolved, replaceExisting: true);
+            var replace = replaceExisting || overOrigin;
+            var leftover = MoveIntoPlace is { } move ? move(temporary, resolved, replace) : AtomicFile.MoveIntoPlace(temporary, resolved, replace);
             metadata.AfterReplace(resolved);
-            if (overOrigin)
+            if (overOrigin || rebind)
             {
                 _originStamp = FileStamp.Of(resolved);
             }
+
+            if (rebind)
+            {
+                // The new file is the document's file from now on; the snapshot stays as it is (it is the base of every save, not a copy of the file on disk).
+                _originPath = target;
+            }
+
+            return new SaveReport(target, leftover);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
