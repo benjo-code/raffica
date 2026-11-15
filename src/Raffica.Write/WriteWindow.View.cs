@@ -37,7 +37,7 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active));
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)));
         _actions = CreateActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
@@ -49,6 +49,8 @@ internal sealed partial class WriteWindow
     private Dictionary<string, Action> CreateActions() => new()
     {
         [WriteCommandIds.Open] = () => _ = GuardAsync(OpenFromDialogAsync),
+        [WriteCommandIds.Save] = () => _ = GuardAsync(() => SaveActiveAsync()),
+        [WriteCommandIds.SaveAs] = () => _ = GuardAsync(() => SaveAsActiveAsync()),
         [WriteCommandIds.CloseTab] = CloseActiveTab,
         [WriteCommandIds.Settings] = () => Settings.Open(),
         [WriteCommandIds.Search] = TitleSearch.FocusAndSelect,
@@ -216,7 +218,7 @@ internal sealed partial class WriteWindow
 
         if (tab.Runner.FaultedByEdit)
         {
-            // Editing failed in an open document: the file on disk is as it was, so no card about a file that cannot be read; the status says editing stopped.
+            // Editing failed in an open document: no card about a file that cannot be read; the status says editing stopped (and that Save as may still keep the work).
             if (ActiveView is { } active && ReferenceEquals(active.Tab, tab))
             {
                 OnInputRefused(active, tab, EditBlockedReason.Faulted);

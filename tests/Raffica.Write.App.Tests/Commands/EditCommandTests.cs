@@ -958,7 +958,8 @@ public sealed class EditCommandTests : IDisposable
         Assert.Equal(EditBlockedReason.Faulted, tab.Editor!.BlockedReason);
         Assert.False(window.Host.IsOpen, "the card of a file that could not be read came up for an edit failure");
         Assert.Equal(WriteStrings.EditFailed, window.Status.Hint);
-        Assert.Contains("file on disk has not been changed", WriteStrings.EditFailed, StringComparison.Ordinal);
+        Assert.DoesNotContain("has not been changed", WriteStrings.EditFailed, StringComparison.Ordinal);
+        Assert.Contains("since the last save may be lost", WriteStrings.EditFailed, StringComparison.Ordinal);
         Assert.NotEqual(0, model.Edits.Revision);
     }
 

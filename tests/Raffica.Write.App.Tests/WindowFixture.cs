@@ -95,6 +95,12 @@ internal sealed class WindowFixture : IDisposable
         {
             if (window.IsVisible)
             {
+                // A test that leaves unsaved changes behind must not be held by the close question of its own window.
+                foreach (var tab in window.Workspace.Tabs)
+                {
+                    tab.Docx.Model.Edits.MarkSaved();
+                }
+
                 window.Close();
             }
         }

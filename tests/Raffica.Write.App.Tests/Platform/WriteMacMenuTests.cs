@@ -83,6 +83,36 @@ public sealed class WriteMacMenuTests
     }
 
     [AvaloniaFact]
+    public void TheFileMenuHasSaveAndSaveAsThatRunTheCatalogCommandsByIdWhenTheRulesAllowThem()
+    {
+        var window = new FakeWindow { HasTab = true };
+        var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
+        menu.Refresh();
+        var file = Item(menu.Menu, "File").Menu!;
+        var save = Item(file, "Save");
+        var saveAs = Item(file, "Save as");
+
+        Assert.Equal("Meta+S", save.Gesture!.ToString().Replace("Cmd", "Meta", StringComparison.Ordinal));
+        Assert.Equal(Avalonia.Input.KeyGesture.Parse("Meta+Shift+S"), saveAs.Gesture);
+
+        // The rules decide: Save of a document without changes is disabled, Save as is not.
+        window.Allowed.Add(WriteCommandIds.SaveAs);
+        window.Raise();
+        Assert.False(Enabled(save));
+        Assert.True(Enabled(saveAs));
+        saveAs.Command!.Execute(null);
+        window.Allowed.Add(WriteCommandIds.Save);
+        window.Raise();
+        save.Command!.Execute(null);
+        Assert.Equal(["run file.saveAs", "run file.save"], window.Calls);
+
+        // A card that is open makes the window modal.
+        window.DialogOpen = true;
+        Assert.False(Enabled(save));
+        Assert.False(Enabled(saveAs));
+    }
+
+    [AvaloniaFact]
     public void TheViewMenuRunsTheCommandsOfTheCatalogAndShowsTheView()
     {
         var window = new FakeWindow { HasTab = true };

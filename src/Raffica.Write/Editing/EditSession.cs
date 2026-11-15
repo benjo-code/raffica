@@ -97,6 +97,9 @@ internal sealed class EditSession
         }
     }
 
+    /// <summary>True from <see cref="BeginSave"/> until the last handle is disposed (the replay of what was queued runs at that moment, on the UI thread).</summary>
+    public bool IsSaving => _saving > 0;
+
     /// <summary>True when the whole model is loaded, nothing failed and no save runs.</summary>
     public bool CanEdit => BlockedReason is null;
 

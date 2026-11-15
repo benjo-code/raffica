@@ -44,10 +44,36 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The model of the tab in the title bar.</summary>
     public DocumentTab Tab { get; }
 
-    public string Title { get; }
+    /// <summary>The name of the file; follows <see cref="Rebind"/>.</summary>
+    public string Title { get; private set; }
 
-    /// <summary>The full path of the file.</summary>
-    public string Path { get; }
+    /// <summary>The full path of the file; follows <see cref="Rebind"/>.</summary>
+    public string Path { get; private set; }
+
+    /// <summary>
+    /// The tab now belongs to another file (after a successful Save as): the path, the name and the model of the title bar follow. UI thread; the layout, the picture
+    /// source and the opened file stay as they are (the file knows its new origin itself, <see cref="DocxFile.OriginPath"/>).
+    /// </summary>
+    internal void Rebind(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        Path = System.IO.Path.GetFullPath(path);
+        Title = System.IO.Path.GetFileName(Path);
+        Tab.Title = Title;
+        Tab.Path = Path;
+    }
+
+    /// <summary>Whether the document has changes the file on disk does not have (the revision of the model is not the saved one). False for a prefix: it cannot be edited.</summary>
+    public bool IsDirty => Docx.Model.Edits.IsDirty;
+
+    /// <summary>Gives the model of the title bar the dirty state of the document (the tab shows its mark and says "unsaved changes"). UI thread.</summary>
+    internal void UpdateDirty()
+    {
+        if (!IsDisposed)
+        {
+            Tab.IsDirty = IsDirty;
+        }
+    }
 
     /// <summary>The opened file; a prefix while <see cref="DocxFile.IsPrefix"/>. Not to be edited or saved.</summary>
     public DocxFile Docx => Volatile.Read(ref _docx);
@@ -78,7 +104,18 @@ internal sealed class WriteTab : IDisposable
     public EditSession? Editor => _editor;
 
     /// <summary>Makes the editing session on first use (UI thread: it keeps that thread's dispatcher).</summary>
-    public EditSession EnsureEditor() => _editor ??= new EditSession(this);
+    public EditSession EnsureEditor()
+    {
+        if (_editor is null)
+        {
+            _editor = new EditSession(this);
+
+            // Every edit, undo and redo (and the replay of what a save queued) shows in the tab's dirty mark; a save sets it itself.
+            _editor.Changed += UpdateDirty;
+        }
+
+        return _editor;
+    }
 
     /// <summary>
     /// The whole file has been read: it replaces the prefix (which is disposed), and the pictures are read from its package from now on so the prefix bytes can go.

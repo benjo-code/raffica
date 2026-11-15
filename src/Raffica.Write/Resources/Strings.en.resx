@@ -268,6 +268,81 @@
     <value>There is nothing to redo.</value>
   </data>
   <data name="EditFailed" xml:space="preserve">
-    <value>Editing stopped because of an internal error. The file on disk has not been changed. Close the document and open it again.</value>
+    <value>Editing stopped because of an internal error. Changes made since the last save may be lost. You can try Save as to keep the document under another name, then close it and open that file again.</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="SaveDialogTitle" xml:space="preserve">
+    <value>Save document as</value>
+  </data>
+  <data name="ReasonNothingToSave" xml:space="preserve">
+    <value>There are no changes to save.</value>
+  </data>
+  <data name="ReasonSaveFaulted" xml:space="preserve">
+    <value>Editing stopped because of an error, so this document cannot be saved over its file. Use Save as to keep it in another file.</value>
+  </data>
+  <data name="ReasonSaveAsFaulted" xml:space="preserve">
+    <value>This document cannot be saved because of an error.</value>
+  </data>
+  <data name="SaveErrorTitle" xml:space="preserve">
+    <value>The document was not saved</value>
+  </data>
+  <data name="SaveErrorKept" xml:space="preserve">
+    <value>The document is still open with your changes. The file on disk was not replaced.</value>
+  </data>
+  <data name="SaveFailNotWritable" xml:space="preserve">
+    <value>The file is read-only, or you are not allowed to change it or its folder. Choose Save as to keep your work in another place.</value>
+  </data>
+  <data name="SaveFailDiskFull" xml:space="preserve">
+    <value>The disk is full. Free some space, or choose Save as to save on another disk.</value>
+  </data>
+  <data name="SaveFailWriteFailed" xml:space="preserve">
+    <value>The file could not be written. It may be open in another program, or the drive may not be available. Try again, or choose Save as.</value>
+  </data>
+  <data name="SaveFailTargetExists" xml:space="preserve">
+    <value>A file with this name was created in the meantime. It was not replaced. Choose Save as and another name.</value>
+  </data>
+  <data name="SaveFailOriginalChanged" xml:space="preserve">
+    <value>The file was changed by another program after it was opened.</value>
+  </data>
+  <data name="SaveFailOther" xml:space="preserve">
+    <value>The document could not be saved.</value>
+  </data>
+  <data name="SaveFailCheck" xml:space="preserve">
+    <value>The saved file did not pass Write's own check, so nothing was replaced. Choose Save as to save in another file.</value>
+  </data>
+  <data name="SaveFailUnreadable" xml:space="preserve">
+    <value>Write could not read back what it wrote, so nothing was replaced. Choose Save as to save in another file.</value>
+  </data>
+  <data name="SaveFailOpenElsewhere" xml:space="preserve">
+    <value>This file is open in another tab. Close that tab first, or choose another name.</value>
+  </data>
+  <data name="SaveFailUnexpected" xml:space="preserve">
+    <value>The document could not be saved because of an unexpected error.</value>
+  </data>
+  <data name="SaveLeftoverNoteFormat" xml:space="preserve">
+    <value>The old file {0} could not be deleted. You can remove it yourself.</value>
+  </data>
+  <data name="ChangedTitle" xml:space="preserve">
+    <value>The file has changed</value>
+  </data>
+  <data name="ChangedMessageFormat" xml:space="preserve">
+    <value>{0} was changed or replaced by another program after it was opened. Overwriting it loses those changes. You can save your document under another name instead.</value>
+  </data>
+  <data name="ChangedOverwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="UnsavedTitle" xml:space="preserve">
+    <value>Save changes?</value>
+  </data>
+  <data name="UnsavedMessageFormat" xml:space="preserve">
+    <value>{0} has unsaved changes. Do you want to save them before closing?</value>
+  </data>
+  <data name="UnsavedDontSave" xml:space="preserve">
+    <value>Don't save</value>
   </data>
 </root>

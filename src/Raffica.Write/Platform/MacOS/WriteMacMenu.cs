@@ -60,7 +60,7 @@ internal enum WriteMenuPart
 /// <summary>
 /// The macOS menu bar of Write. It follows the same rule as the PDF app (<c>Docs/DECISIONS.md</c>, "Raffica PDF on macOS: the menus belong to the window"): the
 /// application menu belongs to the application and is only Settings and Open (Open shows while no window exists, so Cmd+O never has two items); File and Window
-/// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone. The View menu
+/// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone. The File menu also has Save and Save as (catalog commands run by id, with their key equivalents). The View menu
 /// (page view, writing view, zoom in and out, actual size, fit width, fit page) and the Edit menu (undo, redo, cut, copy, paste, select all) run the commands of the catalog by id on the window. The menu is read again when the
 /// system asks, when the window reports new states and when the current window changes (the owner calls <see cref="Refresh"/>).
 /// </summary>
@@ -102,6 +102,8 @@ internal sealed class WriteMacMenu
             file.Menu.Items.Add(_recentItem);
             file.Menu.Items.Add(new NativeMenuItemSeparator());
             file.Menu.Items.Add(Item(() => WriteStrings.MenuCloseTab, "Meta+W", window => window?.CloseTabOrWindow(), always: false));
+            file.Menu.Items.Add(CommandItem(WriteCommandIds.Save, () => WriteStrings.CmdSave, MacGesture(WriteCommandIds.Save)));
+            file.Menu.Items.Add(CommandItem(WriteCommandIds.SaveAs, () => WriteStrings.CmdSaveAs, MacGesture(WriteCommandIds.SaveAs)));
             Menu.Items.Add(file);
 
             var editMenu = new NativeMenuItem(WriteStrings.MenuEdit) { Menu = new NativeMenu() };

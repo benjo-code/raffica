@@ -6,6 +6,8 @@ namespace Raffica.Write.Commands;
 internal static class WriteCommandIds
 {
     public const string Open = "file.open";
+    public const string Save = "file.save";
+    public const string SaveAs = "file.saveAs";
     public const string CloseTab = "file.close";
     public const string Settings = "app.settings";
     public const string Search = "app.search";

@@ -19,11 +19,14 @@ namespace Raffica.Write.Commands;
 /// <param name="zoom">The zoom of the view of the active tab (1 = 100 %).</param>
 /// <param name="outlineAvailable">Whether the outline pane exists (the step that builds it says yes).</param>
 /// <param name="editState">What the edit commands need to know of the active tab; null reads as a tab that can be edited, with a selection and history.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null)
+/// <param name="saveState">What Save and Save as need to know of the active tab; null reads as a document with changes that can be saved.</param>
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null)
 {
     private const double Tolerance = 1e-9;
 
     private EditCommandState State => editState?.Invoke() ?? new EditCommandState(null, true, true, true);
+
+    private SaveCommandState SaveState => saveState?.Invoke() ?? new SaveCommandState(hasDocument(), false, false, false, false, true);
 
     /// <summary>Whether the command may run now (not counting whether an action is wired behind it).</summary>
     public bool Allows(string id) => id switch
@@ -32,6 +35,8 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         WriteCommandIds.ZoomIn => hasDocument() && zoom() < ZoomSteps.Max - Tolerance,
         WriteCommandIds.ZoomOut => hasDocument() && zoom() > ZoomSteps.Min + Tolerance,
         WriteCommandIds.Outline => hasDocument() && outlineAvailable?.Invoke() == true,
+        WriteCommandIds.Save => SaveState.Refusal(saveAs: false) is null,
+        WriteCommandIds.SaveAs => SaveState.Refusal(saveAs: true) is null,
         _ when WriteCommandIds.IsEditing(id) => hasDocument() && EditReason(id, State) is null,
         _ => hasDocument(),
     };
@@ -54,12 +59,24 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
 
         return id switch
         {
+            WriteCommandIds.Save => SaveReason(SaveState.Refusal(saveAs: false), saveAs: false),
+            WriteCommandIds.SaveAs => SaveReason(SaveState.Refusal(saveAs: true), saveAs: true),
             WriteCommandIds.ZoomIn => WriteStrings.ReasonZoomMax,
             WriteCommandIds.ZoomOut => WriteStrings.ReasonZoomMin,
             WriteCommandIds.Outline => WriteStrings.ReasonOutlineSoon,
             _ => null,
         };
     }
+
+    /// <summary>The words for a refusal of Save or Save as in the UI language (null for none and for "no document", which the start view needs no words for).</summary>
+    internal static string? SaveReason(SaveRefusal? refusal, bool saveAs) => refusal switch
+    {
+        SaveRefusal.StillOpening => WriteStrings.ReasonEditOpening,
+        SaveRefusal.Running => WriteStrings.ReasonEditSaving,
+        SaveRefusal.NothingToSave => WriteStrings.ReasonNothingToSave,
+        SaveRefusal.Unavailable => saveAs ? WriteStrings.ReasonSaveAsFaulted : WriteStrings.ReasonSaveFaulted,
+        _ => null,
+    };
 
     // The reason an edit command is disabled, or null when it may run. The block comes first (it holds for every command), then what the command itself needs.
     private static string? EditReason(string id, EditCommandState state)

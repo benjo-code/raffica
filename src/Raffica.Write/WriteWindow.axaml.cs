@@ -26,7 +26,7 @@ namespace Raffica.Write;
 /// document tab it shows the start view (the one tile "Open document", the recent files, no status bar). The document slot shows the page view of the active tab (<see cref="CreateDocumentArea"/>) and the ribbon sits in <see cref="AppFrame.TabRow"/> and
 /// <see cref="AppFrame.Band"/> (see <see cref="Refresh"/> and <c>WriteWindow.View.cs</c>). Nothing of the layout, the fonts or a file exists before the first file is opened.
 /// </summary>
-internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWindow
+internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWindow, ISaveInteraction
 {
     /// <summary>How many recent files the start view shows.</summary>
     internal const int RecentOnStartView = 5;
@@ -51,7 +51,11 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     private bool _watchingHost;
     private bool _pickerShowing;
     private bool _closeConfirmed;
+    private int _closeRuns;
     private readonly CloseSignal _closing = new();
+    private readonly WriteSaveFlow _saves;
+    private readonly CloseGuard _closeGuard;
+    private readonly Dictionary<WriteTab, Task> _closingTabs = [];
 
     /// <summary>Ends when the window starts to close: every open of this window watches it (a file that finishes late adds no tab).</summary>
     private readonly CancellationToken _closeToken;
@@ -71,11 +75,14 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         InitializeComponent();
         Title = WriteStrings.WindowTitle;
         Workspace = new WriteWorkspace();
+        _saves = new WriteSaveFlow(this);
+        _closeGuard = new CloseGuard(AskCloseAsync, SaveForCloseAsync, _saves.WhenIdleAsync);
 
         Frame = new AppFrame();
         var titleBar = new TitleBar { Mark = CreateAppMark() };
         TitleSearch = titleBar.Search;
         CreateRibbon();
+        _saves.Changed += RefreshCommandStates;
         Tabs = titleBar.Tabs;
         Tabs.CloseRequested += OnCloseRequested;
         Tabs.NewButtonLabel = WriteStrings.OpenFileButton;
@@ -433,7 +440,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         try
         {
             // Decided before the error cards of this very hand-over open: they do not hold back the good files next to them.
-            var busy = Host.IsOpen;
+            var busy = Host.IsOpen || IsCloseRunning;
             foreach (var name in rejected)
             {
                 ShowOpenError(name, OpenError.NotFound);
@@ -445,7 +452,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 return;
             }
 
-            // While a card is open the files wait: opening a tab now would move the focus and the active tab under the card.
+            // While a card is open or the close questions run, the files wait: opening a tab now would move the focus and the active tab under the card.
             _pendingHandover.AddRange(accepted);
             if (busy)
             {
@@ -525,7 +532,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     private void OpenPendingHandover()
     {
-        if (_pendingHandover.Count == 0 || _closeConfirmed)
+        if (_pendingHandover.Count == 0 || IsCloseRunning || _closeConfirmed)
         {
             return;
         }
@@ -589,7 +596,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     {
         if (FindDocument(tab) is { } document)
         {
-            Workspace.Close(document);
+            _ = GuardAsync(() => CloseTabAsync(document));
         }
         else
         {
@@ -754,11 +761,12 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     void IWriteMenuWindow.Open() => _ = GuardAsync(OpenFromDialogAsync);
 
+    /// <summary>Closes the active tab after the question about its unsaved changes, if it has any (a clean tab closes at once, before this returns).</summary>
     public void CloseActiveTab()
     {
         if (Workspace.Active is { } tab)
         {
-            Workspace.Close(tab);
+            _ = GuardAsync(() => CloseTabAsync(tab));
         }
     }
 
@@ -836,15 +844,86 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     // Closing.
 
-    // A viewer has no unsaved changes, so nothing asks before the window closes; the close is confirmed at once. A quit (Cmd+Q, a log out) says so for the host.
+    // The window closes at once when nothing is unsaved and no save runs. Otherwise the close is held back (Cancel), every tab with unsaved changes is asked in order (a running
+    // save is waited for first) and the window closes itself when all are answered; a quit (Cmd+Q, a log out) says so for the host and the flag goes again when a question is answered Cancel.
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
-        QuitRequested = e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown;
-        _closeConfirmed = true;
+        if (_closeConfirmed)
+        {
+            return;
+        }
 
-        // Before anything is flushed or disposed: an open that is still reading a file ends without a tab, a recent entry or a card, and the files queued behind it never start.
+        var quit = e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown;
+        if (!IsCloseRunning && !Workspace.Tabs.Any(t => t.IsDirty) && !_saves.IsAnyRunning && _closingTabs.Count == 0)
+        {
+            QuitRequested = quit;
+            ConfirmClose();
+            return;
+        }
+
+        e.Cancel = true;
+        _ = GuardAsync(() => RunCloseAsync(quit));
+    }
+
+    // Before anything is flushed or disposed: an open that is still reading a file ends without a tab, a recent entry or a card, and the files queued behind it never start.
+    private void ConfirmClose()
+    {
+        _closeConfirmed = true;
         Workspace.Seal();
         Step(_closing.Cancel);
+    }
+
+    private bool IsCloseRunning => _closeRuns > 0;
+
+    /// <summary>
+    /// The close questions and, when all are answered, the close itself (the seam of <see cref="OnWindowClosing"/>; <c>Window.Close()</c> cannot carry a reason headless).
+    /// <paramref name="quit"/> arms <see cref="QuitRequested"/> for this attempt; a Cancel answer or an exception disarms it again. A second request while the questions run is the same
+    /// wish and does not stack a second set (a quit upgrades a plain close, never the other way round).
+    /// </summary>
+    internal async Task RunCloseAsync(bool quit)
+    {
+        if (_closeConfirmed)
+        {
+            return;
+        }
+
+        if (IsCloseRunning)
+        {
+            QuitRequested |= quit;
+            return;
+        }
+
+        QuitRequested = quit;
+        _closeRuns++;
+        try
+        {
+            // A question about one tab (its close button) that is open answers first; the tab it closes is not asked again.
+            while (_closingTabs.Count > 0)
+            {
+                await Task.WhenAll(_closingTabs.Values);
+            }
+
+            if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
+            {
+                // Posted: with no dirty tab the guard completes synchronously, and Close must not run nested inside the Closing event.
+                ConfirmClose();
+                Dispatcher.UIThread.Post(Close);
+            }
+            else
+            {
+                QuitRequested = false;
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // An exception in the close guard keeps the window open; it must not take the app down.
+            QuitRequested = false;
+        }
+        finally
+        {
+            _closeRuns--;
+            DrainHandover();
+        }
     }
 
     private void FlushWriters()

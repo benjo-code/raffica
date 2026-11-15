@@ -6,6 +6,8 @@ namespace Raffica.Write.Commands;
 /*
  * Icons: command id -> Lucide icon (tag 1.63.0, key Raffica.Icon.<PascalCase>, the set of the shell). One glyph per meaning; WriteCommandTests.EveryCommandHasItsOwnIcon pins it.
  *   file.open -> folder-open
+ *   file.save -> save
+ *   file.saveAs -> save-all
  *   file.close -> x
  *   app.settings -> settings
  *   app.search -> search
@@ -166,6 +168,8 @@ internal static class WriteCommandCatalog
         var home = new CatalogTab("TabHome", "H");
         home.Group("GroupFile", "1")
             .Add(WriteCommandIds.Open, "CmdOpen", "FolderOpen", "11", Cmd(Key.O, "O"), CommandSize.Large)
+            .Add(WriteCommandIds.Save, "CmdSave", "Save", "14", Cmd(Key.S, "S"))
+            .Add(WriteCommandIds.SaveAs, "CmdSaveAs", "SaveAll", "15", new WriteShortcut(Key.S, "S", Shift: true))
             .Add(WriteCommandIds.CloseTab, "CmdCloseTab", "X", "12", Cmd(Key.W, "W"))
             .Add(WriteCommandIds.Settings, "CmdSettings", "Settings", "13", Cmd(Key.OemComma, ","));
         home.Group("GroupUndo", "3")
