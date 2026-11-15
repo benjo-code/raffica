@@ -84,6 +84,9 @@ public sealed record ParagraphInput(ResolvedParagraph Paragraph, IReadOnlyList<P
     /// </summary>
     internal Model.ParagraphProjection? Projection { get; init; }
 
+    /// <summary>The host the projection was built with (the layout's knowledge of fields, note marks and hidden runs); lines carry it for the editor.</summary>
+    internal Model.IProjectionHost? Host { get; init; }
+
     /// <summary>Translates offsets of the layout's text into <see cref="Projection"/> offsets; null means they are equal. After a break the map is the one of the continuation (its offset 0 is where the continuation starts).</summary>
     internal OffsetMap? ProjectionMap { get; init; }
 

@@ -183,6 +183,21 @@ internal sealed class TableFlow : IBlockFlow
 
     public bool IsFirstPiece => _first;
 
+    public int StartLine => _from;
+
+    // Whole rows of the same layout; a piece with a cut row has fragments of its own and is never called the same.
+    public bool SamePieceAs(IBlockFlow? other) =>
+        other is TableFlow flow
+        && ReferenceEquals(_data, flow._data)
+        && _first == flow._first
+        && _repeat == flow._repeat
+        && _from == flow._from
+        && _to == flow._to
+        && _lead is null
+        && flow._lead is null
+        && _trail is null
+        && flow._trail is null;
+
     public float Height
     {
         get

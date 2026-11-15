@@ -40,6 +40,11 @@ internal sealed class HeaderFooterPlan : IPageChrome
 
     public bool HasCarry => _carry.Count > 0;
 
+    // The list is replaced, never changed, once a page has been ended with it, so it can be kept and put back as it is.
+    public object? CarryState => _carry.Count == 0 ? null : _carry;
+
+    public void RestoreCarry(object? state) => _carry = state as List<NoteGroup> ?? [];
+
     public IEnumerable<BlockPlan> Trailer() => _notes.EndnotePlans();
 
     public void Begin(PageBuilder page)

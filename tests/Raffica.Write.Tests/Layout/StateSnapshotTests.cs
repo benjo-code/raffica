@@ -131,16 +131,19 @@ public sealed class StateSnapshotTests
         var document = LayoutModel.Document(string.Concat(Enumerable.Repeat(Item(0), 6)), LayoutModel.StylesPart(Plain), LayoutModel.NumberingPart(Numbering()));
         var planner = PlannerFor(document);
         var flat = FlatBlocks.From(document.Body.Blocks);
+        var start = planner.CurrentState();
         var plans = flat.Select(planner.PlanFor).ToList();
         Assert.Equal(6, planner.PlansMade);
 
-        // A second pass is all hits and returns the same objects.
+        // A second pass from the same state is all hits and returns the same objects (numbered blocks are hits only from the state they were planned in).
+        planner.RestoreState(start.Numbers, start.Notes);
         var again = flat.Select(planner.PlanFor).ToList();
         Assert.Equal(6, planner.PlansMade);
         Assert.All(plans.Zip(again), pair => Assert.Same(pair.First, pair.Second));
 
         planner.Forget(flat[3].Block);
         Assert.False(planner.HasPlan(flat[3].Block));
+        planner.RestoreState(start.Numbers, start.Notes);
         var third = flat.Select(planner.PlanFor).ToList();
         Assert.Equal(7, planner.PlansMade);
         Assert.NotSame(plans[3], third[3]);
@@ -156,7 +159,7 @@ public sealed class StateSnapshotTests
     [Fact]
     public void StructuralChangeKeepsOtherPlans()
     {
-        var document = LayoutModel.Document(string.Concat(Enumerable.Repeat(Item(0), 3)), LayoutModel.StylesPart(Plain), LayoutModel.NumberingPart(Numbering()));
+        var document = LayoutModel.Document(string.Concat(Enumerable.Repeat("<w:p><w:r><w:t>x</w:t></w:r></w:p>", 3)), LayoutModel.StylesPart(Plain), LayoutModel.NumberingPart(Numbering()));
         var planner = PlannerFor(document);
         var before = FlatBlocks.From(document.Body.Blocks);
         var target = before[1].Block;
@@ -166,7 +169,7 @@ public sealed class StateSnapshotTests
         // Measure at a width so a flow is memoised: it carries the old index and must not survive the shift.
         Assert.Equal(1, plan.Layout(400f).BodyIndex);
 
-        var inserted = LayoutModel.Document(Item(0)).Body.Blocks[0];
+        var inserted = LayoutModel.Document("<w:p><w:r><w:t>y</w:t></w:r></w:p>").Body.Blocks[0];
         document.Body.Blocks.Insert(0, inserted);
         var after = FlatBlocks.From(document.Body.Blocks);
         var count = planner.PlansMade;
@@ -180,7 +183,32 @@ public sealed class StateSnapshotTests
 
         // A removed block leaves the cache with Retain.
         document.Body.Blocks.RemoveAt(2);
-        planner.Retain(FlatBlocks.From(document.Body.Blocks).Select(f => f.Block));
+        planner.Retain(FlatBlocks.From(document.Body.Blocks));
         Assert.False(planner.HasPlan(target));
+    }
+
+    [Fact]
+    public void NumberedBlockIsPlannedAgainWhenTheStateBeforeItDiffers()
+    {
+        // Three items and a plain paragraph between them; an item inserted in front shifts the label of every later item but not the plain block.
+        var plain = "<w:p><w:r><w:t>x</w:t></w:r></w:p>";
+        var document = LayoutModel.Document(Item(0) + plain + Item(0) + Item(0), LayoutModel.StylesPart(Plain), LayoutModel.NumberingPart(Numbering()));
+        var planner = PlannerFor(document);
+        var start = planner.CurrentState();
+        var first = FlatBlocks.From(document.Body.Blocks);
+        var plans = first.Select(planner.PlanFor).ToList();
+        Assert.Equal(["1.", null, "2.", "3."], plans.Select(LabelOf));
+
+        var inserted = LayoutModel.Document(Item(0), LayoutModel.StylesPart(Plain), LayoutModel.NumberingPart(Numbering())).Body.Blocks[0];
+        document.Body.Blocks.Insert(0, inserted);
+        var second = FlatBlocks.From(document.Body.Blocks);
+        planner.RestoreState(start.Numbers, start.Notes);
+        var made = planner.PlansMade;
+        var again = second.Select(planner.PlanFor).ToList();
+
+        Assert.Equal(["1.", "2.", null, "3.", "4."], again.Select(LabelOf));
+        Assert.Same(plans[1], again[2]);
+        Assert.Equal(made + 4, planner.PlansMade);
+        Assert.NotSame(plans[0], again[1]);
     }
 }

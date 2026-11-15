@@ -183,6 +183,12 @@ internal interface IPageChrome
     /// <summary>True when a note continues beyond the last page made: the filler adds pages until it has ended.</summary>
     bool HasCarry { get; }
 
+    /// <summary>The notes that run over from the last page ended onto the next one (the chrome's own object, never changed afterwards), or null when none do.</summary>
+    object? CarryState { get; }
+
+    /// <summary>Sets the notes that run over onto the next page to a state <see cref="CarryState"/> returned (the filler goes on from a saved page start).</summary>
+    void RestoreCarry(object? state);
+
     /// <summary>The blocks that end the document (the endnotes); enumerated once the whole body is planned.</summary>
     IEnumerable<BlockPlan> Trailer();
 

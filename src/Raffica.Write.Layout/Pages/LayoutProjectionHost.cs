@@ -60,3 +60,19 @@ internal sealed class LayoutProjectionHost(StyleResolver styles, PlanContext con
         return note;
     }
 }
+
+/// <summary>
+/// The host the layout used for a paragraph, handed to the editor: it answers as the layout answered (field values, hidden runs, what
+/// takes no room) and gives the mark text of the note references the layout numbered, but never numbers a note again (that would advance the
+/// counters of the layout). A reference the layout has not numbered (one the edit just made) has no mark text until the layout has run again.
+/// </summary>
+internal sealed class ReplayProjectionHost(LayoutProjectionHost inner) : IProjectionHost
+{
+    public string? FieldValue(string instruction) => inner.FieldValue(instruction);
+
+    public bool IsHidden(Run run) => inner.IsHidden(run);
+
+    public bool HasText(RunContent content) => inner.HasText(content);
+
+    public string? NoteMarkText(RunContent reference) => reference is UnknownRunContent ? inner.NoteMarkText(reference) : inner.RegisteredNote(reference)?.Text;
+}

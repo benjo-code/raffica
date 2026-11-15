@@ -103,6 +103,9 @@ internal sealed class NotePlanner
     private readonly string? _endnoteFormat;
     private readonly List<NoteRef> _endnotes = [];
     private int _footnotes;
+    private int _version;
+    private NoteState? _cached;
+    private int _cachedVersion = -1;
 
     public NotePlanner(WordDocument document, Func<BlockPlanner> planners)
     {
@@ -115,7 +118,19 @@ internal sealed class NotePlanner
     }
 
     /// <summary>The numbering state: the footnote count and the endnote references so far (the list only grows and its entries never change, so a shallow copy is exact).</summary>
-    public NoteState Snapshot() => new(_footnotes, [.. _endnotes]);
+    /// <remarks>While no reference was registered since the last snapshot, the same object comes back, so a block without notes makes no copy.</remarks>
+    public NoteState Snapshot()
+    {
+        if (_cached is { } known && _cachedVersion == _version)
+        {
+            return known;
+        }
+
+        var state = new NoteState(_footnotes, [.. _endnotes]);
+        _cached = state;
+        _cachedVersion = _version;
+        return state;
+    }
 
     /// <summary>Makes the numbering exactly what it was when <paramref name="state"/> was taken.</summary>
     public void Restore(NoteState state)
@@ -124,11 +139,15 @@ internal sealed class NotePlanner
         _footnotes = state.Footnotes;
         _endnotes.Clear();
         _endnotes.AddRange(state.Endnotes);
+        _version++;
+        _cached = state;
+        _cachedVersion = _version;
     }
 
     /// <summary>Numbers a reference. A reference to a note that does not exist is numbered like any other (it just has no text).</summary>
     public NoteRef Register(bool isEndnote, int id)
     {
+        _version++;
         if (isEndnote)
         {
             var number = _endnotes.Count + 1;
@@ -206,7 +225,35 @@ internal sealed class NotePlanner
 }
 
 /// <summary>The numbering of a <see cref="NotePlanner"/> at one moment; never changes.</summary>
-internal sealed record NoteState(int Footnotes, NoteRef[] Endnotes);
+internal sealed record NoteState(int Footnotes, NoteRef[] Endnotes)
+{
+    /// <summary>True when the next reference would get the same number (the same counts): what the plan of a block with notes depends on.</summary>
+    public bool SameCounts(NoteState? other) => ReferenceEquals(this, other) || (other is not null && Footnotes == other.Footnotes && Endnotes.Length == other.Endnotes.Length);
+
+    /// <summary>True when the counts agree and the endnote references are the same notes in the same order (the endnote pages at the end of the document depend on that).</summary>
+    public bool SameAs(NoteState? other)
+    {
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        if (!SameCounts(other))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < Endnotes.Length; i++)
+        {
+            if (Endnotes[i].Id != other!.Endnotes[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
 
 /// <summary>The measures of the note area, in points.</summary>
 internal static class NoteLayout

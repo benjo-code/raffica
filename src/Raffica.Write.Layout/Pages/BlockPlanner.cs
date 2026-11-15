@@ -30,7 +30,7 @@ internal sealed class BlockPlanner
     private readonly float _defaultTabStop;
     private readonly bool _expandShiftReturn;
     private readonly bool _autoHyphenation;
-    private readonly Dictionary<Block, BlockPlan?> _plans = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<Block, PlanEntry> _plans = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ResolvedParagraph, ResolvedRun> _markRuns = new(ReferenceEqualityComparer.Instance);
     private readonly ImageProbe _probe;
     private readonly bool _flowMode;
@@ -123,39 +123,120 @@ internal sealed class BlockPlanner
     internal NumberingCounter Numbering => _numbering;
 
     /// <summary>
-    /// The plan of a body block, kept by block reference: a block inserted or removed elsewhere shifts no entry. A hit does not plan
-    /// again, so it advances no list counter and registers no note: whoever resumes after an edit restores the snapshots of the
-    /// resume point first, and replans (<see cref="Forget"/>) every block whose numbers can differ. The index of the plan is made
-    /// current from <paramref name="flat"/> on every call. Like planning, this runs under the layout gate only.
+    /// The plan of a body block, kept by block reference: a block inserted or removed elsewhere shifts no entry. Planning a block advances
+    /// the list counters and registers its notes, so an entry also keeps the numbering and note state before and after the block was planned.
+    /// A block that touched neither (almost every one) is valid whatever the state is. A block that did is valid only while the state now
+    /// has the same numbers it had then; a hit then restores the state after it (as planning it again would leave it), a miss plans it again.
+    /// So a resume point needs only the state restored at it, never a list of the blocks whose numbers changed. The index of the plan is made
+    /// current from <paramref name="flat"/> on every call. Runs under the layout gate only (planning, the counters and this cache have no lock).
     /// </summary>
     internal BlockPlan? PlanFor(FlatBlock flat)
     {
+        var notes = Context.Notes;
+        var numbers = _numbering.Snapshot();
+        var counts = notes?.Snapshot();
         if (_plans.TryGetValue(flat.Block, out var known))
         {
-            known?.Rebase(flat.BodyIndex);
-            return known;
+            if (known.IsStateless)
+            {
+                known.Plan?.Rebase(flat.BodyIndex);
+                return known.Plan;
+            }
+
+            if (known.NumbersBefore.SameAs(numbers) && (known.NotesBefore?.SameCounts(counts) ?? counts is null))
+            {
+                _numbering.Restore(known.NumbersAfter);
+                if (known.NotesAfter is { } after)
+                {
+                    notes?.Restore(after);
+                }
+
+                known.Plan?.Rebase(flat.BodyIndex);
+                return known.Plan;
+            }
         }
 
         var plan = Plan(flat);
         PlansMade++;
-        _plans[flat.Block] = plan;
+        _plans[flat.Block] = new PlanEntry(plan, numbers, _numbering.Snapshot(), counts, notes?.Snapshot());
         return plan;
     }
 
-    /// <summary>True when <see cref="PlanFor"/> would answer from the cache.</summary>
+    /// <summary>True when <see cref="PlanFor"/> would find an entry (it may still plan again when the block has numbers that depend on the state).</summary>
     internal bool HasPlan(Block block) => _plans.ContainsKey(block);
 
-    /// <summary>Drops the plan of a block (it was edited or removed): the entry and every reference it held go.</summary>
+    /// <summary>How many entries the cache holds.</summary>
+    internal int CachedPlans => _plans.Count;
+
+    /// <summary>The numbering and note state right after <paramref name="block"/> was planned; false when the block has no entry.</summary>
+    internal bool TryGetStateAfter(Block block, out NumberingState numbers, out NoteState? notes)
+    {
+        if (_plans.TryGetValue(block, out var entry))
+        {
+            numbers = entry.NumbersAfter;
+            notes = entry.NotesAfter;
+            return true;
+        }
+
+        numbers = null!;
+        notes = null;
+        return false;
+    }
+
+    /// <summary>The numbering and note state now.</summary>
+    internal (NumberingState Numbers, NoteState? Notes) CurrentState() => (_numbering.Snapshot(), Context.Notes?.Snapshot());
+
+    /// <summary>Makes the list counters and the note numbers what they were when <see cref="CurrentState"/> returned these.</summary>
+    internal void RestoreState(NumberingState numbers, NoteState? notes)
+    {
+        _numbering.Restore(numbers);
+        if (notes is not null)
+        {
+            Context.Notes?.Restore(notes);
+        }
+    }
+
+    /// <summary>
+    /// Drops the plan of a block (it was edited or removed): the entry and every reference it held go. The endnote references a forgotten
+    /// block registered stay in the note planner until a <see cref="RestoreState"/> to an earlier state (the resume of the page filler)
+    /// drops them; an endnote list is only complete after the blocks have been planned again. Layout gate only.
+    /// </summary>
     internal void Forget(Block block) => _plans.Remove(block);
 
-    /// <summary>Drops every plan whose block is no longer in <paramref name="live"/>, so removed blocks can be collected.</summary>
-    internal void Retain(IEnumerable<Block> live)
+    /// <summary>
+    /// Drops every plan whose block is not in <paramref name="live"/>, so removed blocks can be collected. It walks the whole cache, so it
+    /// is not for every keystroke: the editing layout calls it only when the cache has grown well past the document. Layout gate only.
+    /// </summary>
+    internal void Retain(IReadOnlyList<FlatBlock> live)
     {
-        var keep = new HashSet<Block>(live, ReferenceEqualityComparer.Instance);
-        foreach (var block in _plans.Keys.Where(b => !keep.Contains(b)).ToList())
+        var keep = new HashSet<Block>(live.Count, ReferenceEqualityComparer.Instance);
+        foreach (var flat in live)
         {
-            _plans.Remove(block);
+            keep.Add(flat.Block);
         }
+
+        List<Block>? gone = null;
+        foreach (var block in _plans.Keys)
+        {
+            if (!keep.Contains(block))
+            {
+                (gone ??= []).Add(block);
+            }
+        }
+
+        if (gone is not null)
+        {
+            foreach (var block in gone)
+            {
+                _plans.Remove(block);
+            }
+        }
+    }
+
+    /// <summary>A plan with the state of the numbering and the notes before and after it was planned (the same objects when it touched neither).</summary>
+    private sealed record PlanEntry(BlockPlan? Plan, NumberingState NumbersBefore, NumberingState NumbersAfter, NoteState? NotesBefore, NoteState? NotesAfter)
+    {
+        public bool IsStateless => ReferenceEquals(NumbersBefore, NumbersAfter) && ReferenceEquals(NotesBefore, NotesAfter);
     }
 
     /// <summary>The plan of a block of the body (<paramref name="cell"/> null) or of a table cell, where the paragraph properties of the table style apply.</summary>
@@ -219,6 +300,7 @@ internal sealed class BlockPlanner
             NoteMarks = marks,
             Floats = floats,
             Projection = projection,
+            Host = host,
             ProjectionMap = map.Build(),
             Source = _planningBox ? null : new ParagraphSource(Story, paragraph, cell),
         };

@@ -29,7 +29,7 @@ namespace Raffica.Write.Layout;
 /// trailing spaces not); the caret geometry uses them where a line has no glyph run at an edge.
 /// </para>
 /// </summary>
-internal sealed record TextLine(StoryRef Story, Paragraph Paragraph, ParagraphProjection Projection, GlyphRun[] Runs, int Start, int End, float X, float Top, float Baseline, float Height, OffsetMap Map, object? Cell, float ContentLeft, float ContentRight)
+internal sealed record TextLine(StoryRef Story, Paragraph Paragraph, ParagraphProjection Projection, GlyphRun[] Runs, int Start, int End, float X, float Top, float Baseline, float Height, OffsetMap Map, object? Cell, float ContentLeft, float ContentRight, IProjectionHost? Host = null)
 {
     /// <summary>The caret stops of the line, made on first use (see <see cref="LineStops"/>).</summary>
     internal LineStops Stops => _stops ??= LineStops.Build(this);

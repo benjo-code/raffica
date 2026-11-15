@@ -234,6 +234,21 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
 
     public bool IsFirstPiece => _from == 0 && !_plan.IsContinuation;
 
+    public int StartLine => _from;
+
+    // The same plan, the same lines of it at the same height. A layout that was not made for a place (no wrapping around objects) is a function
+    // of the plan and the width, so two of them are equal even when they are not the same object (a plan that moved to another body index makes
+    // its flow again); a layout made for a place is compared by reference.
+    public bool SamePieceAs(IBlockFlow? other) =>
+        other is ParagraphFlow flow
+        && ReferenceEquals(_plan, flow._plan)
+        && _from == flow._from
+        && _to == flow._to
+        && _placed == flow._placed
+        && Height == flow.Height
+        && _layout.Lines.Count == flow._layout.Lines.Count
+        && (ReferenceEquals(_layout, flow._layout) || !_placed);
+
     public float Height { get; }
 
     public float SpaceBefore => IsFirstPiece ? Format.SpaceBefore : 0f;
@@ -361,7 +376,7 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
             LineItems.Emit(page, line, x, lineTop);
             if (_plan.Input is { Source: { } source, Projection: { } projection } input)
             {
-                page.AddTextLine(new TextLine(source.Story, source.Paragraph, projection, RunsOf(line), StartOf(input, line, i), EndOf(input, line, i), x, lineTop, lineTop + line.Baseline, line.Height, input.ProjectionMap ?? OffsetMap.Identity, source.Cell, line.X, line.X + line.Width));
+                page.AddTextLine(new TextLine(source.Story, source.Paragraph, projection, RunsOf(line), StartOf(input, line, i), EndOf(input, line, i), x, lineTop, lineTop + line.Baseline, line.Height, input.ProjectionMap ?? OffsetMap.Identity, source.Cell, line.X, line.X + line.Width, input.Host));
             }
 
             var text = _layout.TextOf(line);
