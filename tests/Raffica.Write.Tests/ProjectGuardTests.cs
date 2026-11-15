@@ -40,6 +40,14 @@ public sealed class ProjectGuardTests
     }
 
     [Fact]
+    public void EditingReferencesOnlyModel()
+    {
+        var refs = References(typeof(Raffica.Write.Editing.TextEditor).Assembly);
+        Assert.All(refs.Where(n => n.StartsWith("Raffica.", StringComparison.Ordinal)), n => Assert.Equal("Raffica.Write.Model", n));
+        Assert.DoesNotContain(refs, n => n.StartsWith("Avalonia", StringComparison.Ordinal) || n is "Raffica.Core" or "Raffica.Write.Docx" or "Raffica.Write.Layout");
+    }
+
+    [Fact]
     public void NoNetworkAssemblyIsReferenced()
     {
         foreach (var assembly in new[] { s_model, s_docx, s_layout })
