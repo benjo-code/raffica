@@ -115,4 +115,20 @@ public sealed class CloneTests
         Assert.True(edits.IsDirty);
         Assert.False(new WordDocument(new Story(new OoxmlRoot("document", []))).Edits.IsDirty);
     }
+
+    [Fact]
+    public void ARevisionAfterAnUndoIsNeverAnEarlierOne()
+    {
+        var edits = new DocumentEdits();
+        edits.Raise();
+        edits.MarkSaved();
+        var saved = edits.SavedRevision;
+        edits.Raise();
+        edits.Restore(saved);
+        edits.Raise();
+        Assert.NotEqual(saved, edits.Revision);
+        Assert.True(edits.IsDirty);
+        Assert.Throws<ArgumentOutOfRangeException>(() => edits.Restore(edits.Revision + 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => edits.Restore(-1));
+    }
 }

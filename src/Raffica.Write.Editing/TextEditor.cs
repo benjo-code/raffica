@@ -7,7 +7,9 @@ namespace Raffica.Write.Editing;
 /// <summary>
 /// The text operations on a <see cref="WordDocument"/>: insert, delete, backspace, delete forward and the paragraph break. Each operation
 /// changes the model in place, raises <see cref="DocumentEdits"/> once and returns the <see cref="BlockChange"/>s that describe what it
-/// did (<see cref="BlockChange.OldBlocks"/> are clones of the blocks before the edit). The editor locks nothing and keeps no history.
+/// did (<see cref="BlockChange.OldBlocks"/> are clones of the blocks before the edit). The editor locks nothing. Every operation that
+/// changes the document records one step in <see cref="History"/> (an operation that changes nothing records nothing); the document must not
+/// be edited by anything but this editor, its history and the code that clears the history.
 /// </summary>
 /// <remarks>
 /// Positions are the offsets of <see cref="ParagraphProjection"/>: hidden text has no length, and a field result, a picture, a note or comment
@@ -27,13 +29,17 @@ public sealed class TextEditor
     private readonly WordDocument _document;
     private readonly Func<StoryRef, Paragraph, IProjectionHost> _hosts;
 
-    public TextEditor(WordDocument document, Func<StoryRef, Paragraph, IProjectionHost> hosts)
+    public TextEditor(WordDocument document, Func<StoryRef, Paragraph, IProjectionHost> hosts, TimeProvider? time = null, HistoryLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(hosts);
         _document = document;
         _hosts = hosts;
+        History = new EditHistory(document, time ?? TimeProvider.System, limits ?? HistoryLimits.Default);
     }
+
+    /// <summary>The undo and redo history of the operations of this editor.</summary>
+    public EditHistory History { get; }
 
     private enum PointKind
     {
@@ -53,6 +59,7 @@ public sealed class TextEditor
     public EditResult InsertText(TextRange selection, string text)
     {
         ArgumentNullException.ThrowIfNull(text);
+        var revision = History.BeginOperation();
         var lines = TextBoundaries.Lines(text);
         var hasText = lines.Count > 1 || lines[0].Length > 0;
         if (Resolve(selection) is not { } span)
@@ -62,7 +69,7 @@ public sealed class TextEditor
 
         if (!hasText)
         {
-            return ApplyDelete(span) ?? NoChange(span.Story, span.First, span.FirstOffset);
+            return ApplyDelete(span, revision, new EditHistory.Point(span.FirstIndex, span.FirstOffset)) ?? NoChange(span.Story, span.First, span.FirstOffset);
         }
 
         if (!span.IsCollapsed && RemovesSectionBreak(span))
@@ -100,18 +107,21 @@ public sealed class TextEditor
         }
 
         _document.Edits.Raise();
-        return new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)]);
+        var inserted = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)]);
+        History.Record(inserted, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, span.IsCollapsed && lines.Count == 1 ? lines[0] : null);
+        return inserted;
     }
 
     /// <summary>Removes the selection. Paragraphs it spans are merged: the first paragraph's properties win unless it is left empty, then the last one's.</summary>
     public EditResult Delete(TextRange selection)
     {
+        var revision = History.BeginOperation();
         if (Resolve(selection) is not { } span)
         {
             return NoChange(selection.Start);
         }
 
-        return ApplyDelete(span) ?? NoChange(span.Story, span.First, span.FirstOffset);
+        return ApplyDelete(span, revision, new EditHistory.Point(span.FirstIndex, span.FirstOffset)) ?? NoChange(span.Story, span.First, span.FirstOffset);
     }
 
     /// <summary>
@@ -130,6 +140,7 @@ public sealed class TextEditor
     /// </summary>
     public EditResult? Backspace(TextPosition caret, DeleteUnit unit)
     {
+        var revision = History.BeginOperation();
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
@@ -138,7 +149,7 @@ public sealed class TextEditor
         {
             if (index > 0 && container[index - 1] is Paragraph previous)
             {
-                return ApplyDelete(new Span(story, container, index - 1, previous, int.MaxValue, index, caret.Paragraph, 0));
+                return ApplyDelete(new Span(story, container, index - 1, previous, int.MaxValue, index, caret.Paragraph, 0), revision, new EditHistory.Point(index, 0));
             }
 
             return null;
@@ -152,7 +163,7 @@ public sealed class TextEditor
         var start = unit == DeleteUnit.Word
             ? TextBoundaries.PreviousWord(text, offset)
             : map.Projection.AtomicAt(offset - 1) is { } atom ? atom.Start : TextBoundaries.PreviousCluster(text, offset);
-        return ApplyDelete(new Span(story, container, index, caret.Paragraph, start, index, caret.Paragraph, offset));
+        return ApplyDelete(new Span(story, container, index, caret.Paragraph, start, index, caret.Paragraph, offset), revision, new EditHistory.Point(index, offset));
     }
 
     /// <summary>
@@ -163,6 +174,7 @@ public sealed class TextEditor
     /// </summary>
     public EditResult? DeleteForward(TextPosition caret, DeleteUnit unit)
     {
+        var revision = History.BeginOperation();
         var (story, container, index) = Locate(caret);
         var map = Map(story, caret.Paragraph);
         var text = map.Projection.Text;
@@ -171,7 +183,7 @@ public sealed class TextEditor
         {
             if (index + 1 < container.Count && container[index + 1] is Paragraph next)
             {
-                return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index + 1, next, 0));
+                return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index + 1, next, 0), revision, new EditHistory.Point(index, offset));
             }
 
             return null;
@@ -185,7 +197,7 @@ public sealed class TextEditor
         var end = unit == DeleteUnit.Word
             ? TextBoundaries.NextWord(text, offset)
             : map.Projection.AtomicAt(offset) is { } atom ? atom.End : TextBoundaries.NextCluster(text, offset);
-        return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index, caret.Paragraph, end));
+        return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index, caret.Paragraph, end), revision, new EditHistory.Point(index, offset));
     }
 
     /// <summary>Replaces the selection with a paragraph break: the second paragraph has the properties of the first and takes what follows the caret.</summary>
@@ -657,20 +669,8 @@ public sealed class TextEditor
 
     private ParagraphMap Map(StoryRef story, Paragraph paragraph) => ParagraphMap.Build(paragraph, _hosts(story, paragraph));
 
-    private Story StoryOf(StoryRef story)
-    {
-        Story? found = story.Kind switch
-        {
-            StoryKind.Body => _document.Body,
-            StoryKind.HeaderFooter => story.Key is not null && _document.HeadersFooters.TryGetValue(story.Key, out var part) ? part.Content : null,
-            StoryKind.Note when story.Key is not null && story.Key.StartsWith("endnote:", StringComparison.Ordinal) =>
-                int.TryParse(story.Key.AsSpan("endnote:".Length), out var endId) ? _document.Endnotes?.Find(endId)?.Content : null,
-            StoryKind.Note => int.TryParse(story.Key, out var noteId) ? _document.Footnotes?.Find(noteId)?.Content : null,
-            StoryKind.Comment => int.TryParse(story.Key, out var commentId) ? _document.Comments?.Find(commentId)?.Content : null,
-            _ => null,
-        };
-        return found ?? throw new ArgumentException("The story is not part of the document.");
-    }
+    private Story StoryOf(StoryRef story) =>
+        StoryResolver.TryStory(_document, story) ?? throw new ArgumentException("The story is not part of the document.");
 
     private (StoryRef Story, IList<Block> Container, int Index) Locate(TextPosition position)
     {
@@ -703,7 +703,7 @@ public sealed class TextEditor
             : new Span(story, container, startIndex, selection.Start.Paragraph, startOffset, endIndex, selection.End.Paragraph, endOffset);
     }
 
-    private EditResult? ApplyDelete(Span span)
+    private EditResult? ApplyDelete(Span span, int revision, EditHistory.Point before)
     {
         if (span.IsCollapsed || RemovesSectionBreak(span))
         {
@@ -718,9 +718,11 @@ public sealed class TextEditor
         }
 
         _document.Edits.Raise();
-        return new EditResult(
+        var result = new EditResult(
             new TextPosition(span.Story, deleted.Survivor, deleted.Offset),
             [new BlockChange(span.Story, span.Container, span.FirstIndex, deleted.Removed, 1, old)]);
+        History.Record(result, before, revision, null);
+        return result;
     }
 
     // Changing the section structure is not an editing operation of this library: a range that would remove the paragraph break of a
