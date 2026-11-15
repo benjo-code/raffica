@@ -119,6 +119,14 @@ public sealed class TextEditor
     /// blanks right before the caret first, then one run of letters, digits, underscores and combining marks, or one run of any other kind
     /// of character. At a paragraph start it merges with the previous paragraph; at the start of a cell, a story, or after a table it
     /// returns null.
+    /// <para>
+    /// A field result right before the caret (either unit) is selected first, not deleted: the result has <see cref="EditResult.Selected"/>
+    /// set, no <see cref="EditResult.Changes"/>, no raised revision and the caret the caller passed in (which may lie inside the unit, so
+    /// the UI normalizes it). The caller deletes the field with <see cref="Delete"/> of <see cref="EditResult.Selected"/>; calling this
+    /// method again at the same caret selects the field again. A picture or a note reference is deleted at once as one unit. A
+    /// <see cref="DeleteUnit.Word"/> delete that reaches into a field that is not adjacent to the caret removes it whole without the select
+    /// step.
+    /// </para>
     /// </summary>
     public EditResult? Backspace(TextPosition caret, DeleteUnit unit)
     {
@@ -147,7 +155,12 @@ public sealed class TextEditor
         return ApplyDelete(new Span(story, container, index, caret.Paragraph, start, index, caret.Paragraph, offset));
     }
 
-    /// <summary>The mirror of <see cref="Backspace"/>: deletes after the caret; at a paragraph end it merges with the next paragraph.</summary>
+    /// <summary>
+    /// The mirror of <see cref="Backspace"/>: deletes after the caret; at a paragraph end it merges with the next paragraph. A field result
+    /// right after the caret is selected first, not deleted, with the same contract as <see cref="Backspace"/>: <see cref="EditResult.Selected"/>
+    /// is set, nothing changes, the caller passes it to <see cref="Delete"/>, and a repeated call at the same caret selects it again. A
+    /// picture or a note reference is deleted at once; a <see cref="DeleteUnit.Word"/> delete that reaches into a non-adjacent field removes it.
+    /// </summary>
     public EditResult? DeleteForward(TextPosition caret, DeleteUnit unit)
     {
         var (story, container, index) = Locate(caret);

@@ -12,7 +12,7 @@ public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> C
 /// <summary>How far a <see cref="TextEditor.Backspace"/> or <see cref="TextEditor.DeleteForward"/> reaches.</summary>
 public enum DeleteUnit
 {
-    /// <summary>One grapheme cluster (a base letter with its accents, an emoji with its skin tone), or one whole atomic unit (a field, a picture).</summary>
+    /// <summary>One grapheme cluster (a base letter with its accents, an emoji with its skin tone), or one whole atomic unit (a picture, a note reference). A field result next to the caret is selected first (<see cref="EditResult.Selected"/>, nothing changes) and deleted by <see cref="TextEditor.Delete"/> of that range; repeating the call at the same caret selects it again.</summary>
     Cluster,
 
     /// <summary>To the previous or next word boundary; see <see cref="TextEditor.Backspace"/> for the rule.</summary>

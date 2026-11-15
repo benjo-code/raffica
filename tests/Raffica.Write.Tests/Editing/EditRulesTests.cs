@@ -8,7 +8,7 @@ namespace Raffica.Write.Tests.Editing;
 public sealed class EditRulesTests
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-    private const char ObjectChar = '￼';
+    private const char ObjectChar = ParagraphProjection.ObjectChar;
 
     private static Run R(params RunContent[] content)
     {
@@ -128,6 +128,71 @@ public sealed class EditRulesTests
 
         Assert.Null(result!.Selected);
         Assert.Equal("ab123d", Text(p));
+    }
+
+    // What the layout's host does: a comment reference takes no room in the text.
+    private sealed class ZeroLengthReferenceHost : IProjectionHost
+    {
+        public string? FieldValue(string instruction) => null;
+
+        public string? NoteMarkText(RunContent reference) => null;
+
+        public bool IsHidden(Run run) => false;
+
+        public bool HasText(RunContent content) => content is not CommentReference;
+    }
+
+    private static TextEditor LayoutEditor(WordDocument document) => new(document, (_, _) => new ZeroLengthReferenceHost());
+
+    [Fact]
+    public void ACommentReferenceWithoutLengthSurvivesSingleAndMultiParagraphDeletes()
+    {
+        var comments = new CommentCollection(new OoxmlRoot(W + "comments", []));
+        var p = P(R("Hello"), new CommentRangeStart(1), R("big"), new CommentRangeEnd(1), R(new CommentReference(1)), R("World"));
+        var document = Doc(p);
+        document.Comments = comments;
+
+        LayoutEditor(document).Delete(Sel(p, 2, 10));
+
+        Assert.Single(CommentRefs(p));
+        Assert.Single(p.Inlines.OfType<CommentRangeStart>());
+        Assert.Single(p.Inlines.OfType<CommentRangeEnd>());
+        Assert.Same(comments, document.Comments);
+
+        var a = P(R("Hello"), new CommentRangeStart(2), R("big"));
+        var b = P(new CommentRangeEnd(2), R(new CommentReference(2)), R("World"));
+        var c = P(R("tail"));
+        var across = Doc(a, b, c);
+        across.Comments = comments;
+
+        LayoutEditor(across).Delete(new TextRange(At(a, 2), At(c, 2)));
+
+        var merged = Assert.IsType<Paragraph>(Assert.Single(across.Body.Blocks));
+        Assert.Single(CommentRefs(merged));
+        Assert.Single(merged.Inlines.OfType<CommentRangeStart>());
+        Assert.Single(merged.Inlines.OfType<CommentRangeEnd>());
+        Assert.Same(comments, across.Comments);
+    }
+
+    [Fact]
+    public void FirstWordBackspaceAndWordDeleteNextToAFieldSelectIt()
+    {
+        var p = WithField("ab ", "123", " cd");
+        var document = Doc(p);
+        var editor = Editor(document);
+        var revision = document.Edits.Revision;
+
+        var back = editor.Backspace(At(p, 6), DeleteUnit.Word);
+        Assert.Empty(back!.Changes);
+        Assert.Equal(new TextRange(At(p, 3), At(p, 6)), back.Selected);
+
+        var forward = editor.DeleteForward(At(p, 3), DeleteUnit.Word);
+        Assert.Empty(forward!.Changes);
+        Assert.Equal(new TextRange(At(p, 3), At(p, 6)), forward.Selected);
+
+        Assert.Equal(revision, document.Edits.Revision);
+        Assert.Equal(1, FieldCount(p));
+        Assert.Equal("ab 123 cd", Text(p));
     }
 
     [Fact]
