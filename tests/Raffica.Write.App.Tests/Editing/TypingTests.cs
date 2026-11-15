@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using Avalonia;
@@ -619,7 +620,7 @@ public sealed class TypingTests : IDisposable
 
         Type(h, "a");
         Stroke(h, PhysicalKey.Delete);
-        Stroke(h, PhysicalKey.Tab);
+        Stroke(h, PhysicalKey.Enter);
 
         Assert.Equal(3, refused.Count);
         Assert.All(refused, r => Assert.Equal(EditBlockedReason.StillOpening, r));
@@ -664,18 +665,192 @@ public sealed class TypingTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task TheKeyHandlerSurvivesAFailedLayoutUpdate()
+    public async Task AFailedLayoutUpdateDuringAKeyFaultsTheSessionAndNoExceptionEscapes()
     {
         using var h = await OpenWholeAsync(TwoParagraphs());
-        Place(h, P(h, 0), 4);
+        var session = Place(h, P(h, 0), 4);
         var refused = new List<EditBlockedReason>();
         h.View.InputRefused += refused.Add;
+        var revision = h.View.Tab.Docx.Model.Edits.Revision;
 
-        h.View.Runner.FailEdit(new InvalidOperationException("the layout failed"));
+        // The layout throws while the first key brings it up to date: the catch of the key handler runs (the session was editable before the key).
+        Assert.True(session.CanEdit);
+        h.View.Runner.PageLayout.PageFinished = _ => throw new InvalidOperationException("seam");
         Type(h, "x");
 
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
         Assert.Equal([EditBlockedReason.Faulted], refused);
         Assert.Null(h.View.Caret);
+        Assert.True(h.View.Runner.IsFaulted);
+
+        // The next keys are consumed without effect and say the same.
+        var after = h.View.Tab.Docx.Model.Edits.Revision;
+        Type(h, "y");
+        Stroke(h, PhysicalKey.Backspace);
+        Assert.Equal(after, h.View.Tab.Docx.Model.Edits.Revision);
+        Assert.Equal([EditBlockedReason.Faulted, EditBlockedReason.Faulted, EditBlockedReason.Faulted], refused);
+        Assert.True(after > revision);
+    }
+
+    [AvaloniaFact]
+    public async Task TheFaultedHintShowsOncePerBurstInTheWindow()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        Assert.IsType<Raffica.Write.Documents.Opened>(await window.Flow.OpenAsync(TwoParagraphs()));
+        var view = window.ActiveView!;
+        await WindowFixture.WaitAsync(() => view.Runner.FullModelReady && view.IsEffectivelyVisible);
+        view.Focus();
+        var first = (Paragraph)view.Tab.Docx.Model.Body.Blocks[0];
+        var session = view.Tab.EnsureEditor();
+        _ = session.Selection;
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, first, 4), new TextPosition(StoryRef.Body, first, 4)));
+        var hints = new List<string?>();
+        window.Status.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Raffica.Shell.Frame.StatusBar.HintProperty)
+            {
+                hints.Add(window.Status.Hint);
+            }
+        };
+
+        view.Runner.PageLayout.PageFinished = _ => throw new InvalidOperationException("seam");
+        window.KeyTextInput("x");
+        window.KeyTextInput("y");
+        WindowFixture.Pump();
+
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.Equal([WriteStrings.EditUnavailable], hints);
+    }
+
+    private sealed class TraceCapture : TraceListener
+    {
+        public List<string> Lines { get; } = [];
+
+        public override void Write(string? message) => Lines.Add(message ?? string.Empty);
+
+        public override void WriteLine(string? message) => Lines.Add(message ?? string.Empty);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailureThatIsNotTheLayoutsIsRefusedWithoutAHintAndTheSessionStaysUsable()
+    {
+        using var h = await OpenWholeAsync(TwoParagraphs());
+        var session = Place(h, P(h, 0), 4);
+        var refused = new List<EditBlockedReason>();
+        h.View.InputRefused += refused.Add;
+        var capture = new TraceCapture();
+        Trace.Listeners.Add(capture);
+        try
+        {
+            // A stale selection (a paragraph that is no longer in the document): the text editor throws ArgumentException before it changes anything.
+            var stale = new TextPosition(StoryRef.Body, new Paragraph(), 0);
+            session.SetSelection(new TextRange(stale, stale));
+            var revision = h.View.Tab.Docx.Model.Edits.Revision;
+#if DEBUG
+            Assert.Throws<ArgumentException>(() => Type(h, "x"));
+#else
+            Type(h, "x");
+            Stroke(h, PhysicalKey.Backspace);
+
+            Assert.Empty(refused);
+            Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+            Assert.Equal(FirstText, TextOf(h.View, P(h, 0)));
+            Assert.Null(session.BlockedReason);
+            // Only the type of the exception is traced, never its message.
+            Assert.Contains(capture.Lines, l => l.Contains(nameof(ArgumentException), StringComparison.Ordinal));
+            Assert.DoesNotContain(capture.Lines, l => l.Contains("paragraph", StringComparison.OrdinalIgnoreCase));
+#endif
+            // The session is usable: a real selection types.
+            var ok = new TextPosition(StoryRef.Body, P(h, 0), 4);
+            session.SetSelection(new TextRange(ok, ok));
+            Type(h, "Z");
+            Assert.Equal("BodyZ text of the first paragraph.", TextOf(h.View, P(h, 0)));
+        }
+        finally
+        {
+            Trace.Listeners.Remove(capture);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TabAndShiftTabKeepMovingTheFocusWhileOnlyAPrefixIsOpenOrAfterAFault()
+    {
+        using var h = new ViewHarness(ManyParagraphs(), 900, 1000);
+        var gate = new ManualResetEventSlim(false);
+        h.View.Runner.BeforeFullOpen = () => gate.Wait(TimeSpan.FromSeconds(30));
+        h.View.Runner.Start();
+        var refused = new List<EditBlockedReason>();
+        h.View.InputRefused += refused.Add;
+        var handled = new List<bool>();
+        h.View.AddHandler(InputElement.KeyDownEvent, (_, e) => handled.Add(e.Handled), Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+        h.View.Focus();
+        Assert.False(h.View.Runner.FullModelReady);
+
+        Stroke(h, PhysicalKey.Tab);
+        Stroke(h, PhysicalKey.Tab, RawInputModifiers.Shift);
+
+        // The page view did not take them (and said nothing: nothing was typed).
+        Assert.Equal([false, false], handled);
+        Assert.Empty(refused);
+
+        // Enter still says why it does nothing.
+        Stroke(h, PhysicalKey.Enter);
+        Assert.Equal([EditBlockedReason.StillOpening], refused);
+
+        gate.Set();
+        await ViewHarness.WaitAsync(() => h.View.Runner.FullModelReady, 30000);
+        handled.Clear();
+        Place(h, P(h, 0), 4);
+        Stroke(h, PhysicalKey.Tab);
+        Stroke(h, PhysicalKey.Tab, RawInputModifiers.Shift);
+        Assert.Equal([true, true], handled);
+
+        // After a fault they move the focus again.
+        h.View.Runner.FailEdit(new InvalidOperationException("seam"));
+        handled.Clear();
+        Stroke(h, PhysicalKey.Tab);
+        Stroke(h, PhysicalKey.Tab, RawInputModifiers.Shift);
+        Assert.Equal([false, false], handled);
+    }
+
+    [AvaloniaFact]
+    public async Task F6LeavesThePageViewForTheOutlinePaneAndComesBack()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        Assert.IsType<Raffica.Write.Documents.Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis));
+        var view = window.ActiveView!;
+        await WindowFixture.WaitAsync(() => view.IsEffectivelyVisible && view.PageCount > 0);
+        Assert.True(window.RunCommand(Raffica.Write.Commands.WriteCommandIds.Outline));
+        WindowFixture.Pump();
+        var host = window.OutlineHost!;
+        // The list of headings is filled in the background: F6 can focus the pane once it has something to focus.
+        var outline = window.OutlineOf(view.Tab)!;
+        await WindowFixture.WaitAsync(() => outline.LoadTask.IsCompleted);
+        WindowFixture.Pump();
+        view.Focus();
+        WindowFixture.Pump();
+        Assert.True(view.IsFocused);
+
+        window.KeyPressQwerty(PhysicalKey.F6, RawInputModifiers.None);
+        window.KeyReleaseQwerty(PhysicalKey.F6, RawInputModifiers.None);
+        WindowFixture.Pump();
+        Assert.False(view.IsFocused);
+        Assert.True(host.IsKeyboardFocusWithin);
+        Assert.True(host.IsPaneFocused);
+
+        window.KeyPressQwerty(PhysicalKey.F6, RawInputModifiers.None);
+        window.KeyReleaseQwerty(PhysicalKey.F6, RawInputModifiers.None);
+        WindowFixture.Pump();
+        Assert.True(view.IsFocused);
+        Assert.False(host.IsKeyboardFocusWithin);
+
+        // Shift+F6 goes the other way round.
+        window.KeyPressQwerty(PhysicalKey.F6, RawInputModifiers.Shift);
+        window.KeyReleaseQwerty(PhysicalKey.F6, RawInputModifiers.Shift);
+        WindowFixture.Pump();
+        Assert.True(host.IsKeyboardFocusWithin);
     }
 
     [AvaloniaFact]

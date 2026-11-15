@@ -87,6 +87,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
         DocumentPane = new Pane { IsDocument = true, PaneName = ShellStrings.PaneDocument };
         Status = new StatusBar();
+        _paneFocus = new PaneFocus(this, [DocumentPane], Status);
         Start = new StartView { Tiles = StartTile.OpenDocumentOnly(), Recent = [], OwnApp = StartApp.Write };
 
         Frame.TitleBar = titleBar;

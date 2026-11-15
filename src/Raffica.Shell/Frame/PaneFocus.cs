@@ -17,7 +17,7 @@ namespace Raffica.Shell.Frame;
 public sealed class PaneFocus
 {
     private readonly Window _window;
-    private readonly IReadOnlyList<Pane> _panes;
+    private readonly List<Pane> _panes;
     private readonly StatusBar _status;
     private int? _current;
 
@@ -27,22 +27,36 @@ public sealed class PaneFocus
         ArgumentNullException.ThrowIfNull(panes);
         ArgumentNullException.ThrowIfNull(status);
         _window = window;
-        _panes = panes;
+        _panes = [.. panes];
         _status = status;
 
         window.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         window.AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         foreach (var pane in panes)
         {
-            pane.PropertyChanged += (_, e) =>
-            {
-                if (e.Property == Pane.IsOpenProperty)
-                {
-                    OnPaneOpenChanged(pane);
-                }
-            };
+            Watch(pane);
         }
     }
+
+    /// <summary>
+    /// Adds a pane to the ring at <paramref name="index"/> (an app that makes a pane only when it is first needed). A running navigation ends first, because its position in the ring would shift.
+    /// </summary>
+    public void Insert(int index, Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        End();
+        _panes.Insert(Math.Clamp(index, 0, _panes.Count), pane);
+        Watch(pane);
+    }
+
+    private void Watch(Pane pane) =>
+        pane.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Pane.IsOpenProperty)
+            {
+                OnPaneOpenChanged(pane);
+            }
+        };
 
     /// <summary>Whether F6 navigation is active (a pane is marked and the status bar shows it).</summary>
     public bool IsNavigating => _current is not null;

@@ -632,7 +632,7 @@ internal sealed partial class PageView : Control, IDisposable
         }
 
         // The editing keys come first: with a caret they move the caret (and keep it in view), otherwise the navigation keys below scroll as before. Text is not a key (OnTextInput).
-        if (!e.Handled && HandleEditingKey(e, repeat))
+        if (!e.Handled && HandleEditingKeyGuarded(e, repeat))
         {
             e.Handled = true;
             return;

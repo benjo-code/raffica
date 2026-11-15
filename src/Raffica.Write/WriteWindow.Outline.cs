@@ -21,6 +21,7 @@ internal sealed partial class WriteWindow
 
     private readonly Dictionary<WriteTab, OutlinePane> _outlines = [];
     private Pane? _outlineHost;
+    private readonly PaneFocus _paneFocus;
     private bool _outlineWanted;
     private Navigation? _navigation;
 
@@ -61,7 +62,14 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        var host = _outlineHost ??= new Pane { Title = WriteStrings.PaneOutline, Width = OutlinePaneWidth, IsOpen = false };
+        if (_outlineHost is null)
+        {
+            // F6 and Shift+F6 run through the outline pane and the document (the pane is made on first use, so it joins the ring then).
+            _outlineHost = new Pane { Title = WriteStrings.PaneOutline, Width = OutlinePaneWidth, IsOpen = false };
+            _paneFocus.Insert(0, _outlineHost);
+        }
+
+        var host = _outlineHost;
         var active = Workspace.Active;
         var show = _outlineWanted && active is not null && Tabs.Items.Count > 0 && ViewOf(active) is not null;
         var focusWasInside = host.IsKeyboardFocusWithin;

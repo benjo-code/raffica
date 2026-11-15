@@ -94,6 +94,20 @@ internal sealed partial class PageView
         ApplyKey(session => ed => session.Selection is { } selection ? ed.InsertText(selection, text) : null);
     }
 
+    // The key handler of the editing keys with a net under it: a failure of a caret move or of anything else in it is a bug (Debug rethrows it, Release claims the key and traces the type).
+    private bool HandleEditingKeyGuarded(KeyEventArgs e, bool repeat)
+    {
+        try
+        {
+            return HandleEditingKey(e, repeat);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            ReportKeyFailure(ex);
+            return true;
+        }
+    }
+
     // The key handler of the editing keys; true when the key was claimed.
     private bool HandleEditingKey(KeyEventArgs e, bool repeat)
     {
@@ -125,17 +139,24 @@ internal sealed partial class PageView
         }
     }
 
-    // Backspace, Delete, Enter, Tab (and the claimed no-op): need the whole model.
+    // Backspace, Delete, Enter, Tab (and the claimed no-op): need the whole model. Tab and Shift+Tab are claimed only while the document can be edited: while it is still opening or
+    // failed they type nothing and must keep moving the focus, or the page view would trap the keyboard.
     private bool EditByKey(EditAction action)
     {
+        var blocked = BlockReason() is { } reason and not EditBlockedReason.Saving ? reason : (EditBlockedReason?)null;
+        if (action.Kind is EditActionKind.Nothing or EditActionKind.Tab && blocked is not null)
+        {
+            return false;
+        }
+
         if (action.Kind == EditActionKind.Nothing)
         {
             return true;
         }
 
-        if (BlockReason() is { } reason and not EditBlockedReason.Saving)
+        if (blocked is { } refused)
         {
-            InputRefused?.Invoke(reason);
+            InputRefused?.Invoke(refused);
             return true;
         }
 
@@ -172,7 +193,13 @@ internal sealed partial class PageView
         return forward ? editor.DeleteForward(range.End, unit) : editor.Backspace(range.End, unit);
     }
 
-    // One edit of the session for one key. The session is made on first use (the whole model must be there, checked by the caller or here).
+    /// <summary>
+    /// One edit of the session for one key. The session is made on first use (the whole model must be there, checked here). What can fail: the layout (then <see cref="EditSession.Apply"/>
+    /// has failed the runner, the session is faulted and <see cref="InputRefused"/> says so once per key), or the operation itself, for example the text editor refusing a stale position
+    /// with an <see cref="ArgumentException"/>. The text editor checks positions before it changes anything, so such a failure leaves model, history and layout as they were (other failures of
+    /// the editor are programming errors, and nothing guarantees the model then: the key is still refused). That is a bug and no state of the document: a Debug build rethrows it, a Release
+    /// build refuses the key, shows no hint and traces only the exception type (no message, no stack, no text). Write has no crash guard yet (shared crash handling is a later milestone).
+    /// </summary>
     private void ApplyKey(Func<EditSession, Func<TextEditor, EditResult?>> operation)
     {
         if (BlockReason() is { } reason and not EditBlockedReason.Saving)
@@ -192,9 +219,26 @@ internal sealed partial class PageView
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            // The layout failed for good: the session is faulted (no caret, no more edits) and said so through Changed; the window's hint says editing is unavailable.
-            InputRefused?.Invoke(EditBlockedReason.Faulted);
+            if (session.BlockedReason == EditBlockedReason.Faulted)
+            {
+                // The layout failed for good (EditSession.Apply failed the runner and rethrew): the session is faulted (no caret, no more edits) and said so through Changed; the window's hint says editing is unavailable.
+                InputRefused?.Invoke(EditBlockedReason.Faulted);
+                return;
+            }
+
+            ReportKeyFailure(ex);
         }
+    }
+
+    // Any other failure of a key: a bug, not a state of the document. Debug builds rethrow it so that tests and developers see it; a release build refuses the key (nothing is shown and
+    // nothing is logged but the type of the exception: its message and stack can hold paths or text of the document) and the session stays usable.
+    private static void ReportKeyFailure(Exception ex)
+    {
+#if DEBUG
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex).Throw();
+#else
+        System.Diagnostics.Trace.TraceError("A key of the page view failed: " + ex.GetType().Name);
+#endif
     }
 
     // The last page an edit must lay out before it returns: the caret's page and the last page in view.
