@@ -221,6 +221,40 @@ internal sealed class EditSession
     }
 
     /// <summary>
+    /// Shows <paramref name="text"/> as the input method preedit at <paramref name="at"/> on the active layout, or removes it (null or empty text), under the edit
+    /// lease: the preedit is in no model, so it does not touch the history, the revision or the dirty state, and a save may run while it is shown (it is allowed
+    /// while <see cref="EditBlockedReason.Saving"/>). Refused (false) while only a prefix is open, after a failure, and when the layout cannot show it there. A layout failure
+    /// faults the session as for an edit and goes on to the caller.
+    /// </summary>
+    public bool SetPreedit(TextPosition at, string? text, int throughPage)
+    {
+        VerifyAccess();
+        if (BlockedReason is EditBlockedReason.Faulted or EditBlockedReason.StillOpening)
+        {
+            return false;
+        }
+
+        var runner = _tab.Runner;
+        var active = _activeMode == LayoutMode.Flow ? runner.FlowLayout : (runner.PageLayoutIsStale ? null : runner.PageLayout);
+        if (active is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var lease = runner.PauseForEdit();
+            return active.SetPreedit(at, text, throughPage);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            runner.FailEdit(ex);
+            DropOther(runner);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Starts a save: <see cref="CanEdit"/> is false with the reason <see cref="EditBlockedReason.Saving"/> until the returned handle is disposed (twice is safe), and
     /// input meanwhile is queued. Disposing the last open handle replays the queue. For the save flow of 4.3b; nests. <c>BeginSave</c> is a UI-thread call; the
     /// handle may be disposed on any thread (twice, or from two threads, ends the save once): a dispose off the UI thread is marshaled to the UI thread through

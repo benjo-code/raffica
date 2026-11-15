@@ -94,6 +94,7 @@ internal sealed partial class PageView : Control, IDisposable
         _runner.Changed += OnRunnerChanged;
         _runner.Faulted += OnRunnerFaulted;
         tab.Disposing += Release;
+        TextInputMethodClientRequested += OnImeRequested;
         if (mode == WriteView.Writing)
         {
             _runner.EnsureFlow();
@@ -133,6 +134,7 @@ internal sealed partial class PageView : Control, IDisposable
                 return;
             }
 
+            CancelComposition();
             var anchor = CaretAnchorIfVisible() ?? _scroller?.AnchorAt(_offsetY);
             _mode = value;
             SyncActiveMode();
@@ -255,6 +257,7 @@ internal sealed partial class PageView : Control, IDisposable
     private void OnRunnerChanged()
     {
         EnsureCurrent();
+        ForgetLostComposition();
         InvalidateAll();
         UpdateScrollBars();
         UpdateBlink();
@@ -625,6 +628,12 @@ internal sealed partial class PageView : Control, IDisposable
     {
         base.OnKeyDown(e);
         var repeat = !_held.Add(e.Key);
+        if (IsComposing)
+        {
+            HandleKeyWhileComposing(e);
+            return;
+        }
+
         if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && LeaveStory())
         {
             e.Handled = true;
@@ -877,6 +886,7 @@ internal sealed partial class PageView : Control, IDisposable
         {
             RefreshAutomationName();
             ViewChanged?.Invoke();
+            NotifyImeCursor();
         }
         finally
         {

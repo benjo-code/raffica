@@ -209,6 +209,7 @@ internal sealed partial class PageView
         InvalidateAll();
         PublishSelectionState();
         NotifyViewChanged();
+        NotifyImeText();
     }
 
     // The session follows the layout of the view that is shown.
@@ -275,7 +276,13 @@ internal sealed partial class PageView
     internal Rect? CaretBounds(TextPosition position, CaretAffinity affinity = CaretAffinity.Downstream)
     {
         EnsureCurrent();
-        if (_scroller is not { } scroller || _builtLayout is not { } layout || CaretBoxOf(layout, position, affinity) is not { } box || (uint)box.Page >= (uint)scroller.Count)
+        return _builtLayout is { } layout && CaretBoxOf(layout, position, affinity) is { } box ? BoundsOfBox(box) : null;
+    }
+
+    // The bar of a caret box in the coordinates of the view; null when the page of the box is not in the scroller.
+    private Rect? BoundsOfBox(CaretBox box)
+    {
+        if (_scroller is not { } scroller || (uint)box.Page >= (uint)scroller.Count)
         {
             return null;
         }
@@ -285,8 +292,8 @@ internal sealed partial class PageView
         return new Rect(page.X + (box.X * scroller.Scale), page.Y + (box.Top * scroller.Scale), CaretWidth, box.Height * scroller.Scale);
     }
 
-    /// <summary>The bar of the caret of the session in view coordinates, or null without a caret.</summary>
-    internal Rect? CaretBarBounds => Caret is { } caret ? CaretBounds(caret, Affinity) : null;
+    /// <summary>The bar of the caret of the session in view coordinates (while an input method composes: the bar inside the preedit, see <see cref="PreeditCaretBounds"/>), or null without a caret.</summary>
+    internal Rect? CaretBarBounds => IsComposing ? PreeditCaretBounds : (Caret is { } caret ? CaretBounds(caret, Affinity) : null);
 
     /// <summary>Scrolls the least that brings the caret into view (with a margin); a caret the layout does not show yet changes nothing.</summary>
     public void EnsureCaretVisible()
@@ -373,6 +380,7 @@ internal sealed partial class PageView
     internal bool HandlePress(Point point, int clickCount, KeyModifiers modifiers, bool rightButton)
     {
         EndDrag();
+        EndCompositionForPointer();
         _gesture = new object();
         if (!CanPlaceCaret || ActiveLayout() is not { } layout || !TryMapPoint(point, out var page, out var x, out var y))
         {
@@ -557,6 +565,7 @@ internal sealed partial class PageView
         RestartBlink();
         _overlay.InvalidateVisual();
         PublishSelectionState();
+        NotifyImeText();
     }
 
     private bool _publishedSelection;
@@ -918,6 +927,7 @@ internal sealed partial class PageView
     {
         base.OnLostFocus(e);
         _held.Clear();
+        CancelComposition();
         UpdateBlink();
     }
 
@@ -993,7 +1003,7 @@ internal sealed partial class PageView
                 }
             }
 
-            if (!_blinkOn || CaretBoxOf(layout, selection.End, Affinity) is not { } caret || caret.Page != index)
+            if (!_blinkOn || (IsComposing ? layout.PreeditCaret(_composeCursor, PageHint) : CaretBoxOf(layout, selection.End, Affinity)) is not { } caret || caret.Page != index)
             {
                 continue;
             }

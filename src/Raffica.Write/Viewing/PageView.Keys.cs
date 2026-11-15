@@ -39,9 +39,6 @@ internal sealed partial class PageView
     /// <summary>Raised when typing or an editing key was refused because only a prefix is open or editing failed; the window shows the hint. Never raised for a save (input is queued then).</summary>
     internal event Action<EditBlockedReason>? InputRefused;
 
-    // IME composition (Task 18) sets this; while a composition is shown the text input of the composition must not be inserted here.
-    private static bool IsComposing => false;
-
     /// <summary>Forgets the caret affinity: the caret is downstream again, also when it later returns to the position it was placed at.</summary>
     internal void ResetAffinity()
     {
@@ -75,11 +72,13 @@ internal sealed partial class PageView
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        if (e.Handled || _released || string.IsNullOrEmpty(e.Text) || IsComposing)
+        if (e.Handled || _released || string.IsNullOrEmpty(e.Text))
         {
             return;
         }
 
+        // Text that arrives while a composition is shown (or right after the platform ended one) is its commit: the preedit goes first, the text then goes in as typed text.
+        var commit = TakeCommit();
         foreach (var c in e.Text)
         {
             if (char.IsControl(c))
@@ -91,6 +90,11 @@ internal sealed partial class PageView
 
         e.Handled = true;
         var text = e.Text;
+        if (commit)
+        {
+            LogCommit(text.Length);
+        }
+
         ApplyKey(session => ed => session.Selection is { } selection ? ed.InsertText(selection, text) : null);
     }
 
