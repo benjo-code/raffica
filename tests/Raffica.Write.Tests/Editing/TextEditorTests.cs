@@ -543,6 +543,19 @@ public sealed class TextEditorTests
     }
 
     [Fact]
+    public void CharactersXmlCannotHoldAreDroppedAndValidSurrogatePairsStay()
+    {
+        var p = P("ab");
+        var editor = Editor(Doc(p));
+
+        // A valid pair stays; a lone high surrogate (before a letter and at the end), a lone low surrogate, U+FFFE and U+FFFF go.
+        var result = editor.InsertText(Caret(p, 1), "x👍y\uD83Dz\uDE00w￾￿v\uD83D");
+
+        Assert.Equal("ax👍yzwvb", Text(p));
+        Assert.Equal(At(p, 8), result.Caret);
+    }
+
+    [Fact]
     public void TabBecomesTabContent()
     {
         var p = P("ab");

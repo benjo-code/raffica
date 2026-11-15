@@ -103,7 +103,8 @@ internal static class TextBoundaries
 
     /// <summary>
     /// Typed or pasted text as lines: <c>\r\n</c>, <c>\n</c> and <c>\r</c> each end a line once, a tab stays (the caller makes a tab content of
-    /// it), every other control character is dropped.
+    /// it), every other control character is dropped, and so is
+    /// what XML cannot hold (a lone surrogate, U+FFFE, U+FFFF); a valid surrogate pair stays.
     /// </summary>
     public static List<string> Lines(string text)
     {
@@ -122,7 +123,12 @@ internal static class TextBoundaries
                 lines.Add(line.ToString());
                 line.Clear();
             }
-            else if (c == '\t' || !char.IsControl(c))
+            else if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                line.Append(c).Append(text[i + 1]);
+                i++;
+            }
+            else if (c == '\t' || !(char.IsControl(c) || char.IsSurrogate(c) || c is '￾' or '￿'))
             {
                 line.Append(c);
             }
