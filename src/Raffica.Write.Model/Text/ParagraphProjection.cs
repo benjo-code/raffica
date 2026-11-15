@@ -131,6 +131,11 @@ public sealed class ParagraphProjection
         public ParagraphProjection Run(Paragraph paragraph)
         {
             AddInlines(paragraph.Inlines);
+
+            // A complex field without an End mark is closed with the paragraph: its text is one atomic range.
+            _frames.Clear();
+            _simpleDepth = 0;
+            CloseGroup();
             return new ParagraphProjection(_text.ToString(), [.. _pieces], [.. _atomic]);
         }
 
@@ -227,6 +232,7 @@ public sealed class ParagraphProjection
 
         private void AddContent(Model.Run run, RunContent content, bool hidden)
         {
+            hidden |= !host.HasText(content);
             switch (content)
             {
                 case FootnoteReference or EndnoteReference:

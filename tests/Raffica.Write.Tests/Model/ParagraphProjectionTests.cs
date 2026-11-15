@@ -209,4 +209,35 @@ public sealed class ParagraphProjectionTests
 
         Assert.Null(ParagraphProjection.Build(Para(), ProjectionHost.Plain).PieceAt(0));
     }
+
+    private sealed class NoRoomHost : IProjectionHost
+    {
+        public string? FieldValue(string instruction) => null;
+
+        public string? NoteMarkText(RunContent reference) => null;
+
+        public bool IsHidden(Run run) => false;
+
+        public bool HasText(RunContent content) => content is not CommentReference;
+    }
+
+    [Fact]
+    public void ContentTheHostGivesNoRoomKeepsItsPieceWithLengthZero()
+    {
+        var projection = ParagraphProjection.Build(Para(TextRun("ab"), Of(new CommentReference(3)), TextRun("cd")), new NoRoomHost());
+        Assert.Equal("abcd", projection.Text);
+        Assert.Equal(0, projection.Pieces[1].Length);
+        Assert.Equal(AtomicKind.CommentReference, Assert.IsType<AtomicPiece>(projection.Pieces[1]).Atomic);
+    }
+
+    [Fact]
+    public void AFieldWithoutAnEndMarkIsClosedWithTheParagraph()
+    {
+        var projection = ParagraphProjection.Build(
+            Para(TextRun("x"), Of(new FieldChar(FieldCharKind.Begin)), Of(new InstructionText(" FOO ")), Of(new FieldChar(FieldCharKind.Separate)), TextRun("stored")),
+            ProjectionHost.Plain);
+        Assert.Equal("xstored", projection.Text);
+        Assert.Equal((1, 7), projection.AtomicAt(3));
+        Assert.Null(projection.AtomicAt(0));
+    }
 }

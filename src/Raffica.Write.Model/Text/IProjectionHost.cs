@@ -11,6 +11,12 @@ public interface IProjectionHost
 
     /// <summary>True when the run's text is hidden (no length in the projection).</summary>
     bool IsHidden(Run run);
+
+    /// <summary>
+    /// False when the content takes no room in the host's text although it is in the model (the layout draws no comment reference, no
+    /// floating picture and no note reference outside the body); its piece stays in the projection with length 0, like hidden text.
+    /// </summary>
+    bool HasText(RunContent content) => true;
 }
 
 /// <summary>Hosts that need no outside knowledge.</summary>

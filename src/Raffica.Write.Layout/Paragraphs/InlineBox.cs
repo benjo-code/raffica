@@ -76,6 +76,9 @@ public sealed record ParagraphInput(ResolvedParagraph Paragraph, IReadOnlyList<P
     /// <summary>The floating objects anchored in the paragraph (null for almost every paragraph). The page layout places them; the paragraph layouter ignores them.</summary>
     internal IReadOnlyList<FloatSpec>? Floats { get; init; }
 
+    /// <summary>The projection the items were built from (the whole paragraph, also on the continuation after a break): the text coordinates and sources of editing.</summary>
+    internal Model.ParagraphProjection? Projection { get; init; }
+
     /// <summary>Whether an inline box wider than the text area is scaled down to it (aspect ratio kept). The measuring of table columns turns it off to see the natural size.</summary>
     internal bool ScaleBoxes { get; init; } = true;
 }

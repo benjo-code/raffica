@@ -31,7 +31,6 @@ internal sealed class BlockPlanner
     private readonly bool _expandShiftReturn;
     private readonly bool _autoHyphenation;
     private readonly Dictionary<ResolvedParagraph, ResolvedRun> _markRuns = new(ReferenceEqualityComparer.Instance);
-    private readonly List<FieldFrame> _frames = [];
     private readonly ImageProbe _probe;
     private readonly bool _flowMode;
     private bool _placeable;
@@ -134,14 +133,14 @@ internal sealed class BlockPlanner
         var items = new List<ParagraphItem>();
         var text = new StringBuilder();
         ResolvedRun? textRun = null;
-        _frames.Clear();
         _marks = null;
         _floats = null;
         _flowBoxes = null;
         _placeable = CanPlaceFloats && cell is null && !_planningBox && !_flowMode;
-        AddInlines(paragraph.Inlines, resolved, items, text, ref textRun);
+        var host = new LayoutProjectionHost(_styles, Context, resolved);
+        var projection = ParagraphProjection.Build(paragraph, host);
+        AddPieces(projection, host, resolved, items, text, ref textRun);
         Flush(items, text, ref textRun);
-        _frames.Clear();
         IReadOnlyList<NoteMark>? marks = _marks;
         var floats = _floats;
         if (_flowBoxes is { Count: > 0 } lead)
@@ -168,6 +167,7 @@ internal sealed class BlockPlanner
             AutoHyphenation = _autoHyphenation,
             NoteMarks = marks,
             Floats = floats,
+            Projection = projection,
         };
 
         // The paragraphs of a text box are planned after the paragraph that holds it: planning one is not re-entrant.
@@ -241,126 +241,28 @@ internal sealed class BlockPlanner
         run = null;
     }
 
-    private void AddInlines(IEnumerable<Inline> inlines, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    // Turns the pieces of the projection into items: the projection decides what is visible and what a field shows, this decides how it is drawn.
+    private void AddPieces(ParagraphProjection projection, LayoutProjectionHost host, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
     {
-        foreach (var inline in inlines)
+        foreach (var piece in projection.Pieces)
         {
-            switch (inline)
+            var format = piece.Run is { } run ? host.Format(run) : FieldFormat(owner);
+            switch (piece)
             {
-                case Run run:
-                    AddRun(run, owner, items, text, ref textRun);
+                case TextPiece or TabPiece:
+                    Append(PieceText(piece, projection.Text, format), format, items, text, ref textRun);
                     break;
-                case Hyperlink link:
-                    AddInlines(link.Inlines, owner, items, text, ref textRun);
-                    break;
-                case SimpleField field:
-                    if (!Visible(_frames.Count))
-                    {
-                        break;
-                    }
-
-                    if (Context.Fields?.Evaluate(field.Instruction) is { } value)
-                    {
-                        Append(value, FieldFormat(owner, field.Inlines), items, text, ref textRun);
-                        break;
-                    }
-
-                    AddInlines(field.Inlines, owner, items, text, ref textRun);
-                    break;
-                case ContentControlInline control:
-                    AddInlines(control.Inlines, owner, items, text, ref textRun);
-                    break;
-                case TrackedChange { Kind: TrackedChangeKind.Insert or TrackedChangeKind.MoveTo } change:
-                    // Changes are shown as if accepted: insertions in, deletions out.
-                    AddInlines(change.Inlines, owner, items, text, ref textRun);
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-
-    private void AddRun(Run run, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
-    {
-        var format = _styles.ForRun(owner, run);
-        foreach (var content in run.Content)
-        {
-            if (content is FieldChar fieldChar)
-            {
-                FieldChange(fieldChar.Kind, format, items, text, ref textRun);
-                continue;
-            }
-
-            if (content is InstructionText instruction)
-            {
-                if (_frames.Count > 0 && !_frames[^1].InResult)
-                {
-                    _frames[^1].Instruction.Append(instruction.Text);
-                }
-
-                continue;
-            }
-
-            if (!Visible(_frames.Count))
-            {
-                // Inside the instruction of a field, or in the result of a field the layout evaluates: the first text of such a result
-                // is replaced by the value, the rest is dropped.
-                if (content is TextContent && _frames.Count > 0 && _frames[^1] is { Value: not null, Emitted: false } top && Visible(_frames.Count - 1))
-                {
-                    top.Emitted = true;
-                    Append(top.Value, format, items, text, ref textRun);
-                }
-
-                continue;
-            }
-
-            switch (content)
-            {
-                case FootnoteReference reference when Context.Notes is { } notes:
+                case BreakPiece b:
                     Flush(items, text, ref textRun);
-                    var mark = notes.Register(false, reference.Id);
-                    items.Add(new TextSpan(mark.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
-                    (_marks ??= []).Add(new NoteMark(items.Count - 1, mark));
-                    break;
-                case EndnoteReference reference when Context.Notes is { } notes:
-                    Flush(items, text, ref textRun);
-                    var endnote = notes.Register(true, reference.Id);
-                    items.Add(new TextSpan(endnote.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
-                    break;
-                case TextContent t:
-                    Append(t.Text, format, items, text, ref textRun);
-                    break;
-                case TabContent:
-                    Append("\t", format, items, text, ref textRun);
-                    break;
-                case BreakContent b:
-                    Flush(items, text, ref textRun);
-                    items.Add(new BreakItem(b.Kind switch
+                    items.Add(new BreakItem(b.Break switch
                     {
                         Model.BreakKind.Page => BreakKind.Page,
                         Model.BreakKind.Column => BreakKind.Column,
                         _ => BreakKind.Line,
                     }));
                     break;
-                case Picture picture:
-                    if (picture.Inline)
-                    {
-                        Flush(items, text, ref textRun);
-                        items.Add(Box(picture, format));
-                    }
-                    else
-                    {
-                        Flush(items, text, ref textRun);
-                        AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey), items);
-                    }
-
-                    break;
-                case UnknownRunContent { Content.Element.Name.LocalName: "footnoteRef" or "endnoteRef" } when Context.NoteMark is { } own:
-                    Flush(items, text, ref textRun);
-                    items.Add(new TextSpan(own, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
-                    break;
-                case UnknownRunContent unknown:
-                    AddUnknown(unknown.Content.Element, format, items, text, ref textRun);
+                case AtomicPiece atomic:
+                    AddAtomic(atomic, projection, host, format, items, text, ref textRun);
                     break;
                 default:
                     break;
@@ -368,102 +270,84 @@ internal sealed class BlockPlanner
         }
     }
 
-    // One open complex field while a paragraph is read.
-    private sealed class FieldFrame
+    private void AddAtomic(AtomicPiece piece, ParagraphProjection projection, LayoutProjectionHost host, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
     {
-        public StringBuilder Instruction { get; } = new();
-
-        public bool InResult { get; set; }
-
-        public bool Decided { get; set; }
-
-        /// <summary>The text of a field the layout evaluates; null for every other field (its stored result shows).</summary>
-        public string? Value { get; set; }
-
-        public bool Emitted { get; set; }
-    }
-
-    // True when the content at this depth is shown: no enclosing field is in its instruction part and none is replaced by a value.
-    private bool Visible(int depth)
-    {
-        for (var i = 0; i < depth; i++)
+        switch (piece.Atomic)
         {
-            if (!_frames[i].InResult || _frames[i].Value is not null)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private void FieldChange(FieldCharKind kind, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
-    {
-        switch (kind)
-        {
-            case FieldCharKind.Begin:
-                _frames.Add(new FieldFrame());
+            case AtomicKind.FieldResult:
+                Append(PieceText(piece, projection.Text, format), format, items, text, ref textRun);
                 break;
-            case FieldCharKind.Separate when _frames.Count > 0:
-                _frames[^1].InResult = true;
-                Decide(_frames[^1]);
-                break;
-            case FieldCharKind.End when _frames.Count > 0:
-                var closed = _frames[^1];
-                _frames.RemoveAt(_frames.Count - 1);
-                Decide(closed);
-                if (closed is { Value: not null, Emitted: false } && Visible(_frames.Count))
+            case AtomicKind.NoteReference when piece.Content is FootnoteReference or EndnoteReference:
+                if (host.RegisteredNote(piece.Content) is { } mark)
                 {
-                    Append(closed.Value, format, items, text, ref textRun);
+                    Flush(items, text, ref textRun);
+                    items.Add(new TextSpan(mark.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                    if (piece.Content is FootnoteReference)
+                    {
+                        (_marks ??= []).Add(new NoteMark(items.Count - 1, mark));
+                    }
                 }
 
+                break;
+            case AtomicKind.NoteReference:
+                if (Context.NoteMark is { } own)
+                {
+                    Flush(items, text, ref textRun);
+                    items.Add(new TextSpan(own, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                }
+
+                break;
+            case AtomicKind.Picture when piece.Content is Picture picture:
+                Flush(items, text, ref textRun);
+                if (picture.Inline)
+                {
+                    items.Add(Box(picture, format));
+                }
+                else
+                {
+                    AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey), items);
+                }
+
+                break;
+            case AtomicKind.Placeholder when piece.Content is UnknownRunContent unknown:
+                AddObject(unknown.Content.Element, format, items, text, ref textRun);
                 break;
             default:
                 break;
         }
     }
 
-    private void Decide(FieldFrame frame)
+    // The text of a piece. A hidden piece has no length in the projection; its span is kept (the layouter ignores its text), so the items stay as they were.
+    private static string PieceText(ProjectionPiece piece, string projected, ResolvedRun format)
     {
-        if (frame.Decided)
+        if (piece.Length > 0)
         {
-            return;
+            return projected.Substring(piece.Start, piece.Length);
         }
 
-        frame.Decided = true;
-        frame.Value = Context.Fields?.Evaluate(frame.Instruction.ToString());
-    }
-
-    // A simple field is drawn in the format of its first run, or of the paragraph mark when it has none.
-    private ResolvedRun FieldFormat(ResolvedParagraph owner, IEnumerable<Inline> inlines)
-    {
-        foreach (var inline in inlines)
+        if (!format.Hidden)
         {
-            if (inline is Run run)
-            {
-                return _styles.ForRun(owner, run);
-            }
+            return "";
         }
 
-        return MarkRun(owner) with { ParagraphMarkOnly = false };
+        return piece switch
+        {
+            TabPiece => "\t",
+            _ when piece.Content is TextContent t => t.Text,
+            _ when piece.Content is UnknownRunContent => "‑",
+            _ => "\u200B",
+        };
     }
 
-    private void AddUnknown(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    // A simple field without a run is drawn in the format of the paragraph mark.
+    private ResolvedRun FieldFormat(ResolvedParagraph owner) => MarkRun(owner) with { ParagraphMarkOnly = false };
+
+    private void AddObject(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
     {
+        Flush(items, text, ref textRun);
         switch (element.Name.LocalName)
         {
-            case "cr":
-                Flush(items, text, ref textRun);
-                items.Add(new BreakItem(BreakKind.Line));
-                break;
-            case "noBreakHyphen":
-                Append("‑", format, items, text, ref textRun);
-                break;
-            case "ptab":
-                Append("\t", format, items, text, ref textRun);
-                break;
             case "AlternateContent" or "pict":
-                Flush(items, text, ref textRun);
                 var spec = element.Name.LocalName == "pict" ? FloatReader.FromVml(element, _probe, StoryKey) : FloatReader.FromAlternate(element, _probe, StoryKey);
                 if (spec is null)
                 {
@@ -475,11 +359,8 @@ internal sealed class BlockPlanner
                 }
 
                 break;
-            case "object":
-                Flush(items, text, ref textRun);
-                items.Add(InlineBox.Placeholder(format));
-                break;
             default:
+                items.Add(InlineBox.Placeholder(format));
                 break;
         }
     }
