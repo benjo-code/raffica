@@ -154,7 +154,7 @@ internal sealed class EditSession
     /// <see cref="MaxQueued"/> operations; later ones are refused and counted. If an operation of the replay throws, the rest is dropped and the exception goes to the
     /// caller of the save handle's Dispose. The <see cref="BlockChange.OldBlocks"/> of the returned result are read-only snapshots (the history's own for an undo or redo): never
     /// change them. A cut is a copy and a delete: when its result has no <c>Changes</c> the delete was refused and the clipboard must not be replaced. An exception of
-    /// the layout (it is faulted for good) goes to the caller after the lease ended and <see cref="Changed"/> was raised.
+    /// the layout (it is faulted for good) makes the session faulted (<see cref="EditBlockedReason.Faulted"/>, the runner's fault is the same one): it goes to the caller once, after the lease ended and <see cref="Changed"/> was raised; every later call is refused without touching the model.
     /// </remarks>
     public EditResult? Apply(Func<TextEditor, EditResult?> operation, int throughPage)
     {
@@ -199,7 +199,10 @@ internal sealed class EditSession
 
     /// <summary>
     /// Starts a save: <see cref="CanEdit"/> is false with the reason <see cref="EditBlockedReason.Saving"/> until the returned handle is disposed (twice is safe), and
-    /// input meanwhile is queued. Disposing the last open handle replays the queue. For the save flow of 4.3b; nests.
+    /// input meanwhile is queued. Disposing the last open handle replays the queue. For the save flow of 4.3b; nests. <c>BeginSave</c> is a UI-thread call; the
+    /// handle may be disposed on any thread (twice, or from two threads, ends the save once): a dispose off the UI thread is marshaled to the UI thread through
+    /// the dispatcher captured at construction, so the save ends (and the replay runs) when that thread next runs its queue, and <see cref="CanEdit"/> stays false until then.
+    /// An exception of the replay then reaches the dispatcher's unhandled-exception path instead of the disposing caller.
     /// </summary>
     public IDisposable BeginSave()
     {
@@ -208,9 +211,9 @@ internal sealed class EditSession
         return new SaveScope(this);
     }
 
+    // On the UI thread (SaveScope marshals).
     private void EndSave()
     {
-        VerifyAccess();
         if (--_saving > 0 || _queue.Count == 0)
         {
             return;
@@ -268,14 +271,31 @@ internal sealed class EditSession
         _selection = new TextRange(result.Caret, result.Caret);
         var runner = _tab.Runner;
         var active = _activeMode == LayoutMode.Flow ? runner.FlowLayout : (runner.PageLayoutIsStale ? null : runner.PageLayout);
-        if (active is not null)
+        try
         {
-            foreach (var change in result.Changes)
+            if (active is not null)
             {
-                active.ApplyEdit(change, throughPage);
+                foreach (var change in result.Changes)
+                {
+                    active.ApplyEdit(change, throughPage);
+                }
             }
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The layout is faulted for good and no longer shows the model: the session is faulted with it (CanEdit false, nothing more is edited), the other
+            // layout is dropped too, and the caller hears of it once (Apply raises Changed, then the exception goes on).
+            runner.FailEdit(ex);
+            DropOther(runner);
+            throw;
+        }
 
+        DropOther(runner);
+        return result;
+    }
+
+    private void DropOther(LayoutRunner runner)
+    {
         if (_activeMode == LayoutMode.Flow)
         {
             runner.DropPageLayout();
@@ -284,8 +304,6 @@ internal sealed class EditSession
         {
             runner.DropFlowLayout();
         }
-
-        return result;
     }
 
     // The editor of the tab's current model: made on first use; another model object makes a new one (and ends the history of the old).
@@ -341,6 +359,21 @@ internal sealed class EditSession
     {
         private EditSession? _owner = owner;
 
-        public void Dispose() => Interlocked.Exchange(ref _owner, null)?.EndSave();
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _owner, null) is not { } session)
+            {
+                return;
+            }
+
+            if (session._ui.CheckAccess())
+            {
+                session.EndSave();
+            }
+            else
+            {
+                session._ui.Post(session.EndSave, DispatcherPriority.Normal);
+            }
+        }
     }
 }

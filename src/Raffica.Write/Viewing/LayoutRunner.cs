@@ -396,9 +396,14 @@ internal sealed class LayoutRunner : IDisposable
                 throw new InvalidOperationException("This thread holds the edit lease already; a second request would wait for itself.");
             }
 
+            var deadline = LeaseWaitTimeout == Timeout.InfiniteTimeSpan ? long.MaxValue : Environment.TickCount64 + (long)LeaseWaitTimeout.TotalMilliseconds;
             while (_leased)
             {
-                Monitor.Wait(_gate);
+                if (!Monitor.Wait(_gate, Remaining(deadline)))
+                {
+                    throw new TimeoutException("The edit lease was not free in time.");
+                }
+
                 ObjectDisposedException.ThrowIf(IsDisposed, this);
             }
 
@@ -416,12 +421,25 @@ internal sealed class LayoutRunner : IDisposable
 
             while (_segments > 0)
             {
-                Monitor.Wait(_gate);
+                if (!Monitor.Wait(_gate, Remaining(deadline)))
+                {
+                    // The loops did not stop: give the gate back as it was and say so.
+                    ReleaseLease();
+                    throw new TimeoutException("The layout did not stop at a page boundary in time.");
+                }
             }
         }
 
         return new EditLease(this);
     }
+
+    /// <summary>How long <see cref="PauseForEdit"/> waits for another lease and for the loops to stop before it throws <see cref="TimeoutException"/>; infinite by default (tests bound it so a gate that stands still fails).</summary>
+    internal TimeSpan LeaseWaitTimeout { get; set; } = Timeout.InfiniteTimeSpan;
+
+    /// <summary>An edit could not be brought into a layout: the runner is faulted like after a failed layout step (<see cref="Fault"/>, <see cref="Faulted"/>), so nothing is edited or laid out any more.</summary>
+    internal void FailEdit(Exception ex) => Fail(ex);
+
+    private static int Remaining(long deadline) => deadline == long.MaxValue ? Timeout.Infinite : (int)Math.Max(0, deadline - Environment.TickCount64);
 
     /// <summary>True while a lease is held (by any thread).</summary>
     internal bool IsLeased
@@ -607,7 +625,11 @@ internal sealed class LayoutRunner : IDisposable
         {
             await LoopAsync(flow, generation).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException && IsDisposed)
+        {
+            ClearAlive(flow, generation);
+        }
+        catch (OperationCanceledException)
         {
             ClearAlive(flow, generation);
         }

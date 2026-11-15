@@ -11,6 +11,9 @@ namespace Raffica.WriteApp.Tests.Editing;
 /// <summary>The edit gate (the lease of the layout runner) and the editing session of a tab (Task 14 of milestone 4.3a).</summary>
 public sealed class EditSessionTests
 {
+    // A gate that stands still fails the test with a TimeoutException instead of hanging the run (a hard timeout of the test itself cannot end a blocked UI thread).
+    private static readonly TimeSpan GateTimeout = TimeSpan.FromSeconds(60);
+
     private static WriteTab Open(string path)
     {
         var attempt = DocumentOpener.Open(Path.GetFullPath(path), new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None);
@@ -33,6 +36,7 @@ public sealed class EditSessionTests
     private static async Task<WriteTab> OpenWholeAsync(string path)
     {
         var tab = Open(path);
+        tab.Runner.LeaseWaitTimeout = GateTimeout;
         tab.Runner.Start();
         await WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted);
         Assert.True(tab.Runner.FullModelReady);
@@ -381,7 +385,7 @@ public sealed class EditSessionTests
     }
 
     [AvaloniaFact]
-    public async Task TwoHundredLeasesWithEditsWhileTheLayoutRunsNeitherDeadlockNorThrow()
+    public async Task GateOnlyTwoHundredLeasesWithEditsWhileTheLayoutRunsNeitherDeadlockNorThrow()
     {
         using var tab = await OpenWholeAsync(WindowFixture.Thesis);
         var runner = tab.Runner;
@@ -392,10 +396,10 @@ public sealed class EditSessionTests
         var caret = new TextPosition(StoryRef.Body, paragraph, 0);
         var cycles = 0;
 
-        // On a thread of its own so that a deadlock fails the wait below instead of hanging the run (the gate does not need the UI thread).
+        // The gate alone (the editor and the layout are driven by hand, not through the session) on a thread of its own so that a deadlock fails the wait below instead of hanging the run (the gate does not need the UI thread).
         var worker = Task.Run(() =>
         {
-            for (; cycles < 200; cycles++)
+            while (Volatile.Read(ref cycles) < 200)
             {
                 using var lease = runner.PauseForEdit();
                 var result = editor.InsertText(new TextRange(caret, caret), "x");
@@ -405,10 +409,11 @@ public sealed class EditSessionTests
                 }
 
                 caret = result.Caret;
+                Interlocked.Increment(ref cycles);
             }
         });
         var finished = await Task.WhenAny(worker, Task.Delay(TimeSpan.FromSeconds(90)));
-        Assert.True(ReferenceEquals(finished, worker), $"the gate stood still after {cycles} cycles");
+        Assert.True(ReferenceEquals(finished, worker), $"the gate stood still after {Volatile.Read(ref cycles)} cycles");
         await worker;
         Assert.False(runner.IsLeased);
         Assert.Null(runner.Fault);
@@ -434,5 +439,103 @@ public sealed class EditSessionTests
         Assert.Null(tab.Runner.Fault);
         AssertEqualToFresh(tab, tab.Runner.PageLayout, LayoutMode.Pages);
         Assert.Equal(100, tab.Runner.PageLayout.Stats.Edits);
+    }
+
+    [AvaloniaFact]
+    public async Task ASaveHandleDisposedOnAPoolThreadEndsTheSaveAndReplays()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Thesis);
+        var session = tab.EnsureEditor();
+        var handle = session.BeginSave();
+        foreach (var letter in new[] { "Q", "7", "z" })
+        {
+            Assert.Null(session.Apply(Type(session, letter), 0));
+        }
+
+        await Task.Run(() => handle.Dispose());
+        await WaitAsync(() => session.CanEdit);
+        Assert.Equal(0, session.PendingCount);
+        Assert.Equal(1, Text(tab.Runner.PageLayout, 0).Split("Q7z").Length - 1);
+        Assert.NotNull(session.Apply(Type(session, "k"), 0));
+    }
+
+    [AvaloniaFact]
+    public async Task ADoubleDisposeFromTwoThreadsEndsTheSaveOnce()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var session = tab.EnsureEditor();
+        var handle = session.BeginSave();
+        var runs = 0;
+        Assert.Null(session.Apply(_ => { runs++; return null; }, 0));
+        using var barrier = new Barrier(2);
+        await Task.WhenAll(
+            Task.Run(() => { barrier.SignalAndWait(); handle.Dispose(); }),
+            Task.Run(() => { barrier.SignalAndWait(); handle.Dispose(); }));
+        await WaitAsync(() => session.CanEdit);
+        WindowFixture.Pump();
+        Assert.Equal(1, runs);
+
+        // The count came back to 0 exactly: a second save starts and ends cleanly.
+        using (session.BeginSave())
+        {
+            Assert.False(session.CanEdit);
+        }
+
+        Assert.True(session.CanEdit);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailedLayoutUpdateMakesTheSessionFaulted()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var runner = tab.Runner;
+        var layout = runner.PageLayout;
+        await WaitAsync(() => layout.IsComplete);
+        runner.EnsureFlow();
+        await WaitAsync(() => runner.FlowLayout is not null);
+        var session = tab.EnsureEditor();
+        var changes = 0;
+        session.Changed += () => changes++;
+        layout.PageFinished = _ => throw new InvalidOperationException("seam");
+        Assert.Throws<InvalidOperationException>(() => session.Apply(Type(session, "Q"), 0));
+        Assert.Equal(1, changes);
+        Assert.False(session.CanEdit);
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.True(runner.IsFaulted);
+        Assert.Null(runner.FlowLayout);
+        Assert.False(runner.IsLeased);
+
+        var revision = tab.Docx.Model.Edits.Revision;
+        var ran = false;
+        Assert.Null(session.Apply(e => { ran = true; return e.InsertText(session.Selection!.Value, "R"); }, 0));
+        Assert.False(ran);
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.Equal(1, changes);
+    }
+
+    [AvaloniaFact]
+    public async Task ALeaseThatIsNeverFreeTimesOutAndLeavesTheGateUsable()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var runner = tab.Runner;
+        using var held = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var holder = Task.Run(() =>
+        {
+            using var lease = runner.PauseForEdit();
+            held.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+        });
+        Assert.True(await Task.Run(() => held.Wait(10000)));
+        runner.LeaseWaitTimeout = TimeSpan.FromMilliseconds(300);
+        Assert.Throws<TimeoutException>(() => runner.PauseForEdit());
+        release.Set();
+        await holder;
+        runner.LeaseWaitTimeout = GateTimeout;
+        using (runner.PauseForEdit())
+        {
+        }
+
+        Assert.False(runner.IsLeased);
     }
 }
