@@ -194,6 +194,8 @@ internal sealed class ParagraphSession : IDisposable
         for (var i = 0; i < items.Count; i++)
         {
             _itemStart[i] = length;
+
+            // The same counting rule as ParagraphPlan.LayoutLength (it slices the projection map of a continuation): keep them equal.
             length += items[i] switch
             {
                 TextSpan span => span.Run.Hidden ? 0 : span.Text.Length,

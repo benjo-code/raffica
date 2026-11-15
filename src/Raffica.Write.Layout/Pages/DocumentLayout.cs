@@ -42,10 +42,11 @@ public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float Flo
 /// the old object stays unchanged.
 /// </para>
 /// </remarks>
-public sealed class DocumentLayout
+public sealed partial class DocumentLayout
 {
     private readonly object _gate = new();
     private readonly PageList _pages = new();
+    private readonly ParagraphPageMap _paragraphPages = new();
     private readonly FontCatalog _fonts;
     private readonly LayoutOptions _options;
     private List<string> _notes;
@@ -338,6 +339,7 @@ public sealed class DocumentLayout
                     var revisions = _engine.Filler.Revisions();
                     foreach (var (index, revised) in revisions)
                     {
+                        _paragraphPages.Register(revised);
                         _pages.Replace(index, revised);
                     }
 
@@ -362,6 +364,8 @@ public sealed class DocumentLayout
                 Volatile.Write(ref _firstPageFinal, _engine.Filler.MaxTouchedBodyIndex < _engine.LastBodyIndex);
             }
 
+            // The map first: a reader that finds an entry for a page that is not published yet skips it by the count.
+            _paragraphPages.Register(_engine.Fill.Current);
             _pages.Add(_engine.Fill.Current);
             return true;
         }

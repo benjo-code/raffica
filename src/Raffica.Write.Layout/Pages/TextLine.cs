@@ -21,11 +21,25 @@ namespace Raffica.Write.Layout;
 /// <see cref="GlyphRun.CaretX"/> are relative to it. <see cref="Top"/> and <see cref="Baseline"/> are page y values and
 /// <see cref="Height"/> is the height of the line.
 /// </para>
+/// <para>
+/// <see cref="Map"/> translates the layout offsets that <see cref="GlyphRun.CaretStops"/> and <see cref="GlyphRun.CaretX"/> count in into
+/// projection offsets (after a break it is the map of the continuation, as the runs of its lines are). <see cref="Cell"/> is the identity
+/// of the table cell the paragraph is in (null outside a table; compare by reference). <see cref="ContentLeft"/> and
+/// <see cref="ContentRight"/> are the left and right edge of the line's content relative to <see cref="X"/> (inline pictures included,
+/// trailing spaces not); the caret geometry uses them where a line has no glyph run at an edge.
+/// </para>
 /// </summary>
-internal sealed record TextLine(StoryRef Story, Paragraph Paragraph, ParagraphProjection Projection, GlyphRun[] Runs, int Start, int End, float X, float Top, float Baseline, float Height);
+internal sealed record TextLine(StoryRef Story, Paragraph Paragraph, ParagraphProjection Projection, GlyphRun[] Runs, int Start, int End, float X, float Top, float Baseline, float Height, OffsetMap Map, object? Cell, float ContentLeft, float ContentRight)
+{
+    /// <summary>The caret stops of the line, made on first use (see <see cref="LineStops"/>).</summary>
+    internal LineStops Stops => _stops ??= LineStops.Build(this);
 
-/// <summary>Where the lines of a <see cref="ParagraphInput"/> come from: the story and the paragraph of the model (a text box paragraph has none).</summary>
-internal sealed record ParagraphSource(StoryRef Story, Paragraph Paragraph);
+    // Built from immutable data, so two threads that build it at once make equal objects and either may win.
+    private LineStops? _stops;
+}
+
+/// <summary>Where the lines of a <see cref="ParagraphInput"/> come from: the story and the paragraph of the model (a text box paragraph has none), and the cell format object that stands for the table cell the paragraph is in (null outside a table).</summary>
+internal sealed record ParagraphSource(StoryRef Story, Paragraph Paragraph, object? Cell = null);
 
 /// <summary>
 /// Translates offsets of a paragraph's flat layout text into offsets of its <see cref="ParagraphProjection"/>. Piecewise: a linear

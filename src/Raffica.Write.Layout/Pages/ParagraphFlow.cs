@@ -62,7 +62,11 @@ internal sealed class ParagraphPlan : BlockPlan
         return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks, Floats = floats is { Length: > 0 } ? floats : null, ProjectionMap = map }, _layouter, isContinuation: true);
     }
 
-    /// <summary>The length of the layout text of the first <paramref name="count"/> items (a hidden span has none, every box and break counts one).</summary>
+    /// <summary>
+    /// The length of the layout text of the first <paramref name="count"/> items (a hidden span has none, every box and break counts one).
+    /// This is the counting rule of <c>ParagraphLayouter</c> (a hidden text span adds 0, everything else adds its text length or 1): the
+    /// two must stay equal, because the continuation after a break slices the projection map at this length.
+    /// </summary>
     internal static int LayoutLength(IReadOnlyList<ParagraphItem> items, int count) => LayoutLength(items, 0, count);
 
     /// <summary>The length of the layout text of the items from <paramref name="from"/> up to <paramref name="to"/>.</summary>
@@ -344,7 +348,7 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
             LineItems.Emit(page, line, x, lineTop);
             if (_plan.Input is { Source: { } source, Projection: { } projection } input)
             {
-                page.AddTextLine(new TextLine(source.Story, source.Paragraph, projection, RunsOf(line), StartOf(input, line, i), EndOf(input, line, i), x, lineTop, lineTop + line.Baseline, line.Height));
+                page.AddTextLine(new TextLine(source.Story, source.Paragraph, projection, RunsOf(line), StartOf(input, line, i), EndOf(input, line, i), x, lineTop, lineTop + line.Baseline, line.Height, input.ProjectionMap ?? OffsetMap.Identity, source.Cell, line.X, line.X + line.Width));
             }
 
             var text = _layout.TextOf(line);

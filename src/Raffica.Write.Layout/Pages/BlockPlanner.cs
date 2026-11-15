@@ -177,7 +177,7 @@ internal sealed class BlockPlanner
             Floats = floats,
             Projection = projection,
             ProjectionMap = map.Build(),
-            Source = _planningBox ? null : new ParagraphSource(Story, paragraph),
+            Source = _planningBox ? null : new ParagraphSource(Story, paragraph, cell),
         };
 
         // The paragraphs of a text box are planned after the paragraph that holds it: planning one is not re-entrant.
