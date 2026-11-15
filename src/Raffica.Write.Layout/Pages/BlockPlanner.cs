@@ -136,7 +136,7 @@ internal sealed class BlockPlanner
     /// The plan of a body block, kept by block reference: a block inserted or removed elsewhere shifts no entry. Planning a block advances
     /// the list counters and registers its notes, so an entry also keeps the numbering and note state before and after the block was planned.
     /// A block that touched neither (almost every one) is valid whatever the state is. A block that did is valid only while the state now
-    /// has the same numbers it had then; a hit then restores the state after it (as planning it again would leave it), a miss plans it again.
+    /// has the same numbers and the same endnote references it had then (the list it restores holds them); a hit then restores the state after it (as planning it again would leave it), a miss plans it again.
     /// So a resume point needs only the state restored at it, never a list of the blocks whose numbers changed. The index of the plan is made
     /// current from <paramref name="flat"/> on every call. Runs under the layout gate only (planning, the counters and this cache have no lock).
     /// </summary>
@@ -154,7 +154,7 @@ internal sealed class BlockPlanner
                 return known.Plan;
             }
 
-            if (known.NumbersBefore.SameAs(numbers) && (known.NotesBefore?.SameCounts(counts) ?? counts is null))
+            if (known.NumbersBefore.SameAs(numbers) && (known.NotesBefore?.SameAs(counts) ?? counts is null))
             {
                 _numbering.Restore(known.NumbersAfter);
                 if (known.NotesAfter is { } after)

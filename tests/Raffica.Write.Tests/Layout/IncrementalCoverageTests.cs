@@ -729,4 +729,23 @@ public sealed class IncrementalCoverageTests
         Assert.Equal(0, refill.FirstPage);
         await CheckAsync(layout, model, refill, LayoutMode.Pages, "chain of " + chain);
     }
+
+    [Fact]
+    public async Task AnEndnoteReferenceThatCitesAnotherNoteIsNotPutBackByALaterBlock()
+    {
+        // The edited paragraph cites endnote 99 instead of 44; the later paragraphs with endnote references hit the cache with the same counts and must not
+        // restore the old list of endnotes (the endnote pages at the end would show the note that is not cited any more).
+        var model = NotedDocument();
+        var layout = await LaidAsync(model);
+        var paragraph = (Paragraph)model.Body.Blocks[43];
+        var before = paragraph.Clone();
+        foreach (var reference in paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content.OfType<EndnoteReference>()))
+        {
+            reference.Id = 99;
+        }
+
+        var refill = layout.ApplyEdit(new BlockChange(StoryRef.Body, model.Body.Blocks, 43, 1, 1, [before]), PageOf(layout, model, paragraph) + 1);
+
+        await CheckAsync(layout, model, refill, LayoutMode.Pages, "endnote swapped");
+    }
 }
