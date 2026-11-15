@@ -755,8 +755,12 @@ internal sealed partial class PageView : Control, IDisposable
         return finalSize;
     }
 
+    /// <summary>How many times the page layer was rendered (tests: a render pass must not ask for another one).</summary>
+    internal int RenderCount { get; private set; }
+
     public override void Render(DrawingContext context)
     {
+        RenderCount++;
         var bounds = new Rect(Bounds.Size);
         context.FillRectangle(Background ?? DeskBrush(), bounds);
         if (_released)

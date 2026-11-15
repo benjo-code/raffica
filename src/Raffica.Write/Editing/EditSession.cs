@@ -42,7 +42,7 @@ internal sealed class EditSession
 
     private readonly WriteTab _tab;
     private readonly Dispatcher _ui;
-    private readonly Queue<(Func<TextEditor, EditResult?> Operation, int ThroughPage)> _queue = new();
+    private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key)> _queue = [];
     private TextEditor? _editor;
     private WordDocument? _bound;
     private TextRange? _selection;
@@ -151,12 +151,13 @@ internal sealed class EditSession
     /// <remarks>
     /// While a save runs the operation is queued (null is returned) and replayed in arrival order when the save ends, through the same path under one lease for the
     /// whole batch with one <see cref="Changed"/>; an operation that is queued must read the caret and selection when it runs, not when it is queued. The queue holds
-    /// <see cref="MaxQueued"/> operations; later ones are refused and counted. If an operation of the replay throws, the rest is dropped and the exception goes to the
+    /// <see cref="MaxQueued"/> operations; later ones are refused and counted. An operation with a <paramref name="coalesceKey"/> that directly follows a queued operation with the same key (the same object) replaces it, so a gesture that
+    /// changes the selection many times (a drag) costs one slot; an operation of another kind in between ends the run. If an operation of the replay throws, the rest is dropped and the exception goes to the
     /// caller of the save handle's Dispose. The <see cref="BlockChange.OldBlocks"/> of the returned result are read-only snapshots (the history's own for an undo or redo): never
     /// change them. A cut is a copy and a delete: when its result has no <c>Changes</c> the delete was refused and the clipboard must not be replaced. An exception of
     /// the layout (it is faulted for good) makes the session faulted (<see cref="EditBlockedReason.Faulted"/>, the runner's fault is the same one): it goes to the caller once, after the lease ended and <see cref="Changed"/> was raised; every later call is refused without touching the model.
     /// </remarks>
-    public EditResult? Apply(Func<TextEditor, EditResult?> operation, int throughPage)
+    public EditResult? Apply(Func<TextEditor, EditResult?> operation, int throughPage, object? coalesceKey = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
         VerifyAccess();
@@ -165,13 +166,18 @@ internal sealed class EditSession
             case null:
                 break;
             case EditBlockedReason.Saving:
-                if (_queue.Count >= MaxQueued)
+                if (coalesceKey is not null && _queue.Count > 0 && ReferenceEquals(_queue[^1].Key, coalesceKey))
+                {
+                    // The same gesture again (a drag): the latest operation replaces the one before it, which nothing has followed.
+                    _queue[^1] = (operation, throughPage, coalesceKey);
+                }
+                else if (_queue.Count >= MaxQueued)
                 {
                     Interlocked.Increment(ref _dropped);
                 }
                 else
                 {
-                    _queue.Enqueue((operation, throughPage));
+                    _queue.Add((operation, throughPage, coalesceKey));
                 }
 
                 return null;
@@ -230,7 +236,7 @@ internal sealed class EditSession
         try
         {
             using var lease = _tab.Runner.PauseForEdit();
-            foreach (var (operation, throughPage) in batch)
+            foreach (var (operation, throughPage, _) in batch)
             {
                 Run(operation, throughPage, ref changed);
             }

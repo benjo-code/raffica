@@ -10,13 +10,16 @@ namespace Raffica.Write.Editing;
 public static class TextUnits
 {
     /// <summary>
-    /// The word around <paramref name="position"/>: the run of letters and digits, or of blanks, or of one kind of punctuation, that the character at the position is in (at
-    /// the end of the paragraph the one before it). A field result or another atomic unit is selected whole. The range is in the paragraph of the position.
+    /// The word under the pointer at <paramref name="position"/>: the run of letters and digits, or of blanks, or of one kind of punctuation, that the character under the pointer is in.
+    /// A hit test returns the nearest boundary between two characters: when the pointer was on the later half of a character (<paramref name="trailing"/>, <c>TextHit.Trailing</c>)
+    /// the character under it is the one before the position, otherwise the one at the position (at the end of the paragraph always the one before). A field result or another
+    /// atomic unit is selected whole. The range is in the paragraph of the position.
     /// </summary>
-    public static TextRange WordAt(TextPosition position, ParagraphProjection projection)
+    public static TextRange WordAt(TextPosition position, ParagraphProjection projection, bool trailing)
     {
         ArgumentNullException.ThrowIfNull(projection);
-        var (start, end) = TextBoundaries.RunAt(projection.Text, position.Offset);
+        var under = trailing && position.Offset > 0 ? position.Offset - 1 : position.Offset;
+        var (start, end) = TextBoundaries.RunAt(projection.Text, under);
         if (projection.AtomicAt(start) is var (atomicStart, _) && start > atomicStart)
         {
             start = atomicStart;

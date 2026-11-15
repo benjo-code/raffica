@@ -51,7 +51,7 @@ public sealed partial class DocumentLayout
     /// <summary>
     /// The position in the header or footer of a page for a point in its region: the point is on the header side (upper half of the page) or the footer side
     /// (lower half) and at most 18 points beyond the lines of that header or footer, which the editor uses for the explicit gesture that enters a header or
-    /// footer (<see cref="HitTest"/> prefers the body for blank space). Null when the page shows no header or footer there. Lengths are points from the top left of the page.
+    /// footer (<see cref="HitTest"/> prefers the body for blank space). Null when the page shows no header or footer there, when the point is off the page (above, below or beside it) or when it lies inside the height of a body line (the body wins over the reach of a header or footer). Lengths are points from the top left of the page.
     /// </summary>
     public TextHit? HitTestHeaderFooter(int pageIndex, float x, float y) => Navigator.HitTestHeaderFooter(pageIndex, x, y);
 

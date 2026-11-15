@@ -328,6 +328,22 @@ internal sealed class TextNavigator(PageList pages, ParagraphPageMap map)
         var page = pages[pageIndex];
         var lines = page.TextLines;
         var middle = page.Height / 2f;
+
+        // The region is on the page: a point beside it, above it or below it (the desk, the gap between pages) is in no header or footer. NaN fails both tests.
+        if (!(x >= 0f && x <= page.Width && y >= 0f && y <= page.Height))
+        {
+            return null;
+        }
+
+        // A point inside the height of a body line is in the body, however far the reach of a header or footer goes (a narrow margin puts the body inside it).
+        foreach (var line in lines)
+        {
+            if (line.Story.Kind == StoryKind.Body && y >= line.Top && y <= line.Top + line.Height)
+            {
+                return null;
+            }
+        }
+
         var best = -1;
         var bestDy = float.MaxValue;
         var bestDx = float.MaxValue;

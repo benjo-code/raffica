@@ -693,6 +693,41 @@ public sealed class TextGeometryTests
     }
 
     [Fact]
+    public void TheHeaderFooterRegionStaysOnThePageAndYieldsToABodyLine()
+    {
+        var parts = new Dictionary<string, string> { ["hD"] = HeaderPart(Line("HEADER")), ["fD"] = FooterPart(Line("FOOTER")) };
+        // A 56 pt margin with the header 36 pt from the top: the header ends about 50 pt down and its 18 pt reach covers the first body line.
+        var section = Sect(Header("default", "hD") + Footer("default", "fD"), 612f, 400f, 56f);
+        // Enough lines to fill the page down to the footer.
+        var layout = Laid(Document(string.Concat(Enumerable.Repeat(Para(Text("a body line")), 24)) + PEnd("last line", section), parts));
+        var page = layout.Page(0);
+        var lines = page.TextLines;
+        var header = lines.First(l => l.Story.Kind == StoryKind.HeaderFooter && l.Projection.Text == "HEADER");
+        var footer = lines.First(l => l.Story.Kind == StoryKind.HeaderFooter && l.Projection.Text == "FOOTER");
+        var bodyLines = lines.Where(l => l.Story.Kind == StoryKind.Body).ToList();
+        var firstBody = bodyLines[0];
+        var lastBody = bodyLines[^1];
+        Assert.True(header.Top + header.Height + 18f > firstBody.Top, "the header's reach must overlap the first body line for this test");
+        Assert.True(footer.Top - 18f < lastBody.Top + lastBody.Height, "the footer's reach must overlap the last body line for this test");
+        var x = 100f;
+
+        // Inside a body line the body wins, whatever the reach of the header or footer.
+        Assert.Null(layout.HitTestHeaderFooter(0, x, firstBody.Top + (firstBody.Height / 2f)));
+        Assert.Null(layout.HitTestHeaderFooter(0, x, lastBody.Top + (lastBody.Height / 2f)));
+
+        // Where no body line is, the reach still applies.
+        Assert.NotNull(layout.HitTestHeaderFooter(0, x, header.Top + (header.Height / 2f)));
+        Assert.NotNull(layout.HitTestHeaderFooter(0, x, footer.Top + (footer.Height / 2f)));
+
+        // Off the page: above its top, below its bottom, left of it and right of it, at the height of a header or footer line.
+        Assert.Null(layout.HitTestHeaderFooter(0, x, -2f));
+        Assert.Null(layout.HitTestHeaderFooter(0, x, page.Height + 2f));
+        Assert.Null(layout.HitTestHeaderFooter(0, -3f, header.Top + (header.Height / 2f)));
+        Assert.Null(layout.HitTestHeaderFooter(0, page.Width + 3f, footer.Top + (footer.Height / 2f)));
+        Assert.Null(layout.HitTestHeaderFooter(0, float.NaN, header.Top));
+    }
+
+    [Fact]
     public async Task ReplaceModelPublishesPageOneWithTheParagraphsOfTheNewModel()
     {
         var bytes = File.ReadAllBytes(Path.Combine(TestData.Root, "testdata", "write-corpus", "thesis", "thesis.docx"));

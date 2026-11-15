@@ -22,18 +22,27 @@ public sealed class TextUnitsTests
 
     private static ParagraphProjection Projection(Paragraph paragraph) => ParagraphProjection.Build(paragraph, ProjectionHost.Plain);
 
+    // "Hello, world  x": H0 e1 l2 l3 o4 ,5 ' '6 w7 o8 r9 l10 d11 ' '12 ' '13 x14. An offset is the boundary before the character; trailing means the pointer was on the later half of the
+    // character before it, so that character is the one under the pointer.
     [Theory]
-    [InlineData("Hello, world  x", 1, 0, 5)]
-    [InlineData("Hello, world  x", 5, 5, 6)]
-    [InlineData("Hello, world  x", 6, 6, 7)]
-    [InlineData("Hello, world  x", 8, 7, 12)]
-    [InlineData("Hello, world  x", 12, 12, 14)]
-    [InlineData("Hello, world  x", 15, 14, 15)]
-    [InlineData("Hello, world  x", 0, 0, 5)]
-    public void AWordIsTheRunOfOneKindAroundThePosition(string text, int offset, int start, int end)
+    [InlineData("Hello, world  x", 1, false, 0, 5)]
+    [InlineData("Hello, world  x", 5, true, 0, 5)]
+    [InlineData("Hello, world  x", 5, false, 5, 6)]
+    [InlineData("Hello, world  x", 6, true, 5, 6)]
+    [InlineData("Hello, world  x", 6, false, 6, 7)]
+    [InlineData("Hello, world  x", 7, true, 6, 7)]
+    [InlineData("Hello, world  x", 8, false, 7, 12)]
+    [InlineData("Hello, world  x", 12, true, 7, 12)]
+    [InlineData("Hello, world  x", 12, false, 12, 14)]
+    [InlineData("Hello, world  x", 14, true, 12, 14)]
+    [InlineData("Hello, world  x", 15, true, 14, 15)]
+    [InlineData("Hello, world  x", 15, false, 14, 15)]
+    [InlineData("Hello, world  x", 0, false, 0, 5)]
+    [InlineData("Hello, world  x", 0, true, 0, 5)]
+    public void AWordIsTheRunOfOneKindUnderThePointer(string text, int offset, bool trailing, int start, int end)
     {
         var paragraph = P(text);
-        var range = TextUnits.WordAt(At(paragraph, offset), Projection(paragraph));
+        var range = TextUnits.WordAt(At(paragraph, offset), Projection(paragraph), trailing);
         Assert.Equal((start, end), (range.Start.Offset, range.End.Offset));
         Assert.Same(paragraph, range.Start.Paragraph);
     }
@@ -42,7 +51,7 @@ public sealed class TextUnitsTests
     public void AnEmptyParagraphHasAnEmptyWordAndAParagraphIsItsWholeText()
     {
         var empty = new Paragraph();
-        Assert.True(TextUnits.WordAt(At(empty, 0), Projection(empty)).IsEmpty);
+        Assert.True(TextUnits.WordAt(At(empty, 0), Projection(empty), trailing: true).IsEmpty);
         var paragraph = P("two words");
         var whole = TextUnits.ParagraphAt(At(paragraph, 4), Projection(paragraph));
         Assert.Equal((0, 9), (whole.Start.Offset, whole.End.Offset));

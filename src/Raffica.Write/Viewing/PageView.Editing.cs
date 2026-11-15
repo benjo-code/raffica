@@ -74,6 +74,7 @@ internal sealed partial class PageView
     private StoryRef? _story;
     private TextRange? _bodySelection;
     private TextPosition? _dragAnchor;
+    private object _gesture = new();
     private IList<Block>? _dragContainer;
     private IPointer? _dragPointer;
     private Point _lastPointer;
@@ -114,6 +115,9 @@ internal sealed partial class PageView
 
     /// <summary>True while the auto-scroll timer of a drag runs.</summary>
     internal bool AutoScrolling => _autoScroll?.IsEnabled == true;
+
+    /// <summary>How many times the overlay layer was rendered (tests).</summary>
+    internal int OverlayRenderCount => _overlay.RenderCount;
 
     /// <summary>True while a drag selection is in progress.</summary>
     internal bool IsDragging => _dragAnchor is not null;
@@ -368,6 +372,7 @@ internal sealed partial class PageView
     internal bool HandlePress(Point point, int clickCount, KeyModifiers modifiers, bool rightButton)
     {
         EndDrag();
+        _gesture = new object();
         if (!CanPlaceCaret || ActiveLayout() is not { } layout || !TryMapPoint(point, out var page, out var x, out var y))
         {
             return false;
@@ -377,7 +382,7 @@ internal sealed partial class PageView
         AttachSession(session);
         SyncActiveMode();
         var count = rightButton ? 1 : Math.Clamp(clickCount, 1, 3);
-        if (ResolveHit(layout, session, page, x, y, count, out var entered) is not { } hit)
+        if (ResolveHit(layout, session, page, x, y, count, drag: false, out var entered) is not { } hit)
         {
             return false;
         }
@@ -397,7 +402,7 @@ internal sealed partial class PageView
         switch (count)
         {
             case 2:
-                Place(session, TextUnits.WordAt(position, ProjectionOf(layout, position)), CaretAffinity.Downstream);
+                Place(session, TextUnits.WordAt(position, ProjectionOf(layout, position), hit.Trailing), CaretAffinity.Downstream);
                 return false;
             case 3:
                 Place(session, TextUnits.ParagraphAt(position, ProjectionOf(layout, position)), CaretAffinity.Downstream);
@@ -427,8 +432,9 @@ internal sealed partial class PageView
         return true;
     }
 
-    // The hit of a press, by the header/footer rule: see the remarks of the class.
-    private TextHit? ResolveHit(DocumentLayout layout, EditSession session, int page, float x, float y, int count, out bool entered)
+    // The hit of a press or of a drag move, by the header/footer rule: see the remarks of the class. Only a press changes the mode: a drag keeps it (Constrain clamps the
+    // selection to the story) and leaving is explicit (a press elsewhere, Esc).
+    private TextHit? ResolveHit(DocumentLayout layout, EditSession session, int page, float x, float y, int count, bool drag, out bool entered)
     {
         entered = false;
         var hit = layout.HitTest(page, x, y);
@@ -437,13 +443,22 @@ internal sealed partial class PageView
         {
             if (region is { } inRegion)
             {
-                _story = inRegion.Position.Story;
+                if (!drag)
+                {
+                    _story = inRegion.Position.Story;
+                }
+
                 return inRegion;
             }
 
             if (hit is { } same && same.Position.Story == story)
             {
                 return same;
+            }
+
+            if (drag)
+            {
+                return hit;
             }
 
             _story = null;
@@ -516,7 +531,22 @@ internal sealed partial class PageView
         _affinityFor = range.End;
         if (session.BlockedReason == EditBlockedReason.Saving)
         {
-            session.Apply(_ => new EditResult(range.End, [], range), 0);
+            // Queued in arrival order with the typing; the whole gesture (the press and every move of a drag) is one entry. The positions are those of click time: when it runs,
+            // earlier queued edits may have removed the paragraph or shortened it, so the operation checks them against the model as it is then (see ValidQueuedPosition).
+            var startBefore = PreviousParagraph(range.Start);
+            var endBefore = PreviousParagraph(range.End);
+            session.Apply(
+                _ =>
+                {
+                    if (ValidQueuedPosition(session, range.Start, startBefore) is not { } start || ValidQueuedPosition(session, range.End, endBefore) is not { } end)
+                    {
+                        return null;
+                    }
+
+                    return new EditResult(end, [], new TextRange(start, end));
+                },
+                0,
+                _gesture);
         }
         else
         {
@@ -525,6 +555,61 @@ internal sealed partial class PageView
 
         RestartBlink();
         _overlay.InvalidateVisual();
+    }
+
+    // The nearest paragraph before a position's paragraph in its container (the fallback when the paragraph is gone when a queued selection runs), or null.
+    private Paragraph? PreviousParagraph(TextPosition position)
+    {
+        if (TextUnits.BlocksOf(_tab.Docx.Model, position.Story) is not { } blocks || TextUnits.ContainerOf(blocks, position.Paragraph) is not { } container)
+        {
+            return null;
+        }
+
+        for (var i = container.IndexOf(position.Paragraph) - 1; i >= 0; i--)
+        {
+            if (container[i] is Paragraph paragraph)
+            {
+                return paragraph;
+            }
+        }
+
+        return null;
+    }
+
+    // A position of click time made valid for the model now (a queued selection runs after the edits queued before it): the offset is clamped to the paragraph's text; a paragraph
+    // that is gone becomes the end of the paragraph before it, or when that is gone too the start of the document; null when the document has no paragraph at all.
+    private TextPosition? ValidQueuedPosition(EditSession session, TextPosition position, Paragraph? before)
+    {
+        var model = _tab.Docx.Model;
+        var story = position.Story;
+        var paragraph = position.Paragraph;
+        var offset = position.Offset;
+        var stillThere = TextUnits.BlocksOf(model, story) is { } blocks && TextUnits.ContainerOf(blocks, paragraph) is not null;
+        if (!stillThere)
+        {
+            offset = int.MaxValue;
+            if (before is not null && TextUnits.BlocksOf(model, story) is { } storyBlocks && TextUnits.ContainerOf(storyBlocks, before) is not null)
+            {
+                paragraph = before;
+            }
+            else
+            {
+                story = StoryRef.Body;
+                offset = 0;
+                var first = model.Body.Blocks.OfType<Paragraph>().FirstOrDefault();
+                if (first is null)
+                {
+                    return null;
+                }
+
+                paragraph = first;
+            }
+        }
+
+        var runner = _tab.Runner;
+        var layout = (session.ActiveMode == LayoutMode.Flow ? runner.FlowLayout : null) ?? runner.PageLayout;
+        var length = ParagraphProjection.Build(paragraph, layout.ProjectionHost(story, paragraph)).Text.Length;
+        return new TextPosition(story, paragraph, Math.Clamp(offset, 0, length));
     }
 
     private bool SelectionContains(TextRange range, TextPosition position)
@@ -577,17 +662,21 @@ internal sealed partial class PageView
     private TextPosition? Constrain(DocumentLayout layout, TextPosition anchor, TextHit hit, float y, int page)
     {
         var target = hit.Position;
-        if (target.Story != anchor.Story)
+        var sameStory = target.Story == anchor.Story;
+
+        // Another story: unchanged, except that a drag that started in a header or footer is clamped to the edge of that story (it never leaves the mode).
+        if (!sameStory && (anchor.Story.Kind != StoryKind.HeaderFooter || _dragContainer is null))
         {
             return null;
         }
 
-        if (ReferenceEquals(target.Paragraph, anchor.Paragraph) || _dragContainer is not { } container)
+        if (sameStory && (ReferenceEquals(target.Paragraph, anchor.Paragraph) || _dragContainer is null))
         {
             return target;
         }
 
-        var index = TextUnits.IndexUnder(container, target.Paragraph);
+        var container = _dragContainer!;
+        var index = sameStory ? TextUnits.IndexUnder(container, target.Paragraph) : -1;
         if (index >= 0 && ReferenceEquals(container[index], target.Paragraph))
         {
             return target;
@@ -671,7 +760,7 @@ internal sealed partial class PageView
     {
         if (_dragAnchor is not { } anchor || _tab.Editor is not { } session || !CanPlaceCaret || ActiveLayout() is not { } layout
             || !TryMapPoint(_lastPointer, out var page, out var x, out var y)
-            || ResolveHit(layout, session, page, x, y, 1, out _) is not { } hit
+            || ResolveHit(layout, session, page, x, y, 1, drag: true, out _) is not { } hit
             || Constrain(layout, anchor, hit, y, page) is not { } target)
         {
             return;
@@ -916,6 +1005,13 @@ internal sealed partial class PageView
 
         protected override Size MeasureOverride(Size availableSize) => default;
 
-        public override void Render(DrawingContext context) => _owner.DrawEditing(context);
+        /// <summary>How many times the overlay was rendered (tests).</summary>
+        internal int RenderCount { get; private set; }
+
+        public override void Render(DrawingContext context)
+        {
+            RenderCount++;
+            _owner.DrawEditing(context);
+        }
     }
 }

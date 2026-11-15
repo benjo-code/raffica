@@ -273,22 +273,27 @@ public sealed class PageViewEditingTests : IDisposable
 
         await view.Runner.PageTask;
         ViewHarness.Pump();
-        var scroller = view.Scroller;
-        var children = view.GetVisualChildren().Count();
-        var changes = 0;
-        view.ViewChanged += () => changes++;
-        var offset = view.OffsetY;
+        // Settle: a few frames until nothing is left to draw.
         h.Capture();
         h.Capture();
+        h.Capture();
+        var (pages, overlay) = (view.RenderCount, view.OverlayRenderCount);
+        Assert.True(pages > 0 && overlay > 0);
+
+        // More frames with no change: neither layer is rendered again. A render pass that asked for another render (an invalidated visual) would show here.
+        h.Capture();
+        h.Capture();
+        h.Capture();
+        Assert.Equal(pages, view.RenderCount);
+        Assert.Equal(overlay, view.OverlayRenderCount);
+
+        // A blink tick draws the overlay once and the pages not at all; the render itself asks for nothing more.
         view.TickBlink();
         h.Capture();
-
-        // Drawing the pages, the selection and the caret read the layout and invalidate nothing: no change event, the same scroller, the same tree, a valid layout pass.
-        Assert.Equal(0, changes);
-        Assert.Same(scroller, view.Scroller);
-        Assert.Equal(children, view.GetVisualChildren().Count());
-        Assert.Equal(offset, view.OffsetY);
-        Assert.True(view.IsMeasureValid && view.IsArrangeValid);
+        h.Capture();
+        h.Capture();
+        Assert.Equal(pages, view.RenderCount);
+        Assert.Equal(overlay + 1, view.OverlayRenderCount);
     }
 
     [AvaloniaFact]
@@ -396,7 +401,6 @@ public sealed class PageViewEditingTests : IDisposable
         // Past the right end of the first line (the caret of its end offset is the start of the second line).
         Click(h, ViewPoint(view, 0, 600, first.Top + (first.Height / 2)));
         var upstream = view.Caret!.Value;
-        var dbg = layout.HitTest(0, 600, first.Top + (first.Height / 2));
         Assert.Equal(CaretAffinity.Upstream, view.Affinity);
         var bar = view.CaretBarBounds!.Value;
         Assert.InRange(bar.Y, view.PageBounds(0)!.Value.Y + (first.Top * Scale(view)) - 1, view.PageBounds(0)!.Value.Y + (first.Top * Scale(view)) + 1);
@@ -420,14 +424,24 @@ public sealed class PageViewEditingTests : IDisposable
     [AvaloniaFact]
     public async Task ADoubleClickInTheHeaderEntersItAndEscLeavesIt()
     {
-        var path = WriteDocument("Body text of the first paragraph.", "Header text", "Footer text");
+        const string BodyText = "Body text of the first paragraph.";
+        var path = WriteDocument(BodyText, "Header text", "Footer text");
         using var h = await OpenWholeAsync(path, 900, 1400);
         var view = h.View;
+        var first = (Paragraph)view.Tab.Docx.Model.Body.Blocks[0];
 
-        // Blank space of the header region (right of its text): a single click does nothing, a double click enters.
+        // A click on a body word (not the document start) places the caret there exactly.
+        var layout = view.Runner.PageLayout;
+        var box = layout.Caret(new TextPosition(StoryRef.Body, first, 8), 0)!.Value;
+        Click(h, ViewPoint(view, 0, box.X + 0.5, box.Top + (box.Height / 2)));
+        Assert.Same(first, view.Caret!.Value.Paragraph);
+        Assert.Equal(8, view.Caret.Value.Offset);
+
+        // A single click in the header region (right of its text) changes nothing: the header is entered by the double click only.
         var inHeader = ViewPoint(view, 0, 500, 41);
         Click(h, inHeader);
-        Assert.Equal(StoryKind.Body, view.Caret!.Value.Story.Kind);
+        Assert.Same(first, view.Caret!.Value.Paragraph);
+        Assert.Equal(8, view.Caret.Value.Offset);
         Assert.Null(view.ActiveStory);
 
         // A body click first, so that Esc has a place to go back to.
@@ -445,24 +459,230 @@ public sealed class PageViewEditingTests : IDisposable
         Assert.Null(view.ActiveStory);
         Assert.Equal(StoryKind.Body, view.Caret!.Value.Story.Kind);
         Assert.Same(bodyCaret.Paragraph, view.Caret.Value.Paragraph);
+        Assert.Equal(bodyCaret.Offset, view.Caret.Value.Offset);
 
-        // The footer too; a click in the body leaves it.
+        // The footer too; a single click in the body leaves it.
         var inFooter = ViewPoint(view, 0, 500, 792 - 41);
         Click(h, inFooter, 2);
         Assert.Equal(StoryKind.HeaderFooter, view.Caret!.Value.Story.Kind);
         Click(h, ViewPoint(view, 0, 120, 100));
         Assert.Null(view.ActiveStory);
         Assert.Equal(StoryKind.Body, view.Caret!.Value.Story.Kind);
+    }
 
-        // A drag that starts in the header does not reach the body.
-        Click(h, inHeader, 2);
-        var headerStart = view.Caret!.Value;
-        h.Window.MouseDown(ViewPoint(view, 0, 120, 41), MouseButton.Left);
-        h.Window.MouseMove(ViewPoint(view, 0, 120, 100));
-        h.Window.MouseUp(ViewPoint(view, 0, 120, 100), MouseButton.Left);
+    [AvaloniaFact]
+    public async Task ADragOutOfTheHeaderKeepsTheModeAndStopsAtTheEdgeOfTheHeader()
+    {
+        var path = WriteDocument("Body text of the first paragraph.", "Header text", "Footer text");
+        using var h = await OpenWholeAsync(path, 900, 1400);
+        var view = h.View;
+        var headerPoint = ViewPoint(view, 0, 500, 41);
+        Click(h, ViewPoint(view, 0, 120, 100));
+        var bodyCaret = view.Caret!.Value;
+        Click(h, headerPoint, 2);
+        var story = view.ActiveStory;
+        Assert.NotNull(story);
+
+        // Press on the header text, drag down into the body, release: still in the header, the selection ends at the end of its text.
+        h.Window.MouseDown(ViewPoint(view, 0, 100, 41), MouseButton.Left);
+        h.Window.MouseMove(ViewPoint(view, 0, 100, 41 + 60));
+        h.Window.MouseMove(ViewPoint(view, 0, 200, 300));
+        h.Window.MouseUp(ViewPoint(view, 0, 200, 300), MouseButton.Left);
         ViewHarness.Pump();
-        Assert.Equal(StoryKind.HeaderFooter, view.Selection!.Value.End.Story.Kind);
-        Assert.Equal(StoryKind.HeaderFooter, headerStart.Story.Kind);
+        Assert.Equal(story, view.ActiveStory);
+        var selection = view.Selection!.Value;
+        Assert.Equal(story, selection.Start.Story);
+        Assert.Equal(story, selection.End.Story);
+        Assert.Equal("Header text".Length, selection.End.Offset);
+
+        // A drag upward off the top of the page stops at the start of the header; the mode stays.
+        h.Window.MouseDown(ViewPoint(view, 0, 110, 41), MouseButton.Left);
+        h.Window.MouseMove(ViewPoint(view, 0, 110, -6));
+        h.Window.MouseUp(ViewPoint(view, 0, 110, -6), MouseButton.Left);
+        ViewHarness.Pump();
+        Assert.Equal(story, view.ActiveStory);
+        Assert.Equal(0, view.Selection!.Value.End.Offset);
+
+        // A single click on the header text in the mode puts the caret there.
+        Click(h, ViewPoint(view, 0, 120, 41));
+        Assert.Equal(story, view.ActiveStory);
+        Assert.Equal(story, view.Caret!.Value.Story);
+        Assert.True(view.Selection!.Value.IsEmpty);
+
+        // Esc is the explicit way out and restores the body selection from before.
+        h.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        ViewHarness.Pump();
+        Assert.Null(view.ActiveStory);
+        Assert.Same(bodyCaret.Paragraph, view.Caret!.Value.Paragraph);
+        Assert.Equal(bodyCaret.Offset, view.Caret.Value.Offset);
+    }
+
+    [AvaloniaFact]
+    public async Task OffThePaperADoubleClickEntersNoHeaderOrFooter()
+    {
+        var path = WriteDocument("Body text of the first paragraph.", "Header text", "Footer text");
+        using var h = await OpenWholeAsync(path, 900, 1400);
+        var view = h.View;
+        var rect = view.PageBounds(0)!.Value;
+
+        // The desk beside the page at footer and header height, the gap below the last page and the desk above the first page.
+        var points = new[]
+        {
+            new Point(rect.X - 6, rect.Bottom - (41 * Scale(view))),
+            new Point(rect.Right + 6, rect.Y + (41 * Scale(view))),
+            new Point(rect.X + 300, rect.Bottom + 8),
+            new Point(rect.X + 300, rect.Y - 8),
+        };
+        foreach (var point in points)
+        {
+            view.HandlePress(point, 2, KeyModifiers.None, rightButton: false);
+            Assert.Null(view.ActiveStory);
+            Assert.NotEqual(StoryKind.HeaderFooter, view.Caret?.Story.Kind ?? StoryKind.Body);
+            ViewHarness.Pump();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task OnANarrowMarginADoubleClickOnABodyWordSelectsTheWord()
+    {
+        // The body starts 56 pt down, the header text ends near 50 pt: the 18 pt reach of the header region would cover the first body line.
+        var path = WriteDocument("alpha beta gamma", "Header text", "Footer text", margin: 1120, secondText: "delta epsilon zeta");
+        using var h = await OpenWholeAsync(path, 900, 1400);
+        var view = h.View;
+        var layout = view.Runner.PageLayout;
+        var first = (Paragraph)view.Tab.Docx.Model.Body.Blocks[0];
+        var second = (Paragraph)view.Tab.Docx.Model.Body.Blocks[1];
+
+        foreach (var (paragraph, index, word) in new[] { (first, 8, "beta"), (second, 8, "epsilon") })
+        {
+            var box = layout.Caret(new TextPosition(StoryRef.Body, paragraph, index), 0)!.Value;
+            Assert.True(box.Top > 50f, "the page must have the body below the header");
+            var point = ViewPoint(view, 0, box.X + 1, box.Top + (box.Height / 2));
+            view.HandlePress(point, 2, KeyModifiers.None, rightButton: false);
+            Assert.Null(view.ActiveStory);
+            Assert.Equal(word, SelectedText(view, layout));
+            Assert.Same(paragraph, view.Caret!.Value.Paragraph);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ADoubleClickSelectsTheWordUnderThePointerOnBothHalvesOfItsEdgeLetters()
+    {
+        const string Text = "alpha beta, gamma  delta";
+        var path = WriteDocument(Text, "Header text", "Footer text");
+        using var h = await OpenWholeAsync(path, 900, 1400);
+        var view = h.View;
+        var layout = view.Runner.PageLayout;
+        var paragraph = (Paragraph)view.Tab.Docx.Model.Body.Blocks[0];
+
+        Point At(int character, double fraction)
+        {
+            var from = layout.Caret(new TextPosition(StoryRef.Body, paragraph, character), 0)!.Value;
+            var to = layout.Caret(new TextPosition(StoryRef.Body, paragraph, character + 1), 0)!.Value;
+            return ViewPoint(view, 0, from.X + (fraction * (to.X - from.X)), from.Top + (from.Height / 2));
+        }
+
+        // Last letter of the first word (4), first letter (0), a middle letter (3), the comma (10), a single space (11), the double blank (17), the last letter of the text (23).
+        var cases = new (int Character, string Expected)[] { (4, "alpha"), (0, "alpha"), (3, "alpha"), (10, ","), (11, " "), (17, "  "), (23, "delta"), (6, "beta"), (9, "beta") };
+        foreach (var (character, expected) in cases)
+        {
+            foreach (var fraction in new[] { 0.2, 0.8 })
+            {
+                Assert.False(view.HandlePress(At(character, fraction), 2, KeyModifiers.None, rightButton: false));
+                Assert.Equal(expected, SelectedText(view, layout));
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AQueuedSelectionIsClampedWhenAnEarlierQueuedEditRemovedItsParagraph()
+    {
+        var path = WriteDocument("First paragraph text.", "Header text", "Footer text", secondText: "Second paragraph text.");
+        using var h = await OpenWholeAsync(path, 900, 1400);
+        var view = h.View;
+        var layout = view.Runner.PageLayout;
+        var model = view.Tab.Docx.Model;
+        var first = (Paragraph)model.Body.Blocks[0];
+        var second = (Paragraph)model.Body.Blocks[1];
+        Click(h, ViewPoint(view, 0, 120, 100));
+        var session = view.Tab.Editor!;
+        var secondBox = layout.Caret(new TextPosition(StoryRef.Body, second, 6), 0)!.Value;
+
+        using (var save = session.BeginSave())
+        {
+            // The delete is queued first and joins the two paragraphs (the second goes); the click on the second paragraph follows it in the queue.
+            session.Apply(e => e.Delete(new TextRange(new TextPosition(StoryRef.Body, first, 0), new TextPosition(StoryRef.Body, second, 22))), 0);
+            Click(h, ViewPoint(view, 0, secondBox.X, secondBox.Top + (secondBox.Height / 2)));
+            Assert.Equal(2, session.PendingCount);
+        }
+
+        ViewHarness.Pump();
+        Assert.Equal(0, session.PendingCount);
+        var caret = view.Caret!.Value;
+        Assert.Single(model.Body.Blocks.OfType<Paragraph>());
+        Assert.Same(model.Body.Blocks[0], caret.Paragraph);
+        var length = ParagraphProjection.Build(caret.Paragraph, layout.ProjectionHost(caret.Story, caret.Paragraph)).Text.Length;
+        Assert.InRange(caret.Offset, 0, length);
+        Assert.Equal(caret, view.Selection!.Value.Start);
+    }
+
+    [AvaloniaFact]
+    public async Task AQueuedSelectionIsClampedToTheShortenedParagraph()
+    {
+        var path = WriteDocument("First paragraph text.", "Header text", "Footer text", secondText: "Second paragraph text.");
+        using var h = await OpenWholeAsync(path, 900, 1400);
+        var view = h.View;
+        var layout = view.Runner.PageLayout;
+        var model = view.Tab.Docx.Model;
+        var second = (Paragraph)model.Body.Blocks[1];
+        Click(h, ViewPoint(view, 0, 120, 100));
+        var session = view.Tab.Editor!;
+        var endBox = layout.Caret(new TextPosition(StoryRef.Body, second, 22), 0)!.Value;
+
+        using (var save = session.BeginSave())
+        {
+            // The paragraph is cut to "Second" while the click at its old end waits.
+            session.Apply(e => e.Delete(new TextRange(new TextPosition(StoryRef.Body, second, 6), new TextPosition(StoryRef.Body, second, 22))), 0);
+            Click(h, ViewPoint(view, 0, endBox.X + 3, endBox.Top + (endBox.Height / 2)));
+        }
+
+        ViewHarness.Pump();
+        var caret = view.Caret!.Value;
+        Assert.Same(second, caret.Paragraph);
+        Assert.Equal(6, caret.Offset);
+        Assert.NotNull(view.CaretBarBounds);
+    }
+
+    [AvaloniaFact]
+    public async Task ADragDuringASaveQueuesOneSelection()
+    {
+        using var h = await OpenWholeAsync(WindowFixture.Thesis);
+        var view = h.View;
+        Click(h, ViewPoint(view, 0, 280, 250));
+        var session = view.Tab.Editor!;
+
+        using (var save = session.BeginSave())
+        {
+            h.Window.MouseDown(ViewPoint(view, 0, 120, 300), MouseButton.Left);
+            for (var i = 0; i < 40; i++)
+            {
+                h.Window.MouseMove(ViewPoint(view, 0, 120 + (i * 7), 300 + (i * 5)));
+            }
+
+            h.Window.MouseUp(ViewPoint(view, 0, 400, 500), MouseButton.Left);
+            ViewHarness.Pump();
+
+            // One queue slot for the whole gesture (the press and every move), not one per move.
+            Assert.Equal(1, session.PendingCount);
+
+            // The next gesture is its own entry.
+            Click(h, ViewPoint(view, 0, 200, 150));
+            Assert.Equal(2, session.PendingCount);
+        }
+
+        ViewHarness.Pump();
+        Assert.Equal(0, session.PendingCount);
+        Assert.NotNull(view.CaretBarBounds);
     }
 
     [AvaloniaFact]
@@ -614,7 +834,7 @@ public sealed class PageViewEditingTests : IDisposable
     }
 
     // A one-paragraph document with a header and a footer.
-    private string WriteDocument(string bodyText, string header, string footer)
+    private string WriteDocument(string bodyText, string header, string footer, int margin = 1440, string secondText = "Second paragraph of the body.")
     {
         var path = Path.Combine(_folder, "edit.docx");
         using (var stream = File.Create(path))
@@ -648,12 +868,12 @@ public sealed class PageViewEditingTests : IDisposable
                 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                   <w:body>
                     <w:p><w:r><w:t>{bodyText}</w:t></w:r></w:p>
-                    <w:p><w:r><w:t>Second paragraph of the body.</w:t></w:r></w:p>
+                    <w:p><w:r><w:t>{secondText}</w:t></w:r></w:p>
                     <w:sectPr>
                       <w:headerReference w:type="default" r:id="rId1"/>
                       <w:footerReference w:type="default" r:id="rId2"/>
                       <w:pgSz w:w="12240" w:h="15840"/>
-                      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+                      <w:pgMar w:top="{margin}" w:right="1440" w:bottom="{margin}" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
                     </w:sectPr>
                   </w:body>
                 </w:document>
