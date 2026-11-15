@@ -418,7 +418,7 @@ public sealed partial class DocumentLayout
         var old = _engine;
         var oldCount = _pages.Count;
         var notes = new List<string>();
-        var engine = Engine.Build(old.Document, _fonts, _options, notes, _gate);
+        var engine = Engine.Build(old.Document, _fonts, _options, notes, _gate, _preedit);
         engine.Filler.PageFinished = _pageFinished;
         var fresh = new List<LaidOutPage>();
         var paused = false;

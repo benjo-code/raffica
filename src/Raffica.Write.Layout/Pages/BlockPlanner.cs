@@ -101,6 +101,12 @@ internal sealed class BlockPlanner
     /// <summary>True when the table border sits one cell margin left of the indent (a document in a compatibility mode below 15 aligns the text of the first cell, not its border).</summary>
     internal bool TableTextAtIndent { get; }
 
+    /// <summary>
+    /// The preedit of an input method composition of the layout this planner serves, when it serves one: the paragraph it stands in is planned with the
+    /// preedit text laid out inside it (see <see cref="PreeditState"/>). Null for a planner used on its own. Read under the layout's gate.
+    /// </summary>
+    internal PreeditSlot? Preedit { get; set; }
+
     /// <summary>What the stories planned next are planned for (fields, note references); the default evaluates nothing and numbers nothing.</summary>
     internal PlanContext Context { get; set; } = new();
 
@@ -299,7 +305,8 @@ internal sealed class BlockPlanner
         var host = new LayoutProjectionHost(_styles, Context, resolved);
         var projection = ParagraphProjection.Build(paragraph, host);
         var map = new OffsetMap.Builder();
-        AddPieces(projection, host, resolved, items, text, ref textRun, map);
+        var preedit = Preedit?.Current is { } current && !_planningBox && ReferenceEquals(current.Paragraph, paragraph) && current.Story == Story ? current : null;
+        AddPieces(projection, host, resolved, items, text, ref textRun, map, preedit);
         Flush(items, text, ref textRun);
         IReadOnlyList<NoteMark>? marks = _marks;
         var floats = _floats;
@@ -405,14 +412,38 @@ internal sealed class BlockPlanner
         run = null;
     }
 
-    // Turns the pieces of the projection into items: the projection decides what is visible and what a field shows, this decides how it is drawn.
-    private void AddPieces(ParagraphProjection projection, LayoutProjectionHost host, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun, OffsetMap.Builder map)
+    // Turns the pieces of the projection into items: the projection decides what is visible and what a field shows, this decides how it is drawn. The preedit of an
+    // input method composition, when this paragraph has one, is put in as a span of its own (underlined, in the format of the text it stands in) before the piece that
+    // starts at its offset, in the middle of a text piece (which is cut there), or after the last piece; the map describes it as layout characters without projection text.
+    private void AddPieces(ParagraphProjection projection, LayoutProjectionHost host, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun, OffsetMap.Builder map, PreeditState? preedit)
     {
         var counted = 0;
         var itemLength = 0;
+        var placed = preedit is null;
+        ResolvedRun? last = null;
         foreach (var piece in projection.Pieces)
         {
             var format = piece.Run is { } run ? host.Format(run) : FieldFormat(owner);
+            if (!placed && preedit!.At <= piece.Start)
+            {
+                PutPreedit(preedit, last ?? format, items, text, ref textRun, map, ref itemLength, ref counted);
+                placed = true;
+            }
+
+            if (!placed && piece is TextPiece { Length: > 0 } inside && inside.Start < preedit!.At && preedit.At < inside.End)
+            {
+                // The preedit stands inside this text: the text before it, the preedit, the text after it.
+                var cut = preedit.At - inside.Start;
+                Append(projection.Text.Substring(inside.Start, cut), format, items, text, ref textRun);
+                Settle(map, items, text, textRun, ref itemLength, ref counted, inside.Start, cut);
+                PutPreedit(preedit, format, items, text, ref textRun, map, ref itemLength, ref counted);
+                placed = true;
+                Append(projection.Text.Substring(preedit.At, inside.End - preedit.At), format, items, text, ref textRun);
+                Settle(map, items, text, textRun, ref itemLength, ref counted, preedit.At, inside.End - preedit.At);
+                last = format;
+                continue;
+            }
+
             switch (piece)
             {
                 case TextPiece or TabPiece:
@@ -434,12 +465,33 @@ internal sealed class BlockPlanner
                     break;
             }
 
-            // What the layouter will count of everything added so far: the items made (a hidden span has no length, a box or break one) and the text not yet flushed.
-            itemLength += ParagraphPlan.LayoutLength(items, counted, items.Count);
-            counted = items.Count;
-            var total = itemLength + (textRun is { Hidden: false } ? text.Length : 0);
-            map.Add(piece.Start, piece.Length, total - map.LayoutLength);
+            Settle(map, items, text, textRun, ref itemLength, ref counted, piece.Start, piece.Length);
+            last = format;
         }
+
+        if (!placed)
+        {
+            PutPreedit(preedit!, last ?? FieldFormat(owner), items, text, ref textRun, map, ref itemLength, ref counted);
+        }
+    }
+
+    // What the layouter will count of everything added so far: the items made (a hidden span has no length, a box or break one) and the text not yet flushed.
+    private static void Settle(OffsetMap.Builder map, List<ParagraphItem> items, StringBuilder text, ResolvedRun? textRun, ref int itemLength, ref int counted, int start, int length)
+    {
+        itemLength += ParagraphPlan.LayoutLength(items, counted, items.Count);
+        counted = items.Count;
+        var total = itemLength + (textRun is { Hidden: false } ? text.Length : 0);
+        map.Add(start, length, total - map.LayoutLength);
+    }
+
+    private static void PutPreedit(PreeditState preedit, ResolvedRun around, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun, OffsetMap.Builder map, ref int itemLength, ref int counted)
+    {
+        Flush(items, text, ref textRun);
+        itemLength += ParagraphPlan.LayoutLength(items, counted, items.Count);
+        items.Add(new TextSpan(preedit.Text, around with { Underline = UnderlineKind.Solid, Hidden = false, ParagraphMarkOnly = false }));
+        itemLength += preedit.Text.Length;
+        counted = items.Count;
+        map.AddTransient(preedit.At, preedit.Text.Length);
     }
 
     private void AddAtomic(AtomicPiece piece, ParagraphProjection projection, LayoutProjectionHost host, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)

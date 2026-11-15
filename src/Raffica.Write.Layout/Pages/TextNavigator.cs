@@ -409,6 +409,66 @@ internal sealed class TextNavigator(PageList pages, ParagraphPageMap map)
         return new CaretBox(spot.PageIndex, spot.Line.Stops.XAt(position.Offset), spot.Line.Top, spot.Line.Height);
     }
 
+    // The caret inside the preedit text of the layout: <cursor> UTF-16 units into it. Found through the glyph runs' own caret stops, because a position in the
+    // preedit is no model position (the offset map sends the whole preedit to the one offset it stands at). When the cursor is where one line ends and the next
+    // begins the later line is taken, except at the very end of the preedit text, which stays where the text ends.
+    public CaretBox? PreeditCaret(PreeditState state, int cursor, int pageHint)
+    {
+        cursor = Math.Clamp(cursor, 0, state.Text.Length);
+        var count = pages.Count;
+        var order = new List<int>();
+        if ((uint)pageHint < (uint)count)
+        {
+            order.Add(pageHint);
+        }
+
+        if (map.PagesOf(state.Paragraph) is { } list)
+        {
+            foreach (var index in list)
+            {
+                if (index < count && !order.Contains(index))
+                {
+                    order.Add(index);
+                }
+            }
+        }
+
+        order.Sort();
+        CaretBox? first = null;
+        CaretBox? last = null;
+        foreach (var pageIndex in order)
+        {
+            foreach (var line in pages[pageIndex].TextLines)
+            {
+                if (!ReferenceEquals(line.Paragraph, state.Paragraph) || line.Story != state.Story || line.Map.TransientLength == 0)
+                {
+                    continue;
+                }
+
+                var target = line.Map.TransientStart + cursor;
+                foreach (var run in line.Runs)
+                {
+                    if (run.IsLabel || run.IsLeader || run.IsHyphen)
+                    {
+                        continue;
+                    }
+
+                    var stops = run.CaretStops;
+                    if (stops.Count == 0 || target < stops[0] || target > stops[^1])
+                    {
+                        continue;
+                    }
+
+                    last = new CaretBox(pageIndex, line.X + run.CaretX(target), line.Top, line.Height);
+                    first ??= last;
+                    break;
+                }
+            }
+        }
+
+        return cursor < state.Text.Length ? last : first;
+    }
+
     public IReadOnlyList<TextBox> SelectionBoxes(TextRange range, int pageIndex)
     {
         if ((uint)pageIndex >= (uint)pages.Count || Locate(range.Start, pageIndex) is not { } a || Locate(range.End, pageIndex) is not { } b)

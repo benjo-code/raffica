@@ -54,12 +54,22 @@ internal sealed class OffsetMap
     private readonly int[] _projection;
     private readonly bool[] _flat;
 
-    private OffsetMap(int[] layout, int[] projection, bool[] flat)
+    private OffsetMap(int[] layout, int[] projection, bool[] flat, int transientStart = 0, int transientLength = 0)
     {
         _layout = layout;
         _projection = projection;
         _flat = flat;
+        TransientStart = transientStart;
+        TransientLength = transientLength;
     }
+
+    /// <summary>
+    /// Where the layout characters of an input method preedit start (layout offsets of this map) and how many there are; 0 when there is none. They
+    /// have no projection counterpart: <see cref="Map"/> sends every offset inside them to the offset the preedit stands at.
+    /// </summary>
+    public int TransientStart { get; }
+
+    public int TransientLength { get; }
 
     /// <summary>The projection offset of a layout offset.</summary>
     public int Map(int layoutOffset)
@@ -92,7 +102,16 @@ internal sealed class OffsetMap
             flat.Add(_flat[k]);
         }
 
-        return new OffsetMap([.. layout], [.. projection], [.. flat]);
+        // The preedit's characters that lie after the cut stay in the slice (those before it belong to the part before).
+        var start = TransientStart - layoutStart;
+        var length = TransientLength;
+        if (start < 0)
+        {
+            length = Math.Max(0, length + start);
+            start = 0;
+        }
+
+        return new OffsetMap([.. layout], [.. projection], [.. flat], length > 0 ? start : 0, length);
     }
 
     /// <summary>Builds the map piece by piece, in the order of the projection.</summary>
@@ -103,9 +122,19 @@ internal sealed class OffsetMap
         private List<int>? _projection;
         private List<bool>? _flat;
         private int _at;
+        private int _transientStart;
+        private int _transientLength;
 
         /// <summary>The layout length that has been described so far.</summary>
         public int LayoutLength => _at;
+
+        /// <summary>Adds the layout characters of an input method preedit that stands at projection offset <paramref name="projectionOffset"/>: they take room in the layout and have no projection text.</summary>
+        public void AddTransient(int projectionOffset, int layoutLength)
+        {
+            _transientStart = _at;
+            _transientLength = layoutLength;
+            Add(projectionOffset, 0, layoutLength);
+        }
 
         /// <summary>Adds the next piece: <paramref name="projectionLength"/> characters of the projection from <paramref name="projectionStart"/> that took <paramref name="layoutLength"/> characters of layout text.</summary>
         public void Add(int projectionStart, int projectionLength, int layoutLength)
@@ -144,10 +173,14 @@ internal sealed class OffsetMap
             _projection!.Insert(0, 0);
             _flat!.Insert(0, true);
             _at += count;
+            if (_transientLength > 0)
+            {
+                _transientStart += count;
+            }
         }
 
         public OffsetMap Build() =>
-            _layout is null || (_layout.Count == 1 && _layout[0] == 0 && _projection![0] == 0 && !_flat![0]) ? Identity : new OffsetMap([.. _layout], [.. _projection!], [.. _flat!]);
+            _layout is null || (_layout.Count == 1 && _layout[0] == 0 && _projection![0] == 0 && !_flat![0]) ? Identity : new OffsetMap([.. _layout], [.. _projection!], [.. _flat!], _transientStart, _transientLength);
 
         private void Allocate()
         {

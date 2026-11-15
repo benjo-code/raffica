@@ -48,6 +48,7 @@ public sealed partial class DocumentLayout
     private readonly object _gate = new();
     private readonly PageList _pages = new();
     private readonly ParagraphPageMap _paragraphPages = new();
+    private readonly PreeditSlot _preedit = new();
     private readonly FontCatalog _fonts;
     private readonly LayoutOptions _options;
     private List<string> _notes;
@@ -63,7 +64,7 @@ public sealed partial class DocumentLayout
         _fonts = fonts;
         _options = options;
         _notes = [];
-        _engine = Engine.Build(document, fonts, options, _notes, _gate);
+        _engine = Engine.Build(document, fonts, options, _notes, _gate, _preedit);
     }
 
     /// <summary>Everything that depends on the document model: the filler and its iterator, the block tables and the planners. A replaced model gets a new one.</summary>
@@ -95,7 +96,7 @@ public sealed partial class DocumentLayout
         /// <summary>The highest body index the filler had looked at when page 1 was made (-1 before that); page 1 is final when the document goes on beyond it.</summary>
         public int FirstTouched { get; set; } = -1;
 
-        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes, object gate)
+        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes, object gate, PreeditSlot preedit)
         {
             var flow = options.Mode == LayoutMode.Flow;
             var flat = FlatBlocks.From(document.Body.Blocks);
@@ -110,13 +111,13 @@ public sealed partial class DocumentLayout
             var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
             var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
             var probe = new ImageProbe(options.ImageBytes);
-            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow) { Gate = gate };
+            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow) { Gate = gate, Preedit = preedit };
             var filler = new PageFiller(sections, flat, planner, flow, blockPage, blockY);
             HeaderFooterPlan? chrome = null;
             if (!flow)
             {
                 // Headers, footers and notes make their own planners: list numbers in them never disturb the numbering of the body.
-                BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe);
+                BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe) { Preedit = preedit };
                 var noteSource = new NotePlanner(document, Aux);
                 planner.Context = new PlanContext { Notes = noteSource };
                 chrome = new HeaderFooterPlan(document, sections, Aux, noteSource);
@@ -265,7 +266,8 @@ public sealed partial class DocumentLayout
             // page 1 of a layout made with the whole document. The page it makes (equal text, checked below) replaces the published one,
             // so page 1 holds the paragraphs of the new model: a position made on them is found by Caret, Move and HitTest.
             var notes = new List<string>();
-            var engine = Engine.Build(full, _fonts, _options, notes, _gate);
+            _preedit.Current = null;
+            var engine = Engine.Build(full, _fonts, _options, notes, _gate, _preedit);
             try
             {
                 if (!engine.Fill.MoveNext() || !string.Equals(engine.Fill.Current.Text, _pages[0].Text, StringComparison.Ordinal))
