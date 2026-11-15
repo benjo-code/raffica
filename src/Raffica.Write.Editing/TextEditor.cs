@@ -16,7 +16,9 @@ namespace Raffica.Write.Editing;
 /// instruction, a simple field inline). Content the model keeps as unknown is never copied or removed unless it lies between two
 /// removed items. A selection must lie in one story and one list of blocks (the body, one table cell, a note); a selection that leaves
 /// it changes nothing. A table inside the blocks between the two ends of a selection is removed with them. A paragraph break never
-/// merges across a table, a cell or a story boundary: such a backspace or delete returns null.
+/// merges across a table, a cell or a story boundary: such a backspace or delete returns null. Nor does a delete remove the paragraph break
+/// of a paragraph that carries a section break (known limit: section structure is not an editing operation of this library); such a
+/// delete is refused like the boundary cases. Bookmark and comment anchors of paragraphs a delete removes move to the join point.
 /// </remarks>
 public sealed class TextEditor
 {
@@ -61,6 +63,11 @@ public sealed class TextEditor
         if (!hasText)
         {
             return ApplyDelete(span) ?? NoChange(span.Story, span.First, span.FirstOffset);
+        }
+
+        if (!span.IsCollapsed && RemovesSectionBreak(span))
+        {
+            return NoChange(span.Story, span.First, span.FirstOffset);
         }
 
         var old = CloneBlocks(span);
@@ -697,7 +704,7 @@ public sealed class TextEditor
 
     private EditResult? ApplyDelete(Span span)
     {
-        if (span.IsCollapsed)
+        if (span.IsCollapsed || RemovesSectionBreak(span))
         {
             return null;
         }
@@ -713,6 +720,27 @@ public sealed class TextEditor
         return new EditResult(
             new TextPosition(span.Story, deleted.Survivor, deleted.Offset),
             [new BlockChange(span.Story, span.Container, span.FirstIndex, deleted.Removed, 1, old)]);
+    }
+
+    // Changing the section structure is not an editing operation of this library: a range that would remove the paragraph break of a
+    // paragraph that ends a section (the first paragraph of a merge or a paragraph in between) is refused. The last paragraph of a range
+    // keeps its own break.
+    private static bool RemovesSectionBreak(Span span)
+    {
+        if (span.FirstIndex == span.LastIndex)
+        {
+            return false;
+        }
+
+        for (var i = span.FirstIndex; i < span.LastIndex; i++)
+        {
+            if (span.Container[i] is Paragraph { SectionBreak: not null })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Deleted DeleteSpan(Span span)
@@ -755,7 +783,7 @@ public sealed class TextEditor
                 span.First.Inlines.Add(inline);
             }
 
-            span.First.SectionBreak = span.Last.SectionBreak ?? span.First.SectionBreak;
+            span.First.SectionBreak = span.Last.SectionBreak;
             RemoveRange(span.Container, span.FirstIndex + 1, span.LastIndex - span.FirstIndex);
             return new Deleted(span.First, remaining, removed, true);
         }
@@ -767,7 +795,6 @@ public sealed class TextEditor
             span.Last.Inlines.Add(inline);
         }
 
-        span.Last.SectionBreak ??= span.First.SectionBreak;
         RemoveRange(span.Container, span.FirstIndex, span.LastIndex - span.FirstIndex);
         return new Deleted(span.Last, 0, removed, true);
     }

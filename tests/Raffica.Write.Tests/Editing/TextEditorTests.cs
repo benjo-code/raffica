@@ -1009,6 +1009,97 @@ public sealed class TextEditorTests
         Assert.True(Runs(second)[0].Properties.Bold);
     }
 
+    private static Paragraph WithSection(Paragraph paragraph)
+    {
+        paragraph.SectionBreak = new SectionProperties();
+        return paragraph;
+    }
+
+    [Fact]
+    public void BackspaceIntoAnEmptySectionBreakParagraphIsRefused()
+    {
+        var p1 = P("One");
+        var empty = WithSection(new Paragraph());
+        var p3 = P("Two");
+        var document = Doc(p1, empty, p3);
+        var revision = document.Edits.Revision;
+
+        Assert.Null(Editor(document).Backspace(At(p3, 0), DeleteUnit.Cluster));
+        Assert.Null(Editor(document).DeleteForward(At(empty, 0), DeleteUnit.Word));
+        Assert.Equal(3, document.Body.Blocks.Count);
+        Assert.NotNull(empty.SectionBreak);
+        Assert.Null(p3.SectionBreak);
+        Assert.Equal(revision, document.Edits.Revision);
+    }
+
+    [Fact]
+    public void MergingAParagraphThatEndsASectionIsRefused()
+    {
+        var p1 = WithSection(P("One"));
+        var p2 = P("Two");
+        var document = Doc(p1, p2);
+        var revision = document.Edits.Revision;
+
+        Assert.Null(Editor(document).Backspace(At(p2, 0), DeleteUnit.Cluster));
+        Assert.Null(Editor(document).DeleteForward(At(p1, 3), DeleteUnit.Cluster));
+        Assert.Equal(["One", "Two"], Texts(document));
+        Assert.Equal(revision, document.Edits.Revision);
+    }
+
+    [Fact]
+    public void ASelectionThatRemovesASectionBreakParagraphChangesNothing()
+    {
+        var p1 = P("One");
+        var p2 = WithSection(P("Mid"));
+        var p3 = P("Two");
+        var document = Doc(p1, p2, p3);
+        var editor = Editor(document);
+        var revision = document.Edits.Revision;
+
+        Assert.Empty(editor.Delete(Sel(p1, 1, p3, 1)).Changes);
+        Assert.Empty(editor.Delete(Sel(p3, 1, p1, 1)).Changes);
+        Assert.Empty(editor.InsertText(Sel(p1, 1, p3, 1), "x").Changes);
+        Assert.Empty(editor.SplitParagraph(Sel(p1, 1, p3, 1)).Changes);
+        Assert.Equal(["One", "Mid", "Two"], Texts(document));
+        Assert.Equal(revision, document.Edits.Revision);
+
+        // The section break of the first paragraph of a range is refused too.
+        var q1 = WithSection(P("One"));
+        var q2 = P("Two");
+        var other = Doc(q1, q2);
+        Assert.Empty(Editor(other).Delete(Sel(q1, 1, q2, 1)).Changes);
+        Assert.Equal(["One", "Two"], Texts(other));
+    }
+
+    [Fact]
+    public void TheLastParagraphOfARangeKeepsItsSectionBreak()
+    {
+        var p1 = P("One");
+        var p2 = WithSection(P("Two"));
+        var document = Doc(p1, p2);
+
+        Editor(document).Delete(Sel(p1, 1, p2, 1));
+
+        Assert.Equal(["Owo"], Texts(document));
+        Assert.NotNull(p1.SectionBreak);
+    }
+
+    [Fact]
+    public void DeletingTextInsideASectionBreakParagraphStillWorks()
+    {
+        var p1 = WithSection(P("One"));
+        var document = Doc(p1, P("Two"));
+        var editor = Editor(document);
+
+        editor.Delete(Sel(p1, 0, 1));
+        Assert.Equal("ne", Text(p1));
+        Assert.NotNull(editor.Backspace(At(p1, 2), DeleteUnit.Cluster));
+        Assert.Equal("n", Text(p1));
+        Assert.NotNull(editor.DeleteForward(At(p1, 0), DeleteUnit.Word));
+        Assert.Equal(string.Empty, Text(p1));
+        Assert.NotNull(p1.SectionBreak);
+    }
+
     private static List<string> AnchorsOf(Paragraph paragraph)
     {
         var found = new List<string>();
