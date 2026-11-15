@@ -260,6 +260,131 @@ public sealed class ClipboardTests
         Assert.DoesNotContain(targetDocument.Body.Blocks, b => b is Table);
     }
 
+    private static readonly XNamespace Rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
+    private static Hyperlink Link(string text)
+    {
+        var link = new Hyperlink { RelationshipId = "rId9" };
+        link.Inlines.Add(R(text));
+        return link;
+    }
+
+    private static (WordDocument Document, Paragraph InNote, Paragraph InBody, StoryRef Note) NoteAndBody(Inline? inNote)
+    {
+        var inBody = P("body ");
+        var noteParagraph = P("note ");
+        if (inNote is not null)
+        {
+            noteParagraph.Inlines.Add(inNote);
+        }
+
+        var noteStory = new Story(new OoxmlRoot(W + "footnote", []));
+        noteStory.Blocks.Add(noteParagraph);
+        var document = Doc(inBody, P("body two"));
+        document.Footnotes = new NoteCollection(new OoxmlRoot(W + "footnotes", []));
+        document.Footnotes.Notes.Add(new Note(5, NoteKind.Normal, noteStory));
+        return (document, noteParagraph, inBody, new StoryRef(StoryKind.Note, "5"));
+    }
+
+    [Fact]
+    public void ALinkCopiedFromANoteIsPlainTextInTheBody()
+    {
+        var (document, inNote, inBody, note) = NoteAndBody(Link("click"));
+        var editor = Editor(document);
+        var content = editor.Copy(new TextRange(new TextPosition(note, inNote, 0), new TextPosition(note, inNote, 10)));
+
+        editor.Paste(Caret(inBody, 5), content, _ => true);
+
+        Assert.Equal("body note click", Text(inBody));
+        Assert.DoesNotContain(inBody.Inlines, i => i is Hyperlink);
+    }
+
+    [Fact]
+    public void ALinkCopiedFromTheBodyIsPlainTextInANote()
+    {
+        var (document, inNote, inBody, note) = NoteAndBody(null);
+        inBody.Inlines.Add(Link("click"));
+        var editor = Editor(document);
+        var content = editor.Copy(Sel(inBody, 0, 10));
+
+        editor.Paste(new TextRange(new TextPosition(note, inNote, 5), new TextPosition(note, inNote, 5)), content, _ => true);
+
+        Assert.Equal("note body click", Text(inNote));
+        Assert.DoesNotContain(inNote.Inlines, i => i is Hyperlink);
+    }
+
+    [Fact]
+    public void ALinkPastedInTheSameStoryStaysALink()
+    {
+        var (document, _, inBody, _) = NoteAndBody(null);
+        inBody.Inlines.Add(Link("click"));
+        var editor = Editor(document);
+        var content = editor.Copy(Sel(inBody, 5, 10));
+
+        editor.Paste(Caret(inBody, 0), content, _ => true);
+
+        Assert.Equal("clickbody click", Text(inBody));
+        Assert.Equal("rId9", Assert.IsType<Hyperlink>(inBody.Inlines[0]).RelationshipId);
+    }
+
+    [Fact]
+    public void ARelationshipBearingUnknownInlineIsDroppedAcrossStoriesAndKeptWithinOne()
+    {
+        var unknown = new UnknownInline(new UnknownContent(new XElement(W + "subDoc", new XAttribute(Rel + "id", "rId7"))));
+        var (document, inNote, inBody, note) = NoteAndBody(unknown);
+        var editor = Editor(document);
+        var range = new TextRange(new TextPosition(note, inNote, 0), new TextPosition(note, inNote, 5));
+        var content = editor.Copy(range);
+
+        editor.Paste(Caret(inBody, 5), content, _ => true);
+        Assert.DoesNotContain(inBody.Inlines, i => i is UnknownInline);
+
+        editor.Paste(new TextRange(new TextPosition(note, inNote, 0), new TextPosition(note, inNote, 0)), content, _ => true);
+        Assert.Contains(inNote.Inlines, i => i is UnknownInline);
+    }
+
+    [Fact]
+    public void ARelationshipBearingUnknownRunContentIsDroppedFromAnotherDocument()
+    {
+        var run = new Run();
+        run.Content.Add(new TextContent("v"));
+        run.Content.Add(new UnknownRunContent(new UnknownContent(new XElement(W + "ruby", new XElement(W + "inner", new XAttribute(Rel + "id", "rId3"))))));
+        run.Content.Add(new UnknownRunContent(new UnknownContent(new XElement(W + "sym", new XAttribute(W + "char", "F028")))));
+        var source = new Paragraph();
+        source.Inlines.Add(run);
+        var content = Editor(Doc(source)).Copy(Sel(source, 0, 1));
+        var target = P("[]");
+        var document = Doc(target);
+
+        Editor(document).Paste(Caret(target, 1), content, _ => true);
+
+        var contents = target.Inlines.OfType<Run>().SelectMany(r => r.Content).ToList();
+        Assert.DoesNotContain(contents, c => c is UnknownRunContent { Content.Element.Name.LocalName: "ruby" });
+        Assert.Contains(contents, c => c is UnknownRunContent { Content.Element.Name.LocalName: "sym" });
+    }
+
+    [Fact]
+    public void AFragmentThatFlattensToNothingLeavesTheSelectionAlone()
+    {
+        var pictureRun = new Run();
+        pictureRun.Content.Add(MakePicture());
+        var source = new Paragraph();
+        source.Inlines.Add(pictureRun);
+        var target = P("keep me");
+        var document = Doc(source, target);
+        var editor = Editor(document);
+        var content = editor.Copy(Sel(source, 0, 1));
+        Assert.NotNull(content.Fragment);
+        var revision = document.Edits.Revision;
+
+        var result = editor.Paste(Sel(target, 0, 4), content, _ => true);
+
+        Assert.Empty(result.Changes);
+        Assert.Equal(revision, document.Edits.Revision);
+        Assert.Equal(0, editor.History.UndoCount);
+        Assert.Equal("keep me", Text(target));
+    }
+
     [Fact]
     public void CopyLeavesNoCommentBookmarkOrTrackedDeletionInTheFragment()
     {

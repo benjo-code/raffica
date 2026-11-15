@@ -8,20 +8,23 @@ namespace Raffica.Write.Editing;
 /// section break, <c>w14:paraId</c> and <c>w14:textId</c>, bookmarks and comment range markers (a comment goes only through its own
 /// command and a bookmark name is unique), comment references and tracked changes (the accepted text stays as plain runs, deleted text
 /// goes). A paste also flattens what cannot be pasted as itself: a field becomes its current result text, a picture, a note reference and
-/// a drawing become nothing, a content control becomes its content, and (into another document) a link with a relationship id becomes
-/// its text, a style id the target does not have is dropped and the numbering reference is dropped.
+/// a drawing become nothing, a content control becomes its content, and, unless the paste is into the
+/// same part of the document it was copied from (relationship ids belong to a part), a link with a relationship id becomes its text and
+/// unknown inline or run content with any attribute of the relationships namespace is dropped. Into another document a style id the
+/// target does not have is dropped as well, and so is the numbering reference.
 /// </summary>
 internal static class FragmentCleaner
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    private static readonly XNamespace Rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private static readonly XNamespace W14 = "http://schemas.microsoft.com/office/word/2010/wordml";
 
     /// <summary>The cleaning of a copy: what the clipboard must not carry.</summary>
-    public static void ForCopy(Paragraph paragraph) => Clean(paragraph, new Options(false, true, null));
+    public static void ForCopy(Paragraph paragraph) => Clean(paragraph, new Options(false, true, true, null));
 
     /// <summary>The cleaning of a paste (the fragment is untrusted: the copy rules apply as well).</summary>
-    public static void ForPaste(Paragraph paragraph, bool sameDocument, Func<string, bool> styleExists) =>
-        Clean(paragraph, new Options(true, sameDocument, styleExists));
+    public static void ForPaste(Paragraph paragraph, bool sameDocument, bool sameRelationships, Func<string, bool> styleExists) =>
+        Clean(paragraph, new Options(true, sameDocument, sameRelationships, styleExists));
 
     private static void Clean(Paragraph paragraph, Options options)
     {
@@ -91,7 +94,7 @@ internal static class FragmentCleaner
                 }
 
                 break;
-            case Hyperlink link when options.Paste && !options.SameDocument && link.RelationshipId is not null:
+            case Hyperlink link when options.Paste && !options.SameRelationships && link.RelationshipId is not null:
                 foreach (var child in link.Inlines)
                 {
                     Emit(child, output, options, fields);
@@ -112,7 +115,7 @@ internal static class FragmentCleaner
                 }
 
                 break;
-            case UnknownInline unknown when IsAnchorLike(unknown.Content.Element.Name):
+            case UnknownInline unknown when IsAnchorLike(unknown.Content.Element.Name) || (options.Paste && !options.SameRelationships && CarriesRelationship(unknown.Content.Element)):
                 break;
             default:
                 if (ParagraphMap.ChildrenOf(inline) is { } children)
@@ -198,7 +201,7 @@ internal static class FragmentCleaner
         return content switch
         {
             Picture or FootnoteReference or EndnoteReference => false,
-            UnknownRunContent unknown => !IsObjectLike(unknown.Content.Element.Name),
+            UnknownRunContent unknown => !IsObjectLike(unknown.Content.Element.Name) && (options.SameRelationships || !CarriesRelationship(unknown.Content.Element)),
             _ => true,
         };
     }
@@ -206,5 +209,22 @@ internal static class FragmentCleaner
     private static bool IsObjectLike(XName name) =>
         name.LocalName is "drawing" or "pict" or "object" or "AlternateContent" or "footnoteRef" or "endnoteRef" or "footnoteReference" or "endnoteReference" or "commentReference" or "annotationRef";
 
-    private sealed record Options(bool Paste, bool SameDocument, Func<string, bool>? StyleExists);
+    // Any attribute in the relationships namespace (r:id, r:embed, r:link, r:pict, ...) on the element or below it.
+    private static bool CarriesRelationship(XElement element)
+    {
+        foreach (var e in element.DescendantsAndSelf())
+        {
+            foreach (var attribute in e.Attributes())
+            {
+                if (attribute.Name.Namespace == Rel)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private sealed record Options(bool Paste, bool SameDocument, bool SameRelationships, Func<string, bool>? StyleExists);
 }

@@ -32,7 +32,7 @@ public sealed partial class TextEditor
         var id = SourceId();
         if (Collect(range) is not { } copied)
         {
-            return new ClipboardContent(string.Empty, null, id);
+            return new ClipboardContent(string.Empty, null, id, PartOf(range.Start.Story));
         }
 
         byte[]? fragment = null;
@@ -41,7 +41,7 @@ public sealed partial class TextEditor
             fragment = codec.Write(copied.Paragraphs);
         }
 
-        return new ClipboardContent(copied.Text, fragment, id);
+        return new ClipboardContent(copied.Text, fragment, id, PartOf(range.Start.Story));
     }
 
     /// <summary>
@@ -58,7 +58,11 @@ public sealed partial class TextEditor
     /// takes what followed the caret (and takes the target's paragraph properties unless nothing followed, then its own). A field is
     /// pasted as its current result text, a picture, drawing or note reference as nothing. In the same document (the content was copied
     /// by this editor) styles and numbering stay; from anywhere else a paragraph or run style is kept only where
-    /// <paramref name="styleExists"/> says so, the numbering reference is dropped and a link with a relationship id becomes its text.
+    /// <paramref name="styleExists"/> says so and the numbering reference is dropped. Relationship ids belong to a package part, so a link
+    /// with a relationship id stays a link, and unknown content with a relationship attribute stays, only when the paste is into the same
+    /// part of the same document (the same body, header, footnotes, endnotes or comments); otherwise the link becomes its text and that
+    /// content is dropped. A fragment that flattens to nothing (a picture only) changes nothing, also over a selection: no delete, no
+    /// history step, no revision.
     /// Without a fragment, or when the fragment cannot be read (a refused fragment is treated as absent, never partly pasted), the plain
     /// text goes through <see cref="InsertText"/>. A selection that leaves its story or block list or runs over a section break pastes
     /// nothing and records nothing.
@@ -74,18 +78,29 @@ public sealed partial class TextEditor
         }
 
         var same = content.SourceId is not null && content.SourceId == _sourceId;
+        var sameRelationships = same && content.SourcePart is not null && content.SourcePart == PartOf(selection.Start.Story);
         foreach (var paragraph in paragraphs)
         {
-            FragmentCleaner.ForPaste(paragraph, same, styleExists);
+            FragmentCleaner.ForPaste(paragraph, same, sameRelationships, styleExists);
         }
 
         if (paragraphs.Count == 1 && paragraphs[0].Inlines.Count == 0)
         {
-            return InsertText(selection, string.Empty);
+            return NoChange(selection.Start);
         }
 
         return PasteParagraphs(selection, paragraphs);
     }
+
+    // The package part a story lives in: relationship ids are scoped to it.
+    private static string PartOf(StoryRef story) => story.Kind switch
+    {
+        StoryKind.Body => "document",
+        StoryKind.HeaderFooter => "header:" + story.Key,
+        StoryKind.Note when story.Key is not null && story.Key.StartsWith("endnote:", StringComparison.Ordinal) => "endnotes",
+        StoryKind.Note => "footnotes",
+        _ => "comments",
+    };
 
     private string SourceId() => _sourceId ??= Guid.NewGuid().ToString("N");
 
