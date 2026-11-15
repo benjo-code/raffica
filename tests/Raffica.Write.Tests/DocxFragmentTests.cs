@@ -129,6 +129,68 @@ public sealed class DocxFragmentTests
         Assert.Throws<FragmentFormatException>(() => DocxFragment.Read(Bytes(xml)));
     }
 
+    private static void Refused(string xml) => Assert.Throws<FragmentFormatException>(() => DocxFragment.Read(Bytes(xml)));
+
+    [Fact]
+    public void AnAttributeFloodOnOneElementIsRefused()
+    {
+        var attributes = string.Concat(Enumerable.Range(0, DocxFragment.MaxAttributesPerElement + 1).Select(i => $" a{i}=\"1\""));
+        Refused(Wrap($"<w:p{attributes}/>"));
+    }
+
+    [Fact]
+    public void ANamespaceDeclarationFloodOnOneElementIsRefused()
+    {
+        var declarations = string.Concat(Enumerable.Range(0, DocxFragment.MaxAttributesPerElement + 1).Select(i => $" xmlns:n{i}=\"urn:n{i}\""));
+        Refused(Wrap($"<w:p{declarations}/>"));
+    }
+
+    [Fact]
+    public void TheTotalOfAttributesAndDeclarationsIsCapped()
+    {
+        var perElement = DocxFragment.MaxAttributesPerElement / 2;
+        var elements = (DocxFragment.MaxAttributes / perElement) + 1;
+        var attributes = string.Concat(Enumerable.Range(0, perElement).Select(i => $" a{i}=\"1\""));
+        Assert.True(elements < DocxFragment.MaxParagraphs);
+        Refused(Wrap(string.Concat(Enumerable.Repeat($"<w:p{attributes}/>", elements))));
+    }
+
+    [Fact]
+    public void TooManyElementsAreRefused()
+    {
+        var xml = Wrap("<w:p>" + string.Concat(Enumerable.Repeat("<w:x/>", DocxFragment.MaxElements + 1)) + "</w:p>");
+        Assert.True(xml.Length < DocxFragment.MaxBytes);
+        Refused(xml);
+    }
+
+    [Fact]
+    public void ATextNodeBeyondTheCharacterLimitIsRefused()
+    {
+        var xml = Wrap("<w:p><w:r><w:t>" + new string('x', DocxFragment.MaxCharacters + 1) + "</w:t></w:r></w:p>");
+        Assert.True(xml.Length < DocxFragment.MaxBytes);
+        Refused(xml);
+    }
+
+    [Fact]
+    public void ALargeRealisticCopyIsStillRead()
+    {
+        var paragraphs = new List<Paragraph>();
+        for (var i = 0; i < 5000; i++)
+        {
+            var paragraph = new Paragraph();
+            paragraph.Properties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "left")));
+            var run = new Run();
+            run.Properties.SetFlag(W + "b", true);
+            run.Content.Add(new TextContent(new string('t', 300)));
+            paragraph.Inlines.Add(run);
+            paragraphs.Add(paragraph);
+        }
+
+        var bytes = DocxFragment.Write(paragraphs);
+
+        Assert.Equal(5000, DocxFragment.Read(bytes).Count);
+    }
+
     [Fact]
     public void TruncatedXmlIsRefused()
     {

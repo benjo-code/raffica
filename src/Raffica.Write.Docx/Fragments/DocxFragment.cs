@@ -21,21 +21,33 @@ public sealed class FragmentFormatException : FormatException
 /// </summary>
 /// <remarks>
 /// The bytes of a fragment are untrusted (another application, or a hostile process, can put anything on the clipboard format).
-/// <see cref="Read"/> refuses what exceeds <see cref="MaxBytes"/>, <see cref="MaxDepth"/> levels of nesting, <see cref="MaxElements"/>
-/// elements or <see cref="MaxParagraphs"/> paragraphs, a DTD of any kind (no entity is ever expanded, nothing is resolved), a wrong root
+/// <see cref="Read"/> refuses what exceeds <see cref="MaxBytes"/>, <see cref="MaxCharacters"/>, <see cref="MaxDepth"/> levels of nesting,
+/// <see cref="MaxElements"/> elements, <see cref="MaxAttributesPerElement"/> or <see cref="MaxAttributes"/> attributes (namespace
+/// declarations count) or <see cref="MaxParagraphs"/> paragraphs, a DTD of any kind (no entity is ever expanded, nothing is resolved), a wrong root
 /// and anything that is not well-formed, all with a <see cref="FragmentFormatException"/> that does not quote the content. The limits
-/// are checked in a first pass that builds nothing, so a hostile fragment costs a scan and no object graph.
+/// are checked in a first pass that keeps nothing (the reader's character limit bounds every text node, name and value; the counts bound
+/// every object the second pass would build), so a hostile fragment costs one bounded scan and, at the limits, a few hundred thousand small
+/// objects, not an unbounded graph.
 /// </remarks>
 public static class DocxFragment
 {
-    /// <summary>The largest fragment that is read: 32 MiB.</summary>
-    public const int MaxBytes = 32 * 1024 * 1024;
+    /// <summary>The largest fragment that is read: 8 MiB.</summary>
+    public const int MaxBytes = 8 * 1024 * 1024;
 
     /// <summary>The deepest element nesting that is read (the root counts as level 1).</summary>
     public const int MaxDepth = 64;
 
     /// <summary>The most elements of one fragment.</summary>
-    public const int MaxElements = 1_000_000;
+    public const int MaxElements = 200_000;
+
+    /// <summary>The most attributes (namespace declarations included) of one element.</summary>
+    public const int MaxAttributesPerElement = 256;
+
+    /// <summary>The most attributes (namespace declarations included) of one fragment.</summary>
+    public const int MaxAttributes = 100_000;
+
+    /// <summary>The most characters of one fragment, markup included.</summary>
+    public const int MaxCharacters = 4 * 1024 * 1024;
 
     /// <summary>The most paragraphs of one fragment (every <c>w:p</c> counts, also in nested content).</summary>
     public const int MaxParagraphs = 100_000;
@@ -105,7 +117,7 @@ public static class DocxFragment
         var settings = XmlKit.ReaderSettings();
         settings.DtdProcessing = DtdProcessing.Prohibit;
         settings.XmlResolver = null;
-        settings.MaxCharactersInDocument = MaxBytes;
+        settings.MaxCharactersInDocument = MaxCharacters;
         settings.MaxCharactersFromEntities = 0;
         return settings;
     }
@@ -122,6 +134,7 @@ public static class DocxFragment
 
         var elements = 0;
         var paragraphs = 0;
+        var attributes = 0;
         while (reader.Read())
         {
             if (reader.NodeType != XmlNodeType.Element)
@@ -137,6 +150,11 @@ public static class DocxFragment
             if (++elements > MaxElements)
             {
                 throw new FragmentFormatException("The fragment has too many elements.");
+            }
+
+            if (reader.AttributeCount > MaxAttributesPerElement || (attributes += reader.AttributeCount) > MaxAttributes)
+            {
+                throw new FragmentFormatException("The fragment has too many attributes.");
             }
 
             if (reader.LocalName == "p" && reader.NamespaceURI == Names.WordUri && ++paragraphs > MaxParagraphs)
