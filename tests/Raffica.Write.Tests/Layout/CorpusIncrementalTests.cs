@@ -103,11 +103,16 @@ public sealed class CorpusIncrementalTests
         using var file = DocxFile.Open(Corpus(id));
         var model = file.Model;
         var layout = await LaidAsync(model, mode);
-        var random = new Random(unchecked((id.GetHashCode(StringComparison.Ordinal) * 7919) + (int)mode));
+        var seed = unchecked((int)(Fnv1a(id) * 7919u) + (int)mode);
+        var random = new Random(seed);
         var others = OtherStories(model);
+        var headers = others.Where(o => o.Story.Kind == StoryKind.HeaderFooter).ToList();
+        var notes = others.Where(o => o.Story.Kind == StoryKind.Note).ToList();
+        var hasSectionBreak = TestEdit.Paragraphs(model).Any(p => p.Paragraph.SectionBreak is not null);
+        var ran = new Dictionary<string, int> { ["header"] = 0, ["note"] = 0, ["section"] = 0, ["body"] = 0 };
         for (var step = 0; step < EditsPerFile; step++)
         {
-            var label = $"{id} {mode} edit {step}";
+            var label = $"{id} {mode} seed {seed} edit {step}";
             var all = TestEdit.Paragraphs(model);
             if (all.Count == 0)
             {
@@ -116,13 +121,23 @@ public sealed class CorpusIncrementalTests
 
             var long_ = step % 2 == 1;
             var kind = random.Next(10);
+
+            // Steps 1 to 3 are fixed so that every file with such stories gets a header or footer edit, a note edit and a section-break paragraph edit.
+            kind = step switch
+            {
+                1 when headers.Count > 0 => 100,
+                2 when notes.Count > 0 => 101,
+                3 when hasSectionBreak => 9,
+                _ => kind,
+            };
             BlockChange change;
             var through = 1;
-            if (kind == 8 && others.Count > 0)
+            if ((kind is 100 or 101 || (kind == 8 && others.Count > 0)) && (kind == 100 ? headers : kind == 101 ? notes : others) is { Count: > 0 } pool)
             {
-                var (story, container, paragraph) = others[random.Next(others.Count)];
+                var (story, container, paragraph) = pool[random.Next(pool.Count)];
                 change = EditInStory(story, container, paragraph, long_ ? s_long : "z");
                 through = random.Next(3);
+                ran[story.Kind == StoryKind.HeaderFooter ? "header" : "note"]++;
             }
             else
             {
@@ -135,6 +150,7 @@ public sealed class CorpusIncrementalTests
 
                 var pick = pickFrom[random.Next(pickFrom.Count)];
                 var length = FirstText(pick.Paragraph).Length;
+                ran[pick.Paragraph.SectionBreak is not null ? "section" : "body"]++;
                 switch (kind)
                 {
                     case 0 or 1 or 2:
@@ -174,7 +190,23 @@ public sealed class CorpusIncrementalTests
         }
 
         Assert.Equal(EditsPerFile, layout.Stats.Edits);
-        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: {layout.Stats.Edits} edits, {layout.Stats.Restarts} restarts, {others.Count} header/note paragraphs");
+        var mix = $"{id} {mode} seed {seed}: {layout.Stats.Edits} edits, {layout.Stats.Restarts} restarts, header {ran["header"]}, note {ran["note"]}, section {ran["section"]}, body {ran["body"]}";
+        Assert.True(headers.Count == 0 || ran["header"] > 0, "no header or footer edit ran: " + mix);
+        Assert.True(notes.Count == 0 || ran["note"] > 0, "no note edit ran: " + mix);
+        Assert.True(!hasSectionBreak || ran["section"] > 0, "no section-break paragraph edit ran: " + mix);
+        TestContext.Current.SendDiagnosticMessage(mix);
+    }
+
+    // FNV-1a over the UTF-16 code units: stable across processes (string.GetHashCode is randomized per process).
+    private static uint Fnv1a(string text)
+    {
+        var hash = 2166136261u;
+        foreach (var c in text)
+        {
+            hash = unchecked((hash ^ c) * 16777619u);
+        }
+
+        return hash;
     }
 
     private static bool TryTopLevel(WordDocument model, Paragraph paragraph, out int index)
@@ -379,7 +411,7 @@ public sealed class CorpusIncrementalTests
         var paragraph = endnote.Content.Blocks.OfType<Paragraph>().First();
         var refill = layout.ApplyEdit(EditInStory(story, endnote.Content.Blocks, paragraph, " an edited endnote"), 1);
 
-        Assert.True(refill.FirstPage >= 0);
+        Assert.False(refill.Restarted);
         await layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(layout, model, label: "endnote");
     }
