@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -19,10 +19,10 @@ public sealed class MeasurementTests
         public string[] Lines => Output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
     }
 
-    private static Measurement Create(WindowFixture f, Probe probe, string option, int scrollSteps = 600)
+    private static Measurement Create(WindowFixture f, Probe probe, string option, int scrollSteps = 600, int typingKeys = Measurement.TypingKeys)
     {
         var options = WriteOptions.Parse([option, "--settings-file", Path.Combine(f.Folder, "m.json"), WindowFixture.Thesis]);
-        var measurement = new Measurement(options, f.Window, probe.Output, probe.Exits.Add, Timeout.InfiniteTimeSpan, scrollSteps);
+        var measurement = new Measurement(options, f.Window, probe.Output, probe.Exits.Add, Timeout.InfiniteTimeSpan, scrollSteps, typingKeys: typingKeys);
         measurement.Start();
         return measurement;
     }
@@ -162,6 +162,85 @@ public sealed class MeasurementTests
         Assert.Equal([Measurement.TimedOut], exits);
         Assert.Equal(3, Measurement.TimedOut);
         Assert.Contains("no result within 0.1 s", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TypingMeasurementNeedsSettingsFileAndFile()
+    {
+        var folder = Directory.CreateTempSubdirectory("raffica-write-measure-typing-").FullName;
+        try
+        {
+            var ex = Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-typing", WindowFixture.Thesis]));
+            Assert.Contains("--settings-file", ex.Message, StringComparison.Ordinal);
+            Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-typing", "--settings-file", Path.Combine(folder, "s.json")]));
+            Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-typing", "--measure-scroll", "--settings-file", Path.Combine(folder, "s.json"), "a.docx"]));
+
+            var options = WriteOptions.Parse(["--measure-typing", "--settings-file", Path.Combine(folder, "s.json"), WindowFixture.Thesis]);
+            Assert.True(options.IsMeasuring);
+            Assert.Equal("--measure-typing", options.MeasureSwitch);
+            Assert.Equal(folder, Path.GetDirectoryName(AppFiles.Write.RecentPathFor(options.SettingsFile)));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TypingMeasurementWritesOneRowPerCase()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-typing", typingKeys: 3);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        var lines = probe.Lines;
+        Assert.Equal("first-page", lines[0]);
+
+        // Two first-edit rows (no limit), then one row per case and view.
+        var first = lines.Where(l => l.StartsWith("typing-first ", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(2, first.Length);
+        Assert.Matches(@"^typing-first when=after-open view=page ms=\d+\.\d\d$", first[0]);
+        Assert.Matches(@"^typing-first when=after-switch view=writing ms=\d+\.\d\d$", first[1]);
+
+        var rows = lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
+        string[] cases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header"];
+        Assert.Equal(cases.Length * 2, rows.Length);
+        var index = 0;
+        foreach (var view in new[] { "page", "writing" })
+        {
+            foreach (var name in cases)
+            {
+                Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d$", rows[index++]);
+            }
+        }
+    }
+
+    [Fact]
+    public void TypingLineUsesTheInvariantCulture()
+    {
+        var saved = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            Assert.Equal("typing case=middle view=page n=5 median-ms=2.00 p95-ms=4.00 max-ms=4.00", Measurement.TypingLine("middle", "page", [1.0, 1.5, 2.0, 3.0, 4.0]));
+            Assert.Equal("typing-first when=after-open view=page ms=12.35", Measurement.TypingFirstLine("after-open", "page", 12.3456));
+            Assert.Equal(
+                "typing case=header view=writing n=3 median-ms=2.00 p95-ms=3.00 max-ms=3.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=18.00",
+                Measurement.TypingLine("header", "writing", [1.0, 2.0, 3.0], [0.5, 0.5, 0.5], [16.0, 17.0, 18.0]));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = saved;
+        }
     }
 
     [Fact]

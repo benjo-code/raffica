@@ -4,7 +4,7 @@ namespace WriteLayoutBench;
 
 /// <summary>
 /// <c>write-layout-bench</c>: the headless benchmark of the Write layout engine, no UI. Commands: <c>check</c>, <c>first-page</c>
-/// (the cold child), <c>phases</c>, <c>run</c> and <c>render</c>. Exit codes: 0 ok, 1 findings, 2 bad input or a build that must not
+/// (the cold child), <c>phases</c>, <c>run</c>, <c>edit</c> and <c>render</c>. Exit codes: 0 ok, 1 findings, 2 bad input or a build that must not
 /// be timed. The output never contains document text.
 /// </summary>
 internal static class Program
@@ -15,6 +15,7 @@ internal static class Program
           write-layout-bench first-page --file <docx> [--phases]
           write-layout-bench phases --file <docx> [--runs 5]
           write-layout-bench run --file <docx> [--runs 10] [--warmup 2] [--csv <path>]
+          write-layout-bench edit [--file <docx>] [--runs <keystrokes per case, 200>] [--csv <path>]
           write-layout-bench render <page> <out.png> [--file <docx>] [--root <dir>]
         """;
 
@@ -39,6 +40,7 @@ internal static class Program
                 "first-page" => FirstPageCommand(options, output, error),
                 "phases" => Phases.Run(options, output, error),
                 "run" => RunCommand.Run(options, output, error),
+                "edit" => EditCommand.Run(options, output, error),
                 "render" => Render.Run(options, output, error),
                 _ => Fail(error, $"unknown command '{args[0]}'"),
             };

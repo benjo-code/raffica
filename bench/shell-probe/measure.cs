@@ -2,7 +2,7 @@
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
-//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing --out <csv> [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <write-layout-bench> --case engine --out <csv> [--runs <n>] [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf|write] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
 //   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf|write] [--app <bundle dir> --dmg <file>: pdf on macOS]
@@ -13,7 +13,8 @@
 // (median, p99, max) in the column run; rows of the case size carry total, zip, fonts, native, app or dmg (the last two: the macOS bundle and disk image). The gallery
 // (--target gallery) writes the mode gallery, the PDF app (--target pdf) the mode pdf; its cases are cold, warm, thousand, second, scroll
 // (rows p99 and max per run in the column run) and memory. check --target pdf judges against the recorded limits (see CheckCommand).
-// The Write app (--target write) writes the mode write; its cases are cold, warm, thesis, second, scroll, memory and engine (the median of
+// The Write app (--target write) writes the mode write; its cases are cold, warm, thesis, second, scroll, memory, typing (the app's --measure-typing: per case and view the
+// median and the 95th percentile of the keystrokes, rows typing/<case>-<view>-median and -p95, and typing-first/<when>-<view>) and engine (the median of
 // write-layout-bench run, one row). check --target write judges only the metrics that have a limit (see s_writeBudgets).
 //
 // Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for the binding
@@ -144,6 +145,40 @@ static class Lines
         ms = 0;
         var parts = line.Split(' ');
         return parts is ["second-page", var a] && TryValue(a, "ms=", out ms);
+    }
+
+    /// <summary>Reads <c>typing case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> of the Write app (invariant culture).</summary>
+    public static bool TryParseTyping(string line, out string name, out string view, out double median, out double p95, out double max)
+    {
+        name = view = string.Empty;
+        median = p95 = max = 0;
+        var parts = line.Split(' ');
+        // The first seven words are the contract; further key=value words (handler-median-ms, frame-median-ms, frame-p95-ms: the record of where the time goes) are ignored.
+        if (parts is not ["typing", var a, var b, var n, var c, var d, var e, ..]
+            || !a.StartsWith("case=", StringComparison.Ordinal) || !b.StartsWith("view=", StringComparison.Ordinal) || !n.StartsWith("n=", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        name = a["case=".Length..];
+        view = b["view=".Length..];
+        return name.Length > 0 && view.Length > 0 && TryValue(c, "median-ms=", out median) && TryValue(d, "p95-ms=", out p95) && TryValue(e, "max-ms=", out max);
+    }
+
+    /// <summary>Reads <c>typing-first when=… view=… ms=…</c> of the Write app (invariant culture).</summary>
+    public static bool TryParseTypingFirst(string line, out string when, out string view, out double ms)
+    {
+        when = view = string.Empty;
+        ms = 0;
+        var parts = line.Split(' ');
+        if (parts is not ["typing-first", var a, var b, var c] || !a.StartsWith("when=", StringComparison.Ordinal) || !b.StartsWith("view=", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        when = a["when=".Length..];
+        view = b["view=".Length..];
+        return when.Length > 0 && view.Length > 0 && TryValue(c, "ms=", out ms);
     }
 
     private static bool TryValue(string text, string prefix, out double value)
@@ -682,9 +717,12 @@ static class PdfRun
             Directory.CreateDirectory(folder);
             var settingsFile = Path.Combine(folder, "settings.json");
             (double? Value, double? Second, string? Error) result;
+            List<(string Case, string Run, double Value)>? typing = null;
             try
             {
-                result = RunOnce(exe, c, settingsFile, testdata, secondFile);
+                result = c.Name == WriteRun.TypingCase
+                    ? RunTyping(exe, c, settingsFile, testdata, out typing)
+                    : RunOnce(exe, c, settingsFile, testdata, secondFile);
             }
             finally
             {
@@ -705,7 +743,17 @@ static class PdfRun
             }
 
             var label = run <= 0 ? $"warm-up {run + c.Warmup}" : $"run {run}";
-            if (c.Name == "scroll")
+            if (c.Name == WriteRun.TypingCase)
+            {
+                // Value: the worst 95th percentile of the cases (the number check judges), Second: the worst median.
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: worst p95 {result.Value:0.00} ms, worst median {result.Second:0.00} ms over {WriteRun.TypingCases.Length * WriteRun.TypingViews.Length} cases"));
+                if (run > 0)
+                {
+                    values.Add(result.Value!.Value);
+                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, "ms")));
+                }
+            }
+            else if (c.Name == "scroll")
             {
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: p99 {result.Value:0.00} ms, max {result.Second:0.00} ms"));
                 if (run > 0)
@@ -749,13 +797,47 @@ static class PdfRun
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : string.Empty)})"));
+            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name == WriteRun.TypingCase ? ", worst p95 in ms" : string.Empty)})"));
         if (warning is not null)
         {
             Console.WriteLine($"Result with reservation: {warning}");
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// One launch of the typing case: the app types at every case in both views (minutes, so the run waits up to <see cref="WriteRun.TypingTimeout"/>) and the rows come from
+    /// its output (<see cref="WriteRun.ParseTyping"/>). Value is the worst 95th percentile over the cases and views, Second the worst median.
+    /// </summary>
+    private static (double? Value, double? Second, string? Error) RunTyping(string exe, Case c, string settingsFile, string testdata, out List<(string Case, string Run, double Value)>? rows)
+    {
+        rows = null;
+        var saved = Runner.Timeout;
+        Runner.Timeout = WriteRun.TypingTimeout;
+        string? output;
+        string? error;
+        try
+        {
+            (output, _, error) = Runner.RunOnce(exe, ArgumentsOf(c, settingsFile, testdata), c.Line);
+        }
+        finally
+        {
+            Runner.Timeout = saved;
+        }
+
+        if (error is not null)
+        {
+            return (null, null, error);
+        }
+
+        rows = WriteRun.ParseTyping(output!, out var parseError);
+        if (rows is null)
+        {
+            return (null, null, parseError);
+        }
+
+        return (rows.Where(r => r.Run.EndsWith("-p95", StringComparison.Ordinal)).Max(r => r.Value), rows.Where(r => r.Run.EndsWith("-median", StringComparison.Ordinal)).Max(r => r.Value), null);
     }
 
     /// <summary>One run: the value (ms for the time cases and the scroll p99, bytes for memory), the scroll maximum and an error text.</summary>
@@ -909,6 +991,52 @@ static class WriteRun
 
     public const string EngineCase = "engine";
 
+    /// <summary>The typing run of the app: one launch types at every case in both views and prints one row per case and view.</summary>
+    public const string TypingCase = "typing";
+
+    /// <summary>The cases of the typing run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.Names</c>).</summary>
+    public static readonly string[] TypingCases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header"];
+
+    /// <summary>The views of the typing run.</summary>
+    public static readonly string[] TypingViews = ["page", "writing"];
+
+    /// <summary>How long a typing launch may take (the app's own watchdog is 240 s).</summary>
+    public static readonly TimeSpan TypingTimeout = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// The rows of a typing run from the output of the app: for every case and view <c>typing/&lt;case&gt;-&lt;view&gt;-median</c> and <c>-p95</c>, and
+    /// <c>typing-first/&lt;when&gt;-&lt;view&gt;</c> for the two first-edit lines (no limit). Every case of <see cref="TypingCases"/> in both views must be there, or the
+    /// run failed (<paramref name="error"/>): a result with a case missing would pass for a better one. The worst p95 is the value <c>check</c> judges.
+    /// </summary>
+    public static List<(string Case, string Run, double Value)>? ParseTyping(string output, out string? error)
+    {
+        var rows = new List<(string, string, double)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in output.Split((char)10).Select(l => l.Trim()))
+        {
+            if (Lines.TryParseTyping(line, out var name, out var view, out var median, out var p95, out _))
+            {
+                rows.Add(("typing", $"{name}-{view}-median", median));
+                rows.Add(("typing", $"{name}-{view}-p95", p95));
+                seen.Add($"{name}-{view}");
+            }
+            else if (Lines.TryParseTypingFirst(line, out var when, out var firstView, out var ms))
+            {
+                rows.Add(("typing-first", $"{when}-{firstView}", ms));
+            }
+        }
+
+        var missing = TypingViews.SelectMany(v => TypingCases.Select(c => $"{c}-{v}")).Where(k => !seen.Contains(k)).ToList();
+        if (missing.Count > 0)
+        {
+            error = $"the typing run printed no row for {string.Join(", ", missing)}";
+            return null;
+        }
+
+        error = null;
+        return rows;
+    }
+
     public static readonly PdfRun.Case[] Cases =
     [
         new("cold", 10, 0, 5000, "--measure-startup", SmallFile, "first-page"),
@@ -917,6 +1045,7 @@ static class WriteRun
         new("second", 10, 1, 500, "--measure-second", SmallFile, "second-page"),
         new("scroll", 5, 1, 500, "--measure-scroll", ThesisFile, "scroll"),
         new("memory", 10, 0, 500, "--measure-memory", ThesisFile, "memory-bytes"),
+        new(TypingCase, 3, 0, 500, "--measure-typing", ThesisFile, "first-page"),
         new(EngineCase, 10, 2, 0, string.Empty, ThesisFile, "median first page:"),
     ];
 
@@ -1437,6 +1566,7 @@ static class CheckCommand
         ("size", "size (MiB)"),
         ("zip", "zip (MiB)"),
         ("engine", "engine first page (ms)"),
+        ("typing", "typing, worst p95 (ms)"),
     ];
 
     // THE limit table of the Write app (target write), the only place for these numbers. The app rows (cold, warm, thesis, second, scroll, memory,
@@ -1447,10 +1577,17 @@ static class CheckCommand
     // A platform with no entry at all (windows, macos) has no limits: a check there exits 2.
     private static readonly Dictionary<string, Dictionary<string, double>> s_writeBudgets = new()
     {
-        ["windows"] = [],
-        ["linux"] = new() { ["engine"] = 80 },
-        ["macos"] = [],
+        ["windows"] = new() { ["typing"] = TypingBudget },
+        ["linux"] = new() { ["engine"] = 80, ["typing"] = TypingBudget },
+        ["macos"] = new() { ["typing"] = TypingBudget },
     };
+
+    /// <summary>
+    /// The budget of <c>typing</c> in the table: the limit is a FIXED 16 ms (budget 12.8 x 1.25, exactly 16.0 in double), the spec criterion of milestone 4.3a ("typing at most 16 ms per keystroke,
+    /// median and 95th percentile of every measured case", Docs/superpowers/specs/2026-11-15-raffica-write-editing-engine-design.md, section 5), not a measured number: it is entered for every platform
+    /// (the Windows PC binds first, the Linux laptop and the Intel Mac as in 4.2). Never loosened to make a run pass.
+    /// </summary>
+    public const double TypingBudget = 12.8;
 
     /// <summary>The message of a check of the Write app when none of the metrics it judges has a limit.</summary>
     public const string NoWriteLimits = "no limits recorded for target write";
@@ -1515,9 +1652,10 @@ static class CheckCommand
     /// </summary>
     public static List<Result> JudgeWrite(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
     {
-        var hasAppRow = s_writeMetrics.Any(m => m.Key != "engine" && LimitOf(WriteTable, platform, m.Key) is not null);
+        // "engine" and "typing" are fixed limits (the engine for Linux, typing for every platform), not the owner's 4.2 budgets: neither makes a platform one with an app row.
+        var hasAppRow = s_writeMetrics.Any(m => m.Key is not ("engine" or "typing") && LimitOf(WriteTable, platform, m.Key) is not null);
         return [.. Judge(WriteTable, s_writeMetrics, platform, measured, only, indicativeOnMac: false)
-            .Select(r => r.Verdict == "unrecorded" && (r.Key == "engine" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
+            .Select(r => r.Verdict == "unrecorded" && (r.Key is "engine" or "typing" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
     }
 
     private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only, bool indicativeOnMac)
@@ -1601,8 +1739,24 @@ static class CheckCommand
             ["size"] = Median("size", "total"),
             ["zip"] = Median("size", "zip"),
             ["engine"] = Median("engine", null),
+            ["typing"] = WorstTypingP95(rows),
         };
         return JudgeWrite(platform, measured, [.. s_writeMetrics.Select(m => m.Key)]);
+    }
+
+    /// <summary>
+    /// The value of the metric <c>typing</c>: the worst case. Every row <c>typing/&lt;case&gt;-&lt;view&gt;-p95</c> is the 95th percentile of one case in one view (the rows of several launches
+    /// are reduced to their median per case first), and the metric is the largest of them. The 95th percentile of a case is never below its median, so a limit on this value holds the median
+    /// and the 95th percentile of EVERY case (the spec criterion) with one number; the median rows are in the CSV for the record. null without any such row.
+    /// </summary>
+    public static double? WorstTypingP95(IReadOnlyList<BudgetsCommand.Row> rows)
+    {
+        var perCase = rows
+            .Where(r => r.Mode == "write" && r.Case == "typing" && r.Run.EndsWith("-p95", StringComparison.Ordinal))
+            .GroupBy(r => r.Run, StringComparer.Ordinal)
+            .Select(g => Stats.Median([.. g.Select(r => r.Value)]))
+            .ToList();
+        return perCase.Count == 0 ? null : perCase.Max();
     }
 
     private static double? MedianOf(IReadOnlyList<BudgetsCommand.Row> rows, string mode, string @case, string? run)
@@ -1711,7 +1865,7 @@ static class CheckCommand
         }
         else if (write && results.Any(r => r.Verdict == "not judged"))
         {
-            text.AppendLine("> A metric marked \"not judged\" has no recorded limit yet (milestone 4.2 sets them from the owner's runs; the engine limit exists for Linux only); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
+            text.AppendLine("> A metric marked \"not judged\" has no recorded limit yet (milestone 4.2 sets them from the owner's runs; the engine limit exists for Linux only, the typing limit of 16 ms for every platform and is no app limit in this sense); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
         }
 
         text.Append(Render(results));
@@ -2179,14 +2333,14 @@ static class SelfTest
         }
     }
 
-    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine"];
+    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine", "typing"];
 
     // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The recorded table is s_writeBudgets in CheckCommand.
     private static Dictionary<string, Dictionary<string, double>> WriteTestTable() => new()
     {
-        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70 },
-        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80 },
-        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90 },
+        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70, ["typing"] = CheckCommand.TypingBudget },
+        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80, ["typing"] = CheckCommand.TypingBudget },
+        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90, ["typing"] = CheckCommand.TypingBudget },
     };
 
     /// <summary>Rows of the Write app with every metric at <c>limit + delta</c> of the platform in the table in force; <paramref name="only"/> restricts the delta to one metric, <paramref name="without"/> leaves a metric out.</summary>
@@ -2205,6 +2359,11 @@ static class SelfTest
             new("pc", "write", "size", "total", At("size") * MiBd, "bytes"),
             new("pc", "write", "size", "zip", At("zip") * MiBd, "bytes"),
             new("pc", "write", "engine", "1", At("engine"), "ms"),
+
+            // The typing rows of two launches: the case "header-writing" is the worst (its median over the launches is At("typing")), the others are well below; the medians are never judged.
+            new("pc", "write", "typing", "header-writing-p95", At("typing") + 5, "ms"), new("pc", "write", "typing", "header-writing-p95", At("typing") - 5, "ms"), new("pc", "write", "typing", "header-writing-p95", At("typing"), "ms"),
+            new("pc", "write", "typing", "middle-page-p95", 1, "ms"), new("pc", "write", "typing", "middle-page-median", 99, "ms"),
+            new("pc", "write", "typing-first", "after-open-page", 99, "ms"),
         ];
         return without is null ? rows : [.. rows.Where(r => without == "size" ? !(r.Case == "size" && r.Run == "total") : without == "zip" ? !(r.Case == "size" && r.Run == "zip") : r.Case != without)];
     }
@@ -2237,12 +2396,15 @@ static class SelfTest
         Expect("write run: memory opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("memory", "s.json", td)), $"--measure-memory --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
         Expect("write run: second switch and first file", string.Join(' ', WriteRun.Arguments("second", "s.json", td)), $"--measure-second --settings-file s.json {Path.Combine(td, "poi-test-document/poi-test-document.docx")}");
         Expect("write run: the second launch shares the settings file and opens poi-comment", string.Join(' ', WriteRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, "poi-comment/poi-comment.docx")}");
+        Expect("write run: typing opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("typing", "s.json", td)), $"--measure-typing --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
         Expect("write run: every app run has a settings file of its own", WriteRun.Cases.Where(c => c.Name != "engine").All(c => WriteRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
-        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,engine");
+        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,engine");
         Expect("write run: the engine runs the benchmark on the thesis", string.Join(' ', WriteRun.EngineArguments(td, 7)), $"run --file {Path.Combine(td, "thesis/thesis.docx")} --runs 7 --warmup 2");
         Expect("write run: CSV mode is write", RunCommand.CsvMode("write", null), "write");
-        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory or engine");
+        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing or engine");
         Expect("pdf run: the case list in the message is the old text", PdfRun.CaseList(PdfRun.Cases), "cold, warm, thousand, second, scroll or memory");
+
+        TypingTests();
 
         var saved = CultureInfo.CurrentCulture;
         try
@@ -2287,40 +2449,55 @@ static class SelfTest
 
         // The production table: only the fixed engine limit of the Linux laptop, 100 ms = budget 80 x 1.25; the app rows wait for the owner's runs.
         Expect("write limits: linux engine is budget 80 x 1.25 = 100 ms", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
-        Expect("write limits: linux holds only the engine entry", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "engine");
-        Expect("write limits: windows has no limits", CheckCommand.WriteHasNoLimits("windows"), true);
-        Expect("write limits: macos has no limits", CheckCommand.WriteHasNoLimits("macos"), true);
-        Expect("write limits: linux has the engine limit", CheckCommand.WriteHasNoLimits("linux"), false);
+        Expect("write limits: linux holds the engine and typing entries only", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "engine,typing");
+        Expect("write limits: windows and macos hold the typing entry only", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "typing|typing");
+        Expect("write limits: typing is a fixed 16 ms on every platform (budget 12.8 x 1.25)", new[] { "windows", "linux", "macos" }.Select(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "typing")).All(l => l == 16.0), true);
+        Expect("write limits: the typing budget constant", CheckCommand.TypingBudget, 12.8);
+        Expect("write limits: windows has no app limit (only the typing one)", CheckCommand.WriteHasNoLimits("windows", "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine"), true);
+        Expect("write limits: macos has no app limit (only the typing one)", CheckCommand.WriteHasNoLimits("macos", "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine"), true);
+        Expect("write limits: every platform has the typing limit", new[] { "windows", "linux", "macos" }.Any(p => CheckCommand.WriteHasNoLimits(p)), false);
+        Expect("write limits: linux has the engine limit", CheckCommand.WriteHasNoLimits("linux", "engine"), false);
         Expect("write limits: linux has no size or zip limit yet", CheckCommand.WriteHasNoLimits("linux", "size", "zip"), true);
         Expect("write limits: the engine limit is not an app limit on windows", CheckCommand.LimitOf(CheckCommand.WriteTable, "windows", "engine"), (double?)null);
 
-        // check --target write against the production table: windows and macos have no limit (exit 2), linux judges the engine row alone.
+        // check --target write against the production table: windows and macos judge the typing row alone (the app rows have no limit yet and are not judged), linux the engine and the typing row.
         var csv = Path.Combine(folder, "w-in.csv");
         var summary = Path.Combine(folder, "summary.md");
-        PdfCsv(csv, WriteRows("windows"));
         foreach (var platform in new[] { "windows", "macos" })
         {
-            Expect($"check write {platform} (recorded): no limits exits 2", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv, "--summary", summary], out _)!), 2);
+            PdfCsv(csv, WriteRows(platform));
+            Expect($"check write {platform} (recorded): the typing row at its limit exits 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 0);
+            Expect($"check write {platform} (recorded): only the typing row is judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "typing");
+            PdfCsv(csv, WriteRows(platform, "typing", 0.1));
+            Expect($"check write {platform} (recorded): a typing row 0.1 ms above 16 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 1);
+            PdfCsv(csv, WriteRows(platform, without: "typing"));
+            Expect($"check write {platform} (recorded): no typing row exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 1);
         }
 
-        var text = File.Exists(summary) ? File.ReadAllText(summary) : string.Empty;
-        Expect("check write: the summary names the missing limits", text.Contains(CheckCommand.NoWriteLimits, StringComparison.Ordinal), true);
-        Expect("check write: the summary still has the medians", text.Contains("| thesis first page (ms) |", StringComparison.Ordinal), true);
+        Expect("check write: a typing row above 16 ms is FAIL (over)", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "typing", 0.1)).First(r => r.Key == "typing").Verdict, "over");
+        Expect("check write: a typing row at 16 ms is ok", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "typing").Verdict, "ok");
+        Expect("check write: the typing metric is the worst case, the median of its launches", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "typing").Measured, 16.0);
+        Expect("check write: the median rows and the first-edit rows are never judged", CheckCommand.WorstTypingP95([new("pc", "write", "typing", "middle-page-median", 99, "ms"), new("pc", "write", "typing-first", "after-open-page", 99, "ms")]), (double?)null);
+        Expect("check write: the worst p95 of two cases", CheckCommand.WorstTypingP95([new("pc", "write", "typing", "a-page-p95", 3, "ms"), new("pc", "write", "typing", "b-page-p95", 7, "ms")]), 7.0);
         PdfCsv(csv, WriteRows("linux"));
         Expect("check write linux (recorded): the engine row at 100 ms exits 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 0);
         PdfCsv(csv, WriteRows("linux", "engine", 0.1));
         Expect("check write linux (recorded): the engine row 0.1 ms above 100 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 1);
         PdfCsv(csv, WriteRows("linux", without: "engine"));
         Expect("check write linux (recorded): a missing engine row exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 1);
-        Expect("check write linux (recorded): the app rows are not judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+        Expect("check write linux (recorded): the app rows are not judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 2);
 
         // An empty table never passes, on any platform.
         CheckCommand.WriteTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
         PdfCsv(csv, WriteRows("windows"));
         foreach (var platform in new[] { "windows", "linux", "macos" })
         {
-            Expect($"check write {platform}: an empty table exits 2", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 2);
+            Expect($"check write {platform}: an empty table exits 2", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv, "--summary", summary], out _)!), 2);
         }
+
+        var text = File.Exists(summary) ? File.ReadAllText(summary) : string.Empty;
+        Expect("check write: the summary names the missing limits", text.Contains(CheckCommand.NoWriteLimits, StringComparison.Ordinal), true);
+        Expect("check write: the summary still has the medians", text.Contains("| thesis first page (ms) |", StringComparison.Ordinal), true);
 
         // The verdict logic with the test table.
         CheckCommand.WriteTableForTests = WriteTestTable();
@@ -2354,7 +2531,10 @@ static class SelfTest
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
             var partial = CheckCommand.EvaluateWrite("windows", WriteRows("windows"));
             Expect("check write: with one app row set, the other app metrics are unrecorded", string.Join(',', partial.Where(r => r.Verdict == "unrecorded").Select(r => r.Key)), "warm,thesis,second,scroll,memory,size,zip");
-            Expect("check write: engine without a limit stays not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine");
+            CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["typing"] = CheckCommand.TypingBudget }, ["linux"] = [], ["macos"] = [] };
+            Expect("check write: a typing limit alone is no app row, the app metrics are not judged", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+            CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
+            Expect("check write: engine and typing without a limit stay not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine,typing");
             Expect("check write: a half-filled table exits 1", CheckCommand.ExitCode(partial), 1);
             PdfCsv(csv, WriteRows("windows"));
             Expect("check command write: a half-filled table exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 1);
@@ -2383,6 +2563,37 @@ static class SelfTest
 
         Expect("write limits: the test table is gone again", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
         Directory.Delete(folder, recursive: true);
+    }
+
+    /// <summary>The typing case: the lines of the app parse (also under de-DE), a run with a case missing is refused, the rows carry the median and the 95th percentile.</summary>
+    private static void TypingTests()
+    {
+        Expect("parse typing line", Lines.TryParseTyping("typing case=page-break view=writing n=100 median-ms=1.25 p95-ms=3.50 max-ms=9.00", out var name, out var view, out var median, out var p95, out var max) ? string.Create(CultureInfo.InvariantCulture, $"{name}|{view}|{median}|{p95}|{max}") : "-", "page-break|writing|1.25|3.5|9");
+        Expect("parse typing line with the extra record fields", Lines.TryParseTyping("typing case=header view=page n=100 median-ms=1.25 p95-ms=3.50 max-ms=9.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=18.00", out _, out _, out var m2, out var p2, out _) ? string.Create(CultureInfo.InvariantCulture, $"{m2}|{p2}") : "-", "1.25|3.5");
+        Expect("parse typing line without a value", Lines.TryParseTyping("typing case=a view=page n=1 median-ms=x p95-ms=1 max-ms=1", out _, out _, out _, out _, out _), false);
+        Expect("parse typing line of another kind", Lines.TryParseTyping("typing-first when=after-open view=page ms=3.00", out _, out _, out _, out _, out _), false);
+        Expect("parse typing-first line", Lines.TryParseTypingFirst("typing-first when=after-switch view=writing ms=12.50", out var when, out var firstView, out var ms) ? string.Create(CultureInfo.InvariantCulture, $"{when}|{firstView}|{ms}") : "-", "after-switch|writing|12.5");
+        Expect("parse typing-first line without a value", Lines.TryParseTypingFirst("typing-first when=after-open view=page ms=", out _, out _, out _), false);
+
+        var output = new StringBuilder("first-page\n");
+        output.Append("typing-first when=after-open view=page ms=9.00\ntyping-first when=after-switch view=writing ms=20.00\n");
+        foreach (var v in WriteRun.TypingViews)
+        {
+            foreach (var c in WriteRun.TypingCases)
+            {
+                output.Append(CultureInfo.InvariantCulture, $"typing case={c} view={v} n=100 median-ms=1.00 p95-ms=2.00 max-ms=3.00\n");
+            }
+        }
+
+        var rows = WriteRun.ParseTyping(output.ToString(), out var error);
+        Expect("typing rows: a full run parses", error, (string?)null);
+        Expect("typing rows: 14 cases x (median, p95) and 2 first-edit rows", rows?.Count, 30);
+        Expect("typing rows: the row names", string.Join('|', rows!.Take(4).Select(r => $"{r.Case}/{r.Run}")), "typing-first/after-open-page|typing-first/after-switch-writing|typing/middle-page-median|typing/middle-page-p95");
+
+        var without = string.Join('\n', output.ToString().Split('\n').Where(l => !l.StartsWith("typing case=footnote view=writing", StringComparison.Ordinal)));
+        Expect("typing rows: a run with a case missing is refused", WriteRun.ParseTyping(without, out var missing), null);
+        Expect("typing rows: the refusal names the case and view", missing, "the typing run printed no row for footnote-writing");
+        Expect("typing rows: no output is refused", WriteRun.ParseTyping("first-page\n", out _), null);
     }
 
     private static void WriteSizeCheckTests()

@@ -775,13 +775,21 @@ internal sealed partial class PageView : Control, IDisposable
     /// <summary>How many times the page layer was rendered (tests: a render pass must not ask for another one).</summary>
     internal int RenderCount { get; private set; }
 
+    /// <summary>The typing measurement's hook, called on the UI thread at the start of every render pass (with -1) and at its end (with the number of pages it handed to the render thread); null outside a measurement.</summary>
+    internal Action<int>? RenderProbe { get; set; }
+
+    /// <summary>The typing measurement's hook, called on the render thread after every page draw with the monotonic timestamps of its start and its end (null outside a measurement).</summary>
+    internal Action<long, long>? DrawProbe { get; set; }
+
     public override void Render(DrawingContext context)
     {
         RenderCount++;
+        RenderProbe?.Invoke(-1);
         var bounds = new Rect(Bounds.Size);
         context.FillRectangle(Background ?? DeskBrush(), bounds);
         if (_released)
         {
+            RenderProbe?.Invoke(0);
             return;
         }
 
@@ -789,6 +797,7 @@ internal sealed partial class PageView : Control, IDisposable
         var layout = _builtLayout;
         if (_scroller is not { Count: > 0 } scroller || layout is null)
         {
+            RenderProbe?.Invoke(0);
             return;
         }
 
@@ -796,6 +805,7 @@ internal sealed partial class PageView : Control, IDisposable
         var (first, last) = scroller.Visible(_offsetY, _viewport.Height);
         var left = LeftShift(scroller);
         var shadow = ShadowOfPage();
+        var handed = 0;
         using (context.PushClip(bounds))
         {
             for (var index = first; index <= last && index < layout.LaidOutPages; index++)
@@ -817,9 +827,12 @@ internal sealed partial class PageView : Control, IDisposable
                     context.DrawRectangle(Paper, null, rect, 0, 0, shadow);
                 }
 
-                context.Custom(new PageDrawOperation(rect, page, scroller.Scale, _images, _gate, OnDrawn));
+                context.Custom(new PageDrawOperation(rect, page, scroller.Scale, _images, _gate, OnDrawn, DrawProbe));
+                handed++;
             }
         }
+
+        RenderProbe?.Invoke(handed);
     }
 
     private IBrush DeskBrush() =>

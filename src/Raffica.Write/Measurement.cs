@@ -15,11 +15,12 @@ namespace Raffica.Write;
 /// file that a second launch hands over and writes <c>second-page ms=...</c>, measured in this process from the arrival of the hand-over to the
 /// second animation frame after the first sharp page of the new tab. Every line uses the invariant culture and ASCII keys (they are not
 /// localized); a run that does not finish ends with exit code 3 after 30 s (the message names the real timeout); a scroll run with no document
-/// ends with exit code 1. The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
+/// ends with exit code 1. <c>--measure-typing</c> types at seven places of the document in both views and writes one row per case and view (see <c>Measurement.Typing.cs</c>;
+/// its watchdog is 240 s). The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
 /// writes the settings, the recent files or the instance pipe of the user. Nothing of this class exists in a normal run: <c>App</c> makes it only
 /// when a switch is given.
 /// </summary>
-internal sealed class Measurement : IDisposable
+internal sealed partial class Measurement : IDisposable
 {
     public const int Success = 0;
 
@@ -60,7 +61,8 @@ internal sealed class Measurement : IDisposable
     /// <param name="scrollSteps">The number of wheel steps of the scroll run (tests use fewer).</param>
     /// <param name="error">Where the error messages go (null: the standard error of the app; tests give their own).</param>
     /// <param name="exitProcess">What the watchdog calls to end the process (null: <see cref="Environment.Exit(int)"/>; tests record the code).</param>
-    public Measurement(WriteOptions options, WriteWindow window, TextWriter output, Action<int> finish, TimeSpan? timeout = null, int scrollSteps = ScrollSteps, TextWriter? error = null, Action<int>? exitProcess = null)
+    /// <param name="typingKeys">The keys typed per case and view by the typing run (tests use fewer).</param>
+    public Measurement(WriteOptions options, WriteWindow window, TextWriter output, Action<int> finish, TimeSpan? timeout = null, int scrollSteps = ScrollSteps, TextWriter? error = null, Action<int>? exitProcess = null, int typingKeys = TypingKeys)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(window);
@@ -72,8 +74,9 @@ internal sealed class Measurement : IDisposable
         _error = error ?? Console.Error;
         _finish = finish;
         _exitProcess = exitProcess ?? Environment.Exit;
-        _timeout = timeout ?? s_defaultTimeout;
+        _timeout = timeout ?? (options.MeasureSwitch == "--measure-typing" ? s_typingTimeout : s_defaultTimeout);
         _scrollSteps = scrollSteps;
+        _typingKeys = typingKeys;
     }
 
     /// <summary>Starts the watchdog and listens for the first sharp page (and for the hand-over of the second file).</summary>
@@ -173,6 +176,9 @@ internal sealed class Measurement : IDisposable
             case "--measure-scroll":
                 _lastFrame = 0;
                 _window.RequestAnimationFrame(_ => ScrollFrame());
+                break;
+            case "--measure-typing":
+                StartTyping();
                 break;
             case "--measure-second":
                 // The run stays open for the file of the second launch.
