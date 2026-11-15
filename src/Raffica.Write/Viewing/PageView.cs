@@ -624,7 +624,15 @@ internal sealed partial class PageView : Control, IDisposable
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        var repeat = !_held.Add(e.Key);
         if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && LeaveStory())
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // The editing keys come first: with a caret they move the caret (and keep it in view), otherwise the navigation keys below scroll as before. Text is not a key (OnTextInput).
+        if (!e.Handled && HandleEditingKey(e, repeat))
         {
             e.Handled = true;
             return;

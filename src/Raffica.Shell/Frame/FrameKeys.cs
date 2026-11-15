@@ -45,7 +45,9 @@ public static class FrameKeys
         search.Shortcut = shortcut;
         window.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
-            if (gesture.Matches(e) && !FrameDialogs.IsOpen(window))
+            // AltGr arrives as Ctrl plus Alt on Windows and types a character: it is never a search shortcut (Alt+Q on a layout whose AltGr+Q is "@").
+            var altGr = (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) == (KeyModifiers.Control | KeyModifiers.Alt);
+            if (!altGr && gesture.Matches(e) && !FrameDialogs.IsOpen(window))
             {
                 search.FocusAndSelect();
                 e.Handled = true;

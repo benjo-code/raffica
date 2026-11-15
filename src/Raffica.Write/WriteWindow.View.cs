@@ -7,6 +7,7 @@ using Raffica.Shell.Frame;
 using Raffica.Write.Commands;
 using Raffica.Write.Documents;
 using Raffica.Write.Docx;
+using Raffica.Write.Editing;
 using Raffica.Write.Settings;
 using Raffica.Write.Viewing;
 
@@ -18,6 +19,11 @@ internal sealed partial class WriteWindow
     private WriteCommandRules _rules = null!;
     private Dictionary<string, Action> _actions = null!;
     private readonly HashSet<WriteTab> _faultShown = [];
+    private string? _editHint;
+    private int _editHintGeneration;
+
+    /// <summary>How long the hint of a refused key stays when nothing ends it sooner.</summary>
+    internal static readonly TimeSpan EditHintDuration = TimeSpan.FromSeconds(6);
 
     /// <summary>The ribbon (the tabs Home and View); its parts sit in the frame while a document tab is open.</summary>
     public RibbonView Ribbon { get; private set; } = null!;
@@ -108,6 +114,8 @@ internal sealed partial class WriteWindow
                 UpdateViewStatus();
             }
         };
+        view.EditCommandHandler = RunCommand;
+        view.InputRefused += reason => OnInputRefused(view, tab, reason);
         view.FirstSharpPage += () =>
         {
             FirstSharpPageDrawn?.Invoke(tab);
@@ -126,6 +134,45 @@ internal sealed partial class WriteWindow
         };
         tab.Runner.Faulted += () => OnLayoutFaulted(tab);
         return view;
+    }
+
+    // Typing or an editing key was refused (only a prefix is open, or editing failed): one hint in the status bar per burst of keys. It stays while the keys go on, goes when the whole
+    // file is open (the first case) or after a few seconds, and a later key shows it again. A key during a save is queued and says nothing.
+    private void OnInputRefused(PageView view, WriteTab tab, EditBlockedReason reason)
+    {
+        if (!ReferenceEquals(ActiveView, view))
+        {
+            return;
+        }
+
+        var text = reason == EditBlockedReason.StillOpening ? WriteStrings.EditStillOpening : WriteStrings.EditUnavailable;
+        if (_editHint == text && Status.Hint == text)
+        {
+            return;
+        }
+
+        Status.Hint = text;
+        _editHint = text;
+        var generation = ++_editHintGeneration;
+        void Clear()
+        {
+            if (generation == _editHintGeneration)
+            {
+                _editHint = null;
+                if (Status.Hint == text)
+                {
+                    Status.Hint = null;
+                }
+            }
+        }
+
+        if (reason == EditBlockedReason.StillOpening)
+        {
+            var ui = Dispatcher.UIThread;
+            _ = tab.Runner.FullModelTask.ContinueWith(_ => ui.Post(Clear), TaskScheduler.Default);
+        }
+
+        DispatcherTimer.RunOnce(Clear, EditHintDuration);
     }
 
     // A layout failed (the whole file could not be read after page 1, or a bug of the layout): one card per tab, in the wording of the open errors (never the text of

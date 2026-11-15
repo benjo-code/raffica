@@ -898,6 +898,7 @@ internal sealed partial class PageView
     protected override void OnLostFocus(FocusChangedEventArgs e)
     {
         base.OnLostFocus(e);
+        _held.Clear();
         UpdateBlink();
     }
 

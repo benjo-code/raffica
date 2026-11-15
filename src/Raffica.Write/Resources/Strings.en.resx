@@ -201,4 +201,10 @@
   <data name="OutlineWaiting" xml:space="preserve">
     <value>Laying out the pages up to the heading…</value>
   </data>
+  <data name="EditStillOpening" xml:space="preserve">
+    <value>This document is still opening. You can edit it in a moment.</value>
+  </data>
+  <data name="EditUnavailable" xml:space="preserve">
+    <value>Editing is not available for this document because of an error.</value>
+  </data>
 </root>

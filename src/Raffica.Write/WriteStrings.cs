@@ -77,6 +77,8 @@ internal static class WriteStrings
     public static string OutlineEmpty => Table.Get("OutlineEmpty");
     public static string OutlineEntryNameFormat => Table.Get("OutlineEntryNameFormat");
     public static string OutlineWaiting => Table.Get("OutlineWaiting");
+    public static string EditStillOpening => Table.Get("EditStillOpening");
+    public static string EditUnavailable => Table.Get("EditUnavailable");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
 

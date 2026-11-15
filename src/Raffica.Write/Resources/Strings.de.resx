@@ -201,4 +201,10 @@
   <data name="OutlineWaiting" xml:space="preserve">
     <value>Die Seiten bis zur Überschrift werden gesetzt…</value>
   </data>
+  <data name="EditStillOpening" xml:space="preserve">
+    <value>Das Dokument wird noch geöffnet. Das Bearbeiten ist gleich möglich.</value>
+  </data>
+  <data name="EditUnavailable" xml:space="preserve">
+    <value>Das Bearbeiten ist für dieses Dokument wegen eines Fehlers nicht verfügbar.</value>
+  </data>
 </root>
