@@ -271,6 +271,10 @@ public sealed class PageViewEditingTests : IDisposable
         Assert.False(view.Selection!.Value.IsEmpty);
         ViewHarness.Pump();
 
+        // The real blink timer must not tick between the frames that are counted: stop it (a tick is made by hand below).
+        view.ReduceMotion = true;
+        Assert.False(view.BlinkRunning);
+
         await view.Runner.PageTask;
         ViewHarness.Pump();
         // Settle: a few frames until nothing is left to draw.
