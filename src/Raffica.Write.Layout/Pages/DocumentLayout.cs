@@ -217,8 +217,10 @@ public sealed partial class DocumentLayout
     /// </summary>
     /// <remarks>
     /// The cost is one more layout of page 1 (a few milliseconds, on the calling thread: call it from the background thread that
-    /// lays out the rest). Nothing the layout published is invalidated: <see cref="Locate"/> and <see cref="BlockAt"/> answer for page 1
-    /// before and after, and the block tables grow to the whole document. <see cref="Notes"/> are those of the new model from then on (they are the only thing that changes); <see cref="Revision"/> is not reset.
+    /// lays out the rest). <see cref="Locate"/> and <see cref="BlockAt"/> answer for page 1 before and after, and the block tables grow to the whole document.
+    /// Page 1 is published again as the page the new model makes (the same text, the same geometry; <see cref="Page"/> returns a new object whose text
+    /// lines name the paragraphs of the new model); <see cref="Revision"/> is not raised for it, a view that reads <c>Page(0)</c> for every frame needs no
+    /// notice, and one that keeps the old object keeps an equal page. Positions made on the prefix model's paragraphs are not valid afterwards. <see cref="Notes"/> are those of the new model from then on (they are the only thing that changes); <see cref="Revision"/> is not reset.
     /// The new model must not change while the layout runs on it.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Page 1 is not final, other pages are already published, or the first page of the new model differs (the prefix was not the start of it).</exception>
@@ -239,7 +241,8 @@ public sealed partial class DocumentLayout
             }
 
             // Page 1 again on the new model, so that the filler, the planners and the numbering stand where they would stand after
-            // page 1 of a layout made with the whole document; the page itself is dropped, the published one stays.
+            // page 1 of a layout made with the whole document. The page it makes (equal text, checked below) replaces the published one,
+            // so page 1 holds the paragraphs of the new model: a position made on them is found by Caret, Move and HitTest.
             var notes = new List<string>();
             var engine = Engine.Build(full, _fonts, _options, notes);
             try
@@ -256,6 +259,8 @@ public sealed partial class DocumentLayout
             }
 
             engine.Filler.PageFinished = _pageFinished;
+            _paragraphPages.Register(engine.Fill.Current);
+            _pages.Replace(0, engine.Fill.Current);
             Volatile.Write(ref _notes, notes);
             Volatile.Write(ref _engine, engine);
         }

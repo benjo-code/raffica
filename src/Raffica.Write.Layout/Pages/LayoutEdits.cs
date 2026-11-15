@@ -41,14 +41,17 @@ public sealed partial class DocumentLayout
     /// The position under a point of a laid-out page, or null for a page that is not laid out or has no text. A point outside every
     /// line gets the nearest line; a point right of a line's text gets its end (before trailing spaces), one left of it its start; the
     /// hyphen of a hyphenated word and the label of a list paragraph are never hit; a field result, a picture or any other atomic unit
-    /// snaps to its nearer edge. Lengths are points from the top left of the page.
+    /// snaps to its nearer edge. A point inside the height of a header, footer or note line is on that line; a point in blank space goes to the
+    /// nearest body line (a page with no body line: the nearest line). Lengths are points from the top left of the page. Positions belong to the
+    /// model the layout holds now: after <see cref="ReplaceModel"/> only positions of the new model's paragraphs are found.
     /// </summary>
     public TextHit? HitTest(int pageIndex, float x, float y) => Navigator.HitTest(pageIndex, x, y);
 
     /// <summary>
     /// The caret at a position, or null when no published page shows it. <paramref name="pageHint"/> is searched first (a header or footer is
     /// on many pages), then the pages that show the paragraph, from the first. A position at the end of a line that wrapped is the start
-    /// of the next line (there is no caret affinity); a position past the paragraph's text is not found.
+    /// of the next line (there is no caret affinity); a position past the paragraph's text is not found. A position made on a paragraph of
+    /// a model the layout has replaced (<see cref="ReplaceModel"/>) is not found; re-make it from the new page.
     /// </summary>
     public CaretBox? Caret(TextPosition position, int pageHint) => Navigator.Caret(position, pageHint);
 
@@ -57,7 +60,8 @@ public sealed partial class DocumentLayout
     /// cell, and Left at the start of a cell stays); a field result and every atomic unit is stepped over as one. <c>Up</c> and <c>Down</c> aim
     /// at <paramref name="goalX"/> (page x; the caret's own x when null) and go to the start or end of the line when there is no line
     /// above or below. Only published pages are known: a move to the end of the document goes to the end of what is laid out. Returns
-    /// <paramref name="from"/> when the move has nowhere to go, null when no published page shows <paramref name="from"/>.
+    /// <paramref name="from"/> when the move has nowhere to go, null when no published page shows <paramref name="from"/> (also for a position
+    /// of a replaced model, see <see cref="ReplaceModel"/>; the positions it returns are those of the model the layout holds).
     /// </summary>
     public TextPosition? Move(TextPosition from, CaretMove move, float? goalX, int pageHint) => Navigator.Move(from, move, goalX, pageHint);
 

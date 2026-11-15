@@ -213,9 +213,16 @@ internal sealed class TextNavigator(PageList pages, ParagraphPageMap map)
         }
 
         var lines = pages[pageIndex].TextLines;
+        // The line that holds the height of the point wins, whatever its story (a click inside a header, footer or note line is on it). A
+        // point in blank space (below the text, in a margin, between the body and its notes) goes to the nearest BODY line, as Word does: the
+        // header and footer are entered only by clicking on their text. Of equal heights (columns, cells side by side) the line whose
+        // text is nearest sideways wins. A page without a body line falls back to the nearest line of any story.
         var best = -1;
         var bestDy = float.MaxValue;
         var bestDx = float.MaxValue;
+        var body = -1;
+        var bodyDy = float.MaxValue;
+        var bodyDx = float.MaxValue;
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
@@ -223,15 +230,24 @@ internal sealed class TextNavigator(PageList pages, ParagraphPageMap map)
             var right = line.X + line.ContentRight;
             var dx = x < left ? left - x : (x > right ? x - right : 0f);
             var dy = y < line.Top ? line.Top - y : (y > line.Top + line.Height ? y - line.Top - line.Height : 0f);
-
-            // The line that holds the height of the point, else the nearest one by height; of equal heights (columns, cells side by side)
-            // the one whose text is nearest sideways.
             if (dy < bestDy || (dy == bestDy && dx < bestDx))
             {
                 best = i;
                 bestDy = dy;
                 bestDx = dx;
             }
+
+            if (line.Story.Kind == StoryKind.Body && (dy < bodyDy || (dy == bodyDy && dx < bodyDx)))
+            {
+                body = i;
+                bodyDy = dy;
+                bodyDx = dx;
+            }
+        }
+
+        if (bestDy > 0f && body >= 0)
+        {
+            best = body;
         }
 
         if (best < 0)

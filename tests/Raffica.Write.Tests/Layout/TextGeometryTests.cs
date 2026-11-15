@@ -626,6 +626,77 @@ public sealed class TextGeometryTests
     }
 
     [Fact]
+    public void ABlankClickGoesToTheBodyNotToTheHeaderFooterOrNotes()
+    {
+        var parts = new Dictionary<string, string> { ["hD"] = HeaderPart(Line("HEADER")), ["fD"] = FooterPart(Line("FOOTER")) };
+        var section = Sect(Header("default", "hD") + Footer("default", "fD"), 612f, 400f, 72f);
+        var document = Document(Para(Text("body one") + FootnoteRef(2)) + PEnd("body two", section), parts, FootnotesPart(Footnote(2, "the note")));
+        var layout = Laid(document);
+        var lines = layout.Page(0).TextLines;
+        var header = lines.First(l => l.Story.Kind == StoryKind.HeaderFooter && l.Projection.Text == "HEADER");
+        var footer = lines.First(l => l.Story.Kind == StoryKind.HeaderFooter && l.Projection.Text == "FOOTER");
+        var note = lines.First(l => l.Story.Kind == StoryKind.Note);
+        var bodyLines = lines.Where(l => l.Story.Kind == StoryKind.Body).ToList();
+        Assert.Equal(2, bodyLines.Count);
+        var x = 100f;
+
+        // Blank space: the top margin above the header, the gap between the last body line and the notes, below the footer, the bottom margin.
+        Assert.True(header.Top > 5f);
+        foreach (var y in new[] { 1f, header.Top - 2f, bodyLines[1].Top + bodyLines[1].Height + 3f, footer.Top + footer.Height + 3f, 399f })
+        {
+            var hit = layout.HitTest(0, x, y)!.Value;
+            Assert.Equal(StoryKind.Body, hit.Position.Story.Kind);
+        }
+
+        // Near the footer but below the last body line: still the body.
+        Assert.Equal(StoryKind.Body, layout.HitTest(0, x, footer.Top - 1f)!.Value.Position.Story.Kind);
+
+        // Inside the height of a header, footer or note line the line is hit.
+        Assert.Equal(StoryKind.HeaderFooter, layout.HitTest(0, x, header.Top + (header.Height / 2f))!.Value.Position.Story.Kind);
+        Assert.Equal(footer.Paragraph, layout.HitTest(0, x, footer.Top + (footer.Height / 2f))!.Value.Position.Paragraph);
+        Assert.Equal(header.Paragraph, layout.HitTest(0, x, header.Top + (header.Height / 2f))!.Value.Position.Paragraph);
+        Assert.Equal(new StoryRef(StoryKind.Note, "2"), layout.HitTest(0, x, note.Top + (note.Height / 2f))!.Value.Position.Story);
+
+        // A page with no body line at all falls back to the nearest line.
+        var onlyNote = Document(Para(FootnoteRef(2)) + Sect(), footnotes: FootnotesPart(Footnote(2, "the note")));
+        var noteLayout = Laid(onlyNote);
+        Assert.NotNull(noteLayout.HitTest(0, x, 300f));
+    }
+
+    [Fact]
+    public async Task ReplaceModelPublishesPageOneWithTheParagraphsOfTheNewModel()
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(TestData.Root, "testdata", "write-corpus", "thesis", "thesis.docx"));
+        using var prefix = DocxFile.OpenPrefix(bytes, 64);
+        var layout = DocumentLayout.Create(prefix.Model, Fonts, new LayoutOptions());
+        layout.LayOutFirstPage();
+        Assert.True(layout.FirstPageIsFinal);
+        var prefixParagraphs = new HashSet<Paragraph>(prefix.Model.Body.Blocks.OfType<Paragraph>(), ReferenceEqualityComparer.Instance);
+
+        using var full = DocxFile.Open(bytes);
+        layout.ReplaceModel(full.Model);
+        await layout.LayOutRestAsync(null, TestContext.Current.CancellationToken);
+        var fullParagraphs = new HashSet<Paragraph>(full.Model.Body.Blocks.OfType<Paragraph>(), ReferenceEqualityComparer.Instance);
+
+        // Page 1 names no paragraph of the prefix model.
+        var pageOne = layout.Page(0).TextLines.Where(l => l.Story.Kind == StoryKind.Body).ToList();
+        Assert.NotEmpty(pageOne);
+        Assert.DoesNotContain(pageOne, l => prefixParagraphs.Contains(l.Paragraph));
+        var first = pageOne.First(l => fullParagraphs.Contains(l.Paragraph) && l.Projection.Text.Length > 3);
+        var position = new TextPosition(StoryRef.Body, first.Paragraph, 2);
+        Assert.NotNull(layout.Caret(position, 0));
+        Assert.Equal(3, layout.Move(position, CaretMove.Right, null, 0)!.Value.Offset);
+        Assert.NotNull(layout.HitTest(0, first.X + first.ContentLeft + 5f, first.Top + 1f));
+
+        // From the first paragraph of page 2 one step left leads to a paragraph of the FULL model.
+        var second = layout.Page(1).TextLines.First(l => l.Story.Kind == StoryKind.Body && l.Start == 0 && fullParagraphs.Contains(l.Paragraph));
+        var back = layout.Move(new TextPosition(StoryRef.Body, second.Paragraph, 0), CaretMove.Left, null, 1)!.Value;
+        Assert.Contains(back.Paragraph, fullParagraphs);
+        Assert.DoesNotContain(back.Paragraph, prefixParagraphs);
+        Assert.NotNull(layout.Caret(back, 0));
+    }
+
+    [Fact]
     public async Task EveryCorpusParagraphEndsWhereItsGlyphsEnd()
     {
         // The last line of a paragraph is forced to end at the projection length; this checks that it does not hide a wrong mapping: the end
