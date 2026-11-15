@@ -671,6 +671,139 @@ public sealed class ImeTests : IDisposable
         Assert.Equal(FirstText, TextOf(h, P(h, 0)));
     }
 
+    private static EditResult? InsertAt(EditSession session, Paragraph paragraph, int offset, string text) =>
+        session.Apply(ed => ed.InsertText(new TextRange(new TextPosition(StoryRef.Body, paragraph, offset), new TextPosition(StoryRef.Body, paragraph, offset)), text), 0);
+
+    // The state after a composition that an edit ended: nothing composing, the pages of the model, the platform asked to reset, one cancel in the log.
+    private static async Task AssertCancelledByEditAsync(ViewHarness h, TextInputMethodClient client, int resets, string log)
+    {
+        Assert.False(h.View.IsComposing);
+        Assert.Null(h.View.PreeditText);
+        Assert.Null(h.View.Runner.PageLayout.PreeditText);
+        LayoutEquals(h);
+        Assert.Equal(1, resets);
+        await Task.Delay(PageView.CommitWindow + TimeSpan.FromMilliseconds(250));
+        ViewHarness.Pump();
+        Assert.Equal(["preedit len=3", "cancel"], File.ReadAllLines(log, Encoding.UTF8));
+        Assert.Equal(h.View.CaretBarBounds!.Value, client.CursorRectangle);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditDuringACompositionCancelsItAndTheNextTextIsPlainTyping()
+    {
+        var log = Path.Combine(_folder, "edit.log");
+        using var h = await OpenWholeAsync(TwoParagraphs());
+        h.View.ImeLogPath = () => log;
+        var session = Place(h, P(h, 0), 10);
+        var client = Request(h);
+        var resets = 0;
+        client.ResetRequested += (_, _) => resets++;
+        client.SetPreeditText("かんじ");
+
+        InsertAt(session, P(h, 0), 0, "ZZ");
+
+        await AssertCancelledByEditAsync(h, client, resets, log);
+        Assert.Equal("ZZ" + FirstText, TextOf(h, P(h, 0)));
+        Assert.Equal(2, h.View.Caret!.Value.Offset);
+        Commit(h, "x");
+        Assert.Equal("ZZx" + FirstText, TextOf(h, P(h, 0)));
+        Assert.Equal(["preedit len=3", "cancel"], File.ReadAllLines(log, Encoding.UTF8));
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditThatReplacesTheParagraphDuringACompositionCancelsIt()
+    {
+        var log = Path.Combine(_folder, "split.log");
+        using var h = await OpenWholeAsync(TwoParagraphs());
+        h.View.ImeLogPath = () => log;
+        var session = Place(h, P(h, 0), 10);
+        var client = Request(h);
+        var resets = 0;
+        client.ResetRequested += (_, _) => resets++;
+        client.SetPreeditText("かんじ");
+        var old = P(h, 0);
+
+        // Enter at the start of the paragraph: the paragraph object is replaced.
+        session.Apply(ed => ed.SplitParagraph(new TextRange(new TextPosition(StoryRef.Body, old, 4), new TextPosition(StoryRef.Body, old, 4))), 0);
+
+        Assert.False(h.View.IsComposing);
+        Assert.Null(h.View.Runner.PageLayout.PreeditText);
+        Assert.Null(h.View.Runner.PageLayout.PreeditAt);
+        LayoutEquals(h);
+        Assert.Equal(1, resets);
+        Assert.DoesNotContain("かんじ", h.View.Runner.PageLayout.Page(0).Text, StringComparison.Ordinal);
+        Commit(h, "x");
+        Assert.Contains("x", TextOf(h, (Paragraph)h.View.Caret!.Value.Paragraph), StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public async Task AnUndoDuringACompositionCancelsIt()
+    {
+        using var h = await OpenWholeAsync(TwoParagraphs());
+        var session = Place(h, P(h, 0), 4);
+        var client = Request(h);
+        var resets = 0;
+        client.ResetRequested += (_, _) => resets++;
+        Commit(h, "ab");
+        client.SetPreeditText("かんじ");
+
+        session.Apply(ed => ed.History.Undo(), 0);
+
+        Assert.False(h.View.IsComposing);
+        Assert.Null(h.View.Runner.PageLayout.PreeditText);
+        LayoutEquals(h);
+        Assert.Equal(1, resets);
+        Assert.Equal(FirstText, TextOf(h, P(h, 0)));
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditFromTheSaveQueueDuringACompositionCancelsIt()
+    {
+        using var h = await OpenWholeAsync(TwoParagraphs());
+        var session = Place(h, P(h, 0), 10);
+        var client = Request(h);
+        var resets = 0;
+        client.ResetRequested += (_, _) => resets++;
+
+        var save = session.BeginSave();
+        client.SetPreeditText("かんじ");
+        InsertAt(session, P(h, 0), 0, "ZZ");
+        Assert.True(h.View.IsComposing);
+        save.Dispose();
+        ViewHarness.Pump();
+
+        Assert.False(h.View.IsComposing);
+        Assert.Null(h.View.Runner.PageLayout.PreeditText);
+        LayoutEquals(h);
+        Assert.Equal(1, resets);
+        Assert.Equal("ZZ" + FirstText, TextOf(h, P(h, 0)));
+    }
+
+    [AvaloniaFact]
+    public async Task TheCommitOfACompositionIsNotTurnedIntoACancel()
+    {
+        var log = Path.Combine(_folder, "commit.log");
+        using var h = await OpenWholeAsync(TwoParagraphs());
+        h.View.ImeLogPath = () => log;
+        var session = Place(h, P(h, 0), 4);
+        var client = Request(h);
+        var resets = 0;
+        client.ResetRequested += (_, _) => resets++;
+
+        client.SetPreeditText("かん");
+        Commit(h, "感");
+        client.SetPreeditText("じ");
+        client.SetPreeditText(null);
+        Commit(h, "字");
+        await Task.Delay(PageView.CommitWindow + TimeSpan.FromMilliseconds(250));
+        ViewHarness.Pump();
+
+        Assert.Equal(["preedit len=2", "commit len=1", "preedit len=1", "commit len=1"], File.ReadAllLines(log, Encoding.UTF8));
+        Assert.Equal(0, resets);
+        Assert.Equal("Body感字 text of the first paragraph.", TextOf(h, P(h, 0)));
+        Assert.Equal(1, session.Editor.History.UndoCount);
+    }
+
     [AvaloniaFact]
     public async Task ThePlatformSettingTheSelectionMovesTheCaretOfTheParagraph()
     {

@@ -96,9 +96,21 @@ public sealed partial class DocumentLayout
     // The pages after the preedit changed: laid out again like an edit of the paragraph, but nothing is counted in Stats.
     private void Show(StoryRef story, Paragraph paragraph, int throughPage)
     {
-        var change = story.Kind == StoryKind.Body && Find(_engine.Document.Body.Blocks, paragraph, 0) is var (container, index)
-            ? new BlockChange(story, container, index, 1, 1, [paragraph])
-            : new BlockChange(story, [], 0, 0, 0, []);
+        BlockChange change;
+        if (story.Kind != StoryKind.Body)
+        {
+            change = new BlockChange(story, [], 0, 0, 0, []);
+        }
+        else if (Find(_engine.Document.Body.Blocks, paragraph, 0) is { } found)
+        {
+            change = new BlockChange(story, found.Container, found.Index, 1, 1, [paragraph]);
+        }
+        else
+        {
+            // The paragraph is no longer in the model (an edit replaced it): the pages show the model's paragraphs, which never carried the preedit.
+            return;
+        }
+
         try
         {
             Refill(change, Math.Max(0, throughPage));

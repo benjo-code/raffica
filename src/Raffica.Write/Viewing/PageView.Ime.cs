@@ -41,6 +41,7 @@ internal sealed partial class PageView
     private WriteImeClient? _ime;
     private TextPosition? _composeAt;
     private int _composeCursor;
+    private int _composeRevision;
     private bool _awaitingCommit;
     private bool _endCheckPosted;
     private bool _settingImeSelection;
@@ -190,6 +191,7 @@ internal sealed partial class PageView
 
         _composeAt = at;
         _composeCursor = Math.Clamp(cursor ?? shown.Length, 0, shown.Length);
+        _composeRevision = _tab.Docx.Model.Edits.Revision;
         _awaitingCommit = false;
         _ime?.Log.Preedit(shown.Length);
         EnsureCurrent();
@@ -319,13 +321,27 @@ internal sealed partial class PageView
         }
     }
 
-    // The layout that held the preedit was replaced (the tab made it again): the composition on screen is gone, and so is the state.
+    // The composition on screen is no longer the composition of the view: the layout that held the preedit was replaced (it shows none), or its slot stands on another
+    // paragraph or offset than the view's record, or the model changed since the preedit was set. A preedit is never moved to follow an edit (offsets shift, paragraphs are
+    // cloned): it ends, the platform is asked to end its composition too, and the next text is plain typing at the caret.
     private void ForgetLostComposition()
     {
-        if (_composeAt is not null && _builtLayout?.PreeditText is null)
+        if (_composeAt is not { } at)
+        {
+            return;
+        }
+
+        if (_builtLayout?.PreeditAt is not { } shown)
         {
             _composeAt = null;
             _ime?.Log.Cancel();
+            return;
+        }
+
+        if (!ReferenceEquals(shown.Paragraph, at.Paragraph) || shown.Offset != at.Offset || shown.Story != at.Story
+            || _tab.Docx.Model.Edits.Revision != _composeRevision)
+        {
+            CancelComposition(requestReset: true);
         }
     }
 

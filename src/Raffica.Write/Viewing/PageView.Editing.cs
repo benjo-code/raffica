@@ -203,6 +203,7 @@ internal sealed partial class PageView
         }
 
         EnsureCurrent();
+        ForgetLostComposition();
         UpdateScrollBars();
         RestartBlink();
         EnsureCaretVisible();
