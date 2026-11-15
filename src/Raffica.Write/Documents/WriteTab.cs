@@ -1,5 +1,6 @@
 using Raffica.Shell.Frame;
 using Raffica.Write.Docx;
+using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Viewing;
 
@@ -18,6 +19,7 @@ internal sealed class WriteTab : IDisposable
     private DocxFile _docx;
     private DocumentLayout _layout;
     private LayoutRunner? _runner;
+    private EditSession? _editor;
     private readonly CancellationTokenSource _cancellation = new();
     private int _disposed;
 
@@ -71,6 +73,12 @@ internal sealed class WriteTab : IDisposable
     /// The background layout of the tab: made on first use, on the UI thread (it keeps that thread's dispatcher for its progress). Its page layout starts as <see cref="Layout"/>.
     /// </summary>
     public LayoutRunner Runner => _runner ??= new LayoutRunner(this);
+
+    /// <summary>The editing session of the tab; null until the first caret or key asked for it (<see cref="EnsureEditor"/>). Nothing of editing exists before that.</summary>
+    public EditSession? Editor => _editor;
+
+    /// <summary>Makes the editing session on first use (UI thread: it keeps that thread's dispatcher).</summary>
+    public EditSession EnsureEditor() => _editor ??= new EditSession(this);
 
     /// <summary>
     /// The whole file has been read: it replaces the prefix (which is disposed), and the pictures are read from its package from now on so the prefix bytes can go.
