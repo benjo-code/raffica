@@ -681,4 +681,52 @@ public sealed class IncrementalCoverageTests
         await layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(layout, model, label: "after 600 structural edits");
     }
+
+    [Fact]
+    public async Task AHeadingCarriedByKeepNextComesBackWhenItsBlockShrinks()
+    {
+        // The heading moves to page 1 because the long paragraph after it does not fit under it; the page start of page 1 is a carry of the heading itself.
+        // When the paragraph shrinks the heading fits on page 0 again, so the refill has to start at page 0, the page before the one the heading leads.
+        var body = PageTestKit.Numbered("filler {0}", 8) + PageTestKit.P("Heading", "<w:keepNext/>") + PageTestKit.P(PageTestKit.Repeat("lorem ipsum dolor sit amet ", 30)) + PageTestKit.Numbered("after {0}", 30) + PageTestKit.TallFor(10);
+        var model = LayoutModel.Document(body);
+        var layout = await LaidAsync(model);
+        Assert.DoesNotContain("Heading", layout.Page(0).Text);
+
+        var before = model.Body.Blocks[9].Clone();
+        model.Body.Blocks[9] = (Paragraph)LayoutModel.Document(PageTestKit.P("x")).Body.Blocks[0];
+        var refill = layout.ApplyEdit(new BlockChange(StoryRef.Body, model.Body.Blocks, 9, 1, 1, [before]), 2);
+
+        Assert.False(refill.Restarted);
+        Assert.Equal(0, refill.FirstPage);
+        await CheckAsync(layout, model, refill, LayoutMode.Pages, "heading comes back");
+        Assert.Contains("Heading", layout.Page(0).Text);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    [InlineData(8)]
+    public async Task AChainOfKeepNextBlocksIsWalkedBackThroughItsHeadPage(int chain)
+    {
+        // `chain` headings that keep with the next block, then a paragraph too long to follow them on page 0: the whole chain leads page 1. Shrinking the paragraph
+        // lets the chain come back to page 0.
+        var body = PageTestKit.Numbered("filler {0}", 8 - chain + 1);
+        for (var i = 0; i < chain; i++)
+        {
+            body += PageTestKit.P("Heading " + i.ToString(CultureInfo.InvariantCulture), "<w:keepNext/>");
+        }
+
+        var index = 8 - chain + 1 + chain;
+        body += PageTestKit.P(PageTestKit.Repeat("lorem ipsum dolor sit amet ", 30)) + PageTestKit.Numbered("after {0}", 30) + PageTestKit.TallFor(10);
+        var model = LayoutModel.Document(body);
+        var layout = await LaidAsync(model);
+        Assert.DoesNotContain("Heading 0", layout.Page(0).Text);
+
+        var before = model.Body.Blocks[index].Clone();
+        model.Body.Blocks[index] = (Paragraph)LayoutModel.Document(PageTestKit.P("x")).Body.Blocks[0];
+        var refill = layout.ApplyEdit(new BlockChange(StoryRef.Body, model.Body.Blocks, index, 1, 1, [before]), 2);
+
+        Assert.Equal(0, refill.FirstPage);
+        await CheckAsync(layout, model, refill, LayoutMode.Pages, "chain of " + chain);
+    }
 }

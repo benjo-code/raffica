@@ -604,8 +604,9 @@ public sealed partial class DocumentLayout
 
             if (record.Kind == PageStartKind.Carry)
             {
-                // The carried block must be an untouched block before the edit (its flow is kept as it was).
-                var at = IndexOf(flat, record.Start.Block!, firstFlat);
+                // The carried block must be an untouched block before the run of keep-with-next blocks that ends at the edit (its flow is kept as it was). A page
+                // that starts with a member of the run was started by the decision to move the run on, which the edit may reverse: the page before it is laid out again.
+                var at = IndexOf(flat, record.Start.Block!, target);
                 if (at < 0 || record.Start.SectionIndex >= sections.Count)
                 {
                     continue;
