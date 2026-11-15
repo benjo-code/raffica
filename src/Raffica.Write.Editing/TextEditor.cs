@@ -22,7 +22,7 @@ namespace Raffica.Write.Editing;
 /// of a paragraph that carries a section break (known limit: section structure is not an editing operation of this library); such a
 /// delete is refused like the boundary cases. Bookmark and comment anchors of paragraphs a delete removes move to the join point.
 /// </remarks>
-public sealed class TextEditor
+public sealed partial class TextEditor
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
