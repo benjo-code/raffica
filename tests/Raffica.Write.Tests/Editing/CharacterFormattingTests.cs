@@ -313,6 +313,69 @@ public sealed class CharacterFormattingTests
         Assert.Equal(before, Dump(P(doc)) + Dump(cell));
     }
 
+    private static string Tbl(string cellRun) => "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"3000\"/></w:tblGrid><w:tr><w:tc><w:p>" + cellRun + "</w:p></w:tc></w:tr></w:tbl>";
+
+    private static string DumpAll(IEnumerable<Block> blocks) => string.Join("/", blocks.Select(DumpBlock));
+
+    private static string DumpBlock(Block block) => block switch
+    {
+        Paragraph p => Dump(p),
+        ContentControlBlock c => "sdt(" + DumpAll(c.Content) + ")",
+        Table t => "tbl(" + string.Join(";", t.Rows.OfType<TableRow>().SelectMany(r => r.Items.OfType<TableCell>()).Select(c => DumpAll(c.Blocks))) + ")",
+        _ => block.GetType().Name,
+    };
+
+    private static void AcrossBlocks(string middle)
+    {
+        var (doc, editor) = Setup("<w:p>" + Run("abcd", "<w:b/>") + "</w:p>" + middle + "<w:p>" + Run("efgh", "<w:b/>") + "</w:p>");
+        var before = DumpAll(doc.Body.Blocks);
+        var all = new TextRange(At(P(doc), 0), At((Paragraph)doc.Body.Blocks[2], 4));
+
+        // Everything but the middle is bold: the toggle turns bold on for the middle, it does not turn it off for the outside.
+        var result = editor.ToggleCharacter(all, CharacterToggle.Bold);
+        Assert.Single(result.Changes);
+        Assert.Equal(3, result.Changes[0].Removed);
+        var on = DumpAll(doc.Body.Blocks);
+        Assert.Equal(before.Replace("[|", "[b|", StringComparison.Ordinal), on);
+
+        Assert.Equal(1, editor.History.UndoCount);
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(before, DumpAll(doc.Body.Blocks));
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(on, DumpAll(doc.Body.Blocks));
+
+        // All bold now: the next toggle turns it off everywhere.
+        var offResult = editor.ToggleCharacter(new TextRange(At(P(doc), 0), At((Paragraph)doc.Body.Blocks[2], 4)), CharacterToggle.Bold);
+        Assert.Single(offResult.Changes);
+        Assert.DoesNotContain("[b|", DumpAll(doc.Body.Blocks), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AToggleAcrossATableFormatsTheCellsAndUndoRestoresThem() =>
+        AcrossBlocks(Tbl(Run("cell")));
+
+    [Fact]
+    public void AToggleAcrossAContentControlFormatsItsContent() =>
+        AcrossBlocks("<w:sdt><w:sdtPr/><w:sdtContent><w:p>" + Run("ctl") + "</w:p></w:sdtContent></w:sdt>");
+
+    [Fact]
+    public void AMixedSelectionOfBodyAndCellsTurnsBoldOnEverywhere()
+    {
+        var (doc, editor) = Setup("<w:p>" + Run("ab", "<w:b/>") + "</w:p>" + Tbl(Run("cell")) + "<w:p>" + Run("cd", "<w:b/>") + "</w:p>");
+        editor.ToggleCharacter(new TextRange(At(P(doc), 0), At((Paragraph)doc.Body.Blocks[2], 2)), CharacterToggle.Bold);
+        Assert.Equal("[b|ab]/tbl([b|cell])/[b|cd]", DumpAll(doc.Body.Blocks));
+    }
+
+    [Fact]
+    public void AToggleAcrossANestedTableAndACellEdgeStaysRefused()
+    {
+        var (doc, editor) = Setup("<w:p>" + Run("ab") + "</w:p>" + Tbl(Run("cell")));
+        var cell = (Paragraph)((TableCell)((TableRow)((Table)doc.Body.Blocks[1]).Rows[0]).Items[0]).Blocks[0];
+        var before = DumpAll(doc.Body.Blocks);
+        Assert.Empty(editor.ToggleCharacter(new TextRange(At(P(doc), 0), At(cell, 2)), CharacterToggle.Bold).Changes);
+        Assert.Equal(before, DumpAll(doc.Body.Blocks));
+    }
+
     private static IEnumerable<Run> Flatten(Paragraph paragraph) => Flatten(paragraph.Inlines);
 
     private static IEnumerable<Run> Flatten(IEnumerable<Inline> inlines)

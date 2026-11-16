@@ -19,6 +19,9 @@ public enum CharacterToggle
 public sealed partial class TextEditor
 {
     // A constant, not the W field: static initializers of the two partial files have no defined order.
+    // Blocks nested deeper than this (tables in cells in controls ...) are left unformatted; the file hardening of 4.8 limits depth anyway.
+    private const int MaxNesting = 64;
+
     private const string WordNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
     private static readonly Dictionary<CharacterToggle, ToggleDefinition> s_toggles = new()
@@ -41,8 +44,8 @@ public sealed partial class TextEditor
     };
 
     /// <summary>
-    /// Sets or removes the properties on the runs the selection covers (hidden text and anything that is not part of a covered range stays as
-    /// it is). Runs are split at the edges and the touched runs and their neighbours are merged again where they are equal
+    /// Sets or removes the properties on the runs the selection covers (text that is not shown, such as deleted text, is never covered itself; inside a covered
+    /// run it follows the content before it, see <c>ResolveHidden</c>, and anything outside the range stays as it is). Runs are split at the edges and the touched runs and their neighbours are merged again where they are equal
     /// (<see cref="RunMerger"/>). A paragraph without text in the selection gets the change on its paragraph mark. A collapsed selection in
     /// a paragraph with text changes nothing. One history step; the caret is the end of the selection.
     /// </summary>
@@ -74,6 +77,8 @@ public sealed partial class TextEditor
                 ? target =>
                 {
                     target.Bag.Remove(definition.Name);
+
+                    // A paragraph mark's bag is only written back by Commit, and the effective format below reads the paragraph, so write it now.
                     target.Commit();
                     if (definition.Read(Effective(target, format)))
                     {
@@ -150,16 +155,20 @@ public sealed partial class TextEditor
         var owners = new List<IList<Inline>>();
         for (var i = span.FirstIndex; i <= span.LastIndex; i++)
         {
-            if (span.Container[i] is not Paragraph paragraph)
+            var block = span.Container[i];
+            if (block is Paragraph paragraph)
             {
-                continue;
+                var map = Map(span.Story, paragraph);
+                var length = map.Projection.Text.Length;
+                var start = i == span.FirstIndex ? Math.Clamp(span.FirstOffset, 0, length) : 0;
+                var end = i == span.LastIndex ? Math.Clamp(span.LastOffset, 0, length) : length;
+                CollectTargets(span.Story, map, start, end, targets, touched, owners);
             }
-
-            var map = Map(span.Story, paragraph);
-            var length = map.Projection.Text.Length;
-            var start = i == span.FirstIndex ? Math.Clamp(span.FirstOffset, 0, length) : 0;
-            var end = i == span.LastIndex ? Math.Clamp(span.LastOffset, 0, length) : length;
-            CollectTargets(span.Story, map, start, end, targets, touched, owners);
+            else
+            {
+                // A table or content control between the ends: all of its text is covered (the snapshot above holds the whole top-level block).
+                CollectWholeBlock(span.Story, block, targets, touched, owners, 0);
+            }
         }
 
         if (targets.Count == 0)
@@ -184,6 +193,67 @@ public sealed partial class TextEditor
         return result;
     }
 
+    // Every paragraph inside a table (rows, cells, nested tables) or a block content control, whole. Row items the model does not understand are kept as they are.
+    private void CollectWholeBlock(StoryRef story, Block block, List<CharTarget> targets, HashSet<Run> touched, List<IList<Inline>> owners, int depth)
+    {
+        if (depth > MaxNesting)
+        {
+            return;
+        }
+
+        switch (block)
+        {
+            case Paragraph paragraph:
+                var map = Map(story, paragraph);
+                CollectTargets(story, map, 0, map.Projection.Text.Length, targets, touched, owners);
+                break;
+            case ContentControlBlock control:
+                foreach (var inner in control.Content)
+                {
+                    CollectWholeBlock(story, inner, targets, touched, owners, depth + 1);
+                }
+
+                break;
+            case Table table:
+                foreach (var row in table.Rows)
+                {
+                    CollectWholeRowItem(story, row, targets, touched, owners, depth + 1);
+                }
+
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void CollectWholeRowItem(StoryRef story, RowItem item, List<CharTarget> targets, HashSet<Run> touched, List<IList<Inline>> owners, int depth)
+    {
+        if (depth > MaxNesting)
+        {
+            return;
+        }
+
+        switch (item)
+        {
+            case TableRow row:
+                foreach (var child in row.Items)
+                {
+                    CollectWholeRowItem(story, child, targets, touched, owners, depth + 1);
+                }
+
+                break;
+            case TableCell cell:
+                foreach (var inner in cell.Blocks)
+                {
+                    CollectWholeBlock(story, inner, targets, touched, owners, depth + 1);
+                }
+
+                break;
+            default:
+                break;
+        }
+    }
+
     // Applies changes to the characters [start, end) of a paragraph that was just edited (the typing format of an insert).
     private static void FormatRange(StoryRef story, ParagraphMap map, int start, int end, IReadOnlyList<PropertyChange> changes)
     {
@@ -204,6 +274,7 @@ public sealed partial class TextEditor
         MergeTouched(owners, touched);
     }
 
+    // Runs are split here, not with InlineSplitter: that one cuts the containers it passes through (it would split a hyperlink or a tracked-change wrapper in two).
     // Splits the runs at the edges of [start, end) and adds a target for every run that is covered (for a paragraph without text, its mark).
     private static void CollectTargets(StoryRef story, ParagraphMap map, int start, int end, List<CharTarget> targets, HashSet<Run> touched, List<IList<Inline>> owners)
     {
