@@ -100,6 +100,25 @@ public sealed class RealEditorOracleTests
         }
     }
 
+    [Fact]
+    public void TheCorpusHasTablesAndContentControlsFormattingCanReachInto()
+    {
+        var withTable = new List<string>();
+        var withControl = new List<string>();
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var file = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
+            var blocks = file.Model.Body.Blocks;
+            foreach (var i in FormattingSteps.ReachingCandidates(file.Model))
+            {
+                (blocks[i] is Table ? withTable : withControl).Add(entry.Id);
+            }
+        }
+
+        Assert.NotEmpty(withTable);
+        Assert.NotEmpty(withControl);
+    }
+
     [Theory]
     [MemberData(nameof(Cases))]
     public async Task RealEditorOperationsStayEqualToFullLayoutAndSurviveASave(string id, LayoutMode mode)
@@ -264,6 +283,18 @@ public sealed class RealEditorOracleTests
             await layout.LayOutRestAsync(null, token);
             LayoutOracle.AssertEqualToFull(layout, model, options, label);
         }
+
+        // The forced formatting steps: a toggle, an alignment, a paragraph style, update style (with undo and redo) and formatting that reaches into tables and content controls.
+        var formatting = new FormattingSteps(model, layout, options);
+        var formatRandom = new Random(unchecked(seed * 31 + 17));
+        for (var kind = 0; kind < FormattingSteps.Kinds; kind++)
+        {
+            await formatting.RunAsync(kind, formatRandom, $"{id} {mode} seed {seed} formatting kind {kind}");
+        }
+
+        Assert.True(formatting.Compared > 0, $"{id} {mode} seed {seed}: no formatting step changed anything");
+        Assert.True(FormattingSteps.ReachingCandidates(model).Count == 0 || formatting.ReachedInto > 0, $"{id} {mode} seed {seed}: no formatting step reached into a table or content control");
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: formatting steps {formatting.Compared}, restyles {formatting.Restyles}, reached into {formatting.ReachedInto}");
 
         if (hadControls)
         {

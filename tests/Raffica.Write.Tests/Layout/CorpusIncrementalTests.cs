@@ -196,7 +196,16 @@ public sealed class CorpusIncrementalTests
         Assert.True(headers.Count == 0 || ran["header"] > 0, "no header or footer edit ran: " + mix);
         Assert.True(notes.Count == 0 || ran["note"] > 0, "no note edit ran: " + mix);
         Assert.True(!hasSectionBreak || ran["section"] > 0, "no section-break paragraph edit ran: " + mix);
-        TestContext.Current.SendDiagnosticMessage(mix + $", chrome only {layout.Stats.ChromeOnly}");
+
+        // Formatting: a fixed set of steps (one of each kind, not a multiplier of the edits) by the real editor on the same model, each compared with a full layout.
+        var formatting = new FormattingSteps(model, layout, new LayoutOptions(mode));
+        var formatRandom = new Random(unchecked(seed * 31 + 17));
+        for (var kind = 0; kind < FormattingSteps.Kinds; kind++)
+        {
+            await formatting.RunAsync(kind, formatRandom, $"{id} {mode} seed {seed} formatting kind {kind}");
+        }
+
+        TestContext.Current.SendDiagnosticMessage(mix + $", chrome only {layout.Stats.ChromeOnly}, formatting steps {formatting.Compared}, restyles {formatting.Restyles}, reached into {formatting.ReachedInto}");
     }
 
     [Fact]
