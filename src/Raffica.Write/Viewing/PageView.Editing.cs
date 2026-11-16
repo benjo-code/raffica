@@ -156,6 +156,7 @@ internal sealed partial class PageView
         if (_session is { } session)
         {
             session.Changed -= OnEditChanged;
+            session.InputDropped -= OnInputDropped;
             _session = null;
         }
 
@@ -188,11 +189,16 @@ internal sealed partial class PageView
         if (_session is not null)
         {
             _session.Changed -= OnEditChanged;
+            _session.InputDropped -= OnInputDropped;
         }
 
         _session = session;
         session.Changed += OnEditChanged;
+        session.InputDropped += OnInputDropped;
     }
+
+    // Input that a save queued was not replayed: the same hint as for a refused key says why.
+    private void OnInputDropped(EditBlockedReason reason) => InputRefused?.Invoke(reason);
 
     // The session says the document or the selection changed (an edit, a replayed pointer selection): the pages may have changed, the caret is solid and in view.
     private void OnEditChanged()

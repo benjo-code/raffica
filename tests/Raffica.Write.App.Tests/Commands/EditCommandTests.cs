@@ -684,11 +684,24 @@ public sealed class EditCommandTests : IDisposable
         }
     }
 
+    // The editor's own refusal before it changed anything (a stale position): an ArgumentException is the one failure that is only a refusal.
     private sealed class RefusingCodec : IFragmentCodec
     {
         public byte[] Write(IReadOnlyList<Paragraph> paragraphs) => [1];
 
-        public IReadOnlyList<Paragraph> Read(ReadOnlySpan<byte> bytes) => throw new InvalidOperationException("refused before any change");
+        public IReadOnlyList<Paragraph> Read(ReadOnlySpan<byte> bytes) => throw new ArgumentException("refused before any change");
+    }
+
+    // Changes the model and fails before the revision is raised: model, history and layout now disagree and nothing records it.
+    private sealed class SilentMutatingCodec(WordDocument model) : IFragmentCodec
+    {
+        public byte[] Write(IReadOnlyList<Paragraph> paragraphs) => [1];
+
+        public IReadOnlyList<Paragraph> Read(ReadOnlySpan<byte> bytes)
+        {
+            model.Body.Blocks.Add(new Paragraph());
+            throw new InvalidOperationException("failed between the change and the revision");
+        }
     }
 
     [AvaloniaFact]
@@ -723,6 +736,59 @@ public sealed class EditCommandTests : IDisposable
         Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
         Assert.NotNull(h.View.Runner.Fault);
         Assert.Contains(EditBlockedReason.Faulted, refused);
+    }
+
+    [AvaloniaFact]
+    public async Task AFailureBetweenTheChangeAndTheRevisionFaultsTheSession()
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Start</w:t></w:r>"));
+        var refused = new List<EditBlockedReason>();
+        h.View.InputRefused += refused.Add;
+        h.View.EditClipboard = new FakeClipboard { Content = new ClipboardContent("x", [1, 2, 3], "x", "document") };
+        var session = Place(h, P(h, 0), 5);
+        var model = h.View.Tab.Docx.Model;
+        h.View.ApplyOperation(ed =>
+        {
+            ed.FragmentCodec = new SilentMutatingCodec(model);
+            return null;
+        });
+
+        await h.View.RunEditCommandAsync(WriteCommandIds.Paste);
+
+        // The revision did not move, yet the model has a block it did not have: the session is faulted, not left to type on.
+        Assert.Equal(0, model.Edits.Revision);
+        Assert.Equal(2, model.Body.Blocks.Count);
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.NotNull(h.View.Runner.Fault);
+        Assert.Contains(EditBlockedReason.Faulted, refused);
+    }
+
+    [AvaloniaFact]
+    public async Task InputDroppedAtTheEndOfASaveReachesTheHintPathOfTheView()
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Start</w:t></w:r>"));
+        var refused = new List<EditBlockedReason>();
+        h.View.InputRefused += refused.Add;
+        var session = Place(h, P(h, 0), 5);
+        h.View.ApplyOperation(_ => null); // the view listens to the session from its first operation on
+        var save = session.BeginSave();
+        Assert.Null(session.Apply(ed => ed.InsertText(session.Selection!.Value, "a"), 0));
+        h.View.Runner.FailEdit(new InvalidOperationException("an edit failed during the save"));
+
+        save.Dispose();
+
+        Assert.Equal([EditBlockedReason.Faulted], refused);
+    }
+
+    [AvaloniaFact]
+    public async Task AnExceptionThatIsNotTheEditorsOwnRefusalFaultsEvenBeforeAnyChange()
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Start</w:t></w:r>"));
+        var session = Place(h, P(h, 0), 5);
+
+        h.View.ApplyOperation(_ => throw new InvalidOperationException("a bug in an operation"));
+
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
     }
 
     [AvaloniaFact]

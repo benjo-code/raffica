@@ -78,6 +78,21 @@ internal sealed class EditSession
     /// <summary>Raised on the UI thread once after an operation that changed the document or the selection (not for a refused one), after the lease ended.</summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Raised on the UI thread, once per replayed batch, when input that a save queued was not (fully) replayed and the user must hear of it: the session could no longer
+    /// edit when the save ended (the reason says why), or a replayed operation failed and faulted the session (<see cref="EditBlockedReason.Faulted"/>). The operations that were
+    /// not replayed are counted in <see cref="DroppedWhileSaving"/>. A stale-position refusal of one operation is only skipped and raises nothing.
+    /// </summary>
+    public event Action<EditBlockedReason>? InputDropped;
+
+    /// <summary>
+    /// Whether an exception of an operation must fault the session: anything but the editor's own refusal of a stale position (an <see cref="ArgumentException"/> thrown before it changed
+    /// anything). The operation can fail between its change and the raising of the revision, so a revision that did not move proves nothing about the model when the exception is of
+    /// another kind; with an <see cref="ArgumentException"/> the revision must not have moved either. The key path, the command path and the replay of a save's queue use this one rule.
+    /// </summary>
+    internal bool MustFault(Exception exception, int revisionBefore) =>
+        exception is not ArgumentException || _tab.Docx.Model.Edits.Revision != revisionBefore;
+
     /// <summary>Why editing is not possible now; null when it is. Faulted wins over StillOpening, which wins over Saving.</summary>
     public EditBlockedReason? BlockedReason
     {
@@ -281,18 +296,48 @@ internal sealed class EditSession
 
         var batch = _queue.ToArray();
         _queue.Clear();
-        if (BlockedReason is not null)
+        if (BlockedReason is { } blocked)
         {
+            // Nothing can be replayed (the session failed during the save, or the model is no longer whole): the input is dropped, counted, and the user is told.
+            Interlocked.Add(ref _dropped, batch.Length);
+            InputDropped?.Invoke(blocked);
             return;
         }
 
         var changed = false;
+        EditBlockedReason? dropped = null;
         try
         {
             using var lease = _tab.Runner.PauseForEdit();
-            foreach (var (operation, throughPage, _) in batch)
+            for (var i = 0; i < batch.Length; i++)
             {
-                Run(operation, throughPage, ref changed);
+                var revision = _tab.Docx.Model.Edits.Revision;
+                try
+                {
+                    Run(batch[i].Operation, batch[i].ThroughPage, ref changed);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    var runner = _tab.Runner;
+                    if (BlockedReason != EditBlockedReason.Faulted)
+                    {
+                        if (!MustFault(ex, revision))
+                        {
+                            // The editor refused a stale position before changing anything: this one operation is lost, the rest still run.
+                            Interlocked.Increment(ref _dropped);
+                            continue;
+                        }
+
+                        runner.FailEdit(ex);
+                        DropOther(runner);
+                    }
+
+                    // The session is faulted (by the layout inside Run, or just now): the failed operation and the rest of the batch are not replayed.
+                    Interlocked.Add(ref _dropped, batch.Length - i);
+                    changed = true;
+                    dropped = EditBlockedReason.Faulted;
+                    break;
+                }
             }
         }
         finally
@@ -301,6 +346,11 @@ internal sealed class EditSession
             {
                 Changed?.Invoke();
             }
+        }
+
+        if (dropped is { } reason)
+        {
+            InputDropped?.Invoke(reason);
         }
     }
 

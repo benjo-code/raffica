@@ -232,6 +232,68 @@ public sealed class EditSessionTests
     }
 
     [AvaloniaFact]
+    public async Task InputQueuedByASaveThatEndsOnAFaultedSessionIsReportedAndCounted()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var session = tab.EnsureEditor();
+        var dropped = new List<EditBlockedReason>();
+        session.InputDropped += dropped.Add;
+        var save = session.BeginSave();
+        Assert.Null(session.Apply(Type(session, "a"), 0));
+        Assert.Null(session.Apply(Type(session, "b"), 0));
+        tab.Runner.FailEdit(new InvalidOperationException("an edit failed during the save"));
+
+        save.Dispose();
+
+        // The session is no longer editable: nothing was replayed, the user is told once, and the two operations are counted.
+        Assert.Equal([EditBlockedReason.Faulted], dropped);
+        Assert.Equal(2, session.DroppedWhileSaving);
+        Assert.Equal(0, session.PendingCount);
+    }
+
+    [AvaloniaFact]
+    public async Task AReplayedOperationThatFailsFaultsTheSessionOnceAndTheRestOfTheBatchIsCounted()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var session = tab.EnsureEditor();
+        var dropped = new List<EditBlockedReason>();
+        session.InputDropped += dropped.Add;
+        var ran = new List<string>();
+        var save = session.BeginSave();
+        Assert.Null(session.Apply(ed => { ran.Add("first"); return Type(session, "a")(ed); }, 0));
+        Assert.Null(session.Apply(_ => throw new InvalidOperationException("a bug in a queued operation"), 0));
+        Assert.Null(session.Apply(ed => { ran.Add("third"); return Type(session, "c")(ed); }, 0));
+
+        save.Dispose();
+
+        Assert.Equal(["first"], ran);
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.NotNull(tab.Runner.Fault);
+        Assert.Equal([EditBlockedReason.Faulted], dropped);
+        Assert.Equal(2, session.DroppedWhileSaving);
+        Assert.Equal(0, session.PendingCount);
+    }
+
+    [AvaloniaFact]
+    public async Task AReplayedOperationThatOnlyRefusesAStalePositionIsSkippedAndTheBatchGoesOn()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var session = tab.EnsureEditor();
+        var dropped = new List<EditBlockedReason>();
+        session.InputDropped += dropped.Add;
+        var save = session.BeginSave();
+        Assert.Null(session.Apply(_ => throw new ArgumentException("the paragraph is not in the story of the position"), 0));
+        Assert.Null(session.Apply(Type(session, "Q7z "), 0));
+
+        save.Dispose();
+
+        Assert.Null(session.BlockedReason);
+        Assert.Empty(dropped);
+        Assert.Equal(1, session.DroppedWhileSaving);
+        Assert.Contains("Q7z ", Text(tab.Runner.PageLayout, 0), StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
     public async Task TheQueueOfASaveIsBounded()
     {
         using var tab = await OpenWholeAsync(WindowFixture.Poi);
