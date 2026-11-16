@@ -458,7 +458,8 @@ internal sealed class EditSession
 
         // The model has changed now: whatever happens next, the view must hear of it.
         changed = true;
-        MoveSelection(new TextRange(result.Caret, result.Caret), typing);
+        // A formatting operation changes no text: the selection that was there stays (a toggle pressed twice must see the same selection twice).
+        MoveSelection(result.KeepSelection && _selection is { } kept ? kept : new TextRange(result.Caret, result.Caret), typing);
         if (styled)
         {
             // The style sheet changed (a style step, or an undo or redo that carries one): the editor's resolver snapshots the styles and is made again.

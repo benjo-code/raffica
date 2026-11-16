@@ -100,6 +100,37 @@ public sealed partial class TextEditor
     }
 
     /// <summary>
+    /// Whether the switch is on at a caret, judged on the effective formatting of the character before it (the one after it at the start of a paragraph, the paragraph mark in a paragraph
+    /// without text): the formatting that text typed there would take. Reads only.
+    /// </summary>
+    /// <exception cref="StalePositionException">The paragraph is not in its story.</exception>
+    /// <exception cref="InvalidOperationException">The editor was made without an <see cref="IEffectiveFormat"/>.</exception>
+    public bool IsToggleOn(TextPosition caret, CharacterToggle toggle)
+    {
+        var format = _format ?? throw new InvalidOperationException("Reading a character format needs an IEffectiveFormat; the editor was made without one.");
+        Locate(caret);
+        var map = Map(caret.Story, caret.Paragraph);
+        var length = map.Projection.Text.Length;
+        Run? run = null;
+        if (length > 0)
+        {
+            var offset = Math.Clamp(caret.Offset, 0, length);
+            run = map.Projection.Pieces.FirstOrDefault(p => p.Length > 0 && p.Run is not null && p.Start < offset && offset <= p.End)?.Run
+                ?? map.Projection.Pieces.FirstOrDefault(p => p.Length > 0 && p.Run is not null && p.Start <= offset && offset < p.End)?.Run;
+        }
+
+        return s_toggles[toggle].Read(Effective(new CharTarget(caret.Story, caret.Paragraph, run), format));
+    }
+
+    /// <summary>Whether the paragraph of a position has no text (its paragraph mark then decides the line height, and a character command formats the mark).</summary>
+    /// <exception cref="StalePositionException">The paragraph is not in its story.</exception>
+    public bool IsEmptyParagraph(TextPosition position)
+    {
+        Locate(position);
+        return Map(position.Story, position.Paragraph).Projection.Text.Length == 0;
+    }
+
+    /// <summary>
     /// <see cref="InsertText(TextRange, string)"/> where the new text also carries <paramref name="typingFormat"/>: the text first joins the
     /// neighbouring run as usual (so it has that run's properties), then the changes are applied to exactly the new characters and equal
     /// neighbours merge back. A text with a line break takes no typing format.
@@ -192,7 +223,8 @@ public sealed partial class TextEditor
         var count = span.LastIndex - span.FirstIndex + 1;
         var result = new EditResult(
             new TextPosition(span.Story, span.Last, span.LastOffset),
-            [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)]);
+            [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)],
+            KeepSelection: true);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
     }

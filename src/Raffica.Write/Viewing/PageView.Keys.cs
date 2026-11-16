@@ -36,6 +36,9 @@ internal sealed partial class PageView
     /// </summary>
     internal Func<string, bool>? EditCommandHandler { get; set; }
 
+    /// <summary>Runs a formatting command for a key (Ctrl+B ...); the window sets it to check its rules first. Null (the default, and in tests of the view alone): the view runs the command itself.</summary>
+    internal Func<string, bool>? FormatKeyHandler { get; set; }
+
     /// <summary>Raised when typing or an editing key was refused because only a prefix is open or editing failed; the window shows the hint. Never raised for a save (input is queued then).</summary>
     internal event Action<EditBlockedReason>? InputRefused;
 
@@ -132,7 +135,18 @@ internal sealed partial class PageView
 
         if (EditingKeys.For(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } action)
         {
-            return false;
+            // A formatting key (Ctrl+B ...) is claimed and runs once: a held key does not toggle again and again; a key the rules of the window refuse does nothing.
+            if (EditingKeys.FormatCommandFor(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } format)
+            {
+                return false;
+            }
+
+            if (!repeat)
+            {
+                _ = FormatKeyHandler is { } handler ? handler(format) : RunFormatCommand(format);
+            }
+
+            return true;
         }
 
         if (repeat && !action.AllowsRepeat)

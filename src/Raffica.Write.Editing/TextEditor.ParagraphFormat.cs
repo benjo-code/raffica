@@ -64,7 +64,8 @@ public sealed partial class TextEditor
         var count = span.LastIndex - span.FirstIndex + 1;
         var result = new EditResult(
             new TextPosition(span.Story, span.Last, span.LastOffset),
-            [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)]);
+            [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)],
+            KeepSelection: true);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
     }

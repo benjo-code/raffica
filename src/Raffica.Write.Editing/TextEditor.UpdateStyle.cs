@@ -55,7 +55,8 @@ public sealed partial class TextEditor
         var result = new EditResult(
             new TextPosition(span.Story, span.Last, span.LastOffset),
             [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)],
-            Style: change);
+            Style: change,
+            KeepSelection: true);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
     }

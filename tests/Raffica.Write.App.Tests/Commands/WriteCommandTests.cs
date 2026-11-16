@@ -389,8 +389,8 @@ public sealed class WriteCommandTests
         var commands = RibbonCommands(window).ToDictionary(c => c.Id);
         // A fresh document has no selection, no history and no change: undo, redo, cut, copy and Save wait (with their reasons); paste, select all, Save as and every other command are on.
         string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save];
-        // The formatting commands and the Formatting pane switch have no action yet (the key handling, the pickers and the pane wire them in the later steps of 4.3b): they stay off until then.
-        Assert.All(commands.Values.Where(c => !waiting.Contains(c.Id) && !WriteCommandIds.IsFormatting(c.Id) && c.Id != WriteCommandIds.FormattingPane), c => Assert.True(c.IsEnabled, c.Id));
+        // Every formatting command without a value runs from the ribbon now. Still off, with no action behind them: the value commands (their pickers, Task 11 of 4.3b, call RunCommand(id, payload)) and the Formatting pane switch (Task 12).
+        Assert.All(commands.Values.Where(c => !waiting.Contains(c.Id) && !WriteCommandIds.TakesPayload(c.Id) && c.Id != WriteCommandIds.FormattingPane), c => Assert.True(c.IsEnabled, c.Id));
         Assert.All(commands.Values.Where(c => waiting.Contains(c.Id)), c => Assert.False(c.IsEnabled || string.IsNullOrEmpty(c.CurrentDisabledReason), c.Id));
 
         commands[WriteCommandIds.WritingView].Run!();

@@ -1,4 +1,5 @@
 using Avalonia.Input;
+using Raffica.Write.Commands;
 using Raffica.Write.Layout;
 
 namespace Raffica.Write.Editing;
@@ -228,7 +229,25 @@ internal static class EditingKeys
     /// (on macOS the key text of Option with an arrow or Backspace can be a private-use character).
     /// </summary>
     public static bool IsTextInput(Key key, KeyModifiers modifiers, string? text, bool macOs) =>
-        IsTextInput(modifiers, text, macOs) && For(key, modifiers, macOs) is null;
+        IsTextInput(modifiers, text, macOs) && For(key, modifiers, macOs) is null && FormatCommandFor(key, modifiers, macOs) is null;
+
+    /// <summary>
+    /// The formatting command (<see cref="WriteCommandIds.IsFormatting"/>) a key press stands for, or null: the command key (Ctrl, Cmd on macOS) with B, I, U, E, L, R or J, as the catalog says (the page view owns
+    /// these keys, the window never matches them). The command key must be the only modifier: AltGr (Ctrl and Alt together on Windows) is text, never a shortcut, and Ctrl on macOS is no command key.
+    /// </summary>
+    public static string? FormatCommandFor(Key key, KeyModifiers modifiers, bool macOs)
+    {
+        var command = macOs ? KeyModifiers.Meta : KeyModifiers.Control;
+        foreach (var candidate in WriteCommandCatalog.Commands)
+        {
+            if (WriteCommandIds.IsFormatting(candidate.Id) && candidate.ShortcutFor(macOs) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            {
+                return candidate.Id;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>The rule of <see cref="IsTextInput(KeyEventArgs, string?)"/> for given modifiers and system.</summary>
     public static bool IsTextInput(KeyModifiers modifiers, string? text, bool macOs)

@@ -39,6 +39,7 @@ internal sealed partial class WriteWindow
     {
         _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active));
         _actions = CreateActions();
+        AddFormatActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
         TitleSearch.Source = definition;
@@ -69,6 +70,38 @@ internal sealed partial class WriteWindow
         [WriteCommandIds.Paste] = () => RunEditFromUi(WriteCommandIds.Paste),
         [WriteCommandIds.SelectAll] = () => RunEditFromUi(WriteCommandIds.SelectAll),
     };
+
+    // The formatting commands: those without a value are ribbon actions; the value commands (see CatalogCommand.TakesPayload) get no ribbon action of their own (their pickers call RunCommand(id, payload) with the value).
+    private void AddFormatActions()
+    {
+        foreach (var command in WriteCommandCatalog.Commands.Where(c => WriteCommandIds.IsFormatting(c.Id)))
+        {
+            var id = command.Id;
+            if (command.TakesPayload)
+            {
+                _payloadActions[id] = payload => RunFormatFromUi(id, payload);
+            }
+            else
+            {
+                _actions[id] = () => RunFormatFromUi(id, null);
+            }
+        }
+    }
+
+    // The ribbon, the command search and the menu run a formatting command on the active view (see RunEditFromUi: the view takes the focus back).
+    private void RunFormatFromUi(string id, object? payload)
+    {
+        if (ActiveView is not { } view)
+        {
+            return;
+        }
+
+        view.RunFormatCommand(id, payload);
+        if (!view.IsFocused)
+        {
+            view.Focus();
+        }
+    }
 
     // Whether a switch of the ribbon is on: the view in force and the zoom mode of the active tab.
     private bool IsCommandOn(string id)
@@ -155,6 +188,7 @@ internal sealed partial class WriteWindow
         };
         // The keys of the page view run the command on the view that has the focus and the rules decide (no focus change: the view has it).
         view.EditCommandHandler = id => _rules.Allows(id) && view.RunEditCommand(id);
+        view.FormatKeyHandler = id => _rules.Allows(id) && view.RunFormatCommand(id);
         view.SelectionStateChanged += () =>
         {
             if (ReferenceEquals(ActiveView, view))
