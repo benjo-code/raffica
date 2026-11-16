@@ -189,4 +189,42 @@ public sealed class FormatFactsCacheTests
         Assert.True(first < FirstRefreshBudget, $"first refresh {first} ms");
         Assert.True(repeated < RepeatedRefreshBudget, $"20 refreshes {repeated} ms");
     }
+
+    // The last blocks of the thesis: the story walk of the format must not grow with the position of the selection. The read counters are the guard; the bound is generous (the read took 510 ms on the UI thread of the reviewer's probe
+    // for the last 200 blocks while every paragraph still walked the story from its start, and takes about 120 ms with the cell index, JIT included; 1273 ms before).
+    [AvaloniaFact]
+    public async Task TheLastBlocksOfTheThesisAreReadOnceAndTheReadIsTimed()
+    {
+        using var tab = await OpenWholeAsync();
+        var session = tab.EnsureEditor();
+        _ = session.Editor;
+        var rules = RulesOf(tab);
+        var blocks = tab.Docx.Model.Body.Blocks;
+        var tail = blocks.Skip(blocks.Count - TextEditor.MaxFactBlocks).ToList();
+        var first = tail.OfType<Paragraph>().First();
+        var last = tail.OfType<Paragraph>().Last();
+        var range = new TextRange(
+            new TextPosition(StoryRef.Body, first, 0),
+            new TextPosition(StoryRef.Body, last, ParagraphProjection.Build(last, ProjectionHost.Plain).Text.Length));
+        session.SetSelection(range);
+
+        var timer = Stopwatch.StartNew();
+        var shown = session.ReadSelectionFormat(range);
+        Refresh(rules);
+        var firstRead = timer.ElapsedMilliseconds;
+        timer.Restart();
+        for (var i = 0; i < 20; i++)
+        {
+            _ = session.ReadSelectionFormat(range);
+            Refresh(rules);
+        }
+
+        var repeated = timer.ElapsedMilliseconds;
+        TestContext.Current.SendDiagnosticMessage($"the last {TextEditor.MaxFactBlocks} blocks of the thesis: first read {firstRead} ms, 20 further reads {repeated} ms, format reads {session.FormatReads}, fact reads {session.FactReads}");
+        Assert.False(shown.Truncated);
+        Assert.Equal(1, session.FormatReads);
+        Assert.Equal(1, session.FactReads);
+        Assert.True(firstRead < 1000, $"first read {firstRead} ms");
+        Assert.True(repeated < RepeatedRefreshBudget, $"20 reads {repeated} ms");
+    }
 }
