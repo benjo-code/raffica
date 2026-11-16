@@ -95,7 +95,17 @@ internal sealed partial class PageView
             LogCommit(text.Length);
         }
 
-        ApplyKey(session => ed => session.Selection is { } selection ? ed.InsertText(selection, text) : null);
+        // A pending format goes into typed text only: an input method commit never takes one (it is stale by then) and ends it.
+        if (commit)
+        {
+            _tab.Editor?.Pending.Clear();
+        }
+
+        ApplyKey(
+            session => ed => session.Selection is not { } selection
+                ? null
+                : session.Pending.Changes is { Count: > 0 } pending && !commit ? ed.InsertText(selection, text, pending) : ed.InsertText(selection, text),
+            typing: !commit);
     }
 
     // The key handler of the editing keys with a net under it: a failure of a caret move or of anything else in it is a bug (Debug rethrows it, Release claims the key and traces the type).
@@ -201,7 +211,7 @@ internal sealed partial class PageView
     /// One edit of the session for one key. The session is made on first use (the whole model must be there, checked here); the edit itself goes through <see cref="ApplyGuarded"/>,
     /// the one place that decides what a failure means (shared with the commands of undo, redo and the clipboard).
     /// </summary>
-    private void ApplyKey(Func<EditSession, Func<TextEditor, EditResult?>> operation)
+    private void ApplyKey(Func<EditSession, Func<TextEditor, EditResult?>> operation, bool typing = false)
     {
         if (BlockReason() is { } reason and not EditBlockedReason.Saving)
         {
@@ -214,7 +224,7 @@ internal sealed partial class PageView
         SyncActiveMode();
         ResetAffinity();
         _goalFor = null;
-        ApplyGuarded(session, operation(session));
+        ApplyGuarded(session, operation(session), typing);
     }
 
     /// <summary>
@@ -224,11 +234,11 @@ internal sealed partial class PageView
     /// (it checks positions before it changes anything, so model, history and layout are as they were: the operation is refused). That refusal is a bug and no state of the document: a Debug build rethrows it, a Release build refuses silently and traces only the exception type (no message, no stack, no text). Write has
     /// no crash guard yet (shared crash handling is a later milestone). Returns the result of the operation, or null when it was refused, queued, blocked or failed.
     /// </summary>
-    private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation)
+    private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation, bool typing = false)
     {
         try
         {
-            return session.Apply(operation, ThroughPage());
+            return session.Apply(operation, ThroughPage(), typing: typing);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
