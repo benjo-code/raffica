@@ -101,7 +101,7 @@ internal sealed partial class App : Application
         var options = files is null ? _options : _options.WithFiles(files);
         _settingsSource ??= new WindowSettingsSource<WriteSettings>(AppFiles.Write, _options.SettingsFile, _settings, _appSettings, file => new WriteSettingsStore(AppFiles.Write.AppSettingsPathFor(file)).Load());
         var (settings, appSettings) = _settingsSource.Next();
-        var window = new WriteWindow(options, settings, appSettings, _work);
+        var window = new WriteWindow(options, settings, appSettings, _work, deferRibbon: true);
         if (_menusOnWindows)
         {
             WriteMacMenu.Attach(window, window);

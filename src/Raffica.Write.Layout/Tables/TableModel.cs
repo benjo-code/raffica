@@ -209,15 +209,11 @@ internal sealed class TableModel
     public int Depth { get; set; }
 }
 
-/// <summary>Reads a <c>w:tbl</c> into a <see cref="TablePlan"/>: structure, formats and the plans of the cell blocks; nothing is laid out.</summary>
-internal static class TableReader
+/// <summary>The rows, cells and grid positions of a table as the layout reads them: the one place these rules live, shared by the planner and by the editor's effective-format lookup.</summary>
+internal sealed record TableGeometry(List<(TableRow? Row, List<TableCell?> Cells)> Rows, List<float> Grid, int Columns, List<int[]> Starts, List<int[]> Spans)
 {
-    public static TablePlan Read(BlockPlanner planner, Table table, int bodyIndex, int depth)
+    public static TableGeometry Of(Table table)
     {
-        var styles = planner.Styles;
-        var resolved = styles.ForTable(table);
-        var model = new TableModel { Depth = depth };
-
         // A null row stands for an element the model keeps as unknown between the rows (an sdt around rows); a null cell for one between
         // the cells. Both are shown as a marked box, never left out.
         var rows = new List<(TableRow? Row, List<TableCell?> Cells)>();
@@ -298,6 +294,31 @@ internal static class TableReader
             grid.Add(0f);
         }
 
+        return new TableGeometry(rows, grid, columns, starts, spans);
+    }
+
+    private static readonly HashSet<string> s_marks = new(StringComparer.Ordinal)
+    {
+        "tblPrEx", "bookmarkStart", "bookmarkEnd", "commentRangeStart", "commentRangeEnd", "permStart", "permEnd", "proofErr",
+        "moveFromRangeStart", "moveFromRangeEnd", "moveToRangeStart", "moveToRangeEnd",
+    };
+
+    // Marks that sit between rows or cells take no room; any other element the model keeps there (an sdt, a custom XML wrapper) hides content.
+    private static bool Takes(UnknownRowItem item) => !s_marks.Contains(item.Content.Element.Name.LocalName);
+
+    private static int? Value(XElement? element) => element is null ? null : Ooxml.IntAttr(element, "val");
+}
+
+/// <summary>Reads a <c>w:tbl</c> into a <see cref="TablePlan"/>: structure, formats and the plans of the cell blocks; nothing is laid out.</summary>
+internal static class TableReader
+{
+    public static TablePlan Read(BlockPlanner planner, Table table, int bodyIndex, int depth)
+    {
+        var styles = planner.Styles;
+        var resolved = styles.ForTable(table);
+        var model = new TableModel { Depth = depth };
+
+        var (rows, grid, columns, starts, spans) = TableGeometry.Of(table);
         model.Columns = columns;
         model.Grid = [.. grid];
 
@@ -426,17 +447,6 @@ internal static class TableReader
         model.CellCount = cellCount;
         return new TablePlan(bodyIndex, model, planner.TableTextAtIndent);
     }
-
-    // Marks that sit between rows or cells take no room; any other element the model keeps there (an sdt, a custom XML wrapper) hides content.
-    private static readonly HashSet<string> s_marks = new(StringComparer.Ordinal)
-    {
-        "tblPrEx", "bookmarkStart", "bookmarkEnd", "commentRangeStart", "commentRangeEnd", "permStart", "permEnd", "proofErr",
-        "moveFromRangeStart", "moveFromRangeEnd", "moveToRangeStart", "moveToRangeEnd",
-    };
-
-    private static bool Takes(UnknownRowItem item) => !s_marks.Contains(item.Content.Element.Name.LocalName);
-
-    private static int? Value(XElement? element) => element is null ? null : Ooxml.IntAttr(element, "val");
 
     private static void ReadRow(TableRow row, RowModel model)
     {

@@ -71,6 +71,7 @@ public class RibbonView : TemplatedControl
     private readonly List<(Control Target, string Digit)> _groupAnchors = [];
     private readonly List<FieldCodeBadge> _badges = [];
     private bool _settingDefinition;
+    private bool _bandHeld;
     private bool _effectivelyCompact;
     private bool _builtCompact;
     private RibbonTabDefinition? _builtTab;
@@ -82,7 +83,7 @@ public class RibbonView : TemplatedControl
         DefinitionProperty.Changed.AddClassHandler<RibbonView>((view, e) => view.OnDefinitionChanged(e.NewValue as RibbonDefinition));
         ActiveTabProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.OnActiveTabChanged());
         IsCompactProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RebuildBand());
-        ShowFieldCodesProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
+        ShowFieldCodesProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.OnShowFieldCodesChanged());
         FieldCodeTabLetterProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
         FieldCodeMenuProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
     }
@@ -197,12 +198,104 @@ public class RibbonView : TemplatedControl
         RebuildBand();
     }
 
+    /// <summary>Whether the content of the band is held back (see <see cref="HoldBand"/>).</summary>
+    public bool IsBandHeld => _bandHeld;
+
+    /// <summary>
+    /// Keeps the content of the band out of the window until <see cref="ReleaseBand"/>: the band stays in its slot (an empty strip of the final height), but its buttons and pickers are laid out and
+    /// templated only when they are released. An app that wants its first page on screen before its ribbon calls this once, before the band is shown, and releases the band after the first
+    /// frames. The band is built as usual and every method that needs it on screen (the field codes, <see cref="OpenPicker"/>) releases it first.
+    /// </summary>
+    public void HoldBand()
+    {
+        if (_bandHeld)
+        {
+            return;
+        }
+
+        _bandHeld = true;
+        _band.Child = null;
+    }
+
+    /// <summary>Puts the held content into the band. The choice between the full and the compact band is made again once the content has been laid out (the size of the band does not change when its content arrives).</summary>
+    public void ReleaseBand()
+    {
+        if (!_bandHeld)
+        {
+            return;
+        }
+
+        _bandHeld = false;
+        _band.Child = _host;
+        _host.LayoutUpdated += OnFirstLayoutAfterRelease;
+    }
+
+    private void OnFirstLayoutAfterRelease(object? sender, EventArgs e)
+    {
+        _host.LayoutUpdated -= OnFirstLayoutAfterRelease;
+        if (WantsCompact() != _effectivelyCompact)
+        {
+            RebuildBand();
+        }
+    }
+
+    private void OnShowFieldCodesChanged()
+    {
+        if (ShowFieldCodes && _bandHeld)
+        {
+            // The key tips stand on the buttons: they must be on screen and laid out.
+            ReleaseBand();
+            (TopLevel.GetTopLevel(_band) as Layoutable)?.UpdateLayout();
+        }
+
+        RefreshBadges();
+    }
+
     /// <summary>The button of a menu command in the band, or null when the command has no button there (for example in the overflow menu of the compact band).</summary>
     internal RibbonButton? FindMenuButton(CommandDefinition command) =>
         _groups.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => ReferenceEquals(b.Definition, command) && b.Flyout is MenuFlyout);
 
+    /// <summary>
+    /// Opens a picker command: its list drops down (the size box takes the focus, ready to be overtyped). The command search uses it for a picker, which has nothing to run. Does nothing for a
+    /// command that is not a picker or is disabled; a picker of another tab shows its tab first, and one that sits in the overflow menu of the compact band opens that submenu.
+    /// </summary>
+    public void OpenPicker(CommandDefinition command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ReleaseBand();
+        if (command.Picker is null || !command.IsEnabled || Definition is null)
+        {
+            return;
+        }
+
+        var tab = Definition.Tabs.FirstOrDefault(t => t.Groups.Any(g => g.Commands.Contains(command)));
+        if (tab is not null && !ReferenceEquals(tab, ActiveTab))
+        {
+            ActiveTab = tab;
+        }
+
+        if (_groups.GetVisualDescendants().OfType<RibbonPicker>().FirstOrDefault(p => ReferenceEquals(p.Command, command)) is { } picker)
+        {
+            picker.Open();
+        }
+        else
+        {
+            OpenOverflowSubmenu(command);
+        }
+    }
+
     /// <summary>Raises <see cref="CommandInvoked"/> for a command the field-code session ran (the session calls <c>Run</c> itself).</summary>
-    internal void NotifyInvoked(CommandDefinition command) => CommandInvoked?.Invoke(command);
+    internal void NotifyInvoked(CommandDefinition command)
+    {
+        if (command.Picker is not null)
+        {
+            // A picker has nothing to run: its field code opens it (the list, or the box of the size) and a choice raises the event.
+            OpenPicker(command);
+            return;
+        }
+
+        CommandInvoked?.Invoke(command);
+    }
 
     /// <summary>
     /// Asks every command of the band again whether it is enabled (see <see cref="CommandDefinition.EnabledWhen"/>) and updates the
@@ -216,12 +309,43 @@ public class RibbonView : TemplatedControl
             button.RefreshState();
         }
 
+        foreach (var picker in _groups.GetVisualDescendants().OfType<RibbonPicker>())
+        {
+            picker.RefreshState();
+        }
+
         foreach (var more in _groups.GetVisualDescendants().OfType<Button>())
         {
             if (more is not RibbonButton && more.Flyout is MenuFlyout flyout)
             {
                 RibbonButton.RefreshItems(flyout.Items);
             }
+        }
+    }
+
+    // A picker that sits in the overflow menu of a compact group: show that menu and open the submenu of the picker.
+    private void OpenOverflowSubmenu(CommandDefinition command)
+    {
+        foreach (var more in _groups.GetVisualDescendants().OfType<Button>())
+        {
+            if (more is RibbonButton || more.Flyout is not MenuFlyout flyout)
+            {
+                continue;
+            }
+
+            var item = flyout.Items.OfType<MenuItem>().FirstOrDefault(i => ReferenceEquals(i.Tag, command));
+            if (item is null || !item.IsEnabled)
+            {
+                continue;
+            }
+
+            flyout.ShowAt(more);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                item.Focus(NavigationMethod.Directional);
+                item.Open();
+            });
+            return;
         }
     }
 
@@ -296,21 +420,30 @@ public class RibbonView : TemplatedControl
         _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, compact);
     }
 
-    /// <summary>Whether the band should be compact now: the setting, or a window narrower than the full band of the active tab (not known yet: no).</summary>
-    private bool WantsCompact()
+    /// <summary>
+    /// Whether the band should be compact now: the setting, or a window narrower than the full band of the active tab (not known yet: no). A tab that says how wide it certainly is
+    /// (<see cref="RibbonTabDefinition.FullWidthAtLeast"/>) decides without a measure; <paramref name="measure"/> false never measures (the decision at attach, before the first layout).
+    /// </summary>
+    private bool WantsCompact(bool measure = true)
     {
         if (IsCompact)
         {
             return true;
         }
 
-        var width = _band.Bounds.Width;
+        var width = AvailableWidth();
         if (ActiveTab is not { } tab || width <= 0)
         {
             return false;
         }
 
-        return FullWidthOf(tab) is { } full && full > width + 0.5;
+        // A tab that is certainly wider than the window needs no measure of its full band (see RibbonTabDefinition.FullWidthAtLeast).
+        if (tab.FullWidthAtLeast > 0 && width + 0.5 < tab.FullWidthAtLeast)
+        {
+            return true;
+        }
+
+        return measure && FullWidthOf(tab) is { } full && full > width + 0.5;
     }
 
     /// <summary>
@@ -330,8 +463,9 @@ public class RibbonView : TemplatedControl
             return _fullWidths[tab] = _groups.DesiredSize.Width;
         }
 
-        if (!_band.IsAttachedToVisualTree())
+        if (!_band.IsAttachedToVisualTree() || _bandHeld)
         {
+            // Not in a window, or not on screen yet (a held band is measured after its release, where the styles apply).
             return null;
         }
 
@@ -367,9 +501,18 @@ public class RibbonView : TemplatedControl
         }
     }
 
+    // The width the band has: its own once it is laid out, else the width of the window it was just put into (the band spans it).
+    private double AvailableWidth() => _band.Bounds.Width > 0 ? _band.Bounds.Width : TopLevel.GetTopLevel(_band)?.ClientSize.Width ?? 0;
+
     private void OnBandAttached(object? sender, VisualTreeAttachmentEventArgs e)
     {
         _frame = _band.FindAncestorOfType<AppFrame>();
+        if (!_effectivelyCompact && ActiveTab is not null && WantsCompact(measure: false))
+        {
+            // The window is certainly too narrow for the full band: build the compact one before the first layout, so the full band is never measured and the band row never shows its full height first.
+            RebuildBand();
+        }
+
         _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, _effectivelyCompact);
     }
 
@@ -462,6 +605,11 @@ public class RibbonView : TemplatedControl
             Add(button, button.Definition.FieldCode, button.Kind == RibbonButtonKind.Tile ? BadgePlacement.TileCorner : BadgePlacement.BesideRight);
         }
 
+        foreach (var picker in _groups.GetVisualDescendants().OfType<RibbonPicker>())
+        {
+            Add(picker, picker.Command.FieldCode, BadgePlacement.BesideRight);
+        }
+
         void Add(Control target, string text, BadgePlacement placement = BadgePlacement.BottomRight)
         {
             if (FieldCodeBadge.Show(target, text, placement) is { } badge)
@@ -477,7 +625,7 @@ public class RibbonView : TemplatedControl
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Top, Height = TileHeight, Margin = new Thickness(0, 5, 0, 0) };
         foreach (var command in group.Commands.Where(c => c.Size == CommandSize.Large))
         {
-            commands.Children.Add(new RibbonButton(command, RibbonButtonKind.Tile, Invoke));
+            commands.Children.Add(CreateItem(command, RibbonButtonKind.Tile));
         }
 
         // The small commands stack two high next to the large ones (2 x 26 px + 2 px gap = the 54 px of a tile).
@@ -490,7 +638,7 @@ public class RibbonView : TemplatedControl
                 commands.Children.Add(column);
             }
 
-            column.Children.Add(new RibbonButton(command, command.IconOnly ? RibbonButtonKind.IconOnly : RibbonButtonKind.Small, Invoke));
+            column.Children.Add(CreateItem(command, command.IconOnly ? RibbonButtonKind.IconOnly : RibbonButtonKind.Small));
         }
 
         var label = new TextBlock { Text = group.Label, HorizontalAlignment = HorizontalAlignment.Center };
@@ -506,12 +654,16 @@ public class RibbonView : TemplatedControl
         return panel;
     }
 
+    // A picker stays a picker (a compact band is 40 px high, a picker 26); a command is a button of the given kind.
+    private Control CreateItem(CommandDefinition command, RibbonButtonKind kind) =>
+        command.Picker is not null ? new RibbonPicker(command, Invoke) : new RibbonButton(command, kind, Invoke);
+
     private StackPanel BuildCompactGroup(RibbonGroupDefinition group)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0) };
         foreach (var command in group.Commands.Where(c => c.Compact == CompactPlacement.Inline))
         {
-            row.Children.Add(new RibbonButton(command, RibbonButtonKind.IconOnly, Invoke));
+            row.Children.Add(CreateItem(command, RibbonButtonKind.IconOnly));
         }
 
         var overflow = group.Commands.Where(c => c.Compact == CompactPlacement.Overflow).ToList();

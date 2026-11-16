@@ -312,6 +312,31 @@ public sealed partial class DocumentLayout
         }
     }
 
+    /// <summary>
+    /// Lays out again from the first page on a fresh engine after the style sheet of the model changed (the engine reads the styles once when it is
+    /// made, so no <see cref="ApplyEdit"/> can see such a change). Same rules as <see cref="ApplyEdit"/>: the caller holds the edit gate, the pages up
+    /// to <paramref name="throughPage"/> are right when this returns, the rest follows in the background, a fault is remembered and rethrown.
+    /// </summary>
+    public EditRefill Restyle(int throughPage)
+    {
+        lock (_gate)
+        {
+            _fault?.Throw();
+            try
+            {
+                var refill = Restart(Math.Max(0, throughPage));
+                Volatile.Write(ref _edits, _edits + 1);
+                Volatile.Write(ref _restarts, _restarts + 1);
+                return refill;
+            }
+            catch (Exception e)
+            {
+                _fault = ExceptionDispatchInfo.Capture(e);
+                throw;
+            }
+        }
+    }
+
     private EditRefill Refill(BlockChange change, int throughPage)
     {
         var old = _engine;

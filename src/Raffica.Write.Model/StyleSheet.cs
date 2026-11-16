@@ -36,4 +36,21 @@ public sealed class StyleSheet : OrderedElement
 
         return null;
     }
+
+    /// <summary>Puts <paramref name="replacement"/> in the place of <paramref name="old"/> (found by object identity), at the same index. False when <paramref name="old"/> is not in the list.</summary>
+    public bool Replace(Style old, Style replacement)
+    {
+        ArgumentNullException.ThrowIfNull(old);
+        ArgumentNullException.ThrowIfNull(replacement);
+        for (var i = 0; i < Styles.Count; i++)
+        {
+            if (ReferenceEquals(Styles[i], old))
+            {
+                Styles[i] = replacement;
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

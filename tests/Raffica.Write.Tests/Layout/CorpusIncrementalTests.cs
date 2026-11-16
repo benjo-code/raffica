@@ -196,8 +196,19 @@ public sealed class CorpusIncrementalTests
         Assert.True(headers.Count == 0 || ran["header"] > 0, "no header or footer edit ran: " + mix);
         Assert.True(notes.Count == 0 || ran["note"] > 0, "no note edit ran: " + mix);
         Assert.True(!hasSectionBreak || ran["section"] > 0, "no section-break paragraph edit ran: " + mix);
-        TestContext.Current.SendDiagnosticMessage(mix + $", chrome only {layout.Stats.ChromeOnly}");
+
+        // Formatting: a fixed set of steps (one of each kind, not a multiplier of the edits) by the real editor on the same model, each compared with a full layout.
+        var formatting = new FormattingSteps(model, layout, new LayoutOptions(mode));
+        await formatting.RunAllAsync(seed, $"{id} {mode} seed {seed}");
+        formatting.AssertEveryKindRan($"{id} {mode} seed {seed}");
+
+        TestContext.Current.SendDiagnosticMessage(mix + $", chrome only {layout.Stats.ChromeOnly}, formatting steps {formatting.Compared}, restyles {formatting.Restyles}, reached into {formatting.ReachedInto}");
     }
+
+    [Theory]
+    [InlineData(LayoutMode.Pages)]
+    [InlineData(LayoutMode.Flow)]
+    public Task EveryFormattingKindRunsAndRestylesSomewhereInTheCorpus(LayoutMode mode) => FormattingSteps.AssertCorpusAsync(Root, mode);
 
     [Fact]
     public async Task AShortHeaderEditIsAChromeOnlyRefreshWhereTheLayoutCanTakeIt()

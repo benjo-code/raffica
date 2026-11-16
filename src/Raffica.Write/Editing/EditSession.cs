@@ -59,7 +59,13 @@ internal sealed class EditSession
 
     private readonly WriteTab _tab;
     private readonly Dispatcher _ui;
-    private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key)> _queue = [];
+    private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key, bool Typing)> _queue = [];
+    private readonly RefreshableFormat _format = new();
+    private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
+    private ((WordDocument Model, int Revision, TextRange Range) Key, InspectorView? View)? _inspected;
+    private ((WordDocument Model, int Revision, TextRange Range) Key, SelectionFormat Format)? _shown;
+    private (SelectionFormat Base, IReadOnlyList<PropertyChange> Pending, SelectionFormat Result)? _overlay;
+    private bool _selectionDirty;
     private TextEditor? _editor;
     private WordDocument? _bound;
     private TextRange? _selection;
@@ -74,6 +80,18 @@ internal sealed class EditSession
         _tab = tab;
         _ui = Dispatcher.UIThread;
     }
+
+    /// <summary>
+    /// The character format the next typed text takes (owned by the session, never in the model, the history or the revision). Cleared by a real selection change
+    /// (<see cref="SetSelection"/> or an operation that moves the selection), by every <see cref="Apply"/> that is not typed text, and by the view on Esc.
+    /// </summary>
+    public PendingFormat Pending { get; } = new();
+
+    /// <summary>
+    /// Raised on the UI thread when the selection really changed (another position or another paragraph object): by <see cref="SetSelection"/> at once, by an edit or by the
+    /// replay of a save's queue after <see cref="Changed"/> (once per batch).
+    /// </summary>
+    public event Action? SelectionChanged;
 
     /// <summary>Raised on the UI thread once after an operation that changed the document or the selection (not for a refused one), after the lease ended.</summary>
     public event Action? Changed;
@@ -139,7 +157,43 @@ internal sealed class EditSession
     public void SetSelection(TextRange? selection)
     {
         VerifyAccess();
+        if (SameSelection(_selection, selection))
+        {
+            return;
+        }
+
         _selection = selection;
+        Pending.Clear();
+        SelectionChanged?.Invoke();
+    }
+
+    private static bool SameSelection(TextRange? a, TextRange? b) =>
+        a is null || b is null ? a is null && b is null : SamePosition(a.Value.Start, b.Value.Start) && SamePosition(a.Value.End, b.Value.End);
+
+    private static bool SamePosition(TextPosition a, TextPosition b) => ReferenceEquals(a.Paragraph, b.Paragraph) && a.Offset == b.Offset && a.Story.Equals(b.Story);
+
+    // Puts the selection of an operation (inside Run): the event is due when it moved, and anything but typed text ends the pending format.
+    private void MoveSelection(TextRange selection, bool typing)
+    {
+        if (!SameSelection(_selection, selection))
+        {
+            _selectionDirty = true;
+        }
+
+        _selection = selection;
+        if (!typing)
+        {
+            Pending.Clear();
+        }
+    }
+
+    private void RaiseSelectionChanged()
+    {
+        if (_selectionDirty)
+        {
+            _selectionDirty = false;
+            SelectionChanged?.Invoke();
+        }
     }
 
     /// <summary>
@@ -172,6 +226,91 @@ internal sealed class EditSession
     /// <summary>True when a redo step is there (see <see cref="CanUndo"/>).</summary>
     public bool CanRedo => _editor?.History.CanRedo ?? false;
 
+    /// <summary>
+    /// The facts the rules of the formatting commands need about <paramref name="range"/> (see <see cref="TextEditor.ReadFormatFacts"/>, which bounds the read for a large selection). The answer
+    /// is remembered for the model, its revision and the range, so every further question while nothing of the three changed (a scroll, a zoom, the next command asked) costs nothing; a
+    /// selection change, an edit (a style edit raises the revision too) or a new model reads again. Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// </summary>
+    public FormatFacts ReadFormatFacts(TextRange range)
+    {
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_facts is { } known && known.Key.Equals(key))
+        {
+            return known.Facts;
+        }
+
+        var facts = Editor.ReadFormatFacts(range);
+        FactReads++;
+        _facts = (key, facts);
+        return facts;
+    }
+
+    /// <summary>
+    /// What the formatting pane lists for <paramref name="range"/> (see <see cref="TextEditor.InspectBounded"/>): null when the selection touches more blocks than the pane reads. The answer is
+    /// remembered for the model, its revision and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// </summary>
+    public InspectorView? ReadInspector(TextRange range)
+    {
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_inspected is { } known && known.Key.Equals(key))
+        {
+            return known.View;
+        }
+
+        var view = Editor.InspectBounded(range);
+        InspectorReads++;
+        _inspected = (key, view);
+        return view;
+    }
+
+    /// <summary>How many times <see cref="ReadInspector"/> read the model instead of answering from memory (tests).</summary>
+    internal int InspectorReads { get; private set; }
+
+    /// <summary>How many times <see cref="ReadFormatFacts"/> read the model instead of answering from memory (tests).</summary>
+    internal int FactReads { get; private set; }
+
+    /// <summary>
+    /// The formatting of <paramref name="range"/> as the ribbon shows it (see <see cref="SelectionFormat"/>), with the pending format on top at a caret. The read of the model is remembered for the
+    /// model, its revision and the range, so every further question while nothing of the three changed costs nothing, and it never walks more than <see cref="TextEditor.MaxFactBlocks"/> blocks
+    /// (a larger selection shows everything as mixed). Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// </summary>
+    public SelectionFormat ReadSelectionFormat(TextRange range)
+    {
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_shown is not { } known || !known.Key.Equals(key))
+        {
+            var covered = Editor.ReadCovered(range);
+            var defaultStyle = model.Styles?.Styles.FirstOrDefault(style => style.IsDefault && (style.Type ?? "paragraph") == "paragraph")?.Id;
+            known = (key, SelectionFormat.Read(covered, _format.Current(), defaultStyle));
+            _shown = known;
+            FormatReads++;
+        }
+
+        if (!range.IsEmpty || Pending.Changes.Count == 0)
+        {
+            return known.Format;
+        }
+
+        // The pending overlay is made once per pending format and base.
+        if (_overlay is { } shown && ReferenceEquals(shown.Base, known.Format) && ReferenceEquals(shown.Pending, Pending.Changes))
+        {
+            return shown.Result;
+        }
+
+        var result = known.Format.WithPending(Pending.Changes);
+        _overlay = (known.Format, Pending.Changes, result);
+        return result;
+    }
+
+    /// <summary>The fully resolved formatting of a paragraph as the layout resolves it (styles, numbering and the table style of the cell the paragraph is in): the one definition a command reads before it flips or steps a value.</summary>
+    public ResolvedParagraph ResolveParagraph(StoryRef story, Paragraph paragraph) => _format.Current().ResolveParagraph(story, paragraph);
+
+    /// <summary>How many times <see cref="ReadSelectionFormat"/> read the model instead of answering from memory (tests).</summary>
+    internal int FormatReads { get; private set; }
+
     /// <summary>The text editor of the current model; made on first use. Throws unless <see cref="CanEdit"/>. Use it only inside an operation of <see cref="Apply"/>.</summary>
     public TextEditor Editor => Bind();
 
@@ -194,7 +333,7 @@ internal sealed class EditSession
     /// change them. A cut is a copy and a delete: when its result has no <c>Changes</c> the delete was refused and the clipboard must not be replaced. An exception of
     /// the layout (it is faulted for good) makes the session faulted (<see cref="EditBlockedReason.Faulted"/>, the runner's fault is the same one): it goes to the caller once, after the lease ended and <see cref="Changed"/> was raised; every later call is refused without touching the model.
     /// </remarks>
-    public EditResult? Apply(Func<TextEditor, EditResult?> operation, int throughPage, object? coalesceKey = null)
+    public EditResult? Apply(Func<TextEditor, EditResult?> operation, int throughPage, object? coalesceKey = null, bool typing = false)
     {
         ArgumentNullException.ThrowIfNull(operation);
         VerifyAccess();
@@ -206,7 +345,7 @@ internal sealed class EditSession
                 if (coalesceKey is not null && _queue.Count > 0 && ReferenceEquals(_queue[^1].Key, coalesceKey))
                 {
                     // The same gesture again (a drag): the latest operation replaces the one before it, which nothing has followed.
-                    _queue[^1] = (operation, throughPage, coalesceKey);
+                    _queue[^1] = (operation, throughPage, coalesceKey, typing);
                 }
                 else if (_queue.Count >= MaxQueued)
                 {
@@ -214,7 +353,7 @@ internal sealed class EditSession
                 }
                 else
                 {
-                    _queue.Add((operation, throughPage, coalesceKey));
+                    _queue.Add((operation, throughPage, coalesceKey, typing));
                 }
 
                 return null;
@@ -227,7 +366,7 @@ internal sealed class EditSession
         try
         {
             using var lease = _tab.Runner.PauseForEdit();
-            result = Run(operation, throughPage, ref changed);
+            result = Run(operation, throughPage, typing, ref changed);
         }
         finally
         {
@@ -235,6 +374,8 @@ internal sealed class EditSession
             {
                 Changed?.Invoke();
             }
+
+            RaiseSelectionChanged();
         }
 
         return result;
@@ -315,7 +456,7 @@ internal sealed class EditSession
             {
                 try
                 {
-                    Run(batch[i].Operation, batch[i].ThroughPage, ref changed);
+                    Run(batch[i].Operation, batch[i].ThroughPage, batch[i].Typing, ref changed);
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
@@ -347,6 +488,8 @@ internal sealed class EditSession
             {
                 Changed?.Invoke();
             }
+
+            RaiseSelectionChanged();
         }
 
         if (dropped is { } reason)
@@ -356,7 +499,7 @@ internal sealed class EditSession
     }
 
     // The operation and the layout, under the lease. Sets changed when the document or the selection changed (also when the layout then throws).
-    private EditResult? Run(Func<TextEditor, EditResult?> operation, int throughPage, ref bool changed)
+    private EditResult? Run(Func<TextEditor, EditResult?> operation, int throughPage, bool typing, ref bool changed)
     {
         var editor = Bind();
         var result = operation(editor);
@@ -365,11 +508,12 @@ internal sealed class EditSession
             return null;
         }
 
-        if (result.Changes.Count == 0)
+        var styled = result.Style is not null;
+        if (result.Changes.Count == 0 && !styled)
         {
             if (result.Selected is { } selected)
             {
-                _selection = selected;
+                MoveSelection(selected, typing);
                 changed = true;
                 return result;
             }
@@ -379,16 +523,32 @@ internal sealed class EditSession
 
         // The model has changed now: whatever happens next, the view must hear of it.
         changed = true;
-        _selection = new TextRange(result.Caret, result.Caret);
+        // A formatting operation changes no text: the selection that was there stays (a toggle pressed twice must see the same selection twice).
+        MoveSelection(result.KeepSelection && _selection is { } kept ? kept : new TextRange(result.Caret, result.Caret), typing);
+        if (styled)
+        {
+            // The style sheet changed (a style step, or an undo or redo that carries one): the editor's resolver snapshots the styles and is made again.
+            _format.Invalidate(_tab.Docx.Model);
+        }
+
         var runner = _tab.Runner;
         var active = _activeMode == LayoutMode.Flow ? runner.FlowLayout : (runner.PageLayoutIsStale ? null : runner.PageLayout);
         try
         {
             if (active is not null)
             {
-                foreach (var change in result.Changes)
+                if (styled)
                 {
-                    active.ApplyEdit(change, throughPage);
+                    // Restyle starts the layout over on a fresh engine that reads the model as it is now, block changes included: applying the block changes into it as well
+                    // would plan the same blocks twice, so they are not applied (the oracle gates of the formatting steps do the same).
+                    active.Restyle(throughPage);
+                }
+                else
+                {
+                    foreach (var change in result.Changes)
+                    {
+                        active.ApplyEdit(change, throughPage);
+                    }
                 }
             }
         }
@@ -429,7 +589,8 @@ internal sealed class EditSession
         if (_editor is null || !ReferenceEquals(_bound, model))
         {
             _editor?.History.Clear();
-            _editor = new TextEditor(model, Host) { FragmentCodec = s_fragmentCodec };
+            _format.Invalidate(model);
+            _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec };
             _bound = model;
             _selection = StartOf(model);
         }
@@ -464,6 +625,27 @@ internal sealed class EditSession
         {
             throw new InvalidOperationException("The editing session belongs to the UI thread.");
         }
+    }
+
+    // The editor's format resolver snapshots the styles when it is made: made again after every style change and for another model.
+    private sealed class RefreshableFormat : IEffectiveFormat
+    {
+        private LayoutEffectiveFormat? _inner;
+        private WordDocument? _model;
+
+        public void Invalidate(WordDocument model)
+        {
+            _model = model;
+            _inner = null;
+        }
+
+        public EffectiveRun ForRun(StoryRef story, Paragraph paragraph, Run run) => Inner().ForRun(story, paragraph, run);
+
+        public EffectiveRun ForMark(StoryRef story, Paragraph paragraph) => Inner().ForMark(story, paragraph);
+
+        public LayoutEffectiveFormat Current() => Inner();
+
+        private LayoutEffectiveFormat Inner() => _inner ??= new LayoutEffectiveFormat(_model ?? throw new InvalidOperationException("No document."));
     }
 
     private sealed class SaveScope(EditSession owner) : IDisposable

@@ -32,6 +32,25 @@ public sealed class FontCatalog
     /// <summary>Makes a catalog of the shipped fonts. <paramref name="system"/> serves installed fonts; null means the operating system's.</summary>
     public static FontCatalog CreateShipped(ISystemFonts? system = null) => new(system ?? new SkiaSystemFonts());
 
+    /// <summary>The families that ship in the assembly, as the names a document uses (Calibri and Cambria stand for the shipped metric-compatible faces Carlito and Caladea).</summary>
+    public static IReadOnlyList<string> ShippedFamilies { get; } = ["Calibri", "Cambria"];
+
+    /// <summary>
+    /// The names of the installed font families, in the order the system gives them; names only (no face is made, <see cref="LoadedFaces"/> does not rise). Called when a font list opens,
+    /// never at startup; a failing font manager answers none.
+    /// </summary>
+    public IReadOnlyList<string> InstalledFamilies()
+    {
+        try
+        {
+            return [.. _system.Families()];
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return [];
+        }
+    }
+
     /// <summary>The face for a requested font. Never null and never throws; the caller keeps the requested name.</summary>
     public FontFace Resolve(string family, bool bold, bool italic)
     {

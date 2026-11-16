@@ -192,6 +192,7 @@ public static class GalleryStrings
     public static string CmdCut => Table.Get("CmdCut");
     public static string CmdCopy => Table.Get("CmdCopy");
     public static string CmdPainter => Table.Get("CmdPainter");
+    public static string CmdFontFamily => Table.Get("CmdFontFamily");
     public static string CmdBold => Table.Get("CmdBold");
     public static string CmdItalic => Table.Get("CmdItalic");
     public static string CmdUnderline => Table.Get("CmdUnderline");

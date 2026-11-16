@@ -44,6 +44,9 @@ internal sealed partial class PageView
     private int _composeRevision;
     private bool _awaitingCommit;
     private bool _endCheckPosted;
+
+    // The pending format the session had when the composition began (null when none): the commit takes it only while the session still holds that very object (see OnTextInput).
+    private IReadOnlyList<PropertyChange>? _composePending;
     private bool _settingImeSelection;
 
     /// <summary>Where the path of the IME log comes from (the environment variable <see cref="ImeLog.Variable"/> unless a test says otherwise); read at every event, so a log needs no work before its first line.</summary>
@@ -189,6 +192,12 @@ internal sealed partial class PageView
             return;
         }
 
+        if (_composeAt is null)
+        {
+            // A composition begins: the format given at the caret before it (Ctrl+B, then the input method) is the one its commit takes.
+            _composePending = session.Pending.Changes.Count > 0 ? session.Pending.Changes : null;
+        }
+
         _composeAt = at;
         _composeCursor = Math.Clamp(cursor ?? shown.Length, 0, shown.Length);
         _composeRevision = _tab.Docx.Model.Edits.Revision;
@@ -246,6 +255,7 @@ internal sealed partial class PageView
         if (_awaitingCommit)
         {
             _awaitingCommit = false;
+            _composePending = null;
             _ime?.Log.Cancel();
         }
     }
@@ -257,6 +267,14 @@ internal sealed partial class PageView
         ClearComposition();
         _awaitingCommit = false;
         return commit;
+    }
+
+    // The pending format that goes with the commit now arriving (and forgets it): the one of the composition's start, or null.
+    private IReadOnlyList<PropertyChange>? TakeComposePending()
+    {
+        var pending = _composePending;
+        _composePending = null;
+        return pending;
     }
 
     private void LogCommit(int length) => _ime?.Log.Commit(length);
@@ -292,6 +310,7 @@ internal sealed partial class PageView
     internal void CancelComposition(bool requestReset = false)
     {
         _awaitingCommit = false;
+        _composePending = null;
         if (!IsComposing)
         {
             return;

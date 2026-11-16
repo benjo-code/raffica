@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using Avalonia.Input;
+using Raffica.Write.Commands;
+using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
 using Raffica.Write.Settings;
@@ -41,12 +43,16 @@ internal sealed partial class Measurement
     private static readonly TimeSpan s_typingTimeout = TimeSpan.FromSeconds(240);
     private static readonly TimeSpan s_noFrameAfterKey = TimeSpan.FromSeconds(5);
 
-    private sealed record Job(string Case, WriteView View, string? FirstWhen, TypingPlace Place, int Keys);
+    private sealed record Job(string Case, WriteView View, string? FirstWhen, TypingPlace Place, int Keys, string? Format = null);
 
     private static readonly TimeSpan s_notReady = TimeSpan.FromSeconds(60);
 
     private readonly int _typingKeys;
     private readonly bool _background;
+    private readonly bool _formatRun;
+    private readonly bool _paneRun;
+    private int _noChange;
+    private TextRange? _range;
     private long _waitStarted;
     private readonly List<double> _samples = [];
     private readonly List<double> _handlerSamples = [];
@@ -78,10 +84,10 @@ internal sealed partial class Measurement
     private PageView? _probed;
 
     /// <summary>The line <c>typing case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> for the times of one case in milliseconds.</summary>
-    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null)
+    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing")
     {
         var sorted = milliseconds.Order().ToArray();
-        var line = string.Create(CultureInfo.InvariantCulture, $"typing case={name} view={view} n={sorted.Length} median-ms={Median(sorted):0.00} p95-ms={Percentile95(sorted):0.00} max-ms={sorted[^1]:0.00}");
+        var line = string.Create(CultureInfo.InvariantCulture, $"{kind} case={name} view={view} n={sorted.Length} median-ms={Median(sorted):0.00} p95-ms={Percentile95(sorted):0.00} max-ms={sorted[^1]:0.00}");
         if (handlerMilliseconds is not null && frameMilliseconds is not null)
         {
             var handler = handlerMilliseconds.Order().ToArray();
@@ -275,7 +281,12 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing"));
+            }
+
+            if (_job is not null && _paneRun)
+            {
+                WriteRefresh(view);
             }
 
             if (_jobIndex >= _jobs.Count)
@@ -318,7 +329,8 @@ internal sealed partial class Measurement
                 var session = view.Tab.EnsureEditor();
                 _ = session.Selection;
                 var position = new TextPosition(_job.Place.Story, _job.Place.Paragraph, _job.Place.Offset);
-                session.SetSelection(new TextRange(position, position));
+                _range = _job.Format == "format-word" ? FormatRange(view, _job.Place) : null;
+                session.SetSelection(_range ?? new TextRange(position, position));
                 view.ScrollToBlock(_job.Place.HintBlock);
             }
             else
@@ -331,6 +343,12 @@ internal sealed partial class Measurement
             return;
         }
 
+        if (_job.Format is { } formatKind)
+        {
+            SendFormat(view, formatKind);
+            return;
+        }
+
         var text = TypingPlaces.KeyText(_random, _keySequence++);
         _keyIncomplete = !view.IsLayoutComplete;
         _renderSeen = false;
@@ -339,6 +357,59 @@ internal sealed partial class Measurement
         _keyAt = Stopwatch.GetTimestamp();
         view.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text, Source = view });
         _handlerEnd = Stopwatch.GetTimestamp();
+        NextTypingFrame();
+    }
+
+    // The pane run, at the end of a job: the debounced refresh of the display never fires while keys arrive one per frame (every key restarts its 100 ms timer), so it is run now, as the timer would
+    // run it, and timed apart from the keys: the refresh of the window (the ribbon states and pickers) and the refresh of the pane (the selection read, the inspector). Recorded, never judged.
+    private void WriteRefresh(PageView view)
+    {
+        var start = Stopwatch.GetTimestamp();
+        _window.FormatRefresh?.Flush();
+        var mid = Stopwatch.GetTimestamp();
+        view.Tab.EnsureEditor();
+        _window.FormattingOf(view.Tab)?.Refresh.Flush();
+        var end = Stopwatch.GetTimestamp();
+        Write(string.Create(
+            CultureInfo.InvariantCulture,
+            $"typing-refresh case={_job!.Case} view={ViewName(_job.View)} n=1 ms={Stopwatch.GetElapsedTime(start, end).TotalMilliseconds:0.00} window-ms={Stopwatch.GetElapsedTime(start, mid).TotalMilliseconds:0.00} pane-ms={Stopwatch.GetElapsedTime(mid, end).TotalMilliseconds:0.00}"));
+    }
+
+    // One formatting command through the page view, as a ribbon button or a key would run it: bold on the word (toggled each time) or the alignment of the paragraph (centered and right in turn). The selection
+    // is set again before the key (outside the timing), so the display refresh and the pane hear of it as they do for a user. A command that changed nothing (an alignment the paragraph had already) is not
+    // a sample; the next key follows at once.
+    private void SendFormat(PageView view, string kind)
+    {
+        var session = view.Tab.EnsureEditor();
+        if (_range is { } range)
+        {
+            session.SetSelection(range);
+        }
+
+        var model = view.Tab.Docx.Model;
+        var revision = model.Edits.Revision;
+        var id = kind == "format-word" ? WriteCommandIds.Bold : _keySequence++ % 2 == 0 ? WriteCommandIds.AlignCenter : WriteCommandIds.AlignRight;
+        _keyIncomplete = false;
+        _renderSeen = false;
+        _renderStart = 0;
+        _awaiting = true;
+        _keyAt = Stopwatch.GetTimestamp();
+        view.RunFormatCommand(id);
+        _handlerEnd = Stopwatch.GetTimestamp();
+        if (model.Edits.Revision == revision)
+        {
+            _awaiting = false;
+            if (++_noChange > 10)
+            {
+                FailTyping($"a formatting command changed nothing ten times in a row ({_job?.Case}, {_job?.View})");
+                return;
+            }
+        }
+        else
+        {
+            _noChange = 0;
+        }
+
         NextTypingFrame();
     }
 
@@ -362,11 +433,38 @@ internal sealed partial class Measurement
         return [];
     }
 
+    // The word at a place, read from the layout the active view edits with (the text of a note or a header differs between the pages and the strips): the session's host.
+    private static TextRange FormatRange(PageView view, TypingPlace place)
+    {
+        var layout = (view.Mode == WriteView.Writing ? view.Runner.FlowLayout : null) ?? view.Runner.PageLayout;
+        var position = new TextPosition(place.Story, place.Paragraph, place.Offset);
+        var projection = ParagraphProjection.Build(place.Paragraph, layout.ProjectionHost(place.Story, place.Paragraph));
+        return TextUnits.WordAt(position with { Offset = Math.Min(place.Offset, Math.Max(0, projection.Text.Length - 1)) }, projection, trailing: false);
+    }
+
     private List<Job> Plan(PageView view)
     {
         var layout = view.Runner.PageLayout;
         var places = TypingPlaces.Pick(view.Tab.Docx.Model, layout);
         var jobs = new List<Job>();
+        if (_paneRun)
+        {
+            // The formatting pane is open while the keys go in: the display refresh of the Home pickers and the pane's own refresh hear of every selection change, as they do for a user.
+            _window.RunCommand(WriteCommandIds.FormattingPane);
+        }
+
+        if (_formatRun)
+        {
+            foreach (var mode in new[] { WriteView.Page, WriteView.Writing })
+            {
+                foreach (var kind in TypingPlaces.FormatNames)
+                {
+                    jobs.AddRange(places.Select(place => new Job($"{kind}/{place.Name}", mode, null, place, _typingKeys, kind)));
+                }
+            }
+
+            return jobs;
+        }
         foreach (var (mode, when) in new[] { (WriteView.Page, "after-open"), (WriteView.Writing, "after-switch") })
         {
             if (places.Count == 0)
@@ -396,6 +494,9 @@ internal sealed record TypingPlace(string Name, StoryRef Story, Paragraph Paragr
 internal static class TypingPlaces
 {
     public static readonly string[] Names = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
+
+    /// <summary>The cases of <c>--measure-format</c> at the same places: bold on one word, the alignment of one paragraph (<c>EditCases.FormatNames</c> of the bench).</summary>
+    public static readonly string[] FormatNames = ["format-word", "format-paragraph"];
 
     /// <summary>The text of the keystroke <paramref name="index"/>: lower case letters with a space at every sixth one, from a seeded generator.</summary>
     public static string KeyText(Random random, int index) => index % 6 == 5 ? " " : ((char)('a' + random.Next(26))).ToString();

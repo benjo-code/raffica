@@ -49,7 +49,7 @@ internal sealed record EditRow(string Case, string View, string When, double[] M
 /// The first keystroke after the open and the first after the switch to the writing view are rows of their own, reported without a limit. The limit of the
 /// milestone (16 ms, median and 95th percentile of every case) is judged on the app's numbers (<c>--measure-typing</c>), not on these.
 /// </summary>
-internal static class EditCommand
+internal static partial class EditCommand
 {
     private const int DefaultKeystrokes = 200;
     private const int BackgroundKeystrokes = 50;
@@ -76,11 +76,20 @@ internal static class EditCommand
             return 0;
         }
 
-        var rows = Measure(file, Math.Max(1, options.Int("--runs", DefaultKeystrokes)), error, options.Flag("--phases") ? output : null);
+        var keystrokes = Math.Max(1, options.Int("--runs", DefaultKeystrokes));
+        var rows = Measure(file, keystrokes, error, options.Flag("--phases") ? output : null);
         output.Write(Table(rows));
+        var format = MeasureFormat(file, keystrokes, error);
+        output.Write(Table(format.Rows, "the 16 ms limit of a formatting edit is judged on the app (--measure-format); these engine rows are for the record."));
+        if (format.StyleUpdate is { } style)
+        {
+            output.Write(StyleUpdateTable(style));
+        }
+
+        output.Write(SelectAllTable(MeasureSelectAll(file)));
         if (options.Value("--csv") is { } path)
         {
-            File.WriteAllText(path, Csv(rows));
+            File.WriteAllText(path, Csv([.. rows, .. format.Rows]));
         }
 
         return 0;
@@ -358,18 +367,18 @@ internal static class EditCommand
         return EditRow.Percentile(micros, 0.5);
     }
 
-    private static string Table(List<EditRow> rows)
+    private static string Table(List<EditRow> rows, string? footer = null)
     {
         var text = new StringBuilder();
-        text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{"case",-20}{"view",-9}{"n",5}{"median ms",11}{"p95 ms",9}{"max ms",9}{"edits",7}{"restarts",9}{"hit us",9}"));
+        text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{"case",-30}{"view",-9}{"n",5}{"median ms",11}{"p95 ms",9}{"max ms",9}{"edits",7}{"restarts",9}{"hit us",9}"));
         foreach (var row in rows)
         {
             var name = row.IsFirst ? "first:" + row.When : row.Case;
             var hit = row.HitMicros is { } h ? h.ToString("0.00", CultureInfo.InvariantCulture) : "-";
-            text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{name,-20}{row.View,-9}{row.Millis.Length,5}{row.Median,11:0.000}{row.P95,9:0.000}{row.Max,9:0.000}{row.Edits,7}{row.Restarts,9}{hit,9}"));
+            text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{name,-30}{row.View,-9}{row.Millis.Length,5}{row.Median,11:0.000}{row.P95,9:0.000}{row.Max,9:0.000}{row.Edits,7}{row.Restarts,9}{hit,9}"));
         }
 
-        text.AppendLine("first-edit rows have no limit; the 16 ms limit is judged on the app (--measure-typing).");
+        text.AppendLine(footer ?? "first-edit rows have no limit; the 16 ms limit is judged on the app (--measure-typing).");
         return text.ToString();
     }
 

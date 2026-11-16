@@ -62,7 +62,7 @@ public sealed class WriteMacMenuTests
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "Edit", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "Format", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var file = Item(menu.Menu, "File").Menu!;
         var open = Item(file, "Open…");
         var close = Item(file, "Close tab");
@@ -121,7 +121,7 @@ public sealed class WriteMacMenuTests
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
         var view = Item(menu.Menu, "View").Menu!;
-        Assert.Equal(["Page view", "Writing view", "Zoom in", "Zoom out", "Actual size", "Fit width", "Fit page", "Outline"], view.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).Select(i => i.Header!).ToArray());
+        Assert.Equal(["Page view", "Writing view", "Zoom in", "Zoom out", "Actual size", "Fit width", "Fit page", "Outline", "Formatting"], view.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).Select(i => i.Header!).ToArray());
 
         var page = Item(view, "Page view");
         var writing = Item(view, "Writing view");

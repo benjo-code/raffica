@@ -110,6 +110,9 @@ internal sealed class WriteTab : IDisposable
     /// </summary>
     public event Action? ModelEdited;
 
+    /// <summary>Raised on the UI thread once, when the editing session is made (by the first caret or key): whoever follows the session (the ribbon's display of the formatting) hooks it here.</summary>
+    public event Action<EditSession>? EditorCreated;
+
     /// <summary>Makes the editing session on first use (UI thread: it keeps that thread's dispatcher).</summary>
     public EditSession EnsureEditor()
     {
@@ -119,6 +122,7 @@ internal sealed class WriteTab : IDisposable
 
             // Every edit, undo and redo (and the replay of what a save queued) shows in the tab's dirty mark; a save sets it itself.
             _editor.Changed += OnEditorChanged;
+            EditorCreated?.Invoke(_editor);
         }
 
         return _editor;

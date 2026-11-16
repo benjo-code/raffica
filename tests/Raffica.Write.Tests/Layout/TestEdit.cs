@@ -85,7 +85,7 @@ internal static class TestEdit
         throw new InvalidOperationException("The paragraph is not in the body.");
     }
 
-    private static IEnumerable<Paragraph> Paragraphs(Block block)
+    public static IEnumerable<Paragraph> Paragraphs(Block block)
     {
         var found = new List<(Paragraph, IList<Block>, int)>();
         Collect([block], found, 0);

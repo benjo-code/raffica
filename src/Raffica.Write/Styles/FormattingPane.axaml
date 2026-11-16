@@ -1,0 +1,25 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The text of the formatting pane: the shell tokens only. The value lines are primary text, the captions, hints, states and reasons secondary text, the headings semibold. -->
+  <Style Selector="TextBlock.fmt-hint, TextBlock.fmt-caption, TextBlock.fmt-state, TextBlock.fmt-reason, TextBlock.fmt-note">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+  <Style Selector="TextBlock.fmt-hint, TextBlock.fmt-value, TextBlock.fmt-row">
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="TextBlock.fmt-caption, TextBlock.fmt-state, TextBlock.fmt-reason, TextBlock.fmt-note">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.fmt-value, TextBlock.fmt-row">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="TextBlock.fmt-heading">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="600" />
+    <Setter Property="Margin" Value="0,8,0,0" />
+  </Style>
+  <Style Selector="TextBlock.fmt-note">
+    <Setter Property="Margin" Value="0,4,0,0" />
+  </Style>
+</Styles>

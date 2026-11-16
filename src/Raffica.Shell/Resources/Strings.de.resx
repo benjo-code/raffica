@@ -45,6 +45,9 @@
   <data name="ZoomLevel" xml:space="preserve">
     <value>Zoom</value>
   </data>
+  <data name="PickerMixed" xml:space="preserve">
+    <value>Gemischt</value>
+  </data>
   <data name="RibbonMore" xml:space="preserve">
     <value>Weitere Befehle</value>
   </data>

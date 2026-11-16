@@ -1,0 +1,20 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    The picker of the ribbon (RibbonPicker, made from CommandDefinition.Picker): the shell select (ComboBox theme, 26 px, 1 px
+    border.control, 3 px radius) at the 12 px of the ribbon labels and without the 96 px minimum, so the size box can be narrow. The
+    text of the selection is text.primary; "Mixed" (class mixed, set by RibbonPicker) is text.secondary and a disabled picker is
+    text.disabled, as the select theme does for its own placeholder. Tokens only, no colour of its own.
+  -->
+  <Style Selector="ComboBox.ribbon-picker">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+  <Style Selector="ComboBox.ribbon-picker.mixed">
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+  </Style>
+  <Style Selector="ComboBox.ribbon-picker:disabled">
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Raffica.Brush.Text.Disabled}" />
+  </Style>
+</Styles>

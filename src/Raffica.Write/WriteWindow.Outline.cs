@@ -54,6 +54,13 @@ internal sealed partial class WriteWindow
         RefreshCommandStates();
     }
 
+    // Both side slots follow the active tab.
+    private void PlacePanes()
+    {
+        PlaceOutline();
+        PlaceFormatting();
+    }
+
     // Puts the outline pane of the active tab into the slot (the slot and the pane are made when first needed); no tab or no wish: the slot is closed.
     private void PlaceOutline()
     {

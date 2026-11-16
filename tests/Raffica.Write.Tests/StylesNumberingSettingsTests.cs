@@ -282,6 +282,41 @@ public sealed class StylesNumberingSettingsTests
         Assert.StartsWith("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>", Encoding.UTF8.GetString(bytes));
     }
 
+    [Fact]
+    public void StyleClone()
+    {
+        const string xml = "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" xmlns:x=\"urn:x\">"
+            + "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\" x:extra=\"e\"><w:name w:val=\"Normal\"/><x:kept a=\"1\"/><w:basedOn w:val=\"Base\"/><w:next w:val=\"Normal\"/><w:link w:val=\"NormalChar\"/>"
+            + "<w:pPr><w:jc w:val=\"center\"/></w:pPr><w:rPr><w:b/></w:rPr><w:tblPr><w:jc w:val=\"left\"/></w:tblPr></w:style></w:styles>";
+        var (model, _) = StylesRoundTrip(Bytes(xml));
+        var original = model.Styles[0];
+        var copy = original.Clone();
+
+        Assert.NotSame(original, copy);
+        Assert.NotSame(original.ParagraphProperties, copy.ParagraphProperties);
+        Assert.NotSame(original.RunProperties, copy.RunProperties);
+        Assert.NotSame(original.TableProperties, copy.TableProperties);
+        Assert.NotSame(original.ParagraphProperties.Children[0], copy.ParagraphProperties.Children[0]);
+        Assert.NotSame(original.KeptChildren[0].Content, copy.KeptChildren[0].Content);
+        Assert.NotSame(original.KeptChildren[0].Content.Element, copy.KeptChildren[0].Content.Element);
+        Assert.NotSame(original.UnknownAttributes[0], copy.UnknownAttributes[0]);
+
+        var other = new StyleSheet(model.Root);
+        other.Styles.Add(copy);
+        Assert.Equal(WriteStyles(model), WriteStyles(other));
+
+        copy.ParagraphProperties.Remove(W + "jc");
+        copy.Name = "changed";
+        Assert.NotNull(original.ParagraphProperties.Get(W + "jc"));
+        Assert.Equal("Normal", original.Name);
+
+        var sheet = new StyleSheet(model.Root);
+        sheet.Styles.Add(original);
+        Assert.False(sheet.Replace(copy, original));
+        Assert.True(sheet.Replace(original, copy));
+        Assert.Same(copy, sheet.Styles[0]);
+    }
+
     private static List<string> ChildNames(byte[] part, string? parent = null)
     {
         var root = XElement.Parse(Encoding.UTF8.GetString(part));

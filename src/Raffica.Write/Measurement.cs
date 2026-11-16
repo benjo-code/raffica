@@ -16,7 +16,7 @@ namespace Raffica.Write;
 /// second animation frame after the first sharp page of the new tab. Every line uses the invariant culture and ASCII keys (they are not
 /// localized); a run that does not finish ends with exit code 3 after 30 s (the message names the real timeout); a scroll run with no document
 /// ends with exit code 1. <c>--measure-typing</c> types at eight places of the document in both views and writes one row per case and view (see <c>Measurement.Typing.cs</c>;
-/// its watchdog is 240 s). The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
+/// its watchdog is 240 s); <c>--measure-typing-pane</c> is the same run with the formatting pane open (the subscribers of the display refresh are in place) and <c>--measure-format</c> formats at the same places (bold on one word, the alignment of one paragraph; rows <c>format case=&lt;kind&gt;/&lt;place&gt; view=...</c>). The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
 /// writes the settings, the recent files or the instance pipe of the user. Nothing of this class exists in a normal run: <c>App</c> makes it only
 /// when a switch is given.
 /// </summary>
@@ -74,10 +74,12 @@ internal sealed partial class Measurement : IDisposable
         _error = error ?? Console.Error;
         _finish = finish;
         _exitProcess = exitProcess ?? Environment.Exit;
-        _timeout = timeout ?? (options.MeasureSwitch is "--measure-typing" or "--measure-typing-background" ? s_typingTimeout : s_defaultTimeout);
+        _timeout = timeout ?? (options.MeasureSwitch is "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" ? s_typingTimeout : s_defaultTimeout);
         _scrollSteps = scrollSteps;
         _typingKeys = typingKeys;
         _background = options.MeasureSwitch == "--measure-typing-background";
+        _formatRun = options.MeasureSwitch == "--measure-format";
+        _paneRun = options.MeasureSwitch == "--measure-typing-pane";
     }
 
     /// <summary>Starts the watchdog and listens for the first sharp page (and for the hand-over of the second file).</summary>
@@ -178,7 +180,7 @@ internal sealed partial class Measurement : IDisposable
                 _lastFrame = 0;
                 _window.RequestAnimationFrame(_ => ScrollFrame());
                 break;
-            case "--measure-typing" or "--measure-typing-background":
+            case "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format":
                 StartTyping();
                 break;
             case "--measure-second":

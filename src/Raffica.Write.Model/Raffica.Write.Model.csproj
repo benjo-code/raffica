@@ -2,4 +2,7 @@
   <PropertyGroup>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raffica.Write.App.Tests" />
+  </ItemGroup>
 </Project>

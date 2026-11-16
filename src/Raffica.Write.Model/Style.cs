@@ -42,4 +42,35 @@ public sealed class Style : OrderedElement
     public PropertyBag RunProperties { get; } = new(PropertyKind.Run);
 
     public PropertyBag TableProperties { get; } = new(PropertyKind.Table);
+
+    /// <summary>A deep copy: every string, the three property bags, the kept children and the unknown attributes are new objects with the same content, so the copy shares nothing with the original and serializes equal.</summary>
+    public Style Clone()
+    {
+        var copy = new Style
+        {
+            Id = Id,
+            Type = Type,
+            Name = Name,
+            BasedOn = BasedOn,
+            Next = Next,
+            Link = Link,
+            DefaultAttribute = DefaultAttribute,
+            Position = Position,
+        };
+        ParagraphProperties.CopyStateTo(copy.ParagraphProperties);
+        RunProperties.CopyStateTo(copy.RunProperties);
+        TableProperties.CopyStateTo(copy.TableProperties);
+        foreach (var kept in KeptChildren)
+        {
+            copy.KeptChildren.Add(new KeptChild(kept.Position, new UnknownContent(kept.Content.Element)));
+        }
+
+        foreach (var position in ChildPositions)
+        {
+            copy.ChildPositions[position.Key] = position.Value;
+        }
+
+        CopyAttributesTo(copy);
+        return copy;
+    }
 }

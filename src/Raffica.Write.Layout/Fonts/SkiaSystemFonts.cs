@@ -33,4 +33,16 @@ internal sealed class SkiaSystemFonts : ISystemFonts
             return null;
         }
     }
+
+    public IEnumerable<string> Families()
+    {
+        try
+        {
+            return [.. SKFontManager.Default.FontFamilies];
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            return [];
+        }
+    }
 }

@@ -60,7 +60,7 @@ internal enum WriteMenuPart
 /// <summary>
 /// The macOS menu bar of Write. It follows the same rule as the PDF app (<c>Docs/DECISIONS.md</c>, "Raffica PDF on macOS: the menus belong to the window"): the
 /// application menu belongs to the application and is only Settings and Open (Open shows while no window exists, so Cmd+O never has two items); File and Window
-/// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone. The File menu also has Save and Save as (catalog commands run by id, with their key equivalents). The View menu
+/// belong to each window and act on it. Services, Hide, Hide others, Show all and Quit are added by the system; About joins with the packaging milestone. The File menu also has Save and Save as (catalog commands run by id, with their key equivalents). The Format menu (character and paragraph formatting, Clear direct formatting, Update style to match; the value commands are the pickers of the ribbon) runs the commands of the catalog by id. The View menu
 /// (page view, writing view, zoom in and out, actual size, fit width, fit page) and the Edit menu (undo, redo, cut, copy, paste, select all) run the commands of the catalog by id on the window. The menu is read again when the
 /// system asks, when the window reports new states and when the current window changes (the owner calls <see cref="Refresh"/>).
 /// </summary>
@@ -119,6 +119,35 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(editMenu);
             _headers.Add((editMenu, () => WriteStrings.MenuEdit));
 
+            var formatMenu = new NativeMenuItem(WriteStrings.MenuFormat) { Menu = new NativeMenu() };
+            formatMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            void FormatItem(string id, bool radio = false, bool check = false) =>
+                formatMenu.Menu.Items.Add(CommandItem(id, () => WriteCatalogName(id), MacGestureOrNull(id), radio, check));
+            foreach (var id in new[] { WriteCommandIds.Bold, WriteCommandIds.Italic, WriteCommandIds.Underline, WriteCommandIds.Strike, WriteCommandIds.Superscript, WriteCommandIds.Subscript, WriteCommandIds.SmallCaps, WriteCommandIds.AllCaps })
+            {
+                FormatItem(id, check: true);
+            }
+
+            formatMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (var id in new[] { WriteCommandIds.AlignLeft, WriteCommandIds.AlignCenter, WriteCommandIds.AlignRight, WriteCommandIds.Justify })
+            {
+                FormatItem(id, radio: true);
+            }
+
+            formatMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            FormatItem(WriteCommandIds.IndentLess);
+            FormatItem(WriteCommandIds.IndentMore);
+            foreach (var id in new[] { WriteCommandIds.KeepNext, WriteCommandIds.KeepLines, WriteCommandIds.PageBreakBefore, WriteCommandIds.WidowControl })
+            {
+                FormatItem(id, check: true);
+            }
+
+            formatMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            FormatItem(WriteCommandIds.ClearDirect);
+            FormatItem(WriteCommandIds.UpdateStyle);
+            Menu.Items.Add(formatMenu);
+            _headers.Add((formatMenu, () => WriteStrings.MenuFormat));
+
             var viewMenu = new NativeMenuItem(WriteStrings.TabView) { Menu = new NativeMenu() };
             viewMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageView, () => WriteStrings.CmdPageView, null, radio: true));
@@ -131,6 +160,7 @@ internal sealed class WriteMacMenu
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FitPage, () => WriteStrings.CmdFitPage, "Meta+D2"));
             viewMenu.Menu.Items.Add(new NativeMenuItemSeparator());
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Outline, () => WriteStrings.CmdOutline, null, check: true));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FormattingPane, () => WriteStrings.CmdFormatting, null, check: true));
             Menu.Items.Add(viewMenu);
             _headers.Add((viewMenu, () => WriteStrings.TabView));
 
@@ -152,6 +182,11 @@ internal sealed class WriteMacMenu
 
     // The key equivalent of an edit command on the Mac: the shortcut of the catalog (Cmd+Z, Cmd+Shift+Z for redo, Cmd+X, Cmd+C, Cmd+V, Cmd+A).
     private static string MacGesture(string id) => WriteCommandCatalog.Commands.Single(c => c.Id == id).ShortcutFor(macOs: true)!.Text(macOs: true);
+
+    // The key equivalent of a formatting command (Cmd+B and so on), or null for a command without a shortcut; the name is the one of the catalog, in the UI language.
+    private static string? MacGestureOrNull(string id) => WriteCommandCatalog.Commands.Single(c => c.Id == id).ShortcutFor(macOs: true)?.Text(macOs: true);
+
+    private static string WriteCatalogName(string id) => WriteCommandCatalog.Commands.Single(c => c.Id == id).Name;
 
     public NativeMenu Menu { get; }
 

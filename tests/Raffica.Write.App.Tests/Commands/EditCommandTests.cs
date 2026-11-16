@@ -901,7 +901,7 @@ public sealed class EditCommandTests : IDisposable
     public void TheRibbonHasTheEditCommandsWithShortcutsReasonsAndDescriptions()
     {
         var home = WriteCommandCatalog.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter);
-        Assert.Equal(["GroupFile", "GroupUndo", "GroupClipboard", "GroupSearch"], home.Groups.Select(g => g.LabelKey).ToArray());
+        Assert.Equal(["GroupFile", "GroupUndo", "GroupClipboard", "GroupFont", "GroupParagraph", "GroupStyles", "GroupSearch"], home.Groups.Select(g => g.LabelKey).ToArray());
         var rules = new WriteCommandRules(() => true, () => 1.0, () => true, () => new EditCommandState(null, false, false, false));
         var actions = s_editIds.ToDictionary(id => id, _ => (Action)(() => { }));
         var definition = WriteRibbon.Create(actions, rules);
@@ -925,7 +925,7 @@ public sealed class EditCommandTests : IDisposable
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "Edit", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "Format", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var edit = menu.Menu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Edit").Menu!;
         var items = edit.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).ToList();
         Assert.Equal(["Undo", "Redo", "Cut", "Copy", "Paste", "Select all"], items.Select(i => i.Header!).ToArray());

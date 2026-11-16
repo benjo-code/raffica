@@ -103,6 +103,55 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void FormatCasesExistInTheBenchAndRun()
+    {
+        Assert.Equal(["format-word", "format-paragraph"], EditCases.FormatNames);
+        using var error = new StringWriter(CultureInfo.InvariantCulture);
+        var report = EditCommand.MeasureFormat(Thesis, 3, error);
+
+        Assert.Equal(string.Empty, error.ToString());
+        foreach (var view in new[] { "page", "writing" })
+        {
+            foreach (var kind in EditCases.FormatNames)
+            {
+                // The same places as the typing cases, in the same order.
+                Assert.Equal(EditCases.Names, report.Rows.Where(r => r.View == view && r.Case.StartsWith(kind + "/", StringComparison.Ordinal)).Select(r => r.Case[(kind.Length + 1)..]));
+            }
+        }
+
+        Assert.All(report.Rows, r =>
+        {
+            Assert.Equal(3, r.Millis.Length);
+            Assert.All(r.Millis, ms => Assert.True(ms >= 0 && double.IsFinite(ms)));
+            Assert.True(r.P95 >= r.Median && r.Max >= r.P95);
+        });
+
+        // The style update is recorded, not judged: the editor call, the time to the pages in view and to the full layout, one value per repetition.
+        Assert.NotNull(report.StyleUpdate);
+        Assert.Equal(3, report.StyleUpdate.EditorMillis.Length);
+        Assert.Equal(3, report.StyleUpdate.ViewMillis.Length);
+        Assert.Equal(3, report.StyleUpdate.FullMillis.Length);
+        Assert.All(report.StyleUpdate.FullMillis.Zip(report.StyleUpdate.ViewMillis), p => Assert.True(p.First >= p.Second));
+    }
+
+    [Fact]
+    public void SelectAllBoldIsMeasuredOnTheThesisAndUndone()
+    {
+        var result = EditCommand.MeasureSelectAll(Thesis);
+
+        Assert.True(result.PlainToggleMs >= 0 && result.PlainUndoMs >= 0 && result.LayoutToggleMs >= 0 && result.LayoutApplyMs >= 0 && result.LayoutUndoMs >= 0 && result.LayoutUndoApplyMs >= 0);
+        Assert.Contains("select-all", EditCommand.SelectAllTable(result), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheBenchAndTheAppUseTheSamePlaces()
+    {
+        // The app keeps a near copy (TypingPlaces in the Write app, its test pins the same two lists): change both together.
+        Assert.Equal(["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"], EditCases.Names);
+        Assert.Equal(["format-word", "format-paragraph"], EditCases.FormatNames);
+    }
+
+    [Fact]
     public void EditBackgroundRefusesAJitBuild()
     {
         var (code, output, error) = Run("edit", "--background", "--file", Thesis, "--runs", "1");

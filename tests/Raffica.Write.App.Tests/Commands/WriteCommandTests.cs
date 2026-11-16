@@ -389,6 +389,7 @@ public sealed class WriteCommandTests
         var commands = RibbonCommands(window).ToDictionary(c => c.Id);
         // A fresh document has no selection, no history and no change: undo, redo, cut, copy and Save wait (with their reasons); paste, select all, Save as and every other command are on.
         string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save];
+        // Every command has an action behind it (the value commands are pickers or, for the size steps, buttons).
         Assert.All(commands.Values.Where(c => !waiting.Contains(c.Id)), c => Assert.True(c.IsEnabled, c.Id));
         Assert.All(commands.Values.Where(c => waiting.Contains(c.Id)), c => Assert.False(c.IsEnabled || string.IsNullOrEmpty(c.CurrentDisabledReason), c.Id));
 

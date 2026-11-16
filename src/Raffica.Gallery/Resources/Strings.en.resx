@@ -543,6 +543,9 @@
   <data name="CmdPainter" xml:space="preserve">
     <value>Format painter</value>
   </data>
+  <data name="CmdFontFamily" xml:space="preserve">
+    <value>Font family</value>
+  </data>
   <data name="CmdBold" xml:space="preserve">
     <value>Bold</value>
   </data>

@@ -634,6 +634,11 @@ internal sealed partial class PageView : Control, IDisposable
             return;
         }
 
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        {
+            _tab.Editor?.Pending.Clear();
+        }
+
         if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && LeaveStory())
         {
             e.Handled = true;

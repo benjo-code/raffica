@@ -101,6 +101,30 @@ public sealed class RealEditorOracleTests
     }
 
     [Theory]
+    [InlineData(LayoutMode.Pages)]
+    [InlineData(LayoutMode.Flow)]
+    public Task EveryFormattingKindRunsAndRestylesSomewhereInTheCorpus(LayoutMode mode) => FormattingSteps.AssertCorpusAsync(Root, mode);
+
+    [Fact]
+    public void TheCorpusHasTablesAndContentControlsFormattingCanReachInto()
+    {
+        var withTable = new List<string>();
+        var withControl = new List<string>();
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var file = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
+            var blocks = file.Model.Body.Blocks;
+            foreach (var i in FormattingSteps.ReachingCandidates(file.Model))
+            {
+                (blocks[i] is Table ? withTable : withControl).Add(entry.Id);
+            }
+        }
+
+        Assert.NotEmpty(withTable);
+        Assert.NotEmpty(withControl);
+    }
+
+    [Theory]
     [MemberData(nameof(Cases))]
     public async Task RealEditorOperationsStayEqualToFullLayoutAndSurviveASave(string id, LayoutMode mode)
     {
@@ -264,6 +288,12 @@ public sealed class RealEditorOracleTests
             await layout.LayOutRestAsync(null, token);
             LayoutOracle.AssertEqualToFull(layout, model, options, label);
         }
+
+        // The forced formatting steps: a toggle, an alignment, a paragraph style, update style (with undo and redo) and formatting that reaches into tables and content controls.
+        var formatting = new FormattingSteps(model, layout, options);
+        await formatting.RunAllAsync(seed, $"{id} {mode} seed {seed}");
+        formatting.AssertEveryKindRan($"{id} {mode} seed {seed}");
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: formatting steps {formatting.Compared}, restyles {formatting.Restyles}, reached into {formatting.ReachedInto}");
 
         if (hadControls)
         {

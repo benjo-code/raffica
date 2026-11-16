@@ -5,4 +5,7 @@ public interface ISystemFonts
 {
     /// <summary>The installed face of <paramref name="family"/> in the given style, or null when that family is not installed.</summary>
     FontFace? Match(string family, bool bold, bool italic);
+
+    /// <summary>The names of the installed font families; names only, no face is read. A source that cannot list its fonts answers none.</summary>
+    IEnumerable<string> Families() => [];
 }
