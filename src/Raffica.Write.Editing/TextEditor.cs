@@ -464,15 +464,22 @@ public sealed partial class TextEditor
 
         foreach (var block in blocks)
         {
-            if (block is Table table)
+            switch (block)
             {
-                foreach (var row in table.Rows)
-                {
-                    if (FindInRowItem(row, paragraph) is { } found)
+                case ContentControlBlock control when FindIn(control.Content, paragraph) is { } inControl:
+                    return inControl;
+                case Table table:
+                    foreach (var row in table.Rows)
                     {
-                        return found;
+                        if (FindInRowItem(row, paragraph) is { } found)
+                        {
+                            return found;
+                        }
                     }
-                }
+
+                    break;
+                default:
+                    break;
             }
         }
 

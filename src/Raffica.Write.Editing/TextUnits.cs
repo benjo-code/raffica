@@ -47,7 +47,7 @@ public static class TextUnits
         return StoryResolver.TryBlocks(document, story);
     }
 
-    /// <summary>The list of blocks that holds a paragraph of a story (the story's own list at the top level, the blocks of a cell inside a table), or null when it is not in <paramref name="blocks"/>.</summary>
+    /// <summary>The list of blocks that holds a paragraph of a story (the story's own list at the top level, the blocks of a cell inside a table, the content of a content control), or null when it is not in <paramref name="blocks"/>.</summary>
     public static IList<Block>? ContainerOf(IList<Block> blocks, Paragraph paragraph)
     {
         ArgumentNullException.ThrowIfNull(blocks);
@@ -57,7 +57,7 @@ public static class TextUnits
 
     /// <summary>
     /// The index in <paramref name="container"/> of the block that is, or holds (a table), <paramref name="paragraph"/>; -1 when the paragraph is not under the container. A hit in a
-    /// table that lies in the container maps to the table's index, so a pointer that passes over a table can stop beside it.
+    /// table or a content control that lies in the container maps to its index, so a pointer that passes over a table can stop beside it.
     /// </summary>
     public static int IndexUnder(IList<Block> container, Paragraph paragraph)
     {
@@ -73,15 +73,22 @@ public static class TextUnits
 
         for (var i = 0; i < container.Count; i++)
         {
-            if (container[i] is Table table)
+            switch (container[i])
             {
-                foreach (var row in table.Rows)
-                {
-                    if (TextEditor.FindInRowItem(row, paragraph) is not null)
+                case ContentControlBlock control when TextEditor.FindIn(control.Content, paragraph) is not null:
+                    return i;
+                case Table table:
+                    foreach (var row in table.Rows)
                     {
-                        return i;
+                        if (TextEditor.FindInRowItem(row, paragraph) is not null)
+                        {
+                            return i;
+                        }
                     }
-                }
+
+                    break;
+                default:
+                    break;
             }
         }
 

@@ -107,6 +107,13 @@ internal static class EditRules
                 }
 
                 break;
+            case ContentControlBlock control:
+                foreach (var inner in control.Content)
+                {
+                    CollectAnchors(inner, anchors);
+                }
+
+                break;
             default:
                 break;
         }

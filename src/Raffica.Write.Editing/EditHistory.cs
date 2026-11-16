@@ -352,7 +352,7 @@ public sealed class EditHistory
         return clones;
     }
 
-    // The path of a list of blocks below the root list: a block index (a table), then row item indices down to a cell, then the next
+    // The path of a list of blocks below the root list: a block index (a table, or a content control whose step ends in its content list), then row item indices down to a cell, then the next
     // block index when the list is inside a nested table, and so on. An empty path is the root list itself.
     private static int[]? PathTo(IList<Block> root, IList<Block> target)
     {
@@ -369,13 +369,14 @@ public sealed class EditHistory
 
         for (var i = 0; i < blocks.Count; i++)
         {
-            if (blocks[i] is not Table table)
-            {
-                continue;
-            }
-
             path.Add(i);
-            if (SearchItems(table.Rows, target, path))
+            var found = blocks[i] switch
+            {
+                Table table => SearchItems(table.Rows, target, path),
+                ContentControlBlock control => Search(control.Content, target, path),
+                _ => false,
+            };
+            if (found)
             {
                 return true;
             }
@@ -414,12 +415,24 @@ public sealed class EditHistory
         var at = 0;
         while (at < path.Length)
         {
-            if (path[at] < 0 || path[at] >= blocks.Count || blocks[path[at]] is not Table table)
+            if (path[at] < 0 || path[at] >= blocks.Count)
             {
                 return null;
             }
 
+            var step = blocks[path[at]];
             at++;
+            if (step is ContentControlBlock control)
+            {
+                blocks = control.Content;
+                continue;
+            }
+
+            if (step is not Table table)
+            {
+                return null;
+            }
+
             var items = table.Rows;
             while (true)
             {
@@ -463,6 +476,7 @@ public sealed class EditHistory
     {
         Paragraph p => 48 + SizeOf(p.Properties) + SizeOf(p.Inlines),
         Table t => 64 + SizeOf(t.Properties) + (t.GridColumns.Count * 4L) + t.Rows.Sum(SizeOf),
+        ContentControlBlock c => 48 + SizeOf(c.Properties) + SizeOf(c.Content),
         _ => 32,
     };
 

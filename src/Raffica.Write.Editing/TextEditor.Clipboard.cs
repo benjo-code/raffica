@@ -254,6 +254,15 @@ public sealed partial class TextEditor
                     }
 
                     break;
+                case ContentControlBlock control:
+                    // A control in the middle of a range is copied as its text, never as the control element.
+                    foreach (var controlText in BlockTexts(span.Story, control.Content))
+                    {
+                        paragraphs.Add(TextParagraph(controlText));
+                        lines.Add(controlText);
+                    }
+
+                    break;
                 default:
                     break;
             }
@@ -335,6 +344,13 @@ public sealed partial class TextEditor
                     break;
                 case Table table:
                     foreach (var text in TableRowTexts(story, table))
+                    {
+                        yield return text;
+                    }
+
+                    break;
+                case ContentControlBlock control:
+                    foreach (var text in BlockTexts(story, control.Content))
                     {
                         yield return text;
                     }

@@ -153,6 +153,46 @@ public sealed class TypingTests : IDisposable
 
     private string TwoParagraphs() => WriteDocument([$"<w:r><w:t>{FirstText}</w:t></w:r>", "<w:r><w:t>Second paragraph of the body.</w:t></w:r>"]);
 
+    // The entries are the inner XML of a paragraph each; this one closes its paragraph, writes a block content control with two paragraphs and opens the next one.
+    private string WithContentControl() => WriteDocument(
+    [
+        "<w:r><w:t>Before the control.</w:t></w:r></w:p><w:sdt><w:sdtPr><w:alias w:val=\"Box\"/></w:sdtPr><w:sdtContent><w:p><w:r><w:t>Inside one.</w:t></w:r></w:p><w:p><w:r><w:t>Inside two.</w:t></w:r></w:p></w:sdtContent></w:sdt><w:p><w:r><w:t>After the control.</w:t></w:r>",
+    ]);
+
+    [AvaloniaFact]
+    public async Task TypingEnterAndBackspaceInAParagraphOfAContentControlWorkThroughTheKeyPath()
+    {
+        using var h = await OpenWholeAsync(WithContentControl());
+        var control = Assert.IsType<ContentControlBlock>(h.View.Tab.Docx.Model.Body.Blocks[1]);
+        var session = Place(h, (Paragraph)control.Content[0], 6);
+
+        Type(h, "X");
+        Assert.True(session.CanEdit);
+        Assert.Equal("InsideX one.", TextOf(h.View, (Paragraph)control.Content[0]));
+        Assert.Contains("InsideX one.", h.View.Runner.PageLayout.Page(0).Text, StringComparison.Ordinal);
+
+        Stroke(h, PhysicalKey.Enter);
+        Assert.True(session.CanEdit);
+        Assert.Equal(3, control.Content.Count);
+        Assert.Same(control, h.View.Tab.Docx.Model.Body.Blocks[1]);
+
+        // The caret is at the start of the new paragraph: Backspace merges it back inside the control.
+        Stroke(h, PhysicalKey.Backspace);
+        Assert.True(session.CanEdit);
+        Assert.Equal(2, control.Content.Count);
+        Assert.Equal("InsideX one.", TextOf(h.View, (Paragraph)control.Content[0]));
+
+        // Undo walks back through the clones of the paragraphs inside the control.
+        Assert.True(session.CanUndo);
+        while (session.CanUndo)
+        {
+            h.View.RunEditCommand(Raffica.Write.Commands.WriteCommandIds.Undo);
+            ViewHarness.Pump();
+        }
+
+        Assert.Equal(["Inside one.", "Inside two."], control.Content.OfType<Paragraph>().Select(p => TextOf(h.View, p)).ToArray());
+    }
+
     [AvaloniaFact]
     public async Task TypingInsertsAtTheCaretAndAdvancesIt()
     {
