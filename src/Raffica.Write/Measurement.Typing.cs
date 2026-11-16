@@ -284,6 +284,11 @@ internal sealed partial class Measurement
                 Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing"));
             }
 
+            if (_job is not null && _paneRun)
+            {
+                WriteRefresh(view);
+            }
+
             if (_jobIndex >= _jobs.Count)
             {
                 ReleaseProbe();
@@ -353,6 +358,21 @@ internal sealed partial class Measurement
         view.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text, Source = view });
         _handlerEnd = Stopwatch.GetTimestamp();
         NextTypingFrame();
+    }
+
+    // The pane run, at the end of a job: the debounced refresh of the display never fires while keys arrive one per frame (every key restarts its 100 ms timer), so it is run now, as the timer would
+    // run it, and timed apart from the keys: the refresh of the window (the ribbon states and pickers) and the refresh of the pane (the selection read, the inspector). Recorded, never judged.
+    private void WriteRefresh(PageView view)
+    {
+        var start = Stopwatch.GetTimestamp();
+        _window.FormatRefresh?.Flush();
+        var mid = Stopwatch.GetTimestamp();
+        view.Tab.EnsureEditor();
+        _window.FormattingOf(view.Tab)?.Refresh.Flush();
+        var end = Stopwatch.GetTimestamp();
+        Write(string.Create(
+            CultureInfo.InvariantCulture,
+            $"typing-refresh case={_job!.Case} view={ViewName(_job.View)} n=1 ms={Stopwatch.GetElapsedTime(start, end).TotalMilliseconds:0.00} window-ms={Stopwatch.GetElapsedTime(start, mid).TotalMilliseconds:0.00} pane-ms={Stopwatch.GetElapsedTime(mid, end).TotalMilliseconds:0.00}"));
     }
 
     // One formatting command through the page view, as a ribbon button or a key would run it: bold on the word (toggled each time) or the alignment of the paragraph (centered and right in turn). The selection

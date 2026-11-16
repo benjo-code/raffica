@@ -174,6 +174,22 @@ static class Lines
         return name.Length > 0 && view.Length > 0 && TryValue(c, "median-ms=", out median) && TryValue(d, "p95-ms=", out p95) && TryValue(e, "max-ms=", out max);
     }
 
+    /// <summary>Reads <c>typing-refresh case=… view=… n=1 ms=… ...</c> of the Write app (the pane run: the debounced refresh of the display after a job; the total in ms, invariant culture).</summary>
+    public static bool TryParseTypingRefresh(string line, out string name, out string view, out double ms)
+    {
+        name = view = string.Empty;
+        ms = 0;
+        var parts = line.Split(' ');
+        if (parts is not ["typing-refresh", var a, var b, _, var c, ..] || !a.StartsWith("case=", StringComparison.Ordinal) || !b.StartsWith("view=", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        name = a["case=".Length..];
+        view = b["view=".Length..];
+        return name.Length > 0 && view.Length > 0 && TryValue(c, "ms=", out ms);
+    }
+
     /// <summary>Reads <c>typing-background n=... incomplete=... median-ms=... ...</c> of the Write app: every key=value word as a number (invariant culture).</summary>
     public static bool TryParseTypingBackground(string line, out Dictionary<string, double> values)
     {
@@ -1113,7 +1129,12 @@ static class WriteRun
             }
             else if (Lines.TryParseTypingFirst(line, out var when, out var firstView, out var ms))
             {
-                rows.Add(("typing-first", $"{when}-{firstView}", ms));
+                rows.Add(("typing-first", $"{runPrefix}{when}-{firstView}", ms));
+            }
+            else if (Lines.TryParseTypingRefresh(line, out var refreshName, out var refreshView, out var refreshMs))
+            {
+                // Recorded, never judged and not a typing row: its own family, the refresh of the display after a job of the pane run.
+                rows.Add(("typing-refresh", $"{runPrefix}{refreshName}-{refreshView}-ms", refreshMs));
             }
         }
 
@@ -2694,6 +2715,10 @@ static class SelfTest
             Expect("check write: with one app row set, the other app metrics are unrecorded", string.Join(',', partial.Where(r => r.Verdict == "unrecorded").Select(r => r.Key)), "warm,thesis,second,scroll,memory,size,zip");
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["typing"] = CheckCommand.TypingBudget }, ["linux"] = [], ["macos"] = [] };
             Expect("check write: a typing limit alone is no app row, the app metrics are not judged", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+            CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["format"] = CheckCommand.FormatBudget }, ["linux"] = [], ["macos"] = [] };
+            Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone is no app row, the app metrics are not judged", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 1);
+            Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone judges the format row", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "format").Verdict, "ok");
+            Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone, a format row above it is over", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "format", 0.1)).First(r => r.Key == "format").Verdict, "over");
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
             Expect("check write: engine and typing without a limit stay not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine,typing,format");
             Expect("check write: a half-filled table exits 1", CheckCommand.ExitCode(partial), 1);
@@ -2765,6 +2790,12 @@ static class SelfTest
         // The run with the pane open: the same lines, the rows carry the prefix pane- (so the worst p95 of typing holds them).
         var pane = WriteRun.ParseTyping(output.ToString(), out _, "pane-");
         Expect("typing-pane rows: the row names", string.Join('|', pane!.Skip(2).Take(2).Select(r => $"{r.Case}/{r.Run}")), "typing/pane-middle-page-median|typing/pane-middle-page-p95");
+        var paneOutput = output.ToString() + "typing-refresh case=middle view=page n=1 ms=3.25 window-ms=1.00 pane-ms=2.25"+"\n";
+        var paneWithRefresh = WriteRun.ParseTyping(paneOutput, out _, "pane-");
+        Expect("typing-pane rows: the refresh row is its own family, recorded", string.Join('|', paneWithRefresh!.Where(r => r.Case == "typing-refresh").Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Case}/{r.Run}/{r.Value}"))), "typing-refresh/pane-middle-page-ms/3.25");
+        Expect("typing-pane rows: first-edit rows carry the prefix", string.Join('|', pane!.Where(r => r.Case == "typing-first").Select(r => r.Run)), "pane-after-open-page|pane-after-switch-writing");
+        Expect("typing-pane rows: a refresh row is no typing row and the judged typing metric ignores it", CheckCommand.WorstTypingP95([new("pc", "write", "typing-refresh", "pane-middle-page-ms", 99, "ms")]), (double?)null);
+        Expect("parse typing line: a refresh line is not one", Lines.TryParseTyping("typing-refresh case=a view=page n=1 ms=1 window-ms=1 pane-ms=0", out _, out _, out _, out _, out _), false);
         Expect("typing-pane: the arguments", string.Join(' ', WriteRun.Arguments("typing-pane", "s.json", "t")), $"--measure-typing-pane --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
 
         // The format run: one line per kind, place and view, every one required.

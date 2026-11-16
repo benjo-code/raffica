@@ -302,6 +302,16 @@ public sealed class MeasurementTests
 
         Assert.Equal([0], probe.Exits);
         Assert.True(f.Window.IsFormattingOpen, "the pane is open during the typing run");
+
+        // The subscribers heard of the keys: the window's refresh made its timer, the pane followed the session and showed a state again after the first fill, and each job ended with a recorded refresh.
+        Assert.True(f.Window.FormatRefresh?.TimerCreated == true, "the window's display refresh was requested");
+        var pane = f.Window.FormattingOf(f.Window.Workspace.Active!);
+        Assert.NotNull(pane);
+        Assert.True(pane.RefreshCount > 1, "the pane read the selection again (a live session subscription)");
+        Assert.True(pane.Refresh.TimerCreated, "the pane's own refresh was requested by the session");
+        var refreshes = probe.Lines.Where(l => l.StartsWith("typing-refresh case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(18, refreshes.Length);
+        Assert.All(refreshes, r => Assert.Matches(@"^typing-refresh case=[a-z-]+ view=(page|writing) n=1 ms=\d+\.\d\d window-ms=\d+\.\d\d pane-ms=\d+\.\d\d$", r));
         var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
         Assert.Equal(16, rows.Length);
         Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=3 median-ms=", r));
