@@ -78,20 +78,38 @@ public static class ParagraphChanges
     }
 
     /// <summary>
-    /// The spacing (<c>w:spacing</c>): a null keeps that attribute. <paramref name="linePt"/> is read by <paramref name="rule"/>: a multiple of
-    /// the single line for <see cref="LineRuleKind.Auto"/> (written in 240ths), points for the other two (written as twips). A line value
-    /// without a rule is read as points.
+    /// The spacing (<c>w:spacing</c>): a null keeps that attribute. A line value needs its rule, because the number means different things per
+    /// rule: <paramref name="linePt"/> is a multiple of the single line for <see cref="LineRuleKind.Auto"/> (written in 240ths) and points for
+    /// the other two (written as twips). A rule without a line value is a rule-only change: the number stays as it is and only
+    /// <c>w:lineRule</c> changes, so it is the caller's job to pass it only when the number is meant in the new unit.
     /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="linePt"/> is given without <paramref name="rule"/>.</exception>
     public static IReadOnlyList<PropertyChange> Spacing(float? beforePt, float? afterPt, float? linePt, LineRuleKind? rule)
     {
+        if (linePt is not null && rule is null)
+        {
+            throw new ArgumentException("A line value needs its line rule: its unit depends on the rule.", nameof(rule));
+        }
+
         var element = new XElement(W + "spacing");
-        Add(element, "before", beforePt);
-        Add(element, "after", afterPt);
+        Add(element, "before", beforePt, signed: false);
+        Add(element, "after", afterPt, signed: false);
         if (linePt is { } line)
         {
-            Check(line);
-            var unit = rule == LineRuleKind.Auto ? 240f : 20f;
-            element.SetAttributeValue(W + "line", Format(line * unit));
+            if (rule == LineRuleKind.Auto)
+            {
+                if (!float.IsFinite(line) || line < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(linePt));
+                }
+
+                element.SetAttributeValue(W + "line", Format(line * 240f));
+            }
+            else
+            {
+                Check(line, signed: false);
+                element.SetAttributeValue(W + "line", Format(line * 20f));
+            }
         }
 
         if (rule is { } kind)
@@ -123,18 +141,19 @@ public static class ParagraphChanges
         return [new PropertyChange(name, on ? new XElement(name) : new XElement(name, new XAttribute(W + "val", "0")))];
     }
 
-    private static void Add(XElement element, string attribute, float? points)
+    private static void Add(XElement element, string attribute, float? points, bool signed = true)
     {
         if (points is { } value)
         {
-            Check(value);
+            Check(value, signed);
             element.SetAttributeValue(W + attribute, Format(value * 20f));
         }
     }
 
-    private static void Check(float value)
+    // Point values: indents are signed (a negative one is a hanging margin), the spacing values are not.
+    private static void Check(float value, bool signed)
     {
-        if (!float.IsFinite(value) || value < 0 || value > 31680f)
+        if (!float.IsFinite(value) || Math.Abs(value) > 31680f || (!signed && value < 0))
         {
             throw new ArgumentOutOfRangeException(nameof(value));
         }

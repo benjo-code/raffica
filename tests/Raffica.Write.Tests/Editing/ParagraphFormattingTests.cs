@@ -88,8 +88,58 @@ public sealed class ParagraphFormattingTests
         editor.ApplyParagraphChanges(Sel(P(doc, 0), P(doc, 0)), ParagraphChanges.Spacing(null, 0f, 14f, LineRuleKind.Exact));
         Assert.Equal("spacing(before=120 after=0 line=280 lineRule=exact)", Props(P(doc, 0).Properties));
 
+        // A rule alone changes only the rule: the number stays as it is.
         editor.ApplyParagraphChanges(Sel(P(doc, 0), P(doc, 0)), ParagraphChanges.Spacing(null, null, null, LineRuleKind.AtLeast));
         Assert.Equal("spacing(before=120 after=0 line=280 lineRule=atLeast)", Props(P(doc, 0).Properties));
+    }
+
+    [Fact]
+    public void ALineValueNeedsItsRule()
+    {
+        Assert.Throws<ArgumentException>(() => ParagraphChanges.Spacing(null, null, 14f, null));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ParagraphChanges.Spacing(-1f, null, null, null));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ParagraphChanges.Spacing(null, null, -1f, LineRuleKind.Exact));
+    }
+
+    [Fact]
+    public void ANegativeIndentIsWritableAndTheCapStaysForPoints()
+    {
+        var (doc, editor) = Setup(Para("one"));
+        editor.ApplyParagraphChanges(Sel(P(doc, 0), P(doc, 0)), ParagraphChanges.Indent(-18f, null, -9f, null));
+        Assert.Equal("ind(left=-360 firstLine=-180)", Props(P(doc, 0).Properties));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ParagraphChanges.Indent(40000f, null, null, null));
+        Assert.Equal("spacing(line=2400 lineRule=auto)", Props(ParagraphChangesElement(ParagraphChanges.Spacing(null, null, 10f, LineRuleKind.Auto))));
+    }
+
+    private static PropertyBag ParagraphChangesElement(IReadOnlyList<PropertyChange> changes)
+    {
+        var bag = new PropertyBag(PropertyKind.Paragraph);
+        bag.Set(changes[0].Name, changes[0].Value!);
+        return bag;
+    }
+
+    [Fact]
+    public void LegacyIndentSpellingsAreReplacedByTheNewValue()
+    {
+        var (doc, editor) = Setup(Para("one", "<w:ind w:start=\"720\" w:end=\"100\" w:leftChars=\"50\" w:rightChars=\"5\"/>"));
+        editor.ApplyParagraphChanges(Sel(P(doc, 0), P(doc, 0)), ParagraphChanges.Indent(36f, 2f, null, null));
+        Assert.Equal("ind(left=720 right=40)", Props(P(doc, 0).Properties));
+    }
+
+    [Fact]
+    public void FirstLineReplacesHangingInEveryItsSpelling()
+    {
+        var (doc, editor) = Setup(Para("one", "<w:ind w:left=\"720\" w:hanging=\"360\" w:hangingChars=\"20\"/>"));
+        editor.ApplyParagraphChanges(Sel(P(doc, 0), P(doc, 0)), ParagraphChanges.Indent(null, null, 18f, null));
+        Assert.Equal("ind(left=720 firstLine=360)", Props(P(doc, 0).Properties));
+    }
+
+    [Fact]
+    public void ASpacingValueReplacesItsAutospacingAndLinesSpelling()
+    {
+        var (doc, editor) = Setup(Para("one", "<w:spacing w:before=\"1\" w:beforeLines=\"50\" w:beforeAutospacing=\"1\" w:after=\"9\" w:afterLines=\"5\" w:afterAutospacing=\"1\"/>"));
+        editor.ApplyParagraphChanges(Sel(P(doc, 0), P(doc, 0)), ParagraphChanges.Spacing(6f, 12f, null, null));
+        Assert.Equal("spacing(before=120 after=240)", Props(P(doc, 0).Properties));
     }
 
     [Fact]
