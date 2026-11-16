@@ -41,6 +41,10 @@ public sealed partial class TextEditor
     {
         [XName.Get("rFonts", WordNamespace)] = new() { ["ascii"] = ["asciiTheme"], ["hAnsi"] = ["hAnsiTheme"], ["eastAsia"] = ["eastAsiaTheme"], ["cs"] = ["cstheme"] },
         [XName.Get("color", WordNamespace)] = new() { ["val"] = ["themeColor", "themeShade", "themeTint"] },
+
+        // Paragraph attributes: a new value replaces the older spelling of the same thing, and first line and hanging exclude each other.
+        [XName.Get("ind", WordNamespace)] = new() { ["left"] = ["start", "leftChars"], ["right"] = ["end", "rightChars"], ["firstLine"] = ["hanging", "firstLineChars", "hangingChars"], ["hanging"] = ["firstLine", "firstLineChars", "hangingChars"] },
+        [XName.Get("spacing", WordNamespace)] = new() { ["before"] = ["beforeLines", "beforeAutospacing"], ["after"] = ["afterLines", "afterAutospacing"] },
     };
 
     /// <summary>
@@ -85,13 +89,13 @@ public sealed partial class TextEditor
                         target.Bag.Set(definition.Name, definition.Element(definition.Off));
                     }
                 }
-                : target =>
+            : target =>
+            {
+                if (!definition.Read(Effective(target, format)))
                 {
-                    if (!definition.Read(Effective(target, format)))
-                    {
-                        target.Bag.Set(definition.Name, definition.Element(definition.On));
-                    }
-                };
+                    target.Bag.Set(definition.Name, definition.Element(definition.On));
+                }
+            };
         });
     }
 
@@ -167,7 +171,11 @@ public sealed partial class TextEditor
             else
             {
                 // A table or content control between the ends: all of its text is covered (the snapshot above holds the whole top-level block).
-                CollectWholeBlock(span.Story, block, targets, touched, owners, 0);
+                VisitWholeBlock(block, inner =>
+                {
+                    var map = Map(span.Story, inner);
+                    CollectTargets(span.Story, map, 0, map.Projection.Text.Length, targets, touched, owners);
+                }, 0);
             }
         }
 
@@ -194,7 +202,8 @@ public sealed partial class TextEditor
     }
 
     // Every paragraph inside a table (rows, cells, nested tables) or a block content control, whole. Row items the model does not understand are kept as they are.
-    private void CollectWholeBlock(StoryRef story, Block block, List<CharTarget> targets, HashSet<Run> touched, List<IList<Inline>> owners, int depth)
+    // Shared by the character and the paragraph operations: the visitor gets each paragraph once.
+    private static void VisitWholeBlock(Block block, Action<Paragraph> visit, int depth)
     {
         if (depth > MaxNesting)
         {
@@ -204,20 +213,19 @@ public sealed partial class TextEditor
         switch (block)
         {
             case Paragraph paragraph:
-                var map = Map(story, paragraph);
-                CollectTargets(story, map, 0, map.Projection.Text.Length, targets, touched, owners);
+                visit(paragraph);
                 break;
             case ContentControlBlock control:
                 foreach (var inner in control.Content)
                 {
-                    CollectWholeBlock(story, inner, targets, touched, owners, depth + 1);
+                    VisitWholeBlock(inner, visit, depth + 1);
                 }
 
                 break;
             case Table table:
                 foreach (var row in table.Rows)
                 {
-                    CollectWholeRowItem(story, row, targets, touched, owners, depth + 1);
+                    VisitWholeRowItem(row, visit, depth + 1);
                 }
 
                 break;
@@ -226,7 +234,7 @@ public sealed partial class TextEditor
         }
     }
 
-    private void CollectWholeRowItem(StoryRef story, RowItem item, List<CharTarget> targets, HashSet<Run> touched, List<IList<Inline>> owners, int depth)
+    private static void VisitWholeRowItem(RowItem item, Action<Paragraph> visit, int depth)
     {
         if (depth > MaxNesting)
         {
@@ -238,14 +246,14 @@ public sealed partial class TextEditor
             case TableRow row:
                 foreach (var child in row.Items)
                 {
-                    CollectWholeRowItem(story, child, targets, touched, owners, depth + 1);
+                    VisitWholeRowItem(child, visit, depth + 1);
                 }
 
                 break;
             case TableCell cell:
                 foreach (var inner in cell.Blocks)
                 {
-                    CollectWholeBlock(story, inner, targets, touched, owners, depth + 1);
+                    VisitWholeBlock(inner, visit, depth + 1);
                 }
 
                 break;
