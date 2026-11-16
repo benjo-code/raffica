@@ -21,6 +21,14 @@ public sealed class WriteProjectTests
     }
 
     [Fact]
+    public void AppStillReferencesNoPdfAssembly()
+    {
+        var referenced = typeof(WriteOptions).Assembly.GetReferencedAssemblies().Select(a => a.Name ?? string.Empty).ToList();
+        Assert.DoesNotContain(referenced, n => n.StartsWith("Raffica.Pdf", StringComparison.Ordinal) || n.StartsWith("RafficaPdf", StringComparison.Ordinal));
+        Assert.Contains("Raffica.Write.Editing", referenced);
+    }
+
+    [Fact]
     public void TheProjectIsTheWriteAppOfTheSolution()
     {
         var project = XDocument.Load(RepoPaths.Combine("src", "Raffica.Write", "Raffica.Write.csproj"));
