@@ -43,7 +43,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 4.1 | Document model and DOCX round trip | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-13-milestone-04-1-document-model-and-docx-round-trip.md) | 2026-11-13 |
 | 4.2 | Write as a fast DOCX viewer | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-14-milestone-04-2-write-as-a-fast-docx-viewer.md) | – |
 | 4.3.1 | The editing engine (4.3a) | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-15-milestone-04-3a-the-editing-engine.md) | – |
-| 4.3.2 | Formatting and styles (4.3b) | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-16-milestone-04-3b-formatting-and-styles.md) | – |
+| 4.3.2 | Formatting and styles (4.3b) | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-16-milestone-04-3b-formatting-and-styles.md) | – |
 | 4.3.3 | New documents and recovery (4.3c) | 5 – Raffica Write | ⬜ open | – | – |
 | 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
 | 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
@@ -692,19 +692,29 @@ Goal: Text can be edited in every story of a document (caret, selection, typing 
 Known limits and follow-ups (complete list in `Docs/DECISIONS.md`, entry "Raffica Write: the editing engine (M4.3a)"): caret affinity only for hyphen and UAX #14 breaks; nested tables not entered by Move; the writing view draws no header, footer or note; character-level word rule; split paragraphs copy `w14:paraId`; fragments above the caps paste as plain text; the save queue is capped at 10,000 and `LeaseWaitTimeout` is infinite in production; a header or footer that gains a wrapped line restarts the layout (20 to 60 ms); no crash guard, update flow or recovery copy yet (4.3c, 4.9); the F6 ring holds the panes only (a follow-up for both apps).
 
 ## Milestone 4.3.2 – Formatting and styles (4.3b)
-**Status:** 🟡 planned · **Plan:** [2026-11-16-milestone-04-3b-formatting-and-styles.md](superpowers/plans/2026-11-16-milestone-04-3b-formatting-and-styles.md) · **Prerequisites:** M4.3.1
+**Status:** 🔵 in progress · **Plan:** [2026-11-16-milestone-04-3b-formatting-and-styles.md](superpowers/plans/2026-11-16-milestone-04-3b-formatting-and-styles.md) · **Prerequisites:** M4.3.1
 
 Goal: Paragraph and character formatting and styles can be edited, and the formatting inspector shows and removes every override.
 
 **Tasks**
-- [ ] Effective formatting from the layout's resolver, character formatting (toggles, font, size, colour, highlight, pending format at a caret) and paragraph formatting and style application, each one undo step
-- [ ] Formatting inspector: style lines, one removable row per direct override, remove one override, clear direct formatting
-- [ ] Update style to match: a style step in the history, `DocumentLayout.Restyle`, the formatting oracle steps
-- [ ] Write UI: commands, keys, Home groups with font, size and style pickers (a picker item in the shell ribbon), the formatting pane
-- [ ] Measure a formatting edit (engine bench, app switch, budget row)
+- [x] Effective formatting from the layout's resolver, character formatting (toggles, font, size, colour, highlight, pending format at a caret) and paragraph formatting and style application, each one undo step
+- [x] Formatting inspector: style lines, one removable row per direct override, remove one override, clear direct formatting
+- [x] Update style to match: a style step in the history, `DocumentLayout.Restyle`, the formatting oracle steps
+- [x] Write UI: commands, keys, Home groups with font, size and style pickers (a picker item in the shell ribbon), the formatting pane
+- [x] Measure a formatting edit (engine bench, app switch, budget row)
 
 **Acceptance criteria**
-- [ ] Every override row of the inspector removes exactly that override and nothing else (tests)
+- [x] Every override row of the inspector removes exactly that override and nothing else (tests) – `dotnet test tests/Raffica.Write.Tests -c Release --filter-class "*OverrideRemovalTests"`: `RemovingARowRemovesExactlyThatElement` removes every row (paragraph, run and mark rows, three scopes) on a fresh document and compares the serialized body (`DocumentXml.Write`, `XNode.DeepEquals`) with the document before minus that one element, and checks that undo restores the serialization; `EveryOverrideOfEveryParagraphAndRunInTheCorpusRemovesOnlyItself` removes each override of every paragraph and run of the corpus body one at a time (283 removals over 28 kinds of row), compares everything else, then undoes. The pane's real button path: `dotnet test tests/Raffica.Write.App.Tests -c Release --filter-class "*FormattingPaneTests"`, `RemovingARowRemovesExactlyThatOverrideInTheDocument` presses every row's remove button, saves the whole document through `DocxFile.SaveAsync` and compares with before minus the element, then undoes. Full run of 2026-11-16 (`RAFFICA_REQUIRE_OCR=1 dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1`): 8215 total, 8164 passed, 1 failed (`SelectAllBoldOnTheThesisIsOneUndoStepAndFast`, a load-sensitive timing test: 15.95 s against its 5 s bound; passes alone in 3.4 s, 17/17 of its class), 50 skipped (other platforms, measurement-only tests and one absent Word PDF); build 0 warnings, `dotnet format --verify-no-changes` exit 0.
+- [x] A formatting edit takes at most 16 ms in the app on the generated thesis – Native AOT win-x64 on the Windows PC, generated thesis, 3 app launches through the real command path (`RafficaWrite --measure-format`): worst p95 over 32 case and view rows 7.32, 7.20 and 10.76 ms against the 16.0 ms limit (`measure.cs` metric `format`); typing with the subscribers in place worst p95 6.16 and 6.65 ms, with the formatting pane open 6.88 and 6.53 ms; engine (`write-layout-bench edit`) format rows worst p95 2.76 ms. Open: the Linux laptop and the Intel Mac.
+- [ ] Word accepts a file after formatting and after Update style to match, and the formatting looks as in Write (owner, recorded) – Open: needs Word. Steps and an empty result table: `Docs/write-word-check.md`, section Formatting and a style update (milestone 4.3b).
+- [ ] A look at the Native AOT Write app on a real display: pickers, formatting pane, key tips and pressed states (owner) – Open: needs the owner's machines (Windows, Linux laptop, Intel Mac). Nothing was looked at on a real display; the headless tests cover the behavior.
+
+**Open items (the milestone stays in progress)**
+1. The `format` case on the Linux laptop and the Intel Mac: `gh workflow run measure.yml --ref <ref> -f platform=<windows|linux|macos> -f target=write -f note="<machine>" -f ref=<ref>` and `write-layout-bench edit --file testdata/write-corpus/thesis/thesis.docx` on a Native AOT publish there (16.0 ms is judged; the Windows PC measured worst p95 7.32, 7.20 and 10.76 ms).
+2. Word accepts a file after formatting and after a style update (`Docs/write-word-check.md`).
+3. A look at the AOT app on a real display, and IME with a pending format (`Docs/write-ime-check.md`).
+4. The owner's call: formatted typing coalesces with the previous plain typing in one undo step (decision, known limits).
+5. `ParagraphFormattingTests.SelectAllBoldOnTheThesisIsOneUndoStepAndFast` (bound 5 s) takes 3.4 s alone and failed at 15.95 s in the full run: it is load sensitive and may flake in CI; decide whether to move it out of the parallel run. The 4.2 and 4.3a gates stay open. Decision: "Raffica Write: formatting and styles (M4.3b)".
 
 ## Milestone 4.3.3 – New documents and recovery (4.3c)
 **Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3.2

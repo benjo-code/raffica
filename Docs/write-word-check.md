@@ -30,6 +30,22 @@ For each file, one session:
 
 Then once more with **Save as** to a new name (Ctrl+Shift+S) after a short edit, and open that file too.
 
+## Formatting and a style update (milestone 4.3b)
+
+The same question for what 4.3b writes: **does Word accept a file after direct formatting and after "Update style to match"?** CI proves that the saved file is read again by Write and lays out like the edited model (`RealEditorOracleTests` with the formatting steps), and that removing an override equals "before minus that element" on the serialized XML (`OverrideRemovalTests`). It does not run Word. The result rows below are empty on purpose.
+
+Use copies of `testdata/write-corpus/thesis/thesis.docx` and `testdata/write-corpus/poi-60316/poi-60316.docx`. In Write (a Native AOT build):
+
+1. **Formatting:** select a few words and make them bold, then italic, underlined, with a font, a size, a text colour and a highlight; select three paragraphs across a table cell edge or a content control (poi-60316) and set alignment, an indent, spacing before and after and a line spacing; apply a paragraph style and a character style; type a word after Ctrl+B at a caret; select all and make it bold (the thesis takes about 2 s); in the formatting pane remove one row of a paragraph and one row of a selection, then Clear direct formatting on one paragraph. Save (Ctrl+S) and Save as to a new name.
+2. **Style update:** in the thesis, give one body paragraph an alignment, a spacing and a bold run that differ from its style, then use "Update style to match" and save. Several other paragraphs of that style change. Save and Save as.
+
+In Word, open each saved file and record: a repair prompt (exact text, any prompt is a finding); whether the formatting looks as in Write (bold, font, size, colour, highlight, alignment, indents, spacing, the styles in the style gallery); whether the paragraphs of the updated style look as in Write; whether Word's "Review > Compare" of the original against the saved file shows only the formatting changes you made; whether the duplicate `w14:paraId` values after a split (see above) are tolerated.
+
+| Date | Word version and system | File | Action (formatting, style update) | Repair prompt (text) | Formatting as in Write | Styles | Compare shows only my changes | Notes and findings |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  |  |  |
+
 ## In Word
 
 Open the saved file. Record, per file and per save kind:
