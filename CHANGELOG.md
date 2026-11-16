@@ -8,7 +8,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Added
 
-- **Raffica Write: formatting and styles.** Format the selection or the next typed text with bold, italic, underline, strikethrough, superscript, subscript, small and all caps, font, size, text colour and highlight; set alignment, indents, spacing before and after, line spacing and the pagination switches; apply a paragraph or a character style from the document's own styles. Each action is one undo step. The new Formatting pane answers "why does this paragraph look like that?": it names the styles and lists every direct override as its own row, each row can be removed on its own, and "Update style to match" and "Clear direct formatting" are one click. A style is changed only when you ask for it. Keys: Ctrl+B, I, U, E, L, R and J (⌘ on a Mac).
+- **Raffica Write: formatting and styles.** Format the selection or the next typed text with bold, italic, underline, strikethrough, superscript, subscript, small and all caps, font, size, text colour and highlight; set alignment, indents, spacing before and after, line spacing and the pagination switches; apply a paragraph or a character style from the document's own styles. Each formatting action is one undo step (typing right after plain typing may join that typing's step). The new Formatting pane answers "why does this paragraph look like that?": it names the styles and lists every direct override as its own row, each row can be removed on its own, and "Update style to match" and "Clear direct formatting" are one click. A style is changed only when you ask for it. Keys: Ctrl+B, I, U, E, L, R and J (⌘ on a Mac).
 
 ## [0.2.0] – 2026-11-12
 
