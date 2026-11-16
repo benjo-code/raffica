@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -222,6 +222,89 @@ public sealed class MeasurementTests
                 Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d$", rows[index++]);
             }
         }
+    }
+
+    [Fact]
+    public void MeasureFormatNeedsASettingsFileAndAFile()
+    {
+        var folder = Directory.CreateTempSubdirectory("raffica-write-measure-format-").FullName;
+        try
+        {
+            var ex = Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-format", WindowFixture.Thesis]));
+            Assert.Contains("--settings-file", ex.Message, StringComparison.Ordinal);
+            Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-format", "--settings-file", Path.Combine(folder, "s.json")]));
+            Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-format", "--measure-typing", "--settings-file", Path.Combine(folder, "s.json"), "a.docx"]));
+
+            var options = WriteOptions.Parse(["--measure-format", "--settings-file", Path.Combine(folder, "s.json"), WindowFixture.Thesis]);
+            Assert.True(options.IsMeasuring);
+            Assert.Equal("--measure-format", options.MeasureSwitch);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheBenchAndTheAppUseTheSamePlaces()
+    {
+        // The bench keeps the same two lists (EditCases, pinned by the same test name in Raffica.Write.Tests): change both together.
+        Assert.Equal(["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"], TypingPlaces.Names);
+        Assert.Equal(["format-word", "format-paragraph"], TypingPlaces.FormatNames);
+    }
+
+    [AvaloniaFact]
+    public async Task FormatMeasurementWritesOneRowPerKindPlaceAndView()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-format", typingKeys: 3);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        var rows = probe.Lines.Where(l => l.StartsWith("format case=", StringComparison.Ordinal)).ToArray();
+        string[] places = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
+        Assert.Equal(2 * 2 * places.Length, rows.Length);
+        var index = 0;
+        foreach (var view in new[] { "page", "writing" })
+        {
+            foreach (var kind in new[] { "format-word", "format-paragraph" })
+            {
+                foreach (var place in places)
+                {
+                    Assert.Matches($@"^format case={kind}/{place} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d$", rows[index++]);
+                }
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TypingWithTheFormattingPaneOpenIsMeasuredWithTheRealSubscribers()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-typing-pane", typingKeys: 3);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        Assert.True(f.Window.IsFormattingOpen, "the pane is open during the typing run");
+        var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(16, rows.Length);
+        Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=3 median-ms=", r));
     }
 
     [AvaloniaFact]

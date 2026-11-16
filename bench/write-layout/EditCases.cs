@@ -17,6 +17,9 @@ internal static class EditCases
 {
     public static readonly string[] Names = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
 
+    /// <summary>The formatting cases of the <c>format</c> measurement, run at the same places as the typing cases: bold toggled on one word, the alignment of one paragraph. The app's <c>--measure-format</c> has the same names (<c>TypingPlaces.FormatNames</c>).</summary>
+    public static readonly string[] FormatNames = ["format-word", "format-paragraph"];
+
     /// <summary>The text of the keystroke <paramref name="index"/>: lower case letters with a space at every sixth one, from a seeded generator.</summary>
     public static string KeyText(Random random, int index) => index % 6 == 5 ? " " : ((char)('a' + random.Next(26))).ToString();
 
