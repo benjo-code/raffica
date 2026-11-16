@@ -46,7 +46,15 @@ internal readonly record struct EditCommandState(EditBlockedReason? Blocked, boo
     {
         if (tab?.Editor is { BlockedReason: null, Selection: { } range } session)
         {
-            return session.ReadFormatFacts(range);
+            try
+            {
+                return session.ReadFormatFacts(range);
+            }
+            catch (StalePositionException)
+            {
+                // A selection that does not belong to the model any more has no facts (this runs inside a timer tick that nothing guards); the next selection or edit reads again.
+                return FormatFacts.Unknown;
+            }
         }
 
         return FormatFacts.Unknown;

@@ -31,21 +31,38 @@ public sealed class PageViewFormattingTests : IDisposable
         }
     }
 
-    private string Document(params string[] paragraphs)
+    private string Document(params string[] paragraphs) => DocumentXml(null, string.Concat(paragraphs.Select(p => $"<w:p>{p}</w:p>")));
+
+    // A document of the given body XML; <paramref name="styles"/> (the w:style elements) adds a styles part.
+    private string DocumentXml(string? styles, string body)
     {
         var path = Path.Combine(_folder, "format.docx");
-        var body = string.Concat(paragraphs.Select(p => $"<w:p>{p}</w:p>"));
         using (var stream = File.Create(path))
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
         {
-            Entry(zip, "[Content_Types].xml", """
+            Entry(zip, "[Content_Types].xml", $"""
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
                   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
                   <Default Extension="xml" ContentType="application/xml"/>
                   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+                  {(styles is null ? string.Empty : "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>")}
                 </Types>
                 """);
+            if (styles is not null)
+            {
+                Entry(zip, "word/_rels/document.xml.rels", """
+                    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+                    </Relationships>
+                    """);
+                Entry(zip, "word/styles.xml", $"""
+                    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                    <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">{styles}</w:styles>
+                    """);
+            }
+
             Entry(zip, "_rels/.rels", """
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -240,6 +257,53 @@ public sealed class PageViewFormattingTests : IDisposable
         Assert.Null(P(h, 1).Properties.Get(W + "keepNext")?.Attribute(W + "val"));
         Assert.True(h.View.RunFormatCommand(WriteCommandIds.KeepNext));
         Assert.Equal("0", P(h, 1).Properties.Get(W + "keepNext")?.Attribute(W + "val")?.Value);
+    }
+
+    private const string CellStyles =
+        "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>"
+        + "<w:style w:type=\"table\" w:default=\"1\" w:styleId=\"TableNormal\"><w:tblPr/></w:style>"
+        + "<w:style w:type=\"table\" w:styleId=\"Boxed\"><w:basedOn w:val=\"TableNormal\"/><w:pPr><w:keepNext/><w:ind w:left=\"720\"/></w:pPr></w:style>";
+
+    [AvaloniaFact]
+    public async Task IndentAndTheSwitchesReadTheTableStyleOfTheCellTheParagraphIsIn()
+    {
+        var table = "<w:tbl><w:tblPr><w:tblStyle w:val=\"Boxed\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid>"
+            + "<w:tr><w:tc><w:p><w:r><w:t>in a cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:t>after</w:t></w:r></w:p>";
+        using var h = await OpenWholeAsync(DocumentXml(CellStyles, table));
+        var cell = (Paragraph)((TableCell)((TableRow)((Table)h.View.Tab.Docx.Model.Body.Blocks[0]).Rows[0]).Items[0]).Blocks[0];
+        var session = h.View.Tab.EnsureEditor();
+        _ = session.Selection;
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, cell, 0), new TextPosition(StoryRef.Body, cell, 5)));
+        h.View.Focus();
+
+        // The table style gives the paragraph keep with next and a left indent of 36 pt: a switch flips that effective value (an explicit off) and Indent more steps from it.
+        Assert.True(h.View.RunFormatCommand(WriteCommandIds.KeepNext));
+        Assert.Equal("0", cell.Properties.Get(W + "keepNext")?.Attribute(W + "val")?.Value);
+        Assert.True(h.View.RunFormatCommand(WriteCommandIds.IndentMore));
+        Assert.Equal("1440", cell.Properties.Get(W + "ind")?.Attribute(W + "left")?.Value);
+    }
+
+    [AvaloniaFact]
+    public async Task AStyleTheFileUsesButDoesNotDefineIsChoosableAsThePickerListsItAndOthersAreRefused()
+    {
+        var styles = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>"
+            + "<w:style w:type=\"character\" w:styleId=\"Strong\"><w:name w:val=\"Strong\"/><w:qFormat/></w:style>";
+        var body = "<w:p><w:pPr><w:pStyle w:val=\"Ghost\"/></w:pPr><w:r><w:rPr><w:rStyle w:val=\"GhostRun\"/></w:rPr><w:t>used</w:t></w:r></w:p><w:p><w:r><w:t>plain</w:t></w:r></w:p>";
+        using var h = await OpenWholeAsync(DocumentXml(styles, body));
+        Place(h, 1, 0, 3);
+
+        // The picker lists "Ghost" and "GhostRun" by their ids: choosing one applies it.
+        Assert.Contains(StylePickerSource.Paragraph(h.View.Tab.Docx.Model), i => i.Id == "Ghost");
+        Assert.True(h.View.RunFormatCommand(WriteCommandIds.ParagraphStyle, "Ghost"));
+        Assert.Equal("Ghost", P(h, 1).Properties.StyleId);
+        Assert.True(h.View.RunFormatCommand(WriteCommandIds.CharacterStyle, "GhostRun"));
+        Assert.Equal("GhostRun", P(h, 1).Inlines.OfType<Run>().First().Properties.StyleId);
+
+        // An id nobody uses or defines, and a character style as a paragraph style, are still refused.
+        Assert.False(h.View.RunFormatCommand(WriteCommandIds.ParagraphStyle, "Nobody"));
+        Assert.False(h.View.RunFormatCommand(WriteCommandIds.ParagraphStyle, "Strong"));
+        Assert.False(h.View.RunFormatCommand(WriteCommandIds.CharacterStyle, "Normal"));
+        Assert.Equal("Ghost", P(h, 1).Properties.StyleId);
     }
 
     [AvaloniaFact]

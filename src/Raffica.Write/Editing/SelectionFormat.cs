@@ -15,7 +15,7 @@ internal readonly record struct Mixable<T>(T Value, bool Mixed = false)
 /// <summary>
 /// What the ribbon shows about the selection: the effective formatting (styles resolved, as the page shows it) of the covered runs and paragraphs, one value each, or mixed. It is read at
 /// most once per selection and document revision (<see cref="EditSession.ReadSelectionFormat"/>) and never walks more than <see cref="TextEditor.MaxFactBlocks"/> blocks: a larger selection
-/// shows the formatting at its start (<see cref="Truncated"/>). At a caret it is the formatting typed text would take, with the session's pending format on top (<see cref="WithPending"/>).
+/// shows everything as mixed (<see cref="Truncated"/>: pressed states off, pickers empty, so that what the next click does is never contradicted). At a caret it is the formatting typed text would take, with the session's pending format on top (<see cref="WithPending"/>).
 /// </summary>
 internal sealed record SelectionFormat
 {

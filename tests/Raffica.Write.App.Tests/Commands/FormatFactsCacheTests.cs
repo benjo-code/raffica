@@ -227,4 +227,19 @@ public sealed class FormatFactsCacheTests
         Assert.True(firstRead < 1000, $"first read {firstRead} ms");
         Assert.True(repeated < RepeatedRefreshBudget, $"20 reads {repeated} ms");
     }
+
+    [AvaloniaFact]
+    public async Task ASelectionThatDoesNotBelongToTheModelGivesPermissiveFactsAndNoDisplay()
+    {
+        using var tab = await OpenWholeAsync();
+        var session = tab.EnsureEditor();
+        _ = session.Editor;
+
+        // The debounced refresh and the command state read on a timer tick and nothing guards them: a stale selection answers "unknown", it never throws.
+        var stranger = new Paragraph();
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, stranger, 0), new TextPosition(StoryRef.Body, stranger, 0)));
+
+        Assert.Equal(FormatFacts.Unknown, EditCommandState.FactsOf(tab));
+        Assert.Null(EditCommandState.FormatOf(tab));
+    }
 }

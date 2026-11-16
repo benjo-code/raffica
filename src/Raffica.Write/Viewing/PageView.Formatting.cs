@@ -216,42 +216,39 @@ internal sealed partial class PageView
     }
 
     // A pagination switch flips the effective value of the first paragraph of the selection and sets it on every paragraph touched.
-    private Func<EditSession, Func<TextEditor, EditResult?>> SwitchOperation(ParagraphSwitch which, Func<ResolvedParagraph, bool> read) => session => ed =>
+    private static Func<EditSession, Func<TextEditor, EditResult?>> SwitchOperation(ParagraphSwitch which, Func<ResolvedParagraph, bool> read) => session => ed =>
     {
         if (session.Selection is not { } selection)
         {
             return null;
         }
 
-        var current = read(ResolverOfModel().ForParagraph(selection.Normalized().Start.Paragraph));
+        var start = selection.Normalized().Start;
+        var current = read(session.ResolveParagraph(start.Story, start.Paragraph));
         return ed.ApplyParagraphChanges(selection, ParagraphChanges.Switch(which, !current));
     };
 
-    private Func<EditSession, Func<TextEditor, EditResult?>> IndentOperation(float step) => session => ed =>
+    private static Func<EditSession, Func<TextEditor, EditResult?>> IndentOperation(float step) => session => ed =>
     {
         if (session.Selection is not { } selection)
         {
             return null;
         }
 
-        var current = ResolverOfModel().ForParagraph(selection.Normalized().Start.Paragraph).LeftIndent;
+        var start = selection.Normalized().Start;
+        var current = session.ResolveParagraph(start.Story, start.Paragraph).LeftIndent;
         var target = Math.Clamp(current + step, 0f, MaxPoints);
         return target == current ? null : ed.ApplyParagraphChanges(selection, ParagraphChanges.Indent(target, null, null, null));
     };
 
-    private StyleResolver ResolverOfModel()
-    {
-        var model = _tab.Docx.Model;
-        return new StyleResolver(model.Styles, model.Settings, model.Numbering);
-    }
-
-    // The style a picker chose: null or "" is "none"; an id the file does not define, or defines for the other kind, is no choice (null is returned: the command is refused).
+    // The style a picker chose: null or "" is "none". An id is a choice when the file defines it for that kind or the picker itself lists it (an id that a paragraph or run uses and the
+    // file does not define is listed by its id and applied as it is); an id defined for the other kind, or one the picker does not know, is no choice (null is returned: the command is refused).
     private Func<EditSession, Func<TextEditor, EditResult?>>? StyleOperationOf(object? payload, string kind, bool paragraph)
     {
         string? id = null;
         if (payload is not (null or ""))
         {
-            if (payload is not string text || _tab.Docx.Model.Styles?.Find(text) is not { } style || (style.Type ?? "paragraph") != kind)
+            if (payload is not string text || !IsChoosable(text, kind, paragraph))
             {
                 return null;
             }
@@ -260,6 +257,18 @@ internal sealed partial class PageView
         }
 
         return session => ed => session.Selection is not { } selection ? null : paragraph ? ed.ApplyParagraphStyle(selection, id) : ed.ApplyCharacterStyle(selection, id);
+    }
+
+    private bool IsChoosable(string id, string kind, bool paragraph)
+    {
+        var model = _tab.Docx.Model;
+        if (model.Styles?.Find(id) is { } style)
+        {
+            return (style.Type ?? "paragraph") == kind;
+        }
+
+        var listed = paragraph ? StylePickerSource.Paragraph(model) : StylePickerSource.Character(model);
+        return listed.Any(item => item.Id == id);
     }
 
     private static LineSpacingChoice? LineSpacingOf(object? payload)

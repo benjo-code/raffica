@@ -274,7 +274,7 @@ internal sealed class EditSession
     /// <summary>
     /// The formatting of <paramref name="range"/> as the ribbon shows it (see <see cref="SelectionFormat"/>), with the pending format on top at a caret. The read of the model is remembered for the
     /// model, its revision and the range, so every further question while nothing of the three changed costs nothing, and it never walks more than <see cref="TextEditor.MaxFactBlocks"/> blocks
-    /// (a larger selection shows the formatting at its start). Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// (a larger selection shows everything as mixed). Call it on the UI thread and only while <see cref="CanEdit"/>.
     /// </summary>
     public SelectionFormat ReadSelectionFormat(TextRange range)
     {
@@ -304,6 +304,9 @@ internal sealed class EditSession
         _overlay = (known.Format, Pending.Changes, result);
         return result;
     }
+
+    /// <summary>The fully resolved formatting of a paragraph as the layout resolves it (styles, numbering and the table style of the cell the paragraph is in): the one definition a command reads before it flips or steps a value.</summary>
+    public ResolvedParagraph ResolveParagraph(StoryRef story, Paragraph paragraph) => _format.Current().ResolveParagraph(story, paragraph);
 
     /// <summary>How many times <see cref="ReadSelectionFormat"/> read the model instead of answering from memory (tests).</summary>
     internal int FormatReads { get; private set; }
