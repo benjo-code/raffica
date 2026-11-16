@@ -33,6 +33,7 @@
   <StyleInclude Source="avares://Raffica.Shell/Styles/Typography.axaml" />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/Window.axaml" />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/Ribbon.axaml" />
+  <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/RibbonPicker.axaml" />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/TitleBar.axaml" />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/DocumentTabs.axaml" />
   <StyleInclude Source="avares://Raffica.Shell/Styles/Frame/SearchField.axaml" />

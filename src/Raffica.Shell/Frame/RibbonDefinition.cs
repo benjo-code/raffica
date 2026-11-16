@@ -88,6 +88,19 @@ public sealed record RibbonDefinition(IReadOnlyList<RibbonTabDefinition> Tabs)
             throw new InvalidOperationException($"Tab '{tab.Name}': command '{command.Id}' (code '{command.FieldCode}') cannot be both large and icon-only.");
         }
 
+        if (command.Picker is not null)
+        {
+            if (command.Size == CommandSize.Large)
+            {
+                throw new InvalidOperationException($"Tab '{tab.Name}': picker '{command.Id}' (code '{command.FieldCode}') cannot be large.");
+            }
+
+            if (command.Items is not null)
+            {
+                throw new InvalidOperationException($"Tab '{tab.Name}': command '{command.Id}' (code '{command.FieldCode}') cannot be a picker and have a menu.");
+            }
+        }
+
         if (command.Items is not { } items)
         {
             return;

@@ -202,7 +202,17 @@ public class RibbonView : TemplatedControl
         _groups.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => ReferenceEquals(b.Definition, command) && b.Flyout is MenuFlyout);
 
     /// <summary>Raises <see cref="CommandInvoked"/> for a command the field-code session ran (the session calls <c>Run</c> itself).</summary>
-    internal void NotifyInvoked(CommandDefinition command) => CommandInvoked?.Invoke(command);
+    internal void NotifyInvoked(CommandDefinition command)
+    {
+        if (command.Picker is not null)
+        {
+            // A picker has nothing to run: its field code opens it (the list, or the box of the size) and a choice raises the event.
+            _groups.GetVisualDescendants().OfType<RibbonPicker>().FirstOrDefault(p => ReferenceEquals(p.Command, command))?.Open();
+            return;
+        }
+
+        CommandInvoked?.Invoke(command);
+    }
 
     /// <summary>
     /// Asks every command of the band again whether it is enabled (see <see cref="CommandDefinition.EnabledWhen"/>) and updates the
@@ -214,6 +224,11 @@ public class RibbonView : TemplatedControl
         foreach (var button in _groups.GetVisualDescendants().OfType<RibbonButton>())
         {
             button.RefreshState();
+        }
+
+        foreach (var picker in _groups.GetVisualDescendants().OfType<RibbonPicker>())
+        {
+            picker.RefreshState();
         }
 
         foreach (var more in _groups.GetVisualDescendants().OfType<Button>())
@@ -462,6 +477,11 @@ public class RibbonView : TemplatedControl
             Add(button, button.Definition.FieldCode, button.Kind == RibbonButtonKind.Tile ? BadgePlacement.TileCorner : BadgePlacement.BesideRight);
         }
 
+        foreach (var picker in _groups.GetVisualDescendants().OfType<RibbonPicker>())
+        {
+            Add(picker, picker.Command.FieldCode, BadgePlacement.BesideRight);
+        }
+
         void Add(Control target, string text, BadgePlacement placement = BadgePlacement.BottomRight)
         {
             if (FieldCodeBadge.Show(target, text, placement) is { } badge)
@@ -477,7 +497,7 @@ public class RibbonView : TemplatedControl
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Top, Height = TileHeight, Margin = new Thickness(0, 5, 0, 0) };
         foreach (var command in group.Commands.Where(c => c.Size == CommandSize.Large))
         {
-            commands.Children.Add(new RibbonButton(command, RibbonButtonKind.Tile, Invoke));
+            commands.Children.Add(CreateItem(command, RibbonButtonKind.Tile));
         }
 
         // The small commands stack two high next to the large ones (2 x 26 px + 2 px gap = the 54 px of a tile).
@@ -490,7 +510,7 @@ public class RibbonView : TemplatedControl
                 commands.Children.Add(column);
             }
 
-            column.Children.Add(new RibbonButton(command, command.IconOnly ? RibbonButtonKind.IconOnly : RibbonButtonKind.Small, Invoke));
+            column.Children.Add(CreateItem(command, command.IconOnly ? RibbonButtonKind.IconOnly : RibbonButtonKind.Small));
         }
 
         var label = new TextBlock { Text = group.Label, HorizontalAlignment = HorizontalAlignment.Center };
@@ -506,12 +526,16 @@ public class RibbonView : TemplatedControl
         return panel;
     }
 
+    // A picker stays a picker (a compact band is 40 px high, a picker 26); a command is a button of the given kind.
+    private Control CreateItem(CommandDefinition command, RibbonButtonKind kind) =>
+        command.Picker is not null ? new RibbonPicker(command, Invoke) : new RibbonButton(command, kind, Invoke);
+
     private StackPanel BuildCompactGroup(RibbonGroupDefinition group)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0) };
         foreach (var command in group.Commands.Where(c => c.Compact == CompactPlacement.Inline))
         {
-            row.Children.Add(new RibbonButton(command, RibbonButtonKind.IconOnly, Invoke));
+            row.Children.Add(CreateItem(command, RibbonButtonKind.IconOnly));
         }
 
         var overflow = group.Commands.Where(c => c.Compact == CompactPlacement.Overflow).ToList();

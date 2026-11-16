@@ -38,6 +38,19 @@ public static class DemoRibbon
             Action? run = null) =>
             new(id, name, "Raffica.Icon." + icon, code, items is null ? run ?? (() => ran(name)) : null, size, compact, iconOnly, shortcut, description, items);
 
+        // The one picker of the demo: a font family list (the names are plain text, the list is only read when it opens).
+        string family = "Aptos";
+        CommandDefinition FontPicker() =>
+            new("font.family", GalleryStrings.CmdFontFamily, "Raffica.Icon.Bold", "37", Compact: CompactPlacement.Overflow, Picker: new PickerDefinition(
+                () => [new("Aptos", "Aptos"), new("Georgia", "Georgia"), new("Consolas", "Consolas"), new("Segoe UI", "Segoe UI")],
+                id =>
+                {
+                    family = id;
+                    ran($"{GalleryStrings.CmdFontFamily}: {id}");
+                },
+                SelectedId: () => family,
+                Width: 132));
+
         var file = new RibbonTabDefinition(GalleryStrings.TabFile, FileLetter,
         [
             new RibbonGroupDefinition(GalleryStrings.GroupDocument, "1",
@@ -69,6 +82,7 @@ public static class DemoRibbon
             ]),
             new RibbonGroupDefinition(GalleryStrings.GroupFont, "3",
             [
+                FontPicker(),
                 Cmd("bold", GalleryStrings.CmdBold, "Bold", "31", iconOnly: true, shortcut: "Ctrl+B"),
                 Cmd("italic", GalleryStrings.CmdItalic, "Italic", "32", iconOnly: true, shortcut: "Ctrl+I"),
                 Cmd("underline", GalleryStrings.CmdUnderline, "Underline", "33", iconOnly: true, shortcut: "Ctrl+U"),

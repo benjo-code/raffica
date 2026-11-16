@@ -142,6 +142,25 @@ public class RibbonButton : Button
     internal static MenuItem CreateMenuItem(CommandDefinition command, Action<CommandDefinition> invoked)
     {
         var item = new MenuItem { Header = command.Name, Tag = command, IsEnabled = command.IsEnabled };
+        if (command.Picker is not null)
+        {
+            // The overflow menu shows a picker as a submenu of its choices; the list is read when the submenu opens, not before.
+            AutomationProperties.SetName(item, command.Name);
+            item.Items.Add(new MenuItem { Header = command.Name, IsEnabled = false });
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == MenuItem.IsSubMenuOpenProperty && e.NewValue is true)
+                {
+                    item.Items.Clear();
+                    foreach (var choice in RibbonPicker.CreateChoiceItems(command, invoked))
+                    {
+                        item.Items.Add(choice);
+                    }
+                }
+            };
+            return item;
+        }
+
         if (command.IsToggle)
         {
             item.ToggleType = MenuItemToggleType.CheckBox;

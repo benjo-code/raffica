@@ -31,6 +31,7 @@ public static class ShellStrings
     public static string ZoomOut => Table.Get("ZoomOut");
     public static string ZoomIn => Table.Get("ZoomIn");
     public static string ZoomLevel => Table.Get("ZoomLevel");
+    public static string PickerMixed => Table.Get("PickerMixed");
     public static string RibbonMore => Table.Get("RibbonMore");
     public static string RibbonScrollLeft => Table.Get("RibbonScrollLeft");
     public static string RibbonScrollRight => Table.Get("RibbonScrollRight");
