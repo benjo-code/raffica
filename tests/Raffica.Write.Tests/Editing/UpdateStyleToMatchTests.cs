@@ -136,4 +136,129 @@ public sealed class UpdateStyleToMatchTests
         Assert.NotNull(document.Styles.Find("Body")!.ParagraphProperties.Get(W + "jc"));
         Assert.Null(P(document, 0).Properties.Get(W + "jc"));
     }
+
+    private const string RoundTripBody =
+        "<w:p><w:pPr><w:pStyle w:val=\"Body\"/><w:jc w:val=\"center\"/><w:keepNext/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>one</w:t></w:r></w:p>"
+        + "<w:p><w:pPr><w:pStyle w:val=\"Body\"/><w:jc w:val=\"right\"/><w:keepNext/></w:pPr><w:r><w:rPr><w:i/></w:rPr><w:t>two</w:t></w:r></w:p>";
+
+    private static string? Val(PropertyBag bag, string name) => (string?)bag.Get(W + name)?.Attribute(W + "val");
+
+    // jc, keepNext and the run flags of the live style, then of the two paragraphs and their runs.
+    private static string State(WordDocument document)
+    {
+        var style = document.Styles!.Find("Body")!;
+        string Of(int index)
+        {
+            var p = P(document, index);
+            var run = (Run)p.Inlines[0];
+            return $"jc={Val(p.Properties, "jc")} kn={p.Properties.Get(W + "keepNext") is not null} b={run.Properties.Get(W + "b") is not null} i={run.Properties.Get(W + "i") is not null}";
+        }
+
+        return $"style[jc={Val(style.ParagraphProperties, "jc")} kn={style.ParagraphProperties.Get(W + "keepNext") is not null} b={style.RunProperties.Get(W + "b") is not null} i={style.RunProperties.Get(W + "i") is not null}] p0[{Of(0)}] p1[{Of(1)}]";
+    }
+
+    [Fact]
+    public void UpdateUpdateUndoUndoRedoRedoOnTheSameStyle()
+    {
+        var (document, editor) = Setup(RoundTripBody);
+        var start = State(document);
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 0, 0)));
+        var first = State(document);
+        Assert.Equal("style[jc=center kn=True b=True i=False] p0[jc= kn=False b=False i=False] p1[jc=right kn=True b=False i=True]", first);
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 1, 1)));
+        var second = State(document);
+        Assert.Equal("style[jc=right kn=True b=True i=True] p0[jc= kn=False b=False i=False] p1[jc= kn=False b=False i=False]", second);
+        Assert.Equal(2, editor.History.UndoCount);
+
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(first, State(document));
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(start, State(document));
+        Assert.Equal(["Normal", "Body", "Other"], document.Styles!.Styles.Select(s => s.Id));
+
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(first, State(document));
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(second, State(document));
+    }
+
+    [Fact]
+    public void TheSnapshotsDoNotAliasTheLiveStyle()
+    {
+        var (document, editor) = Setup(RoundTripBody);
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 0, 0)));
+        var first = State(document);
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 1, 1)));
+        var second = State(document);
+
+        var undone = editor.History.Undo();
+        Assert.Equal(first, State(document));
+        var live = document.Styles!.Find("Body")!;
+        Assert.NotSame(undone!.Style!.Old, live);
+        Assert.NotSame(undone.Style.New, live);
+
+        // The live style changes after the undo (not an edit of the history's document revision): a redo still puts back the recorded New.
+        live.ParagraphProperties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "left")));
+        live.RunProperties.Set(W + "u", new XElement(W + "u", new XAttribute(W + "val", "single")));
+        var redone = editor.History.Redo();
+        Assert.NotNull(redone);
+        Assert.Equal(second, State(document));
+        Assert.Null(document.Styles.Find("Body")!.RunProperties.Get(W + "u"));
+        var liveAfter = document.Styles.Find("Body")!;
+        Assert.NotSame(redone.Style!.New, liveAfter);
+        Assert.NotSame(redone.Style.Old, liveAfter);
+
+        // Changing the live style also leaves the snapshot of the step as recorded: the undo after it restores the recorded Old.
+        liveAfter.ParagraphProperties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "justify")));
+        Assert.Equal("right", Val(redone.Style.New.ParagraphProperties, "jc"));
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(first, State(document));
+    }
+
+    [Fact]
+    public void ARealUpdateRaisesTheRevisionOnce()
+    {
+        var (document, editor) = Setup(RoundTripBody);
+        var before = document.Edits.Revision;
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 0, 0)));
+        Assert.Equal(before + 1, document.Edits.Revision);
+    }
+
+    [Fact]
+    public void UndoOfARealUpdateToTheSavedRevisionIsCleanAgain()
+    {
+        var (document, editor) = Setup(RoundTripBody);
+        document.Edits.MarkSaved();
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 0, 0)));
+        Assert.True(document.Edits.IsDirty);
+        Assert.NotNull(editor.History.Undo());
+        Assert.False(document.Edits.IsDirty);
+        Assert.NotNull(editor.History.Redo());
+        Assert.True(document.Edits.IsDirty);
+        Assert.NotNull(editor.History.Undo());
+        Assert.False(document.Edits.IsDirty);
+    }
+
+    [Fact]
+    public void ARealUpdateIsClearedWhenTheDocumentChangesBehindTheHistory()
+    {
+        var (document, editor) = Setup(RoundTripBody);
+        Assert.NotNull(editor.UpdateStyleToMatch(Whole(document, 0, 0)));
+        var updated = State(document);
+
+        // A model edit and a style change that bypass the history, then the revision rises as every real edit would.
+        P(document, 1).Properties.SetFlag(W + "contextualSpacing", true);
+        document.Styles!.Find("Body")!.ParagraphProperties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "both")));
+        document.Edits.Raise();
+        var changed = State(document);
+
+        Assert.False(editor.History.CanUndo);
+        Assert.Null(editor.History.Undo());
+        Assert.Null(editor.History.Redo());
+        Assert.Equal(0, editor.History.UndoCount);
+        Assert.Equal(changed, State(document));
+        Assert.NotEqual(updated, changed);
+        Assert.Equal("both", Val(document.Styles.Find("Body")!.ParagraphProperties, "jc"));
+        Assert.NotNull(P(document, 1).Properties.Get(W + "contextualSpacing"));
+    }
 }

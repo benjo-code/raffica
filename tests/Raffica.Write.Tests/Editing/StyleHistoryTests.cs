@@ -89,23 +89,59 @@ public sealed class StyleHistoryTests
         Assert.Null(((Paragraph)document.Body.Blocks[0]).Properties.Get(W + "keepNext"));
     }
 
-    [Fact]
-    public void AStyleStepEndsTypingCoalescing()
+    private static string TextOf(WordDocument document) => ParagraphProjection.Build((Paragraph)document.Body.Blocks[0], ProjectionHost.Plain).Text;
+
+    private static void Type(TextEditor editor, WordDocument document, string text)
+    {
+        var paragraph = (Paragraph)document.Body.Blocks[0];
+        var at = new TextPosition(StoryRef.Body, paragraph, ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text.Length);
+        editor.InsertText(new TextRange(at, at), text);
+    }
+
+    private static (WordDocument Document, TextEditor Editor) TypingSetup()
     {
         var story = new Story(new OoxmlRoot(W + "document", []));
         var paragraph = new Paragraph();
+        paragraph.Properties.StyleId = "A";
+        paragraph.Properties.Set(W + "jc", new XElement(W + "jc", new XAttribute(W + "val", "center")));
         paragraph.Inlines.Add(R("abc"));
         story.Blocks.Add(paragraph);
         var document = new WordDocument(story) { Styles = new StyleSheet(new OoxmlRoot(W + "styles", [])) };
         document.Styles.Styles.Add(S("A"));
         var editor = new TextEditor(document, (_, _) => ProjectionHost.Plain, new FakeTime());
-        var at = new TextPosition(StoryRef.Body, paragraph, 3);
-        editor.InsertText(new TextRange(at, at), "x");
+        Type(editor, document, "x");
+        var paragraphAfter = (Paragraph)document.Body.Blocks[0];
+        var whole = new TextRange(new TextPosition(StoryRef.Body, paragraphAfter, 0), new TextPosition(StoryRef.Body, paragraphAfter, 4));
         Assert.Equal(1, editor.History.UndoCount);
-        Step(document, editor.History);
-        var after = new TextPosition(StoryRef.Body, (Paragraph)document.Body.Blocks[0], 1);
-        editor.InsertText(new TextRange(after, after), "y");
+        Assert.NotNull(editor.UpdateStyleToMatch(whole));
+        Assert.Equal(2, editor.History.UndoCount);
+        return (document, editor);
+    }
+
+    [Fact]
+    public void AStyleStepEndsTypingCoalescing()
+    {
+        // Typing right after the style step (same word, same instant) is a step of its own: undoing it leaves the style step and the "x".
+        var (document, editor) = TypingSetup();
+        Type(editor, document, "y");
         Assert.Equal(3, editor.History.UndoCount);
+        editor.History.Undo();
+        Assert.Equal("abcx", TextOf(document));
+        Assert.Equal("center", Jc(document, "A"));
+    }
+
+    [Fact]
+    public void TypingAfterUndoingAStyleStepDoesNotJoinTheEarlierTypingStep()
+    {
+        // Undoing the style step restores the revision and the caret the "x" step ended at, so only a stale open step could let the next typing join it.
+        var (document, editor) = TypingSetup();
+        editor.History.Undo();
+        Assert.Null(Jc(document, "A"));
+        Type(editor, document, "z");
+        Assert.Equal(2, editor.History.UndoCount);
+        editor.History.Undo();
+        Assert.Equal("abcx", TextOf(document));
+        Assert.Equal(1, editor.History.UndoCount);
     }
 
     [Fact]
