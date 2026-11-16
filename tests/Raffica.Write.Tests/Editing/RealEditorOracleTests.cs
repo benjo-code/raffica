@@ -186,25 +186,25 @@ public sealed class RealEditorOracleTests
                     result = editor.InsertText(new TextRange(at, at), "\n");
                     break;
                 case 2:
-                {
-                    what = "multi-delete";
-
-                    // A range from this paragraph to one 1-6 blocks later in the same list (tables in between go too).
-                    var (container, index) = TestEdit.Find(model, pick.Paragraph);
-                    var j = Math.Min(container.Count - 1, index + 1 + random.Next(6));
-                    while (j > index && container[j] is not Paragraph)
                     {
-                        j--;
-                    }
+                        what = "multi-delete";
 
-                    if (container[j] is Paragraph end && !ReferenceEquals(end, pick.Paragraph))
-                    {
-                        var to = new TextPosition(pick.Story, end, random.Next(Len(pick.Story, end) + 1));
-                        result = editor.Delete(new TextRange(at, to));
-                    }
+                        // A range from this paragraph to one 1-6 blocks later in the same list (tables in between go too).
+                        var (container, index) = TestEdit.Find(model, pick.Paragraph);
+                        var j = Math.Min(container.Count - 1, index + 1 + random.Next(6));
+                        while (j > index && container[j] is not Paragraph)
+                        {
+                            j--;
+                        }
 
-                    break;
-                }
+                        if (container[j] is Paragraph end && !ReferenceEquals(end, pick.Paragraph))
+                        {
+                            var to = new TextPosition(pick.Story, end, random.Next(Len(pick.Story, end) + 1));
+                            result = editor.Delete(new TextRange(at, to));
+                        }
+
+                        break;
+                    }
 
                 case 3:
                     what = "backspace";
@@ -216,19 +216,19 @@ public sealed class RealEditorOracleTests
 
                     break;
                 case 4:
-                {
-                    what = "copy";
-                    var (container, index) = TestEdit.Find(model, pick.Paragraph);
-                    var j = Math.Min(container.Count - 1, index + random.Next(4));
-                    while (j > index && container[j] is not Paragraph)
                     {
-                        j--;
-                    }
+                        what = "copy";
+                        var (container, index) = TestEdit.Find(model, pick.Paragraph);
+                        var j = Math.Min(container.Count - 1, index + random.Next(4));
+                        while (j > index && container[j] is not Paragraph)
+                        {
+                            j--;
+                        }
 
-                    var end = (Paragraph)container[j];
-                    clip = editor.Copy(new TextRange(at with { Offset = 0 }, new TextPosition(pick.Story, end, Len(pick.Story, end))));
-                    break;
-                }
+                        var end = (Paragraph)container[j];
+                        clip = editor.Copy(new TextRange(at with { Offset = 0 }, new TextPosition(pick.Story, end, Len(pick.Story, end))));
+                        break;
+                    }
 
                 case 5:
                     what = "paste";
