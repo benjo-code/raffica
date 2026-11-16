@@ -339,6 +339,12 @@ public sealed class WriteWindowFormattingTests
         // One read of the model, which is bounded (the start of the selection); everything after it is a lookup.
         Assert.NotNull(format);
         Assert.True(format.Truncated);
+
+        // The bounded read is never shown as the whole selection: every value is mixed, no switch is pressed, the pickers say "Mixed".
+        Assert.True(format.Bold.Mixed && format.Size.Mixed && format.Font.Mixed && format.ParagraphStyle.Mixed && format.Alignment.Mixed);
+        Assert.False(Command(window, WriteCommandIds.Bold).IsChecked);
+        Assert.False(Command(window, WriteCommandIds.AlignLeft).IsChecked);
+        Assert.True(Command(window, WriteCommandIds.Size).Picker!.IsMixed!());
         Assert.Equal(1, session.FormatReads);
         Assert.True(firstRead < 500, $"the first read took {firstRead} ms");
         Assert.True(watch.ElapsedMilliseconds < 2000, $"50 refreshes took {watch.ElapsedMilliseconds} ms");
@@ -351,6 +357,61 @@ public sealed class WriteWindowFormattingTests
         Assert.Equal(2, session.FormatReads);
         _ = EditCommandState.FormatOf(tab);
         Assert.Equal(2, session.FormatReads);
+    }
+
+    [AvaloniaFact]
+    public async Task ASelectionOverTheBoundShowsMixedAndOneAtTheBoundShowsRealValues()
+    {
+        using var fixture = new WindowFixture();
+
+        // 250 paragraphs: the first 150 bold at 14 pt, the rest plain. The first block is bold, as a heading is.
+        var bold = "<w:r><w:rPr><w:b/><w:sz w:val=\"28\"/></w:rPr><w:t>b</w:t></w:r>";
+        var plain = "<w:r><w:t>p</w:t></w:r>";
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, [.. Enumerable.Repeat(bold, 150), .. Enumerable.Repeat(plain, 100)]);
+        var last = tab.Docx.Model.Body.Blocks.Count - 1;
+
+        // 150 blocks: read whole, real values (bold, 14 pt, one style).
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, P(tab, 0), 0), new TextPosition(StoryRef.Body, P(tab, 149), 1)));
+        Settle(window);
+        Assert.False(EditCommandState.FormatOf(tab)!.Truncated);
+        Assert.True(Command(window, WriteCommandIds.Bold).IsChecked);
+        Assert.False(Command(window, WriteCommandIds.Size).Picker!.IsMixed!());
+        Assert.Equal("14", Command(window, WriteCommandIds.Size).Picker!.SelectedId!());
+
+        // Exactly the bound (200 blocks, the last 50 plain): read whole, so really mixed.
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, P(tab, 0), 0), new TextPosition(StoryRef.Body, P(tab, 199), 1)));
+        Assert.False(EditCommandState.FormatOf(tab)!.Truncated);
+
+        // Select all: over the bound; the bold first block must not show as the whole selection.
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, P(tab, 0), 0), new TextPosition(StoryRef.Body, P(tab, last), 1)));
+        Settle(window);
+        Assert.True(EditCommandState.FormatOf(tab)!.Truncated);
+        Assert.False(Command(window, WriteCommandIds.Bold).IsChecked);
+        foreach (var id in new[] { WriteCommandIds.Font, WriteCommandIds.Size, WriteCommandIds.Color, WriteCommandIds.ParagraphStyle, WriteCommandIds.LineSpacing, WriteCommandIds.SpaceAfter })
+        {
+            Assert.True(Command(window, id).Picker!.IsMixed!(), id);
+        }
+
+        Assert.Contains("mixed", PickerBox(window, WriteStrings.CmdFormatSize).Classes);
+
+        // Grow font from a mixed read starts from the default size (11 -> 12), not from the first block's 14 pt.
+        Command(window, WriteCommandIds.SizeUp).Run!();
+        Assert.Equal("24", P(tab, 0).Inlines.OfType<Run>().Single().Properties.Get(W + "sz")!.Attribute(W + "val")!.Value);
+    }
+
+    [AvaloniaFact]
+    public async Task ALateSessionEventAfterTheWindowClosedStartsNoTimer()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, "<w:r><w:t>abc</w:t></w:r>");
+        Assert.Null(window.FormatRefresh);
+
+        window.Close();
+        WindowFixture.Pump();
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, P(tab, 0), 1), new TextPosition(StoryRef.Body, P(tab, 0), 2)));
+        WindowFixture.Pump();
+
+        Assert.Null(window.FormatRefresh);
     }
 
     [AvaloniaFact]

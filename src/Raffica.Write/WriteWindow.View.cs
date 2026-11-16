@@ -21,6 +21,7 @@ internal sealed partial class WriteWindow
     private readonly HashSet<WriteTab> _faultShown = [];
     private FormatPickers _pickers = null!;
     private FormatDisplayRefresh? _formatRefresh;
+    private bool _formatClosed;
     private string? _editHint;
     private int _editHintGeneration;
 
@@ -188,7 +189,7 @@ internal sealed partial class WriteWindow
     {
         void Changed()
         {
-            if (ReferenceEquals(Workspace.Active, tab))
+            if (!_formatClosed && ReferenceEquals(Workspace.Active, tab))
             {
                 (_formatRefresh ??= new FormatDisplayRefresh(RefreshCommandStates, FormatDisplayRefresh.DefaultDelay)).Request();
             }

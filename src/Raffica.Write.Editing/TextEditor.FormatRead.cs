@@ -19,7 +19,7 @@ public sealed partial class TextEditor
     /// <summary>
     /// The runs and paragraphs <paramref name="selection"/> covers, for showing their formatting (nothing changes, no history operation begins). A caret covers the run before it (the one after it at the
     /// start of a paragraph, the mark in a paragraph without text), the formatting typed text takes. A selection that touches more than <paramref name="maxBlocks"/> blocks is not walked: the
-    /// answer is the position at its start and <see cref="CoveredFormat.Truncated"/> is true, so a select all of a long document costs a lookup.
+    /// answer is the position at its start and <see cref="CoveredFormat.Truncated"/> is true (a caller must not present it as the whole selection), so a select all of a long document costs a lookup.
     /// </summary>
     public CoveredFormat ReadCovered(TextRange selection, int maxBlocks = MaxFactBlocks)
     {

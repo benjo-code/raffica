@@ -67,7 +67,10 @@ internal sealed record SelectionFormat
     /// <summary>The character style id; null is none.</summary>
     public required Mixable<string?> CharacterStyle { get; init; }
 
-    /// <summary>True when the selection was too large to read whole and this is the formatting at its start.</summary>
+    /// <summary>
+    /// True when the selection was too large to read whole. Every value is then mixed (and holds no value): the bounded read never stands in for the whole selection, so no switch shows
+    /// pressed and every picker shows "Mixed", as a click (which acts on the effective value of the whole selection) would treat it.
+    /// </summary>
     public bool Truncated { get; init; }
 
     /// <summary>Reads the covered runs and paragraphs (no model change).</summary>
@@ -75,6 +78,11 @@ internal sealed record SelectionFormat
     {
         ArgumentNullException.ThrowIfNull(covered);
         ArgumentNullException.ThrowIfNull(format);
+        if (covered.Truncated)
+        {
+            return AllMixed();
+        }
+
         var runs = covered.Targets.Select(t => (Resolved: format.ResolveRun(t.Story, t.Paragraph, t.Run), t.Run)).ToList();
         var paragraphs = covered.Paragraphs.Select(p => (Resolved: format.ResolveParagraph(p.Story, p.Paragraph), p.Paragraph)).ToList();
         return new SelectionFormat
@@ -102,6 +110,38 @@ internal sealed record SelectionFormat
             WidowControl = Fold(paragraphs, p => p.Resolved.WidowControl),
             ParagraphStyle = Fold(paragraphs, p => p.Paragraph.Properties.StyleId ?? defaultParagraphStyle),
             Truncated = covered.Truncated,
+        };
+    }
+
+    // Every value unknown: mixed, with no value to read (a size step then starts from the default size).
+    private static SelectionFormat AllMixed()
+    {
+        static Mixable<T> Unknown<T>() => new(default!, true);
+        return new SelectionFormat
+        {
+            Bold = Unknown<bool>(),
+            Italic = Unknown<bool>(),
+            Underline = Unknown<bool>(),
+            Strike = Unknown<bool>(),
+            Superscript = Unknown<bool>(),
+            Subscript = Unknown<bool>(),
+            SmallCaps = Unknown<bool>(),
+            AllCaps = Unknown<bool>(),
+            Font = Unknown<string>(),
+            Size = Unknown<float>(),
+            Color = Unknown<uint?>(),
+            Highlight = Unknown<uint?>(),
+            Alignment = Unknown<ParagraphAlignment>(),
+            SpaceBefore = Unknown<float>(),
+            SpaceAfter = Unknown<float>(),
+            LineSpacing = Unknown<(LineSpacingRule Rule, float Value)>(),
+            KeepNext = Unknown<bool>(),
+            KeepLines = Unknown<bool>(),
+            PageBreakBefore = Unknown<bool>(),
+            WidowControl = Unknown<bool>(),
+            ParagraphStyle = Unknown<string?>(),
+            CharacterStyle = Unknown<string?>(),
+            Truncated = true,
         };
     }
 
