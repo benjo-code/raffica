@@ -345,4 +345,127 @@
   <data name="UnsavedDontSave" xml:space="preserve">
     <value>Nicht speichern</value>
   </data>
+  <data name="GroupFont" xml:space="preserve">
+    <value>Schrift</value>
+  </data>
+  <data name="GroupParagraph" xml:space="preserve">
+    <value>Absatz</value>
+  </data>
+  <data name="GroupStyles" xml:space="preserve">
+    <value>Formatvorlagen</value>
+  </data>
+  <data name="CmdFormatBold" xml:space="preserve">
+    <value>Fett</value>
+  </data>
+  <data name="CmdFormatItalic" xml:space="preserve">
+    <value>Kursiv</value>
+  </data>
+  <data name="CmdFormatUnderline" xml:space="preserve">
+    <value>Unterstrichen</value>
+  </data>
+  <data name="CmdFormatStrike" xml:space="preserve">
+    <value>Durchgestrichen</value>
+  </data>
+  <data name="CmdFormatSuperscript" xml:space="preserve">
+    <value>Hochgestellt</value>
+  </data>
+  <data name="CmdFormatSubscript" xml:space="preserve">
+    <value>Tiefgestellt</value>
+  </data>
+  <data name="CmdFormatSmallCaps" xml:space="preserve">
+    <value>Kapitälchen</value>
+  </data>
+  <data name="CmdFormatAllCaps" xml:space="preserve">
+    <value>Großbuchstaben</value>
+  </data>
+  <data name="CmdFormatAlignLeft" xml:space="preserve">
+    <value>Linksbündig</value>
+  </data>
+  <data name="CmdFormatAlignCenter" xml:space="preserve">
+    <value>Zentriert</value>
+  </data>
+  <data name="CmdFormatAlignRight" xml:space="preserve">
+    <value>Rechtsbündig</value>
+  </data>
+  <data name="CmdFormatJustify" xml:space="preserve">
+    <value>Blocksatz</value>
+  </data>
+  <data name="CmdFormatIndentMore" xml:space="preserve">
+    <value>Einzug vergrößern</value>
+  </data>
+  <data name="CmdFormatIndentLess" xml:space="preserve">
+    <value>Einzug verkleinern</value>
+  </data>
+  <data name="CmdFormatKeepNext" xml:space="preserve">
+    <value>Mit nächstem Absatz zusammenhalten</value>
+  </data>
+  <data name="CmdFormatKeepLines" xml:space="preserve">
+    <value>Zeilen zusammenhalten</value>
+  </data>
+  <data name="CmdFormatPageBreakBefore" xml:space="preserve">
+    <value>Seitenumbruch davor</value>
+  </data>
+  <data name="CmdFormatWidowControl" xml:space="preserve">
+    <value>Absatzkontrolle</value>
+  </data>
+  <data name="CmdFormatClearDirect" xml:space="preserve">
+    <value>Direkte Formatierung löschen</value>
+  </data>
+  <data name="CmdFormatUpdateStyle" xml:space="preserve">
+    <value>Formatvorlage an Auswahl anpassen</value>
+  </data>
+  <data name="CmdFormatFont" xml:space="preserve">
+    <value>Schriftart</value>
+  </data>
+  <data name="CmdFormatSize" xml:space="preserve">
+    <value>Schriftgrad</value>
+  </data>
+  <data name="CmdFormatSizeUp" xml:space="preserve">
+    <value>Schrift vergrößern</value>
+  </data>
+  <data name="CmdFormatSizeDown" xml:space="preserve">
+    <value>Schrift verkleinern</value>
+  </data>
+  <data name="CmdFormatColor" xml:space="preserve">
+    <value>Textfarbe</value>
+  </data>
+  <data name="CmdFormatHighlight" xml:space="preserve">
+    <value>Hervorhebungsfarbe</value>
+  </data>
+  <data name="CmdFormatSpaceBefore" xml:space="preserve">
+    <value>Abstand davor</value>
+  </data>
+  <data name="CmdFormatSpaceAfter" xml:space="preserve">
+    <value>Abstand danach</value>
+  </data>
+  <data name="CmdFormatLineSpacing" xml:space="preserve">
+    <value>Zeilenabstand</value>
+  </data>
+  <data name="CmdFormatParagraphStyle" xml:space="preserve">
+    <value>Absatzformatvorlage</value>
+  </data>
+  <data name="CmdFormatCharacterStyle" xml:space="preserve">
+    <value>Zeichenformatvorlage</value>
+  </data>
+  <data name="CmdFormatting" xml:space="preserve">
+    <value>Formatierung</value>
+  </data>
+  <data name="ReasonStyleNotDefined" xml:space="preserve">
+    <value>Die Formatvorlage ist in der Datei nicht definiert.</value>
+  </data>
+  <data name="ReasonStyleMixed" xml:space="preserve">
+    <value>Die Auswahl enthält mehr als eine Formatvorlage.</value>
+  </data>
+  <data name="ReasonNoFormattingToClear" xml:space="preserve">
+    <value>Es gibt keine direkte Formatierung zu löschen.</value>
+  </data>
+  <data name="ReasonNothingToUpdate" xml:space="preserve">
+    <value>Die Formatvorlage stimmt bereits überein.</value>
+  </data>
+  <data name="ReasonNoStyles" xml:space="preserve">
+    <value>Die Datei enthält keine Formatvorlagen.</value>
+  </data>
+  <data name="MenuFormat" xml:space="preserve">
+    <value>Format</value>
+  </data>
 </root>

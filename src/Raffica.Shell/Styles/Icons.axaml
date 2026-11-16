@@ -99,4 +99,25 @@
   <StreamGeometry x:Key="Raffica.Icon.RefreshCw">M3 12 a9 9 0 0 1 9 -9 9.75 9.75 0 0 1 6.74 2.74 L21 8 M21 3 v5 h-5 M21 12 a9 9 0 0 1 -9 9 9.75 9.75 0 0 1 -6.74 -2.74 L3 16 M8 16 H3 v5</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.Redo2">M15 14 20 9 15 4 M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.ClipboardPaste">M11 14h10 M16 4h2a2 2 0 0 1 2 2v1.344 M17 18 21 14 17 10 M8 4H6a2 2 0 0 0 -2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793 -1.113 M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1H9a1 1 0 0 1 -1 -1V3a1 1 0 0 1 1 -1z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ALargeSmall">M15 16l2.536-7.328a1.02 1.02 1 0 1 1.928 0L22 16 M15.697 14h5.606 M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M3.304 13h6.392</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.AArrowUp">M14 11l4-4 4 4 M18 16V7 M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M3.304 13h6.392</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.AArrowDown">M14 12l4 4 4-4 M18 16V7 M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M3.304 13h6.392</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Superscript">M4 19l8-8 M12 19l-8-8 M20 12h-4c0-1.5.442-2 1.5-2.5S20 8.334 20 7.002c0-.472-.17-.93-.484-1.29a2.105 2.105 0 0 0-2.617-.436c-.42.239-.738.614-.899 1.06</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Subscript">M4 5l8 8 M12 5l-8 8 M20 19h-4c0-1.5.44-2 1.5-2.5S20 15.33 20 14c0-.47-.17-.93-.48-1.29a2.11 2.11 0 0 0-2.62-.44c-.42.24-.74.62-.9 1.07</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CaseSensitive">M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M22 9v7 M3.304 13h6.392 M15 12.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.CaseUpper">M15 11h4.5a1 1 0 0 1 0 5h-4a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h3a1 1 0 0 1 0 5 M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M3.304 13h6.392</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.RemoveFormatting">M4 7V4h16v3 M5 20h6 M13 4L8 20 M15 15l5 5 M20 15l-5 5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Palette">M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z M13 6.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M17 10.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M6 12.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 M8 7.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.AlignJustify">M3 5h18 M3 12h18 M3 19h18</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListIndentIncrease">M21 5H11 M21 12H11 M21 19H11 M3 8l4 4-4 4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListIndentDecrease">M21 5H11 M21 12H11 M21 19H11 M7 8l-4 4 4 4</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListChevronsUpDown">M3 5h8 M3 12h8 M3 19h8 M15 8l3-3 3 3 M15 16l3 3 3-3</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ArrowUpToLine">M5 3h14 M18 13l-6-6-6 6 M12 7v14</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ArrowDownToLine">M12 17V3 M6 11l6 6 6-6 M19 21H5</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Link">M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Pin">M12 17v5 M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.FileUp">M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z M14 2v5a1 1 0 0 0 1 1h5 M12 12v6 M15 15l-3-3-3 3</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.ListEnd">M16 5H3 M16 12H3 M9 19H3 M16 16l-3 3 3 3 M21 5v12a2 2 0 0 1-2 2h-6</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Pilcrow">M13 4v16 M17 4v16 M19 4H9.5a4.5 4.5 0 0 0 0 9H13</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Baseline">M4 20h16 M6 16l6-12 6 12 M8 12h8</StreamGeometry>
 </ResourceDictionary>

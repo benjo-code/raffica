@@ -118,6 +118,21 @@ internal sealed partial class WriteWindow
         return true;
     }
 
+    // What the value commands do with the value their picker chose (<see cref="CatalogCommand.TakesPayload"/>); the formatting step wires them, a command with no entry does nothing.
+    private readonly Dictionary<string, Action<object?>> _payloadActions = [];
+
+    /// <summary>Runs a value command of the catalog (a font, a size, a colour, a spacing, a style) with the value its picker chose; false when it is not allowed, has no action or takes no value.</summary>
+    internal bool RunCommand(string id, object? payload)
+    {
+        if (!WriteCommandIds.TakesPayload(id) || !_rules.Allows(id) || !_payloadActions.TryGetValue(id, out var run))
+        {
+            return false;
+        }
+
+        run(payload);
+        return true;
+    }
+
     /// <summary>Shows the active document in another view (a no-op without one).</summary>
     internal void SetView(WriteView view)
     {

@@ -8,7 +8,12 @@ namespace Raffica.Write.Commands;
 /// <param name="HasSelection">Whether text is selected (a caret is not a selection).</param>
 /// <param name="CanUndo">Whether an undo step is there.</param>
 /// <param name="CanRedo">Whether a redo step is there.</param>
-internal readonly record struct EditCommandState(EditBlockedReason? Blocked, bool HasSelection, bool CanUndo, bool CanRedo)
+/// <param name="HasStylesPart">Whether the file has a styles part.</param>
+/// <param name="StyleDefined">Whether the paragraph style of the selection is defined in the file.</param>
+/// <param name="StyleMixed">Whether the selection touches paragraphs of different paragraph styles.</param>
+/// <param name="HasOverrides">Whether the selection has direct formatting to clear.</param>
+/// <param name="CanUpdateStyle">Whether Update style to match would move something into the style.</param>
+internal readonly record struct EditCommandState(EditBlockedReason? Blocked, bool HasSelection, bool CanUndo, bool CanRedo, bool HasStylesPart = true, bool StyleDefined = true, bool StyleMixed = false, bool HasOverrides = true, bool CanUpdateStyle = true)
 {
     /// <summary>
     /// The state of a tab, read without making anything: a tab that has no editing session yet has no selection and no history (the session is made by the first click or key).
@@ -28,7 +33,9 @@ internal readonly record struct EditCommandState(EditBlockedReason? Blocked, boo
             return new EditCommandState(blocked, false, false, false);
         }
 
+        // The facts of the formatting commands are read only for a healthy session with a selection or caret (a save queues formatting, so the model is not asked then).
         var selection = session.Selection;
-        return new EditCommandState(blocked, selection is { IsEmpty: false }, session.CanUndo, session.CanRedo);
+        var facts = blocked is null && selection is { } range ? session.ReadFormatFacts(range) : FormatFacts.Unknown;
+        return new EditCommandState(blocked, selection is { IsEmpty: false }, session.CanUndo, session.CanRedo, facts.HasStylesPart, facts.StyleDefined, facts.StyleMixed, facts.HasOverrides, facts.CanUpdateStyle);
     }
 }

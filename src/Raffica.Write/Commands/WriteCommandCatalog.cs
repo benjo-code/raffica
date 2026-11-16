@@ -17,7 +17,7 @@ namespace Raffica.Write.Commands;
  *   view.fitWidth -> move-horizontal
  *   view.fitPage -> maximize
  *   view.page -> file
- *   view.writing -> text-align-start (the key AlignLeft)
+ *   view.writing -> pen-line
  *   view.outline -> list-tree
  *   edit.undo -> undo-2
  *   edit.redo -> redo-2
@@ -25,6 +25,16 @@ namespace Raffica.Write.Commands;
  *   edit.copy -> copy
  *   edit.paste -> clipboard-paste
  *   edit.selectAll -> text-select
+ *   format.bold -> bold, format.italic -> italic, format.underline -> underline, format.strike -> strikethrough
+ *   format.superscript -> superscript, format.subscript -> subscript, format.smallCaps -> case-sensitive, format.allCaps -> case-upper
+ *   format.alignLeft -> text-align-start (the key AlignLeft), format.alignCenter -> text-align-center, format.alignRight -> text-align-end, format.justify -> text-align-justify
+ *   format.indentMore -> list-indent-increase, format.indentLess -> list-indent-decrease
+ *   format.keepNext -> link, format.keepLines -> pin, format.pageBreakBefore -> file-up, format.widowControl -> list-end
+ *   format.clearDirect -> remove-formatting, format.updateStyle -> refresh-cw
+ *   format.font -> type, format.size -> a-large-small, format.sizeUp -> a-arrow-up, format.sizeDown -> a-arrow-down, format.color -> palette, format.highlight -> highlighter
+ *   format.spaceBefore -> arrow-up-to-line, format.spaceAfter -> arrow-down-to-line, format.lineSpacing -> list-chevrons-up-down
+ *   format.paragraphStyle -> pilcrow, format.characterStyle -> baseline
+ *   view.formatting -> panel-right
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -115,13 +125,13 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
 
     internal CatalogGroup Add(string id, string nameKey, string icon, string code, WriteShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, WriteShortcut? macShortcut = null, bool describe = false)
     {
-        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, macShortcut, describe ? "Desc" + nameKey[3..] : null));
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, macShortcut, describe ? "Desc" + nameKey[3..] : null, WriteCommandIds.TakesPayload(id)));
         return this;
     }
 }
 
 /// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
-internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, WriteShortcut? shortcut, CommandSize size, bool toggle, WriteShortcut? macShortcut, string? descriptionKey)
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, WriteShortcut? shortcut, CommandSize size, bool toggle, WriteShortcut? macShortcut, string? descriptionKey, bool takesPayload)
 {
     public CatalogGroup Group { get; } = group;
 
@@ -155,6 +165,12 @@ internal sealed class CatalogCommand(CatalogGroup group, string id, string nameK
 
     /// <summary>Whether the command is a switch or a choice that shows its state (pressed, and the UIA Toggle state): the zoom fit modes, the two views and the outline.</summary>
     public bool Toggle { get; } = toggle;
+
+    /// <summary>
+    /// Whether the command is a value command (font, size, colour, spacing, style): the picker that chooses the value passes it to the action as the payload of
+    /// <c>WriteWindow.RunCommand(string, object?)</c>; a command without a payload is run by its id alone.
+    /// </summary>
+    public bool TakesPayload { get; } = takesPayload;
 }
 
 /// <summary>
@@ -180,6 +196,40 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.Cut, "CmdCut", "Scissors", "42", Cmd(Key.X, "X"), describe: true)
             .Add(WriteCommandIds.Copy, "CmdCopy", "Copy", "43", Cmd(Key.C, "C"), describe: true)
             .Add(WriteCommandIds.SelectAll, "CmdSelectAll", "TextSelect", "44", Cmd(Key.A, "A"), describe: true);
+        home.Group("GroupFont", "5")
+            .Add(WriteCommandIds.Font, "CmdFormatFont", "Type", "51")
+            .Add(WriteCommandIds.Size, "CmdFormatSize", "ALargeSmall", "52")
+            .Add(WriteCommandIds.SizeUp, "CmdFormatSizeUp", "AArrowUp", "53")
+            .Add(WriteCommandIds.SizeDown, "CmdFormatSizeDown", "AArrowDown", "54")
+            .Add(WriteCommandIds.Bold, "CmdFormatBold", "Bold", "55", Cmd(Key.B, "B"), toggle: true)
+            .Add(WriteCommandIds.Italic, "CmdFormatItalic", "Italic", "56", Cmd(Key.I, "I"), toggle: true)
+            .Add(WriteCommandIds.Underline, "CmdFormatUnderline", "Underline", "57", Cmd(Key.U, "U"), toggle: true)
+            .Add(WriteCommandIds.Strike, "CmdFormatStrike", "Strikethrough", "58", null, toggle: true)
+            .Add(WriteCommandIds.Superscript, "CmdFormatSuperscript", "Superscript", "59", null, toggle: true)
+            .Add(WriteCommandIds.Subscript, "CmdFormatSubscript", "Subscript", "5A", null, toggle: true)
+            .Add(WriteCommandIds.SmallCaps, "CmdFormatSmallCaps", "CaseSensitive", "5B", null, toggle: true)
+            .Add(WriteCommandIds.AllCaps, "CmdFormatAllCaps", "CaseUpper", "5C", null, toggle: true)
+            .Add(WriteCommandIds.Color, "CmdFormatColor", "Palette", "5D")
+            .Add(WriteCommandIds.Highlight, "CmdFormatHighlight", "Highlighter", "5E")
+            .Add(WriteCommandIds.ClearDirect, "CmdFormatClearDirect", "RemoveFormatting", "5F");
+        home.Group("GroupParagraph", "6")
+            .Add(WriteCommandIds.AlignLeft, "CmdFormatAlignLeft", "AlignLeft", "61", Cmd(Key.L, "L"), toggle: true)
+            .Add(WriteCommandIds.AlignCenter, "CmdFormatAlignCenter", "AlignCenter", "62", Cmd(Key.E, "E"), toggle: true)
+            .Add(WriteCommandIds.AlignRight, "CmdFormatAlignRight", "AlignRight", "63", Cmd(Key.R, "R"), toggle: true)
+            .Add(WriteCommandIds.Justify, "CmdFormatJustify", "AlignJustify", "64", Cmd(Key.J, "J"), toggle: true)
+            .Add(WriteCommandIds.IndentLess, "CmdFormatIndentLess", "ListIndentDecrease", "65")
+            .Add(WriteCommandIds.IndentMore, "CmdFormatIndentMore", "ListIndentIncrease", "66")
+            .Add(WriteCommandIds.LineSpacing, "CmdFormatLineSpacing", "ListChevronsUpDown", "67")
+            .Add(WriteCommandIds.SpaceBefore, "CmdFormatSpaceBefore", "ArrowUpToLine", "68")
+            .Add(WriteCommandIds.SpaceAfter, "CmdFormatSpaceAfter", "ArrowDownToLine", "69")
+            .Add(WriteCommandIds.KeepNext, "CmdFormatKeepNext", "Link", "6A", null, toggle: true)
+            .Add(WriteCommandIds.KeepLines, "CmdFormatKeepLines", "Pin", "6B", null, toggle: true)
+            .Add(WriteCommandIds.PageBreakBefore, "CmdFormatPageBreakBefore", "FileUp", "6C", null, toggle: true)
+            .Add(WriteCommandIds.WidowControl, "CmdFormatWidowControl", "ListEnd", "6D", null, toggle: true);
+        home.Group("GroupStyles", "7")
+            .Add(WriteCommandIds.ParagraphStyle, "CmdFormatParagraphStyle", "Pilcrow", "71")
+            .Add(WriteCommandIds.CharacterStyle, "CmdFormatCharacterStyle", "Baseline", "72")
+            .Add(WriteCommandIds.UpdateStyle, "CmdFormatUpdateStyle", "RefreshCw", "73");
         home.Group("GroupSearch", "2")
             .Add(WriteCommandIds.Search, "CmdSearch", "Search", "21", new WriteShortcut(Key.Q, "Q", WriteShortcutBase.Alt), CommandSize.Large, macShortcut: Cmd(Key.K, "K"));
 
@@ -192,9 +242,10 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.FitPage, "CmdFitPage", "Maximize", "15", Cmd(Key.D2, "2", alternates: [Key.NumPad2]), toggle: true);
         view.Group("GroupViews", "2")
             .Add(WriteCommandIds.PageView, "CmdPageView", "File", "21", toggle: true)
-            .Add(WriteCommandIds.WritingView, "CmdWritingView", "AlignLeft", "22", toggle: true);
+            .Add(WriteCommandIds.WritingView, "CmdWritingView", "PenLine", "22", toggle: true);
         view.Group("GroupPanes", "3")
-            .Add(WriteCommandIds.Outline, "CmdOutline", "ListTree", "31", toggle: true);
+            .Add(WriteCommandIds.Outline, "CmdOutline", "ListTree", "31", toggle: true)
+            .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true);
 
         Tabs = [home, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
@@ -206,13 +257,13 @@ internal static class WriteCommandCatalog
     /// <summary>Every command, in ribbon order.</summary>
     public static IReadOnlyList<CatalogCommand> Commands { get; }
 
-    /// <summary>The command a key press stands for, or null. The command search is the frame's (it handles its own key) and the keys of undo, redo, the clipboard and select all are the page view's (a text box has its own Ctrl+C), so none of them is ever returned.</summary>
+    /// <summary>The command a key press stands for, or null. The command search is the frame's (it handles its own key) and the keys of undo, redo, the clipboard, select all and the formatting commands are the page view's (a text box has its own Ctrl+C), so none of them is ever returned.</summary>
     public static CatalogCommand? Find(Key key, KeyModifiers modifiers, KeyModifiers command, bool? macOs = null)
     {
         var mac = macOs ?? OperatingSystem.IsMacOS();
         foreach (var candidate in Commands)
         {
-            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate;
             }

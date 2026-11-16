@@ -222,6 +222,24 @@ internal sealed class EditSession
     /// <summary>True when a redo step is there (see <see cref="CanUndo"/>).</summary>
     public bool CanRedo => _editor?.History.CanRedo ?? false;
 
+    /// <summary>
+    /// The facts the rules of the formatting commands need about <paramref name="range"/>: whether the file has styles, whether the paragraph style is defined, mixed or has nothing to
+    /// update, and whether there is direct formatting to clear. Pure (the model and the history stay as they are); call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// </summary>
+    public FormatFacts ReadFormatFacts(TextRange range)
+    {
+        var editor = Editor;
+        var view = editor.Inspect(range);
+        if (_tab.Docx.Model.Styles is not { } sheet)
+        {
+            return new FormatFacts(false, false, false, view.Rows.Count > 0, false);
+        }
+
+        var id = view.ParagraphStyleId ?? sheet.Styles.FirstOrDefault(style => style.IsDefault && style.Type == "paragraph")?.Id;
+        var defined = !view.ParagraphStyleMixed && id is not null && sheet.Find(id) is not null;
+        return new FormatFacts(true, defined, view.ParagraphStyleMixed, view.Rows.Count > 0, defined && editor.CanUpdateStyleToMatch(range));
+    }
+
     /// <summary>The text editor of the current model; made on first use. Throws unless <see cref="CanEdit"/>. Use it only inside an operation of <see cref="Apply"/>.</summary>
     public TextEditor Editor => Bind();
 

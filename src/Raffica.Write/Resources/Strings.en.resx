@@ -345,4 +345,127 @@
   <data name="UnsavedDontSave" xml:space="preserve">
     <value>Don't save</value>
   </data>
+  <data name="GroupFont" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="GroupParagraph" xml:space="preserve">
+    <value>Paragraph</value>
+  </data>
+  <data name="GroupStyles" xml:space="preserve">
+    <value>Styles</value>
+  </data>
+  <data name="CmdFormatBold" xml:space="preserve">
+    <value>Bold</value>
+  </data>
+  <data name="CmdFormatItalic" xml:space="preserve">
+    <value>Italic</value>
+  </data>
+  <data name="CmdFormatUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="CmdFormatStrike" xml:space="preserve">
+    <value>Strikethrough</value>
+  </data>
+  <data name="CmdFormatSuperscript" xml:space="preserve">
+    <value>Superscript</value>
+  </data>
+  <data name="CmdFormatSubscript" xml:space="preserve">
+    <value>Subscript</value>
+  </data>
+  <data name="CmdFormatSmallCaps" xml:space="preserve">
+    <value>Small capitals</value>
+  </data>
+  <data name="CmdFormatAllCaps" xml:space="preserve">
+    <value>All capitals</value>
+  </data>
+  <data name="CmdFormatAlignLeft" xml:space="preserve">
+    <value>Align left</value>
+  </data>
+  <data name="CmdFormatAlignCenter" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="CmdFormatAlignRight" xml:space="preserve">
+    <value>Align right</value>
+  </data>
+  <data name="CmdFormatJustify" xml:space="preserve">
+    <value>Justify</value>
+  </data>
+  <data name="CmdFormatIndentMore" xml:space="preserve">
+    <value>Increase indent</value>
+  </data>
+  <data name="CmdFormatIndentLess" xml:space="preserve">
+    <value>Decrease indent</value>
+  </data>
+  <data name="CmdFormatKeepNext" xml:space="preserve">
+    <value>Keep with next paragraph</value>
+  </data>
+  <data name="CmdFormatKeepLines" xml:space="preserve">
+    <value>Keep lines together</value>
+  </data>
+  <data name="CmdFormatPageBreakBefore" xml:space="preserve">
+    <value>Page break before</value>
+  </data>
+  <data name="CmdFormatWidowControl" xml:space="preserve">
+    <value>Widow and orphan control</value>
+  </data>
+  <data name="CmdFormatClearDirect" xml:space="preserve">
+    <value>Clear direct formatting</value>
+  </data>
+  <data name="CmdFormatUpdateStyle" xml:space="preserve">
+    <value>Update style to match</value>
+  </data>
+  <data name="CmdFormatFont" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="CmdFormatSize" xml:space="preserve">
+    <value>Font size</value>
+  </data>
+  <data name="CmdFormatSizeUp" xml:space="preserve">
+    <value>Increase font size</value>
+  </data>
+  <data name="CmdFormatSizeDown" xml:space="preserve">
+    <value>Decrease font size</value>
+  </data>
+  <data name="CmdFormatColor" xml:space="preserve">
+    <value>Text color</value>
+  </data>
+  <data name="CmdFormatHighlight" xml:space="preserve">
+    <value>Highlight color</value>
+  </data>
+  <data name="CmdFormatSpaceBefore" xml:space="preserve">
+    <value>Space before</value>
+  </data>
+  <data name="CmdFormatSpaceAfter" xml:space="preserve">
+    <value>Space after</value>
+  </data>
+  <data name="CmdFormatLineSpacing" xml:space="preserve">
+    <value>Line spacing</value>
+  </data>
+  <data name="CmdFormatParagraphStyle" xml:space="preserve">
+    <value>Paragraph style</value>
+  </data>
+  <data name="CmdFormatCharacterStyle" xml:space="preserve">
+    <value>Character style</value>
+  </data>
+  <data name="CmdFormatting" xml:space="preserve">
+    <value>Formatting</value>
+  </data>
+  <data name="ReasonStyleNotDefined" xml:space="preserve">
+    <value>The style is not defined in the file.</value>
+  </data>
+  <data name="ReasonStyleMixed" xml:space="preserve">
+    <value>The selection has more than one style.</value>
+  </data>
+  <data name="ReasonNoFormattingToClear" xml:space="preserve">
+    <value>There is no direct formatting to clear.</value>
+  </data>
+  <data name="ReasonNothingToUpdate" xml:space="preserve">
+    <value>The style already matches.</value>
+  </data>
+  <data name="ReasonNoStyles" xml:space="preserve">
+    <value>The file has no styles.</value>
+  </data>
+  <data name="MenuFormat" xml:space="preserve">
+    <value>Format</value>
+  </data>
 </root>

@@ -13,7 +13,9 @@ namespace Raffica.Write.Commands;
 /// disabled. While a save runs undo, redo and paste stay enabled (they are operations of the session and are queued like typing, replayed in order when the save ends);
 /// cut, copy and select all are disabled because they read the selection now and a queued one could not tell the clipboard what it took. Cut and copy need a selection (a
 /// caret is none); undo and redo need a step. An empty clipboard is no disabled state: the clipboard is read asynchronously, so paste is always offered when the document can be
-/// edited and does nothing when there is nothing to paste.
+/// edited and does nothing when there is nothing to paste. The formatting commands (<see cref="WriteCommandIds.IsFormatting"/>) are blocked in the same way and queue during a save like typing;
+/// beyond that Update style to match needs one defined style and something to move, the paragraph and character style pickers need styles in the file and Clear direct formatting needs
+/// formatting to clear. The Formatting pane switch needs a document only.
 /// </remarks>
 /// <param name="hasDocument">Whether a document tab is open.</param>
 /// <param name="zoom">The zoom of the view of the active tab (1 = 100 %).</param>
@@ -38,6 +40,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         WriteCommandIds.Save => SaveState.Refusal(saveAs: false) is null,
         WriteCommandIds.SaveAs => SaveState.Refusal(saveAs: true) is null,
         _ when WriteCommandIds.IsEditing(id) => hasDocument() && EditReason(id, State) is null,
+        _ when WriteCommandIds.IsFormatting(id) => hasDocument() && FormatReason(id, State) is null,
         _ => hasDocument(),
     };
 
@@ -55,6 +58,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsEditing(id))
         {
             return EditReason(id, State);
+        }
+
+        if (WriteCommandIds.IsFormatting(id))
+        {
+            return FormatReason(id, State);
         }
 
         return id switch
@@ -77,6 +85,30 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         SaveRefusal.Unavailable => saveAs ? WriteStrings.ReasonSaveAsFaulted : WriteStrings.ReasonSaveFaulted,
         _ => null,
     };
+
+    // The reason a formatting command is disabled, or null when it may run. The block comes first (a save queues formatting like typing, so it never disables it), then the facts of the selection.
+    private static string? FormatReason(string id, EditCommandState state)
+    {
+        switch (state.Blocked)
+        {
+            case EditBlockedReason.StillOpening:
+                return WriteStrings.ReasonEditOpening;
+            case EditBlockedReason.Faulted:
+                return WriteStrings.EditUnavailable;
+            default:
+                break;
+        }
+
+        return id switch
+        {
+            WriteCommandIds.ClearDirect when !state.HasOverrides => WriteStrings.ReasonNoFormattingToClear,
+            WriteCommandIds.ParagraphStyle or WriteCommandIds.CharacterStyle when !state.HasStylesPart => WriteStrings.ReasonNoStyles,
+            WriteCommandIds.UpdateStyle when state.StyleMixed => WriteStrings.ReasonStyleMixed,
+            WriteCommandIds.UpdateStyle when !state.HasStylesPart || !state.StyleDefined => WriteStrings.ReasonStyleNotDefined,
+            WriteCommandIds.UpdateStyle when !state.CanUpdateStyle => WriteStrings.ReasonNothingToUpdate,
+            _ => null,
+        };
+    }
 
     // The reason an edit command is disabled, or null when it may run. The block comes first (it holds for every command), then what the command itself needs.
     private static string? EditReason(string id, EditCommandState state)

@@ -20,31 +20,12 @@ public sealed partial class TextEditor
     public EditResult? UpdateStyleToMatch(TextRange selection)
     {
         var revision = History.BeginOperation();
-        if (_document.Styles is not { } sheet || Resolve(selection) is not { } span)
+        if (_document.Styles is not { } sheet || Resolve(selection) is not { } span || PlanUpdate(sheet, selection, span) is not { } plan)
         {
             return null;
         }
 
-        var paragraphs = Scan(selection).Paragraphs.Select(p => p.Paragraph).ToList();
-        if (paragraphs.Count == 0)
-        {
-            return null;
-        }
-
-        var ids = paragraphs.Select(p => p.Properties.StyleId ?? sheet.Styles.FirstOrDefault(s => s.IsDefault && s.Type == "paragraph")?.Id).Distinct().ToList();
-        if (ids.Count != 1 || ids[0] is not { } id || sheet.Find(id) is not { } original)
-        {
-            return null;
-        }
-
-        var source = paragraphs[0];
-        var runs = Map(span.Story, source).Items.Select(i => i.Run).Distinct().ToList();
-        var paragraphRows = FormattingInspector.OverridesOf(OverrideScope.Paragraph, source.Properties.Children).ToList();
-        var runRows = runs.Count == 0
-            ? []
-            : FormattingInspector.OverridesOf(OverrideScope.Run, runs[0].Properties.Children)
-                .Where(row => runs.All(r => r.Properties.Get(row.Name) is { } other && XNode.DeepEquals(other, row)))
-                .ToList();
+        var (original, source, runs, paragraphRows, runRows) = plan;
         if (paragraphRows.Count == 0 && runRows.Count == 0)
         {
             return NoChange(span.Story, span.Last, span.LastOffset);
@@ -77,5 +58,42 @@ public sealed partial class TextEditor
             Style: change);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
+    }
+
+    /// <summary>
+    /// Whether <see cref="UpdateStyleToMatch"/> would move something into the style: the selection touches paragraphs of one style that the file defines and the first paragraph
+    /// has an override to move. Pure: nothing changes and no history operation begins. The commands read it, so the UI never relies on the empty result of the operation.
+    /// </summary>
+    public bool CanUpdateStyleToMatch(TextRange selection)
+    {
+        return _document.Styles is { } sheet && Resolve(selection) is { } span && PlanUpdate(sheet, selection, span) is { } plan && (plan.ParagraphRows.Count > 0 || plan.RunRows.Count > 0);
+    }
+
+    private sealed record UpdatePlan(Style Original, Paragraph Source, List<Run> Runs, List<XElement> ParagraphRows, List<XElement> RunRows);
+
+    // What an update would move, or null when the style cannot be updated (different styles, a style the file does not define, no paragraph).
+    private UpdatePlan? PlanUpdate(StyleSheet sheet, TextRange selection, Span span)
+    {
+        var paragraphs = Scan(selection).Paragraphs.Select(p => p.Paragraph).ToList();
+        if (paragraphs.Count == 0)
+        {
+            return null;
+        }
+
+        var ids = paragraphs.Select(p => p.Properties.StyleId ?? sheet.Styles.FirstOrDefault(s => s.IsDefault && s.Type == "paragraph")?.Id).Distinct().ToList();
+        if (ids.Count != 1 || ids[0] is not { } id || sheet.Find(id) is not { } original)
+        {
+            return null;
+        }
+
+        var source = paragraphs[0];
+        var runs = Map(span.Story, source).Items.Select(i => i.Run).Distinct().ToList();
+        var paragraphRows = FormattingInspector.OverridesOf(OverrideScope.Paragraph, source.Properties.Children).ToList();
+        var runRows = runs.Count == 0
+            ? []
+            : FormattingInspector.OverridesOf(OverrideScope.Run, runs[0].Properties.Children)
+                .Where(row => runs.All(r => r.Properties.Get(row.Name) is { } other && XNode.DeepEquals(other, row)))
+                .ToList();
+        return new UpdatePlan(original, source, runs, paragraphRows, runRows);
     }
 }
