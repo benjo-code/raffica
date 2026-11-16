@@ -19,6 +19,7 @@ public sealed class FormattingSessionTests
     private static readonly TimeSpan GateTimeout = TimeSpan.FromSeconds(60);
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private static readonly PropertyChange BoldOn = new(W + "b", new XElement(W + "b"));
+    private static readonly PropertyChange ItalicOn = new(W + "i", new XElement(W + "i"));
 
     private static async Task<WriteTab> OpenWholeAsync()
     {
@@ -217,6 +218,92 @@ public sealed class FormattingSessionTests
         h.Window.KeyTextInput("WYW");
         ViewHarness.Pump();
         Assert.True(BoldRunWith(session.Caret!.Value.Paragraph, "WYW"));
+    }
+
+    // The input method of a view at a caret in the thesis: the client is asked, the way the platform does on focus.
+    private static async Task<(ViewHarness Harness, EditSession Session, TextInputMethodClient Client)> ImeAtACaretAsync()
+    {
+        var h = new ViewHarness(WindowFixture.Thesis, 900, 700);
+        h.View.Runner.LeaseWaitTimeout = GateTimeout;
+        h.View.Runner.Start();
+        await ViewHarness.WaitAsync(() => h.View.Runner.FullModelReady, 30000);
+        var session = h.View.Tab.EnsureEditor();
+        var at = FirstTextRange(h.View.Tab, 2, 2).Start;
+        session.SetSelection(new TextRange(at, at));
+        h.View.Focus();
+        var args = new TextInputMethodClientRequestedEventArgs { RoutedEvent = InputElement.TextInputMethodClientRequestedEvent };
+        h.View.RaiseEvent(args);
+        return (h, session, args.Client!);
+    }
+
+    [AvaloniaFact]
+    public async Task AnImeCommitTakesTheFormatGivenBeforeTheCompositionBegan()
+    {
+        var (h, session, client) = await ImeAtACaretAsync();
+        using (h)
+        {
+            session.Pending.Set([BoldOn]);
+            client.SetPreeditText("kan");
+            client.SetPreeditText("kanji");
+            h.Window.KeyTextInput("QXQ");
+            ViewHarness.Pump();
+            Assert.True(BoldRunWith(session.Caret!.Value.Paragraph, "QXQ"));
+            // The pending format stays for the next commit or typed text, as it does after typed text.
+            Assert.Single(session.Pending.Changes);
+
+            client.SetPreeditText("ka");
+            h.Window.KeyTextInput("WYW");
+            ViewHarness.Pump();
+            Assert.True(BoldRunWith(session.Caret!.Value.Paragraph, "WYW"));
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AnImeCommitDoesNotTakeAFormatThatChangedOrWentDuringTheComposition()
+    {
+        var (h, session, client) = await ImeAtACaretAsync();
+        using (h)
+        {
+            // Another format set during the composition: stale, dropped.
+            session.Pending.Set([BoldOn]);
+            client.SetPreeditText("kan");
+            session.Pending.Set([ItalicOn]);
+            h.Window.KeyTextInput("QXQ");
+            ViewHarness.Pump();
+            Assert.False(BoldRunWith(session.Caret!.Value.Paragraph, "QXQ"));
+            Assert.Empty(session.Pending.Changes);
+
+            // Cleared during the composition: nothing to take.
+            session.Pending.Set([BoldOn]);
+            client.SetPreeditText("kan");
+            session.Pending.Clear();
+            h.Window.KeyTextInput("WYW");
+            ViewHarness.Pump();
+            Assert.False(BoldRunWith(session.Caret!.Value.Paragraph, "WYW"));
+            Assert.Empty(session.Pending.Changes);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AnImeCommitWithoutAPendingFormatIsPlainAndACancelledCompositionIsNoCommit()
+    {
+        var (h, session, client) = await ImeAtACaretAsync();
+        using (h)
+        {
+            client.SetPreeditText("kan");
+            h.Window.KeyTextInput("QXQ");
+            ViewHarness.Pump();
+            Assert.False(BoldRunWith(session.Caret!.Value.Paragraph, "QXQ"));
+            Assert.Empty(session.Pending.Changes);
+
+            // A cancelled composition is no commit: text typed afterwards is plain typing and takes the pending format as always.
+            session.Pending.Set([BoldOn]);
+            client.SetPreeditText("kan");
+            h.View.CancelComposition();
+            h.Window.KeyTextInput("WYW");
+            ViewHarness.Pump();
+            Assert.True(BoldRunWith(session.Caret!.Value.Paragraph, "WYW"));
+        }
     }
 
     [AvaloniaFact]

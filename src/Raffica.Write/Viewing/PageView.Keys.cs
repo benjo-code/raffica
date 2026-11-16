@@ -98,17 +98,28 @@ internal sealed partial class PageView
             LogCommit(text.Length);
         }
 
-        // A pending format goes into typed text only: an input method commit never takes one (it is stale by then) and ends it.
+        // A pending format goes into typed text, and into an input method commit only when it is the one the session had when the composition began and still has
+        // (Ctrl+B, then the input method: the commit is bold). One set or cleared during the composition is stale by then: the commit does not take it and ends it.
+        var carried = TakeComposePending();
+        IReadOnlyList<PropertyChange>? pendingForCommit = null;
         if (commit)
         {
-            _tab.Editor?.Pending.Clear();
+            if (carried is { Count: > 0 } && _tab.Editor is { } held && ReferenceEquals(held.Pending.Changes, carried))
+            {
+                pendingForCommit = carried;
+            }
+            else
+            {
+                _tab.Editor?.Pending.Clear();
+            }
         }
 
         ApplyKey(
             session => ed => session.Selection is not { } selection
                 ? null
+                : pendingForCommit is not null ? ed.InsertText(selection, text, pendingForCommit)
                 : session.Pending.Changes is { Count: > 0 } pending && !commit ? ed.InsertText(selection, text, pending) : ed.InsertText(selection, text),
-            typing: !commit);
+            typing: !commit || pendingForCommit is not null);
     }
 
     // The key handler of the editing keys with a net under it: a failure of a caret move or of anything else in it is a bug (Debug rethrows it, Release claims the key and traces the type).
