@@ -94,6 +94,41 @@ public sealed class EditSessionTests
     }
 
     [AvaloniaFact]
+    public async Task AFooterEditIsFinishedInTheBackgroundAndALeaseStopsThePassAtABatchBoundary()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Thesis);
+        var runner = tab.Runner;
+        var layout = runner.PageLayout;
+        await WaitAsync(() => layout.IsSettled);
+
+        var model = tab.Docx.Model;
+        var footer = model.HeadersFooters.Where(h => h.Value.Kind == HeaderFooterKind.Footer)
+            .SelectMany(h => h.Value.Content.Blocks.OfType<Paragraph>().Select(p => (Id: h.Key, Paragraph: p)))
+            .First(f => ParagraphProjection.Build(f.Paragraph, layout.ProjectionHost(new StoryRef(StoryKind.HeaderFooter, f.Id), f.Paragraph)).Text.Length > 0);
+        var story = new StoryRef(StoryKind.HeaderFooter, footer.Id);
+        var length = ParagraphProjection.Build(footer.Paragraph, layout.ProjectionHost(story, footer.Paragraph)).Text.Length;
+        var session = tab.EnsureEditor();
+        _ = session.Selection;
+        var at = new TextPosition(story, footer.Paragraph, length);
+        session.SetSelection(new TextRange(at, at));
+
+        Assert.NotNull(session.Apply(Type(session, "!"), 100));
+        Assert.True(layout.Stats.ChromeOnly >= 1 || layout.Stats.Restarts >= 1);
+
+        // The lease asked at once stops the background pass at a batch boundary: while it is held nothing is made again, and when it ends the pass goes on.
+        using (var lease = runner.PauseForEdit())
+        {
+            var waiting = layout.StaleChromePages;
+            Thread.Sleep(300);
+            Assert.Equal(waiting, layout.StaleChromePages);
+        }
+
+        await WaitAsync(() => layout.IsSettled);
+        Assert.False(layout.ChromeRefreshPending);
+        AssertEqualToFresh(tab, layout, LayoutMode.Pages);
+    }
+
+    [AvaloniaFact]
     public async Task EditRefusedWhileOnlyAPrefixIsOpen()
     {
         using var gate = new ManualResetEventSlim();

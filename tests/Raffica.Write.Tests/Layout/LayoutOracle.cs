@@ -15,12 +15,13 @@ internal static class LayoutOracle
 {
     public static void AssertEqualToFull(DocumentLayout incremental, WordDocument model, LayoutOptions? options = null, string label = "")
     {
-        if (!incremental.IsComplete)
+        if (!incremental.IsSettled)
         {
             incremental.LayOutRestAsync(null, CancellationToken.None).GetAwaiter().GetResult();
         }
 
         Assert.True(incremental.IsComplete, label + ": the incremental layout is not complete");
+        Assert.False(incremental.ChromeRefreshPending, label + ": a header or footer refresh is still pending");
         var full = DocumentLayout.Create(model, PageTestKit.Fonts, options ?? new LayoutOptions());
         full.LayOutRestAsync(null, CancellationToken.None).GetAwaiter().GetResult();
         Assert.True(full.IsComplete, label + ": the full layout is not complete");

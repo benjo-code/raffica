@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Raffica.Write.Model;
 
@@ -94,6 +95,118 @@ public sealed partial class DocumentLayout
 
     /// <summary>The edits applied so far and how many restarted from the first page (the spike and the bench read it to see how often the fast path holds).</summary>
     public EditStats Stats => new(Volatile.Read(ref _edits), Volatile.Read(ref _restarts), Volatile.Read(ref _chromeOnly));
+
+    // The pages whose header and footer wait to be made again after an edit of a header or footer part (index = page). Under the gate. Marks are cleared for every page a
+    // refill makes again (its chrome is fresh) or cuts off, and for all pages by a restart or a replaced model.
+    private bool[] _chromeStale = [];
+    private int _staleCount;
+    private int _staleCursor;
+    private int _chromeThrough;
+
+    /// <summary>The pages around an edit of a header or footer that are made again at once: the page the edit is on (the through page) and this many pages on each side.</summary>
+    internal const int ChromeWindow = 8;
+
+    /// <summary>The pages the background pass makes again in one batch, at most (and no more while a batch takes longer than <see cref="ChromeBatchMilliseconds"/>).</summary>
+    private const int ChromeBatchPages = 16;
+
+    internal const int ChromeBatchMilliseconds = 2;
+
+    /// <summary>
+    /// True while pages are waiting for their header and footer to be made again after an edit of a header or footer part: the pages around the edit are right at once, the others are
+    /// old pages (consistent, with the old header or footer) until <see cref="LayOutRestAsync"/> has made them again in the background, in batches, in page order.
+    /// </summary>
+    public bool ChromeRefreshPending => Volatile.Read(ref _staleCount) > 0;
+
+    /// <summary>How many pages wait for their header and footer (a test seam).</summary>
+    internal int StaleChromePages => Volatile.Read(ref _staleCount);
+
+    /// <summary>True when the layout is complete and no header or footer refresh is pending: nothing more will be laid out or made again.</summary>
+    public bool IsSettled => IsComplete && !ChromeRefreshPending;
+
+    /// <summary>
+    /// Makes the header and footer of the waiting pages again, in page order, as one batch under the gate: at least one page, and more while <paramref name="budgetTicks"/> stopwatch ticks last (at most 16 pages).
+    /// True when it published pages (or started over, see below). A height that differs from the one a page was made with means the body moves: the pass then starts over from the first
+    /// page (a restart, always right) and the pages up to the through page of the last edit are made again. Called by <see cref="LayOutRestAsync"/>; a test seam otherwise.
+    /// </summary>
+    internal bool RefreshChromeBatch(long budgetTicks)
+    {
+        lock (_gate)
+        {
+            _fault?.Throw();
+            if (_staleCount == 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                var engine = _engine;
+                var count = _pages.Count;
+                if (engine.Chrome is not HeaderFooterPlan chrome)
+                {
+                    ClearStale(0, int.MaxValue);
+                    return false;
+                }
+
+                var started = Stopwatch.GetTimestamp();
+                var indices = new List<int>();
+                var rebuilt = new List<(LaidOutPage Old, LaidOutPage New)>();
+                var at = Math.Min(_staleCursor, _chromeStale.Length);
+                for (; at < _chromeStale.Length && indices.Count < ChromeBatchPages; at++)
+                {
+                    if (!_chromeStale[at])
+                    {
+                        continue;
+                    }
+
+                    if (at >= count)
+                    {
+                        // The page was cut off since: it is laid out again with the new chrome.
+                        _chromeStale[at] = false;
+                        _staleCount--;
+                        continue;
+                    }
+
+                    var one = RefreshPages([at], chrome, engine);
+                    if (one is null)
+                    {
+                        // A height or a part differs: the body of the pages from here on may move. Start over (every page is made again, the stale marks go).
+                        Volatile.Write(ref _restarts, _restarts + 1);
+                        Restart(_chromeThrough);
+                        return true;
+                    }
+
+                    indices.Add(at);
+                    rebuilt.AddRange(one);
+                    if (Stopwatch.GetTimestamp() - started >= budgetTicks)
+                    {
+                        at++;
+                        break;
+                    }
+                }
+
+                _staleCursor = at >= _chromeStale.Length ? 0 : at;
+                if (indices.Count == 0)
+                {
+                    return false;
+                }
+
+                foreach (var index in indices)
+                {
+                    _chromeStale[index] = false;
+                }
+
+                Volatile.Write(ref _staleCount, _staleCount - indices.Count);
+                Publish(rebuilt);
+                return true;
+            }
+            catch (Exception e)
+            {
+                _fault = ExceptionDispatchInfo.Capture(e);
+                throw;
+            }
+        }
+    }
 
     /// <summary>How many pages the last <see cref="ApplyEdit"/> laid out (a test seam; the spike measured how often a refill is longer than one page).</summary>
     internal int PagesLaidOut { get; private set; }
@@ -208,7 +321,7 @@ public sealed partial class DocumentLayout
         {
             chosen = PlanEdit(change, old, oldCount, _options);
         }
-        else if (TryRefreshChrome(change, old, oldCount) is { } refreshed)
+        else if (TryRefreshChrome(change, old, oldCount, throughPage) is { } refreshed)
         {
             return refreshed;
         }
@@ -400,6 +513,7 @@ public sealed partial class DocumentLayout
         Volatile.Write(ref _engine, engine);
         Volatile.Write(ref _firstPageFinal, firstTouched < engine.LastBodyIndex);
         _pages.Splice(first, fresh, keepFrom, adjust);
+        ClearStale(first, keepFrom == int.MaxValue ? int.MaxValue : first + fresh.Count);
         foreach (var (index, revised) in prefixRevised)
         {
             _pages.Replace(index, revised);
@@ -420,14 +534,16 @@ public sealed partial class DocumentLayout
         return new EditRefill(first, first + fresh.Count - 1, plan.StartsOver);
     }
 
-    // An edit of a header or footer part whose laid-out block keeps its height on every page that shows it changes no body item: the body of every page is
-    // as it was, only the header and footer items, text lines and text of those pages differ. They are made again here, for all the pages that show the part and
-    // are published, in one pass under the gate (a page costs a few microseconds against the filler's tens), and the engine, its plans and its records stay as
-    // they are; the pages that are not laid out yet get the new part from the invalidated chrome. Returns null when this cannot be shown (the caller then
-    // starts over, which is always right): the part is not shown by any section, a page does not know its chrome, or any page's header or footer height differs
-    // from the one it was made with (the body moves, the first or even page variants included, because every page is compared with its own), or the part gained or lost
-    // a page count field (the filler would not know to revise the page).
-    private EditRefill? TryRefreshChrome(BlockChange change, Engine old, int oldCount)
+    // An edit of a header or footer part whose laid-out block keeps its height on every page that shows it changes no body item: the body of every page is as it was, only
+    // the header and footer items, text lines and text of those pages differ, and the engine, its plans and its records stay as they are. The pages around the edit (the through
+    // page, ChromeWindow pages on each side) are made again at once and published; the other pages that show the part are marked stale and made again by RefreshChromeBatch (the
+    // background pass of LayOutRestAsync) in page order. A stale page is an old, immutable, consistent page until its batch is published; no reader ever waits for or runs chrome code.
+    // Every page refresh reads both parts of the page from the model as it is now, so a later edit simply marks its pages again and a page stale for an earlier edit is right after
+    // one refresh. Pages that are not laid out yet get the new part from the invalidated chrome. Returns null when this cannot be shown (the caller then starts over, which is always
+    // right): the part is not shown by any section, a page does not know its chrome, or a refreshed page's header or footer height or parts differ from the ones it was made with (the
+    // body moves, the first or even page variants included, because every page is compared with its own), or the part gained or lost a page count field (the filler would not know to
+    // revise the page). A part that shows a page count keeps the old way: every page is made again at once (against the real total when the layout is complete).
+    private EditRefill? TryRefreshChrome(BlockChange change, Engine old, int oldCount, int throughPage)
     {
         if (change.Story.Kind != StoryKind.HeaderFooter || old.Chrome is not HeaderFooterPlan chrome || change.Story.Key is not { } key
             || oldCount == 0 || !chrome.Shows(key))
@@ -436,9 +552,65 @@ public sealed partial class DocumentLayout
         }
 
         chrome.Invalidate(change.Story);
-        var complete = IsComplete;
-        var rebuilt = new List<(LaidOutPage Old, LaidOutPage New)>();
+        var showing = new List<int>();
+        var usesTotals = false;
         for (var i = 0; i < oldCount; i++)
+        {
+            if (_pages[i].Chrome is not { } info)
+            {
+                return null;
+            }
+
+            if (string.Equals(info.HeaderPart, key, StringComparison.Ordinal) || string.Equals(info.FooterPart, key, StringComparison.Ordinal))
+            {
+                showing.Add(i);
+                usesTotals |= info.UsesTotals;
+            }
+        }
+
+        var through = Math.Clamp(throughPage, 0, oldCount - 1);
+        var now = usesTotals ? showing : showing.Where(i => Math.Abs(i - through) <= ChromeWindow).ToList();
+        var rebuilt = RefreshPages(now, chrome, old);
+        if (rebuilt is null)
+        {
+            return null;
+        }
+
+        // The window is right at once: the others that show the part wait for the pass (nothing waits for a part with a page count).
+        var window = new HashSet<int>(now);
+        EnsureStaleCapacity(oldCount);
+        foreach (var i in showing)
+        {
+            if (window.Contains(i))
+            {
+                if (_chromeStale[i])
+                {
+                    _chromeStale[i] = false;
+                    _staleCount--;
+                }
+            }
+            else if (!_chromeStale[i])
+            {
+                _chromeStale[i] = true;
+                _staleCount++;
+            }
+        }
+
+        _staleCursor = 0;
+        _chromeThrough = through;
+        Publish(rebuilt);
+        return rebuilt.Count == 0
+            ? new EditRefill(0, -1, false, true)
+            : new EditRefill(rebuilt[0].New.Index, rebuilt[^1].New.Index, false, true);
+    }
+
+    // The pages of the given indexes with their header and footer made again from the model as it is now, or null when one of them cannot be (a height, a part or the use of a page
+    // count differs from what the page was made with).
+    private List<(LaidOutPage Old, LaidOutPage New)>? RefreshPages(List<int> indices, HeaderFooterPlan chrome, Engine engine)
+    {
+        var complete = IsComplete;
+        var rebuilt = new List<(LaidOutPage Old, LaidOutPage New)>(indices.Count);
+        foreach (var i in indices)
         {
             var page = _pages[i];
             if (page.Chrome is not { } info)
@@ -446,14 +618,8 @@ public sealed partial class DocumentLayout
                 return null;
             }
 
-            var shownHere = string.Equals(info.HeaderPart, key, StringComparison.Ordinal) || string.Equals(info.FooterPart, key, StringComparison.Ordinal);
-            if (!shownHere)
-            {
-                continue;
-            }
-
             var scratch = new PageBuilder(i, info.Number, page.Number, info.Section, info.IsFirstOfSection);
-            chrome.Refresh(scratch, complete ? old.FinalPages : null, complete ? old.FinalSectionPages : null);
+            chrome.Refresh(scratch, complete ? engine.FinalPages : null, complete ? engine.FinalSectionPages : null);
             if (scratch.HeaderHeight != info.HeaderHeight || scratch.FooterHeight != info.FooterHeight
                 || !string.Equals(scratch.HeaderPart, info.HeaderPart, StringComparison.Ordinal) || !string.Equals(scratch.FooterPart, info.FooterPart, StringComparison.Ordinal)
                 || scratch.UsesTotals != info.UsesTotals)
@@ -466,7 +632,12 @@ public sealed partial class DocumentLayout
             rebuilt.Add((page, info.Rebuild(page, scratch, scratch.NeedsTotals)));
         }
 
-        // Publication as for any refill: the map first, then the pages, then the stale entries of the old pages.
+        return rebuilt;
+    }
+
+    // Publication as for any refill: the map first, then the pages (one volatile write each, no copy of the list), then the stale entries of the old pages.
+    private void Publish(List<(LaidOutPage Old, LaidOutPage New)> rebuilt)
+    {
         foreach (var (_, page) in rebuilt)
         {
             _paragraphPages.Register(page);
@@ -484,9 +655,34 @@ public sealed partial class DocumentLayout
 
         PagesLaidOut = rebuilt.Count;
         Volatile.Write(ref _revision, _revision + 1);
-        return rebuilt.Count == 0
-            ? new EditRefill(0, -1, false, true)
-            : new EditRefill(rebuilt[0].New.Index, rebuilt[^1].New.Index, false, true);
+    }
+
+    private void EnsureStaleCapacity(int pages)
+    {
+        if (_chromeStale.Length < pages)
+        {
+            Array.Resize(ref _chromeStale, Math.Max(pages, _chromeStale.Length * 2));
+        }
+    }
+
+    // Forgets the marks of the pages [from, to): their chrome is fresh (a refill made them again), they are gone, or everything was made again.
+    private void ClearStale(int from, int to)
+    {
+        if (_staleCount == 0)
+        {
+            return;
+        }
+
+        for (var i = Math.Max(0, from); i < Math.Min(to, _chromeStale.Length); i++)
+        {
+            if (_chromeStale[i])
+            {
+                _chromeStale[i] = false;
+                _staleCount--;
+            }
+        }
+
+        Volatile.Write(ref _staleCount, _staleCount);
     }
 
     // Starts again from the first page on a fresh engine over the model as it is now: everything is planned again. The pages up to throughPage
@@ -542,6 +738,7 @@ public sealed partial class DocumentLayout
         Volatile.Write(ref _engine, engine);
         Volatile.Write(ref _firstPageFinal, engine.FirstTouched < engine.LastBodyIndex);
         _pages.Splice(0, fresh, int.MaxValue);
+        ClearStale(0, int.MaxValue);
         for (var k = 0; k < replaced.Count; k++)
         {
             _paragraphPages.Unregister(replaced[k], fresh[k]);

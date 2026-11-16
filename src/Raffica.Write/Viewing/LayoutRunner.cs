@@ -492,13 +492,13 @@ internal sealed class LayoutRunner : IDisposable
                 _loopCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token);
 
                 // A loop that ended because its layout was complete is not alive: an edit may have made the layout incomplete again.
-                if (_started && !_pageAlive && _fault is null && !_pageStale && !_page.IsComplete)
+                if (_started && !_pageAlive && _fault is null && !_pageStale && !_page.IsSettled)
                 {
                     _pageAlive = true;
                     Volatile.Write(ref _pageTask, Task.Run(() => RestartLoopAsync(flow: false, 0)));
                 }
 
-                if (_flow is { IsComplete: false } && !_flowAlive && _fault is null)
+                if (_flow is { IsSettled: false } && !_flowAlive && _fault is null)
                 {
                     _flowAlive = true;
                     var generation = _flowGeneration;
@@ -680,7 +680,7 @@ internal sealed class LayoutRunner : IDisposable
                 {
                     var current = flow ? _flow : _page;
                     var gone = IsDisposed || current is null || (flow ? generation != _flowGeneration : _pageStale);
-                    if (gone || (!_paused && current!.IsComplete))
+                    if (gone || (!_paused && current!.IsSettled))
                     {
                         if (!flow)
                         {

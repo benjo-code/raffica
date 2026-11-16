@@ -342,4 +342,275 @@ public sealed class ChromeRefreshTests
         Assert.True(layout.IsComplete);
         LayoutOracle.AssertEqualToFull(layout, model, label: "chrome refresh after ReplaceModel");
     }
+
+    // ---- The window and the background pass: a long document, so that a footer edit has pages far from the caret.
+
+    private const int Window = 8;
+
+    private static string LongDocument(string sectionExtra) => Body("body", 600) + Tall(10, sectionExtra);
+
+    private static WordDocument PageFooterDocument() =>
+        Document(LongDocument(Footer("default", "fP") + Header("default", "hD")), Parts(("fP", FooterPart(Para(Text("A-") + Field("PAGE", "0") + Text(" tail")))), ("hD", HeaderPart(Line("HEAD")))));
+
+    private static string[] Texts(DocumentLayout layout) => [.. Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text)];
+
+    private static string[] FullTexts(WordDocument model)
+    {
+        var full = DocumentLayout.Create(model, Fonts, new LayoutOptions());
+        full.LayOutRestAsync(null, CancellationToken.None).GetAwaiter().GetResult();
+        return Texts(full);
+    }
+
+    private static async Task Drain(DocumentLayout layout) => await layout.LayOutRestAsync(null, CancellationToken.None);
+
+    [Fact]
+    public async Task AFooterEditRefreshesTheWindowAtOnceAndTheRestInTheBackground()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        var pages = layout.LaidOutPages;
+        Assert.True(pages > 40);
+        var before = Texts(layout);
+        var oldFirst = layout.Page(0);
+        var through = 20;
+
+        var refill = layout.ApplyEdit(Edit(model, "fP", "!"), through);
+
+        Assert.True(refill.ChromeOnly);
+        Assert.False(refill.Restarted);
+        Assert.Equal(through - Window, refill.FirstPage);
+        Assert.Equal(through + Window, refill.LastPage);
+        Assert.True(layout.ChromeRefreshPending);
+        Assert.False(layout.IsSettled);
+        Assert.True(layout.IsComplete);
+        for (var i = 0; i < pages; i++)
+        {
+            var expected = i >= through - Window && i <= through + Window ? "tail!" : "tail";
+            Assert.True(LastLine(layout.Page(i)).EndsWith(expected, StringComparison.Ordinal), $"page {i}: {LastLine(layout.Page(i))}");
+        }
+
+        Assert.Same(oldFirst, layout.Page(0));
+        Assert.Equal(before[0], layout.Page(0).Text);
+
+        await Drain(layout);
+        Assert.False(layout.ChromeRefreshPending);
+        Assert.True(layout.IsSettled);
+        for (var i = 0; i < pages; i++)
+        {
+            Assert.EndsWith("tail!", LastLine(layout.Page(i)), StringComparison.Ordinal);
+        }
+
+        LayoutOracle.AssertEqualToFull(layout, model, label: "footer window and pass");
+        Assert.Equal(new EditStats(1, 0, 1), layout.Stats);
+    }
+
+    [Fact]
+    public async Task AStalePageIsTheOldConsistentPageAndEachBatchRaisesTheRevision()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        var pages = layout.LaidOutPages;
+        var oldTexts = Texts(layout);
+        layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+        var newTexts = FullTexts(model);
+        Assert.NotEqual(oldTexts[0], newTexts[0]);
+
+        var batches = 0;
+        var revision = layout.Revision;
+        while (layout.ChromeRefreshPending)
+        {
+            // One page per batch: every page, read at any moment, is the old one or the new one, never a mixture.
+            Assert.True(layout.RefreshChromeBatch(0));
+            batches++;
+            Assert.True(layout.Revision > revision, "each batch raises the revision");
+            revision = layout.Revision;
+            for (var i = 0; i < pages; i++)
+            {
+                Assert.True(layout.TryGetPage(i, out var page));
+                Assert.True(page!.Text == oldTexts[i] || page.Text == newTexts[i], $"page {i} after batch {batches}");
+            }
+        }
+
+        Assert.True(batches >= pages - ((2 * Window) + 1), $"batches: {batches}");
+        Assert.False(layout.RefreshChromeBatch(0), "nothing left to do");
+        LayoutOracle.AssertEqualToFull(layout, model, label: "batches");
+    }
+
+    [Fact]
+    public async Task ASecondEditSupersedesThePassInTheMiddleOfIt()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+        for (var i = 0; i < 10; i++)
+        {
+            Assert.True(layout.RefreshChromeBatch(0));
+        }
+
+        // The same part again, and then the other part (the header), while pages are still stale for the first edit.
+        layout.ApplyEdit(Edit(model, "fP", "?"), 30);
+        for (var i = 0; i < 5; i++)
+        {
+            layout.RefreshChromeBatch(0);
+        }
+
+        layout.ApplyEdit(Edit(model, "hD", "+"), 5);
+        Assert.True(layout.ChromeRefreshPending);
+        await Drain(layout);
+        for (var i = 0; i < layout.LaidOutPages; i++)
+        {
+            Assert.Equal("HEAD+", FirstLine(layout.Page(i)));
+            Assert.EndsWith("tail!?", LastLine(layout.Page(i)), StringComparison.Ordinal);
+        }
+
+        LayoutOracle.AssertEqualToFull(layout, model, label: "superseded pass");
+        Assert.Equal(new EditStats(3, 0, 3), layout.Stats);
+    }
+
+    [Fact]
+    public async Task ABodyEditWhileThePassIsPendingKeepsEveryPageRight()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+        layout.RefreshChromeBatch(0);
+
+        // Before the caret page, after it, and one that adds lines (a page break moves): the pages they fill get fresh chrome, the stale ones stay stale and are finished by the pass.
+        layout.ApplyEdit(TestEdit.InsertText(model, (Paragraph)model.Body.Blocks[20], 1, "x"), 2);
+        layout.ApplyEdit(TestEdit.InsertText(model, (Paragraph)model.Body.Blocks[380], 1, "x"), 40);
+        var middle = (Paragraph)model.Body.Blocks[200];
+        layout.ApplyEdit(TestEdit.InsertText(model, middle, 0, string.Concat(Enumerable.Repeat("a long insert that wraps and adds lines ", 90))), 25);
+        await Drain(layout);
+
+        for (var i = 0; i < layout.LaidOutPages; i++)
+        {
+            Assert.EndsWith("tail!", LastLine(layout.Page(i)), StringComparison.Ordinal);
+        }
+
+        LayoutOracle.AssertEqualToFull(layout, model, label: "body edits during the pass");
+    }
+
+    [Fact]
+    public async Task RevertingTheEditInTheMiddleOfThePassEndsWithTheOriginalChrome()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        var original = Texts(layout);
+        layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+        for (var i = 0; i < 12; i++)
+        {
+            layout.RefreshChromeBatch(0);
+        }
+
+        // Undo: the text goes back (as the history does, the paragraph is replaced by its earlier state).
+        var blocks = model.HeadersFooters["fP"].Content.Blocks;
+        var current = (Paragraph)blocks[0];
+        var before = current.Clone();
+        current.Inlines.OfType<Run>().SelectMany(r => r.Content.OfType<TextContent>()).Last().Text = " tail";
+        layout.ApplyEdit(new BlockChange(new StoryRef(StoryKind.HeaderFooter, "fP"), blocks, 0, 1, 1, [before]), 20);
+        await Drain(layout);
+
+        Assert.Equal(original, Texts(layout));
+        LayoutOracle.AssertEqualToFull(layout, model, label: "reverted mid pass");
+    }
+
+    [Fact]
+    public async Task ACancelledPassResumesWhereItStopped()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+        using var cancel = new CancellationTokenSource();
+        var batches = 0;
+        var progress = new SyncProgress(() =>
+        {
+            if (++batches == 1)
+            {
+                cancel.Cancel();
+            }
+        });
+
+        // The pass stops at a batch boundary when the token is cancelled (a lease does that), leaves the work that is left and goes on later.
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => layout.LayOutRestAsync(progress, cancel.Token));
+        Assert.True(layout.ChromeRefreshPending);
+        await Drain(layout);
+        Assert.True(layout.IsSettled);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "cancelled and resumed pass");
+    }
+
+    private sealed class SyncProgress(Action onReport) : IProgress<int>
+    {
+        public void Report(int value) => onReport();
+    }
+
+    [Fact]
+    public async Task AFooterEditOnAnIncompleteLayoutIsRightAfterTheRestIsLaidOut()
+    {
+        var model = PageFooterDocument();
+        var layout = DocumentLayout.Create(model, Fonts, new LayoutOptions());
+        layout.LayOutThrough(30);
+        Assert.False(layout.IsComplete);
+
+        var refill = layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+
+        Assert.True(refill.ChromeOnly);
+        Assert.True(layout.ChromeRefreshPending);
+        await Drain(layout);
+        Assert.True(layout.IsSettled);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "incomplete layout, footer window");
+    }
+
+    [Fact]
+    public async Task HeaderAndVariantEditsTakeTheNewPathToo()
+    {
+        var parts = Parts(("hD", HeaderPart(Line("DEFAULT"))), ("hF", HeaderPart(Line("FIRST"))), ("hE", HeaderPart(Line("EVEN"))));
+        var model = Document(LongDocument(Header("default", "hD") + Header("first", "hF") + Header("even", "hE") + "<w:titlePg/>"), parts, settingsInner: "<w:evenAndOddHeaders/>");
+        var layout = await LaidAsync(model);
+
+        foreach (var (id, through) in new[] { ("hE", 30), ("hF", 30), ("hD", 10) })
+        {
+            var refill = layout.ApplyEdit(Edit(model, id, " X"), through);
+            Assert.True(refill.ChromeOnly, id);
+            await Drain(layout);
+            LayoutOracle.AssertEqualToFull(layout, model, label: "variant " + id);
+        }
+
+        Assert.Equal("FIRST X", FirstLine(layout.Page(0)));
+        Assert.Equal("EVEN X", FirstLine(layout.Page(35)));
+        Assert.Equal("DEFAULT X", FirstLine(layout.Page(36)));
+    }
+
+    [Fact]
+    public async Task AWrappedLineStillFallsBackToTheRestartAndClearsThePass()
+    {
+        var model = PageFooterDocument();
+        var layout = await LaidAsync(model);
+        layout.ApplyEdit(Edit(model, "fP", "!"), 20);
+        Assert.True(layout.ChromeRefreshPending);
+
+        var refill = layout.ApplyEdit(Edit(model, "fP", string.Concat(Enumerable.Repeat(" a long footer text that wraps", 12))), 20);
+
+        Assert.True(refill.Restarted);
+        Assert.False(refill.ChromeOnly);
+        Assert.False(layout.ChromeRefreshPending, "a restart makes every page again");
+        await Drain(layout);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "wrapped footer after a pending pass");
+    }
+
+    [Fact]
+    public async Task APartThatShowsATotalIsRefreshedForAllPagesAtOnce()
+    {
+        var parts = Parts(("fX", FooterPart(Para(Text("p") + Field("PAGE", "0") + Text(" of ") + Field("NUMPAGES", "0") + Text(" tail")))));
+        var model = Document(LongDocument(Footer("default", "fX")), parts);
+        var layout = await LaidAsync(model);
+
+        var refill = layout.ApplyEdit(Edit(model, "fX", "!"), 20);
+
+        // A part with a page count keeps the synchronous refresh of every page (its pages are revised against the real total).
+        Assert.True(refill.ChromeOnly);
+        Assert.False(layout.ChromeRefreshPending);
+        Assert.Equal(0, refill.FirstPage);
+        Assert.Equal(layout.LaidOutPages - 1, refill.LastPage);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "total footer, long document");
+    }
 }

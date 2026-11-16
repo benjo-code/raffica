@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Raffica.Write.Model;
 
@@ -212,17 +213,27 @@ public sealed partial class DocumentLayout
 
     /// <summary>
     /// Lays out every remaining page on a thread of the pool, publishing each as it completes and reporting the number of pages so
-    /// far. When <paramref name="token"/> is cancelled the layout stops at the end of the page it is on and the task ends canceled;
-    /// the layout stays valid and a later call carries on from there.
+    /// far, and finishes the header and footer refresh an edit of a header or footer part left pending (<see cref="ChromeRefreshPending"/>), in batches, before it lays out more.
+    /// When <paramref name="token"/> is cancelled the layout stops at the end of the page or batch it is on and the task ends canceled;
+    /// the layout stays valid and a later call carries on from there. It ends when <see cref="IsSettled"/>.
     /// </summary>
     public Task LayOutRestAsync(IProgress<int>? progress, CancellationToken token) =>
         Task.Run(
             () =>
             {
-                while (!IsComplete)
+                while (!IsSettled)
                 {
                     token.ThrowIfCancellationRequested();
-                    if (Step())
+
+                    // The pages that wait for a new header or footer first (a batch is a few pages: cheap and visible), then the rest of the document.
+                    if (ChromeRefreshPending)
+                    {
+                        if (RefreshChromeBatch(ChromeBatchMilliseconds * Stopwatch.Frequency / 1000))
+                        {
+                            progress?.Report(LaidOutPages);
+                        }
+                    }
+                    else if (Step())
                     {
                         progress?.Report(LaidOutPages);
                     }
@@ -285,6 +296,7 @@ public sealed partial class DocumentLayout
             engine.FirstTouched = engine.Filler.MaxTouchedBodyIndex;
             _paragraphPages.Register(engine.Fill.Current);
             _pages.Replace(0, engine.Fill.Current);
+            ClearStale(0, int.MaxValue);
             Volatile.Write(ref _notes, notes);
             Volatile.Write(ref _engine, engine);
         }

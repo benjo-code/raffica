@@ -134,7 +134,7 @@ internal static class EditCommand
 
                 var result = Type(editor, layout, c, ref position, ref pageHint, keystrokes, random, 1);
                 rows.Add(new EditRow(c.Name, view, string.Empty, result.Millis, result.Edits, result.Restarts, HitTest(layout, position, pageHint)));
-                if (phases is not null && mode == LayoutMode.Pages && c.Name is "header" or "footnote")
+                if (phases is not null && mode == LayoutMode.Pages && c.Name is "header" or "footer" or "footnote")
                 {
                     Sweep(editor, layout, c, position, pageHint, random, phases);
                 }
@@ -267,13 +267,14 @@ internal static class EditCommand
     /// </summary>
     private static void Sweep(TextEditor editor, DocumentLayout layout, EditCase c, TextPosition position, int pageHint, Random random, TextWriter output)
     {
-        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"phases of '{c.Name}' (page view, caret page {pageHint}, 30 keystrokes each): editor call, layout call, restarts"));
+        output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"phases of '{c.Name}' (page view, caret page {pageHint}, 30 keystrokes each): editor call, layout call (the window), background pass (the rest, outside the keystroke), restarts"));
         foreach (var through in new[] { 0, 25, 50, 100, 150, 250, 400 })
         {
             Complete(layout);
             var limit = Math.Min(through, Math.Max(0, layout.LaidOutPages - 1));
             var editorMs = new double[30];
             var layoutMs = new double[30];
+            var drainMs = new double[30];
             var before = layout.Stats;
             for (var i = 0; i < 30; i++)
             {
@@ -288,16 +289,19 @@ internal static class EditCommand
                 layoutMs[i] = Stopwatch.GetElapsedTime(mid).TotalMilliseconds;
                 editorMs[i] = Stopwatch.GetElapsedTime(start, mid).TotalMilliseconds;
                 position = result.Caret;
+                var drainStart = Stopwatch.GetTimestamp();
+                Complete(layout);
+                drainMs[i] = Stopwatch.GetElapsedTime(drainStart).TotalMilliseconds;
             }
 
             var restarts = layout.Stats.Restarts - before.Restarts;
-            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  through page {limit,3}: editor {EditRow.Percentile(editorMs, 0.5),7:0.000} ms, layout {EditRow.Percentile(layoutMs, 0.5),7:0.000} ms, restarts {restarts}"));
+            output.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  through page {limit,3}: editor {EditRow.Percentile(editorMs, 0.5),7:0.000} ms, layout {EditRow.Percentile(layoutMs, 0.5),7:0.000} ms, background pass {EditRow.Percentile(drainMs, 0.5),7:0.000} ms, restarts {restarts}"));
         }
     }
 
     private static void Complete(DocumentLayout layout)
     {
-        if (!layout.IsComplete)
+        if (!layout.IsSettled)
         {
             layout.LayOutRestAsync(null, CancellationToken.None).GetAwaiter().GetResult();
         }
@@ -321,6 +325,13 @@ internal static class EditCommand
             millis[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
             position = result.Caret;
             pageHint = layout.Caret(position, pageHint)?.Page ?? pageHint;
+
+            // After an edit of a header or footer the pages far from the caret wait for the background pass of the app; it runs while the typist is between two keys, so here between the
+            // timings (nothing else is laid out: the rest of the layout is completed between the cases).
+            if (layout.ChromeRefreshPending)
+            {
+                layout.LayOutRestAsync(null, CancellationToken.None).GetAwaiter().GetResult();
+            }
         }
 
         var after = layout.Stats;
