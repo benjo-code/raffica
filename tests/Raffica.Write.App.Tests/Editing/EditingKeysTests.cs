@@ -203,7 +203,7 @@ public sealed class EditingKeysTests
     {
         var typed = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Q, KeyModifiers = Ctrl | Alt, KeySymbol = "@" };
         Assert.True(EditingKeys.IsTextInput(typed, typed.KeySymbol));
-        var command = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Q, KeyModifiers = Alt, KeySymbol = "q" };
+        var command = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Q, KeyModifiers = Ctrl, KeySymbol = "q" };
         Assert.False(EditingKeys.IsTextInput(command, command.KeySymbol));
     }
 }

@@ -56,6 +56,19 @@ public sealed class TypingTests : IDisposable
         ViewHarness.Pump();
     }
 
+    // The command key and the word key of the system: Ctrl and Ctrl on Windows and Linux, ⌘ and Option on macOS.
+    private static readonly RawInputModifiers Command = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+    private static readonly RawInputModifiers WordKey = OperatingSystem.IsMacOS() ? RawInputModifiers.Alt : RawInputModifiers.Control;
+
+    // The line ends are Home and End, ⌘← and ⌘→ on macOS (where the plain keys go to the document ends); the document ends are Ctrl+Home and Ctrl+End, the plain keys on macOS.
+    private static void LineStart(ViewHarness h) => Stroke(h, OperatingSystem.IsMacOS() ? PhysicalKey.ArrowLeft : PhysicalKey.Home, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.None);
+
+    private static void LineEnd(ViewHarness h) => Stroke(h, OperatingSystem.IsMacOS() ? PhysicalKey.ArrowRight : PhysicalKey.End, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.None);
+
+    private static void DocumentStart(ViewHarness h) => Stroke(h, PhysicalKey.Home, OperatingSystem.IsMacOS() ? RawInputModifiers.None : RawInputModifiers.Control);
+
+    private static void DocumentEnd(ViewHarness h) => Stroke(h, PhysicalKey.End, OperatingSystem.IsMacOS() ? RawInputModifiers.None : RawInputModifiers.Control);
+
     // A key press and its release (a single stroke).
     private static void Stroke(ViewHarness h, PhysicalKey key, RawInputModifiers modifiers = RawInputModifiers.None)
     {
@@ -251,7 +264,7 @@ public sealed class TypingTests : IDisposable
         Assert.Equal(4, h.View.Caret!.Value.Offset);
 
         // Ctrl+Backspace takes a word.
-        Stroke(h, PhysicalKey.Backspace, RawInputModifiers.Control);
+        Stroke(h, PhysicalKey.Backspace, WordKey);
         Assert.Equal("text of the first paragraph.", TextOf(h.View, P(h, 0)));
         Assert.Equal(0, h.View.Caret!.Value.Offset);
     }
@@ -298,12 +311,12 @@ public sealed class TypingTests : IDisposable
         // Words, line ends and the document ends.
         Stroke(h, PhysicalKey.Home);
         Assert.Equal(0, h.View.Caret!.Value.Offset);
-        Stroke(h, PhysicalKey.ArrowRight, RawInputModifiers.Control);
+        Stroke(h, PhysicalKey.ArrowRight, WordKey);
         Assert.Equal(5, h.View.Caret!.Value.Offset);
-        Stroke(h, PhysicalKey.End, RawInputModifiers.Control);
+        DocumentEnd(h);
         Assert.Same(P(h, 1), h.View.Caret!.Value.Paragraph);
         Assert.Equal(TextOf(h.View, P(h, 1)).Length, h.View.Caret!.Value.Offset);
-        Stroke(h, PhysicalKey.Home, RawInputModifiers.Control);
+        DocumentStart(h);
         Assert.Same(first, h.View.Caret!.Value.Paragraph);
         Assert.Equal(0, h.View.Caret!.Value.Offset);
 
@@ -417,16 +430,16 @@ public sealed class TypingTests : IDisposable
         };
         for (var i = 0; i < 3; i++)
         {
-            h.Window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+            h.Window.KeyPressQwerty(PhysicalKey.Z, Command);
         }
 
         Assert.Equal([EditingKeys.UndoCommand], ran);
-        h.Window.KeyReleaseQwerty(PhysicalKey.Z, RawInputModifiers.Control);
-        Stroke(h, PhysicalKey.Z, RawInputModifiers.Control | RawInputModifiers.Shift);
+        h.Window.KeyReleaseQwerty(PhysicalKey.Z, Command);
+        Stroke(h, PhysicalKey.Z, Command | RawInputModifiers.Shift);
         Assert.Equal([EditingKeys.UndoCommand, EditingKeys.RedoCommand], ran);
-        Stroke(h, PhysicalKey.V, RawInputModifiers.Control);
-        Stroke(h, PhysicalKey.C, RawInputModifiers.Control);
-        Stroke(h, PhysicalKey.X, RawInputModifiers.Control);
+        Stroke(h, PhysicalKey.V, Command);
+        Stroke(h, PhysicalKey.C, Command);
+        Stroke(h, PhysicalKey.X, Command);
         Assert.Equal(
             [EditingKeys.UndoCommand, EditingKeys.RedoCommand, EditingKeys.PasteCommand, EditingKeys.CopyCommand, EditingKeys.CutCommand],
             ran);
@@ -479,7 +492,7 @@ public sealed class TypingTests : IDisposable
         var view = h.View;
         Place(h, P(h, 0), 3);
 
-        Stroke(h, PhysicalKey.A, RawInputModifiers.Control);
+        Stroke(h, PhysicalKey.A, Command);
         var selection = view.Selection!.Value;
         Assert.Same(P(h, 0), selection.Start.Paragraph);
         Assert.Equal(0, selection.Start.Offset);
@@ -510,7 +523,7 @@ public sealed class TypingTests : IDisposable
         ViewHarness.Pump();
         Assert.Equal(StoryKind.HeaderFooter, view.Caret!.Value.Story.Kind);
 
-        Stroke(h, PhysicalKey.A, RawInputModifiers.Control);
+        Stroke(h, PhysicalKey.A, Command);
         var selection = view.Selection!.Value;
         Assert.Equal(StoryKind.HeaderFooter, selection.Start.Story.Kind);
         Assert.Equal(selection.Start.Story, selection.End.Story);
@@ -529,7 +542,7 @@ public sealed class TypingTests : IDisposable
         Place(h, paragraph, 5);
 
         // End goes to the end of the first line of the wrapped word; the offset is also the start of the second line, so the caret stays upstream.
-        Stroke(h, PhysicalKey.End);
+        LineEnd(h);
         var lineEnd = view.Caret!.Value.Offset;
         Assert.InRange(lineEnd, 10, 539);
         Assert.Equal(CaretAffinity.Upstream, view.Affinity);
@@ -538,12 +551,12 @@ public sealed class TypingTests : IDisposable
         Assert.Equal(firstLineBar.Y, bar.Y, 1);
 
         // Home from there goes to the start of the first line (not to the offset itself, which is the start of the second line).
-        Stroke(h, PhysicalKey.Home);
+        LineStart(h);
         Assert.Equal(0, view.Caret!.Value.Offset);
         Assert.Equal(CaretAffinity.Downstream, view.Affinity);
 
         // Up and Down from an upstream caret start at its (first) line: Down lands on the second line.
-        Stroke(h, PhysicalKey.End);
+        LineEnd(h);
         Assert.Equal(CaretAffinity.Upstream, view.Affinity);
         Stroke(h, PhysicalKey.ArrowDown);
         var down = view.Caret!.Value.Offset;
@@ -551,12 +564,12 @@ public sealed class TypingTests : IDisposable
         Assert.Equal(CaretAffinity.Downstream, view.Affinity);
 
         // Right resets the affinity, as typing does; an explicit reset never lets it revive for the same position.
-        Stroke(h, PhysicalKey.End);
+        LineEnd(h);
         Assert.Equal(CaretAffinity.Upstream, view.Affinity);
         Stroke(h, PhysicalKey.ArrowRight);
         Assert.Equal(CaretAffinity.Downstream, view.Affinity);
         Place(h, paragraph, 5);
-        Stroke(h, PhysicalKey.End);
+        LineEnd(h);
         Assert.Equal(CaretAffinity.Upstream, view.Affinity);
         view.ResetAffinity();
         Assert.Equal(CaretAffinity.Downstream, view.Affinity);
@@ -605,6 +618,9 @@ public sealed class TypingTests : IDisposable
         using var h = await OpenWholeAsync(WindowFixture.Thesis, 900, 600);
         var view = h.View;
         var layout = view.Runner.PageLayout;
+
+        // Two laid-out pages can hold no long paragraph on a slow machine: wait for the whole layout so the search below is deterministic.
+        await ViewHarness.WaitAsync(() => layout.IsComplete, 60000);
         var paragraph = (Paragraph)view.Tab.Docx.Model.Body.Blocks.First(b => b is Paragraph p && TextOf(view, p).Length > 80
             && view.CaretBounds(new TextPosition(StoryRef.Body, p, 3)) is not null);
         Place(h, paragraph, 3);
@@ -921,10 +937,11 @@ public sealed class TypingTests : IDisposable
         Assert.False(input.IsFocused);
         Assert.Equal("Body@ text of the first paragraph.", ParagraphProjection.Build((Paragraph)view.Tab.Docx.Model.Body.Blocks[0], view.Runner.PageLayout.ProjectionHost(StoryRef.Body, (Paragraph)view.Tab.Docx.Model.Body.Blocks[0])).Text);
 
-        // Alt+Q alone still opens the command search.
-        window.KeyPressQwerty(PhysicalKey.Q, RawInputModifiers.Alt);
-        window.KeyReleaseQwerty(PhysicalKey.Q, RawInputModifiers.Alt);
-        WindowFixture.Pump();
+        // The command search opens by its own key: Alt+Q alone, ⌘K on macOS.
+        var searchKey = OperatingSystem.IsMacOS() ? PhysicalKey.K : PhysicalKey.Q;
+        var searchModifiers = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Alt;
+        window.KeyPressQwerty(searchKey, searchModifiers);
+        window.KeyReleaseQwerty(searchKey, searchModifiers);
         Assert.True(input.IsFocused);
     }
 

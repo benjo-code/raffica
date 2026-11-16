@@ -639,7 +639,8 @@ public sealed class ClipboardTests
         var result = editor.Paste(Caret(target, 6), new ClipboardContent(text, null), _ => true);
         timer.Stop();
 
-        Assert.True(timer.ElapsedMilliseconds < 1000, $"took {timer.ElapsedMilliseconds} ms");
+        // A bound that still catches quadratic behaviour (it would take minutes) and survives a loaded CI runner (1 s flaked on macOS at 1.2 s).
+        Assert.True(timer.ElapsedMilliseconds < 5000, $"took {timer.ElapsedMilliseconds} ms");
         Assert.Equal(revision + 1, document.Edits.Revision);
         Assert.Equal(1, editor.History.UndoCount);
         Assert.Equal(50_000, document.Body.Blocks.Count);

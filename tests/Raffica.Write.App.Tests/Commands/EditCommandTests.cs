@@ -31,6 +31,7 @@ public sealed class EditCommandTests : IDisposable
     private static readonly string[] s_editGroups = ["GroupUndo", "GroupClipboard"];
     private static readonly string[] s_editIcons = ["Undo2", "Redo2", "Scissors", "Copy", "ClipboardPaste", "TextSelect"];
     private static readonly TimeSpan GateTimeout = TimeSpan.FromSeconds(60);
+    private static readonly RawInputModifiers SelectAllKey = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
     private static readonly XName Bold = XName.Get("b", "http://schemas.openxmlformats.org/wordprocessingml/2006/main");
     private readonly string _folder = Directory.CreateTempSubdirectory("raffica-write-editcmd-").FullName;
 
@@ -527,8 +528,8 @@ public sealed class EditCommandTests : IDisposable
         Assert.Equal(5, byCommand.End.Offset);
 
         Place(h, P(h, 1), 1);
-        h.Window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Control);
-        h.Window.KeyReleaseQwerty(PhysicalKey.A, RawInputModifiers.Control);
+        h.Window.KeyPressQwerty(PhysicalKey.A, SelectAllKey);
+        h.Window.KeyReleaseQwerty(PhysicalKey.A, SelectAllKey);
         ViewHarness.Pump();
         Assert.Equal(byCommand, h.View.Selection!.Value);
     }
@@ -1076,8 +1077,8 @@ public sealed class EditCommandTests : IDisposable
         ViewHarness.Pump();
         Assert.False(copy.IsEnabled || cut.IsEnabled);
 
-        window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Control);
-        window.KeyReleaseQwerty(PhysicalKey.A, RawInputModifiers.Control);
+        window.KeyPressQwerty(PhysicalKey.A, SelectAllKey);
+        window.KeyReleaseQwerty(PhysicalKey.A, SelectAllKey);
         ViewHarness.Pump();
         Assert.True(copy.IsEnabled && cut.IsEnabled, "the ribbon still says nothing is selected");
         Assert.Null(copy.Definition.CurrentDisabledReason);
