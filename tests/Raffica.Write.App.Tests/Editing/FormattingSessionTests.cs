@@ -88,18 +88,52 @@ public sealed class FormattingSessionTests
         await ViewHarness.WaitAsync(() => tab.Runner.FlowLayout is not null, 30000);
         var layout = tab.Runner.PageLayout;
         var restarts = layout.Stats.Restarts;
-        var index = StyleStep(tab, session);
+        StyleStep(tab, session);
         Assert.True(layout.Stats.Restarts > restarts);
         Assert.Same(layout, tab.Runner.PageLayout);
         Assert.Null(tab.Runner.FlowLayout);
         await layout.LayOutRestAsync(null, CancellationToken.None);
         var fresh = DocumentLayout.Create(tab.Docx.Model, tab.Fonts, new LayoutOptions(LayoutMode.Pages, LayoutRunner.FlowTextWidth, tab.Images.Read));
         await fresh.LayOutRestAsync(null, CancellationToken.None);
-        for (var i = 0; i < Math.Min(layout.LaidOutPages, 3); i++)
+
+        // Exact: every page of the restyled layout has the items (geometry, size, glyphs and advances) and lines of a layout made from scratch. Bold moved into the style of the body
+        // text changes the advances of every line, so a layout that missed the style, planned a block twice or stopped at the wrong page cannot match.
+        AssertSameAsFresh(fresh, layout);
+    }
+
+    private static void AssertSameAsFresh(DocumentLayout fresh, DocumentLayout layout)
+    {
+        Assert.True(layout.IsComplete && fresh.IsComplete);
+        Assert.Equal(fresh.LaidOutPages, layout.LaidOutPages);
+        for (var i = 0; i < fresh.LaidOutPages; i++)
         {
-            Assert.Equal(Text(fresh, i), Text(layout, i));
+            var expected = fresh.Page(i);
+            var actual = layout.Page(i);
+            Assert.True(expected.Items.Count == actual.Items.Count, $"page {i}: item count {actual.Items.Count} against {expected.Items.Count}");
+            for (var k = 0; k < expected.Items.Count; k++)
+            {
+                Assert.True(SameItem(expected.Items[k], actual.Items[k]), $"page {i}: item {k} differs");
+            }
+
+            Assert.Equal(expected.TextLines.Length, actual.TextLines.Length);
+            for (var k = 0; k < expected.TextLines.Length; k++)
+            {
+                var e = expected.TextLines[k];
+                var a = actual.TextLines[k];
+                Assert.True(e.Start == a.Start && e.End == a.End && e.X == a.X && e.Top == a.Top && e.Baseline == a.Baseline && e.Height == a.Height, $"page {i}: line {k} differs");
+            }
         }
     }
+
+    private static bool SameItem(PageItem a, PageItem b) => (a, b) switch
+    {
+        (GlyphRunItem x, GlyphRunItem y) => x.Size == y.Size && x.Color == y.Color && x.X == y.X && x.Baseline == y.Baseline && x.Glyphs.Span.SequenceEqual(y.Glyphs.Span) && x.Xs.Span.SequenceEqual(y.Xs.Span),
+        (RuleItem x, RuleItem y) => x.X == y.X && x.Y == y.Y && x.Width == y.Width && x.Height == y.Height && x.Color == y.Color,
+        (FillItem x, FillItem y) => x.X == y.X && x.Y == y.Y && x.Width == y.Width && x.Height == y.Height && x.Color == y.Color,
+        (ImageItem x, ImageItem y) => x.Image == y.Image && x.X == y.X && x.Y == y.Y && x.Width == y.Width && x.Height == y.Height,
+        (PlaceholderItem x, PlaceholderItem y) => x.X == y.X && x.Y == y.Y && x.Width == y.Width && x.Height == y.Height,
+        _ => a.GetType() == b.GetType(),
+    };
 
     [AvaloniaFact]
     public async Task SelectionChangedFiresOnlyForARealChange()
@@ -228,15 +262,76 @@ public sealed class FormattingSessionTests
         var session = tab.EnsureEditor();
         var range = FirstTextRange(tab, 0, 3);
         _ = session.Editor;
+        var index = tab.Docx.Model.Body.Blocks.ToList().IndexOf(range.Start.Paragraph);
         session.SetSelection(range);
+        var revision = tab.Docx.Model.Edits.Revision;
+        var undo = session.Editor.History.UndoCount;
         var save = session.BeginSave();
         Assert.Null(session.Apply(e => e.ToggleCharacter(session.Selection!.Value, CharacterToggle.Bold), 0));
         Assert.Equal(1, session.PendingCount);
-        Assert.DoesNotContain(range.Start.Paragraph.Inlines.OfType<Run>(), r => r.Properties.Bold);
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.DoesNotContain(ParagraphAt(tab, index).Inlines.OfType<Run>(), r => r.Properties.Bold);
         save.Dispose();
         Assert.Equal(0, session.DroppedWhileSaving);
         Assert.Equal(0, session.PendingCount);
-        Assert.Contains(tab.Docx.Model.Body.Blocks.OfType<Paragraph>(), p => p.Inlines.OfType<Run>().Any(r => r.Properties.Bold));
+
+        // The replay really ran: one more history step, a higher revision, and the three characters of the range sit in bold runs of that paragraph.
+        Assert.True(tab.Docx.Model.Edits.Revision > revision);
+        Assert.Equal(undo + 1, session.Editor.History.UndoCount);
+        var boldChars = ParagraphAt(tab, index).Inlines.OfType<Run>().Where(r => r.Properties.Bold).Sum(r => r.Content.OfType<TextContent>().Sum(t => t.Text.Length));
+        Assert.Equal(3, boldChars);
+        Assert.True(ParagraphAt(tab, index).Inlines.OfType<Run>().First().Properties.Bold);
+    }
+
+    [AvaloniaFact]
+    public async Task AKeyMoveWithASelectedResultClearsThePendingFormat()
+    {
+        using var tab = await OpenWholeAsync();
+        var session = tab.EnsureEditor();
+        var range = FirstTextRange(tab, 1, 3);
+        _ = session.Editor;
+        session.SetSelection(new TextRange(range.Start, range.Start));
+        session.Pending.Set([BoldOn]);
+        Assert.NotNull(session.Apply(_ => new EditResult(range.End, [], range), 0));
+        Assert.Empty(session.Pending.Changes);
+    }
+
+    [AvaloniaFact]
+    public async Task EscClearsThePendingFormat()
+    {
+        using var h = new ViewHarness(WindowFixture.Thesis, 900, 700);
+        h.View.Runner.LeaseWaitTimeout = GateTimeout;
+        h.View.Runner.Start();
+        await ViewHarness.WaitAsync(() => h.View.Runner.FullModelReady, 30000);
+        var session = h.View.Tab.EnsureEditor();
+        var at = FirstTextRange(h.View.Tab, 2, 2).Start;
+        session.SetSelection(new TextRange(at, at));
+        h.View.Focus();
+        session.Pending.Set([BoldOn]);
+        h.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        h.Window.KeyReleaseQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        ViewHarness.Pump();
+        Assert.Empty(session.Pending.Changes);
+    }
+
+    [AvaloniaFact]
+    public async Task ASecondTypedKeystrokeKeepsThePendingFormat()
+    {
+        using var h = new ViewHarness(WindowFixture.Thesis, 900, 700);
+        h.View.Runner.LeaseWaitTimeout = GateTimeout;
+        h.View.Runner.Start();
+        await ViewHarness.WaitAsync(() => h.View.Runner.FullModelReady, 30000);
+        var session = h.View.Tab.EnsureEditor();
+        var at = FirstTextRange(h.View.Tab, 2, 2).Start;
+        session.SetSelection(new TextRange(at, at));
+        h.View.Focus();
+        session.Pending.Set([BoldOn]);
+        h.Window.KeyTextInput("Q");
+        ViewHarness.Pump();
+        h.Window.KeyTextInput("Z");
+        ViewHarness.Pump();
+        Assert.Single(session.Pending.Changes);
+        Assert.True(BoldRunWith(session.Caret!.Value.Paragraph, "QZ"));
     }
 
     [AvaloniaFact]
