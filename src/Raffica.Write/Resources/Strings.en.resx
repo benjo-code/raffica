@@ -918,6 +918,9 @@
   <data name="FormattingNoSelection" xml:space="preserve">
     <value>Place the cursor in the text to see its formatting.</value>
   </data>
+  <data name="FormattingCaretHint" xml:space="preserve">
+    <value>Select text to see its character formatting.</value>
+  </data>
   <data name="FormattingTooLarge" xml:space="preserve">
     <value>Selection too large to list formatting. Select less text.</value>
   </data>

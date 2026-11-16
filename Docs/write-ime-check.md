@@ -94,6 +94,15 @@ The log holds **lengths only**, never the composed text. Record the lines for ea
 4. Type `ä`, `ö`, `ü`, `ß` and a dead key sequence (`^` then `e` gives `ê`): each arrives once.
 5. Check that no command ran (no search opened, nothing selected, no dialog).
 
+## Formatting at a caret with an input method (M4.3b)
+
+Caret formatting (Ctrl+B at a caret, then typing) must also work for text an input method commits. For each system and input method above:
+
+1. Place the caret in a plain word, press Ctrl+B (or Cmd+B on macOS) once and compose and commit a word: the committed text is bold, and the Bold button of the ribbon stays pressed for the next word.
+2. Press Ctrl+B again (it turns off), compose and commit a word: plain.
+3. Press Ctrl+B, start a composition and press Ctrl+B or Ctrl+I while it is shown (many input methods swallow the key): the commit must not be bold when the format changed or was cleared during the composition (the format of the moment the composition began is the one a commit takes, and only while the session still holds it).
+4. Press Ctrl+B, start a composition, press Esc (cancel) and type a Latin letter: bold (plain typing takes the pending format as always).
+
 ## Candidate window in a page of text
 
 This is the check the spike could not make in a small field. For each system and input method above:
@@ -142,6 +151,18 @@ Fill in one row per system and input method. Result is `pass` or `fail`; put the
 | Linux X11 | Fcitx5 or IBus | | | |
 | macOS (version) | Japanese | | | |
 | macOS (version) | Chinese | | | |
+
+### Formatting at a caret with an input method (steps 1 to 4)
+
+| System | IME | Date | Result (pass/fail) | Notes |
+| --- | --- | --- | --- | --- |
+| Windows (version) | Japanese (Microsoft IME) | | | |
+| Windows (version) | Chinese (Microsoft Pinyin) | | | |
+| Linux Wayland | Fcitx5 | | | |
+| Linux Wayland | IBus | | | |
+| Linux X11 | Fcitx5 or IBus | | | |
+| macOS (version) | Japanese (Hiragana) | | | |
+| macOS (version) | Chinese (Pinyin - Simplified) | | | |
 
 ### German layout (`@`, `z`, `y`, AltGr is text)
 

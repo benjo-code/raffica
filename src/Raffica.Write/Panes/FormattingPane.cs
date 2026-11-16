@@ -40,6 +40,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
     private readonly TextBlock _characterStyle;
     private readonly TextBlock _note;
     private readonly TextBlock _noRows;
+    private readonly TextBlock _caretHint;
     private readonly ItemsControl _rowList;
     private readonly Button _update;
     private readonly TextBlock _updateReason;
@@ -76,6 +77,9 @@ internal sealed class FormattingPane : UserControl, IDisposable
         _note.IsVisible = false;
         _noRows = Text("fmt-hint");
         _noRows.Text = WriteStrings.FormattingNoRows;
+        _caretHint = Text("fmt-hint");
+        _caretHint.Text = WriteStrings.FormattingCaretHint;
+        _caretHint.IsVisible = false;
 
         var heading = Text("fmt-heading");
         heading.Text = WriteStrings.FormattingRowsHeading;
@@ -97,6 +101,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
         _details.Children.Add(StyleLine(WriteStrings.FormattingCharacterStyle, _characterStyle));
         _details.Children.Add(_note);
         _details.Children.Add(heading);
+        _details.Children.Add(_caretHint);
         _details.Children.Add(_noRows);
         _details.Children.Add(_rowList);
 
@@ -133,6 +138,9 @@ internal sealed class FormattingPane : UserControl, IDisposable
 
     /// <summary>The text of the line that stands in for the details (no selection, too large, opening, unavailable); null while the details are shown.</summary>
     internal string? HintText => _hint.IsVisible ? _hint.Text : null;
+
+    /// <summary>The text of the line that says a caret lists no character formatting (the paragraph rows and the buttons stay); null for a selection and while no details are shown.</summary>
+    internal string? CaretHintText => _caretHint.IsVisible ? _caretHint.Text : null;
 
     /// <summary>The paragraph style line as shown.</summary>
     internal string ParagraphStyleText => _paragraphStyle.Text ?? string.Empty;
@@ -274,6 +282,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
         var session = _tab.Editor;
         string? hint = null;
         InspectorView? view = null;
+        var atCaret = false;
         switch (session?.BlockedReason)
         {
             case null when session is null:
@@ -300,6 +309,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
                 {
                     view = session.ReadInspector(selection);
                     hint = view is null ? WriteStrings.FormattingTooLarge : null;
+                    atCaret = selection.IsEmpty;
                 }
                 catch (StalePositionException)
                 {
@@ -316,6 +326,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
             _hint.Text = hint;
             _hint.IsVisible = true;
             _details.IsVisible = false;
+            _caretHint.IsVisible = false;
             AutomationProperties.SetName(_hint, hint);
             HideNote();
         }
@@ -323,14 +334,16 @@ internal sealed class FormattingPane : UserControl, IDisposable
         {
             _hint.IsVisible = false;
             _details.IsVisible = true;
-            Show(view!);
+            Show(view!, atCaret);
         }
 
         UpdateButtons();
     }
 
-    private void Show(InspectorView view)
+    private void Show(InspectorView view, bool atCaret)
     {
+        // A caret covers no run, so the character rows of the word at the caret are not listed (the ribbon reads them); the line says so and the paragraph rows stay.
+        _caretHint.IsVisible = atCaret;
         var paragraphStyle = StyleText(view.ParagraphStyleId, view.ParagraphStyleMixed, paragraph: true);
         var characterStyle = StyleText(view.CharacterStyleId, view.CharacterStyleMixed, paragraph: false);
         _paragraphStyle.Text = paragraphStyle;
@@ -339,13 +352,14 @@ internal sealed class FormattingPane : UserControl, IDisposable
         if (_shown is { } shown && shown.ParagraphStyle == paragraphStyle && shown.CharacterStyle == characterStyle && SameRows(shown.View.Rows, view.Rows))
         {
             _shown = (view, paragraphStyle, characterStyle);
+            _noRows.IsVisible = _rows.Count == 0 && !atCaret;
             return;
         }
 
         _shown = (view, paragraphStyle, characterStyle);
         _rows = [.. view.Rows.Select(row => new RowItem(row, FormattingRowWording.Describe(row), FormattingRowWording.PresenceText(row.Presence)))];
         _rowList.ItemsSource = _rows;
-        _noRows.IsVisible = _rows.Count == 0;
+        _noRows.IsVisible = _rows.Count == 0 && !atCaret;
     }
 
     // The note says once per tab that a style is shared: it shows with the first style the file defines and goes when the pane leaves the screen or Update style runs.

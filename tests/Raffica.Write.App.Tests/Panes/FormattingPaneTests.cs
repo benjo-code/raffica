@@ -168,6 +168,50 @@ public sealed class FormattingPaneTests
     }
 
     [AvaloniaFact]
+    public async Task AtACaretThePaneSaysSoAndListsTheParagraphRowsOnly()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, "doc.docx", s_many);
+
+        // A selection lists the character rows and has no caret hint.
+        Select(session, tab, 0, 0, 0, 5);
+        var pane = Open(window, tab);
+        Assert.Null(pane.CaretHintText);
+        Assert.Contains(pane.Rows, r => r.Row.Scope == OverrideScope.Run);
+
+        // A caret inside the bold word: the ribbon reads Bold at the caret, the pane lists no run row and says what to do; the paragraph rows stay and work.
+        Select(session, tab, 0, 2, 0, 2);
+        Settle(window, pane);
+        Assert.Null(pane.HintText);
+        Assert.Equal(WriteStrings.FormattingCaretHint, pane.CaretHintText);
+        Assert.DoesNotContain(pane.Rows, r => r.Row.Scope == OverrideScope.Run);
+        var center = pane.Rows.ToList().FindIndex(r => r.Row.Scope == OverrideScope.Paragraph && r.Wording == WriteStrings.GetIn("FmtRowPJcCenter", CultureInfo.GetCultureInfo("en")));
+        Assert.True(center >= 0);
+        Press(pane.RemoveButtonOf(center));
+        WindowFixture.Pump();
+        Settle(window, pane);
+        Assert.DoesNotContain(pane.Rows, r => r.Wording == WriteStrings.GetIn("FmtRowPJcCenter", CultureInfo.GetCultureInfo("en")));
+        Assert.Equal(WriteStrings.FormattingCaretHint, pane.CaretHintText);
+
+        // A caret in a paragraph without any row: the hint stands in for "no direct formatting", which would be wrong when the word at the caret is bold.
+        Select(session, tab, 1, 0, 1, 0);
+        Settle(window, pane);
+        Assert.Equal(WriteStrings.FormattingCaretHint, pane.CaretHintText);
+
+        // A selection again: no caret hint.
+        Select(session, tab, 0, 0, 0, 5);
+        Settle(window, pane);
+        Assert.Null(pane.CaretHintText);
+    }
+
+    [Fact]
+    public void TheCaretHintIsWordedInBothLanguages()
+    {
+        Assert.Equal("Select text to see its character formatting.", WriteStrings.GetIn("FormattingCaretHint", CultureInfo.GetCultureInfo("en")));
+        Assert.Equal("Wählen Sie Text aus, um seine Zeichenformatierung zu sehen.", WriteStrings.GetIn("FormattingCaretHint", CultureInfo.GetCultureInfo("de")));
+    }
+
+    [AvaloniaFact]
     public async Task RemovingARowRemovesExactlyThatOverrideInTheDocument()
     {
         using var fixture = new WindowFixture();

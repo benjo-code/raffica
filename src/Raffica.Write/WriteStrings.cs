@@ -199,6 +199,7 @@ internal static class WriteStrings
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
     public static string FormattingNoSelection => Table.Get("FormattingNoSelection");
+    public static string FormattingCaretHint => Table.Get("FormattingCaretHint");
     public static string FormattingTooLarge => Table.Get("FormattingTooLarge");
     public static string FormattingParagraphStyle => Table.Get("FormattingParagraphStyle");
     public static string FormattingCharacterStyle => Table.Get("FormattingCharacterStyle");
