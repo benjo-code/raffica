@@ -84,5 +84,6 @@ internal static class SaveHarness
         string.Concat(tab.Docx.Model.Body.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).SelectMany(r => r.Content).OfType<TextContent>().Select(t => t.Text));
 
     /// <summary>The names in a folder, sorted: a failed save leaves no temporary file.</summary>
-    public static string[] Names(string folder) => [.. Directory.GetFileSystemEntries(folder).Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal)];
+    // The names in a folder, without the app's own recent-files bookkeeping: its writer runs behind the open and may be mid-write (a "write-recent.json.tmp") when a test takes the snapshot.
+    public static string[] Names(string folder) => [.. Directory.GetFileSystemEntries(folder).Select(Path.GetFileName).OfType<string>().Where(name => !name.StartsWith("write-recent.json", StringComparison.Ordinal)).Order(StringComparer.Ordinal)];
 }

@@ -939,7 +939,9 @@ public sealed class TypingTests : IDisposable
 
         // The command search opens by its own key: Alt+Q alone, ⌘K on macOS.
         var searchKey = OperatingSystem.IsMacOS() ? PhysicalKey.K : PhysicalKey.Q;
-        var searchModifiers = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Alt;
+        // The shell takes the command key from the platform settings, which a headless run on macOS reports as Ctrl, so ask the same source.
+        var command = Avalonia.Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+        var searchModifiers = !OperatingSystem.IsMacOS() ? RawInputModifiers.Alt : command.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.Control;
         window.KeyPressQwerty(searchKey, searchModifiers);
         window.KeyReleaseQwerty(searchKey, searchModifiers);
         Assert.True(input.IsFocused);
