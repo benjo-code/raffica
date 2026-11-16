@@ -103,6 +103,12 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The editing session of the tab; null until the first caret or key asked for it (<see cref="EnsureEditor"/>). Nothing of editing exists before that.</summary>
     public EditSession? Editor => _editor;
 
+    /// <summary>
+    /// Raised on the UI thread after every edit, undo, redo and replay of queued input (the model has changed; nothing is raised before the first edit). A view of the
+    /// model that is not the layout, like the outline, listens to this instead of polling.
+    /// </summary>
+    public event Action? ModelEdited;
+
     /// <summary>Makes the editing session on first use (UI thread: it keeps that thread's dispatcher).</summary>
     public EditSession EnsureEditor()
     {
@@ -111,10 +117,16 @@ internal sealed class WriteTab : IDisposable
             _editor = new EditSession(this);
 
             // Every edit, undo and redo (and the replay of what a save queued) shows in the tab's dirty mark; a save sets it itself.
-            _editor.Changed += UpdateDirty;
+            _editor.Changed += OnEditorChanged;
         }
 
         return _editor;
+    }
+
+    private void OnEditorChanged()
+    {
+        UpdateDirty();
+        ModelEdited?.Invoke();
     }
 
     /// <summary>

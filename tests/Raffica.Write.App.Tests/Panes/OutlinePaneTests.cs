@@ -34,11 +34,11 @@ public sealed class OutlinePaneTests
         </w:styles>
         """;
 
-    private static string P(string text, string? style = null, string? pPr = null) =>
+    internal static string P(string text, string? style = null, string? pPr = null) =>
         $"<w:p><w:pPr>{(style is null ? string.Empty : $"<w:pStyle w:val=\"{style}\"/>")}{pPr}</w:pPr><w:r><w:t>{text}</w:t></w:r></w:p>";
 
     // A small document with the given body (and the styles above).
-    private static string WriteDocx(string folder, string name, string body)
+    internal static string WriteDocx(string folder, string name, string body)
     {
         var path = Path.Combine(folder, name);
         using var stream = File.Create(path);
