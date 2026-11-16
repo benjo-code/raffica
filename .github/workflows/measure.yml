@@ -870,7 +870,7 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case memory --out ${{ env.OUT }}/memory.csv
 
-      # Typing (milestone 4.3a): one launch of the app types at seven places of the thesis in the page view and in the writing view through the key path
+      # Typing (milestone 4.3a): one launch of the app types at eight places of the thesis in the page view and in the writing view through the key path
       # (--measure-typing) and prints median and 95th percentile per case and view; the case typing records them (rows typing/<case>-<view>-p95) and
       # the check judges the worst p95 against the fixed 16 ms. Three launches, about a minute each.
       - name: Typing in the thesis (write)

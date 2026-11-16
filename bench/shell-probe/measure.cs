@@ -1067,7 +1067,7 @@ static class WriteRun
     public const string TypingBackgroundCase = "typing-background";
 
     /// <summary>The cases of the typing run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.Names</c>).</summary>
-    public static readonly string[] TypingCases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header"];
+    public static readonly string[] TypingCases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
 
     /// <summary>The views of the typing run.</summary>
     public static readonly string[] TypingViews = ["page", "writing"];
@@ -2670,7 +2670,7 @@ static class SelfTest
 
         var rows = WriteRun.ParseTyping(output.ToString(), out var error);
         Expect("typing rows: a full run parses", error, (string?)null);
-        Expect("typing rows: 14 cases x (median, p95) and 2 first-edit rows", rows?.Count, 30);
+        Expect("typing rows: 16 cases x (median, p95) and 2 first-edit rows", rows?.Count, 34);
         Expect("typing rows: the row names", string.Join('|', rows!.Take(4).Select(r => $"{r.Case}/{r.Run}")), "typing-first/after-open-page|typing-first/after-switch-writing|typing/middle-page-median|typing/middle-page-p95");
 
         var without = string.Join('\n', output.ToString().Split('\n').Where(l => !l.StartsWith("typing case=footnote view=writing", StringComparison.Ordinal)));

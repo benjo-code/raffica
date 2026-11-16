@@ -212,7 +212,7 @@ public sealed class MeasurementTests
         Assert.Matches(@"^typing-first when=after-switch view=writing ms=\d+\.\d\d$", first[1]);
 
         var rows = lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
-        string[] cases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header"];
+        string[] cases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
         Assert.Equal(cases.Length * 2, rows.Length);
         var index = 0;
         foreach (var view in new[] { "page", "writing" })

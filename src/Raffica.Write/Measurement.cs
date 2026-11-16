@@ -15,7 +15,7 @@ namespace Raffica.Write;
 /// file that a second launch hands over and writes <c>second-page ms=...</c>, measured in this process from the arrival of the hand-over to the
 /// second animation frame after the first sharp page of the new tab. Every line uses the invariant culture and ASCII keys (they are not
 /// localized); a run that does not finish ends with exit code 3 after 30 s (the message names the real timeout); a scroll run with no document
-/// ends with exit code 1. <c>--measure-typing</c> types at seven places of the document in both views and writes one row per case and view (see <c>Measurement.Typing.cs</c>;
+/// ends with exit code 1. <c>--measure-typing</c> types at eight places of the document in both views and writes one row per case and view (see <c>Measurement.Typing.cs</c>;
 /// its watchdog is 240 s). The switches need <c>--settings-file</c> and a file (see <see cref="WriteOptions"/>), so a measurement never reads or
 /// writes the settings, the recent files or the instance pipe of the user. Nothing of this class exists in a normal run: <c>App</c> makes it only
 /// when a switch is given.

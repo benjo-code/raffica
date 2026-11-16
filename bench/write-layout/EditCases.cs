@@ -10,12 +10,12 @@ internal sealed record EditCase(string Name, StoryRef Story, Paragraph Paragraph
 /// <summary>
 /// The places the typing measurement types at, found from the model and the pages layout alone (no document text is read out of them): the middle of a
 /// long chapter, the end of a paragraph that ends a page (its growth moves the page break), the paragraph before a section break, the end of a chapter,
-/// a table cell, a footnote and a header. The app's <c>--measure-typing</c> picks the same places with the same rules (a near copy in
+/// a table cell, a footnote, a header and a footer with a page number. The app's <c>--measure-typing</c> picks the same places with the same rules (a near copy in
 /// <c>Measurement.Typing.cs</c> of the Write app); change both together.
 /// </summary>
 internal static class EditCases
 {
-    public static readonly string[] Names = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header"];
+    public static readonly string[] Names = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
 
     /// <summary>The text of the keystroke <paramref name="index"/>: lower case letters with a space at every sixth one, from a seeded generator.</summary>
     public static string KeyText(Random random, int index) => index % 6 == 5 ? " " : ((char)('a' + random.Next(26))).ToString();
@@ -135,6 +135,24 @@ internal static class EditCases
             }
         }
 
+        // The first footer (in key order) with a paragraph that shows the page number (a PAGE field), at its end: its block is made again for every page number.
+        foreach (var key in document.HeadersFooters.Keys.Order(StringComparer.Ordinal))
+        {
+            var part = document.HeadersFooters[key];
+            if (part.Kind != HeaderFooterKind.Footer)
+            {
+                continue;
+            }
+
+            var story = new StoryRef(StoryKind.HeaderFooter, key);
+            var paragraph = part.Content.Blocks.OfType<Paragraph>().FirstOrDefault(p => HasPageField(p.Inlines) && Length(story, p) > 0);
+            if (paragraph is not null)
+            {
+                found.Add(new EditCase("footer", story, paragraph, Length(story, paragraph), middleIndex));
+                break;
+            }
+        }
+
         return [.. Names.SelectMany(name => found.Where(f => f.Name == name))];
     }
 
@@ -164,6 +182,29 @@ internal static class EditCases
             yield break;
         }
     }
+
+    // True when the inlines hold a PAGE field (a simple field or the instruction text of a complex one), not NUMPAGES or SECTIONPAGES.
+    private static bool HasPageField(IEnumerable<Inline> inlines)
+    {
+        foreach (var inline in inlines)
+        {
+            switch (inline)
+            {
+                case SimpleField field when IsPage(field.Instruction):
+                    return true;
+                case SimpleField field when HasPageField(field.Inlines):
+                    return true;
+                case Hyperlink link when HasPageField(link.Inlines):
+                    return true;
+                case Run run when run.Content.OfType<InstructionText>().Any(i => IsPage(i.Text)):
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPage(string instruction) => instruction.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var name, ..] && name.Equals("PAGE", StringComparison.OrdinalIgnoreCase);
 
     private static IEnumerable<int> FootnoteIds(IEnumerable<Inline> inlines)
     {
