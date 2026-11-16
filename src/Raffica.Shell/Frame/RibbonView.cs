@@ -365,21 +365,30 @@ public class RibbonView : TemplatedControl
         _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, compact);
     }
 
-    /// <summary>Whether the band should be compact now: the setting, or a window narrower than the full band of the active tab (not known yet: no).</summary>
-    private bool WantsCompact()
+    /// <summary>
+    /// Whether the band should be compact now: the setting, or a window narrower than the full band of the active tab (not known yet: no). A tab that says how wide it certainly is
+    /// (<see cref="RibbonTabDefinition.FullWidthAtLeast"/>) decides without a measure; <paramref name="measure"/> false never measures (the decision at attach, before the first layout).
+    /// </summary>
+    private bool WantsCompact(bool measure = true)
     {
         if (IsCompact)
         {
             return true;
         }
 
-        var width = _band.Bounds.Width;
+        var width = AvailableWidth();
         if (ActiveTab is not { } tab || width <= 0)
         {
             return false;
         }
 
-        return FullWidthOf(tab) is { } full && full > width + 0.5;
+        // A tab that is certainly wider than the window needs no measure of its full band (see RibbonTabDefinition.FullWidthAtLeast).
+        if (tab.FullWidthAtLeast > 0 && width + 0.5 < tab.FullWidthAtLeast)
+        {
+            return true;
+        }
+
+        return measure && FullWidthOf(tab) is { } full && full > width + 0.5;
     }
 
     /// <summary>
@@ -436,9 +445,18 @@ public class RibbonView : TemplatedControl
         }
     }
 
+    // The width the band has: its own once it is laid out, else the width of the window it was just put into (the band spans it).
+    private double AvailableWidth() => _band.Bounds.Width > 0 ? _band.Bounds.Width : TopLevel.GetTopLevel(_band)?.ClientSize.Width ?? 0;
+
     private void OnBandAttached(object? sender, VisualTreeAttachmentEventArgs e)
     {
         _frame = _band.FindAncestorOfType<AppFrame>();
+        if (!_effectivelyCompact && ActiveTab is not null && WantsCompact(measure: false))
+        {
+            // The window is certainly too narrow for the full band: build the compact one before the first layout, so the full band is never measured and the band row never shows its full height first.
+            RebuildBand();
+        }
+
         _frame?.SetCurrentValue(AppFrame.IsAutoCompactProperty, _effectivelyCompact);
     }
 

@@ -298,4 +298,53 @@ public sealed class RibbonOverflowTests
         ControlHarness.Settle(window);
         Assert.Equal(afterVertical, scroller.Offset.X, 1);
     }
+
+    private static RibbonDefinition WithHint(double hint) => new([.. SampleRibbon.Create().Tabs.Select(t => t with { FullWidthAtLeast = hint })]);
+
+    [AvaloniaFact]
+    public void ATabKnownToBeWiderThanTheWindowIsBuiltCompactBeforeTheFirstLayout()
+    {
+        // The start of Write measured and threw away its 3000 px Home band in every window: a tab that says how wide it is at least goes compact at attach, so nothing of the full band is laid out.
+        var ribbon = new RibbonView { Definition = WithHint(5000) };
+        var groups = (Panel)typeof(RibbonView).GetField("_groups", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(ribbon)!;
+        var full = groups.Children.SelectMany(c => c.GetVisualDescendants().OfType<RibbonButton>()).ToList();
+        Assert.NotEmpty(full);
+        var frame = new AppFrame { TabRow = ribbon.TabRow, Band = ribbon.Band };
+        var window = ControlHarness.Show(frame, ThemeMode.Light);
+        Resize(window, 900);
+
+        Assert.True(ribbon.IsEffectivelyCompact);
+        Assert.Equal(40, BandRow(frame), 0.5);
+        Assert.Equal(0, ribbon.FullMeasureCount);
+        Assert.All(full, b => Assert.True(b.Bounds.Width == 0 && b.DesiredSize.Width == 0, "a button of the full band was laid out"));
+        Assert.DoesNotContain(RibbonViewTests.Buttons(ribbon), b => b.Kind == RibbonButtonKind.Tile);
+    }
+
+    [AvaloniaFact]
+    public void AHintThatTheWindowMeetsChangesNothing()
+    {
+        var ribbon = new RibbonView { Definition = WithHint(300) };
+        var frame = new AppFrame { TabRow = ribbon.TabRow, Band = ribbon.Band };
+        var window = ControlHarness.Show(frame, ThemeMode.Light);
+        Resize(window, 1400);
+
+        Assert.False(ribbon.IsEffectivelyCompact);
+        Assert.Equal(82, BandRow(frame), 0.5);
+        Assert.Equal(0, ribbon.FullMeasureCount);
+    }
+
+    [AvaloniaFact]
+    public void AHintDecidesAgainWhenTheWindowIsResized()
+    {
+        var ribbon = new RibbonView { Definition = WithHint(1200) };
+        var frame = new AppFrame { TabRow = ribbon.TabRow, Band = ribbon.Band };
+        var window = ControlHarness.Show(frame, ThemeMode.Light);
+        Resize(window, 1400);
+        Assert.False(ribbon.IsEffectivelyCompact);
+        Resize(window, 1000);
+        Assert.True(ribbon.IsEffectivelyCompact);
+        Assert.Equal(40, BandRow(frame), 0.5);
+        Resize(window, 1400);
+        Assert.False(ribbon.IsEffectivelyCompact);
+    }
 }

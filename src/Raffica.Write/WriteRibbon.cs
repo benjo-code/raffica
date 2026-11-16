@@ -13,6 +13,12 @@ internal static class WriteRibbon
     public const string HomeLetter = "H";
     public const string ViewLetter = "V";
 
+    /// <summary>
+    /// A width in px that the full band of the tab Home is not narrower than, in English and in German (it measures about 3000 px; a test pins this value against the real band): a
+    /// window narrower than that starts with the compact band and never measures the full one (<see cref="RibbonTabDefinition.FullWidthAtLeast"/>).
+    /// </summary>
+    internal const double HomeFullWidthAtLeast = 2500;
+
     /// <param name="actions">What the commands do, by command id; a command with no entry is disabled.</param>
     /// <param name="rules">When they may run (null: whenever an action is wired).</param>
     /// <param name="isOn">Whether a switch or choice command (<see cref="CatalogCommand.Toggle"/>) is on now, by command id (null: none is).</param>
@@ -47,7 +53,8 @@ internal static class WriteRibbon
             .Select(tab => new RibbonTabDefinition(
                 tab.Name,
                 tab.Letter,
-                tab.Groups.Select(group => new RibbonGroupDefinition(group.Label, group.Digit, group.Commands.Select(Cmd).ToList(), Destructive: false)).ToList()))
+                tab.Groups.Select(group => new RibbonGroupDefinition(group.Label, group.Digit, group.Commands.Select(Cmd).ToList(), Destructive: false)).ToList(),
+                tab.Letter == HomeLetter ? HomeFullWidthAtLeast : 0))
             .ToList();
 
         var definition = new RibbonDefinition(tabs);

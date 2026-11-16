@@ -7,11 +7,16 @@ public sealed record RibbonGroupDefinition(
     IReadOnlyList<CommandDefinition> Commands,
     bool Destructive = false);
 
-/// <summary>A ribbon tab; <paramref name="Letter"/> is its field-code letter.</summary>
+/// <summary>
+/// A ribbon tab; <paramref name="Letter"/> is its field-code letter. <paramref name="FullWidthAtLeast"/> (0: not known) is a width in px that the full band of the tab
+/// is certainly not narrower than, in every language: a window narrower than it gets the compact band at once, without the full band being built, laid out and thrown
+/// away first (the tab Home of Write is about 3000 px wide, so measuring it just to learn that it does not fit a 1280 px window cost 30 ms of the start).
+/// </summary>
 public sealed record RibbonTabDefinition(
     string Name,
     string Letter,
-    IReadOnlyList<RibbonGroupDefinition> Groups);
+    IReadOnlyList<RibbonGroupDefinition> Groups,
+    double FullWidthAtLeast = 0);
 
 /// <summary>The whole ribbon of an app.</summary>
 public sealed record RibbonDefinition(IReadOnlyList<RibbonTabDefinition> Tabs)
