@@ -4,8 +4,12 @@ using Raffica.Write;
 using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 using Raffica.Write.Editing;
+using Raffica.Write.Layout;
+using Raffica.Write.Model;
 using Xunit;
+using DocumentLayout = Raffica.Write.Layout.DocumentLayout;
 
 namespace Raffica.WriteApp.Tests.Documents;
 
@@ -715,5 +719,54 @@ public sealed class SaveFlowTests
         Assert.NotSame(tab, reopened);
         Assert.Contains("Roundtrip ", SaveHarness.TextOf(target), StringComparison.Ordinal);
         Assert.DoesNotContain("Roundtrip ", SaveHarness.TextOf(path), StringComparison.Ordinal);
+    }
+
+    // Spec section 9: an edited thesis, saved through the real flow, read again and laid out equals the layout of the edited model.
+    [AvaloniaFact]
+    public async Task AnEditedThesisSavedThroughTheFlowLaysOutAsTheEditedModelDoes()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var (tab, path) = await SaveHarness.OpenCopyAsync(fixture, window, "thesis.docx", WindowFixture.Thesis);
+        var session = tab.EnsureEditor();
+        var paragraphs = tab.Docx.Model.Body.Blocks.Select((b, i) => (b, i)).Where(x => x.b is Paragraph).Select(x => (Paragraph)x.b).ToList();
+        Assert.True(paragraphs.Count > 700);
+
+        TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
+        TextRange Caret(Paragraph paragraph, int offset) => new(At(paragraph, offset), At(paragraph, offset));
+        int Len(Paragraph paragraph) => ParagraphProjection.Build(paragraph, tab.Runner.PageLayout.ProjectionHost(StoryRef.Body, paragraph)).Text.Length;
+
+        // Typing, Enter, a delete across three paragraphs and a copy and paste, each through the session like a key would.
+        var typed = paragraphs[40];
+        Assert.NotNull(session.Apply(e => e.InsertText(Caret(typed, Math.Min(3, Len(typed))), "Edited "), 0));
+        var split = paragraphs[300];
+        Assert.NotNull(session.Apply(e => e.InsertText(Caret(split, Len(split) / 2), "\n"), 0));
+        paragraphs = [.. tab.Docx.Model.Body.Blocks.OfType<Paragraph>()];
+        var from = paragraphs[500];
+        var to = paragraphs[502];
+        Assert.NotNull(session.Apply(e => e.Delete(new TextRange(At(from, Math.Min(2, Len(from))), At(to, Math.Min(1, Len(to))))), 0));
+        paragraphs = [.. tab.Docx.Model.Body.Blocks.OfType<Paragraph>()];
+        var source = paragraphs[100];
+        var target = paragraphs[600];
+        Assert.NotNull(session.Apply(e => e.Paste(Caret(target, Math.Min(2, Len(target))), e.Copy(new TextRange(At(source, 0), At(source, Len(source)))), _ => true), 0));
+        Assert.True(tab.Tab.IsDirty);
+
+        var outcome = await SaveHarness.AwaitAsync(window.SaveActiveAsync());
+        Assert.Equal(new Saved(path), outcome);
+        Assert.False(tab.Tab.IsDirty);
+
+        // The edited model's layout (from scratch, whole) against the layout of the file read again.
+        var fonts = new OpenWork().Fonts();
+        using var reopened = DocxFile.Open(path);
+        var edited = DocumentLayout.Create(tab.Docx.Model, fonts, new LayoutOptions(LayoutMode.Pages));
+        await edited.LayOutRestAsync(null, CancellationToken.None);
+        var again = DocumentLayout.Create(reopened.Model, fonts, new LayoutOptions(LayoutMode.Pages));
+        await again.LayOutRestAsync(null, CancellationToken.None);
+        Assert.Equal(edited.LaidOutPages, again.LaidOutPages);
+        for (var i = 0; i < edited.LaidOutPages; i++)
+        {
+            Assert.True(edited.Page(i).Text == again.Page(i).Text, $"text of page {i} differs after save and reopen");
+            Assert.True(edited.Page(i).Items.Count == again.Page(i).Items.Count, $"item count of page {i} differs after save and reopen");
+        }
     }
 }

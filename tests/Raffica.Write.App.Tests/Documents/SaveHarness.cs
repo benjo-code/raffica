@@ -14,9 +14,9 @@ internal static class SaveHarness
     public const string Typed = "Savetext ";
 
     /// <summary>Opens a copy of the small corpus document in the window and waits for the whole model; the copy is returned too.</summary>
-    public static async Task<(WriteTab Tab, string Path)> OpenCopyAsync(WindowFixture fixture, WriteWindow window, string name = "doc.docx")
+    public static async Task<(WriteTab Tab, string Path)> OpenCopyAsync(WindowFixture fixture, WriteWindow window, string name = "doc.docx", string? source = null)
     {
-        var path = fixture.Copy(WindowFixture.Poi, name);
+        var path = fixture.Copy(source ?? WindowFixture.Poi, name);
         var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(path)).Tab;
         WindowFixture.Pump();
         tab.Runner.Start();
