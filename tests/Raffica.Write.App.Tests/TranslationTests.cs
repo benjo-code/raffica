@@ -38,9 +38,9 @@ public sealed class TranslationTests
         var properties = typeof(WriteStrings).GetProperties(BindingFlags.Public | BindingFlags.Static).Where(p => p.PropertyType == typeof(string)).ToList();
 
         // The open error texts are reached through ForOpenError (one key per enum member, pinned by OpenErrorWordingTests), the save failures through ForSaveFailure and
-        // ForSaveCheck (pinned by SaveWordingTests).
+        // ForSaveCheck (pinned by SaveWordingTests), the wording of the formatting pane's rows through FormattingRowWording (pinned by EveryKnownElementHasWordingInBothLanguages).
         var typed = properties.Select(p => p.Name)
-            .Concat(Keys("en").Where(k => k.StartsWith("OpenError", StringComparison.Ordinal) || k.StartsWith("SaveFail", StringComparison.Ordinal)))
+            .Concat(Keys("en").Where(k => k.StartsWith("OpenError", StringComparison.Ordinal) || k.StartsWith("SaveFail", StringComparison.Ordinal) || k.StartsWith("FmtRow", StringComparison.Ordinal)))
             .Distinct().Order(StringComparer.Ordinal);
         Assert.Equal(Keys("en"), typed.ToArray());
         Assert.All(properties, p => Assert.False(string.IsNullOrWhiteSpace((string?)p.GetValue(null))));

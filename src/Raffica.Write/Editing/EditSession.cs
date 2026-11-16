@@ -62,6 +62,7 @@ internal sealed class EditSession
     private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key, bool Typing)> _queue = [];
     private readonly RefreshableFormat _format = new();
     private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
+    private ((WordDocument Model, int Revision, TextRange Range) Key, InspectorView? View)? _inspected;
     private ((WordDocument Model, int Revision, TextRange Range) Key, SelectionFormat Format)? _shown;
     private (SelectionFormat Base, IReadOnlyList<PropertyChange> Pending, SelectionFormat Result)? _overlay;
     private bool _selectionDirty;
@@ -244,6 +245,28 @@ internal sealed class EditSession
         _facts = (key, facts);
         return facts;
     }
+
+    /// <summary>
+    /// What the formatting pane lists for <paramref name="range"/> (see <see cref="TextEditor.InspectBounded"/>): null when the selection touches more blocks than the pane reads. The answer is
+    /// remembered for the model, its revision and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// </summary>
+    public InspectorView? ReadInspector(TextRange range)
+    {
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_inspected is { } known && known.Key.Equals(key))
+        {
+            return known.View;
+        }
+
+        var view = Editor.InspectBounded(range);
+        InspectorReads++;
+        _inspected = (key, view);
+        return view;
+    }
+
+    /// <summary>How many times <see cref="ReadInspector"/> read the model instead of answering from memory (tests).</summary>
+    internal int InspectorReads { get; private set; }
 
     /// <summary>How many times <see cref="ReadFormatFacts"/> read the model instead of answering from memory (tests).</summary>
     internal int FactReads { get; private set; }

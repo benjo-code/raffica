@@ -198,6 +198,19 @@ internal static class WriteStrings
     public static string UnsavedDontSave => Table.Get("UnsavedDontSave");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
+    public static string FormattingNoSelection => Table.Get("FormattingNoSelection");
+    public static string FormattingTooLarge => Table.Get("FormattingTooLarge");
+    public static string FormattingParagraphStyle => Table.Get("FormattingParagraphStyle");
+    public static string FormattingCharacterStyle => Table.Get("FormattingCharacterStyle");
+    public static string FormattingStyleMixed => Table.Get("FormattingStyleMixed");
+    public static string FormattingStyleUndefinedFormat => Table.Get("FormattingStyleUndefinedFormat");
+    public static string FormattingRowsHeading => Table.Get("FormattingRowsHeading");
+    public static string FormattingNoRows => Table.Get("FormattingNoRows");
+    public static string FormattingRemoveFormat => Table.Get("FormattingRemoveFormat");
+    public static string FormattingRowNameFormat => Table.Get("FormattingRowNameFormat");
+    public static string FormattingPartly => Table.Get("FormattingPartly");
+    public static string FormattingMixedValues => Table.Get("FormattingMixedValues");
+    public static string FormattingSharedNote => Table.Get("FormattingSharedNote");
 
     /// <summary>The key of the wording of an open error (one text per <see cref="OpenError"/> value).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>

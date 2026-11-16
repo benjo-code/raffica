@@ -19,6 +19,13 @@ public sealed partial class TextEditor
     }
 
     /// <summary>
+    /// <see cref="Inspect"/> for a pane that is read while the user types and selects: a selection that touches more than <see cref="MaxFactBlocks"/> blocks is not read (the answer is
+    /// null, so a select all of a long document costs a lookup, not a walk over every paragraph and run).
+    /// </summary>
+    public InspectorView? InspectBounded(TextRange selection) =>
+        Resolve(selection) is { } span && span.LastIndex - span.FirstIndex + 1 > MaxFactBlocks ? null : Inspect(selection);
+
+    /// <summary>
     /// Removes one override row: every direct child of that name of the touched paragraphs (scope <see cref="OverrideScope.Paragraph"/>), of the covered
     /// runs (<see cref="OverrideScope.Run"/>) or of the mark of a touched paragraph without text (<see cref="OverrideScope.ParagraphMark"/>), and nothing
     /// else: not the other rows, not the style, and no runs are merged. A run that the selection edge cuts is split, but only when it carries the element

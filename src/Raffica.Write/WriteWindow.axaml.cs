@@ -83,6 +83,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         TitleSearch = titleBar.Search;
         CreateRibbon();
         _saves.Changed += RefreshCommandStates;
+        _saves.Changed += FormattingSaveChanged;
         Tabs = titleBar.Tabs;
         Tabs.CloseRequested += OnCloseRequested;
         Tabs.NewButtonLabel = WriteStrings.OpenFileButton;
@@ -629,6 +630,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             _areas.Remove(tab);
             _faultShown.Remove(tab);
             ForgetOutline(tab);
+            ForgetFormatting(tab);
             Tabs.Items.Remove(tab.Tab);
         }
 
@@ -639,7 +641,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     {
         Tabs.Selected = Workspace.Active?.Tab;
         ShowActiveDocument();
-        PlaceOutline();
+        PlacePanes();
         UpdateViewStatus();
         FocusActiveView();
         StatesChanged?.Invoke();
@@ -673,7 +675,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             Frame.TabRow = null;
             Frame.Band = null;
             Frame.Notification = null;
-            PlaceOutline();
+            PlacePanes();
             Frame.Document = Start;
             return;
         }
@@ -682,7 +684,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         Frame.Band = Ribbon.Band;
         Frame.Document = DocumentPane;
         Frame.StatusBar = Status;
-        PlaceOutline();
+        PlacePanes();
         DocumentPane.IsOpen = true;
     }
 

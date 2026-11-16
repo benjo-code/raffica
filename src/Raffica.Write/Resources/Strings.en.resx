@@ -576,4 +576,382 @@
   <data name="StyleNone" xml:space="preserve">
     <value>(none)</value>
   </data>
+  <data name="FmtRowPKeepNext" xml:space="preserve">
+    <value>Keep with next paragraph</value>
+  </data>
+  <data name="FmtRowPKeepLines" xml:space="preserve">
+    <value>Keep lines together</value>
+  </data>
+  <data name="FmtRowPPageBreakBefore" xml:space="preserve">
+    <value>Page break before</value>
+  </data>
+  <data name="FmtRowPFramePr" xml:space="preserve">
+    <value>Text frame</value>
+  </data>
+  <data name="FmtRowPWidowControl" xml:space="preserve">
+    <value>Widow and orphan control</value>
+  </data>
+  <data name="FmtRowPSuppressLineNumbers" xml:space="preserve">
+    <value>No line numbers</value>
+  </data>
+  <data name="FmtRowPPBdr" xml:space="preserve">
+    <value>Paragraph borders</value>
+  </data>
+  <data name="FmtRowPShd" xml:space="preserve">
+    <value>Paragraph shading</value>
+  </data>
+  <data name="FmtRowPTabs" xml:space="preserve">
+    <value>Tab stops</value>
+  </data>
+  <data name="FmtRowPSuppressAutoHyphens" xml:space="preserve">
+    <value>No automatic hyphenation</value>
+  </data>
+  <data name="FmtRowPKinsoku" xml:space="preserve">
+    <value>Line breaking rules for East Asian text</value>
+  </data>
+  <data name="FmtRowPWordWrap" xml:space="preserve">
+    <value>Break Latin words at the line end</value>
+  </data>
+  <data name="FmtRowPOverflowPunct" xml:space="preserve">
+    <value>Punctuation may extend past the margin</value>
+  </data>
+  <data name="FmtRowPTopLinePunct" xml:space="preserve">
+    <value>Compress punctuation at the start of a line</value>
+  </data>
+  <data name="FmtRowPAutoSpaceDE" xml:space="preserve">
+    <value>Space between East Asian and Latin text</value>
+  </data>
+  <data name="FmtRowPAutoSpaceDN" xml:space="preserve">
+    <value>Space between East Asian text and numbers</value>
+  </data>
+  <data name="FmtRowPBidi" xml:space="preserve">
+    <value>Right-to-left paragraph</value>
+  </data>
+  <data name="FmtRowPAdjustRightInd" xml:space="preserve">
+    <value>Adjust right indent to the document grid</value>
+  </data>
+  <data name="FmtRowPSnapToGrid" xml:space="preserve">
+    <value>Snap to the document grid</value>
+  </data>
+  <data name="FmtRowPSpacing" xml:space="preserve">
+    <value>Paragraph spacing</value>
+  </data>
+  <data name="FmtRowPSpacingBefore" xml:space="preserve">
+    <value>Space before {0} pt</value>
+  </data>
+  <data name="FmtRowPSpacingAfter" xml:space="preserve">
+    <value>Space after {0} pt</value>
+  </data>
+  <data name="FmtRowPSpacingLineMultiple" xml:space="preserve">
+    <value>Line spacing {0}</value>
+  </data>
+  <data name="FmtRowPSpacingLineAtLeast" xml:space="preserve">
+    <value>Line spacing at least {0} pt</value>
+  </data>
+  <data name="FmtRowPSpacingLineExact" xml:space="preserve">
+    <value>Line spacing exactly {0} pt</value>
+  </data>
+  <data name="FmtRowPInd" xml:space="preserve">
+    <value>Indent</value>
+  </data>
+  <data name="FmtRowPIndLeft" xml:space="preserve">
+    <value>Left indent {0} pt</value>
+  </data>
+  <data name="FmtRowPIndRight" xml:space="preserve">
+    <value>Right indent {0} pt</value>
+  </data>
+  <data name="FmtRowPIndFirstLine" xml:space="preserve">
+    <value>First-line indent {0} pt</value>
+  </data>
+  <data name="FmtRowPIndHanging" xml:space="preserve">
+    <value>Hanging indent {0} pt</value>
+  </data>
+  <data name="FmtRowPContextualSpacing" xml:space="preserve">
+    <value>No space between paragraphs of the same style</value>
+  </data>
+  <data name="FmtRowPMirrorIndents" xml:space="preserve">
+    <value>Mirror indents</value>
+  </data>
+  <data name="FmtRowPSuppressOverlap" xml:space="preserve">
+    <value>Do not let frames overlap</value>
+  </data>
+  <data name="FmtRowPJc" xml:space="preserve">
+    <value>Alignment</value>
+  </data>
+  <data name="FmtRowPJcValue" xml:space="preserve">
+    <value>Alignment {0}</value>
+  </data>
+  <data name="FmtRowPJcLeft" xml:space="preserve">
+    <value>Aligned left</value>
+  </data>
+  <data name="FmtRowPJcCenter" xml:space="preserve">
+    <value>Centered</value>
+  </data>
+  <data name="FmtRowPJcRight" xml:space="preserve">
+    <value>Aligned right</value>
+  </data>
+  <data name="FmtRowPJcBoth" xml:space="preserve">
+    <value>Justified</value>
+  </data>
+  <data name="FmtRowPJcDistribute" xml:space="preserve">
+    <value>Distributed</value>
+  </data>
+  <data name="FmtRowPTextDirection" xml:space="preserve">
+    <value>Text direction</value>
+  </data>
+  <data name="FmtRowPTextAlignment" xml:space="preserve">
+    <value>Vertical text alignment</value>
+  </data>
+  <data name="FmtRowPTextboxTightWrap" xml:space="preserve">
+    <value>Tight wrapping around text boxes</value>
+  </data>
+  <data name="FmtRowPOutlineLvl" xml:space="preserve">
+    <value>Outline level</value>
+  </data>
+  <data name="FmtRowPOutlineLvlValue" xml:space="preserve">
+    <value>Outline level {0}</value>
+  </data>
+  <data name="FmtRowPOutlineLvlBody" xml:space="preserve">
+    <value>Outline level body text</value>
+  </data>
+  <data name="FmtRowPDivId" xml:space="preserve">
+    <value>Web division</value>
+  </data>
+  <data name="FmtRowPCnfStyle" xml:space="preserve">
+    <value>Table style conditions</value>
+  </data>
+  <data name="FmtRowRRFonts" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="FmtRowRRFontsValue" xml:space="preserve">
+    <value>Font {0}</value>
+  </data>
+  <data name="FmtRowRRFontsTheme" xml:space="preserve">
+    <value>Theme font</value>
+  </data>
+  <data name="FmtRowRB" xml:space="preserve">
+    <value>Bold</value>
+  </data>
+  <data name="FmtRowRBCs" xml:space="preserve">
+    <value>Bold (complex script)</value>
+  </data>
+  <data name="FmtRowRI" xml:space="preserve">
+    <value>Italic</value>
+  </data>
+  <data name="FmtRowRICs" xml:space="preserve">
+    <value>Italic (complex script)</value>
+  </data>
+  <data name="FmtRowRCaps" xml:space="preserve">
+    <value>All caps</value>
+  </data>
+  <data name="FmtRowRSmallCaps" xml:space="preserve">
+    <value>Small caps</value>
+  </data>
+  <data name="FmtRowRStrike" xml:space="preserve">
+    <value>Strikethrough</value>
+  </data>
+  <data name="FmtRowRDstrike" xml:space="preserve">
+    <value>Double strikethrough</value>
+  </data>
+  <data name="FmtRowROutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="FmtRowRShadow" xml:space="preserve">
+    <value>Shadow</value>
+  </data>
+  <data name="FmtRowREmboss" xml:space="preserve">
+    <value>Emboss</value>
+  </data>
+  <data name="FmtRowRImprint" xml:space="preserve">
+    <value>Engrave</value>
+  </data>
+  <data name="FmtRowRNoProof" xml:space="preserve">
+    <value>Do not check spelling</value>
+  </data>
+  <data name="FmtRowRSnapToGrid" xml:space="preserve">
+    <value>Snap to the document grid</value>
+  </data>
+  <data name="FmtRowRVanish" xml:space="preserve">
+    <value>Hidden</value>
+  </data>
+  <data name="FmtRowRWebHidden" xml:space="preserve">
+    <value>Hidden in the web view</value>
+  </data>
+  <data name="FmtRowRColor" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="FmtRowRColorValue" xml:space="preserve">
+    <value>Color {0}</value>
+  </data>
+  <data name="FmtRowRColorAuto" xml:space="preserve">
+    <value>Color automatic</value>
+  </data>
+  <data name="FmtRowRColorTheme" xml:space="preserve">
+    <value>Theme color</value>
+  </data>
+  <data name="FmtRowRSpacing" xml:space="preserve">
+    <value>Character spacing</value>
+  </data>
+  <data name="FmtRowRSpacingValue" xml:space="preserve">
+    <value>Character spacing {0} pt</value>
+  </data>
+  <data name="FmtRowRW" xml:space="preserve">
+    <value>Character width</value>
+  </data>
+  <data name="FmtRowRWValue" xml:space="preserve">
+    <value>Character width {0} %</value>
+  </data>
+  <data name="FmtRowRKern" xml:space="preserve">
+    <value>Kerning</value>
+  </data>
+  <data name="FmtRowRKernValue" xml:space="preserve">
+    <value>Kerning from {0} pt</value>
+  </data>
+  <data name="FmtRowRPosition" xml:space="preserve">
+    <value>Vertical position</value>
+  </data>
+  <data name="FmtRowRPositionUp" xml:space="preserve">
+    <value>Raised by {0} pt</value>
+  </data>
+  <data name="FmtRowRPositionDown" xml:space="preserve">
+    <value>Lowered by {0} pt</value>
+  </data>
+  <data name="FmtRowRSz" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="FmtRowRSzValue" xml:space="preserve">
+    <value>Size {0} pt</value>
+  </data>
+  <data name="FmtRowRSzCs" xml:space="preserve">
+    <value>Size (complex script)</value>
+  </data>
+  <data name="FmtRowRSzCsValue" xml:space="preserve">
+    <value>Size (complex script) {0} pt</value>
+  </data>
+  <data name="FmtRowRHighlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="FmtRowRHighlightValue" xml:space="preserve">
+    <value>Highlight {0}</value>
+  </data>
+  <data name="FmtRowRU" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="FmtRowRUValue" xml:space="preserve">
+    <value>Underline {0}</value>
+  </data>
+  <data name="FmtRowUDouble" xml:space="preserve">
+    <value>double</value>
+  </data>
+  <data name="FmtRowUThick" xml:space="preserve">
+    <value>thick</value>
+  </data>
+  <data name="FmtRowUDotted" xml:space="preserve">
+    <value>dotted</value>
+  </data>
+  <data name="FmtRowUDash" xml:space="preserve">
+    <value>dashed</value>
+  </data>
+  <data name="FmtRowUWave" xml:space="preserve">
+    <value>wavy</value>
+  </data>
+  <data name="FmtRowUWords" xml:space="preserve">
+    <value>words only</value>
+  </data>
+  <data name="FmtRowUNone" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="FmtRowREffect" xml:space="preserve">
+    <value>Text effect</value>
+  </data>
+  <data name="FmtRowRBdr" xml:space="preserve">
+    <value>Text border</value>
+  </data>
+  <data name="FmtRowRShd" xml:space="preserve">
+    <value>Character shading</value>
+  </data>
+  <data name="FmtRowRFitText" xml:space="preserve">
+    <value>Fit text to the width</value>
+  </data>
+  <data name="FmtRowRVertAlign" xml:space="preserve">
+    <value>Vertical alignment</value>
+  </data>
+  <data name="FmtRowRVertAlignSuper" xml:space="preserve">
+    <value>Superscript</value>
+  </data>
+  <data name="FmtRowRVertAlignSub" xml:space="preserve">
+    <value>Subscript</value>
+  </data>
+  <data name="FmtRowRVertAlignBaseline" xml:space="preserve">
+    <value>Baseline</value>
+  </data>
+  <data name="FmtRowRRtl" xml:space="preserve">
+    <value>Right-to-left text</value>
+  </data>
+  <data name="FmtRowRCs" xml:space="preserve">
+    <value>Complex script</value>
+  </data>
+  <data name="FmtRowREm" xml:space="preserve">
+    <value>Emphasis mark</value>
+  </data>
+  <data name="FmtRowRLang" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="FmtRowRLangValue" xml:space="preserve">
+    <value>Language {0}</value>
+  </data>
+  <data name="FmtRowREastAsianLayout" xml:space="preserve">
+    <value>East Asian layout</value>
+  </data>
+  <data name="FmtRowRSpecVanish" xml:space="preserve">
+    <value>Hidden paragraph mark</value>
+  </data>
+  <data name="FmtRowROMath" xml:space="preserve">
+    <value>Math</value>
+  </data>
+  <data name="FmtRowOff" xml:space="preserve">
+    <value>{0}: off</value>
+  </data>
+  <data name="FmtRowMark" xml:space="preserve">
+    <value>Paragraph mark: {0}</value>
+  </data>
+  <data name="FormattingNoSelection" xml:space="preserve">
+    <value>Place the cursor in the text to see its formatting.</value>
+  </data>
+  <data name="FormattingTooLarge" xml:space="preserve">
+    <value>Selection too large to list formatting. Select less text.</value>
+  </data>
+  <data name="FormattingParagraphStyle" xml:space="preserve">
+    <value>Paragraph style</value>
+  </data>
+  <data name="FormattingCharacterStyle" xml:space="preserve">
+    <value>Character style</value>
+  </data>
+  <data name="FormattingStyleMixed" xml:space="preserve">
+    <value>mixed</value>
+  </data>
+  <data name="FormattingStyleUndefinedFormat" xml:space="preserve">
+    <value>{0} (not defined in the file)</value>
+  </data>
+  <data name="FormattingRowsHeading" xml:space="preserve">
+    <value>Direct formatting</value>
+  </data>
+  <data name="FormattingNoRows" xml:space="preserve">
+    <value>No direct formatting.</value>
+  </data>
+  <data name="FormattingRemoveFormat" xml:space="preserve">
+    <value>Remove {0}</value>
+  </data>
+  <data name="FormattingRowNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="FormattingPartly" xml:space="preserve">
+    <value>only part of the selection</value>
+  </data>
+  <data name="FormattingMixedValues" xml:space="preserve">
+    <value>different values</value>
+  </data>
+  <data name="FormattingSharedNote" xml:space="preserve">
+    <value>This style is shared: changing it changes every paragraph that uses it.</value>
+  </data>
 </root>

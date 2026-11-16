@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Xml.Linq;
 using Raffica.Write.Commands;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
@@ -42,6 +43,27 @@ internal sealed partial class PageView
     {
         "black", "blue", "cyan", "green", "magenta", "red", "yellow", "white", "darkBlue", "darkCyan", "darkGreen", "darkMagenta", "darkRed", "darkYellow", "darkGray", "lightGray",
     };
+
+    /// <summary>
+    /// Removes one override row of the inspector from the current selection (see <see cref="TextEditor.RemoveOverride"/>): one history step, queued during a save like typing, the failure rule of
+    /// a key. True when it was taken (also when it changed nothing), false only for a released view.
+    /// </summary>
+    internal bool RemoveOverride(OverrideScope scope, XName element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (_released)
+        {
+            return false;
+        }
+
+        if (SessionForCommand() is not { } session)
+        {
+            return true;
+        }
+
+        ApplyGuarded(session, ed => session.Selection is { } selection ? ed.RemoveOverride(selection, scope, element) : null);
+        return true;
+    }
 
     /// <summary>Runs a formatting command that needs no value; true when it was taken (also when it changed nothing).</summary>
     internal bool RunFormatCommand(string id) => RunFormatCommand(id, null);

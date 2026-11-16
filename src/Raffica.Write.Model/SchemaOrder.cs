@@ -102,6 +102,9 @@ public static class SchemaOrder
         return s_index[kind].TryGetValue(child, out var index) ? index : null;
     }
 
+    /// <summary>Every child name the table knows for this kind, in schema order (a name that shares a slot comes in the order it is listed).</summary>
+    public static IReadOnlyList<XName> NamesOf(PropertyKind kind) => [.. s_index[kind].OrderBy(pair => pair.Value).Select(pair => pair.Key)];
+
     private static Dictionary<PropertyKind, Dictionary<XName, int>> Build()
     {
         var result = new Dictionary<PropertyKind, Dictionary<XName, int>>();
