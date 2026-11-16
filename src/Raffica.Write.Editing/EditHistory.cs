@@ -123,7 +123,7 @@ public sealed class EditHistory
         }
 
         var step = _undo[^1];
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !TrySwapStyle(step, undo: true))
         {
             Clear();
             return null;
@@ -149,7 +149,7 @@ public sealed class EditHistory
         }
 
         var step = _redo[^1];
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !TrySwapStyle(step, undo: false))
         {
             Clear();
             return null;
@@ -192,8 +192,14 @@ public sealed class EditHistory
     /// </summary>
     internal void Record(EditResult result, Point before, int revisionBefore, string? typed)
     {
-        if (result.Changes.Count != 1)
+        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null))
         {
+            return;
+        }
+
+        if (result.Changes.Count == 0)
+        {
+            RecordStyleOnly(result, before, revisionBefore);
             return;
         }
 
@@ -211,7 +217,7 @@ public sealed class EditHistory
         var endRevision = _document.Edits.Revision;
         _redo.Clear();
 
-        if (typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore))
+        if (result.Style is null && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore))
         {
             var step = _open!;
             _undoBytes -= step.Bytes;
@@ -225,12 +231,15 @@ public sealed class EditHistory
             return;
         }
 
-        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision);
-        added.Bytes = SizeOf(added.Old) + SizeOf(added.New);
+        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision)
+        {
+            Style = result.Style,
+        };
+        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style);
         _undo.Add(added);
         _undoBytes += added.Bytes;
         _expected = endRevision;
-        if (typed is not null)
+        if (typed is not null && result.Style is null)
         {
             _open = added;
             _openContainer = change.Container;
@@ -243,6 +252,50 @@ public sealed class EditHistory
         }
 
         Trim();
+    }
+
+    // A style change without a block change (the paragraph held nothing to move): the step has no blocks, only the caret and the style swap.
+    private void RecordStyleOnly(EditResult result, Point before, int revisionBefore)
+    {
+        var story = result.Caret.Story;
+        if (Root(story) is not { } root)
+        {
+            Clear();
+            return;
+        }
+
+        var index = Math.Max(0, root.IndexOf(result.Caret.Paragraph));
+        var endRevision = _document.Edits.Revision;
+        _redo.Clear();
+        var step = new Step(story, [], 0, [], [], before, new Point(index, result.Caret.Offset), revisionBefore, endRevision)
+        {
+            Style = result.Style,
+        };
+        step.Bytes = SizeOf(step.Style);
+        _undo.Add(step);
+        _undoBytes += step.Bytes;
+        _expected = endRevision;
+        _open = null;
+        _openContainer = null;
+        Trim();
+    }
+
+    // Puts the style of the step into the sheet in place: Old on undo, New on redo. False (nothing changed) when the sheet or the style is gone.
+    private bool TrySwapStyle(Step step, bool undo)
+    {
+        if (step.Style is not { } change)
+        {
+            return true;
+        }
+
+        var sheet = _document.Styles;
+        var current = sheet?.Find(change.New.Id);
+        if (sheet is null || current is null)
+        {
+            return false;
+        }
+
+        return sheet.Replace(current, (undo ? change.Old : change.New).Clone());
     }
 
     private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore)
@@ -333,12 +386,13 @@ public sealed class EditHistory
 
     private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks)
     {
-        var index = Math.Clamp(caret.Index, 0, container.Count - 1);
-        var paragraph = container[index] as Paragraph ?? container.OfType<Paragraph>().FirstOrDefault()
+        var index = Math.Clamp(caret.Index, 0, Math.Max(0, container.Count - 1));
+        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault()
             ?? throw new InvalidOperationException("The restored blocks hold no paragraph.");
-        return new EditResult(
-            new TextPosition(step.Story, paragraph, caret.Offset),
-            [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)]);
+        IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && step.Style is not null
+            ? []
+            : [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)];
+        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style);
     }
 
     private static Block[] CloneRange(IList<Block> container, int first, int count)
@@ -516,6 +570,19 @@ public sealed class EditHistory
         return size;
     }
 
+    private static long SizeOf(StyleChange? change) => change is null ? 0 : SizeOf(change.Old) + SizeOf(change.New);
+
+    private static long SizeOf(Style style)
+    {
+        long size = 64;
+        foreach (var text in new[] { style.Id, style.Type, style.Name, style.BasedOn, style.Next, style.Link, style.DefaultAttribute })
+        {
+            size += 2L * (text?.Length ?? 0);
+        }
+
+        return size + SizeOf(style.ParagraphProperties) + SizeOf(style.RunProperties) + SizeOf(style.TableProperties);
+    }
+
     private static long SizeOf(PropertyBag bag)
     {
         long size = 32;
@@ -569,5 +636,7 @@ public sealed class EditHistory
         public int EndRevision { get; set; } = endRevision;
 
         public long Bytes { get; set; }
+
+        public StyleChange? Style { get; init; }
     }
 }
