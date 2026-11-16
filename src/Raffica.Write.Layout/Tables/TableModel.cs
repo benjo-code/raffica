@@ -434,9 +434,9 @@ internal static class TableReader
         "moveFromRangeStart", "moveFromRangeEnd", "moveToRangeStart", "moveToRangeEnd",
     };
 
-    private static bool Takes(UnknownRowItem item) => !s_marks.Contains(item.Content.Element.Name.LocalName);
+    internal static bool Takes(UnknownRowItem item) => !s_marks.Contains(item.Content.Element.Name.LocalName);
 
-    private static int? Value(XElement? element) => element is null ? null : Ooxml.IntAttr(element, "val");
+    internal static int? Value(XElement? element) => element is null ? null : Ooxml.IntAttr(element, "val");
 
     private static void ReadRow(TableRow row, RowModel model)
     {

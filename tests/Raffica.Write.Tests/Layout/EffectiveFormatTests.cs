@@ -1,0 +1,153 @@
+using Raffica.TestSupport;
+using Raffica.Write.Docx;
+using Raffica.Write.Layout;
+using Raffica.Write.Model;
+using WriteCorpus;
+using Xunit;
+
+namespace Raffica.Write.Tests.Layout;
+
+public sealed class EffectiveFormatTests
+{
+    private const string Base =
+        "<w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val=\"22\"/></w:rPr></w:rPrDefault></w:docDefaults>"
+        + "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>"
+        + "<w:style w:type=\"table\" w:default=\"1\" w:styleId=\"TableNormal\"><w:tblPr/></w:style>";
+
+    private static string Root => Path.Combine(TestData.Root, "testdata", "write-corpus");
+
+    private static (WordDocument Document, LayoutEffectiveFormat Format) Setup(string styles, string body)
+    {
+        var document = LayoutModel.Document(body, LayoutModel.StylesPart(Base + styles));
+        return (document, new LayoutEffectiveFormat(document));
+    }
+
+    private static Run FirstRun(Paragraph paragraph) => (Run)paragraph.Inlines[0];
+
+    [Fact]
+    public void BoldFromTheParagraphStyleIsEffective()
+    {
+        var (doc, format) = Setup(
+            "<w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:basedOn w:val=\"Normal\"/><w:rPr><w:b/></w:rPr></w:style>",
+            "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>");
+        var p = LayoutModel.Para(doc, 0);
+        Assert.True(format.ForRun(StoryRef.Body, p, FirstRun(p)).Bold);
+    }
+
+    [Fact]
+    public void ExplicitOffInARunCancelsTheStyle()
+    {
+        var (doc, format) = Setup(
+            "<w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:rPr><w:b/></w:rPr></w:style>",
+            "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:rPr><w:b w:val=\"0\"/></w:rPr><w:t>x</w:t></w:r></w:p>");
+        var p = LayoutModel.Para(doc, 0);
+        Assert.False(format.ForRun(StoryRef.Body, p, FirstRun(p)).Bold);
+    }
+
+    [Fact]
+    public void CharacterStyleAndBasedOnChainAreRead()
+    {
+        var (doc, format) = Setup(
+            "<w:style w:type=\"character\" w:styleId=\"Base\"><w:rPr><w:i/></w:rPr></w:style>"
+            + "<w:style w:type=\"character\" w:styleId=\"Strong\"><w:basedOn w:val=\"Base\"/><w:rPr><w:b/></w:rPr></w:style>",
+            "<w:p><w:r><w:rPr><w:rStyle w:val=\"Strong\"/></w:rPr><w:t>x</w:t></w:r></w:p>");
+        var p = LayoutModel.Para(doc, 0);
+        var effective = format.ForRun(StoryRef.Body, p, FirstRun(p));
+        Assert.True(effective.Bold);
+        Assert.True(effective.Italic);
+        Assert.False(effective.Strike);
+    }
+
+    [Fact]
+    public void BoldFromATableStyleHeaderRowIsEffectiveInsideTheCell()
+    {
+        var (doc, format) = Setup(
+            "<w:style w:type=\"table\" w:styleId=\"Head\"><w:basedOn w:val=\"TableNormal\"/><w:tblStylePr w:type=\"firstRow\"><w:rPr><w:b/></w:rPr></w:tblStylePr></w:style>",
+            "<w:tbl><w:tblPr><w:tblStyle w:val=\"Head\"/><w:tblLook w:firstRow=\"1\" w:noHBand=\"1\" w:noVBand=\"1\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"3000\"/></w:tblGrid>"
+            + "<w:tr><w:tc><w:p><w:r><w:t>h</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>b</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"
+            + "<w:p><w:r><w:t>out</w:t></w:r></w:p>");
+        var table = (Table)doc.Body.Blocks[0];
+        var head = (Paragraph)((TableCell)((TableRow)table.Rows[0]).Items[0]).Blocks[0];
+        var body = (Paragraph)((TableCell)((TableRow)table.Rows[1]).Items[0]).Blocks[0];
+        var outside = LayoutModel.Para(doc, 1);
+        Assert.True(format.ForRun(StoryRef.Body, head, FirstRun(head)).Bold);
+        Assert.False(format.ForRun(StoryRef.Body, body, FirstRun(body)).Bold);
+        Assert.False(format.ForRun(StoryRef.Body, outside, FirstRun(outside)).Bold);
+    }
+
+    [Fact]
+    public void UnderlineOfAnyKindIsOn()
+    {
+        var (doc, format) = Setup(
+            string.Empty,
+            "<w:p><w:r><w:rPr><w:u w:val=\"wave\"/></w:rPr><w:t>a</w:t></w:r><w:r><w:rPr><w:u w:val=\"none\"/></w:rPr><w:t>b</w:t></w:r><w:r><w:t>c</w:t></w:r></w:p>");
+        var p = LayoutModel.Para(doc, 0);
+        Assert.True(format.ForRun(StoryRef.Body, p, (Run)p.Inlines[0]).Underline);
+        Assert.False(format.ForRun(StoryRef.Body, p, (Run)p.Inlines[1]).Underline);
+        Assert.False(format.ForRun(StoryRef.Body, p, (Run)p.Inlines[2]).Underline);
+    }
+
+    [Fact]
+    public void SuperscriptAndSubscriptMapToPosition()
+    {
+        var (doc, format) = Setup(
+            string.Empty,
+            "<w:p><w:r><w:rPr><w:vertAlign w:val=\"superscript\"/></w:rPr><w:t>a</w:t></w:r><w:r><w:rPr><w:vertAlign w:val=\"subscript\"/></w:rPr><w:t>b</w:t></w:r><w:r><w:t>c</w:t></w:r></w:p>");
+        var p = LayoutModel.Para(doc, 0);
+        Assert.Equal(VerticalPosition.Superscript, format.ForRun(StoryRef.Body, p, (Run)p.Inlines[0]).Position);
+        Assert.Equal(VerticalPosition.Subscript, format.ForRun(StoryRef.Body, p, (Run)p.Inlines[1]).Position);
+        Assert.Equal(VerticalPosition.Baseline, format.ForRun(StoryRef.Body, p, (Run)p.Inlines[2]).Position);
+    }
+
+    [Fact]
+    public void ForMarkReadsTheParagraphMark()
+    {
+        var (doc, format) = Setup(
+            string.Empty,
+            "<w:p><w:pPr><w:rPr><w:b/><w:i/></w:rPr></w:pPr><w:r><w:t>x</w:t></w:r></w:p><w:p><w:r><w:t>y</w:t></w:r></w:p>");
+        var marked = format.ForMark(StoryRef.Body, LayoutModel.Para(doc, 0));
+        Assert.True(marked.Bold);
+        Assert.True(marked.Italic);
+        Assert.False(format.ForMark(StoryRef.Body, LayoutModel.Para(doc, 1)).Bold);
+    }
+
+    [Fact]
+    public void EveryRunOfEveryCorpusFileMatchesTheLayoutsResolvedRun()
+    {
+        var runs = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var docx = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
+            var model = docx.Model;
+            var format = new LayoutEffectiveFormat(model);
+            var resolver = new StyleResolver(model.Styles, model.Settings, model.Numbering);
+            foreach (var block in model.Body.Blocks)
+            {
+                if (block is not Paragraph paragraph)
+                {
+                    continue;
+                }
+
+                var resolved = resolver.ForParagraph(paragraph);
+                foreach (var inline in paragraph.Inlines)
+                {
+                    if (inline is not Run run)
+                    {
+                        continue;
+                    }
+
+                    var expected = resolver.ForRun(resolved, run);
+                    var actual = format.ForRun(StoryRef.Body, paragraph, run);
+                    Assert.True(
+                        expected.Bold == actual.Bold && expected.Italic == actual.Italic && (expected.Underline != UnderlineKind.None) == actual.Underline
+                        && expected.Strike == actual.Strike && expected.SmallCaps == actual.SmallCaps && expected.Caps == actual.Caps
+                        && (int)expected.VerticalAlignment == (int)actual.Position,
+                        entry.Id);
+                    runs++;
+                }
+            }
+        }
+
+        Assert.True(runs > 1000, $"only {runs} runs compared");
+    }
+}
