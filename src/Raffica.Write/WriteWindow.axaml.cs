@@ -60,15 +60,20 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     /// <summary>Ends when the window starts to close: every open of this window watches it (a file that finishes late adds no tab).</summary>
     private readonly CancellationToken _closeToken;
 
+    /// <summary>Whether the ribbon band is held until the first page is on screen.</summary>
+    private readonly bool _deferRibbon;
+
     /// <param name="options">The command line.</param>
     /// <param name="settings">The shell settings, read by the caller at startup.</param>
     /// <param name="appSettings">The Write settings, read once at startup by the caller (null: the defaults; the window reads no file).</param>
     /// <param name="work">The fonts of the process and the counters; the windows of one app share it (null: one of its own).</param>
-    public WriteWindow(WriteOptions options, ShellSettings settings, WriteSettings? appSettings = null, OpenWork? work = null)
+    /// <param name="deferRibbon">True (the app): the content of the ribbon band is put on screen after the first page of the first file, so the page is not held back by laying out about 40 buttons and pickers (the ribbon appears two frames later; the key tips, the command search and the pickers release it at once). False (the tests): the band is there from the start.</param>
+    public WriteWindow(WriteOptions options, ShellSettings settings, WriteSettings? appSettings = null, OpenWork? work = null, bool deferRibbon = false)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(settings);
         _options = options;
+        _deferRibbon = deferRibbon;
         _closeToken = _closing.Token;
         Work = work ?? new OpenWork();
         _recent = new RecentService(new RecentFilesStore(AppFiles.Write.RecentPathFor(options.SettingsFile)));
@@ -682,6 +687,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
         Frame.TabRow = Ribbon.TabRow;
         Frame.Band = Ribbon.Band;
+        StartRibbonReleaseTimer();
         Frame.Document = DocumentPane;
         Frame.StatusBar = Status;
         PlacePanes();

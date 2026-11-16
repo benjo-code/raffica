@@ -29,10 +29,13 @@ internal sealed class WindowFixture : IDisposable
     public WriteWindow Show(OpenWork? work = null, params string[] files) => ShowWith(null, work, files);
 
     /// <summary>Like <see cref="Show"/>, with the Write settings the window starts with (the view and zoom a new tab opens in).</summary>
-    public WriteWindow ShowWith(Raffica.Write.Settings.WriteSettings? app, OpenWork? work = null, params string[] files)
+    public WriteWindow ShowWith(Raffica.Write.Settings.WriteSettings? app, OpenWork? work = null, params string[] files) => ShowWith(app, work, deferRibbon: false, files);
+
+    /// <summary>Like the other overload; <paramref name="deferRibbon"/> true is the app's start (the ribbon band follows the first page).</summary>
+    public WriteWindow ShowWith(Raffica.Write.Settings.WriteSettings? app, OpenWork? work, bool deferRibbon, params string[] files)
     {
         var options = WriteOptions.Parse(["--settings-file", SettingsFile, .. files]);
-        var window = new WriteWindow(options, new SettingsStore(SettingsFile).Load(), app, work);
+        var window = new WriteWindow(options, new SettingsStore(SettingsFile).Load(), app, work, deferRibbon);
         _windows.Add(window);
         window.Show();
         Pump();

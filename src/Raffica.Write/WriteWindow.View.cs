@@ -46,8 +46,41 @@ internal sealed partial class WriteWindow
         AddFormatActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn, _pickers.For);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
+        if (_deferRibbon)
+        {
+            Ribbon.HoldBand();
+        }
+
         TitleSearch.Source = definition;
         TitleSearch.CommandChosen += ChooseFromSearch;
+    }
+
+    /// <summary>How long a held ribbon band waits for the first page before it is shown anyway (a file that never draws, a layout that failed); tests make it short.</summary>
+    internal static TimeSpan RibbonReleaseTimeout { get; set; } = TimeSpan.FromSeconds(1);
+
+    private bool _ribbonTimerStarted;
+
+    // The band was held when the first tab appeared: whatever happens to the first page, it is shown after the timeout.
+    private void StartRibbonReleaseTimer()
+    {
+        if (!Ribbon.IsBandHeld || _ribbonTimerStarted)
+        {
+            return;
+        }
+
+        _ribbonTimerStarted = true;
+        DispatcherTimer.RunOnce(Ribbon.ReleaseBand, RibbonReleaseTimeout);
+    }
+
+    // The first page is on screen (and the measurement of the first page has taken its frames): the ribbon follows two frames later, in an idle moment.
+    private void ReleaseRibbonAfterTheFirstFrames()
+    {
+        if (!Ribbon.IsBandHeld)
+        {
+            return;
+        }
+
+        RequestAnimationFrame(_ => RequestAnimationFrame(_ => Dispatcher.UIThread.Post(Ribbon.ReleaseBand, DispatcherPriority.Background)));
     }
 
     /// <summary>What a choice in the command search does: a picker has nothing to run, so it opens (its list drops down, or the size box takes the focus); every other command runs.</summary>
@@ -284,6 +317,7 @@ internal sealed partial class WriteWindow
         view.FirstSharpPage += () =>
         {
             FirstSharpPageDrawn?.Invoke(tab);
+            ReleaseRibbonAfterTheFirstFrames();
             tab.Runner.Start();
             if (ReferenceEquals(ActiveView, view))
             {

@@ -71,6 +71,7 @@ public class RibbonView : TemplatedControl
     private readonly List<(Control Target, string Digit)> _groupAnchors = [];
     private readonly List<FieldCodeBadge> _badges = [];
     private bool _settingDefinition;
+    private bool _bandHeld;
     private bool _effectivelyCompact;
     private bool _builtCompact;
     private RibbonTabDefinition? _builtTab;
@@ -82,7 +83,7 @@ public class RibbonView : TemplatedControl
         DefinitionProperty.Changed.AddClassHandler<RibbonView>((view, e) => view.OnDefinitionChanged(e.NewValue as RibbonDefinition));
         ActiveTabProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.OnActiveTabChanged());
         IsCompactProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RebuildBand());
-        ShowFieldCodesProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
+        ShowFieldCodesProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.OnShowFieldCodesChanged());
         FieldCodeTabLetterProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
         FieldCodeMenuProperty.Changed.AddClassHandler<RibbonView>((view, _) => view.RefreshBadges());
     }
@@ -197,6 +198,59 @@ public class RibbonView : TemplatedControl
         RebuildBand();
     }
 
+    /// <summary>Whether the content of the band is held back (see <see cref="HoldBand"/>).</summary>
+    public bool IsBandHeld => _bandHeld;
+
+    /// <summary>
+    /// Keeps the content of the band out of the window until <see cref="ReleaseBand"/>: the band stays in its slot (an empty strip of the final height), but its buttons and pickers are laid out and
+    /// templated only when they are released. An app that wants its first page on screen before its ribbon calls this once, before the band is shown, and releases the band after the first
+    /// frames. The band is built as usual and every method that needs it on screen (the field codes, <see cref="OpenPicker"/>) releases it first.
+    /// </summary>
+    public void HoldBand()
+    {
+        if (_bandHeld)
+        {
+            return;
+        }
+
+        _bandHeld = true;
+        _band.Child = null;
+    }
+
+    /// <summary>Puts the held content into the band. The choice between the full and the compact band is made again once the content has been laid out (the size of the band does not change when its content arrives).</summary>
+    public void ReleaseBand()
+    {
+        if (!_bandHeld)
+        {
+            return;
+        }
+
+        _bandHeld = false;
+        _band.Child = _host;
+        _host.LayoutUpdated += OnFirstLayoutAfterRelease;
+    }
+
+    private void OnFirstLayoutAfterRelease(object? sender, EventArgs e)
+    {
+        _host.LayoutUpdated -= OnFirstLayoutAfterRelease;
+        if (WantsCompact() != _effectivelyCompact)
+        {
+            RebuildBand();
+        }
+    }
+
+    private void OnShowFieldCodesChanged()
+    {
+        if (ShowFieldCodes && _bandHeld)
+        {
+            // The key tips stand on the buttons: they must be on screen and laid out.
+            ReleaseBand();
+            (TopLevel.GetTopLevel(_band) as Layoutable)?.UpdateLayout();
+        }
+
+        RefreshBadges();
+    }
+
     /// <summary>The button of a menu command in the band, or null when the command has no button there (for example in the overflow menu of the compact band).</summary>
     internal RibbonButton? FindMenuButton(CommandDefinition command) =>
         _groups.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => ReferenceEquals(b.Definition, command) && b.Flyout is MenuFlyout);
@@ -208,6 +262,7 @@ public class RibbonView : TemplatedControl
     public void OpenPicker(CommandDefinition command)
     {
         ArgumentNullException.ThrowIfNull(command);
+        ReleaseBand();
         if (command.Picker is null || !command.IsEnabled || Definition is null)
         {
             return;
@@ -408,8 +463,9 @@ public class RibbonView : TemplatedControl
             return _fullWidths[tab] = _groups.DesiredSize.Width;
         }
 
-        if (!_band.IsAttachedToVisualTree())
+        if (!_band.IsAttachedToVisualTree() || _bandHeld)
         {
+            // Not in a window, or not on screen yet (a held band is measured after its release, where the styles apply).
             return null;
         }
 

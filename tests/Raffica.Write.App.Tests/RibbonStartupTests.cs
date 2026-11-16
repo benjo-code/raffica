@@ -64,4 +64,66 @@ public sealed class RibbonStartupTests
 
         Assert.All(widths, w => Assert.True(w >= WriteRibbon.HomeFullWidthAtLeast, $"the full Home band measures {w:F0} px, the hint says at least {WriteRibbon.HomeFullWidthAtLeast}"));
     }
+
+    [AvaloniaFact]
+    public async Task TheDeferredRibbonIsShownAfterTheFirstPageAndItsBandIsEmptyUntilThen()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.ShowWith(null, null, deferRibbon: true);
+        Assert.True(window.Ribbon.IsBandHeld);
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+
+        // The tab is open and shown, the first page is not drawn yet: the band is an empty strip.
+        Assert.True(window.Ribbon.IsBandHeld);
+        Assert.Null(((Border)window.Ribbon.Band).Child);
+
+        var drawn = false;
+        window.FirstSharpPageDrawn += _ => drawn = true;
+        await WindowFixture.WaitAsync(() => drawn || !window.Ribbon.IsBandHeld);
+        await WindowFixture.WaitAsync(() => !window.Ribbon.IsBandHeld);
+        WindowFixture.Pump();
+
+        Assert.NotNull(((Border)window.Ribbon.Band).Child);
+        Assert.True(window.Ribbon.IsEffectivelyCompact);
+        Assert.NotNull(tab);
+    }
+
+    [AvaloniaFact]
+    public async Task TheDeferredRibbonShowsAnywayAfterTheTimeoutWhenNoPageIsDrawn()
+    {
+        var saved = WriteWindow.RibbonReleaseTimeout;
+        WriteWindow.RibbonReleaseTimeout = TimeSpan.FromMilliseconds(50);
+        try
+        {
+            using var fixture = new WindowFixture();
+            var window = fixture.ShowWith(null, null, deferRibbon: true);
+            _ = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+            await WindowFixture.WaitAsync(() => !window.Ribbon.IsBandHeld);
+            Assert.False(window.Ribbon.IsBandHeld);
+        }
+        finally
+        {
+            WriteWindow.RibbonReleaseTimeout = saved;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ThePickerSearchAndTheKeyTipsReleaseTheDeferredRibbon()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.ShowWith(null, null, deferRibbon: true);
+        _ = Assert.IsType<Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        Assert.True(window.Ribbon.IsBandHeld);
+        var font = window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).First(c => c.Picker is not null);
+
+        window.ChooseFromSearch(font);
+
+        Assert.False(window.Ribbon.IsBandHeld);
+
+        var other = fixture.ShowWith(null, null, deferRibbon: true);
+        _ = Assert.IsType<Opened>(await other.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        Assert.True(other.Ribbon.IsBandHeld);
+        other.Ribbon.ShowFieldCodes = true;
+        Assert.False(other.Ribbon.IsBandHeld);
+    }
 }
