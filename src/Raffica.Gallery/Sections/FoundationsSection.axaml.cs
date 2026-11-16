@@ -24,6 +24,8 @@ internal sealed partial class FoundationsSection : UserControl
         "PenLine", "Pencil", "Percent", "Printer", "RefreshCw", "Redo2", "RotateCcw", "RotateCw", "Save", "SaveAll", "ScanSearch", "ScanText",
         "Scissors", "Settings", "Signature", "Slash", "Square", "SquareDashed", "SquarePen", "SquareX",
         "Strikethrough", "TextSelect", "Trash2", "Type", "Undo2", "ZoomIn", "ZoomOut",
+        "ALargeSmall", "AArrowUp", "AArrowDown", "Superscript", "Subscript", "CaseSensitive", "CaseUpper", "RemoveFormatting", "Palette", "AlignJustify", "ListIndentIncrease",
+        "ListIndentDecrease", "ListChevronsUpDown", "ArrowUpToLine", "ArrowDownToLine", "Link", "Pin", "FileUp", "ListEnd", "Pilcrow", "Baseline",
     ];
 
     public FoundationsSection()

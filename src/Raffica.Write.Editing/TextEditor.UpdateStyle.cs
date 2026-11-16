@@ -69,6 +69,43 @@ public sealed partial class TextEditor
         return _document.Styles is { } sheet && Resolve(selection) is { } span && PlanUpdate(sheet, selection, span) is { } plan && (plan.ParagraphRows.Count > 0 || plan.RunRows.Count > 0);
     }
 
+    /// <summary>
+    /// The most blocks (top-level paragraphs, tables, content controls) a selection may touch for <see cref="ReadFormatFacts"/> to read the expensive facts: a read walks every touched paragraph
+    /// with a projection, so a larger selection (a select all of a long document) is not read.
+    /// </summary>
+    public const int MaxFactBlocks = 200;
+
+    /// <summary>
+    /// The facts the rules of the formatting commands need about <paramref name="selection"/> (see <see cref="FormatFacts"/>). Pure: nothing changes and no history operation begins.
+    /// A selection that touches more than <see cref="MaxFactBlocks"/> blocks is not read: the facts are the permissive ones (the style is taken as defined and not mixed, there is
+    /// direct formatting to clear and something to update), so the commands stay usable and the operations themselves still refuse what cannot be done (Update style to match
+    /// returns null for paragraphs of different styles). <see cref="FormatFacts.HasStylesPart"/> is always read.
+    /// </summary>
+    public FormatFacts ReadFormatFacts(TextRange selection)
+    {
+        var sheet = _document.Styles;
+        if (Resolve(selection) is { } span && span.LastIndex - span.FirstIndex + 1 > MaxFactBlocks)
+        {
+            return FormatFacts.Unknown with { HasStylesPart = sheet is not null };
+        }
+
+        var view = Inspect(selection);
+        var hasOverrides = view.Rows.Count > 0;
+        if (sheet is null)
+        {
+            return new FormatFacts(false, false, false, hasOverrides, false);
+        }
+
+        var id = view.ParagraphStyleId ?? DefaultParagraphStyleId(sheet);
+        var defined = !view.ParagraphStyleMixed && id is not null && sheet.Find(id) is not null;
+        return new FormatFacts(true, defined, view.ParagraphStyleMixed, hasOverrides, defined && CanUpdateStyleToMatch(selection));
+    }
+
+    // The paragraph style a paragraph uses: its own, or the default paragraph style of the file when it names none (null when the file has no default).
+    private static string? EffectiveParagraphStyleId(StyleSheet sheet, Paragraph paragraph) => paragraph.Properties.StyleId ?? DefaultParagraphStyleId(sheet);
+
+    private static string? DefaultParagraphStyleId(StyleSheet sheet) => sheet.Styles.FirstOrDefault(s => s.IsDefault && s.Type == "paragraph")?.Id;
+
     private sealed record UpdatePlan(Style Original, Paragraph Source, List<Run> Runs, List<XElement> ParagraphRows, List<XElement> RunRows);
 
     // What an update would move, or null when the style cannot be updated (different styles, a style the file does not define, no paragraph).
@@ -80,7 +117,7 @@ public sealed partial class TextEditor
             return null;
         }
 
-        var ids = paragraphs.Select(p => p.Properties.StyleId ?? sheet.Styles.FirstOrDefault(s => s.IsDefault && s.Type == "paragraph")?.Id).Distinct().ToList();
+        var ids = paragraphs.Select(p => EffectiveParagraphStyleId(sheet, p)).Distinct().ToList();
         if (ids.Count != 1 || ids[0] is not { } id || sheet.Find(id) is not { } original)
         {
             return null;

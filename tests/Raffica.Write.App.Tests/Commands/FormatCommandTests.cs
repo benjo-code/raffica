@@ -32,14 +32,15 @@ public sealed class FormatCommandTests
         WriteCommandIds.SpaceAfter, WriteCommandIds.LineSpacing, WriteCommandIds.ParagraphStyle, WriteCommandIds.CharacterStyle,
     ];
 
+    // A hand copy of the ids that the milestone spec and the task name (the 21 plain ones with the Formatting pane, then the 11 value commands): the test compares it with the lists above, so a renamed
+    // or forgotten id shows up as a difference to the spec text and not only to the code.
     private static readonly string[] s_specIds =
     [
-
-                "format.bold", "format.italic", "format.underline", "format.strike", "format.superscript", "format.subscript", "format.smallCaps", "format.allCaps",
-                "format.alignLeft", "format.alignCenter", "format.alignRight", "format.justify", "format.indentMore", "format.indentLess", "format.keepNext", "format.keepLines",
-                "format.pageBreakBefore", "format.widowControl", "format.clearDirect", "format.updateStyle", "view.formatting",
-                "format.font", "format.size", "format.sizeUp", "format.sizeDown", "format.color", "format.highlight", "format.spaceBefore", "format.spaceAfter", "format.lineSpacing",
-                "format.paragraphStyle", "format.characterStyle",
+        "format.bold", "format.italic", "format.underline", "format.strike", "format.superscript", "format.subscript", "format.smallCaps", "format.allCaps",
+        "format.alignLeft", "format.alignCenter", "format.alignRight", "format.justify", "format.indentMore", "format.indentLess", "format.keepNext", "format.keepLines",
+        "format.pageBreakBefore", "format.widowControl", "format.clearDirect", "format.updateStyle", "view.formatting",
+        "format.font", "format.size", "format.sizeUp", "format.sizeDown", "format.color", "format.highlight", "format.spaceBefore", "format.spaceAfter", "format.lineSpacing",
+        "format.paragraphStyle", "format.characterStyle",
     ];
 
     private static string[] FormatIds() => [.. s_plain, .. s_payload, WriteCommandIds.FormattingPane];

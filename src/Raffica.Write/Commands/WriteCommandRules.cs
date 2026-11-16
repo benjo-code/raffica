@@ -22,11 +22,25 @@ namespace Raffica.Write.Commands;
 /// <param name="outlineAvailable">Whether the outline pane exists (the step that builds it says yes).</param>
 /// <param name="editState">What the edit commands need to know of the active tab; null reads as a tab that can be edited, with a selection and history.</param>
 /// <param name="saveState">What Save and Save as need to know of the active tab; null reads as a document with changes that can be saved.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null)
+/// <param name="formatFacts">The facts about the selection that Clear direct formatting, the style pickers and Update style to match need; asked only when one of those commands is (and only while editing is not blocked), so the state of the other commands never pays for them; null keeps the facts of <paramref name="editState"/>.</param>
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null)
 {
     private const double Tolerance = 1e-9;
 
     private EditCommandState State => editState?.Invoke() ?? new EditCommandState(null, true, true, true);
+
+    // The state for a formatting command: the facts are read only for the commands that need them and only while editing is not blocked (a save queues formatting, so the model is not read then).
+    private EditCommandState FormatState(string id)
+    {
+        var state = State;
+        if (formatFacts is null || state.Blocked is not null || id is not (WriteCommandIds.ClearDirect or WriteCommandIds.ParagraphStyle or WriteCommandIds.CharacterStyle or WriteCommandIds.UpdateStyle))
+        {
+            return state;
+        }
+
+        var facts = formatFacts();
+        return state with { HasStylesPart = facts.HasStylesPart, StyleDefined = facts.StyleDefined, StyleMixed = facts.StyleMixed, HasOverrides = facts.HasOverrides, CanUpdateStyle = facts.CanUpdateStyle };
+    }
 
     private SaveCommandState SaveState => saveState?.Invoke() ?? new SaveCommandState(hasDocument(), false, false, false, false, true);
 
@@ -40,7 +54,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         WriteCommandIds.Save => SaveState.Refusal(saveAs: false) is null,
         WriteCommandIds.SaveAs => SaveState.Refusal(saveAs: true) is null,
         _ when WriteCommandIds.IsEditing(id) => hasDocument() && EditReason(id, State) is null,
-        _ when WriteCommandIds.IsFormatting(id) => hasDocument() && FormatReason(id, State) is null,
+        _ when WriteCommandIds.IsFormatting(id) => hasDocument() && FormatReason(id, FormatState(id)) is null,
         _ => hasDocument(),
     };
 
@@ -62,7 +76,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
 
         if (WriteCommandIds.IsFormatting(id))
         {
-            return FormatReason(id, State);
+            return FormatReason(id, FormatState(id));
         }
 
         return id switch

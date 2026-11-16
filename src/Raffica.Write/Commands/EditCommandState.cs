@@ -33,9 +33,22 @@ internal readonly record struct EditCommandState(EditBlockedReason? Blocked, boo
             return new EditCommandState(blocked, false, false, false);
         }
 
-        // The facts of the formatting commands are read only for a healthy session with a selection or caret (a save queues formatting, so the model is not asked then).
         var selection = session.Selection;
-        var facts = blocked is null && selection is { } range ? session.ReadFormatFacts(range) : FormatFacts.Unknown;
-        return new EditCommandState(blocked, selection is { IsEmpty: false }, session.CanUndo, session.CanRedo, facts.HasStylesPart, facts.StyleDefined, facts.StyleMixed, facts.HasOverrides, facts.CanUpdateStyle);
+        return new EditCommandState(blocked, selection is { IsEmpty: false }, session.CanUndo, session.CanRedo);
+    }
+
+    /// <summary>
+    /// The facts of the formatting commands about the selection of a tab, read only when a command that needs one is asked (never with the rest of the state, never before the tab has an
+    /// editing session) and remembered by the session until the selection or the document changes. A tab that cannot be edited now (opening, saving, faulted), has no session or has no
+    /// selection yet gives the permissive facts: a save queues formatting like typing, so the model is not read then.
+    /// </summary>
+    public static FormatFacts FactsOf(WriteTab? tab)
+    {
+        if (tab?.Editor is { BlockedReason: null, Selection: { } range } session)
+        {
+            return session.ReadFormatFacts(range);
+        }
+
+        return FormatFacts.Unknown;
     }
 }

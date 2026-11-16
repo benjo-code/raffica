@@ -61,6 +61,7 @@ internal sealed class EditSession
     private readonly Dispatcher _ui;
     private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key, bool Typing)> _queue = [];
     private readonly RefreshableFormat _format = new();
+    private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
     private bool _selectionDirty;
     private TextEditor? _editor;
     private WordDocument? _bound;
@@ -223,22 +224,27 @@ internal sealed class EditSession
     public bool CanRedo => _editor?.History.CanRedo ?? false;
 
     /// <summary>
-    /// The facts the rules of the formatting commands need about <paramref name="range"/>: whether the file has styles, whether the paragraph style is defined, mixed or has nothing to
-    /// update, and whether there is direct formatting to clear. Pure (the model and the history stay as they are); call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// The facts the rules of the formatting commands need about <paramref name="range"/> (see <see cref="TextEditor.ReadFormatFacts"/>, which bounds the read for a large selection). The answer
+    /// is remembered for the model, its revision and the range, so every further question while nothing of the three changed (a scroll, a zoom, the next command asked) costs nothing; a
+    /// selection change, an edit (a style edit raises the revision too) or a new model reads again. Call it on the UI thread and only while <see cref="CanEdit"/>.
     /// </summary>
     public FormatFacts ReadFormatFacts(TextRange range)
     {
-        var editor = Editor;
-        var view = editor.Inspect(range);
-        if (_tab.Docx.Model.Styles is not { } sheet)
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_facts is { } known && known.Key.Equals(key))
         {
-            return new FormatFacts(false, false, false, view.Rows.Count > 0, false);
+            return known.Facts;
         }
 
-        var id = view.ParagraphStyleId ?? sheet.Styles.FirstOrDefault(style => style.IsDefault && style.Type == "paragraph")?.Id;
-        var defined = !view.ParagraphStyleMixed && id is not null && sheet.Find(id) is not null;
-        return new FormatFacts(true, defined, view.ParagraphStyleMixed, view.Rows.Count > 0, defined && editor.CanUpdateStyleToMatch(range));
+        var facts = Editor.ReadFormatFacts(range);
+        FactReads++;
+        _facts = (key, facts);
+        return facts;
     }
+
+    /// <summary>How many times <see cref="ReadFormatFacts"/> read the model instead of answering from memory (tests).</summary>
+    internal int FactReads { get; private set; }
 
     /// <summary>The text editor of the current model; made on first use. Throws unless <see cref="CanEdit"/>. Use it only inside an operation of <see cref="Apply"/>.</summary>
     public TextEditor Editor => Bind();
