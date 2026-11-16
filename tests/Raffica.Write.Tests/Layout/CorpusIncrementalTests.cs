@@ -122,9 +122,11 @@ public sealed class CorpusIncrementalTests
             var long_ = step % 2 == 1;
             var kind = random.Next(10);
 
-            // Steps 1 to 3 are fixed so that every file with such stories gets a header or footer edit, a note edit and a section-break paragraph edit.
+            // Steps 0 to 3 are fixed so that every file with such stories gets a header or footer edit, a note edit and a section-break paragraph edit. Step 0 is a SHORT
+            // header or footer edit (even step: one letter), which keeps the height of the part and takes the chrome-only refresh where the layout can; step 1 is a long one that wraps.
             kind = step switch
             {
+                0 when headers.Count > 0 => 100,
                 1 when headers.Count > 0 => 100,
                 2 when notes.Count > 0 => 101,
                 3 when hasSectionBreak => 9,
@@ -194,7 +196,42 @@ public sealed class CorpusIncrementalTests
         Assert.True(headers.Count == 0 || ran["header"] > 0, "no header or footer edit ran: " + mix);
         Assert.True(notes.Count == 0 || ran["note"] > 0, "no note edit ran: " + mix);
         Assert.True(!hasSectionBreak || ran["section"] > 0, "no section-break paragraph edit ran: " + mix);
-        TestContext.Current.SendDiagnosticMessage(mix);
+        TestContext.Current.SendDiagnosticMessage(mix + $", chrome only {layout.Stats.ChromeOnly}");
+    }
+
+    [Fact]
+    public async Task AShortHeaderEditIsAChromeOnlyRefreshWhereTheLayoutCanTakeIt()
+    {
+        var chromeOnly = new List<string>();
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var file = DocxFile.Open(Corpus(entry.Id));
+            var model = file.Model;
+            var headers = OtherStories(model).Where(o => o.Story.Kind == StoryKind.HeaderFooter).ToList();
+            if (headers.Count == 0)
+            {
+                continue;
+            }
+
+            var layout = await LaidAsync(model, LayoutMode.Pages);
+            var (story, container, paragraph) = headers[0];
+            var refill = layout.ApplyEdit(EditInStory(story, container, paragraph, "z"), 1);
+
+            // Either the part is shown and keeps its height (chrome only), or it is shown and does not (restart), or nothing shows it (no effect): never a refill from the first page without a restart.
+            Assert.False(refill.Restarted && refill.ChromeOnly, entry.Id);
+            if (refill.ChromeOnly)
+            {
+                chromeOnly.Add(entry.Id);
+                Assert.Equal(new EditStats(1, 0, 1), layout.Stats);
+            }
+
+            await layout.LayOutRestAsync(null, CancellationToken.None);
+            LayoutOracle.AssertEqualToFull(layout, model, label: "short header edit " + entry.Id);
+        }
+
+        TestContext.Current.SendDiagnosticMessage("chrome only for: " + string.Join(", ", chromeOnly));
+        Assert.Contains("thesis", chromeOnly);
+        Assert.True(chromeOnly.Count >= 2, "the corpus takes the chrome-only path in more than one file: " + string.Join(", ", chromeOnly));
     }
 
     // FNV-1a over the UTF-16 code units: stable across processes (string.GetHashCode is randomized per process).
