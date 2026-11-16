@@ -5,6 +5,7 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Localization;
 
@@ -20,6 +21,8 @@ public sealed record PickerItem(string Id, string Label);
 /// typed and confirmed with Enter. <paramref name="SelectedId"/> and <paramref name="IsMixed"/> are read again by
 /// <see cref="RibbonView.RefreshCommandStates"/>; a mixed picker shows "Mixed" and no selection. <paramref name="SelectedLabel"/> is the
 /// text shown while the list is not loaded yet (it defaults to the id; for an editable picker the shown text is the label or the id).
+/// <paramref name="MaxLength"/> (editable only; 0 is no limit) caps the typed text in characters, so a pasted or typed run of digits cannot grow
+/// without bound and be committed as the id string.
 /// </summary>
 public sealed record PickerDefinition(
     Func<IReadOnlyList<PickerItem>> Items,
@@ -28,7 +31,8 @@ public sealed record PickerDefinition(
     Func<bool>? IsMixed = null,
     Func<string?>? SelectedLabel = null,
     bool Editable = false,
-    double Width = 140);
+    double Width = 140,
+    int MaxLength = 0);
 
 /// <summary>
 /// A picker in the ribbon band: the shell's <see cref="SelectBox"/> (26 px, the shell theme) made from the <see cref="CommandDefinition.Picker"/>
@@ -43,6 +47,7 @@ public sealed class RibbonPicker : SelectBox
     private IReadOnlyList<PickerItem>? _items;
     private bool _updating;
     private string _display = "";
+    private string _lastValid = "";
 
     public RibbonPicker(CommandDefinition command, Action<CommandDefinition> invoked)
     {
@@ -103,10 +108,16 @@ public sealed class RibbonPicker : SelectBox
         {
             SetCurrentValue(IsDropDownOpenProperty, true);
         }
+        else if (this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault() is { } box)
+        {
+            // The size box is ready to be overtyped.
+            box.Focus(NavigationMethod.Tab);
+            box.SelectAll();
+        }
     }
 
     /// <summary>Takes over the enabled state, the tooltip reason and the shown selection (or "Mixed") from the command.</summary>
-    internal void RefreshState()
+    internal void RefreshState(bool force = false)
     {
         var enabled = Command.IsEnabled;
         IsEnabled = enabled;
@@ -137,7 +148,13 @@ public sealed class RibbonPicker : SelectBox
             PlaceholderText = mixed ? ShellStrings.PickerMixed : IsEditable ? null : label ?? "";
             if (IsEditable)
             {
-                SetCurrentValue(TextProperty, mixed ? "" : label ?? "");
+                // A box the user is typing in keeps its pending text when the app asks again (a caret move elsewhere raises that);
+                // a commit, Esc and leaving the box put the text of the state back.
+                if (force || !IsKeyboardFocusWithin)
+                {
+                    _lastValid = mixed ? "" : label ?? "";
+                    SetCurrentValue(TextProperty, _lastValid);
+                }
             }
             else
             {
@@ -184,6 +201,10 @@ public sealed class RibbonPicker : SelectBox
         {
             LoadItems();
         }
+        else if (change.Property == TextProperty && IsEditable && !_updating)
+        {
+            AcceptTypedText(change.NewValue as string ?? "");
+        }
 
         base.OnPropertyChanged(change);
     }
@@ -191,6 +212,13 @@ public sealed class RibbonPicker : SelectBox
     private void OnSelected(object? sender, SelectionChangedEventArgs e)
     {
         if (_updating || _items is null || SelectedIndex < 0 || SelectedIndex >= _items.Count)
+        {
+            return;
+        }
+
+        // In the size box the combo box also selects the item that matches the typed text; that is typing, not a choice (Enter commits it).
+        // A choice is made in the open list.
+        if (IsEditable && !IsDropDownOpen)
         {
             return;
         }
@@ -233,11 +261,43 @@ public sealed class RibbonPicker : SelectBox
         RefreshState();
     }
 
+    // Typing is filtered key by key (OnTextInput), but a paste raises no text input: whatever text reaches the box any other way is checked here
+    // and put back to the last good text when it is not a number within the cap, so "numbers only" holds for every way in.
+    private void AcceptTypedText(string text)
+    {
+        if (IsNumberText(text, allowEmpty: true) && WithinCap(text))
+        {
+            _lastValid = text;
+            return;
+        }
+
+        // Not at once: the change comes out of the text box's own two-way binding, and a value set back inside it is lost again.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (Text is { } now && IsNumberText(now, allowEmpty: true) && WithinCap(now))
+            {
+                return;
+            }
+
+            _updating = true;
+            try
+            {
+                SetCurrentValue(TextProperty, _lastValid);
+            }
+            finally
+            {
+                _updating = false;
+            }
+        });
+    }
+
+    private bool WithinCap(string text) => Picker.MaxLength <= 0 || text.Length <= Picker.MaxLength;
+
     private void Commit(string value)
     {
         Picker.Chosen(value);
         _invoked(Command);
-        RefreshState();
+        RefreshState(force: true);
     }
 
     // The size box takes digits and one decimal mark only.
@@ -255,7 +315,7 @@ public sealed class RibbonPicker : SelectBox
         start = Math.Min(start, current.Length);
         end = Math.Min(end, current.Length);
         var candidate = string.Concat(current.AsSpan(0, start), e.Text, current.AsSpan(end));
-        if (!IsNumberText(candidate, allowEmpty: true))
+        if (!IsNumberText(candidate, allowEmpty: true) || !WithinCap(candidate))
         {
             e.Handled = true;
         }
@@ -272,19 +332,19 @@ public sealed class RibbonPicker : SelectBox
         {
             e.Handled = true;
             var typed = Text?.Trim() ?? "";
-            if (IsNumberText(typed, allowEmpty: false))
+            if (IsNumberText(typed, allowEmpty: false) && WithinCap(typed))
             {
                 Commit(typed);
             }
             else
             {
-                RefreshState();
+                RefreshState(force: true);
             }
         }
         else if (e.Key == Key.Escape)
         {
             e.Handled = true;
-            RefreshState();
+            RefreshState(force: true);
         }
     }
 
@@ -325,7 +385,7 @@ public sealed class RibbonPicker : SelectBox
 
         public void SetValue(string? value)
         {
-            if (owner.IsEditable && value is not null && IsNumberText(value.Trim(), allowEmpty: false))
+            if (owner.IsEnabled && owner.IsEditable && value is not null && IsNumberText(value.Trim(), allowEmpty: false) && owner.WithinCap(value.Trim()))
             {
                 owner.Commit(value.Trim());
             }

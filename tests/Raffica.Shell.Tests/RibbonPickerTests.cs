@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.VisualTree;
 using Raffica.Gallery;
 using Raffica.Gallery.FrameDemo;
@@ -33,9 +34,11 @@ public sealed class RibbonPickerTests
 
     private static readonly PickerItem[] Items = [new("a", "Alpha"), new("b", "Beta"), new("c", "Gamma")];
 
-    private static (Window Window, RibbonView Ribbon, State State) Show(bool compact = false, bool editable = false, CompactPlacement placement = CompactPlacement.Inline, bool fieldCodes = false)
+    private static readonly PickerItem[] Sizes = [new("10", "10"), new("11", "11"), new("12", "12"), new("14", "14")];
+
+    private static RibbonDefinition Build(State state, bool editable, CompactPlacement placement, PickerItem[]? items = null, int maxLength = 0)
     {
-        var state = new State();
+        var list = items ?? Items;
         var picker = new CommandDefinition("font.family", "Font family", "Raffica.Icon.Check", "31",
             Compact: placement,
             EnabledWhen: () => state.Enabled,
@@ -44,13 +47,14 @@ public sealed class RibbonPickerTests
                 () =>
                 {
                     state.ListReads++;
-                    return Items;
+                    return list;
                 },
                 id => state.Chosen.Add(id),
                 SelectedId: () => state.Selected,
                 IsMixed: () => state.Mixed,
                 Editable: editable,
-                Width: 120));
+                Width: 120,
+                MaxLength: maxLength));
         var tab = new RibbonTabDefinition("Home", "H",
         [
             new RibbonGroupDefinition("Font", "1",
@@ -63,7 +67,13 @@ public sealed class RibbonPickerTests
         ]);
         var definition = new RibbonDefinition([tab]);
         definition.Validate();
-        var ribbon = new RibbonView { Definition = definition, IsCompact = compact };
+        return definition;
+    }
+
+    private static (Window Window, RibbonView Ribbon, State State) Show(bool compact = false, bool editable = false, CompactPlacement placement = CompactPlacement.Inline, bool fieldCodes = false, PickerItem[]? items = null, int maxLength = 0)
+    {
+        var state = new State();
+        var ribbon = new RibbonView { Definition = Build(state, editable, placement, items, maxLength), IsCompact = compact };
         ribbon.CommandInvoked += c => state.Invoked.Add(c.Id);
         var frame = new AppFrame { TabRow = ribbon.TabRow, Band = ribbon.Band, IsCompact = compact };
         var window = ControlHarness.Show(frame, ThemeMode.Light);
@@ -267,5 +277,223 @@ public sealed class RibbonPickerTests
             window.Close();
             File.Delete(settings);
         }
+    }
+
+    private static TextBox BoxOf(RibbonPicker picker) => picker.GetVisualDescendants().OfType<TextBox>().First();
+
+    [AvaloniaFact]
+    public void TypingTheFieldCodeOpensTheInlinePicker()
+    {
+        var state = new State();
+        var f = FieldCodeFixture.Create(definition: Build(state, editable: false, CompactPlacement.Inline));
+        var picker = PickerOf(f.Ribbon);
+        Assert.Equal(0, state.ListReads);
+
+        f.Alt();
+        f.TypeCode("H");
+        f.TypeCode("31");
+
+        Assert.True(picker.IsDropDownOpen);
+        Assert.Equal(1, state.ListReads);
+        Assert.Empty(state.Chosen);
+        Assert.Equal(FieldCodeStage.Off, f.Session.Stage);
+    }
+
+    [AvaloniaFact]
+    public void TypingTheFieldCodeFocusesTheSizeBoxWithTheTextSelected()
+    {
+        var state = new State { Selected = "11" };
+        var f = FieldCodeFixture.Create(definition: Build(state, editable: true, CompactPlacement.Inline));
+        var picker = PickerOf(f.Ribbon);
+        picker.RefreshState();
+
+        f.Alt();
+        f.TypeCode("H");
+        f.TypeCode("31");
+
+        var box = BoxOf(picker);
+        Assert.True(box.IsFocused);
+        Assert.Equal("11", box.SelectedText);
+        Assert.Equal("11", picker.Text);
+        Assert.False(picker.IsDropDownOpen);
+
+        // The code's characters were not typed into the box; the next digits overtype the selection.
+        f.Window.KeyTextInput("8");
+        ControlHarness.Settle(f.Window);
+        Assert.Equal("8", picker.Text);
+    }
+
+    [AvaloniaFact]
+    public void TypingTheFieldCodeOfAnOverflowedPickerOpensItsSubmenu()
+    {
+        var state = new State();
+        var f = FieldCodeFixture.Create(definition: Build(state, editable: false, CompactPlacement.Overflow));
+        f.Ribbon.IsCompact = true;
+        ControlHarness.Settle(f.Window);
+        Assert.Empty(ControlHarness.Descendants(f.Ribbon.Band).OfType<RibbonPicker>());
+
+        f.Alt();
+        f.TypeCode("H");
+        f.TypeCode("31");
+        ControlHarness.Settle(f.Window);
+
+        var more = ControlHarness.Descendants(f.Ribbon.Band).OfType<Button>().First(b => b.Classes.Contains("ribbon-more"));
+        var flyout = Assert.IsType<MenuFlyout>(more.Flyout);
+        Assert.True(flyout.IsOpen);
+        var item = flyout.Items.OfType<MenuItem>().First(i => Equals(i.Header, "Font family"));
+        Assert.True(item.IsSubMenuOpen);
+        Assert.Equal(1, state.ListReads);
+        Assert.Equal(["Alpha", "Beta", "Gamma"], item.Items.OfType<MenuItem>().Select(c => c.Header?.ToString()));
+        Assert.Empty(state.Chosen);
+    }
+
+    [AvaloniaFact]
+    public void ATypedMatchWithTheListLoadedDoesNotCommitBeforeEnter()
+    {
+        var (window, ribbon, state) = Show(editable: true, items: Sizes);
+        state.Selected = "11";
+        ribbon.RefreshCommandStates();
+        var picker = PickerOf(ribbon);
+        picker.IsDropDownOpen = true;
+        ControlHarness.Settle(window);
+        picker.IsDropDownOpen = false;
+        ControlHarness.Settle(window);
+        Assert.True(picker.ItemsLoaded);
+        ControlHarness.KeyboardFocus(window, BoxOf(picker));
+
+        picker.Text = "";
+        window.KeyTextInput("1");
+        window.KeyTextInput("2");
+        ControlHarness.Settle(window);
+
+        Assert.Equal("12", picker.Text);
+        Assert.Empty(state.Chosen);
+        Assert.Empty(state.Invoked);
+
+        Press(window, PhysicalKey.Enter);
+        Assert.Equal(["12"], state.Chosen);
+    }
+
+    [AvaloniaFact]
+    public void ChoosingFromTheListOfTheSizeBoxCommits()
+    {
+        var (window, ribbon, state) = Show(editable: true, items: Sizes);
+        var picker = PickerOf(ribbon);
+        picker.IsDropDownOpen = true;
+        ControlHarness.Settle(window);
+
+        picker.SelectedIndex = 3;
+        ControlHarness.Settle(window);
+
+        Assert.Equal(["14"], state.Chosen);
+        Assert.NotNull(ribbon);
+    }
+
+    [AvaloniaFact]
+    public async Task APastedNonNumberNeverStaysInTheBox()
+    {
+        var (window, ribbon, state) = Show(editable: true, maxLength: 4);
+        state.Selected = "11";
+        ribbon.RefreshCommandStates();
+        var picker = PickerOf(ribbon);
+        var box = BoxOf(picker);
+        ControlHarness.KeyboardFocus(window, box);
+
+        await window.Clipboard!.SetTextAsync("abc");
+        box.SelectAll();
+        box.Paste();
+        ControlHarness.Settle(window);
+        Assert.Equal("11", picker.Text);
+        Assert.Equal("11", box.Text);
+
+        await window.Clipboard!.SetTextAsync("99999999999");
+        box.SelectAll();
+        box.Paste();
+        ControlHarness.Settle(window);
+        Assert.Equal("11", picker.Text);
+
+        await window.Clipboard!.SetTextAsync("1638");
+        box.SelectAll();
+        box.Paste();
+        ControlHarness.Settle(window);
+        Assert.Equal("1638", picker.Text);
+        Press(window, PhysicalKey.Enter);
+        Assert.Equal(["1638"], state.Chosen);
+    }
+
+    [AvaloniaFact]
+    public void TheSizeBoxStopsAtTheDigitCap()
+    {
+        var (window, ribbon, state) = Show(editable: true, maxLength: 4);
+        state.Selected = "";
+        ribbon.RefreshCommandStates();
+        var picker = PickerOf(ribbon);
+        ControlHarness.KeyboardFocus(window, BoxOf(picker));
+
+        foreach (var c in "123456789")
+        {
+            window.KeyTextInput(c.ToString());
+        }
+
+        ControlHarness.Settle(window);
+        Assert.Equal("1234", picker.Text);
+        Press(window, PhysicalKey.Enter);
+        Assert.Equal(["1234"], state.Chosen);
+    }
+
+    [AvaloniaFact]
+    public void EmptyTextAndEnterRevertsWithoutCommitting()
+    {
+        var (window, ribbon, state) = Show(editable: true);
+        state.Selected = "11";
+        ribbon.RefreshCommandStates();
+        var picker = PickerOf(ribbon);
+        ControlHarness.KeyboardFocus(window, BoxOf(picker));
+
+        picker.Text = "";
+        Press(window, PhysicalKey.Enter);
+
+        Assert.Equal("11", picker.Text);
+        Assert.Empty(state.Chosen);
+    }
+
+    [AvaloniaFact]
+    public void APendingEditSurvivesARefreshAndLeavingTheBoxPutsTheStateBack()
+    {
+        var (window, ribbon, state) = Show(editable: true);
+        state.Selected = "11";
+        ribbon.RefreshCommandStates();
+        var picker = PickerOf(ribbon);
+        ControlHarness.KeyboardFocus(window, BoxOf(picker));
+
+        picker.Text = "7";
+        ribbon.RefreshCommandStates();
+        Assert.Equal("7", picker.Text);
+
+        // The state moved on meanwhile; leaving the box shows it.
+        state.Selected = "13";
+        var other = ControlHarness.Descendants(ribbon.Band).OfType<RibbonButton>().First();
+        ControlHarness.KeyboardFocus(window, other);
+        Assert.Equal("13", picker.Text);
+        Assert.Empty(state.Chosen);
+    }
+
+    [AvaloniaFact]
+    public void TheAutomationValueSetsTheSizeOnlyWhileEnabled()
+    {
+        var (window, ribbon, state) = Show(editable: true);
+        var picker = PickerOf(ribbon);
+        var peer = Assert.IsAssignableFrom<IValueProvider>(ControlAutomationPeer.CreatePeerForElement(picker));
+
+        state.Enabled = false;
+        ribbon.RefreshCommandStates();
+        peer.SetValue("14");
+        Assert.Empty(state.Chosen);
+
+        state.Enabled = true;
+        ribbon.RefreshCommandStates();
+        peer.SetValue("14");
+        Assert.Equal(["14"], state.Chosen);
+        Assert.NotNull(window);
     }
 }

@@ -207,7 +207,15 @@ public class RibbonView : TemplatedControl
         if (command.Picker is not null)
         {
             // A picker has nothing to run: its field code opens it (the list, or the box of the size) and a choice raises the event.
-            _groups.GetVisualDescendants().OfType<RibbonPicker>().FirstOrDefault(p => ReferenceEquals(p.Command, command))?.Open();
+            if (_groups.GetVisualDescendants().OfType<RibbonPicker>().FirstOrDefault(p => ReferenceEquals(p.Command, command)) is { } picker)
+            {
+                picker.Open();
+            }
+            else
+            {
+                OpenOverflowSubmenu(command);
+            }
+
             return;
         }
 
@@ -237,6 +245,32 @@ public class RibbonView : TemplatedControl
             {
                 RibbonButton.RefreshItems(flyout.Items);
             }
+        }
+    }
+
+    // A picker that sits in the overflow menu of a compact group: show that menu and open the submenu of the picker.
+    private void OpenOverflowSubmenu(CommandDefinition command)
+    {
+        foreach (var more in _groups.GetVisualDescendants().OfType<Button>())
+        {
+            if (more is RibbonButton || more.Flyout is not MenuFlyout flyout)
+            {
+                continue;
+            }
+
+            var item = flyout.Items.OfType<MenuItem>().FirstOrDefault(i => ReferenceEquals(i.Tag, command));
+            if (item is null || !item.IsEnabled)
+            {
+                continue;
+            }
+
+            flyout.ShowAt(more);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                item.Focus(NavigationMethod.Directional);
+                item.Open();
+            });
+            return;
         }
     }
 
