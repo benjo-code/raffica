@@ -100,6 +100,11 @@ public sealed class RealEditorOracleTests
         }
     }
 
+    [Theory]
+    [InlineData(LayoutMode.Pages)]
+    [InlineData(LayoutMode.Flow)]
+    public Task EveryFormattingKindRunsAndRestylesSomewhereInTheCorpus(LayoutMode mode) => FormattingSteps.AssertCorpusAsync(Root, mode);
+
     [Fact]
     public void TheCorpusHasTablesAndContentControlsFormattingCanReachInto()
     {
@@ -286,14 +291,8 @@ public sealed class RealEditorOracleTests
 
         // The forced formatting steps: a toggle, an alignment, a paragraph style, update style (with undo and redo) and formatting that reaches into tables and content controls.
         var formatting = new FormattingSteps(model, layout, options);
-        var formatRandom = new Random(unchecked(seed * 31 + 17));
-        for (var kind = 0; kind < FormattingSteps.Kinds; kind++)
-        {
-            await formatting.RunAsync(kind, formatRandom, $"{id} {mode} seed {seed} formatting kind {kind}");
-        }
-
-        Assert.True(formatting.Compared > 0, $"{id} {mode} seed {seed}: no formatting step changed anything");
-        Assert.True(FormattingSteps.ReachingCandidates(model).Count == 0 || formatting.ReachedInto > 0, $"{id} {mode} seed {seed}: no formatting step reached into a table or content control");
+        await formatting.RunAllAsync(seed, $"{id} {mode} seed {seed}");
+        formatting.AssertEveryKindRan($"{id} {mode} seed {seed}");
         TestContext.Current.SendDiagnosticMessage($"{id} {mode}: formatting steps {formatting.Compared}, restyles {formatting.Restyles}, reached into {formatting.ReachedInto}");
 
         if (hadControls)

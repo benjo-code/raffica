@@ -1,6 +1,9 @@
+using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
+using WriteCorpus;
+using Xunit;
 
 namespace Raffica.Write.Tests.Layout;
 
@@ -19,6 +22,7 @@ internal sealed class FormattingSteps
     private readonly DocumentLayout _layout;
     private readonly LayoutOptions _options;
     private readonly RefreshableFormat _format;
+    private int _kind;
 
     public FormattingSteps(WordDocument model, DocumentLayout layout, LayoutOptions options)
     {
@@ -31,6 +35,9 @@ internal sealed class FormattingSteps
 
     public TextEditor Editor { get; }
 
+    /// <summary>For each kind, how many of its steps changed something and were compared (a no-op step counts nowhere).</summary>
+    public int[] RanPerKind { get; } = new int[Kinds];
+
     /// <summary>How many steps changed something and were compared.</summary>
     public int Compared { get; private set; }
 
@@ -40,6 +47,78 @@ internal sealed class FormattingSteps
     /// <summary>How many steps used a range that reaches into a table or a block content control.</summary>
     public int ReachedInto { get; private set; }
 
+    /// <summary>
+    /// The corpus-wide guard, per view (every file but the thesis, which the per-file gates cover): every kind ran a step that changed something somewhere, and some
+    /// step restyled the layout. A guard that only the per-file runs carry would stay green if a kind were skipped everywhere.
+    /// </summary>
+    public static async Task AssertCorpusAsync(string root, LayoutMode mode)
+    {
+        var totals = new int[Kinds];
+        var restyles = 0;
+        foreach (var entry in CorpusManifest.Load(root).Files.Where(f => f.Id != "thesis"))
+        {
+            using var file = DocxFile.Open(Path.Combine(root, entry.Id, entry.Id + ".docx"));
+            var layout = DocumentLayout.Create(file.Model, PageTestKit.Fonts, new LayoutOptions(mode));
+            await layout.LayOutRestAsync(null, CancellationToken.None);
+            var steps = new FormattingSteps(file.Model, layout, new LayoutOptions(mode));
+            await steps.RunAllAsync(entry.Id.Length * 7919 + (int)mode, $"{entry.Id} {mode}");
+            for (var k = 0; k < Kinds; k++)
+            {
+                totals[k] += steps.RanPerKind[k];
+            }
+
+            restyles += steps.Restyles;
+        }
+
+        for (var k = 0; k < Kinds; k++)
+        {
+            Assert.True(totals[k] > 0, $"{mode}: formatting kind {k} never ran a step that changed something in the corpus");
+        }
+
+        Assert.True(restyles > 0, $"{mode}: no formatting step restyled the layout anywhere in the corpus");
+    }
+
+    /// <summary>Runs every kind once with a random generator seeded from <paramref name="seed"/> (the same picks for the same seed).</summary>
+    public async Task RunAllAsync(int seed, string label)
+    {
+        var random = new Random(unchecked(seed * 31 + 17));
+        for (var kind = 0; kind < Kinds; kind++)
+        {
+            await RunAsync(kind, random, $"{label} formatting kind {kind}");
+        }
+    }
+
+    /// <summary>
+    /// Fails when a kind never ran a step that changed something, or no step restyled. A file has what each kind needs when it has a paragraph, a paragraph style a
+    /// paragraph uses, or a table or control to reach into (<see cref="ReachingCandidates"/>); for the others the guard asks for nothing.
+    /// </summary>
+    public void AssertEveryKindRan(string label)
+    {
+        if (TestEdit.Paragraphs(_model).Any(p => Len(p.Paragraph) > 0))
+        {
+            Assert.True(RanPerKind[0] > 0, label + ": no character toggle changed anything");
+        }
+
+        Assert.True(RanPerKind[1] > 0, label + ": no alignment changed anything");
+        if (HasUsedParagraphStyle())
+        {
+            Assert.True(RanPerKind[2] > 0, label + ": no paragraph style changed anything");
+            Assert.True(Restyles > 0, label + ": no update-style step ran and restyled");
+        }
+
+        if (ReachingCandidates(_model).Count > 0)
+        {
+            Assert.True(RanPerKind[4] > 0, label + ": no step reached into a table or content control");
+        }
+    }
+
+    // A paragraph that uses a paragraph style the file defines (or the file's default one).
+    private bool HasUsedParagraphStyle() =>
+        _model.Styles is { } sheet && TestEdit.Paragraphs(_model).Any(p => UsedStyle(sheet, p.Paragraph) is not null);
+
+    private static Style? UsedStyle(StyleSheet sheet, Paragraph paragraph) =>
+        paragraph.Properties.StyleId is { } id ? sheet.Find(id) : sheet.Styles.FirstOrDefault(s => s.IsDefault && s.Type == "paragraph");
+
     /// <summary>Runs one formatting step: 0 toggle, 1 alignment, 2 paragraph style, 3 update style (and undo, redo), 4 formatting that reaches into tables and controls.</summary>
     public async Task RunAsync(int kind, Random random, string label)
     {
@@ -48,13 +127,14 @@ internal sealed class FormattingSteps
             return;
         }
 
+        _kind = kind;
         switch (kind)
         {
             case 0:
                 await CheckAsync(Editor.ToggleCharacter(RandomRange(random), (CharacterToggle)random.Next(8)), label + " toggle");
                 break;
             case 1:
-                await CheckAsync(Editor.ApplyParagraphChanges(RandomRange(random), ParagraphChanges.Alignment((ParagraphJustification)random.Next(4))), label + " alignment");
+                await AlignAsync(RandomRange(random), random, label + " alignment");
                 break;
             case 2:
                 if (_model.Styles?.Styles.Where(s => s.Type == "paragraph").ToList() is { Count: > 0 } styles)
@@ -99,16 +179,44 @@ internal sealed class FormattingSteps
 
     private static TextPosition At(Paragraph paragraph, int offset) => new(StoryRef.Body, paragraph, offset);
 
+    // A range inside one list of blocks (the editor refuses a range across containers as no change), over paragraphs that have text when the file has any,
+    // and never collapsed when it starts in text: a step that cannot change anything would prove nothing.
     private TextRange RandomRange(Random random)
     {
         var all = TestEdit.Paragraphs(_model);
-        var first = random.Next(all.Count);
-        var last = random.Next(3) == 0 ? Math.Min(all.Count - 1, first + 1 + random.Next(4)) : first;
-        var a = all[first].Paragraph;
-        var b = all[last].Paragraph;
-        var from = random.Next(Len(a) + 1);
-        var to = ReferenceEquals(a, b) ? Math.Min(Len(a), from + random.Next(40)) : random.Next(Len(b) + 1);
-        return new TextRange(At(a, from), At(b, to));
+        var withText = all.Where(p => Len(p.Paragraph) > 0).ToList();
+        var pool = withText.Count > 0 ? withText : all;
+        var (a, container, index) = pool[random.Next(pool.Count)];
+        var lastIndex = random.Next(3) == 0 ? Math.Min(container.Count - 1, index + 1 + random.Next(4)) : index;
+        while (lastIndex > index && container[lastIndex] is not Paragraph)
+        {
+            lastIndex--;
+        }
+
+        var b = (Paragraph)container[lastIndex];
+        var length = Len(a);
+        if (ReferenceEquals(a, b))
+        {
+            var from = length == 0 ? 0 : random.Next(length);
+            return new TextRange(At(a, from), At(a, length == 0 ? 0 : Math.Min(length, from + 1 + random.Next(40))));
+        }
+
+        return new TextRange(At(a, random.Next(length + 1)), At(b, random.Next(Len(b) + 1)));
+    }
+
+    /// <summary>A paragraph alignment that differs from the current one: the next one is tried when an edit changes nothing.</summary>
+    private async Task AlignAsync(TextRange range, Random random, string label)
+    {
+        var start = random.Next(4);
+        for (var i = 0; i < 4; i++)
+        {
+            var result = Editor.ApplyParagraphChanges(range, ParagraphChanges.Alignment((ParagraphJustification)((start + i) % 4)));
+            if (result.Changes.Count > 0)
+            {
+                await CheckAsync(result, label);
+                return;
+            }
+        }
     }
 
     // From a top-level paragraph before a table or block content control to a top-level paragraph after it: the walker has to mutate paragraphs
@@ -137,7 +245,8 @@ internal sealed class FormattingSteps
     private async Task UpdateStyleAsync(Random random, string label)
     {
         var all = TestEdit.Paragraphs(_model);
-        var paragraph = all[random.Next(all.Count)].Paragraph;
+        var defined = _model.Styles is { } sheet ? all.Where(p => UsedStyle(sheet, p.Paragraph) is not null).ToList() : [];
+        var paragraph = (defined.Count > 0 ? defined : all)[random.Next(defined.Count > 0 ? defined.Count : all.Count)].Paragraph;
         var whole = new TextRange(At(paragraph, 0), At(paragraph, Len(paragraph)));
 
         // Give the paragraph direct overrides so that there is something to move into its style.
@@ -177,6 +286,7 @@ internal sealed class FormattingSteps
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
         Compared++;
+        RanPerKind[_kind]++;
     }
 
     // The editor's format resolver snapshots the styles: made again after every style change.

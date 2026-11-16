@@ -46,11 +46,21 @@ public sealed class RestyleTests
     {
         using var file = DocxFile.Open(Thesis);
         var layout = await LaidAsync(file.Model);
+        var before = layout.Page(1);
         SetHeadingSize(file.Model, "72");
         var full = await LaidAsync(file.Model);
 
-        // The engine's resolver snapshotted the styles: the old layout still has the old sizes.
+        // The engine's resolver snapshotted the styles: the old layout still has the old pages, the fresh one has bigger headings.
         Assert.NotEqual(full.LaidOutPages, layout.LaidOutPages);
+        var changed = Enumerable.Range(0, Math.Min(full.LaidOutPages, layout.LaidOutPages))
+            .First(i => full.Page(i).Text != layout.Page(i).Text || full.Page(i).Items.Count != layout.Page(i).Items.Count);
+        Assert.Same(before, layout.Page(1));
+        Assert.True(changed < 40, "a heading of the first chapters differs: " + changed);
+
+        layout.Restyle(changed);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.Equal(full.Page(changed).Text, layout.Page(changed).Text);
+        Assert.Equal(full.Page(changed).Items.Count, layout.Page(changed).Items.Count);
     }
 
     [Fact]
@@ -66,7 +76,7 @@ public sealed class RestyleTests
     }
 
     [Fact]
-    public async Task RestyleAfterAFaultThrows()
+    public void RestyleAfterAFaultThrows()
     {
         using var file = DocxFile.Open(Thesis);
         var layout = DocumentLayout.Create(file.Model, PageTestKit.Fonts, new LayoutOptions());
@@ -79,7 +89,7 @@ public sealed class RestyleTests
         };
         Assert.Throws<InvalidOperationException>(() => layout.LayOutThrough(3));
 
+        // LayOutThrough and Restyle share the one remembered fault.
         Assert.Throws<InvalidOperationException>(() => layout.Restyle(1));
-        await Task.CompletedTask;
     }
 }
