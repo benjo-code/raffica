@@ -211,6 +211,14 @@ public sealed class FormattingPaneTests
         Assert.Equal("Wählen Sie Text aus, um seine Zeichenformatierung zu sehen.", WriteStrings.GetIn("FormattingCaretHint", CultureInfo.GetCultureInfo("de")));
     }
 
+    [Fact]
+    public void TheRibbonAndThePaneCallTheFontColourTheSameInGerman()
+    {
+        var german = CultureInfo.GetCultureInfo("de");
+        Assert.Equal("Schriftfarbe", WriteStrings.GetIn("CmdFormatColor", german));
+        Assert.StartsWith("Schriftfarbe", WriteStrings.GetIn("FmtRowRColor", german), StringComparison.Ordinal);
+    }
+
     [AvaloniaFact]
     public async Task RemovingARowRemovesExactlyThatOverrideInTheDocument()
     {

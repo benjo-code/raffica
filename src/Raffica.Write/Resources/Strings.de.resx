@@ -427,7 +427,7 @@
     <value>Schrift verkleinern</value>
   </data>
   <data name="CmdFormatColor" xml:space="preserve">
-    <value>Textfarbe</value>
+    <value>Schriftfarbe</value>
   </data>
   <data name="CmdFormatHighlight" xml:space="preserve">
     <value>Hervorhebungsfarbe</value>
