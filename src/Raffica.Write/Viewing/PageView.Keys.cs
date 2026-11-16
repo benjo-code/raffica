@@ -220,17 +220,12 @@ internal sealed partial class PageView
     /// <summary>
     /// Runs an editing operation on the session through <see cref="EditSession.Apply"/> with the pages through the caret's page and the last page in view, and decides what a failure
     /// means. What can fail: the layout (then <see cref="EditSession.Apply"/> has failed the runner, the session is faulted and shows no more caret, and <see cref="InputRefused"/> says so
-    /// once); the operation itself, with any exception but one: it may have changed the model (it can fail between its change and the raising of the revision, so an unmoved revision proves
-    /// nothing), so model, history and layout may now disagree and the session is failed on purpose, through the runner, and <see cref="InputRefused"/> says editing is unavailable. The one
-    /// exception is the text editor refusing a stale position with an <see cref="ArgumentException"/> (it checks positions before it changes anything, so model, history and layout are as
-    /// they were: the operation is refused, unless the revision moved). That refusal is a bug and no state of the document: a Debug build rethrows it, a Release build refuses silently and
-    /// traces only the exception type (no message, no stack, no text). Write has
+    /// once); the operation itself, with any exception but one: it may have changed the model (it can fail between its change and the raising of the revision, and an argument exception of the framework can come from there as well as from anywhere), so model, history and layout may now disagree and the session is failed on purpose, through the runner, and <see cref="InputRefused"/> says editing is unavailable. The one exception is the text editor refusing a stale position with a <see cref="StalePositionException"/>
+    /// (it checks positions before it changes anything, so model, history and layout are as they were: the operation is refused). That refusal is a bug and no state of the document: a Debug build rethrows it, a Release build refuses silently and traces only the exception type (no message, no stack, no text). Write has
     /// no crash guard yet (shared crash handling is a later milestone). Returns the result of the operation, or null when it was refused, queued, blocked or failed.
     /// </summary>
     private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation)
     {
-        var model = _tab.Docx.Model;
-        var revision = model.Edits.Revision;
         try
         {
             return session.Apply(operation, ThroughPage());
@@ -244,10 +239,10 @@ internal sealed partial class PageView
                 return null;
             }
 
-            if (session.MustFault(ex, revision))
+            if (EditSession.MustFault(ex))
             {
-                // Anything but the editor's own refusal of a stale position (an ArgumentException before any change) may have changed the model: the operation can fail between its change and
-                // the raising of the revision, so a revision that did not move proves nothing. Nothing then guarantees that model, history and layout still agree, and the session was not
+                // Anything but the editor's own refusal of a stale position (a StalePositionException, thrown before any change) may have changed the model: the operation can fail between its
+                // change and the raising of the revision, so a revision that did not move proves nothing. Nothing then guarantees that model, history and layout still agree, and the session was not
                 // told (Apply raises Changed only for a result). Fault it visibly rather than let the user type on into a document that may be out of step with its pages.
                 _runner.FailEdit(ex);
                 InputRefused?.Invoke(EditBlockedReason.Faulted);

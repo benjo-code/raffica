@@ -684,12 +684,12 @@ public sealed class EditCommandTests : IDisposable
         }
     }
 
-    // The editor's own refusal before it changed anything (a stale position): an ArgumentException is the one failure that is only a refusal.
+    // The editor's own refusal before it changed anything (a stale position): the StalePositionException is the one failure that is only a refusal.
     private sealed class RefusingCodec : IFragmentCodec
     {
         public byte[] Write(IReadOnlyList<Paragraph> paragraphs) => [1];
 
-        public IReadOnlyList<Paragraph> Read(ReadOnlySpan<byte> bytes) => throw new ArgumentException("refused before any change");
+        public IReadOnlyList<Paragraph> Read(ReadOnlySpan<byte> bytes) => throw new StalePositionException("refused before any change");
     }
 
     // Changes the model and fails before the revision is raised: model, history and layout now disagree and nothing records it.
@@ -778,6 +778,86 @@ public sealed class EditCommandTests : IDisposable
         save.Dispose();
 
         Assert.Equal([EditBlockedReason.Faulted], refused);
+    }
+
+    // Changes the model and then throws the given exception before any revision is raised (the argument exceptions of the framework included).
+    private sealed class MutatingThenThrowingCodec(WordDocument model, Exception exception) : IFragmentCodec
+    {
+        public byte[] Write(IReadOnlyList<Paragraph> paragraphs) => [1];
+
+        public IReadOnlyList<Paragraph> Read(ReadOnlySpan<byte> bytes)
+        {
+            model.Body.Blocks.Add(new Paragraph());
+            throw exception;
+        }
+    }
+
+    public static TheoryData<string> ArgumentFailures() => new() { "range", "null", "plain" };
+
+    private static ArgumentException ArgumentFailure(string kind) => kind switch
+    {
+        "range" => new ArgumentOutOfRangeException(null, "after a change"),
+        "null" => new ArgumentNullException(null, "after a change"),
+        _ => new ArgumentException("after a change"),
+    };
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ArgumentFailures))]
+    public async Task AnArgumentExceptionAfterAChangeFaultsTheSessionOnTheCommandPath(string kind)
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Start</w:t></w:r>"));
+        h.View.EditClipboard = new FakeClipboard { Content = new ClipboardContent("x", [1, 2, 3], "x", "document") };
+        var session = Place(h, P(h, 0), 5);
+        var model = h.View.Tab.Docx.Model;
+        h.View.ApplyOperation(ed =>
+        {
+            ed.FragmentCodec = new MutatingThenThrowingCodec(model, ArgumentFailure(kind));
+            return null;
+        });
+
+        await h.View.RunEditCommandAsync(WriteCommandIds.Paste);
+
+        Assert.Equal(0, model.Edits.Revision);
+        Assert.Equal(2, model.Body.Blocks.Count);
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(ArgumentFailures))]
+    public async Task AnArgumentExceptionAfterAChangeFaultsTheSessionOnTheKeyPath(string kind)
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Start</w:t></w:r>"));
+        var session = Place(h, P(h, 0), 5);
+        var model = h.View.Tab.Docx.Model;
+
+        h.View.ApplyOperation(_ =>
+        {
+            model.Body.Blocks.Add(new Paragraph());
+            throw ArgumentFailure(kind);
+        });
+
+        Assert.Equal(2, model.Body.Blocks.Count);
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.NotNull(h.View.Runner.Fault);
+    }
+
+    [AvaloniaFact]
+    public async Task TheStalePositionRefusalIsAPlainRefusalWithAnUnmovedModelOnTheKeyPath()
+    {
+        using var h = await OpenWholeAsync(WriteDocument("<w:r><w:t>Start</w:t></w:r>"));
+        var refused = new List<EditBlockedReason>();
+        h.View.InputRefused += refused.Add;
+        var session = Place(h, P(h, 0), 5);
+        var model = h.View.Tab.Docx.Model;
+        var stranger = new Paragraph();
+
+        // A position in a paragraph that is not in the document: the editor refuses before it changes anything.
+        h.View.ApplyOperation(ed => ed.InsertText(new TextRange(new TextPosition(StoryRef.Body, stranger, 0), new TextPosition(StoryRef.Body, stranger, 0)), "x"));
+
+        Assert.Null(session.BlockedReason);
+        Assert.Empty(refused);
+        Assert.Equal(0, model.Edits.Revision);
+        Assert.Single(model.Body.Blocks);
     }
 
     [AvaloniaFact]

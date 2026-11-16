@@ -677,7 +677,7 @@ public sealed partial class TextEditor
     private ParagraphMap Map(StoryRef story, Paragraph paragraph) => ParagraphMap.Build(paragraph, _hosts(story, paragraph));
 
     private Story StoryOf(StoryRef story) =>
-        StoryResolver.TryStory(_document, story) ?? throw new ArgumentException("The story is not part of the document.");
+        StoryResolver.TryStory(_document, story) ?? throw new StalePositionException("The story is not part of the document.");
 
     private (StoryRef Story, IList<Block> Container, int Index) Locate(TextPosition position)
     {
@@ -685,7 +685,7 @@ public sealed partial class TextEditor
         var story = StoryOf(position.Story);
         return FindIn(story.Blocks, position.Paragraph) is { } found
             ? (position.Story, found.Container, found.Index)
-            : throw new ArgumentException("The paragraph is not in the story of the position.");
+            : throw new StalePositionException("The paragraph is not in the story of the position.");
     }
 
     private Span? Resolve(TextRange selection)

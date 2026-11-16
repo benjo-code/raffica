@@ -275,6 +275,25 @@ public sealed class EditSessionTests
     }
 
     [AvaloniaFact]
+    public async Task AReplayedOperationThatFailsWithAnArgumentExceptionFaultsTheSession()
+    {
+        using var tab = await OpenWholeAsync(WindowFixture.Poi);
+        var session = tab.EnsureEditor();
+        var dropped = new List<EditBlockedReason>();
+        session.InputDropped += dropped.Add;
+        var save = session.BeginSave();
+        Assert.Null(session.Apply(_ => throw new ArgumentOutOfRangeException(null, "after a change"), 0));
+        Assert.Null(session.Apply(Type(session, "x"), 0));
+
+        save.Dispose();
+
+        // Only the editor's own stale-position refusal is a plain refusal: any other exception, argument exceptions included, may have come after a change.
+        Assert.Equal(EditBlockedReason.Faulted, session.BlockedReason);
+        Assert.Equal([EditBlockedReason.Faulted], dropped);
+        Assert.Equal(2, session.DroppedWhileSaving);
+    }
+
+    [AvaloniaFact]
     public async Task AReplayedOperationThatOnlyRefusesAStalePositionIsSkippedAndTheBatchGoesOn()
     {
         using var tab = await OpenWholeAsync(WindowFixture.Poi);
@@ -282,7 +301,7 @@ public sealed class EditSessionTests
         var dropped = new List<EditBlockedReason>();
         session.InputDropped += dropped.Add;
         var save = session.BeginSave();
-        Assert.Null(session.Apply(_ => throw new ArgumentException("the paragraph is not in the story of the position"), 0));
+        Assert.Null(session.Apply(_ => throw new StalePositionException("the paragraph is not in the story of the position"), 0));
         Assert.Null(session.Apply(Type(session, "Q7z "), 0));
 
         save.Dispose();

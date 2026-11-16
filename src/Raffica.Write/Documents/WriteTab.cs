@@ -104,8 +104,9 @@ internal sealed class WriteTab : IDisposable
     public EditSession? Editor => _editor;
 
     /// <summary>
-    /// Raised on the UI thread after every edit, undo, redo and replay of queued input (the model has changed; nothing is raised before the first edit). A view of the
-    /// model that is not the layout, like the outline, listens to this instead of polling.
+    /// Raised on the UI thread after every change of the editing session: an edit, an undo, a redo, the replay of queued input and also a change of the selection alone (it
+    /// follows the session's <c>Changed</c>); nothing is raised before the first one. A view of the model that is not the layout, like the outline, listens to this instead of
+    /// polling; a reader runs often and must be cheap (debounce and compare before it rebuilds anything).
     /// </summary>
     public event Action? ModelEdited;
 

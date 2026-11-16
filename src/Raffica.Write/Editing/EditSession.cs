@@ -86,12 +86,12 @@ internal sealed class EditSession
     public event Action<EditBlockedReason>? InputDropped;
 
     /// <summary>
-    /// Whether an exception of an operation must fault the session: anything but the editor's own refusal of a stale position (an <see cref="ArgumentException"/> thrown before it changed
-    /// anything). The operation can fail between its change and the raising of the revision, so a revision that did not move proves nothing about the model when the exception is of
-    /// another kind; with an <see cref="ArgumentException"/> the revision must not have moved either. The key path, the command path and the replay of a save's queue use this one rule.
+    /// Whether an exception of an operation must fault the session: every exception except <see cref="StalePositionException"/>, the text editor's own refusal of a stale position,
+    /// which it throws before it has changed anything. Any other exception, argument exceptions of the framework included, may have been thrown after the model changed and before
+    /// the revision was raised (the revision is raised at the end of an operation), so nothing can tell whether model, history and layout still agree. The key path, the command path
+    /// and the replay of a save's queue use this one rule.
     /// </summary>
-    internal bool MustFault(Exception exception, int revisionBefore) =>
-        exception is not ArgumentException || _tab.Docx.Model.Edits.Revision != revisionBefore;
+    internal static bool MustFault(Exception exception) => exception is not StalePositionException;
 
     /// <summary>Why editing is not possible now; null when it is. Faulted wins over StillOpening, which wins over Saving.</summary>
     public EditBlockedReason? BlockedReason
@@ -187,8 +187,10 @@ internal sealed class EditSession
     /// While a save runs the operation is queued (null is returned) and replayed in arrival order when the save ends, through the same path under one lease for the
     /// whole batch with one <see cref="Changed"/>; an operation that is queued must read the caret and selection when it runs, not when it is queued. The queue holds
     /// <see cref="MaxQueued"/> operations; later ones are refused and counted. An operation with a <paramref name="coalesceKey"/> that directly follows a queued operation with the same key (the same object) replaces it, so a gesture that
-    /// changes the selection many times (a drag) costs one slot; an operation of another kind in between ends the run. If an operation of the replay throws, the rest is dropped and the exception goes to the
-    /// caller of the save handle's Dispose. The <see cref="BlockChange.OldBlocks"/> of the returned result are read-only snapshots (the history's own for an undo or redo): never
+    /// changes the selection many times (a drag) costs one slot; an operation of another kind in between ends the run. If an operation of the replay throws, the exception does not reach the caller of the save handle's Dispose: a
+    /// <see cref="StalePositionException"/> only skips that operation (counted in <see cref="DroppedWhileSaving"/>), any other exception faults the session (<see cref="MustFault"/>), the failed
+    /// operation and the rest of the batch are counted in <see cref="DroppedWhileSaving"/> and <see cref="InputDropped"/> is raised once. An operation that is not queued and throws propagates to
+    /// the caller of <see cref="Apply"/>, which decides with <see cref="MustFault"/> whether the session must fault. The <see cref="BlockChange.OldBlocks"/> of the returned result are read-only snapshots (the history's own for an undo or redo): never
     /// change them. A cut is a copy and a delete: when its result has no <c>Changes</c> the delete was refused and the clipboard must not be replaced. An exception of
     /// the layout (it is faulted for good) makes the session faulted (<see cref="EditBlockedReason.Faulted"/>, the runner's fault is the same one): it goes to the caller once, after the lease ended and <see cref="Changed"/> was raised; every later call is refused without touching the model.
     /// </remarks>
@@ -311,7 +313,6 @@ internal sealed class EditSession
             using var lease = _tab.Runner.PauseForEdit();
             for (var i = 0; i < batch.Length; i++)
             {
-                var revision = _tab.Docx.Model.Edits.Revision;
                 try
                 {
                     Run(batch[i].Operation, batch[i].ThroughPage, ref changed);
@@ -321,7 +322,7 @@ internal sealed class EditSession
                     var runner = _tab.Runner;
                     if (BlockedReason != EditBlockedReason.Faulted)
                     {
-                        if (!MustFault(ex, revision))
+                        if (!MustFault(ex))
                         {
                             // The editor refused a stale position before changing anything: this one operation is lost, the rest still run.
                             Interlocked.Increment(ref _dropped);

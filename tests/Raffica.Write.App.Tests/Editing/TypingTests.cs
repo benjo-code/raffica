@@ -783,12 +783,12 @@ public sealed class TypingTests : IDisposable
         Trace.Listeners.Add(capture);
         try
         {
-            // A stale selection (a paragraph that is no longer in the document): the text editor throws ArgumentException before it changes anything.
+            // A stale selection (a paragraph that is no longer in the document): the text editor throws StalePositionException before it changes anything.
             var stale = new TextPosition(StoryRef.Body, new Paragraph(), 0);
             session.SetSelection(new TextRange(stale, stale));
             var revision = h.View.Tab.Docx.Model.Edits.Revision;
 #if DEBUG
-            Assert.Throws<ArgumentException>(() => Type(h, "x"));
+            Assert.Throws<StalePositionException>(() => Type(h, "x"));
 #else
             Type(h, "x");
             Stroke(h, PhysicalKey.Backspace);
@@ -798,7 +798,7 @@ public sealed class TypingTests : IDisposable
             Assert.Equal(FirstText, TextOf(h.View, P(h, 0)));
             Assert.Null(session.BlockedReason);
             // Only the type of the exception is traced, never its message.
-            Assert.Contains(capture.Lines, l => l.Contains(nameof(ArgumentException), StringComparison.Ordinal));
+            Assert.Contains(capture.Lines, l => l.Contains(nameof(StalePositionException), StringComparison.Ordinal));
             Assert.DoesNotContain(capture.Lines, l => l.Contains("paragraph", StringComparison.OrdinalIgnoreCase));
 #endif
             // The session is usable: a real selection types.
