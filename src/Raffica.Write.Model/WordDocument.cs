@@ -14,6 +14,9 @@ public sealed class WordDocument
 
     public Story Body { get; }
 
+    /// <summary>The edit revision and the dirty state of this document.</summary>
+    public DocumentEdits Edits { get; } = new();
+
     public StyleSheet? Styles { get; set; }
 
     public NumberingDefinitions? Numbering { get; set; }

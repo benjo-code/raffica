@@ -40,6 +40,48 @@ internal sealed class HeaderFooterPlan : IPageChrome
 
     public bool HasCarry => _carry.Count > 0;
 
+    /// <summary>The planner of the notes of this layout (an edit of a note drops what it laid out).</summary>
+    public NotePlanner Notes => _notes;
+
+    /// <summary>
+    /// Forgets every header or footer block laid out from the part, so the next page that shows it lays it out again from the model as it is now. The
+    /// pages already made are not touched: the caller lays them out again.
+    /// </summary>
+    public void Invalidate(StoryRef part)
+    {
+        if (part.Key is not { } id)
+        {
+            return;
+        }
+
+        foreach (var key in _blocks.Keys.Where(k => string.Equals(k.Part, id, StringComparison.Ordinal)).ToList())
+        {
+            _blocks.Remove(key);
+        }
+
+        // Whether the part shows the page number is found out when it is laid out; it may have changed.
+        _pageDependent.Remove(id);
+    }
+
+    /// <summary>True when a section refers to the part (a part no section refers to is never drawn).</summary>
+    public bool Shows(string relationshipId)
+    {
+        foreach (var slots in _references)
+        {
+            if (slots.Contains(relationshipId, StringComparer.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The list is replaced, never changed, once a page has been ended with it, so it can be kept and put back as it is.
+    public object? CarryState => _carry.Count == 0 ? null : _carry;
+
+    public void RestoreCarry(object? state) => _carry = state as List<NoteGroup> ?? [];
+
     public IEnumerable<BlockPlan> Trailer() => _notes.EndnotePlans();
 
     public void Begin(PageBuilder page)
@@ -94,6 +136,24 @@ internal sealed class HeaderFooterPlan : IPageChrome
         Place(page, new Totals(totalPages, section < sectionPages.Count ? sectionPages[section] : 0));
     }
 
+    /// <summary>
+    /// Draws the header and the footer of a page again into <paramref name="page"/> (an empty builder of the page) after an edit of a part. With the totals of a complete layout a page
+    /// that shows a total gets the real one; without them (<paramref name="totalPages"/> null) it gets the pending mark as when it was first made. The builder then holds the heights
+    /// and the parts (<see cref="PageBuilder.HeaderHeight"/>) the caller compares with the page's own.
+    /// </summary>
+    public void Refresh(PageBuilder page, int? totalPages, IReadOnlyList<int>? sectionPages)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        Totals? totals = null;
+        if (totalPages is { } pages && sectionPages is not null)
+        {
+            var section = page.Section.Index;
+            totals = new Totals(pages, section < sectionPages.Count ? sectionPages[section] : 0);
+        }
+
+        Place(page, totals);
+    }
+
     private readonly record struct Totals(int Pages, int SectionPages);
 
     private readonly record struct ChromeKey(string Part, string NumberText, int Section, int Pages, int SectionPages, float Width);
@@ -101,15 +161,23 @@ internal sealed class HeaderFooterPlan : IPageChrome
     /// <summary>A header or footer laid out at one width: its flows, where each goes below the top of the block, and its height.</summary>
     private sealed class ChromeBlock
     {
-        public static readonly ChromeBlock Empty = new([], [], 0f, false);
+        public static readonly ChromeBlock Empty = new([], [], 0f, false, null, false);
 
-        public ChromeBlock(IBlockFlow[] flows, float[] ys, float height, bool needsTotals)
+        public ChromeBlock(IBlockFlow[] flows, float[] ys, float height, bool needsTotals, string? part, bool usesTotals)
         {
+            Part = part;
+            UsesTotals = usesTotals;
             Flows = flows;
             Ys = ys;
             Height = height;
             NeedsTotals = needsTotals;
         }
+
+        /// <summary>True when the block shows a page count (known or not).</summary>
+        public bool UsesTotals { get; }
+
+        /// <summary>The relationship id of the part the block is made from; null for no part.</summary>
+        public string? Part { get; }
 
         public IBlockFlow[] Flows { get; }
 
@@ -128,6 +196,11 @@ internal sealed class HeaderFooterPlan : IPageChrome
         var header = BlockFor(page, HeaderFooterKind.Header, totals);
         var footer = BlockFor(page, HeaderFooterKind.Footer, totals);
         page.NeedsTotals = header.NeedsTotals || footer.NeedsTotals;
+        page.UsesTotals = header.UsesTotals || footer.UsesTotals;
+        page.HeaderHeight = header.Height;
+        page.FooterHeight = footer.Height;
+        page.HeaderPart = header.Part;
+        page.FooterPart = footer.Part;
         Draw(page, PageRegion.Header, header, x, geometry.HeaderDistance);
         Draw(page, PageRegion.Footer, footer, x, geometry.Height - geometry.FooterDistance - footer.Height);
         return (header, footer);
@@ -197,12 +270,13 @@ internal sealed class HeaderFooterPlan : IPageChrome
         var planner = _planners();
         planner.Context = new PlanContext { Fields = fields };
         planner.StoryKey = ImageRef.HeaderFooterStory(id);
+        planner.Story = new StoryRef(StoryKind.HeaderFooter, id);
         planner.CanPlaceFloats = false;
         var flows = planner.PlanStory(part.Content.Blocks, width);
         usesPage = fields.UsedPage;
         if (flows.Count == 0)
         {
-            return new ChromeBlock([], [], 0f, fields.UsedPendingTotal);
+            return new ChromeBlock([], [], 0f, fields.UsedPendingTotal, id, fields.UsedTotal);
         }
 
         var ys = new float[flows.Count];
@@ -219,7 +293,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         }
 
         y += flows[^1].SpaceAfter;
-        return new ChromeBlock([.. flows], ys, y, fields.UsedPendingTotal);
+        return new ChromeBlock([.. flows], ys, y, fields.UsedPendingTotal, id, fields.UsedTotal);
     }
 
     // The first page of a section with w:titlePg has its own parts; with w:evenAndOddHeaders the even pages (by number) have theirs.

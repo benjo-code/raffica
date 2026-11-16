@@ -6,6 +6,8 @@ namespace Raffica.Write.Commands;
 /*
  * Icons: command id -> Lucide icon (tag 1.63.0, key Raffica.Icon.<PascalCase>, the set of the shell). One glyph per meaning; WriteCommandTests.EveryCommandHasItsOwnIcon pins it.
  *   file.open -> folder-open
+ *   file.save -> save
+ *   file.saveAs -> save-all
  *   file.close -> x
  *   app.settings -> settings
  *   app.search -> search
@@ -17,6 +19,12 @@ namespace Raffica.Write.Commands;
  *   view.page -> file
  *   view.writing -> text-align-start (the key AlignLeft)
  *   view.outline -> list-tree
+ *   edit.undo -> undo-2
+ *   edit.redo -> redo-2
+ *   edit.cut -> scissors
+ *   edit.copy -> copy
+ *   edit.paste -> clipboard-paste
+ *   edit.selectAll -> text-select
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -39,7 +47,8 @@ internal enum WriteShortcutBase
 /// <param name="AnyShift">Whether Shift is accepted but not required (Ctrl and the plus key is Ctrl+Shift+= on an English keyboard).</param>
 /// <param name="Alternates">Keys that do the same as <paramref name="Key"/> (number pad keys).</param>
 /// <param name="AllowsRepeat">Whether holding the key repeats the command (zoom); every other shortcut runs once per press.</param>
-internal sealed record WriteShortcut(Key Key, string Token, WriteShortcutBase Base = WriteShortcutBase.Command, bool AnyShift = false, Key[]? Alternates = null, bool AllowsRepeat = false)
+/// <param name="Shift">Whether Shift is part of the shortcut (redo on macOS is Cmd+Shift+Z).</param>
+internal sealed record WriteShortcut(Key Key, string Token, WriteShortcutBase Base = WriteShortcutBase.Command, bool AnyShift = false, Key[]? Alternates = null, bool AllowsRepeat = false, bool Shift = false)
 {
     private const KeyModifiers Relevant = KeyModifiers.Control | KeyModifiers.Shift | KeyModifiers.Alt | KeyModifiers.Meta;
 
@@ -47,7 +56,7 @@ internal sealed record WriteShortcut(Key Key, string Token, WriteShortcutBase Ba
     public IEnumerable<Key> Keys => Alternates is null ? [Key] : [Key, .. Alternates];
 
     /// <summary>The shortcut written with English names, the way the shell reads them (<c>Ctrl+O</c>, <c>Meta+O</c> on macOS, <c>Alt+Q</c>).</summary>
-    public string Text(bool macOs) => (Base == WriteShortcutBase.Alt ? "Alt" : macOs ? "Meta" : "Ctrl") + "+" + Token;
+    public string Text(bool macOs) => (Base == WriteShortcutBase.Alt ? "Alt" : macOs ? "Meta" : "Ctrl") + (Shift ? "+Shift" : string.Empty) + "+" + Token;
 
     /// <summary>Whether a key press is this shortcut. <paramref name="command"/> is the command modifier of the platform; any modifier the shortcut does not name makes it no match.</summary>
     public bool Matches(Key key, KeyModifiers modifiers, KeyModifiers command)
@@ -63,7 +72,7 @@ internal sealed record WriteShortcut(Key Key, string Token, WriteShortcutBase Ba
             actual &= ~KeyModifiers.Shift;
         }
 
-        return actual == (Base == WriteShortcutBase.Alt ? KeyModifiers.Alt : command);
+        return actual == ((Base == WriteShortcutBase.Alt ? KeyModifiers.Alt : command) | (Shift ? KeyModifiers.Shift : KeyModifiers.None));
     }
 }
 
@@ -104,15 +113,15 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
 
     public IReadOnlyList<CatalogCommand> Commands => _commands;
 
-    internal CatalogGroup Add(string id, string nameKey, string icon, string code, WriteShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, WriteShortcut? macShortcut = null)
+    internal CatalogGroup Add(string id, string nameKey, string icon, string code, WriteShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, WriteShortcut? macShortcut = null, bool describe = false)
     {
-        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, macShortcut));
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, macShortcut, describe ? "Desc" + nameKey[3..] : null));
         return this;
     }
 }
 
 /// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
-internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, WriteShortcut? shortcut, CommandSize size, bool toggle, WriteShortcut? macShortcut)
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, WriteShortcut? shortcut, CommandSize size, bool toggle, WriteShortcut? macShortcut, string? descriptionKey)
 {
     public CatalogGroup Group { get; } = group;
 
@@ -123,6 +132,12 @@ internal sealed class CatalogCommand(CatalogGroup group, string id, string nameK
     public string NameKey { get; } = nameKey;
 
     public string Name => WriteStrings.Get(NameKey);
+
+    /// <summary>The key of the long wording of the command (<c>Desc&lt;Name&gt;</c>, shown as its description), or null when it has none.</summary>
+    public string? DescriptionKey { get; } = descriptionKey;
+
+    /// <summary>The long wording of the command in the UI language, or null.</summary>
+    public string? Description => DescriptionKey is null ? null : WriteStrings.Get(DescriptionKey);
 
     /// <summary>The name of the icon in the icon set of the shell (<c>Raffica.Icon.&lt;name&gt;</c>).</summary>
     public string Icon { get; } = icon;
@@ -153,8 +168,18 @@ internal static class WriteCommandCatalog
         var home = new CatalogTab("TabHome", "H");
         home.Group("GroupFile", "1")
             .Add(WriteCommandIds.Open, "CmdOpen", "FolderOpen", "11", Cmd(Key.O, "O"), CommandSize.Large)
+            .Add(WriteCommandIds.Save, "CmdSave", "Save", "14", Cmd(Key.S, "S"))
+            .Add(WriteCommandIds.SaveAs, "CmdSaveAs", "SaveAll", "15", new WriteShortcut(Key.S, "S", Shift: true))
             .Add(WriteCommandIds.CloseTab, "CmdCloseTab", "X", "12", Cmd(Key.W, "W"))
             .Add(WriteCommandIds.Settings, "CmdSettings", "Settings", "13", Cmd(Key.OemComma, ","));
+        home.Group("GroupUndo", "3")
+            .Add(WriteCommandIds.Undo, "CmdUndo", "Undo2", "31", Cmd(Key.Z, "Z"), describe: true)
+            .Add(WriteCommandIds.Redo, "CmdRedo", "Redo2", "32", Cmd(Key.Y, "Y"), macShortcut: new WriteShortcut(Key.Z, "Z", Shift: true), describe: true);
+        home.Group("GroupClipboard", "4")
+            .Add(WriteCommandIds.Paste, "CmdPaste", "ClipboardPaste", "41", Cmd(Key.V, "V"), CommandSize.Large, describe: true)
+            .Add(WriteCommandIds.Cut, "CmdCut", "Scissors", "42", Cmd(Key.X, "X"), describe: true)
+            .Add(WriteCommandIds.Copy, "CmdCopy", "Copy", "43", Cmd(Key.C, "C"), describe: true)
+            .Add(WriteCommandIds.SelectAll, "CmdSelectAll", "TextSelect", "44", Cmd(Key.A, "A"), describe: true);
         home.Group("GroupSearch", "2")
             .Add(WriteCommandIds.Search, "CmdSearch", "Search", "21", new WriteShortcut(Key.Q, "Q", WriteShortcutBase.Alt), CommandSize.Large, macShortcut: Cmd(Key.K, "K"));
 
@@ -181,13 +206,13 @@ internal static class WriteCommandCatalog
     /// <summary>Every command, in ribbon order.</summary>
     public static IReadOnlyList<CatalogCommand> Commands { get; }
 
-    /// <summary>The command a key press stands for, or null. The command search is the frame's (it handles its own key), so it is never returned.</summary>
+    /// <summary>The command a key press stands for, or null. The command search is the frame's (it handles its own key) and the keys of undo, redo, the clipboard and select all are the page view's (a text box has its own Ctrl+C), so none of them is ever returned.</summary>
     public static CatalogCommand? Find(Key key, KeyModifiers modifiers, KeyModifiers command, bool? macOs = null)
     {
         var mac = macOs ?? OperatingSystem.IsMacOS();
         foreach (var candidate in Commands)
         {
-            if (candidate.Id != WriteCommandIds.Search && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate;
             }

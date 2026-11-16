@@ -1,5 +1,6 @@
 using Raffica.Shell.Frame;
 using Raffica.Write.Docx;
+using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Viewing;
 
@@ -18,6 +19,7 @@ internal sealed class WriteTab : IDisposable
     private DocxFile _docx;
     private DocumentLayout _layout;
     private LayoutRunner? _runner;
+    private EditSession? _editor;
     private readonly CancellationTokenSource _cancellation = new();
     private int _disposed;
 
@@ -42,10 +44,36 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The model of the tab in the title bar.</summary>
     public DocumentTab Tab { get; }
 
-    public string Title { get; }
+    /// <summary>The name of the file; follows <see cref="Rebind"/>.</summary>
+    public string Title { get; private set; }
 
-    /// <summary>The full path of the file.</summary>
-    public string Path { get; }
+    /// <summary>The full path of the file; follows <see cref="Rebind"/>.</summary>
+    public string Path { get; private set; }
+
+    /// <summary>
+    /// The tab now belongs to another file (after a successful Save as): the path, the name and the model of the title bar follow. UI thread; the layout, the picture
+    /// source and the opened file stay as they are (the file knows its new origin itself, <see cref="DocxFile.OriginPath"/>).
+    /// </summary>
+    internal void Rebind(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        Path = System.IO.Path.GetFullPath(path);
+        Title = System.IO.Path.GetFileName(Path);
+        Tab.Title = Title;
+        Tab.Path = Path;
+    }
+
+    /// <summary>Whether the document has changes the file on disk does not have (the revision of the model is not the saved one). False for a prefix: it cannot be edited.</summary>
+    public bool IsDirty => Docx.Model.Edits.IsDirty;
+
+    /// <summary>Gives the model of the title bar the dirty state of the document (the tab shows its mark and says "unsaved changes"). UI thread.</summary>
+    internal void UpdateDirty()
+    {
+        if (!IsDisposed)
+        {
+            Tab.IsDirty = IsDirty;
+        }
+    }
 
     /// <summary>The opened file; a prefix while <see cref="DocxFile.IsPrefix"/>. Not to be edited or saved.</summary>
     public DocxFile Docx => Volatile.Read(ref _docx);
@@ -71,6 +99,36 @@ internal sealed class WriteTab : IDisposable
     /// The background layout of the tab: made on first use, on the UI thread (it keeps that thread's dispatcher for its progress). Its page layout starts as <see cref="Layout"/>.
     /// </summary>
     public LayoutRunner Runner => _runner ??= new LayoutRunner(this);
+
+    /// <summary>The editing session of the tab; null until the first caret or key asked for it (<see cref="EnsureEditor"/>). Nothing of editing exists before that.</summary>
+    public EditSession? Editor => _editor;
+
+    /// <summary>
+    /// Raised on the UI thread after every change of the editing session: an edit, an undo, a redo, the replay of queued input and also a change of the selection alone (it
+    /// follows the session's <c>Changed</c>); nothing is raised before the first one. A view of the model that is not the layout, like the outline, listens to this instead of
+    /// polling; a reader runs often and must be cheap (debounce and compare before it rebuilds anything).
+    /// </summary>
+    public event Action? ModelEdited;
+
+    /// <summary>Makes the editing session on first use (UI thread: it keeps that thread's dispatcher).</summary>
+    public EditSession EnsureEditor()
+    {
+        if (_editor is null)
+        {
+            _editor = new EditSession(this);
+
+            // Every edit, undo and redo (and the replay of what a save queued) shows in the tab's dirty mark; a save sets it itself.
+            _editor.Changed += OnEditorChanged;
+        }
+
+        return _editor;
+    }
+
+    private void OnEditorChanged()
+    {
+        UpdateDirty();
+        ModelEdited?.Invoke();
+    }
 
     /// <summary>
     /// The whole file has been read: it replaces the prefix (which is disposed), and the pictures are read from its package from now on so the prefix bytes can go.

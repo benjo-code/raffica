@@ -40,4 +40,28 @@ public sealed class Table : Block
     }
 
     public IList<RowItem> Rows { get; } = new List<RowItem>();
+
+    public override Table Clone()
+    {
+        var copy = new Table { PropertiesPosition = PropertiesPosition, GridPosition = GridPosition };
+        Properties.CopyStateTo(copy.Properties);
+        CopyAttributesTo(copy);
+        if (KeptGrid is not null && _keptWidths is not null)
+        {
+            copy.SetKeptGrid(KeptGrid, _keptWidths);
+        }
+
+        copy.GridColumns.Clear();
+        foreach (var width in GridColumns)
+        {
+            copy.GridColumns.Add(width);
+        }
+
+        foreach (var row in Rows)
+        {
+            copy.Rows.Add(row.Clone());
+        }
+
+        return copy;
+    }
 }

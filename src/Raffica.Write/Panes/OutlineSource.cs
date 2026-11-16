@@ -10,10 +10,14 @@ namespace Raffica.Write.Panes;
 /// <param name="BodyBlockIndex">The index of the heading's top-level block in the body (what <c>DocumentLayout.Locate</c> takes).</param>
 internal readonly record struct OutlineEntry(int Level, string Text, int BodyBlockIndex);
 
+/// <summary>A heading with the paragraph it came from: the pane finds the heading's current place by the paragraph, because the index an edit shifts goes stale.</summary>
+internal readonly record struct OutlineHeading(OutlineEntry Entry, Paragraph Paragraph);
+
 /// <summary>
 /// Reads the outline of a document: every body-level paragraph whose resolved outline level is set (its own <c>w:outlineLvl</c> or the one of its style, never the
-/// name of a style) and whose text is not empty. A pure function of the model, so it may run on a pool thread. A paragraph inside a table is not listed (4.2 lists
+/// name of a style) and whose text is not empty. A pure function of the model. A paragraph inside a table is not listed (4.2 lists
 /// body-level paragraphs only; a block content control at the top level counts as its blocks and they carry the index of the control).
+/// The model is read where it is edited (the UI thread, <see cref="OutlinePane"/>): the read costs well under a page of layout, and a pool thread would race the edits.
 /// </summary>
 internal static class OutlineSource
 {
@@ -23,11 +27,14 @@ internal static class OutlineSource
     private const int MaxControlDepth = 32;
 
     /// <summary>The headings in document order. Empty headings are left out; tracked changes are read as accepted (insertions in, deletions out).</summary>
-    public static IReadOnlyList<OutlineEntry> Read(WordDocument document)
+    public static IReadOnlyList<OutlineEntry> Read(WordDocument document) => [.. ReadHeadings(document).Select(h => h.Entry)];
+
+    /// <summary>The headings as <see cref="Read"/> finds them, each with its paragraph. Reads the model: call it on the thread that edits the model (the UI thread), never on a pool thread beside an edit.</summary>
+    public static IReadOnlyList<OutlineHeading> ReadHeadings(WordDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         var resolver = new StyleResolver(document.Styles, document.Settings, document.Numbering);
-        var entries = new List<OutlineEntry>();
+        var entries = new List<OutlineHeading>();
         var blocks = document.Body.Blocks;
         for (var i = 0; i < blocks.Count; i++)
         {
@@ -37,7 +44,7 @@ internal static class OutlineSource
         return entries;
     }
 
-    private static void Collect(Block block, int bodyIndex, StyleResolver resolver, List<OutlineEntry> entries, int depth)
+    private static void Collect(Block block, int bodyIndex, StyleResolver resolver, List<OutlineHeading> entries, int depth)
     {
         if (block is ContentControlBlock control)
         {
@@ -60,7 +67,7 @@ internal static class OutlineSource
         var text = TextOf(paragraph);
         if (text.Length > 0)
         {
-            entries.Add(new OutlineEntry(Math.Clamp(level, 0, 8) + 1, text, bodyIndex));
+            entries.Add(new OutlineHeading(new OutlineEntry(Math.Clamp(level, 0, 8) + 1, text, bodyIndex), paragraph));
         }
     }
 

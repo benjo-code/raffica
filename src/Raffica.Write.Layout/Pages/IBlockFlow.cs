@@ -17,6 +17,16 @@ internal interface IBlockFlow
     /// <summary>True for the piece that holds the start of the block; false for a tail and for what follows a page or column break inside a paragraph.</summary>
     bool IsFirstPiece { get; }
 
+    /// <summary>Where this piece starts inside its block: the first line of a paragraph piece, the first row of a table piece; 0 for the piece that holds the start of the block.</summary>
+    int StartLine => 0;
+
+    /// <summary>
+    /// True when <paramref name="other"/> is the same piece of the same layout of a block: the filler compares the carried piece of a page
+    /// start of an old and a new run with it. False when unsure (the default compares by reference); a wrong "true" would splice pages that
+    /// differ, a wrong "false" only makes the refill go on longer.
+    /// </summary>
+    bool SamePieceAs(IBlockFlow? other) => ReferenceEquals(this, other);
+
     /// <summary>The height of everything this piece still has to place, without the space before and after.</summary>
     float Height { get; }
 

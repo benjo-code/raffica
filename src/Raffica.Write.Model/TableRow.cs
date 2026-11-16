@@ -9,4 +9,17 @@ public sealed class TableRow : RowItem
     public int PropertiesPosition { get; set; }
 
     public IList<RowItem> Items { get; } = new List<RowItem>();
+
+    public override TableRow Clone()
+    {
+        var copy = new TableRow { PropertiesPosition = PropertiesPosition };
+        Properties.CopyStateTo(copy.Properties);
+        CopyAttributesTo(copy);
+        foreach (var item in Items)
+        {
+            copy.Items.Add(item.Clone());
+        }
+
+        return copy;
+    }
 }

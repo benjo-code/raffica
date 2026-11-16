@@ -46,16 +46,76 @@ internal sealed class PageFiller
     /// <summary>The highest body block index the filler has looked at so far, placed or only measured ahead.</summary>
     public int MaxTouchedBodyIndex => _maxTouched;
 
-    public IEnumerable<LaidOutPage> Fill()
+    /// <summary>
+    /// The state at the start of every page that has begun or is about to (the page after the last one yielded is already in it), by page index;
+    /// null for a page that cannot be resumed (the page after an inserted blank page, a page of notes that run on past the last block, a page
+    /// made of endnotes). The filler adds to it as it goes; <see cref="DocumentLayout"/> gives a resumed filler a list that holds the pages before the resume point.
+    /// </summary>
+    public List<FillerState?> Records { get; set; } = [];
+
+    /// <summary>
+    /// Asked for each state of a page about to begin (never for the one the filler was resumed from). When it answers true the filler yields
+    /// the page it has just finished and ends, with <see cref="StopMatched"/> set: the pages from that state on are the old ones.
+    /// </summary>
+    public Func<FillerState, bool>? StopProbe { get; set; }
+
+    /// <summary>True when the last run ended because <see cref="StopProbe"/> answered true (and not because the document ended).</summary>
+    public bool StopMatched { get; private set; }
+
+    /// <summary>The index of the page whose start made <see cref="StopProbe"/> answer true.</summary>
+    public int StopIndex { get; private set; } = -1;
+
+    /// <summary>The index in the flat block list of a block of the document, or -1.</summary>
+    public int FlatIndexOf(Block block)
     {
+        for (var i = 0; i < _blocks.Count; i++)
+        {
+            if (ReferenceEquals(_blocks[i].Block, block))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The pages with a page count in their header or footer, in page order (kept after <see cref="Revisions()"/>, so an edit can revise them again).</summary>
+    internal List<Revisable> RevisableList => _revisable;
+
+    /// <summary>The page count and the pages per section of what the filler has begun: the totals once the last page is out.</summary>
+    internal (int Pages, int[] SectionPages) Totals() => (_pageCount, [.. _sectionPages]);
+
+    public IEnumerable<LaidOutPage> Fill() => FillFrom(null);
+
+    /// <summary>
+    /// Pours the blocks into pages from the start of the document (<paramref name="resume"/> null) or from the start of a page that an
+    /// earlier run recorded. The state of the planner, the chrome and the counters are put back first; the page begins as it would have in
+    /// a run that had laid out everything before it. Every page of the run that follows is laid out exactly as in a full run.
+    /// </summary>
+    public IEnumerable<LaidOutPage> FillFrom(FillerState? resume)
+    {
+        StopMatched = false;
         PageBuilder? page = null;
         List<Band> bands = [];
         var pageIndex = 0;
         var nextNumber = 1;
         var lastFilled = LastNonEmpty();
         SectionPlan? current = null;
+        var firstSection = 0;
+        var resumeCarry = false;
+        _recordedPage = -1;
+        if (resume is not null)
+        {
+            Apply(resume);
+            pageIndex = resume.PageIndex;
+            nextNumber = resume.NextNumber;
+            firstSection = resume.Start.SectionIndex;
+            resumeCarry = resume.Kind == PageStartKind.Carry;
+            SetRecord(resume.PageIndex, resume);
+            _recordedPage = resume.PageIndex;
+        }
 
-        for (var s = 0; s < _sections.Count; s++)
+        for (var s = firstSection; s < _sections.Count; s++)
         {
             var section = _sections[s];
             if (section.IsEmpty)
@@ -67,41 +127,69 @@ internal sealed class PageFiller
 
             var geometry = section.Geometry;
             var continuous = page is not null && !_flowMode && section.Start == SectionStart.Continuous && page.Geometry.SamePaper(geometry);
-            if (page is not null && !continuous)
+            IBlockFlow? carry = null;
+            var firstBlock = section.FirstBlock;
+            if (resumeCarry)
             {
-                yield return Finish(page, bands);
-                page = null;
-            }
-
-            if (page is null)
-            {
-                var number = section.PageNumberStart ?? nextNumber;
-                if (!_flowMode && NeedsBlankPage(section.Start, number))
-                {
-                    yield return Finish(Begin(pageIndex++, number, section), []);
-                    number++;
-                }
-
-                page = Begin(pageIndex++, number, section);
-                nextNumber = number + 1;
-                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, false, false, page.Notes, page.Floats)];
+                // The page the earlier run was about to begin: the piece it carried goes first, the blocks after its block follow.
+                resumeCarry = false;
+                page = Begin(pageIndex++, nextNumber, section);
+                nextNumber++;
+                bands = [new Band(geometry, page.BodyTop, page.BodyBottom, resume!.SuppressSpaceBefore, false, page.Notes, page.Floats)];
+                carry = resume.Carry;
+                firstBlock = FlatIndexOf(resume.Start.Block!) + 1;
             }
             else
             {
-                var last = bands[^1];
-                Balance(last);
-                CountSectionPage(section);
+                if (page is not null && !continuous)
+                {
+                    var built = Finish(page, bands);
+                    page = null;
+                    var stop = Record(SectionStartState(pageIndex, nextNumber, section));
+                    yield return built;
+                    if (stop)
+                    {
+                        yield break;
+                    }
+                }
 
-                // The room is what the page has left after header, footer and notes; a section with margins of its own can only narrow it.
-                var bottom = Math.Min(geometry.BodyBottom, page.BodyBottom);
-                var top = last.MaxY + last.SpaceAfterLast;
-                bands.Add(new Band(geometry, Math.Min(top, bottom), bottom, false, true, page.Notes, page.Floats));
+                if (page is null)
+                {
+                    if (_recordedPage != pageIndex)
+                    {
+                        Record(SectionStartState(pageIndex, nextNumber, section));
+                    }
+
+                    var number = section.PageNumberStart ?? nextNumber;
+                    if (!_flowMode && NeedsBlankPage(section.Start, number))
+                    {
+                        // The page after the blank one is not a state a run can start from.
+                        var blank = Finish(Begin(pageIndex++, number, section), []);
+                        SetRecord(pageIndex, null);
+                        yield return blank;
+                        number++;
+                    }
+
+                    page = Begin(pageIndex++, number, section);
+                    nextNumber = number + 1;
+                    bands = [new Band(geometry, page.BodyTop, page.BodyBottom, false, false, page.Notes, page.Floats)];
+                }
+                else
+                {
+                    var last = bands[^1];
+                    Balance(last);
+                    CountSectionPage(section);
+
+                    // The room is what the page has left after header, footer and notes; a section with margins of its own can only narrow it.
+                    var bottom = Math.Min(geometry.BodyBottom, page.BodyBottom);
+                    var top = last.MaxY + last.SpaceAfterLast;
+                    bands.Add(new Band(geometry, Math.Min(top, bottom), bottom, false, true, page.Notes, page.Floats));
+                }
             }
 
             // A picture is shrunk to the text area of the section it is in (plans are made lazily, while this section is filled).
             _planner.TextAreaHeight = Math.Max(PageGeometry.MinimumText, geometry.Height - geometry.Top - geometry.Bottom);
-            var source = new SectionSource(_planner, _blocks, section.FirstBlock, section.EndBlock, Touch, s == lastFilled ? Chrome?.Trailer() : null);
-            IBlockFlow? carry = null;
+            var source = new SectionSource(_planner, _blocks, firstBlock, section.EndBlock, Touch, s == lastFilled ? Chrome?.Trailer() : null);
             while (true)
             {
                 var band = bands[^1];
@@ -119,7 +207,14 @@ internal sealed class PageFiller
                 }
 
                 // The page is full: publish it and go on at the top of the next one, in the geometry of the section being filled.
-                yield return Finish(page, bands);
+                var full = Finish(page, bands);
+                var stopHere = Record(CarryStateOf(result, s, pageIndex, nextNumber, source));
+                yield return full;
+                if (stopHere)
+                {
+                    yield break;
+                }
+
                 page = Begin(pageIndex++, nextNumber, section);
                 nextNumber++;
                 bands = [new Band(geometry, page.BodyTop, page.BodyBottom, result.SuppressSpaceBefore, false, page.Notes, page.Floats)];
@@ -144,28 +239,130 @@ internal sealed class PageFiller
         // of it, so this ends; the limit only guards against a fault.
         for (var extra = 0; Chrome is { HasCarry: true } && extra < MaximumNotePages; extra++)
         {
+            SetRecord(pageIndex, null);
             yield return Finish(Begin(pageIndex++, nextNumber++, current ?? _sections[0]), []);
         }
     }
 
-    /// <summary>The pages of the layout with the header or footer made again now that the page counts are known (call once, when the last page is out).</summary>
-    public IReadOnlyList<(int Index, LaidOutPage Page)> Revisions()
+    private int _recordedPage = -1;
+
+    private void SetRecord(int index, FillerState? state)
+    {
+        while (Records.Count < index)
+        {
+            Records.Add(null);
+        }
+
+        if (Records.Count == index)
+        {
+            Records.Add(state);
+        }
+        else
+        {
+            Records[index] = state;
+        }
+    }
+
+    // Keeps a state and asks the probe whether it ends the run.
+    private bool Record(FillerState? state)
+    {
+        if (state is null)
+        {
+            return false;
+        }
+
+        SetRecord(state.PageIndex, state);
+        _recordedPage = state.PageIndex;
+        if (StopProbe is { } probe && probe(state))
+        {
+            StopMatched = true;
+            StopIndex = state.PageIndex;
+            return true;
+        }
+
+        return false;
+    }
+
+    // The state when a page that starts a section is about to begin: the planner stands before the first block of the section (the sections
+    // before it have been planned to their end and nothing is looked at ahead across a section).
+    private FillerState SectionStartState(int pageIndex, int nextNumber, SectionPlan section)
+    {
+        var number = section.PageNumberStart ?? nextNumber;
+        var blank = !_flowMode && NeedsBlankPage(section.Start, number);
+        var block = blank ? null : _blocks[section.FirstBlock].Block;
+        var (numbers, notes) = _planner.CurrentState();
+        return Make(PageStartKind.Section, new PageStart(block, 0, section.Index), null, false, pageIndex, nextNumber, numbers, notes);
+    }
+
+    // The state when the page after a full one is about to begin with a carried piece; null when the piece cannot be resumed from (it comes from
+    // the endnotes at the end of the document, or its block has no plan on record).
+    private FillerState? CarryStateOf(PlaceResult result, int sectionIndex, int pageIndex, int nextNumber, SectionSource source)
+    {
+        // The state after the carried block, as this run left it when it planned that block: the cache entry may stem from an older run.
+        var block = source.LastTaken;
+        if (block is null || source.LastTakenNumbers is not { } numbers || result.Carry is not { } piece)
+        {
+            SetRecord(pageIndex, null);
+            return null;
+        }
+
+        return Make(PageStartKind.Carry, new PageStart(block, piece.StartLine, sectionIndex), piece, result.SuppressSpaceBefore, pageIndex, nextNumber, numbers, source.LastTakenNotes);
+    }
+
+    private FillerState Make(PageStartKind kind, PageStart start, IBlockFlow? carry, bool suppress, int pageIndex, int nextNumber, NumberingState numbers, NoteState? notes)
+    {
+        var started = new int[_startedSections.Count];
+        _startedSections.CopyTo(started);
+        Array.Sort(started);
+        return new FillerState(kind, start, carry, suppress, pageIndex, nextNumber, [.. _sectionPages], started, numbers, notes, Chrome?.CarryState);
+    }
+
+    // Puts everything a state holds back: the counters, the planner, the notes that run over, and the pages with a page count from the pages before.
+    private void Apply(FillerState state)
+    {
+        _sectionPages.Clear();
+        _sectionPages.AddRange(state.SectionPages);
+        _startedSections.Clear();
+        foreach (var index in state.StartedSections)
+        {
+            _startedSections.Add(index);
+        }
+
+        _pageCount = state.PageIndex;
+        _planner.RestoreState(state.Numbers, state.Notes);
+        Chrome?.RestoreCarry(state.ChromeCarry);
+        _revisable.RemoveAll(r => r.Published.Index >= state.PageIndex);
+    }
+
+    /// <summary>
+    /// The pages of the layout with the header or footer made again now that the page counts are known (call when the last page is out). The
+    /// entries stay, so the pages can be made again after an edit that changed the counts.
+    /// </summary>
+    public IReadOnlyList<(int Index, LaidOutPage Page)> Revisions() => Revisions(0, int.MaxValue, _pageCount, _sectionPages);
+
+    /// <summary>The revised pages of the page indexes <c>[from, to)</c> for the given totals.</summary>
+    public IReadOnlyList<(int Index, LaidOutPage Page)> Revisions(int from, int to, int totalPages, IReadOnlyList<int> sectionPages)
     {
         if (Chrome is null || _revisable.Count == 0)
         {
             return [];
         }
 
-        var revised = new List<(int, LaidOutPage)>(_revisable.Count);
+        var revised = new List<(int, LaidOutPage)>();
         foreach (var r in _revisable)
         {
+            var index = r.Published.Index;
+            if (index < from || index >= to)
+            {
+                continue;
+            }
+
             // Header and footer are drawn again into an empty builder; the body and note items and their text are the published page's own.
-            var scratch = new PageBuilder(r.Published.Index, r.Number, r.Published.Number, r.Section, r.IsFirstOfSection);
-            Chrome.Revise(scratch, _pageCount, _sectionPages);
-            revised.Add((r.Published.Index, r.Rebuild(scratch)));
+            var scratch = new PageBuilder(index, r.Number, r.Published.Number, r.Section, r.IsFirstOfSection);
+            Chrome.Revise(scratch, totalPages, sectionPages);
+            revised.Add((index, r.Rebuild(scratch)));
         }
 
-        _revisable.Clear();
         return revised;
     }
 
@@ -173,23 +370,10 @@ internal sealed class PageFiller
     /// What a page with a provisional page count keeps until the layout is complete: the published page (its item array and text are
     /// shared, not copied) and the sizes of the header and footer parts in them. It holds no <see cref="PageBuilder"/>.
     /// </summary>
-    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderRaw, int FooterRaw, int RawLength)
+    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderLines, int FooterLines, int HeaderRaw, int FooterRaw, int RawLength)
     {
-        public LaidOutPage Rebuild(PageBuilder scratch)
-        {
-            var header = scratch.ItemsOf(PageRegion.Header);
-            var footer = scratch.ItemsOf(PageRegion.Footer);
-            var old = Published.ItemArray;
-            var items = new PageItem[header.Length + (old.Length - HeaderItems - FooterItems) + footer.Length];
-            header.CopyTo(items, 0);
-            Array.Copy(old, HeaderItems, items, header.Length, old.Length - HeaderItems - FooterItems);
-            footer.CopyTo(items, items.Length - footer.Length);
-
-            var raw = Published.Text.Length < RawLength ? Published.Text + '\n' : Published.Text;
-            var raw2 = string.Concat(scratch.RawTextOf(PageRegion.Header), raw.AsSpan(HeaderRaw, RawLength - HeaderRaw - FooterRaw), scratch.RawTextOf(PageRegion.Footer));
-            var text = raw2.Length == 0 ? string.Empty : raw2[..^1];
-            return new LaidOutPage(Published.Index, Published.Number, Published.Width, Published.Height, Published.IsStrip, items, text, Published.Spans);
-        }
+        public LaidOutPage Rebuild(PageBuilder scratch) =>
+            new ChromeInfo(Section, Number, IsFirstOfSection, HeaderItems, FooterItems, HeaderLines, FooterLines, HeaderRaw, FooterRaw, RawLength, 0f, 0f, null, null).Rebuild(Published, scratch, false);
     }
 
     private int LastNonEmpty()
@@ -269,13 +453,11 @@ internal sealed class PageFiller
 
         Chrome?.End(page);
         var height = geometry.IsStrip ? Math.Max(1f, end) : geometry.Height;
-        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals);
+        var info = ChromeInfo.Of(page);
+        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray(), chrome: Chrome is null ? null : info);
         if (page.NeedsTotals)
         {
-            var header = page.RawTextOf(PageRegion.Header).Length;
-            var footer = page.RawTextOf(PageRegion.Footer).Length;
-            var rawLength = header + footer + page.RawTextOf(PageRegion.Body).Length + page.RawTextOf(PageRegion.Notes).Length;
-            _revisable.Add(new Revisable(built, page.Section, page.Number, page.IsFirstOfSection, page.ItemCount(PageRegion.Header), page.ItemCount(PageRegion.Footer), header, footer, rawLength));
+            _revisable.Add(new Revisable(built, info.Section, info.Number, info.IsFirstOfSection, info.HeaderItems, info.FooterItems, info.HeaderLines, info.FooterLines, info.HeaderRaw, info.FooterRaw, info.RawLength));
         }
 
         PageFinished?.Invoke(page);
@@ -360,7 +542,7 @@ internal sealed class PageFiller
         private readonly IReadOnlyList<FlatBlock> _blocks;
         private readonly int _end;
         private readonly Action<int> _touch;
-        private readonly List<BlockPlan> _ahead = [];
+        private readonly List<Ahead> _ahead = [];
         private IEnumerator<BlockPlan>? _trailer;
         private int _next;
 
@@ -382,15 +564,28 @@ internal sealed class PageFiller
                 return null;
             }
 
-            var plan = _ahead[0];
+            var next = _ahead[0];
             _ahead.RemoveAt(0);
-            return plan.Layout(width);
+            LastTaken = next.Block;
+            LastTakenNumbers = next.Numbers;
+            LastTakenNotes = next.Notes;
+            return next.Plan.Layout(width);
         }
+
+        /// <summary>The numbering and note state right after the last block taken was planned in this run (what a page that starts after it resumes from).</summary>
+        public NumberingState? LastTakenNumbers { get; private set; }
+
+        public NoteState? LastTakenNotes { get; private set; }
+
+        private readonly record struct Ahead(BlockPlan Plan, Block? Block, NumberingState? Numbers, NoteState? Notes);
+
+        /// <summary>The block of the plan last taken (null for an endnote block, or before the first take): every piece that carries over onto the next page belongs to it.</summary>
+        public Block? LastTaken { get; private set; }
 
         public IBlockFlow? Peek(int ahead, float width)
         {
             Prepare(ahead);
-            return ahead < _ahead.Count ? _ahead[ahead].Layout(width) : null;
+            return ahead < _ahead.Count ? _ahead[ahead].Plan.Layout(width) : null;
         }
 
         private void Prepare(int ahead)
@@ -401,9 +596,10 @@ internal sealed class PageFiller
                 {
                     var flat = _blocks[_next++];
                     _touch(flat.BodyIndex);
-                    if (_planner.Plan(flat) is { } plan)
+                    if (_planner.PlanFor(flat) is { } plan)
                     {
-                        _ahead.Add(plan);
+                        var (numbers, notes) = _planner.CurrentState();
+                        _ahead.Add(new Ahead(plan, flat.Block, numbers, notes));
                     }
 
                     continue;
@@ -412,7 +608,7 @@ internal sealed class PageFiller
                 // After the last block of the document come the endnotes (every reference is numbered by now).
                 if (_trailer is not null && _trailer.MoveNext())
                 {
-                    _ahead.Add(_trailer.Current);
+                    _ahead.Add(new Ahead(_trailer.Current, null, null, null));
                     continue;
                 }
 

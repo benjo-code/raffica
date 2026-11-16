@@ -1,0 +1,573 @@
+using System.Text;
+using System.Xml.Linq;
+using Raffica.Write.Model;
+
+namespace Raffica.Write.Editing;
+
+/// <summary>
+/// How much the history may keep. The oldest steps go first; the newest step is always kept, even when it alone is over
+/// <paramref name="MaxBytes"/>. A step's size counts text and property bags of its snapshots only (see <see cref="EditHistory"/>).
+/// </summary>
+public sealed record HistoryLimits(int MaxSteps, long MaxBytes)
+{
+    /// <summary>
+    /// 1000 steps and 16 MiB of snapshot estimate. On the generated thesis a paragraph's snapshot is about 2.2 KB (median; 4 KB at most),
+    /// so a typing step (before and after) is about 4.4 KB and 1000 of them about 4.4 MB; the whole body is 3.6 MB estimated (5.3 MB
+    /// real, the estimate is about 70 percent of the heap), so the byte limit holds four select-all deletes of the thesis.
+    /// </summary>
+    public static HistoryLimits Default { get; } = new(1000, 16L * 1024 * 1024);
+}
+
+/// <summary>
+/// One linear undo and redo history for a document, across all of its stories. A step is the <see cref="BlockChange"/> of one
+/// editing operation: clones of the blocks before and after, the story, the place of the list of blocks, the caret before and after and
+/// the document revision at both ends. <see cref="UnknownContent"/> is shared with the document, never copied.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Every edit of the document must go through the history's editor.</b> The history checks <see cref="DocumentEdits.Revision"/> before
+/// it records, undoes or redoes: when the document was changed by anything else (the revision is not the one the history left it at),
+/// the history is dropped and starts again, so a step is never applied to a document it does not fit.
+/// </para>
+/// <para>
+/// Undo and redo put <em>clones</em> into the document, and every position of a step is an index, never an object: after an undo the
+/// document holds objects it did not hold before, and the caret of the returned <see cref="EditResult"/> is the restored paragraph.
+/// A list of blocks is named by its story and a path from the story's blocks (a block index, then the row items down to a cell, and so
+/// on), resolved against the document at the time of the undo; so a step in a table cell still finds its cell after the undo of a
+/// structural edit replaced the table by a clone. The blocks of the <see cref="BlockChange.OldBlocks"/> of an undo or redo are the
+/// history's own snapshots: callers must not change them.
+/// </para>
+/// <para>
+/// <b>Coalescing.</b> Typing joins the previous step when all of this holds: the operation is an insert that replaced no selection and
+/// has one line (no paragraph break); the text consists of letters and digits only; the previous step is the newest one, itself a
+/// typing step, and nothing touched the document or the history since (no other operation, undo, redo or save on the
+/// previous step's revision); the caret is where that step ended, in the same list of blocks; and less than two seconds passed since
+/// the previous keystroke. Text with any other character (a blank, punctuation, a tab) starts a new step, which following letters
+/// join: "hello world" is the steps "hello" and " world".
+/// </para>
+/// </remarks>
+public sealed class EditHistory
+{
+    private static readonly TimeSpan Pause = TimeSpan.FromSeconds(2);
+
+    private readonly WordDocument _document;
+    private readonly TimeProvider _time;
+    private readonly HistoryLimits _limits;
+    private readonly List<Step> _undo = [];
+    private readonly List<Step> _redo = [];
+    private long _undoBytes;
+    private int _expected;
+    private Step? _open;
+    private IList<Block>? _openContainer;
+    private long _openStamp;
+
+    public EditHistory(WordDocument document, TimeProvider time, HistoryLimits limits)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(time);
+        ArgumentNullException.ThrowIfNull(limits);
+        _document = document;
+        _time = time;
+        _limits = limits;
+        _expected = document.Edits.Revision;
+    }
+
+    public bool CanUndo
+    {
+        get
+        {
+            Validate();
+            return _undo.Count > 0;
+        }
+    }
+
+    public bool CanRedo
+    {
+        get
+        {
+            Validate();
+            return _redo.Count > 0;
+        }
+    }
+
+    /// <summary>The number of steps that can be undone.</summary>
+    public int UndoCount
+    {
+        get
+        {
+            Validate();
+            return _undo.Count;
+        }
+    }
+
+    /// <summary>The estimated size of the steps that can be undone (text and property bags of their snapshots).</summary>
+    public long UndoBytes
+    {
+        get
+        {
+            Validate();
+            return _undoBytes;
+        }
+    }
+
+    /// <summary>
+    /// Undoes the newest step: the blocks it added are replaced by the ones it removed and the document's revision is set back to the one the step
+    /// started from. The caret is where it was before the step. Null when there is nothing to undo.
+    /// </summary>
+    public EditResult? Undo()
+    {
+        Validate();
+        if (_undo.Count == 0)
+        {
+            return null;
+        }
+
+        var step = _undo[^1];
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length))
+        {
+            Clear();
+            return null;
+        }
+
+        Swap(container, step.First, step.New.Length, step.Old);
+        _undo.RemoveAt(_undo.Count - 1);
+        _undoBytes -= step.Bytes;
+        _redo.Add(step);
+        _document.Edits.Restore(step.StartRevision);
+        _expected = step.StartRevision;
+        _open = null;
+        return Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
+    }
+
+    /// <summary>Redoes the step that was undone last. Null when there is nothing to redo.</summary>
+    public EditResult? Redo()
+    {
+        Validate();
+        if (_redo.Count == 0)
+        {
+            return null;
+        }
+
+        var step = _redo[^1];
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length))
+        {
+            Clear();
+            return null;
+        }
+
+        Swap(container, step.First, step.Old.Length, step.New);
+        _redo.RemoveAt(_redo.Count - 1);
+        _undo.Add(step);
+        _undoBytes += step.Bytes;
+        _document.Edits.Restore(step.EndRevision);
+        _expected = step.EndRevision;
+        _open = null;
+        return Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
+    }
+
+    /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history).</summary>
+    public void Clear()
+    {
+        _undo.Clear();
+        _redo.Clear();
+        _undoBytes = 0;
+        _open = null;
+        _openContainer = null;
+        _expected = _document.Edits.Revision;
+    }
+
+    /// <summary>The place in a list of blocks a caret has: the index of its paragraph and the offset.</summary>
+    internal readonly record struct Point(int Index, int Offset);
+
+    /// <summary>The revision to hand to <see cref="Record"/> as <c>revisionBefore</c>: the history drops its steps first when the document changed behind its back.</summary>
+    internal int BeginOperation()
+    {
+        Validate();
+        return _document.Edits.Revision;
+    }
+
+    /// <summary>
+    /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
+    /// selection and without a line break, else null.
+    /// </summary>
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed)
+    {
+        if (result.Changes.Count != 1)
+        {
+            return;
+        }
+
+        var change = result.Changes[0];
+        var index = change.Container.IndexOf(result.Caret.Paragraph);
+        if (Root(change.Story) is not { } root || PathTo(root, change.Container) is not { } path || index < 0)
+        {
+            Clear();
+            return;
+        }
+
+        var after = new Point(index, result.Caret.Offset);
+        var newBlocks = CloneRange(change.Container, change.First, change.Added);
+        var stamp = _time.GetTimestamp();
+        var endRevision = _document.Edits.Revision;
+        _redo.Clear();
+
+        if (typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore))
+        {
+            var step = _open!;
+            _undoBytes -= step.Bytes;
+            step.New = newBlocks;
+            step.After = after;
+            step.EndRevision = endRevision;
+            step.Bytes = SizeOf(step.Old) + SizeOf(newBlocks);
+            _undoBytes += step.Bytes;
+            _openStamp = stamp;
+            _expected = endRevision;
+            return;
+        }
+
+        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision);
+        added.Bytes = SizeOf(added.Old) + SizeOf(added.New);
+        _undo.Add(added);
+        _undoBytes += added.Bytes;
+        _expected = endRevision;
+        if (typed is not null)
+        {
+            _open = added;
+            _openContainer = change.Container;
+            _openStamp = stamp;
+        }
+        else
+        {
+            _open = null;
+            _openContainer = null;
+        }
+
+        Trim();
+    }
+
+    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore)
+    {
+        var step = _open;
+        return step is not null
+            && _undo.Count > 0
+            && ReferenceEquals(_undo[^1], step)
+            && ReferenceEquals(_openContainer, change.Container)
+            && step.EndRevision == revisionBefore
+            && step.EndRevision != _document.Edits.SavedRevision
+            && step.Story == change.Story
+            && change.First == step.First
+            && change.Removed == 1
+            && change.Added == 1
+            && before == step.After
+            && _time.GetElapsedTime(_openStamp, stamp) < Pause;
+    }
+
+    private static bool IsWord(string text)
+    {
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (var rune in text.EnumerateRunes())
+        {
+            if (!Rune.IsLetterOrDigit(rune))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void Validate()
+    {
+        if (_document.Edits.Revision != _expected)
+        {
+            Clear();
+        }
+    }
+
+    private void Trim()
+    {
+        var drop = 0;
+        var bytes = _undoBytes;
+        while (_undo.Count - drop > 1 && (_undo.Count - drop > _limits.MaxSteps || bytes > _limits.MaxBytes))
+        {
+            bytes -= _undo[drop].Bytes;
+            drop++;
+        }
+
+        if (drop > 0)
+        {
+            _undo.RemoveRange(0, drop);
+            _undoBytes = bytes;
+        }
+    }
+
+    private IList<Block>? Resolve(Step step) => Root(step.Story) is { } root ? FollowPath(root, step.Path) : null;
+
+    private IList<Block>? Root(StoryRef story) => StoryResolver.TryBlocks(_document, story);
+
+    private static bool Fits(IList<Block> container, int first, int count) => first >= 0 && first + count <= container.Count;
+
+    private static void Swap(IList<Block> container, int first, int remove, Block[] insert)
+    {
+        if (container is List<Block> list)
+        {
+            list.RemoveRange(first, remove);
+            list.InsertRange(first, insert.Select(b => b.Clone()));
+            return;
+        }
+
+        for (var i = remove - 1; i >= 0; i--)
+        {
+            container.RemoveAt(first + i);
+        }
+
+        for (var i = 0; i < insert.Length; i++)
+        {
+            container.Insert(first + i, insert[i].Clone());
+        }
+    }
+
+    private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks)
+    {
+        var index = Math.Clamp(caret.Index, 0, container.Count - 1);
+        var paragraph = container[index] as Paragraph ?? container.OfType<Paragraph>().FirstOrDefault()
+            ?? throw new InvalidOperationException("The restored blocks hold no paragraph.");
+        return new EditResult(
+            new TextPosition(step.Story, paragraph, caret.Offset),
+            [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)]);
+    }
+
+    private static Block[] CloneRange(IList<Block> container, int first, int count)
+    {
+        var clones = new Block[count];
+        for (var i = 0; i < count; i++)
+        {
+            clones[i] = container[first + i].Clone();
+        }
+
+        return clones;
+    }
+
+    // The path of a list of blocks below the root list: a block index (a table, or a content control whose step ends in its content list), then row item indices down to a cell, then the next
+    // block index when the list is inside a nested table, and so on. An empty path is the root list itself.
+    private static int[]? PathTo(IList<Block> root, IList<Block> target)
+    {
+        var path = new List<int>();
+        return Search(root, target, path) ? path.ToArray() : null;
+    }
+
+    private static bool Search(IList<Block> blocks, IList<Block> target, List<int> path)
+    {
+        if (ReferenceEquals(blocks, target))
+        {
+            return true;
+        }
+
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            path.Add(i);
+            var found = blocks[i] switch
+            {
+                Table table => SearchItems(table.Rows, target, path),
+                ContentControlBlock control => Search(control.Content, target, path),
+                _ => false,
+            };
+            if (found)
+            {
+                return true;
+            }
+
+            path.RemoveAt(path.Count - 1);
+        }
+
+        return false;
+    }
+
+    private static bool SearchItems(IList<RowItem> items, IList<Block> target, List<int> path)
+    {
+        for (var i = 0; i < items.Count; i++)
+        {
+            path.Add(i);
+            var found = items[i] switch
+            {
+                TableCell cell => Search(cell.Blocks, target, path),
+                TableRow row => SearchItems(row.Items, target, path),
+                _ => false,
+            };
+            if (found)
+            {
+                return true;
+            }
+
+            path.RemoveAt(path.Count - 1);
+        }
+
+        return false;
+    }
+
+    private static IList<Block>? FollowPath(IList<Block> root, int[] path)
+    {
+        var blocks = root;
+        var at = 0;
+        while (at < path.Length)
+        {
+            if (path[at] < 0 || path[at] >= blocks.Count)
+            {
+                return null;
+            }
+
+            var step = blocks[path[at]];
+            at++;
+            if (step is ContentControlBlock control)
+            {
+                blocks = control.Content;
+                continue;
+            }
+
+            if (step is not Table table)
+            {
+                return null;
+            }
+
+            var items = table.Rows;
+            while (true)
+            {
+                if (at >= path.Length || path[at] < 0 || path[at] >= items.Count)
+                {
+                    return null;
+                }
+
+                var item = items[path[at++]];
+                if (item is TableCell cell)
+                {
+                    blocks = cell.Blocks;
+                    break;
+                }
+
+                if (item is not TableRow row)
+                {
+                    return null;
+                }
+
+                items = row.Items;
+            }
+        }
+
+        return blocks;
+    }
+
+    /// <summary>The estimated size of the text and the property bags of the blocks in bytes; <see cref="UnknownContent"/> is shared with the document and not counted.</summary>
+    internal static long SizeOf(IEnumerable<Block> blocks)
+    {
+        long size = 0;
+        foreach (var block in blocks)
+        {
+            size += SizeOf(block);
+        }
+
+        return size;
+    }
+
+    private static long SizeOf(Block block) => block switch
+    {
+        Paragraph p => 48 + SizeOf(p.Properties) + SizeOf(p.Inlines),
+        Table t => 64 + SizeOf(t.Properties) + (t.GridColumns.Count * 4L) + t.Rows.Sum(SizeOf),
+        ContentControlBlock c => 48 + SizeOf(c.Properties) + SizeOf(c.Content),
+        _ => 32,
+    };
+
+    private static long SizeOf(RowItem item) => item switch
+    {
+        TableRow r => 48 + SizeOf(r.Properties) + r.Items.Sum(SizeOf),
+        TableCell c => 48 + SizeOf(c.Properties) + SizeOf(c.Blocks),
+        _ => 32,
+    };
+
+    private static long SizeOf(IEnumerable<Inline> inlines)
+    {
+        long size = 0;
+        foreach (var inline in inlines)
+        {
+            size += 32;
+            if (inline is Run run)
+            {
+                size += SizeOf(run.Properties);
+                foreach (var content in run.Content)
+                {
+                    size += 32 + content switch
+                    {
+                        TextContent t => 2L * t.Text.Length,
+                        DeletedText d => 2L * d.Text.Length,
+                        InstructionText i => 2L * i.Text.Length,
+                        _ => 0,
+                    };
+                }
+            }
+            else if (ParagraphMap.ChildrenOf(inline) is { } children)
+            {
+                size += SizeOf(children);
+            }
+        }
+
+        return size;
+    }
+
+    private static long SizeOf(PropertyBag bag)
+    {
+        long size = 32;
+        foreach (var child in bag.Children)
+        {
+            size += SizeOf(child);
+        }
+
+        return size;
+    }
+
+    private static long SizeOf(XElement element)
+    {
+        long size = 48 + (2L * element.Name.LocalName.Length);
+        foreach (var attribute in element.Attributes())
+        {
+            size += 32 + (2L * attribute.Value.Length);
+        }
+
+        foreach (var node in element.Nodes())
+        {
+            size += node switch
+            {
+                XElement child => SizeOf(child),
+                XText text => 24 + (2L * text.Value.Length),
+                _ => 24,
+            };
+        }
+
+        return size;
+    }
+
+    private sealed class Step(StoryRef story, int[] path, int first, Block[] old, Block[] added, Point before, Point after, int startRevision, int endRevision)
+    {
+        public StoryRef Story { get; } = story;
+
+        public int[] Path { get; } = path;
+
+        public int First { get; } = first;
+
+        public Block[] Old { get; } = old;
+
+        public Block[] New { get; set; } = added;
+
+        public Point Before { get; } = before;
+
+        public Point After { get; set; } = after;
+
+        public int StartRevision { get; } = startRevision;
+
+        public int EndRevision { get; set; } = endRevision;
+
+        public long Bytes { get; set; }
+    }
+}

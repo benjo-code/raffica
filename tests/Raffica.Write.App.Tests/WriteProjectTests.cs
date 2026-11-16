@@ -17,7 +17,15 @@ public sealed class WriteProjectTests
 
         var project = XDocument.Load(RepoPaths.Combine("src", "Raffica.Write", "Raffica.Write.csproj"));
         var references = project.Descendants("ProjectReference").Select(r => Path.GetFileNameWithoutExtension(((string)r.Attribute("Include")!).Replace('\\', '/'))).Order(StringComparer.Ordinal).ToList();
-        Assert.Equal(["Raffica.Core", "Raffica.Hosting", "Raffica.Shell", "Raffica.Write.Docx", "Raffica.Write.Layout", "Raffica.Write.Model"], references);
+        Assert.Equal(["Raffica.Core", "Raffica.Hosting", "Raffica.Shell", "Raffica.Write.Docx", "Raffica.Write.Editing", "Raffica.Write.Layout", "Raffica.Write.Model"], references);
+    }
+
+    [Fact]
+    public void AppStillReferencesNoPdfAssembly()
+    {
+        var referenced = typeof(WriteOptions).Assembly.GetReferencedAssemblies().Select(a => a.Name ?? string.Empty).ToList();
+        Assert.DoesNotContain(referenced, n => n.StartsWith("Raffica.Pdf", StringComparison.Ordinal) || n.StartsWith("RafficaPdf", StringComparison.Ordinal));
+        Assert.Contains("Raffica.Write.Editing", referenced);
     }
 
     [Fact]

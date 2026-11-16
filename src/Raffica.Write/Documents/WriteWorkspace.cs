@@ -5,8 +5,8 @@ using Raffica.Core.Viewing;
 namespace Raffica.Write.Documents;
 
 /// <summary>
-/// The open documents of the window over Core's <see cref="TabList{T}"/>. A viewer has no unsaved changes, so closing a tab asks nothing; the editing milestones add
-/// the close question. UI thread only.
+/// The open documents of the window over Core's <see cref="TabList{T}"/>. <see cref="Close"/> closes without asking: the question about unsaved changes is the window's
+/// (<c>WriteWindow.CloseTabAsync</c> and the close of the window, through <see cref="CloseGuard"/>). UI thread only.
 /// </summary>
 internal sealed class WriteWorkspace
 {

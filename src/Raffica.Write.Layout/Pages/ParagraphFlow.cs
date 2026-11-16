@@ -8,7 +8,20 @@ internal abstract class BlockPlan
 
     protected BlockPlan(int bodyIndex) => BodyIndex = bodyIndex;
 
-    public int BodyIndex { get; }
+    public int BodyIndex { get; private set; }
+
+    /// <summary>
+    /// Moves the plan to another body index (a block was inserted or removed before it). The flow memoised for the last width carries the
+    /// old index, so it is dropped and made again on the next <see cref="Layout"/>.
+    /// </summary>
+    public virtual void Rebase(int bodyIndex)
+    {
+        if (BodyIndex != bodyIndex)
+        {
+            BodyIndex = bodyIndex;
+            _flow = null;
+        }
+    }
 
     /// <summary>The flow at this width. The answer for the last width asked is kept, because the filler measures ahead and then places.</summary>
     public IBlockFlow Layout(float width)
@@ -58,7 +71,31 @@ internal sealed class ParagraphPlan : BlockPlan
 
         // A floating object anchored after the break belongs to the part after it.
         var floats = Input.Floats?.Where(f => f.ItemIndex >= item).Select(f => f.WithItemIndex(f.ItemIndex - item)).ToArray();
-        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks, Floats = floats is { Length: > 0 } ? floats : null }, _layouter, isContinuation: true);
+        var map = (Input.ProjectionMap ?? OffsetMap.Identity).Slice(LayoutLength(Input.Items, item));
+        return new ParagraphPlan(BodyIndex, Input with { Items = rest, Label = null, NoteMarks = marks, Floats = floats is { Length: > 0 } ? floats : null, ProjectionMap = map }, _layouter, isContinuation: true);
+    }
+
+    /// <summary>
+    /// The length of the layout text of the first <paramref name="count"/> items (a hidden span has none, every box and break counts one).
+    /// This is the counting rule of <c>ParagraphLayouter</c> (a hidden text span adds 0, everything else adds its text length or 1): the
+    /// two must stay equal, because the continuation after a break slices the projection map at this length.
+    /// </summary>
+    internal static int LayoutLength(IReadOnlyList<ParagraphItem> items, int count) => LayoutLength(items, 0, count);
+
+    /// <summary>The length of the layout text of the items from <paramref name="from"/> up to <paramref name="to"/>.</summary>
+    internal static int LayoutLength(IReadOnlyList<ParagraphItem> items, int from, int to)
+    {
+        var length = 0;
+        for (var i = from; i < to && i < items.Count; i++)
+        {
+            length += items[i] switch
+            {
+                TextSpan span => span.Run.Hidden ? 0 : span.Text.Length,
+                _ => 1,
+            };
+        }
+
+        return length;
     }
 
     /// <summary>The text offset of each note mark of <see cref="ParagraphInput.NoteMarks"/> (counted as the layouter counts text).</summary>
@@ -197,6 +234,21 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
 
     public bool IsFirstPiece => _from == 0 && !_plan.IsContinuation;
 
+    public int StartLine => _from;
+
+    // The same plan, the same lines of it at the same height. A layout that was not made for a place (no wrapping around objects) is a function
+    // of the plan and the width, so two of them are equal even when they are not the same object (a plan that moved to another body index makes
+    // its flow again); a layout made for a place is compared by reference.
+    public bool SamePieceAs(IBlockFlow? other) =>
+        other is ParagraphFlow flow
+        && ReferenceEquals(_plan, flow._plan)
+        && _from == flow._from
+        && _to == flow._to
+        && _placed == flow._placed
+        && Height == flow.Height
+        && _layout.Lines.Count == flow._layout.Lines.Count
+        && (ReferenceEquals(_layout, flow._layout) || !_placed);
+
     public float Height { get; }
 
     public float SpaceBefore => IsFirstPiece ? Format.SpaceBefore : 0f;
@@ -322,6 +374,11 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
             var line = _layout.Lines[i];
             var lineTop = y + (line.Top - _top);
             LineItems.Emit(page, line, x, lineTop);
+            if (_plan.Input is { Source: { } source, Projection: { } projection } input)
+            {
+                page.AddTextLine(new TextLine(source.Story, source.Paragraph, projection, RunsOf(line), StartOf(input, line, i), EndOf(input, line, i), x, lineTop, lineTop + line.Baseline, line.Height, input.ProjectionMap ?? OffsetMap.Identity, source.Cell, line.X, line.X + line.Width, input.Host));
+            }
+
             var text = _layout.TextOf(line);
             page.AddLine(i == 0 && IsFirstPiece && _plan.Input.Label is { } label ? label.Text + " " + text : text);
         }
@@ -335,6 +392,16 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
             }
         }
     }
+
+    private static GlyphRun[] RunsOf(LineBox line) => line.Runs as GlyphRun[] ?? [.. line.Runs];
+
+    // The first line of a paragraph starts at 0 (a leading character the layout gave no room belongs to it); a continuation starts where its map says.
+    private int StartOf(ParagraphInput input, LineBox line, int index) =>
+        index == 0 && !_plan.IsContinuation ? 0 : (input.ProjectionMap ?? OffsetMap.Identity).Map(line.Start);
+
+    // The last line of a paragraph ends at the end of the projection text; a line that ends in a manual break ends where the continuation starts.
+    private int EndOf(ParagraphInput input, LineBox line, int index) =>
+        _layout.EndBreak is null && index == _layout.Lines.Count - 1 ? input.Projection!.Text.Length : (input.ProjectionMap ?? OffsetMap.Identity).Map(line.End);
 
     // The note marks whose number is drawn on one of this piece's lines.
     private List<NoteRef> FindNotes()

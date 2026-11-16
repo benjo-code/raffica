@@ -9,4 +9,17 @@ public sealed class Paragraph : Block
     public SectionProperties? SectionBreak { get; set; }
 
     public IList<Inline> Inlines { get; } = new List<Inline>();
+
+    public override Paragraph Clone()
+    {
+        var copy = new Paragraph { SectionBreak = SectionBreak?.Clone() };
+        Properties.CopyStateTo(copy.Properties);
+        CopyAttributesTo(copy);
+        foreach (var inline in Inlines)
+        {
+            copy.Inlines.Add(inline.Clone());
+        }
+
+        return copy;
+    }
 }

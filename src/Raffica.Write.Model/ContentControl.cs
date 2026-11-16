@@ -24,6 +24,33 @@ public sealed class ContentControlFrame
 
     /// <summary>Children of <c>w:sdt</c> the model does not know, in order.</summary>
     public IList<UnknownContent> OtherChildren { get; } = new List<UnknownContent>();
+
+    /// <summary>A copy of the frame: the properties and attributes are new objects, the kept <see cref="UnknownContent"/> is shared.</summary>
+    public ContentControlFrame Clone()
+    {
+        var copy = new ContentControlFrame();
+        CopyInto(copy);
+        return copy;
+    }
+
+    internal void CopyInto(ContentControlFrame target)
+    {
+        target.PropertiesPosition = PropertiesPosition;
+        target.EndProperties = EndProperties;
+        target.EndPropertiesPosition = EndPropertiesPosition;
+        target.ContentPosition = ContentPosition;
+        target.HasContent = HasContent;
+        Properties.CopyStateTo(target.Properties);
+        foreach (var attribute in ContentAttributes)
+        {
+            target.ContentAttributes.Add(new XAttribute(attribute));
+        }
+
+        foreach (var other in OtherChildren)
+        {
+            target.OtherChildren.Add(other);
+        }
+    }
 }
 
 /// <summary>A block-level <c>w:sdt</c> (content control) holding blocks.</summary>
@@ -34,6 +61,19 @@ public sealed class ContentControlBlock : Block
     public PropertyBag Properties => Frame.Properties;
 
     public IList<Block> Content { get; } = new List<Block>();
+
+    public override ContentControlBlock Clone()
+    {
+        var copy = new ContentControlBlock();
+        Frame.CopyInto(copy.Frame);
+        CopyAttributesTo(copy);
+        foreach (var block in Content)
+        {
+            copy.Content.Add(block.Clone());
+        }
+
+        return copy;
+    }
 }
 
 /// <summary>An inline <c>w:sdt</c> (content control inside a paragraph) holding inlines.</summary>
@@ -44,4 +84,17 @@ public sealed class ContentControlInline : Inline
     public PropertyBag Properties => Frame.Properties;
 
     public IList<Inline> Inlines { get; } = new List<Inline>();
+
+    public override ContentControlInline Clone()
+    {
+        var copy = new ContentControlInline();
+        Frame.CopyInto(copy.Frame);
+        CopyAttributesTo(copy);
+        foreach (var inline in Inlines)
+        {
+            copy.Inlines.Add(inline.Clone());
+        }
+
+        return copy;
+    }
 }

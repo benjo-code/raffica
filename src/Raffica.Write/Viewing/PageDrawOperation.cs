@@ -99,7 +99,7 @@ internal sealed class DrawGate
 /// to pixels measured from the page origin), the scale is the pixels per point at the current zoom and screen scaling, and everything runs inside the
 /// <see cref="DrawGate"/> so a tab that closes cannot dispose the pictures under the draw. It runs on Avalonia's render thread and allocates no bitmap.
 /// </summary>
-internal sealed class PageDrawOperation(Rect bounds, LaidOutPage page, double dipsPerPoint, ImageCache images, DrawGate gate, Action<int>? drawn) : ICustomDrawOperation
+internal sealed class PageDrawOperation(Rect bounds, LaidOutPage page, double dipsPerPoint, ImageCache images, DrawGate gate, Action<int>? drawn, Action<long, long>? timed = null) : ICustomDrawOperation
 {
     public Rect Bounds => bounds;
 
@@ -119,6 +119,7 @@ internal sealed class PageDrawOperation(Rect bounds, LaidOutPage page, double di
             return;
         }
 
+        var startedAt = timed is null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
             using var lease = feature.Lease();
@@ -144,6 +145,7 @@ internal sealed class PageDrawOperation(Rect bounds, LaidOutPage page, double di
             }
 
             drawn?.Invoke(page.Index);
+            timed?.Invoke(startedAt, System.Diagnostics.Stopwatch.GetTimestamp());
         }
         finally
         {

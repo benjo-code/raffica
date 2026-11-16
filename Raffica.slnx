@@ -10,6 +10,7 @@
     <Project Path="src/Raffica.Shell/Raffica.Shell.csproj" />
     <Project Path="src/Raffica.Write/Raffica.Write.csproj" />
     <Project Path="src/Raffica.Write.Docx/Raffica.Write.Docx.csproj" />
+    <Project Path="src/Raffica.Write.Editing/Raffica.Write.Editing.csproj" />
     <Project Path="src/Raffica.Write.Layout/Raffica.Write.Layout.csproj" />
     <Project Path="src/Raffica.Write.Model/Raffica.Write.Model.csproj" />
   </Folder>

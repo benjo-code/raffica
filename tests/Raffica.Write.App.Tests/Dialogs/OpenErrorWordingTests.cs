@@ -68,7 +68,7 @@ public sealed class OpenErrorWordingTests
     [Fact]
     public void EveryCardFactoryIsListed()
     {
-        var listed = Entries().Select(e => e.Key).ToHashSet(StringComparer.Ordinal);
+        var listed = Entries().Concat(CardFooterTests.Entries()).Select(e => e.Key).ToHashSet(StringComparer.Ordinal);
         var factories = typeof(OpenErrorCard).Assembly.GetTypes()
             .Where(t => t.Namespace == "Raffica.Write.Dialogs" && t.IsAbstract && t.IsSealed)
             .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)

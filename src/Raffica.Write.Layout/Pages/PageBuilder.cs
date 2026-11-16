@@ -23,6 +23,7 @@ internal sealed class PageBuilder
     private readonly List<PageItem>[] _items = [[], [], [], [], []];
     private readonly StringBuilder[] _text = [new(), new(), new(), new(), new()];
     private readonly List<BlockSpan> _spans = [];
+    private readonly List<TextLine>[] _lines = [[], [], [], [], []];
 
     public PageBuilder(int index, int number, string numberText, SectionPlan section, bool isFirstOfSection)
     {
@@ -61,6 +62,18 @@ internal sealed class PageBuilder
     /// <summary>The footnotes of this page; null when the page has none to place (the writing view).</summary>
     public PageNotes? Notes { get; set; }
 
+    /// <summary>The height of the header and of the footer block placed on this page (0 for none), and the parts they are made from (null for none): what a chrome-only refresh compares.</summary>
+    internal float HeaderHeight { get; set; }
+
+    internal float FooterHeight { get; set; }
+
+    internal string? HeaderPart { get; set; }
+
+    internal string? FooterPart { get; set; }
+
+    /// <summary>True when the header or footer shows a page count (known or not): the page has to be revised when the count changes.</summary>
+    internal bool UsesTotals { get; set; }
+
     /// <summary>True when the header or footer shows a total that was not known yet; the page is made again when the layout is complete.</summary>
     public bool NeedsTotals { get; set; }
 
@@ -96,11 +109,56 @@ internal sealed class PageBuilder
 
     internal void AddSpan(BlockSpan span) => _spans.Add(span);
 
+    /// <summary>Adds the record of a line to the current region.</summary>
+    internal void AddTextLine(TextLine line) => _lines[(int)Region].Add(line);
+
     /// <summary>Forgets what a region holds (the header and footer are made again at the end).</summary>
     internal void Clear(PageRegion region)
     {
         _items[(int)region].Clear();
         _text[(int)region].Clear();
+        _lines[(int)region].Clear();
+    }
+
+    internal int LineCount(PageRegion region) => _lines[(int)region].Count;
+
+    /// <summary>The length of the text of a region as it is added (every line ends with a line feed).</summary>
+    internal int RawLengthOf(PageRegion region) => _text[(int)region].Length;
+
+    /// <summary>The length of the text of all regions as it is added.</summary>
+    internal int RawLength
+    {
+        get
+        {
+            var length = 0;
+            foreach (var text in _text)
+            {
+                length += text.Length;
+            }
+
+            return length;
+        }
+    }
+
+    internal TextLine[] LinesOf(PageRegion region) => [.. _lines[(int)region]];
+
+    internal TextLine[] TextLineArray()
+    {
+        var count = 0;
+        foreach (var list in _lines)
+        {
+            count += list.Count;
+        }
+
+        var all = new TextLine[count];
+        var at = 0;
+        foreach (var list in _lines)
+        {
+            list.CopyTo(all, at);
+            at += list.Count;
+        }
+
+        return all;
     }
 
     internal int ItemCount(PageRegion region) => _items[(int)region].Count;
@@ -154,6 +212,12 @@ internal interface IPageChrome
 
     /// <summary>True when a note continues beyond the last page made: the filler adds pages until it has ended.</summary>
     bool HasCarry { get; }
+
+    /// <summary>The notes that run over from the last page ended onto the next one (the chrome's own object, never changed afterwards), or null when none do.</summary>
+    object? CarryState { get; }
+
+    /// <summary>Sets the notes that run over onto the next page to a state <see cref="CarryState"/> returned (the filler goes on from a saved page start).</summary>
+    void RestoreCarry(object? state);
 
     /// <summary>The blocks that end the document (the endnotes); enumerated once the whole body is planned.</summary>
     IEnumerable<BlockPlan> Trailer();

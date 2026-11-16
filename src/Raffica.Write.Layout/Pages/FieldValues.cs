@@ -36,6 +36,9 @@ internal sealed class FieldContext
     /// <summary>True when a PAGE field was evaluated (the text then depends on the page number).</summary>
     public bool UsedPage { get; private set; }
 
+    /// <summary>True when a NUMPAGES or SECTIONPAGES field was evaluated, whether its total was known or not (the page then depends on the count of pages).</summary>
+    public bool UsedTotal { get; private set; }
+
     /// <summary>True when an evaluated field needed a total that was not known (the page has to be made again at the end).</summary>
     public bool UsedPendingTotal { get; private set; }
 
@@ -78,6 +81,7 @@ internal sealed class FieldContext
 
     private string Total(int? value, string? format)
     {
+        UsedTotal = true;
         if (value is not { } known)
         {
             UsedPendingTotal = true;

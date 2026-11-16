@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Raffica.Write.Model;
 
@@ -33,7 +34,8 @@ public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float Flo
 /// Threads: any thread may read <see cref="LaidOutPages"/>, <see cref="Page"/>, <see cref="Locate"/>, <see cref="BlockAt"/>,
 /// <see cref="IsComplete"/>, <see cref="FirstPageIsFinal"/> and <see cref="Notes"/> at any time. The methods that lay out take a
 /// gate, one at a time; a call from the UI thread waits for the page the background thread is on, not for the whole document. The
-/// document model must not change while a layout runs on it.
+/// document model must not change while a layout runs on it; <see cref="ApplyEdit"/> is the one way to follow a change of the model (it
+/// can make <see cref="LaidOutPages"/> smaller and raises <see cref="Revision"/>; see there for what readers can rely on).
 /// <para>
 /// A page whose header or footer shows NUMPAGES or SECTIONPAGES shows "…" there until the layout is complete and has
 /// <see cref="LaidOutPage.IsProvisional"/> set; the layout then publishes a new page object in the same place (only the header and
@@ -42,10 +44,12 @@ public sealed record LayoutOptions(LayoutMode Mode = LayoutMode.Pages, float Flo
 /// the old object stays unchanged.
 /// </para>
 /// </remarks>
-public sealed class DocumentLayout
+public sealed partial class DocumentLayout
 {
     private readonly object _gate = new();
     private readonly PageList _pages = new();
+    private readonly ParagraphPageMap _paragraphPages = new();
+    private readonly PreeditSlot _preedit = new();
     private readonly FontCatalog _fonts;
     private readonly LayoutOptions _options;
     private List<string> _notes;
@@ -61,7 +65,7 @@ public sealed class DocumentLayout
         _fonts = fonts;
         _options = options;
         _notes = [];
-        _engine = Engine.Build(document, fonts, options, _notes);
+        _engine = Engine.Build(document, fonts, options, _notes, _gate, _preedit);
     }
 
     /// <summary>Everything that depends on the document model: the filler and its iterator, the block tables and the planners. A replaced model gets a new one.</summary>
@@ -69,7 +73,7 @@ public sealed class DocumentLayout
     {
         public required PageFiller Filler { get; init; }
 
-        public required IEnumerator<LaidOutPage> Fill { get; init; }
+        public required IEnumerator<LaidOutPage> Fill { get; set; }
 
         public required int[] BlockPage { get; init; }
 
@@ -79,7 +83,21 @@ public sealed class DocumentLayout
 
         public required HeaderFooterPlan? Chrome { get; init; }
 
-        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes)
+        public required WordDocument Document { get; init; }
+
+        public required BlockPlanner Planner { get; init; }
+
+        public required List<SectionPlan> Sections { get; init; }
+
+        /// <summary>The page count and the pages per section of the finished layout; set when the last page was out (read under the gate by an edit that needs the totals of the old layout).</summary>
+        public int FinalPages { get; set; }
+
+        public int[] FinalSectionPages { get; set; } = [];
+
+        /// <summary>The highest body index the filler had looked at when page 1 was made (-1 before that); page 1 is final when the document goes on beyond it.</summary>
+        public int FirstTouched { get; set; } = -1;
+
+        public static Engine Build(WordDocument document, FontCatalog fonts, LayoutOptions options, List<string> notes, object gate, PreeditSlot preedit)
         {
             var flow = options.Mode == LayoutMode.Flow;
             var flat = FlatBlocks.From(document.Body.Blocks);
@@ -94,13 +112,13 @@ public sealed class DocumentLayout
             var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
             var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
             var probe = new ImageProbe(options.ImageBytes);
-            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow);
+            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow) { Gate = gate, Preedit = preedit };
             var filler = new PageFiller(sections, flat, planner, flow, blockPage, blockY);
             HeaderFooterPlan? chrome = null;
             if (!flow)
             {
                 // Headers, footers and notes make their own planners: list numbers in them never disturb the numbering of the body.
-                BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe);
+                BlockPlanner Aux() => new(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe) { Preedit = preedit };
                 var noteSource = new NotePlanner(document, Aux);
                 planner.Context = new PlanContext { Notes = noteSource };
                 chrome = new HeaderFooterPlan(document, sections, Aux, noteSource);
@@ -115,6 +133,9 @@ public sealed class DocumentLayout
                 BlockY = blockY,
                 LastBodyIndex = document.Body.Blocks.Count - 1,
                 Chrome = chrome,
+                Document = document,
+                Planner = planner,
+                Sections = sections,
             };
         }
     }
@@ -172,7 +193,10 @@ public sealed class DocumentLayout
     /// <summary>What the layout repaired or could not honour (an absurd page size, margins larger than the page, columns that do not fit), one sentence each. Known from <see cref="Create"/> on; replaced once by <see cref="ReplaceModel"/>.</summary>
     public IReadOnlyList<string> Notes => Volatile.Read(ref _notes);
 
-    /// <summary>A finished page; <paramref name="index"/> must be below <see cref="LaidOutPages"/>.</summary>
+    /// <summary>
+    /// A finished page; <paramref name="index"/> must be below <see cref="LaidOutPages"/>. After <see cref="ApplyEdit"/> the number of pages can
+    /// fall, so a reader that read <see cref="LaidOutPages"/> earlier can find the index gone: it throws then (<see cref="TryGetPage"/> says so instead).
+    /// </summary>
     public LaidOutPage Page(int index) => _pages[index];
 
     /// <summary>Lays out until page 1 is published (or the document is complete).</summary>
@@ -189,17 +213,27 @@ public sealed class DocumentLayout
 
     /// <summary>
     /// Lays out every remaining page on a thread of the pool, publishing each as it completes and reporting the number of pages so
-    /// far. When <paramref name="token"/> is cancelled the layout stops at the end of the page it is on and the task ends canceled;
-    /// the layout stays valid and a later call carries on from there.
+    /// far, and finishes the header and footer refresh an edit of a header or footer part left pending (<see cref="ChromeRefreshPending"/>), in batches, before it lays out more.
+    /// When <paramref name="token"/> is cancelled the layout stops at the end of the page or batch it is on and the task ends canceled;
+    /// the layout stays valid and a later call carries on from there. It ends when <see cref="IsSettled"/>.
     /// </summary>
     public Task LayOutRestAsync(IProgress<int>? progress, CancellationToken token) =>
         Task.Run(
             () =>
             {
-                while (!IsComplete)
+                while (!IsSettled)
                 {
                     token.ThrowIfCancellationRequested();
-                    if (Step())
+
+                    // The pages that wait for a new header or footer first (a batch is a few pages: cheap and visible), then the rest of the document.
+                    if (ChromeRefreshPending)
+                    {
+                        if (RefreshChromeBatch(ChromeBatchMilliseconds * Stopwatch.Frequency / 1000))
+                        {
+                            progress?.Report(LaidOutPages);
+                        }
+                    }
+                    else if (Step())
                     {
                         progress?.Report(LaidOutPages);
                     }
@@ -216,8 +250,10 @@ public sealed class DocumentLayout
     /// </summary>
     /// <remarks>
     /// The cost is one more layout of page 1 (a few milliseconds, on the calling thread: call it from the background thread that
-    /// lays out the rest). Nothing the layout published is invalidated: <see cref="Locate"/> and <see cref="BlockAt"/> answer for page 1
-    /// before and after, and the block tables grow to the whole document. <see cref="Notes"/> are those of the new model from then on (they are the only thing that changes); <see cref="Revision"/> is not reset.
+    /// lays out the rest). <see cref="Locate"/> and <see cref="BlockAt"/> answer for page 1 before and after, and the block tables grow to the whole document.
+    /// Page 1 is published again as the page the new model makes (the same text, the same geometry; <see cref="Page"/> returns a new object whose text
+    /// lines name the paragraphs of the new model); <see cref="Revision"/> is not raised for it, a view that reads <c>Page(0)</c> for every frame needs no
+    /// notice, and one that keeps the old object keeps an equal page. Positions made on the prefix model's paragraphs are not valid afterwards. <see cref="Notes"/> are those of the new model from then on (they are the only thing that changes); <see cref="Revision"/> is not reset.
     /// The new model must not change while the layout runs on it.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Page 1 is not final, other pages are already published, or the first page of the new model differs (the prefix was not the start of it).</exception>
@@ -238,9 +274,11 @@ public sealed class DocumentLayout
             }
 
             // Page 1 again on the new model, so that the filler, the planners and the numbering stand where they would stand after
-            // page 1 of a layout made with the whole document; the page itself is dropped, the published one stays.
+            // page 1 of a layout made with the whole document. The page it makes (equal text, checked below) replaces the published one,
+            // so page 1 holds the paragraphs of the new model: a position made on them is found by Caret, Move and HitTest.
             var notes = new List<string>();
-            var engine = Engine.Build(full, _fonts, _options, notes);
+            _preedit.Current = null;
+            var engine = Engine.Build(full, _fonts, _options, notes, _gate, _preedit);
             try
             {
                 if (!engine.Fill.MoveNext() || !string.Equals(engine.Fill.Current.Text, _pages[0].Text, StringComparison.Ordinal))
@@ -255,6 +293,10 @@ public sealed class DocumentLayout
             }
 
             engine.Filler.PageFinished = _pageFinished;
+            engine.FirstTouched = engine.Filler.MaxTouchedBodyIndex;
+            _paragraphPages.Register(engine.Fill.Current);
+            _pages.Replace(0, engine.Fill.Current);
+            ClearStale(0, int.MaxValue);
             Volatile.Write(ref _notes, notes);
             Volatile.Write(ref _engine, engine);
         }
@@ -335,9 +377,11 @@ public sealed class DocumentLayout
                 // Pages that show a page count are published again with the count, before the layout calls itself complete.
                 try
                 {
+                    (_engine.FinalPages, _engine.FinalSectionPages) = _engine.Filler.Totals();
                     var revisions = _engine.Filler.Revisions();
                     foreach (var (index, revised) in revisions)
                     {
+                        _paragraphPages.Register(revised);
                         _pages.Replace(index, revised);
                     }
 
@@ -359,9 +403,12 @@ public sealed class DocumentLayout
             // The flag is set before the page is published, so a reader that sees page 1 sees the final answer.
             if (_pages.Count == 0)
             {
-                Volatile.Write(ref _firstPageFinal, _engine.Filler.MaxTouchedBodyIndex < _engine.LastBodyIndex);
+                _engine.FirstTouched = _engine.Filler.MaxTouchedBodyIndex;
+                Volatile.Write(ref _firstPageFinal, _engine.FirstTouched < _engine.LastBodyIndex);
             }
 
+            // The map first: a reader that finds an entry for a page that is not published yet skips it by the count.
+            _paragraphPages.Register(_engine.Fill.Current);
             _pages.Add(_engine.Fill.Current);
             return true;
         }

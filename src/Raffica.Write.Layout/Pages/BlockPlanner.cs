@@ -30,8 +30,8 @@ internal sealed class BlockPlanner
     private readonly float _defaultTabStop;
     private readonly bool _expandShiftReturn;
     private readonly bool _autoHyphenation;
+    private readonly Dictionary<Block, PlanEntry> _plans = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ResolvedParagraph, ResolvedRun> _markRuns = new(ReferenceEqualityComparer.Instance);
-    private readonly List<FieldFrame> _frames = [];
     private readonly ImageProbe _probe;
     private readonly bool _flowMode;
     private bool _placeable;
@@ -66,11 +66,27 @@ internal sealed class BlockPlanner
         }
     }
 
+    /// <summary>
+    /// The lock of the layout this planner serves, when it serves one: planning, the plan cache and the list counters have no lock of their own and
+    /// are used under that one only. Debug builds assert it in <see cref="PlanFor"/>, <see cref="Forget"/>, <see cref="Retain"/>, <see cref="RebaseAll"/>,
+    /// <see cref="CurrentState"/> and <see cref="RestoreState"/>. Null (no check) for a planner used on its own, as the tests do.
+    /// </summary>
+    internal object? Gate { get; set; }
+
+    [System.Diagnostics.Conditional("DEBUG")]
+    private void AssertGate() => System.Diagnostics.Debug.Assert(Gate is null || Monitor.IsEntered(Gate), "The plan cache and the counters are used under the layout gate only.");
+
     /// <summary>The height of the text area of the section being filled: an inline picture taller than this is shrunk to it (aspect kept). Set by the page filler.</summary>
     internal float TextAreaHeight { get; set; } = float.MaxValue;
 
     /// <summary>The story the planner reads (<see cref="ImageRef"/> says how it qualifies picture ids): the body unless a header, footer or note planner sets it.</summary>
     internal string StoryKey { get; set; } = ImageRef.DocumentStory;
+
+    /// <summary>
+    /// The story of the model the planner reads, for the text lines of its paragraphs: the body unless a header, footer or note planner sets
+    /// it (a header or footer: the document's relationship id; a footnote: its id; an endnote: <c>endnote:</c> and its id).
+    /// </summary>
+    internal StoryRef Story { get; set; } = StoryRef.Body;
 
     /// <summary>
     /// True for the planner of the body in the page view, outside table cells: only there does the page filler place floating objects. A
@@ -84,6 +100,12 @@ internal sealed class BlockPlanner
 
     /// <summary>True when the table border sits one cell margin left of the indent (a document in a compatibility mode below 15 aligns the text of the first cell, not its border).</summary>
     internal bool TableTextAtIndent { get; }
+
+    /// <summary>
+    /// The preedit of an input method composition of the layout this planner serves, when it serves one: the paragraph it stands in is planned with the
+    /// preedit text laid out inside it (see <see cref="PreeditState"/>). Null for a planner used on its own. Read under the layout's gate.
+    /// </summary>
+    internal PreeditSlot? Preedit { get; set; }
 
     /// <summary>What the stories planned next are planned for (fields, note references); the default evaluates nothing and numbers nothing.</summary>
     internal PlanContext Context { get; set; } = new();
@@ -107,8 +129,150 @@ internal sealed class BlockPlanner
         return flows;
     }
 
-    /// <summary>The plan of a block, or null for a block that takes no room (a bookmark mark at block level).</summary>
+    /// <summary>The plan of a block, or null for a block that takes no room (a bookmark mark at block level). Not cached: headers, footers and notes plan through this.</summary>
     public BlockPlan? Plan(FlatBlock flat) => PlanBlock(flat, null, 0);
+
+    /// <summary>How many plans <see cref="PlanFor"/> has made (a cache hit makes none): a test seam.</summary>
+    internal int PlansMade { get; private set; }
+
+    /// <summary>The numbering counters, for snapshots.</summary>
+    internal NumberingCounter Numbering => _numbering;
+
+    /// <summary>
+    /// The plan of a body block, kept by block reference: a block inserted or removed elsewhere shifts no entry. Planning a block advances
+    /// the list counters and registers its notes, so an entry also keeps the numbering and note state before and after the block was planned.
+    /// A block that touched neither (almost every one) is valid whatever the state is. A block that did is valid only while the state now
+    /// has the same numbers and the same endnote references it had then (the list it restores holds them); a hit then restores the state after it (as planning it again would leave it), a miss plans it again.
+    /// So a resume point needs only the state restored at it, never a list of the blocks whose numbers changed. The index of the plan is made
+    /// current from <paramref name="flat"/> on every call. Runs under the layout gate only (planning, the counters and this cache have no lock).
+    /// </summary>
+    internal BlockPlan? PlanFor(FlatBlock flat)
+    {
+        AssertGate();
+        var notes = Context.Notes;
+        var numbers = _numbering.Snapshot();
+        var counts = notes?.Snapshot();
+        if (_plans.TryGetValue(flat.Block, out var known))
+        {
+            if (known.IsStateless)
+            {
+                known.Plan?.Rebase(flat.BodyIndex);
+                return known.Plan;
+            }
+
+            if (known.NumbersBefore.SameAs(numbers) && (known.NotesBefore?.SameAs(counts) ?? counts is null))
+            {
+                _numbering.Restore(known.NumbersAfter);
+                if (known.NotesAfter is { } after)
+                {
+                    notes?.Restore(after);
+                }
+
+                known.Plan?.Rebase(flat.BodyIndex);
+                return known.Plan;
+            }
+        }
+
+        var plan = Plan(flat);
+        PlansMade++;
+        _plans[flat.Block] = new PlanEntry(plan, numbers, _numbering.Snapshot(), counts, notes?.Snapshot());
+        return plan;
+    }
+
+    /// <summary>True when <see cref="PlanFor"/> would find an entry (it may still plan again when the block has numbers that depend on the state).</summary>
+    internal bool HasPlan(Block block) => _plans.ContainsKey(block);
+
+    /// <summary>
+    /// False only for a block whose plan is on record and does not keep with the next block (a paragraph without <c>keepNext</c>, a table, a
+    /// placeholder): the filler looks ahead of a block only through such a request. A block without an entry, or one that takes no room, may.
+    /// </summary>
+    internal bool MayKeepWithNext(Block block) =>
+        !_plans.TryGetValue(block, out var entry) || entry.Plan is null || (entry.Plan is ParagraphPlan paragraph && paragraph.Input.Paragraph.KeepNext);
+
+    /// <summary>How many entries the cache holds.</summary>
+    internal int CachedPlans => _plans.Count;
+
+    /// <summary>The numbering and note state now.</summary>
+    internal (NumberingState Numbers, NoteState? Notes) CurrentState()
+    {
+        AssertGate();
+        return (_numbering.Snapshot(), Context.Notes?.Snapshot());
+    }
+
+    /// <summary>Makes the list counters and the note numbers what they were when <see cref="CurrentState"/> returned these.</summary>
+    internal void RestoreState(NumberingState numbers, NoteState? notes)
+    {
+        AssertGate();
+        _numbering.Restore(numbers);
+        if (notes is not null)
+        {
+            Context.Notes?.Restore(notes);
+        }
+    }
+
+    /// <summary>
+    /// Drops the plan of a block (it was edited or removed): the entry and every reference it held go. The endnote references a forgotten
+    /// block registered stay in the note planner until a <see cref="RestoreState"/> to an earlier state (the resume of the page filler)
+    /// drops them; an endnote list is only complete after the blocks have been planned again. Layout gate only.
+    /// </summary>
+    internal void Forget(Block block)
+    {
+        AssertGate();
+        _plans.Remove(block);
+    }
+
+    /// <summary>
+    /// Drops every plan whose block is not in <paramref name="live"/>, so removed blocks can be collected. It walks the whole cache, so it
+    /// is not for every keystroke: the editing layout calls it only when the cache has grown well past the document. Layout gate only.
+    /// </summary>
+    internal void Retain(IReadOnlyList<FlatBlock> live)
+    {
+        AssertGate();
+        var keep = new HashSet<Block>(live.Count, ReferenceEqualityComparer.Instance);
+        foreach (var flat in live)
+        {
+            keep.Add(flat.Block);
+        }
+
+        List<Block>? gone = null;
+        foreach (var block in _plans.Keys)
+        {
+            if (!keep.Contains(block))
+            {
+                (gone ??= []).Add(block);
+            }
+        }
+
+        if (gone is not null)
+        {
+            foreach (var block in gone)
+            {
+                _plans.Remove(block);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Moves every cached plan of a block in <paramref name="live"/> to the body index the list now gives it (blocks were inserted or removed
+    /// before it). A plan that is not asked for again would keep its old index, and so would the flows a page start has saved. Layout gate only.
+    /// </summary>
+    internal void RebaseAll(IReadOnlyList<FlatBlock> live)
+    {
+        AssertGate();
+        foreach (var flat in live)
+        {
+            if (_plans.TryGetValue(flat.Block, out var entry))
+            {
+                entry.Plan?.Rebase(flat.BodyIndex);
+            }
+        }
+    }
+
+    /// <summary>A plan with the state of the numbering and the notes before and after it was planned (the same objects when it touched neither).</summary>
+    private sealed record PlanEntry(BlockPlan? Plan, NumberingState NumbersBefore, NumberingState NumbersAfter, NoteState? NotesBefore, NoteState? NotesAfter)
+    {
+        public bool IsStateless => ReferenceEquals(NumbersBefore, NumbersAfter) && ReferenceEquals(NotesBefore, NotesAfter);
+    }
 
     /// <summary>The plan of a block of the body (<paramref name="cell"/> null) or of a table cell, where the paragraph properties of the table style apply.</summary>
     internal BlockPlan? PlanBlock(FlatBlock flat, ResolvedCellFormat? cell, int depth)
@@ -134,14 +298,16 @@ internal sealed class BlockPlanner
         var items = new List<ParagraphItem>();
         var text = new StringBuilder();
         ResolvedRun? textRun = null;
-        _frames.Clear();
         _marks = null;
         _floats = null;
         _flowBoxes = null;
         _placeable = CanPlaceFloats && cell is null && !_planningBox && !_flowMode;
-        AddInlines(paragraph.Inlines, resolved, items, text, ref textRun);
+        var host = new LayoutProjectionHost(_styles, Context, resolved);
+        var projection = ParagraphProjection.Build(paragraph, host);
+        var map = new OffsetMap.Builder();
+        var preedit = Preedit?.Current is { } current && !_planningBox && ReferenceEquals(current.Paragraph, paragraph) && current.Story == Story ? current : null;
+        AddPieces(projection, host, resolved, items, text, ref textRun, map, preedit);
         Flush(items, text, ref textRun);
-        _frames.Clear();
         IReadOnlyList<NoteMark>? marks = _marks;
         var floats = _floats;
         if (_flowBoxes is { Count: > 0 } lead)
@@ -158,6 +324,7 @@ internal sealed class BlockPlanner
             }
 
             items.InsertRange(0, front);
+            map.Lead(front.Count);
             marks = marks?.Select(m => m with { ItemIndex = m.ItemIndex + front.Count }).ToList();
         }
 
@@ -168,6 +335,10 @@ internal sealed class BlockPlanner
             AutoHyphenation = _autoHyphenation,
             NoteMarks = marks,
             Floats = floats,
+            Projection = projection,
+            Host = host,
+            ProjectionMap = map.Build(),
+            Source = _planningBox ? null : new ParagraphSource(Story, paragraph, cell),
         };
 
         // The paragraphs of a text box are planned after the paragraph that holds it: planning one is not re-entrant.
@@ -241,229 +412,166 @@ internal sealed class BlockPlanner
         run = null;
     }
 
-    private void AddInlines(IEnumerable<Inline> inlines, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    // Turns the pieces of the projection into items: the projection decides what is visible and what a field shows, this decides how it is drawn. The preedit of an
+    // input method composition, when this paragraph has one, is put in as a span of its own (underlined, in the format of the text it stands in) before the piece that
+    // starts at its offset, in the middle of a text piece (which is cut there), or after the last piece; the map describes it as layout characters without projection text.
+    private void AddPieces(ParagraphProjection projection, LayoutProjectionHost host, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun, OffsetMap.Builder map, PreeditState? preedit)
     {
-        foreach (var inline in inlines)
+        var counted = 0;
+        var itemLength = 0;
+        var placed = preedit is null;
+        ResolvedRun? last = null;
+        foreach (var piece in projection.Pieces)
         {
-            switch (inline)
+            var format = piece.Run is { } run ? host.Format(run) : FieldFormat(owner);
+            if (!placed && preedit!.At <= piece.Start)
             {
-                case Run run:
-                    AddRun(run, owner, items, text, ref textRun);
-                    break;
-                case Hyperlink link:
-                    AddInlines(link.Inlines, owner, items, text, ref textRun);
-                    break;
-                case SimpleField field:
-                    if (!Visible(_frames.Count))
-                    {
-                        break;
-                    }
-
-                    if (Context.Fields?.Evaluate(field.Instruction) is { } value)
-                    {
-                        Append(value, FieldFormat(owner, field.Inlines), items, text, ref textRun);
-                        break;
-                    }
-
-                    AddInlines(field.Inlines, owner, items, text, ref textRun);
-                    break;
-                case ContentControlInline control:
-                    AddInlines(control.Inlines, owner, items, text, ref textRun);
-                    break;
-                case TrackedChange { Kind: TrackedChangeKind.Insert or TrackedChangeKind.MoveTo } change:
-                    // Changes are shown as if accepted: insertions in, deletions out.
-                    AddInlines(change.Inlines, owner, items, text, ref textRun);
-                    break;
-                default:
-                    break;
+                PutPreedit(preedit, last ?? format, items, text, ref textRun, map, ref itemLength, ref counted);
+                placed = true;
             }
-        }
-    }
 
-    private void AddRun(Run run, ResolvedParagraph owner, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
-    {
-        var format = _styles.ForRun(owner, run);
-        foreach (var content in run.Content)
-        {
-            if (content is FieldChar fieldChar)
+            if (!placed && piece is TextPiece { Length: > 0 } inside && inside.Start < preedit!.At && preedit.At < inside.End)
             {
-                FieldChange(fieldChar.Kind, format, items, text, ref textRun);
+                // The preedit stands inside this text: the text before it, the preedit, the text after it.
+                var cut = preedit.At - inside.Start;
+                Append(projection.Text.Substring(inside.Start, cut), format, items, text, ref textRun);
+                Settle(map, items, text, textRun, ref itemLength, ref counted, inside.Start, cut);
+                PutPreedit(preedit, format, items, text, ref textRun, map, ref itemLength, ref counted);
+                placed = true;
+                Append(projection.Text.Substring(preedit.At, inside.End - preedit.At), format, items, text, ref textRun);
+                Settle(map, items, text, textRun, ref itemLength, ref counted, preedit.At, inside.End - preedit.At);
+                last = format;
                 continue;
             }
 
-            if (content is InstructionText instruction)
+            switch (piece)
             {
-                if (_frames.Count > 0 && !_frames[^1].InResult)
-                {
-                    _frames[^1].Instruction.Append(instruction.Text);
-                }
-
-                continue;
-            }
-
-            if (!Visible(_frames.Count))
-            {
-                // Inside the instruction of a field, or in the result of a field the layout evaluates: the first text of such a result
-                // is replaced by the value, the rest is dropped.
-                if (content is TextContent && _frames.Count > 0 && _frames[^1] is { Value: not null, Emitted: false } top && Visible(_frames.Count - 1))
-                {
-                    top.Emitted = true;
-                    Append(top.Value, format, items, text, ref textRun);
-                }
-
-                continue;
-            }
-
-            switch (content)
-            {
-                case FootnoteReference reference when Context.Notes is { } notes:
+                case TextPiece or TabPiece:
+                    Append(PieceText(piece, projection.Text, format), format, items, text, ref textRun);
+                    break;
+                case BreakPiece b:
                     Flush(items, text, ref textRun);
-                    var mark = notes.Register(false, reference.Id);
-                    items.Add(new TextSpan(mark.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
-                    (_marks ??= []).Add(new NoteMark(items.Count - 1, mark));
-                    break;
-                case EndnoteReference reference when Context.Notes is { } notes:
-                    Flush(items, text, ref textRun);
-                    var endnote = notes.Register(true, reference.Id);
-                    items.Add(new TextSpan(endnote.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
-                    break;
-                case TextContent t:
-                    Append(t.Text, format, items, text, ref textRun);
-                    break;
-                case TabContent:
-                    Append("\t", format, items, text, ref textRun);
-                    break;
-                case BreakContent b:
-                    Flush(items, text, ref textRun);
-                    items.Add(new BreakItem(b.Kind switch
+                    items.Add(new BreakItem(b.Break switch
                     {
                         Model.BreakKind.Page => BreakKind.Page,
                         Model.BreakKind.Column => BreakKind.Column,
                         _ => BreakKind.Line,
                     }));
                     break;
-                case Picture picture:
-                    if (picture.Inline)
-                    {
-                        Flush(items, text, ref textRun);
-                        items.Add(Box(picture, format));
-                    }
-                    else
-                    {
-                        Flush(items, text, ref textRun);
-                        AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey), items);
-                    }
-
-                    break;
-                case UnknownRunContent { Content.Element.Name.LocalName: "footnoteRef" or "endnoteRef" } when Context.NoteMark is { } own:
-                    Flush(items, text, ref textRun);
-                    items.Add(new TextSpan(own, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
-                    break;
-                case UnknownRunContent unknown:
-                    AddUnknown(unknown.Content.Element, format, items, text, ref textRun);
+                case AtomicPiece atomic:
+                    AddAtomic(atomic, projection, host, format, items, text, ref textRun);
                     break;
                 default:
                     break;
             }
+
+            Settle(map, items, text, textRun, ref itemLength, ref counted, piece.Start, piece.Length);
+            last = format;
+        }
+
+        if (!placed)
+        {
+            PutPreedit(preedit!, last ?? FieldFormat(owner), items, text, ref textRun, map, ref itemLength, ref counted);
         }
     }
 
-    // One open complex field while a paragraph is read.
-    private sealed class FieldFrame
+    // What the layouter will count of everything added so far: the items made (a hidden span has no length, a box or break one) and the text not yet flushed.
+    private static void Settle(OffsetMap.Builder map, List<ParagraphItem> items, StringBuilder text, ResolvedRun? textRun, ref int itemLength, ref int counted, int start, int length)
     {
-        public StringBuilder Instruction { get; } = new();
-
-        public bool InResult { get; set; }
-
-        public bool Decided { get; set; }
-
-        /// <summary>The text of a field the layout evaluates; null for every other field (its stored result shows).</summary>
-        public string? Value { get; set; }
-
-        public bool Emitted { get; set; }
+        itemLength += ParagraphPlan.LayoutLength(items, counted, items.Count);
+        counted = items.Count;
+        var total = itemLength + (textRun is { Hidden: false } ? text.Length : 0);
+        map.Add(start, length, total - map.LayoutLength);
     }
 
-    // True when the content at this depth is shown: no enclosing field is in its instruction part and none is replaced by a value.
-    private bool Visible(int depth)
+    private static void PutPreedit(PreeditState preedit, ResolvedRun around, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun, OffsetMap.Builder map, ref int itemLength, ref int counted)
     {
-        for (var i = 0; i < depth; i++)
-        {
-            if (!_frames[i].InResult || _frames[i].Value is not null)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        Flush(items, text, ref textRun);
+        itemLength += ParagraphPlan.LayoutLength(items, counted, items.Count);
+        items.Add(new TextSpan(preedit.Text, around with { Underline = UnderlineKind.Solid, Hidden = false, ParagraphMarkOnly = false }));
+        itemLength += preedit.Text.Length;
+        counted = items.Count;
+        map.AddTransient(preedit.At, preedit.Text.Length);
     }
 
-    private void FieldChange(FieldCharKind kind, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    private void AddAtomic(AtomicPiece piece, ParagraphProjection projection, LayoutProjectionHost host, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
     {
-        switch (kind)
+        switch (piece.Atomic)
         {
-            case FieldCharKind.Begin:
-                _frames.Add(new FieldFrame());
+            case AtomicKind.FieldResult:
+                Append(PieceText(piece, projection.Text, format), format, items, text, ref textRun);
                 break;
-            case FieldCharKind.Separate when _frames.Count > 0:
-                _frames[^1].InResult = true;
-                Decide(_frames[^1]);
-                break;
-            case FieldCharKind.End when _frames.Count > 0:
-                var closed = _frames[^1];
-                _frames.RemoveAt(_frames.Count - 1);
-                Decide(closed);
-                if (closed is { Value: not null, Emitted: false } && Visible(_frames.Count))
+            case AtomicKind.NoteReference when piece.Content is FootnoteReference or EndnoteReference:
+                if (host.RegisteredNote(piece.Content) is { } mark)
                 {
-                    Append(closed.Value, format, items, text, ref textRun);
+                    Flush(items, text, ref textRun);
+                    items.Add(new TextSpan(mark.Text, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                    if (piece.Content is FootnoteReference)
+                    {
+                        (_marks ??= []).Add(new NoteMark(items.Count - 1, mark));
+                    }
                 }
 
+                break;
+            case AtomicKind.NoteReference:
+                if (Context.NoteMark is { } own)
+                {
+                    Flush(items, text, ref textRun);
+                    items.Add(new TextSpan(own, format with { VerticalAlignment = RunVerticalAlignment.Superscript }));
+                }
+
+                break;
+            case AtomicKind.Picture when piece.Content is Picture picture:
+                Flush(items, text, ref textRun);
+                if (picture.Inline)
+                {
+                    items.Add(Box(picture, format));
+                }
+                else
+                {
+                    AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey), items);
+                }
+
+                break;
+            case AtomicKind.Placeholder when piece.Content is UnknownRunContent unknown:
+                AddObject(unknown.Content.Element, format, items, text, ref textRun);
                 break;
             default:
                 break;
         }
     }
 
-    private void Decide(FieldFrame frame)
+    // The text of a piece. A hidden piece has no length in the projection; its span is kept (the layouter ignores its text), so the items stay as they were.
+    private static string PieceText(ProjectionPiece piece, string projected, ResolvedRun format)
     {
-        if (frame.Decided)
+        if (piece.Length > 0)
         {
-            return;
+            return projected.Substring(piece.Start, piece.Length);
         }
 
-        frame.Decided = true;
-        frame.Value = Context.Fields?.Evaluate(frame.Instruction.ToString());
-    }
-
-    // A simple field is drawn in the format of its first run, or of the paragraph mark when it has none.
-    private ResolvedRun FieldFormat(ResolvedParagraph owner, IEnumerable<Inline> inlines)
-    {
-        foreach (var inline in inlines)
+        if (!format.Hidden)
         {
-            if (inline is Run run)
-            {
-                return _styles.ForRun(owner, run);
-            }
+            return "";
         }
 
-        return MarkRun(owner) with { ParagraphMarkOnly = false };
+        return piece switch
+        {
+            TabPiece => "\t",
+            _ when piece.Content is TextContent t => t.Text,
+            _ when piece.Content is UnknownRunContent => "‑",
+            _ => "\u200B",
+        };
     }
 
-    private void AddUnknown(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
+    // A simple field without a run is drawn in the format of the paragraph mark.
+    private ResolvedRun FieldFormat(ResolvedParagraph owner) => MarkRun(owner) with { ParagraphMarkOnly = false };
+
+    private void AddObject(XElement element, ResolvedRun format, List<ParagraphItem> items, StringBuilder text, ref ResolvedRun? textRun)
     {
+        Flush(items, text, ref textRun);
         switch (element.Name.LocalName)
         {
-            case "cr":
-                Flush(items, text, ref textRun);
-                items.Add(new BreakItem(BreakKind.Line));
-                break;
-            case "noBreakHyphen":
-                Append("‑", format, items, text, ref textRun);
-                break;
-            case "ptab":
-                Append("\t", format, items, text, ref textRun);
-                break;
             case "AlternateContent" or "pict":
-                Flush(items, text, ref textRun);
                 var spec = element.Name.LocalName == "pict" ? FloatReader.FromVml(element, _probe, StoryKey) : FloatReader.FromAlternate(element, _probe, StoryKey);
                 if (spec is null)
                 {
@@ -475,11 +583,8 @@ internal sealed class BlockPlanner
                 }
 
                 break;
-            case "object":
-                Flush(items, text, ref textRun);
-                items.Add(InlineBox.Placeholder(format));
-                break;
             default:
+                items.Add(InlineBox.Placeholder(format));
                 break;
         }
     }

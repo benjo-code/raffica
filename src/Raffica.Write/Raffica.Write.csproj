@@ -30,6 +30,7 @@
     <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
     <ProjectReference Include="..\Raffica.Write.Model\Raffica.Write.Model.csproj" />
     <ProjectReference Include="..\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
+    <ProjectReference Include="..\Raffica.Write.Editing\Raffica.Write.Editing.csproj" />
     <ProjectReference Include="..\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
     <TrimmerRootAssembly Include="Raffica.Shell" />
     <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />

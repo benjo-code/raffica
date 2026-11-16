@@ -10,7 +10,7 @@ namespace Raffica.WriteApp.Tests.Platform;
 /// <summary>The macOS menu of Write is plain Avalonia menu objects, so its structure and states are tested on every system.</summary>
 public sealed class WriteMacMenuTests
 {
-    private sealed class FakeWindow : IWriteMenuWindow
+    internal sealed class FakeWindow : IWriteMenuWindow
     {
         public bool DialogOpen { get; set; }
 
@@ -62,7 +62,7 @@ public sealed class WriteMacMenuTests
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var file = Item(menu.Menu, "File").Menu!;
         var open = Item(file, "Open…");
         var close = Item(file, "Close tab");
@@ -80,6 +80,36 @@ public sealed class WriteMacMenuTests
         Assert.False(Enabled(close));
         open.Command.Execute(null);
         Assert.Equal(["close", "open"], window.Calls);
+    }
+
+    [AvaloniaFact]
+    public void TheFileMenuHasSaveAndSaveAsThatRunTheCatalogCommandsByIdWhenTheRulesAllowThem()
+    {
+        var window = new FakeWindow { HasTab = true };
+        var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
+        menu.Refresh();
+        var file = Item(menu.Menu, "File").Menu!;
+        var save = Item(file, "Save");
+        var saveAs = Item(file, "Save as");
+
+        Assert.Equal("Meta+S", save.Gesture!.ToString().Replace("Cmd", "Meta", StringComparison.Ordinal));
+        Assert.Equal(Avalonia.Input.KeyGesture.Parse("Meta+Shift+S"), saveAs.Gesture);
+
+        // The rules decide: Save of a document without changes is disabled, Save as is not.
+        window.Allowed.Add(WriteCommandIds.SaveAs);
+        window.Raise();
+        Assert.False(Enabled(save));
+        Assert.True(Enabled(saveAs));
+        saveAs.Command!.Execute(null);
+        window.Allowed.Add(WriteCommandIds.Save);
+        window.Raise();
+        save.Command!.Execute(null);
+        Assert.Equal(["run file.saveAs", "run file.save"], window.Calls);
+
+        // A card that is open makes the window modal.
+        window.DialogOpen = true;
+        Assert.False(Enabled(save));
+        Assert.False(Enabled(saveAs));
     }
 
     [AvaloniaFact]

@@ -387,7 +387,10 @@ public sealed class WriteCommandTests
         Assert.Same(window.Ribbon.TabRow, window.Frame.TabRow);
         var view = window.ViewOf(tab)!;
         var commands = RibbonCommands(window).ToDictionary(c => c.Id);
-        Assert.All(commands.Values, c => Assert.True(c.IsEnabled, c.Id));
+        // A fresh document has no selection, no history and no change: undo, redo, cut, copy and Save wait (with their reasons); paste, select all, Save as and every other command are on.
+        string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save];
+        Assert.All(commands.Values.Where(c => !waiting.Contains(c.Id)), c => Assert.True(c.IsEnabled, c.Id));
+        Assert.All(commands.Values.Where(c => waiting.Contains(c.Id)), c => Assert.False(c.IsEnabled || string.IsNullOrEmpty(c.CurrentDisabledReason), c.Id));
 
         commands[WriteCommandIds.WritingView].Run!();
         Assert.Equal(WriteView.Writing, view.Mode);

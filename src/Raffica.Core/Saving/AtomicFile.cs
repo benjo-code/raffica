@@ -189,9 +189,10 @@ public static class AtomicFile
     /// <param name="temporary">The full path of the finished temporary file, in the folder of <paramref name="target"/>.</param>
     /// <param name="target">The full path of the file to create or replace.</param>
     /// <param name="replaceExisting">Whether an existing target may be replaced.</param>
+    /// <returns>The path of the old file when the Windows fallback moved the open target aside and could not delete it (a file the user may want to remove), otherwise <see langword="null"/>; a caller that does not care may ignore it.</returns>
     /// <exception cref="SaveFailureException">The move failed; with <see cref="SaveFailureReason.TargetExists"/> a file stands at the target and was not replaced.</exception>
-    public static void MoveIntoPlace(string temporary, string target, bool replaceExisting = true) =>
-        _ = Replace(temporary, target, Path.GetDirectoryName(target) ?? string.Empty, replaceExisting, faults: null);
+    public static string? MoveIntoPlace(string temporary, string target, bool replaceExisting = true) =>
+        Replace(temporary, target, Path.GetDirectoryName(target) ?? string.Empty, replaceExisting, faults: null);
 
     /// <summary>A short temporary name independent of the target's name (<c>.pw-&lt;12 hex&gt;.tmp</c>), so a long target name never makes it too long.</summary>
     internal static string TemporaryName() => ShortName(".tmp");

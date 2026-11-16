@@ -241,6 +241,20 @@ internal sealed class PageScroller
     public static double MaxOffset(double extent, double viewport) =>
         double.IsFinite(extent) && double.IsFinite(viewport) ? Math.Max(0, extent - viewport) : 0;
 
+    /// <summary>
+    /// The DIPs one tick of the auto-scroll of a drag scrolls when the pointer is <paramref name="outside"/> DIPs beyond the edge of the viewport (negative: above or left, the step then
+    /// has the same sign): 0 for no distance, at least 4 and at most 96 beyond it, growing with the distance.
+    /// </summary>
+    public static double AutoScrollStep(double outside)
+    {
+        if (!double.IsFinite(outside) || outside == 0)
+        {
+            return 0;
+        }
+
+        return Math.Sign(outside) * Math.Clamp(4 + (Math.Abs(outside) * 0.4), 4, 96);
+    }
+
     /// <summary>The distance of PageUp and PageDown in the writing view: a viewport less one step, at least one step.</summary>
     public static double PageStep(double viewport) => Math.Max(WheelStep, viewport - WheelStep);
 }

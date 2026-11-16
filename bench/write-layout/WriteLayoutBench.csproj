@@ -13,6 +13,7 @@
     <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <ProjectReference Include="..\..\src\Raffica.Write.Model\Raffica.Write.Model.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Write.Docx\Raffica.Write.Docx.csproj" />
+    <ProjectReference Include="..\..\src\Raffica.Write.Editing\Raffica.Write.Editing.csproj" />
     <ProjectReference Include="..\..\src\Raffica.Write.Layout\Raffica.Write.Layout.csproj" />
   </ItemGroup>
   <ItemGroup>

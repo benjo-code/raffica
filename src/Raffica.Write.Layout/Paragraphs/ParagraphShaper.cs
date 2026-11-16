@@ -28,6 +28,9 @@ internal sealed class Piece
 
     public int[]? Spaces { get; init; }
 
+    /// <summary>The paragraph text offset of the cluster each glyph belongs to (HarfBuzz's cluster value plus the piece's offset).</summary>
+    public int[] Clusters { get; init; } = [];
+
     public float Width { get; init; }
 
     /// <summary>The width of the spaces that end the text of this piece (only a piece that ends its chunk has any).</summary>
@@ -256,6 +259,7 @@ internal sealed class ParagraphShaper : IDisposable
         var trailStartChar = text.Length - trailingChars;
         var glyphs = new ushort[n];
         var xs = new float[n];
+        var clusters = new int[n];
         var pen = 0f;
         var trailGlyph = n;
         var trailPen = 0f;
@@ -270,6 +274,7 @@ internal sealed class ParagraphShaper : IDisposable
             }
 
             glyphs[i] = (ushort)infos[i].Codepoint;
+            clusters[i] = offset + cluster;
             xs[i] = pen + (positions[i].XOffset * factor);
             if ((uint)cluster < (uint)text.Length && text[cluster] == ' ')
             {
@@ -288,6 +293,7 @@ internal sealed class ParagraphShaper : IDisposable
             Raise = raise,
             Glyphs = glyphs,
             Xs = xs,
+            Clusters = clusters,
             Spaces = _spaceScratch.Count == 0 ? null : _spaceScratch.ToArray(),
             Width = pen,
             TrailingWidth = trailGlyph < n ? pen - trailPen : 0f,

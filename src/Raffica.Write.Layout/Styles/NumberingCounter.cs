@@ -27,6 +27,9 @@ public sealed class NumberingCounter
     private readonly Dictionary<int, ListState> _states = [];
     private readonly HashSet<(int NumId, int Level)> _overridden = [];
     private readonly Dictionary<(int NumId, int Level), LevelFacts?> _facts = [];
+    private int _version;
+    private NumberingState? _cached;
+    private int _cachedVersion = -1;
 
     public NumberingCounter(NumberingDefinitions? numbering) => _numbering = numbering;
 
@@ -46,6 +49,8 @@ public sealed class NumberingCounter
             return null;
         }
 
+        // From here on the counters change: a snapshot made before this call is no longer current.
+        _version++;
         if (!_states.TryGetValue(abstractId, out var state))
         {
             state = new ListState();
@@ -80,6 +85,57 @@ public sealed class NumberingCounter
         }
 
         return new NumberingLabel(label.Text, run.ToResolved(paragraphMarkOnly: true), facts.Suffix);
+    }
+
+    /// <summary>
+    /// Everything that changes while <see cref="Next"/> runs: the counters and started flags of every list, and the set of levels whose
+    /// start override was applied. (The facts cache is derived from the immutable definitions and is not state.)
+    /// </summary>
+    /// <remarks>
+    /// While nothing changed since the last snapshot, the same object comes back (a block that planned without touching a list makes no copy), so
+    /// <see cref="NumberingState.SameAs"/> is a reference test for it.
+    /// </remarks>
+    internal NumberingState Snapshot()
+    {
+        if (_cached is { } known && _cachedVersion == _version)
+        {
+            return known;
+        }
+
+        var lists = new Dictionary<int, (int[] Counters, bool[] Started)>(_states.Count);
+        foreach (var (id, state) in _states)
+        {
+            lists[id] = ((int[])state.Counters.Clone(), (bool[])state.Started.Clone());
+        }
+
+        var overridden = _overridden.ToArray();
+        Array.Sort(overridden);
+        var snapshot = new NumberingState(lists, overridden);
+        _cached = snapshot;
+        _cachedVersion = _version;
+        return snapshot;
+    }
+
+    /// <summary>Makes the counters exactly what they were when <paramref name="state"/> was taken; the state itself stays unchanged and can be restored again.</summary>
+    internal void Restore(NumberingState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _states.Clear();
+        foreach (var (id, list) in state.Lists)
+        {
+            var copy = new ListState();
+            list.Counters.CopyTo(copy.Counters, 0);
+            list.Started.CopyTo(copy.Started, 0);
+            _states[id] = copy;
+        }
+
+        _overridden.Clear();
+        _overridden.UnionWith(state.Overridden);
+
+        // The state is immutable, so it is also the snapshot of what the counters hold now.
+        _version++;
+        _cached = state;
+        _cachedVersion = _version;
     }
 
     private static string Letters(int value, bool upper)
@@ -270,5 +326,44 @@ public sealed class NumberingCounter
         public bool Legal { get; }
 
         public NumberSuffix Suffix { get; } = NumberSuffix.Tab;
+    }
+}
+
+/// <summary>A copy of the counters of a <see cref="NumberingCounter"/> at one moment; never changes.</summary>
+internal sealed class NumberingState
+{
+    internal NumberingState(Dictionary<int, (int[] Counters, bool[] Started)> lists, (int NumId, int Level)[] overridden)
+    {
+        Lists = lists;
+        Overridden = overridden;
+    }
+
+    internal IReadOnlyDictionary<int, (int[] Counters, bool[] Started)> Lists { get; }
+
+    /// <summary>The levels whose start override was applied, sorted.</summary>
+    internal (int NumId, int Level)[] Overridden { get; }
+
+    /// <summary>True when both hold the same counters, started flags and applied overrides.</summary>
+    internal bool SameAs(NumberingState? other)
+    {
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        if (other is null || Lists.Count != other.Lists.Count || !Overridden.AsSpan().SequenceEqual(other.Overridden))
+        {
+            return false;
+        }
+
+        foreach (var (id, list) in Lists)
+        {
+            if (!other.Lists.TryGetValue(id, out var them) || !list.Counters.AsSpan().SequenceEqual(them.Counters) || !list.Started.AsSpan().SequenceEqual(them.Started))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

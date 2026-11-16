@@ -201,4 +201,148 @@
   <data name="OutlineWaiting" xml:space="preserve">
     <value>Die Seiten bis zur Überschrift werden gesetzt…</value>
   </data>
+  <data name="EditStillOpening" xml:space="preserve">
+    <value>Das Dokument wird noch geöffnet. Das Bearbeiten ist gleich möglich.</value>
+  </data>
+  <data name="EditUnavailable" xml:space="preserve">
+    <value>Das Bearbeiten ist für dieses Dokument wegen eines Fehlers nicht verfügbar.</value>
+  </data>
+  <data name="MenuEdit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="GroupUndo" xml:space="preserve">
+    <value>Rückgängig</value>
+  </data>
+  <data name="GroupClipboard" xml:space="preserve">
+    <value>Zwischenablage</value>
+  </data>
+  <data name="CmdUndo" xml:space="preserve">
+    <value>Rückgängig</value>
+  </data>
+  <data name="CmdRedo" xml:space="preserve">
+    <value>Wiederholen</value>
+  </data>
+  <data name="CmdCut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="CmdCopy" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="CmdPaste" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="CmdSelectAll" xml:space="preserve">
+    <value>Alles auswählen</value>
+  </data>
+  <data name="DescUndo" xml:space="preserve">
+    <value>Nimmt die letzte Änderung zurück.</value>
+  </data>
+  <data name="DescRedo" xml:space="preserve">
+    <value>Führt die zuletzt zurückgenommene Änderung erneut aus.</value>
+  </data>
+  <data name="DescCut" xml:space="preserve">
+    <value>Entfernt den ausgewählten Text und legt ihn in die Zwischenablage.</value>
+  </data>
+  <data name="DescCopy" xml:space="preserve">
+    <value>Legt den ausgewählten Text in die Zwischenablage.</value>
+  </data>
+  <data name="DescPaste" xml:space="preserve">
+    <value>Fügt die Zwischenablage an der Schreibmarke ein und ersetzt die Auswahl.</value>
+  </data>
+  <data name="DescSelectAll" xml:space="preserve">
+    <value>Wählt den gesamten Text des Bereichs aus, in dem Sie sich befinden.</value>
+  </data>
+  <data name="ReasonEditOpening" xml:space="preserve">
+    <value>Das Dokument wird noch geöffnet.</value>
+  </data>
+  <data name="ReasonEditSaving" xml:space="preserve">
+    <value>Das Speichern läuft gerade.</value>
+  </data>
+  <data name="ReasonNoSelection" xml:space="preserve">
+    <value>Es ist nichts ausgewählt.</value>
+  </data>
+  <data name="ReasonNothingToUndo" xml:space="preserve">
+    <value>Es gibt nichts zum Rückgängigmachen.</value>
+  </data>
+  <data name="ReasonNothingToRedo" xml:space="preserve">
+    <value>Es gibt nichts zum Wiederholen.</value>
+  </data>
+  <data name="EditFailed" xml:space="preserve">
+    <value>Das Bearbeiten wurde wegen eines internen Fehlers beendet. Änderungen seit dem letzten Speichern können verloren gehen. Sie können versuchen, es mit „Speichern unter“ unter einem anderen Namen zu speichern und die neue Datei danach erneut zu öffnen.</value>
+  </data>
+  <data name="CmdSave" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="CmdSaveAs" xml:space="preserve">
+    <value>Speichern unter</value>
+  </data>
+  <data name="SaveDialogTitle" xml:space="preserve">
+    <value>Dokument speichern unter</value>
+  </data>
+  <data name="ReasonNothingToSave" xml:space="preserve">
+    <value>Es gibt keine Änderungen zu speichern.</value>
+  </data>
+  <data name="ReasonSaveFaulted" xml:space="preserve">
+    <value>Das Bearbeiten wurde wegen eines Fehlers beendet, deshalb kann dieses Dokument nicht über seine Datei gespeichert werden. Mit „Speichern unter“ können Sie es in einer anderen Datei behalten.</value>
+  </data>
+  <data name="ReasonSaveAsFaulted" xml:space="preserve">
+    <value>Dieses Dokument kann wegen eines Fehlers nicht gespeichert werden.</value>
+  </data>
+  <data name="SaveErrorTitle" xml:space="preserve">
+    <value>Das Dokument wurde nicht gespeichert</value>
+  </data>
+  <data name="SaveErrorKept" xml:space="preserve">
+    <value>Das Dokument ist mit Ihren Änderungen weiterhin geöffnet. Die Datei auf dem Datenträger wurde nicht ersetzt.</value>
+  </data>
+  <data name="SaveFailNotWritable" xml:space="preserve">
+    <value>Die Datei ist schreibgeschützt, oder Sie dürfen sie oder ihren Ordner nicht ändern. Wählen Sie „Speichern unter“, um Ihre Arbeit an einem anderen Ort zu behalten.</value>
+  </data>
+  <data name="SaveFailDiskFull" xml:space="preserve">
+    <value>Der Datenträger ist voll. Schaffen Sie Platz, oder wählen Sie „Speichern unter“, um auf einem anderen Datenträger zu speichern.</value>
+  </data>
+  <data name="SaveFailWriteFailed" xml:space="preserve">
+    <value>Die Datei konnte nicht geschrieben werden. Sie ist möglicherweise in einem anderen Programm geöffnet, oder das Laufwerk ist nicht erreichbar. Versuchen Sie es erneut, oder wählen Sie „Speichern unter“.</value>
+  </data>
+  <data name="SaveFailTargetExists" xml:space="preserve">
+    <value>Inzwischen wurde eine Datei mit diesem Namen angelegt. Sie wurde nicht ersetzt. Wählen Sie „Speichern unter“ und einen anderen Namen.</value>
+  </data>
+  <data name="SaveFailOriginalChanged" xml:space="preserve">
+    <value>Die Datei wurde nach dem Öffnen von einem anderen Programm geändert.</value>
+  </data>
+  <data name="SaveFailOther" xml:space="preserve">
+    <value>Das Dokument konnte nicht gespeichert werden.</value>
+  </data>
+  <data name="SaveFailCheck" xml:space="preserve">
+    <value>Die gespeicherte Datei hat die eigene Prüfung von Write nicht bestanden, deshalb wurde nichts ersetzt. Wählen Sie „Speichern unter“, um in einer anderen Datei zu speichern.</value>
+  </data>
+  <data name="SaveFailUnreadable" xml:space="preserve">
+    <value>Write konnte das Geschriebene nicht wieder einlesen, deshalb wurde nichts ersetzt. Wählen Sie „Speichern unter“, um in einer anderen Datei zu speichern.</value>
+  </data>
+  <data name="SaveFailOpenElsewhere" xml:space="preserve">
+    <value>Diese Datei ist in einem anderen Tab geöffnet. Schließen Sie zuerst diesen Tab, oder wählen Sie einen anderen Namen.</value>
+  </data>
+  <data name="SaveFailUnexpected" xml:space="preserve">
+    <value>Das Dokument konnte wegen eines unerwarteten Fehlers nicht gespeichert werden.</value>
+  </data>
+  <data name="SaveLeftoverNoteFormat" xml:space="preserve">
+    <value>Die alte Datei {0} konnte nicht gelöscht werden. Sie können sie selbst entfernen.</value>
+  </data>
+  <data name="ChangedTitle" xml:space="preserve">
+    <value>Die Datei wurde geändert</value>
+  </data>
+  <data name="ChangedMessageFormat" xml:space="preserve">
+    <value>{0} wurde nach dem Öffnen von einem anderen Programm geändert oder ersetzt. Beim Überschreiben gehen diese Änderungen verloren. Sie können Ihr Dokument stattdessen unter einem anderen Namen speichern.</value>
+  </data>
+  <data name="ChangedOverwrite" xml:space="preserve">
+    <value>Überschreiben</value>
+  </data>
+  <data name="UnsavedTitle" xml:space="preserve">
+    <value>Änderungen speichern?</value>
+  </data>
+  <data name="UnsavedMessageFormat" xml:space="preserve">
+    <value>{0} hat nicht gespeicherte Änderungen. Möchten Sie sie vor dem Schließen speichern?</value>
+  </data>
+  <data name="UnsavedDontSave" xml:space="preserve">
+    <value>Nicht speichern</value>
+  </data>
 </root>

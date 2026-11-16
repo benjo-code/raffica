@@ -6,4 +6,14 @@ namespace Raffica.Write.Model;
 public abstract class OoxmlElement
 {
     public IList<XAttribute> UnknownAttributes { get; } = new List<XAttribute>();
+
+    /// <summary>Copies the unknown attributes onto <paramref name="target"/> (new attribute objects, same names and values).</summary>
+    protected internal void CopyAttributesTo(OoxmlElement target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        foreach (var attribute in UnknownAttributes)
+        {
+            target.UnknownAttributes.Add(new XAttribute(attribute));
+        }
+    }
 }

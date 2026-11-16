@@ -20,6 +20,16 @@ public enum FieldCharKind
 /// <summary>One item inside a run: text, a tab, a break, a field character, a reference or a picture.</summary>
 public abstract class RunContent : OoxmlElement
 {
+    /// <summary>A deep copy that writes the same XML; <see cref="UnknownContent"/> is shared.</summary>
+    public abstract RunContent Clone();
+
+    /// <summary>Copies the unknown attributes onto <paramref name="copy"/> and returns it.</summary>
+    protected T Finish<T>(T copy)
+        where T : RunContent
+    {
+        CopyAttributesTo(copy);
+        return copy;
+    }
 }
 
 /// <summary>A run child the model does not understand, kept as it was read.</summary>
@@ -32,6 +42,8 @@ public sealed class UnknownRunContent : RunContent
     }
 
     public UnknownContent Content { get; }
+
+    public override UnknownRunContent Clone() => Finish(new UnknownRunContent(Content));
 }
 
 /// <summary>A <c>w:t</c>. The text is exactly what was typed; <c>xml:space</c> is decided when it is written.</summary>
@@ -44,6 +56,8 @@ public sealed class TextContent : RunContent
     }
 
     public string Text { get; set; }
+
+    public override TextContent Clone() => Finish(new TextContent(Text));
 }
 
 /// <summary>A <c>w:delText</c>: text inside a tracked deletion.</summary>
@@ -56,6 +70,8 @@ public sealed class DeletedText : RunContent
     }
 
     public string Text { get; set; }
+
+    public override DeletedText Clone() => Finish(new DeletedText(Text));
 }
 
 /// <summary>A <c>w:instrText</c>: a piece of a field instruction.</summary>
@@ -68,10 +84,13 @@ public sealed class InstructionText : RunContent
     }
 
     public string Text { get; set; }
+
+    public override InstructionText Clone() => Finish(new InstructionText(Text));
 }
 
 public sealed class TabContent : RunContent
 {
+    public override TabContent Clone() => Finish(new TabContent());
 }
 
 /// <summary>A <c>w:br</c>. A <c>type</c> attribute other than page or column (an explicit <c>textWrapping</c>) stays an unknown attribute, so it is written back as it was.</summary>
@@ -87,6 +106,8 @@ public sealed class BreakContent : RunContent
 
     /// <summary>The <c>w:clear</c> value (<c>none</c>, <c>left</c>, <c>right</c>, <c>all</c>) or null.</summary>
     public string? Clear { get; set; }
+
+    public override BreakContent Clone() => Finish(new BreakContent(Kind, Clear));
 }
 
 /// <summary>A <c>w:fldChar</c>. Children (<c>w:fldData</c>, <c>w:ffData</c>) are kept in <see cref="KeptChildren"/>.</summary>
@@ -103,6 +124,17 @@ public sealed class FieldChar : RunContent
     public bool Dirty { get; set; }
 
     public IList<XElement> KeptChildren { get; } = new List<XElement>();
+
+    public override FieldChar Clone()
+    {
+        var copy = new FieldChar(Kind, Dirty);
+        foreach (var child in KeptChildren)
+        {
+            copy.KeptChildren.Add(new XElement(child));
+        }
+
+        return Finish(copy);
+    }
 }
 
 public sealed class FootnoteReference : RunContent
@@ -113,6 +145,8 @@ public sealed class FootnoteReference : RunContent
     }
 
     public int Id { get; set; }
+
+    public override FootnoteReference Clone() => Finish(new FootnoteReference(Id));
 }
 
 public sealed class EndnoteReference : RunContent
@@ -123,6 +157,8 @@ public sealed class EndnoteReference : RunContent
     }
 
     public int Id { get; set; }
+
+    public override EndnoteReference Clone() => Finish(new EndnoteReference(Id));
 }
 
 public sealed class CommentReference : RunContent
@@ -133,6 +169,8 @@ public sealed class CommentReference : RunContent
     }
 
     public int Id { get; set; }
+
+    public override CommentReference Clone() => Finish(new CommentReference(Id));
 }
 
 /// <summary>A <c>w:drawing</c>. The XML is kept whole in <see cref="Raw"/>; the other members are read from it, so they can never disagree with what is written.</summary>
@@ -155,6 +193,8 @@ public sealed class Picture : RunContent
     }
 
     public XElement Raw { get; }
+
+    public override Picture Clone() => Finish(new Picture(new XElement(Raw)));
 
     /// <summary>True for <c>wp:inline</c> (sits in the text), false for <c>wp:anchor</c> (floats).</summary>
     public bool Inline => Raw.Element(Wp + "inline") is not null;

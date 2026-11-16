@@ -19,6 +19,27 @@ public class PropertyBag : OoxmlElement
 
     public IReadOnlyList<XElement> Children => _children;
 
+    /// <summary>A copy of the bag: the kept children and attributes are new objects with the same content.</summary>
+    public virtual PropertyBag Clone()
+    {
+        var copy = new PropertyBag(Kind);
+        CopyStateTo(copy);
+        return copy;
+    }
+
+    /// <summary>Copies the children, <see cref="WasPresent"/> and the unknown attributes onto <paramref name="target"/>, which must be of the same kind and empty.</summary>
+    internal void CopyStateTo(PropertyBag target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        target.WasPresent = WasPresent;
+        foreach (var child in _children)
+        {
+            target._children.Add(new XElement(child));
+        }
+
+        CopyAttributesTo(target);
+    }
+
     /// <summary>True when the bag was read from an element that was there but empty (for example <c>&lt;w:tcPr/&gt;</c>); the writer then writes the empty element again. A bag created in code that stays empty is not written.</summary>
     public bool WasPresent { get; set; }
 

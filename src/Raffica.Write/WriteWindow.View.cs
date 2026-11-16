@@ -7,6 +7,7 @@ using Raffica.Shell.Frame;
 using Raffica.Write.Commands;
 using Raffica.Write.Documents;
 using Raffica.Write.Docx;
+using Raffica.Write.Editing;
 using Raffica.Write.Settings;
 using Raffica.Write.Viewing;
 
@@ -18,6 +19,11 @@ internal sealed partial class WriteWindow
     private WriteCommandRules _rules = null!;
     private Dictionary<string, Action> _actions = null!;
     private readonly HashSet<WriteTab> _faultShown = [];
+    private string? _editHint;
+    private int _editHintGeneration;
+
+    /// <summary>How long the hint of a refused key stays when nothing ends it sooner.</summary>
+    internal static readonly TimeSpan EditHintDuration = TimeSpan.FromSeconds(6);
 
     /// <summary>The ribbon (the tabs Home and View); its parts sit in the frame while a document tab is open.</summary>
     public RibbonView Ribbon { get; private set; } = null!;
@@ -31,7 +37,7 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true);
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)));
         _actions = CreateActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
@@ -43,6 +49,8 @@ internal sealed partial class WriteWindow
     private Dictionary<string, Action> CreateActions() => new()
     {
         [WriteCommandIds.Open] = () => _ = GuardAsync(OpenFromDialogAsync),
+        [WriteCommandIds.Save] = () => _ = GuardAsync(() => SaveActiveAsync()),
+        [WriteCommandIds.SaveAs] = () => _ = GuardAsync(() => SaveAsActiveAsync()),
         [WriteCommandIds.CloseTab] = CloseActiveTab,
         [WriteCommandIds.Settings] = () => Settings.Open(),
         [WriteCommandIds.Search] = TitleSearch.FocusAndSelect,
@@ -54,6 +62,12 @@ internal sealed partial class WriteWindow
         [WriteCommandIds.PageView] = () => SetView(WriteView.Page),
         [WriteCommandIds.WritingView] = () => SetView(WriteView.Writing),
         [WriteCommandIds.Outline] = ToggleOutline,
+        [WriteCommandIds.Undo] = () => RunEditFromUi(WriteCommandIds.Undo),
+        [WriteCommandIds.Redo] = () => RunEditFromUi(WriteCommandIds.Redo),
+        [WriteCommandIds.Cut] = () => RunEditFromUi(WriteCommandIds.Cut),
+        [WriteCommandIds.Copy] = () => RunEditFromUi(WriteCommandIds.Copy),
+        [WriteCommandIds.Paste] = () => RunEditFromUi(WriteCommandIds.Paste),
+        [WriteCommandIds.SelectAll] = () => RunEditFromUi(WriteCommandIds.SelectAll),
     };
 
     // Whether a switch of the ribbon is on: the view in force and the zoom mode of the active tab.
@@ -74,6 +88,22 @@ internal sealed partial class WriteWindow
             WriteCommandIds.Outline => _outlineWanted,
             _ => false,
         };
+    }
+
+    // An edit command that came from the ribbon, the command search or the menu works on the view's selection, so the view takes the focus back: a ribbon button that kept it would
+    // swallow the typing and run the command again on Space or Enter. The keys of the page view do not come here.
+    private void RunEditFromUi(string id)
+    {
+        if (ActiveView is not { } view)
+        {
+            return;
+        }
+
+        view.RunEditCommand(id);
+        if (!view.IsFocused)
+        {
+            view.Focus();
+        }
     }
 
     /// <summary>Runs a command of the catalog by id (the keys, the macOS menu and the tests); false when it is not allowed or has no action.</summary>
@@ -108,6 +138,16 @@ internal sealed partial class WriteWindow
                 UpdateViewStatus();
             }
         };
+        // The keys of the page view run the command on the view that has the focus and the rules decide (no focus change: the view has it).
+        view.EditCommandHandler = id => _rules.Allows(id) && view.RunEditCommand(id);
+        view.SelectionStateChanged += () =>
+        {
+            if (ReferenceEquals(ActiveView, view))
+            {
+                RefreshCommandStates();
+            }
+        };
+        view.InputRefused += reason => OnInputRefused(view, tab, reason);
         view.FirstSharpPage += () =>
         {
             FirstSharpPageDrawn?.Invoke(tab);
@@ -128,11 +168,67 @@ internal sealed partial class WriteWindow
         return view;
     }
 
+    // Typing or an editing key was refused (only a prefix is open, or editing failed): one hint in the status bar per burst of keys. It stays while the keys go on, goes when the whole
+    // file is open (the first case) or after a few seconds, and a later key shows it again. A key during a save is queued and says nothing.
+    private void OnInputRefused(PageView view, WriteTab tab, EditBlockedReason reason)
+    {
+        if (!ReferenceEquals(ActiveView, view))
+        {
+            return;
+        }
+
+        var text = reason == EditBlockedReason.StillOpening ? WriteStrings.EditStillOpening : tab.Runner.FaultedByEdit ? WriteStrings.EditFailed : WriteStrings.EditUnavailable;
+        if (_editHint == text && Status.Hint == text)
+        {
+            return;
+        }
+
+        Status.Hint = text;
+        _editHint = text;
+        var generation = ++_editHintGeneration;
+        void Clear()
+        {
+            if (generation == _editHintGeneration)
+            {
+                _editHint = null;
+                if (Status.Hint == text)
+                {
+                    Status.Hint = null;
+                }
+            }
+        }
+
+        if (reason == EditBlockedReason.StillOpening)
+        {
+            var ui = Dispatcher.UIThread;
+            _ = tab.Runner.FullModelTask.ContinueWith(_ => ui.Post(Clear), TaskScheduler.Default);
+        }
+
+        DispatcherTimer.RunOnce(Clear, EditHintDuration);
+    }
+
     // A layout failed (the whole file could not be read after page 1, or a bug of the layout): one card per tab, in the wording of the open errors (never the text of
     // the exception). The tab stays open on what is laid out; the status no longer promises more pages. Nothing is shown for a window that is closing or a closed tab.
     private void OnLayoutFaulted(WriteTab tab)
     {
-        if (_closeConfirmed || tab.IsDisposed || !_faultShown.Add(tab))
+        if (_closeConfirmed || tab.IsDisposed)
+        {
+            return;
+        }
+
+        if (tab.Runner.FaultedByEdit)
+        {
+            // Editing failed in an open document: no card about a file that cannot be read; the status says editing stopped (and that Save as may still keep the work).
+            if (ActiveView is { } active && ReferenceEquals(active.Tab, tab))
+            {
+                OnInputRefused(active, tab, EditBlockedReason.Faulted);
+                UpdateViewStatus();
+            }
+
+            return;
+        }
+
+        if (!_faultShown.Add(tab))
         {
             return;
         }

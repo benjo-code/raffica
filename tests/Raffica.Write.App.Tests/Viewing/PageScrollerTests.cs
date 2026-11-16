@@ -99,7 +99,7 @@ public sealed class PageScrollerTests
         var offset = scroller.RectOf(3).Y + (400 * 1.5 * Dips);
         var anchor = scroller.AnchorAt(offset);
         Assert.Equal(7, anchor.Block);
-        Assert.Equal(0, anchor.Char);
+        Assert.Equal(0, anchor.Character);
         Assert.Equal(offset, scroller.OffsetOf(anchor)!.Value, 6);
 
         // Another zoom: the same block is at the top again.
@@ -202,4 +202,16 @@ public sealed class PageScrollerTests
     [Fact]
     public void RectOfAPageOutOfRangeThrows() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => new PageScroller(Pages(2), 10, 1.0).RectOf(2));
+
+    [Fact]
+    public void TheAutoScrollStepGrowsWithTheDistanceAndKeepsTheSign()
+    {
+        Assert.Equal(0, PageScroller.AutoScrollStep(0));
+        Assert.Equal(0, PageScroller.AutoScrollStep(double.NaN));
+        Assert.Equal(4.4, PageScroller.AutoScrollStep(1), 6);
+        Assert.Equal(-4.4, PageScroller.AutoScrollStep(-1), 6);
+        Assert.True(PageScroller.AutoScrollStep(100) > PageScroller.AutoScrollStep(10));
+        Assert.Equal(96, PageScroller.AutoScrollStep(100000));
+        Assert.Equal(-96, PageScroller.AutoScrollStep(-100000));
+    }
 }

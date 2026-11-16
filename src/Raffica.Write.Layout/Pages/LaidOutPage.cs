@@ -9,8 +9,9 @@ internal readonly record struct BlockSpan(int BodyIndex, float Top, float Bottom
 /// </summary>
 public sealed class LaidOutPage
 {
-    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false)
+    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false, TextLine[]? textLines = null, ChromeInfo? chrome = null)
     {
+        Chrome = chrome;
         IsProvisional = isProvisional;
         ItemArray = items;
         Index = index;
@@ -21,6 +22,7 @@ public sealed class LaidOutPage
         Items = items;
         Text = text;
         Spans = spans;
+        TextLines = textLines ?? [];
     }
 
     /// <summary>The position in the document, from 0.</summary>
@@ -47,6 +49,9 @@ public sealed class LaidOutPage
 
     internal PageItem[] ItemArray { get; }
 
+    /// <summary>Where the header and footer sit in this page and what they were made with; null for a page made without page chrome (a strip of the writing view).</summary>
+    internal ChromeInfo? Chrome { get; }
+
     /// <summary>
     /// The text of the page for the corpus comparison: the label of a numbered paragraph, a space, then the lines of each paragraph,
     /// one line per row, joined by <c>\n</c>. The hyphen that automatic hyphenation draws at a line end is not part of the text
@@ -56,4 +61,7 @@ public sealed class LaidOutPage
     public string Text { get; }
 
     internal BlockSpan[] Spans { get; }
+
+    /// <summary>The line records of the page in reading order (header, body, notes, footer): the way back from what is drawn to the model.</summary>
+    internal TextLine[] TextLines { get; }
 }

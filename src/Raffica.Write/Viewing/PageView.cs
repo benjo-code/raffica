@@ -23,7 +23,7 @@ namespace Raffica.Write.Viewing;
 /// point under the cursor stays), switches between the two views through a <see cref="ViewAnchor"/> and reports the first drawn page for the measurement. It draws
 /// the paper white in every theme (the text colours of a document assume it) and takes the desk from the shell tokens. UI thread only, except the draw callback.
 /// </summary>
-internal sealed class PageView : Control, IDisposable
+internal sealed partial class PageView : Control, IDisposable
 {
     /// <summary>The desk behind the pages.</summary>
     public static readonly StyledProperty<IBrush?> BackgroundProperty = Border.BackgroundProperty.AddOwner<PageView>();
@@ -81,22 +81,27 @@ internal sealed class PageView : Control, IDisposable
             _zoom = 1.0;
         }
 
+        _overlay = new EditOverlay(this);
         Focusable = true;
         ClipToBounds = true;
         _vertical.ValueChanged += (_, e) => OnBarMoved(vertical: true, e.NewValue);
         _horizontal.ValueChanged += (_, e) => OnBarMoved(vertical: false, e.NewValue);
+        VisualChildren.Add(_overlay);
         VisualChildren.Add(_vertical);
         VisualChildren.Add(_horizontal);
         LogicalChildren.Add(_vertical);
         LogicalChildren.Add(_horizontal);
         _runner.Changed += OnRunnerChanged;
+        _runner.Faulted += OnRunnerFaulted;
         tab.Disposing += Release;
+        TextInputMethodClientRequested += OnImeRequested;
         if (mode == WriteView.Writing)
         {
             _runner.EnsureFlow();
         }
 
         UpdateAutomationName();
+        InitializeEditing();
     }
 
     /// <summary>
@@ -129,8 +134,10 @@ internal sealed class PageView : Control, IDisposable
                 return;
             }
 
-            var anchor = _scroller?.AnchorAt(_offsetY);
+            CancelComposition();
+            var anchor = CaretAnchorIfVisible() ?? _scroller?.AnchorAt(_offsetY);
             _mode = value;
+            SyncActiveMode();
             if (value == WriteView.Writing)
             {
                 _runner.EnsureFlow();
@@ -140,7 +147,7 @@ internal sealed class PageView : Control, IDisposable
             _offsetY = 0;
             _dirty = true;
             EnsureCurrent();
-            InvalidateVisual();
+            InvalidateAll();
             NotifyViewChanged();
         }
     }
@@ -228,7 +235,9 @@ internal sealed class PageView : Control, IDisposable
 
         _released = true;
         _runner.Changed -= OnRunnerChanged;
+        _runner.Faulted -= OnRunnerFaulted;
         _tab.Disposing -= Release;
+        ReleaseEditing();
         // Never waits: the pictures go now when no draw runs, otherwise when the draw that runs ends (on the render thread).
         _gate.Close(() =>
         {
@@ -248,9 +257,18 @@ internal sealed class PageView : Control, IDisposable
     private void OnRunnerChanged()
     {
         EnsureCurrent();
-        InvalidateVisual();
+        ForgetLostComposition();
+        InvalidateAll();
         UpdateScrollBars();
+        UpdateBlink();
         NotifyViewChanged();
+    }
+
+    // A failed layout or edit: the caret no longer matches the document, so it goes (the view keeps what is laid out).
+    private void OnRunnerFaulted()
+    {
+        UpdateBlink();
+        InvalidateAll();
     }
 
     // Makes the scroller match the layout of the current mode: another layout object, more pages, a replaced provisional page or a changed viewport or zoom.
@@ -287,9 +305,24 @@ internal sealed class PageView : Control, IDisposable
         var sizes = new (float Width, float Height)[count];
         for (var i = 0; i < count; i++)
         {
-            // Read again on every rebuild: a page that was provisional has been replaced by an object that is not this one.
-            var page = layout.Page(i);
+            // Read again on every rebuild: a page that was provisional has been replaced by an object that is not this one. After an edit the layout may hold fewer
+            // pages than the count read a moment ago (the pages behind the edit are cut off until they are laid out again): the sizes stop at the first missing one.
+            if (!layout.TryGetPage(i, out var page) || page is null)
+            {
+                Array.Resize(ref sizes, i);
+                break;
+            }
+
             sizes[i] = (page.Width, page.Height);
+        }
+
+        if (sizes.Length == 0)
+        {
+            _scroller = null;
+            _scrollerMode = _mode;
+            ClampOffsets();
+            TryApplyPending();
+            return;
         }
 
         var zoom = ResolveZoom(sizes, sameMode ? old : null);
@@ -359,7 +392,7 @@ internal sealed class PageView : Control, IDisposable
             return;
         }
 
-        if (_scroller.OffsetOf(anchor) is { } offset)
+        if (OffsetOfAnchor(anchor) is { } offset)
         {
             _pending = null;
             _offsetY = PageScroller.Clamp(offset - (EdgeOf(_mode) / 2), _scroller.ContentHeight, _viewport.Height);
@@ -387,7 +420,7 @@ internal sealed class PageView : Control, IDisposable
         EnsureCurrent();
         TryApplyPending();
         UpdateScrollBars();
-        InvalidateVisual();
+        InvalidateAll();
         NotifyViewChanged();
     }
 
@@ -419,7 +452,7 @@ internal sealed class PageView : Control, IDisposable
         _offsetX = x;
         _offsetY = y;
         UpdateScrollBars();
-        InvalidateVisual();
+        InvalidateAll();
         NotifyViewChanged();
     }
 
@@ -504,7 +537,7 @@ internal sealed class PageView : Control, IDisposable
         _zoomMode = mode;
         _dirty = true;
         EnsureCurrent();
-        InvalidateVisual();
+        InvalidateAll();
         NotifyViewChanged();
     }
 
@@ -534,7 +567,7 @@ internal sealed class PageView : Control, IDisposable
         _pending = null;
         ClampOffsets();
         UpdateScrollBars();
-        InvalidateVisual();
+        InvalidateAll();
         NotifyViewChanged();
     }
 
@@ -585,11 +618,35 @@ internal sealed class PageView : Control, IDisposable
     {
         base.OnPointerPressed(e);
         Focus();
+        if (!e.Handled)
+        {
+            PressPointer(e);
+        }
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        var repeat = !_held.Add(e.Key);
+        if (IsComposing)
+        {
+            HandleKeyWhileComposing(e);
+            return;
+        }
+
+        if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && LeaveStory())
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // The editing keys come first: with a caret they move the caret (and keep it in view), otherwise the navigation keys below scroll as before. Text is not a key (OnTextInput).
+        if (!e.Handled && HandleEditingKeyGuarded(e, repeat))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (!e.Handled && HandleNavigationKey(e.Key, e.KeyModifiers))
         {
             e.Handled = true;
@@ -680,6 +737,7 @@ internal sealed class PageView : Control, IDisposable
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        _overlay.Measure(availableSize);
         _vertical.Measure(availableSize);
         _horizontal.Measure(availableSize);
         return new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 0, double.IsFinite(availableSize.Height) ? availableSize.Height : 0);
@@ -696,10 +754,11 @@ internal sealed class PageView : Control, IDisposable
                 _dirty = true;
                 EnsureCurrent();
                 UpdateScrollBars();
-                InvalidateVisual();
+                InvalidateAll();
                 NotifyViewChanged();
             }
 
+            _overlay.Arrange(new Rect(finalSize));
             var barWidth = _vertical.IsVisible ? _vertical.DesiredSize.Width : 0;
             var barHeight = _horizontal.IsVisible ? _horizontal.DesiredSize.Height : 0;
             _vertical.Arrange(new Rect(Math.Max(0, finalSize.Width - barWidth), 0, barWidth, Math.Max(0, finalSize.Height - barHeight)));
@@ -713,12 +772,24 @@ internal sealed class PageView : Control, IDisposable
         return finalSize;
     }
 
+    /// <summary>How many times the page layer was rendered (tests: a render pass must not ask for another one).</summary>
+    internal int RenderCount { get; private set; }
+
+    /// <summary>The typing measurement's hook, called on the UI thread at the start of every render pass (with -1) and at its end (with the number of pages it handed to the render thread); null outside a measurement.</summary>
+    internal Action<int>? RenderProbe { get; set; }
+
+    /// <summary>The typing measurement's hook, called on the render thread after every page draw with the monotonic timestamps of its start and its end (null outside a measurement).</summary>
+    internal Action<long, long>? DrawProbe { get; set; }
+
     public override void Render(DrawingContext context)
     {
+        RenderCount++;
+        RenderProbe?.Invoke(-1);
         var bounds = new Rect(Bounds.Size);
         context.FillRectangle(Background ?? DeskBrush(), bounds);
         if (_released)
         {
+            RenderProbe?.Invoke(0);
             return;
         }
 
@@ -726,6 +797,7 @@ internal sealed class PageView : Control, IDisposable
         var layout = _builtLayout;
         if (_scroller is not { Count: > 0 } scroller || layout is null)
         {
+            RenderProbe?.Invoke(0);
             return;
         }
 
@@ -733,6 +805,7 @@ internal sealed class PageView : Control, IDisposable
         var (first, last) = scroller.Visible(_offsetY, _viewport.Height);
         var left = LeftShift(scroller);
         var shadow = ShadowOfPage();
+        var handed = 0;
         using (context.PushClip(bounds))
         {
             for (var index = first; index <= last && index < layout.LaidOutPages; index++)
@@ -740,7 +813,11 @@ internal sealed class PageView : Control, IDisposable
                 var rect = Snap(scroller.RectOf(index).Translate(new Vector(left, -_offsetY)), scaling);
 
                 // Read again for every frame: a provisional page may have been replaced since the last one.
-                var page = layout.Page(index);
+                if (!layout.TryGetPage(index, out var page) || page is null)
+                {
+                    continue;
+                }
+
                 if (page.IsStrip)
                 {
                     context.FillRectangle(Paper, rect);
@@ -750,9 +827,12 @@ internal sealed class PageView : Control, IDisposable
                     context.DrawRectangle(Paper, null, rect, 0, 0, shadow);
                 }
 
-                context.Custom(new PageDrawOperation(rect, page, scroller.Scale, _images, _gate, OnDrawn));
+                context.Custom(new PageDrawOperation(rect, page, scroller.Scale, _images, _gate, OnDrawn, DrawProbe));
+                handed++;
             }
         }
+
+        RenderProbe?.Invoke(handed);
     }
 
     private IBrush DeskBrush() =>
@@ -819,6 +899,7 @@ internal sealed class PageView : Control, IDisposable
         {
             RefreshAutomationName();
             ViewChanged?.Invoke();
+            NotifyImeCursor();
         }
         finally
         {

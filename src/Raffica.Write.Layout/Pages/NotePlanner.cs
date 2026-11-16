@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 using Raffica.Write.Model;
 
@@ -38,6 +39,9 @@ internal sealed class NoteRef
     public string Text { get; }
 
     internal NoteBody? Body { get; set; }
+
+    /// <summary>The version of the note's text (see <see cref="NotePlanner.Invalidate"/>) <see cref="Body"/> was laid out from.</summary>
+    internal int BodyVersion { get; set; }
 
     internal float BodyWidth { get; set; } = float.NaN;
 }
@@ -101,7 +105,11 @@ internal sealed class NotePlanner
     private readonly string? _footnoteFormat;
     private readonly string? _endnoteFormat;
     private readonly List<NoteRef> _endnotes = [];
+    private readonly Dictionary<string, int> _versions = new(StringComparer.Ordinal);
     private int _footnotes;
+    private int _version;
+    private NoteState? _cached;
+    private int _cachedVersion = -1;
 
     public NotePlanner(WordDocument document, Func<BlockPlanner> planners)
     {
@@ -113,9 +121,37 @@ internal sealed class NotePlanner
         _endnoteFormat = (string?)settings?.Get(W + "endnotePr")?.Element(W + "numFmt")?.Attribute(W + "val") ?? "lowerRoman";
     }
 
+    /// <summary>The numbering state: the footnote count and the endnote references so far (the list only grows and its entries never change, so a shallow copy is exact).</summary>
+    /// <remarks>While no reference was registered since the last snapshot, the same object comes back, so a block without notes makes no copy.</remarks>
+    public NoteState Snapshot()
+    {
+        if (_cached is { } known && _cachedVersion == _version)
+        {
+            return known;
+        }
+
+        var state = new NoteState(_footnotes, [.. _endnotes]);
+        _cached = state;
+        _cachedVersion = _version;
+        return state;
+    }
+
+    /// <summary>Makes the numbering exactly what it was when <paramref name="state"/> was taken.</summary>
+    public void Restore(NoteState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _footnotes = state.Footnotes;
+        _endnotes.Clear();
+        _endnotes.AddRange(state.Endnotes);
+        _version++;
+        _cached = state;
+        _cachedVersion = _version;
+    }
+
     /// <summary>Numbers a reference. A reference to a note that does not exist is numbered like any other (it just has no text).</summary>
     public NoteRef Register(bool isEndnote, int id)
     {
+        _version++;
         if (isEndnote)
         {
             var number = _endnotes.Count + 1;
@@ -132,7 +168,8 @@ internal sealed class NotePlanner
     public NoteBody BodyOf(NoteRef reference, float width)
     {
         ArgumentNullException.ThrowIfNull(reference);
-        if (reference.Body is { } known && reference.BodyWidth == width)
+        var version = VersionOf(reference);
+        if (reference.Body is { } known && reference.BodyWidth == width && reference.BodyVersion == version)
         {
             return known;
         }
@@ -149,14 +186,30 @@ internal sealed class NotePlanner
             var planner = _planners();
             planner.Context = new PlanContext { NoteMark = reference.Text };
             planner.StoryKey = reference.IsEndnote ? ImageRef.EndnotesStory : ImageRef.FootnotesStory;
+            planner.Story = new StoryRef(StoryKind.Note, (reference.IsEndnote ? "endnote:" : string.Empty) + reference.Id.ToString(CultureInfo.InvariantCulture));
             planner.CanPlaceFloats = false;
             body = new NoteBody(planner.PlanStory(note.Content.Blocks, width));
         }
 
         reference.Body = body;
         reference.BodyWidth = width;
+        reference.BodyVersion = version;
         return body;
     }
+
+    /// <summary>
+    /// Says that the text of a note changed: the laid-out body of every reference to it is dropped and made again from the model on its next use.
+    /// <paramref name="noteId"/> is the story key (<c>"5"</c> for a footnote, <c>"endnote:5"</c> for an endnote). Flows that were already handed to a page
+    /// (notes carried over, a recorded page start) keep the old text: a refill must not resume from a page whose carry holds the note.
+    /// </summary>
+    public void Invalidate(string noteId)
+    {
+        ArgumentNullException.ThrowIfNull(noteId);
+        _versions[noteId] = _versions.GetValueOrDefault(noteId) + 1;
+    }
+
+    private int VersionOf(NoteRef reference) =>
+        _versions.Count == 0 ? 0 : _versions.GetValueOrDefault((reference.IsEndnote ? "endnote:" : string.Empty) + reference.Id.ToString(CultureInfo.InvariantCulture));
 
     /// <summary>The blocks that end the document: a separator and every endnote in order. Enumerate it only after the body is planned, so every reference is numbered.</summary>
     public IEnumerable<BlockPlan> EndnotePlans()
@@ -188,6 +241,37 @@ internal sealed class NotePlanner
                 });
             }
         }
+    }
+}
+
+/// <summary>The numbering of a <see cref="NotePlanner"/> at one moment; never changes.</summary>
+internal sealed record NoteState(int Footnotes, NoteRef[] Endnotes)
+{
+    /// <summary>True when the next reference would get the same number (the same counts): what the plan of a block with notes depends on.</summary>
+    public bool SameCounts(NoteState? other) => ReferenceEquals(this, other) || (other is not null && Footnotes == other.Footnotes && Endnotes.Length == other.Endnotes.Length);
+
+    /// <summary>True when the counts agree and the endnote references are the same notes in the same order (the endnote pages at the end of the document depend on that).</summary>
+    public bool SameAs(NoteState? other)
+    {
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        if (!SameCounts(other))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < Endnotes.Length; i++)
+        {
+            if (Endnotes[i].Id != other!.Endnotes[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 

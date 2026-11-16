@@ -5,6 +5,8 @@ public sealed class GlyphRun
 {
     private readonly ushort[] _glyphs;
     private float[] _xs;
+    private float _width;
+    private CaretMap? _stops;
 
     internal GlyphRun(FontFace face, ResolvedRun run, float size, float raise, ushort[] glyphs, float[] xs, float x, float width, int textStart, int textEnd)
     {
@@ -15,7 +17,7 @@ public sealed class GlyphRun
         _glyphs = glyphs;
         _xs = xs;
         X = x;
-        Width = width;
+        _width = width;
         TextStart = textStart;
         TextEnd = textEnd;
         TrailStart = glyphs.Length;
@@ -45,7 +47,15 @@ public sealed class GlyphRun
     /// <summary>Where the run starts, in points from the left edge of the text area.</summary>
     public float X { get; internal set; }
 
-    public float Width { get; internal set; }
+    public float Width
+    {
+        get => _width;
+        internal set
+        {
+            _width = value;
+            _stops = null;
+        }
+    }
 
     /// <summary>The range of the paragraph text this run draws (empty for a label and for leaders).</summary>
     public int TextStart { get; }
@@ -66,7 +76,149 @@ public sealed class GlyphRun
 
     internal int TrailStart { get; init; }
 
-    internal void SetXs(float[] xs) => _xs = xs;
+    internal void SetXs(float[] xs)
+    {
+        _xs = xs;
+        _stops = null;
+    }
+
+    // The cluster of each glyph (paragraph text offsets) and the paragraph text, for the caret stops; null for runs that draw no own text.
+    internal int[]? Clusters { get; init; }
+
+    internal string? Text { get; init; }
+
+    /// <summary>The paragraph text offsets at which a caret may stand inside this run (grapheme boundaries, both edges included); empty for a hyphen, a label and a leader.</summary>
+    public IReadOnlyList<int> CaretStops => Map().Offsets;
+
+    /// <summary>
+    /// The x of a caret at <paramref name="textOffset"/>, in points relative to the line (from the left edge of its text area, the origin
+    /// <c>TextLine.X</c> puts on the page), final after justification.
+    /// An offset inside a ligature divides it equally; an offset that is no stop snaps to the previous stop. A run without stops answers <see cref="X"/>.
+    /// </summary>
+    public float CaretX(int textOffset)
+    {
+        var map = Map();
+        var offsets = map.Offsets;
+        if (offsets.Length == 0)
+        {
+            return X;
+        }
+
+        var i = Array.BinarySearch(offsets, textOffset);
+        if (i < 0)
+        {
+            i = Math.Max(0, ~i - 1);
+        }
+
+        return X + map.Xs[i];
+    }
+
+    private CaretMap Map() => _stops ??= CaretMap.Build(this);
+
+    // Stops and their x relative to X. Shaping is always left to right today, so the clusters ascend with x; should they not, the stops are
+    // spread over the width by grapheme index, which keeps them monotonic.
+    private sealed class CaretMap(int[] offsets, float[] xs)
+    {
+        public int[] Offsets { get; } = offsets;
+
+        public float[] Xs { get; } = xs;
+
+        public static CaretMap Build(GlyphRun run)
+        {
+            var clusters = run.Clusters;
+            var text = run.Text;
+            var start = run.TextStart;
+            var end = run.TextEnd;
+            if (run.IsHyphen || clusters is null || clusters.Length == 0 || text is null || end <= start || end > text.Length)
+            {
+                return new CaretMap([], []);
+            }
+
+            var boundaries = new List<int>(end - start + 1) { start };
+            for (var at = start; at < end;)
+            {
+                at += Math.Max(1, System.Globalization.StringInfo.GetNextTextElementLength(text.AsSpan(at, end - at)));
+                boundaries.Add(Math.Min(at, end));
+            }
+
+            var offsets = boundaries.ToArray();
+            var xs = new float[offsets.Length];
+            var glyphXs = run._xs;
+            var width = run._width;
+
+            // One entry per cluster value, in glyph order.
+            var starts = new List<(int Cluster, float X)>(clusters.Length);
+            var ascending = true;
+            for (var g = 0; g < clusters.Length; g++)
+            {
+                if (g > 0 && clusters[g] == clusters[g - 1])
+                {
+                    continue;
+                }
+
+                if (g > 0 && clusters[g] < clusters[g - 1])
+                {
+                    ascending = false;
+                    break;
+                }
+
+                starts.Add((clusters[g], g == 0 ? 0f : glyphXs[g]));
+            }
+
+            if (!ascending || starts[0].Cluster != start)
+            {
+                for (var i = 0; i < offsets.Length; i++)
+                {
+                    xs[i] = width * i / (offsets.Length - 1);
+                }
+
+                return new CaretMap(offsets, xs);
+            }
+
+            var k = 0;
+            var first = 0;
+            for (var i = 0; i < offsets.Length; i++)
+            {
+                var o = offsets[i];
+                if (o >= end)
+                {
+                    xs[i] = width;
+                    continue;
+                }
+
+                var advanced = false;
+                while (k + 1 < starts.Count && starts[k + 1].Cluster <= o)
+                {
+                    k++;
+                    advanced = true;
+                }
+
+                if (advanced || i == 0)
+                {
+                    first = i;
+                }
+
+                var groupEnd = k + 1 < starts.Count ? starts[k + 1].Cluster : end;
+                var groupX = starts[k].X;
+                if (o == starts[k].Cluster)
+                {
+                    xs[i] = groupX;
+                    continue;
+                }
+
+                var count = 0;
+                while (first + count < offsets.Length && offsets[first + count] < groupEnd)
+                {
+                    count++;
+                }
+
+                var nextX = k + 1 < starts.Count ? starts[k + 1].X : width;
+                xs[i] = groupX + ((nextX - groupX) * (i - first) / count);
+            }
+
+            return new CaretMap(offsets, xs);
+        }
+    }
 }
 
 /// <summary>An inline box placed on a line. <see cref="Top"/> is measured from the top of the line, <see cref="X"/> from the text area.</summary>

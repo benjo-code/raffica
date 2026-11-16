@@ -154,7 +154,8 @@ public sealed class StartupTests
 
         using var full = DocxFile.Open(bytes);
         layout.ReplaceModel(full.Model);
-        Assert.Same(first, layout.Page(0));
+        Assert.NotSame(first, layout.Page(0));
+        Assert.Equal(first.Text, layout.Page(0).Text);
         Assert.Equal(1, layout.LaidOutPages);
         Assert.Equal(locatedBefore, layout.Locate(0));
         Assert.True(layout.FirstPageIsFinal);

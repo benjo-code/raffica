@@ -27,7 +27,7 @@ internal sealed class WriteOptions
     /// <summary>
     /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
     /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll ...</c>) or
-    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>); null for a normal run. See <see cref="Measurement"/>.
+    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>) <c>--measure-typing</c> (also <c>typing ...</c> rows) or <c>--measure-typing-background</c> (also one <c>typing-background ...</c> row); null for a normal run. See <see cref="Measurement"/>.
     /// </summary>
     public string? MeasureSwitch { get; private init; }
 
@@ -94,7 +94,7 @@ internal sealed class WriteOptions
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
-                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory":
+                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory" or "--measure-typing" or "--measure-typing-background":
                     if (measure is not null)
                     {
                         throw new ArgumentException($"'{args[i]}' and '{measure}' cannot be combined (one measurement per run)");

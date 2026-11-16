@@ -32,4 +32,11 @@ public sealed class HeaderFooterReference : OoxmlElement
 
     /// <summary>How many of the bag's children came before this reference in the source (null for a new one, which is written first).</summary>
     public int? BagPosition { get; set; }
+
+    public HeaderFooterReference Clone()
+    {
+        var copy = new HeaderFooterReference(Kind, Type, RelationshipId) { BagPosition = BagPosition };
+        CopyAttributesTo(copy);
+        return copy;
+    }
 }

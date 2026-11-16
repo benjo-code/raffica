@@ -1,6 +1,8 @@
 using System.Globalization;
+using Raffica.Core.Saving;
 using Raffica.Shell.Localization;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 
 namespace Raffica.Write;
 
@@ -77,6 +79,46 @@ internal static class WriteStrings
     public static string OutlineEmpty => Table.Get("OutlineEmpty");
     public static string OutlineEntryNameFormat => Table.Get("OutlineEntryNameFormat");
     public static string OutlineWaiting => Table.Get("OutlineWaiting");
+    public static string EditStillOpening => Table.Get("EditStillOpening");
+    public static string EditUnavailable => Table.Get("EditUnavailable");
+    public static string EditFailed => Table.Get("EditFailed");
+    public static string MenuEdit => Table.Get("MenuEdit");
+    public static string GroupUndo => Table.Get("GroupUndo");
+    public static string GroupClipboard => Table.Get("GroupClipboard");
+    public static string CmdUndo => Table.Get("CmdUndo");
+    public static string CmdRedo => Table.Get("CmdRedo");
+    public static string CmdCut => Table.Get("CmdCut");
+    public static string CmdCopy => Table.Get("CmdCopy");
+    public static string CmdPaste => Table.Get("CmdPaste");
+    public static string CmdSelectAll => Table.Get("CmdSelectAll");
+    public static string DescUndo => Table.Get("DescUndo");
+    public static string DescRedo => Table.Get("DescRedo");
+    public static string DescCut => Table.Get("DescCut");
+    public static string DescCopy => Table.Get("DescCopy");
+    public static string DescPaste => Table.Get("DescPaste");
+    public static string DescSelectAll => Table.Get("DescSelectAll");
+    public static string ReasonEditOpening => Table.Get("ReasonEditOpening");
+    public static string ReasonEditSaving => Table.Get("ReasonEditSaving");
+    public static string ReasonNoSelection => Table.Get("ReasonNoSelection");
+    public static string ReasonNothingToUndo => Table.Get("ReasonNothingToUndo");
+    public static string ReasonNothingToRedo => Table.Get("ReasonNothingToRedo");
+    public static string CmdSave => Table.Get("CmdSave");
+    public static string CmdSaveAs => Table.Get("CmdSaveAs");
+    public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
+    public static string ReasonNothingToSave => Table.Get("ReasonNothingToSave");
+    public static string ReasonSaveFaulted => Table.Get("ReasonSaveFaulted");
+    public static string ReasonSaveAsFaulted => Table.Get("ReasonSaveAsFaulted");
+    public static string SaveErrorTitle => Table.Get("SaveErrorTitle");
+    public static string SaveErrorKept => Table.Get("SaveErrorKept");
+    public static string SaveFailOpenElsewhere => Table.Get("SaveFailOpenElsewhere");
+    public static string SaveFailUnexpected => Table.Get("SaveFailUnexpected");
+    public static string SaveLeftoverNoteFormat => Table.Get("SaveLeftoverNoteFormat");
+    public static string ChangedTitle => Table.Get("ChangedTitle");
+    public static string ChangedMessageFormat => Table.Get("ChangedMessageFormat");
+    public static string ChangedOverwrite => Table.Get("ChangedOverwrite");
+    public static string UnsavedTitle => Table.Get("UnsavedTitle");
+    public static string UnsavedMessageFormat => Table.Get("UnsavedMessageFormat");
+    public static string UnsavedDontSave => Table.Get("UnsavedDontSave");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
 
@@ -95,6 +137,35 @@ internal static class WriteStrings
 
     /// <summary>The words of an open error in the UI language; never the text of an exception or of the document.</summary>
     public static string ForOpenError(OpenError error) => Table.Get(OpenErrorKey(error));
+
+    /// <summary>The key of the wording of a failed save (several reasons that only the PDF app can meet share <c>SaveFailOther</c>).</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text: a new reason must be worded here.</exception>
+    public static string SaveFailureKey(SaveFailureReason reason) => reason switch
+    {
+        SaveFailureReason.NotWritable => "SaveFailNotWritable",
+        SaveFailureReason.DiskFull => "SaveFailDiskFull",
+        SaveFailureReason.WriteFailed => "SaveFailWriteFailed",
+        SaveFailureReason.TargetExists => "SaveFailTargetExists",
+        SaveFailureReason.OriginalChanged => "SaveFailOriginalChanged",
+        SaveFailureReason.VerificationFailed or SaveFailureReason.SourceModified or SaveFailureReason.WriterNotSupported
+            or SaveFailureReason.EncryptedNotSupported or SaveFailureReason.Canceled or SaveFailureReason.RedactionFailed => "SaveFailOther",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "This save failure has no text."),
+    };
+
+    /// <summary>The key of the wording of a save that stopped at its own check.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value has no text.</exception>
+    public static string SaveCheckKey(DocxSaveReason reason) => reason switch
+    {
+        DocxSaveReason.PartsChanged => "SaveFailCheck",
+        DocxSaveReason.ModelNotReadable => "SaveFailUnreadable",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "This save check has no text."),
+    };
+
+    /// <summary>The words of a failed save in the UI language; never the text of an exception or of the document.</summary>
+    public static string ForSaveFailure(SaveFailureReason reason) => Table.Get(SaveFailureKey(reason));
+
+    /// <summary>The words of a save that stopped at its own check.</summary>
+    public static string ForSaveCheck(DocxSaveReason reason) => Table.Get(SaveCheckKey(reason));
 
     /// <summary>Fills the <c>{0}</c> of a template.</summary>
     public static string Fill(string template, object? first) =>

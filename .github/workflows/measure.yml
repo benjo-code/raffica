@@ -50,7 +50,7 @@ on:
         type: string
         required: true
       target:
-        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1), the Write app (the cases of milestone 4.2, with the engine benchmark), the throwaway shell probe or a reference app (the predecessor, by its own startup protocol)
+        description: What to measure, the gallery app's frame (default), the PDF app (the cases of milestone 2.1), the Write app (the cases of milestone 4.2, with the engine benchmark, and the typing case of 4.3a), the throwaway shell probe or a reference app (the predecessor, by its own startup protocol)
         type: choice
         default: gallery
         options: [gallery, probe, pdf, write, reference]
@@ -870,6 +870,25 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case memory --out ${{ env.OUT }}/memory.csv
 
+      # Typing (milestone 4.3a): one launch of the app types at eight places of the thesis in the page view and in the writing view through the key path
+      # (--measure-typing) and prints median and 95th percentile per case and view; the case typing records them (rows typing/<case>-<view>-p95) and
+      # the check judges the worst p95 against the fixed 16 ms. Three launches, about a minute each.
+      - name: Typing in the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing --out ${{ env.OUT }}/typing.csv
+
+      # Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded for the owner, never judged.
+      - name: Typing during the background layout (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-background --out ${{ env.OUT }}/typing-background.csv
+
+      # The engine alone, without a window (write-layout-bench edit): the same keystrokes through TextEditor and DocumentLayout.ApplyEdit, with the restarts and the hit test.
+      # Recorded for the owner, never judged (a .txt so that the check's CSV glob does not read it).
+      - name: Typing, engine only (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        shell: bash
+        run: ${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
+
       - name: Engine first page of the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.ENGINE_EXE }} --case engine --out ${{ env.OUT }}/engine.csv
@@ -879,7 +898,7 @@ jobs:
         run: dotnet run bench/shell-probe/measure.cs -- size --target write --publish-dir out/app --fonts-dir ${{ env.MEASURED_PREFIX }}${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
 
       # The verdict against the limits of the Write app. The app rows of the table are empty until the owner's runs are recorded (milestone 4.2): the
-      # check judges the metrics that have a limit (today the fixed engine limit on Linux, 100 ms), lists the others as "not judged" and fails with
+      # check judges the metrics that have a limit (today the fixed engine limit on Linux, 100 ms, and the fixed typing limit of 16 ms on every platform), lists the others as "not judged" and fails with
       # "no limits recorded for target write" (exit code 2) when none has a limit, never a pass.
       - name: Check against the limits (write, Windows)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os == 'Windows' }}

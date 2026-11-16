@@ -464,6 +464,181 @@ public sealed class DocxSaveTests
         Assert.Equal(["thesis.docx"], folder.Names());
     }
 
+    private static bool HasText(DocxFile file, string text) =>
+        file.Model.Body.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).SelectMany(r => r.Content).OfType<TextContent>().Any(t => t.Text == text);
+
+    [Fact]
+    public async Task SaveAsRefusesATargetThatAppearedAfterThePicker()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        var target = folder.File("copy.docx");
+        using var file = DocxFile.Open(path);
+        file.Model.Body.Blocks.Add(TextParagraph("Mine"));
+
+        // The target did not exist when the picker answered; another program creates it while the file is written (between the checks and the replace).
+        file.BeforeReplace = () => File.WriteAllBytes(target, [9, 9, 9]);
+        var appeared = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsAsync(target, replaceExisting: false, Cancel));
+        Assert.Equal(SaveFailureReason.TargetExists, appeared.Reason);
+        Assert.Equal(new byte[] { 9, 9, 9 }, await File.ReadAllBytesAsync(target, Cancel));
+        Assert.Equal(["copy.docx", "thesis.docx"], folder.Names());
+
+        // The target is there when the call starts: refused before anything is written (not even the temporary file, and the seams do not run).
+        file.BeforeReplace = () => throw new InvalidOperationException("must not run");
+        var before = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsAsync(target, replaceExisting: false, Cancel));
+        Assert.Equal(SaveFailureReason.TargetExists, before.Reason);
+        Assert.Equal(["copy.docx", "thesis.docx"], folder.Names());
+
+        // The user confirmed an existing file at the picker: it is replaced.
+        file.BeforeReplace = null;
+        await file.SaveAsAsync(target, replaceExisting: true, Cancel);
+        using var reopened = DocxFile.Open(target);
+        Assert.True(HasText(reopened, "Mine"));
+        Assert.Equal(["copy.docx", "thesis.docx"], folder.Names());
+    }
+
+    [Fact]
+    public async Task SaveAsReportsADiscardedLeftover()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        var target = folder.File("copy.docx");
+        using var file = DocxFile.Open(path);
+        var leftover = folder.File(".pw-0123456789ab.old");
+
+        // The Windows fallback (a file system without the atomic rename) moves the open target aside and may not be able to delete it: the replace reports its path.
+        file.MoveIntoPlace = (temporary, to, replace) =>
+        {
+            AtomicFile.MoveIntoPlace(temporary, to, replace);
+            return leftover;
+        };
+        var report = await file.SaveAsAsync(target, replaceExisting: false, Cancel);
+
+        Assert.Equal(leftover, report.LeftoverPath);
+        Assert.Equal(Path.GetFullPath(target), report.Path);
+        file.MoveIntoPlace = null;
+        var clean = await file.SaveAsAsync(target, replaceExisting: true, Cancel);
+        Assert.Null(clean.LeftoverPath);
+    }
+
+    [Fact]
+    public async Task MoveIntoPlaceReturnsNothingWhenThereIsNoLeftover()
+    {
+        using var folder = new TempFolder();
+        var temporary = folder.File("a.tmp");
+        var target = folder.File("b.docx");
+        await File.WriteAllBytesAsync(temporary, [1], Cancel);
+        await File.WriteAllBytesAsync(target, [2], Cancel);
+
+        // The ordinary replace has nothing left over; the return value is null and the call stays usable as a statement.
+        Assert.Null(AtomicFile.MoveIntoPlace(temporary, target));
+        Assert.Equal(new byte[] { 1 }, await File.ReadAllBytesAsync(target, Cancel));
+    }
+
+    [Fact]
+    public async Task SaveAsToTheOpenedPathIsAnOverwriteOfTheOriginalAndIsChecked()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        ChangeOnDisk(path);
+        var external = await File.ReadAllBytesAsync(path, Cancel);
+        file.Model.Body.Blocks.Add(TextParagraph("Mine"));
+
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsAsync(path, replaceExisting: true, Cancel));
+        Assert.Equal(SaveFailureReason.OriginalChanged, error.Reason);
+        Assert.Equal(external, await File.ReadAllBytesAsync(path, Cancel));
+
+        await file.SaveAsAsync(path, replaceExisting: true, overwriteChangedOriginal: true, Cancel);
+        using var reopened = DocxFile.Open(path);
+        Assert.True(HasText(reopened, "Mine"));
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
+    [Fact]
+    public async Task SaveAsMakesTheNewPathTheOriginalAndKeepsTheSnapshot()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        var target = folder.File("renamed.docx");
+        using var file = DocxFile.Open(path);
+        var snapshot = file.Package.ToArray();
+        file.Model.Body.Blocks.Add(TextParagraph("Mine"));
+
+        await file.SaveAsAsync(target, replaceExisting: false, Cancel);
+
+        Assert.Equal(Path.GetFullPath(target), file.OriginPath);
+        Assert.Equal(snapshot, file.Package.ToArray());
+
+        // The check now belongs to the new file: a change there is noticed, a change of the old file is not.
+        ChangeOnDisk(path);
+        file.Model.Body.Blocks.Add(TextParagraph("Again"));
+        await file.SaveAsync(target, Cancel);
+        ChangeOnDisk(target);
+        var error = await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(target, Cancel));
+        Assert.Equal(SaveFailureReason.OriginalChanged, error.Reason);
+    }
+
+    [Fact]
+    public async Task AFailedSaveAsLeavesTheOriginBound()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        var target = folder.File("blocked.docx");
+        await File.WriteAllBytesAsync(target, [1], Cancel);
+
+        await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsAsync(target, replaceExisting: false, Cancel));
+
+        Assert.Equal(Path.GetFullPath(path), file.OriginPath);
+    }
+
+    [Fact]
+    public async Task TheModelIsReadBeforeTheReplaceAndTheHookRunsOnce()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        var order = new List<string>();
+        file.BeforeModelRead = () => order.Add("before");
+        file.AfterModelRead = () => order.Add("read");
+        file.BeforeReplace = () => order.Add("replace");
+
+        await file.SaveAsAsync(path, replaceExisting: true, Cancel);
+
+        Assert.Equal(["before", "read", "replace"], order);
+
+        // A save that is refused before the model is read never calls it.
+        order.Clear();
+        ChangeOnDisk(path);
+        await Assert.ThrowsAsync<SaveFailureException>(() => file.SaveAsync(path, Cancel));
+        Assert.Empty(order);
+    }
+
+    [Fact]
+    public async Task TheHoldAfterTheModelReadIsReleasedWhenTheModelCannotBeWrittenAndWhenTheBeforeHookThrows()
+    {
+        using var folder = new TempFolder();
+        var path = folder.CopyThesis();
+        using var file = DocxFile.Open(path);
+        var order = new List<string>();
+        file.BeforeModelRead = () => order.Add("before");
+        file.AfterModelRead = () => order.Add("after");
+
+        // A model that cannot be serialised: the save fails, and the caller that took its hold in the before hook still gets the after hook (on the same thread).
+        file.Model.Body.Blocks.Add(null!);
+        await Assert.ThrowsAnyAsync<Exception>(() => file.SaveAsync(path, Cancel));
+        Assert.Equal(["before", "after"], order);
+        file.Model.Body.Blocks.RemoveAt(file.Model.Body.Blocks.Count - 1);
+
+        // A before hook that throws failed the save before the model was read: the after hook is not called (the hook released what it took itself).
+        order.Clear();
+        file.BeforeModelRead = () => throw new InvalidOperationException("no hold");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => file.SaveAsync(path, Cancel));
+        Assert.Empty(order);
+        Assert.Equal(["thesis.docx"], folder.Names());
+    }
+
     [Fact]
     public async Task ASaveToAnotherPathIsNeverCheckedAndLeavesTheOriginalCheckAsItWas()
     {

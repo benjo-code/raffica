@@ -85,7 +85,7 @@ public sealed class FloatLayoutTests
     private static byte[] Wmf() => [0xD7, 0xCD, 0xC6, 0x9A, 0, 0, 0, 0, 0, 0, 0x10, 0x10, 0, 0, 0, 0, 0, 0];
 
     // A run with a floating text box (mc:AlternateContent with a wps text box and an empty VML fallback): 183 x 100 pt, yellow, two paragraphs.
-    private static string TextBoxRun()
+    internal static string TextBoxRun()
     {
         return $"<w:r><mc:AlternateContent {Namespaces}><mc:Choice Requires=\"wps\"><w:drawing><wp:anchor distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\" behindDoc=\"0\">" +
             "<wp:simplePos x=\"0\" y=\"0\"/><wp:positionH relativeFrom=\"column\"><wp:posOffset>228600</wp:posOffset></wp:positionH><wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>0</wp:posOffset></wp:positionV>" +
