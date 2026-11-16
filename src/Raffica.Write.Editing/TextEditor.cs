@@ -28,13 +28,20 @@ public sealed partial class TextEditor
 
     private readonly WordDocument _document;
     private readonly Func<StoryRef, Paragraph, IProjectionHost> _hosts;
+    private readonly IEffectiveFormat? _format;
 
-    public TextEditor(WordDocument document, Func<StoryRef, Paragraph, IProjectionHost> hosts, TimeProvider? time = null, HistoryLimits? limits = null)
+    /// <summary>
+    /// Makes an editor. The optional parameters come in the order <paramref name="time"/>, <paramref name="limits"/>, <paramref name="format"/>; a caller
+    /// that passes only a later one names it. <paramref name="format"/> answers what formatting is in force for a run: only the toggles of the
+    /// character formatting need it (<see cref="ToggleCharacter"/> throws without it).
+    /// </summary>
+    public TextEditor(WordDocument document, Func<StoryRef, Paragraph, IProjectionHost> hosts, TimeProvider? time = null, HistoryLimits? limits = null, IEffectiveFormat? format = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(hosts);
         _document = document;
         _hosts = hosts;
+        _format = format;
         History = new EditHistory(document, time ?? TimeProvider.System, limits ?? HistoryLimits.Default);
     }
 
@@ -56,7 +63,9 @@ public sealed partial class TextEditor
     /// every other control character is dropped. The new text joins the run before the caret (the run after it at a paragraph start) and
     /// keeps its properties; in a paragraph without text it takes the formatting of the paragraph mark. The caret ends after the text.
     /// </summary>
-    public EditResult InsertText(TextRange selection, string text)
+    public EditResult InsertText(TextRange selection, string text) => InsertCore(selection, text, null);
+
+    private EditResult InsertCore(TextRange selection, string text, IReadOnlyList<PropertyChange>? typingFormat)
     {
         ArgumentNullException.ThrowIfNull(text);
         var revision = History.BeginOperation();
@@ -97,6 +106,11 @@ public sealed partial class TextEditor
         if (lines.Count == 1)
         {
             InsertContents(paragraph, map, point, Contents(lines[0]), null);
+            if (typingFormat is { Count: > 0 } && lines[0].Length > 0)
+            {
+                FormatRange(span.Story, Map(span.Story, paragraph), offset, offset + lines[0].Length, typingFormat);
+            }
+
             caret = new TextPosition(span.Story, paragraph, offset + lines[0].Length);
         }
         else
