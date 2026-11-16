@@ -73,6 +73,7 @@ internal sealed partial class WriteWindow
 
         host.IsOpen = show;
         host.Content = next;
+        next?.Shown();
         Frame.RightPane = Tabs.Items.Count > 0 ? host : null;
         if (focusWasInside && (!show || !ReferenceEquals(before, next)))
         {

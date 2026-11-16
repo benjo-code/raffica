@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Xml.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -425,6 +426,159 @@ public sealed class FormattingPaneTests
     }
 
     [AvaloniaFact]
+    public async Task AfterRemovingTheLastRowTheFocusStaysInThePane()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, "doc.docx", "<w:r><w:rPr><w:b/></w:rPr><w:t>text</w:t></w:r>");
+        Select(session, tab, 0, 0, 0, 4);
+        var pane = Open(window, tab);
+        Assert.Single(pane.Rows);
+        var button = pane.RemoveButtonOf(0);
+        button.Focus(NavigationMethod.Tab);
+        WindowFixture.Pump();
+        Assert.True(button.IsFocused);
+
+        Press(button);
+        WindowFixture.Pump();
+        WindowFixture.Pump();
+
+        // Nothing is left to clear or update: both buttons are disabled, and the focus is on something visible in the pane, not lost.
+        Assert.Empty(pane.Rows);
+        Assert.False(pane.ClearButton.IsEnabled);
+        Assert.False(pane.UpdateButton.IsEnabled);
+        Assert.True(window.FormattingHost!.IsKeyboardFocusWithin, "the focus stays in the pane");
+        Assert.True(((Visual)TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement()!).IsEffectivelyVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task APaneThatIsHiddenReadsNothingAndShowsCurrentRowsWhenShownAgain()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, "doc.docx", s_many);
+        Select(session, tab, 2, 0, 2, 5);
+        var pane = Open(window, tab);
+        Select(session, tab, 2, 0, 2, 3);
+        Assert.True(pane.Refresh.IsPending);
+
+        // Closing the pane drops the waiting refresh and the subscriptions.
+        Assert.True(window.RunCommand(WriteCommandIds.FormattingPane));
+        WindowFixture.Pump();
+        Assert.False(window.IsFormattingOpen);
+        Assert.False(pane.Refresh.IsPending);
+        var refreshes = pane.RefreshCount;
+        var reads = session.InspectorReads;
+
+        Select(session, tab, 2, 0, 2, 5);
+        Assert.True(window.RunCommand(WriteCommandIds.Italic));
+        Select(session, tab, 0, 0, 0, 5);
+        WindowFixture.Pump();
+        await Task.Delay(300);
+        WindowFixture.Pump();
+        Assert.False(pane.Refresh.IsPending);
+        Assert.Equal(refreshes, pane.RefreshCount);
+        Assert.Equal(reads, session.InspectorReads);
+
+        // Shown again, the pane reads once and lists the rows of the selection now.
+        Assert.True(window.RunCommand(WriteCommandIds.FormattingPane));
+        WindowFixture.Pump();
+        Assert.Same(pane, window.FormattingOf(tab));
+        Assert.Equal(refreshes + 1, pane.RefreshCount);
+        Assert.Equal(reads + 1, session.InspectorReads);
+        Assert.Contains(pane.Rows, r => r.Row.Element == W + "rFonts");
+
+        // And it follows the session again.
+        Select(session, tab, 2, 0, 2, 5);
+        Settle(window, pane);
+        Assert.Equal(refreshes + 2, pane.RefreshCount);
+        Assert.Contains(pane.Rows, r => r.Row.Element == W + "i");
+    }
+
+    [AvaloniaFact]
+    public async Task APaneOfATabThatIsSwitchedAwayReadsNothingAndClosingTheTabDisposesIt()
+    {
+        using var fixture = new WindowFixture();
+        var (window, first, firstSession) = await OpenAsync(fixture, StyledDocx.Styles, "first.docx", s_many);
+        Select(firstSession, first, 0, 0, 0, 5);
+        var pane = Open(window, first);
+        var (_, second, _) = await OpenIn(window, StyledDocx.Write(fixture.Folder, "second.docx", StyledDocx.Styles, s_many));
+        WindowFixture.Pump();
+        Assert.Same(second, window.Workspace.Active);
+        var otherPane = window.FormattingOf(second)!;
+        Assert.NotSame(pane, otherPane);
+
+        // The first tab is in the background: its pane is out of the tree and does not read.
+        var refreshes = pane.RefreshCount;
+        var reads = firstSession.InspectorReads;
+        Select(firstSession, first, 2, 0, 2, 5);
+        Assert.True(window.ViewOf(first)!.RunFormatCommand(WriteCommandIds.Italic));
+        WindowFixture.Pump();
+        await Task.Delay(300);
+        WindowFixture.Pump();
+        Assert.False(pane.Refresh.IsPending);
+        Assert.Equal(refreshes, pane.RefreshCount);
+        Assert.Equal(reads, firstSession.InspectorReads);
+
+        // Back on the first tab the pane reads once and shows the current rows.
+        window.Workspace.Select(first);
+        WindowFixture.Pump();
+        Assert.Equal(refreshes + 1, pane.RefreshCount);
+        Assert.Equal(reads + 1, firstSession.InspectorReads);
+        Assert.Contains(pane.Rows, r => r.Row.Element == W + "i");
+
+        // Closing the tab disposes its pane: nothing is read afterwards, and no timer is left waiting.
+        Select(firstSession, first, 0, 0, 0, 3);
+        Assert.True(pane.Refresh.IsPending);
+        window.Workspace.Close(first);
+        WindowFixture.Pump();
+        Assert.True(pane.IsDisposed);
+        Assert.Null(window.FormattingOf(first));
+        Assert.False(pane.Refresh.IsPending);
+        var final = pane.RefreshCount;
+        await Task.Delay(300);
+        WindowFixture.Pump();
+        Assert.Equal(final, pane.RefreshCount);
+    }
+
+    [AvaloniaFact]
+    public async Task ARowOfAnEarlierSelectionDoesNothingToTheNewSelection()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(
+            fixture,
+            StyledDocx.Styles,
+            "doc.docx",
+            "<w:r><w:rPr><w:b/><w:color w:val=\"FF0000\"/></w:rPr><w:t>aaa</w:t></w:r>",
+            "<w:r><w:rPr><w:i/><w:color w:val=\"00FF00\"/></w:rPr><w:t>bbb</w:t></w:r>");
+        Select(session, tab, 0, 0, 0, 3);
+        var pane = Open(window, tab);
+        var colorRow = pane.Rows.ToList().FindIndex(r => r.Row.Element == W + "color");
+        Assert.True(colorRow >= 0);
+        var button = pane.RemoveButtonOf(colorRow);
+        button.Focus(NavigationMethod.Tab);
+        WindowFixture.Pump();
+        Assert.True(button.IsFocused);
+        var before = SavedDocument(tab, fixture.Folder, "before.docx");
+        var steps = session.Editor.History.UndoCount;
+
+        // The selection moves to the second paragraph and the pane has not caught up yet (the pause is not over): the button is still the one of the first paragraph's red color.
+        Select(session, tab, 1, 0, 1, 3);
+        Assert.True(pane.Refresh.IsPending);
+        Press(button);
+        WindowFixture.Pump();
+        WindowFixture.Pump();
+
+        // The pane caught up while the focus was on the old button: the focus is not lost with it.
+        Assert.True(window.FormattingHost!.IsKeyboardFocusWithin, "the focus stays in the pane");
+
+        // The row did not belong to the selection any more: nothing changed, and the pane shows the second paragraph's rows.
+        Assert.Equal(steps, session.Editor.History.UndoCount);
+        Assert.True(XNode.DeepEquals(before.Root, SavedDocument(tab, fixture.Folder, "after.docx").Root));
+        Assert.Contains(pane.Rows, r => r.Row.Element == W + "i");
+        Assert.DoesNotContain(pane.Rows, r => r.Row.Element == W + "b");
+        Assert.Contains(pane.Rows, r => r.Row.Element == W + "color" && r.Row.Value == "00FF00");
+    }
+
+    [AvaloniaFact]
     public async Task ASelectionOfTheWholeThesisIsReadOnceAndBounded()
     {
         using var fixture = new WindowFixture();
@@ -555,7 +709,7 @@ public sealed class FormattingPaneTests
 
             WriteStrings.Culture = CultureInfo.GetCultureInfo("de");
             Assert.Equal("Abstand nach 12 pt", Say(OverrideScope.Paragraph, "spacing", "after=240"));
-            Assert.Equal("Größe 12,5 pt", Say(OverrideScope.Run, "sz", "25"));
+            Assert.Equal("Schriftgrad 12,5 pt", Say(OverrideScope.Run, "sz", "25"));
             Assert.Equal("Fett", Say(OverrideScope.Run, "b", null));
             Assert.Equal("Absatzmarke: Fett", Say(OverrideScope.ParagraphMark, "b", null));
         }

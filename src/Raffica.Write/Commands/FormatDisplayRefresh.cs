@@ -45,6 +45,9 @@ internal sealed class FormatDisplayRefresh(Action refresh, TimeSpan delay) : IDi
         _timer.Start();
     }
 
+    /// <summary>Drops a waiting refresh (nothing is read); the next request starts it again.</summary>
+    public void Cancel() => _timer?.Stop();
+
     /// <summary>Runs a waiting refresh now (the tests do not wait for the delay).</summary>
     public void Flush()
     {

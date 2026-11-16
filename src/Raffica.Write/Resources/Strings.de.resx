@@ -778,16 +778,16 @@
     <value>In der Webansicht ausgeblendet</value>
   </data>
   <data name="FmtRowRColor" xml:space="preserve">
-    <value>Farbe</value>
+    <value>Schriftfarbe</value>
   </data>
   <data name="FmtRowRColorValue" xml:space="preserve">
-    <value>Farbe {0}</value>
+    <value>Schriftfarbe {0}</value>
   </data>
   <data name="FmtRowRColorAuto" xml:space="preserve">
-    <value>Farbe automatisch</value>
+    <value>Schriftfarbe automatisch</value>
   </data>
   <data name="FmtRowRColorTheme" xml:space="preserve">
-    <value>Designfarbe</value>
+    <value>Design-Schriftfarbe</value>
   </data>
   <data name="FmtRowRSpacing" xml:space="preserve">
     <value>Zeichenabstand</value>
@@ -811,22 +811,22 @@
     <value>Vertikale Position</value>
   </data>
   <data name="FmtRowRPositionUp" xml:space="preserve">
-    <value>Hochgestellt um {0} pt</value>
+    <value>Höher gestellt um {0} pt</value>
   </data>
   <data name="FmtRowRPositionDown" xml:space="preserve">
-    <value>Tiefgestellt um {0} pt</value>
+    <value>Tiefer gestellt um {0} pt</value>
   </data>
   <data name="FmtRowRSz" xml:space="preserve">
-    <value>Größe</value>
+    <value>Schriftgrad</value>
   </data>
   <data name="FmtRowRSzValue" xml:space="preserve">
-    <value>Größe {0} pt</value>
+    <value>Schriftgrad {0} pt</value>
   </data>
   <data name="FmtRowRSzCs" xml:space="preserve">
-    <value>Größe (komplexe Schrift)</value>
+    <value>Schriftgrad (komplexe Schrift)</value>
   </data>
   <data name="FmtRowRSzCsValue" xml:space="preserve">
-    <value>Größe (komplexe Schrift) {0} pt</value>
+    <value>Schriftgrad (komplexe Schrift) {0} pt</value>
   </data>
   <data name="FmtRowRHighlight" xml:space="preserve">
     <value>Texthervorhebung</value>

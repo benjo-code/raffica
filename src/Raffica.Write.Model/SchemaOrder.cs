@@ -95,6 +95,8 @@ public static class SchemaOrder
 
     private static readonly Dictionary<PropertyKind, Dictionary<XName, int>> s_index = Build();
 
+    private static readonly Dictionary<PropertyKind, IReadOnlyList<XName>> s_names = s_index.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<XName>)[.. pair.Value.OrderBy(entry => entry.Value).Select(entry => entry.Key)]);
+
     /// <summary>The position of a child among its siblings for this kind, or null for a name the table does not know.</summary>
     public static int? IndexOf(PropertyKind kind, XName child)
     {
@@ -103,7 +105,7 @@ public static class SchemaOrder
     }
 
     /// <summary>Every child name the table knows for this kind, in schema order (a name that shares a slot comes in the order it is listed).</summary>
-    public static IReadOnlyList<XName> NamesOf(PropertyKind kind) => [.. s_index[kind].OrderBy(pair => pair.Value).Select(pair => pair.Key)];
+    internal static IReadOnlyList<XName> NamesOf(PropertyKind kind) => s_names[kind];
 
     private static Dictionary<PropertyKind, Dictionary<XName, int>> Build()
     {

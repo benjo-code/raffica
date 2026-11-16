@@ -50,6 +50,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
     private EditSession? _session;
     private bool _noteDone;
     private bool _noteVisible;
+    private bool _active = true;
     private bool _disposed;
 
     /// <summary>Makes the pane of a tab; it follows the tab's session once there is one (the session is made by the first caret or key, never by the pane).</summary>
@@ -66,6 +67,10 @@ internal sealed class FormattingPane : UserControl, IDisposable
         _hint.IsTabStop = true;
 
         _paragraphStyle = Text("fmt-value");
+
+        // A tab stop that is there whenever the details are: the focus has somewhere to go when every button is disabled (the last row was removed).
+        _paragraphStyle.Focusable = true;
+        _paragraphStyle.IsTabStop = true;
         _characterStyle = Text("fmt-value");
         _note = Text("fmt-note");
         _note.IsVisible = false;
@@ -164,6 +169,15 @@ internal sealed class FormattingPane : UserControl, IDisposable
     /// <summary>The pane left the screen (closed, or another tab's pane took its place): the note of a shared style has been seen and is not shown again in this tab.</summary>
     public void Hidden()
     {
+        if (_disposed || !_active)
+        {
+            return;
+        }
+
+        // Out of the visual tree nothing is read: the session's events are let go and a waiting refresh is dropped; Shown starts again.
+        _active = false;
+        Detach();
+        _refresh.Cancel();
         if (_noteVisible)
         {
             _noteDone = true;
@@ -172,10 +186,27 @@ internal sealed class FormattingPane : UserControl, IDisposable
         }
     }
 
+    /// <summary>The pane is on screen again: it follows the session again and shows what the selection says now (one read).</summary>
+    public void Shown()
+    {
+        if (_disposed || _active)
+        {
+            return;
+        }
+
+        _active = true;
+        if (_tab.Editor is { } session)
+        {
+            Attach(session);
+        }
+
+        RefreshNow();
+    }
+
     /// <summary>Asks for a refresh once typing and selecting pause (the window asks when something else changed the rules, a save ending).</summary>
     public void RequestRefresh()
     {
-        if (!_disposed)
+        if (!_disposed && _active)
         {
             _refresh.Request();
         }
@@ -184,7 +215,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
     /// <summary>Reads the buttons' rules again (cheap: the facts are remembered by the session); the state of the details waits for <see cref="RequestRefresh"/>.</summary>
     public void RefreshButtons()
     {
-        if (!_disposed)
+        if (!_disposed && _active)
         {
             UpdateButtons();
         }
@@ -206,7 +237,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
 
     private void OnEditorCreated(EditSession session)
     {
-        if (!_disposed)
+        if (!_disposed && _active)
         {
             Attach(session);
             RequestRefresh();
@@ -234,7 +265,7 @@ internal sealed class FormattingPane : UserControl, IDisposable
     // The read and the redraw of the pane (UI thread only: the model is edited there).
     private void RefreshNow()
     {
-        if (_disposed)
+        if (_disposed || !_active)
         {
             return;
         }
@@ -473,14 +504,20 @@ internal sealed class FormattingPane : UserControl, IDisposable
     // result at once, and a button that had the focus hands it to the row that took its place.
     private void RemoveRow(RowItem item, Button button)
     {
+        // Read before the flush: the flush may rebuild the rows and take the button out of the tree.
+        var hadFocus = button.IsFocused || button.IsKeyboardFocusWithin;
         _refresh.Flush();
         var index = _rows.FindIndex(r => r.Row == item.Row);
         if (index < 0)
         {
+            if (hadFocus)
+            {
+                FocusAfterRemoval(0);
+            }
+
             return;
         }
 
-        var hadFocus = button.IsFocused || button.IsKeyboardFocusWithin;
         if (!_actions.Remove(item.Row.Scope, item.Row.Element))
         {
             return;
@@ -505,8 +542,22 @@ internal sealed class FormattingPane : UserControl, IDisposable
                 }
 
                 var buttons = this.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("fmt-remove") && b.IsEffectivelyEnabled).ToList();
-                InputElement target = buttons.Count > 0 ? buttons[Math.Min(index, buttons.Count - 1)] : _clear.IsEffectivelyEnabled ? _clear : _hint;
-                target.Focus(NavigationMethod.Tab);
+                if (buttons.Count > 0)
+                {
+                    buttons[Math.Min(index, buttons.Count - 1)].Focus(NavigationMethod.Tab);
+                }
+                else if (_clear.IsEffectivelyEnabled)
+                {
+                    _clear.Focus(NavigationMethod.Tab);
+                }
+                else if (_update.IsEffectivelyEnabled)
+                {
+                    _update.Focus(NavigationMethod.Tab);
+                }
+                else
+                {
+                    FocusContent();
+                }
             },
             Avalonia.Threading.DispatcherPriority.Loaded);
 
