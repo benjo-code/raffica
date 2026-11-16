@@ -70,59 +70,19 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
 
     private bool FindInTable(Table table, Paragraph paragraph, ref ResolvedCellFormat? cell)
     {
-        var rows = new List<TableRow>();
-        foreach (var item in table.Rows)
+        // The rows, starts and column count come from the layout's own reader, so the conditional regions resolve as they do on the page.
+        var geometry = TableGeometry.Of(table);
+        for (var r = 0; r < geometry.Rows.Count; r++)
         {
-            if (item is TableRow row && row.Properties.Get(Ooxml.W + "del") is null)
+            var cells = geometry.Rows[r].Cells;
+            for (var c = 0; c < cells.Count; c++)
             {
-                rows.Add(row);
-            }
-        }
-
-        // The grid width as the layout reads it: the grid, widened to the widest row.
-        var columns = table.GridColumns.Count;
-        var geometry = new List<(int Start, TableCell? Cell)[]>(rows.Count);
-        foreach (var row in rows)
-        {
-            var at = Math.Min(Math.Max(TableReader.Value(row.Properties.Get(Ooxml.W + "gridBefore")) ?? 0, 0), TableLimits.MaximumColumns - 1);
-            var cells = new List<(int, TableCell?)>();
-            foreach (var part in row.Items)
-            {
-                if (part is TableCell cell1)
-                {
-                    var span = Math.Clamp(TableReader.Value(cell1.Properties.Get(Ooxml.W + "gridSpan")) ?? 1, 1, TableLimits.MaximumColumns);
-                    var start = Math.Min(at, TableLimits.MaximumColumns - 1);
-                    span = Math.Min(span, TableLimits.MaximumColumns - start);
-                    cells.Add((start, cell1));
-                    at = start + span;
-                    columns = Math.Max(columns, at);
-                }
-                else if (part is UnknownRowItem unknown && TableReader.Takes(unknown))
-                {
-                    cells.Add((Math.Min(at, TableLimits.MaximumColumns - 1), null));
-                    at = Math.Min(at, TableLimits.MaximumColumns - 1) + 1;
-                    columns = Math.Max(columns, at);
-                }
-            }
-
-            geometry.Add([.. cells]);
-        }
-
-        columns = Math.Max(columns, 1);
-        for (var r = 0; r < rows.Count; r++)
-        {
-            foreach (var (start, tableCell) in geometry[r])
-            {
-                if (tableCell is null || !Find(tableCell.Blocks, paragraph, ref cell))
+                if (cells[c] is not { } tableCell || !Find(tableCell.Blocks, paragraph, ref cell))
                 {
                     continue;
                 }
 
-                if (cell is null)
-                {
-                    cell = _resolver.ForTable(table).CellFormat(r, start, rows.Count, columns, tableCell);
-                }
-
+                cell ??= _resolver.ForTable(table).CellFormat(r, geometry.Starts[r][c], geometry.Rows.Count, geometry.Columns, tableCell);
                 return true;
             }
         }

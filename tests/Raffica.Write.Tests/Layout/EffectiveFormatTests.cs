@@ -150,4 +150,105 @@ public sealed class EffectiveFormatTests
 
         Assert.True(runs > 1000, $"only {runs} runs compared");
     }
+
+    private const string BandedStyle =
+        "<w:style w:type=\"table\" w:styleId=\"Banded\"><w:basedOn w:val=\"TableNormal\"/>"
+        + "<w:tblStylePr w:type=\"firstRow\"><w:rPr><w:b/></w:rPr></w:tblStylePr>"
+        + "<w:tblStylePr w:type=\"lastRow\"><w:rPr><w:i/></w:rPr></w:tblStylePr>"
+        + "<w:tblStylePr w:type=\"band1Horz\"><w:rPr><w:u w:val=\"single\"/></w:rPr></w:tblStylePr>"
+        + "<w:tblStylePr w:type=\"firstCol\"><w:rPr><w:strike/></w:rPr></w:tblStylePr></w:style>";
+
+    private const string Look = "<w:tblLook w:firstRow=\"1\" w:lastRow=\"1\" w:firstColumn=\"1\" w:noHBand=\"0\" w:noVBand=\"1\"/>";
+
+    private static string Cell(string text, string props = "") => $"<w:tc><w:tcPr>{props}</w:tcPr><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:tc>";
+
+    private static string Tbl(string rows, string grid = "<w:gridCol w:w=\"2000\"/><w:gridCol w:w=\"2000\"/>") =>
+        $"<w:tbl><w:tblPr><w:tblStyle w:val=\"Banded\"/>{Look}</w:tblPr><w:tblGrid>{grid}</w:tblGrid>{rows}</w:tbl>";
+
+    private static void AssertCellsMatchTheLayout(WordDocument document, int tableIndex)
+    {
+        var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
+        var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), new ParagraphLayouter(PageTestKit.Fonts), document.Settings);
+        var flat = FlatBlocks.From(document.Body.Blocks);
+        var plan = (TablePlan)planner.PlanFor(flat[tableIndex])!;
+        var table = (Table)document.Body.Blocks[tableIndex];
+        var geometry = TableGeometry.Of(table);
+        var format = new LayoutEffectiveFormat(document);
+        var compared = 0;
+        for (var r = 0; r < geometry.Rows.Count; r++)
+        {
+            for (var c = 0; c < geometry.Rows[r].Cells.Count; c++)
+            {
+                if (geometry.Rows[r].Cells[c] is not { } cell)
+                {
+                    continue;
+                }
+
+                foreach (var paragraph in cell.Blocks.OfType<Paragraph>())
+                {
+                    var resolved = styles.ForParagraph(paragraph, plan.Model.Rows[r].Cells[c].Format);
+                    foreach (var run in paragraph.Inlines.OfType<Run>())
+                    {
+                        var expected = styles.ForRun(resolved, run);
+                        var actual = format.ForRun(StoryRef.Body, paragraph, run);
+                        Assert.Equal(
+                            (expected.Bold, expected.Italic, expected.Underline != UnderlineKind.None, expected.Strike),
+                            (actual.Bold, actual.Italic, actual.Underline, actual.Strike));
+                        compared++;
+                    }
+                }
+            }
+        }
+
+        Assert.True(compared > 0);
+    }
+
+    private static WordDocument TableDocument(string table) => LayoutModel.Document("<w:p><w:r><w:t>before</w:t></w:r></w:p>" + table, LayoutModel.StylesPart(Base + BandedStyle));
+
+    [Fact]
+    public void MergedCellsUnderConditionalRegionsMatchTheLayout()
+    {
+        var rows = "<w:tr>" + Cell("h1") + Cell("h2") + "</w:tr>"
+            + "<w:tr>" + Cell("m", "<w:vMerge w:val=\"restart\"/>") + Cell("b1") + "</w:tr>"
+            + "<w:tr>" + Cell("", "<w:vMerge/>") + Cell("b2") + "</w:tr>"
+            + "<w:tr>" + Cell("span", "<w:gridSpan w:val=\"2\"/>") + "</w:tr>";
+        AssertCellsMatchTheLayout(TableDocument(Tbl(rows)), 1);
+    }
+
+    [Fact]
+    public void ARowLevelContentControlBeforeTheRowTakesARowIndex()
+    {
+        // The sdt around a row is row 0 in the layout, so the real first row is row 1: not the header, banded as the second row.
+        var rows = "<w:sdt><w:sdtContent><w:tr>" + Cell("wrapped") + Cell("w2") + "</w:tr></w:sdtContent></w:sdt>"
+            + "<w:tr>" + Cell("first") + Cell("f2") + "</w:tr>" + "<w:tr>" + Cell("last") + Cell("l2") + "</w:tr>";
+        var document = TableDocument(Tbl(rows));
+        AssertCellsMatchTheLayout(document, 1);
+        var table = (Table)document.Body.Blocks[1];
+        var first = (Paragraph)((TableCell)((TableRow)table.Rows[1]).Items[0]).Blocks[0];
+        Assert.False(new LayoutEffectiveFormat(document).ForRun(StoryRef.Body, first, FirstRun(first)).Bold);
+    }
+
+    [Fact]
+    public void ANestedTableUsesItsOwnInnermostCell()
+    {
+        var inner = Tbl("<w:tr>" + Cell("in1") + Cell("in2") + "</w:tr><w:tr>" + Cell("in3") + Cell("in4") + "</w:tr>");
+        var outer = "<w:tc><w:p><w:r><w:t>o</w:t></w:r></w:p>" + inner + "<w:p/></w:tc>";
+        var rows = "<w:tr>" + Cell("h1") + Cell("h2") + "</w:tr><w:tr>" + outer + Cell("b") + "</w:tr><w:tr>" + Cell("l1") + Cell("l2") + "</w:tr>";
+        var document = TableDocument(Tbl(rows));
+        AssertCellsMatchTheLayout(document, 1);
+        var outerCell = (TableCell)((TableRow)((Table)document.Body.Blocks[1]).Rows[1]).Items[0];
+        var nested = (Table)outerCell.Blocks[1];
+        var innerParagraph = (Paragraph)((TableCell)((TableRow)nested.Rows[0]).Items[0]).Blocks[0];
+        var effective = new LayoutEffectiveFormat(document).ForRun(StoryRef.Body, innerParagraph, FirstRun(innerParagraph));
+        Assert.True(effective.Bold);
+        Assert.True(effective.Strike);
+    }
+
+    [Fact]
+    public void MoreGridColumnsThanTheLayoutKeepMatchTheLayout()
+    {
+        var grid = string.Concat(Enumerable.Repeat("<w:gridCol w:w=\"100\"/>", 80));
+        var rows = "<w:tr>" + Cell("h") + Cell("h2") + "</w:tr><w:tr>" + Cell("b") + Cell("b2") + "</w:tr><w:tr>" + Cell("l") + Cell("l2") + "</w:tr>";
+        AssertCellsMatchTheLayout(TableDocument(Tbl(rows, grid)), 1);
+    }
 }
