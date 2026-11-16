@@ -110,16 +110,23 @@ public sealed partial class TextEditor
         var format = _format ?? throw new InvalidOperationException("Reading a character format needs an IEffectiveFormat; the editor was made without one.");
         Locate(caret);
         var map = Map(caret.Story, caret.Paragraph);
+        return s_toggles[toggle].Read(Effective(new CharTarget(caret.Story, caret.Paragraph, RunAt(map, caret.Offset, before: true)), format));
+    }
+
+    // The run a position stands in: the one before it (the formatting typed text takes) or the one after it; null in a paragraph without text (its mark decides).
+    private static Run? RunAt(ParagraphMap map, int position, bool before)
+    {
         var length = map.Projection.Text.Length;
-        Run? run = null;
-        if (length > 0)
+        if (length == 0)
         {
-            var offset = Math.Clamp(caret.Offset, 0, length);
-            run = map.Projection.Pieces.FirstOrDefault(p => p.Length > 0 && p.Run is not null && p.Start < offset && offset <= p.End)?.Run
-                ?? map.Projection.Pieces.FirstOrDefault(p => p.Length > 0 && p.Run is not null && p.Start <= offset && offset < p.End)?.Run;
+            return null;
         }
 
-        return s_toggles[toggle].Read(Effective(new CharTarget(caret.Story, caret.Paragraph, run), format));
+        var offset = Math.Clamp(position, 0, length);
+        var pieces = map.Projection.Pieces;
+        Run? Preceding() => pieces.FirstOrDefault(p => p.Length > 0 && p.Run is not null && p.Start < offset && offset <= p.End)?.Run;
+        Run? Following() => pieces.FirstOrDefault(p => p.Length > 0 && p.Run is not null && p.Start <= offset && offset < p.End)?.Run;
+        return before ? Preceding() ?? Following() : Following() ?? Preceding();
     }
 
     /// <summary>Whether the paragraph of a position has no text (its paragraph mark then decides the line height, and a character command formats the mark).</summary>

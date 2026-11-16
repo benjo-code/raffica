@@ -935,6 +935,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     private void OnWindowClosed(object? sender, EventArgs e)
     {
         Step(() => AppDomain.CurrentDomain.ProcessExit -= _processExit);
+        Step(() => _formatRefresh?.Dispose());
         Step(() =>
         {
             if (!_options.IsMeasuring && Placement.ToStore() is { } placement)

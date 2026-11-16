@@ -62,6 +62,8 @@ internal sealed class EditSession
     private readonly List<(Func<TextEditor, EditResult?> Operation, int ThroughPage, object? Key, bool Typing)> _queue = [];
     private readonly RefreshableFormat _format = new();
     private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
+    private ((WordDocument Model, int Revision, TextRange Range) Key, SelectionFormat Format)? _shown;
+    private (SelectionFormat Base, IReadOnlyList<PropertyChange> Pending, SelectionFormat Result)? _overlay;
     private bool _selectionDirty;
     private TextEditor? _editor;
     private WordDocument? _bound;
@@ -245,6 +247,43 @@ internal sealed class EditSession
 
     /// <summary>How many times <see cref="ReadFormatFacts"/> read the model instead of answering from memory (tests).</summary>
     internal int FactReads { get; private set; }
+
+    /// <summary>
+    /// The formatting of <paramref name="range"/> as the ribbon shows it (see <see cref="SelectionFormat"/>), with the pending format on top at a caret. The read of the model is remembered for the
+    /// model, its revision and the range, so every further question while nothing of the three changed costs nothing, and it never walks more than <see cref="TextEditor.MaxFactBlocks"/> blocks
+    /// (a larger selection shows the formatting at its start). Call it on the UI thread and only while <see cref="CanEdit"/>.
+    /// </summary>
+    public SelectionFormat ReadSelectionFormat(TextRange range)
+    {
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_shown is not { } known || !known.Key.Equals(key))
+        {
+            var covered = Editor.ReadCovered(range);
+            var defaultStyle = model.Styles?.Styles.FirstOrDefault(style => style.IsDefault && (style.Type ?? "paragraph") == "paragraph")?.Id;
+            known = (key, SelectionFormat.Read(covered, _format.Current(), defaultStyle));
+            _shown = known;
+            FormatReads++;
+        }
+
+        if (!range.IsEmpty || Pending.Changes.Count == 0)
+        {
+            return known.Format;
+        }
+
+        // The pending overlay is made once per pending format and base.
+        if (_overlay is { } shown && ReferenceEquals(shown.Base, known.Format) && ReferenceEquals(shown.Pending, Pending.Changes))
+        {
+            return shown.Result;
+        }
+
+        var result = known.Format.WithPending(Pending.Changes);
+        _overlay = (known.Format, Pending.Changes, result);
+        return result;
+    }
+
+    /// <summary>How many times <see cref="ReadSelectionFormat"/> read the model instead of answering from memory (tests).</summary>
+    internal int FormatReads { get; private set; }
 
     /// <summary>The text editor of the current model; made on first use. Throws unless <see cref="CanEdit"/>. Use it only inside an operation of <see cref="Apply"/>.</summary>
     public TextEditor Editor => Bind();
@@ -577,6 +616,8 @@ internal sealed class EditSession
         public EffectiveRun ForRun(StoryRef story, Paragraph paragraph, Run run) => Inner().ForRun(story, paragraph, run);
 
         public EffectiveRun ForMark(StoryRef story, Paragraph paragraph) => Inner().ForMark(story, paragraph);
+
+        public LayoutEffectiveFormat Current() => Inner();
 
         private LayoutEffectiveFormat Inner() => _inner ??= new LayoutEffectiveFormat(_model ?? throw new InvalidOperationException("No document."));
     }

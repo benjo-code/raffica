@@ -51,4 +51,26 @@ internal readonly record struct EditCommandState(EditBlockedReason? Blocked, boo
 
         return FormatFacts.Unknown;
     }
+
+    /// <summary>
+    /// The formatting the ribbon shows for the selection of a tab (the pressed switches, the values of the pickers), or null when there is nothing to show: no editing session yet (nothing is made
+    /// for the display), the tab cannot be edited now, or no selection. Cheap after the first read of a selection and revision (<see cref="EditSession.ReadSelectionFormat"/>).
+    /// </summary>
+    public static SelectionFormat? FormatOf(WriteTab? tab)
+    {
+        if (tab?.Editor is { BlockedReason: null, Selection: { } range } session)
+        {
+            try
+            {
+                return session.ReadSelectionFormat(range);
+            }
+            catch (StalePositionException)
+            {
+                // A selection that does not belong to the model any more shows nothing; the next selection or edit shows again.
+                return null;
+            }
+        }
+
+        return null;
+    }
 }

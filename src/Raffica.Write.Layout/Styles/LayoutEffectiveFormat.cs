@@ -25,6 +25,16 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
         return Map(_resolver.ForParagraphMark(resolved));
     }
 
+    /// <summary>The fully resolved formatting of a run, or of the paragraph mark when <paramref name="run"/> is null (what the page shows; the ribbon reads its font, size and colours).</summary>
+    public ResolvedRun ResolveRun(StoryRef story, Paragraph paragraph, Run? run)
+    {
+        var resolved = Resolve(story, paragraph);
+        return run is null ? _resolver.ForParagraphMark(resolved) : _resolver.ForRun(resolved, run);
+    }
+
+    /// <summary>The fully resolved formatting of a paragraph (styles, numbering and table style applied).</summary>
+    public ResolvedParagraph ResolveParagraph(StoryRef story, Paragraph paragraph) => Resolve(story, paragraph);
+
     private ResolvedParagraph Resolve(StoryRef story, Paragraph paragraph)
     {
         ArgumentNullException.ThrowIfNull(paragraph);

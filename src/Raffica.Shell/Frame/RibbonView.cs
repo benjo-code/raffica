@@ -201,21 +201,41 @@ public class RibbonView : TemplatedControl
     internal RibbonButton? FindMenuButton(CommandDefinition command) =>
         _groups.GetVisualDescendants().OfType<RibbonButton>().FirstOrDefault(b => ReferenceEquals(b.Definition, command) && b.Flyout is MenuFlyout);
 
+    /// <summary>
+    /// Opens a picker command: its list drops down (the size box takes the focus, ready to be overtyped). The command search uses it for a picker, which has nothing to run. Does nothing for a
+    /// command that is not a picker or is disabled; a picker of another tab shows its tab first, and one that sits in the overflow menu of the compact band opens that submenu.
+    /// </summary>
+    public void OpenPicker(CommandDefinition command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (command.Picker is null || !command.IsEnabled || Definition is null)
+        {
+            return;
+        }
+
+        var tab = Definition.Tabs.FirstOrDefault(t => t.Groups.Any(g => g.Commands.Contains(command)));
+        if (tab is not null && !ReferenceEquals(tab, ActiveTab))
+        {
+            ActiveTab = tab;
+        }
+
+        if (_groups.GetVisualDescendants().OfType<RibbonPicker>().FirstOrDefault(p => ReferenceEquals(p.Command, command)) is { } picker)
+        {
+            picker.Open();
+        }
+        else
+        {
+            OpenOverflowSubmenu(command);
+        }
+    }
+
     /// <summary>Raises <see cref="CommandInvoked"/> for a command the field-code session ran (the session calls <c>Run</c> itself).</summary>
     internal void NotifyInvoked(CommandDefinition command)
     {
         if (command.Picker is not null)
         {
             // A picker has nothing to run: its field code opens it (the list, or the box of the size) and a choice raises the event.
-            if (_groups.GetVisualDescendants().OfType<RibbonPicker>().FirstOrDefault(p => ReferenceEquals(p.Command, command)) is { } picker)
-            {
-                picker.Open();
-            }
-            else
-            {
-                OpenOverflowSubmenu(command);
-            }
-
+            OpenPicker(command);
             return;
         }
 

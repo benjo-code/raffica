@@ -45,4 +45,24 @@ public sealed class StartupTests
         Assert.Equal(0, tab.Docx.Model.Edits.Revision);
         Assert.False(tab.Docx.Model.Edits.IsDirty);
     }
+
+    [AvaloniaFact]
+    public async Task StartupCreatesNoPickerWork()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = Assert.IsType<Raffica.Write.Documents.Opened>(await window.Flow.OpenAsync(WindowFixture.Thesis)).Tab;
+        WindowFixture.Pump();
+        await WindowFixture.WaitAsync(() => window.ViewOf(tab) is not null);
+        window.Ribbon.RefreshCommandStates();
+        WindowFixture.Pump();
+
+        // The ribbon holds the pickers, but no list was asked (the installed fonts, the styles of the file), no font was listed or loaded, no session or timer was made and nothing was read for the display.
+        Assert.NotNull(window.Ribbon.Definition!.Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).Single(c => c.Id == Raffica.Write.Commands.WriteCommandIds.Font).Picker);
+        Assert.Equal(0, window.Pickers.ListReads);
+        Assert.Null(window.FormatRefresh);
+        Assert.Null(tab.Editor);
+        Assert.Null(Raffica.Write.Commands.EditCommandState.FormatOf(tab));
+        Assert.Null(tab.Editor);
+    }
 }
