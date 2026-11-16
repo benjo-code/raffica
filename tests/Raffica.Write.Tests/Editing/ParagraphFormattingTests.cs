@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Raffica.Write.Tests.Editing;
 
+[Collection(WallClockGroup.Name)]
 public sealed class ParagraphFormattingTests
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -273,6 +274,7 @@ public sealed class ParagraphFormattingTests
         Assert.Equal("Strong", P(document, 1).Inlines.OfType<Run>().Single().Properties.StyleId);
     }
 
+    // The bound stays at 5 s (the run is about 0.3 s alone): the class sits in WallClockGroup so no other test class loads the machine beside it.
     [Fact]
     public void SelectAllBoldOnTheThesisIsOneUndoStepAndFast()
     {

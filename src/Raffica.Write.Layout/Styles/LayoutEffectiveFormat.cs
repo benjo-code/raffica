@@ -5,12 +5,24 @@ namespace Raffica.Write.Layout;
 /// <summary>
 /// The effective character formatting of a run, read through the layout's own <see cref="StyleResolver"/> so the editor and the page agree.
 /// The resolver snapshots the styles when it is made: make a new instance after a style change. A paragraph in a table cell is resolved
-/// with the cell's format as the layout does it; the enclosing cell is found by walking the story on every call (nothing is cached).
+/// with the cell's format as the layout does it. The enclosing cell of every paragraph of a story is found by one walk of that story
+/// (<see cref="TableGeometry.Of"/> once per table) and remembered for as long as <see cref="DocumentEdits.Revision"/> stays the same:
+/// every edit that restructures blocks (insert, delete, split, merge, table change, undo, redo) raises the revision and drops the index.
+/// A formatting operation changes properties in place and never moves a block, so one operation reads one index. A paragraph the index
+/// does not know is looked up once more with a fresh walk (once per revision) before it counts as outside every table.
+/// The instance is safe to call from several threads.
 /// </summary>
 public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFormat
 {
     private readonly WordDocument _document = document ?? throw new ArgumentNullException(nameof(document));
     private readonly StyleResolver _resolver = new(document.Styles, document.Settings, document.Numbering);
+    private readonly object _gate = new();
+    private readonly Dictionary<StoryRef, Dictionary<Paragraph, CellEntry>> _stories = [];
+    private int _revision = int.MinValue;
+    private bool _rewalked;
+
+    /// <summary>How many story walks were made (for tests: the walks are one per story and revision, not one per call).</summary>
+    internal int StoryWalks { get; private set; }
 
     public EffectiveRun ForRun(StoryRef story, Paragraph paragraph, Run run)
     {
@@ -38,14 +50,49 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
     private ResolvedParagraph Resolve(StoryRef story, Paragraph paragraph)
     {
         ArgumentNullException.ThrowIfNull(paragraph);
-        var blocks = BlocksOf(story);
-        ResolvedCellFormat? cell = null;
-        if (blocks is not null)
+        return _resolver.ForParagraph(paragraph, CellFormatOf(story, paragraph));
+    }
+
+    private ResolvedCellFormat? CellFormatOf(StoryRef story, Paragraph paragraph)
+    {
+        lock (_gate)
         {
-            Find(blocks, paragraph, ref cell);
+            var revision = _document.Edits.Revision;
+            if (revision != _revision)
+            {
+                _stories.Clear();
+                _revision = revision;
+                _rewalked = false;
+            }
+
+            if (!_stories.TryGetValue(story, out var index))
+            {
+                index = Walk(story);
+            }
+
+            if (!index.TryGetValue(paragraph, out var entry) && !_rewalked)
+            {
+                // A structure change that did not raise the revision (a hand-made model): walk once more per revision.
+                _rewalked = true;
+                index = Walk(story);
+                index.TryGetValue(paragraph, out entry);
+            }
+
+            return entry?.Format(_resolver);
+        }
+    }
+
+    private Dictionary<Paragraph, CellEntry> Walk(StoryRef story)
+    {
+        StoryWalks++;
+        var index = new Dictionary<Paragraph, CellEntry>(ReferenceEqualityComparer.Instance);
+        if (BlocksOf(story) is { } blocks)
+        {
+            Collect(blocks, null, index);
         }
 
-        return _resolver.ForParagraph(paragraph, cell);
+        _stories[story] = index;
+        return index;
     }
 
     private IList<Block>? BlocksOf(StoryRef story) => story.Kind switch
@@ -59,26 +106,30 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
         _ => null,
     };
 
-    // Walks tables and content controls; sets the format of the innermost cell around the paragraph.
-    private bool Find(IList<Block> blocks, Paragraph paragraph, ref ResolvedCellFormat? cell)
+    // Walks tables and content controls; a paragraph is remembered with the innermost cell around it (null outside every table).
+    private static void Collect(IList<Block> blocks, CellEntry? cell, Dictionary<Paragraph, CellEntry> index)
     {
         foreach (var block in blocks)
         {
             switch (block)
             {
-                case Paragraph p when ReferenceEquals(p, paragraph):
-                    return true;
-                case ContentControlBlock control when Find(control.Content, paragraph, ref cell):
-                    return true;
-                case Table table when FindInTable(table, paragraph, ref cell):
-                    return true;
+                case Paragraph p when cell is not null:
+                    index.TryAdd(p, cell);
+                    break;
+                case Paragraph p:
+                    index.TryAdd(p, CellEntry.Outside);
+                    break;
+                case ContentControlBlock control:
+                    Collect(control.Content, cell, index);
+                    break;
+                case Table table:
+                    CollectTable(table, index);
+                    break;
             }
         }
-
-        return false;
     }
 
-    private bool FindInTable(Table table, Paragraph paragraph, ref ResolvedCellFormat? cell)
+    private static void CollectTable(Table table, Dictionary<Paragraph, CellEntry> index)
     {
         // The rows, starts and column count come from the layout's own reader, so the conditional regions resolve as they do on the page.
         var geometry = TableGeometry.Of(table);
@@ -87,17 +138,30 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
             var cells = geometry.Rows[r].Cells;
             for (var c = 0; c < cells.Count; c++)
             {
-                if (cells[c] is not { } tableCell || !Find(tableCell.Blocks, paragraph, ref cell))
+                if (cells[c] is { } tableCell)
                 {
-                    continue;
+                    Collect(tableCell.Blocks, new CellEntry(table, geometry, r, c, tableCell), index);
                 }
-
-                cell ??= _resolver.ForTable(table).CellFormat(r, geometry.Starts[r][c], geometry.Rows.Count, geometry.Columns, tableCell);
-                return true;
             }
         }
+    }
 
-        return false;
+    // The place of a cell; its format is resolved on the first paragraph that asks and then kept for the revision.
+    private sealed class CellEntry(Table table, TableGeometry geometry, int row, int column, TableCell cell)
+    {
+        public static readonly CellEntry Outside = new(null!, null!, 0, 0, null!);
+
+        private ResolvedCellFormat? _format;
+
+        public ResolvedCellFormat? Format(StyleResolver resolver)
+        {
+            if (ReferenceEquals(this, Outside))
+            {
+                return null;
+            }
+
+            return _format ??= resolver.ForTable(table).CellFormat(row, geometry.Starts[row][column], geometry.Rows.Count, geometry.Columns, cell);
+        }
     }
 
     private static EffectiveRun Map(ResolvedRun run) => new(

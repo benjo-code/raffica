@@ -251,4 +251,101 @@ public sealed class EffectiveFormatTests
         var rows = "<w:tr>" + Cell("h") + Cell("h2") + "</w:tr><w:tr>" + Cell("b") + Cell("b2") + "</w:tr><w:tr>" + Cell("l") + Cell("l2") + "</w:tr>";
         AssertCellsMatchTheLayout(TableDocument(Tbl(rows, grid)), 1);
     }
+
+    [Fact]
+    public void EveryRunOfTheThesisIsReadFromOneWalkOfTheStory()
+    {
+        using var docx = DocxFile.Open(Path.Combine(Root, "thesis", "thesis.docx"));
+        var model = docx.Model;
+        var format = new LayoutEffectiveFormat(model);
+        var runs = 0;
+        foreach (var (paragraph, _) in AllParagraphs(model.Body.Blocks))
+        {
+            foreach (var run in paragraph.Inlines.OfType<Run>())
+            {
+                _ = format.ForRun(StoryRef.Body, paragraph, run);
+                runs++;
+            }
+
+            _ = format.ForMark(StoryRef.Body, paragraph);
+        }
+
+        Assert.True(runs > 5000, $"only {runs} runs read");
+        Assert.Equal(1, format.StoryWalks);
+    }
+
+    private static IEnumerable<(Paragraph Paragraph, bool InTable)> AllParagraphs(IEnumerable<Block> blocks, bool inTable = false)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case Paragraph p:
+                    yield return (p, inTable);
+                    break;
+                case ContentControlBlock control:
+                    foreach (var item in AllParagraphs(control.Content, inTable))
+                    {
+                        yield return item;
+                    }
+
+                    break;
+                case Table table:
+                    foreach (var row in table.Rows.OfType<TableRow>())
+                    {
+                        foreach (var cell in row.Items.OfType<TableCell>())
+                        {
+                            foreach (var item in AllParagraphs(cell.Blocks, true))
+                            {
+                                yield return item;
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    [Fact]
+    public void AStructureChangeThatRaisesTheRevisionDropsTheIndex()
+    {
+        var document = TableDocument(Tbl("<w:tr>" + Cell("h1") + Cell("h2") + "</w:tr><w:tr>" + Cell("b1") + Cell("b2") + "</w:tr>"));
+        var format = new LayoutEffectiveFormat(document);
+        var table = (Table)document.Body.Blocks[1];
+        var header = (Paragraph)((TableCell)((TableRow)table.Rows[0]).Items[0]).Blocks[0];
+        Assert.True(format.ForRun(StoryRef.Body, header, FirstRun(header)).Bold);
+
+        // The header paragraph leaves its cell and becomes a body paragraph: a raised revision makes the format see it outside the table.
+        ((TableCell)((TableRow)table.Rows[0]).Items[0]).Blocks.Remove(header);
+        document.Body.Blocks.Add(header);
+        document.Edits.Raise();
+
+        Assert.False(format.ForRun(StoryRef.Body, header, FirstRun(header)).Bold);
+        Assert.Equal(2, format.StoryWalks);
+    }
+
+    [Fact]
+    public void AParagraphTheIndexDoesNotKnowIsFoundByOneMoreWalkPerRevision()
+    {
+        var document = TableDocument(Tbl("<w:tr>" + Cell("h1") + Cell("h2") + "</w:tr>"));
+        var format = new LayoutEffectiveFormat(document);
+        var table = (Table)document.Body.Blocks[1];
+        var header = (Paragraph)((TableCell)((TableRow)table.Rows[0]).Items[0]).Blocks[0];
+        Assert.True(format.ForRun(StoryRef.Body, header, FirstRun(header)).Bold);
+
+        var added = LayoutModel.Para(LayoutModel.Document("<w:p><w:r><w:t>new</w:t></w:r></w:p>", LayoutModel.StylesPart(Base)), 0);
+        document.Body.Blocks.Add(added);
+        Assert.False(format.ForRun(StoryRef.Body, added, FirstRun(added)).Bold);
+        Assert.Equal(2, format.StoryWalks);
+
+        // A paragraph that is in no story costs one more walk for the revision, not one per call.
+        var stranger = LayoutModel.Para(LayoutModel.Document("<w:p><w:r><w:t>x</w:t></w:r></w:p>", LayoutModel.StylesPart(Base)), 0);
+        for (var i = 0; i < 20; i++)
+        {
+            _ = format.ForRun(StoryRef.Body, stranger, FirstRun(stranger));
+        }
+
+        Assert.Equal(2, format.StoryWalks);
+    }
 }
