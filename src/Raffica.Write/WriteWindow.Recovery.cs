@@ -119,8 +119,19 @@ internal sealed partial class WriteWindow
 
         RecoveryOfferTask = coordinator.OfferOnce(() =>
         {
-            var flow = new RecoveryFlow(new RecoveryStore(RecoveryFolder), RecoveryProbe, new WindowRecoveryUi(this), SelfProcessId);
-            return GuardAsync(() => flow.RunAsync(_closeToken));
+            var ui = new WindowRecoveryUi(this);
+            var flow = new RecoveryFlow(new RecoveryStore(RecoveryFolder), RecoveryProbe, ui, SelfProcessId);
+            return GuardAsync(async () =>
+            {
+                try
+                {
+                    await flow.RunAsync(_closeToken);
+                }
+                finally
+                {
+                    ui.ReportFailures();
+                }
+            });
         });
     }
 
@@ -132,20 +143,15 @@ internal sealed partial class WriteWindow
     internal async Task<WriteTab?> OpenRecoveredAsync(RecoveryEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
+
+        // A closing window is no failure of the copy: the cancellation ends the offer without a card about a good copy.
+        _closeToken.ThrowIfCancellationRequested();
         if (IsClosing)
         {
-            return null;
+            throw new OperationCanceledException(_closeToken);
         }
 
-        WriteTab? tab;
-        try
-        {
-            tab = await Flow.OpenRecoveredAsync(new RecoveryStore(RecoveryFolder).DocxPathOf(entry.Id), entry.OriginalPath, _closeToken);
-        }
-        catch (OperationCanceledException)
-        {
-            return null;
-        }
+        var tab = await Flow.OpenRecoveredAsync(new RecoveryStore(RecoveryFolder).DocxPathOf(entry.Id), entry.OriginalPath, _closeToken);
 
         if (tab is null)
         {
@@ -177,6 +183,30 @@ internal sealed partial class WriteWindow
 
         public Task<WriteTab?> OpenRecoveredAsync(RecoveryEntry entry) => window.OpenRecoveredAsync(entry);
 
-        public void ShowOpenError(RecoveryEntry entry) => window.ShowOpenError(entry.OriginalPath ?? entry.Title, OpenError.Corrupt);
+        private readonly List<RecoveryEntry> _failed = [];
+
+        public void ShowOpenError(RecoveryEntry entry) => _failed.Add(entry);
+
+        /// <summary>One card for what did not open: the open-error card for one copy, the summary card for several (never one card each). Nothing for a closing window.</summary>
+        public void ReportFailures()
+        {
+            if (_failed.Count == 0 || window.IsClosing)
+            {
+                return;
+            }
+
+            if (_failed.Count == 1)
+            {
+                window.ShowOpenError(NameOf(_failed[0]), OpenError.Corrupt);
+            }
+            else
+            {
+                window.ShowOpenFailures([.. _failed.Select(e => new OpenFailure(NameOf(e), OpenError.Corrupt))]);
+            }
+
+            _failed.Clear();
+        }
+
+        private static string NameOf(RecoveryEntry entry) => entry.OriginalPath ?? entry.Title;
     }
 }

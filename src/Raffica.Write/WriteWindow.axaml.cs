@@ -38,7 +38,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     // A hand-over of 64 hostile paths must not become 64 cards.
     private const int MaxHandoverErrorCards = 3;
-    private const int MaxShownNameLength = 120;
+    internal const int MaxShownNameLength = 120;
 
     private readonly WriteOptions _options;
     private readonly RecentService _recent;
@@ -399,6 +399,12 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 await OpenFilesAsync(_options.Files);
                 await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
                 await LoadRecentAsync();
+
+                // A file that did not open leaves a window with no tab: it is shown like an idle one, so it offers the copies (once per process).
+                if (Workspace.Tabs.Count == 0)
+                {
+                    RequestRecoveryOffer();
+                }
             });
             return;
         }

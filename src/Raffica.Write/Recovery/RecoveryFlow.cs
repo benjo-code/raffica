@@ -48,11 +48,16 @@ internal sealed class RecoveryFlow(RecoveryStore store, IProcessProbe probe, IRe
         switch (await ui.AskAsync(offered))
         {
             case RecoveryChoice.Discard:
-                foreach (var entry in offered)
-                {
-                    store.Delete(entry.Id);
-                }
-
+                // Exactly the offered list, off the UI thread (fifty deletes under a virus scanner would stall it).
+                await Task.Run(
+                    () =>
+                    {
+                        foreach (var entry in offered)
+                        {
+                            store.Delete(entry.Id);
+                        }
+                    },
+                    CancellationToken.None);
                 break;
             case RecoveryChoice.Restore:
                 foreach (var entry in offered)

@@ -45,9 +45,16 @@ public sealed class RecoveryFlowTests
             return Task.FromResult(choice);
         }
 
+        public Exception? Throw { get; set; }
+
         public Task<WriteTab?> OpenRecoveredAsync(RecoveryEntry entry)
         {
             Opened.Add(entry);
+            if (Throw is { } exception)
+            {
+                throw exception;
+            }
+
             return Task.FromResult<WriteTab?>(null);
         }
 
@@ -63,6 +70,8 @@ public sealed class RecoveryFlowTests
         await store.WriteSidecarAsync(entry);
         return entry;
     }
+
+    private static string Original(WindowFixture fixture, string name) => Path.Combine(fixture.Folder, "work", name);
 
     private static RecoveryStore StoreIn(string folder) => new(Path.Combine(folder, "recovery"));
 
@@ -170,6 +179,44 @@ public sealed class RecoveryFlowTests
         // The fake opens nothing (null): every copy is tried, every one is reported, none is deleted.
         Assert.Equal(2, ui.Opened.Count);
         Assert.Equal(2, ui.Errors.Count);
+        Assert.Equal(2, IdsOf(store).Length);
+    }
+
+    [Fact]
+    public async Task DiscardDeletesAllFiftyOfferedEntriesEvenThoughTheCardListsTwentyAndNothingElse()
+    {
+        using var fixture = new WindowFixture();
+        var store = StoreIn(fixture.Folder);
+        var bytes = await File.ReadAllBytesAsync(WindowFixture.Poi, TestContext.Current.CancellationToken);
+        for (var i = 0; i < 50; i++)
+        {
+            await AddCopyAsync(store, $"doc{i:00}.docx", null, bytes: bytes);
+        }
+
+        var live = await AddCopyAsync(store, "live.docx", null, pid: LivePid);
+        await File.WriteAllTextAsync(Path.Combine(store.Folder, "notes.txt"), "mine", TestContext.Current.CancellationToken);
+        var ui = new FakeUi(RecoveryChoice.Discard);
+
+        await new RecoveryFlow(store, new MapProbe(), ui, SelfPid).RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(50, Assert.Single(ui.Asked).Count);
+        Assert.Equal([live.Id], IdsOf(store));
+        Assert.True(File.Exists(Path.Combine(store.Folder, "notes.txt")));
+    }
+
+    [Fact]
+    public async Task ACancelledOpenEndsTheOfferWithoutAnErrorForAGoodCopy()
+    {
+        using var fixture = new WindowFixture();
+        var store = StoreIn(fixture.Folder);
+        await AddCopyAsync(store, "a.docx", null);
+        await AddCopyAsync(store, "b.docx", null);
+        var ui = new FakeUi(RecoveryChoice.Restore) { Throw = new OperationCanceledException() };
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => new RecoveryFlow(store, new MapProbe(), ui, SelfPid).RunAsync(TestContext.Current.CancellationToken));
+
+        Assert.Single(ui.Opened);
+        Assert.Empty(ui.Errors);
         Assert.Equal(2, IdsOf(store).Length);
     }
 
@@ -338,7 +385,7 @@ public sealed class RecoveryFlowTests
     {
         using var fixture = new WindowFixture();
         var store = StoreIn(fixture.Folder);
-        await AddCopyAsync(store, "x", @"C:\Work\report.docx", minutesAgo: 2);
+        await AddCopyAsync(store, "x", Original(fixture, "report.docx"), minutesAgo: 2);
         await AddCopyAsync(store, "Untitled", null, minutesAgo: 1);
         _ = Prepare(fixture);
 
@@ -349,7 +396,7 @@ public sealed class RecoveryFlowTests
         Assert.All(tabs, t => Assert.True(t.IsDirty));
         Assert.All(tabs, t => Assert.True(t.IsUntitled));
         Assert.All(tabs, t => Assert.True(t.Tab.IsDirty));
-        Assert.Contains(tabs, t => t.Title == "report.docx" && t.SuggestedSavePath == @"C:\Work\report.docx");
+        Assert.Contains(tabs, t => t.Title == "report.docx" && t.SuggestedSavePath == Original(fixture, "report.docx"));
         Assert.Contains(tabs, t => t.Title == WriteStrings.UntitledName && t.SuggestedSavePath is null);
     }
 
@@ -387,7 +434,7 @@ public sealed class RecoveryFlowTests
     {
         using var fixture = new WindowFixture();
         var store = StoreIn(fixture.Folder);
-        var entry = await AddCopyAsync(store, "x", @"C:\Work\report.docx");
+        var entry = await AddCopyAsync(store, "x", Original(fixture, "report.docx"));
         var (_, clock, _) = Prepare(fixture);
         var window = await RestoreAsync(fixture);
         var tab = Assert.Single(window.Workspace.Tabs);
@@ -430,8 +477,8 @@ public sealed class RecoveryFlowTests
     {
         using var fixture = new WindowFixture();
         var store = StoreIn(fixture.Folder);
-        var bad = await AddCopyAsync(store, "bad.docx", @"C:\Work\bad.docx", minutesAgo: 1, bytes: [1, 2, 3, 4]);
-        var good = await AddCopyAsync(store, "good.docx", @"C:\Work\good.docx", minutesAgo: 2);
+        var bad = await AddCopyAsync(store, "bad.docx", Original(fixture, "bad.docx"), minutesAgo: 1, bytes: [1, 2, 3, 4]);
+        var good = await AddCopyAsync(store, "good.docx", Original(fixture, "good.docx"), minutesAgo: 2);
         _ = Prepare(fixture);
         var window = fixture.Show();
         await SaveHarness.WaitForCardAsync(window);
@@ -452,6 +499,86 @@ public sealed class RecoveryFlowTests
     }
 
     [AvaloniaFact]
+    public async Task ManyCorruptCopiesAreOneCardAndAreKept()
+    {
+        using var fixture = new WindowFixture();
+        var store = StoreIn(fixture.Folder);
+        for (var i = 0; i < 12; i++)
+        {
+            await AddCopyAsync(store, $"bad{i:00}.docx", Original(fixture, $"bad{i:00}.docx"), minutesAgo: 100 - i, bytes: [1, 2, 3, 4]);
+        }
+
+        _ = Prepare(fixture);
+        var window = fixture.Show();
+        await SaveHarness.WaitForCardAsync(window);
+        SaveHarness.Click(window, "PART_Restore");
+        await WindowFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == WriteStrings.OpenFailuresTitle);
+
+        var texts = WindowFixture.CardTexts(window);
+        Assert.Contains(WriteStrings.Fill(WriteStrings.OpenFailuresMoreFormat, 7), texts);
+        SaveHarness.Click(window, "PART_Ok");
+        await SaveHarness.AwaitAsync(window.RecoveryOfferTask!);
+
+        // That was the only card: nothing else is queued behind it, and every copy is still there.
+        Assert.False(window.Host.IsOpen);
+        Assert.Empty(window.Workspace.Tabs);
+        Assert.Equal(12, IdsOf(store).Length);
+    }
+
+    [AvaloniaFact]
+    public async Task AFileThatDoesNotOpenStillLetsTheWindowOfferTheCopies()
+    {
+        using var fixture = new WindowFixture();
+        var store = StoreIn(fixture.Folder);
+        await AddCopyAsync(store, "a.docx", null);
+        _ = Prepare(fixture);
+
+        var window = fixture.Show(null, Path.Combine(fixture.Folder, "missing.docx"));
+        await WindowFixture.WaitAsync(() => window.RecoveryOfferTask is not null);
+        await WindowFixture.WaitAsync(() => window.Host.IsOpen);
+        Assert.Equal(WriteStrings.ErrorTitle, window.Host.ActiveDialog!.Title);
+        SaveHarness.Click(window, "PART_Ok");
+        await WindowFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == WriteStrings.RecoveryTitle);
+        SaveHarness.Click(window, "PART_Cancel");
+        await SaveHarness.AwaitAsync(window.RecoveryOfferTask!);
+
+        Assert.Single(store.List().Entries);
+    }
+
+    [AvaloniaFact]
+    public async Task AWindowThatIsClosingOpensNoCopyAndMakesNoFailure()
+    {
+        using var fixture = new WindowFixture();
+        var store = StoreIn(fixture.Folder);
+        var entry = await AddCopyAsync(store, "a.docx", null);
+        _ = Prepare(fixture, offer: false);
+        var window = fixture.Show();
+        window.Close();
+        WindowFixture.Pump();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => window.OpenRecoveredAsync(entry));
+
+        Assert.Empty(window.Workspace.Tabs);
+        Assert.Equal([entry.Id], IdsOf(store));
+    }
+
+    [AvaloniaFact]
+    public async Task AVeryLongTitleIsShortenedOnTheCard()
+    {
+        using var fixture = new WindowFixture();
+        var store = StoreIn(fixture.Folder);
+        await AddCopyAsync(store, new string('x', 100_000) + ".docx", null);
+        _ = Prepare(fixture);
+        var window = fixture.Show();
+        await SaveHarness.WaitForCardAsync(window);
+
+        var longest = WindowFixture.CardTexts(window).Max(t => t.Length);
+
+        Assert.True(longest < 1000, $"a line of the card has {longest} characters");
+        Assert.Contains(WindowFixture.CardTexts(window), t => t.StartsWith(new string('x', WriteWindow.MaxShownNameLength), StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
     public async Task ManyEntriesAreListedBounded()
     {
         using var fixture = new WindowFixture();
@@ -459,7 +586,7 @@ public sealed class RecoveryFlowTests
         var bytes = await File.ReadAllBytesAsync(WindowFixture.Poi, TestContext.Current.CancellationToken);
         for (var i = 0; i < 50; i++)
         {
-            await AddCopyAsync(store, $"doc{i:00}.docx", $@"C:\Work\doc{i:00}.docx", minutesAgo: 100 - i, bytes: bytes);
+            await AddCopyAsync(store, $"doc{i:00}.docx", Original(fixture, $"doc{i:00}.docx"), minutesAgo: 100 - i, bytes: bytes);
         }
 
         _ = Prepare(fixture);

@@ -14,6 +14,9 @@ internal static class RecoveryCard
     /// <summary>How many copies the card names.</summary>
     public const int MaxListed = 20;
 
+    // A title comes from a file of the folder (untrusted): it is shortened like the names of an open failure.
+    private static string Shown(string title) => title.Length > WriteWindow.MaxShownNameLength ? title[..WriteWindow.MaxShownNameLength] : title;
+
     public static Dialog Create(IReadOnlyList<RecoveryEntry> entries, Action<RecoveryChoice> chosen)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -36,7 +39,7 @@ internal static class RecoveryCard
         {
             list.Children.Add(new TextBlock
             {
-                Text = WriteStrings.Fill(WriteStrings.RecoveryEntryFormat, entry.Title, entry.Written.ToLocalTime().ToString("g", WriteStrings.Culture)),
+                Text = WriteStrings.Fill(WriteStrings.RecoveryEntryFormat, Shown(entry.Title), entry.Written.ToLocalTime().ToString("g", WriteStrings.Culture)),
                 TextWrapping = TextWrapping.Wrap,
                 FontWeight = FontWeight.SemiBold,
             });
