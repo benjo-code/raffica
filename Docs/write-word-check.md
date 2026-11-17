@@ -46,6 +46,22 @@ In Word, open each saved file and record: a repair prompt (exact text, any promp
 |  |  |  |  |  |  |  |  |  |
 |  |  |  |  |  |  |  |  |  |
 
+## New document and recovery (milestone 4.3c)
+
+Two questions for what 4.3c writes: **does Word open a blank document made by Write, and a recovery copy that was restored and saved, without a repair prompt, and does the style set look as designed?** CI proves that the blank document passes the Open XML SDK's schema validation, that Write reads it again and lays it out as one empty page (`BlankDocumentTests`, `BlankDocumentLayoutTests`), that a recovery copy equals what a save of the same model writes (`SnapshotCacheOracleTests`, `DocxSnapshotGuardTests`) and that a killed process leaves a copy that opens with the typed text (`KilledProcessRecoveryTests`). It does not run Word. The result rows below are empty on purpose.
+
+In Write (a Native AOT build):
+
+1. **Blank document:** Home > New document (Ctrl+N). Type a heading line and apply Title, Heading 1, Heading 2 and Heading 3 to different paragraphs from the style picker, type body text, a caption line (Caption) and a contents-style line (TOC 1); make one word bold and apply the Hyperlink character style to another word if the character style picker lists it. Save as `blank-check.docx` (the first Save asks for a name). Do it once with the region set to the United States or Canada (US Letter) and once with another region (A4), if you can switch.
+2. **Recovery copy:** in a new untitled document type a few paragraphs and make some text bold; wait 35 seconds (or switch to another window, which writes a copy at once); end the process (Task Manager "End task", or `kill -9`). Start Write again, choose Restore in the card, check the text, and Save as `restored-check.docx`. Do the same once with a copy of `testdata/write-corpus/thesis/thesis.docx` (edit a heading, wait, kill, restore, Save as).
+
+In Word, open each saved file and record: a repair prompt (exact text, any prompt is a finding); whether the styles appear in the style gallery with the look in `Docs/DECISIONS.md`, "Raffica Write: new documents and recovery (M4.3c)" (Carlito 11 pt body with 8 pt after and line 1.1; Caladea bold headings from 20 pt down, blue for Heading 1 to 3 and Title, dark slate below; Title 28 pt; Caption italic 9 pt grey; Hyperlink blue underlined); whether the page size and margins are as expected (A4 with 2.5 cm, or Letter with 1 inch); whether Heading 1 to 9 show in the navigation pane as outline levels 1 to 9 and carry no numbers; whether the restored text and formatting equal what was typed; whether Word's "Review > Compare" of the thesis against the restored copy shows only the edit you made.
+
+| Date | Word version and system | File | Action (blank document, restored copy) | Repair prompt (text) | Style set as designed | Page size and margins | Text and formatting as typed | Notes and findings |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  |  |  |
+
 ## In Word
 
 Open the saved file. Record, per file and per save kind:
