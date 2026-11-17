@@ -338,14 +338,36 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         return string.IsNullOrEmpty(name) ? path : name;
     }
 
-    private void ShowOpenError(string path, OpenError error) =>
-        _ = Dialogs.ShowAsync<bool>(done => OpenErrorCard.Create(DisplayName(path), error, () => done(true)));
+    private void ShowOpenError(string path, OpenError error) => ShowOpenErrorCard(path, error, recoveryCopy: false);
+
+    private void ShowOpenErrorCard(string path, OpenError error, bool recoveryCopy) =>
+        _ = Dialogs.ShowAsync<bool>(done => OpenErrorCard.Create(ShortName(DisplayName(path)), error, () => done(true), recoveryCopy));
+
+    /// <summary>A name shown in a card, cut to <see cref="MaxShownNameLength"/> characters without splitting a surrogate pair (a name comes from a file, a sidecar or a hand-over: untrusted).</summary>
+    internal static string ShortName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (name.Length <= MaxShownNameLength)
+        {
+            return name;
+        }
+
+        var end = MaxShownNameLength;
+        if (char.IsHighSurrogate(name[end - 1]) && char.IsLowSurrogate(name[end]))
+        {
+            end--;
+        }
+
+        return name[..end];
+    }
 
     // Two or more files of one open that failed: one card with the names (up to five, then "and N more"), not one card each.
-    private void ShowOpenFailures(IReadOnlyList<OpenFailure> failures)
+    private void ShowOpenFailures(IReadOnlyList<OpenFailure> failures) => ShowOpenFailuresCard(failures, recoveryCopies: false);
+
+    private void ShowOpenFailuresCard(IReadOnlyList<OpenFailure> failures, bool recoveryCopies)
     {
-        var names = failures.Select(failure => DisplayName(failure.Path)).Select(name => name.Length > MaxShownNameLength ? name[..MaxShownNameLength] : name).ToList();
-        _ = Dialogs.ShowAsync<bool>(done => OpenFailuresCard.Create(names, () => done(true)));
+        var names = failures.Select(failure => ShortName(DisplayName(failure.Path))).ToList();
+        _ = Dialogs.ShowAsync<bool>(done => OpenFailuresCard.Create(names, () => done(true), recoveryCopies));
     }
 
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
@@ -465,7 +487,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             {
                 if (rejected.Count < MaxHandoverErrorCards)
                 {
-                    rejected.Add(path.Length > MaxShownNameLength ? path[..MaxShownNameLength] : path);
+                    rejected.Add(ShortName(path));
                 }
             });
             Dispatcher.Post(() => ShowHandover(accepted, rejected));

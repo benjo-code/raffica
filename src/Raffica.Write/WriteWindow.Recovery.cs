@@ -197,11 +197,11 @@ internal sealed partial class WriteWindow
 
             if (_failed.Count == 1)
             {
-                window.ShowOpenError(NameOf(_failed[0]), OpenError.Corrupt);
+                window.ShowOpenErrorCard(NameOf(_failed[0]), OpenError.Corrupt, recoveryCopy: true);
             }
             else
             {
-                window.ShowOpenFailures([.. _failed.Select(e => new OpenFailure(NameOf(e), OpenError.Corrupt))]);
+                window.ShowOpenFailuresCard([.. _failed.Select(e => new OpenFailure(NameOf(e), OpenError.Corrupt))], recoveryCopies: true);
             }
 
             _failed.Clear();

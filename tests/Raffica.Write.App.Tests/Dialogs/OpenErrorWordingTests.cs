@@ -108,6 +108,48 @@ public sealed class OpenErrorWordingTests
         Assert.Equal(1, done);
     }
 
+    [AvaloniaFact]
+    public void TheCardsOfARecoveryCopySayTheCopyCannotBeReadAndNotTheFile()
+    {
+        var single = OpenErrorCard.Create("report.docx", OpenError.Corrupt, () => { }, recoveryCopy: true);
+        var texts = single.Content is StackPanel panel ? panel.Children.OfType<TextBlock>().Select(t => t.Text).ToList() : [];
+        Assert.Equal(["report.docx", WriteStrings.RecoveryErrorReason], texts);
+        Assert.Equal(WriteStrings.RecoveryErrorTitle, single.Title);
+
+        var many = OpenFailuresCard.Create(["a.docx", "b.docx"], () => { }, recoveryCopies: true);
+        Assert.Equal(WriteStrings.RecoveryFailuresTitle, many.Title);
+        var lines = many.Content is StackPanel list ? list.Children.OfType<TextBlock>().Select(t => t.Text).ToList() : [];
+        Assert.Equal(WriteStrings.RecoveryFailuresMessage, lines[0]);
+
+        foreach (var culture in new[] { English, German })
+        {
+            foreach (var key in new[] { "RecoveryErrorTitle", "RecoveryErrorReason", "RecoveryFailuresTitle", "RecoveryFailuresMessage" })
+            {
+                var text = WriteStrings.GetIn(key, culture);
+                Assert.Contains(culture == English ? "recovery cop" : "Wiederherstellungskopie", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("damaged", text, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+    }
+
+    [Fact]
+    public void AShownNameIsCutWithoutSplittingASurrogatePair()
+    {
+        var max = WriteWindow.MaxShownNameLength;
+        Assert.Equal("short.docx", WriteWindow.ShortName("short.docx"));
+        Assert.Equal(new string('x', max), WriteWindow.ShortName(new string('x', max + 40)));
+
+        // The pair starts at the last kept position: it goes whole or not at all (never a lone high surrogate at the end).
+        var split = new string('x', max - 1) + "\uD83D\uDE00" + new string('y', 10);
+        var cut = WriteWindow.ShortName(split);
+        Assert.Equal(new string('x', max - 1), cut);
+        Assert.False(char.IsHighSurrogate(cut[^1]));
+
+        // A pair that ends exactly at the limit is kept.
+        var whole = new string('x', max - 2) + "\uD83D\uDE00" + new string('y', 10);
+        Assert.Equal(new string('x', max - 2) + "\uD83D\uDE00", WriteWindow.ShortName(whole));
+    }
+
     [Fact]
     public void TheFailuresCardListsFiveNamesThenTheRest()
     {

@@ -33,6 +33,10 @@ internal static class WriteStrings
     public static string OpenFailuresTitle => Table.Get("OpenFailuresTitle");
     public static string OpenFailuresMessage => Table.Get("OpenFailuresMessage");
     public static string OpenFailuresMoreFormat => Table.Get("OpenFailuresMoreFormat");
+    public static string RecoveryErrorTitle => Table.Get("RecoveryErrorTitle");
+    public static string RecoveryErrorReason => Table.Get("RecoveryErrorReason");
+    public static string RecoveryFailuresTitle => Table.Get("RecoveryFailuresTitle");
+    public static string RecoveryFailuresMessage => Table.Get("RecoveryFailuresMessage");
     public static string SettingsDefaultView => Table.Get("SettingsDefaultView");
     public static string SettingsDefaultZoom => Table.Get("SettingsDefaultZoom");
     public static string SettingsAutosaveLabel => Table.Get("SettingsAutosaveLabel");

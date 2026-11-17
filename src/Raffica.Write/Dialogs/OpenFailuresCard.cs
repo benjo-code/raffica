@@ -27,7 +27,7 @@ internal static class OpenFailuresCard
         return lines;
     }
 
-    public static Dialog Create(IReadOnlyList<string> names, Action done)
+    public static Dialog Create(IReadOnlyList<string> names, Action done, bool recoveryCopies = false)
     {
         ArgumentNullException.ThrowIfNull(names);
         ArgumentNullException.ThrowIfNull(done);
@@ -40,13 +40,13 @@ internal static class OpenFailuresCard
             list.Children.Add(new TextBlock { Text = lines[i], FontWeight = i < shown ? FontWeight.SemiBold : FontWeight.Normal, TextWrapping = TextWrapping.Wrap });
         }
 
-        var message = new TextBlock { Text = WriteStrings.OpenFailuresMessage, TextWrapping = TextWrapping.Wrap };
+        var message = new TextBlock { Text = recoveryCopies ? WriteStrings.RecoveryFailuresMessage : WriteStrings.OpenFailuresMessage, TextWrapping = TextWrapping.Wrap };
         var ok = new Button { Name = "PART_Ok", Content = ShellStrings.Ok };
         ok.Classes.Add("primary");
 
         var dialog = new Dialog
         {
-            Title = WriteStrings.OpenFailuresTitle,
+            Title = recoveryCopies ? WriteStrings.RecoveryFailuresTitle : WriteStrings.OpenFailuresTitle,
             Content = new StackPanel { Spacing = 8, Children = { message, list } },
             Footer = CardFooter.Only(ok),
         };

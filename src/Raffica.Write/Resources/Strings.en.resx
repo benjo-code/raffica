@@ -57,6 +57,18 @@
   <data name="OpenFailuresMoreFormat" xml:space="preserve">
     <value>and {0} more</value>
   </data>
+  <data name="RecoveryErrorTitle" xml:space="preserve">
+    <value>A recovery copy could not be opened</value>
+  </data>
+  <data name="RecoveryErrorReason" xml:space="preserve">
+    <value>The recovery copy of this document cannot be read. A file you saved earlier is not affected.</value>
+  </data>
+  <data name="RecoveryFailuresTitle" xml:space="preserve">
+    <value>Some recovery copies could not be opened</value>
+  </data>
+  <data name="RecoveryFailuresMessage" xml:space="preserve">
+    <value>The recovery copies of these documents cannot be read. Files you saved earlier are not affected:</value>
+  </data>
   <data name="SettingsDefaultView" xml:space="preserve">
     <value>Default view</value>
   </data>

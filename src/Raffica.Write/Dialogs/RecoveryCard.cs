@@ -15,7 +15,7 @@ internal static class RecoveryCard
     public const int MaxListed = 20;
 
     // A title comes from a file of the folder (untrusted): it is shortened like the names of an open failure.
-    private static string Shown(string title) => title.Length > WriteWindow.MaxShownNameLength ? title[..WriteWindow.MaxShownNameLength] : title;
+    private static string Shown(string title) => WriteWindow.ShortName(title);
 
     public static Dialog Create(IReadOnlyList<RecoveryEntry> entries, Action<RecoveryChoice> chosen)
     {

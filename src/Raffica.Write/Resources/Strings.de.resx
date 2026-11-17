@@ -57,6 +57,18 @@
   <data name="OpenFailuresMoreFormat" xml:space="preserve">
     <value>und {0} weitere</value>
   </data>
+  <data name="RecoveryErrorTitle" xml:space="preserve">
+    <value>Eine Wiederherstellungskopie konnte nicht geöffnet werden</value>
+  </data>
+  <data name="RecoveryErrorReason" xml:space="preserve">
+    <value>Die Wiederherstellungskopie dieses Dokuments lässt sich nicht lesen. Eine früher gespeicherte Datei ist davon nicht betroffen.</value>
+  </data>
+  <data name="RecoveryFailuresTitle" xml:space="preserve">
+    <value>Einige Wiederherstellungskopien konnten nicht geöffnet werden</value>
+  </data>
+  <data name="RecoveryFailuresMessage" xml:space="preserve">
+    <value>Die Wiederherstellungskopien dieser Dokumente lassen sich nicht lesen. Früher gespeicherte Dateien sind davon nicht betroffen:</value>
+  </data>
   <data name="SettingsDefaultView" xml:space="preserve">
     <value>Standardansicht</value>
   </data>

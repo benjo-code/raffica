@@ -483,11 +483,13 @@ public sealed class RecoveryFlowTests
         var window = fixture.Show();
         await SaveHarness.WaitForCardAsync(window);
         SaveHarness.Click(window, "PART_Restore");
-        await WindowFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == WriteStrings.ErrorTitle);
+        await WindowFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == WriteStrings.RecoveryErrorTitle);
 
+        // The card is about the recovery copy: it never says that the file of that name is damaged.
         var texts = WindowFixture.CardTexts(window);
         Assert.Contains("bad.docx", texts);
-        Assert.Contains(WriteStrings.ForOpenError(OpenError.Corrupt), texts);
+        Assert.Contains(WriteStrings.RecoveryErrorReason, texts);
+        Assert.DoesNotContain(WriteStrings.ForOpenError(OpenError.Corrupt), texts);
         SaveHarness.Click(window, "PART_Ok");
         await SaveHarness.AwaitAsync(window.RecoveryOfferTask!);
 
@@ -512,9 +514,10 @@ public sealed class RecoveryFlowTests
         var window = fixture.Show();
         await SaveHarness.WaitForCardAsync(window);
         SaveHarness.Click(window, "PART_Restore");
-        await WindowFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == WriteStrings.OpenFailuresTitle);
+        await WindowFixture.WaitAsync(() => window.Host.IsOpen && window.Host.ActiveDialog!.Title == WriteStrings.RecoveryFailuresTitle);
 
         var texts = WindowFixture.CardTexts(window);
+        Assert.Contains(WriteStrings.RecoveryFailuresMessage, texts);
         Assert.Contains(WriteStrings.Fill(WriteStrings.OpenFailuresMoreFormat, 7), texts);
         SaveHarness.Click(window, "PART_Ok");
         await SaveHarness.AwaitAsync(window.RecoveryOfferTask!);
