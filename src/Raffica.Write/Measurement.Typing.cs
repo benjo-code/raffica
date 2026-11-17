@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Avalonia.Input;
 using Raffica.Write.Commands;
+using Raffica.Write.Documents;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
@@ -51,6 +52,11 @@ internal sealed partial class Measurement
     private readonly bool _background;
     private readonly bool _formatRun;
     private readonly bool _paneRun;
+    private readonly bool _snapshotRun;
+    private readonly List<double> _snapshotLease = [];
+    private readonly List<double> _snapshotTotal = [];
+    private CancellationTokenSource? _snapshotCancel;
+    private string? _snapshotFailure;
     private int _noChange;
     private TextRange? _range;
     private long _waitStarted;
@@ -113,6 +119,58 @@ internal sealed partial class Measurement
         return string.Create(
             CultureInfo.InvariantCulture,
             $"typing-background n={all.Length} incomplete={incomplete.Length} median-ms={Median(all):0.00} p95-ms={Percentile95(all):0.00} max-ms={all[^1]:0.00} lease-median-ms={Median(lease):0.00} lease-p95-ms={Percentile95(lease):0.00} lease-max-ms={lease[^1]:0.00} incomplete-median-ms={incompleteMedian:0.00} incomplete-max-ms={incompleteMax:0.00}");
+    }
+
+    /// <summary>
+    /// The line <c>snapshot n=... lease-median-ms=... lease-max-ms=... total-median-ms=... total-max-ms=...</c> of the typing-snapshot run: how long the model-read lease was held and how long the whole
+    /// snapshot took, over every copy written during the run. Recorded, never judged.
+    /// </summary>
+    public static string SnapshotLine(IReadOnlyList<double> leaseMilliseconds, IReadOnlyList<double> totalMilliseconds)
+    {
+        var lease = leaseMilliseconds.Order().ToArray();
+        var total = totalMilliseconds.Order().ToArray();
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"snapshot n={total.Length} lease-median-ms={Median(lease):0.00} lease-max-ms={lease[^1]:0.00} total-median-ms={Median(total):0.00} total-max-ms={total[^1]:0.00}");
+    }
+
+    // The snapshot loop of the typing-snapshot run: copies of the tab are written back to back into the recovery folder that follows the settings file, as the autosave would at its worst
+    // (the window's own timer is off in a measurement run). It runs on the UI thread, the lease is taken by the snapshot on its pool thread, and it ends with the run.
+    private void StartSnapshotLoop(WriteTab tab)
+    {
+        _snapshotCancel = new CancellationTokenSource();
+        var token = _snapshotCancel.Token;
+        var store = new Recovery.RecoveryStore(_window.RecoveryFolder);
+        var subject = new Recovery.WriteTabRecoverySubject(tab);
+        _ = LoopAsync();
+
+        async Task LoopAsync()
+        {
+            try
+            {
+                while (!_finished && !token.IsCancellationRequested)
+                {
+                    switch (await Recovery.RecoverySnapshot.WriteAsync(subject, store, token))
+                    {
+                        case Recovery.SnapshotResult.Written written:
+                            _snapshotLease.Add(written.LeaseHeld.TotalMilliseconds);
+                            _snapshotTotal.Add(written.Total.TotalMilliseconds);
+                            break;
+                        case Recovery.SnapshotResult.Failed failed:
+                            // Only the type of the error: the message may name a path.
+                            _snapshotFailure = "a recovery snapshot failed: " + failed.Error.GetType().Name;
+                            return;
+                        default:
+                            await Task.Delay(5, token);
+                            break;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The run ended.
+            }
+        }
     }
 
     private static double Median(double[] sorted)
@@ -243,6 +301,10 @@ internal sealed partial class Measurement
             }
 
             Probe(view);
+            if (_snapshotRun)
+            {
+                StartSnapshotLoop(view.Tab);
+            }
         }
 
         if (_awaiting)
@@ -292,6 +354,23 @@ internal sealed partial class Measurement
             if (_jobIndex >= _jobs.Count)
             {
                 ReleaseProbe();
+                if (_snapshotRun)
+                {
+                    if (_snapshotFailure is { } failure)
+                    {
+                        FailTyping(failure);
+                        return;
+                    }
+
+                    if (_snapshotLease.Count == 0)
+                    {
+                        FailTyping("no recovery snapshot was written during the run");
+                        return;
+                    }
+
+                    Write(SnapshotLine(_snapshotLease, _snapshotTotal));
+                }
+
                 Finish(Success);
                 return;
             }

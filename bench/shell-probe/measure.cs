@@ -2,7 +2,7 @@
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
-//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing|typing-background|typing-pane|format --out <csv> [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing|typing-background|typing-pane|typing-snapshot|format --out <csv> [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <write-layout-bench> --case engine --out <csv> [--runs <n>] [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf|write] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
 //   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf|write] [--app <bundle dir> --dmg <file>: pdf on macOS]
@@ -212,6 +212,31 @@ static class Lines
         }
 
         string[] required = ["n", "incomplete", "median-ms", "p95-ms", "max-ms", "lease-median-ms", "lease-p95-ms", "lease-max-ms", "incomplete-median-ms", "incomplete-max-ms"];
+        return required.All(values.ContainsKey);
+    }
+
+    /// <summary>Reads <c>snapshot n=... lease-median-ms=... lease-max-ms=... total-median-ms=... total-max-ms=...</c> of the Write app: every key=value word as a number (invariant culture).</summary>
+    public static bool TryParseSnapshot(string line, out Dictionary<string, double> values)
+    {
+        values = [];
+        var parts = line.Split(' ');
+        if (parts.Length < 2 || parts[0] != "snapshot")
+        {
+            return false;
+        }
+
+        foreach (var part in parts.Skip(1))
+        {
+            var at = part.IndexOf('=', StringComparison.Ordinal);
+            if (at <= 0 || !double.TryParse(part.AsSpan(at + 1), NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                return false;
+            }
+
+            values[part[..at]] = value;
+        }
+
+        string[] required = ["n", "lease-median-ms", "lease-max-ms", "total-median-ms", "total-max-ms"];
         return required.All(values.ContainsKey);
     }
 
@@ -770,7 +795,7 @@ static class PdfRun
             List<(string Case, string Run, double Value)>? typing = null;
             try
             {
-                result = c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase
+                result = c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.TypingSnapshotCase
                     ? RunTyping(exe, c, settingsFile, testdata, out typing)
                     : c.Name == WriteRun.TypingBackgroundCase
                         ? RunTypingBackground(exe, c, settingsFile, testdata, out typing)
@@ -805,14 +830,14 @@ static class PdfRun
                     rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Run is "n" or "incomplete" ? "count" : "ms")));
                 }
             }
-            else if (c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase)
+            else if (c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.TypingSnapshotCase)
             {
                 // Value: the worst 95th percentile of the cases (the number check judges), Second: the worst median.
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: worst p95 {result.Value:0.00} ms, worst median {result.Second:0.00} ms over {typing!.Count(t => t.Run.EndsWith("-p95", StringComparison.Ordinal))} cases"));
                 if (run > 0)
                 {
                     values.Add(result.Value!.Value);
-                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, "ms")));
+                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Run == "count" ? "count" : "ms")));
                 }
             }
             else if (c.Name == "scroll")
@@ -859,7 +884,7 @@ static class PdfRun
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
+            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.TypingSnapshotCase ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
         if (warning is not null)
         {
             Console.WriteLine($"Result with reservation: {warning}");
@@ -926,13 +951,14 @@ static class PdfRun
         }
 
         rows = c.Name == WriteRun.FormatCase ? WriteRun.ParseFormat(output!, out var parseError)
+            : c.Name == WriteRun.TypingSnapshotCase ? WriteRun.ParseTypingSnapshot(output!, out parseError)
             : WriteRun.ParseTyping(output!, out parseError, c.Name == WriteRun.TypingPaneCase ? "pane-" : string.Empty);
         if (rows is null)
         {
             return (null, null, parseError);
         }
 
-        return (rows.Where(r => r.Run.EndsWith("-p95", StringComparison.Ordinal)).Max(r => r.Value), rows.Where(r => r.Run.EndsWith("-median", StringComparison.Ordinal)).Max(r => r.Value), null);
+        return (rows.Where(r => r.Case != "snapshot" && r.Run.EndsWith("-p95", StringComparison.Ordinal)).Max(r => r.Value), rows.Where(r => r.Case != "snapshot" && r.Run.EndsWith("-median", StringComparison.Ordinal)).Max(r => r.Value), null);
     }
 
     /// <summary>One run: the value (ms for the time cases and the scroll p99, bytes for memory), the scroll maximum and an error text.</summary>
@@ -1101,6 +1127,9 @@ static class WriteRun
     /// <summary>Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded, never judged.</summary>
     public const string TypingBackgroundCase = "typing-background";
 
+    /// <summary>The typing run while recovery snapshots are written back to back (<c>--measure-typing-snapshot</c>): rows <c>typing-snapshot/&lt;case&gt;-&lt;view&gt;-median|p95</c> count into the judged metric <c>typing</c>; <c>snapshot/lease-ms</c> and <c>snapshot/total-ms</c> are recorded, never judged.</summary>
+    public const string TypingSnapshotCase = "typing-snapshot";
+
     /// <summary>The cases of the typing run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.Names</c>).</summary>
     public static readonly string[] TypingCases = ["middle", "page-break", "section-break", "chapter-end", "table-cell", "footnote", "header", "footer"];
 
@@ -1115,21 +1144,22 @@ static class WriteRun
     /// <c>typing-first/&lt;when&gt;-&lt;view&gt;</c> for the two first-edit lines (no limit). Every case of <see cref="TypingCases"/> in both views must be there, or the
     /// run failed (<paramref name="error"/>): a result with a case missing would pass for a better one. The worst p95 is the value <c>check</c> judges.
     /// </summary>
-    public static List<(string Case, string Run, double Value)>? ParseTyping(string output, out string? error, string runPrefix = "")
+    public static List<(string Case, string Run, double Value)>? ParseTyping(string output, out string? error, string runPrefix = "", string family = "typing")
     {
+        var firstPrefix = family == "typing" ? runPrefix : "snapshot-" + runPrefix;
         var rows = new List<(string, string, double)>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var line in output.Split((char)10).Select(l => l.Trim()))
         {
             if (Lines.TryParseTyping(line, out var name, out var view, out var median, out var p95, out _))
             {
-                rows.Add(("typing", $"{runPrefix}{name}-{view}-median", median));
-                rows.Add(("typing", $"{runPrefix}{name}-{view}-p95", p95));
+                rows.Add((family, $"{runPrefix}{name}-{view}-median", median));
+                rows.Add((family, $"{runPrefix}{name}-{view}-p95", p95));
                 seen.Add($"{name}-{view}");
             }
             else if (Lines.TryParseTypingFirst(line, out var when, out var firstView, out var ms))
             {
-                rows.Add(("typing-first", $"{runPrefix}{when}-{firstView}", ms));
+                rows.Add(("typing-first", $"{firstPrefix}{when}-{firstView}", ms));
             }
             else if (Lines.TryParseTypingRefresh(line, out var refreshName, out var refreshView, out var refreshMs))
             {
@@ -1146,6 +1176,34 @@ static class WriteRun
         }
 
         error = null;
+        return rows;
+    }
+
+    /// <summary>
+    /// The rows of a typing-snapshot run: the typing rows as <c>typing-snapshot/&lt;case&gt;-&lt;view&gt;-median|p95</c> (every case in both views must be there) and the line
+    /// <c>snapshot n=... lease-median-ms=... lease-max-ms=... total-median-ms=... total-max-ms=...</c> as <c>snapshot/lease-ms</c>, <c>lease-max-ms</c>, <c>total-ms</c>, <c>total-max-ms</c> and <c>count</c>
+    /// (medians and maxima over the copies of the run). A run without that line (no copy was written) is refused. The snapshot rows are recorded and never judged.
+    /// </summary>
+    public static List<(string Case, string Run, double Value)>? ParseTypingSnapshot(string output, out string? error)
+    {
+        var rows = ParseTyping(output, out error, string.Empty, TypingSnapshotCase);
+        if (rows is null)
+        {
+            return null;
+        }
+
+        var line = output.Split((char)10).Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith("snapshot ", StringComparison.Ordinal));
+        if (line is null || !Lines.TryParseSnapshot(line, out var values) || values["n"] < 1)
+        {
+            error = "the typing-snapshot run printed no readable snapshot line (no copy was written)";
+            return null;
+        }
+
+        rows.Add(("snapshot", "lease-ms", values["lease-median-ms"]));
+        rows.Add(("snapshot", "lease-max-ms", values["lease-max-ms"]));
+        rows.Add(("snapshot", "total-ms", values["total-median-ms"]));
+        rows.Add(("snapshot", "total-max-ms", values["total-max-ms"]));
+        rows.Add(("snapshot", "count", values["n"]));
         return rows;
     }
 
@@ -1189,6 +1247,7 @@ static class WriteRun
         new(TypingCase, 3, 0, 500, "--measure-typing", ThesisFile, "first-page"),
         new(TypingBackgroundCase, 5, 0, 500, "--measure-typing-background", ThesisFile, "first-page"),
         new(TypingPaneCase, 3, 0, 500, "--measure-typing-pane", ThesisFile, "first-page"),
+        new(TypingSnapshotCase, 3, 0, 500, "--measure-typing-snapshot", ThesisFile, "first-page"),
         new(FormatCase, 3, 0, 500, "--measure-format", ThesisFile, "first-page"),
         new(EngineCase, 10, 2, 0, string.Empty, ThesisFile, "median first page:"),
     ];
@@ -1908,8 +1967,8 @@ static class CheckCommand
     public static double? WorstTypingP95(IReadOnlyList<BudgetsCommand.Row> rows)
     {
         var perCase = rows
-            .Where(r => r.Mode == "write" && r.Case == "typing" && r.Run.EndsWith("-p95", StringComparison.Ordinal))
-            .GroupBy(r => r.Run, StringComparer.Ordinal)
+            .Where(r => r.Mode == "write" && r.Case is "typing" or "typing-snapshot" && r.Run.EndsWith("-p95", StringComparison.Ordinal))
+            .GroupBy(r => r.Case + "/" + r.Run, StringComparer.Ordinal)
             .Select(g => Stats.Median([.. g.Select(r => r.Value)]))
             .ToList();
         return perCase.Count == 0 ? null : perCase.Max();
@@ -2572,10 +2631,10 @@ static class SelfTest
         Expect("write run: the second launch shares the settings file and opens poi-comment", string.Join(' ', WriteRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, "poi-comment/poi-comment.docx")}");
         Expect("write run: typing opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("typing", "s.json", td)), $"--measure-typing --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
         Expect("write run: every app run has a settings file of its own", WriteRun.Cases.Where(c => c.Name != "engine").All(c => WriteRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
-        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,typing-pane,format,engine");
+        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,typing-pane,typing-snapshot,format,engine");
         Expect("write run: the engine runs the benchmark on the thesis", string.Join(' ', WriteRun.EngineArguments(td, 7)), $"run --file {Path.Combine(td, "thesis/thesis.docx")} --runs 7 --warmup 2");
         Expect("write run: CSV mode is write", RunCommand.CsvMode("write", null), "write");
-        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background, typing-pane, format or engine");
+        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background, typing-pane, typing-snapshot, format or engine");
         Expect("pdf run: the case list in the message is the old text", PdfRun.CaseList(PdfRun.Cases), "cold, warm, thousand, second, scroll or memory");
 
         TypingTests();
@@ -2796,6 +2855,23 @@ static class SelfTest
         Expect("typing-pane rows: first-edit rows carry the prefix", string.Join('|', pane!.Where(r => r.Case == "typing-first").Select(r => r.Run)), "pane-after-open-page|pane-after-switch-writing");
         Expect("typing-pane rows: a refresh row is no typing row and the judged typing metric ignores it", CheckCommand.WorstTypingP95([new("pc", "write", "typing-refresh", "pane-middle-page-ms", 99, "ms")]), (double?)null);
         Expect("parse typing line: a refresh line is not one", Lines.TryParseTyping("typing-refresh case=a view=page n=1 ms=1 window-ms=1 pane-ms=0", out _, out _, out _, out _, out _), false);
+        // The typing run during snapshots: the same typing rows under their own case (judged as typing), the snapshot line as recorded rows.
+        var snapshotOutput = output.ToString() + "snapshot n=12 lease-median-ms=4.50 lease-max-ms=9.25 total-median-ms=80.00 total-max-ms=120.50\n";
+        var snap = WriteRun.ParseTypingSnapshot(snapshotOutput, out var snapError);
+        Expect("typing-snapshot rows: parse", snapError, (string?)null);
+        Expect("typing-snapshot rows: the row names", string.Join('|', snap!.Skip(2).Take(2).Select(r => $"{r.Case}/{r.Run}")), "typing-snapshot/middle-page-median|typing-snapshot/middle-page-p95");
+        Expect("typing-snapshot rows: first-edit rows are their own", string.Join('|', snap!.Where(r => r.Case == "typing-first").Select(r => r.Run)), "snapshot-after-open-page|snapshot-after-switch-writing");
+        Expect("typing-snapshot rows: the lease and total rows", string.Join('|', snap!.Where(r => r.Case == "snapshot").Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Run}={r.Value}"))), "lease-ms=4.5|lease-max-ms=9.25|total-ms=80|total-max-ms=120.5|count=12");
+        Expect("typing-snapshot rows: a run without a snapshot line is refused", WriteRun.ParseTypingSnapshot(output.ToString(), out var noSnap), null);
+        Expect("typing-snapshot rows: the refusal says why", noSnap, "the typing-snapshot run printed no readable snapshot line (no copy was written)");
+        Expect("typing-snapshot rows: a run with no copy (n=0) is refused", WriteRun.ParseTypingSnapshot(output.ToString() + "snapshot n=0 lease-median-ms=0 lease-max-ms=0 total-median-ms=0 total-max-ms=0\n", out _), null);
+        Expect("typing-snapshot: the arguments", string.Join(' ', WriteRun.Arguments("typing-snapshot", "s.json", "t")), $"--measure-typing-snapshot --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
+        Expect("TypingSnapshotRowsCountIntoTheTypingMetric: the worst p95 holds the snapshot rows", CheckCommand.WorstTypingP95([new("pc", "write", "typing", "a-page-p95", 3, "ms"), new("pc", "write", "typing-snapshot", "a-page-p95", 12, "ms")]), 12.0);
+        Expect("TypingSnapshotRowsCountIntoTheTypingMetric: a typing row and a snapshot row of one case are two cases", CheckCommand.WorstTypingP95([new("pc", "write", "typing", "a-page-p95", 20, "ms"), new("pc", "write", "typing-snapshot", "a-page-p95", 3, "ms")]), 20.0);
+        Expect("TypingSnapshotRowsCountIntoTheTypingMetric: a snapshot row above 16 ms fails the typing check", CheckCommand.EvaluateWrite("windows", [.. WriteRows("windows"), new("pc", "write", "typing-snapshot", "a-page-p95", 16.1, "ms")]).First(r => r.Key == "typing").Verdict, "over");
+        Expect("TypingSnapshotRowsCountIntoTheTypingMetric: the snapshot median rows are not judged", CheckCommand.WorstTypingP95([new("pc", "write", "typing-snapshot", "a-page-median", 99, "ms")]), (double?)null);
+        Expect("LeaseRowsAreNeverJudged: lease and total rows do not move the typing metric", CheckCommand.WorstTypingP95([new("pc", "write", "typing", "a-page-p95", 3, "ms"), new("pc", "write", "snapshot", "lease-ms", 99, "ms"), new("pc", "write", "snapshot", "total-ms", 999, "ms")]), 3.0);
+        Expect("LeaseRowsAreNeverJudged: huge lease and total rows leave every verdict as it was", string.Join(',', CheckCommand.EvaluateWrite("windows", [.. WriteRows("windows"), new("pc", "write", "snapshot", "lease-ms", 9999, "ms"), new("pc", "write", "snapshot", "total-ms", 9999, "ms")]).Select(r => r.Verdict)), string.Join(',', CheckCommand.EvaluateWrite("windows", WriteRows("windows")).Select(r => r.Verdict)));
         Expect("typing-pane: the arguments", string.Join(' ', WriteRun.Arguments("typing-pane", "s.json", "t")), $"--measure-typing-pane --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
 
         // The format run: one line per kind, place and view, every one required.

@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-typing-snapshot"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -315,6 +315,54 @@ public sealed class MeasurementTests
         var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
         Assert.Equal(16, rows.Length);
         Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=3 median-ms=", r));
+    }
+
+    [Fact]
+    public void OptionsAcceptTheNewSwitch()
+    {
+        var folder = Directory.CreateTempSubdirectory("raffica-write-measure-snapshot-").FullName;
+        try
+        {
+            var ex = Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-typing-snapshot", WindowFixture.Thesis]));
+            Assert.Contains("--settings-file", ex.Message, StringComparison.Ordinal);
+            Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-typing-snapshot", "--settings-file", Path.Combine(folder, "s.json")]));
+            Assert.Throws<ArgumentException>(() => WriteOptions.Parse(["--measure-typing-snapshot", "--measure-typing", "--settings-file", Path.Combine(folder, "s.json"), "a.docx"]));
+
+            var options = WriteOptions.Parse(["--measure-typing-snapshot", "--settings-file", Path.Combine(folder, "s.json"), WindowFixture.Thesis]);
+            Assert.True(options.IsMeasuring);
+            Assert.Equal("--measure-typing-snapshot", options.MeasureSwitch);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TheSnapshotRunWritesTheSameRowsAsTyping()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-typing-snapshot", typingKeys: 2);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        var rows = probe.Lines.Where(l => l.StartsWith("typing case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(16, rows.Length);
+        Assert.All(rows, r => Assert.Matches(@"^typing case=[a-z-]+ view=(page|writing) n=2 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=", r));
+
+        // The snapshot loop wrote copies meanwhile, into the folder that follows the settings file, and reports their lease and total times.
+        var snapshot = Assert.Single(probe.Lines, l => l.StartsWith("snapshot n=", StringComparison.Ordinal));
+        Assert.Matches(@"^snapshot n=[1-9]\d* lease-median-ms=\d+\.\d\d lease-max-ms=\d+\.\d\d total-median-ms=\d+\.\d\d total-max-ms=\d+\.\d\d$", snapshot);
+        Assert.StartsWith(f.Folder, f.Window.RecoveryFolder, StringComparison.Ordinal);
+        Assert.NotEmpty(Directory.GetFiles(f.Window.RecoveryFolder, "*.docx"));
     }
 
     [AvaloniaFact]

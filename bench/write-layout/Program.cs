@@ -15,7 +15,7 @@ internal static class Program
           write-layout-bench first-page --file <docx> [--phases]
           write-layout-bench phases --file <docx> [--runs 5]
           write-layout-bench run --file <docx> [--runs 10] [--warmup 2] [--csv <path>]
-          write-layout-bench edit [--file <docx>] [--runs <keystrokes per case, 200>] [--csv <path>] [--phases] [--background]
+          write-layout-bench edit [--file <docx>] [--runs <keystrokes per case, 200>] [--csv <path>] [--phases] [--background] [--snapshot]
           write-layout-bench render <page> <out.png> [--file <docx>] [--root <dir>]
         """;
 
@@ -90,7 +90,7 @@ internal sealed class UsageException(string message) : Exception(message);
 /// <summary>The words after the command: <c>--name value</c> pairs, flags and positional values.</summary>
 internal sealed class Options
 {
-    private static readonly HashSet<string> s_flags = ["--phases", "--background"];
+    private static readonly HashSet<string> s_flags = ["--phases", "--background", "--snapshot"];
 
     private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
     private readonly HashSet<string> _flags = new(StringComparer.Ordinal);

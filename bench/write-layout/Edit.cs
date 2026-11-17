@@ -69,6 +69,12 @@ internal static partial class EditCommand
             return Program.Fail(error, "the file does not exist");
         }
 
+        if (options.Flag("--snapshot"))
+        {
+            output.Write(SnapshotTable(MeasureSnapshot(file, Math.Max(1, options.Int("--runs", DefaultSnapshots)))));
+            return 0;
+        }
+
         if (options.Flag("--background"))
         {
             var background = MeasureBackground(file, Math.Max(1, options.Int("--runs", BackgroundKeystrokes)));
