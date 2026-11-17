@@ -71,6 +71,9 @@ internal sealed class WriteSettingsController
         _ = new ShellSettingsStore(AppFiles.Write.ShellPathFor(_options.SettingsFile)).TrySave(_shell);
     }
 
+    /// <summary>Sets the autosave switch in memory only, as the settings dialog does when confirmed (no file is written); the tests use it until the dialog has the row.</summary>
+    internal void SetAutosaveForTests(bool on) => _shell = _shell with { Autosave = on };
+
     /// <summary>Completes when the Write file has been written (tests wait for it instead of sleeping).</summary>
     public Task FlushAsync() => _appWriter.FlushAsync();
 

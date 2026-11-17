@@ -165,6 +165,8 @@ internal sealed partial class WriteWindow
         {
             if (await _closeGuard.CanCloseAsync(tab) && !_closeConfirmed)
             {
+                // Saved, Don't save or clean: the copy of this tab goes with it (a Cancel or a failed save never gets here).
+                ReleaseRecovery([tab]);
                 Workspace.Close(tab);
             }
 

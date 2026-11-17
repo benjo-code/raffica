@@ -98,11 +98,22 @@ internal sealed class WriteTab : IDisposable
     /// <summary>Gives the model of the title bar the dirty state of the document (the tab shows its mark and says "unsaved changes"). UI thread.</summary>
     internal void UpdateDirty()
     {
-        if (!IsDisposed)
+        if (IsDisposed)
         {
-            Tab.IsDirty = IsDirty;
+            return;
+        }
+
+        var dirty = IsDirty;
+        var changed = Tab.IsDirty != dirty;
+        Tab.IsDirty = dirty;
+        if (changed)
+        {
+            DirtyChanged?.Invoke();
         }
     }
+
+    /// <summary>Raised on the UI thread when the dirty mark of the tab changes (an edit made it dirty; a save or an undo to the saved revision made it clean). The autosave listens to this; nothing is raised before the first change.</summary>
+    public event Action? DirtyChanged;
 
     /// <summary>The opened file; a prefix while <see cref="DocxFile.IsPrefix"/>. Not to be edited or saved.</summary>
     public DocxFile Docx => Volatile.Read(ref _docx);

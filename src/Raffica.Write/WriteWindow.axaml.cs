@@ -139,6 +139,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         // Window-wide keys: the command search (Alt+Q; Cmd+K on macOS), Open, Close tab and the tab switch.
         FrameKeys.Attach(this, TitleSearch, SearchShortcut.AltQ);
         AttachKeys();
+        AttachRecovery();
 
         Closing += OnWindowClosing;
         Closed += OnWindowClosed;
@@ -664,6 +665,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 _recent.Touch(opened);
             }
 
+            WatchRecovery(tab);
             Tabs.Items.Insert(Math.Min(e.NewStartingIndex, Tabs.Items.Count), tab.Tab);
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove)
@@ -673,6 +675,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             _faultShown.Remove(tab);
             ForgetOutline(tab);
             ForgetFormatting(tab);
+            ForgetRecovery(tab);
             Tabs.Items.Remove(tab.Tab);
         }
 
@@ -904,6 +907,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         if (!IsCloseRunning && !Workspace.Tabs.Any(t => t.IsDirty) && !_saves.IsAnyRunning && _closingTabs.Count == 0)
         {
             QuitRequested = quit;
+            ReleaseRecovery(Workspace.Tabs);
             ConfirmClose();
             return;
         }
@@ -953,6 +957,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
             {
                 // Posted: with no dirty tab the guard completes synchronously, and Close must not run nested inside the Closing event.
+                ReleaseRecovery(Workspace.Tabs);
                 ConfirmClose();
                 Dispatcher.UIThread.Post(Close);
             }
@@ -995,6 +1000,9 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 Settings.RememberWindow(placement);
             }
         });
+
+        // A snapshot in flight ends silently and no copy is deleted here: the close questions did that where they were answered.
+        Step(StopRecovery);
 
         // Every tab cancels what runs on its document and lets go of its file; then the files get what is queued, waiting a moment at most.
         foreach (var tab in Workspace.Tabs.ToList())
