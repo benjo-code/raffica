@@ -42,7 +42,6 @@ internal static class Program
         var caret = new TextPosition(StoryRef.Body, docx.Model.Body.Blocks.OfType<Paragraph>().First(), 0);
         var typed = 0;
         var lastPrinted = DateTimeOffset.MinValue;
-        subject.RecordCount(docx.Model.Edits.Revision);
 
         // The clock's tick starts the scheduler; this runs after each tick's pass and prints what that pass (or an earlier one) finished.
         clock.AfterTick = () => scheduler.WhenIdleAsync().ContinueWith(_ => PrintNewCopy(), TaskScheduler.FromCurrentSynchronizationContext());
@@ -62,8 +61,9 @@ internal static class Program
             Console.Out.Flush();
         }
 
+        // One key per step, posted to the pump; the timer stops itself after the last paragraph (TypeNext reads it, so it is assigned after the declaration).
         Timer? typing = null;
-        using var typingOwner = typing = new Timer(_ => context.Post(_ => TypeNext(), null), null, s_typingStep, s_typingStep);
+        typing = new Timer(_ => context.Post(_ => TypeNext(), null), null, s_typingStep, s_typingStep);
 
         void TypeNext()
         {
@@ -80,7 +80,6 @@ internal static class Program
             {
                 var result = editor.InsertText(new TextRange(caret, caret), text);
                 caret = result.Caret;
-                subject.RecordCount(docx.Model.Edits.Revision);
             }
             finally
             {
@@ -89,7 +88,11 @@ internal static class Program
         }
 
         context.Post(_ => { }, null);
-        context.RunUntil(s_lifeBound);
+        using (typing)
+        {
+            context.RunUntil(s_lifeBound);
+        }
+
         return 0;
     }
 
@@ -175,7 +178,6 @@ internal static class Program
     private sealed class Subject(DocxFile docx, int uiThread) : IRecoverySubject
     {
         private readonly object _counts = new();
-        private readonly Dictionary<int, int> _paragraphsAt = [];
         private (int Revision, int Paragraphs) _lastWritten;
 
         public SemaphoreSlim TypeLock { get; } = new(1, 1);
@@ -219,14 +221,6 @@ internal static class Program
                 {
                     return _lastWritten;
                 }
-            }
-        }
-
-        public void RecordCount(int revision)
-        {
-            lock (_counts)
-            {
-                _paragraphsAt[revision] = Docx.Model.Body.Blocks.OfType<Paragraph>().Count();
             }
         }
 

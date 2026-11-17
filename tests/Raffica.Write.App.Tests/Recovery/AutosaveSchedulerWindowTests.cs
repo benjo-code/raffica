@@ -201,7 +201,7 @@ public sealed class AutosaveSchedulerWindowTests
     }
 
     [AvaloniaFact]
-    public async Task ClosingTheWindowWithDontSaveDeletesTheCopyAndABareCloseOfTheTabDoesNot()
+    public async Task ClosingTheWindowWithDontSaveDeletesTheCopyAndStopsTheClock()
     {
         using var fixture = new WindowFixture();
         var (window, clock) = Show(fixture);

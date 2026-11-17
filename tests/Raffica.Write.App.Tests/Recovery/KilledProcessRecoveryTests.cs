@@ -78,13 +78,27 @@ public sealed class KilledProcessRecoveryTests
 
         public HarnessRun(int paragraphs)
         {
-            var exe = RepoPaths.RecoveryHarness;
-            if (!File.Exists(exe))
+            try
             {
-                throw new InvalidOperationException($"The recovery harness is not built ({exe}). Run `dotnet build Raffica.slnx -c Release` first.");
-            }
+                var exe = RepoPaths.RecoveryHarness;
+                if (!File.Exists(exe))
+                {
+                    throw new InvalidOperationException($"The recovery harness is not built ({exe}). Run `dotnet build Raffica.slnx -c Release` first.");
+                }
 
-            Store = new RecoveryStore(Path.Combine(_root, "recovery"));
+                Store = new RecoveryStore(Path.Combine(_root, "recovery"));
+                _process = Start(exe, paragraphs);
+            }
+            catch
+            {
+                // A constructor that throws is never disposed: the temp folder goes here.
+                DeleteRoot();
+                throw;
+            }
+        }
+
+        private Process Start(string exe, int paragraphs)
+        {
             var start = new ProcessStartInfo(exe)
             {
                 RedirectStandardOutput = true,
@@ -98,9 +112,9 @@ public sealed class KilledProcessRecoveryTests
             start.ArgumentList.Add("40");
             start.ArgumentList.Add("--paragraphs");
             start.ArgumentList.Add(paragraphs.ToString(CultureInfo.InvariantCulture));
-            _process = new Process { StartInfo = start };
-            _process.OutputDataReceived += (_, e) => OnLine(e.Data);
-            _process.ErrorDataReceived += (_, e) =>
+            var process = new Process { StartInfo = start };
+            process.OutputDataReceived += (_, e) => OnLine(e.Data);
+            process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
                 {
@@ -110,12 +124,13 @@ public sealed class KilledProcessRecoveryTests
                     }
                 }
             };
-            _process.Start();
-            _process.BeginOutputReadLine();
-            _process.BeginErrorReadLine();
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            return process;
         }
 
-        public RecoveryStore Store { get; }
+        public RecoveryStore Store { get; } = null!;
 
         public int ProcessId => _process.Id;
 
@@ -164,8 +179,11 @@ public sealed class KilledProcessRecoveryTests
                 throw new TimeoutException("The harness did not end after Kill.");
             }
 
-            // The pipes close with the process; waiting without a limit lets the readers finish, so Copies is complete.
-            _process.WaitForExit();
+            // The pipes close with the process; this wait lets the readers finish, so Copies is complete (bounded: a grandchild that holds a pipe open must not hang the test).
+            if (!Task.Run(() => _process.WaitForExit()).Wait(s_wait))
+            {
+                throw new TimeoutException($"The output of the harness did not end within {s_wait.TotalSeconds:0} s after Kill.\nstdout:\n{Snapshot(_output)}\nstderr:\n{Snapshot(_errors)}");
+            }
         }
 
         public void Dispose()
@@ -184,11 +202,16 @@ public sealed class KilledProcessRecoveryTests
             }
 
             _process.Dispose();
+            DeleteRoot();
+        }
+
+        private void DeleteRoot()
+        {
             try
             {
                 Directory.Delete(_root, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // A temp folder left behind is not a failure of the test.
             }
