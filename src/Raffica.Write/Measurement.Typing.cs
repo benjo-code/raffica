@@ -61,6 +61,10 @@ internal sealed partial class Measurement
     private TimeSpan _gcPauseAtStart;
     private CancellationTokenSource? _snapshotCancel;
     private string? _snapshotFailure;
+    private readonly TaskCompletionSource _snapshotFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    // How long the end of a typing-snapshot run waits for the first copy when none has been written yet (the first copy writes the whole body and can outlast a short run).
+    private static readonly TimeSpan s_firstCopyWait = TimeSpan.FromSeconds(60);
     private int _noChange;
     private TextRange? _range;
     private long _waitStarted;
@@ -142,6 +146,31 @@ internal sealed partial class Measurement
 
     // The snapshot loop of the typing-snapshot run: copies of the tab are written back to back into the recovery folder that follows the settings file, as the autosave would at its worst
     // (the window's own timer is off in a measurement run). It runs on the UI thread, the lease is taken by the snapshot on its pool thread, and it ends with the run.
+    // The end of a typing-snapshot run: when no copy has finished yet, a copy that is still being written is waited for (on its completion signal, not a sleep), so a short run is not judged
+    // "no copy" only because the first copy, which writes the whole body, was slower than the keys.
+    private async Task EndSnapshotRunAsync()
+    {
+        if (_snapshotFailure is null && _snapshotLease.Count == 0)
+        {
+            await Task.WhenAny(_snapshotFirst.Task, Task.Delay(s_firstCopyWait));
+        }
+
+        if (_snapshotFailure is { } failure)
+        {
+            FailTyping(failure);
+            return;
+        }
+
+        if (_snapshotLease.Count == 0)
+        {
+            FailTyping("no recovery snapshot was written during the run");
+            return;
+        }
+
+        Write(SnapshotLine(_snapshotLease, _snapshotTotal, _snapshotWritten, _snapshotBlocks) + string.Create(CultureInfo.InvariantCulture, $" gc0={GC.CollectionCount(0) - _gcAtStart[0]} gc1={GC.CollectionCount(1) - _gcAtStart[1]} gc2={GC.CollectionCount(2) - _gcAtStart[2]} gc-pause-ms={(GC.GetTotalPauseDuration() - _gcPauseAtStart).TotalMilliseconds:0}"));
+        Finish(Success);
+    }
+
     private void StartSnapshotLoop(WriteTab tab)
     {
         _gcAtStart = [GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2)];
@@ -165,10 +194,12 @@ internal sealed partial class Measurement
                             _snapshotTotal.Add(written.Total.TotalMilliseconds);
                             _snapshotWritten.Add(tab.Docx.LastSnapshotPass.Written);
                             _snapshotBlocks = tab.Docx.Model.Body.Blocks.Count;
+                            _snapshotFirst.TrySetResult();
                             break;
                         case Recovery.SnapshotResult.Failed failed:
                             // Only the type of the error: the message may name a path.
                             _snapshotFailure = "a recovery snapshot failed: " + failed.Error.GetType().Name;
+                            _snapshotFirst.TrySetResult();
                             return;
                         default:
                             await Task.Delay(5, token);
@@ -179,6 +210,12 @@ internal sealed partial class Measurement
             catch (OperationCanceledException)
             {
                 // The run ended.
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Only the type: the message of an exception may name a path or a document value.
+                _snapshotFailure = "the recovery snapshot loop failed: " + ex.GetType().Name;
+                _snapshotFirst.TrySetResult();
             }
         }
     }
@@ -366,19 +403,8 @@ internal sealed partial class Measurement
                 ReleaseProbe();
                 if (_snapshotRun)
                 {
-                    if (_snapshotFailure is { } failure)
-                    {
-                        FailTyping(failure);
-                        return;
-                    }
-
-                    if (_snapshotLease.Count == 0)
-                    {
-                        FailTyping("no recovery snapshot was written during the run");
-                        return;
-                    }
-
-                    Write(SnapshotLine(_snapshotLease, _snapshotTotal, _snapshotWritten, _snapshotBlocks) + string.Create(CultureInfo.InvariantCulture, $" gc0={GC.CollectionCount(0) - _gcAtStart[0]} gc1={GC.CollectionCount(1) - _gcAtStart[1]} gc2={GC.CollectionCount(2) - _gcAtStart[2]} gc-pause-ms={(GC.GetTotalPauseDuration() - _gcPauseAtStart).TotalMilliseconds:0}"));
+                    _ = EndSnapshotRunAsync();
+                    return;
                 }
 
                 Finish(Success);

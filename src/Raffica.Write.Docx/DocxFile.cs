@@ -207,10 +207,11 @@ public sealed class DocxFile : IDisposable
         StartSave(targetPath, replaceExisting, overwriteChangedOriginal, rebind: true, cancellationToken);
 
     /// <summary>
-    /// Writes a recovery copy: <see cref="SaveAsync(string, bool, CancellationToken)"/> to another path (nothing is rebound, no stamp or snapshot changes), with one difference in what happens
-    /// inside the model read (<see cref="BeforeModelRead"/> to <see cref="AfterModelRead"/>): the main part is not written block by block every time; the bytes of the blocks that did not change since the
-    /// last copy are reused (<see cref="BodySnapshotCache"/>), so the model is held for the blocks that changed only. The package it writes is the same as a save of the same model gives. The cache belongs to
-    /// the file, so call this for one copy at a time (the recovery snapshot's in-flight mark does) and only for the model the editor reports its changes for.
+    /// Writes a recovery copy: <see cref="SaveAsync(string, bool, CancellationToken)"/> to another path (nothing is rebound, no stamp or snapshot changes), with two differences. Inside the model read
+    /// (<see cref="BeforeModelRead"/> to <see cref="AfterModelRead"/>) the main part is not written block by block every time: the bytes of the blocks that did not change since the last copy are reused
+    /// (<see cref="BodySnapshotCache"/>), so the model is held for the blocks that changed only. And the guard after the write is lighter: the written bytes of every model part are compared with the package in
+    /// chunks, and the main part is read back as well-formed XML with a <c>w:document</c> root, not as a whole model (the other parts are read back as a model, and the checks of the parts that were not written are
+    /// the same). The parts it writes are the same as a save of the same model gives. The cache belongs to the file, so call this for one copy at a time (the recovery snapshot's in-flight mark does) and only for the model the editor reports its changes for.
     /// </summary>
     public Task<SaveReport> SaveSnapshotAsync(string targetPath, CancellationToken cancellationToken = default)
     {
@@ -828,11 +829,13 @@ public sealed class DocxFile : IDisposable
     }
 
     // The light read-back of a recovery copy's main part: well-formed XML under a w:document root, no model built.
-    private static void ReadBackWellFormed(Written part)
+    private static void ReadBackWellFormed(Written part) => ReadBackWellFormed(part.Name, part.Bytes);
+
+    internal static void ReadBackWellFormed(string partName, byte[] bytes)
     {
         try
         {
-            using var stream = new MemoryStream(part.Bytes, writable: false);
+            using var stream = new MemoryStream(bytes, writable: false);
             using var reader = XmlReader.Create(stream, XmlKit.ReaderSettings());
             reader.MoveToContent();
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "document" || reader.NamespaceURI != Names.W.NamespaceName)
@@ -844,9 +847,10 @@ public sealed class DocxFile : IDisposable
             {
             }
         }
-        catch (XmlException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            throw new DocxSaveException(DocxSaveReason.ModelNotReadable, part.Name);
+            // Whatever the reader throws on these bytes (not well-formed, not allowed by the reader settings, not readable) means the same: the part cannot be read back.
+            throw new DocxSaveException(DocxSaveReason.ModelNotReadable, partName);
         }
     }
 
