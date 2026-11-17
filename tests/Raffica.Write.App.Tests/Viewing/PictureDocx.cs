@@ -7,8 +7,8 @@ namespace Raffica.WriteApp.Tests.Viewing;
 /// <summary>Writes small DOCX files with real PNG pictures: a page per group, each picture its own relationship and its own media part.</summary>
 internal static class PictureDocx
 {
-    /// <summary>A document with <paramref name="pages"/> pages (a page break before each but the first), <paramref name="perPage"/> pictures of <paramref name="pixels"/> square pixels on each.</summary>
-    public static string Write(string folder, int pages, int perPage = 1, int pixels = 8, string name = "pictures.docx")
+    /// <summary>(With <paramref name="leadingText"/>, a page of text for each string comes first.) A document with <paramref name="pages"/> pages (a page break before each but the first), <paramref name="perPage"/> pictures of <paramref name="pixels"/> square pixels on each.</summary>
+    public static string Write(string folder, int pages, int perPage = 1, int pixels = 8, string name = "pictures.docx", params string[] leadingText)
     {
         var path = Path.Combine(folder, name);
         using var stream = File.Create(path);
@@ -16,6 +16,13 @@ internal static class PictureDocx
         var rels = new StringBuilder();
         var body = new StringBuilder();
         var count = 0;
+
+        // Leading pages of text come first (a page break before each but the first); the pictures follow on pages of their own.
+        for (var i = 0; i < leadingText.Length; i++)
+        {
+            body.Append("<w:p>").Append(i > 0 ? "<w:pPr><w:pageBreakBefore/></w:pPr>" : string.Empty).Append("<w:r><w:t>").Append(leadingText[i]).Append("</w:t></w:r></w:p>");
+        }
+
         for (var page = 0; page < pages; page++)
         {
             for (var k = 0; k < perPage; k++)
@@ -24,7 +31,7 @@ internal static class PictureDocx
                 var id = string.Concat("rIdPic", count.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 rels.Append("<Relationship Id=\"").Append(id).Append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/p").Append(count).Append(".png\"/>");
                 Add(zip, string.Concat("word/media/p", count.ToString(System.Globalization.CultureInfo.InvariantCulture), ".png"), Png(pixels, count));
-                body.Append("<w:p>").Append(page > 0 && k == 0 ? "<w:pPr><w:pageBreakBefore/></w:pPr>" : string.Empty)
+                body.Append("<w:p>").Append((page > 0 || leadingText.Length > 0) && k == 0 ? "<w:pPr><w:pageBreakBefore/></w:pPr>" : string.Empty)
                     .Append("<w:r><w:drawing><wp:inline><wp:extent cx=\"914400\" cy=\"914400\"/><wp:docPr id=\"").Append(count).Append("\" name=\"P").Append(count).Append("\"/>")
                     .Append("<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic><pic:blipFill><a:blip r:embed=\"").Append(id)
                     .Append("\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>");

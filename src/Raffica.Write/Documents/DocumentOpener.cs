@@ -28,6 +28,15 @@ internal static class PagePictures
     public static ImageRef[] Of(LaidOutPage page)
     {
         ArgumentNullException.ThrowIfNull(page);
+
+        // A page never changes, so its list is made once (the view asks again after every edit and scroll).
+        return s_known.GetValue(page, Scan);
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LaidOutPage, ImageRef[]> s_known = [];
+
+    private static ImageRef[] Scan(LaidOutPage page)
+    {
         List<ImageRef>? found = null;
         foreach (var item in page.Items)
         {
@@ -192,7 +201,7 @@ internal static class DocumentOpener
                 // A prefix that holds the whole body is the whole file; one whose page 1 never reached its last block cannot change.
                 if (!docx.IsPrefix || layout.FirstPageIsFinal)
                 {
-                    pictures.Warm(PagePictures.Of(layout.Page(0)));
+                    pictures.Warm(PagePictures.Of(layout.Page(0)), token);
                     var made = new OpenedDocument(docx, layout, fonts, images, pictures, docx.IsPrefix ? blocks : 0);
                     images = null;
                     pictures = null;
@@ -212,7 +221,7 @@ internal static class DocumentOpener
                     var wholeLayout = DocumentLayout.Create(docx.Model, fonts, options);
                     work.NoteLayoutCreated();
                     wholeLayout.LayOutFirstPage();
-                    pictures.Warm(PagePictures.Of(wholeLayout.Page(0)));
+                    pictures.Warm(PagePictures.Of(wholeLayout.Page(0)), token);
                     var whole = new OpenedDocument(docx, wholeLayout, fonts, images, pictures, 0);
                     images = null;
                     pictures = null;

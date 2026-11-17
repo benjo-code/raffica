@@ -59,6 +59,7 @@ public sealed class ImageCache : IDisposable
     private readonly Dictionary<string, Entry> _images = new(StringComparer.Ordinal);
     private readonly LinkedList<string> _lru = new();
     private readonly List<SKImage> _retired = [];
+    private readonly HashSet<string> _inFlight = new(StringComparer.Ordinal);
     private readonly object _gate = new();
     private int _decodes;
     private int _refused;
@@ -136,19 +137,28 @@ public sealed class ImageCache : IDisposable
     /// <summary>The picture when it is already decoded (and marks it as used), otherwise null; never decodes.</summary>
     public SKImage? TryGet(ImageRef image) => Obtain(image.Id, decode: false, out _);
 
-    /// <summary>Decodes the pictures that are not known yet, on the calling thread.</summary>
-    public void Warm(IEnumerable<ImageRef> images) => WarmCore(images);
+    /// <summary>
+    /// Decodes the pictures that are not known yet, on the calling thread, one at a time. A picture that another thread is decoding right now is skipped (that thread
+    /// keeps it), so two overlapping calls decode a picture once.
+    /// </summary>
+    /// <param name="images">The pictures.</param>
+    /// <param name="token">Checked before each picture; the pictures decoded so far stay.</param>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public void Warm(IEnumerable<ImageRef> images, CancellationToken token = default) => WarmCore(images, throwOnCancel: true, token);
 
-    /// <summary>Runs <see cref="Warm"/> on a pool thread and raises <see cref="Decoded"/> once when it decoded anything.</summary>
-    public void Prefetch(IEnumerable<ImageRef> images)
+    /// <summary>
+    /// Runs <see cref="Warm"/> on a pool thread and raises <see cref="Decoded"/> once when it decoded anything. The task ends when the work has (also when the token stopped it
+    /// early: the pictures decoded until then stay and still raise <see cref="Decoded"/>); it never faults.
+    /// </summary>
+    public Task Prefetch(IEnumerable<ImageRef> images, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(images);
         var list = images.ToArray();
-        _ = Task.Run(() =>
+        return Task.Run(() =>
         {
             try
             {
-                if (WarmCore(list))
+                if (WarmCore(list, throwOnCancel: false, token))
                 {
                     Decoded?.Invoke();
                 }
@@ -157,7 +167,7 @@ public sealed class ImageCache : IDisposable
             {
                 // A prefetch is an optimisation: whatever fails here is retried by the draw (or not needed).
             }
-        });
+        }, CancellationToken.None);
     }
 
     /// <summary>Disposes the pictures that were evicted or cleared since the last call. Call it after a draw returned, never during one.</summary>
@@ -230,21 +240,32 @@ public sealed class ImageCache : IDisposable
         }
     }
 
-    private bool WarmCore(IEnumerable<ImageRef> images)
+    private bool WarmCore(IEnumerable<ImageRef> images, bool throwOnCancel, CancellationToken token)
     {
         var any = false;
         foreach (var image in images)
         {
-            Obtain(image.Id, decode: true, out var decodedNow);
+            if (token.IsCancellationRequested)
+            {
+                if (throwOnCancel)
+                {
+                    token.ThrowIfCancellationRequested();
+                }
+
+                break;
+            }
+
+            Obtain(image.Id, decode: true, out var decodedNow, skipIfInFlight: true);
             any |= decodedNow;
         }
 
         return any;
     }
 
-    private SKImage? Obtain(string id, bool decode, out bool decodedNow)
+    private SKImage? Obtain(string id, bool decode, out bool decodedNow, bool skipIfInFlight = false)
     {
         decodedNow = false;
+        bool owns;
         lock (_gate)
         {
             if (_disposed)
@@ -262,12 +283,39 @@ public sealed class ImageCache : IDisposable
 
                 return known.Image;
             }
+
+            if (!decode)
+            {
+                return null;
+            }
+
+            // Warm and Prefetch leave a picture to the thread that is decoding it; Get decodes for itself (it must return the picture).
+            owns = _inFlight.Add(id);
+            if (!owns && skipIfInFlight)
+            {
+                return null;
+            }
         }
 
-        if (!decode)
+        try
         {
-            return null;
+            return DecodeAndKeep(id, out decodedNow);
         }
+        finally
+        {
+            if (owns)
+            {
+                lock (_gate)
+                {
+                    _inFlight.Remove(id);
+                }
+            }
+        }
+    }
+
+    private SKImage? DecodeAndKeep(string id, out bool decodedNow)
+    {
+        decodedNow = false;
 
         // Decoding runs outside the lock.
         var (image, refused) = Decode(id);

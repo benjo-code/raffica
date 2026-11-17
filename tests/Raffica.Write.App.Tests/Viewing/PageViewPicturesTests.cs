@@ -1,6 +1,9 @@
 using Avalonia.Headless.XUnit;
+using Raffica.Write.Editing;
 using Raffica.Write.Layout;
+using Raffica.Write.Model;
 using Xunit;
+using DocumentLayout = Raffica.Write.Layout.DocumentLayout;
 
 namespace Raffica.WriteApp.Tests.Viewing;
 
@@ -158,5 +161,61 @@ public sealed class PageViewPicturesTests : IDisposable
         h.View.InvalidateVisual();
         h.Capture();
         Assert.Equal(0, h.Tab.Pictures.RetiredCount);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditThatMovesAPictureIntoViewIsPrefetchedWithoutScrolling()
+    {
+        // Pages: "First", "Second", then the picture on page 3. The view shows page 1 and prefetches pages 1 and 2: the picture is out of range.
+        var path = PictureDocx.Write(_folder, pages: 1, pixels: 8, name: "moves.docx", leadingText: ["First", "Second"]);
+        using var h = new ViewHarness(path, 900, 400);
+        await h.LayOutEverythingAsync();
+        var picture = PicturesOf(h.Tab.Layout, 2).Single();
+        await Task.Delay(100);
+        ViewHarness.Pump();
+        Assert.False(h.Tab.Pictures.IsKnown(picture), "the picture is out of the prefetched range");
+
+        // Joining the two text paragraphs removes page 2: the picture moves up to page 2, the page count changes but the view does not scroll.
+        var model = h.Tab.Docx.Model;
+        var first = (Paragraph)model.Body.Blocks[0];
+        var second = (Paragraph)model.Body.Blocks[1];
+        var redraws = h.View.PictureRedraws;
+        Assert.NotNull(h.View.ApplyOperation(e => e.Delete(new TextRange(new TextPosition(StoryRef.Body, first, 5), new TextPosition(StoryRef.Body, second, 6)))));
+        ViewHarness.Pump();
+
+        await ViewHarness.WaitAsync(() => h.Tab.Pictures.IsKnown(picture));
+        Assert.NotNull(h.Tab.Pictures.TryGet(picture));
+        await ViewHarness.WaitAsync(() => h.View.PictureRedraws > redraws);
+        Assert.Equal(0, h.View.OffsetY);
+    }
+
+    [AvaloniaFact]
+    public async Task ABurstOfRangeChangesRunsOneTaskAtATimeAndEndsWithTheNewestRange()
+    {
+        var path = PictureDocx.Write(_folder, pages: 24);
+        using var h = new ViewHarness(path);
+        await h.LayOutEverythingAsync();
+        await ViewHarness.WaitAsync(() => h.View.PrefetchStarts >= 1);
+        await Task.Delay(150);
+        ViewHarness.Pump();
+        var starts = h.View.PrefetchStarts;
+
+        // Six ranges one after the other with no frame between: the view never has two tasks, the last range waits behind the first.
+        foreach (var page in new[] { 4, 8, 12, 16, 20, 22 })
+        {
+            h.View.ScrollToPage(page);
+        }
+
+        Assert.InRange(h.View.PrefetchStarts - starts, 0, 1);
+        var (first, last) = h.View.Scroller!.Visible(h.View.OffsetY, h.View.Viewport.Height);
+        var layout = h.Tab.Layout;
+        var from = Math.Max(0, first - 1);
+        var to = Math.Min(layout.LaidOutPages - 1, last + 1);
+        var wanted = Enumerable.Range(from, to - from + 1).SelectMany(p => PicturesOf(layout, p)).ToArray();
+        await ViewHarness.WaitAsync(() => wanted.All(p => h.Tab.Pictures.IsKnown(p)));
+        Assert.InRange(h.View.PrefetchStarts - starts, 1, 2);
+
+        // The ranges in between were dropped, not decoded one after the other.
+        Assert.False(h.Tab.Pictures.IsKnown(PicturesOf(layout, 10).Single()));
     }
 }

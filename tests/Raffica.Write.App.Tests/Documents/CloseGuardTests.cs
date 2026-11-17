@@ -436,7 +436,7 @@ public sealed class CloseGuardTests
     public void CardsAreBuiltByCardFooter()
     {
         var keys = CardFooterTests.Entries().Select(e => e.Key).ToList();
-        Assert.Equal(["ChangedOriginalCard.Create", "SaveErrorCard.Create", "UnsavedChangesCard.Create"], keys);
+        Assert.Equal(["ChangedOriginalCard.Create", "SaveErrorCard.Create", "UnsavedChangesCard.Create", "RecoveryCard.Create"], keys);
         foreach (var (key, make) in CardFooterTests.Entries())
         {
             var dialog = make();

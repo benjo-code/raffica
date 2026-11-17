@@ -116,7 +116,7 @@ public sealed class ImageCacheBudgetTests
         using var cache = Cache(decodeOnGet: false);
         Assert.Null(cache.Get(Ref("a")));
         Assert.Equal(0, cache.DecodeCount);
-        cache.Warm([Ref("a")]);
+        cache.Warm([Ref("a")], TestContext.Current.CancellationToken);
         Assert.Equal(1, cache.DecodeCount);
         Assert.NotNull(cache.Get(Ref("a")));
         Assert.Equal(1, cache.DecodeCount);
@@ -134,7 +134,7 @@ public sealed class ImageCacheBudgetTests
             raised.Release();
         };
 
-        cache.Prefetch([Ref("a"), Ref("b")]);
+        cache.Prefetch([Ref("a"), Ref("b")], TestContext.Current.CancellationToken);
         Assert.True(raised.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         Assert.False(raised.Wait(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken));
         Assert.Equal(1, count);
@@ -151,7 +151,7 @@ public sealed class ImageCacheBudgetTests
         var count = 0;
         cache.Decoded += () => Interlocked.Increment(ref count);
 
-        cache.Prefetch([Ref("a")]);
+        cache.Prefetch([Ref("a")], TestContext.Current.CancellationToken);
 
         Assert.False(SpinWait.SpinUntil(() => Volatile.Read(ref count) > 0, TimeSpan.FromMilliseconds(300)));
         Assert.Equal(0, count);
@@ -241,7 +241,7 @@ public sealed class ImageCacheBudgetTests
         var raised = 0;
         cache.Decoded += () => Interlocked.Increment(ref raised);
 
-        cache.Prefetch([Ref("a")]);
+        cache.Prefetch([Ref("a")], TestContext.Current.CancellationToken);
         Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         cache.Dispose();
         gate.Set();
@@ -258,17 +258,118 @@ public sealed class ImageCacheBudgetTests
         using var cache = new ImageCache(id => id == "bad" ? throw new FileNotFoundException() : Png(Side, Side), s_three);
         Assert.False(cache.IsKnown(Ref("a")));
 
-        cache.Warm([Ref("a"), Ref("bad")]);
+        cache.Warm([Ref("a"), Ref("bad")], TestContext.Current.CancellationToken);
         Assert.True(cache.IsKnown(Ref("a")));
         Assert.True(cache.IsKnown(Ref("bad")));
 
         // Evicting makes it unknown again (a prefetch asks for it anew); so does Clear.
-        cache.Warm([Ref("b"), Ref("c"), Ref("d")]);
+        cache.Warm([Ref("b"), Ref("c"), Ref("d")], TestContext.Current.CancellationToken);
         Assert.False(cache.IsKnown(Ref("a")));
         cache.Clear();
         Assert.False(cache.IsKnown(Ref("d")));
         Assert.Equal(4, cache.RetiredCount);
         cache.ReleaseRetired();
         Assert.Equal(0, cache.RetiredCount);
+    }
+
+    [Fact]
+    public async Task TwoOverlappingWarmCallsDecodeAPictureOnce()
+    {
+        var bytes = Png(Side, Side);
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var reads = 0;
+        using var cache = new ImageCache(
+            _ =>
+            {
+                Interlocked.Increment(ref reads);
+                entered.Set();
+                release.Wait(TimeSpan.FromSeconds(10));
+                return bytes;
+            },
+            s_three);
+
+        var first = Task.Run(() => cache.Warm([Ref("a")], TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+
+        // The second call finds the picture in flight and leaves it to the first: it returns at once and decodes nothing.
+        cache.Warm([Ref("a")], TestContext.Current.CancellationToken);
+        await cache.Prefetch([Ref("a")], TestContext.Current.CancellationToken);
+        Assert.Equal(0, cache.DecodeCount);
+
+        release.Set();
+        await first;
+        Assert.Equal(1, reads);
+        Assert.Equal(1, cache.DecodeCount);
+        Assert.Equal(OneImage, cache.DecodedBytes);
+    }
+
+    [Fact]
+    public async Task GetStillDecodesForItselfWhileAWarmHasThePictureInFlight()
+    {
+        var bytes = Png(Side, Side);
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var calls = 0;
+        using var cache = new ImageCache(
+            _ =>
+            {
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    entered.Set();
+                    release.Wait(TimeSpan.FromSeconds(10));
+                }
+
+                return bytes;
+            },
+            s_three);
+
+        var warm = Task.Run(() => cache.Warm([Ref("a")], TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+
+        // A Get must return the picture, so it decodes it itself; the picture is kept once and counted once.
+        Assert.NotNull(cache.Get(Ref("a")));
+        release.Set();
+        await warm;
+        Assert.Equal(1, cache.DecodeCount);
+        Assert.Equal(OneImage, cache.DecodedBytes);
+    }
+
+    [Fact]
+    public async Task ACancelledTokenStopsWarmBetweenPicturesAndPrefetchWithoutAFault()
+    {
+        var bytes = Png(Side, Side);
+        using var cancel = new CancellationTokenSource();
+        var reads = 0;
+        using var cache = new ImageCache(
+            _ =>
+            {
+                if (Interlocked.Increment(ref reads) == 1)
+                {
+                    cancel.Cancel();
+                }
+
+                return bytes;
+            },
+            s_three);
+
+        Assert.Throws<OperationCanceledException>(() => cache.Warm([Ref("a"), Ref("b"), Ref("c")], cancel.Token));
+        Assert.Equal(1, cache.DecodeCount);
+        Assert.Equal(1, reads);
+
+        // A prefetch ends quietly and reports what it decoded before it stopped.
+        using var other = new CancellationTokenSource();
+        var raised = 0;
+        using var second = new ImageCache(
+            _ =>
+            {
+                other.Cancel();
+                return bytes;
+            },
+            s_three);
+        second.Decoded += () => Interlocked.Increment(ref raised);
+        await second.Prefetch([Ref("a"), Ref("b")], other.Token);
+        Assert.Equal(1, second.DecodeCount);
+        Assert.Equal(1, raised);
     }
 }
