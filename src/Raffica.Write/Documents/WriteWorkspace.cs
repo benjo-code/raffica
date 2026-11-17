@@ -34,7 +34,7 @@ internal sealed class WriteWorkspace
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var full = Path.GetFullPath(path);
-        return _tabs.FirstOrDefault(t => PathRules.AreEqual(t.Path, full));
+        return _tabs.FirstOrDefault(t => t.Path is { } own && PathRules.AreEqual(own, full));
     }
 
     /// <summary>True once the window is closing: no tab is added any more (an open that finishes late must not leave a tab nobody disposes).</summary>

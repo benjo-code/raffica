@@ -28,7 +28,8 @@ internal enum SaveRefusal
 /// <param name="Faulted">Whether the open, the layout or an edit failed (or the tab is closed).</param>
 /// <param name="FaultedByEdit">Whether the fault came from an edit: the model was open and whole, so Save as may still keep it (an explicit act of the user).</param>
 /// <param name="Dirty">Whether the document has unsaved changes.</param>
-internal readonly record struct SaveCommandState(bool HasDocument, bool StillOpening, bool Running, bool Faulted, bool FaultedByEdit, bool Dirty)
+/// <param name="Untitled">Whether the tab belongs to no file yet: Save is then Save as and is never "nothing to save".</param>
+internal readonly record struct SaveCommandState(bool HasDocument, bool StillOpening, bool Running, bool Faulted, bool FaultedByEdit, bool Dirty, bool Untitled = false)
 {
     /// <summary>
     /// The state of a tab, read without making an editing session. Save as stays possible after a failed edit (the user decides to keep what is in memory; the file is
@@ -49,7 +50,8 @@ internal readonly record struct SaveCommandState(bool HasDocument, bool StillOpe
             Running: flowRunning || tab.Editor?.IsSaving == true,
             Faulted: faulted,
             FaultedByEdit: !tab.IsDisposed && runner.FaultedByEdit,
-            Dirty: tab.IsDirty);
+            Dirty: tab.IsDirty,
+            Untitled: tab.IsUntitled);
     }
 
     /// <summary>Why <paramref name="saveAs"/> (or Save over the file) cannot run now, or null when it can. The order is the order of the reasons a user can fix: a fault first, then the open, then a running save, then "nothing to save".</summary>
@@ -75,6 +77,6 @@ internal readonly record struct SaveCommandState(bool HasDocument, bool StillOpe
             return SaveRefusal.Running;
         }
 
-        return !saveAs && !Dirty ? SaveRefusal.NothingToSave : null;
+        return !saveAs && !Untitled && !Dirty ? SaveRefusal.NothingToSave : null;
     }
 }

@@ -626,7 +626,11 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         if (e.Action == NotifyCollectionChangedAction.Add)
         {
             var tab = (WriteTab)e.NewItems![0]!;
-            _recent.Touch(tab.Path);
+            if (tab.Path is { } opened)
+            {
+                _recent.Touch(opened);
+            }
+
             Tabs.Items.Insert(Math.Min(e.NewStartingIndex, Tabs.Items.Count), tab.Tab);
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove)

@@ -957,4 +957,10 @@
   <data name="FormattingSharedNote" xml:space="preserve">
     <value>Diese Formatvorlage wird gemeinsam genutzt: Wenn Sie sie ändern, ändern sich alle Absätze, die sie verwenden.</value>
   </data>
+  <data name="UntitledName" xml:space="preserve">
+    <value>Unbenannt</value>
+  </data>
+  <data name="UntitledNumberedFormat" xml:space="preserve">
+    <value>Unbenannt {0}</value>
+  </data>
 </root>

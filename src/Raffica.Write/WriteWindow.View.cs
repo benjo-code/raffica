@@ -408,7 +408,13 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        ShowOpenError(tab.Path, tab.Runner.Fault is DocxFormatException or InvalidDataException ? OpenError.Corrupt : OpenError.Other);
+        if (tab.Path is not { } path)
+        {
+            // A new document has no file that could fail to open.
+            return;
+        }
+
+        ShowOpenError(path, tab.Runner.Fault is DocxFormatException or InvalidDataException ? OpenError.Corrupt : OpenError.Other);
         if (ReferenceEquals(Workspace.Active, tab))
         {
             UpdateViewStatus();

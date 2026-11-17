@@ -957,4 +957,10 @@
   <data name="FormattingSharedNote" xml:space="preserve">
     <value>This style is shared: changing it changes every paragraph that uses it.</value>
   </data>
+  <data name="UntitledName" xml:space="preserve">
+    <value>Untitled</value>
+  </data>
+  <data name="UntitledNumberedFormat" xml:space="preserve">
+    <value>Untitled {0}</value>
+  </data>
 </root>

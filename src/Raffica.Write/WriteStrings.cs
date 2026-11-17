@@ -182,6 +182,8 @@ internal static class WriteStrings
     public static string CmdSave => Table.Get("CmdSave");
     public static string CmdSaveAs => Table.Get("CmdSaveAs");
     public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
+    public static string UntitledName => Table.Get("UntitledName");
+    public static string UntitledNumberedFormat => Table.Get("UntitledNumberedFormat");
     public static string ReasonNothingToSave => Table.Get("ReasonNothingToSave");
     public static string ReasonSaveFaulted => Table.Get("ReasonSaveFaulted");
     public static string ReasonSaveAsFaulted => Table.Get("ReasonSaveAsFaulted");

@@ -87,7 +87,7 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         Changed?.Invoke();
         try
         {
-            return saveAs ? await SaveAsCoreAsync(tab) : await SaveOverOriginalAsync(tab, overwriteChangedOriginal: false);
+            return saveAs || tab.IsUntitled ? await SaveAsCoreAsync(tab) : await SaveOverOriginalAsync(tab, overwriteChangedOriginal: false);
         }
         finally
         {
@@ -99,7 +99,11 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
 
     private async Task<SaveOutcome> SaveOverOriginalAsync(WriteTab tab, bool overwriteChangedOriginal)
     {
-        var path = tab.Docx.OriginPath ?? tab.Path;
+        if ((tab.Docx.OriginPath ?? tab.Path) is not { } path)
+        {
+            return await SaveAsCoreAsync(tab);
+        }
+
         var (report, error) = await WriteAsync(tab, (docx, token) => docx.SaveAsync(path, overwriteChangedOriginal, token));
         if (report is not null)
         {
@@ -139,7 +143,7 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
             }
 
             var path = Path.GetFullPath(Path.HasExtension(pick.Path) ? pick.Path : pick.Path + ".docx");
-            if (!PathRules.AreEqual(path, tab.Path) && ui.IsOpenInAnotherTab(path, tab))
+            if (!(tab.Path is { } own && PathRules.AreEqual(path, own)) && ui.IsOpenInAnotherTab(path, tab))
             {
                 return await FailAsync(tab, new SaveProblem(SaveProblemKind.OpenElsewhere));
             }

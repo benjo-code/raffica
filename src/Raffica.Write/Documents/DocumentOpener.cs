@@ -108,6 +108,42 @@ internal static class DocumentOpener
         }
     }
 
+    /// <summary>
+    /// Opens the bytes of a new document (a whole file, never a prefix) up to a laid-out page 1, on a pool thread. Like <see cref="Open"/> every problem is an
+    /// <see cref="OpenError"/> and only cancellation and a lack of memory pass through.
+    /// </summary>
+    /// <param name="bytes">The package, for example from <c>BlankDocument.Create</c>.</param>
+    /// <param name="work">The fonts of the process and the counters.</param>
+    /// <param name="token">Cancels between the steps.</param>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static OpenAttempt OpenBlank(byte[] bytes, OpenWork work, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+        ArgumentNullException.ThrowIfNull(work);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var fonts = work.Fonts();
+            _ = WarmUp(fonts);
+            work.NoteFileOpened();
+            DocxFile docx;
+            try
+            {
+                docx = DocxFile.Open(bytes);
+            }
+            catch (DocxFormatException)
+            {
+                return OpenAttempt.Failure(OpenError.Corrupt);
+            }
+
+            return LayOutFirstPage(docx, fonts, work, DefaultPrefixBlocks, token);
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+        {
+            return OpenAttempt.Failure(Map(ex));
+        }
+    }
+
     private static OpenAttempt LayOutFirstPage(DocxFile first, FontCatalog fonts, OpenWork work, int initialBlocks, CancellationToken token)
     {
         var images = new PackageImageSource(first.Package);

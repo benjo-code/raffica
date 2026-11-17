@@ -38,6 +38,24 @@ internal sealed class WriteTab : IDisposable
         Token = _cancellation.Token;
     }
 
+    /// <summary>
+    /// A new document that belongs to no file yet: <see cref="Path"/> is null and <paramref name="untitledTitle"/> is the name (see <see cref="UntitledNames"/>). Save is Save as
+    /// until the first save has bound the tab to a path (<see cref="Rebind"/>).
+    /// </summary>
+    public WriteTab(OpenedDocument opened, string untitledTitle)
+    {
+        ArgumentNullException.ThrowIfNull(opened);
+        ArgumentException.ThrowIfNullOrWhiteSpace(untitledTitle);
+        _images = opened.Images;
+        _fonts = opened.Fonts;
+        _prefixBlocks = opened.PrefixBlocks;
+        _docx = opened.Docx;
+        _layout = opened.Layout;
+        Title = untitledTitle;
+        Tab = new DocumentTab(Title);
+        Token = _cancellation.Token;
+    }
+
     /// <summary>Raised once, at the start of <see cref="Dispose"/> and after the token was cancelled: whatever works on the document stops here.</summary>
     public event Action? Disposing;
 
@@ -47,8 +65,17 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The name of the file; follows <see cref="Rebind"/>.</summary>
     public string Title { get; private set; }
 
-    /// <summary>The full path of the file; follows <see cref="Rebind"/>.</summary>
-    public string Path { get; private set; }
+    /// <summary>The full path of the file; null for a document that was never saved (<see cref="IsUntitled"/>); follows <see cref="Rebind"/>.</summary>
+    public string? Path { get; private set; }
+
+    /// <summary>Whether the tab belongs to no file yet.</summary>
+    public bool IsUntitled => Path is null;
+
+    /// <summary>
+    /// The path the Save as picker suggests (its name and folder) for a tab without a file, for example the old name of a restored document; null: the picker suggests the title.
+    /// Cleared by <see cref="Rebind"/>.
+    /// </summary>
+    public string? SuggestedSavePath { get; set; }
 
     /// <summary>
     /// The tab now belongs to another file (after a successful Save as): the path, the name and the model of the title bar follow. UI thread; the layout, the picture
@@ -57,10 +84,12 @@ internal sealed class WriteTab : IDisposable
     internal void Rebind(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        Path = System.IO.Path.GetFullPath(path);
-        Title = System.IO.Path.GetFileName(Path);
+        var full = System.IO.Path.GetFullPath(path);
+        Path = full;
+        SuggestedSavePath = null;
+        Title = System.IO.Path.GetFileName(full);
         Tab.Title = Title;
-        Tab.Path = Path;
+        Tab.Path = full;
     }
 
     /// <summary>Whether the document has changes the file on disk does not have (the revision of the model is not the saved one). False for a prefix: it cannot be edited.</summary>
