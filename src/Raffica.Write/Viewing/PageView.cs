@@ -971,6 +971,9 @@ internal sealed partial class PageView : Control, IDisposable
 
     private void PrefetchEnded(CancellationTokenSource finished)
     {
+        // Read before the dispose: a task that was stopped did not reach all of its pictures; one that ran to the end did (what it could not keep, a picture evicted by the budget, is
+        // not asked for again: that would decode forever when a range holds more than the cache keeps).
+        var wasCancelled = finished.IsCancellationRequested;
         finished.Dispose();
         if (ReferenceEquals(_prefetchCancel, finished))
         {
@@ -988,9 +991,14 @@ internal sealed partial class PageView : Control, IDisposable
 
         if (next is null)
         {
-            // A range that was scrolled back to while the task ran looked covered by it (no next range was kept), but the task may have been cancelled before it reached
-            // all of its pictures: ask from the pictures again (one lookup each); nothing is started when nothing is missing.
-            PrefetchPictures();
+            // A range that was scrolled back to while the task ran looked covered by it (no next range was kept), but the task was cancelled before it reached all of its
+            // pictures: ask from the pictures again (one lookup each; nothing is started when nothing is missing). Only after a cancelled task, so this ends: a task that ran
+            // to completion is never followed by another one without a new view change.
+            if (wasCancelled)
+            {
+                PrefetchPictures();
+            }
+
             return;
         }
 

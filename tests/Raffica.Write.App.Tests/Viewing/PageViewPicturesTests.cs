@@ -190,6 +190,39 @@ public sealed class PageViewPicturesTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ARangeWhosePicturesExceedTheBudgetDoesNotPrefetchForever()
+    {
+        // Six pictures of 40,000 decoded bytes in a range against a budget of two: every pass evicts what it decoded, so "not known" never ends by itself.
+        var path = PictureDocx.Write(_folder, pages: 20, perPage: 2, pixels: 100);
+        using var h = new ViewHarness(path, 900, 400, pictureLimits: new ImageCacheLimits(100_000, 12_500));
+        await h.LayOutEverythingAsync();
+        h.View.ScrollToPage(8);
+        var layout = h.Tab.Layout;
+        var (first, last) = h.View.Scroller!.Visible(h.View.OffsetY, h.View.Viewport.Height);
+        var inRange = Enumerable.Range(Math.Max(0, first - 1), last - first + 3).SelectMany(p => PicturesOf(layout, p)).Count();
+        Assert.True(inRange * 40_000 > 100_000, "the range holds more than the budget");
+
+        // The view goes idle: after a bounded settle (the pump runs every end of a task) no further task starts.
+        for (var i = 0; i < 100; i++)
+        {
+            await Task.Delay(10);
+            ViewHarness.Pump();
+        }
+
+        var starts = h.View.PrefetchStarts;
+        var decodes = h.Tab.Pictures.DecodeCount;
+        for (var i = 0; i < 50; i++)
+        {
+            await Task.Delay(10);
+            ViewHarness.Pump();
+        }
+
+        Assert.Equal(starts, h.View.PrefetchStarts);
+        Assert.Equal(decodes, h.Tab.Pictures.DecodeCount);
+        Assert.InRange(starts, 1, 6);
+    }
+
+    [AvaloniaFact]
     public async Task ABurstOfRangeChangesRunsOneTaskAtATimeAndEndsWithTheNewestRange()
     {
         var path = PictureDocx.Write(_folder, pages: 24);
