@@ -40,6 +40,18 @@ public sealed class RecoveryStoreTests : IDisposable
     }
 
     [Fact]
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public void TheFolderIsMadeForItsOwnerOnly()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix file modes exist on Linux and macOS only (CI runs this test there).");
+        var store = Store;
+
+        store.EnsureFolder();
+
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(store.Folder));
+    }
+
+    [Fact]
     public async Task SidecarRoundTrips()
     {
         var store = Store;

@@ -27,7 +27,18 @@ internal sealed class RecoveryStore(string folder)
     public string Folder { get; } = folder;
 
     /// <summary>Creates the folder when it is missing (the writer of a copy calls it; listing and deleting never do).</summary>
-    public void EnsureFolder() => Directory.CreateDirectory(Folder);
+    /// <remarks>On Linux and macOS the folder is made for its owner only (0700; the copies are unsaved document text); an existing folder keeps its mode. Windows ignores the mode.</remarks>
+    public void EnsureFolder()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(Folder);
+        }
+        else
+        {
+            Directory.CreateDirectory(Folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
 
     public string DocxPathOf(string id) => Path.Combine(Folder, CheckedId(id) + DocxExtension);
 
