@@ -975,4 +975,25 @@
   <data name="UntitledNumberedFormat" xml:space="preserve">
     <value>Unbenannt {0}</value>
   </data>
+  <data name="RecoveryTitle" xml:space="preserve">
+    <value>Nicht gespeicherte Arbeit wiederherstellen?</value>
+  </data>
+  <data name="RecoveryBody" xml:space="preserve">
+    <value>Raffica Write hat Dokumente gefunden, die beim letzten Beenden nicht gespeichert waren. Möchten Sie sie wiederherstellen?</value>
+  </data>
+  <data name="RecoveryRestore" xml:space="preserve">
+    <value>Wiederherstellen</value>
+  </data>
+  <data name="RecoveryDiscard" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="RecoveryLater" xml:space="preserve">
+    <value>Später entscheiden</value>
+  </data>
+  <data name="RecoveryMoreFormat" xml:space="preserve">
+    <value>… und {0} weitere</value>
+  </data>
+  <data name="RecoveryEntryFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
 </root>

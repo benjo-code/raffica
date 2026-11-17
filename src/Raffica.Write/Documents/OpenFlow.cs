@@ -106,6 +106,44 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
     {
         token.ThrowIfCancellationRequested();
         var attempt = await Task.Run(() => BlankOpener(BlankDocument.Create(paper), work, token), token);
+        return AddUntitled(attempt, null, token);
+    }
+
+    /// <summary>
+    /// Opens a recovery copy (the DOCX of <see cref="Recovery.RecoveryStore"/>) as a tab that belongs to no file: its title is the name of <paramref name="originalPath"/>, or the next
+    /// "Untitled N" when there is none, and <see cref="WriteTab.SuggestedSavePath"/> is that path. The bytes are read at once (the tab holds no handle on the copy, which the
+    /// autosave replaces). Null when the copy cannot be read or opened, or the window is closing; nothing is left behind and the copy is not touched.
+    /// </summary>
+    /// <exception cref="OperationCanceledException">The token was cancelled before the tab was added.</exception>
+    public async Task<WriteTab?> OpenRecoveredAsync(string copyPath, string? originalPath, CancellationToken token)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(copyPath);
+        token.ThrowIfCancellationRequested();
+        OpenAttempt attempt;
+        try
+        {
+            attempt = await Task.Run(
+                () =>
+                {
+                    if (new FileInfo(copyPath).Length > maxFileLength)
+                    {
+                        return OpenAttempt.Failure(OpenError.TooLarge);
+                    }
+
+                    return BlankOpener(File.ReadAllBytes(copyPath), work, token);
+                },
+                token);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return AddUntitled(attempt, originalPath, token);
+    }
+
+    private WriteTab? AddUntitled(OpenAttempt attempt, string? originalPath, CancellationToken token)
+    {
         if (token.IsCancellationRequested)
         {
             attempt.Document?.Dispose();
@@ -119,7 +157,8 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
 
         try
         {
-            var tab = new WriteTab(document, UntitledNames.Next(workspace.Tabs));
+            var name = originalPath is null ? string.Empty : System.IO.Path.GetFileName(originalPath);
+            var tab = new WriteTab(document, name.Length > 0 ? name : UntitledNames.Next(workspace.Tabs)) { SuggestedSavePath = originalPath };
             if (!workspace.TryAdd(tab))
             {
                 tab.Dispose();

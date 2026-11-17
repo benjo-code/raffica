@@ -405,6 +405,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
         await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
         await GuardAsync(LoadRecentAsync);
+        RequestRecoveryOffer();
     }
 
     /// <summary>Reads the recent files off the UI thread (once; a second call waits for the first). Nothing of it runs before the first file or the first idle moment.</summary>

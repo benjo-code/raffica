@@ -318,6 +318,7 @@ internal sealed partial class WriteWindow
         view.FirstSharpPage += () =>
         {
             FirstSharpPageDrawn?.Invoke(tab);
+            RequestRecoveryOffer();
             ReleaseRibbonAfterTheFirstFrames();
             tab.Runner.Start();
             if (ReferenceEquals(ActiveView, view))

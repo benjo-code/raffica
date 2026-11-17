@@ -202,6 +202,13 @@ internal static class WriteStrings
     public static string UnsavedTitle => Table.Get("UnsavedTitle");
     public static string UnsavedMessageFormat => Table.Get("UnsavedMessageFormat");
     public static string UnsavedDontSave => Table.Get("UnsavedDontSave");
+    public static string RecoveryTitle => Table.Get("RecoveryTitle");
+    public static string RecoveryBody => Table.Get("RecoveryBody");
+    public static string RecoveryRestore => Table.Get("RecoveryRestore");
+    public static string RecoveryDiscard => Table.Get("RecoveryDiscard");
+    public static string RecoveryLater => Table.Get("RecoveryLater");
+    public static string RecoveryMoreFormat => Table.Get("RecoveryMoreFormat");
+    public static string RecoveryEntryFormat => Table.Get("RecoveryEntryFormat");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
     public static string FormattingNoSelection => Table.Get("FormattingNoSelection");

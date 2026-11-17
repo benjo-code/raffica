@@ -975,4 +975,25 @@
   <data name="UntitledNumberedFormat" xml:space="preserve">
     <value>Untitled {0}</value>
   </data>
+  <data name="RecoveryTitle" xml:space="preserve">
+    <value>Restore unsaved work?</value>
+  </data>
+  <data name="RecoveryBody" xml:space="preserve">
+    <value>Raffica Write found documents that were not saved when it last closed. Do you want to restore them?</value>
+  </data>
+  <data name="RecoveryRestore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="RecoveryDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="RecoveryLater" xml:space="preserve">
+    <value>Decide later</value>
+  </data>
+  <data name="RecoveryMoreFormat" xml:space="preserve">
+    <value>… and {0} more</value>
+  </data>
+  <data name="RecoveryEntryFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
 </root>

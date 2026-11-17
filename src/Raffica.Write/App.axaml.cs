@@ -11,6 +11,7 @@ using Raffica.Shell.Frame;
 using Raffica.Shell.Localization;
 using Raffica.Write.Documents;
 using Raffica.Write.Platform.MacOS;
+using Raffica.Write.Recovery;
 using Raffica.Write.Settings;
 
 namespace Raffica.Write;
@@ -24,6 +25,9 @@ internal sealed partial class App : Application
 
     // One for the process: the font catalog is made when the first file is opened and shared by every window.
     private readonly OpenWork _work = new();
+
+    // One for the process: the first window shown offers the recovery copies a crash left behind; later windows do not ask again.
+    private readonly RecoveryCoordinator _recovery = new();
     private WindowSettingsSource<WriteSettings>? _settingsSource;
     private WindowHost? _host;
 
@@ -101,7 +105,7 @@ internal sealed partial class App : Application
         var options = files is null ? _options : _options.WithFiles(files);
         _settingsSource ??= new WindowSettingsSource<WriteSettings>(AppFiles.Write, _options.SettingsFile, _settings, _appSettings, file => new WriteSettingsStore(AppFiles.Write.AppSettingsPathFor(file)).Load());
         var (settings, appSettings) = _settingsSource.Next();
-        var window = new WriteWindow(options, settings, appSettings, _work, deferRibbon: true);
+        var window = new WriteWindow(options, settings, appSettings, _work, deferRibbon: true) { RecoveryOffer = _recovery };
         if (_menusOnWindows)
         {
             WriteMacMenu.Attach(window, window);

@@ -1,4 +1,5 @@
 using Raffica.Hosting;
+using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
 using Raffica.Write.Recovery;
 
@@ -38,8 +39,7 @@ internal sealed partial class WriteWindow
         {
             if (tab.IsDirty)
             {
-                _autosave ??= new AutosaveScheduler(new RecoveryStore(RecoveryFolder), RecoveryClockFactory(), () => Settings.Shell.Autosave);
-                _autosave.Track(SubjectOf(tab));
+                EnsureAutosave().Track(SubjectOf(tab));
             }
             else if (_autosave is not null && _recoverySubjects.TryGetValue(tab, out var subject))
             {
@@ -52,6 +52,9 @@ internal sealed partial class WriteWindow
             RecoveryWiringFailures++;
         }
     }
+
+    private AutosaveScheduler EnsureAutosave() =>
+        _autosave ??= new AutosaveScheduler(new RecoveryStore(RecoveryFolder), RecoveryClockFactory(), () => Settings.Shell.Autosave);
 
     /// <summary>How many times the wiring of the autosave threw (and was ignored).</summary>
     internal int RecoveryWiringFailures { get; private set; }
@@ -85,5 +88,95 @@ internal sealed partial class WriteWindow
     {
         _autosave?.Dispose();
         _recoverySubjects.Clear();
+    }
+
+    // The offer of the copies a crash left behind.
+
+    /// <summary>
+    /// The one coordinator of the process (the app sets it; null: this window never offers, as in the tests that do not look at it). The first window that asks runs the offer.
+    /// </summary>
+    internal RecoveryCoordinator? RecoveryOffer { get; set; }
+
+    /// <summary>Tells whether another Write process is alive (tests replace it).</summary>
+    internal IProcessProbe RecoveryProbe { get; set; } = new SystemProcessProbe();
+
+    /// <summary>The id of this process (tests replace it).</summary>
+    internal int SelfProcessId { get; set; } = Environment.ProcessId;
+
+    /// <summary>The task of the offer this window started (null when it started none); tests await it.</summary>
+    internal Task? RecoveryOfferTask { get; private set; }
+
+    /// <summary>
+    /// Offers the recovery copies once per process: called after the first sharp page of the first tab, or after <c>Opened</c> when the window has no file. Never in a measurement run
+    /// and never for a window that is closing; nothing of the folder is read before this call.
+    /// </summary>
+    internal void RequestRecoveryOffer()
+    {
+        if (RecoveryOffer is not { } coordinator || _options.IsMeasuring || IsClosing)
+        {
+            return;
+        }
+
+        RecoveryOfferTask = coordinator.OfferOnce(() =>
+        {
+            var flow = new RecoveryFlow(new RecoveryStore(RecoveryFolder), RecoveryProbe, new WindowRecoveryUi(this), SelfProcessId);
+            return GuardAsync(() => flow.RunAsync(_closeToken));
+        });
+    }
+
+    /// <summary>
+    /// Opens a recovery copy as a tab that belongs to no file (title: the old name or the next "Untitled N"; Save is Save as with the old name suggested), adopts it into the autosave
+    /// under the id of the copy (so the next copy replaces it and no second one is made) and marks it dirty. The copy is deleted only after the tab was saved or closed with Save or Don't save.
+    /// Null when the copy cannot be opened.
+    /// </summary>
+    internal async Task<WriteTab?> OpenRecoveredAsync(RecoveryEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (IsClosing)
+        {
+            return null;
+        }
+
+        WriteTab? tab;
+        try
+        {
+            tab = await Flow.OpenRecoveredAsync(new RecoveryStore(RecoveryFolder).DocxPathOf(entry.Id), entry.OriginalPath, _closeToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+
+        if (tab is null)
+        {
+            return null;
+        }
+
+        // Adopt first: the dirty mark below makes the autosave track the tab, and it must find the subject with the id of the copy, not make a new one.
+        try
+        {
+            var subject = new WriteTabRecoverySubject(tab, entry.Id, saveRunning: () => _saves.IsRunning(tab));
+            _recoverySubjects[tab] = subject;
+            EnsureAutosave().Adopt(subject, entry.Id);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            RecoveryWiringFailures++;
+        }
+
+        // The document is whole (a copy is not opened as a prefix), so the revision may be raised at once; the tab now has changes no file has.
+        tab.Docx.Model.Edits.Raise();
+        tab.UpdateDirty();
+        return tab;
+    }
+
+    private sealed class WindowRecoveryUi(WriteWindow window) : IRecoveryUi
+    {
+        public Task<RecoveryChoice> AskAsync(IReadOnlyList<RecoveryEntry> entries) =>
+            window.Dialogs.ShowAsync<RecoveryChoice>(done => RecoveryCard.Create(entries, done));
+
+        public Task<WriteTab?> OpenRecoveredAsync(RecoveryEntry entry) => window.OpenRecoveredAsync(entry);
+
+        public void ShowOpenError(RecoveryEntry entry) => window.ShowOpenError(entry.OriginalPath ?? entry.Title, OpenError.Corrupt);
     }
 }
