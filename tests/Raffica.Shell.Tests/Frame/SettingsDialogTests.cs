@@ -200,6 +200,25 @@ public sealed class SettingsDialogTests
     }
 
     [AvaloniaFact]
+    public void ALongGermanAutosaveLabelWrapsInsideTheCard()
+    {
+        const int HostWidth = 800;
+        // The 54-character label of Raffica Write in German (Strings.de.resx of the app, SettingsAutosaveLabel): it must break into lines, not run out of the card.
+        const string Label = "Wiederherstellungskopie ungespeicherter Arbeit anlegen";
+        using var f = new Fixture(new ShellSettings(), "de", new SettingsDialogOptions(ShowAutosave: true, AutosaveLabel: Label), width: HostWidth, height: 700);
+
+        var box = f.Part<CheckBox>("PART_Autosave");
+        var text = box.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == Label);
+        Assert.Equal(Avalonia.Media.TextWrapping.Wrap, text.TextWrapping);
+        var cardRight = f.Dialog.TranslatePoint(new Point(f.Dialog.Bounds.Width, 0), f.Window)!.Value.X;
+        var textRight = text.TranslatePoint(new Point(text.Bounds.Width, 0), f.Window)!.Value.X;
+        var boxRight = box.TranslatePoint(new Point(box.Bounds.Width, 0), f.Window)!.Value.X;
+        Assert.True(textRight <= cardRight + 0.5, $"the label ends at {textRight} DIP, the card at {cardRight}");
+        Assert.True(boxRight <= cardRight + 0.5, $"the check box ends at {boxRight} DIP, the card at {cardRight}");
+        Assert.True(cardRight <= HostWidth + 0.5, $"the card ends at {cardRight} DIP in a {HostWidth} DIP window");
+    }
+
+    [AvaloniaFact]
     public void NullLabelKeepsTheShellText()
     {
         using var f = new Fixture(new ShellSettings(), options: new SettingsDialogOptions(AutosaveLabel: null));

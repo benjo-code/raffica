@@ -58,6 +58,9 @@ public static class SettingsDialog
         var showAutosave = options?.ShowAutosave ?? true;
         var autosave = new CheckBox { Name = "PART_Autosave", Content = options?.AutosaveLabel ?? ShellStrings.SettingsAutosave, IsChecked = current.Autosave };
 
+        // An app words this row itself and the German text can be long (54 characters in Write): it breaks into lines inside the card.
+        autosave.Classes.Add("wrap");
+
         var body = new StackPanel { Spacing = 16 };
         body.Children.Add(Field(ShellStrings.SettingsTheme, theme));
         body.Children.Add(Field(ShellStrings.SettingsLanguage, language, note));
