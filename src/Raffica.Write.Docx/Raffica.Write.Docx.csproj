@@ -10,5 +10,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Raffica.Write.Tests" />
     <InternalsVisibleTo Include="write-corpus" />
+    <InternalsVisibleTo Include="Raffica.Write.App.Tests" />
   </ItemGroup>
 </Project>

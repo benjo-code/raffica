@@ -215,32 +215,12 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         var model = docx.Model;
         var revision = model.Edits.Revision;
         var scope = session.BeginSave();
-        var previousBefore = docx.BeforeModelRead;
-        var previousAfter = docx.AfterModelRead;
-        Editing.EditLease? lease = null;
+        IDisposable? hooks = null;
         try
         {
             // The lease is taken and released by the saving (pool) thread around the read of the model, never by the UI thread: the UI thread stays free during the write, and a
             // request for the lease from it (the preedit of an input method, a rebuild of the pages layout) waits for the end of that read instead of meeting "this thread holds it".
-            docx.BeforeModelRead = () =>
-            {
-                lease = tab.Runner.PauseForEdit();
-                try
-                {
-                    AfterLeaseTaken?.Invoke(tab);
-                    previousBefore?.Invoke();
-                }
-                catch
-                {
-                    Interlocked.Exchange(ref lease, null)?.Dispose();
-                    throw;
-                }
-            };
-            docx.AfterModelRead = () =>
-            {
-                Interlocked.Exchange(ref lease, null)?.Dispose();
-                previousAfter?.Invoke();
-            };
+            hooks = ModelReadLease.Attach(docx, () => tab.Runner.PauseForEdit(), () => AfterLeaseTaken?.Invoke(tab));
             var report = await save(docx, tab.Token);
 
             // Back on the UI thread. The scope kept every edit out, so the model is the one that was written; a revision that moved anyway is never called saved.
@@ -258,8 +238,7 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         }
         finally
         {
-            docx.BeforeModelRead = previousBefore;
-            docx.AfterModelRead = previousAfter;
+            hooks?.Dispose();
             try
             {
                 // Ends the save: what was typed meanwhile is replayed now. A replay that fails has faulted the session and the runner (the window shows it as any edit failure); the save itself is done.
