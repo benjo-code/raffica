@@ -981,8 +981,16 @@ internal sealed partial class PageView : Control, IDisposable
         _prefetchRunningSet = [];
         var next = _prefetchNext;
         _prefetchNext = null;
-        if (_released || next is null)
+        if (_released)
         {
+            return;
+        }
+
+        if (next is null)
+        {
+            // A range that was scrolled back to while the task ran looked covered by it (no next range was kept), but the task may have been cancelled before it reached
+            // all of its pictures: ask from the pictures again (one lookup each); nothing is started when nothing is missing.
+            PrefetchPictures();
             return;
         }
 

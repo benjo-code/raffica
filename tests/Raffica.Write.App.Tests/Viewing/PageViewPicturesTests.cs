@@ -218,4 +218,51 @@ public sealed class PageViewPicturesTests : IDisposable
         // The ranges in between were dropped, not decoded one after the other.
         Assert.False(h.Tab.Pictures.IsKnown(PicturesOf(layout, 10).Single()));
     }
+
+    [AvaloniaFact]
+    public async Task ARangeCancelledByANewerOneAndScrolledBackToBeforeItEndedIsDecodedInFull()
+    {
+        // 2 pictures on each of 20 pages, 400 pt high window: a range is the visible pages and one each side.
+        var path = PictureDocx.Write(_folder, pages: 20, perPage: 2);
+        var gate = new ManualResetEventSlim(initialState: true);
+        var entered = 0;
+        using var h = new ViewHarness(path, 900, 400, wrapPictureBytes: inner => id =>
+        {
+            Interlocked.Increment(ref entered);
+            gate.Wait();
+            return inner(id);
+        });
+        await h.LayOutEverythingAsync();
+        await ViewHarness.WaitAsync(() => h.View.PrefetchStarts >= 1);
+        await Task.Delay(150);
+        ViewHarness.Pump();
+
+        // Range A is scrolled to while the cache cannot read: the task starts and waits inside its first picture.
+        gate.Reset();
+        var before = Volatile.Read(ref entered);
+        h.View.ScrollToPage(6);
+        var layout = h.Tab.Layout;
+        List<ImageRef> RangeNow()
+        {
+            var (first, last) = h.View.Scroller!.Visible(h.View.OffsetY, h.View.Viewport.Height);
+            var from = Math.Max(0, first - 1);
+            var to = Math.Min(layout.LaidOutPages - 1, last + 1);
+            return [.. Enumerable.Range(from, to - from + 1).SelectMany(p => PicturesOf(layout, p))];
+        }
+
+        var rangeA = RangeNow();
+        Assert.True(rangeA.Count >= 4, "a range holds several pictures");
+        Assert.All(rangeA, p => Assert.False(h.Tab.Pictures.IsKnown(p)));
+        await ViewHarness.WaitAsync(() => Volatile.Read(ref entered) > before);
+
+        // A newer range B cancels the task (it waits inside its first picture); then the view goes back to A before the task has ended.
+        h.View.ScrollToPage(14);
+        h.View.ScrollToPage(6);
+        var starts = h.View.PrefetchStarts;
+
+        // The task ends after that picture (its token is cancelled) and leaves the others of A; the view must ask for them again.
+        gate.Set();
+        await ViewHarness.WaitAsync(() => rangeA.All(p => h.Tab.Pictures.IsKnown(p)), 5000);
+        Assert.True(h.View.PrefetchStarts > starts, "a second task decoded the rest");
+    }
 }
