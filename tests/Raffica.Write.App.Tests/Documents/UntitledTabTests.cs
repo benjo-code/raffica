@@ -121,6 +121,30 @@ public sealed class UntitledTabTests
     }
 
     [AvaloniaFact]
+    public async Task ALayoutFaultOfAnUntitledTabShowsNoOpenErrorButAsksTheCommandsAgain()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = await NewAsync(window);
+        await ReadyAsync(tab);
+        Assert.Null(SaveCommandState.Of(tab, flowRunning: false).Refusal(saveAs: true));
+        WindowFixture.Pump();
+        await Task.Delay(100);
+        WindowFixture.Pump();
+        var asked = 0;
+        window.StatesChanged += () => asked++;
+
+        tab.Runner.Fail(new InvalidOperationException("layout"));
+        WindowFixture.Pump();
+
+        // No card (the document has no file), but the disabled Save and Save as are read again so their reason shows.
+        Assert.False(tab.Runner.FaultedByEdit);
+        Assert.True(asked >= 1, "the command states were asked again");
+        Assert.Equal(SaveRefusal.Unavailable, SaveCommandState.Of(tab, flowRunning: false).Refusal(saveAs: true));
+        Assert.Equal(SaveRefusal.Unavailable, SaveCommandState.Of(tab, flowRunning: false).Refusal(saveAs: false));
+    }
+
+    [AvaloniaFact]
     public async Task AnUntitledTabIsNotInTheRecentList()
     {
         using var fixture = new WindowFixture();

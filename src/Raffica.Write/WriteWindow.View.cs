@@ -412,7 +412,13 @@ internal sealed partial class WriteWindow
 
         if (tab.Path is not { } path)
         {
-            // A new document has no file that could fail to open.
+            // A new document has no file that could fail to open, and so no open error to show (a restored copy is the same kind); the commands that need the layout (Save,
+            // Save as) are disabled with their reason, so they are asked again.
+            if (ReferenceEquals(Workspace.Active, tab))
+            {
+                UpdateViewStatus();
+            }
+
             return;
         }
 

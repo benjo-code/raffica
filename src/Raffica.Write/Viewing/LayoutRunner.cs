@@ -287,8 +287,8 @@ internal sealed class LayoutRunner : IDisposable
         }
     }
 
-    // A layout ended with an error: remember the first one and tell the UI thread once (nothing is told for a runner that was disposed).
-    private void Fail(Exception ex)
+    // A layout ended with an error: remember the first one and tell the UI thread once (nothing is told for a runner that was disposed). Internal for the tests of the window's reaction.
+    internal void Fail(Exception ex)
     {
         _fullModel.TrySetResult();
         if (Interlocked.CompareExchange(ref _fault, ex, null) is null && !IsDisposed)
