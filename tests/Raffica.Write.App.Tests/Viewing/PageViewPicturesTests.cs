@@ -18,11 +18,16 @@ public sealed class PageViewPicturesTests : IDisposable
         [.. layout.Page(page).Items.OfType<ImageItem>().Select(i => i.Image)];
 
     [AvaloniaFact]
-    public void PageOneHasItsPicturesDecodedBeforeTheFirstSharpPage()
+    public async Task PageOneHasItsPicturesDecodedBeforeTheFirstSharpPage()
     {
         var path = PictureDocx.Write(_folder, pages: 4, perPage: 2);
         using var h = new ViewHarness(path);
 
+        // The first frame draws page 1 on the render thread and the event follows on the UI thread: the harness's one pump does not wait for either (a cold first run happened to
+        // be slow enough, a warm one or a fast runner is not), so a frame is asked for and the event is waited for, as in PageViewTests.FirstPageIsDrawn.
+        h.Capture();
+        await ViewHarness.WaitAsync(() => h.FirstSharpCount >= 1);
+        ViewHarness.Pump();
         Assert.Equal(1, h.FirstSharpCount);
         var pageOne = PicturesOf(h.Tab.Layout, 0);
         Assert.Equal(2, pageOne.Length);
