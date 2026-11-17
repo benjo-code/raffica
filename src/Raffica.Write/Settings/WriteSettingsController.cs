@@ -12,7 +12,7 @@ using ShellSettingsStore = Raffica.Shell.Frame.SettingsStore;
 namespace Raffica.Write.Settings;
 
 /// <summary>
-/// Opens the settings dialog of the shell with the Write additions (the default view and the default zoom; no autosave row, Write does not edit yet) and applies
+/// Opens the settings dialog of the shell with the Write additions (the default view and the default zoom, and the recovery-copy row) and applies
 /// what the user confirms. The two settings files are written on OK: the shell file (theme, language, compact bar) and the Write file
 /// (<see cref="WriteSettings"/>). Theme and compact bar apply at once, the view and zoom to tabs opened later (the controller keeps them in memory, so opening a tab
 /// reads no file); a language applies after a restart, which the dialog says. The choices are applied in memory first, then saved; the Write file is written by a
@@ -71,9 +71,6 @@ internal sealed class WriteSettingsController
         _ = new ShellSettingsStore(AppFiles.Write.ShellPathFor(_options.SettingsFile)).TrySave(_shell);
     }
 
-    /// <summary>Sets the autosave switch in memory only, as the settings dialog does when confirmed (no file is written); the tests use it until the dialog has the row.</summary>
-    internal void SetAutosaveForTests(bool on) => _shell = _shell with { Autosave = on };
-
     /// <summary>Completes when the Write file has been written (tests wait for it instead of sleeping).</summary>
     public Task FlushAsync() => _appWriter.FlushAsync();
 
@@ -125,7 +122,7 @@ internal sealed class WriteSettingsController
                 });
             },
             _host.Close,
-            new SettingsDialogOptions(ShowAutosave: false, ExtraRows: rows)));
+            new SettingsDialogOptions(ShowAutosave: true, ExtraRows: rows, AutosaveLabel: WriteStrings.SettingsAutosaveLabel)));
     }
 
     private void Apply(ShellSettings shell, WriteSettings app)

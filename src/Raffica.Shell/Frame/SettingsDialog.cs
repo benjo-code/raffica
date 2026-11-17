@@ -56,7 +56,7 @@ public static class SettingsDialog
 
         var compact = new CheckBox { Name = "PART_Compact", Content = ShellStrings.SettingsCompact, IsChecked = current.CompactCommandBar };
         var showAutosave = options?.ShowAutosave ?? true;
-        var autosave = new CheckBox { Name = "PART_Autosave", Content = ShellStrings.SettingsAutosave, IsChecked = current.Autosave };
+        var autosave = new CheckBox { Name = "PART_Autosave", Content = options?.AutosaveLabel ?? ShellStrings.SettingsAutosave, IsChecked = current.Autosave };
 
         var body = new StackPanel { Spacing = 16 };
         body.Children.Add(Field(ShellStrings.SettingsTheme, theme));

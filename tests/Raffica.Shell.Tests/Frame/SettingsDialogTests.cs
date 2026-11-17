@@ -192,6 +192,22 @@ public sealed class SettingsDialogTests
     }
 
     [AvaloniaFact]
+    public void AutosaveLabelOverridesTheShellText()
+    {
+        using var f = new Fixture(new ShellSettings(), options: new SettingsDialogOptions(AutosaveLabel: "Keep a copy"));
+
+        Assert.Equal("Keep a copy", f.Part<CheckBox>("PART_Autosave").Content);
+    }
+
+    [AvaloniaFact]
+    public void NullLabelKeepsTheShellText()
+    {
+        using var f = new Fixture(new ShellSettings(), options: new SettingsDialogOptions(AutosaveLabel: null));
+
+        Assert.Equal(ShellStrings.SettingsAutosave, f.Part<CheckBox>("PART_Autosave").Content);
+    }
+
+    [AvaloniaFact]
     public void HiddenAutosaveKeepsTheStoredValueOnOk()
     {
         using var f = new Fixture(new ShellSettings(Autosave: false), options: new SettingsDialogOptions(ShowAutosave: false));

@@ -4,6 +4,7 @@ using Raffica.Write.Documents;
 using Raffica.Write.Docx;
 using Raffica.Write.Recovery;
 using Raffica.WriteApp.Tests.Documents;
+using Raffica.WriteApp.Tests.Settings;
 using Xunit;
 using ShellSettingsStore = Raffica.Shell.Frame.SettingsStore;
 
@@ -99,13 +100,17 @@ public sealed class AutosaveSchedulerWindowTests
         SaveHarness.Edit(tab);
         Assert.True(window.Settings.Shell.Autosave);
 
-        // The shell's own settings object is what the scheduler asks: off writes nothing.
-        window.Settings.SetAutosaveForTests(false);
+        // The dialog's result is what the scheduler asks: off writes nothing.
+        WriteSettingsTests.OpenSettings(window);
+        WriteSettingsTests.AutosaveBox(window).IsChecked = false;
+        SaveHarness.Click(window, "PART_Ok");
         clock.Fire();
         await SaveHarness.AwaitAsync(window.Autosave!.WhenIdleAsync());
         Assert.Empty(StoreOf(window).List().Entries);
 
-        window.Settings.SetAutosaveForTests(true);
+        WriteSettingsTests.OpenSettings(window);
+        WriteSettingsTests.AutosaveBox(window).IsChecked = true;
+        SaveHarness.Click(window, "PART_Ok");
         await CopyAsync(window, clock);
         Assert.Single(StoreOf(window).List().Entries);
     }

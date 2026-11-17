@@ -63,6 +63,9 @@
   <data name="SettingsDefaultZoom" xml:space="preserve">
     <value>Default zoom</value>
   </data>
+  <data name="SettingsAutosaveLabel" xml:space="preserve">
+    <value>Keep a recovery copy of unsaved work</value>
+  </data>
   <data name="ViewPage" xml:space="preserve">
     <value>Page view</value>
   </data>

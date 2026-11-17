@@ -35,6 +35,7 @@ internal static class WriteStrings
     public static string OpenFailuresMoreFormat => Table.Get("OpenFailuresMoreFormat");
     public static string SettingsDefaultView => Table.Get("SettingsDefaultView");
     public static string SettingsDefaultZoom => Table.Get("SettingsDefaultZoom");
+    public static string SettingsAutosaveLabel => Table.Get("SettingsAutosaveLabel");
     public static string ViewPage => Table.Get("ViewPage");
     public static string ViewWriting => Table.Get("ViewWriting");
     public static string ZoomActualSize => Table.Get("ZoomActualSize");
