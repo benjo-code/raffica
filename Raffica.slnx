@@ -21,6 +21,7 @@
     <Project Path="tests/Raffica.Render.Tests/Raffica.Render.Tests.csproj" />
     <Project Path="tests/Raffica.Shell.Tests/Raffica.Shell.Tests.csproj" />
     <Project Path="tests/Raffica.Write.App.Tests/Raffica.Write.App.Tests.csproj" />
+    <Project Path="tests/Raffica.Write.RecoveryHarness/Raffica.Write.RecoveryHarness.csproj" />
     <Project Path="tests/Raffica.Write.Tests/Raffica.Write.Tests.csproj" />
   </Folder>
   <Folder Name="/bench/">

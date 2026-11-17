@@ -12,6 +12,8 @@
     <PackageReference Include="xunit.v3" VersionOverride="3.2.2" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <ProjectReference Include="..\..\src\Raffica.Write\Raffica.Write.csproj" />
+    <!-- The recovery harness is started by KilledProcessRecoveryTests; referenced for the build order only. -->
+    <ProjectReference Include="..\Raffica.Write.RecoveryHarness\Raffica.Write.RecoveryHarness.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Raffica.Write" />
