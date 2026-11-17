@@ -768,6 +768,16 @@ internal static class StoryXml
     public static void Write(Story story, XmlWriter writer)
     {
         ArgumentNullException.ThrowIfNull(story);
+        WriteWith(story, writer, w => WriteBlocks(story.Blocks, w));
+    }
+
+    /// <summary>
+    /// <see cref="Write"/> with the blocks of the body written by <paramref name="writeBlocks"/> (a document root only; any other root writes its blocks itself). The snapshot writer uses it
+    /// to write some of the blocks and take the bytes of the rest from its cache.
+    /// </summary>
+    internal static void WriteWith(Story story, XmlWriter writer, Action<XmlWriter> writeBlocks)
+    {
+        ArgumentNullException.ThrowIfNull(story);
         ArgumentNullException.ThrowIfNull(writer);
         var root = story.Root;
         writer.WriteStartElement(RootPrefix(root), root.Name.LocalName, root.Name.NamespaceName);
@@ -782,7 +792,7 @@ internal static class StoryXml
 
             XmlKit.Start(writer, Names.Body);
             XmlKit.UnknownAttributes(writer, story);
-            WriteBlocks(story.Blocks, writer);
+            writeBlocks(writer);
             if (story.FinalSection is not null)
             {
                 WriteSection(story.FinalSection, writer);

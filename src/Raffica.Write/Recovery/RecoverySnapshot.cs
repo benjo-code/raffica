@@ -26,8 +26,9 @@ internal abstract record SnapshotResult
 }
 
 /// <summary>
-/// Writes the recovery copy of one tab. The DOCX is written to <see cref="RecoveryStore.DocxPathOf"/> by <c>DocxFile.SaveAsync</c> (the save to another path of 4.1: atomic replace,
-/// and neither the origin, the stamp nor the snapshot of the file change; nothing is marked saved) under the shared <see cref="ModelReadLease"/>, so the lease is taken and released
+/// Writes the recovery copy of one tab. The DOCX is written to <see cref="RecoveryStore.DocxPathOf"/> by <c>DocxFile.SaveSnapshotAsync</c> (the save to another path of 4.1: atomic replace,
+/// and neither the origin, the stamp nor the snapshot of the file change; nothing is marked saved; the blocks of the body that did not change since the last copy are not written again, so the
+/// lease is held for the changed ones only) under the shared <see cref="ModelReadLease"/>, so the lease is taken and released
 /// by this (pool) thread around the read of the model only. The revision is read inside the lease, so the revision recorded is the one written.
 /// </summary>
 /// <remarks>
@@ -157,7 +158,7 @@ internal static class RecoverySnapshot
                 revision = subject.Revision;
             }))
             {
-                await docx.SaveAsync(path, overwriteChangedOriginal: false, token).ConfigureAwait(false);
+                await docx.SaveSnapshotAsync(path, token).ConfigureAwait(false);
                 docxWritten = true;
             }
 

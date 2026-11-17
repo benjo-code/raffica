@@ -837,7 +837,7 @@ static class PdfRun
                 if (run > 0)
                 {
                     values.Add(result.Value!.Value);
-                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Run == "count" ? "count" : "ms")));
+                    rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Case == "snapshot" && !t.Run.EndsWith("ms", StringComparison.Ordinal) ? "count" : "ms")));
                 }
             }
             else if (c.Name == "scroll")
@@ -1204,6 +1204,16 @@ static class WriteRun
         rows.Add(("snapshot", "total-ms", values["total-median-ms"]));
         rows.Add(("snapshot", "total-max-ms", values["total-max-ms"]));
         rows.Add(("snapshot", "count", values["n"]));
+
+        // The record of how much a copy wrote again and what the collector did meanwhile (present in the line of the app, optional here).
+        foreach (var key in new[] { "blocks", "blocks-written-median", "blocks-written-max", "whole-passes", "gc0", "gc1", "gc2", "gc-pause-ms" })
+        {
+            if (values.TryGetValue(key, out var extra))
+            {
+                rows.Add(("snapshot", key, extra));
+            }
+        }
+
         return rows;
     }
 
@@ -2862,6 +2872,8 @@ static class SelfTest
         Expect("typing-snapshot rows: the row names", string.Join('|', snap!.Skip(2).Take(2).Select(r => $"{r.Case}/{r.Run}")), "typing-snapshot/middle-page-median|typing-snapshot/middle-page-p95");
         Expect("typing-snapshot rows: first-edit rows are their own", string.Join('|', snap!.Where(r => r.Case == "typing-first").Select(r => r.Run)), "snapshot-after-open-page|snapshot-after-switch-writing");
         Expect("typing-snapshot rows: the lease and total rows", string.Join('|', snap!.Where(r => r.Case == "snapshot").Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Run}={r.Value}"))), "lease-ms=4.5|lease-max-ms=9.25|total-ms=80|total-max-ms=120.5|count=12");
+        var extras = WriteRun.ParseTypingSnapshot(output.ToString() + "snapshot n=12 lease-median-ms=1 lease-max-ms=2 total-median-ms=3 total-max-ms=4 blocks=10 blocks-written-median=1 blocks-written-max=10 whole-passes=1 gc0=5 gc1=2 gc2=1 gc-pause-ms=7\n", out _);
+        Expect("typing-snapshot rows: the optional record fields are rows", string.Join('|', extras!.Where(r => r.Case == "snapshot").Skip(5).Select(r => $"{r.Run}={r.Value}")), "blocks=10|blocks-written-median=1|blocks-written-max=10|whole-passes=1|gc0=5|gc1=2|gc2=1|gc-pause-ms=7");
         Expect("typing-snapshot rows: a run without a snapshot line is refused", WriteRun.ParseTypingSnapshot(output.ToString(), out var noSnap), null);
         Expect("typing-snapshot rows: the refusal says why", noSnap, "the typing-snapshot run printed no readable snapshot line (no copy was written)");
         Expect("typing-snapshot rows: a run with no copy (n=0) is refused", WriteRun.ParseTypingSnapshot(output.ToString() + "snapshot n=0 lease-median-ms=0 lease-max-ms=0 total-median-ms=0 total-max-ms=0\n", out _), null);

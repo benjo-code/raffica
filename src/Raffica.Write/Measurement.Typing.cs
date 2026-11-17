@@ -55,6 +55,10 @@ internal sealed partial class Measurement
     private readonly bool _snapshotRun;
     private readonly List<double> _snapshotLease = [];
     private readonly List<double> _snapshotTotal = [];
+    private readonly List<double> _snapshotWritten = [];
+    private int _snapshotBlocks;
+    private int[] _gcAtStart = [];
+    private TimeSpan _gcPauseAtStart;
     private CancellationTokenSource? _snapshotCancel;
     private string? _snapshotFailure;
     private int _noChange;
@@ -122,22 +126,26 @@ internal sealed partial class Measurement
     }
 
     /// <summary>
-    /// The line <c>snapshot n=... lease-median-ms=... lease-max-ms=... total-median-ms=... total-max-ms=...</c> of the typing-snapshot run: how long the model-read lease was held and how long the whole
-    /// snapshot took, over every copy written during the run. Recorded, never judged.
+    /// The line <c>snapshot n=... lease-median-ms=... lease-max-ms=... total-median-ms=... total-max-ms=... blocks=... blocks-written-median=... blocks-written-max=... whole-passes=...</c> of the typing-snapshot run: how long the model-read lease was held and how long the whole
+    /// snapshot took, over every copy written during the run, and how many top-level blocks a copy wrote again (<c>whole-passes</c>: the copies that wrote more than half of them). Recorded, never judged.
     /// </summary>
-    public static string SnapshotLine(IReadOnlyList<double> leaseMilliseconds, IReadOnlyList<double> totalMilliseconds)
+    public static string SnapshotLine(IReadOnlyList<double> leaseMilliseconds, IReadOnlyList<double> totalMilliseconds, IReadOnlyList<double> blocksWritten, int blocks)
     {
         var lease = leaseMilliseconds.Order().ToArray();
         var total = totalMilliseconds.Order().ToArray();
+        var written = blocksWritten.Order().ToArray();
+        var whole = blocksWritten.Count(w => w * 2 > blocks);
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"snapshot n={total.Length} lease-median-ms={Median(lease):0.00} lease-max-ms={lease[^1]:0.00} total-median-ms={Median(total):0.00} total-max-ms={total[^1]:0.00}");
+            $"snapshot n={total.Length} lease-median-ms={Median(lease):0.00} lease-max-ms={lease[^1]:0.00} total-median-ms={Median(total):0.00} total-max-ms={total[^1]:0.00} blocks={blocks} blocks-written-median={Median(written):0} blocks-written-max={written[^1]:0} whole-passes={whole}");
     }
 
     // The snapshot loop of the typing-snapshot run: copies of the tab are written back to back into the recovery folder that follows the settings file, as the autosave would at its worst
     // (the window's own timer is off in a measurement run). It runs on the UI thread, the lease is taken by the snapshot on its pool thread, and it ends with the run.
     private void StartSnapshotLoop(WriteTab tab)
     {
+        _gcAtStart = [GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2)];
+        _gcPauseAtStart = GC.GetTotalPauseDuration();
         _snapshotCancel = new CancellationTokenSource();
         var token = _snapshotCancel.Token;
         var store = new Recovery.RecoveryStore(_window.RecoveryFolder);
@@ -155,6 +163,8 @@ internal sealed partial class Measurement
                         case Recovery.SnapshotResult.Written written:
                             _snapshotLease.Add(written.LeaseHeld.TotalMilliseconds);
                             _snapshotTotal.Add(written.Total.TotalMilliseconds);
+                            _snapshotWritten.Add(tab.Docx.LastSnapshotPass.Written);
+                            _snapshotBlocks = tab.Docx.Model.Body.Blocks.Count;
                             break;
                         case Recovery.SnapshotResult.Failed failed:
                             // Only the type of the error: the message may name a path.
@@ -368,7 +378,7 @@ internal sealed partial class Measurement
                         return;
                     }
 
-                    Write(SnapshotLine(_snapshotLease, _snapshotTotal));
+                    Write(SnapshotLine(_snapshotLease, _snapshotTotal, _snapshotWritten, _snapshotBlocks) + string.Create(CultureInfo.InvariantCulture, $" gc0={GC.CollectionCount(0) - _gcAtStart[0]} gc1={GC.CollectionCount(1) - _gcAtStart[1]} gc2={GC.CollectionCount(2) - _gcAtStart[2]} gc-pause-ms={(GC.GetTotalPauseDuration() - _gcPauseAtStart).TotalMilliseconds:0}"));
                 }
 
                 Finish(Success);

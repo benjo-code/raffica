@@ -360,7 +360,7 @@ public sealed class MeasurementTests
 
         // The snapshot loop wrote copies meanwhile, into the folder that follows the settings file, and reports their lease and total times.
         var snapshot = Assert.Single(probe.Lines, l => l.StartsWith("snapshot n=", StringComparison.Ordinal));
-        Assert.Matches(@"^snapshot n=[1-9]\d* lease-median-ms=\d+\.\d\d lease-max-ms=\d+\.\d\d total-median-ms=\d+\.\d\d total-max-ms=\d+\.\d\d$", snapshot);
+        Assert.Matches(@"^snapshot n=[1-9]\d* lease-median-ms=\d+\.\d\d lease-max-ms=\d+\.\d\d total-median-ms=\d+\.\d\d total-max-ms=\d+\.\d\d blocks=\d+ blocks-written-median=\d+ blocks-written-max=\d+ whole-passes=\d+ gc0=\d+ gc1=\d+ gc2=\d+ gc-pause-ms=\d+$", snapshot);
         Assert.StartsWith(f.Folder, f.Window.RecoveryFolder, StringComparison.Ordinal);
         Assert.NotEmpty(Directory.GetFiles(f.Window.RecoveryFolder, "*.docx"));
     }
