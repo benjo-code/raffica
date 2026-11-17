@@ -11,7 +11,7 @@ namespace Raffica.Write.Recovery;
 /// <param name="tab">The tab.</param>
 /// <param name="id">The id of the copy: null makes a new one; a restored copy passes its own id (see <see cref="AutosaveScheduler.Adopt"/>).</param>
 /// <param name="saveRunning">Asks the window's save flow whether a save of the tab runs (null: only the editing session's saving flag).</param>
-internal sealed class WriteTabRecoverySubject(WriteTab tab, string? id = null, Func<bool>? saveRunning = null) : IRecoverySubject
+internal sealed class WriteTabRecoverySubject(WriteTab tab, string? id = null, Func<bool>? saveRunning = null) : IRecoverySubject, IInLeaseSnapshotCheck
 {
     public WriteTab Tab { get; } = tab ?? throw new ArgumentNullException(nameof(tab));
 
@@ -28,7 +28,33 @@ internal sealed class WriteTabRecoverySubject(WriteTab tab, string? id = null, F
 
     public bool IsDirty => Tab.IsDirty;
 
+    /// <summary>The early check, on the UI thread: everything, the save flow's own record of a running save included.</summary>
     public SnapshotSkip? CannotSnapshotNow
+    {
+        get
+        {
+            if (CannotSnapshotInLease is { } reason)
+            {
+                return reason;
+            }
+
+            if (Tab.Editor?.BlockedReason == EditBlockedReason.Faulted)
+            {
+                return SnapshotSkip.Faulted;
+            }
+
+            return saveRunning?.Invoke() == true ? SnapshotSkip.Saving : null;
+        }
+    }
+
+    /// <summary>
+    /// The check the snapshot repeats on its pool thread inside the lease. Every input is safe to read from any thread: <see cref="WriteTab.IsDisposed"/> is a volatile read,
+    /// <see cref="DocxFile.IsPrefix"/> is a get-only property of a file object that is never changed, <c>Runner.IsFaulted</c> is a volatile read of the fault (the runner exists
+    /// already: the lease was taken through it, so no pool thread creates it), <c>Editor</c> is a reference written once and <c>Editor.IsSaving</c> a volatile read of a counter.
+    /// The save flow's collection of running saves is deliberately not read here (the UI thread changes it); a save that has not yet reached <c>BeginSave</c> waits for the
+    /// snapshot in <c>WriteSaveFlow</c> (<see cref="RecoverySnapshot.WhenIdleAsync"/>), and one that has is seen as <c>IsSaving</c>.
+    /// </summary>
+    public SnapshotSkip? CannotSnapshotInLease
     {
         get
         {
@@ -42,12 +68,12 @@ internal sealed class WriteTabRecoverySubject(WriteTab tab, string? id = null, F
                 return SnapshotSkip.Prefix;
             }
 
-            if (Tab.Runner.IsFaulted || Tab.Editor?.BlockedReason == EditBlockedReason.Faulted)
+            if (Tab.Runner.IsFaulted)
             {
                 return SnapshotSkip.Faulted;
             }
 
-            return Tab.Editor is { IsSaving: true } || saveRunning?.Invoke() == true ? SnapshotSkip.Saving : null;
+            return Tab.Editor is { IsSaving: true } ? SnapshotSkip.Saving : null;
         }
     }
 

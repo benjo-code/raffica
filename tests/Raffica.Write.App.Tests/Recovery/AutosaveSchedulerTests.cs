@@ -436,4 +436,38 @@ public sealed class AutosaveSchedulerTests : IDisposable
         Assert.True(File.Exists(Path.Combine(folder, subject.Id + ".docx")));
         Assert.False(Directory.Exists(Store.Folder));
     }
+
+    [AvaloniaFact]
+    public async Task ACleanAdoptedCopyStaysUntilItsTabHasBeenDirty()
+    {
+        // A copy of work that was lost in a crash: a first scheduler wrote it for a dirty tab.
+        var subject = NewSubject();
+        Edit(subject);
+        var first = NewScheduler();
+        first.Track(subject);
+        first.TickNow();
+        await IdleAsync(first);
+        first.Dispose();
+        Assert.Single(Store.List().Entries);
+
+        // The restored tab is adopted while it is clean (for any reason): the only copy stays.
+        var edits = subject.Docx.Model.Edits;
+        edits.MarkSaved();
+        var second = new AutosaveScheduler(Store, new ManualRecoveryClock(), () => true);
+        _schedulers.Add(second);
+        second.Adopt(subject, subject.Id);
+        second.TickNow();
+        await IdleAsync(second);
+        second.Cleaned(subject);
+        Assert.Single(Store.List().Entries);
+
+        // Seen dirty, copied, and clean again: now it goes.
+        Edit(subject);
+        second.TickNow();
+        await IdleAsync(second);
+        edits.MarkSaved();
+        second.TickNow();
+        await IdleAsync(second);
+        Assert.Empty(Store.List().Entries);
+    }
 }

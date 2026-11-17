@@ -148,7 +148,8 @@ internal static class RecoverySnapshot
                 held.Restart();
 
                 // The state may have changed between the check at the start and the lease (a fault, a save that started): checked again where nothing can change it.
-                if (subject.CannotSnapshotNow is { } late)
+                // On this (pool) thread only the thread-safe face is read when the subject has one (see IInLeaseSnapshotCheck).
+                if ((subject is IInLeaseSnapshotCheck safe ? safe.CannotSnapshotInLease : subject.CannotSnapshotNow) is { } late)
                 {
                     throw new SkipSignal(late);
                 }

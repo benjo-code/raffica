@@ -48,7 +48,12 @@ internal sealed class AutosaveScheduler(RecoveryStore store, IRecoveryClock cloc
             return;
         }
 
-        _entries.TryAdd(subject, new Entry(subject.Id));
+        if (!_entries.TryAdd(subject, new Entry(subject.Id)) && subject.IsDirty)
+        {
+            // An adopted copy: the tab was edited, so the copy it replaced is no longer the only one.
+            _entries[subject].Adopted = false;
+        }
+
         _clockHandle ??= clock.Every(Interval, OnTick);
     }
 
@@ -70,7 +75,7 @@ internal sealed class AutosaveScheduler(RecoveryStore store, IRecoveryClock cloc
             return;
         }
 
-        _entries[subject] = new Entry(existingId) { CopyExists = true };
+        _entries[subject] = new Entry(existingId) { CopyExists = true, Adopted = true };
         _clockHandle ??= clock.Every(Interval, OnTick);
     }
 
@@ -193,6 +198,7 @@ internal sealed class AutosaveScheduler(RecoveryStore store, IRecoveryClock cloc
                 return;
             }
 
+            entry.Adopted = false;
             if (subject.CannotSnapshotNow is not null || entry.LastRevision == subject.Revision)
             {
                 return;
@@ -230,7 +236,7 @@ internal sealed class AutosaveScheduler(RecoveryStore store, IRecoveryClock cloc
 
     private void DeleteIfClean(IRecoverySubject subject, Entry entry)
     {
-        if (subject.IsDirty || !entry.CopyExists || RecoverySnapshot.IsRunning(subject.Docx))
+        if (subject.IsDirty || !entry.CopyExists || entry.Adopted || RecoverySnapshot.IsRunning(subject.Docx))
         {
             return;
         }
@@ -249,5 +255,8 @@ internal sealed class AutosaveScheduler(RecoveryStore store, IRecoveryClock cloc
         public bool CopyExists { get; set; }
 
         public bool Released { get; set; }
+
+        // A restored copy whose tab has not been seen dirty yet: it is the only copy of that work and a clean tab does not delete it.
+        public bool Adopted { get; set; }
     }
 }

@@ -22,6 +22,17 @@ internal enum SnapshotSkip
 }
 
 /// <summary>
+/// An optional second face of a subject: what the snapshot writer asks on its <b>pool thread</b>, inside the model lease, instead of <see cref="IRecoverySubject.CannotSnapshotNow"/>.
+/// A member of this kind may read only state that is safe to read from any thread (a volatile flag, an immutable property); it must not touch a collection the UI thread changes.
+/// A subject that does not implement it is asked <see cref="IRecoverySubject.CannotSnapshotNow"/> in both places.
+/// </summary>
+internal interface IInLeaseSnapshotCheck
+{
+    /// <summary>The reason no copy can be made now, from thread-safe state only; null when none.</summary>
+    SnapshotSkip? CannotSnapshotInLease { get; }
+}
+
+/// <summary>
 /// What the snapshot writer needs of a tab (a seam: the tests use a small stand-in). <b>Threading precondition:</b> <see cref="RecoverySnapshot.WriteAsync"/> is called on the UI
 /// thread, where the start of a save (<c>WriteSaveFlow</c>) and the start of a snapshot are serialized; <see cref="CannotSnapshotNow"/> is read there.
 /// </summary>

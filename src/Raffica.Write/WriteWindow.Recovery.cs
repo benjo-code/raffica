@@ -28,21 +28,33 @@ internal sealed partial class WriteWindow
 
     private void OnTabDirtyChanged(WriteTab tab)
     {
-        if (_closeConfirmed || tab.IsDisposed)
+        // No copies in a measurement run (the typing-snapshot case drives the snapshot itself); and nothing here may break the edit that raised the event.
+        if (_closeConfirmed || tab.IsDisposed || _options.IsMeasuring)
         {
             return;
         }
 
-        if (tab.IsDirty)
+        try
         {
-            _autosave ??= new AutosaveScheduler(new RecoveryStore(RecoveryFolder), RecoveryClockFactory(), () => Settings.Shell.Autosave);
-            _autosave.Track(SubjectOf(tab));
+            if (tab.IsDirty)
+            {
+                _autosave ??= new AutosaveScheduler(new RecoveryStore(RecoveryFolder), RecoveryClockFactory(), () => Settings.Shell.Autosave);
+                _autosave.Track(SubjectOf(tab));
+            }
+            else if (_autosave is not null && _recoverySubjects.TryGetValue(tab, out var subject))
+            {
+                _autosave.Cleaned(subject);
+            }
         }
-        else if (_autosave is not null && _recoverySubjects.TryGetValue(tab, out var subject))
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _autosave.Cleaned(subject);
+            // The autosave is a convenience: a failure here is silent and typing goes on.
+            RecoveryWiringFailures++;
         }
     }
+
+    /// <summary>How many times the wiring of the autosave threw (and was ignored).</summary>
+    internal int RecoveryWiringFailures { get; private set; }
 
     private WriteTabRecoverySubject SubjectOf(WriteTab tab)
     {
