@@ -133,11 +133,15 @@ internal static class RecoverySnapshot
         var id = subject.Id;
         try
         {
-            // Everything that can fail without touching the disk comes first.
-            var (pid, started) = Self();
-            store.EnsureFolder();
-            var path = store.DocxPathOf(id);
-            hadSidecar = store.SidecarExists(id);
+            // Everything that can fail before the model is read comes first, on a pool thread: the identity of this process (the first time it is a process query), the folder
+            // and the look at the sidecar are file system and operating system calls the UI thread need not wait for. The in-flight mark was set before this point, by the UI thread.
+            var (pid, started, path, existing) = await Task.Run(() =>
+            {
+                var self = Self();
+                store.EnsureFolder();
+                return (self.Id, self.Started, store.DocxPathOf(id), store.SidecarExists(id));
+            }, CancellationToken.None).ConfigureAwait(false);
+            hadSidecar = existing;
             var revision = -1;
             var held = new Stopwatch();
             var heldTime = TimeSpan.Zero;
