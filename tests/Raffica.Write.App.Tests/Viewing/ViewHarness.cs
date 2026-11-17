@@ -73,14 +73,18 @@ internal sealed class ViewHarness : IDisposable
 {
     public static readonly Color Desk = Color.FromRgb(0xC8, 0xC8, 0xF0);
 
-    public ViewHarness(string path, double width = 900, double height = 600, WriteView mode = WriteView.Page, ZoomMode zoom = ZoomMode.FitWidth, OpenWork? work = null)
+    public ViewHarness(string path, double width = 900, double height = 600, WriteView mode = WriteView.Page, ZoomMode zoom = ZoomMode.FitWidth, OpenWork? work = null, Raffica.Write.Layout.ImageCacheLimits? pictureLimits = null)
     {
         Work = work ?? new OpenWork();
-        var attempt = DocumentOpener.Open(Path.GetFullPath(path), Work, DocumentOpener.DefaultMaxFileLength, CancellationToken.None);
+        var attempt = DocumentOpener.Open(Path.GetFullPath(path), Work, DocumentOpener.DefaultMaxFileLength, CancellationToken.None, pictureLimits: pictureLimits);
         Assert.NotNull(attempt.Document);
         Tab = new WriteTab(path, attempt.Document!);
         View = new PageView(Tab, mode, zoom) { Background = new SolidColorBrush(Desk) };
-        View.FirstSharpPage += () => FirstSharpCount++;
+        View.FirstSharpPage += () =>
+        {
+            FirstSharpCount++;
+            DecodesAtFirstSharp = Tab.Pictures.DecodeCount;
+        };
         Window = new Window { Width = width, Height = height, Content = View, SizeToContent = SizeToContent.Manual };
         Window.Show();
         View.Focus();
@@ -89,6 +93,9 @@ internal sealed class ViewHarness : IDisposable
 
     /// <summary>How many times <see cref="PageView.FirstSharpPage"/> was raised (counted from before the window was shown).</summary>
     public int FirstSharpCount { get; private set; }
+
+    /// <summary>How many pictures the cache had decoded when <see cref="PageView.FirstSharpPage"/> was raised.</summary>
+    public int DecodesAtFirstSharp { get; private set; }
 
     public OpenWork Work { get; }
 

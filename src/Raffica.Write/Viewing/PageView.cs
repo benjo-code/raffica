@@ -43,6 +43,7 @@ internal sealed partial class PageView : Control, IDisposable
     private readonly LayoutRunner _runner;
     private readonly ImageCache _images;
     private readonly DrawGate _gate = new();
+    private readonly Dispatcher _dispatcher;
     private readonly ScrollBar _vertical = new() { Orientation = Orientation.Vertical, Visibility = ScrollBarVisibility.Auto, Focusable = false };
     private readonly ScrollBar _horizontal = new() { Orientation = Orientation.Horizontal, Visibility = ScrollBarVisibility.Auto, Focusable = false };
     private PageScroller? _scroller;
@@ -66,13 +67,19 @@ internal sealed partial class PageView : Control, IDisposable
     private bool _released;
     private int _firstSharpPosted;
     private (int Page, int Count) _namedFor = (-1, -1);
+    private (DocumentLayout? Layout, int First, int Last, int Count) _prefetched;
+    private int _redrawPosted;
+    private int _pictureRedraws;
 
     public PageView(WriteTab tab, WriteView mode = WriteView.Page, ZoomMode zoomMode = ZoomMode.FitWidth)
     {
         ArgumentNullException.ThrowIfNull(tab);
         _tab = tab;
         _runner = tab.Runner;
-        _images = new ImageCache(tab.Images.Read);
+        _images = tab.Pictures;
+        _dispatcher = Dispatcher;
+        tab.ClaimPicturesForView();
+        _images.Decoded += OnPicturesDecoded;
         _mode = mode;
         _scrollerMode = mode;
         _zoomMode = zoomMode;
@@ -237,6 +244,7 @@ internal sealed partial class PageView : Control, IDisposable
         _runner.Changed -= OnRunnerChanged;
         _runner.Faulted -= OnRunnerFaulted;
         _tab.Disposing -= Release;
+        _images.Decoded -= OnPicturesDecoded;
         ReleaseEditing();
         // Never waits: the pictures go now when no draw runs, otherwise when the draw that runs ends (on the render thread).
         _gate.Close(() =>
@@ -868,9 +876,82 @@ internal sealed partial class PageView : Control, IDisposable
                 {
                     FirstSharpPageShown = true;
                     FirstSharpPage?.Invoke();
+                    PrefetchPictures();
                 },
                 DispatcherPriority.Background);
         }
+    }
+
+    // Pictures.
+
+    /// <summary>How many frames the view asked for because a prefetch decoded pictures (tests).</summary>
+    internal int PictureRedraws => Volatile.Read(ref _pictureRedraws);
+
+    /// <summary>Whether the view prefetches pictures (tests turn it off to prove that a draw alone never decodes).</summary>
+    internal bool PrefetchEnabled { get; set; } = true;
+
+    // The pictures of the visible pages and one page on each side are decoded on a pool thread before a draw needs them: a draw never decodes. Nothing happens before the
+    // first sharp page (page 1's pictures were decoded by the opener), and a range that was asked for already is not asked again (an edit does not change it).
+    private void PrefetchPictures()
+    {
+        if (_released || !PrefetchEnabled || !FirstSharpPageShown || _scroller is not { Count: > 0 } scroller || _builtLayout is not { } layout)
+        {
+            return;
+        }
+
+        var (first, last) = scroller.Visible(_offsetY, _viewport.Height);
+        var count = layout.LaidOutPages;
+        first = Math.Max(0, first - 1);
+        last = Math.Min(count - 1, last + 1);
+        if (last < first || _prefetched == (layout, first, last, count))
+        {
+            return;
+        }
+
+        _prefetched = (layout, first, last, count);
+        List<ImageRef>? wanted = null;
+        for (var index = first; index <= last; index++)
+        {
+            if (layout.TryGetPage(index, out var page) && page is not null)
+            {
+                foreach (var picture in PagePictures.Of(page))
+                {
+                    if (!_images.IsKnown(picture))
+                    {
+                        wanted ??= [];
+                        wanted.Add(picture);
+                    }
+                }
+            }
+        }
+
+        if (wanted is not null)
+        {
+            _images.Prefetch(wanted);
+        }
+    }
+
+    // A pool thread decoded something: post one invalidation for a burst (the dispatcher was read on the UI thread in the constructor).
+    private void OnPicturesDecoded()
+    {
+        if (Interlocked.Exchange(ref _redrawPosted, 1) != 0)
+        {
+            return;
+        }
+
+        _dispatcher.Post(
+            () =>
+            {
+                Volatile.Write(ref _redrawPosted, 0);
+                if (_released)
+                {
+                    return;
+                }
+
+                Interlocked.Increment(ref _pictureRedraws);
+                InvalidateAll();
+            },
+            DispatcherPriority.Normal);
     }
 
     // Change notification and the automation name.
@@ -905,6 +986,7 @@ internal sealed partial class PageView : Control, IDisposable
             RefreshAutomationName();
             ViewChanged?.Invoke();
             NotifyImeCursor();
+            PrefetchPictures();
         }
         finally
         {

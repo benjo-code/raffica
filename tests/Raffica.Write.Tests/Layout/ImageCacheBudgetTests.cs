@@ -251,4 +251,24 @@ public sealed class ImageCacheBudgetTests
         Assert.Equal(0, cache.DecodedBytes);
         Assert.Null(cache.Get(Ref("a")));
     }
+
+    [Fact]
+    public void IsKnownSeesDecodedAndFailedPicturesButNotEvictedOrClearedOnes()
+    {
+        using var cache = new ImageCache(id => id == "bad" ? throw new FileNotFoundException() : Png(Side, Side), s_three);
+        Assert.False(cache.IsKnown(Ref("a")));
+
+        cache.Warm([Ref("a"), Ref("bad")]);
+        Assert.True(cache.IsKnown(Ref("a")));
+        Assert.True(cache.IsKnown(Ref("bad")));
+
+        // Evicting makes it unknown again (a prefetch asks for it anew); so does Clear.
+        cache.Warm([Ref("b"), Ref("c"), Ref("d")]);
+        Assert.False(cache.IsKnown(Ref("a")));
+        cache.Clear();
+        Assert.False(cache.IsKnown(Ref("d")));
+        Assert.Equal(4, cache.RetiredCount);
+        cache.ReleaseRetired();
+        Assert.Equal(0, cache.RetiredCount);
+    }
 }

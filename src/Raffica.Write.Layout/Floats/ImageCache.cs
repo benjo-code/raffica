@@ -98,6 +98,18 @@ public sealed class ImageCache : IDisposable
         }
     }
 
+    /// <summary>How many evicted or cleared pictures wait for <see cref="ReleaseRetired"/>.</summary>
+    public int RetiredCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _retired.Count;
+            }
+        }
+    }
+
     /// <summary>The decoded picture, or null when it cannot be drawn. Decodes on the calling thread when decode on get is on. The cache owns the image: do not dispose it.</summary>
     public SKImage? Get(ImageRef image)
     {
@@ -107,6 +119,18 @@ public sealed class ImageCache : IDisposable
         }
 
         return Obtain(image.Id, decode: true, out _);
+    }
+
+    /// <summary>
+    /// Whether the picture was tried already: decoded and kept, or answered null (refused, unreadable). Does not decode and does not mark the picture as used. False for a
+    /// picture that was never asked for, that was evicted or that <see cref="Clear"/> dropped.
+    /// </summary>
+    public bool IsKnown(ImageRef image)
+    {
+        lock (_gate)
+        {
+            return !_disposed && _images.ContainsKey(image.Id);
+        }
     }
 
     /// <summary>The picture when it is already decoded (and marks it as used), otherwise null; never decodes.</summary>

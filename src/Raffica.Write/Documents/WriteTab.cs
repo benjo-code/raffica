@@ -14,6 +14,8 @@ namespace Raffica.Write.Documents;
 internal sealed class WriteTab : IDisposable
 {
     private readonly PackageImageSource _images;
+    private readonly ImageCache _pictures;
+    private bool _viewOwnsPictures;
     private readonly FontCatalog _fonts;
     private readonly int _prefixBlocks;
     private DocxFile _docx;
@@ -28,6 +30,7 @@ internal sealed class WriteTab : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(opened);
         _images = opened.Images;
+        _pictures = opened.Pictures;
         _fonts = opened.Fonts;
         _prefixBlocks = opened.PrefixBlocks;
         _docx = opened.Docx;
@@ -47,6 +50,7 @@ internal sealed class WriteTab : IDisposable
         ArgumentNullException.ThrowIfNull(opened);
         ArgumentException.ThrowIfNullOrWhiteSpace(untitledTitle);
         _images = opened.Images;
+        _pictures = opened.Pictures;
         _fonts = opened.Fonts;
         _prefixBlocks = opened.PrefixBlocks;
         _docx = opened.Docx;
@@ -126,6 +130,21 @@ internal sealed class WriteTab : IDisposable
 
     /// <summary>Reads the pictures of the package; pass <see cref="PackageImageSource.Read"/> to an image cache. Throws once the tab is disposed.</summary>
     public PackageImageSource Images => _images;
+
+    /// <summary>
+    /// The decoded pictures the page view draws from. Decode on get is off, so only the opener (page 1) and the view's prefetch fill it, never a draw. The tab owns it;
+    /// the view that draws from it disposes it when the draw gate has closed and the last draw has ended (<see cref="ClaimPicturesForView"/>), otherwise
+    /// <see cref="Dispose"/> does.
+    /// </summary>
+    /// <remarks>
+    /// The cache is not cleared when <see cref="CompleteOpen"/> swaps the package: the picture ids are valid in both snapshots (the same file) and a read is deterministic
+    /// on an in-memory snapshot, so a picture that failed to decode would fail again and one that is kept is still right. A change of the package's pictures (a later
+    /// "insert picture") must call <see cref="ImageCache.Clear"/>.
+    /// </remarks>
+    public ImageCache Pictures => _pictures;
+
+    /// <summary>The page view takes over disposing <see cref="Pictures"/> (after its draw gate closed); called once by the view that draws this tab.</summary>
+    internal void ClaimPicturesForView() => _viewOwnsPictures = true;
 
     /// <summary>The prefix size the first page was made from (0: the file was opened whole).</summary>
     public int PrefixBlocks => _prefixBlocks;
@@ -235,6 +254,11 @@ internal sealed class WriteTab : IDisposable
             finally
             {
                 Docx.Dispose();
+                if (!_viewOwnsPictures)
+                {
+                    _pictures.Dispose();
+                }
+
                 _images.Dispose();
             }
 

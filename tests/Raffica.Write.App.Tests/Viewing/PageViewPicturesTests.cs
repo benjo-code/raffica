@@ -1,0 +1,162 @@
+using Avalonia.Headless.XUnit;
+using Raffica.Write.Layout;
+using Xunit;
+
+namespace Raffica.WriteApp.Tests.Viewing;
+
+/// <summary>The app never decodes a picture on the render thread: the opener decodes page 1's, the view prefetches around what is visible, a draw only draws what is decoded.</summary>
+public sealed class PageViewPicturesTests : IDisposable
+{
+    private readonly string _folder = Directory.CreateTempSubdirectory("raffica-write-pictures-").FullName;
+
+    public void Dispose() => Directory.Delete(_folder, recursive: true);
+
+    private static ImageRef[] PicturesOf(DocumentLayout layout, int page) =>
+        [.. layout.Page(page).Items.OfType<ImageItem>().Select(i => i.Image)];
+
+    [AvaloniaFact]
+    public void PageOneHasItsPicturesDecodedBeforeTheFirstSharpPage()
+    {
+        var path = PictureDocx.Write(_folder, pages: 4, perPage: 2);
+        using var h = new ViewHarness(path);
+
+        Assert.Equal(1, h.FirstSharpCount);
+        var pageOne = PicturesOf(h.Tab.Layout, 0);
+        Assert.Equal(2, pageOne.Length);
+
+        // Decoded by the opener (a pool thread in the app) before the view existed: the first draw found them, no draw decoded anything.
+        Assert.Equal(pageOne.Length, h.DecodesAtFirstSharp);
+        Assert.All(pageOne, p => Assert.NotNull(h.Tab.Pictures.TryGet(p)));
+    }
+
+    [AvaloniaFact]
+    public void ADrawNeverDecodes()
+    {
+        var path = PictureDocx.Write(_folder, pages: 3);
+        using var h = new ViewHarness(path);
+        var pictures = h.Tab.Pictures;
+
+        // No prefetch from here on: only a draw could decode now.
+        h.View.PrefetchEnabled = false;
+        var rect = h.View.PageBounds(0)!.Value;
+        var withPicture = h.Capture().Hash((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height / 2);
+        var before = h.View.DrawCount;
+        pictures.Clear();
+        pictures.ReleaseRetired();
+        var decodes = pictures.DecodeCount;
+        var refs = PicturesOf(h.Tab.Layout, 0);
+        Assert.Single(refs);
+
+        // The draw meets an undecoded picture and draws the marked box instead of decoding.
+        h.View.InvalidateVisual();
+        var shot = h.Capture();
+        Assert.True(h.View.DrawCount > before, "a frame was drawn");
+        Assert.Equal(decodes, pictures.DecodeCount);
+        Assert.Null(pictures.TryGet(refs[0]));
+        Assert.NotEqual(withPicture, shot.Hash((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height / 2));
+    }
+
+    [AvaloniaFact]
+    public async Task ScrollingPrefetchesThePagesInViewAndOnePageEachSide()
+    {
+        var path = PictureDocx.Write(_folder, pages: 20);
+        using var h = new ViewHarness(path);
+        var uiThread = Environment.CurrentManagedThreadId;
+        var threads = new List<int>();
+        var decodedEvents = 0;
+        h.Tab.Pictures.Decoded += () =>
+        {
+            lock (threads)
+            {
+                threads.Add(Environment.CurrentManagedThreadId);
+                decodedEvents++;
+            }
+        };
+
+        await h.LayOutEverythingAsync();
+
+        var layout = h.Tab.Layout;
+        h.View.ScrollToPage(10);
+        ViewHarness.Pump();
+        var (first, last) = h.View.Scroller!.Visible(h.View.OffsetY, h.View.Viewport.Height);
+        var wanted = Enumerable.Range(Math.Max(0, first - 1), last - first + 3).SelectMany(p => PicturesOf(layout, p)).ToArray();
+        Assert.True(wanted.Length >= 3);
+        await ViewHarness.WaitAsync(() => wanted.All(p => h.Tab.Pictures.TryGet(p) is not null));
+
+        // Far pages were not touched, the decoding was off the UI thread, and the view asked for a frame because of it (once per burst).
+        Assert.Null(h.Tab.Pictures.TryGet(PicturesOf(layout, 17)[0]));
+        lock (threads)
+        {
+            Assert.NotEmpty(threads);
+            Assert.DoesNotContain(uiThread, threads);
+        }
+
+        await ViewHarness.WaitAsync(() => h.View.PictureRedraws >= 1);
+        Assert.InRange(h.View.PictureRedraws, 1, decodedEvents);
+    }
+
+    [AvaloniaFact]
+    public void ACacheDisposeWaitsForTheDrawGate()
+    {
+        var path = PictureDocx.Write(_folder, pages: 2);
+        var h = new ViewHarness(path);
+        try
+        {
+            var picture = PicturesOf(h.Tab.Layout, 0)[0];
+            Assert.True(h.View.Gate.TryEnter(), "a draw is in flight");
+            h.Tab.Dispose();
+
+            Assert.True(h.View.Gate.IsClosed);
+            Assert.False(h.View.PicturesReleased);
+            Assert.NotNull(h.Tab.Pictures.TryGet(picture));
+
+            h.View.Gate.Exit();
+            Assert.True(h.View.PicturesReleased);
+            Assert.Null(h.Tab.Pictures.TryGet(picture));
+        }
+        finally
+        {
+            h.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task PictureHeavyFilesStayUnderTheBudget()
+    {
+        // 30 pictures of 100 x 100 pixels (40,000 bytes decoded each) against a budget of ten of them.
+        var path = PictureDocx.Write(_folder, pages: 30, pixels: 100);
+        using var h = new ViewHarness(path, pictureLimits: new ImageCacheLimits(400_000, 20_000));
+        await h.LayOutEverythingAsync();
+
+        for (var page = 0; page < 30; page += 2)
+        {
+            h.View.ScrollToPage(page);
+            h.Capture();
+            await Task.Delay(20);
+        }
+
+        await ViewHarness.WaitAsync(() => h.Tab.Pictures.DecodeCount > 10);
+        h.Capture();
+        Assert.InRange(h.Tab.Pictures.DecodedBytes, 1, 400_000);
+    }
+
+    [AvaloniaFact]
+    public async Task EvictedPicturesAreDisposedByTheDrawThatMayHaveHeldThem()
+    {
+        var path = PictureDocx.Write(_folder, pages: 12, pixels: 100);
+        using var h = new ViewHarness(path, pictureLimits: new ImageCacheLimits(160_000, 20_000));
+        await h.LayOutEverythingAsync();
+        for (var page = 0; page < 12; page++)
+        {
+            h.View.ScrollToPage(page);
+            h.Capture();
+            await Task.Delay(30);
+        }
+
+        // Prefetch evicts (retires) from a pool thread and every draw ends with ReleaseRetired inside the gate: after the last draw nothing waits.
+        await ViewHarness.WaitAsync(() => h.Tab.Pictures.DecodeCount > 4);
+        h.View.InvalidateVisual();
+        h.Capture();
+        Assert.Equal(0, h.Tab.Pictures.RetiredCount);
+    }
+}
