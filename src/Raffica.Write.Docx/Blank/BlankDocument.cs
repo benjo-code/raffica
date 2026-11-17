@@ -165,9 +165,9 @@ public static class BlankDocument
         {
             var (font, glyph) = (level % 3) switch
             {
-                0 => ("Symbol", ""),
+                0 => ("Symbol", "\uF0B7"),
                 1 => ("Courier New", "o"),
-                _ => ("Wingdings", ""),
+                _ => ("Wingdings", "\uF0A7"),
             };
             sb.Append(CultureInfo.InvariantCulture, $"<w:lvl w:ilvl=\"{I(level)}\"><w:start w:val=\"1\"/><w:numFmt w:val=\"bullet\"/><w:lvlText w:val=\"{glyph}\"/><w:lvlJc w:val=\"left\"/><w:pPr><w:ind w:left=\"{I(720 + (level * 360))}\" w:hanging=\"360\"/></w:pPr><w:rPr><w:rFonts w:ascii=\"{font}\" w:hAnsi=\"{font}\" w:hint=\"default\"/></w:rPr></w:lvl>");
         }
