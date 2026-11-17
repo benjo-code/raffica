@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -15,6 +16,7 @@ using Raffica.Shell.Localization;
 using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 using Raffica.Write.Platform.MacOS;
 using Raffica.Write.Settings;
 using RecentFilesStore = Raffica.Core.Settings.RecentFilesStore;
@@ -36,7 +38,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     // A hand-over of 64 hostile paths must not become 64 cards.
     private const int MaxHandoverErrorCards = 3;
-    private const int MaxShownNameLength = 120;
+    internal const int MaxShownNameLength = 120;
 
     private readonly WriteOptions _options;
     private readonly RecentService _recent;
@@ -137,6 +139,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         // Window-wide keys: the command search (Alt+Q; Cmd+K on macOS), Open, Close tab and the tab switch.
         FrameKeys.Attach(this, TitleSearch, SearchShortcut.AltQ);
         AttachKeys();
+        AttachRecovery();
 
         Closing += OnWindowClosing;
         Closed += OnWindowClosed;
@@ -215,6 +218,37 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     private void OnStartTile(StartApp app) => _ = GuardAsync(OpenFromDialogAsync);
 
     // Opening.
+
+    /// <summary>The paper a new document gets: A4, or Letter in the US and Canada (tests set their own).</summary>
+    internal Func<PaperSize> PaperSource { get; set; } = () => BlankPaper.For(RegionInfo.CurrentRegion);
+
+    /// <summary>
+    /// Makes a new untitled document of the paper (the window's <see cref="PaperSource"/> when none is given) and shows it in a tab of its own, as an opened file is. Null when the window is
+    /// closing or the blank document could not be made; the latter is told in the open-error card of the app (no path to name, so the card names the untitled document).
+    /// </summary>
+    internal async Task<WriteTab?> NewDocumentAsync(Func<PaperSize>? paper = null)
+    {
+        if (IsClosing)
+        {
+            return null;
+        }
+
+        try
+        {
+            var tab = await Flow.NewDocumentAsync((paper ?? PaperSource)(), _closeToken);
+            if (tab is null)
+            {
+                ShowOpenError(WriteStrings.UntitledName, OpenError.Other);
+            }
+
+            return tab;
+        }
+        catch (OperationCanceledException)
+        {
+            // The window closed while the document was made: no tab, nothing left behind.
+            return null;
+        }
+    }
 
     /// <summary>Opens the files in order; the last one opened is active, files that cannot be opened end in a card (one card for two or more).</summary>
     internal Task OpenFilesAsync(IEnumerable<string> paths) => Flow.OpenManyAsync(paths, _closeToken);
@@ -304,14 +338,36 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         return string.IsNullOrEmpty(name) ? path : name;
     }
 
-    private void ShowOpenError(string path, OpenError error) =>
-        _ = Dialogs.ShowAsync<bool>(done => OpenErrorCard.Create(DisplayName(path), error, () => done(true)));
+    private void ShowOpenError(string path, OpenError error) => ShowOpenErrorCard(path, error, recoveryCopy: false);
+
+    private void ShowOpenErrorCard(string path, OpenError error, bool recoveryCopy) =>
+        _ = Dialogs.ShowAsync<bool>(done => OpenErrorCard.Create(ShortName(DisplayName(path)), error, () => done(true), recoveryCopy));
+
+    /// <summary>A name shown in a card, cut to <see cref="MaxShownNameLength"/> characters without splitting a surrogate pair (a name comes from a file, a sidecar or a hand-over: untrusted).</summary>
+    internal static string ShortName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (name.Length <= MaxShownNameLength)
+        {
+            return name;
+        }
+
+        var end = MaxShownNameLength;
+        if (char.IsHighSurrogate(name[end - 1]) && char.IsLowSurrogate(name[end]))
+        {
+            end--;
+        }
+
+        return name[..end];
+    }
 
     // Two or more files of one open that failed: one card with the names (up to five, then "and N more"), not one card each.
-    private void ShowOpenFailures(IReadOnlyList<OpenFailure> failures)
+    private void ShowOpenFailures(IReadOnlyList<OpenFailure> failures) => ShowOpenFailuresCard(failures, recoveryCopies: false);
+
+    private void ShowOpenFailuresCard(IReadOnlyList<OpenFailure> failures, bool recoveryCopies)
     {
-        var names = failures.Select(failure => DisplayName(failure.Path)).Select(name => name.Length > MaxShownNameLength ? name[..MaxShownNameLength] : name).ToList();
-        _ = Dialogs.ShowAsync<bool>(done => OpenFailuresCard.Create(names, () => done(true)));
+        var names = failures.Select(failure => ShortName(DisplayName(failure.Path))).ToList();
+        _ = Dialogs.ShowAsync<bool>(done => OpenFailuresCard.Create(names, () => done(true), recoveryCopies));
     }
 
     /// <summary>Runs an open that nobody awaits (argument, drop, dialog): whatever goes wrong must not take the app down.</summary>
@@ -365,12 +421,19 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 await OpenFilesAsync(_options.Files);
                 await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
                 await LoadRecentAsync();
+
+                // A file that did not open leaves a window with no tab: it is shown like an idle one, so it offers the copies (once per process).
+                if (Workspace.Tabs.Count == 0)
+                {
+                    RequestRecoveryOffer();
+                }
             });
             return;
         }
 
         await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
         await GuardAsync(LoadRecentAsync);
+        RequestRecoveryOffer();
     }
 
     /// <summary>Reads the recent files off the UI thread (once; a second call waits for the first). Nothing of it runs before the first file or the first idle moment.</summary>
@@ -424,7 +487,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             {
                 if (rejected.Count < MaxHandoverErrorCards)
                 {
-                    rejected.Add(path.Length > MaxShownNameLength ? path[..MaxShownNameLength] : path);
+                    rejected.Add(ShortName(path));
                 }
             });
             Dispatcher.Post(() => ShowHandover(accepted, rejected));
@@ -626,7 +689,12 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         if (e.Action == NotifyCollectionChangedAction.Add)
         {
             var tab = (WriteTab)e.NewItems![0]!;
-            _recent.Touch(tab.Path);
+            if (tab.Path is { } opened)
+            {
+                _recent.Touch(opened);
+            }
+
+            WatchRecovery(tab);
             Tabs.Items.Insert(Math.Min(e.NewStartingIndex, Tabs.Items.Count), tab.Tab);
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove)
@@ -636,6 +704,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             _faultShown.Remove(tab);
             ForgetOutline(tab);
             ForgetFormatting(tab);
+            ForgetRecovery(tab);
             Tabs.Items.Remove(tab.Tab);
         }
 
@@ -767,6 +836,8 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     IReadOnlyList<RecentFile> IWriteMenuWindow.RecentFiles => Start.Recent;
 
+    void IWriteMenuWindow.NewDocument() => _ = GuardAsync(() => NewDocumentAsync());
+
     void IWriteMenuWindow.Open() => _ = GuardAsync(OpenFromDialogAsync);
 
     /// <summary>Closes the active tab after the question about its unsaved changes, if it has any (a clean tab closes at once, before this returns).</summary>
@@ -865,6 +936,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
         if (!IsCloseRunning && !Workspace.Tabs.Any(t => t.IsDirty) && !_saves.IsAnyRunning && _closingTabs.Count == 0)
         {
             QuitRequested = quit;
+            ReleaseRecovery(Workspace.Tabs);
             ConfirmClose();
             return;
         }
@@ -914,6 +986,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             if (await _closeGuard.CanCloseAllAsync(Workspace.Tabs.ToList()))
             {
                 // Posted: with no dirty tab the guard completes synchronously, and Close must not run nested inside the Closing event.
+                ReleaseRecovery(Workspace.Tabs);
                 ConfirmClose();
                 Dispatcher.UIThread.Post(Close);
             }
@@ -956,6 +1029,9 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 Settings.RememberWindow(placement);
             }
         });
+
+        // A snapshot in flight ends silently and no copy is deleted here: the close questions did that where they were answered.
+        Step(StopRecovery);
 
         // Every tab cancels what runs on its document and lets go of its file; then the files get what is queued, waiting a moment at most.
         foreach (var tab in Workspace.Tabs.ToList())

@@ -33,8 +33,13 @@ internal static class WriteStrings
     public static string OpenFailuresTitle => Table.Get("OpenFailuresTitle");
     public static string OpenFailuresMessage => Table.Get("OpenFailuresMessage");
     public static string OpenFailuresMoreFormat => Table.Get("OpenFailuresMoreFormat");
+    public static string RecoveryErrorTitle => Table.Get("RecoveryErrorTitle");
+    public static string RecoveryErrorReason => Table.Get("RecoveryErrorReason");
+    public static string RecoveryFailuresTitle => Table.Get("RecoveryFailuresTitle");
+    public static string RecoveryFailuresMessage => Table.Get("RecoveryFailuresMessage");
     public static string SettingsDefaultView => Table.Get("SettingsDefaultView");
     public static string SettingsDefaultZoom => Table.Get("SettingsDefaultZoom");
+    public static string SettingsAutosaveLabel => Table.Get("SettingsAutosaveLabel");
     public static string ViewPage => Table.Get("ViewPage");
     public static string ViewWriting => Table.Get("ViewWriting");
     public static string ZoomActualSize => Table.Get("ZoomActualSize");
@@ -57,6 +62,9 @@ internal static class WriteStrings
     public static string GroupZoom => Table.Get("GroupZoom");
     public static string GroupViews => Table.Get("GroupViews");
     public static string GroupPanes => Table.Get("GroupPanes");
+    public static string CmdNew => Table.Get("CmdNew");
+    public static string DescNew => Table.Get("DescNew");
+    public static string ReasonClosing => Table.Get("ReasonClosing");
     public static string CmdOpen => Table.Get("CmdOpen");
     public static string CmdCloseTab => Table.Get("CmdCloseTab");
     public static string CmdSettings => Table.Get("CmdSettings");
@@ -182,6 +190,8 @@ internal static class WriteStrings
     public static string CmdSave => Table.Get("CmdSave");
     public static string CmdSaveAs => Table.Get("CmdSaveAs");
     public static string SaveDialogTitle => Table.Get("SaveDialogTitle");
+    public static string UntitledName => Table.Get("UntitledName");
+    public static string UntitledNumberedFormat => Table.Get("UntitledNumberedFormat");
     public static string ReasonNothingToSave => Table.Get("ReasonNothingToSave");
     public static string ReasonSaveFaulted => Table.Get("ReasonSaveFaulted");
     public static string ReasonSaveAsFaulted => Table.Get("ReasonSaveAsFaulted");
@@ -196,6 +206,13 @@ internal static class WriteStrings
     public static string UnsavedTitle => Table.Get("UnsavedTitle");
     public static string UnsavedMessageFormat => Table.Get("UnsavedMessageFormat");
     public static string UnsavedDontSave => Table.Get("UnsavedDontSave");
+    public static string RecoveryTitle => Table.Get("RecoveryTitle");
+    public static string RecoveryBody => Table.Get("RecoveryBody");
+    public static string RecoveryRestore => Table.Get("RecoveryRestore");
+    public static string RecoveryDiscard => Table.Get("RecoveryDiscard");
+    public static string RecoveryLater => Table.Get("RecoveryLater");
+    public static string RecoveryMoreFormat => Table.Get("RecoveryMoreFormat");
+    public static string RecoveryEntryFormat => Table.Get("RecoveryEntryFormat");
     public static string PageViewNameFormat => Table.Get("PageViewNameFormat");
     public static string PageViewPageNameFormat => Table.Get("PageViewPageNameFormat");
     public static string FormattingNoSelection => Table.Get("FormattingNoSelection");

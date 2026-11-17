@@ -43,6 +43,7 @@ internal sealed partial class PageView : Control, IDisposable
     private readonly LayoutRunner _runner;
     private readonly ImageCache _images;
     private readonly DrawGate _gate = new();
+    private readonly Dispatcher _dispatcher;
     private readonly ScrollBar _vertical = new() { Orientation = Orientation.Vertical, Visibility = ScrollBarVisibility.Auto, Focusable = false };
     private readonly ScrollBar _horizontal = new() { Orientation = Orientation.Horizontal, Visibility = ScrollBarVisibility.Auto, Focusable = false };
     private PageScroller? _scroller;
@@ -66,13 +67,23 @@ internal sealed partial class PageView : Control, IDisposable
     private bool _released;
     private int _firstSharpPosted;
     private (int Page, int Count) _namedFor = (-1, -1);
+    private bool _prefetchRunning;
+    private ImageRef[] _prefetchRunningSet = [];
+    private CancellationTokenSource? _prefetchCancel;
+    private ImageRef[]? _prefetchNext;
+    private int _prefetchStarts;
+    private int _redrawPosted;
+    private int _pictureRedraws;
 
     public PageView(WriteTab tab, WriteView mode = WriteView.Page, ZoomMode zoomMode = ZoomMode.FitWidth)
     {
         ArgumentNullException.ThrowIfNull(tab);
         _tab = tab;
         _runner = tab.Runner;
-        _images = new ImageCache(tab.Images.Read);
+        _images = tab.Pictures;
+        _dispatcher = Dispatcher;
+        tab.ClaimPicturesForView();
+        _images.Decoded += OnPicturesDecoded;
         _mode = mode;
         _scrollerMode = mode;
         _zoomMode = zoomMode;
@@ -237,6 +248,9 @@ internal sealed partial class PageView : Control, IDisposable
         _runner.Changed -= OnRunnerChanged;
         _runner.Faulted -= OnRunnerFaulted;
         _tab.Disposing -= Release;
+        _images.Decoded -= OnPicturesDecoded;
+        _prefetchNext = null;
+        CancelPrefetch();
         ReleaseEditing();
         // Never waits: the pictures go now when no draw runs, otherwise when the draw that runs ends (on the render thread).
         _gate.Close(() =>
@@ -868,9 +882,167 @@ internal sealed partial class PageView : Control, IDisposable
                 {
                     FirstSharpPageShown = true;
                     FirstSharpPage?.Invoke();
+                    PrefetchPictures();
                 },
                 DispatcherPriority.Background);
         }
+    }
+
+    // Pictures.
+
+    /// <summary>How many frames the view asked for because a prefetch decoded pictures (tests).</summary>
+    internal int PictureRedraws => Volatile.Read(ref _pictureRedraws);
+
+    /// <summary>Whether the view prefetches pictures (tests turn it off to prove that a draw alone never decodes).</summary>
+    internal bool PrefetchEnabled { get; set; } = true;
+
+    /// <summary>How many prefetch tasks the view started (tests: a burst of range changes starts one at a time).</summary>
+    internal int PrefetchStarts => _prefetchStarts;
+
+    // The pictures of the visible pages and one page on each side are decoded on a pool thread before a draw needs them: a draw never decodes. Nothing happens before the
+    // first sharp page (page 1's pictures were decoded by the opener). It runs after every change of the view (scroll, zoom, layout, edit, undo), so the question is asked from the
+    // pictures themselves: only the ones the cache does not know (never decoded, evicted, cleared) are wanted, which makes a repeated call cost a lookup per picture.
+    // One task runs at a time; a newer range replaces the one waiting behind it (latest wins) and stops the running one after its current picture.
+    private void PrefetchPictures()
+    {
+        if (_released || !PrefetchEnabled || !FirstSharpPageShown || _scroller is not { Count: > 0 } scroller || _builtLayout is not { } layout)
+        {
+            return;
+        }
+
+        var (first, last) = scroller.Visible(_offsetY, _viewport.Height);
+        first = Math.Max(0, first - 1);
+        last = Math.Min(layout.LaidOutPages - 1, last + 1);
+        List<ImageRef>? wanted = null;
+        for (var index = first; index <= last; index++)
+        {
+            if (layout.TryGetPage(index, out var page) && page is not null)
+            {
+                foreach (var picture in PagePictures.Of(page))
+                {
+                    if (!_images.IsKnown(picture) && (wanted is null || !wanted.Contains(picture)))
+                    {
+                        wanted ??= [];
+                        wanted.Add(picture);
+                    }
+                }
+            }
+        }
+
+        if (wanted is null)
+        {
+            _prefetchNext = null;
+            CancelPrefetch();
+            return;
+        }
+
+        if (!_prefetchRunning)
+        {
+            StartPrefetch([.. wanted]);
+        }
+        else if (wanted.Any(p => !_prefetchRunningSet.Contains(p)))
+        {
+            // A range the running task does not cover: it ends after its current picture and the newest range follows.
+            _prefetchNext = [.. wanted];
+            _prefetchCancel?.Cancel();
+        }
+        else
+        {
+            _prefetchNext = null;
+        }
+    }
+
+    private void StartPrefetch(ImageRef[] wanted)
+    {
+        var cancel = new CancellationTokenSource();
+        _prefetchRunning = true;
+        _prefetchRunningSet = wanted;
+        _prefetchCancel = cancel;
+        _prefetchStarts++;
+        var task = _images.Prefetch(wanted, cancel.Token);
+
+        // The prefetch task never faults; the continuation only hands the end of it back to the UI thread (the dispatcher was read there in the constructor).
+        _ = task.ContinueWith(
+            _ => _dispatcher.Post(() => PrefetchEnded(cancel), DispatcherPriority.Normal),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private void PrefetchEnded(CancellationTokenSource finished)
+    {
+        // Read before the dispose: a task that was stopped did not reach all of its pictures; one that ran to the end did (what it could not keep, a picture evicted by the budget, is
+        // not asked for again: that would decode forever when a range holds more than the cache keeps).
+        var wasCancelled = finished.IsCancellationRequested;
+        finished.Dispose();
+        if (ReferenceEquals(_prefetchCancel, finished))
+        {
+            _prefetchCancel = null;
+        }
+
+        _prefetchRunning = false;
+        _prefetchRunningSet = [];
+        var next = _prefetchNext;
+        _prefetchNext = null;
+        if (_released)
+        {
+            return;
+        }
+
+        if (next is null)
+        {
+            // A range that was scrolled back to while the task ran looked covered by it (no next range was kept), but the task was cancelled before it reached all of its
+            // pictures: ask from the pictures again (one lookup each; nothing is started when nothing is missing). Only after a cancelled task, so this ends: a task that ran
+            // to completion is never followed by another one without a new view change.
+            if (wasCancelled)
+            {
+                PrefetchPictures();
+            }
+
+            return;
+        }
+
+        // Asked again at the start: what was decoded meanwhile (by the task that just ended) is not wanted again.
+        var rest = next.Where(p => !_images.IsKnown(p)).ToArray();
+        if (rest.Length > 0)
+        {
+            StartPrefetch(rest);
+        }
+    }
+
+    private void CancelPrefetch()
+    {
+        try
+        {
+            _prefetchCancel?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The task ended between the check and the cancel.
+        }
+    }
+
+    // A pool thread decoded something: post one invalidation for a burst (the dispatcher was read on the UI thread in the constructor).
+    private void OnPicturesDecoded()
+    {
+        if (Interlocked.Exchange(ref _redrawPosted, 1) != 0)
+        {
+            return;
+        }
+
+        _dispatcher.Post(
+            () =>
+            {
+                Volatile.Write(ref _redrawPosted, 0);
+                if (_released)
+                {
+                    return;
+                }
+
+                Interlocked.Increment(ref _pictureRedraws);
+                InvalidateAll();
+            },
+            DispatcherPriority.Normal);
     }
 
     // Change notification and the automation name.
@@ -905,6 +1077,7 @@ internal sealed partial class PageView : Control, IDisposable
             RefreshAutomationName();
             ViewChanged?.Invoke();
             NotifyImeCursor();
+            PrefetchPictures();
         }
         finally
         {

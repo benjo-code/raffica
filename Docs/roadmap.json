@@ -347,6 +347,11 @@
       "date": "2026-11-16",
       "context": "Milestone 4.3a",
       "text": "Changes against the plan while the milestone was built: `IFragmentCodec` lives in `Raffica.Write.Model` (not in Editing), because Docx may not reference Editing and Editing may not reference Docx; a save that finds a target that appeared since the picker reuses `SaveFailureReason.TargetExists` instead of a new `TargetAppeared` member (a new member would have forced wording into the PDF app and the CLI); the layout gained a chrome-only refresh of headers and footers (a window of pages at once, the rest in a background pass) because a header edit (17.4 ms p95) and a footer with a page number (25 ms p95) exceeded the 16 ms limit; the typing metric `typing` is the worst p95 over all case and view pairs with a fixed limit of 16.0 ms, judged on CPU cost per keystroke while the key-to-frame latency is recorded (it is display pacing); `Raffica.Shell` gained `PaneFocus.Insert` for Write's F6 ring; the edit queue during a save is capped at 10,000 (the spec said no cap). The final review added: block content controls are containers of their own for the editor (paragraph lookup, history paths, anchors, copy), the outline pane reads on the UI thread and follows edits, any operation exception but the editor's stale-position refusal faults the session, and a save's dropped input is reported. The oracle compares incremental and full layout with exact equality (the planned 0.01 pt tolerance was not needed). The milestone stays in progress: the IME on three systems, the typing budgets on the Linux laptop and the Intel Mac and a look at the AOT build are the owner's."
+    },
+    {
+      "date": "2026-11-17",
+      "context": "Milestone 4.3.3",
+      "text": "Scope of 4.3c (owner, 2026-11-17): the shared crash guard for Write, which the 4.3a decision listed as a 4.3c follow-up, is not part of 4.3c; it moves to 4.9 together with the update flow, the default-app services and the print services (the roadmap tasks of 4.3.3 never named it). Recovery relies on the recovery copy alone. Added to the three tasks as design calls, not new features: untitled tabs (a tab without a path, Save is Save as), a New document command with Ctrl+N, and Write's own label for the autosave check box, which stores the shell's autosave value but only controls recovery copies. A restored document is never bound to its old path (Save is Save as with the old name suggested). The 16 ms typing criterion gets a new case, `typing-snapshot`, judged like `typing`. Design: `Docs/superpowers/specs/2026-11-17-raffica-write-4-3c-new-documents-and-recovery-design.md`."
     }
   ],
   "subprojects": [
@@ -963,16 +968,27 @@
         {
           "id": "4.3.3",
           "title": "New documents and recovery (4.3c)",
-          "status": "open",
+          "status": "in-progress",
+          "plan": "superpowers/plans/2026-11-17-milestone-04-3c-new-documents-and-recovery.md",
           "prerequisites": ["4.3.2"],
           "goal": "A new document starts from Write's built-in style set, and a crash loses no text.",
           "tasks": [
-            { "text": "New document with Write's built-in style set", "done": false },
-            { "text": "Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash", "done": false },
-            { "text": "Image cache budget, pixel cap and off-thread decode (follow-up of 4.2)", "done": false }
+            { "text": "New document with Write's built-in style set", "done": true },
+            { "text": "Autosave as a recovery copy every 30 s in Write's data folder, restore after a crash", "done": true },
+            { "text": "Image cache budget, pixel cap and off-thread decode (follow-up of 4.2)", "done": true }
           ],
           "acceptance": [
-            { "text": "Recovery after a killed process restores the text (test)", "done": false }
+            { "text": "Recovery after a killed process restores the text (test)", "done": true, "evidence": "`dotnet test tests/Raffica.Write.App.Tests -c Release --no-build --filter-class \"*KilledProcessRecoveryTests\"` at commit fdfe0d5 (Windows): 2 total, 2 passed, 0 failed, 0 skipped (3 s; three consecutive runs of 2 of 2 at the commit of the test, 45c7b8f, each 2.7 to 2.9 s). `tests/Raffica.Write.RecoveryHarness` is a separate process that types into a blank document and runs the real `AutosaveScheduler` and `RecoveryStore` with the real snapshot writer under a model lease; the test kills the whole process tree, lists the store, checks with the real process probe that the owner is gone, opens the copy with `DocxFile.Open` and compares it paragraph by paragraph with what the harness had printed (whole paragraphs, in order, at least the last printed copy); the second test kills during typing after a third copy. It does not prove the real app's lease, dispatcher or clock, a kill in the few milliseconds between the two writes of a first copy (a known limit), or Native AOT; those are the owner's kill-and-restart gate below." }
+          ],
+          "blocks": [
+            {
+              "title": "State of the tasks (2026-11-17)",
+              "text": "Tasks 1 to 13 of the plan, commits e8522a7 to fdfe0d5 and the documents commit after it: the blank document and its style set (24 styles, three numbering definitions), untitled tabs and the New document command (Ctrl+N), the recovery store (copy plus sidecar), the snapshot writer over the shared model-read lease, the autosave scheduler and window wiring, the setting and its label, the offer and Restore, the killed-process acceptance test, the image cache budget (256 MiB, 32 Mpx cap, LRU) and the off-thread decode, and `typing-snapshot` with the block cache that bounds the model read. Proof: the unit and window tests named in `Docs/DECISIONS.md`, \"Raffica Write: new documents and recovery (M4.3c)\"; the full run of 2026-11-17 is recorded there. Native AOT win-x64 on the Windows PC: `typing-snapshot` worst p95 9.83 to 12.37 ms against 16.0 (judged, snapshots back to back); the lease of a copy of the thesis 13.0 ms before and 1.4 ms after the block cache; cold start 245.7 ms, warm 241.8 ms, no change."
+            },
+            {
+              "title": "Open items (the milestone stays in progress)",
+              "text": "1. Word opens a blank document made by Write and a recovery copy that was restored and saved, without a repair prompt, and shows the style set as designed (steps and an empty result table: `Docs/write-word-check.md`, section \"New document and recovery (milestone 4.3c)\").\n2. Kill and restart on a real display: the real app on Windows, the Linux laptop and the Intel Mac is killed during typing and the next start offers the text.\n3. The autosave check box on a real display, and the German label (54 characters; the label wraps, pinned by a headless layout test).\n4. `typing` (judged, 16.0 ms, including `typing-snapshot`) and the start cases on the Linux laptop and the Intel Mac: `gh workflow run measure.yml --ref <ref> -f platform=<windows|linux|macos> -f target=write -f note=\"<machine>\" -f ref=<ref>` and `write-layout-bench edit --snapshot --file testdata/write-corpus/thesis/thesis.docx` on a Native AOT publish of the platform. The Windows PC measured on a noisy day (plain typing 12 to 13 ms against 4.9 to 6.9 ms on quiet days); a quiet re-run is wanted.\n5. The owner's call on the reading of the criterion for `typing-snapshot` (snapshots back to back, 3.5 a second, harsher than the real 30 s cadence; CPU cost judged, the lease and copy times recorded).\nThe 4.2, 4.3a and 4.3b gates stay open and are not claimed here. The shared crash guard is not part of this milestone (see \"Scope changes\"; it moves to 4.9)."
+            }
           ]
         },
         {

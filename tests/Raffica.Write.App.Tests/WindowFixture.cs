@@ -18,6 +18,9 @@ internal sealed class WindowFixture : IDisposable
 
     public string Folder { get; }
 
+    /// <summary>Runs on each window after it was made and before it is shown (tests set what the start looks at).</summary>
+    public Action<WriteWindow>? BeforeShow { get; set; }
+
     public string SettingsFile => Path.Combine(Folder, "settings.json");
 
     public WriteWindow Window => _windows[^1];
@@ -37,6 +40,7 @@ internal sealed class WindowFixture : IDisposable
         var options = WriteOptions.Parse(["--settings-file", SettingsFile, .. files]);
         var window = new WriteWindow(options, new SettingsStore(SettingsFile).Load(), app, work, deferRibbon);
         _windows.Add(window);
+        BeforeShow?.Invoke(window);
         window.Show();
         Pump();
         return window;

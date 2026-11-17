@@ -27,7 +27,7 @@ internal sealed class WriteOptions
     /// <summary>
     /// The measurement switch of the run (at most one): <c>--measure-startup</c> (the line <c>first-page</c>), <c>--measure-second</c>
     /// (also <c>second-page</c> for a file handed over by a second launch), <c>--measure-scroll</c> (also <c>scroll ...</c>) or
-    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>) <c>--measure-typing</c> (also <c>typing ...</c> rows) or <c>--measure-typing-background</c> (also one <c>typing-background ...</c> row), <c>--measure-typing-pane</c> (the typing rows with the formatting pane open) or <c>--measure-format</c> (also <c>format ...</c> rows); null for a normal run. See <see cref="Measurement"/>.
+    /// <c>--measure-memory</c> (also <c>memory-bytes ...</c>) <c>--measure-typing</c> (also <c>typing ...</c> rows) or <c>--measure-typing-background</c> (also one <c>typing-background ...</c> row), <c>--measure-typing-pane</c> (the typing rows with the formatting pane open) or <c>--measure-format</c> (also <c>format ...</c> rows) or <c>--measure-typing-snapshot</c> (the typing rows while recovery snapshots are written back to back, also one <c>snapshot ...</c> row); null for a normal run. See <see cref="Measurement"/>.
     /// </summary>
     public string? MeasureSwitch { get; private init; }
 
@@ -94,7 +94,7 @@ internal sealed class WriteOptions
                 case "--print-string":
                     printString = Value(args, ref i);
                     break;
-                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory" or "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format":
+                case "--measure-startup" or "--measure-second" or "--measure-scroll" or "--measure-memory" or "--measure-typing" or "--measure-typing-background" or "--measure-typing-pane" or "--measure-format" or "--measure-typing-snapshot":
                     if (measure is not null)
                     {
                         throw new ArgumentException($"'{args[i]}' and '{measure}' cannot be combined (one measurement per run)");

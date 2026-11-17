@@ -57,6 +57,7 @@ public sealed partial class TextEditor
             [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)],
             Style: change,
             KeepSelection: true);
+        _document.Edits.Attribute(result.Changes);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
     }

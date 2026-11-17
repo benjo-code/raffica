@@ -157,6 +157,26 @@ public sealed class PackageImageSourceTests
     }
 
     [Fact]
+    public void ReadsOnPoolThreadsAndARetargetMayRunAtTheSameTime()
+    {
+        // The opener and the prefetch read on pool threads while the full open swaps the package: one lock keeps every read whole.
+        using var source = new PackageImageSource(Package());
+        var other = Package();
+        var ids = new[] { "document#rId1", "header:rId2#rId1", "footnotes#rId1", "endnotes#rId1" };
+        var expected = new[] { "body", "header", "foot", "end" };
+
+        Parallel.For(0, 400, i =>
+        {
+            if (i % 50 == 0)
+            {
+                source.Retarget(other);
+            }
+
+            Assert.Equal(expected[i % 4], Text(source.Read(ids[i % 4])));
+        });
+    }
+
+    [Fact]
     public void ThePictureComesFromTheSnapshotNotFromTheFile()
     {
         // A real document with pictures: the source holds the bytes the file was read from, so it reads on after the file is gone.

@@ -206,6 +206,34 @@ public sealed class DocxFile : IDisposable
     public Task<SaveReport> SaveAsAsync(string targetPath, bool replaceExisting, bool overwriteChangedOriginal, CancellationToken cancellationToken = default) =>
         StartSave(targetPath, replaceExisting, overwriteChangedOriginal, rebind: true, cancellationToken);
 
+    /// <summary>
+    /// Writes a recovery copy: <see cref="SaveAsync(string, bool, CancellationToken)"/> to another path (nothing is rebound, no stamp or snapshot changes), with two differences. Inside the model read
+    /// (<see cref="BeforeModelRead"/> to <see cref="AfterModelRead"/>) the main part is not written block by block every time: the bytes of the blocks that did not change since the last copy are reused
+    /// (<see cref="BodySnapshotCache"/>), so the model is held for the blocks that changed only. And the guard after the write is lighter: the written bytes of every model part are compared with the package in
+    /// chunks, and the main part is read back as well-formed XML with a <c>w:document</c> root, not as a whole model (the other parts are read back as a model, and the checks of the parts that were not written are
+    /// the same). The parts it writes are the same as a save of the same model gives. The cache belongs to the file, so call this for one copy at a time (the recovery snapshot's in-flight mark does) and only for the model the editor reports its changes for.
+    /// </summary>
+    public Task<SaveReport> SaveSnapshotAsync(string targetPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(targetPath);
+        if (IsPrefix)
+        {
+            throw new InvalidOperationException("A file opened as a prefix holds only the start of the document and cannot be saved.");
+        }
+
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var full = Path.GetFullPath(targetPath);
+        return Task.Run(() => Save(full, replaceExisting: true, overwriteChangedOriginal: false, rebind: false, cancellationToken, useSnapshotCache: true), cancellationToken);
+    }
+
+    private BodySnapshotCache? _snapshotCache;
+
+    /// <summary>Test seam: the bytes of the main part as a user save writes them (<c>cached</c> false) or as a recovery copy does (<c>cached</c> true, the cache of this file).</summary>
+    internal byte[] SerialiseMainForTest(bool cached) => cached ? (_snapshotCache ??= new BodySnapshotCache()).Serialise(Model) : Bytes(s => DocumentXml.Write(Model.Body, s));
+
+    /// <summary>For diagnostics and tests: how many top-level blocks the last recovery copy wrote again and how many it reused (zeros before the first copy).</summary>
+    public (int Written, int Reused) LastSnapshotPass => _snapshotCache?.LastPass ?? (0, 0);
+
     private async Task<SaveReport> StartSave(string targetPath, bool replaceExisting, bool overwriteChangedOriginal, bool rebind, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(targetPath);
@@ -219,7 +247,11 @@ public sealed class DocxFile : IDisposable
         return await Task.Run(() => Save(full, replaceExisting, overwriteChangedOriginal, rebind, cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
-    public void Dispose() => _disposed = true;
+    public void Dispose()
+    {
+        _disposed = true;
+        _snapshotCache?.Dispose();
+    }
 
     // Opening.
 
@@ -421,7 +453,7 @@ public sealed class DocxFile : IDisposable
         HeaderFooter,
     }
 
-    private SaveReport Save(string target, bool replaceExisting, bool overwriteChangedOriginal, bool rebind, CancellationToken cancellationToken)
+    private SaveReport Save(string target, bool replaceExisting, bool overwriteChangedOriginal, bool rebind, CancellationToken cancellationToken, bool useSnapshotCache = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var resolved = AtomicFile.ResolveLink(target);
@@ -447,7 +479,7 @@ public sealed class DocxFile : IDisposable
             List<Intent> intended;
             try
             {
-                intended = Serialise();
+                intended = Serialise(useSnapshotCache);
             }
             finally
             {
@@ -458,7 +490,7 @@ public sealed class DocxFile : IDisposable
             CopySnapshot(temporary, metadata);
             var written = WritePackage(temporary, intended);
             AfterPackageWritten?.Invoke(temporary);
-            Guard(temporary, written);
+            Guard(temporary, written, useSnapshotCache);
             AtomicFile.FlushToDisk(temporary);
             metadata.ApplyTo(temporary);
             cancellationToken.ThrowIfCancellationRequested();
@@ -523,11 +555,11 @@ public sealed class DocxFile : IDisposable
     }
 
     /// <summary>Serialises every model part before anything is created, so a model that cannot be written ends the save early.</summary>
-    private List<Intent> Serialise()
+    private List<Intent> Serialise(bool useSnapshotCache)
     {
         var list = new List<Intent>
         {
-            new(WrittenKind.Document, null, Bytes(s => DocumentXml.Write(Model.Body, s))),
+            new(WrittenKind.Document, null, useSnapshotCache ? (_snapshotCache ??= new BodySnapshotCache()).Serialise(Model) : Bytes(s => DocumentXml.Write(Model.Body, s))),
         };
         if (Model.Styles is { } styles)
         {
@@ -685,7 +717,14 @@ public sealed class DocxFile : IDisposable
 
     // The check.
 
-    private void Guard(string temporary, (List<Written> Parts, string MainName) package)
+    /// <param name="temporary">The package that was just written.</param>
+    /// <param name="package">What was written into it.</param>
+    /// <param name="forSnapshot">
+    /// A recovery copy: the same checks, with two lighter ways of making them, so a copy written every few seconds does not load the collector of an editing process (the check of a user save
+    /// read the main part back into a whole model, 20 of the 25 MiB a copy of the 311-page thesis allocated). The written bytes are compared in chunks, not copied into one more array, and the
+    /// main part is read back as well-formed XML with the root <c>w:document</c> (a model that cannot be read from it is found when the copy is opened).
+    /// </param>
+    private void Guard(string temporary, (List<Written> Parts, string MainName) package, bool forSnapshot = false)
     {
         var written = package.Parts;
         using var snapshotStream = new MemoryStream(_snapshot, writable: false);
@@ -732,6 +771,23 @@ public sealed class DocxFile : IDisposable
         foreach (var part in written)
         {
             var entry = saved.GetEntry(part.Name.TrimStart('/')) ?? throw new DocxSaveException(DocxSaveReason.ModelNotReadable, part.Name);
+            if (forSnapshot)
+            {
+                if (!ContentEquals(entry, part.Bytes))
+                {
+                    throw new DocxSaveException(DocxSaveReason.ModelNotReadable, part.Name);
+                }
+
+                if (part.Kind == WrittenKind.Document)
+                {
+                    ReadBackWellFormed(part);
+                    continue;
+                }
+
+                ReadBack(part, written);
+                continue;
+            }
+
             byte[] back;
             using (var stream = entry.Open())
             using (var memory = new MemoryStream())
@@ -746,6 +802,55 @@ public sealed class DocxFile : IDisposable
             }
 
             ReadBack(part, written);
+        }
+    }
+
+    // Whether the entry holds exactly these bytes, compared in chunks (no copy of the entry is made).
+    private static bool ContentEquals(ZipArchiveEntry entry, byte[] expected)
+    {
+        using var stream = entry.Open();
+        var buffer = new byte[81920];
+        var offset = 0;
+        while (true)
+        {
+            var read = ReadFull(stream, buffer);
+            if (read == 0)
+            {
+                return offset == expected.Length;
+            }
+
+            if (offset + read > expected.Length || !buffer.AsSpan(0, read).SequenceEqual(expected.AsSpan(offset, read)))
+            {
+                return false;
+            }
+
+            offset += read;
+        }
+    }
+
+    // The light read-back of a recovery copy's main part: well-formed XML under a w:document root, no model built.
+    private static void ReadBackWellFormed(Written part) => ReadBackWellFormed(part.Name, part.Bytes);
+
+    internal static void ReadBackWellFormed(string partName, byte[] bytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            using var reader = XmlReader.Create(stream, XmlKit.ReaderSettings());
+            reader.MoveToContent();
+            if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "document" || reader.NamespaceURI != Names.W.NamespaceName)
+            {
+                throw new XmlException();
+            }
+
+            while (reader.Read())
+            {
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Whatever the reader throws on these bytes (not well-formed, not allowed by the reader settings, not readable) means the same: the part cannot be read back.
+            throw new DocxSaveException(DocxSaveReason.ModelNotReadable, partName);
         }
     }
 

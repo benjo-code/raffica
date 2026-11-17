@@ -122,6 +122,7 @@ public sealed partial class TextEditor
 
         _document.Edits.Raise();
         var inserted = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)]);
+        _document.Edits.Attribute(inserted.Changes);
         History.Record(inserted, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, span.IsCollapsed && lines.Count == 1 ? lines[0] : null);
         return inserted;
     }
@@ -742,6 +743,7 @@ public sealed partial class TextEditor
         var result = new EditResult(
             new TextPosition(span.Story, deleted.Survivor, deleted.Offset),
             [new BlockChange(span.Story, span.Container, span.FirstIndex, deleted.Removed, 1, old)]);
+        _document.Edits.Attribute(result.Changes);
         History.Record(result, before, revision, null);
         return result;
     }

@@ -9,13 +9,48 @@ namespace Raffica.Write.Documents;
 /// <param name="Layout">The layout of <see cref="Docx"/> with page 1 laid out; it is not final beyond page 1 while <see cref="DocxFile.IsPrefix"/> (see <see cref="DocumentLayout.ReplaceModel"/>).</param>
 /// <param name="Fonts">The font catalog of the process the layout draws with.</param>
 /// <param name="Images">Reads the pictures of the package on demand; disposed with the tab.</param>
+/// <param name="Pictures">The decoded pictures the view draws from (decode on get is off: a draw never decodes); page 1's pictures are decoded already. Disposed with the tab, after the last draw.</param>
 /// <param name="PrefixBlocks">The prefix size that was used (0 when the file was opened whole).</param>
-internal sealed record OpenedDocument(DocxFile Docx, DocumentLayout Layout, FontCatalog Fonts, PackageImageSource Images, int PrefixBlocks) : IDisposable
+internal sealed record OpenedDocument(DocxFile Docx, DocumentLayout Layout, FontCatalog Fonts, PackageImageSource Images, ImageCache Pictures, int PrefixBlocks) : IDisposable
 {
     public void Dispose()
     {
         Docx.Dispose();
+        Pictures.Dispose();
         Images.Dispose();
+    }
+}
+
+/// <summary>The pictures a laid-out page draws.</summary>
+internal static class PagePictures
+{
+    /// <summary>The distinct picture ids of <paramref name="page"/> (body, header, footer and note pictures alike).</summary>
+    public static ImageRef[] Of(LaidOutPage page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+
+        // A page never changes, so its list is made once (the view asks again after every edit and scroll).
+        return s_known.GetValue(page, Scan);
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LaidOutPage, ImageRef[]> s_known = [];
+
+    private static ImageRef[] Scan(LaidOutPage page)
+    {
+        List<ImageRef>? found = null;
+        foreach (var item in page.Items)
+        {
+            if (item is ImageItem picture)
+            {
+                found ??= [];
+                if (!found.Contains(picture.Image))
+                {
+                    found.Add(picture.Image);
+                }
+            }
+        }
+
+        return found is null ? [] : [.. found];
     }
 }
 
@@ -63,8 +98,9 @@ internal static class DocumentOpener
     /// <param name="maxLength">The largest file to open.</param>
     /// <param name="token">Cancels between the steps.</param>
     /// <param name="initialBlocks">The first prefix size (tests make it small).</param>
+    /// <param name="pictureLimits">The limits of the picture cache; null: the defaults (tests make them small).</param>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static OpenAttempt Open(string fullPath, OpenWork work, long maxLength, CancellationToken token, int initialBlocks = DefaultPrefixBlocks)
+    public static OpenAttempt Open(string fullPath, OpenWork work, long maxLength, CancellationToken token, int initialBlocks = DefaultPrefixBlocks, ImageCacheLimits? pictureLimits = null)
     {
         ArgumentNullException.ThrowIfNull(fullPath);
         ArgumentNullException.ThrowIfNull(work);
@@ -100,7 +136,7 @@ internal static class DocumentOpener
                 return OpenAttempt.Failure(Classify(fullPath));
             }
 
-            return LayOutFirstPage(first, fonts, work, Math.Max(1, initialBlocks), token);
+            return LayOutFirstPage(first, fonts, work, Math.Max(1, initialBlocks), pictureLimits, token);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
         {
@@ -108,9 +144,48 @@ internal static class DocumentOpener
         }
     }
 
-    private static OpenAttempt LayOutFirstPage(DocxFile first, FontCatalog fonts, OpenWork work, int initialBlocks, CancellationToken token)
+    /// <summary>
+    /// Opens the bytes of a new document (a whole file, never a prefix) up to a laid-out page 1, on a pool thread. Like <see cref="Open"/> every problem is an
+    /// <see cref="OpenError"/> and only cancellation and a lack of memory pass through.
+    /// </summary>
+    /// <param name="bytes">The package, for example from <c>BlankDocument.Create</c>.</param>
+    /// <param name="work">The fonts of the process and the counters.</param>
+    /// <param name="token">Cancels between the steps.</param>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static OpenAttempt OpenBlank(byte[] bytes, OpenWork work, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+        ArgumentNullException.ThrowIfNull(work);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var fonts = work.Fonts();
+            _ = WarmUp(fonts);
+            work.NoteFileOpened();
+            DocxFile docx;
+            try
+            {
+                docx = DocxFile.Open(bytes);
+            }
+            catch (DocxFormatException)
+            {
+                return OpenAttempt.Failure(OpenError.Corrupt);
+            }
+
+            return LayOutFirstPage(docx, fonts, work, DefaultPrefixBlocks, null, token);
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+        {
+            return OpenAttempt.Failure(Map(ex));
+        }
+    }
+
+    private static OpenAttempt LayOutFirstPage(DocxFile first, FontCatalog fonts, OpenWork work, int initialBlocks, ImageCacheLimits? pictureLimits, CancellationToken token)
     {
         var images = new PackageImageSource(first.Package);
+
+        // The view never decodes on the render thread (decode on get is off): page 1's pictures are decoded here, on the pool thread of the open, before the first draw.
+        ImageCache? pictures = new(images.Read, pictureLimits, decodeOnGet: false);
         var docx = first;
         try
         {
@@ -126,8 +201,10 @@ internal static class DocumentOpener
                 // A prefix that holds the whole body is the whole file; one whose page 1 never reached its last block cannot change.
                 if (!docx.IsPrefix || layout.FirstPageIsFinal)
                 {
-                    var made = new OpenedDocument(docx, layout, fonts, images, docx.IsPrefix ? blocks : 0);
+                    pictures.Warm(PagePictures.Of(layout.Page(0)), token);
+                    var made = new OpenedDocument(docx, layout, fonts, images, pictures, docx.IsPrefix ? blocks : 0);
                     images = null;
+                    pictures = null;
                     return OpenAttempt.Of(made);
                 }
 
@@ -144,8 +221,10 @@ internal static class DocumentOpener
                     var wholeLayout = DocumentLayout.Create(docx.Model, fonts, options);
                     work.NoteLayoutCreated();
                     wholeLayout.LayOutFirstPage();
-                    var whole = new OpenedDocument(docx, wholeLayout, fonts, images, 0);
+                    pictures.Warm(PagePictures.Of(wholeLayout.Page(0)), token);
+                    var whole = new OpenedDocument(docx, wholeLayout, fonts, images, pictures, 0);
                     images = null;
+                    pictures = null;
                     return OpenAttempt.Of(whole);
                 }
             }
@@ -162,6 +241,7 @@ internal static class DocumentOpener
         }
         finally
         {
+            pictures?.Dispose();
             images?.Dispose();
         }
     }

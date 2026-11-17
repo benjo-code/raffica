@@ -57,11 +57,26 @@
   <data name="OpenFailuresMoreFormat" xml:space="preserve">
     <value>and {0} more</value>
   </data>
+  <data name="RecoveryErrorTitle" xml:space="preserve">
+    <value>A recovery copy could not be opened</value>
+  </data>
+  <data name="RecoveryErrorReason" xml:space="preserve">
+    <value>The recovery copy of this document cannot be read. A file you saved earlier is not affected.</value>
+  </data>
+  <data name="RecoveryFailuresTitle" xml:space="preserve">
+    <value>Some recovery copies could not be opened</value>
+  </data>
+  <data name="RecoveryFailuresMessage" xml:space="preserve">
+    <value>The recovery copies of these documents cannot be read. Files you saved earlier are not affected:</value>
+  </data>
   <data name="SettingsDefaultView" xml:space="preserve">
     <value>Default view</value>
   </data>
   <data name="SettingsDefaultZoom" xml:space="preserve">
     <value>Default zoom</value>
+  </data>
+  <data name="SettingsAutosaveLabel" xml:space="preserve">
+    <value>Keep a recovery copy of unsaved work</value>
   </data>
   <data name="ViewPage" xml:space="preserve">
     <value>Page view</value>
@@ -128,6 +143,15 @@
   </data>
   <data name="GroupPanes" xml:space="preserve">
     <value>Panes</value>
+  </data>
+  <data name="CmdNew" xml:space="preserve">
+    <value>New document</value>
+  </data>
+  <data name="DescNew" xml:space="preserve">
+    <value>Create an empty document in a new tab.</value>
+  </data>
+  <data name="ReasonClosing" xml:space="preserve">
+    <value>The window is closing.</value>
   </data>
   <data name="CmdOpen" xml:space="preserve">
     <value>Open</value>
@@ -956,5 +980,32 @@
   </data>
   <data name="FormattingSharedNote" xml:space="preserve">
     <value>This style is shared: changing it changes every paragraph that uses it.</value>
+  </data>
+  <data name="UntitledName" xml:space="preserve">
+    <value>Untitled</value>
+  </data>
+  <data name="UntitledNumberedFormat" xml:space="preserve">
+    <value>Untitled {0}</value>
+  </data>
+  <data name="RecoveryTitle" xml:space="preserve">
+    <value>Restore unsaved work?</value>
+  </data>
+  <data name="RecoveryBody" xml:space="preserve">
+    <value>Raffica Write found documents that were not saved when it last closed. Do you want to restore them?</value>
+  </data>
+  <data name="RecoveryRestore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="RecoveryDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="RecoveryLater" xml:space="preserve">
+    <value>Decide later</value>
+  </data>
+  <data name="RecoveryMoreFormat" xml:space="preserve">
+    <value>… and {0} more</value>
+  </data>
+  <data name="RecoveryEntryFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
   </data>
 </root>

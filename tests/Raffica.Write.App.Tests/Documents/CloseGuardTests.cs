@@ -5,6 +5,7 @@ using Raffica.Hosting;
 using Raffica.Write;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 using Raffica.Write.Editing;
 using Raffica.WriteApp.Tests.Dialogs;
 using Xunit;
@@ -95,6 +96,52 @@ public sealed class CloseGuardTests
 
         Assert.False(window.Host.IsOpen, "a clean document asks nothing");
         Assert.False(window.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingAnUnchangedUntitledTabAsksNothing()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = await window.Flow.NewDocumentAsync(PaperSize.A4, CancellationToken.None);
+        WindowFixture.Pump();
+        Assert.NotNull(tab);
+
+        await SaveHarness.AwaitAsync(window.CloseTabAsync(tab));
+
+        Assert.False(window.Host.IsOpen);
+        Assert.Empty(window.Workspace.Tabs);
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingAnEditedOneAsksAndSaveRunsSaveAs()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = await window.Flow.NewDocumentAsync(PaperSize.A4, CancellationToken.None);
+        WindowFixture.Pump();
+        Assert.NotNull(tab);
+        tab.Runner.Start();
+        await WindowFixture.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted);
+        tab.EnsureEditor();
+        SaveHarness.Edit(tab);
+        var target = Path.Combine(fixture.Folder, "closed.docx");
+        var picked = 0;
+        window.SavePicker = _ =>
+        {
+            picked++;
+            return Task.FromResult<SavePick?>(new SavePick(target, Existed: false));
+        };
+
+        var task = window.CloseTabAsync(tab);
+        await AskedAsync(window);
+        Assert.Contains(WriteStrings.Fill(WriteStrings.UnsavedMessageFormat, "Untitled"), WindowFixture.CardTexts(window));
+        SaveHarness.Click(window, "PART_Save");
+        await SaveHarness.AwaitAsync(task);
+
+        Assert.Equal(1, picked);
+        Assert.Empty(window.Workspace.Tabs);
+        Assert.Contains(SaveHarness.Typed, SaveHarness.TextOf(target), StringComparison.Ordinal);
     }
 
     [AvaloniaFact]
@@ -389,7 +436,7 @@ public sealed class CloseGuardTests
     public void CardsAreBuiltByCardFooter()
     {
         var keys = CardFooterTests.Entries().Select(e => e.Key).ToList();
-        Assert.Equal(["ChangedOriginalCard.Create", "SaveErrorCard.Create", "UnsavedChangesCard.Create"], keys);
+        Assert.Equal(["ChangedOriginalCard.Create", "SaveErrorCard.Create", "UnsavedChangesCard.Create", "RecoveryCard.Create"], keys);
         foreach (var (key, make) in CardFooterTests.Entries())
         {
             var dialog = make();

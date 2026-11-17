@@ -161,19 +161,21 @@ internal static class DocumentXml
         }
     }
 
+    /// <summary>The settings of every write of the main part (the snapshot cache uses the same ones, so its bytes equal a full write).</summary>
+    internal static XmlWriterSettings WriterSettings() => new()
+    {
+        Encoding = new UTF8Encoding(false),
+        Indent = false,
+        NewLineHandling = NewLineHandling.Entitize,
+        CloseOutput = false,
+    };
+
     /// <summary>Writes UTF-8 without a byte order mark and an XML declaration with <c>standalone="yes"</c>. The stream stays open.</summary>
     public static void Write(Story story, Stream stream)
     {
         ArgumentNullException.ThrowIfNull(story);
         ArgumentNullException.ThrowIfNull(stream);
-        var settings = new XmlWriterSettings
-        {
-            Encoding = new UTF8Encoding(false),
-            Indent = false,
-            NewLineHandling = NewLineHandling.Entitize,
-            CloseOutput = false,
-        };
-        using var writer = XmlWriter.Create(stream, settings);
+        using var writer = XmlWriter.Create(stream, WriterSettings());
         writer.WriteStartDocument(true);
         StoryXml.Write(story, writer);
         writer.WriteEndDocument();

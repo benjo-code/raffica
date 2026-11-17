@@ -1,3 +1,5 @@
+using Raffica.Write.Docx;
+
 namespace Raffica.Write.Documents;
 
 /// <summary>
@@ -18,6 +20,9 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
 
     /// <summary>The work of one file on the pool thread (tests replace it with a gated one); <see cref="DocumentOpener.Open"/> by default.</summary>
     internal Func<string, OpenWork, long, CancellationToken, OpenAttempt> Opener { get; set; } = (path, work, max, token) => DocumentOpener.Open(path, work, max, token);
+
+    /// <summary>The work of a new document on the pool thread (tests replace it); <see cref="DocumentOpener.OpenBlank"/> by default.</summary>
+    internal Func<byte[], OpenWork, CancellationToken, OpenAttempt> BlankOpener { get; set; } = DocumentOpener.OpenBlank;
 
     /// <summary>Opens one file and makes its tab active; shows nothing (see <see cref="Report"/>).</summary>
     /// <exception cref="OperationCanceledException">The token was cancelled before the open ended; no tab was made.</exception>
@@ -89,6 +94,83 @@ internal sealed class OpenFlow(WriteWorkspace workspace, OpenWork work, Action<s
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // The user cannot be told; the opens ended cleanly anyway (no tab, nothing held).
+        }
+    }
+
+    /// <summary>
+    /// Makes a new untitled document of the given paper and adds its tab (active); null when the window is closing (nothing is left behind) or the document could not be made.
+    /// The work runs on a pool thread, the tab is made on the thread that called, the UI thread; it is never in the recent list.
+    /// </summary>
+    /// <exception cref="OperationCanceledException">The token was cancelled before the tab was added.</exception>
+    public async Task<WriteTab?> NewDocumentAsync(PaperSize paper, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var attempt = await Task.Run(() => BlankOpener(BlankDocument.Create(paper), work, token), token);
+        return AddUntitled(attempt, null, token);
+    }
+
+    /// <summary>
+    /// Opens a recovery copy (the DOCX of <see cref="Recovery.RecoveryStore"/>) as a tab that belongs to no file: its title is the name of <paramref name="originalPath"/>, or the next
+    /// "Untitled N" when there is none, and <see cref="WriteTab.SuggestedSavePath"/> is that path. The bytes are read at once (the tab holds no handle on the copy, which the
+    /// autosave replaces). Null when the copy cannot be read or opened, or the window is closing; nothing is left behind and the copy is not touched.
+    /// </summary>
+    /// <exception cref="OperationCanceledException">The token was cancelled before the tab was added.</exception>
+    public async Task<WriteTab?> OpenRecoveredAsync(string copyPath, string? originalPath, CancellationToken token)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(copyPath);
+        token.ThrowIfCancellationRequested();
+        OpenAttempt attempt;
+        try
+        {
+            attempt = await Task.Run(
+                () =>
+                {
+                    if (new FileInfo(copyPath).Length > maxFileLength)
+                    {
+                        return OpenAttempt.Failure(OpenError.TooLarge);
+                    }
+
+                    return BlankOpener(File.ReadAllBytes(copyPath), work, token);
+                },
+                token);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return AddUntitled(attempt, originalPath, token);
+    }
+
+    private WriteTab? AddUntitled(OpenAttempt attempt, string? originalPath, CancellationToken token)
+    {
+        if (token.IsCancellationRequested)
+        {
+            attempt.Document?.Dispose();
+            token.ThrowIfCancellationRequested();
+        }
+
+        if (attempt.Document is not { } document)
+        {
+            return null;
+        }
+
+        try
+        {
+            var name = originalPath is null ? string.Empty : System.IO.Path.GetFileName(originalPath);
+            var tab = new WriteTab(document, name.Length > 0 ? name : UntitledNames.Next(workspace.Tabs)) { SuggestedSavePath = originalPath };
+            if (!workspace.TryAdd(tab))
+            {
+                tab.Dispose();
+                throw new OperationCanceledException(token);
+            }
+
+            return tab;
+        }
+        catch
+        {
+            document.Dispose();
+            throw;
         }
     }
 

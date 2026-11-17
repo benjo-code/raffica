@@ -197,6 +197,7 @@ public sealed partial class TextEditor
 
         _document.Edits.Raise();
         var result = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, paragraphs.Count, old)]);
+        _document.Edits.Attribute(result.Changes);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
     }

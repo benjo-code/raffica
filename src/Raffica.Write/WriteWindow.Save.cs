@@ -69,7 +69,8 @@ internal sealed partial class WriteWindow
     private async Task<SavePick?> PickSaveWithSystemDialogAsync(WriteTab tab)
     {
         IStorageFolder? start = null;
-        if (Path.GetDirectoryName(tab.Path) is { Length: > 0 } folder)
+        var suggested = tab.SuggestedSavePath ?? tab.Path;
+        if (suggested is not null && Path.GetDirectoryName(suggested) is { Length: > 0 } folder)
         {
             start = await StorageProvider.TryGetFolderFromPathAsync(folder);
         }
@@ -77,7 +78,7 @@ internal sealed partial class WriteWindow
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = WriteStrings.SaveDialogTitle,
-            SuggestedFileName = tab.Title,
+            SuggestedFileName = suggested is null ? tab.Title : Path.GetFileName(suggested),
             DefaultExtension = "docx",
             ShowOverwritePrompt = true,
             SuggestedStartLocation = start,
@@ -120,7 +121,11 @@ internal sealed partial class WriteWindow
 
     void ISaveInteraction.PathChanged(WriteTab tab)
     {
-        _recent.Touch(tab.Path);
+        if (tab.Path is { } path)
+        {
+            _recent.Touch(path);
+        }
+
         StatesChanged?.Invoke();
     }
 
@@ -160,6 +165,8 @@ internal sealed partial class WriteWindow
         {
             if (await _closeGuard.CanCloseAsync(tab) && !_closeConfirmed)
             {
+                // Saved, Don't save or clean: the copy of this tab goes with it (a Cancel or a failed save never gets here).
+                ReleaseRecovery([tab]);
                 Workspace.Close(tab);
             }
 

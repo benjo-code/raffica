@@ -20,6 +20,7 @@ public sealed class CardFooterTests
         yield return ("ChangedOriginalCard.Create", () => ChangedOriginalCard.Create("a.docx", _ => { }));
         yield return ("SaveErrorCard.Create", () => SaveErrorCard.Create("a.docx", new SaveProblem(SaveProblemKind.Failure, SaveFailureReason.NotWritable), () => { }));
         yield return ("UnsavedChangesCard.Create", () => UnsavedChangesCard.Create("a.docx", _ => { }));
+        yield return ("RecoveryCard.Create", () => RecoveryCard.Create([], _ => { }));
     }
 
     // The button that Enter presses on each card: the safe answer, never Overwrite or Don't save.
@@ -28,6 +29,7 @@ public sealed class CardFooterTests
         ["ChangedOriginalCard.Create"] = "PART_SaveAs",
         ["SaveErrorCard.Create"] = "PART_Ok",
         ["UnsavedChangesCard.Create"] = "PART_Save",
+        ["RecoveryCard.Create"] = "PART_Restore",
     };
 
     private static List<Button> Buttons(Dialog dialog) => [.. Assert.IsType<StackPanel>(dialog.Footer).Children.OfType<Button>()];

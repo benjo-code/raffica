@@ -28,6 +28,39 @@ public sealed class DocumentOpenerTests
     }
 
     [Fact]
+    public async Task TheOpenDecodesPageOnesPicturesOnItsOwnThreadAndTheCacheNeverDecodesOnGet()
+    {
+        using var folder = new TempFolder();
+        var path = Raffica.WriteApp.Tests.Viewing.PictureDocx.Write(folder.Path, pages: 3, perPage: 2);
+
+        // Run on a pool thread, as the app does: page 1 has two pictures and both are decoded when the open returns.
+        var attempt = await Task.Run(() => DocumentOpener.Open(path, new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None), TestContext.Current.CancellationToken);
+        using var document = attempt.Document!;
+        var pageOne = document.Layout.Page(0).Items.OfType<ImageItem>().Select(i => i.Image).ToArray();
+        Assert.Equal(2, pageOne.Length);
+        Assert.Equal(2, document.Pictures.DecodeCount);
+        Assert.All(pageOne, p => Assert.NotNull(document.Pictures.Get(p)));
+
+        // A picture of another page is not decoded by Get (the render thread's call): it answers null and decodes nothing.
+        Assert.Null(document.Pictures.Get(new ImageRef("document#rIdPic5")));
+        Assert.Equal(2, document.Pictures.DecodeCount);
+    }
+
+    [Fact]
+    public void ADocumentWithoutPicturesDecodesNothingInTheOpen()
+    {
+        using var document = DocumentOpener.Open(RepoPaths.Corpus("poi-test-document"), new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None).Document!;
+        Assert.Equal(0, document.Pictures.DecodeCount);
+    }
+
+    private sealed class TempFolder : IDisposable
+    {
+        public string Path { get; } = Directory.CreateTempSubdirectory("raffica-write-opener-").FullName;
+
+        public void Dispose() => Directory.Delete(Path, recursive: true);
+    }
+
+    [Fact]
     public void AShortFileIsOpenedWholeAndNeedsNoFurtherOpen()
     {
         var attempt = DocumentOpener.Open(RepoPaths.Corpus("poi-test-document"), new OpenWork(), DocumentOpener.DefaultMaxFileLength, CancellationToken.None);

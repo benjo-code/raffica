@@ -136,7 +136,9 @@ public sealed class EditHistory
         _document.Edits.Restore(step.StartRevision);
         _expected = step.StartRevision;
         _open = null;
-        return Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
+        var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
+        _document.Edits.Attribute(undone.Changes);
+        return undone;
     }
 
     /// <summary>Redoes the step that was undone last. Null when there is nothing to redo.</summary>
@@ -162,7 +164,9 @@ public sealed class EditHistory
         _document.Edits.Restore(step.EndRevision);
         _expected = step.EndRevision;
         _open = null;
-        return Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
+        var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
+        _document.Edits.Attribute(redone.Changes);
+        return redone;
     }
 
     /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history).</summary>

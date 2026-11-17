@@ -14,6 +14,8 @@ namespace Raffica.Write.Documents;
 internal sealed class WriteTab : IDisposable
 {
     private readonly PackageImageSource _images;
+    private readonly ImageCache _pictures;
+    private bool _viewOwnsPictures;
     private readonly FontCatalog _fonts;
     private readonly int _prefixBlocks;
     private DocxFile _docx;
@@ -28,6 +30,7 @@ internal sealed class WriteTab : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(opened);
         _images = opened.Images;
+        _pictures = opened.Pictures;
         _fonts = opened.Fonts;
         _prefixBlocks = opened.PrefixBlocks;
         _docx = opened.Docx;
@@ -35,6 +38,25 @@ internal sealed class WriteTab : IDisposable
         Path = System.IO.Path.GetFullPath(path);
         Title = System.IO.Path.GetFileName(Path);
         Tab = new DocumentTab(Title, Path);
+        Token = _cancellation.Token;
+    }
+
+    /// <summary>
+    /// A new document that belongs to no file yet: <see cref="Path"/> is null and <paramref name="untitledTitle"/> is the name (see <see cref="UntitledNames"/>). Save is Save as
+    /// until the first save has bound the tab to a path (<see cref="Rebind"/>).
+    /// </summary>
+    public WriteTab(OpenedDocument opened, string untitledTitle)
+    {
+        ArgumentNullException.ThrowIfNull(opened);
+        ArgumentException.ThrowIfNullOrWhiteSpace(untitledTitle);
+        _images = opened.Images;
+        _pictures = opened.Pictures;
+        _fonts = opened.Fonts;
+        _prefixBlocks = opened.PrefixBlocks;
+        _docx = opened.Docx;
+        _layout = opened.Layout;
+        Title = untitledTitle;
+        Tab = new DocumentTab(Title);
         Token = _cancellation.Token;
     }
 
@@ -47,8 +69,17 @@ internal sealed class WriteTab : IDisposable
     /// <summary>The name of the file; follows <see cref="Rebind"/>.</summary>
     public string Title { get; private set; }
 
-    /// <summary>The full path of the file; follows <see cref="Rebind"/>.</summary>
-    public string Path { get; private set; }
+    /// <summary>The full path of the file; null for a document that was never saved (<see cref="IsUntitled"/>); follows <see cref="Rebind"/>.</summary>
+    public string? Path { get; private set; }
+
+    /// <summary>Whether the tab belongs to no file yet.</summary>
+    public bool IsUntitled => Path is null;
+
+    /// <summary>
+    /// The path the Save as picker suggests (its name and folder) for a tab without a file, for example the old name of a restored document; null: the picker suggests the title.
+    /// Cleared by <see cref="Rebind"/>.
+    /// </summary>
+    public string? SuggestedSavePath { get; set; }
 
     /// <summary>
     /// The tab now belongs to another file (after a successful Save as): the path, the name and the model of the title bar follow. UI thread; the layout, the picture
@@ -57,10 +88,12 @@ internal sealed class WriteTab : IDisposable
     internal void Rebind(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        Path = System.IO.Path.GetFullPath(path);
-        Title = System.IO.Path.GetFileName(Path);
+        var full = System.IO.Path.GetFullPath(path);
+        Path = full;
+        SuggestedSavePath = null;
+        Title = System.IO.Path.GetFileName(full);
         Tab.Title = Title;
-        Tab.Path = Path;
+        Tab.Path = full;
     }
 
     /// <summary>Whether the document has changes the file on disk does not have (the revision of the model is not the saved one). False for a prefix: it cannot be edited.</summary>
@@ -69,11 +102,22 @@ internal sealed class WriteTab : IDisposable
     /// <summary>Gives the model of the title bar the dirty state of the document (the tab shows its mark and says "unsaved changes"). UI thread.</summary>
     internal void UpdateDirty()
     {
-        if (!IsDisposed)
+        if (IsDisposed)
         {
-            Tab.IsDirty = IsDirty;
+            return;
+        }
+
+        var dirty = IsDirty;
+        var changed = Tab.IsDirty != dirty;
+        Tab.IsDirty = dirty;
+        if (changed)
+        {
+            DirtyChanged?.Invoke();
         }
     }
+
+    /// <summary>Raised on the UI thread when the dirty mark of the tab changes (an edit made it dirty; a save or an undo to the saved revision made it clean). The autosave listens to this; nothing is raised before the first change.</summary>
+    public event Action? DirtyChanged;
 
     /// <summary>The opened file; a prefix while <see cref="DocxFile.IsPrefix"/>. Not to be edited or saved.</summary>
     public DocxFile Docx => Volatile.Read(ref _docx);
@@ -86,6 +130,21 @@ internal sealed class WriteTab : IDisposable
 
     /// <summary>Reads the pictures of the package; pass <see cref="PackageImageSource.Read"/> to an image cache. Throws once the tab is disposed.</summary>
     public PackageImageSource Images => _images;
+
+    /// <summary>
+    /// The decoded pictures the page view draws from. Decode on get is off, so only the opener (page 1) and the view's prefetch fill it, never a draw. The tab owns it;
+    /// the view that draws from it disposes it when the draw gate has closed and the last draw has ended (<see cref="ClaimPicturesForView"/>), otherwise
+    /// <see cref="Dispose"/> does.
+    /// </summary>
+    /// <remarks>
+    /// The cache is not cleared when <see cref="CompleteOpen"/> swaps the package: the picture ids are valid in both snapshots (the same file) and a read is deterministic
+    /// on an in-memory snapshot, so a picture that failed to decode would fail again and one that is kept is still right. A change of the package's pictures (a later
+    /// "insert picture") must call <see cref="ImageCache.Clear"/>.
+    /// </remarks>
+    public ImageCache Pictures => _pictures;
+
+    /// <summary>The page view takes over disposing <see cref="Pictures"/> (after its draw gate closed); called once by the view that draws this tab.</summary>
+    internal void ClaimPicturesForView() => _viewOwnsPictures = true;
 
     /// <summary>The prefix size the first page was made from (0: the file was opened whole).</summary>
     public int PrefixBlocks => _prefixBlocks;
@@ -195,6 +254,11 @@ internal sealed class WriteTab : IDisposable
             finally
             {
                 Docx.Dispose();
+                if (!_viewOwnsPictures)
+                {
+                    _pictures.Dispose();
+                }
+
                 _images.Dispose();
             }
 

@@ -40,7 +40,7 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active));
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing);
         _actions = CreateActions();
         _pickers = new FormatPickers(() => EditCommandState.FormatOf(Workspace.Active), () => Workspace.Active?.Docx.Model, () => Workspace.Active?.Fonts, (id, value) => RunCommand(id, value));
         AddFormatActions();
@@ -99,6 +99,7 @@ internal sealed partial class WriteWindow
     // What each command does.
     private Dictionary<string, Action> CreateActions() => new()
     {
+        [WriteCommandIds.New] = () => _ = GuardAsync(() => NewDocumentAsync()),
         [WriteCommandIds.Open] = () => _ = GuardAsync(OpenFromDialogAsync),
         [WriteCommandIds.Save] = () => _ = GuardAsync(() => SaveActiveAsync()),
         [WriteCommandIds.SaveAs] = () => _ = GuardAsync(() => SaveAsActiveAsync()),
@@ -317,6 +318,7 @@ internal sealed partial class WriteWindow
         view.FirstSharpPage += () =>
         {
             FirstSharpPageDrawn?.Invoke(tab);
+            RequestRecoveryOffer();
             ReleaseRibbonAfterTheFirstFrames();
             tab.Runner.Start();
             if (ReferenceEquals(ActiveView, view))
@@ -408,7 +410,19 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        ShowOpenError(tab.Path, tab.Runner.Fault is DocxFormatException or InvalidDataException ? OpenError.Corrupt : OpenError.Other);
+        if (tab.Path is not { } path)
+        {
+            // A new document has no file that could fail to open, and so no open error to show (a restored copy is the same kind); the commands that need the layout (Save,
+            // Save as) are disabled with their reason, so they are asked again.
+            if (ReferenceEquals(Workspace.Active, tab))
+            {
+                UpdateViewStatus();
+            }
+
+            return;
+        }
+
+        ShowOpenError(path, tab.Runner.Fault is DocxFormatException or InvalidDataException ? OpenError.Corrupt : OpenError.Other);
         if (ReferenceEquals(Workspace.Active, tab))
         {
             UpdateViewStatus();

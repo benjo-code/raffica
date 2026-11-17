@@ -149,6 +149,8 @@ internal sealed class PageDrawOperation(Rect bounds, LaidOutPage page, double di
         }
         finally
         {
+            // Inside the gate: what the cache evicted while this draw (or a prefetch) ran can be disposed now that the draw holds no image.
+            images.ReleaseRetired();
             gate.Exit();
         }
     }

@@ -2,6 +2,7 @@ using Raffica.Core.Saving;
 using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Docx;
+using Raffica.Write.Recovery;
 
 namespace Raffica.Write.Documents;
 
@@ -87,7 +88,7 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         Changed?.Invoke();
         try
         {
-            return saveAs ? await SaveAsCoreAsync(tab) : await SaveOverOriginalAsync(tab, overwriteChangedOriginal: false);
+            return saveAs || tab.IsUntitled ? await SaveAsCoreAsync(tab) : await SaveOverOriginalAsync(tab, overwriteChangedOriginal: false);
         }
         finally
         {
@@ -99,7 +100,11 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
 
     private async Task<SaveOutcome> SaveOverOriginalAsync(WriteTab tab, bool overwriteChangedOriginal)
     {
-        var path = tab.Docx.OriginPath ?? tab.Path;
+        if ((tab.Docx.OriginPath ?? tab.Path) is not { } path)
+        {
+            return await SaveAsCoreAsync(tab);
+        }
+
         var (report, error) = await WriteAsync(tab, (docx, token) => docx.SaveAsync(path, overwriteChangedOriginal, token));
         if (report is not null)
         {
@@ -139,7 +144,7 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
             }
 
             var path = Path.GetFullPath(Path.HasExtension(pick.Path) ? pick.Path : pick.Path + ".docx");
-            if (!PathRules.AreEqual(path, tab.Path) && ui.IsOpenInAnotherTab(path, tab))
+            if (!(tab.Path is { } own && PathRules.AreEqual(path, own)) && ui.IsOpenInAnotherTab(path, tab))
             {
                 return await FailAsync(tab, new SaveProblem(SaveProblemKind.OpenElsewhere));
             }
@@ -206,37 +211,24 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
     // for a failed save: the exception comes back, so the caller decides which card to show; the lease and the scope are given back on every path.
     private async Task<(SaveReport? Report, Exception? Error)> WriteAsync(WriteTab tab, Func<DocxFile, CancellationToken, Task<SaveReport>> save)
     {
+        // A recovery snapshot of the file has its hooks on it while it runs: wait (await only, the UI thread stays free) until none does. The check after the last await and the
+        // attach below have no await between them, so no snapshot can start in the gap (both start on the UI thread).
+        while (RecoverySnapshot.IsRunning(tab.Docx))
+        {
+            await RecoverySnapshot.WhenIdleAsync(tab.Docx);
+        }
+
         var session = tab.EnsureEditor();
         var docx = tab.Docx;
         var model = docx.Model;
         var revision = model.Edits.Revision;
         var scope = session.BeginSave();
-        var previousBefore = docx.BeforeModelRead;
-        var previousAfter = docx.AfterModelRead;
-        Editing.EditLease? lease = null;
+        IDisposable? hooks = null;
         try
         {
             // The lease is taken and released by the saving (pool) thread around the read of the model, never by the UI thread: the UI thread stays free during the write, and a
             // request for the lease from it (the preedit of an input method, a rebuild of the pages layout) waits for the end of that read instead of meeting "this thread holds it".
-            docx.BeforeModelRead = () =>
-            {
-                lease = tab.Runner.PauseForEdit();
-                try
-                {
-                    AfterLeaseTaken?.Invoke(tab);
-                    previousBefore?.Invoke();
-                }
-                catch
-                {
-                    Interlocked.Exchange(ref lease, null)?.Dispose();
-                    throw;
-                }
-            };
-            docx.AfterModelRead = () =>
-            {
-                Interlocked.Exchange(ref lease, null)?.Dispose();
-                previousAfter?.Invoke();
-            };
+            hooks = ModelReadLease.Attach(docx, () => tab.Runner.PauseForEdit(), () => AfterLeaseTaken?.Invoke(tab));
             var report = await save(docx, tab.Token);
 
             // Back on the UI thread. The scope kept every edit out, so the model is the one that was written; a revision that moved anyway is never called saved.
@@ -254,8 +246,7 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
         }
         finally
         {
-            docx.BeforeModelRead = previousBefore;
-            docx.AfterModelRead = previousAfter;
+            hooks?.Dispose();
             try
             {
                 // Ends the save: what was typed meanwhile is replayed now. A replay that fails has faulted the session and the runner (the window shows it as any edit failure); the save itself is done.

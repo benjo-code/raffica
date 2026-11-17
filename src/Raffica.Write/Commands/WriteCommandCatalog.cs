@@ -183,6 +183,7 @@ internal static class WriteCommandCatalog
     {
         var home = new CatalogTab("TabHome", "H");
         home.Group("GroupFile", "1")
+            .Add(WriteCommandIds.New, "CmdNew", "FilePlus", "16", Cmd(Key.N, "N"), describe: true)
             .Add(WriteCommandIds.Open, "CmdOpen", "FolderOpen", "11", Cmd(Key.O, "O"), CommandSize.Large)
             .Add(WriteCommandIds.Save, "CmdSave", "Save", "14", Cmd(Key.S, "S"))
             .Add(WriteCommandIds.SaveAs, "CmdSaveAs", "SaveAll", "15", new WriteShortcut(Key.S, "S", Shift: true))
