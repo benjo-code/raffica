@@ -137,6 +137,8 @@ public sealed class RecoveryStoreTests : IDisposable
         Assert.False(RecoveryLiveness.IsLive(entry, 1, new FakeProbe(null)));
         Assert.False(RecoveryLiveness.IsLive(entry, 1, new FakeProbe(_started.AddMinutes(3))));
         Assert.False(RecoveryLiveness.IsLive(entry, 50, new FakeProbe(_started)));
+        Assert.True(RecoveryLiveness.IsLive(entry, 1, new FakeProbe(DateTimeOffset.MaxValue)));
+        Assert.False(RecoveryLiveness.IsLive(entry, 50, new FakeProbe(DateTimeOffset.MaxValue)));
         Assert.NotNull(new SystemProcessProbe().StartTimeOf(Environment.ProcessId));
     }
 
@@ -152,5 +154,42 @@ public sealed class RecoveryStoreTests : IDisposable
         var json = await File.ReadAllTextAsync(Path.Combine(store.Folder, id + ".json"), TestContext.Current.CancellationToken);
         Assert.DoesNotContain("zqxjkv", json, StringComparison.Ordinal);
         Assert.Contains("\"Untitled\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ADeleteThatCannotRemoveTheDocxKeepsTheEntryListedAndRetriable()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Needs a file lock that blocks deleting.");
+        var store = Store;
+        var id = await AddPairAsync(store);
+
+        using (new FileStream(store.DocxPathOf(id), FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            store.Delete(id);
+            Assert.Equal(id, Assert.Single(store.List().Entries).Id);
+        }
+
+        store.Delete(id);
+        Assert.Empty(store.List().Entries);
+        Assert.Empty(store.List().Problems);
+        Assert.Empty(Directory.GetFiles(store.Folder));
+    }
+
+    [Theory]
+    [InlineData("{\"Id\":\"ID\"}")]
+    [InlineData("null")]
+    [InlineData("{\"Id\":\"ID\",\"Title\":\"x\",\"Bytes\":-1,\"OwnerProcessId\":5}")]
+    public async Task ASidecarWithMissingFieldsIsAProblemNotAnEntry(string json)
+    {
+        var store = Store;
+        var id = RecoveryStore.NewId();
+        store.EnsureFolder();
+        await File.WriteAllBytesAsync(store.DocxPathOf(id), [1], TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(store.Folder, id + ".json"), json.Replace("ID", id, StringComparison.Ordinal), TestContext.Current.CancellationToken);
+
+        var listing = store.List();
+        Assert.Empty(listing.Entries);
+        Assert.Equal(id, Assert.Single(listing.Problems));
+        Assert.True(File.Exists(store.DocxPathOf(id)));
     }
 }

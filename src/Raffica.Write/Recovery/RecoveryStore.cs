@@ -84,7 +84,7 @@ internal sealed class RecoveryStore(string folder)
             }
 
             var entry = Read(path);
-            if (entry is null || entry.Id != id || !File.Exists(DocxPathOf(id)))
+            if (entry is null || !IsComplete(entry) || entry.Id != id || !File.Exists(DocxPathOf(id)))
             {
                 problems.Add(id);
                 continue;
@@ -105,12 +105,19 @@ internal sealed class RecoveryStore(string folder)
             return;
         }
 
-        TryDelete(SidecarPathOf(id));
-        TryDelete(DocxPathOf(id));
+        // The DOCX goes first: the sidecar is the commit marker, so a copy that cannot be removed stays listed and a later Delete retries it.
+        if (TryDelete(DocxPathOf(id)))
+        {
+            TryDelete(SidecarPathOf(id));
+        }
     }
 
     public static bool IsValidId(string id) =>
         id.Length == 32 && id.All(static c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'));
+
+    // A sidecar is untrusted data: a parsed value can still lack fields the callers dereference.
+    private static bool IsComplete(RecoveryEntry entry) =>
+        entry.Title is not null && entry.Bytes >= 0 && entry.OwnerProcessId > 0;
 
     private static string CheckedId(string id) =>
         IsValidId(id) ? id : throw new ArgumentException("Not a recovery id.", nameof(id));
@@ -128,15 +135,17 @@ internal sealed class RecoveryStore(string folder)
         }
     }
 
-    private static void TryDelete(string path)
+    private static bool TryDelete(string path)
     {
         try
         {
             File.Delete(path);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // A copy that cannot be removed now is found again by the next listing.
+            // A file that cannot be removed now stays; Delete keeps the sidecar then, so the next listing still shows the entry.
+            return false;
         }
     }
 }

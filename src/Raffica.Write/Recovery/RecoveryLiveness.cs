@@ -3,7 +3,10 @@ using System.Diagnostics;
 
 namespace Raffica.Write.Recovery;
 
-/// <summary>Reads the start time of a process; <see langword="null"/> when there is no such process or it cannot be read.</summary>
+/// <summary>
+/// Reads the start time of a process: <see langword="null"/> when there is no such process, and <see cref="DateTimeOffset.MaxValue"/> (the sentinel)
+/// when the process exists but its start time cannot be read (another user or an elevated process); <see cref="RecoveryLiveness"/> counts the sentinel as live.
+/// </summary>
 internal interface IProcessProbe
 {
     DateTimeOffset? StartTimeOf(int processId);
@@ -14,14 +17,31 @@ internal sealed class SystemProcessProbe : IProcessProbe
 {
     public DateTimeOffset? StartTimeOf(int processId)
     {
+        Process process;
         try
         {
-            using var process = Process.GetProcessById(processId);
-            return new DateTimeOffset(process.StartTime);
+            process = Process.GetProcessById(processId);
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception or NotSupportedException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             return null;
+        }
+
+        using (process)
+        {
+            try
+            {
+                return new DateTimeOffset(process.StartTime);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException)
+            {
+                // It exited between the two calls.
+                return null;
+            }
+            catch (Exception ex) when (ex is Win32Exception or NotSupportedException or UnauthorizedAccessException)
+            {
+                return DateTimeOffset.MaxValue;
+            }
         }
     }
 }
@@ -40,6 +60,11 @@ internal static class RecoveryLiveness
         }
 
         var started = probe.StartTimeOf(entry.OwnerProcessId);
+        if (started == DateTimeOffset.MaxValue)
+        {
+            return true;
+        }
+
         return started is { } value && (value - entry.OwnerStarted).Duration() <= s_tolerance;
     }
 }
