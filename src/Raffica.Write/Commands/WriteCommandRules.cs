@@ -22,8 +22,9 @@ namespace Raffica.Write.Commands;
 /// <param name="outlineAvailable">Whether the outline pane exists (the step that builds it says yes).</param>
 /// <param name="editState">What the edit commands need to know of the active tab; null reads as a tab that can be edited, with a selection and history.</param>
 /// <param name="saveState">What Save and Save as need to know of the active tab; null reads as a document with changes that can be saved.</param>
+/// <param name="isClosing">Whether the window is closing (New document is the only command that then says so; null: never).</param>
 /// <param name="formatFacts">The facts about the selection that Clear direct formatting, the style pickers and Update style to match need; asked only when one of those commands is (and only while editing is not blocked), so the state of the other commands never pays for them; null keeps the facts of <paramref name="editState"/>.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null)
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null)
 {
     private const double Tolerance = 1e-9;
 
@@ -47,6 +48,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
     /// <summary>Whether the command may run now (not counting whether an action is wired behind it).</summary>
     public bool Allows(string id) => id switch
     {
+        WriteCommandIds.New => isClosing?.Invoke() != true,
         WriteCommandIds.Open or WriteCommandIds.Settings or WriteCommandIds.Search => true,
         WriteCommandIds.ZoomIn => hasDocument() && zoom() < ZoomSteps.Max - Tolerance,
         WriteCommandIds.ZoomOut => hasDocument() && zoom() > ZoomSteps.Min + Tolerance,
@@ -64,6 +66,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
     /// </summary>
     public string? ReasonFor(string id)
     {
+        if (id == WriteCommandIds.New)
+        {
+            return Allows(id) ? null : WriteStrings.ReasonClosing;
+        }
+
         if (!hasDocument() || Allows(id))
         {
             return null;

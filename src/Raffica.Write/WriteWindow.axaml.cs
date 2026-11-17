@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -15,6 +16,7 @@ using Raffica.Shell.Localization;
 using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
+using Raffica.Write.Docx;
 using Raffica.Write.Platform.MacOS;
 using Raffica.Write.Settings;
 using RecentFilesStore = Raffica.Core.Settings.RecentFilesStore;
@@ -215,6 +217,37 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     private void OnStartTile(StartApp app) => _ = GuardAsync(OpenFromDialogAsync);
 
     // Opening.
+
+    /// <summary>The paper a new document gets: A4, or Letter in the US and Canada (tests set their own).</summary>
+    internal Func<PaperSize> PaperSource { get; set; } = () => BlankPaper.For(RegionInfo.CurrentRegion);
+
+    /// <summary>
+    /// Makes a new untitled document of the paper (the window's <see cref="PaperSource"/> when none is given) and shows it in a tab of its own, as an opened file is. Null when the window is
+    /// closing or the blank document could not be made; the latter is told in the open-error card of the app (no path to name, so the card names the untitled document).
+    /// </summary>
+    internal async Task<WriteTab?> NewDocumentAsync(Func<PaperSize>? paper = null)
+    {
+        if (IsClosing)
+        {
+            return null;
+        }
+
+        try
+        {
+            var tab = await Flow.NewDocumentAsync((paper ?? PaperSource)(), _closeToken);
+            if (tab is null)
+            {
+                ShowOpenError(WriteStrings.UntitledName, OpenError.Other);
+            }
+
+            return tab;
+        }
+        catch (OperationCanceledException)
+        {
+            // The window closed while the document was made: no tab, nothing left behind.
+            return null;
+        }
+    }
 
     /// <summary>Opens the files in order; the last one opened is active, files that cannot be opened end in a card (one card for two or more).</summary>
     internal Task OpenFilesAsync(IEnumerable<string> paths) => Flow.OpenManyAsync(paths, _closeToken);
@@ -770,6 +803,8 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
     bool IWriteMenuWindow.HasTab => Workspace.Active is not null;
 
     IReadOnlyList<RecentFile> IWriteMenuWindow.RecentFiles => Start.Recent;
+
+    void IWriteMenuWindow.NewDocument() => _ = GuardAsync(() => NewDocumentAsync());
 
     void IWriteMenuWindow.Open() => _ = GuardAsync(OpenFromDialogAsync);
 

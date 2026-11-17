@@ -24,6 +24,8 @@ public sealed class WriteMacMenuTests
 
         public void Open() => Calls.Add("open");
 
+        public void NewDocument() => Calls.Add("new");
+
         public void CloseActiveTab() => Calls.Add("close tab");
 
         public void CloseTabOrWindow() => Calls.Add("close");

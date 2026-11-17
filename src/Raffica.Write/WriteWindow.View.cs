@@ -40,7 +40,7 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active));
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing);
         _actions = CreateActions();
         _pickers = new FormatPickers(() => EditCommandState.FormatOf(Workspace.Active), () => Workspace.Active?.Docx.Model, () => Workspace.Active?.Fonts, (id, value) => RunCommand(id, value));
         AddFormatActions();
@@ -99,6 +99,7 @@ internal sealed partial class WriteWindow
     // What each command does.
     private Dictionary<string, Action> CreateActions() => new()
     {
+        [WriteCommandIds.New] = () => _ = GuardAsync(() => NewDocumentAsync()),
         [WriteCommandIds.Open] = () => _ = GuardAsync(OpenFromDialogAsync),
         [WriteCommandIds.Save] = () => _ = GuardAsync(() => SaveActiveAsync()),
         [WriteCommandIds.SaveAs] = () => _ = GuardAsync(() => SaveAsActiveAsync()),

@@ -5,6 +5,7 @@ namespace Raffica.Write.Commands;
 /// <summary>The ids of the commands of Write (the ids are the ones the command search and the field codes use).</summary>
 internal static class WriteCommandIds
 {
+    public const string New = "file.new";
     public const string Open = "file.open";
     public const string Save = "file.save";
     public const string SaveAs = "file.saveAs";

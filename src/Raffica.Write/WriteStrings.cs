@@ -57,6 +57,9 @@ internal static class WriteStrings
     public static string GroupZoom => Table.Get("GroupZoom");
     public static string GroupViews => Table.Get("GroupViews");
     public static string GroupPanes => Table.Get("GroupPanes");
+    public static string CmdNew => Table.Get("CmdNew");
+    public static string DescNew => Table.Get("DescNew");
+    public static string ReasonClosing => Table.Get("ReasonClosing");
     public static string CmdOpen => Table.Get("CmdOpen");
     public static string CmdCloseTab => Table.Get("CmdCloseTab");
     public static string CmdSettings => Table.Get("CmdSettings");

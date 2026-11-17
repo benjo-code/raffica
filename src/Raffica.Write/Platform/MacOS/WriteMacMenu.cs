@@ -19,6 +19,9 @@ internal interface IWriteMenuWindow
 
     void Open();
 
+    /// <summary>Makes a new untitled document in a tab of this window.</summary>
+    void NewDocument();
+
     void CloseActiveTab();
 
     /// <summary>Closes the active tab; without one (the start view) closes the window, as Cmd+W does in every Mac app.</summary>
@@ -97,6 +100,7 @@ internal sealed class WriteMacMenu
         {
             var file = new NativeMenuItem(WriteStrings.MenuFile) { Menu = new NativeMenu() };
             file.Menu!.NeedsUpdate += _onNeedsUpdate;
+            file.Menu.Items.Add(Item(() => WriteStrings.CmdNew, MacGesture(WriteCommandIds.New), window => window?.NewDocument(), always: false));
             file.Menu.Items.Add(Item(() => WriteStrings.MenuOpen, "Meta+O", window => window?.Open(), always: false));
             _recentItem = new NativeMenuItem(WriteStrings.MenuOpenRecent) { Menu = new NativeMenu() };
             file.Menu.Items.Add(_recentItem);

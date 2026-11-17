@@ -129,6 +129,15 @@
   <data name="GroupPanes" xml:space="preserve">
     <value>Bereiche</value>
   </data>
+  <data name="CmdNew" xml:space="preserve">
+    <value>Neues Dokument</value>
+  </data>
+  <data name="DescNew" xml:space="preserve">
+    <value>Ein leeres Dokument in einem neuen Tab anlegen.</value>
+  </data>
+  <data name="ReasonClosing" xml:space="preserve">
+    <value>Das Fenster wird geschlossen.</value>
+  </data>
   <data name="CmdOpen" xml:space="preserve">
     <value>Öffnen</value>
   </data>
