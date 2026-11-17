@@ -1,4 +1,6 @@
+using Avalonia.Headless.XUnit;
 using Raffica.Core.Saving;
+using Raffica.Write;
 using Raffica.Write.Documents;
 using Raffica.Write.Docx;
 using Raffica.Write.Model;
@@ -278,5 +280,214 @@ public sealed class RecoverySnapshotTests : IDisposable
         Assert.Equal(2, marker);
         Assert.Equal(3, subject.Taken);
         Assert.True(File.Exists(origin));
+    }
+
+    private static async Task WaitForAsync(ManualResetEventSlim signal) =>
+        Assert.True(await Task.Run(() => signal.Wait(TimeSpan.FromSeconds(30))), "the snapshot never reached the seam");
+
+    [Fact]
+    public async Task OverlappingSnapshotsOfOneFileSkipTheSecondAsBusy()
+    {
+        var (subject, _) = OpenSubject();
+        var docx = subject.Docx;
+        var store = Store;
+        Edit(docx, "ONE");
+        using var reached = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        docx.BeforeReplace = () =>
+        {
+            reached.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+        };
+
+        var first = RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken);
+        await WaitForAsync(reached);
+        Assert.True(RecoverySnapshot.IsRunning(docx));
+        Assert.False(RecoverySnapshot.WhenIdleAsync(docx).IsCompleted);
+
+        Assert.Equal(new SnapshotResult.Skipped(SnapshotSkip.Busy), await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+
+        release.Set();
+        Assert.IsType<SnapshotResult.Written>(await first);
+        docx.BeforeReplace = null;
+        Assert.False(RecoverySnapshot.IsRunning(docx));
+        Assert.True(RecoverySnapshot.WhenIdleAsync(docx).IsCompleted);
+        Assert.Equal(1, subject.Taken);
+        Assert.Equal(1, subject.Released);
+        Assert.IsType<SnapshotResult.Written>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ASnapshotRequestedWhileASaveRunsIsSkippedAsSaving()
+    {
+        var (subject, _) = OpenSubject();
+        subject.CannotSnapshotNow = SnapshotSkip.Saving;
+        var store = Store;
+
+        Assert.Equal(new SnapshotResult.Skipped(SnapshotSkip.Saving), await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+        Assert.False(RecoverySnapshot.IsRunning(subject.Docx));
+        Assert.False(Directory.Exists(store.Folder));
+    }
+
+    [Fact]
+    public async Task AStateThatChangesBetweenTheCheckAndTheLeaseSkipsWithoutWriting()
+    {
+        var (subject, _) = OpenSubject();
+        var store = Store;
+        subject.AfterTaken = () => subject.CannotSnapshotNow = SnapshotSkip.Faulted;
+
+        Assert.Equal(new SnapshotResult.Skipped(SnapshotSkip.Faulted), await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, subject.Taken);
+        Assert.Equal(1, subject.Released);
+        Assert.Empty(SaveHarness.Names(store.Folder));
+        Assert.False(RecoverySnapshot.IsRunning(subject.Docx));
+        Assert.Null(subject.Docx.BeforeModelRead);
+        Assert.Null(subject.Docx.AfterModelRead);
+    }
+
+    [Fact]
+    public async Task AFailedSidecarOfAFirstCopyTakesTheNewDocxAwayAgain()
+    {
+        var (subject, _) = OpenSubject();
+        var store = Store;
+        store.BeforeSidecarMove = () => throw new IOException("sidecar failed");
+
+        var result = await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken);
+
+        Assert.IsType<IOException>(Assert.IsType<SnapshotResult.Failed>(result).Error);
+        Assert.Empty(SaveHarness.Names(store.Folder));
+        Assert.Empty(store.List().Entries);
+        Assert.False(RecoverySnapshot.IsRunning(subject.Docx));
+    }
+
+    [Fact]
+    public async Task AFailedSidecarOfALaterCopyLeavesAListableOpenableCopy()
+    {
+        var (subject, _) = OpenSubject();
+        var store = Store;
+        Edit(subject.Docx, "FIRST");
+        Assert.IsType<SnapshotResult.Written>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+        var firstEntry = Assert.Single(store.List().Entries);
+
+        Edit(subject.Docx, "SECOND");
+        store.BeforeSidecarMove = () => throw new IOException("sidecar failed");
+        Assert.IsType<SnapshotResult.Failed>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+
+        Assert.Equal([subject.Id + ".docx", subject.Id + ".json"], SaveHarness.Names(store.Folder));
+        Assert.Equal(firstEntry, Assert.Single(store.List().Entries));
+        using var opened = DocxFile.Open(store.DocxPathOf(subject.Id));
+        Assert.NotNull(opened.Model);
+    }
+
+    [Fact]
+    public async Task AnUnreadableProcessIdentityFailsBeforeAnythingIsWrittenAndIsReadAgain()
+    {
+        var (subject, _) = OpenSubject();
+        var store = Store;
+        var original = RecoverySnapshot.ReadSelf;
+        try
+        {
+            RecoverySnapshot.ReadSelf = () => throw new InvalidOperationException("no start time");
+            Assert.IsType<SnapshotResult.Failed>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+            Assert.False(Directory.Exists(store.Folder));
+
+            // A failed read is not cached: the provider is asked again at the next snapshot.
+            var calls = 0;
+            RecoverySnapshot.ReadSelf = () => ++calls == 1 ? throw new InvalidOperationException("once") : original();
+            Assert.IsType<SnapshotResult.Failed>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+            Assert.IsType<SnapshotResult.Written>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+            Assert.Equal(2, calls);
+        }
+        finally
+        {
+            RecoverySnapshot.ReadSelf = original;
+        }
+    }
+
+    [Fact]
+    public async Task ADocumentWithNoOriginIsSnapshotted()
+    {
+        var docx = DocxFile.Open(await File.ReadAllBytesAsync(WindowFixture.Poi, TestContext.Current.CancellationToken));
+        _files.Add(docx);
+        Assert.Null(docx.OriginPath);
+        var subject = new Subject(docx);
+        Edit(docx, "UNTITLED");
+        var store = Store;
+
+        var result = Assert.IsType<SnapshotResult.Written>(await RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken));
+
+        Assert.Equal(docx.Model.Edits.Revision, result.Revision);
+        Assert.Equal(TextOfModel(docx), SaveHarness.TextOf(store.DocxPathOf(subject.Id)));
+        Assert.Null(Assert.Single(store.List().Entries).OriginalPath);
+        Assert.Null(docx.OriginPath);
+        Assert.True(docx.Model.Edits.IsDirty);
+    }
+
+    private sealed class TabSubject(WriteTab tab) : IRecoverySubject
+    {
+        public string Id { get; } = RecoveryStore.NewId();
+
+        public string Title => "doc";
+
+        public string? OriginalPath => tab.Path;
+
+        public DocxFile Docx => tab.Docx;
+
+        public int Revision => tab.Docx.Model.Edits.Revision;
+
+        public bool IsDirty => tab.Docx.Model.Edits.IsDirty;
+
+        public SnapshotSkip? CannotSnapshotNow => null;
+
+        public IDisposable TakeModelLease() => tab.Runner.PauseForEdit();
+    }
+
+    [AvaloniaFact]
+    public async Task ASaveStartedDuringASnapshotWaitsAndThenSucceedsWithNoStaleHooks()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var (tab, path) = await SaveHarness.OpenCopyAsync(fixture, window);
+        SaveHarness.Edit(tab, "snap ");
+        var docx = tab.Docx;
+        tab.Runner.LeaseWaitTimeout = TimeSpan.FromSeconds(20);
+        Assert.Null(docx.BeforeModelRead);
+        Assert.Null(docx.AfterModelRead);
+        var store = new RecoveryStore(Path.Combine(fixture.Folder, "recovery"));
+        var subject = new TabSubject(tab);
+
+        using var reached = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        docx.BeforeReplace = () =>
+        {
+            reached.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+        };
+        var snapshot = RecoverySnapshot.WriteAsync(subject, store, TestContext.Current.CancellationToken);
+        await WaitForAsync(reached);
+
+        var save = window.SaveActiveAsync();
+        for (var i = 0; i < 20; i++)
+        {
+            await Task.Delay(10);
+            WindowFixture.Pump();
+        }
+
+        Assert.False(save.IsCompleted, "the save waits for the snapshot");
+        Assert.False(tab.Editor!.IsSaving, "the save has not begun: its hooks are not attached beside the snapshot's");
+
+        release.Set();
+        Assert.IsType<SnapshotResult.Written>(await SaveHarness.AwaitAsync(snapshot));
+        docx.BeforeReplace = null;
+        Assert.Equal(new Saved(path), await SaveHarness.AwaitAsync(save));
+
+        Assert.Contains("snap ", SaveHarness.TextOf(path), StringComparison.Ordinal);
+        Assert.False(tab.Docx.Model.Edits.IsDirty);
+        Assert.Null(docx.BeforeModelRead);
+        Assert.Null(docx.AfterModelRead);
+        Assert.False(tab.Runner.IsLeased);
+        Assert.False(window.Host.IsOpen);
+        Assert.Single(store.List().Entries);
     }
 }

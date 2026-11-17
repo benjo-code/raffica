@@ -33,6 +33,12 @@ internal sealed class RecoveryStore(string folder)
 
     private string SidecarPathOf(string id) => Path.Combine(Folder, CheckedId(id) + SidecarExtension);
 
+    /// <summary>Test seam: runs right before the sidecar's temporary file is moved into place.</summary>
+    internal Action? BeforeSidecarMove { get; set; }
+
+    /// <summary>Whether a sidecar file stands for the id (a complete pair is not required: this is about the commit marker only).</summary>
+    public bool SidecarExists(string id) => File.Exists(SidecarPathOf(id));
+
     /// <summary>Writes the sidecar of an entry atomically; the DOCX must exist already.</summary>
     public async Task WriteSidecarAsync(RecoveryEntry entry)
     {
@@ -47,6 +53,7 @@ internal sealed class RecoveryStore(string folder)
             }
 
             AtomicFile.FlushToDisk(temporary);
+            BeforeSidecarMove?.Invoke();
             AtomicFile.MoveIntoPlace(temporary, target);
         }
         catch

@@ -2,6 +2,7 @@ using Raffica.Core.Saving;
 using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Docx;
+using Raffica.Write.Recovery;
 
 namespace Raffica.Write.Documents;
 
@@ -210,6 +211,13 @@ internal sealed class WriteSaveFlow(ISaveInteraction ui)
     // for a failed save: the exception comes back, so the caller decides which card to show; the lease and the scope are given back on every path.
     private async Task<(SaveReport? Report, Exception? Error)> WriteAsync(WriteTab tab, Func<DocxFile, CancellationToken, Task<SaveReport>> save)
     {
+        // A recovery snapshot of the file has its hooks on it while it runs: wait (await only, the UI thread stays free) until none does. The check after the last await and the
+        // attach below have no await between them, so no snapshot can start in the gap (both start on the UI thread).
+        while (RecoverySnapshot.IsRunning(tab.Docx))
+        {
+            await RecoverySnapshot.WhenIdleAsync(tab.Docx);
+        }
+
         var session = tab.EnsureEditor();
         var docx = tab.Docx;
         var model = docx.Model;
