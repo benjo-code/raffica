@@ -1021,6 +1021,7 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
             // A session event after the close (a tab disposing) must not start a timer again.
             _formatClosed = true;
             _formatRefresh?.Dispose();
+            _viewStatesRefresh?.Dispose();
         });
         Step(() =>
         {
