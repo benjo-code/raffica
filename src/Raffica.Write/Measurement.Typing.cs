@@ -415,7 +415,10 @@ internal sealed partial class Measurement
             {
                 var phaseMs = _phases.Milliseconds(i);
                 _phaseSamples[i].Add(phaseMs);
-                inPhases += phaseMs;
+                if (i < EditPhases.TopLevel)
+                {
+                    inPhases += phaseMs;
+                }
             }
 
             _phaseSamples[^1].Add(Math.Max(0, handler - inPhases));

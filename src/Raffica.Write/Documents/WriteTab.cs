@@ -189,8 +189,11 @@ internal sealed class WriteTab : IDisposable
 
     private void OnEditorChanged()
     {
+        var phases = _editor?.Phases;
+        var stamp = EditPhases.Now(phases);
         UpdateDirty();
         ModelEdited?.Invoke();
+        EditPhases.Lap(phases, EditPhases.TabDirty, ref stamp);
     }
 
     /// <summary>

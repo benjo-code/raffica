@@ -208,15 +208,25 @@ internal sealed partial class PageView
             return;
         }
 
+        var phases = _tab.Editor?.Phases;
+        var stamp = EditPhases.Now(phases);
         EnsureCurrent();
+        EditPhases.Lap(phases, EditPhases.ViewCurrent, ref stamp);
         ForgetLostComposition();
         UpdateScrollBars();
+        EditPhases.Lap(phases, EditPhases.ViewScrollBars, ref stamp);
         RestartBlink();
+        EditPhases.Lap(phases, EditPhases.ViewBlink, ref stamp);
         EnsureCaretVisible();
+        EditPhases.Lap(phases, EditPhases.ViewCaret, ref stamp);
         InvalidateAll();
+        EditPhases.Lap(phases, EditPhases.ViewInvalidate, ref stamp);
         PublishSelectionState();
+        EditPhases.Lap(phases, EditPhases.ViewPublish, ref stamp);
         NotifyViewChanged();
+        EditPhases.Lap(phases, EditPhases.ViewNotify, ref stamp);
         NotifyImeText();
+        EditPhases.Lap(phases, EditPhases.ViewIme, ref stamp);
     }
 
     // The session follows the layout of the view that is shown.
