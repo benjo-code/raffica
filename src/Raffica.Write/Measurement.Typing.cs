@@ -72,6 +72,8 @@ internal sealed partial class Measurement
     private readonly List<double> _handlerSamples = [];
     private readonly List<double> _renderSamples = [];
     private readonly List<double> _drawSamples = [];
+    private readonly EditPhases _phases = new();
+    private readonly List<double>[] _phaseSamples = Enumerable.Range(0, EditPhases.Names.Length + 1).Select(_ => new List<double>()).ToArray();
     private readonly List<double> _frameSamples = [];
     private readonly List<double> _leaseSamples = [];
     private readonly List<double> _incompleteSamples = [];
@@ -100,7 +102,7 @@ internal sealed partial class Measurement
     private PageView? _probed;
 
     /// <summary>The line <c>typing case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> for the times of one case in milliseconds.</summary>
-    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing", IReadOnlyList<double>? renderMilliseconds = null, IReadOnlyList<double>? drawMilliseconds = null)
+    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing", IReadOnlyList<double>? renderMilliseconds = null, IReadOnlyList<double>? drawMilliseconds = null, IReadOnlyList<IReadOnlyList<double>>? phaseMilliseconds = null)
     {
         var sorted = milliseconds.Order().ToArray();
         var line = string.Create(CultureInfo.InvariantCulture, $"{kind} case={name} view={view} n={sorted.Length} median-ms={Median(sorted):0.00} p95-ms={Percentile95(sorted):0.00} max-ms={sorted[^1]:0.00}");
@@ -114,6 +116,16 @@ internal sealed partial class Measurement
                 var render = renderMilliseconds.Order().ToArray();
                 var draw = drawMilliseconds.Order().ToArray();
                 line += string.Create(CultureInfo.InvariantCulture, $" render-median-ms={Median(render):0.00} render-p95-ms={Percentile95(render):0.00} draw-median-ms={Median(draw):0.00} draw-p95-ms={Percentile95(draw):0.00}");
+                if (phaseMilliseconds is not null)
+                {
+                    // Where the handler's time went (the phases of EditSession.Apply, then what is left of the handler): recorded, never judged.
+                    for (var i = 0; i < phaseMilliseconds.Count; i++)
+                    {
+                        var phase = phaseMilliseconds[i].Order().ToArray();
+                        var phaseName = i < EditPhases.Names.Length ? EditPhases.Names[i] : "rest";
+                        line += string.Create(CultureInfo.InvariantCulture, $" ph-{phaseName}-median-ms={Median(phase):0.00} ph-{phaseName}-p95-ms={Percentile95(phase):0.00}");
+                    }
+                }
             }
         }
 
@@ -398,6 +410,15 @@ internal sealed partial class Measurement
             var renderPass = Stopwatch.GetElapsedTime(_renderStart, _renderStamp).TotalMilliseconds;
             _renderSamples.Add(renderPass);
             _drawSamples.Add(drawing);
+            var inPhases = 0.0;
+            for (var i = 0; i < EditPhases.Names.Length; i++)
+            {
+                var phaseMs = _phases.Milliseconds(i);
+                _phaseSamples[i].Add(phaseMs);
+                inPhases += phaseMs;
+            }
+
+            _phaseSamples[^1].Add(Math.Max(0, handler - inPhases));
             var judged = handler + renderPass + drawing;
             _samples.Add(judged);
             _leaseSamples.Add(view.Runner.LastLeaseWaitMilliseconds);
@@ -414,7 +435,7 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing", _renderSamples, _drawSamples));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing", _renderSamples, _drawSamples, _phaseSamples));
             }
 
             if (_job is not null && _paneRun)
@@ -441,6 +462,10 @@ internal sealed partial class Measurement
             _handlerSamples.Clear();
             _renderSamples.Clear();
             _drawSamples.Clear();
+            foreach (var list in _phaseSamples)
+            {
+                list.Clear();
+            }
             _frameSamples.Clear();
             _leaseSamples.Clear();
             _incompleteSamples.Clear();
@@ -468,6 +493,7 @@ internal sealed partial class Measurement
             if (_placeStage == 0)
             {
                 var session = view.Tab.EnsureEditor();
+                session.Phases = _phases;
                 _ = session.Selection;
                 var position = new TextPosition(_job.Place.Story, _job.Place.Paragraph, _job.Place.Offset);
                 _range = _job.Format == "format-word" ? FormatRange(view, _job.Place) : null;
@@ -495,6 +521,7 @@ internal sealed partial class Measurement
         _renderSeen = false;
         _renderStart = 0;
         _awaiting = true;
+        _phases.Reset();
         _keyAt = Stopwatch.GetTimestamp();
         view.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text, Source = view });
         _handlerEnd = Stopwatch.GetTimestamp();
@@ -534,6 +561,8 @@ internal sealed partial class Measurement
         _renderSeen = false;
         _renderStart = 0;
         _awaiting = true;
+        session.Phases = _phases;
+        _phases.Reset();
         _keyAt = Stopwatch.GetTimestamp();
         view.RunFormatCommand(id);
         _handlerEnd = Stopwatch.GetTimestamp();
