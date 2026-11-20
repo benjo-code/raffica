@@ -179,7 +179,7 @@ static class Lines
         return split;
     }
 
-    private static readonly string[] s_phaseNames = ["lease", "operation", "selection", "layout", "changed", "selection-event", "rest"];
+    private static readonly string[] s_phaseNames = ["lease", "operation", "selection", "layout", "changed", "selection-event", "v-current", "v-scrollbars", "v-blink", "v-caret", "v-invalidate", "v-publish", "v-notify", "v-ime", "tab-dirty", "rest"];
 
     private static readonly string[] s_splitKeys = ["handler-median-ms", "render-median-ms", "render-p95-ms", "draw-median-ms", "draw-p95-ms", "frame-median-ms", "frame-p95-ms", .. s_phaseNames.SelectMany(n => new[] { $"ph-{n}-median-ms", $"ph-{n}-p95-ms" })];
 
