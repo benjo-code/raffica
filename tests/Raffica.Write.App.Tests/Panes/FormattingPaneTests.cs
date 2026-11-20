@@ -591,6 +591,29 @@ public sealed class FormattingPaneTests
         Assert.Equal(final, pane.RefreshCount);
     }
 
+    // The page view retries to take the focus a few times (every 50 ms) while it is not on screen, and takes it on every activation of the window: a retry that was queued before the
+    // user went into the pane must not pull the focus back out of it (the outline list is kept the same way).
+    [AvaloniaFact]
+    public async Task AQueuedFocusOfThePageViewDoesNotTakeTheFocusOutOfThePane()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, "doc.docx", "<w:r><w:rPr><w:b/></w:rPr><w:t>aaa</w:t></w:r>");
+        Select(session, tab, 0, 0, 0, 3);
+        var pane = Open(window, tab);
+        pane.FocusContent();
+        WindowFixture.Pump();
+        Assert.True(window.FormattingHost!.IsKeyboardFocusWithin, "the pane has the focus before the waiting");
+
+        // Longer than the six retries of 50 ms and the focus of the first activation.
+        for (var i = 0; i < 12; i++)
+        {
+            await Task.Delay(50);
+            WindowFixture.Pump();
+        }
+
+        Assert.True(window.FormattingHost!.IsKeyboardFocusWithin, "the focus stays in the pane");
+    }
+
     [AvaloniaFact]
     public async Task ARowOfAnEarlierSelectionDoesNothingToTheNewSelection()
     {
