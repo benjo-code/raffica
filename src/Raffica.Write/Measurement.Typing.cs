@@ -27,7 +27,7 @@ namespace Raffica.Write;
 /// of that frame on the render thread. It leaves out the idle waits (for the next frame, and the render thread waiting for the display), the layout pass of the view and the compositor, which
 /// no key-dependent code of the app runs in.</item>
 /// </list>
-/// Rows: <c>typing case=&lt;case&gt; view=&lt;page|writing&gt; n=&lt;keys&gt; median-ms=… p95-ms=… max-ms=… handler-median-ms=… frame-median-ms=… frame-p95-ms=…</c> for every case and view, and
+/// Rows: <c>typing case=&lt;case&gt; view=&lt;page|writing&gt; n=&lt;keys&gt; median-ms=… p95-ms=… max-ms=… handler-median-ms=… frame-median-ms=… frame-p95-ms=… render-median-ms=… render-p95-ms=… draw-median-ms=… draw-p95-ms=…</c> for every case and view (render is the UI render pass, draw the render-thread draws of the frame: the split of the judged time, recorded and never judged), and
 /// <c>typing-first when=&lt;after-open|after-switch&gt; view=… ms=…</c> (the judged time) for the first key after the open and the first key after the switch to the writing view (no limit).
 /// The median of an even count is the mean of the two middle values, the 95th percentile is the nearest rank. A run with no frame within 5 s after a key, or without a document,
 /// ends with exit code 1.
@@ -70,6 +70,8 @@ internal sealed partial class Measurement
     private long _waitStarted;
     private readonly List<double> _samples = [];
     private readonly List<double> _handlerSamples = [];
+    private readonly List<double> _renderSamples = [];
+    private readonly List<double> _drawSamples = [];
     private readonly List<double> _frameSamples = [];
     private readonly List<double> _leaseSamples = [];
     private readonly List<double> _incompleteSamples = [];
@@ -98,7 +100,7 @@ internal sealed partial class Measurement
     private PageView? _probed;
 
     /// <summary>The line <c>typing case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> for the times of one case in milliseconds.</summary>
-    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing")
+    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing", IReadOnlyList<double>? renderMilliseconds = null, IReadOnlyList<double>? drawMilliseconds = null)
     {
         var sorted = milliseconds.Order().ToArray();
         var line = string.Create(CultureInfo.InvariantCulture, $"{kind} case={name} view={view} n={sorted.Length} median-ms={Median(sorted):0.00} p95-ms={Percentile95(sorted):0.00} max-ms={sorted[^1]:0.00}");
@@ -107,6 +109,12 @@ internal sealed partial class Measurement
             var handler = handlerMilliseconds.Order().ToArray();
             var frame = frameMilliseconds.Order().ToArray();
             line += string.Create(CultureInfo.InvariantCulture, $" handler-median-ms={Median(handler):0.00} frame-median-ms={Median(frame):0.00} frame-p95-ms={Percentile95(frame):0.00}");
+            if (renderMilliseconds is not null && drawMilliseconds is not null)
+            {
+                var render = renderMilliseconds.Order().ToArray();
+                var draw = drawMilliseconds.Order().ToArray();
+                line += string.Create(CultureInfo.InvariantCulture, $" render-median-ms={Median(render):0.00} render-p95-ms={Percentile95(render):0.00} draw-median-ms={Median(draw):0.00} draw-p95-ms={Percentile95(draw):0.00}");
+            }
         }
 
         return line;
@@ -387,7 +395,10 @@ internal sealed partial class Measurement
             _handlerSamples.Add(handler);
             _frameSamples.Add(Stopwatch.GetElapsedTime(_keyAt, end).TotalMilliseconds);
             var drawing = Stopwatch.GetElapsedTime(0, Volatile.Read(ref _drawTicks) - _drawTicksAtRender).TotalMilliseconds;
-            var judged = handler + Stopwatch.GetElapsedTime(_renderStart, _renderStamp).TotalMilliseconds + drawing;
+            var renderPass = Stopwatch.GetElapsedTime(_renderStart, _renderStamp).TotalMilliseconds;
+            _renderSamples.Add(renderPass);
+            _drawSamples.Add(drawing);
+            var judged = handler + renderPass + drawing;
             _samples.Add(judged);
             _leaseSamples.Add(view.Runner.LastLeaseWaitMilliseconds);
             if (_keyIncomplete)
@@ -403,7 +414,7 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing"));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing", _renderSamples, _drawSamples));
             }
 
             if (_job is not null && _paneRun)
@@ -428,6 +439,8 @@ internal sealed partial class Measurement
             _keyInJob = 0;
             _samples.Clear();
             _handlerSamples.Clear();
+            _renderSamples.Clear();
+            _drawSamples.Clear();
             _frameSamples.Clear();
             _leaseSamples.Clear();
             _incompleteSamples.Clear();

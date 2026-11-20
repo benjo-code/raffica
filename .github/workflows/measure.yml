@@ -365,6 +365,18 @@ jobs:
             echo "Processor: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs), $(nproc) logical processors"
             echo "RAM: $(awk '/MemTotal/ { printf "%.1f", $2 / 1048576 }' /proc/meminfo) GiB"
             echo "Session: ${XDG_SESSION_TYPE:-unknown} (DISPLAY='${DISPLAY:-}', WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-}')"
+            # The power state that decides a laptop's speed (the Windows notes have the power plan): governor and preference of the first core, frequency now and at most, turbo,
+            # the power profile of power-profiles-daemon, mains or battery, the temperature of the first thermal zone. Each is "unknown" when the machine does not offer it.
+            cpu=/sys/devices/system/cpu/cpu0/cpufreq
+            echo "CPU governor: $(cat $cpu/scaling_governor 2>/dev/null || echo unknown), energy preference: $(cat $cpu/energy_performance_preference 2>/dev/null || echo unknown)"
+            echo "CPU frequency now: $(awk '{ printf "%.0f MHz", $1 / 1000 }' $cpu/scaling_cur_freq 2>/dev/null || echo unknown), at most: $(awk '{ printf "%.0f MHz", $1 / 1000 }' $cpu/cpuinfo_max_freq 2>/dev/null || echo unknown), turbo disabled: $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo unknown)"
+            echo "Power profile: $(powerprofilesctl get 2>/dev/null || echo unknown)"
+            mains=unknown
+            for ps in /sys/class/power_supply/*; do
+              if [ "$(cat "$ps/type" 2>/dev/null)" = Mains ]; then mains=$(cat "$ps/online" 2>/dev/null || echo unknown); fi
+            done
+            echo "Mains power online (1 = plugged in): $mains"
+            echo "Temperature at start: $(awk '{ printf "%.0f C", $1 / 1000 }' /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo unknown)"
           } | tee "$OUT/machine.txt"
           if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
             echo "::warning title=Measure::No DISPLAY and no WAYLAND_DISPLAY: the runner was not started in the logged-in desktop session (SSH or a service?). The probe cannot open a window."
@@ -387,6 +399,7 @@ jobs:
             echo "OS: $(sw_vers -productName) $(sw_vers -productVersion) (build $(sw_vers -buildVersion)), $(uname -m)"
             echo "Processor: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.logicalcpu) logical processors"
             echo "RAM: $(sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }') GiB"
+            echo "Power source: $(pmset -g batt 2>/dev/null | head -1 | sed -e "s/^Now drawing from //" || echo unknown)"
             if [ "$TARGET" = pdf ] || [ "$TARGET" = write ]; then echo "Rendering override: ${RAFFICA_RENDERING:-app}"; fi
           } | tee "$OUT/machine.txt"
 
