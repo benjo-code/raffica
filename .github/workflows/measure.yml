@@ -923,7 +923,7 @@ jobs:
       - name: Typing, engine only (write, Linux, macOS)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os != 'Windows' }}
         shell: bash
-        run:${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
+        run: ${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
 
       - name: Engine first page of the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
