@@ -157,6 +157,30 @@ static class Lines
     public static bool TryParseFormat(string line, out string name, out string view, out double median, out double p95, out double max) =>
         TryParseRow("format", line, out name, out view, out median, out p95, out max);
 
+    /// <summary>
+    /// The recorded split of one typing row: every further key=value word of the line after the seven of the contract (handler-median-ms, frame-median-ms, frame-p95-ms, render-median-ms, render-p95-ms, draw-median-ms, draw-p95-ms),
+    /// as (word without its trailing <c>=</c>, value). A word that is not one of them or has no number is skipped; a line without any gives an empty list.
+    /// </summary>
+    public static List<(string Key, double Value)> TypingSplit(string line)
+    {
+        var split = new List<(string, double)>();
+        var parts = line.Split(' ');
+        for (var i = 7; i < parts.Length; i++)
+        {
+            foreach (var key in s_splitKeys)
+            {
+                if (TryValue(parts[i], key + "=", out var value))
+                {
+                    split.Add((key, value));
+                }
+            }
+        }
+
+        return split;
+    }
+
+    private static readonly string[] s_splitKeys = ["handler-median-ms", "render-median-ms", "render-p95-ms", "draw-median-ms", "draw-p95-ms", "frame-median-ms", "frame-p95-ms"];
+
     private static bool TryParseRow(string kind, string line, out string name, out string view, out double median, out double p95, out double max)
     {
         name = view = string.Empty;
@@ -1156,6 +1180,11 @@ static class WriteRun
                 rows.Add((family, $"{runPrefix}{name}-{view}-median", median));
                 rows.Add((family, $"{runPrefix}{name}-{view}-p95", p95));
                 seen.Add($"{name}-{view}");
+                // Recorded, never judged and not a typing row: its own family, where the time of this case went (handler, render pass, draws, frame), when the line has the words.
+                foreach (var (key, value) in Lines.TypingSplit(line))
+                {
+                    rows.Add(("typing-split", $"{firstPrefix}{name}-{view}-{key}", value));
+                }
             }
             else if (Lines.TryParseTypingFirst(line, out var when, out var firstView, out var ms))
             {
@@ -2865,6 +2894,11 @@ static class SelfTest
         Expect("typing-pane rows: first-edit rows carry the prefix", string.Join('|', pane!.Where(r => r.Case == "typing-first").Select(r => r.Run)), "pane-after-open-page|pane-after-switch-writing");
         Expect("typing-pane rows: a refresh row is no typing row and the judged typing metric ignores it", CheckCommand.WorstTypingP95([new("pc", "write", "typing-refresh", "pane-middle-page-ms", 99, "ms")]), (double?)null);
         Expect("parse typing line: a refresh line is not one", Lines.TryParseTyping("typing-refresh case=a view=page n=1 ms=1 window-ms=1 pane-ms=0", out _, out _, out _, out _, out _), false);
+        var splitLine = "typing case=middle view=page n=3 median-ms=8.00 p95-ms=25.00 max-ms=26.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=33.00 render-median-ms=1.25 render-p95-ms=2.50 draw-median-ms=6.25 draw-p95-ms=22.50";
+        var splitRows = WriteRun.ParseTyping(string.Join((char)10, WriteRun.TypingCases.SelectMany(c => WriteRun.TypingViews.Select(v => splitLine.Replace("case=middle", $"case={c}").Replace("view=page", $"view={v}")))), out _, "pane-");
+        Expect("typing split: the words of a line become recorded rows of their own family", string.Join('|', splitRows!.Where(r => r.Case == "typing-split" && r.Run.StartsWith("pane-middle-page-", StringComparison.Ordinal)).Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Run}={r.Value}"))), "pane-middle-page-handler-median-ms=0.5|pane-middle-page-frame-median-ms=17|pane-middle-page-frame-p95-ms=33|pane-middle-page-render-median-ms=1.25|pane-middle-page-render-p95-ms=2.5|pane-middle-page-draw-median-ms=6.25|pane-middle-page-draw-p95-ms=22.5");
+        Expect("typing split: it is no typing row and the judged typing metric ignores it", CheckCommand.WorstTypingP95([new("pc", "write", "typing-split", "pane-middle-page-draw-p95-ms", 99, "ms")]), (double?)null);
+        Expect("typing split: a line without the words gives none", Lines.TypingSplit("typing case=a view=page n=1 median-ms=1 p95-ms=1 max-ms=1").Count, 0);
         // The typing run during snapshots: the same typing rows under their own case (judged as typing), the snapshot line as recorded rows.
         var snapshotOutput = output.ToString() + "snapshot n=12 lease-median-ms=4.50 lease-max-ms=9.25 total-median-ms=80.00 total-max-ms=120.50\n";
         var snap = WriteRun.ParseTypingSnapshot(snapshotOutput, out var snapError);

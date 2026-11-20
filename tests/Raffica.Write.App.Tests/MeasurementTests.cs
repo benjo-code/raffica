@@ -219,7 +219,7 @@ public sealed class MeasurementTests
         {
             foreach (var name in cases)
             {
-                Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d$", rows[index++]);
+                Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d render-median-ms=\d+\.\d\d render-p95-ms=\d+\.\d\d draw-median-ms=\d+\.\d\d draw-p95-ms=\d+\.\d\d$", rows[index++]);
             }
         }
     }
@@ -279,7 +279,7 @@ public sealed class MeasurementTests
             {
                 foreach (var place in places)
                 {
-                    Assert.Matches($@"^format case={kind}/{place} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d$", rows[index++]);
+                    Assert.Matches($@"^format case={kind}/{place} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d render-median-ms=\d+\.\d\d render-p95-ms=\d+\.\d\d draw-median-ms=\d+\.\d\d draw-p95-ms=\d+\.\d\d$", rows[index++]);
                 }
             }
         }
@@ -418,6 +418,9 @@ public sealed class MeasurementTests
             Assert.Equal(
                 "typing case=header view=writing n=3 median-ms=2.00 p95-ms=3.00 max-ms=3.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=18.00",
                 Measurement.TypingLine("header", "writing", [1.0, 2.0, 3.0], [0.5, 0.5, 0.5], [16.0, 17.0, 18.0]));
+            Assert.Equal(
+                "typing case=header view=writing n=3 median-ms=2.00 p95-ms=3.00 max-ms=3.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=18.00 render-median-ms=0.25 render-p95-ms=0.50 draw-median-ms=1.25 draw-p95-ms=2.50",
+                Measurement.TypingLine("header", "writing", [1.0, 2.0, 3.0], [0.5, 0.5, 0.5], [16.0, 17.0, 18.0], "typing", [0.25, 0.25, 0.5], [1.25, 1.25, 2.5]));
         }
         finally
         {

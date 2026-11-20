@@ -441,7 +441,7 @@ internal sealed partial class WriteWindow
         Dispatcher.UIThread.Post(
             () =>
             {
-                if (!ReferenceEquals(ActiveView, view) || view.IsFocused || FocusedElement() is TextBox || InOutline(FocusedElement()))
+                if (!ReferenceEquals(ActiveView, view) || view.IsFocused || FocusedElement() is TextBox || InOutline(FocusedElement()) || InFormatting(FocusedElement()))
                 {
                     return;
                 }
@@ -456,6 +456,10 @@ internal sealed partial class WriteWindow
 
     // Whether the focus is inside the outline pane: its list keeps the focus (and its keys) until the user chooses a heading or leaves it.
     private bool InOutline(IInputElement? focused) => _outlineHost is { } host && focused is Avalonia.Visual visual && host.IsVisualAncestorOf(visual);
+
+    // Whether the focus is inside the formatting pane: it keeps the focus like the outline list. A retry or a re-activation that was queued before the user went into the pane
+    // must not pull the focus back to the page (the pane gives it back itself when it closes or a command ran).
+    private bool InFormatting(IInputElement? focused) => _formattingHost is { } host && focused is Avalonia.Visual visual && host.IsVisualAncestorOf(visual);
 
     private IInputElement? FocusedElement() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
 
