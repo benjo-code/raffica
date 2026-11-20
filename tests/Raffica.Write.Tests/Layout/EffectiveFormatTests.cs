@@ -271,7 +271,9 @@ public sealed class EffectiveFormatTests
         }
 
         Assert.True(runs > 5000, $"only {runs} runs read");
-        Assert.Equal(1, format.StoryWalks);
+
+        // The index holds the paragraphs of tables only, so a paragraph outside every table is a miss that earns one more walk (of the tables) for the revision, never one per paragraph.
+        Assert.Equal(2, format.StoryWalks);
     }
 
     private static IEnumerable<(Paragraph Paragraph, bool InTable)> AllParagraphs(IEnumerable<Block> blocks, bool inTable = false)
