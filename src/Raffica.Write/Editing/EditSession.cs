@@ -365,21 +365,34 @@ internal sealed class EditSession
         var changed = false;
         try
         {
+            var stamp = Stamp();
             using var lease = _tab.Runner.PauseForEdit();
+            Mark(EditPhases.Lease, stamp);
             result = Run(operation, throughPage, typing, ref changed);
         }
         finally
         {
+            var stamp = Stamp();
             if (changed)
             {
                 Changed?.Invoke();
             }
 
+            Mark(EditPhases.Changed, stamp);
+            stamp = Stamp();
             RaiseSelectionChanged();
+            Mark(EditPhases.SelectionEvent, stamp);
         }
 
         return result;
     }
+
+    /// <summary>The measurement's record of where the time of an edit goes; null in a normal run (see <see cref="EditPhases"/>).</summary>
+    internal EditPhases? Phases { get; set; }
+
+    private long Stamp() => Phases is null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
+
+    private void Mark(int phase, long stamp) => Phases?.Add(phase, stamp);
 
     /// <summary>
     /// Shows <paramref name="text"/> as the input method preedit at <paramref name="at"/> on the active layout, or removes it (null or empty text), under the edit
@@ -501,8 +514,10 @@ internal sealed class EditSession
     // The operation and the layout, under the lease. Sets changed when the document or the selection changed (also when the layout then throws).
     private EditResult? Run(Func<TextEditor, EditResult?> operation, int throughPage, bool typing, ref bool changed)
     {
+        var stamp = Stamp();
         var editor = Bind();
         var result = operation(editor);
+        Mark(EditPhases.Operation, stamp);
         if (result is null)
         {
             return null;
@@ -524,6 +539,7 @@ internal sealed class EditSession
         // The model has changed now: whatever happens next, the view must hear of it.
         changed = true;
         // A formatting operation changes no text: the selection that was there stays (a toggle pressed twice must see the same selection twice).
+        stamp = Stamp();
         MoveSelection(result.KeepSelection && _selection is { } kept ? kept : new TextRange(result.Caret, result.Caret), typing);
         if (styled)
         {
@@ -531,8 +547,11 @@ internal sealed class EditSession
             _format.Invalidate(_tab.Docx.Model);
         }
 
+        Mark(EditPhases.Selection, stamp);
+
         var runner = _tab.Runner;
         var active = _activeMode == LayoutMode.Flow ? runner.FlowLayout : (runner.PageLayoutIsStale ? null : runner.PageLayout);
+        stamp = Stamp();
         try
         {
             if (active is not null)
@@ -551,6 +570,8 @@ internal sealed class EditSession
                     }
                 }
             }
+
+            Mark(EditPhases.Layout, stamp);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
