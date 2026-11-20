@@ -1263,6 +1263,11 @@ static class WriteRun
                 rows.Add(("format", $"{name}-{view}-median", median));
                 rows.Add(("format", $"{name}-{view}-p95", p95));
                 seen.Add($"{name}-{view}");
+                // Recorded, never judged and not a format row: its own family, where the time of this case went (the same words as the split of a typing row).
+                foreach (var (key, value) in Lines.TypingSplit(line))
+                {
+                    rows.Add(("format-split", $"{name}-{view}-{key}", value));
+                }
             }
         }
 
@@ -2925,6 +2930,10 @@ static class SelfTest
 
         // The format run: one line per kind, place and view, every one required.
         Expect("parse format line", Lines.TryParseFormat("format case=format-word/middle view=writing n=100 median-ms=1.25 p95-ms=3.50 max-ms=9.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=18.00", out var fname, out var fview, out var fmedian, out var fp95, out _) ? string.Create(CultureInfo.InvariantCulture, $"{fname}|{fview}|{fmedian}|{fp95}") : "-", "format-word/middle|writing|1.25|3.5");
+        var formatSplitLine = "format case=format-word/middle view=page n=100 median-ms=1.25 p95-ms=3.50 max-ms=9.00 handler-median-ms=0.50 frame-median-ms=17.00 frame-p95-ms=18.00 render-median-ms=0.10 render-p95-ms=0.20 draw-median-ms=0.30 draw-p95-ms=0.40 ph-layout-median-ms=2.50 ph-layout-p95-ms=5.00";
+        var formatSplitRows = WriteRun.ParseFormat(string.Join((char)10, WriteRun.FormatKinds.SelectMany(k => WriteRun.TypingCases.SelectMany(pl => WriteRun.TypingViews.Select(v => formatSplitLine.Replace("format-word/middle", $"{k}/{pl}").Replace("view=page", $"view={v}"))))), out _);
+        Expect("format split: the words of a line become recorded rows of their own family", string.Join('|', formatSplitRows!.Where(r => r.Case == "format-split" && r.Run.StartsWith("format-word/middle-page-ph-", StringComparison.Ordinal)).Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Run}={r.Value}"))), "format-word/middle-page-ph-layout-median-ms=2.5|format-word/middle-page-ph-layout-p95-ms=5");
+        Expect("format split: it is no format row and the judged format metric ignores it", CheckCommand.WorstFormatP95([new("pc", "write", "format-split", "format-word/middle-page-draw-p95-ms", 99, "ms")]), (double?)null);
         Expect("parse format line: a typing row is not one", Lines.TryParseFormat("typing case=a view=page n=1 median-ms=1 p95-ms=1 max-ms=1", out _, out _, out _, out _, out _), false);
         Expect("parse typing line: a format row is not one", Lines.TryParseTyping("format case=a view=page n=1 median-ms=1 p95-ms=1 max-ms=1", out _, out _, out _, out _, out _), false);
         var formatOutput = new StringBuilder("first-page\n");
