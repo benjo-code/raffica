@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Raffica.Shell.Controls;
 using Raffica.Shell.Frame;
@@ -434,5 +435,30 @@ public sealed class WriteWindowFormattingTests
         Settle(window);
         Assert.False(window.FormatRefresh.IsPending);
         Assert.True(session.FormatReads <= reads + 1);
+    }
+
+    [AvaloniaFact]
+    public async Task TypingDoesNotAskEveryCommandOfTheRibbonForEveryKey()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, StyledDocx.Styles, "<w:r><w:t>abc</w:t></w:r>");
+        Select(session, tab, 0, 3, 3);
+        Settle(window);
+        window.ViewStatesRefresh?.Flush();
+        WindowFixture.Pump();
+
+        // The view changes with every key (the caret, the scroll): before this was deferred, each key read every command of the ribbon (4 to 5 ms on a laptop, the largest part of the key handler).
+        var view = window.ActiveView!;
+        var asked = 0;
+        window.StatesChanged += () => asked++;
+        for (var i = 0; i < 20; i++)
+        {
+            view.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = "x", Source = view });
+        }
+
+        Assert.True(asked <= 2, $"the ribbon's commands were asked {asked} times for 20 keys");
+        Assert.True(window.ViewStatesRefresh!.IsPending);
+        window.ViewStatesRefresh.Flush();
+        Assert.True(asked >= 1);
     }
 }

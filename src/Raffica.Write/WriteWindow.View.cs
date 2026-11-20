@@ -21,6 +21,7 @@ internal sealed partial class WriteWindow
     private readonly HashSet<WriteTab> _faultShown = [];
     private FormatPickers _pickers = null!;
     private FormatDisplayRefresh? _formatRefresh;
+    private FormatDisplayRefresh? _viewStatesRefresh;
     private bool _formatClosed;
     private string? _editHint;
     private int _editHintGeneration;
@@ -242,6 +243,9 @@ internal sealed partial class WriteWindow
     /// <summary>The refresh of the formatting display that waits for typing to pause (tests run it now); null before the first request.</summary>
     internal FormatDisplayRefresh? FormatRefresh => _formatRefresh;
 
+    /// <summary>The refresh of the ribbon's commands that waits for the view to pause once the tab has an editing session (tests run it now); null before the first request.</summary>
+    internal FormatDisplayRefresh? ViewStatesRefresh => _viewStatesRefresh;
+
     // An edit command that came from the ribbon, the command search or the menu works on the view's selection, so the view takes the focus back: a ribbon button that kept it would
     // swallow the typing and run the command again on Space or Enter. The keys of the page view do not come here.
     private void RunEditFromUi(string id)
@@ -301,7 +305,8 @@ internal sealed partial class WriteWindow
         {
             if (ReferenceEquals(ActiveView, view))
             {
-                UpdateViewStatus();
+                // The view changes with every typed character (the caret, the scroll): once the tab has an editing session the status text follows at once and the commands of the ribbon (a read of every one of them, 4 to 5 ms on a laptop) when it pauses; before the first caret or key nothing is deferred and no timer exists.
+                UpdateViewStatus(refreshStatesNow: view.Tab.Editor is null);
             }
         };
         // The keys of the page view run the command on the view that has the focus and the rules decide (no focus change: the view has it).
@@ -480,7 +485,7 @@ internal sealed partial class WriteWindow
     }
 
     /// <summary>The cells of the status bar follow the view of the active tab: the page (with a plus while the count may still grow) and the zoom.</summary>
-    private void UpdateViewStatus()
+    private void UpdateViewStatus(bool refreshStatesNow = true)
     {
         if (ActiveView is { PageCount: > 0 } view)
         {
@@ -494,7 +499,14 @@ internal sealed partial class WriteWindow
             Status.Position = null;
         }
 
-        RefreshCommandStates();
+        if (refreshStatesNow)
+        {
+            RefreshCommandStates();
+        }
+        else if (!_formatClosed)
+        {
+            (_viewStatesRefresh ??= new FormatDisplayRefresh(RefreshCommandStates, FormatDisplayRefresh.DefaultDelay)).Request();
+        }
     }
 
     /// <summary>The zoom cell: the zoom as a whole percentage, for example <c>125%</c>.</summary>
