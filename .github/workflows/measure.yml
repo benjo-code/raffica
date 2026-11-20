@@ -897,10 +897,20 @@ jobs:
       # The engine alone, without a window (write-layout-bench edit): the same keystrokes through TextEditor and DocumentLayout.ApplyEdit, with the restarts and the hit test, then the formatting cases,
       # the style update (editor and Restyle to the pages in view and to the full layout) and select-all bold with its undo.
       # Recorded for the owner, never judged (a .txt so that the check's CSV glob does not read it).
-      - name: Typing, engine only (write)
-        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+      # Two steps because `shell: bash` on the owner's Windows runner resolves to WSL's bash.exe (C:\WINDOWS\system32), which cannot run the step's script file.
+      - name: Typing, engine only (write, Windows)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          & "${{ env.ENGINE_EXE }}" edit --file testdata/write-corpus/thesis/thesis.docx --csv "${{ env.OUT }}/edit-bench.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ env.ENGINE_EXE }}" edit --background --file testdata/write-corpus/thesis/thesis.docx | Tee-Object -FilePath "${{ env.OUT }}/edit-background.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Typing, engine only (write, Linux, macOS)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os != 'Windows' }}
         shell: bash
-        run: ${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
+        run:${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
 
       - name: Engine first page of the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
