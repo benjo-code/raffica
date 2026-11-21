@@ -181,7 +181,7 @@ static class Lines
 
     private static readonly string[] s_phaseNames = ["lease", "operation", "selection", "layout", "changed", "selection-event", "v-current", "v-scrollbars", "v-blink", "v-caret", "v-invalidate", "v-publish", "v-notify", "v-ime", "tab-dirty", "rest"];
 
-    private static readonly string[] s_splitKeys = ["handler-median-ms", "render-median-ms", "render-p95-ms", "draw-median-ms", "draw-p95-ms", "frame-median-ms", "frame-p95-ms", .. s_phaseNames.SelectMany(n => new[] { $"ph-{n}-median-ms", $"ph-{n}-p95-ms" })];
+    private static readonly string[] s_splitKeys = ["handler-median-ms", "render-median-ms", "render-p95-ms", "draw-median-ms", "draw-p95-ms", "frame-median-ms", "frame-p95-ms", "alloc-median-kb", "alloc-p95-kb", "gc0", "gc1", "gc2", "gc-pause-ms", .. s_phaseNames.SelectMany(n => new[] { $"ph-{n}-median-ms", $"ph-{n}-p95-ms" })];
 
     private static bool TryParseRow(string kind, string line, out string name, out string view, out double median, out double p95, out double max)
     {
@@ -2906,6 +2906,7 @@ static class SelfTest
         Expect("typing split: the words of a line become recorded rows of their own family", string.Join('|', splitRows!.Where(r => r.Case == "typing-split" && r.Run.StartsWith("pane-middle-page-", StringComparison.Ordinal)).Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Run}={r.Value}"))), "pane-middle-page-handler-median-ms=0.5|pane-middle-page-frame-median-ms=17|pane-middle-page-frame-p95-ms=33|pane-middle-page-render-median-ms=1.25|pane-middle-page-render-p95-ms=2.5|pane-middle-page-draw-median-ms=6.25|pane-middle-page-draw-p95-ms=22.5");
         Expect("typing split: it is no typing row and the judged typing metric ignores it", CheckCommand.WorstTypingP95([new("pc", "write", "typing-split", "pane-middle-page-draw-p95-ms", 99, "ms")]), (double?)null);
         Expect("typing split: the phase words of the handler are recorded", string.Join('|', Lines.TypingSplit(splitLine + " ph-lease-median-ms=0.10 ph-lease-p95-ms=0.20 ph-layout-median-ms=4.50 ph-layout-p95-ms=9.00 ph-rest-median-ms=1.00 ph-rest-p95-ms=2.00 ph-other-median-ms=7").Skip(7).Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Key}={r.Value}"))), "ph-lease-median-ms=0.1|ph-lease-p95-ms=0.2|ph-layout-median-ms=4.5|ph-layout-p95-ms=9|ph-rest-median-ms=1|ph-rest-p95-ms=2");
+        Expect("typing split: the allocation and collection words of the handler are recorded", string.Join('|', Lines.TypingSplit(splitLine + " alloc-median-kb=1.50 alloc-p95-kb=9.00 gc0=4 gc1=2 gc2=1 gc-pause-ms=0.25").Skip(7).Select(r => string.Create(CultureInfo.InvariantCulture, $"{r.Key}={r.Value}"))), "alloc-median-kb=1.5|alloc-p95-kb=9|gc0=4|gc1=2|gc2=1|gc-pause-ms=0.25");
         Expect("typing split: a line without the words gives none",Lines.TypingSplit("typing case=a view=page n=1 median-ms=1 p95-ms=1 max-ms=1").Count, 0);
         // The typing run during snapshots: the same typing rows under their own case (judged as typing), the snapshot line as recorded rows.
         var snapshotOutput = output.ToString() + "snapshot n=12 lease-median-ms=4.50 lease-max-ms=9.25 total-median-ms=80.00 total-max-ms=120.50\n";
