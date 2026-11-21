@@ -284,7 +284,7 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
 
     public FlowSplit Split(float available, bool mustProgress)
     {
-        if (Height <= available)
+        if (Height - (_to > _from ? _layout.Lines[_to - 1].Extra : 0f) <= available)
         {
             return new FlowSplit(this, null);
         }
@@ -431,7 +431,7 @@ internal sealed class ParagraphFlow : IBlockFlow, IFloatAware
     private int LinesThatFit(float available)
     {
         var count = 0;
-        while (count < LineCount && HeightOf(_from, _from + count + 1) <= available)
+        while (count < LineCount && HeightOf(_from, _from + count + 1) - _layout.Lines[_from + count].Extra <= available)
         {
             count++;
         }

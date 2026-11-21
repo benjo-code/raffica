@@ -878,7 +878,7 @@ internal sealed class ParagraphSession : IDisposable
                 break;
             default:
                 height = natural * (_para.LineValue > 0f ? _para.LineValue : 1f);
-                baseline = height - desc;
+                baseline = Math.Min(height, natural) - desc;
                 break;
         }
 
@@ -925,7 +925,7 @@ internal sealed class ParagraphSession : IDisposable
 
         _lines.Add(new LineBox(
             _lineTop, height, asc, desc, baseline, _lineLeft + shift, width, _lineStartOffset, Math.Max(end, _lineStartOffset),
-            MergeRuns(_runs), [.. _boxes]));
+            MergeRuns(_runs), [.. _boxes], _para.LineRule == LineSpacingRule.Auto && float.IsFinite(height) ? Math.Max(0f, height - natural) : 0f));
         _y = _lineTop + height;
         _first = false;
         _lineOpen = false;

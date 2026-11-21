@@ -423,6 +423,19 @@ public sealed class CorpusToolTests
         Assert.Equal(2, RunTool("compare", "--require-same-page-count").Code);
     }
 
+    // The 4.2 gate: Write's layout of the generated thesis has the page count of Word's PDF of it (made with Caladea and Carlito installed, so Word does
+    // not substitute fonts: with other fonts the PDF has other line breaks). Skips where the owner's PDF is absent.
+    [Fact]
+    public void TheThesisHasTheNumberOfPagesWordMakesOfIt()
+    {
+        var root = Path.Combine(TestData.Root, "testdata", "write-corpus");
+        Assert.SkipUnless(File.Exists(Path.Combine(root, "thesis", "word.pdf")), "testdata/write-corpus/thesis/word.pdf is the owner's file and is absent.");
+
+        var result = RunTool("compare", "--id", "thesis", "--root", root, "--require-same-page-count");
+
+        Assert.True(result.Code == 0, result.Out);
+    }
+
     [Fact]
     public void CompareLayoutLaysOutADocxAsTheCandidate()
     {
