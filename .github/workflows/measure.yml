@@ -896,6 +896,12 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-pane --out ${{ env.OUT }}/typing-pane.csv
 
+      # Typing while recovery copies are written back to back (--measure-typing-snapshot, milestone 4.3.3): about 3.5 copies a second, much harsher than the real 30 s cadence; its rows
+      # are typing-snapshot/<case>-<view>-p95, so the worst p95 of typing holds them (the same fixed 16 ms), the lease and total times of a copy (snapshot/*) are recorded and never judged. Needs a quiet machine.
+      - name: Typing while recovery copies are written (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-snapshot --out ${{ env.OUT }}/typing-snapshot.csv
+
       # Formatting (milestone 4.3.2): bold on one word and the alignment of one paragraph at the same places and in both views (--measure-format); rows format/<kind>/<place>-<view>-p95,
       # the check judges the worst p95 against the fixed 16 ms like typing (CPU cost of the key handler, the render pass and the page draws, the frame latency recorded). Three launches.
       - name: Formatting in the thesis (write)
