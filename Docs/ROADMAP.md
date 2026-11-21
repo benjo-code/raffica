@@ -45,7 +45,8 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 4.3.1 | The editing engine (4.3a) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-15-milestone-04-3a-the-editing-engine.md) | 2026-11-21 |
 | 4.3.2 | Formatting and styles (4.3b) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-16-milestone-04-3b-formatting-and-styles.md) | 2026-11-21 |
 | 4.3.3 | New documents and recovery (4.3c) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-17-milestone-04-3c-new-documents-and-recovery.md) | 2026-11-21 |
-| 4.4 | Structure | 5 – Raffica Write | ⬜ open | – | – |
+| 4.4.1 | Headings, lists and the outline (4.4a) | 5 – Raffica Write | 🔵 in progress | [Plan](superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md) | – |
+| 4.4.2 | Sections, page numbers, headers and footers, page setup (4.4b) | 5 – Raffica Write | ⬜ open | – | – |
 | 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
 | 4.6 | Review and proofing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.7 | Print and PDF | 5 – Raffica Write | ⬜ open | – | – |
@@ -127,6 +128,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-16 (Milestone 4.3a):** Changes against the plan while the milestone was built: `IFragmentCodec` lives in `Raffica.Write.Model` (not in Editing), because Docx may not reference Editing and Editing may not reference Docx; a save that finds a target that appeared since the picker reuses `SaveFailureReason.TargetExists` instead of a new `TargetAppeared` member (a new member would have forced wording into the PDF app and the CLI); the layout gained a chrome-only refresh of headers and footers (a window of pages at once, the rest in a background pass) because a header edit (17.4 ms p95) and a footer with a page number (25 ms p95) exceeded the 16 ms limit; the typing metric `typing` is the worst p95 over all case and view pairs with a fixed limit of 16.0 ms, judged on CPU cost per keystroke while the key-to-frame latency is recorded (it is display pacing); `Raffica.Shell` gained `PaneFocus.Insert` for Write's F6 ring; the edit queue during a save is capped at 10,000 (the spec said no cap). The final review added: block content controls are containers of their own for the editor (paragraph lookup, history paths, anchors, copy), the outline pane reads on the UI thread and follows edits, any operation exception but the editor's stale-position refusal faults the session, and a save's dropped input is reported. The oracle compares incremental and full layout with exact equality (the planned 0.01 pt tolerance was not needed). The milestone stays in progress: the IME on three systems, the typing budgets on the Linux laptop and the Intel Mac and a look at the AOT build are the owner's.
 - **2026-11-17 (Milestone 4.3.3):** Scope of 4.3c (owner, 2026-11-17): the shared crash guard for Write, which the 4.3a decision listed as a 4.3c follow-up, is not part of 4.3c; it moves to 4.9 together with the update flow, the default-app services and the print services (the roadmap tasks of 4.3.3 never named it). Recovery relies on the recovery copy alone. Added to the three tasks as design calls, not new features: untitled tabs (a tab without a path, Save is Save as), a New document command with Ctrl+N, and Write's own label for the autosave check box, which stores the shell's autosave value but only controls recovery copies. A restored document is never bound to its old path (Save is Save as with the old name suggested). The 16 ms typing criterion gets a new case, `typing-snapshot`, judged like `typing`. Design: `Docs/superpowers/specs/2026-11-17-raffica-write-4-3c-new-documents-and-recovery-design.md`.
 - **2026-11-21 (Milestones 4.2, 4.3.1, 4.3.2 and 4.3.3):** The IME check on real systems is dropped from the gates (owner, 2026-11-21): acceptance criterion 3 of 4.3.1 is removed, the IME implementation, its headless tests and `Docs/write-ime-check.md` stay, and no real IME was run (Windows, Linux, macOS), so IME input is unverified. Formatted typing ends the typing step at a format command, as in Word (owner, 2026-11-21, on the recommendation). With the other owner gates recorded as done, milestones 4.2, 4.3.1, 4.3.2 and 4.3.3 are done.
+- **2026-11-21 (Milestone 4.4):** Milestone 4.4 is split into 4.4.1 (headings, lists and the outline, 4.4a) and 4.4.2 (sections, page numbers, headers and footers, page setup, 4.4b); 4.5 now follows 4.4.2. The outline task of 4.4.1 says "a heading with its content" for drag and keys, and the measured chapter move and the acceptance texts of numbering, Word and the real display are added to 4.4.1; the old tasks 3 and 4 and the old second acceptance move to 4.4.2 unchanged.
 
 ---
 
@@ -743,23 +745,36 @@ Tasks 1 to 13 of the plan, commits e8522a7 to fdfe0d5 and the documents commit a
 5. Decided by the owner on 2026-11-21 (the reading of the criterion for `typing-snapshot` stands, `Docs/DECISIONS.md`, "Raffica Write: the reading of the 16 ms criterion (M4.3)"; snapshots back to back, 3.5 a second, harsher than the real 30 s cadence; CPU cost judged, the lease and copy times recorded).
 The 4.2, 4.3a and 4.3b gates are closed. The shared crash guard is not part of this milestone (see "Scope changes"; it moves to 4.9).
 
-## Milestone 4.4 – Structure
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.3.3
+## Milestone 4.4.1 – Headings, lists and the outline (4.4a)
+**Status:** 🔵 in progress · **Plan:** [2026-11-21-milestone-04-4a-headings-lists-and-outline.md](superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md) · **Prerequisites:** M4.3.3
 
-Goal: Headings, numbering, sections and page numbers are built by Write in one action and never break.
+Goal: Headings and lists are built by Write on the document's numbering definitions, and the outline pane moves, promotes and demotes a heading with its content.
 
 **Tasks**
 - [ ] Headings, lists and numbering on the document's numbering definitions
 - [ ] Outline pane: drag and keys move a heading with its content, promote and demote
+- [ ] Measure a chapter move (engine bench, app switch, budget row)
+
+**Acceptance criteria**
+- [ ] Moving and deleting headings never leaves stale numbers (tests)
+- [ ] A chapter move on the generated thesis takes at most the limit set from the median (aim 100 ms on the Linux laptop; measured)
+- [ ] Word opens a file with numbered headings, lists and a moved chapter with no repair prompt and the numbers read as in Write (owner, recorded)
+- [ ] A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac (owner)
+
+## Milestone 4.4.2 – Sections, page numbers, headers and footers, page setup (4.4b)
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4.1
+
+Goal: Sections and page numbers are built by Write in one action and never break.
+
+**Tasks**
 - [ ] Sections and "start page numbering here" as one command with a removable marker; headers and footers (first, odd and even)
 - [ ] Page setup: size, margins, orientation, columns
 
 **Acceptance criteria**
-- [ ] Moving and deleting headings never leaves stale numbers (tests)
 - [ ] The page-3 "1" and the "A-1" appendix made with the one command open in Word as intended (owner, recorded)
 
 ## Milestone 4.5 – Long-document tools
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4.2
 
 Goal: A thesis can be written in Write from scratch, with tables, pictures, notes and fields that are always current.
 

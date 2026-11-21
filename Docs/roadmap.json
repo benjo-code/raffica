@@ -357,6 +357,11 @@
       "date": "2026-11-21",
       "context": "Milestones 4.2, 4.3.1, 4.3.2 and 4.3.3",
       "text": "The IME check on real systems is dropped from the gates (owner, 2026-11-21): acceptance criterion 3 of 4.3.1 is removed, the IME implementation, its headless tests and `Docs/write-ime-check.md` stay, and no real IME was run (Windows, Linux, macOS), so IME input is unverified. Formatted typing ends the typing step at a format command, as in Word (owner, 2026-11-21, on the recommendation). With the other owner gates recorded as done, milestones 4.2, 4.3.1, 4.3.2 and 4.3.3 are done."
+    },
+    {
+      "date": "2026-11-21",
+      "context": "Milestone 4.4",
+      "text": "Milestone 4.4 is split into 4.4.1 (headings, lists and the outline, 4.4a) and 4.4.2 (sections, page numbers, headers and footers, page setup, 4.4b); 4.5 now follows 4.4.2. The outline task of 4.4.1 says \"a heading with its content\" for drag and keys, and the measured chapter move and the acceptance texts of numbering, Word and the real display are added to 4.4.1; the old tasks 3 and 4 and the old second acceptance move to 4.4.2 unchanged."
     }
   ],
   "subprojects": [
@@ -996,19 +1001,35 @@
           ]
         },
         {
-          "id": "4.4",
-          "title": "Structure",
-          "status": "open",
+          "id": "4.4.1",
+          "title": "Headings, lists and the outline (4.4a)",
+          "status": "in-progress",
+          "plan": "superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md",
           "prerequisites": ["4.3.3"],
-          "goal": "Headings, numbering, sections and page numbers are built by Write in one action and never break.",
+          "goal": "Headings and lists are built by Write on the document's numbering definitions, and the outline pane moves, promotes and demotes a heading with its content.",
           "tasks": [
             { "text": "Headings, lists and numbering on the document's numbering definitions", "done": false },
             { "text": "Outline pane: drag and keys move a heading with its content, promote and demote", "done": false },
+            { "text": "Measure a chapter move (engine bench, app switch, budget row)", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Moving and deleting headings never leaves stale numbers (tests)", "done": false },
+            { "text": "A chapter move on the generated thesis takes at most the limit set from the median (aim 100 ms on the Linux laptop; measured)", "done": false },
+            { "text": "Word opens a file with numbered headings, lists and a moved chapter with no repair prompt and the numbers read as in Write (owner, recorded)", "done": false },
+            { "text": "A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac (owner)", "done": false }
+          ]
+        },
+        {
+          "id": "4.4.2",
+          "title": "Sections, page numbers, headers and footers, page setup (4.4b)",
+          "status": "open",
+          "prerequisites": ["4.4.1"],
+          "goal": "Sections and page numbers are built by Write in one action and never break.",
+          "tasks": [
             { "text": "Sections and \"start page numbering here\" as one command with a removable marker; headers and footers (first, odd and even)", "done": false },
             { "text": "Page setup: size, margins, orientation, columns", "done": false }
           ],
           "acceptance": [
-            { "text": "Moving and deleting headings never leaves stale numbers (tests)", "done": false },
             { "text": "The page-3 \"1\" and the \"A-1\" appendix made with the one command open in Word as intended (owner, recorded)", "done": false }
           ]
         },
@@ -1016,7 +1037,7 @@
           "id": "4.5",
           "title": "Long-document tools",
           "status": "open",
-          "prerequisites": ["4.4"],
+          "prerequisites": ["4.4.2"],
           "goal": "A thesis can be written in Write from scratch, with tables, pictures, notes and fields that are always current.",
           "tasks": [
             { "text": "Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes", "done": false },
