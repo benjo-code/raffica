@@ -181,6 +181,67 @@ public sealed class ListCatalogTests
     }
 
     [Fact]
+    public void WithoutANumberingPartFindListIsZeroAndEnsureListCreatesThePartAndTheList()
+    {
+        var document = NewDocument();
+        document.Numbering = null;
+        var catalog = new ListCatalog(document);
+
+        Assert.Equal(0, catalog.FindList(ListKind.Bullet));
+
+        var first = catalog.EnsureList(ListKind.Bullet);
+        var second = catalog.EnsureList(ListKind.Bullet);
+
+        Assert.NotNull(document.Numbering);
+        Assert.Equal(first, second);
+        Assert.Single(document.Numbering.Abstracts);
+        Assert.Single(document.Numbering.Instances);
+    }
+
+    [Fact]
+    public void NewRunNeverReusesTheDocumentsOwnUnreferencedInstance()
+    {
+        var document = NewDocument();
+        AddList(document, 0, 4, "decimal");
+        var catalog = new ListCatalog(document);
+
+        var run = catalog.NewRun(ListKind.Numbered);
+
+        Assert.NotEqual(4, run);
+        Assert.Equal(2, document.Numbering!.Instances.Count);
+    }
+
+    [Fact]
+    public void NewRunDoesNotReuseAnInstanceThatHasOverrides()
+    {
+        var document = NewDocument();
+        var catalog = new ListCatalog(document);
+        var first = catalog.NewRun(ListKind.Numbered);
+        document.Numbering!.FindInstance(first)!.Overrides.Add(new LevelOverride { Level = 0, StartOverride = 5 });
+
+        var second = catalog.NewRun(ListKind.Numbered);
+
+        Assert.NotEqual(first, second);
+    }
+
+    [Fact]
+    public void HeadingListFallsBackToAnUnlinkedNineLevelMultilevelList()
+    {
+        var document = NewDocument();
+        var own = WriteListDefinitions.Heading(3);
+        foreach (var level in own.Levels)
+        {
+            level.KeptChildren.Clear();
+        }
+
+        document.Numbering!.Abstracts.Add(own);
+        document.Numbering.Instances.Add(new NumberingInstance { NumId = 8, AbstractNumId = 3, Position = 1 });
+
+        Assert.Equal(8, new ListCatalog(document).HeadingList());
+        Assert.Single(document.Numbering.Abstracts);
+    }
+
+    [Fact]
     public void RestartAddsAnInstanceWithStartOverride1()
     {
         var document = NewDocument();

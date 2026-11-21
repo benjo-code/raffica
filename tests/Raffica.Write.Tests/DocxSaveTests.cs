@@ -763,6 +763,31 @@ public sealed class DocxSaveTests
     }
 
     [Fact]
+    public async Task ANumberingPartIsCreatedInAPackageWithoutOne()
+    {
+        using var folder = new TempFolder();
+        var numId = 0;
+        var saved = await SaveCreating(folder, "numbering", model =>
+        {
+            Assert.Null(model.Numbering);
+            numId = new Raffica.Write.Editing.ListCatalog(model).EnsureList(Raffica.Write.Editing.ListKind.Bullet);
+        });
+
+        using (var package = WordprocessingDocument.Open(saved, false))
+        {
+            var part = package.MainDocumentPart!.NumberingDefinitionsPart!;
+            Assert.Equal("/word/numbering.xml", part.Uri.OriginalString);
+            Assert.Equal(OfficeContent + "numbering+xml", part.ContentType);
+            Assert.Equal(PartMap.NumberingType, part.RelationshipType);
+        }
+
+        using var reopened = DocxFile.Open(saved);
+        var instance = reopened.Model.Numbering!.FindInstance(numId)!;
+        Assert.Equal("bullet", reopened.Model.Numbering.FindAbstract(instance.AbstractNumId!.Value)!.Levels[0].Format);
+        Assert.Equal(numId, new Raffica.Write.Editing.ListCatalog(reopened.Model).FindList(Raffica.Write.Editing.ListKind.Bullet));
+    }
+
+    [Fact]
     public async Task AStylesPartIsCreatedInAPackageWithoutAnyChildPart()
     {
         using var folder = new TempFolder();

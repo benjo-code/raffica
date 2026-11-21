@@ -23,8 +23,9 @@ public sealed class ListCatalog
     }
 
     /// <summary>
-    /// The document's own list of this kind: the <c>w:num</c> the List Bullet or List Number style points at, otherwise the first one
-    /// (by position in the part) whose definition is linked to no style and whose level 0 is of the kind. 0 when there is none.
+    /// The document's own list of this kind. The list the List Bullet or List Number style points at wins (even though Word links such
+    /// a definition to that style with <c>w:pStyle</c>; definitions linked to the Heading1 to Heading9 styles are never picked),
+    /// otherwise the first one by position that is linked to no style and whose level 0 is of the kind. 0 when there is none.
     /// </summary>
     public int FindList(ListKind kind)
     {
@@ -106,7 +107,7 @@ public sealed class ListCatalog
         return id;
     }
 
-    /// <summary>True when a paragraph of the body, a note, a header or footer, or a style points at the list.</summary>
+    /// <summary>True when a paragraph of the body (tables and block content controls included), a note, a header or footer, or a style points at the list. It does not look into row-level content controls, drawing text boxes or comments.</summary>
     public bool IsReferenced(int numId)
     {
         if (numId <= 0)
@@ -226,8 +227,9 @@ public sealed class ListCatalog
             k.Content.Element.Name == W + "multiLevelType"
             && (string?)k.Content.Element.Attribute(W + "val") == "multilevel");
 
+    // A document without a numbering part gets an empty one; the DOCX layer writes it (part, relationship and content type) on save.
     private NumberingDefinitions Required() =>
-        _document.Numbering ?? throw new InvalidOperationException("The document has no numbering part.");
+        _document.Numbering ??= new NumberingDefinitions(new OoxmlRoot(W + "numbering", [new XAttribute(XNamespace.Xmlns + "w", W.NamespaceName)]));
 
     private int AddInstance(NumberingDefinitions numbering, int abstractNumId, bool track)
     {
