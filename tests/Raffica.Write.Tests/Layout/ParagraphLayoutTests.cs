@@ -92,6 +92,21 @@ public sealed class ParagraphLayoutTests
         Assert.Equal(layout.Lines[0].Height - (face.Descent * 11f), layout.Lines[0].Baseline, 0.01f);
     }
 
+    // Word puts the extra room of a multiple above single below the text of the line (measured on the PDFs of the thesis: the first line of a page stands one
+    // ascent below the top margin whatever the multiple), and lets it hang below the text area at the end of a page.
+    [Fact]
+    public void TheExtraRoomOfAMultipleIsBelowTheTextAndIsNotNeededToFit()
+    {
+        var face = s_fonts.Resolve("Calibri", false, false);
+        var natural = (face.Ascent + face.Descent + face.LineGap) * 11f;
+        var line = Lay(Input("Hello", "<w:spacing w:line=\"360\" w:lineRule=\"auto\"/>"), 200f).Lines[0];
+
+        Assert.Equal(natural - (face.Descent * 11f), line.Baseline, 0.01f);
+        Assert.Equal(natural * 0.5f, line.Extra, 0.01f);
+        Assert.Equal(0f, Lay(Input("Hello", "<w:spacing w:line=\"240\" w:lineRule=\"auto\"/>"), 200f).Lines[0].Extra, 0.01f);
+        Assert.Equal(0f, Lay(Input("Hello", "<w:spacing w:line=\"400\" w:lineRule=\"atLeast\"/>", Run(size: 8f)), 200f).Lines[0].Extra, 0.01f);
+    }
+
     [Fact]
     public void MultipleAtLeastExactSpacing()
     {

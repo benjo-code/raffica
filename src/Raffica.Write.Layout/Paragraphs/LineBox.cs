@@ -243,8 +243,9 @@ public sealed class LineBox
 {
     internal LineBox(
         float top, float height, float ascent, float descent, float baseline, float x, float width, int start, int end,
-        GlyphRun[] runs, PlacedBox[] boxes)
+        GlyphRun[] runs, PlacedBox[] boxes, float extra = 0f)
     {
+        Extra = extra;
         Top = top;
         Height = height;
         Ascent = ascent;
@@ -257,6 +258,9 @@ public sealed class LineBox
         Runs = runs;
         Boxes = boxes;
     }
+
+    /// <summary>The room a line spacing above single (an automatic multiple) adds below the text of the line. Word lets it hang below the text area at the end of a page, so a line needs only <see cref="Height"/> minus this to fit.</summary>
+    public float Extra { get; }
 
     public float Top { get; }
 

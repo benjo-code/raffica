@@ -20,6 +20,25 @@ public sealed class PageLayoutTests
 
     private static string[] TextLines(LaidOutPage page) => PageTestKit.Lines(page);
 
+    // Word lets the extra room of a multiple above single hang below the text area: the last line of a page needs only its own text height (the thesis has
+    // the page count of Word's PDF of it only with this rule).
+    [Fact]
+    public void TheLastLineOfAPageNeedsNoExtraLineSpacingRoom()
+    {
+        const string spacing = "<w:spacing w:line=\"360\" w:lineRule=\"auto\"/>";
+        var probe = Complete(Lines("L", 3, spacing) + Sect());
+        var baselines = Runs(probe.Page(0)).Select(r => r.Baseline).Distinct().Order().ToArray();
+        var pitch = baselines[1] - baselines[0];
+        var natural = pitch / 1.5f;
+        const int fits = 5;
+        var available = (fits * pitch) - (0.5f * natural) + 0.5f;
+
+        var layout = Complete(Lines("L", 9, spacing) + Sect(height: available + 144f));
+
+        Assert.Equal(fits, Runs(layout.Page(0)).Select(r => r.Baseline).Distinct().Count());
+        Assert.Equal(2, layout.LaidOutPages);
+    }
+
     [Fact]
     public void EmptyDocumentHasOneBlankPage()
     {
