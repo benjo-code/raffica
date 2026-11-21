@@ -1820,16 +1820,17 @@ static class CheckCommand
     ];
 
     // THE limit table of the Write app (target write), the only place for these numbers. The app rows (cold, warm, thesis, second, scroll, memory,
-    // size, zip) stay EMPTY until the owner's runs of milestone 4.2 are recorded (Docs/DECISIONS.md, "Raffica Write: speed budgets (M4.2)"; time to
-    // 10 ms, memory to 5 MiB, size to 1 MiB, limit = budget x 1.25). The one entry that exists now is a FIXED limit, not a measured one: the engine
-    // first page of the thesis on the Linux laptop, 100 ms = budget 80 x 1.25 (spec "Raffica Write", section 5, and the layout decision "Raffica Write:
-    // the layout engine (M4)"). It is the Linux laptop's limit, so it is entered for linux only; a miss is a finding for the owner, never a loosened number.
-    // A platform with no entry at all (windows, macos) has no limits: a check there exits 2.
+    // size, zip) are the medians of the owner's runs on the three machines (Docs/DECISIONS.md, "Raffica Write: speed budgets (M4.2)"; time to
+    // 10 ms, memory to 5 MiB, size to 1 MiB, limit = budget x 1.25, the PDF rule): measure.yml, target write, 2026-11-21, the median over the runs of
+    // the median of each run (Windows PC: run 44866254218; Linux laptop: runs 44864145294 and 44866256721; Intel Mac: runs 44843636813, 44852598340
+    // and 44864148204). Two entries are FIXED limits, not measured ones: the engine first page of the thesis on the Linux laptop, 100 ms = budget 80 x
+    // 1.25 (spec "Raffica Write", section 5, and the layout decision "Raffica Write: the layout engine (M4)"), entered for linux only, and typing and
+    // format at 16 ms on every platform. A miss is a finding for the owner, never a loosened number; a change is a new decisions entry.
     private static readonly Dictionary<string, Dictionary<string, double>> s_writeBudgets = new()
     {
-        ["windows"] = new() { ["typing"] = TypingBudget, ["format"] = FormatBudget },
-        ["linux"] = new() { ["engine"] = 80, ["typing"] = TypingBudget, ["format"] = FormatBudget },
-        ["macos"] = new() { ["typing"] = TypingBudget, ["format"] = FormatBudget },
+        ["windows"] = new() { ["cold"] = 270, ["warm"] = 270, ["thesis"] = 280, ["second"] = 20, ["scroll"] = 20, ["memory"] = 115, ["size"] = 73, ["zip"] = 28, ["typing"] = TypingBudget, ["format"] = FormatBudget },
+        ["linux"] = new() { ["cold"] = 280, ["warm"] = 270, ["thesis"] = 300, ["second"] = 50, ["scroll"] = 20, ["memory"] = 210, ["size"] = 67, ["zip"] = 29, ["engine"] = 80, ["typing"] = TypingBudget, ["format"] = FormatBudget },
+        ["macos"] = new() { ["cold"] = 730, ["warm"] = 800, ["thesis"] = 800, ["second"] = 80, ["scroll"] = 20, ["memory"] = 155, ["size"] = 69, ["zip"] = 30, ["typing"] = TypingBudget, ["format"] = FormatBudget },
     };
 
     /// <summary>
@@ -2140,7 +2141,7 @@ static class CheckCommand
         }
         else if (write && results.Any(r => r.Verdict == "not judged"))
         {
-            text.AppendLine("> A metric marked \"not judged\" has no recorded limit yet (milestone 4.2 sets them from the owner's runs; the engine limit exists for Linux only, the typing limit of 16 ms for every platform and is no app limit in this sense); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
+            text.AppendLine("> A metric marked \"not judged\" has no recorded limit (the engine limit exists for Linux only; the app limits of every platform are recorded since 2026-11-21, the typing and format limits of 16 ms are fixed and no app limits in this sense); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
         }
 
         text.Append(Render(results));
@@ -2727,29 +2728,31 @@ static class SelfTest
         var broken = FakeEngine(folder, "engine-broken", "x");
         Expect("write run: an unreadable benchmark median fails the run", RunCommand.Execute(Options.Parse(["--target", "write", "--exe", broken, "--case", "engine", "--testdata", testdata, "--out", csvPath], out _)!), 1);
 
-        // The production table: only the fixed engine limit of the Linux laptop, 100 ms = budget 80 x 1.25; the app rows wait for the owner's runs.
+        // The production table: the app rows of the owner's runs of 2026-11-21, the fixed engine limit of the Linux laptop (100 ms = budget 80 x 1.25) and the fixed typing and format limits.
         Expect("write limits: linux engine is budget 80 x 1.25 = 100 ms", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
-        Expect("write limits: linux holds the engine, typing and format entries only", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "engine,typing,format");
-        Expect("write limits: windows and macos hold the typing and format entries only", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "typing|format|typing|format");
+        Expect("write limits: linux holds the app rows, the engine, typing and format", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "cold,warm,thesis,second,scroll,memory,size,zip,engine,typing,format");
+        Expect("write limits: windows and macos hold the app rows, typing and format, no engine", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format".Replace(",", "|") + "|" + "cold,warm,thesis,second,scroll,memory,size,zip,typing,format".Replace(",", "|"));
+Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, limit = budget x 1.25", string.Join(' ', new[] { "windows", "linux", "macos" }.Select(p => string.Join(',', new[] { "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip" }.Select(k => CheckCommand.LimitOf(CheckCommand.WriteTable, p, k)?.ToString(CultureInfo.InvariantCulture))))), "337.5,337.5,350,25,25,143.75,91.25,35 350,337.5,375,62.5,25,262.5,83.75,36.25 912.5,1000,1000,100,25,193.75,86.25,37.5");
         Expect("write limits: typing is a fixed 16 ms on every platform (budget 12.8 x 1.25)", new[] { "windows", "linux", "macos" }.Select(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "typing")).All(l => l == 16.0), true);
         Expect("write limits: the typing budget constant", CheckCommand.TypingBudget, 12.8);
         Expect("TheFormatCaseIsJudgedAgainst16Ms: format is a fixed 16 ms on every platform (budget 12.8 x 1.25)", new[] { "windows", "linux", "macos" }.Select(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "format")).All(l => l == 16.0), true);
         Expect("TheFormatCaseIsJudgedAgainst16Ms: the format budget constant", CheckCommand.FormatBudget, 12.8);
-        Expect("write limits: windows has no app limit (only the typing one)", CheckCommand.WriteHasNoLimits("windows", "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine"), true);
-        Expect("write limits: macos has no app limit (only the typing one)", CheckCommand.WriteHasNoLimits("macos", "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine"), true);
+        Expect("write limits: windows has every app limit and no engine limit", CheckCommand.WriteHasNoLimits("windows", "engine"), true);
+        Expect("write limits: macos has every app limit and no engine limit", CheckCommand.WriteHasNoLimits("macos", "engine"), true);
+        Expect("write limits: every platform has a limit for every app metric", new[] { "windows", "linux", "macos" }.Any(p => new[] { "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip" }.Any(k => CheckCommand.WriteHasNoLimits(p, k))), false);
         Expect("write limits: every platform has the typing limit", new[] { "windows", "linux", "macos" }.Any(p => CheckCommand.WriteHasNoLimits(p)), false);
         Expect("write limits: linux has the engine limit", CheckCommand.WriteHasNoLimits("linux", "engine"), false);
-        Expect("write limits: linux has no size or zip limit yet", CheckCommand.WriteHasNoLimits("linux", "size", "zip"), true);
+        Expect("write limits: linux has a size and a zip limit", CheckCommand.WriteHasNoLimits("linux", "size", "zip"), false);
         Expect("write limits: the engine limit is not an app limit on windows", CheckCommand.LimitOf(CheckCommand.WriteTable, "windows", "engine"), (double?)null);
 
-        // check --target write against the production table: windows and macos judge the typing row alone (the app rows have no limit yet and are not judged), linux the engine and the typing row.
+        // check --target write against the production table: windows and macos judge every app row, typing and format (the engine has no limit there and is not judged), linux the engine as well.
         var csv = Path.Combine(folder, "w-in.csv");
         var summary = Path.Combine(folder, "summary.md");
         foreach (var platform in new[] { "windows", "macos" })
         {
             PdfCsv(csv, WriteRows(platform));
             Expect($"check write {platform} (recorded): the typing row at its limit exits 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 0);
-            Expect($"check write {platform} (recorded): only the typing and format rows are judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "typing,format");
+            Expect($"check write {platform} (recorded): every row but the engine is judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format");
             PdfCsv(csv, WriteRows(platform, "typing", 0.1));
             Expect($"check write {platform} (recorded): a typing row 0.1 ms above 16 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 1);
             PdfCsv(csv, WriteRows(platform, without: "typing"));
@@ -2772,7 +2775,7 @@ static class SelfTest
         Expect("check write linux (recorded): the engine row 0.1 ms above 100 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 1);
         PdfCsv(csv, WriteRows("linux", without: "engine"));
         Expect("check write linux (recorded): a missing engine row exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "linux", "--in", csv], out _)!), 1);
-        Expect("check write linux (recorded): the app rows are not judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict == "not judged"), s_writeKeys.Length - 3);
+        Expect("check write linux (recorded): every metric is judged", CheckCommand.EvaluateWrite("linux", WriteRows("linux")).Count(r => r.Verdict == "not judged"), 0);
 
         // An empty table never passes, on any platform.
         CheckCommand.WriteTableForTests = new() { ["windows"] = [], ["linux"] = [], ["macos"] = [] };
@@ -2993,14 +2996,17 @@ static class SelfTest
         Expect("size --check write: an empty table exits 2 on Linux", Check("linux-x64", 10), 2);
         Expect("size --check write: an empty table exits 2 on macOS", Check("osx-x64", 10), 2);
 
-        // The recorded table has only the engine limit: no size limit exists yet, so no platform can pass a size check.
+        // The recorded table has a size and a zip limit on every platform (the runs of 2026-11-21): a small publish passes, one above the largest limit fails.
         // Half filled: size set, zip not: the zip is unrecorded and fails (exit 1), a platform with no app row still exits 2.
         CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["size"] = 40 }, ["linux"] = [], ["macos"] = [] };
         Expect("size --check write: size set and zip unset fails", Check("win-x64", 10), 1);
         Expect("size --check write: a platform with no app row still exits 2", Check("linux-x64", 10), 2);
         CheckCommand.WriteTableForTests = null;
-        Expect("size --check write (recorded): no size limit yet on Linux exits 2", Check("linux-x64", 10), 2);
-        Expect("size --check write (recorded): no size limit yet on Windows exits 2", Check("win-x64", 10), 2);
+        Expect("size --check write (recorded): a small publish passes on Linux", Check("linux-x64", 10), 0);
+        Expect("size --check write (recorded): a small publish passes on Windows", Check("win-x64", 10), 0);
+        Expect("size --check write (recorded): a small publish passes on macOS", Check("osx-x64", 10), 0);
+        Expect("size --check write (recorded): 84 MiB is above the Linux limit of 83.75 MiB", Check("linux-x64", 84L * 1024 * 1024), 1);
+        Expect("size --check write (recorded): 84 MiB is below the Windows limit of 91.25 MiB", Check("win-x64", 84L * 1024 * 1024), 0);
         CheckCommand.WriteTableForTests = WriteTestTable();
         Directory.Delete(root, recursive: true);
     }

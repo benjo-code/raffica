@@ -191,11 +191,11 @@ dotnet run bench/shell-probe/measure.cs -- size --target write --publish-dir art
 dotnet run bench/shell-probe/measure.cs -- check --target write --platform windows --in "artifacts/write/*.csv" --summary artifacts/write/summary.md
 ```
 
-**The limit table of the Write app (`s_writeBudgets`) is empty for the app metrics until the owner's runs are recorded** (milestone 4.2, step 3; the entry
-"Raffica Write: speed budgets (M4.2)" in `Docs/DECISIONS.md`). The one entry that exists is a fixed limit: `engine` 80 on Linux, so the limit is 80 x 1.25 =
-100 ms (the Linux laptop's first-page limit of the spec). `check --target write` judges the metrics that have a limit, lists the others as `not judged`
+**The limit table of the Write app (`s_writeBudgets`) holds the app limits of the owner's runs of 2026-11-21** (milestone 4.2, step 3; the entry
+"Raffica Write: speed budgets (M4.2)" in `Docs/DECISIONS.md` has the numbers and the runs). Two kinds of entry are fixed limits: `engine` 80 on Linux, so the limit is 80 x 1.25 =
+100 ms (the Linux laptop's first-page limit of the spec), and `typing` and `format` at 16 ms on every platform. `check --target write` judges the metrics that have a limit, lists the others as `not judged`
 (they never fail) and exits 2 ("no limits recorded for target write") when none of them has a limit, as the PDF target did before its budgets existed;
-`size --check <rid> --target write` exits 2 the same way until a size limit is recorded. `--app` and `--dmg` are the PDF app's: the macOS bundle of Write is
+`size --check <rid> --target write` exits 2 the same way for a platform with no size limit. `--app` and `--dmg` are the PDF app's: the macOS bundle of Write is
 milestone 4.9's. A miss of the engine limit is a finding for the owner, never a loosened number.
 
 ## Measuring another commit (the `ref` input)
