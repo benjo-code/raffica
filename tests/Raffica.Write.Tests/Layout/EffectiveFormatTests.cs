@@ -151,6 +151,48 @@ public sealed class EffectiveFormatTests
         Assert.True(runs > 1000, $"only {runs} runs compared");
     }
 
+    [Fact]
+    public void ForParagraphEqualsThePlannerForEveryParagraphOfTheCorpus()
+    {
+        var compared = 0;
+        var inCells = 0;
+        var listed = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var docx = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
+            var model = docx.Model;
+            var format = new LayoutEffectiveFormat(model);
+            var styles = new StyleResolver(model.Styles, model.Settings, model.Numbering);
+            var planner = new BlockPlanner(styles, new NumberingCounter(model.Numbering), new ParagraphLayouter(PageTestKit.Fonts), model.Settings);
+            foreach (var (paragraph, inTable) in AllParagraphs(model.Body.Blocks))
+            {
+                var resolved = format.ResolveParagraph(StoryRef.Body, paragraph);
+                var actual = format.ForParagraph(StoryRef.Body, paragraph);
+                Assert.Equal((resolved.StyleId, resolved.NumberingId, resolved.NumberingLevel, resolved.OutlineLevel), (actual.StyleId, actual.NumberingId, actual.NumberingLevel, actual.OutlineLevel));
+                compared++;
+                inCells += inTable ? 1 : 0;
+                listed += actual.NumberingId > 0 ? 1 : 0;
+            }
+
+            // The planner's own reading of the top-level paragraphs.
+            var flat = FlatBlocks.From(model.Body.Blocks);
+            foreach (var item in flat)
+            {
+                if (item.Block is not Paragraph top || planner.PlanFor(item) is not ParagraphPlan plan)
+                {
+                    continue;
+                }
+
+                var actual = format.ForParagraph(StoryRef.Body, top);
+                Assert.Equal((plan.Input.Paragraph.NumberingId, plan.Input.Paragraph.NumberingLevel, plan.Input.Paragraph.OutlineLevel), (actual.NumberingId, actual.NumberingLevel, actual.OutlineLevel));
+            }
+        }
+
+        Assert.True(compared > 1000, $"only {compared} paragraphs compared");
+        Assert.True(inCells > 0, "no paragraph in a table cell");
+        Assert.True(listed > 0, "no listed paragraph");
+    }
+
     private const string BandedStyle =
         "<w:style w:type=\"table\" w:styleId=\"Banded\"><w:basedOn w:val=\"TableNormal\"/>"
         + "<w:tblStylePr w:type=\"firstRow\"><w:rPr><w:b/></w:rPr></w:tblStylePr>"

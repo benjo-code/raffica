@@ -8,4 +8,7 @@ public interface IEffectiveFormat
 
     /// <summary>The effective formatting of the paragraph mark of <paramref name="paragraph"/>.</summary>
     EffectiveRun ForMark(StoryRef story, Paragraph paragraph);
+
+    /// <summary>The style, list and outline level of <paramref name="paragraph"/> after every style layer (the one definition the page uses).</summary>
+    EffectiveParagraph ForParagraph(StoryRef story, Paragraph paragraph);
 }

@@ -664,6 +664,8 @@ internal sealed class EditSession
 
         public EffectiveRun ForMark(StoryRef story, Paragraph paragraph) => Inner().ForMark(story, paragraph);
 
+        public EffectiveParagraph ForParagraph(StoryRef story, Paragraph paragraph) => Inner().ForParagraph(story, paragraph);
+
         public LayoutEffectiveFormat Current() => Inner();
 
         private LayoutEffectiveFormat Inner() => _inner ??= new LayoutEffectiveFormat(_model ?? throw new InvalidOperationException("No document."));
