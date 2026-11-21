@@ -18,7 +18,7 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
     private readonly WordDocument _document = document ?? throw new ArgumentNullException(nameof(document));
     private readonly StyleResolver _resolver = new(document.Styles, document.Settings, document.Numbering);
     private readonly object _gate = new();
-    private readonly Dictionary<StoryRef, Dictionary<Paragraph, CellEntry>> _stories = [];
+    private readonly Dictionary<StoryRef, Dictionary<Paragraph, Place>> _stories = [];
     private int _revision = int.MinValue;
     private bool _rewalked;
 
@@ -80,15 +80,15 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
                 made = true;
             }
 
-            if (!index.TryGetValue(paragraph, out var entry) && !_rewalked && !made)
+            if (!index.TryGetValue(paragraph, out var place) && !_rewalked && !made)
             {
                 // A structure change that did not raise the revision (a hand-made model): walk once more per revision.
                 _rewalked = true;
                 index = Walk(story);
-                index.TryGetValue(paragraph, out entry);
+                index.TryGetValue(paragraph, out place);
             }
 
-            return entry?.Format(_resolver);
+            return place.Table?.CellOf(place.Cell!)?.Format(_resolver);
         }
     }
 
@@ -110,13 +110,13 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
         return false;
     }
 
-    private Dictionary<Paragraph, CellEntry> Walk(StoryRef story)
+    private Dictionary<Paragraph, Place> Walk(StoryRef story)
     {
         StoryWalks++;
-        var index = new Dictionary<Paragraph, CellEntry>(ReferenceEqualityComparer.Instance);
+        var index = new Dictionary<Paragraph, Place>(ReferenceEqualityComparer.Instance);
         if (BlocksOf(story) is { } blocks)
         {
-            Collect(blocks, null, index);
+            Collect(blocks, default, index);
         }
 
         _stories[story] = index;
@@ -134,14 +134,16 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
         _ => null,
     };
 
-    // Walks tables and content controls; a paragraph in a table is remembered with the innermost cell around it, any other paragraph is not remembered (it has no cell).
-    private static void Collect(IList<Block> blocks, CellEntry? cell, Dictionary<Paragraph, CellEntry> index)
+    // Walks tables and content controls without reading any table geometry; a paragraph in a table is remembered with the table and the cell around it (the innermost), any other paragraph is
+    // not remembered (it has no cell). The geometry of a table is read when a paragraph of that table is first asked for, so the format of a paragraph in one table never reads the others (the
+    // geometry of all tables of the thesis allocated 600 KB for every walk, twice for every formatting operation).
+    private static void Collect(IList<Block> blocks, Place cell, Dictionary<Paragraph, Place> index)
     {
         foreach (var block in blocks)
         {
             switch (block)
             {
-                case Paragraph p when cell is not null:
+                case Paragraph p when cell.Table is not null:
                     index.TryAdd(p, cell);
                     break;
                 case ContentControlBlock control:
@@ -154,20 +156,61 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
         }
     }
 
-    private static void CollectTable(Table table, Dictionary<Paragraph, CellEntry> index)
+    private static void CollectTable(Table table, Dictionary<Paragraph, Place> index)
     {
-        // The rows, starts and column count come from the layout's own reader, so the conditional regions resolve as they do on the page.
-        var geometry = TableGeometry.Of(table);
-        for (var r = 0; r < geometry.Rows.Count; r++)
+        var entry = new TableEntry(table);
+        foreach (var rowItem in table.Rows)
         {
-            var cells = geometry.Rows[r].Cells;
-            for (var c = 0; c < cells.Count; c++)
+            if (rowItem is not TableRow row)
             {
-                if (cells[c] is { } tableCell)
+                continue;
+            }
+
+            foreach (var item in row.Items)
+            {
+                if (item is TableCell tableCell)
                 {
-                    Collect(tableCell.Blocks, new CellEntry(table, geometry, r, c, tableCell), index);
+                    Collect(tableCell.Blocks, new Place(entry, tableCell), index);
                 }
             }
+        }
+    }
+
+    // A paragraph's place: the table and the cell of it (no table: outside every table).
+    private readonly record struct Place(TableEntry? Table, TableCell? Cell);
+
+    // A table whose geometry is read on the first question about one of its cells (the rows, starts and column count come from the layout's own reader, so the conditional regions resolve as they
+    // do on the page); a cell the geometry does not hold (a hidden or unknown one) has no cell format.
+    private sealed class TableEntry(Table table)
+    {
+        private TableGeometry? _geometry;
+        private Dictionary<TableCell, CellEntry?>? _cells;
+
+        public CellEntry? CellOf(TableCell cell)
+        {
+            _cells ??= new Dictionary<TableCell, CellEntry?>(ReferenceEqualityComparer.Instance);
+            if (_cells.TryGetValue(cell, out var known))
+            {
+                return known;
+            }
+
+            _geometry ??= TableGeometry.Of(table);
+            CellEntry? found = null;
+            for (var r = 0; r < _geometry.Rows.Count && found is null; r++)
+            {
+                var cells = _geometry.Rows[r].Cells;
+                for (var c = 0; c < cells.Count; c++)
+                {
+                    if (ReferenceEquals(cells[c], cell))
+                    {
+                        found = new CellEntry(table, _geometry, r, c, cell);
+                        break;
+                    }
+                }
+            }
+
+            _cells[cell] = found;
+            return found;
         }
     }
 
