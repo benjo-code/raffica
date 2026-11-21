@@ -5,11 +5,12 @@ namespace Raffica.Write.Layout;
 /// <summary>
 /// The effective character formatting of a run, read through the layout's own <see cref="StyleResolver"/> so the editor and the page agree.
 /// The resolver snapshots the styles when it is made: make a new instance after a style change. A paragraph in a table cell is resolved
-/// with the cell's format as the layout does it. The enclosing cell of every paragraph of a story is found by one walk of that story
-/// (<see cref="TableGeometry.Of"/> once per table) and remembered for as long as <see cref="DocumentEdits.Revision"/> stays the same:
+/// with the cell's format as the layout does it. The enclosing cell of every paragraph that is in a table is found by one walk of the tables of that story
+/// (<see cref="TableGeometry.Of"/> once per table; a paragraph outside every table is not stored, its absence is the answer: the walk of the thesis
+/// stored every one of its thousands of paragraphs per revision, which was most of the 3.5 ms of a formatting operation and its garbage collections on a laptop) and remembered for as long as <see cref="DocumentEdits.Revision"/> stays the same:
 /// every edit that restructures blocks (insert, delete, split, merge, table change, undo, redo) raises the revision and drops the index.
 /// A formatting operation changes properties in place and never moves a block, so one operation reads one index. A paragraph the index
-/// does not know is looked up once more with a fresh walk (once per revision) before it counts as outside every table.
+/// does not know is looked up once more with a fresh walk (once per revision, not when the index was made by this very call) before it counts as outside every table.
 /// The instance is safe to call from several threads.
 /// </summary>
 public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFormat
@@ -65,12 +66,14 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
                 _rewalked = false;
             }
 
+            var made = false;
             if (!_stories.TryGetValue(story, out var index))
             {
                 index = Walk(story);
+                made = true;
             }
 
-            if (!index.TryGetValue(paragraph, out var entry) && !_rewalked)
+            if (!index.TryGetValue(paragraph, out var entry) && !_rewalked && !made)
             {
                 // A structure change that did not raise the revision (a hand-made model): walk once more per revision.
                 _rewalked = true;
@@ -106,7 +109,7 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
         _ => null,
     };
 
-    // Walks tables and content controls; a paragraph is remembered with the innermost cell around it (null outside every table).
+    // Walks tables and content controls; a paragraph in a table is remembered with the innermost cell around it, any other paragraph is not remembered (it has no cell).
     private static void Collect(IList<Block> blocks, CellEntry? cell, Dictionary<Paragraph, CellEntry> index)
     {
         foreach (var block in blocks)
@@ -115,9 +118,6 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
             {
                 case Paragraph p when cell is not null:
                     index.TryAdd(p, cell);
-                    break;
-                case Paragraph p:
-                    index.TryAdd(p, CellEntry.Outside);
                     break;
                 case ContentControlBlock control:
                     Collect(control.Content, cell, index);
@@ -149,17 +149,10 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
     // The place of a cell; its format is resolved on the first paragraph that asks and then kept for the revision.
     private sealed class CellEntry(Table table, TableGeometry geometry, int row, int column, TableCell cell)
     {
-        public static readonly CellEntry Outside = new(null!, null!, 0, 0, null!);
-
         private ResolvedCellFormat? _format;
 
         public ResolvedCellFormat? Format(StyleResolver resolver)
         {
-            if (ReferenceEquals(this, Outside))
-            {
-                return null;
-            }
-
             return _format ??= resolver.ForTable(table).CellFormat(row, geometry.Starts[row][column], geometry.Rows.Count, geometry.Columns, cell);
         }
     }
