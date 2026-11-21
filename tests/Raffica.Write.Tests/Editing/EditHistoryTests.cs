@@ -117,6 +117,45 @@ public sealed class EditHistoryTests
     }
 
     [Fact]
+    public void AFormatCommandBetweenTypingEndsTheStepAsInWord()
+    {
+        var (document, time, editor, p) = Typing();
+        var caret = At(p, 0);
+        foreach (var letter in "hello")
+        {
+            caret = Type(editor, caret, letter.ToString());
+            time.Advance(100);
+        }
+
+        Assert.Equal(1, editor.History.UndoCount);
+
+        // Ctrl+B at the caret is a pending format that the next typed text takes: "x" starts a step of its own, and the letters after it join that step.
+        var bold = FormatChanges.Toggle(CharacterToggle.Bold, true);
+        foreach (var letter in "xyz")
+        {
+            caret = editor.InsertText(Caret(caret), letter.ToString(), bold).Caret;
+            time.Advance(100);
+        }
+
+        Assert.Equal(2, editor.History.UndoCount);
+        Assert.Equal(["helloxyz"], Texts(document));
+
+        // Another format command is another list: the next character is a third step.
+        caret = editor.InsertText(Caret(caret), "w", [.. bold]).Caret;
+        Assert.Equal(3, editor.History.UndoCount);
+
+        // Plain typing after the format was cleared is a fourth step, and the undo goes back through them one by one.
+        time.Advance(100);
+        caret = Type(editor, caret, "v");
+        Assert.Equal(4, editor.History.UndoCount);
+        editor.History.Undo();
+        editor.History.Undo();
+        Assert.Equal(["helloxyz"], Texts(document));
+        editor.History.Undo();
+        Assert.Equal(["hello"], Texts(document));
+    }
+
+    [Fact]
     public void OnlyPlainSingleLineInsertsCoalesce()
     {
         var (document, time, editor, p) = Typing("abc");

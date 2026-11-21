@@ -42,8 +42,9 @@ public sealed record HistoryLimits(int MaxSteps, long MaxBytes)
 /// has one line (no paragraph break); the text consists of letters and digits only; the previous step is the newest one, itself a
 /// typing step, and nothing touched the document or the history since (no other operation, undo, redo or save on the
 /// previous step's revision); the caret is where that step ended, in the same list of blocks; and less than two seconds passed since
-/// the previous keystroke. Text with any other character (a blank, punctuation, a tab) starts a new step, which following letters
-/// join: "hello world" is the steps "hello" and " world".
+/// the previous keystroke; and the text takes the same pending format as that step (none, or the same list), so a format command given in
+/// between, like Ctrl+B, ends the step and the next character starts a new one, as in Word. Text with any other character (a blank,
+/// punctuation, a tab) starts a new step, which following letters join: "hello world" is the steps "hello" and " world".
 /// </para>
 /// </remarks>
 public sealed class EditHistory
@@ -194,7 +195,7 @@ public sealed class EditHistory
     /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
     /// selection and without a line break, else null.
     /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed)
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null)
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null))
         {
@@ -221,7 +222,7 @@ public sealed class EditHistory
         var endRevision = _document.Edits.Revision;
         _redo.Clear();
 
-        if (result.Style is null && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore))
+        if (result.Style is null && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore, typingFormat))
         {
             var step = _open!;
             _undoBytes -= step.Bytes;
@@ -238,6 +239,7 @@ public sealed class EditHistory
         var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision)
         {
             Style = result.Style,
+            TypingFormat = typed is not null && result.Style is null ? typingFormat : null,
         };
         added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style);
         _undo.Add(added);
@@ -302,10 +304,11 @@ public sealed class EditHistory
         return sheet.Replace(current, (undo ? change.Old : change.New).Clone());
     }
 
-    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore)
+    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
     {
         var step = _open;
         return step is not null
+            && ReferenceEquals(step.TypingFormat, typingFormat)
             && _undo.Count > 0
             && ReferenceEquals(_undo[^1], step)
             && ReferenceEquals(_openContainer, change.Container)
@@ -642,5 +645,8 @@ public sealed class EditHistory
         public long Bytes { get; set; }
 
         public StyleChange? Style { get; init; }
+
+        /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
+        public object? TypingFormat { get; init; }
     }
 }

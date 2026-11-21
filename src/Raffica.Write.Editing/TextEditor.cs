@@ -146,7 +146,7 @@ public sealed partial class TextEditor
         _document.Edits.Raise();
         var inserted = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)]);
         _document.Edits.Attribute(inserted.Changes);
-        History.Record(inserted, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, span.IsCollapsed && lines.Count == 1 ? lines[0] : null);
+        History.Record(inserted, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, span.IsCollapsed && lines.Count == 1 ? lines[0] : null, breakRule != BreakRule.LineBreak && lines.Count == 1 && lines[0].Length > 0 && typingFormat is { Count: > 0 } ? typingFormat : null);
         return inserted;
     }
 
