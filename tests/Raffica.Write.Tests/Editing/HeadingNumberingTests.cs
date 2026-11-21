@@ -278,4 +278,210 @@ public sealed class HeadingNumberingTests
         Assert.NotNull(document.Numbering);
         Assert.True(document.Edits.IsDirty);
     }
+
+    private const string Table =
+        "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"2000\"/></w:tblGrid><w:tr><w:tc><w:tcPr/><w:p><w:r><w:t>Cell one</w:t></w:r></w:p><w:p><w:r><w:t>Cell target</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+
+    private const string Control =
+        "<w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>Control one</w:t></w:r></w:p><w:p><w:r><w:t>Control target</w:t></w:r></w:p></w:sdtContent></w:sdt>";
+
+    private static string Plain(string text) => $"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>";
+
+    private static Paragraph Find(WordDocument document, string text)
+    {
+        foreach (var story in new[] { document.Body.Blocks }.Concat(document.HeadersFooters.Values.Select(p => p.Content.Blocks)))
+        {
+            if (Walk(story).FirstOrDefault(p => p.Inlines.OfType<Run>().Any(r => r.Content.OfType<TextContent>().Any(t => t.Text == text))) is { } found)
+            {
+                return found;
+            }
+        }
+
+        throw new InvalidOperationException("no paragraph " + text);
+    }
+
+    private static IEnumerable<Paragraph> Walk(IEnumerable<Block> blocks)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case Paragraph p:
+                    yield return p;
+                    break;
+                case Table t:
+                    foreach (var row in t.Rows.OfType<TableRow>())
+                    {
+                        foreach (var cell in row.Items.OfType<TableCell>())
+                        {
+                            foreach (var p in Walk(cell.Blocks))
+                            {
+                                yield return p;
+                            }
+                        }
+                    }
+
+                    break;
+                case ContentControlBlock c:
+                    foreach (var p in Walk(c.Content))
+                    {
+                        yield return p;
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static void AssertCaretStaysAfterUndoAndRedo(WordDocument document, StoryRef story, Paragraph target, int offset)
+    {
+        var editor = EditorOf(document);
+        var caret = new TextPosition(story, target, offset);
+        var length = ParagraphProjection.Build(target, ProjectionHost.Plain).Text.Length;
+        Assert.InRange(offset, 0, length);
+
+        Assert.NotNull(editor.SetHeadingNumbering(true, caret));
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.Same(target, undone.Caret.Paragraph);
+        Assert.Equal(story, undone.Caret.Story);
+        Assert.Equal(offset, undone.Caret.Offset);
+
+        var redone = editor.History.Redo();
+        Assert.NotNull(redone);
+        Assert.Same(target, redone.Caret.Paragraph);
+        Assert.Equal(story, redone.Caret.Story);
+        Assert.Equal(offset, redone.Caret.Offset);
+        Assert.Equal(HeadingNumberingState.On, HeadingNumbering.StateOf(document));
+    }
+
+    [Fact]
+    public void ACaretInATableCellComesBackToTheSameParagraphOnUndoAndRedo()
+    {
+        var document = NewDocument(body: Plain("First paragraph of the body, long enough") + Table);
+        AssertCaretStaysAfterUndoAndRedo(document, StoryRef.Body, Find(document, "Cell target"), 6);
+    }
+
+    [Fact]
+    public void ACaretInABlockContentControlComesBackToTheSameParagraphOnUndoAndRedo()
+    {
+        var document = NewDocument(body: Plain("First paragraph of the body, long enough") + Control);
+        AssertCaretStaysAfterUndoAndRedo(document, StoryRef.Body, Find(document, "Control target"), 7);
+    }
+
+    [Fact]
+    public void ACaretInAHeaderComesBackToTheSameParagraphOnUndoAndRedo()
+    {
+        var document = NewDocument();
+        var header = new Story(new OoxmlRoot(W + "hdr", []));
+        var first = new Paragraph();
+        first.Inlines.Add(new Run { Content = { new TextContent("Header one is rather long") } });
+        var target = new Paragraph();
+        target.Inlines.Add(new Run { Content = { new TextContent("Header target") } });
+        header.Blocks.Add(first);
+        header.Blocks.Add(target);
+        document.HeadersFooters["h1"] = new HeaderFooterPart(header);
+
+        AssertCaretStaysAfterUndoAndRedo(document, new StoryRef(StoryKind.HeaderFooter, "h1"), target, 4);
+    }
+
+    [Fact]
+    public void WithoutACaretABodyThatStartsWithATableStillSwitches()
+    {
+        var document = NewDocument(body: Table + Plain("after"));
+        var editor = EditorOf(document);
+
+        var result = editor.SetHeadingNumbering(true);
+
+        Assert.NotNull(result);
+        Assert.Same(Find(document, "Cell one"), result.Caret.Paragraph);
+        Assert.NotNull(editor.History.Undo());
+    }
+
+    [Fact]
+    public void AMissingCompanionMakesUndoRefuseAndSwapNothing()
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        editor.SetHeadingNumbering(true);
+        var before = Snapshot(document);
+        document.Styles!.Styles.Remove(Heading(document, 5));
+        var withoutFive = Snapshot(document);
+
+        Assert.Null(editor.History.Undo());
+
+        Assert.Equal(withoutFive, Snapshot(document));
+        Assert.NotEqual(before, withoutFive);
+        Assert.False(editor.History.CanUndo);
+        Assert.False(editor.History.CanRedo);
+    }
+
+    [Fact]
+    public void AMissingCompanionMakesRedoRefuseAndSwapNothing()
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        editor.SetHeadingNumbering(true);
+        Assert.NotNull(editor.History.Undo());
+        document.Styles!.Styles.Remove(Heading(document, 9));
+        var before = Snapshot(document);
+
+        Assert.Null(editor.History.Redo());
+
+        Assert.Equal(before, Snapshot(document));
+        Assert.False(editor.History.CanUndo);
+        Assert.False(editor.History.CanRedo);
+    }
+
+    [Fact]
+    public void RedoSwapsAllNineStylesAgain()
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        editor.SetHeadingNumbering(true);
+        var on = Snapshot(document);
+        editor.History.Undo();
+
+        var redone = editor.History.Redo();
+
+        Assert.Equal(8, redone!.Style!.Companions.Count);
+        Assert.Equal(on, Snapshot(document));
+    }
+
+    [Fact]
+    public void UndoRestoresEveryStyleExactly()
+    {
+        var document = NewDocument();
+        var before = Snapshot(document);
+        var editor = EditorOf(document);
+        editor.SetHeadingNumbering(true);
+        Assert.NotEqual(before, Snapshot(document));
+
+        editor.History.Undo();
+
+        Assert.Equal(before, Snapshot(document));
+    }
+
+    [Fact]
+    public void TheWrittenStyleHasNumPrBeforeOutlineLevel()
+    {
+        var document = NewDocument();
+        EditorOf(document).SetHeadingNumbering(true);
+
+        using var stream = new MemoryStream();
+        Raffica.Write.Docx.Xml.StylesXml.Write(document.Styles!, stream);
+        var xml = XDocument.Parse(System.Text.Encoding.UTF8.GetString(stream.ToArray()));
+
+        foreach (var style in xml.Descendants(W + "style").Where(s => ((string?)s.Attribute(W + "styleId"))?.StartsWith("Heading", StringComparison.Ordinal) == true))
+        {
+            var names = style.Element(W + "pPr")!.Elements().Select(e => e.Name.LocalName).ToList();
+            Assert.True(names.IndexOf("numPr") >= 0 && names.IndexOf("numPr") < names.IndexOf("outlineLvl"), string.Join(",", names));
+        }
+    }
+
+    // Every style as its serialized paragraph and run properties, in sheet order.
+    private static List<string> Snapshot(WordDocument document) =>
+        [.. document.Styles!.Styles.Select(s => s.Id + "|"
+            + string.Concat(s.ParagraphProperties.Children.Select(c => c.ToString(SaveOptions.DisableFormatting))) + "|"
+            + string.Concat(s.RunProperties.Children.Select(c => c.ToString(SaveOptions.DisableFormatting))))];
 }

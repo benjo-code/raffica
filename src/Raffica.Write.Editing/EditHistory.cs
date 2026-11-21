@@ -260,7 +260,8 @@ public sealed class EditHistory
         Trim();
     }
 
-    // A style change without a block change (the paragraph held nothing to move): the step has no blocks, only the caret and the style swap.
+    // A style change without a block change (the paragraph held nothing to move, or a switch that touches styles only): the step has no blocks, only the caret and the style swap.
+    // The caret paragraph's own container is the step's container, so undo and redo put the caret back in that paragraph.
     private void RecordStyleOnly(EditResult result, Point before, int revisionBefore)
     {
         var story = result.Caret.Story;
@@ -270,10 +271,16 @@ public sealed class EditHistory
             return;
         }
 
-        var index = Math.Max(0, root.IndexOf(result.Caret.Paragraph));
+        // The caret paragraph may sit in a table cell or a content control: the step keeps the path of its container, like a block step does.
+        if (TextEditor.FindIn(root, result.Caret.Paragraph) is not { } found || PathTo(root, found.Container) is not { } path)
+        {
+            Clear();
+            return;
+        }
+
         var endRevision = _document.Edits.Revision;
         _redo.Clear();
-        var step = new Step(story, [], 0, [], [], before, new Point(index, result.Caret.Offset), revisionBefore, endRevision)
+        var step = new Step(story, path, 0, [], [], before, new Point(found.Index, result.Caret.Offset), revisionBefore, endRevision)
         {
             Style = result.Style,
         };
@@ -286,7 +293,7 @@ public sealed class EditHistory
         Trim();
     }
 
-    // Puts the style of the step into the sheet in place: Old on undo, New on redo. False (nothing changed) when the sheet or the style is gone.
+    // Puts the styles of the step (the style and its companions) into the sheet in place: Old on undo, New on redo, all of them or none. False (nothing changed) when the sheet or one style is gone.
     private bool TrySwapStyle(Step step, bool undo)
     {
         if (step.Style is not { } change)

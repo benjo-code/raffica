@@ -21,7 +21,7 @@ public sealed partial class TextEditor
     /// companions and no block change (<see cref="EditResult.Changes"/> is empty): the session restyles the layout.
     /// </summary>
     /// <param name="on">True to number the headings, false to remove the numbers.</param>
-    /// <param name="caret">Where the caret is (the result and an undo put it back there); the start of the body when null.</param>
+    /// <param name="caret">Where the caret is: the result and an undo or redo put it back there, so a caller that has a caret must pass it (a stale position throws <see cref="StalePositionException"/> before anything changes). Only a fallback when null: the first paragraph of the body, tables and content controls included.</param>
     /// <returns>Null, with nothing changed, when the state already is the wanted one or the file has no heading styles to switch.</returns>
     public EditResult? SetHeadingNumbering(bool on, TextPosition? caret = null)
     {
@@ -29,10 +29,13 @@ public sealed partial class TextEditor
         if (HeadingNumbering.StateOf(_document) != (on ? HeadingNumberingState.Off : HeadingNumberingState.On)
             || HeadingNumbering.HeadingStyles(_document) is not { } styles
             || _document.Styles is not { } sheet
-            || (caret ?? StartOfBody()) is not { } position)
+            || (caret ?? FirstParagraphOfBody()) is not { } position)
         {
             return null;
         }
+
+        // Throws for a stale caret, before anything changes.
+        var (_, _, index) = Locate(position);
 
         var numId = 0;
         if (on)
@@ -76,10 +79,50 @@ public sealed partial class TextEditor
         _document.Edits.Raise();
         var result = new EditResult(position, [], Style: changes[0] with { Companions = changes.Skip(1).ToList() }, KeepSelection: true);
         _document.Edits.Attribute(result.Changes);
-        History.Record(result, new EditHistory.Point(Math.Max(0, position.Story.Kind == StoryKind.Body ? _document.Body.Blocks.IndexOf(position.Paragraph) : 0), position.Offset), revision, null);
+        History.Record(result, new EditHistory.Point(index, position.Offset), revision, null);
         return result;
     }
 
-    private TextPosition? StartOfBody() =>
-        _document.Body.Blocks.OfType<Paragraph>().FirstOrDefault() is { } first ? new TextPosition(StoryRef.Body, first, 0) : null;
+    private TextPosition? FirstParagraphOfBody() =>
+        FirstParagraphIn(_document.Body.Blocks) is { } first ? new TextPosition(StoryRef.Body, first, 0) : null;
+
+    // The first paragraph in document order, looking into tables and block content controls like the rest of the editor.
+    private static Paragraph? FirstParagraphIn(IEnumerable<Block> blocks)
+    {
+        foreach (var block in blocks)
+        {
+            var found = block switch
+            {
+                Paragraph paragraph => paragraph,
+                Table table => FirstParagraphInRows(table.Rows),
+                ContentControlBlock control => FirstParagraphIn(control.Content),
+                _ => null,
+            };
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private static Paragraph? FirstParagraphInRows(IEnumerable<RowItem> items)
+    {
+        foreach (var item in items)
+        {
+            var found = item switch
+            {
+                TableRow row => FirstParagraphInRows(row.Items),
+                TableCell cell => FirstParagraphIn(cell.Blocks),
+                _ => null,
+            };
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
 }
