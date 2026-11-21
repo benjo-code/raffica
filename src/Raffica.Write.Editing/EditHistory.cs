@@ -295,13 +295,32 @@ public sealed class EditHistory
         }
 
         var sheet = _document.Styles;
-        var current = sheet?.Find(change.New.Id);
-        if (sheet is null || current is null)
+        if (sheet is null)
         {
             return false;
         }
 
-        return sheet.Replace(current, (undo ? change.Old : change.New).Clone());
+        // All or nothing: every style of the step must still be there before the first one is swapped.
+        var swaps = new List<(Style Current, Style Replacement)>();
+        foreach (var item in change.All)
+        {
+            if (sheet.Find(item.New.Id) is not { } current)
+            {
+                return false;
+            }
+
+            swaps.Add((current, (undo ? item.Old : item.New).Clone()));
+        }
+
+        foreach (var (current, replacement) in swaps)
+        {
+            if (!sheet.Replace(current, replacement))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
@@ -577,7 +596,7 @@ public sealed class EditHistory
         return size;
     }
 
-    private static long SizeOf(StyleChange? change) => change is null ? 0 : SizeOf(change.Old) + SizeOf(change.New);
+    private static long SizeOf(StyleChange? change) => change is null ? 0 : change.All.Sum(item => SizeOf(item.Old) + SizeOf(item.New));
 
     private static long SizeOf(Style style)
     {
