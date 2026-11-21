@@ -72,8 +72,9 @@ public sealed partial class TextEditor
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(styleExists);
         var paragraphs = ReadFragment(content);
-        if (paragraphs is null)
+        if (paragraphs is null || InSingleParagraphControl(selection.Start))
         {
+            // A text, combo box, drop-down list or date control keeps one paragraph: only the text of the clipboard goes in (InsertText applies the break rule).
             return InsertText(selection, content.PlainText ?? string.Empty);
         }
 
@@ -91,6 +92,9 @@ public sealed partial class TextEditor
 
         return PasteParagraphs(selection, paragraphs);
     }
+
+    private bool InSingleParagraphControl(TextPosition position) =>
+        Locate(position) is var (story, container, _) && BreakRuleOf(story, container) != BreakRule.Paragraph;
 
     // The package part a story lives in: relationship ids are scoped to it.
     private static string PartOf(StoryRef story) => story.Kind switch

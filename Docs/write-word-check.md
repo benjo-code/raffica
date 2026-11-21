@@ -1,6 +1,6 @@
 # Raffica Write: Word check of an edited, saved file
 
-The owner's checklist for the one thing CI cannot answer for milestone 4.3a: whether **Microsoft Word accepts a file that Write edited and saved**, without a repair prompt and with the text and the formatting it should have. CI proves that the saved file is read again by Write and lays out like the edited model (`RealEditorOracleTests`, `SaveFlowTests.AnEditedThesisSavedThroughTheFlowLaysOutAsTheEditedModelDoes`), and that every part Write did not touch is byte-identical. It does not run Word. **Nothing in this file has been checked yet**: the result table is empty on purpose, and the roadmap keeps its open item until the table is filled in.
+The owner's checklist for the one thing CI cannot answer for milestone 4.3a: whether **Microsoft Word accepts a file that Write edited and saved**, without a repair prompt and with the text and the formatting it should have. CI proves that the saved file is read again by Write and lays out like the edited model (`RealEditorOracleTests`, `SaveFlowTests.AnEditedThesisSavedThroughTheFlowLaysOutAsTheEditedModelDoes`), and that every part Write did not touch is byte-identical. It does not run Word. The first owner pass on Windows (2026-11-21, Word for Microsoft 365, German, Windows 11) is recorded in the result tables below; the first row of the edited-file table found a repair prompt that is fixed (decision "Raffica Write: one paragraph in a text, combo box, drop-down list or date control (M4.3a)"), so that file is to be checked again. Nothing was checked on a Mac.
 
 ## What is known not to be renumbered in 4.3a
 
@@ -43,8 +43,8 @@ In Word, open each saved file and record: a repair prompt (exact text, any promp
 
 | Date | Word version and system | File | Action (formatting, style update) | Repair prompt (text) | Formatting as in Write | Styles | Compare shows only my changes | Notes and findings |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-|  |  |  |  |  |  |  |  |  |
-|  |  |  |  |  |  |  |  |  |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | thesis.docx | formatting (bold, italic, font, size, colour, highlight, alignment, styles, pane removals), Save and Save as | none | yes (owner: everything worked) | yes | not recorded | Opens by script too (`tools/word-open-check.ps1`). |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | thesis.docx | Update style to match, Save and Save as | none | yes (owner: everything worked) | yes | not recorded | The updated style makes Word lay the file out on 411 pages against 322 (Word, fonts of the file not installed): the owner changed the body style (not compared in detail). |
 
 ## New document and recovery (milestone 4.3c)
 
@@ -59,8 +59,12 @@ In Word, open each saved file and record: a repair prompt (exact text, any promp
 
 | Date | Word version and system | File | Action (blank document, restored copy) | Repair prompt (text) | Style set as designed | Page size and margins | Text and formatting as typed | Notes and findings |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-|  |  |  |  |  |  |  |  |  |
-|  |  |  |  |  |  |  |  |  |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | blank-check.docx | blank document: Title, Heading 1 to 3, caption, body text, Save as | none | owner: looks normal | not recorded | text and formatting as typed | Region and paper size not varied. |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | restored-check.docx, thesis_restore.docx | recovery copy: kill, Restore, Save as (an untitled document and the thesis) | none | owner: looks normal | not recorded | edits are there | Both also open by script. |
+
+## Checking a file from a script
+
+On a Windows machine with Word, `pwsh tools/word-open-check.ps1 <files>` opens each file through Word's COM automation (read-only, repair off, on a temporary copy) and prints whether Word accepted it; the exit code is the number of files Word refused. It answers the repair-prompt question for any number of files at once and is how the cause of the first finding was bisected (`Docs/DECISIONS.md`, "one paragraph in a text, combo box, drop-down list or date control"). It does not look at the result, so the "looks as in Write" columns stay the owner's.
 
 ## In Word
 
@@ -78,4 +82,6 @@ Open the saved file. Record, per file and per save kind:
 
 | Date | Word version and system | File | Save or Save as | Repair prompt (text) | Text and formatting | Fields | Content controls | Notes and findings |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-|  |  |  |  |  |  |  |  |  |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | thesis.docx | Save and Save as after the edits above | none reported | owner: no finding | fields not recorded | no content controls | The saved files open by script (`tools/word-open-check.ps1`). Backspace after a field was tried on a line after a table, where it does not apply. |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | poi-bug54849.docx | Save, then Save as | Ctrl+S: a repair prompt (unreadable content); Save as: the first file did not open at all, the second one opened with no prompt | not recorded | not recorded | not recorded | Cause: Enter inside a plain-text content control made a second paragraph; combo box, drop-down list and date controls fail the same way. Fixed (decision "one paragraph in a text, combo box, drop-down list or date control"); to be checked again by the owner with the fixed build. Backspace at the start of a paragraph after a table or content control does not merge, by design (the owner reported it as not working). |
+| 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | poi-60316.docx | Save and Save as | none | looks completely different from Write | not recorded | not recorded | A known limit, not an editing bug: the left column is a group of text boxes, Write draws only the first text box of a group and lays floats out as boxes (decision "the layout library and the viewer (M4.2)", known limits). |
