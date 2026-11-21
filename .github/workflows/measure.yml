@@ -931,6 +931,34 @@ jobs:
         shell: bash
         run: ${{ env.ENGINE_EXE }} edit --file testdata/write-corpus/thesis/thesis.docx --csv ${{ env.OUT }}/edit-bench.txt && ${{ env.ENGINE_EXE }} edit --background --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-background.txt
 
+      # What one recovery copy costs through the UI-free editor (write-layout-bench edit --snapshot, milestone 4.3.3): the lease span and the total per copy, the size of the copy and the
+      # allocation, against a plain save. Recorded for the owner, never judged (the typing beside a snapshot is judged by the typing-snapshot case).
+      - name: Recovery copy cost, engine only (write, Windows)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          & "${{ env.ENGINE_EXE }}" edit --snapshot --file testdata/write-corpus/thesis/thesis.docx | Tee-Object -FilePath "${{ env.OUT }}/edit-snapshot.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Recovery copy cost, engine only (write, Linux, macOS)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os != 'Windows' }}
+        shell: bash
+        run: ${{ env.ENGINE_EXE }} edit --snapshot --file testdata/write-corpus/thesis/thesis.docx | tee ${{ env.OUT }}/edit-snapshot.txt
+
+      # The full layout of the thesis under the spec's 3 s (write-layout-bench check --budget-ms 3000): the check also asserts that two layouts agree and that the page numbers are right,
+      # so a finding or a slower layout fails the step. The spec names the Linux laptop; the same limit is applied on every machine and the time of both runs is printed.
+      - name: Full layout of the thesis under 3 s (write, Windows)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          & "${{ env.ENGINE_EXE }}" check --root . --budget-ms 3000 | Tee-Object -FilePath "${{ env.OUT }}/full-layout.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Full layout of the thesis under 3 s (write, Linux, macOS)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os != 'Windows' }}
+        shell: bash
+        run: set -o pipefail; ${{ env.ENGINE_EXE }} check --root . --budget-ms 3000 | tee ${{ env.OUT }}/full-layout.txt
+
       - name: Engine first page of the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.ENGINE_EXE }} --case engine --out ${{ env.OUT }}/engine.csv
