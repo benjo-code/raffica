@@ -23,13 +23,13 @@ public sealed class ListEditingTests
         + "<w:lvl w:ilvl=\"1\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.%2.\"/><w:pPr><w:ind w:left=\"1440\" w:hanging=\"360\"/></w:pPr></w:lvl></w:abstractNum>"
         + "<w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num><w:num w:numId=\"2\"><w:abstractNumId w:val=\"1\"/></w:num>";
 
-    private static (WordDocument Document, TextEditor Editor, LayoutEffectiveFormat Format) Setup(string body, string? numbering = null, bool noNumbering = false)
+    private static (WordDocument Document, TextEditor Editor, LayoutEffectiveFormat Format) Setup(string body, string? numbering = null, bool noNumbering = false, string extraStyles = "")
     {
         var styles = LayoutModel.StylesPart(
             "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>"
             + "<w:style w:type=\"paragraph\" w:styleId=\"ListParagraph\"><w:name w:val=\"List Paragraph\"/><w:basedOn w:val=\"Normal\"/></w:style>"
             + "<w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/><w:basedOn w:val=\"Normal\"/><w:pPr><w:outlineLvl w:val=\"0\"/></w:pPr></w:style>"
-            + "<w:style w:type=\"table\" w:default=\"1\" w:styleId=\"TableNormal\"><w:tblPr/></w:style>");
+            + "<w:style w:type=\"table\" w:default=\"1\" w:styleId=\"TableNormal\"><w:tblPr/></w:style>" + extraStyles);
         var document = LayoutModel.Document(body, styles, noNumbering ? null : numbering ?? LayoutModel.NumberingPart(Definitions));
         var format = new LayoutEffectiveFormat(document);
         return (document, new TextEditor(document, (_, _) => ProjectionHost.Plain, format: format), format);
@@ -59,8 +59,8 @@ public sealed class ListEditingTests
     private static string PropsOf(Paragraph paragraph) =>
         string.Concat(paragraph.Properties.Children.Select(c => c.ToString(SaveOptions.DisableFormatting)));
 
-    private static Paragraph[] CellOf(WordDocument document) =>
-        ((TableCell)((TableRow)((Table)document.Body.Blocks[1]).Rows[0]).Items[0]).Blocks.OfType<Paragraph>().ToArray();
+    private static Paragraph[] CellOf(WordDocument document, int tableIndex = 1) =>
+        ((TableCell)((TableRow)((Table)document.Body.Blocks[tableIndex]).Rows[0]).Items[0]).Blocks.OfType<Paragraph>().ToArray();
 
     private static AbstractNumbering AbstractOf(WordDocument document, int numId) =>
         document.Numbering!.FindAbstract(document.Numbering.FindInstance(numId)!.AbstractNumId!.Value)!;
@@ -455,5 +455,275 @@ public sealed class ListEditingTests
         Assert.Equal(["1.", "1.", "2."], Labels(document));
         await Check(editor.ContinueNumbering(At(P(document, 1))), "continue");
         Assert.Equal(["1.", "2.", "3."], Labels(document));
+    }
+
+    private const string StyledLists =
+        "<w:style w:type=\"paragraph\" w:styleId=\"NumHead\"><w:name w:val=\"Numbered Heading\"/><w:basedOn w:val=\"Normal\"/><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"2\"/></w:numPr></w:pPr></w:style>"
+        + "<w:style w:type=\"paragraph\" w:styleId=\"ListBullet\"><w:name w:val=\"List Bullet\"/><w:basedOn w:val=\"Normal\"/><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr></w:pPr></w:style>";
+
+    private static string Styled(string style, string text) => Para(text, $"<w:pStyle w:val=\"{style}\"/>");
+
+    private static string Filler(int count) => string.Concat(Enumerable.Range(0, count).Select(i => Para("filler" + i.ToString(CultureInfo.InvariantCulture))));
+
+    private static string CellTable(string cellBody) =>
+        "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"3000\"/></w:tblGrid><w:tr><w:tc>" + cellBody + "</w:tc></w:tr></w:tbl>";
+
+    private static (int NumId, int Level) Direct(Paragraph paragraph) => (paragraph.Properties.NumberingId ?? -1, paragraph.Properties.NumberingLevel ?? -1);
+
+    private static string TextOf(Paragraph paragraph) =>
+        string.Concat(paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content.OfType<TextContent>()).Select(t => t.Text));
+
+    // A restart in a deep container stays in that container: a change over the list paragraphs only, the caret in them for the step, undo and redo.
+    private static void AssertRestartStaysInItsContainer(WordDocument document, TextEditor editor, Func<Paragraph[]> items, StoryRef story)
+    {
+        var list = items();
+        var result = editor.RestartNumbering(new TextPosition(story, list[1], 1));
+
+        Assert.NotNull(result);
+        var change = Assert.Single(result.Changes);
+        var container = TextUnits.ContainerOf(TextUnits.BlocksOf(document, story)!, list[1]);
+        Assert.Same(container, change.Container);
+        Assert.Equal(1, change.First);
+        Assert.Equal(2, change.Removed);
+        Assert.Equal(2, change.Added);
+        Assert.Equal(2, change.OldBlocks.Count);
+        Assert.Same(list[1], result.Caret.Paragraph);
+        Assert.NotEqual(NumId(list[0]), NumId(list[1]));
+
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.Same(container, Assert.Single(undone.Changes).Container);
+        Assert.Same(items()[1], undone.Caret.Paragraph);
+        Assert.Equal(NumId(items()[0]), NumId(items()[1]));
+
+        var redone = editor.History.Redo();
+        Assert.NotNull(redone);
+        Assert.Same(items()[1], redone.Caret.Paragraph);
+        Assert.NotEqual(NumId(items()[0]), NumId(items()[1]));
+    }
+
+    [Fact]
+    public void RestartInACellOfALateTableChangesOnlyTheCellParagraphs()
+    {
+        var (document, editor, _) = Setup(Filler(50) + CellTable(Para("c0") + Para("c1") + Para("c2")) + Para("after"));
+        Paragraph[] Cell() => CellOf(document, 50);
+        editor.ToggleList(new TextRange(At(Cell()[0]), At(Cell()[2], 1)), ListKind.Numbered);
+        Assert.NotEqual(0, NumId(Cell()[0]));
+
+        AssertRestartStaysInItsContainer(document, editor, Cell, StoryRef.Body);
+    }
+
+    [Fact]
+    public void ContinueInACellOfALateTableChangesOnlyTheCellParagraphs()
+    {
+        var (document, editor, _) = Setup(Filler(50) + CellTable(Para("c0") + Para("c1") + Para("c2")) + Para("after"));
+        Paragraph[] Cell() => CellOf(document, 50);
+        editor.ToggleList(new TextRange(At(Cell()[0]), At(Cell()[2], 1)), ListKind.Numbered);
+        editor.RestartNumbering(At(Cell()[1]));
+        var restarted = NumId(Cell()[1]);
+
+        var result = editor.ContinueNumbering(At(Cell()[1]));
+
+        Assert.NotNull(result);
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(1, change.First);
+        Assert.Equal(2, change.Added);
+        Assert.Same(Cell()[1], result.Caret.Paragraph);
+        Assert.NotEqual(restarted, NumId(Cell()[1]));
+        Assert.Equal(NumId(Cell()[0]), NumId(Cell()[1]));
+        Assert.Equal(["1.", "2.", "3."], Labels(document));
+        var undone = editor.History.Undo();
+        Assert.Same(Cell()[1], undone!.Caret.Paragraph);
+        Assert.Equal(["1.", "1.", "2."], Labels(document));
+    }
+
+    [Fact]
+    public void RestartInABlockContentControlStaysInTheControl()
+    {
+        var control = "<w:sdt><w:sdtPr/><w:sdtContent>" + Para("s0") + Para("s1") + Para("s2") + "</w:sdtContent></w:sdt>";
+        var (document, editor, _) = Setup(Filler(50) + control + Para("after"));
+        Paragraph[] Items() => ((ContentControlBlock)document.Body.Blocks[50]).Content.OfType<Paragraph>().ToArray();
+        editor.ToggleList(new TextRange(At(Items()[0]), At(Items()[2], 1)), ListKind.Numbered);
+
+        AssertRestartStaysInItsContainer(document, editor, Items, StoryRef.Body);
+    }
+
+    [Fact]
+    public void RestartInAHeaderStaysInTheHeader()
+    {
+        var (document, editor, _) = Setup(Para("body"));
+        var story = new Story(new OoxmlRoot(W + "hdr", []));
+        for (var i = 0; i < 3; i++)
+        {
+            var run = new Run();
+            run.Content.Add(new TextContent("h" + i.ToString(CultureInfo.InvariantCulture)));
+            var paragraph = new Paragraph();
+            paragraph.Inlines.Add(run);
+            story.Blocks.Add(paragraph);
+        }
+
+        document.HeadersFooters["rIdH"] = new HeaderFooterPart(story);
+        var head = new StoryRef(StoryKind.HeaderFooter, "rIdH");
+        Paragraph[] Items() => story.Blocks.OfType<Paragraph>().ToArray();
+        editor.ToggleList(new TextRange(new TextPosition(head, Items()[0], 0), new TextPosition(head, Items()[2], 1)), ListKind.Numbered);
+
+        AssertRestartStaysInItsContainer(document, editor, Items, head);
+    }
+
+    [Fact]
+    public void ARestartThatCrossesContainersTakesItsHistoryCaretFromATopLevelParagraph()
+    {
+        var (document, editor, _) = Setup(Filler(3) + CellTable(Para("c0")) + Para("p1") + Para("p2"));
+        Paragraph CellParagraph() => CellOf(document, 3)[0];
+        editor.ToggleList(new TextRange(At(P(document, 4)), At(P(document, 5), 1)), ListKind.Numbered);
+        var numId = NumId(P(document, 4));
+        // The list goes on from the cell into the body (set by hand: a selection never crosses the cell edge).
+        SetList(CellParagraph(), numId);
+
+        var result = editor.RestartNumbering(At(CellParagraph()));
+
+        Assert.NotNull(result);
+        var change = Assert.Single(result.Changes);
+        Assert.Equal(3, change.First);
+        Assert.Equal(3, change.Added);
+        Assert.NotEqual(numId, NumId(P(document, 4)));
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.Equal(numId, NumId(P(document, 4)));
+        Assert.Same(P(document, 4), undone.Caret.Paragraph);
+    }
+
+    private static void SetList(Paragraph paragraph, int numId) =>
+        paragraph.Properties.Set(W + "numPr", new XElement(
+            W + "numPr",
+            new XElement(W + "ilvl", new XAttribute(W + "val", 0)),
+            new XElement(W + "numId", new XAttribute(W + "val", numId))));
+
+    [Fact]
+    public void TogglingOffAListThatTheStyleCarriesSwitchesItOffOnTheParagraphsOnly()
+    {
+        var (document, editor, _) = Setup(Styled("NumHead", "a") + Styled("NumHead", "b") + Styled("ListBullet", "c"), extraStyles: StyledLists);
+        Assert.Equal(["1.", "2.", "o"], Labels(document));
+
+        editor.ToggleList(Sel(P(document, 0), P(document, 1)), ListKind.Numbered);
+
+        Assert.Equal((0, 0), Direct(P(document, 0)));
+        Assert.Equal((0, 0), Direct(P(document, 1)));
+        Assert.Equal("NumHead", P(document, 0).Properties.StyleId);
+        Assert.Null(P(document, 2).Properties.Get(W + "numPr"));
+        Assert.Equal(2, document.Styles!.Find("NumHead")!.ParagraphProperties.NumberingId);
+        Assert.Equal(["o"], Labels(document));
+
+        editor.ToggleList(Sel(P(document, 2), P(document, 2)), ListKind.Bullet);
+        Assert.Equal((0, 0), Direct(P(document, 2)));
+        Assert.Equal("ListBullet", P(document, 2).Properties.StyleId);
+        Assert.Empty(Labels(document));
+        Assert.Equal(2, editor.History.UndoCount);
+    }
+
+    [Fact]
+    public void EnterOnAnEmptyNumberedHeadingEndsItsListWithADirectNumIdOfZero()
+    {
+        var (document, editor, _) = Setup(Styled("NumHead", "a") + "<w:p><w:pPr><w:pStyle w:val=\"NumHead\"/></w:pPr></w:p>", extraStyles: StyledLists);
+        var empty = P(document, 1);
+
+        var result = editor.SplitParagraph(new TextRange(At(empty), At(empty)));
+
+        Assert.Single(result.Changes);
+        Assert.Equal(2, document.Body.Blocks.Count);
+        Assert.Equal((0, 0), Direct(empty));
+        Assert.Equal("NumHead", empty.Properties.StyleId);
+        Assert.Null(P(document, 0).Properties.Get(W + "numPr"));
+        Assert.Equal(["1."], Labels(document));
+    }
+
+    [Fact]
+    public void BackspaceAtTheStartOfANumberedHeadingSwitchesOffThatParagraphOnly()
+    {
+        var (document, editor, _) = Setup(Styled("NumHead", "a") + Styled("NumHead", "bc") + Styled("NumHead", "d"), extraStyles: StyledLists);
+        var second = P(document, 1);
+        Assert.Equal(["1.", "2.", "3."], Labels(document));
+
+        var result = editor.Backspace(At(second), DeleteUnit.Cluster);
+
+        Assert.NotNull(result);
+        Assert.Equal(3, document.Body.Blocks.Count);
+        var numPr = second.Properties.Get(W + "numPr")!;
+        Assert.Equal(["ilvl", "numId"], numPr.Elements().Select(e => e.Name.LocalName).ToArray());
+        Assert.Equal(["0", "0"], numPr.Elements().Select(e => (string?)e.Attribute(W + "val")).ToArray());
+        Assert.Equal("NumHead", second.Properties.StyleId);
+        Assert.Null(P(document, 0).Properties.Get(W + "numPr"));
+        Assert.Null(P(document, 2).Properties.Get(W + "numPr"));
+        Assert.Equal("bc", TextOf(second));
+        Assert.Equal(["1.", "2."], Labels(document));
+        Assert.Equal(2, document.Numbering!.Instances.Count);
+
+        // No longer in a list: the next Backspace merges with the paragraph before it.
+        editor.Backspace(At(second), DeleteUnit.Cluster);
+        Assert.Equal(2, document.Body.Blocks.Count);
+    }
+
+    [Fact]
+    public void TabOnAListThatTheStyleCarriesWritesADirectNumPrWithTheSameList()
+    {
+        var (document, editor, _) = Setup(Styled("NumHead", "a") + Styled("NumHead", "b"), extraStyles: StyledLists);
+
+        var result = editor.ChangeListLevel(Sel(P(document, 1), P(document, 1)), 1);
+
+        Assert.NotNull(result);
+        Assert.Equal((2, 1), Direct(P(document, 1)));
+        Assert.Null(P(document, 0).Properties.Get(W + "numPr"));
+        Assert.Equal(["1.", "1.1."], Labels(document));
+
+        Assert.NotNull(editor.ChangeListLevel(Sel(P(document, 1), P(document, 1)), -1));
+        Assert.Equal((2, 0), Direct(P(document, 1)));
+        Assert.Equal(["1.", "2."], Labels(document));
+    }
+
+    [Fact]
+    public void EnterOnAnEmptyParagraphInATextControlKeepsItsOldBehaviour()
+    {
+        var control = "<w:sdt><w:sdtPr><w:text/></w:sdtPr><w:sdtContent><w:p><w:pPr>" + InList(2) + "</w:pPr></w:p></w:sdtContent></w:sdt>";
+        var (document, editor, _) = Setup(Para("before") + control);
+        var inside = ((ContentControlBlock)document.Body.Blocks[1]).Content.OfType<Paragraph>().Single();
+
+        var result = editor.SplitParagraph(new TextRange(At(inside), At(inside)));
+
+        Assert.Empty(result.Changes);
+        Assert.Single(((ContentControlBlock)document.Body.Blocks[1]).Content);
+        Assert.Equal(2, NumId(inside));
+        Assert.Equal(0, editor.History.UndoCount);
+    }
+
+    [Fact]
+    public async Task RestartAtALevelOneParagraphRendersTheLevelZeroCounterOfTheNewInstance()
+    {
+        var (document, editor, _) = Setup(Para("a", InList(2)) + Para("b", InList(2, 1)) + Para("c", InList(2)) + Para("d", InList(2, 1)) + Para("e", InList(2, 1)));
+        Assert.Equal(["1.", "1.1.", "2.", "2.1.", "2.2."], Labels(document));
+        var layout = DocumentLayout.Create(document, PageTestKit.Fonts, new LayoutOptions());
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+
+        var result = editor.RestartNumbering(At(P(document, 4)));
+
+        Assert.NotNull(result);
+        var restarted = NumId(P(document, 4));
+        Assert.NotEqual(2, restarted);
+        var over = Assert.Single(document.Numbering!.FindInstance(restarted)!.Overrides);
+        Assert.Equal(1, over.Level);
+        foreach (var change in result.Changes)
+        {
+            layout.ApplyEdit(change, 0);
+        }
+
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(layout, document, label: "restart at level 1");
+        var labels = Labels(document);
+        Assert.Equal(5, labels.Length);
+        Assert.Equal(["1.", "1.1.", "2.", "2.1."], labels.Take(4).ToArray());
+        Assert.Equal("2.1.", labels[4]);
+        foreach (var label in labels)
+        {
+            Assert.Contains(label, layout.Page(0).Text, StringComparison.Ordinal);
+        }
     }
 }

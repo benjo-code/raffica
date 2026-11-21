@@ -346,6 +346,7 @@ public sealed partial class DocumentLayout
         {
             return Restart(throughPage);
         }
+
         var oldCount = _pages.Count;
         EditPlan? chosen;
         if (change.Story.Kind == StoryKind.Body)

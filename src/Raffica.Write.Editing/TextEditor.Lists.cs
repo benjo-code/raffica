@@ -49,7 +49,7 @@ public sealed partial class TextEditor
         var numId = Lists.NewRun(kind);
         if (kind == ListKind.Numbered)
         {
-            StartAtOneWhenShared(numId, new HashSet<Paragraph>(targets.Keys, ReferenceEqualityComparer.Instance), targets.Values.Distinct().ToList());
+            StartAtOneWhenShared(span.Story, numId, new HashSet<Paragraph>(targets.Keys, ReferenceEqualityComparer.Instance), targets.Values.Distinct().ToList());
         }
 
         var listStyle = ListParagraphStyleId();
@@ -290,9 +290,61 @@ public sealed partial class TextEditor
         return stop > 0 ? (0, ListReason.None) : (0, ListReason.NothingBefore);
     }
 
-    // One BlockChange over the top-level blocks that hold the paragraphs, so a list that runs through a table or a content control is one step. The history needs a paragraph that lies directly in that list
-    // of blocks for the caret: the position itself when it does, else the first one in the range (the range grows to the first of the story when it holds none).
+    // A list that lies in one list of blocks (a cell, a content control, a note, the body) is changed there, exactly like ToggleList: container-relative indices, the caret in that container, so the step
+    // is small and undo puts the caret back at the paragraph. Only a list that really crosses containers makes one BlockChange over the top-level blocks that hold it. The history needs a paragraph that
+    // lies directly in that list of blocks for the caret: the position itself when it does, else the first one in the range (the range grows to the first of the story when it holds none), and its
+    // index (not the index of a table or control that starts the range) is the point of the step.
     private EditResult? CommitMoves(StoryRef story, TextPosition at, int revision, List<Paragraph> affected, int numId)
+    {
+        var (_, own, ownIndex) = Locate(at);
+        var levels = new Dictionary<Paragraph, int>(ReferenceEqualityComparer.Instance);
+        foreach (var paragraph in affected)
+        {
+            levels[paragraph] = ListOf(story, paragraph).Level;
+        }
+
+        void Move(Paragraph p)
+        {
+            if (levels.TryGetValue(p, out var level))
+            {
+                SetNumPr(p, numId, level);
+            }
+        }
+
+        var first = ownIndex;
+        var last = ownIndex;
+        var sameContainer = true;
+        foreach (var paragraph in affected)
+        {
+            var index = -1;
+            for (var i = 0; i < own.Count; i++)
+            {
+                if (ReferenceEquals(own[i], paragraph))
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index < 0)
+            {
+                sameContainer = false;
+                break;
+            }
+
+            first = Math.Min(first, index);
+            last = Math.Max(last, index);
+        }
+
+        if (sameContainer)
+        {
+            return CommitParagraphEdit(new Span(story, own, first, at.Paragraph, at.Offset, last, at.Paragraph, at.Offset), revision, Move, new EditHistory.Point(ownIndex, at.Offset));
+        }
+
+        return CommitMovesAcross(story, at, revision, affected, Move);
+    }
+
+    private EditResult? CommitMovesAcross(StoryRef story, TextPosition at, int revision, List<Paragraph> affected, Action<Paragraph> move)
     {
         var top = StoryOf(story).Blocks;
         var first = int.MaxValue;
@@ -347,20 +399,8 @@ public sealed partial class TextEditor
 
         var anchor = (Paragraph)top[anchorIndex];
         var offset = ReferenceEquals(anchor, at.Paragraph) ? at.Offset : 0;
-        var levels = new Dictionary<Paragraph, int>(ReferenceEqualityComparer.Instance);
-        foreach (var paragraph in affected)
-        {
-            levels[paragraph] = ListOf(story, paragraph).Level;
-        }
-
         var span = new Span(story, top, first, anchor, offset, last, anchor, offset);
-        return CommitParagraphEdit(span, revision, p =>
-        {
-            if (levels.TryGetValue(p, out var level))
-            {
-                SetNumPr(p, numId, level);
-            }
-        });
+        return CommitParagraphEdit(span, revision, move, new EditHistory.Point(anchorIndex, offset));
     }
 
     // Writes the direct list of a paragraph: ilvl and numId in schema order, other children of an existing numPr (revision marks) kept after them.
@@ -391,8 +431,8 @@ public sealed partial class TextEditor
         }
     }
 
-    // A numbered run numbers from 1: when another paragraph of the document (outside the run) uses the same definition, the new w:num restarts it at every level the run uses.
-    private void StartAtOneWhenShared(int numId, HashSet<Paragraph> run, List<int> levels)
+    // A numbered run numbers from 1: when another paragraph of the story (outside the run, after every style layer) uses the same definition, the new w:num restarts it at every level the run uses.
+    private void StartAtOneWhenShared(StoryRef story, int numId, HashSet<Paragraph> run, List<int> levels)
     {
         if (_document.Numbering is not { } numbering || numbering.FindInstance(numId) is not { AbstractNumId: { } abstractId } instance)
         {
@@ -400,7 +440,7 @@ public sealed partial class TextEditor
         }
 
         var shared = false;
-        foreach (var block in _document.Body.Blocks)
+        foreach (var block in StoryOf(story).Blocks)
         {
             VisitWholeBlock(block, paragraph =>
             {
@@ -409,9 +449,8 @@ public sealed partial class TextEditor
                     return;
                 }
 
-                var other = paragraph.Properties.NumberingId
-                    ?? (paragraph.Properties.StyleId is { } id ? _document.Styles?.Find(id)?.ParagraphProperties.NumberingId : null);
-                shared = other is > 0 && other != numId && AbstractOf(other.Value) == abstractId;
+                var other = ListOf(story, paragraph).NumId;
+                shared = other > 0 && other != numId && AbstractOf(other) == abstractId;
             }, 0);
         }
 
