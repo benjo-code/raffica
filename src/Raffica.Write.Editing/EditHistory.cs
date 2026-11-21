@@ -124,6 +124,11 @@ public sealed class EditHistory
         }
 
         var step = _undo[^1];
+        if (step.Move is not null)
+        {
+            return StepMove(step, undo: true);
+        }
+
         if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !TrySwapStyle(step, undo: true))
         {
             Clear();
@@ -152,6 +157,11 @@ public sealed class EditHistory
         }
 
         var step = _redo[^1];
+        if (step.Move is not null)
+        {
+            return StepMove(step, undo: false);
+        }
+
         if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !TrySwapStyle(step, undo: false))
         {
             Clear();
@@ -199,6 +209,12 @@ public sealed class EditHistory
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null))
         {
+            return;
+        }
+
+        if (result.Move is { } move)
+        {
+            RecordMove(result, move, revisionBefore);
             return;
         }
 
@@ -258,6 +274,65 @@ public sealed class EditHistory
         }
 
         Trim();
+    }
+
+    // A move of top-level blocks: the step holds indices only (no block is cloned, the blocks are the document's own objects), so it costs next to nothing and never joins typing.
+    private void RecordMove(EditResult result, BlockMove move, int revisionBefore)
+    {
+        var change = result.Changes[0];
+        if (Root(move.Story) is not { } root || !ReferenceEquals(root, change.Container))
+        {
+            Clear();
+            return;
+        }
+
+        var endRevision = _document.Edits.Revision;
+        _redo.Clear();
+        var step = new Step(move.Story, [], move.First, [], [], default, default, revisionBefore, endRevision)
+        {
+            Move = move,
+            Bytes = 64,
+        };
+        _undo.Add(step);
+        _undoBytes += step.Bytes;
+        _expected = endRevision;
+        _open = null;
+        _openContainer = null;
+        Trim();
+    }
+
+    // Undo or redo of a move: the same rotation (or its inverse) on the same objects, the revision set back like any step's.
+    private EditResult? StepMove(Step step, bool undo)
+    {
+        var forward = step.Move!;
+        var move = undo ? forward.Inverse : forward;
+        if (Resolve(step) is not { } container || !move.IsValidFor(container.Count))
+        {
+            Clear();
+            return null;
+        }
+
+        var old = move.ApplyTo(container);
+        if (undo)
+        {
+            _undo.RemoveAt(_undo.Count - 1);
+            _undoBytes -= step.Bytes;
+            _redo.Add(step);
+        }
+        else
+        {
+            _redo.RemoveAt(_redo.Count - 1);
+            _undo.Add(step);
+            _undoBytes += step.Bytes;
+        }
+
+        var revision = undo ? step.StartRevision : step.EndRevision;
+        _document.Edits.Restore(revision);
+        _expected = revision;
+        _open = null;
+        var result = move.ResultIn(container, old);
+        _document.Edits.Attribute(result.Changes);
+        return result;
     }
 
     // A style change without a block change (the paragraph held nothing to move, or a switch that touches styles only): the step has no blocks, only the caret and the style swap.
@@ -671,6 +746,9 @@ public sealed class EditHistory
         public long Bytes { get; set; }
 
         public StyleChange? Style { get; init; }
+
+        /// <summary>Set for a move of top-level blocks: the step then holds no blocks.</summary>
+        public BlockMove? Move { get; init; }
 
         /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
         public object? TypingFormat { get; init; }

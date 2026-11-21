@@ -94,7 +94,7 @@ public sealed class SnapshotCacheOracleTests
             var pick = random.Next(10) < 8 && body.Count > 0 ? body[random.Next(body.Count)] : all[random.Next(all.Count)];
             int Len(StoryRef story, Paragraph paragraph) => ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text.Length;
             var at = new TextPosition(pick.Story, pick.Paragraph, random.Next(Len(pick.Story, pick.Paragraph) + 1));
-            var kind = random.Next(16);
+            var kind = random.Next(17);
             if (kind is 3 or 5 && pick.Story.Kind != StoryKind.Body)
             {
                 kind = 0;
@@ -196,6 +196,17 @@ public sealed class SnapshotCacheOracleTests
                     what = "list-continue";
                     result = editor.ContinueNumbering(at);
                     break;
+                case 16:
+                    {
+                        what = "move";
+                        var blocks = model.Body.Blocks;
+                        var count = Math.Min(1 + random.Next(4), blocks.Count);
+                        var from = random.Next(blocks.Count - count + 1);
+                        var target = random.Next(blocks.Count + 1);
+                        result = editor.MoveBlocks(from, count, target);
+                        break;
+                    }
+
                 default:
                     what = "redo";
                     result = editor.History.Redo();
@@ -218,6 +229,33 @@ public sealed class SnapshotCacheOracleTests
 
         Check($"{id} seed {seed} last");
         Assert.True(reused > 0, $"{id}: the cache never reused a block in {snapshots} snapshots");
+    }
+
+    [Fact]
+    public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        Assert.NotNull(editor.MoveBlocks(1, 3, model.Body.Blocks.Count));
+        Check("move down");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+        Assert.NotNull(editor.MoveBlocks(model.Body.Blocks.Count - 2, 2, 0));
+        Check("move up");
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+        Check("undo twice");
     }
 
     [Fact]
