@@ -72,6 +72,28 @@ public sealed class ListCatalog
         return AddInstance(numbering, id, track: true);
     }
 
+    /// <summary>The kind of <paramref name="level"/> of the list <paramref name="numId"/> (a level override of the <c>w:num</c> wins, a level the definition lacks answers with level 0); null when the list or its format does not exist, or the format is none.</summary>
+    public ListKind? KindOf(int numId, int level)
+    {
+        if (_document.Numbering is not { } numbering || numbering.FindInstance(numId) is not { } instance)
+        {
+            return null;
+        }
+
+        var format = instance.Overrides.FirstOrDefault(o => o.Level == level && o.Definition is not null)?.Definition?.Format;
+        if (format is null && FindAbstract(numbering, instance) is { } abstractNumbering)
+        {
+            format = (abstractNumbering.Levels.FirstOrDefault(l => l.Level == level) ?? abstractNumbering.Levels.FirstOrDefault(l => l.Level == 0))?.Format;
+        }
+
+        return format switch
+        {
+            null or "none" => null,
+            "bullet" => ListKind.Bullet,
+            _ => ListKind.Numbered,
+        };
+    }
+
     /// <summary>A <c>w:num</c> for a fresh run of the kind: an unreferenced one this catalog made on the same definition, else a new one.</summary>
     public int NewRun(ListKind kind)
     {

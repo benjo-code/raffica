@@ -94,7 +94,7 @@ public sealed class SnapshotCacheOracleTests
             var pick = random.Next(10) < 8 && body.Count > 0 ? body[random.Next(body.Count)] : all[random.Next(all.Count)];
             int Len(StoryRef story, Paragraph paragraph) => ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text.Length;
             var at = new TextPosition(pick.Story, pick.Paragraph, random.Next(Len(pick.Story, pick.Paragraph) + 1));
-            var kind = random.Next(12);
+            var kind = random.Next(16);
             if (kind is 3 or 5 && pick.Story.Kind != StoryKind.Body)
             {
                 kind = 0;
@@ -179,6 +179,22 @@ public sealed class SnapshotCacheOracleTests
                 case 10:
                     what = "undo";
                     result = editor.History.Undo();
+                    break;
+                case 12:
+                    what = "list";
+                    result = editor.ToggleList(new TextRange(at, at), random.Next(2) == 0 ? ListKind.Bullet : ListKind.Numbered);
+                    break;
+                case 13:
+                    what = "list-level";
+                    result = editor.ChangeListLevel(new TextRange(at, at), random.Next(3) - 1);
+                    break;
+                case 14:
+                    what = "list-restart";
+                    result = editor.RestartNumbering(at);
+                    break;
+                case 15:
+                    what = "list-continue";
+                    result = editor.ContinueNumbering(at);
                     break;
                 default:
                     what = "redo";

@@ -185,6 +185,11 @@ public sealed partial class TextEditor
         var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
         if (offset == 0)
         {
+            if (RemoveListAtStart(story, container, index, caret.Paragraph, revision) is { } unlisted)
+            {
+                return unlisted;
+            }
+
             if (index > 0 && container[index - 1] is Paragraph previous)
             {
                 return ApplyDelete(new Span(story, container, index - 1, previous, int.MaxValue, index, caret.Paragraph, 0), revision, new EditHistory.Point(index, 0));
@@ -238,8 +243,8 @@ public sealed partial class TextEditor
         return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index, caret.Paragraph, end), revision, new EditHistory.Point(index, offset));
     }
 
-    /// <summary>Replaces the selection with a paragraph break: the second paragraph has the properties of the first and takes what follows the caret.</summary>
-    public EditResult SplitParagraph(TextRange selection) => InsertText(selection, "\n");
+    /// <summary>Replaces the selection with a paragraph break (on an empty list paragraph, Enter ends the list instead: see <see cref="ToggleList"/>): the second paragraph has the properties of the first and takes what follows the caret.</summary>
+    public EditResult SplitParagraph(TextRange selection) => (selection.IsEmpty ? EndEmptyListItem(selection.Start) : null) ?? InsertText(selection, "\n");
 
     // The first Backspace or Delete next to a field: it selects the unit and changes nothing; the caller deletes the selection next.
     private static EditResult Select(TextPosition caret, (int Start, int End) unit) =>
