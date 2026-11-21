@@ -70,12 +70,19 @@ public sealed partial class TextEditor
         ArgumentNullException.ThrowIfNull(text);
         var revision = History.BeginOperation();
         var lines = TextBoundaries.Lines(text);
-        var hasText = lines.Count > 1 || lines[0].Length > 0;
         if (Resolve(selection) is not { } span)
         {
             return NoChange(selection.Start);
         }
 
+        // In a text, combo box, drop-down list or date control a line break is a w:br or nothing, never a new paragraph.
+        var breakRule = lines.Count > 1 ? BreakRuleOf(span.Story, span.Container) : BreakRule.Paragraph;
+        if (breakRule == BreakRule.None)
+        {
+            lines = [string.Join(" ", lines.Where(l => l.Length > 0))];
+        }
+
+        var hasText = lines.Count > 1 || lines[0].Length > 0;
         if (!hasText)
         {
             return ApplyDelete(span, revision, new EditHistory.Point(span.FirstIndex, span.FirstOffset)) ?? NoChange(span.Story, span.First, span.FirstOffset);
@@ -103,7 +110,23 @@ public sealed partial class TextEditor
         var point = ResolvePoint(map, offset);
         TextPosition caret;
         var added = 1;
-        if (lines.Count == 1)
+        if (breakRule == BreakRule.LineBreak)
+        {
+            var contents = new List<RunContent>();
+            for (var i = 0; i < lines.Count; i++)
+            {
+                if (i > 0)
+                {
+                    contents.Add(new BreakContent(BreakKind.TextWrapping));
+                }
+
+                contents.AddRange(Contents(lines[i]));
+            }
+
+            InsertContents(paragraph, map, point, contents, null);
+            caret = new TextPosition(span.Story, paragraph, offset + lines.Sum(l => l.Length) + lines.Count - 1);
+        }
+        else if (lines.Count == 1)
         {
             InsertContents(paragraph, map, point, Contents(lines[0]), null);
             if (typingFormat is { Count: > 0 } && lines[0].Length > 0)
@@ -499,6 +522,83 @@ public sealed partial class TextEditor
         }
 
         return null;
+    }
+
+    /// <summary>How a list of blocks takes a line break: as a paragraph (everywhere but in a plain-text control), as a line break, or not at all.</summary>
+    private enum BreakRule
+    {
+        Paragraph,
+        LineBreak,
+        None,
+    }
+
+    // A content control of the kinds text (w:text), combo box, drop-down list and date holds one paragraph, and Word refuses a file that gives one a
+    // second paragraph ("unreadable content": checked with Word on poi-bug54849 for each of the four kinds): a multi-line text control (w:multiLine)
+    // takes a w:br, every other one takes no break. A control without a kind (rich text) is edited like any other list of blocks.
+    private BreakRule BreakRuleOf(StoryRef story, IList<Block> container) =>
+        SingleParagraphControlOf(StoryOf(story).Blocks, container) is { } control
+            ? control.Properties.Children.Any(c => c.Name == W + "text" && IsOn(c.Attribute(W + "multiLine")?.Value)) ? BreakRule.LineBreak : BreakRule.None
+            : BreakRule.Paragraph;
+
+    private static readonly string[] s_singleParagraphKinds = ["text", "comboBox", "dropDownList", "date"];
+
+    private static bool IsOn(string? value) => value is "1" or "true" or "on";
+
+    private static ContentControlBlock? SingleParagraphControlOf(IList<Block> blocks, IList<Block> container)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ContentControlBlock control:
+                    if (ReferenceEquals(control.Content, container))
+                    {
+                        return control.Properties.Children.Any(c => c.Name.Namespace == W && s_singleParagraphKinds.Contains(c.Name.LocalName)) ? control : null;
+                    }
+
+                    if (SingleParagraphControlOf(control.Content, container) is { } inner)
+                    {
+                        return inner;
+                    }
+
+                    break;
+                case Table table:
+                    foreach (var row in table.Rows)
+                    {
+                        if (SingleParagraphControlInRowItem(row, container) is { } found)
+                        {
+                            return found;
+                        }
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return null;
+    }
+
+    private static ContentControlBlock? SingleParagraphControlInRowItem(RowItem item, IList<Block> container)
+    {
+        switch (item)
+        {
+            case TableRow row:
+                foreach (var child in row.Items)
+                {
+                    if (SingleParagraphControlInRowItem(child, container) is { } found)
+                    {
+                        return found;
+                    }
+                }
+
+                return null;
+            case TableCell cell:
+                return SingleParagraphControlOf(cell.Blocks, container);
+            default:
+                return null;
+        }
     }
 
     internal static (IList<Block> Container, int Index)? FindInRowItem(RowItem item, Paragraph paragraph)

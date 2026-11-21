@@ -312,4 +312,108 @@ public sealed class ContentControlEditingTests
         Assert.Single(kept);
         Assert.Equal("inside", kept[0].Name);
     }
+
+    // A plain-text control (w:text) holds one paragraph: Word shows a repair prompt for a file that gives one a second paragraph (checked with Word on
+    // poi-bug54849). Enter is a line break in a multi-line one and nothing in a single-line one, and a pasted multi-paragraph text is flattened the same way.
+    private static ContentControlBlock PlainTextControl(bool multiLine, Paragraph paragraph)
+    {
+        var control = Control(paragraph);
+        var text = new XElement(W + "text");
+        if (multiLine)
+        {
+            text.SetAttributeValue(W + "multiLine", "1");
+        }
+
+        control.Properties.AddLoaded(text);
+        return control;
+    }
+
+    [Fact]
+    public void EnterInAMultiLinePlainTextControlInsertsALineBreakAndNeverAParagraph()
+    {
+        var inside = P("Plain text");
+        var control = PlainTextControl(true, inside);
+        var doc = Doc(P("Before"), control, P("After"));
+        var editor = Editor(doc);
+
+        var result = editor.InsertText(Caret(inside, 5), "\n");
+
+        Assert.Same(inside, Assert.Single(control.Content));
+        Assert.Equal("Plain\n text", Text(inside));
+        Assert.Equal(At(inside, 6), result.Caret);
+        Assert.Contains(inside.Inlines.OfType<Run>().SelectMany(r => r.Content), c => c is BreakContent { Kind: BreakKind.TextWrapping });
+        Assert.Single(result.Changes);
+        Assert.Equal(1, result.Changes[0].Added);
+    }
+
+    [Fact]
+    public void EnterInASingleLinePlainTextControlChangesNothing()
+    {
+        var inside = P("Plain text");
+        var control = PlainTextControl(false, inside);
+        var doc = Doc(P("Before"), control, P("After"));
+        var editor = Editor(doc);
+        var revision = doc.Edits.Revision;
+
+        editor.InsertText(Caret(inside, 5), "\n");
+
+        Assert.Same(inside, Assert.Single(control.Content));
+        Assert.Equal("Plain text", Text(inside));
+        Assert.Equal(revision, doc.Edits.Revision);
+    }
+
+    [Fact]
+    public void PastingSeveralLinesIntoAPlainTextControlKeepsOneParagraph()
+    {
+        var multi = P("ab");
+        var single = P("cd");
+        var doc = Doc(P("Source one"), P("Source two"), PlainTextControl(true, multi), PlainTextControl(false, single));
+        var editor = Editor(doc);
+        var source = (Paragraph)doc.Body.Blocks[0];
+        var second = (Paragraph)doc.Body.Blocks[1];
+        var content = editor.Copy(Sel(source, 0, second, 6));
+        Assert.Contains('\n', content.PlainText);
+
+        editor.Paste(Caret(multi, 1), content, _ => true);
+        editor.Paste(Caret(single, 1), content, _ => true);
+
+        Assert.Single(((ContentControlBlock)doc.Body.Blocks[2]).Content);
+        Assert.Single(((ContentControlBlock)doc.Body.Blocks[3]).Content);
+        Assert.Equal("aSource one\nSourceb", Text(multi));
+        Assert.Equal("cSource one Sourced", Text(single));
+    }
+
+    [Theory]
+    [InlineData("comboBox")]
+    [InlineData("dropDownList")]
+    [InlineData("date")]
+    public void EnterInAComboDropDownOrDateControlChangesNothing(string kind)
+    {
+        var inside = P("Choice");
+        var control = Control(inside);
+        control.Properties.AddLoaded(new XElement(W + kind));
+        var doc = Doc(control);
+        var editor = Editor(doc);
+        var revision = doc.Edits.Revision;
+
+        editor.InsertText(Caret(inside, 3), "\n");
+
+        Assert.Same(inside, Assert.Single(control.Content));
+        Assert.Equal("Choice", Text(inside));
+        Assert.Equal(revision, doc.Edits.Revision);
+    }
+
+    [Fact]
+    public void EnterInARichTextControlStillSplitsTheParagraph()
+    {
+        var inside = P("Rich text");
+        var control = Control(inside);
+        control.Properties.AddLoaded(new XElement(W + "richText"));
+        var doc = Doc(control);
+        var editor = Editor(doc);
+
+        editor.InsertText(Caret(inside, 4), "\n");
+
+        Assert.Equal(2, control.Content.Count);
+    }
 }
