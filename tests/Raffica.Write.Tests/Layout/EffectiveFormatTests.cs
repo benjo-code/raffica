@@ -272,8 +272,8 @@ public sealed class EffectiveFormatTests
 
         Assert.True(runs > 5000, $"only {runs} runs read");
 
-        // The index holds the paragraphs of tables only, so a paragraph outside every table is a miss that earns one more walk (of the tables) for the revision, never one per paragraph.
-        Assert.Equal(2, format.StoryWalks);
+        // The paragraphs of the story itself are answered by a search and the index holds the paragraphs of tables only: one walk for the revision, never one per paragraph.
+        Assert.Equal(1, format.StoryWalks);
     }
 
     private static IEnumerable<(Paragraph Paragraph, bool InTable)> AllParagraphs(IEnumerable<Block> blocks, bool inTable = false)
@@ -324,7 +324,9 @@ public sealed class EffectiveFormatTests
         document.Edits.Raise();
 
         Assert.False(format.ForRun(StoryRef.Body, header, FirstRun(header)).Bold);
-        Assert.Equal(2, format.StoryWalks);
+
+        // It is a block of the body now: answered without a walk.
+        Assert.Equal(1, format.StoryWalks);
     }
 
     [Fact]
@@ -339,7 +341,9 @@ public sealed class EffectiveFormatTests
         var added = LayoutModel.Para(LayoutModel.Document("<w:p><w:r><w:t>new</w:t></w:r></w:p>", LayoutModel.StylesPart(Base)), 0);
         document.Body.Blocks.Add(added);
         Assert.False(format.ForRun(StoryRef.Body, added, FirstRun(added)).Bold);
-        Assert.Equal(2, format.StoryWalks);
+
+        // A block of the body is no miss: no walk.
+        Assert.Equal(1, format.StoryWalks);
 
         // A paragraph that is in no story costs one more walk for the revision, not one per call.
         var stranger = LayoutModel.Para(LayoutModel.Document("<w:p><w:r><w:t>x</w:t></w:r></w:p>", LayoutModel.StylesPart(Base)), 0);

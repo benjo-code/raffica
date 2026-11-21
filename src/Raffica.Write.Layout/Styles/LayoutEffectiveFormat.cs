@@ -58,6 +58,13 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
     {
         lock (_gate)
         {
+            // A paragraph that is a block of the story itself has no cell, and that is nearly every paragraph: it is found by a plain search (no allocation) and never earns a walk. The walk of the
+            // tables of the thesis allocated 600 KB each time, twice for every formatting operation (the revision is new after each), and the garbage collections of that were the heavy tail of the operation.
+            if (IsTopLevel(story, paragraph))
+            {
+                return null;
+            }
+
             var revision = _document.Edits.Revision;
             if (revision != _revision)
             {
@@ -83,6 +90,24 @@ public sealed class LayoutEffectiveFormat(WordDocument document) : IEffectiveFor
 
             return entry?.Format(_resolver);
         }
+    }
+
+    private bool IsTopLevel(StoryRef story, Paragraph paragraph)
+    {
+        if (BlocksOf(story) is not { } blocks)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            if (ReferenceEquals(blocks[i], paragraph))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Dictionary<Paragraph, CellEntry> Walk(StoryRef story)
