@@ -933,9 +933,9 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- size --target write --publish-dir out/app --fonts-dir ${{ env.MEASURED_PREFIX }}${{ env.FONTS }} --out ${{ env.OUT }}/size.csv
 
-      # The verdict against the limits of the Write app. The app rows of the table are empty until the owner's runs are recorded (milestone 4.2): the
-      # check judges the metrics that have a limit (today the fixed engine limit on Linux, 100 ms, and the fixed typing and format limits of 16 ms on every platform), lists the others as "not judged" and fails with
-      # "no limits recorded for target write" (exit code 2) when none has a limit, never a pass.
+      # The verdict against the limits of the Write app. The table holds the app limits of the owner's runs of 2026-11-21 (milestone 4.2, "Raffica Write: speed budgets
+      # (M4.2)" in Docs/DECISIONS.md), the fixed engine limit on Linux (100 ms) and the fixed typing and format limits of 16 ms on every platform: the check judges every
+      # metric that has a limit, lists the others (the engine on Windows and macOS) as "not judged", and fails with "no limits recorded for target write" (exit code 2) when none has a limit, never a pass.
       - name: Check against the limits (write, Windows)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' && runner.os == 'Windows' }}
         shell: powershell
