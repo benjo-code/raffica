@@ -73,6 +73,17 @@ internal sealed partial class Measurement
     private readonly List<double> _renderSamples = [];
     private readonly List<double> _drawSamples = [];
     private readonly EditPhases _phases = new();
+    private readonly List<double> _allocSamples = [];
+    private long _allocBefore;
+    private long _allocKb;
+    private int _gc0Before;
+    private int _gc1Before;
+    private int _gc2Before;
+    private TimeSpan _gcPauseBefore;
+    private int _gc0;
+    private int _gc1;
+    private int _gc2;
+    private double _gcPauseMs;
     private readonly List<double>[] _phaseSamples = Enumerable.Range(0, EditPhases.Names.Length + 1).Select(_ => new List<double>()).ToArray();
     private readonly List<double> _frameSamples = [];
     private readonly List<double> _leaseSamples = [];
@@ -102,7 +113,7 @@ internal sealed partial class Measurement
     private PageView? _probed;
 
     /// <summary>The line <c>typing case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> for the times of one case in milliseconds.</summary>
-    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing", IReadOnlyList<double>? renderMilliseconds = null, IReadOnlyList<double>? drawMilliseconds = null, IReadOnlyList<IReadOnlyList<double>>? phaseMilliseconds = null)
+    public static string TypingLine(string name, string view, IReadOnlyList<double> milliseconds, IReadOnlyList<double>? handlerMilliseconds = null, IReadOnlyList<double>? frameMilliseconds = null, string kind = "typing", IReadOnlyList<double>? renderMilliseconds = null, IReadOnlyList<double>? drawMilliseconds = null, IReadOnlyList<IReadOnlyList<double>>? phaseMilliseconds = null, IReadOnlyList<double>? allocatedKilobytes = null, int gc0 = 0, int gc1 = 0, int gc2 = 0, double gcPauseMilliseconds = 0)
     {
         var sorted = milliseconds.Order().ToArray();
         var line = string.Create(CultureInfo.InvariantCulture, $"{kind} case={name} view={view} n={sorted.Length} median-ms={Median(sorted):0.00} p95-ms={Percentile95(sorted):0.00} max-ms={sorted[^1]:0.00}");
@@ -124,6 +135,13 @@ internal sealed partial class Measurement
                         var phase = phaseMilliseconds[i].Order().ToArray();
                         var phaseName = i < EditPhases.Names.Length ? EditPhases.Names[i] : "rest";
                         line += string.Create(CultureInfo.InvariantCulture, $" ph-{phaseName}-median-ms={Median(phase):0.00} ph-{phaseName}-p95-ms={Percentile95(phase):0.00}");
+                    }
+
+                    if (allocatedKilobytes is not null)
+                    {
+                        // What the handler allocated per key on the UI thread, and the collections that ran during the handlers of the whole case (counts and pause time): recorded, never judged.
+                        var alloc = allocatedKilobytes.Order().ToArray();
+                        line += string.Create(CultureInfo.InvariantCulture, $" alloc-median-kb={Median(alloc):0.00} alloc-p95-kb={Percentile95(alloc):0.00} gc0={gc0} gc1={gc1} gc2={gc2} gc-pause-ms={gcPauseMilliseconds:0.00}");
                     }
                 }
             }
@@ -422,6 +440,7 @@ internal sealed partial class Measurement
             }
 
             _phaseSamples[^1].Add(Math.Max(0, handler - inPhases));
+            _allocSamples.Add(_allocKb);
             var judged = handler + renderPass + drawing;
             _samples.Add(judged);
             _leaseSamples.Add(view.Runner.LastLeaseWaitMilliseconds);
@@ -438,7 +457,7 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing", _renderSamples, _drawSamples, _phaseSamples));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
             }
 
             if (_job is not null && _paneRun)
@@ -469,6 +488,10 @@ internal sealed partial class Measurement
             {
                 list.Clear();
             }
+
+            _allocSamples.Clear();
+            _gc0 = _gc1 = _gc2 = 0;
+            _gcPauseMs = 0;
             _frameSamples.Clear();
             _leaseSamples.Clear();
             _incompleteSamples.Clear();
@@ -525,10 +548,31 @@ internal sealed partial class Measurement
         _renderStart = 0;
         _awaiting = true;
         _phases.Reset();
+        BeginKeyProbe();
         _keyAt = Stopwatch.GetTimestamp();
         view.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text, Source = view });
         _handlerEnd = Stopwatch.GetTimestamp();
+        EndKeyProbe();
         NextTypingFrame();
+    }
+
+    // What one key allocated on this (the UI) thread and the collections that ran during its handler: taken around the handler only, so the frame that follows is not in it.
+    private void BeginKeyProbe()
+    {
+        _allocBefore = GC.GetAllocatedBytesForCurrentThread();
+        _gc0Before = GC.CollectionCount(0);
+        _gc1Before = GC.CollectionCount(1);
+        _gc2Before = GC.CollectionCount(2);
+        _gcPauseBefore = GC.GetTotalPauseDuration();
+    }
+
+    private void EndKeyProbe()
+    {
+        _allocKb = (GC.GetAllocatedBytesForCurrentThread() - _allocBefore) / 1024;
+        _gc0 += GC.CollectionCount(0) - _gc0Before;
+        _gc1 += GC.CollectionCount(1) - _gc1Before;
+        _gc2 += GC.CollectionCount(2) - _gc2Before;
+        _gcPauseMs += (GC.GetTotalPauseDuration() - _gcPauseBefore).TotalMilliseconds;
     }
 
     // The pane run, at the end of a job: the debounced refresh of the display never fires while keys arrive one per frame (every key restarts its 100 ms timer), so it is run now, as the timer would
@@ -566,9 +610,11 @@ internal sealed partial class Measurement
         _awaiting = true;
         session.Phases = _phases;
         _phases.Reset();
+        BeginKeyProbe();
         _keyAt = Stopwatch.GetTimestamp();
         view.RunFormatCommand(id);
         _handlerEnd = Stopwatch.GetTimestamp();
+        EndKeyProbe();
         if (model.Edits.Revision == revision)
         {
             _awaiting = false;

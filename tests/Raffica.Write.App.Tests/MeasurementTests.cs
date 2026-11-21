@@ -219,7 +219,7 @@ public sealed class MeasurementTests
         {
             foreach (var name in cases)
             {
-                Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d render-median-ms=\d+\.\d\d render-p95-ms=\d+\.\d\d draw-median-ms=\d+\.\d\d draw-p95-ms=\d+\.\d\d( ph-[a-z-]+-(median|p95)-ms=\d+\.\d\d){{32}}$", rows[index++]);
+                Assert.Matches($@"^typing case={name} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d render-median-ms=\d+\.\d\d render-p95-ms=\d+\.\d\d draw-median-ms=\d+\.\d\d draw-p95-ms=\d+\.\d\d( ph-[a-z-]+-(median|p95)-ms=\d+\.\d\d){{32}} alloc-median-kb=\d+\.\d\d alloc-p95-kb=\d+\.\d\d gc0=\d+ gc1=\d+ gc2=\d+ gc-pause-ms=\d+\.\d\d$", rows[index++]);
             }
         }
     }
@@ -279,7 +279,7 @@ public sealed class MeasurementTests
             {
                 foreach (var place in places)
                 {
-                    Assert.Matches($@"^format case={kind}/{place} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d render-median-ms=\d+\.\d\d render-p95-ms=\d+\.\d\d draw-median-ms=\d+\.\d\d draw-p95-ms=\d+\.\d\d( ph-[a-z-]+-(median|p95)-ms=\d+\.\d\d){{32}}$", rows[index++]);
+                    Assert.Matches($@"^format case={kind}/{place} view={view} n=3 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d render-median-ms=\d+\.\d\d render-p95-ms=\d+\.\d\d draw-median-ms=\d+\.\d\d draw-p95-ms=\d+\.\d\d( ph-[a-z-]+-(median|p95)-ms=\d+\.\d\d){{32}} alloc-median-kb=\d+\.\d\d alloc-p95-kb=\d+\.\d\d gc0=\d+ gc1=\d+ gc2=\d+ gc-pause-ms=\d+\.\d\d$", rows[index++]);
                 }
             }
         }
