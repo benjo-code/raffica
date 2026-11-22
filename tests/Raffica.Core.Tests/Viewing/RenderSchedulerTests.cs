@@ -432,10 +432,18 @@ public sealed class RenderSchedulerTests
         using var scheduler = new RenderScheduler(renderer.Render, cache);
         using var inHandler = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
+        var handlerDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         scheduler.TileReady += _ =>
         {
-            inHandler.Set();
-            release.Wait(SchedulerWait.Due, ct);
+            try
+            {
+                inHandler.Set();
+                release.Wait(SchedulerWait.Due, ct);
+            }
+            finally
+            {
+                handlerDone.TrySetResult();
+            }
         };
 
         scheduler.Update([Request(1)]);
@@ -446,6 +454,10 @@ public sealed class RenderSchedulerTests
         await Task.Run(() => scheduler.InvalidatePages(new HashSet<int> { 1 }), ct).WaitAsync(SchedulerWait.Due, ct);
         Assert.False(cache.Contains(Request(1).Key));
         release.Set();
+
+        // The handler runs on a pool thread of the scheduler: leaving the test (which disposes both events) before it has
+        // passed its last use of them made it throw ObjectDisposedException there, which ends the whole test host.
+        await handlerDone.Task.WaitAsync(SchedulerWait.Due, ct);
     }
 
     [Fact]
