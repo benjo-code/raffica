@@ -123,4 +123,29 @@ public sealed class ReferenceNumberingTests
         // isLgl shows the number in decimal, whatever the level's format.
         Assert.Equal(["o", "1", "2"], Count(numbering, (1, 0), (1, 1), (1, 1)));
     }
+
+    // A foreign file whose Heading styles carry only numId while the definition's levels name the styles with w:pStyle. ECMA-376 17.9.23 says the level then is the one that names the style
+    // (Heading2 is level 1: "1.", "1.1"); neither the layout nor the reference reads the link, so both give level 0 for every heading ("1.", "2."). They agree, which this test pins: it is a
+    // known limit of 4.4a for files that link headings this way without an ilvl (the file Write writes has the explicit ilvl from level 2 on, and so does Word's own), not a disagreement
+    // between the oracle and the layout. A change that reads the link must change the layout and the reference together, and this expectation with them.
+    [Fact]
+    public async Task AHeadingStyleWithNumIdAndNoIlvlIsCountedAtLevelZeroByTheLayoutAndTheReference()
+    {
+        var styles = LayoutModel.StylesPart(
+            "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"/>"
+            + "<w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/><w:pPr><w:numPr><w:numId w:val=\"1\"/></w:numPr></w:pPr></w:style>"
+            + "<w:style w:type=\"paragraph\" w:styleId=\"Heading2\"><w:name w:val=\"heading 2\"/><w:pPr><w:numPr><w:numId w:val=\"1\"/></w:numPr></w:pPr></w:style>");
+        var numbering = LayoutModel.NumberingPart(
+            "<w:abstractNum w:abstractNumId=\"0\">"
+            + Level(0, "decimal", "%1.", "<w:pStyle w:val=\"Heading1\"/>") + Level(1, "decimal", "%1.%2", "<w:pStyle w:val=\"Heading2\"/>") + "</w:abstractNum>"
+            + "<w:num w:numId=\"1\"><w:abstractNumId w:val=\"0\"/></w:num>");
+        string Heading(string style) => $"<w:p><w:pPr><w:pStyle w:val=\"{style}\"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>";
+        var document = LayoutModel.Document(Heading("Heading1") + Heading("Heading2") + Heading("Heading2"), styles, numbering);
+        var layout = DocumentLayout.Create(document, PageTestKit.Fonts, new LayoutOptions());
+        await layout.LayOutRestAsync(null, TestContext.Current.CancellationToken);
+
+        var expected = DrawnLabels.AssertEqualToReference(layout, document, "linked headings");
+
+        Assert.Equal(["1.", "2.", "3."], expected.Select(l => l.Label));
+    }
 }

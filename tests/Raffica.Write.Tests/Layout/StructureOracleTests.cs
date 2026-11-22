@@ -159,6 +159,37 @@ public sealed class StructureOracleTests
         return (body.ToString(), LayoutModel.StylesPart(styles.ToString()), LayoutModel.NumberingPart(numbering.ToString()));
     }
 
+    // Lines of one-line paragraphs fill page 1 up to a heading that keeps with the next block; the block after it is a long paragraph (it needs two lines to start on the page) and a one-line
+    // paragraph follows it. Moving the short one in front of the long one lets the heading stay on page 1 where it had been pushed to page 2 (and the undo pushes it back): the refill must
+    // start before the heading, the first block of the run of keep-with-next blocks that ends at the edit. Swept over the number of lines in front so the boundary is hit.
+    [Fact]
+    public async Task AMoveUnderAKeepWithNextHeadingPullsItBackToThePageBeforeAndStaysEqualToFullLayout()
+    {
+        var longText = string.Concat(Enumerable.Repeat("a long paragraph that needs several lines on the page ", 12));
+        var pulled = 0;
+        for (var fillers = 20; fillers <= 70; fillers++)
+        {
+            var body = string.Concat(Enumerable.Range(0, fillers).Select(i => PageTestKit.P("line " + i)))
+                + PageTestKit.P("Heading", "<w:keepNext/>") + PageTestKit.P(longText) + PageTestKit.P("short");
+            var model = LayoutModel.Document(body);
+            var layout = DocumentLayout.Create(model, PageTestKit.Fonts, new LayoutOptions());
+            await layout.LayOutRestAsync(null, CancellationToken.None);
+            var steps = new StructureSteps(model, layout, new LayoutOptions());
+            var heading = fillers;
+            var before = layout.Locate(heading)?.Page;
+
+            Assert.True(await steps.MoveToAsync(fillers + 2, 1, fillers + 1, false, $"keepNext {fillers} fillers"));
+
+            Assert.Equal(3, steps.Compared);
+            if (layout.Locate(heading)?.Page != before)
+            {
+                pulled++;
+            }
+        }
+
+        Assert.True(pulled > 0, "no variant moved the heading to another page: the walk-back was not exercised");
+    }
+
     private static string LabelsAndText(WordDocument model) =>
         string.Join("\n", ReferenceNumbering.Labels(model).Select(l => l.Label + "|" + TestEdit.TextOf(l.Paragraph)));
 
