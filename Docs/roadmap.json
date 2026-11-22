@@ -1354,6 +1354,10 @@
     {
       "title": "Outline move while the caret is far from the view lays out through the caret page",
       "text": "An outline move (pane button, drag or Alt+Shift+Up and Down) run with the caret far from the view lays out through `PageView.ThroughPage()`, the later of the last page in view and the caret page. A move that crosses a section break takes `Restart` in Pages mode, so it then costs up to a full layout: about 495 ms on the generated thesis with the caret on the last page and the view at the first (498, 497 and 492 ms medians, Windows PC, `move-last-to-first-far-caret`), against 5 to 6 ms with the caret at the view; a move that spans no section break stays incremental. Remedies: pass the view's last page instead of `ThroughPage()` for outline commands (`PageView.RunOutline`, `RunOutlineDrop`; the caret page is only needed when the caret must be shown), or a `PlanEdit` fast path across a section break whose properties are unchanged (needs its own oracle case and a decision). The owner decides whether the 100 ms aim must hold for this case before a limit is entered. See `Docs/DECISIONS.md`, \"Raffica Write: headings, lists and the outline (M4.4a)\"."
+    },
+    {
+      "title": "Heading styles with localized ids",
+      "text": "Documents from a localized Word (German: an id such as `Überschrift1` with the name \"heading 1\") make the numbering switch report \"unavailable\" and make promote and demote refuse. `HeadingNumbering.HeadingStyles` matches the id `HeadingN` and the name, `TextEditor.Outline` (`HeadingLevelOf`, `PlanOutlineShift`) uses the id only, and the `w:pStyle` links and the promote and demote targets are written as `Heading<N>`. Fix: match by the canonical name `heading N` first with the id as the fallback, and use the real style id in the links and the targets. Medium size, touches several places."
     }
   ]
 }

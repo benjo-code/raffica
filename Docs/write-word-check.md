@@ -86,7 +86,7 @@ In Word, open each file and record: a repair prompt (exact text, any prompt is a
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script `tools/word-open-check.ps1`, read-only, repair off) | numbered-headings.docx | opened by script | none (opened, 10 paragraphs, 1 page) | OPEN: a person has not looked | The script checks the repair prompt only. |
 | 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | lists.docx | opened by script | none (opened, 15 paragraphs, 1 page) | OPEN: a person has not looked | As above. |
-| 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | numbered-thesis-chapter-move.docx | opened by script | none (opened, 3689 paragraphs, 321 pages) | OPEN: a person has not looked | The page count is Word's with the fonts it has, not Write's (309 for the unedited thesis). |
+| 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | numbered-thesis-chapter-move.docx | opened by script | none (opened, 3689 paragraphs, 321 pages) | OPEN: a person has not looked | The page count (321) is not explained and the owner compares it in Word; a guess, not checked: the promoted Heading 2 becomes a Heading 1, which may carry page-break-before. |
 
 ## Checking a file from a script
 
