@@ -245,6 +245,103 @@ public sealed class CorpusIncrementalTests
         Assert.True(chromeOnly.Count >= 2, "the corpus takes the chrome-only path in more than one file: " + string.Join(", ", chromeOnly));
     }
 
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task AChapterMoveStaysEqualToFullLayout(string id, LayoutMode mode)
+    {
+        using var file = DocxFile.Open(Corpus(id));
+        var model = file.Model;
+        var layout = await LaidAsync(model, mode);
+        var steps = new StructureSteps(model, layout, new LayoutOptions(mode));
+        var random = new Random(unchecked((int)(Fnv1a("move " + id) * 7919u) + (int)mode));
+        var moved = 0;
+        for (var i = 0; i < 3; i++)
+        {
+            if (await steps.MoveAsync(random, $"{id} {mode} move {i}"))
+            {
+                moved++;
+            }
+        }
+
+        var body = model.Body.Blocks;
+        Assert.True(moved > 0 || body.Count < 2 || !body.OfType<Paragraph>().Any(), $"{id} {mode}: no move ran");
+        if (StructureSteps.Headings(model) >= 2 || id == "thesis")
+        {
+            Assert.True(steps.SubtreeMoves > 0, $"{id} {mode}: no subtree move ran");
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: {steps.Moves} moves ({steps.SubtreeMoves} subtree), {steps.Compared} compared, tables {steps.MovedTables}, sections {steps.MovedSections}");
+    }
+
+    [Fact]
+    public async Task MovesSomewhereInTheCorpusCrossTables()
+    {
+        var tables = 0;
+        var subtrees = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files.Where(f => f.Id != "thesis"))
+        {
+            using var file = DocxFile.Open(Corpus(entry.Id));
+            var layout = await LaidAsync(file.Model, LayoutMode.Pages);
+            var steps = new StructureSteps(file.Model, layout, new LayoutOptions(LayoutMode.Pages));
+            var random = new Random(unchecked((int)(Fnv1a("move " + entry.Id) * 7919u)));
+            for (var i = 0; i < 3; i++)
+            {
+                await steps.MoveAsync(random, $"{entry.Id} guard move {i}");
+            }
+
+            subtrees += steps.SubtreeMoves;
+            tables += steps.MovedTables;
+        }
+
+        Assert.True(subtrees > 0, "no subtree move ran in the corpus");
+        Assert.True(tables > 0, "no move reached a table in the corpus");
+    }
+
+    [Theory]
+    [InlineData(LayoutMode.Pages)]
+    [InlineData(LayoutMode.Flow)]
+    public async Task AMoveAcrossASectionBreakStillEqualsAFullLayout(LayoutMode mode)
+    {
+        var ran = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var file = DocxFile.Open(Corpus(entry.Id));
+            var model = file.Model;
+            var body = model.Body.Blocks;
+            var at = -1;
+            for (var i = 0; i < body.Count - 1; i++)
+            {
+                if (body[i] is Paragraph { SectionBreak: not null } && body[i + 1] is Paragraph { SectionBreak: null })
+                {
+                    at = i;
+                    break;
+                }
+            }
+
+            if (at < 0)
+            {
+                continue;
+            }
+
+            var layout = await LaidAsync(model, mode);
+            var steps = new StructureSteps(model, layout, new LayoutOptions(mode));
+
+            // The block after the section break goes in front of it: the region holds the section-break paragraph, which is not in the moved range.
+            Assert.True(await steps.MoveToAsync(at + 1, 1, at, false, $"{entry.Id} {mode} across section break"), entry.Id);
+
+            // And a range that ends at the section break moves past the block after it.
+            var now = body.ToList().FindIndex(b => b is Paragraph { SectionBreak: not null });
+            if (now >= 1 && now + 1 < body.Count)
+            {
+                Assert.True(await steps.MoveToAsync(now - 1, 1, now + 2, false, $"{entry.Id} {mode} across section break 2"), entry.Id);
+            }
+
+            ran++;
+        }
+
+        Assert.True(ran > 0, "no corpus file has a section-break paragraph");
+    }
+
     // FNV-1a over the UTF-16 code units: stable across processes (string.GetHashCode is randomized per process).
     private static uint Fnv1a(string text)
     {
