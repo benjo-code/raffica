@@ -3008,17 +3008,17 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ====
-Avalonia 12.1.5
-Avalonia.Desktop 12.1.5
-Avalonia.FreeDesktop 12.1.5
-Avalonia.FreeDesktop.AtSpi 12.1.5
-Avalonia.HarfBuzz 12.1.5
-Avalonia.Native 12.1.5
-Avalonia.Remote.Protocol 12.1.5
-Avalonia.Skia 12.1.5
-Avalonia.Themes.Fluent 12.1.5
-Avalonia.Win32 12.1.5
-Avalonia.X11 12.1.5
+Avalonia 12.1.6
+Avalonia.Desktop 12.1.6
+Avalonia.FreeDesktop 12.1.6
+Avalonia.FreeDesktop.AtSpi 12.1.6
+Avalonia.HarfBuzz 12.1.6
+Avalonia.Native 12.1.6
+Avalonia.Remote.Protocol 12.1.6
+Avalonia.Skia 12.1.6
+Avalonia.Themes.Fluent 12.1.6
+Avalonia.Win32 12.1.6
+Avalonia.X11 12.1.6
 MIT
 
 --- third-party/avalonia/LICENSE ---

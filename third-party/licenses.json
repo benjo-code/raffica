@@ -3,7 +3,7 @@
     {
       "id": "Avalonia",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
@@ -28,35 +28,35 @@
     {
       "id": "Avalonia.Desktop",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.FreeDesktop",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.FreeDesktop.AtSpi",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.HarfBuzz",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.Native",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE",
       "files": [
@@ -66,35 +66,35 @@
     {
       "id": "Avalonia.Remote.Protocol",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.Skia",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.Themes.Fluent",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.Win32",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
     {
       "id": "Avalonia.X11",
       "kind": "nuget",
-      "version": "12.1.5",
+      "version": "12.1.6",
       "license": "MIT",
       "licenseFile": "third-party/avalonia/LICENSE"
     },
