@@ -484,4 +484,30 @@ public sealed class HeadingNumberingTests
         [.. document.Styles!.Styles.Select(s => s.Id + "|"
             + string.Concat(s.ParagraphProperties.Children.Select(c => c.ToString(SaveOptions.DisableFormatting))) + "|"
             + string.Concat(s.RunProperties.Children.Select(c => c.ToString(SaveOptions.DisableFormatting))))];
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AStaleCaretThrowsBeforeAnythingChanges(bool on)
+    {
+        var document = NewDocument();
+        var editor = EditorOf(document);
+        if (!on)
+        {
+            Assert.NotNull(editor.SetHeadingNumbering(true));
+        }
+
+        var stale = new TextPosition(StoryRef.Body, (Paragraph)LayoutModel.Document(Body(("Heading1", "gone"))).Body.Blocks[0], 0);
+        var styles = Snapshot(document);
+        var revision = document.Edits.Revision;
+        var steps = editor.History.UndoCount;
+        var numbering = document.Numbering?.Instances.Count ?? 0;
+
+        Assert.Throws<StalePositionException>(() => editor.SetHeadingNumbering(on, stale));
+
+        Assert.Equal(styles, Snapshot(document));
+        Assert.Equal(revision, document.Edits.Revision);
+        Assert.Equal(steps, editor.History.UndoCount);
+        Assert.Equal(numbering, document.Numbering?.Instances.Count ?? 0);
+    }
 }

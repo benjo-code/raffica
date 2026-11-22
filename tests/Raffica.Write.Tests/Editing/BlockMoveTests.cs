@@ -164,6 +164,12 @@ public sealed class BlockMoveTests
 
         Assert.Equal(1, editor.History.UndoCount);
         Assert.InRange(editor.History.UndoBytes, 0, 1024);
+
+        // The step holds the live block objects, not copies: a move of 300 blocks costs what a move of one block costs.
+        var small = NewDocument(400);
+        var smallEditor = EditorOf(small);
+        Assert.NotNull(smallEditor.MoveBlocks(10, 1, 400));
+        Assert.Equal(smallEditor.History.UndoBytes, editor.History.UndoBytes);
     }
 
     [Fact]
