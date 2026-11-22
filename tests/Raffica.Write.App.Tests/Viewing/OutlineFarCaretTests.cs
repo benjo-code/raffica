@@ -1,3 +1,4 @@
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Raffica.Write.Commands;
 using Raffica.Write.Editing;
@@ -17,8 +18,8 @@ namespace Raffica.WriteApp.Tests.Viewing;
 /// </summary>
 public sealed class OutlineFarCaretTests
 {
-    // The command may lay out the pages in view and a few more (the window is a page and a half high); the whole document is 309 pages.
-    private const int AtMost = 15;
+    // The command lays out the pages in view and a few more (3 right after a move); the count is read while the background layout resumes at the same time, so the bound is loose (the bug gives 309 of 309).
+    private const int AtMost = 60;
 
     private sealed record Far(ViewHarness Harness, EditSession Session, IReadOnlyList<OutlineHeading> Headings, TextPosition Caret, double OffsetBefore) : IDisposable
     {
@@ -199,6 +200,27 @@ public sealed class OutlineFarCaretTests
         Assert.Equal(0, far.Session.PendingCount);
         Assert.True(far.LaidOutAtChange is >= 1 and <= AtMost, $"the replay laid out {far.LaidOutAtChange} pages (the document has 309)");
         Assert.Equal(moved, Text(far.Session.Caret!.Value.Paragraph));
+        await AssertEqualToFreshAsync(far);
+    }
+
+    [AvaloniaFact]
+    public async Task TheFirstKeyAfterAMoveBelowTheViewDoesNotPayTheLayoutOfTheOldCaretPage()
+    {
+        using var far = await OpenFarAsync(viewAtFirstHeading: true);
+        var chapters = far.Chapters;
+        var moved = Text(chapters[0].Paragraph);
+        Assert.True(far.View.RunOutlineDrop(chapters[0].Paragraph, far.Headings[^1].Paragraph, DropPlace.After));
+        Assert.True(far.LaidOutAtChange is >= 1 and <= AtMost);
+
+        // The caret is at the moved heading on a page that is not laid out; the old caret's page must not decide how far the next edit lays out.
+        far.LaidOutAtChange = -1;
+        far.Harness.Window.KeyTextInput("Z");
+        ViewHarness.Pump();
+
+        Assert.True(far.LaidOutAtChange is >= 1 and <= AtMost, $"the first key laid out {far.LaidOutAtChange} pages (the document has 309)");
+        var caret = far.Session.Caret!.Value;
+        Assert.Equal("Z" + moved, Text(caret.Paragraph));
+        Assert.Equal(1, caret.Offset);
         await AssertEqualToFreshAsync(far);
     }
 }
