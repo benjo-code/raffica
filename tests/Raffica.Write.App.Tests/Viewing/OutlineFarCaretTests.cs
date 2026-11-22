@@ -27,6 +27,9 @@ public sealed class OutlineFarCaretTests
 
         public int LaidOutAtChange { get; set; } = -1;
 
+        // What the last edit laid out itself (DocumentLayout.PagesLaidOut), unlike LaidOutAtChange without the pages the background layout adds meanwhile.
+        public int PagesLaidOutAtChange { get; set; } = -1;
+
         public IReadOnlyList<OutlineHeading> Chapters => [.. Headings.Where(h => h.Entry.Level == 1)];
 
         public void Dispose() => Harness.Dispose();
@@ -60,7 +63,11 @@ public sealed class OutlineFarCaretTests
         Assert.True(harness.View.CaretBounds(caret) is { } bar && bar.Top > 10 * 700, "the caret is not far below the view");
 
         var far = new Far(harness, session, OutlineSource.ReadHeadings(model), caret, harness.View.OffsetY);
-        session.Changed += () => far.LaidOutAtChange = harness.View.Runner.PageLayout.LaidOutPages;
+        session.Changed += () =>
+        {
+            far.LaidOutAtChange = harness.View.Runner.PageLayout.LaidOutPages;
+            far.PagesLaidOutAtChange = harness.View.Runner.PageLayout.PagesLaidOut;
+        };
         return far;
     }
 
@@ -213,11 +220,13 @@ public sealed class OutlineFarCaretTests
         Assert.True(far.LaidOutAtChange is >= 1 and <= AtMost);
 
         // The caret is at the moved heading on a page that is not laid out; the old caret's page must not decide how far the next edit lays out.
-        far.LaidOutAtChange = -1;
+        far.PagesLaidOutAtChange = -1;
         far.Harness.Window.KeyTextInput("Z");
         ViewHarness.Pump();
 
-        Assert.True(far.LaidOutAtChange is >= 1 and <= AtMost, $"the first key laid out {far.LaidOutAtChange} pages (the document has 309)");
+        // The pages the key's own edit laid out, not the number of pages the layout holds at that moment: the background layout resumes after the move and adds pages for as long
+        // as the key takes (64 and 67 on slow CI runners, 120 after a pause of 400 ms, all of them after 1.5 s), while the edit lays out 1 page. The bug gives 289.
+        Assert.True(far.PagesLaidOutAtChange is >= 1 and <= AtMost, $"the first key laid out {far.PagesLaidOutAtChange} pages (the document has 309)");
         var caret = far.Session.Caret!.Value;
         Assert.Equal("Z" + moved, Text(caret.Paragraph));
         Assert.Equal(1, caret.Offset);
