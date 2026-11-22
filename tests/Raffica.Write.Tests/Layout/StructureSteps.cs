@@ -26,6 +26,9 @@ internal sealed class StructureSteps
 
     public TextEditor Editor { get; }
 
+    /// <summary>Replaces the page the incremental layout is brought through (default: the page of the change's first block, plus one).</summary>
+    public Func<DocumentLayout, BlockChange, int>? ThroughPage { get; set; }
+
     /// <summary>How many moves (undo and redo not counted) changed something and were compared.</summary>
     public int Moves { get; private set; }
 
@@ -166,7 +169,8 @@ internal sealed class StructureSteps
 
         foreach (var change in result.Changes)
         {
-            var through = Math.Max(1, (_layout.Locate(Math.Min(change.First, _model.Body.Blocks.Count - 1))?.Page ?? 0) + 1);
+            var through = ThroughPage?.Invoke(_layout, change)
+                ?? Math.Max(1, (_layout.Locate(Math.Min(change.First, _model.Body.Blocks.Count - 1))?.Page ?? 0) + 1);
             _layout.ApplyEdit(change, through);
         }
 

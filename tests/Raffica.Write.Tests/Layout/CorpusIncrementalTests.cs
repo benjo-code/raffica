@@ -273,6 +273,25 @@ public sealed class CorpusIncrementalTests
         TestContext.Current.SendDiagnosticMessage($"{id} {mode}: {steps.Moves} moves ({steps.SubtreeMoves} subtree), {steps.Compared} compared, tables {steps.MovedTables}, sections {steps.MovedSections}");
     }
 
+    [Theory]
+    [InlineData("page 0", 0)]
+    [InlineData("last page", 1)]
+    [InlineData("far past the end", 2)]
+    public async Task AMoveStaysEqualToFullLayoutWhateverPageTheEditIsBroughtThrough(string name, int variant)
+    {
+        using var file = DocxFile.Open(Corpus("thesis"));
+        var layout = await LaidAsync(file.Model, LayoutMode.Pages);
+        var steps = new StructureSteps(file.Model, layout, new LayoutOptions(LayoutMode.Pages))
+        {
+            ThroughPage = (l, _) => variant switch { 0 => 0, 1 => l.LaidOutPages, _ => l.LaidOutPages + 50 },
+        };
+        var random = new Random(unchecked((int)Fnv1a("through " + name)));
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.True(await steps.MoveAsync(random, $"thesis through {name} move {i}"));
+        }
+    }
+
     [Fact]
     public async Task MovesSomewhereInTheCorpusCrossTables()
     {
