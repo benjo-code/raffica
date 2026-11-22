@@ -254,17 +254,16 @@ public sealed class CorpusIncrementalTests
         var layout = await LaidAsync(model, mode);
         var steps = new StructureSteps(model, layout, new LayoutOptions(mode));
         var random = new Random(unchecked((int)(Fnv1a("move " + id) * 7919u) + (int)mode));
-        var moved = 0;
         for (var i = 0; i < 3; i++)
         {
-            if (await steps.MoveAsync(random, $"{id} {mode} move {i}"))
-            {
-                moved++;
-            }
+            await steps.MoveAsync(random, $"{id} {mode} move {i}");
         }
 
+        // A file with two blocks and a paragraph moves three times and each move is compared with its undo and its redo; a one-block file has nothing to move.
         var body = model.Body.Blocks;
-        Assert.True(moved > 0 || body.Count < 2 || !body.OfType<Paragraph>().Any(), $"{id} {mode}: no move ran");
+        var movable = body.Count >= 2 && body.OfType<Paragraph>().Any();
+        Assert.Equal(movable ? 3 : 0, steps.Moves);
+        Assert.Equal(movable ? 9 : 0, steps.Compared);
         if (StructureSteps.Headings(model) >= 2 || id == "thesis")
         {
             Assert.True(steps.SubtreeMoves > 0, $"{id} {mode}: no subtree move ran");
@@ -296,6 +295,7 @@ public sealed class CorpusIncrementalTests
     public async Task MovesSomewhereInTheCorpusCrossTables()
     {
         var tables = 0;
+        var compared = 0;
         var subtrees = 0;
         foreach (var entry in CorpusManifest.Load(Root).Files.Where(f => f.Id != "thesis"))
         {
@@ -308,10 +308,13 @@ public sealed class CorpusIncrementalTests
                 await steps.MoveAsync(random, $"{entry.Id} guard move {i}");
             }
 
+            Assert.Equal(3 * steps.Moves, steps.Compared);
+            compared += steps.Compared;
             subtrees += steps.SubtreeMoves;
             tables += steps.MovedTables;
         }
 
+        Assert.True(compared > 0, "nothing was compared");
         Assert.True(subtrees > 0, "no subtree move ran in the corpus");
         Assert.True(tables > 0, "no move reached a table in the corpus");
     }
@@ -345,6 +348,7 @@ public sealed class CorpusIncrementalTests
             var layout = await LaidAsync(model, mode);
             var steps = new StructureSteps(model, layout, new LayoutOptions(mode));
 
+            // Pages: HasSectionBreak makes ApplyEdit restart, so that variant proves the restart equals a full layout; Flow ignores section breaks and takes the fast path across the break.
             // The block after the section break goes in front of it: the region holds the section-break paragraph, which is not in the moved range.
             Assert.True(await steps.MoveToAsync(at + 1, 1, at, false, $"{entry.Id} {mode} across section break"), entry.Id);
 
@@ -355,6 +359,8 @@ public sealed class CorpusIncrementalTests
                 Assert.True(await steps.MoveToAsync(now - 1, 1, now + 2, false, $"{entry.Id} {mode} across section break 2"), entry.Id);
             }
 
+            Assert.True(steps.Compared > 0 && steps.Compared == 3 * steps.Moves, $"{entry.Id} {mode}: compared {steps.Compared} steps for {steps.Moves} moves");
+            Assert.Equal(steps.Moves, steps.MovedSections);
             ran++;
         }
 

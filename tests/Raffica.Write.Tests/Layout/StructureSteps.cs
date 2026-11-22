@@ -82,6 +82,13 @@ internal sealed class StructureSteps
     {
         var blocks = _model.Body.Blocks;
         var (spanFirst, spanCount) = (Math.Min(first, target), Math.Max(first + count, target) - Math.Min(first, target));
+
+        var result = Editor.MoveBlocks(first, count, target);
+        if (result is null)
+        {
+            return false;
+        }
+
         if (Enumerable.Range(spanFirst, spanCount).Any(i => blocks[i] is Table))
         {
             MovedTables++;
@@ -90,12 +97,6 @@ internal sealed class StructureSteps
         if (Enumerable.Range(spanFirst, spanCount).Any(i => blocks[i] is Paragraph { SectionBreak: not null }))
         {
             MovedSections++;
-        }
-
-        var result = Editor.MoveBlocks(first, count, target);
-        if (result is null)
-        {
-            return false;
         }
 
         await CheckAsync(result, label + " move");
@@ -162,8 +163,10 @@ internal sealed class StructureSteps
 
     private async Task CheckAsync(EditResult? result, string label)
     {
-        if (result is null || result.Changes.Count == 0)
+        // A move, its undo and its redo always change blocks: nothing compared would prove nothing.
+        if (result is not { Changes.Count: > 0 })
         {
+            Assert.Fail(label + ": the step returned no change");
             return;
         }
 
