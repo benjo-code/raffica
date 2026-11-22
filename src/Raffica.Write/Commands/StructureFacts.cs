@@ -86,39 +86,50 @@ internal static class StructureWording
 }
 
 /// <summary>
-/// Reads <see cref="StructureFacts"/> for the rules and the switches of the ribbon. Nothing exists before the first question, and nothing is read for a tab without an editing session (the facts are
-/// permissive then). The answer is remembered for the model, its revision, the selection and the outline row in play, so asking again while none of them changed costs nothing; the headings are read
-/// again once per revision, never per selection. The asks come from the debounced refresh of the ribbon, never from the key path.
+/// Reads <see cref="StructureFacts"/> for the rules and the switches of the ribbon, lazily per command: only the facts the asked command needs are read (list facts for <c>list.*</c>, the style state
+/// for the heading numbering, the headings and the outline plans for <c>outline.*</c>), the others stay permissive. Nothing exists before the first question, and nothing is read for a tab without an
+/// editing session. The headings walk is bounded like the other readers: a body of more than <see cref="TextEditor.MaxFactBlocks"/> top-level blocks is not walked and the outline commands are offered
+/// (the operation reads the live model when it runs and refuses with a note, so the answer there is authoritative). Answers are remembered for the model, its revision, the selection and the outline
+/// row in play; the headings once per revision, never per selection. The asks come from the refresh of the ribbon, never from the key path.
 /// </summary>
 internal sealed class StructureFactsSource
 {
-    private ((WordDocument Model, int Revision, TextRange Range, Paragraph? Row) Key, StructureFacts Facts)? _known;
+    private ((WordDocument Model, int Revision, TextRange Range, Paragraph? Row) Key, (OutlineReason Up, OutlineReason Down, OutlineReason Promote, OutlineReason Demote) Outline)? _outline;
     private ((WordDocument Model, int Revision) Key, IReadOnlyList<OutlineHeading> Headings)? _headings;
 
-    /// <summary>How many times the model was read instead of answering from memory (tests).</summary>
-    public int Reads { get; private set; }
+    /// <summary>How many times the headings of the body were walked (tests).</summary>
+    public int HeadingReads { get; private set; }
 
-    /// <summary>The facts for the tab, or the permissive ones while it has no session, cannot be edited now or has no selection. <paramref name="row"/> is the paragraph of the engaged outline row, or null.</summary>
-    public StructureFacts Read(WriteTab? tab, Paragraph? row)
+    /// <summary>
+    /// The facts for the command <paramref name="id"/> of the tab, with every field the command does not use permissive; also permissive while the tab has no session, cannot be edited now or has no
+    /// selection. <paramref name="row"/> is the paragraph of the engaged outline row, or null.
+    /// </summary>
+    public StructureFacts Read(WriteTab? tab, Paragraph? row, string id)
     {
-        if (tab?.Editor is not { BlockedReason: null, Selection: { } range } session)
+        if (tab is null)
+        {
+            return StructureFacts.Permissive;
+        }
+
+        if (id == WriteCommandIds.NumberHeadings)
+        {
+            return StructureFacts.Permissive with { Headings = HeadingNumbering.StateOf(tab.Docx.Model) };
+        }
+
+        if (tab.Editor is not { BlockedReason: null, Selection: { } range } session)
         {
             return StructureFacts.Permissive;
         }
 
         try
         {
-            var model = tab.Docx.Model;
-            var key = (model, model.Edits.Revision, range, row);
-            if (_known is { } known && known.Key.Equals(key))
+            if (WriteCommandIds.IsOutline(id))
             {
-                return known.Facts;
+                var (up, down, promote, demote) = OutlineOf(session, tab.Docx.Model, range, row);
+                return StructureFacts.Permissive with { MoveUp = up, MoveDown = down, Promote = promote, Demote = demote };
             }
 
-            var facts = Compute(session, model, range, row);
-            Reads++;
-            _known = (key, facts);
-            return facts;
+            return StructureFacts.Permissive with { List = session.ReadListFacts(range) };
         }
         catch (StalePositionException)
         {
@@ -127,25 +138,39 @@ internal sealed class StructureFactsSource
         }
     }
 
-    private StructureFacts Compute(EditSession session, WordDocument model, TextRange range, Paragraph? row)
+    private (OutlineReason Up, OutlineReason Down, OutlineReason Promote, OutlineReason Demote) OutlineOf(EditSession session, WordDocument model, TextRange range, Paragraph? row)
     {
-        var list = session.ReadListFacts(range);
-        var headings = HeadingNumbering.StateOf(model);
-        var all = HeadingsOf(model);
-        var target = row is not null ? FindRow(all, row) : OutlinePlanner.RowAtCaret(all, model, range.End);
-        if (target < 0)
+        const OutlineReason Offered = OutlineReason.None;
+        if (model.Body.Blocks.Count > TextEditor.MaxFactBlocks)
         {
-            return new StructureFacts(list, headings, OutlineReason.NoHeading, OutlineReason.NoHeading, OutlineReason.NoHeading, OutlineReason.NoHeading);
+            return (Offered, Offered, Offered, Offered);
         }
 
-        var editor = session.Editor;
-        return new StructureFacts(
-            list,
-            headings,
-            OutlinePlanner.Move(all, model, target, up: true).Reason,
-            OutlinePlanner.Move(all, model, target, up: false).Reason,
-            OutlinePlanner.Shift(all, model, target, -1, editor).Reason,
-            OutlinePlanner.Shift(all, model, target, +1, editor).Reason);
+        var key = (model, model.Edits.Revision, range, row);
+        if (_outline is { } known && known.Key.Equals(key))
+        {
+            return known.Outline;
+        }
+
+        var all = HeadingsOf(model);
+        var target = row is not null ? FindRow(all, row) : OutlinePlanner.RowAtCaret(all, model, range.End);
+        (OutlineReason, OutlineReason, OutlineReason, OutlineReason) outline;
+        if (target < 0)
+        {
+            outline = (OutlineReason.NoHeading, OutlineReason.NoHeading, OutlineReason.NoHeading, OutlineReason.NoHeading);
+        }
+        else
+        {
+            var editor = session.Editor;
+            outline = (
+                OutlinePlanner.Move(all, model, target, up: true).Reason,
+                OutlinePlanner.Move(all, model, target, up: false).Reason,
+                OutlinePlanner.Shift(all, model, target, -1, editor).Reason,
+                OutlinePlanner.Shift(all, model, target, +1, editor).Reason);
+        }
+
+        _outline = (key, outline);
+        return outline;
     }
 
     private IReadOnlyList<OutlineHeading> HeadingsOf(WordDocument model)
@@ -157,6 +182,7 @@ internal sealed class StructureFactsSource
         }
 
         var headings = OutlineSource.ReadHeadings(model);
+        HeadingReads++;
         _headings = (key, headings);
         return headings;
     }

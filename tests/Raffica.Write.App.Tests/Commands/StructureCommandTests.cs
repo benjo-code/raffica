@@ -152,7 +152,7 @@ public sealed class StructureCommandTests
             foreach (var facts in Facts())
             {
                 var state = new EditCommandState(blocked, true, true, true);
-                var rules = new WriteCommandRules(() => true, () => 1.0, () => true, () => state, structureFacts: () => facts);
+                var rules = new WriteCommandRules(() => true, () => 1.0, () => true, () => state, structureFacts: _ => facts);
                 foreach (var id in s_ids)
                 {
                     count++;
@@ -181,7 +181,7 @@ public sealed class StructureCommandTests
     {
         static string? Reason(string id, StructureFacts facts, EditBlockedReason? blocked = null)
         {
-            var rules = new WriteCommandRules(() => true, () => 1.0, () => true, () => new EditCommandState(blocked, true, true, true), structureFacts: () => facts);
+            var rules = new WriteCommandRules(() => true, () => 1.0, () => true, () => new EditCommandState(blocked, true, true, true), structureFacts: _ => facts);
             return rules.ReasonFor(id);
         }
 

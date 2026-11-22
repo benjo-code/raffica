@@ -219,15 +219,19 @@ public sealed class WriteWindowStructureTests
         Assert.Contains(WriteCommandIds.MoveUp, ids);
         Assert.Null(tab.Editor);
         Assert.Null(window.OutlineOf(tab));
-        Assert.Equal(0, window.StructureReads);
+        Assert.Equal(0, window.StructureHeadingReads);
         Assert.Null(window.Status.Hint);
 
-        // Typing, selecting and a ribbon refresh with a session read the facts (once per revision and selection), never per key.
+        // With a session a ribbon refresh of the compact start band asks the list states (one read of the list facts, memoized for the second refresh); the thesis body is above the bound of 200 blocks, so the outline states are answered without walking the headings.
+        await WindowFixture.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted);
+        Assert.True(tab.Runner.FullModelReady);
         var session = tab.EnsureEditor();
         _ = session.Selection;
         window.Ribbon.RefreshCommandStates();
         window.Ribbon.RefreshCommandStates();
-        Assert.True(window.StructureReads <= 1, $"{window.StructureReads} reads for two refreshes of one state");
+        Assert.Equal(1, session.ListReads);
+        Assert.Equal(0, window.StructureHeadingReads);
+        Assert.Null(window.Status.Hint);
     }
 
     [AvaloniaFact]

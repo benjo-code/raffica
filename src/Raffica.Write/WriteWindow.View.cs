@@ -318,7 +318,7 @@ internal sealed partial class WriteWindow
         // The keys of the page view run the command on the view that has the focus and the rules decide (no focus change: the view has it).
         view.EditCommandHandler = id => _rules.Allows(id) && view.RunEditCommand(id);
         view.FormatKeyHandler = id => _rules.Allows(id) && view.RunFormatCommand(id);
-        view.StructureKeyHandler = id => _rules.Allows(id) && view.RunStructureCommand(id);
+        view.StructureKeyHandler = id => RunStructureKey(view, id);
         view.OutlineParagraphSource = EngagedOutlineParagraph;
         view.StructureNote += text => ShowStructureNote(view, text);
         view.SelectionStateChanged += () =>

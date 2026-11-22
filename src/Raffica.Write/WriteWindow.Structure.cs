@@ -15,15 +15,17 @@ internal sealed partial class WriteWindow
 {
     private StructureFactsSource? _structure;
 
-    /// <summary>How many times the model was read for the facts of the structure commands (tests; 0 before the first ask).</summary>
-    internal int StructureReads => _structure?.Reads ?? 0;
+    /// <summary>How many times the headings of the body were walked for the outline commands (tests; 0 before the first ask of an outline command).</summary>
+    internal int StructureHeadingReads => _structure?.HeadingReads ?? 0;
 
+    // Whether the outline pane being engaged should refresh the ribbon states: it does not. The pane row it selects follows a click or a key that already moved the selection or the caret, which refreshes the states
+    // through the debounced path; a change of only the engaged flag (focus moving between the list and the page) leaves every state as it was until the next selection or edit.
     // The outline row the commands act on: the selected row of the pane of the active tab while the user works in it, else null (the heading at the caret).
     private Paragraph? EngagedOutlineParagraph() =>
         Workspace.Active is { } tab && _outlines.TryGetValue(tab, out var pane) && pane.Engaged ? pane.SelectedParagraph : null;
 
     // The facts of the rules and the switches; the source is made on the first question. Nothing is read before the active tab has an editing session.
-    private StructureFacts ReadStructureFacts() => (_structure ??= new StructureFactsSource()).Read(Workspace.Active, EngagedOutlineParagraph());
+    private StructureFacts ReadStructureFacts(string id) => (_structure ??= new StructureFactsSource()).Read(Workspace.Active, EngagedOutlineParagraph(), id);
 
     // The ribbon actions of the nine commands.
     private void AddStructureActions()
@@ -70,12 +72,28 @@ internal sealed partial class WriteWindow
         return true;
     }
 
+    // A structure key of the page view: the rules decide, and a key they refuse shows its reason (the key stays claimed, as the formatting keys do).
+    private bool RunStructureKey(PageView view, string id)
+    {
+        if (_rules.Allows(id))
+        {
+            return view.RunStructureCommand(id);
+        }
+
+        if (_rules.ReasonFor(id) is { } reason)
+        {
+            ShowStructureNote(view, reason);
+        }
+
+        return false;
+    }
+
     // Whether a structure switch is on: bullets and numbers follow the list facts of the selection (every touched paragraph is in a list of that kind), the heading numbering follows the styles.
     private bool StructureIsOn(string id) => id switch
     {
         WriteCommandIds.NumberHeadings => Workspace.Active is { } tab && HeadingNumbering.StateOf(tab.Docx.Model) == HeadingNumberingState.On,
-        WriteCommandIds.Bullets => ReadStructureFacts().List.Kind == ListKind.Bullet && ReadStructureFacts().List.InList,
-        WriteCommandIds.Numbers => ReadStructureFacts().List.Kind == ListKind.Numbered && ReadStructureFacts().List.InList,
+        WriteCommandIds.Bullets => ReadStructureFacts(id).List is { InList: true, Kind: ListKind.Bullet },
+        WriteCommandIds.Numbers => ReadStructureFacts(id).List is { InList: true, Kind: ListKind.Numbered },
         _ => false,
     };
 

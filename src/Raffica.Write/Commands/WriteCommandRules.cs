@@ -24,8 +24,8 @@ namespace Raffica.Write.Commands;
 /// <param name="saveState">What Save and Save as need to know of the active tab; null reads as a document with changes that can be saved.</param>
 /// <param name="isClosing">Whether the window is closing (New document is the only command that then says so; null: never).</param>
 /// <param name="formatFacts">The facts about the selection that Clear direct formatting, the style pickers and Update style to match need; asked only when one of those commands is (and only while editing is not blocked), so the state of the other commands never pays for them; null keeps the facts of <paramref name="editState"/>.</param>
-/// <param name="structureFacts">The facts of the structure commands (lists, heading numbering, outline) for the selection; asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<StructureFacts>? structureFacts = null)
+/// <param name="structureFacts">The facts a structure command (lists, heading numbering, outline) needs for the selection, by command id (only that command's part is filled, so the other reads never happen); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<string, StructureFacts>? structureFacts = null)
 {
     private const double Tolerance = 1e-9;
 
@@ -154,7 +154,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
                 break;
         }
 
-        var facts = structureFacts?.Invoke() ?? StructureFacts.Permissive;
+        var facts = structureFacts?.Invoke(id) ?? StructureFacts.Permissive;
         var list = facts.List;
         return id switch
         {

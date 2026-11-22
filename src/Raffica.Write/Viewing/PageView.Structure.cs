@@ -42,27 +42,34 @@ internal sealed partial class PageView
             return true;
         }
 
+        EditResult? result = null;
         switch (id)
         {
             case WriteCommandIds.Bullets:
-                ApplyGuarded(session, ed => session.Selection is { } selection ? ed.ToggleList(selection, ListKind.Bullet) : null);
+                result = ApplyGuarded(session, ed => session.Selection is { } selection ? ed.ToggleList(selection, ListKind.Bullet) : null);
                 break;
             case WriteCommandIds.Numbers:
-                ApplyGuarded(session, ed => session.Selection is { } selection ? ed.ToggleList(selection, ListKind.Numbered) : null);
+                result = ApplyGuarded(session, ed => session.Selection is { } selection ? ed.ToggleList(selection, ListKind.Numbered) : null);
                 break;
             case WriteCommandIds.RestartNumbering:
-                ApplyGuarded(session, ed => session.Selection is { } selection ? ed.RestartNumbering(selection.Normalized().Start) : null);
+                result = ApplyGuarded(session, ed => session.Selection is { } selection ? ed.RestartNumbering(selection.Normalized().Start) : null);
                 break;
             case WriteCommandIds.ContinueNumbering:
-                ApplyGuarded(session, ed => session.Selection is { } selection ? ed.ContinueNumbering(selection.Normalized().Start) : null);
+                result = ApplyGuarded(session, ed => session.Selection is { } selection ? ed.ContinueNumbering(selection.Normalized().Start) : null);
                 break;
             case WriteCommandIds.NumberHeadings:
                 // The state is read when the operation runs: the switch turns the numbers on when they are off and off when they are on.
-                ApplyGuarded(session, ed => session.Caret is { } caret ? ed.SetHeadingNumbering(HeadingNumbering.StateOf(_tab.Docx.Model) != HeadingNumberingState.On, caret) : null);
+                result = ApplyGuarded(session, ed => session.Caret is { } caret ? ed.SetHeadingNumbering(HeadingNumbering.StateOf(_tab.Docx.Model) != HeadingNumberingState.On, caret) : null);
                 break;
             default:
                 RunOutline(session, id);
-                break;
+                return true;
+        }
+
+        // The rules said yes but the editor had nothing to do (a refusal, or nothing changed): a visible note, never silence. A save queues the operation and says nothing.
+        if (result is null && session.BlockedReason is null)
+        {
+            StructureNote?.Invoke(WriteStrings.NoteStructureFailed);
         }
 
         return true;
