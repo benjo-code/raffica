@@ -94,7 +94,7 @@ public sealed class SnapshotCacheOracleTests
             var pick = random.Next(10) < 8 && body.Count > 0 ? body[random.Next(body.Count)] : all[random.Next(all.Count)];
             int Len(StoryRef story, Paragraph paragraph) => ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text.Length;
             var at = new TextPosition(pick.Story, pick.Paragraph, random.Next(Len(pick.Story, pick.Paragraph) + 1));
-            var kind = random.Next(17);
+            var kind = random.Next(18);
             if (kind is 3 or 5 && pick.Story.Kind != StoryKind.Body)
             {
                 kind = 0;
@@ -196,6 +196,15 @@ public sealed class SnapshotCacheOracleTests
                     what = "list-continue";
                     result = editor.ContinueNumbering(at);
                     break;
+                case 17:
+                    {
+                        what = "outline-shift";
+                        var count = Math.Min(1 + random.Next(6), model.Body.Blocks.Count);
+                        var from = random.Next(model.Body.Blocks.Count - count + 1);
+                        result = editor.ShiftOutlineLevels(from, from + count - 1, random.Next(2) == 0 ? -1 : 1);
+                        break;
+                    }
+
                 case 16:
                     {
                         what = "move";
