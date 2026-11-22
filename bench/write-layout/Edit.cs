@@ -93,6 +93,7 @@ internal static partial class EditCommand
         }
 
         output.Write(SelectAllTable(MeasureSelectAll(file)));
+        output.Write(Table(MeasureStructure(file, Math.Max(1, Math.Min(keystrokes, StructureRuns)), error), "recorded, never judged: the editor and the layout through the pages in view; the 100 ms aim of a chapter move is judged on the app (--measure-structure)."));
         if (options.Value("--csv") is { } path)
         {
             File.WriteAllText(path, Csv([.. rows, .. format.Rows]));

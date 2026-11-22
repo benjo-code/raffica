@@ -451,18 +451,27 @@ internal sealed partial class Measurement
 
             _awaiting = false;
             _keyInJob++;
+            if (_structureRun)
+            {
+                RestoreStructure(view);
+            }
         }
 
         if (_job is null || _keyInJob >= _job.Keys)
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
             }
 
             if (_job is not null && _paneRun)
             {
                 WriteRefresh(view);
+            }
+
+            if (_job is not null && _structureRun)
+            {
+                WriteStructureRefresh();
             }
 
             if (_jobIndex >= _jobs.Count)
@@ -538,7 +547,15 @@ internal sealed partial class Measurement
 
         if (_job.Format is { } formatKind)
         {
-            SendFormat(view, formatKind);
+            if (_structureRun)
+            {
+                SendStructure(view, formatKind["structure-".Length..]);
+            }
+            else
+            {
+                SendFormat(view, formatKind);
+            }
+
             return;
         }
 
@@ -663,6 +680,11 @@ internal sealed partial class Measurement
 
     private List<Job> Plan(PageView view)
     {
+        if (_structureRun)
+        {
+            return PlanStructure(view);
+        }
+
         var layout = view.Runner.PageLayout;
         var places = TypingPlaces.Pick(view.Tab.Docx.Model, layout);
         var jobs = new List<Job>();

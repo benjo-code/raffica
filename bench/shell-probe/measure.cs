@@ -2,7 +2,7 @@
 //   dotnet run bench/shell-probe/measure.cs -- run --exe <probe> --mode empty|frame --case cold|warm|input|memory --out <csv> [--machine <name>] [--label <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target gallery --exe <RafficaGallery> --case cold|warm|input|memory --out <csv> [--machine <name>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target pdf --exe <RafficaPdf> --case cold|warm|thousand|second|scroll|memory --out <csv> [--machine <name>] [--testdata <folder>]
-//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing|typing-background|typing-pane|typing-snapshot|format --out <csv> [--machine <name>] [--testdata <folder>]
+//   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <RafficaWrite> --case cold|warm|thesis|second|scroll|memory|typing|typing-background|typing-pane|typing-snapshot|format|structure --out <csv> [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- run --target write --exe <write-layout-bench> --case engine --out <csv> [--runs <n>] [--machine <name>] [--testdata <folder>]
 //   dotnet run bench/shell-probe/measure.cs -- size --publish-dir <dir> --fonts-dir <dir> --out <csv> [--target probe|gallery|pdf|write] [--mode frame] [--machine <name>] [--app <bundle dir>] [--dmg <file>]
 //   dotnet run bench/shell-probe/measure.cs -- size --check <win-x64|linux-x64|osx-x64|osx-arm64> --publish-dir <dir> --fonts-dir <dir> [--target gallery|pdf|write] [--app <bundle dir> --dmg <file>: pdf on macOS]
@@ -16,7 +16,7 @@
 // The Write app (--target write) writes the mode write; its cases are cold, warm, thesis, second, scroll, memory, typing (the app's --measure-typing: per case and view the
 // median and the 95th percentile of the keystrokes, rows typing/<case>-<view>-median and -p95, and typing-first/<when>-<view>) typing-pane (the typing run with the formatting pane open: the same rows as typing,
 // recorded as typing/pane-<case>-<view>-p95 so that the worst p95 of typing holds them), format (the app's --measure-format: bold on one word and the alignment of one paragraph at the places of the
-// typing run, rows format/<kind>/<place>-<view>-median and -p95; the metric format is the worst p95) and engine (the median of
+// typing run, rows format/<kind>/<place>-<view>-median and -p95; the metric format is the worst p95), structure (the app's --measure-structure: three chapter moves, the heading numbering on and off and a numbered list toggle, rows structure/<case>-median and -p95, structure-refresh/<case>-ms; recorded, not judged until the owner's runs enter a limit for the move rows, check --target write prints a note) and engine (the median of
 // write-layout-bench run, one row). check --target write judges only the metrics that have a limit (see s_writeBudgets).
 //
 // Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for the binding
@@ -156,6 +156,25 @@ static class Lines
     /// <summary>Reads <c>format case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> of the Write app (the same words as a typing row, the case is <c>&lt;kind&gt;/&lt;place&gt;</c>; invariant culture).</summary>
     public static bool TryParseFormat(string line, out string name, out string view, out double median, out double p95, out double max) =>
         TryParseRow("format", line, out name, out view, out median, out p95, out max);
+
+    /// <summary>Reads <c>structure case=… view=… n=… median-ms=… p95-ms=… max-ms=…</c> of the Write app (the case is a name of <c>WriteRun.StructureNames</c>; invariant culture).</summary>
+    public static bool TryParseStructure(string line, out string name, out string view, out double median, out double p95, out double max) =>
+        TryParseRow("structure", line, out name, out view, out median, out p95, out max);
+
+    /// <summary>Reads <c>structure-refresh case=… view=… n=1 ms=…</c> of the Write app (the debounced refresh of the ribbon states after a case, in ms).</summary>
+    public static bool TryParseStructureRefresh(string line, out string name, out double ms)
+    {
+        name = string.Empty;
+        ms = 0;
+        var parts = line.Split(' ');
+        if (parts is not ["structure-refresh", var a, _, _, var c, ..] || !a.StartsWith("case=", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        name = a["case=".Length..];
+        return name.Length > 0 && TryValue(c, "ms=", out ms);
+    }
 
     /// <summary>
     /// The recorded split of one typing row: every further key=value word of the line after the seven of the contract (handler-median-ms, frame-median-ms, frame-p95-ms, render-median-ms, render-p95-ms, draw-median-ms, draw-p95-ms),
@@ -821,7 +840,7 @@ static class PdfRun
             List<(string Case, string Run, double Value)>? typing = null;
             try
             {
-                result = c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.TypingSnapshotCase
+                result = c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.StructureCase or WriteRun.TypingSnapshotCase
                     ? RunTyping(exe, c, settingsFile, testdata, out typing)
                     : c.Name == WriteRun.TypingBackgroundCase
                         ? RunTypingBackground(exe, c, settingsFile, testdata, out typing)
@@ -856,7 +875,7 @@ static class PdfRun
                     rows.AddRange(typing!.Select(t => Lines.Csv(machine, target, t.Case, t.Run, t.Value, t.Run is "n" or "incomplete" ? "count" : "ms")));
                 }
             }
-            else if (c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.TypingSnapshotCase)
+            else if (c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.StructureCase or WriteRun.TypingSnapshotCase)
             {
                 // Value: the worst 95th percentile of the cases (the number check judges), Second: the worst median.
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {label}: worst p95 {result.Value:0.00} ms, worst median {result.Second:0.00} ms over {typing!.Count(t => t.Run.EndsWith("-p95", StringComparison.Ordinal))} cases"));
@@ -910,7 +929,7 @@ static class PdfRun
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.TypingSnapshotCase ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
+            $"{name}: median {Stats.Median(values):0.0}, min {values.Min():0.0}, max {values.Max():0.0} ({values.Count} runs{(c.Name == "memory" ? ", bytes" : c.Name == "scroll" ? ", p99 in ms" : c.Name is WriteRun.TypingCase or WriteRun.TypingPaneCase or WriteRun.FormatCase or WriteRun.StructureCase or WriteRun.TypingSnapshotCase ? ", worst p95 in ms" : c.Name == WriteRun.TypingBackgroundCase ? ", median in ms" : string.Empty)})"));
         if (warning is not null)
         {
             Console.WriteLine($"Result with reservation: {warning}");
@@ -977,6 +996,7 @@ static class PdfRun
         }
 
         rows = c.Name == WriteRun.FormatCase ? WriteRun.ParseFormat(output!, out var parseError)
+            : c.Name == WriteRun.StructureCase ? WriteRun.ParseStructure(output!, out parseError)
             : c.Name == WriteRun.TypingSnapshotCase ? WriteRun.ParseTypingSnapshot(output!, out parseError)
             : WriteRun.ParseTyping(output!, out parseError, c.Name == WriteRun.TypingPaneCase ? "pane-" : string.Empty);
         if (rows is null)
@@ -1150,6 +1170,12 @@ static class WriteRun
     /// <summary>The formatting cases of the run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.FormatNames</c>); a row case is <c>&lt;kind&gt;/&lt;place&gt;</c>.</summary>
     public static readonly string[] FormatKinds = ["format-word", "format-paragraph"];
 
+    /// <summary>The structure run of the app (<c>--measure-structure</c>): three chapter moves, the heading numbering switched on and off and a numbered list toggle on the thesis (page view). Rows <c>structure/&lt;case&gt;-median</c> and <c>-p95</c>; the metric <c>structure</c> is the worst median of the three move rows (aim 100 ms from the command to the first visible page), judged once a limit is recorded and until then recorded and <c>not judged</c>.</summary>
+    public const string StructureCase = "structure";
+
+    /// <summary>The cases of the structure run, in the order of the app (<c>Measurement.Structure.cs</c>, <c>StructurePlaces.Names</c>).</summary>
+    public static readonly string[] StructureNames = ["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"];
+
     /// <summary>Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded, never judged.</summary>
     public const string TypingBackgroundCase = "typing-background";
 
@@ -1282,6 +1308,44 @@ static class WriteRun
         return rows;
     }
 
+    /// <summary>
+    /// The rows of a structure run from the output of the app: for every case of <see cref="StructureNames"/> <c>structure/&lt;case&gt;-median</c> and <c>-p95</c> (the time from the command to the pages in view: the key
+    /// handler, the render pass and the page draws), the recorded split of each in the family <c>structure-split</c> and the refresh of the ribbon states after the case as <c>structure-refresh/&lt;case&gt;-ms</c>. Every
+    /// case must be there, or the run failed (<paramref name="error"/>). The metric <c>structure</c> is the worst median of the three move rows (<see cref="CheckCommand.WorstMoveMedian"/>).
+    /// </summary>
+    public static List<(string Case, string Run, double Value)>? ParseStructure(string output, out string? error)
+    {
+        var rows = new List<(string, string, double)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in output.Split((char)10).Select(l => l.Trim()))
+        {
+            if (Lines.TryParseStructure(line, out var name, out _, out var median, out var p95, out _))
+            {
+                rows.Add(("structure", $"{name}-median", median));
+                rows.Add(("structure", $"{name}-p95", p95));
+                seen.Add(name);
+                foreach (var (key, value) in Lines.TypingSplit(line))
+                {
+                    rows.Add(("structure-split", $"{name}-{key}", value));
+                }
+            }
+            else if (Lines.TryParseStructureRefresh(line, out var refreshName, out var ms))
+            {
+                rows.Add(("structure-refresh", $"{refreshName}-ms", ms));
+            }
+        }
+
+        var missing = StructureNames.Where(n => !seen.Contains(n)).ToList();
+        if (missing.Count > 0)
+        {
+            error = $"the structure run printed no row for {string.Join(", ", missing)}";
+            return null;
+        }
+
+        error = null;
+        return rows;
+    }
+
     public static readonly PdfRun.Case[] Cases =
     [
         new("cold", 10, 0, 5000, "--measure-startup", SmallFile, "first-page"),
@@ -1295,6 +1359,7 @@ static class WriteRun
         new(TypingPaneCase, 3, 0, 500, "--measure-typing-pane", ThesisFile, "first-page"),
         new(TypingSnapshotCase, 3, 0, 500, "--measure-typing-snapshot", ThesisFile, "first-page"),
         new(FormatCase, 3, 0, 500, "--measure-format", ThesisFile, "first-page"),
+        new(StructureCase, 3, 0, 500, "--measure-structure", ThesisFile, "first-page"),
         new(EngineCase, 10, 2, 0, string.Empty, ThesisFile, "median first page:"),
     ];
 
@@ -2035,6 +2100,26 @@ static class CheckCommand
         return perCase.Count == 0 ? null : perCase.Max();
     }
 
+    /// <summary>The note of the structure rows in a check: recorded and not judged (no limit is entered yet, the aim of a chapter move is 100 ms); null without any move row. The worst median of the three move rows is named.</summary>
+    public static string? StructureNote(IReadOnlyList<BudgetsCommand.Row> rows) =>
+        WorstMoveMedian(rows) is { } worst
+            ? string.Create(CultureInfo.InvariantCulture, $"> Structure (chapter moves, worst median {worst:0.0} ms, aim 100 ms): recorded and not judged, no limit is entered yet (the limit follows the owner's runs as median times 1.25).")
+            : null;
+
+    /// <summary>
+    /// The value of the metric <c>structure</c>: the worst median of the three chapter-move rows (<c>structure/move-*-median</c>, the median over the launches per row, then the largest). The aim is 100 ms from the
+    /// command to the first visible page on the Linux laptop and the limit will be the median of the owner&#39;s runs times 1.25 (a decisions entry); until a limit is recorded the metric is <c>not judged</c>. null without such a row.
+    /// </summary>
+    public static double? WorstMoveMedian(IReadOnlyList<BudgetsCommand.Row> rows)
+    {
+        var perCase = rows
+            .Where(r => r.Mode == "write" && r.Case == "structure" && r.Run.StartsWith("move-", StringComparison.Ordinal) && r.Run.EndsWith("-median", StringComparison.Ordinal))
+            .GroupBy(r => r.Run, StringComparer.Ordinal)
+            .Select(g => Stats.Median([.. g.Select(r => r.Value)]))
+            .ToList();
+        return perCase.Count == 0 ? null : perCase.Max();
+    }
+
     private static double? MedianOf(IReadOnlyList<BudgetsCommand.Row> rows, string mode, string @case, string? run)
     {
         var values = rows
@@ -2145,6 +2230,11 @@ static class CheckCommand
         }
 
         text.Append(Render(results));
+        if (write && StructureNote(rows) is { } structureNote)
+        {
+            text.AppendLine().AppendLine(structureNote);
+        }
+
         foreach (var w in warnings)
         {
             text.AppendLine().AppendLine($"> **Invalid measurement:** {w}");
@@ -2678,10 +2768,10 @@ static class SelfTest
         Expect("write run: the second launch shares the settings file and opens poi-comment", string.Join(' ', WriteRun.SecondArguments("s.json", td)), $"--settings-file s.json {Path.Combine(td, "poi-comment/poi-comment.docx")}");
         Expect("write run: typing opens the thesis with its switch", string.Join(' ', WriteRun.Arguments("typing", "s.json", td)), $"--measure-typing --settings-file s.json {Path.Combine(td, "thesis/thesis.docx")}");
         Expect("write run: every app run has a settings file of its own", WriteRun.Cases.Where(c => c.Name != "engine").All(c => WriteRun.Arguments(c.Name, "s.json", td).Contains("--settings-file")), true);
-        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,typing-pane,typing-snapshot,format,engine");
+        Expect("write run: the cases", string.Join(',', WriteRun.Cases.Select(c => c.Name)), "cold,warm,thesis,second,scroll,memory,typing,typing-background,typing-pane,typing-snapshot,format,structure,engine");
         Expect("write run: the engine runs the benchmark on the thesis", string.Join(' ', WriteRun.EngineArguments(td, 7)), $"run --file {Path.Combine(td, "thesis/thesis.docx")} --runs 7 --warmup 2");
         Expect("write run: CSV mode is write", RunCommand.CsvMode("write", null), "write");
-        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background, typing-pane, typing-snapshot, format or engine");
+        Expect("write run: the case list in the message", PdfRun.CaseList(WriteRun.Cases), "cold, warm, thesis, second, scroll, memory, typing, typing-background, typing-pane, typing-snapshot, format, structure or engine");
         Expect("pdf run: the case list in the message is the old text", PdfRun.CaseList(PdfRun.Cases), "cold, warm, thousand, second, scroll or memory");
 
         TypingTests();
@@ -2961,6 +3051,28 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         Expect("format rows: the refusal names the case and view", formatMissing, "the format run printed no row for format-paragraph/footer-writing");
         Expect("format rows: no output is refused", WriteRun.ParseFormat("first-page\n", out _), null);
         Expect("format: the arguments", string.Join(' ', WriteRun.Arguments("format", "s.json", "t")), $"--measure-format --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
+
+        // The structure run: one line per case, every one required; the moves feed a recorded, not judged metric.
+        var structureLine = "structure case=move-first-to-last view=page n=20 median-ms=40.00 p95-ms=60.00 max-ms=70.00 handler-median-ms=30.00 frame-median-ms=50.00 frame-p95-ms=70.00 render-median-ms=2.00 render-p95-ms=3.00 draw-median-ms=5.00 draw-p95-ms=6.00";
+        var structureOutput = new StringBuilder("first-page\n");
+        foreach (var n in WriteRun.StructureNames)
+        {
+            structureOutput.Append(CultureInfo.InvariantCulture, $"{structureLine.Replace("move-first-to-last", n)}\nstructure-refresh case={n} view=page n=1 ms=3.25\n");
+        }
+
+        var structureRows = WriteRun.ParseStructure(structureOutput.ToString(), out var structureError);
+        Expect("structure rows: a full run parses", structureError, (string?)null);
+        Expect("structure rows: the row names", string.Join('|', structureRows!.Take(2).Select(r => $"{r.Case}/{r.Run}")), "structure/move-first-to-last-median|structure/move-first-to-last-p95");
+        Expect("structure rows: the split and the refresh are families of their own", string.Join('|', structureRows!.Where(r => r.Run.StartsWith("toggle-list-", StringComparison.Ordinal) && r.Case != "structure").Select(r => r.Case).Distinct()), "structure-split|structure-refresh");
+        Expect("structure rows: no structure row is a format or typing row", CheckCommand.WorstFormatP95([.. structureRows!.Select(r => new BudgetsCommand.Row("pc", "write", r.Case, r.Run, r.Value, "ms"))]) is null && CheckCommand.WorstTypingP95([.. structureRows!.Select(r => new BudgetsCommand.Row("pc", "write", r.Case, r.Run, r.Value, "ms"))]) is null, true);
+        Expect("structure rows: a run with a case missing is refused", WriteRun.ParseStructure(string.Join('\n', structureOutput.ToString().Split('\n').Where(l => !l.Contains("toggle-list", StringComparison.Ordinal))), out var structureMissing), null);
+        Expect("structure rows: the refusal names the case", structureMissing, "the structure run printed no row for toggle-list");
+        Expect("structure: the arguments", string.Join(' ', WriteRun.Arguments("structure", "s.json", "t")), $"--measure-structure --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
+        var moveRows = structureRows!.Select(r => new BudgetsCommand.Row("pc", "write", r.Case, r.Run, r.Value, "ms")).ToList();
+        Expect("structure: the worst move median", CheckCommand.WorstMoveMedian(moveRows), 40.0);
+        Expect("structure: the numbering and list rows are not move rows", CheckCommand.WorstMoveMedian([new("pc", "write", "structure", "numbering-on-median", 99, "ms"), new("pc", "write", "structure", "toggle-list-median", 99, "ms")]), (double?)null);
+        Expect("structure: a check names the rows as recorded and not judged", CheckCommand.StructureNote(moveRows)?.Contains("recorded and not judged", StringComparison.Ordinal), true);
+        Expect("structure: no move row, no note", CheckCommand.StructureNote([]), (string?)null);
     }
 
     private static void WriteSizeCheckTests()
