@@ -9,23 +9,20 @@ namespace Raffica.Write.Tests.Editing;
 
 /// <summary>
 /// Makes the files of the owner's Word check for milestone 4.4a (<c>Docs/write-word-check.md</c>, section "Headings, lists and the outline (milestone 4.4a)"): every operation goes through the editor as the
-/// app calls it and the file is saved through <see cref="DocxFile.SaveAsync(string, CancellationToken)"/>. The tests write nothing unless the folder is named by <c>RAFFICA_WORD_CHECK_DIR</c>;
+/// app calls it and the file is saved through <see cref="DocxFile.SaveAsync(string, CancellationToken)"/>. The tests write nothing and skip unless the folder is named by <c>RAFFICA_WORD_CHECK_DIR</c>;
 /// <c>pwsh tools/word-open-check.ps1 &lt;folder&gt;\*.docx</c> then asks Word whether it opens each file without repair.
 /// </summary>
 public sealed class WordCheckFilesTests
 {
     private const string FolderVariable = "RAFFICA_WORD_CHECK_DIR";
 
-    private static string? Folder()
+    private static string Folder()
     {
         var folder = Environment.GetEnvironmentVariable(FolderVariable);
-        if (string.IsNullOrWhiteSpace(folder))
-        {
-            return null;
-        }
+        Assert.SkipUnless(!string.IsNullOrWhiteSpace(folder), "Set RAFFICA_WORD_CHECK_DIR to a folder to make the Word-check files.");
 
-        Directory.CreateDirectory(folder);
-        return folder;
+        Directory.CreateDirectory(folder!);
+        return folder!;
     }
 
     private static TextPosition At(Paragraph paragraph, int offset = 0) => new(StoryRef.Body, paragraph, offset);
@@ -63,10 +60,6 @@ public sealed class WordCheckFilesTests
     public async Task NumberedHeadingsOfABlankDocumentAreSavedForWord()
     {
         var folder = Folder();
-        if (folder is null)
-        {
-            return;
-        }
 
         var token = TestContext.Current.CancellationToken;
         using var file = DocxFile.Open(BlankDocument.Create(PaperSize.A4));
@@ -96,10 +89,6 @@ public sealed class WordCheckFilesTests
     public async Task ListsOfABlankDocumentAreSavedForWord()
     {
         var folder = Folder();
-        if (folder is null)
-        {
-            return;
-        }
 
         var token = TestContext.Current.CancellationToken;
         using var file = DocxFile.Open(BlankDocument.Create(PaperSize.A4));
@@ -134,10 +123,6 @@ public sealed class WordCheckFilesTests
     public async Task NumberedHeadingsOfTheThesisAreSavedForWord()
     {
         var folder = Folder();
-        if (folder is null)
-        {
-            return;
-        }
 
         var token = TestContext.Current.CancellationToken;
         var path = Path.Combine(TestData.Root, "testdata", "write-corpus", "thesis", "thesis.docx");

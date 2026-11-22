@@ -211,7 +211,22 @@ internal sealed partial class OutlinePane
     }
 
     // The words quote at most the 300 characters an entry holds.
-    private static string ClipName(string text) => text.Length <= MaxNameText ? text : text[..MaxNameText];
+    // A cut never splits a surrogate pair.
+    internal static string ClipName(string text)
+    {
+        if (text.Length <= MaxNameText)
+        {
+            return text;
+        }
+
+        var end = MaxNameText;
+        if (char.IsHighSurrogate(text[end - 1]) && char.IsLowSurrogate(text[end]))
+        {
+            end--;
+        }
+
+        return text[..end];
+    }
 
     // The row at a height of the list (in list coordinates) among the rows that are on screen, and its top and height; the ends of the list belong to the first and the last row.
     private int? RowUnder(double y, out double top, out double height)

@@ -352,7 +352,7 @@ public sealed class StructureWallClockTests
         var first = model.Body.Blocks.OfType<Paragraph>().First();
         var last = model.Body.Blocks.OfType<Paragraph>().Last();
         var range = new TextRange(new TextPosition(StoryRef.Body, first, 0), new TextPosition(StoryRef.Body, last, ParagraphProjection.Build(last, ProjectionHost.Plain).Text.Length));
-        var labelsBefore = ReferenceNumbering.Labels(model).Count;
+        var labelsBefore = ReferenceNumbering.Labels(model).Select(l => l.Label).ToList();
         var revision = model.Edits.Revision;
         var caret = new TextPosition(StoryRef.Body, first, 0);
         // The thesis defines Heading1 to Heading3 only: the heading switch works on those. Whatever its state is, the first switch flips it and the second flips it back.
@@ -360,12 +360,12 @@ public sealed class StructureWallClockTests
         Assert.NotEqual(HeadingNumberingState.Unavailable, HeadingNumbering.StateOf(model));
 
         var watch = Stopwatch.StartNew();
-        var headingsOn = editor.SetHeadingNumbering(!wasOn, caret);
-        var headingsOnSteps = editor.History.UndoCount;
-        var labelsOn = ReferenceNumbering.Labels(model).Count;
-        var headingsOff = editor.SetHeadingNumbering(wasOn, caret);
-        var headingsOffSteps = editor.History.UndoCount;
-        var labelsOff = ReferenceNumbering.Labels(model).Count;
+        var firstSwitch = editor.SetHeadingNumbering(!wasOn, caret);
+        var firstSwitchSteps = editor.History.UndoCount;
+        var labelsAfterFirst = ReferenceNumbering.Labels(model).Select(l => l.Label).ToList();
+        var secondSwitch = editor.SetHeadingNumbering(wasOn, caret);
+        var secondSwitchSteps = editor.History.UndoCount;
+        var labelsAfterSecond = ReferenceNumbering.Labels(model).Select(l => l.Label).ToList();
         var on = editor.ToggleList(range, ListKind.Numbered);
         var onSteps = editor.History.UndoCount;
         var off = editor.ToggleList(range, ListKind.Numbered);
@@ -373,19 +373,19 @@ public sealed class StructureWallClockTests
         watch.Stop();
 
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), "select-all numbering on and off on the thesis took " + watch.ElapsedMilliseconds + " ms");
-        Assert.NotNull(headingsOn?.Style);
-        Assert.Empty(headingsOn.Changes);
-        Assert.Equal(1, headingsOnSteps);
-        Assert.NotEqual(labelsBefore, labelsOn);
-        Assert.NotNull(headingsOff?.Style);
-        Assert.Equal(2, headingsOffSteps);
-        Assert.Equal(labelsBefore, labelsOff);
+        Assert.NotNull(firstSwitch?.Style);
+        Assert.Empty(firstSwitch.Changes);
+        Assert.Equal(1, firstSwitchSteps);
+        Assert.NotEqual(labelsBefore, labelsAfterFirst);
+        Assert.NotNull(secondSwitch?.Style);
+        Assert.Equal(2, secondSwitchSteps);
+        Assert.Equal(labelsBefore, labelsAfterSecond);
         Assert.NotEmpty(on.Changes);
         Assert.Equal(3, onSteps);
         Assert.NotEmpty(off.Changes);
         Assert.Equal(4, offSteps);
         // Select all, numbered list on and off again: the second toggle finds every paragraph in a numbered list and removes it, a list that comes from a style (the headings) by a direct numId 0.
-        Assert.True(labelsBefore > 0);
+        Assert.True(labelsBefore.Count > 0);
         Assert.Empty(ReferenceNumbering.Labels(model));
 
         while (editor.History.CanUndo)
@@ -394,7 +394,7 @@ public sealed class StructureWallClockTests
         }
 
         Assert.Equal(revision, model.Edits.Revision);
-        Assert.Equal(labelsBefore, ReferenceNumbering.Labels(model).Count);
+        Assert.Equal(labelsBefore, ReferenceNumbering.Labels(model).Select(l => l.Label).ToList());
     }
 
     // A generated document with all nine heading styles (a long one, 23 chapters) takes the timed switch as well.

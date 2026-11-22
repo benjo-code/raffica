@@ -612,4 +612,19 @@ public sealed class OutlinePaneTests
         Assert.InRange(heading!.Value - view.OffsetY, 7, 9);
         Assert.False(window.IsNavigationWaiting);
     }
+
+    [Fact]
+    public void TheNameOfADropLineIsCutWithoutSplittingASurrogatePair()
+    {
+        var emoji = "😀";
+        var text = new string('a', 299) + emoji + "tail";
+
+        var cut = OutlinePane.ClipName(text);
+
+        Assert.Equal(299, cut.Length);
+        Assert.DoesNotContain(cut, c => char.IsSurrogate(c));
+        Assert.Equal("short", OutlinePane.ClipName("short"));
+        var plain = new string('b', 400);
+        Assert.Equal(300, OutlinePane.ClipName(plain).Length);
+    }
 }

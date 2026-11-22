@@ -1093,7 +1093,7 @@
     <value>The selection reaches across a table cell, a content control or a note.</value>
   </data>
   <data name="ReasonNoHeadingStyles" xml:space="preserve">
-    <value>The document has no Heading 1 style.</value>
+    <value>The document has no style that Write recognizes as Heading 1.</value>
   </data>
   <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
     <value>There is no heading at the caret.</value>
