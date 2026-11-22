@@ -96,7 +96,38 @@ internal static class OutlinePlanner
             place = DropPlace.After;
         }
 
-        var target = OutlineTree.DropTarget(headings, document, row, neighbour, place);
+        return Drop(headings, document, row, neighbour, place);
+    }
+
+    /// <summary>The row of the heading whose paragraph is <paramref name="paragraph"/>, or -1 (the paragraph is no heading any more).</summary>
+    public static int RowOf(IReadOnlyList<OutlineHeading> headings, Paragraph paragraph)
+    {
+        for (var i = 0; i < headings.Count; i++)
+        {
+            if (ReferenceEquals(headings[i].Paragraph, paragraph))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The plan of moving the chapter of row <paramref name="dragged"/> before or after row <paramref name="row"/> (a drag of the outline pane); the one-row moves end here as well.</summary>
+    public static OutlinePlan Drop(IReadOnlyList<OutlineHeading> headings, WordDocument document, int dragged, int row, DropPlace place)
+    {
+        if (dragged < 0 || dragged >= headings.Count || row < 0 || row >= headings.Count)
+        {
+            return new OutlinePlan(OutlineReason.NoHeading, -1, 0, -1, -1);
+        }
+
+        var tree = OutlineTree.Of(document, headings, dragged);
+        if (tree.Blocked != MoveBlock.None)
+        {
+            return Refused(Blocked(tree.Blocked), tree);
+        }
+
+        var target = OutlineTree.DropTarget(headings, document, dragged, row, place);
         return target < 0 ? Refused(OutlineReason.CannotMoveThere, tree) : new OutlinePlan(OutlineReason.None, tree.FirstBlock, tree.Count, target, tree.LastHeadingBlock);
     }
 

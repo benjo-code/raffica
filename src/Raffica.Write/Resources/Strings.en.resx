@@ -222,6 +222,18 @@
   <data name="OutlineEntryNameFormat" xml:space="preserve">
     <value>{0}, heading level {1}</value>
   </data>
+  <data name="OutlineDropAboveFormat" xml:space="preserve">
+    <value>Move heading {0} above {1}</value>
+  </data>
+  <data name="OutlineDropBelowFormat" xml:space="preserve">
+    <value>Move heading {0} below {1}</value>
+  </data>
+  <data name="OutlineActionsName" xml:space="preserve">
+    <value>Outline actions</value>
+  </data>
+  <data name="OutlineNoRowSelected" xml:space="preserve">
+    <value>Choose a heading in the list first.</value>
+  </data>
   <data name="OutlineWaiting" xml:space="preserve">
     <value>Laying out the pages up to the heading…</value>
   </data>

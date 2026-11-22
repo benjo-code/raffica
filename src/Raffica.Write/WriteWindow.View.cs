@@ -526,6 +526,7 @@ internal sealed partial class WriteWindow
     private void RefreshCommandStates()
     {
         Ribbon.RefreshCommandStates();
+        RefreshOutlineButtons();
         FormattingStatesChanged();
         StatesChanged?.Invoke();
     }

@@ -222,6 +222,18 @@
   <data name="OutlineEntryNameFormat" xml:space="preserve">
     <value>{0}, Überschrift Ebene {1}</value>
   </data>
+  <data name="OutlineDropAboveFormat" xml:space="preserve">
+    <value>Überschrift {0} über {1} verschieben</value>
+  </data>
+  <data name="OutlineDropBelowFormat" xml:space="preserve">
+    <value>Überschrift {0} unter {1} verschieben</value>
+  </data>
+  <data name="OutlineActionsName" xml:space="preserve">
+    <value>Aktionen der Gliederung</value>
+  </data>
+  <data name="OutlineNoRowSelected" xml:space="preserve">
+    <value>Wählen Sie zuerst eine Überschrift in der Liste.</value>
+  </data>
   <data name="OutlineWaiting" xml:space="preserve">
     <value>Die Seiten bis zur Überschrift werden gesetzt…</value>
   </data>

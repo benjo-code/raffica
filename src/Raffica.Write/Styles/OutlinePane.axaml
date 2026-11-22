@@ -51,6 +51,14 @@
   <Style Selector="TextBlock.outline-title.level3">
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
   </Style>
+  <!-- The drag of a row: the row being dragged is dimmed, and the place it would land is a 2 px line in the app ink (a shape, not only a colour; its name says where it is). -->
+  <Style Selector="ListBox.outline-list > ListBoxItem.dragging">
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+  <Style Selector="Border.outline-drop">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Ink}" />
+    <Setter Property="CornerRadius" Value="1" />
+  </Style>
   <Style Selector="TextBlock.outline-hint">
     <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
   </Style>

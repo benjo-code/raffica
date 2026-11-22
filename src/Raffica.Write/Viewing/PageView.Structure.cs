@@ -84,18 +84,7 @@ internal sealed partial class PageView
         {
             var model = _tab.Docx.Model;
             var headings = OutlineSource.ReadHeadings(model);
-            var row = -1;
-            if (pane is not null)
-            {
-                for (var i = 0; i < headings.Count && row < 0; i++)
-                {
-                    row = ReferenceEquals(headings[i].Paragraph, pane) ? i : -1;
-                }
-            }
-            else
-            {
-                row = OutlinePlanner.RowAtCaret(headings, model, session.Caret);
-            }
+            var row = pane is not null ? OutlinePlanner.RowOf(headings, pane) : OutlinePlanner.RowAtCaret(headings, model, session.Caret);
 
             var plan = id switch
             {
@@ -123,6 +112,43 @@ internal sealed partial class PageView
             // The plan said no, or the editor refused after a bounded read that was permissive: a visible note, never silence.
             StructureNote?.Invoke(reason != OutlineReason.None ? StructureWording.OutlineReasonText(reason, id) : WriteStrings.NoteStructureFailed);
         }
+    }
+
+    /// <summary>
+    /// Moves the chapter of the heading paragraph <paramref name="dragged"/> before or after the heading paragraph <paramref name="onto"/> (the drop of a drag in the outline pane). Both are found again in the
+    /// model as it is when the operation runs, and the plan is made there, so a stale list can never move the wrong blocks; a heading that is gone or a place that is not offered any more ends as a note.
+    /// True when the drop was taken (also when it changed nothing), false for a released view.
+    /// </summary>
+    internal bool RunOutlineDrop(Paragraph dragged, Paragraph onto, DropPlace place)
+    {
+        ArgumentNullException.ThrowIfNull(dragged);
+        ArgumentNullException.ThrowIfNull(onto);
+        if (_released)
+        {
+            return false;
+        }
+
+        if (SessionForCommand() is not { } session)
+        {
+            return true;
+        }
+
+        var reason = OutlineReason.None;
+        var result = ApplyGuarded(session, ed =>
+        {
+            var model = _tab.Docx.Model;
+            var headings = OutlineSource.ReadHeadings(model);
+            var plan = OutlinePlanner.Drop(headings, model, OutlinePlanner.RowOf(headings, dragged), OutlinePlanner.RowOf(headings, onto), place);
+            reason = plan.Reason;
+            return plan.Reason == OutlineReason.None ? ed.MoveBlocks(plan.First, plan.Count, plan.Target) : null;
+        });
+
+        if (result is null && session.BlockedReason is null)
+        {
+            StructureNote?.Invoke(reason != OutlineReason.None ? StructureWording.OutlineReasonText(reason, WriteCommandIds.MoveDown) : WriteStrings.NoteStructureFailed);
+        }
+
+        return true;
     }
 
     // Tab and Shift+Tab. Decided when the operation runs (a key typed during a save is queued like typing and reads the document as it is then): at the start of a list paragraph, or over a selection

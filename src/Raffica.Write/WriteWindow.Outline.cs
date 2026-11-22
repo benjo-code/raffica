@@ -95,6 +95,7 @@ internal sealed partial class WriteWindow
         if (!_outlines.TryGetValue(tab, out var pane))
         {
             pane = new OutlinePane(tab, ViewOf(tab) ?? throw new InvalidOperationException("The tab has no view yet."));
+            pane.Actions = CreateOutlineActions(tab);
             pane.Navigate += block =>
             {
                 NavigateTo(tab, block);

@@ -86,6 +86,10 @@ internal static class WriteStrings
     public static string OutlineLoading => Table.Get("OutlineLoading");
     public static string OutlineEmpty => Table.Get("OutlineEmpty");
     public static string OutlineEntryNameFormat => Table.Get("OutlineEntryNameFormat");
+    public static string OutlineDropAboveFormat => Table.Get("OutlineDropAboveFormat");
+    public static string OutlineDropBelowFormat => Table.Get("OutlineDropBelowFormat");
+    public static string OutlineActionsName => Table.Get("OutlineActionsName");
+    public static string OutlineNoRowSelected => Table.Get("OutlineNoRowSelected");
     public static string OutlineWaiting => Table.Get("OutlineWaiting");
     public static string EditStillOpening => Table.Get("EditStillOpening");
     public static string EditUnavailable => Table.Get("EditUnavailable");
