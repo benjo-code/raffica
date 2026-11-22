@@ -170,6 +170,8 @@ public sealed class PageViewStructureTests : IDisposable
             "<w:r><w:t>under a</w:t></w:r>",
             "<w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>B</w:t></w:r>",
             "<w:r><w:t>under b</w:t></w:r>");
+        // These are the keys of Windows and Linux whatever system runs the test (the Mac has none, see the test below).
+        h.View.MacOsKeys = false;
         var session = Place(h, 0, 1);
         var alt = RawInputModifiers.Alt | RawInputModifiers.Shift;
 
@@ -194,6 +196,31 @@ public sealed class PageViewStructureTests : IDisposable
         Place(h, 1, 3);
         Stroke(h, PhysicalKey.ArrowRight, alt);
         Assert.Equal("Heading2", P(h, 0).Properties.StyleId);
+    }
+
+    [AvaloniaFact]
+    public async Task OnTheMacAltShiftArrowsRunNoOutlineCommand()
+    {
+        // The Option and Shift arrows extend the selection on the Mac, so the outline commands have no key there: the chord changes no heading, moves no chapter and records no step.
+        using var h = await OpenAsync(
+            "<w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>A</w:t></w:r>",
+            "<w:r><w:t>under a</w:t></w:r>",
+            "<w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>B</w:t></w:r>",
+            "<w:r><w:t>under b</w:t></w:r>");
+        h.View.MacOsKeys = true;
+        var session = Place(h, 0, 1);
+        var alt = RawInputModifiers.Alt | RawInputModifiers.Shift;
+        var revision = h.View.Tab.Docx.Model.Edits.Revision;
+
+        foreach (var key in new[] { PhysicalKey.ArrowDown, PhysicalKey.ArrowUp, PhysicalKey.ArrowRight, PhysicalKey.ArrowLeft })
+        {
+            Stroke(h, key, alt);
+        }
+
+        Assert.Equal(["A", "under a", "B", "under b"], h.View.Tab.Docx.Model.Body.Blocks.OfType<Paragraph>().Select(Text).ToArray());
+        Assert.Equal(new string?[] { "Heading1", null, "Heading1", null }, h.View.Tab.Docx.Model.Body.Blocks.OfType<Paragraph>().Select(p => p.Properties.StyleId).ToArray());
+        Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+        Assert.Equal(0, session.Editor.History.UndoCount);
     }
 
     [AvaloniaFact]

@@ -144,10 +144,10 @@ internal sealed partial class PageView
             return false;
         }
 
-        if (EditingKeys.For(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } action)
+        if (EditingKeys.For(e.Key, e.KeyModifiers, MacOsKeys) is not { } action)
         {
             // A formatting key (Ctrl+B ...) is claimed and runs once: a held key does not toggle again and again; a key the rules of the window refuse does nothing.
-            if (EditingKeys.FormatCommandFor(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is { } format)
+            if (EditingKeys.FormatCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is { } format)
             {
                 if (!repeat)
                 {
@@ -158,7 +158,7 @@ internal sealed partial class PageView
             }
 
             // The outline keys (Alt and Shift with an arrow) are claimed and run once as well.
-            if (EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } structure)
+            if (EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is not { } structure)
             {
                 return false;
             }

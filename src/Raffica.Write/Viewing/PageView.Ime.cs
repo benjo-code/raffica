@@ -374,7 +374,7 @@ internal sealed partial class PageView
             return;
         }
 
-        if (EditingKeys.For(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not null || IsNavigationKey(e.Key, e.KeyModifiers))
+        if (EditingKeys.For(e.Key, e.KeyModifiers, MacOsKeys) is not null || IsNavigationKey(e.Key, e.KeyModifiers))
         {
             e.Handled = true;
         }

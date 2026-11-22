@@ -118,6 +118,14 @@ public sealed class OutlinePaneMoveTests
         WindowFixture.Pump();
     }
 
+    // Which platform's keys the window, the pane and the page view match (the Alt and Shift keys of the outline commands exist on Windows and Linux only).
+    private static void UseKeysOf(Setup s, bool macOs)
+    {
+        s.Window.MacOsKeys = macOs;
+        s.Pane.MacOsKeys = macOs;
+        s.Window.ViewOf(s.Tab)!.MacOsKeys = macOs;
+    }
+
     private static void Settle(Setup s)
     {
         s.Window.FormatRefresh?.Flush();
@@ -241,6 +249,7 @@ public sealed class OutlinePaneMoveTests
         using var fixture = new WindowFixture();
         var s = await OpenStandardAsync(fixture);
         var heading = P(s.Tab, 0);
+        UseKeysOf(s, macOs: false);
         FocusRow(s, 0);
 
         // Typed in the list itself: the list's own Down would only move the selection.
@@ -266,6 +275,7 @@ public sealed class OutlinePaneMoveTests
     {
         using var fixture = new WindowFixture();
         var s = await OpenStandardAsync(fixture);
+        UseKeysOf(s, macOs: false);
         FocusRow(s, 1);
 
         AltShift(s, Key.Left, PhysicalKey.ArrowLeft);
@@ -280,6 +290,27 @@ public sealed class OutlinePaneMoveTests
         Assert.Equal([1, 2, 1, 1], s.Pane.Entries.Select(e => e.Level));
         Assert.Equal(1, s.Pane.List.SelectedIndex);
         Assert.Equal(2, s.Session.Editor.History.UndoCount);
+    }
+
+    [AvaloniaFact]
+    public async Task OnTheMacAltShiftArrowsTypedInTheListRunNoOutlineCommand()
+    {
+        using var fixture = new WindowFixture();
+        var s = await OpenStandardAsync(fixture);
+        UseKeysOf(s, macOs: true);
+        FocusRow(s, 1);
+        var revision = s.Tab.Docx.Model.Edits.Revision;
+
+        // The chord has no outline command on the Mac: the list keeps it, the document is not touched.
+        AltShift(s, Key.Down, PhysicalKey.ArrowDown);
+        AltShift(s, Key.Up, PhysicalKey.ArrowUp);
+        AltShift(s, Key.Left, PhysicalKey.ArrowLeft);
+        AltShift(s, Key.Right, PhysicalKey.ArrowRight);
+
+        Assert.Equal(["A", "under a", "A1", "under a1", "B", "under b", "C", "under c"], Order(s.Tab));
+        Assert.Equal("Heading2", P(s.Tab, 2).Properties.StyleId);
+        Assert.Equal(revision, s.Tab.Docx.Model.Edits.Revision);
+        Assert.Equal(0, s.Session.Editor.History.UndoCount);
     }
 
     [AvaloniaFact]

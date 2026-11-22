@@ -17,6 +17,9 @@ internal sealed partial class WriteWindow
 {
     private StructureFactsSource? _structure;
 
+    /// <summary>Which platform's keys the window matches for the outline commands typed in the pane (tests set it to run the other platform's rules; the default is the system the process runs on).</summary>
+    internal bool MacOsKeys { get; set; } = OperatingSystem.IsMacOS();
+
     /// <summary>How many times the headings of the body were walked for the outline commands (tests; 0 before the first ask of an outline command).</summary>
     internal int StructureHeadingReads => _structure?.HeadingReads ?? 0;
 
@@ -129,7 +132,7 @@ internal sealed partial class WriteWindow
     // The keys of the outline commands in the outline pane: the page view owns them while it has the focus, the window forwards them when the focus is in the pane's list.
     private bool ForwardStructureKey(KeyEventArgs e, bool repeat)
     {
-        if (!_outlines.Values.Any(p => p.IsKeyboardFocusWithin) || EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } id)
+        if (!_outlines.Values.Any(p => p.IsKeyboardFocusWithin) || EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is not { } id)
         {
             return false;
         }

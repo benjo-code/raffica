@@ -116,6 +116,9 @@ internal sealed partial class OutlinePane : UserControl, IDisposable
     /// <summary>How long the edits must pause before the list is read again (tests shorten it).</summary>
     internal TimeSpan RefreshDelay { get; set; } = TimeSpan.FromMilliseconds(200);
 
+    /// <summary>Which platform's keys the list matches for the outline commands (tests set it to run the other platform's rules; the default is the system the process runs on).</summary>
+    internal bool MacOsKeys { get; set; } = OperatingSystem.IsMacOS();
+
     /// <summary>The read of the headings; the UI thread calls it (a test replaces it to see that).</summary>
     internal Func<WordDocument, IReadOnlyList<OutlineHeading>> Reader { get; set; } = OutlineSource.ReadHeadings;
 
@@ -375,7 +378,7 @@ internal sealed partial class OutlinePane : UserControl, IDisposable
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         // The outline keys (Alt and Shift with an arrow) are tunnelled: the list would take the arrows for its own selection before the window's handler saw them. Every other key stays the list's.
-        if (Actions is { } actions && !_dragging && EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not null && actions.Key(e))
+        if (Actions is { } actions && !_dragging && EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is not null && actions.Key(e))
         {
             return;
         }

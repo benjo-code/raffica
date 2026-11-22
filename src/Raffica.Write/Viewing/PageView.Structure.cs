@@ -22,6 +22,9 @@ internal sealed partial class PageView
     /// <summary>Runs a structure command for a key (Alt+Shift+Up ...); the window sets it to check its rules first. Null (the default, and in tests of the view alone): the view runs the command itself.</summary>
     internal Func<string, bool>? StructureKeyHandler { get; set; }
 
+    /// <summary>Which platform's keys the view matches (tests set it to run the other platform's rules; the default is the system the process runs on).</summary>
+    internal bool MacOsKeys { get; set; } = OperatingSystem.IsMacOS();
+
     /// <summary>The paragraph of the outline row the user is working in (the pane is engaged), or null: the outline commands then act on the heading at the caret. The window sets it.</summary>
     internal Func<Paragraph?>? OutlineParagraphSource { get; set; }
 
