@@ -87,6 +87,9 @@ In Word, open each file and record: a repair prompt (exact text, any prompt is a
 | 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script `tools/word-open-check.ps1`, read-only, repair off) | numbered-headings.docx | opened by script | none (opened, 10 paragraphs, 1 page) | OPEN: a person has not looked | The script checks the repair prompt only. |
 | 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | lists.docx | opened by script | none (opened, 15 paragraphs, 1 page) | OPEN: a person has not looked | As above. |
 | 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | numbered-thesis-chapter-move.docx | opened by script | none (opened, 3689 paragraphs, 321 pages) | OPEN: a person has not looked | The page count (321) is not explained and the owner compares it in Word; a guess, not checked: the promoted Heading 2 becomes a Heading 1, which may carry page-break-before. |
+| 2026-11-22 | Word 16.0 (build 16.0.20625, Microsoft 365, de), Windows 11, read through Word automation (`ListString` of every list paragraph, not a person looking) | lists.docx | compared with `ReferenceNumbering` and the drawn labels | none (read-only, repair off) | yes: 12 of 12 list paragraphs equal (bullets as "is a bullet"), 0 differences | Restart at the fourth item and the multilevel 1. / 1.1. / 1.1.1. / 2. read as in Write. |
+| 2026-11-22 | as above | numbered-headings.docx | as above | none | yes: 5 of 5 equal, Heading 1 numbered 1. to 5. in the order after the move and the promote | No Write bug found. |
+| 2026-11-22 | as above | numbered-thesis-chapter-move.docx | as above | none | yes: 540 of 540 equal (300 outline-numbered, 120 simple-numbered, 120 bullets), chapter order after the move consecutive in Word and in Write | A person's look at the rendered page is still open. |
 
 ## Checking a file from a script
 

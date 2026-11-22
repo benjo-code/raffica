@@ -16,7 +16,7 @@
 // The Write app (--target write) writes the mode write; its cases are cold, warm, thesis, second, scroll, memory, typing (the app's --measure-typing: per case and view the
 // median and the 95th percentile of the keystrokes, rows typing/<case>-<view>-median and -p95, and typing-first/<when>-<view>) typing-pane (the typing run with the formatting pane open: the same rows as typing,
 // recorded as typing/pane-<case>-<view>-p95 so that the worst p95 of typing holds them), format (the app's --measure-format: bold on one word and the alignment of one paragraph at the places of the
-// typing run, rows format/<kind>/<place>-<view>-median and -p95; the metric format is the worst p95), structure (the app's --measure-structure: three chapter moves, the heading numbering on and off and a numbered list toggle, rows structure/<case>-median and -p95, structure-refresh/<case>-ms; recorded, not judged until the owner's runs enter a limit for the move rows, check --target write prints a note) and engine (the median of
+// typing run, rows format/<kind>/<place>-<view>-median and -p95; the metric format is the worst p95), structure (the app's --measure-structure: three chapter moves, the heading numbering on and off and a numbered list toggle, rows structure/<case>-median and -p95, structure-refresh/<case>-ms; the metric structure is the worst median of the three move rows, a fixed 100 ms limit on every platform, the far-caret row recorded only) and engine (the median of
 // write-layout-bench run, one row). check --target write judges only the metrics that have a limit (see s_writeBudgets).
 //
 // Exit codes: 0 ok, 1 a failed run, a value above its limit (or a failed selftest), 2 usage error (or no limits recorded for the binding
@@ -1170,7 +1170,7 @@ static class WriteRun
     /// <summary>The formatting cases of the run, in the order of the app (<c>Measurement.Typing.cs</c>, <c>TypingPlaces.FormatNames</c>); a row case is <c>&lt;kind&gt;/&lt;place&gt;</c>.</summary>
     public static readonly string[] FormatKinds = ["format-word", "format-paragraph"];
 
-    /// <summary>The structure run of the app (<c>--measure-structure</c>): three chapter moves, the heading numbering switched on and off and a numbered list toggle on the thesis (page view). Rows <c>structure/&lt;case&gt;-median</c> and <c>-p95</c>; the metric <c>structure</c> is the worst median of the three move rows (aim 100 ms from the command to the first visible page), judged once a limit is recorded and until then recorded and <c>not judged</c>.</summary>
+    /// <summary>The structure run of the app (<c>--measure-structure</c>): three chapter moves, the heading numbering switched on and off and a numbered list toggle on the thesis (page view). Rows <c>structure/&lt;case&gt;-median</c> and <c>-p95</c>; the metric <c>structure</c> is the worst median of the three move rows (aim 100 ms from the command to the first visible page), judged against a fixed 100 ms.</summary>
     public const string StructureCase = "structure";
 
     /// <summary>The cases of the structure run, in the order of the app (<c>Measurement.Structure.cs</c>, <c>StructurePlaces.Names</c>).</summary>
@@ -1882,6 +1882,7 @@ static class CheckCommand
         ("engine", "engine first page (ms)"),
         ("typing", "typing, worst p95 (ms)"),
         ("format", "format, worst p95 (ms)"),
+        ("structure", "structure, worst chapter move median (ms)"),
     ];
 
     // THE limit table of the Write app (target write), the only place for these numbers. The app rows (cold, warm, thesis, second, scroll, memory,
@@ -1893,9 +1894,9 @@ static class CheckCommand
     // format at 16 ms on every platform. A miss is a finding for the owner, never a loosened number; a change is a new decisions entry.
     private static readonly Dictionary<string, Dictionary<string, double>> s_writeBudgets = new()
     {
-        ["windows"] = new() { ["cold"] = 270, ["warm"] = 270, ["thesis"] = 280, ["second"] = 20, ["scroll"] = 20, ["memory"] = 115, ["size"] = 73, ["zip"] = 28, ["typing"] = TypingBudget, ["format"] = FormatBudget },
-        ["linux"] = new() { ["cold"] = 280, ["warm"] = 270, ["thesis"] = 300, ["second"] = 50, ["scroll"] = 20, ["memory"] = 210, ["size"] = 67, ["zip"] = 29, ["engine"] = 80, ["typing"] = TypingBudget, ["format"] = FormatBudget },
-        ["macos"] = new() { ["cold"] = 730, ["warm"] = 800, ["thesis"] = 800, ["second"] = 80, ["scroll"] = 20, ["memory"] = 155, ["size"] = 69, ["zip"] = 30, ["typing"] = TypingBudget, ["format"] = FormatBudget },
+        ["windows"] = new() { ["cold"] = 270, ["warm"] = 270, ["thesis"] = 280, ["second"] = 20, ["scroll"] = 20, ["memory"] = 115, ["size"] = 73, ["zip"] = 28, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget },
+        ["linux"] = new() { ["cold"] = 280, ["warm"] = 270, ["thesis"] = 300, ["second"] = 50, ["scroll"] = 20, ["memory"] = 210, ["size"] = 67, ["zip"] = 29, ["engine"] = 80, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget },
+        ["macos"] = new() { ["cold"] = 730, ["warm"] = 800, ["thesis"] = 800, ["second"] = 80, ["scroll"] = 20, ["memory"] = 155, ["size"] = 69, ["zip"] = 30, ["typing"] = TypingBudget, ["format"] = FormatBudget, ["structure"] = StructureBudget },
     };
 
     /// <summary>
@@ -1914,6 +1915,15 @@ static class CheckCommand
     /// recorded and not judged. The style update and select-all are recorded and never judged. Never loosened to make a run pass.
     /// </summary>
     public const double FormatBudget = 12.8;
+
+    /// <summary>
+    /// The budget of <c>structure</c> in the table: a FIXED 100 ms (budget 80 x 1.25), the aim of milestone 4.4a for a chapter move ("from the command to the first visible page", Docs/DECISIONS.md, "Raffica Write: the structure limit (M4.4a)"),
+    /// entered for every platform. The judged value is the worst median of the three move rows, the CPU cost of the key handler, the render pass and the page draws (the typing definition); the frame latency
+    /// (<c>structure-split</c> frame-median-ms) is recorded and not judged, and so are the numbering and list rows and the far-caret move. The limit is the aim and not the median of the runs times 1.25 because the
+    /// medians are 2 to 8 ms (a limit of 5 to 10 ms would fail on the 30 percent a laptop varies between days) and the regression it must catch, a move that lays out the whole document, costs 500 ms and more.
+    /// Never loosened to make a run pass.
+    /// </summary>
+    public const double StructureBudget = 80;
 
     /// <summary>The message of a check of the Write app when none of the metrics it judges has a limit.</summary>
     public const string NoWriteLimits = "no limits recorded for target write";
@@ -1978,10 +1988,10 @@ static class CheckCommand
     /// </summary>
     public static List<Result> JudgeWrite(string platform, IReadOnlyDictionary<string, double?> measured, params string[] only)
     {
-        // "engine", "typing" and "format" are fixed limits (the engine for Linux, typing and format for every platform), not the owner's 4.2 budgets: none makes a platform one with an app row.
-        var hasAppRow = s_writeMetrics.Any(m => m.Key is not ("engine" or "typing" or "format") && LimitOf(WriteTable, platform, m.Key) is not null);
+        // "engine", "typing", "format" and "structure" are fixed limits (the engine for Linux, the others for every platform), not the owner's 4.2 budgets: none makes a platform one with an app row.
+        var hasAppRow = s_writeMetrics.Any(m => m.Key is not ("engine" or "typing" or "format" or "structure") && LimitOf(WriteTable, platform, m.Key) is not null);
         return [.. Judge(WriteTable, s_writeMetrics, platform, measured, only, indicativeOnMac: false)
-            .Select(r => r.Verdict == "unrecorded" && (r.Key is "engine" or "typing" or "format" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
+            .Select(r => r.Verdict == "unrecorded" && (r.Key is "engine" or "typing" or "format" or "structure" || !hasAppRow) ? r with { Verdict = "not judged" } : r)];
     }
 
     private static List<Result> Judge(Dictionary<string, Dictionary<string, double>> budgets, (string Key, string Label)[] metrics, string platform, IReadOnlyDictionary<string, double?> measured, string[] only, bool indicativeOnMac)
@@ -2067,6 +2077,7 @@ static class CheckCommand
             ["engine"] = Median("engine", null),
             ["typing"] = WorstTypingP95(rows),
             ["format"] = WorstFormatP95(rows),
+            ["structure"] = WorstMoveMedian(rows),
         };
         return JudgeWrite(platform, measured, [.. s_writeMetrics.Select(m => m.Key)]);
     }
@@ -2100,15 +2111,9 @@ static class CheckCommand
         return perCase.Count == 0 ? null : perCase.Max();
     }
 
-    /// <summary>The note of the structure rows in a check: recorded and not judged (no limit is entered yet, the aim of a chapter move is 100 ms); null without any move row. The worst median of the three move rows is named.</summary>
-    public static string? StructureNote(IReadOnlyList<BudgetsCommand.Row> rows) =>
-        WorstMoveMedian(rows) is { } worst
-            ? string.Create(CultureInfo.InvariantCulture, $"> Structure (chapter moves, worst median {worst:0.0} ms, aim 100 ms): recorded and not judged, no limit is entered yet (the limit follows the owner's runs as median times 1.25; the value is CPU cost, handler plus render plus draws, and the limit entry must say whether the 100 ms aim means that or the frame latency).")
-            : null;
-
     /// <summary>
-    /// The value of the metric <c>structure</c>: the worst median of the three chapter-move rows (<c>structure/move-*-median</c>, the median over the launches per row, then the largest). The value is CPU cost (the key handler plus the render pass plus the page draws, the typing definition, frame latency not included); the aim is 100 ms from the
-    /// command to the first visible page on the Linux laptop and the limit will be the median of the owner&#39;s runs times 1.25 (a decisions entry); the owner's limit entry must say which reading the 100 ms aim means (this CPU cost, or the frame latency that the rows also record as <c>structure-split</c> frame-median-ms). Until a limit is recorded the metric is <c>not judged</c>; the far-caret row is never part of it. null without such a row.
+    /// The value of the metric <c>structure</c>: the worst median of the three chapter-move rows (<c>structure/move-*-median</c>, the median over the launches per row, then the largest). The value is CPU cost (the key handler plus the render pass plus the page draws, the typing definition, frame latency not included); the limit is the aim of 100 ms
+    /// (<see cref="StructureBudget"/>); the frame latency that the rows also record as <c>structure-split</c> frame-median-ms is not judged, and the far-caret row is never part of the metric. null without such a row.
     /// </summary>
     public static double? WorstMoveMedian(IReadOnlyList<BudgetsCommand.Row> rows)
     {
@@ -2226,15 +2231,10 @@ static class CheckCommand
         }
         else if (write && results.Any(r => r.Verdict == "not judged"))
         {
-            text.AppendLine("> A metric marked \"not judged\" has no recorded limit (the engine limit exists for Linux only; the app limits of every platform are recorded since 2026-11-21, the typing and format limits of 16 ms are fixed and no app limits in this sense); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
+            text.AppendLine("> A metric marked \"not judged\" has no recorded limit (the engine limit exists for Linux only; the app limits of every platform are recorded since 2026-11-21, the typing and format limits of 16 ms and the structure limit of 100 ms are fixed and no app limits in this sense); it does not fail the check. Once a platform has one app limit, every app metric without a limit is \"unrecorded\" and fails it.").AppendLine();
         }
 
         text.Append(Render(results));
-        if (write && StructureNote(rows) is { } structureNote)
-        {
-            text.AppendLine().AppendLine(structureNote);
-        }
-
         foreach (var w in warnings)
         {
             text.AppendLine().AppendLine($"> **Invalid measurement:** {w}");
@@ -2699,14 +2699,14 @@ static class SelfTest
         }
     }
 
-    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine", "typing", "format"];
+    private static readonly string[] s_writeKeys = ["cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip", "engine", "typing", "format", "structure"];
 
     // TEST-ONLY numbers to exercise the verdict logic; they are budgets of nothing. The recorded table is s_writeBudgets in CheckCommand.
     private static Dictionary<string, Dictionary<string, double>> WriteTestTable() => new()
     {
-        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget },
-        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget },
-        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget },
+        ["windows"] = new() { ["cold"] = 100, ["warm"] = 80, ["thesis"] = 120, ["second"] = 40, ["scroll"] = 30, ["memory"] = 120, ["size"] = 40, ["zip"] = 16, ["engine"] = 70, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget },
+        ["linux"] = new() { ["cold"] = 120, ["warm"] = 90, ["thesis"] = 140, ["second"] = 50, ["scroll"] = 35, ["memory"] = 110, ["size"] = 36, ["zip"] = 16, ["engine"] = 80, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget },
+        ["macos"] = new() { ["cold"] = 150, ["warm"] = 100, ["thesis"] = 160, ["second"] = 60, ["scroll"] = 40, ["memory"] = 130, ["size"] = 45, ["zip"] = 18, ["engine"] = 90, ["typing"] = CheckCommand.TypingBudget, ["format"] = CheckCommand.FormatBudget, ["structure"] = CheckCommand.StructureBudget },
     };
 
     /// <summary>Rows of the Write app with every metric at <c>limit + delta</c> of the platform in the table in force; <paramref name="only"/> restricts the delta to one metric, <paramref name="without"/> leaves a metric out.</summary>
@@ -2734,6 +2734,10 @@ static class SelfTest
             // The format rows (same reduction): the case "format-word/header-writing" is the worst, the median rows are never judged.
             new("pc", "write", "format", "format-word/header-writing-p95", At("format") + 5, "ms"), new("pc", "write", "format", "format-word/header-writing-p95", At("format") - 5, "ms"), new("pc", "write", "format", "format-word/header-writing-p95", At("format"), "ms"),
             new("pc", "write", "format", "format-paragraph/middle-page-p95", 1, "ms"), new("pc", "write", "format", "format-paragraph/middle-page-median", 99, "ms"),
+
+            // The structure rows: the worst move row's median over the launches is At("structure"); the far-caret move, the numbering rows and the p95 rows are never judged.
+            new("pc", "write", "structure", "move-first-to-last-median", At("structure"), "ms"), new("pc", "write", "structure", "move-first-to-last-median", At("structure") + 5, "ms"), new("pc", "write", "structure", "move-first-to-last-median", At("structure") - 5, "ms"),
+            new("pc", "write", "structure", "move-middle-median", 1, "ms"), new("pc", "write", "structure", "move-last-to-first-far-caret-median", 999, "ms"), new("pc", "write", "structure", "numbering-on-median", 999, "ms"), new("pc", "write", "structure", "move-first-to-last-p95", 999, "ms"),
         ];
         return without is null ? rows : [.. rows.Where(r => without == "size" ? !(r.Case == "size" && r.Run == "total") : without == "zip" ? !(r.Case == "size" && r.Run == "zip") : r.Case != without)];
     }
@@ -2820,8 +2824,8 @@ static class SelfTest
 
         // The production table: the app rows of the owner's runs of 2026-11-21, the fixed engine limit of the Linux laptop (100 ms = budget 80 x 1.25) and the fixed typing and format limits.
         Expect("write limits: linux engine is budget 80 x 1.25 = 100 ms", CheckCommand.LimitOf(CheckCommand.WriteTable, "linux", "engine"), 100.0);
-        Expect("write limits: linux holds the app rows, the engine, typing and format", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "cold,warm,thesis,second,scroll,memory,size,zip,engine,typing,format");
-        Expect("write limits: windows and macos hold the app rows, typing and format, no engine", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format".Replace(",", "|") + "|" + "cold,warm,thesis,second,scroll,memory,size,zip,typing,format".Replace(",", "|"));
+        Expect("write limits: linux holds the app rows, the engine, typing, format and structure", string.Join(',', CheckCommand.WriteTable["linux"].Keys), "cold,warm,thesis,second,scroll,memory,size,zip,engine,typing,format,structure");
+        Expect("write limits: windows and macos hold the app rows, typing, format and structure, no engine", string.Join('|', CheckCommand.WriteTable["windows"].Keys.Concat(CheckCommand.WriteTable["macos"].Keys)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure".Replace(",", "|") + "|" + "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure".Replace(",", "|"));
 Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, limit = budget x 1.25", string.Join(' ', new[] { "windows", "linux", "macos" }.Select(p => string.Join(',', new[] { "cold", "warm", "thesis", "second", "scroll", "memory", "size", "zip" }.Select(k => CheckCommand.LimitOf(CheckCommand.WriteTable, p, k)?.ToString(CultureInfo.InvariantCulture))))), "337.5,337.5,350,25,25,143.75,91.25,35 350,337.5,375,62.5,25,262.5,83.75,36.25 912.5,1000,1000,100,25,193.75,86.25,37.5");
         Expect("write limits: typing is a fixed 16 ms on every platform (budget 12.8 x 1.25)", new[] { "windows", "linux", "macos" }.Select(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "typing")).All(l => l == 16.0), true);
         Expect("write limits: the typing budget constant", CheckCommand.TypingBudget, 12.8);
@@ -2842,7 +2846,7 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         {
             PdfCsv(csv, WriteRows(platform));
             Expect($"check write {platform} (recorded): the typing row at its limit exits 0", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 0);
-            Expect($"check write {platform} (recorded): every row but the engine is judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format");
+            Expect($"check write {platform} (recorded): every row but the engine is judged", string.Join(',', CheckCommand.EvaluateWrite(platform, WriteRows(platform)).Where(r => r.Verdict == "ok").Select(r => r.Key)), "cold,warm,thesis,second,scroll,memory,size,zip,typing,format,structure");
             PdfCsv(csv, WriteRows(platform, "typing", 0.1));
             Expect($"check write {platform} (recorded): a typing row 0.1 ms above 16 exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", platform, "--in", csv], out _)!), 1);
             PdfCsv(csv, WriteRows(platform, without: "typing"));
@@ -2918,7 +2922,7 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
             Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone judges the format row", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "format").Verdict, "ok");
             Expect("TheFormatCaseIsJudgedAgainst16Ms: a format limit alone, a format row above it is over", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "format", 0.1)).First(r => r.Key == "format").Verdict, "over");
             CheckCommand.WriteTableForTests = new() { ["windows"] = new() { ["cold"] = 100 }, ["linux"] = [], ["macos"] = [] };
-            Expect("check write: engine and typing without a limit stay not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine,typing,format");
+            Expect("check write: engine and typing without a limit stay not judged next to an app row", string.Join(',', partial.Where(r => r.Verdict == "not judged").Select(r => r.Key)), "engine,typing,format,structure");
             Expect("check write: a half-filled table exits 1", CheckCommand.ExitCode(partial), 1);
             PdfCsv(csv, WriteRows("windows"));
             Expect("check command write: a half-filled table exits 1", CheckCommand.Execute(Options.Parse(["--target", "write", "--platform", "windows", "--in", csv], out _)!), 1);
@@ -3052,7 +3056,7 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         Expect("format rows: no output is refused", WriteRun.ParseFormat("first-page\n", out _), null);
         Expect("format: the arguments", string.Join(' ', WriteRun.Arguments("format", "s.json", "t")), $"--measure-format --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
 
-        // The structure run: one line per case, every one required; the moves feed a recorded, not judged metric.
+        // The structure run: one line per case, every one required; the moves feed the judged metric structure.
         var structureLine = "structure case=move-first-to-last view=page n=20 median-ms=40.00 p95-ms=60.00 max-ms=70.00 handler-median-ms=30.00 frame-median-ms=50.00 frame-p95-ms=70.00 render-median-ms=2.00 render-p95-ms=3.00 draw-median-ms=5.00 draw-p95-ms=6.00";
         var structureOutput = new StringBuilder("first-page\n");
         foreach (var n in WriteRun.StructureNames)
@@ -3073,8 +3077,11 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         Expect("structure: the seven cases in the order of the app (StructurePlaces.All; the bench has the first six)", string.Join(',', WriteRun.StructureNames), "move-first-to-last,move-middle,move-last-to-first,numbering-on,numbering-off,toggle-list,move-last-to-first-far-caret");
         Expect("structure: the far-caret move is recorded and never the worst move", CheckCommand.WorstMoveMedian([.. moveRows, new("pc", "write", "structure", "move-last-to-first-far-caret-median", 999, "ms")]), 40.0);
         Expect("structure: the numbering and list rows are not move rows", CheckCommand.WorstMoveMedian([new("pc", "write", "structure", "numbering-on-median", 99, "ms"), new("pc", "write", "structure", "toggle-list-median", 99, "ms")]), (double?)null);
-        Expect("structure: a check names the rows as recorded and not judged", CheckCommand.StructureNote(moveRows)?.Contains("recorded and not judged", StringComparison.Ordinal), true);
-        Expect("structure: no move row, no note", CheckCommand.StructureNote([]), (string?)null);
+        Expect("TheStructureCaseIsJudgedAgainst100Ms: the limit is a fixed 100 ms on every platform (budget 80 x 1.25)", new[] { "windows", "linux", "macos" }.Select(p => CheckCommand.LimitOf(CheckCommand.WriteTable, p, "structure")).All(l => l == 100.0), true);
+        Expect("TheStructureCaseIsJudgedAgainst100Ms: the structure budget constant", CheckCommand.StructureBudget, 80.0);
+        Expect("TheStructureCaseIsJudgedAgainst100Ms: a worst move median above 100 ms is over", CheckCommand.EvaluateWrite("windows", WriteRows("windows", "structure", 0.1)).First(r => r.Key == "structure").Verdict, "over");
+        Expect("TheStructureCaseIsJudgedAgainst100Ms: a worst move median at 100 ms is ok, the far-caret, numbering and p95 rows do not count", CheckCommand.EvaluateWrite("windows", WriteRows("windows")).First(r => r.Key == "structure") is { Verdict: "ok", Measured: 100.0 }, true);
+        Expect("TheStructureCaseIsJudgedAgainst100Ms: no structure row is missing, not a pass", CheckCommand.EvaluateWrite("windows", WriteRows("windows", without: "structure")).First(r => r.Key == "structure").Verdict, "missing");
     }
 
     private static void WriteSizeCheckTests()
