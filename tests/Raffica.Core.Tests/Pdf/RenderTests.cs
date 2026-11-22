@@ -97,7 +97,11 @@ public sealed class RenderTests
         }
 
         Assert.Equal(16, tileCount);
-        Assert.True(full.Pixels.Span.SequenceEqual(stitched), DescribeDifference(full.Pixels.Span, stitched));
+
+        // PDFium 160 rounds the anti-aliased edge of a shape differently when it is drawn into a tile at another
+        // offset: one column of the page (x = 720) is off by one level in one channel pair. A tile at the wrong
+        // place or scale gives large deltas, so one level is the tolerance and nothing more.
+        Assert.True(MaxDelta(full.Pixels.Span, stitched) <= 1, DescribeDifference(full.Pixels.Span, stitched));
     }
 
     [Fact]
@@ -371,6 +375,22 @@ public sealed class RenderTests
     {
         Assert.Equal((expected.Width, expected.Height, expected.Stride), (actual.Width, actual.Height, actual.Stride));
         Assert.True(expected.Pixels.Span.SequenceEqual(actual.Pixels.Span), DescribeDifference(expected.Pixels.Span, actual.Pixels.Span));
+    }
+
+    private static int MaxDelta(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
+    {
+        if (expected.Length != actual.Length)
+        {
+            return int.MaxValue;
+        }
+
+        var maxDelta = 0;
+        for (var i = 0; i < expected.Length; i++)
+        {
+            maxDelta = Math.Max(maxDelta, Math.Abs(expected[i] - actual[i]));
+        }
+
+        return maxDelta;
     }
 
     private static string DescribeDifference(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
