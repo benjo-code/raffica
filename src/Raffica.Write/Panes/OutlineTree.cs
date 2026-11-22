@@ -28,8 +28,8 @@ internal enum DropPlace
 /// <param name="FirstBlock">The index of the heading's block.</param>
 /// <param name="Count">How many top-level blocks the subtree holds (at least one).</param>
 /// <param name="LastHeadingBlock">The block index of the last listed heading in the subtree (where a promote or demote ends).</param>
-/// <param name="Blocked">Null or <see cref="MoveBlock.None"/> when the subtree can be moved, otherwise why not.</param>
-internal readonly record struct Subtree(int FirstBlock, int Count, int LastHeadingBlock, MoveBlock? Blocked);
+/// <param name="Blocked"><see cref="MoveBlock.None"/> when the subtree can be moved, otherwise why not.</param>
+internal readonly record struct Subtree(int FirstBlock, int Count, int LastHeadingBlock, MoveBlock Blocked);
 
 /// <summary>
 /// The tree the outline pane shows over <see cref="OutlineSource"/>: pure functions of the model and the headings read from it, run on the UI thread where the model is edited.
@@ -39,8 +39,6 @@ internal readonly record struct Subtree(int FirstBlock, int Count, int LastHeadi
 /// </summary>
 internal static class OutlineTree
 {
-    private const int MaxControlDepth = 32;
-
     /// <summary>The subtree of the heading in row <paramref name="row"/> of <paramref name="headings"/> (as <see cref="OutlineSource.ReadHeadings"/> gave them for <paramref name="document"/>).</summary>
     public static Subtree Of(WordDocument document, IReadOnlyList<OutlineHeading> headings, int row)
     {
@@ -87,7 +85,16 @@ internal static class OutlineTree
 
         var blocks = document.Body.Blocks;
         var tree = Of(document, headings, dragged);
-        if (tree.Blocked is not (null or MoveBlock.None))
+        if (tree.Blocked != MoveBlock.None)
+        {
+            return -1;
+        }
+
+        // Rows inside one block content control share a block index: a drop line between two of them has no place of its own.
+        var between = place == DropPlace.Before
+            ? row > 0 && headings[row - 1].Entry.BodyBlockIndex == headings[row].Entry.BodyBlockIndex
+            : row + 1 < headings.Count && headings[row + 1].Entry.BodyBlockIndex == headings[row].Entry.BodyBlockIndex;
+        if (between)
         {
             return -1;
         }
@@ -110,7 +117,8 @@ internal static class OutlineTree
     /// <summary>
     /// The block that is last in the body after moving <paramref name="count"/> blocks from <paramref name="first"/> to <paramref name="target"/> (an index in the list before
     /// the move, outside the range). A move to the end makes the subtree's last block the last one; moving away a subtree that ends the body makes the block before it the last
-    /// one; any other move leaves the last block alone.
+    /// one; any other move leaves the last block alone. A move to the end of a body that already ends in a table is refused when the subtree itself ends in another
+    /// table (the body would still end in a table, and Word wants a paragraph there); it is allowed when the subtree ends in a paragraph.
     /// </summary>
     internal static Block LastBlockAfterMove(IList<Block> blocks, int first, int count, int target)
     {
@@ -166,7 +174,7 @@ internal static class OutlineTree
         {
             case Paragraph paragraph:
                 return paragraph.SectionBreak is not null;
-            case ContentControlBlock control when depth < MaxControlDepth:
+            case ContentControlBlock control when depth < OutlineSource.MaxControlDepth:
                 return control.Content.Any(inner => HasSectionBreak(inner, depth + 1));
             default:
                 return false;

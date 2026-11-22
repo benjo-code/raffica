@@ -166,6 +166,39 @@ public sealed class OutlineTreeTests
     }
 
     [Fact]
+    public void ADropBetweenTwoRowsOfOneControlIsMinusOneAndTheEdgesOfTheControlAreLegal()
+    {
+        // 0 H1 x, 1 control { H1 c1, H1 c2 }, 2 text, 3 H1 d. Rows: x, c1, c2, d.
+        var control = new ContentControlBlock();
+        control.Content.Add(Heading("c1", 1));
+        control.Content.Add(Heading("c2", 1));
+        var (d, h) = Read(Heading("x", 1), control, Body("t"), Heading("d", 1));
+        Assert.Equal(4, h.Count);
+
+        // Dragging d (block 3): before the first row of the control is legal, between the two rows is not.
+        Assert.Equal(1, OutlineTree.DropTarget(h, d, 3, 1, DropPlace.Before));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 3, 1, DropPlace.After));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 3, 2, DropPlace.Before));
+
+        // Dragging x (block 0): after the last row of the control is legal (it lands before d).
+        Assert.Equal(3, OutlineTree.DropTarget(h, d, 0, 2, DropPlace.After));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 0, 1, DropPlace.After));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 0, 2, DropPlace.Before));
+    }
+
+    [Fact]
+    public void DropsAroundASkippedLevelFollowTheSubtrees()
+    {
+        // 0 H1 a, 1 H3 b, 2 H2 c, 3 H1 d: a holds blocks 0 to 2, b only block 1.
+        var (d, h) = Read(Heading("a", 1), Heading("b", 3), Heading("c", 2), Heading("d", 1));
+        Assert.Equal(4, OutlineTree.DropTarget(h, d, 0, 3, DropPlace.After));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 0, 2, DropPlace.Before));
+        Assert.Equal(3, OutlineTree.DropTarget(h, d, 1, 2, DropPlace.After));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 1, 2, DropPlace.Before));
+        Assert.Equal(0, OutlineTree.DropTarget(h, d, 1, 0, DropPlace.Before));
+    }
+
+    [Fact]
     public void ABlockedSubtreeOffersNoDrop()
     {
         var breaker = Body("t");
