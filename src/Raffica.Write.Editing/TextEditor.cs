@@ -7,7 +7,7 @@ namespace Raffica.Write.Editing;
 /// <summary>
 /// The text operations on a <see cref="WordDocument"/>: insert, delete, backspace, delete forward and the paragraph break. Each operation
 /// changes the model in place, raises <see cref="DocumentEdits"/> once and returns the <see cref="BlockChange"/>s that describe what it
-/// did (<see cref="BlockChange.OldBlocks"/> are clones of the blocks before the edit). The editor locks nothing. Every operation that
+/// did (<see cref="BlockChange.OldBlocks"/> are clones of the blocks before the edit, except a move's, which are the live pre-move objects: never mutate them). The editor locks nothing. Every operation that
 /// changes the document records one step in <see cref="History"/> (an operation that changes nothing records nothing); the document must not
 /// be edited by anything but this editor, its history and the code that clears the history.
 /// </summary>

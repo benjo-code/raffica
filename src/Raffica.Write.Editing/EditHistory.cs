@@ -35,7 +35,7 @@ public sealed record HistoryLimits(int MaxSteps, long MaxBytes)
 /// A list of blocks is named by its story and a path from the story's blocks (a block index, then the row items down to a cell, and so
 /// on), resolved against the document at the time of the undo; so a step in a table cell still finds its cell after the undo of a
 /// structural edit replaced the table by a clone. The blocks of the <see cref="BlockChange.OldBlocks"/> of an undo or redo are the
-/// history's own snapshots: callers must not change them.
+/// history's own snapshots (a move's OldBlocks are the live pre-move objects, never mutate them): callers must not change them.
 /// </para>
 /// <para>
 /// <b>Coalescing.</b> Typing joins the previous step when all of this holds: the operation is an insert that replaced no selection and

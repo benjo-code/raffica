@@ -354,7 +354,7 @@ internal sealed class EditSession
     /// changes the selection many times (a drag) costs one slot; an operation of another kind in between ends the run. If an operation of the replay throws, the exception does not reach the caller of the save handle's Dispose: a
     /// <see cref="StalePositionException"/> only skips that operation (counted in <see cref="DroppedWhileSaving"/>), any other exception faults the session (<see cref="MustFault"/>), the failed
     /// operation and the rest of the batch are counted in <see cref="DroppedWhileSaving"/> and <see cref="InputDropped"/> is raised once. An operation that is not queued and throws propagates to
-    /// the caller of <see cref="Apply"/>, which decides with <see cref="MustFault"/> whether the session must fault. The <see cref="BlockChange.OldBlocks"/> of the returned result are read-only snapshots (the history's own for an undo or redo): never
+    /// the caller of <see cref="Apply"/>, which decides with <see cref="MustFault"/> whether the session must fault. The <see cref="BlockChange.OldBlocks"/> of the returned result are read-only snapshots (the history's own for an undo or redo; a move's are the live pre-move objects, never mutate them): never
     /// change them. A cut is a copy and a delete: when its result has no <c>Changes</c> the delete was refused and the clipboard must not be replaced. An exception of
     /// the layout (it is faulted for good) makes the session faulted (<see cref="EditBlockedReason.Faulted"/>, the runner's fault is the same one): it goes to the caller once, after the lease ended and <see cref="Changed"/> was raised; every later call is refused without touching the model.
     /// </remarks>

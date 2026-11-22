@@ -229,6 +229,21 @@ public sealed class BlockMoveTests
     }
 
     [Fact]
+    public void ARangeWithoutAParagraphPutsTheCaretInTheNearestParagraph()
+    {
+        var table = "<w:tbl><w:tblGrid><w:gridCol w:w=\"1000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>c</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var document = NewDocument(3, table + "<w:p><w:r><w:t>z</w:t></w:r></w:p>");
+        var editor = EditorOf(document);
+        var z = document.Body.Blocks[4];
+
+        var moved = editor.MoveBlocks(3, 1, 5);
+
+        Assert.NotNull(moved);
+        Assert.IsType<Table>(document.Body.Blocks[4]);
+        Assert.Same(z, moved.Caret.Paragraph);
+    }
+
+    [Fact]
     public void ASectionBreakParagraphMovesWithItsObject()
     {
         var document = NewDocument(4);

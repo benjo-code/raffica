@@ -54,13 +54,32 @@ public sealed record BlockMove(StoryRef Story, int First, int Count, int Target)
         return old;
     }
 
-    /// <summary>The result of this move having just been applied to <paramref name="blocks"/>: one change over the span and the caret at the start of the first moved paragraph.</summary>
+    /// <summary>The result of this move having just been applied to <paramref name="blocks"/>: one change over the span and the caret at the start of the first moved paragraph (a range without a paragraph: the paragraph nearest to where it went).</summary>
     internal EditResult ResultIn(IList<Block> blocks, Block[] old)
     {
         var (spanFirst, spanCount) = Span;
         var paragraph = blocks.Skip(NewFirst).Take(Count).OfType<Paragraph>().FirstOrDefault()
-            ?? blocks.OfType<Paragraph>().FirstOrDefault()
+            ?? NearestParagraph(blocks, NewFirst, Count)
             ?? throw new InvalidOperationException("The body holds no paragraph.");
         return new EditResult(new TextPosition(Story, paragraph, 0), [new BlockChange(Story, blocks, spanFirst, spanCount, spanCount, old)], Move: this);
+    }
+
+    // The paragraph closest to the moved range [first, first + count): looking outward, the block before it first.
+    private static Paragraph NearestParagraph(IList<Block> blocks, int first, int count)
+    {
+        for (var distance = 0; distance < blocks.Count; distance++)
+        {
+            if (first - 1 - distance is >= 0 and var before && blocks[before] is Paragraph beforeParagraph)
+            {
+                return beforeParagraph;
+            }
+
+            if (first + count + distance < blocks.Count && blocks[first + count + distance] is Paragraph afterParagraph)
+            {
+                return afterParagraph;
+            }
+        }
+
+        throw new InvalidOperationException("The body holds no paragraph.");
     }
 }
