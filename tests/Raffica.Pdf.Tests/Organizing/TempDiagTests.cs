@@ -34,6 +34,8 @@ public sealed class TempDiagTests
         {
             using var f = await OrganizeListFixture.OpenAsync("thousand-pages.pdf");
             var list = f.List.List;
+            await ViewFixture.WaitAsync(() => f.Tab.Session.LoadedSizes.Count > 500);
+            ViewFixture.Pump();
             list.ScrollIntoView(500);
             ViewFixture.Pump();
             var boxesBefore = $"{Box(f, 499)} {Box(f, 500)} {Box(f, 501)}";
