@@ -7,7 +7,7 @@ namespace Raffica.Write.Editing;
 /// <summary>
 /// The text operations on a <see cref="WordDocument"/>: insert, delete, backspace, delete forward and the paragraph break. Each operation
 /// changes the model in place, raises <see cref="DocumentEdits"/> once and returns the <see cref="BlockChange"/>s that describe what it
-/// did (<see cref="BlockChange.OldBlocks"/> are clones of the blocks before the edit). The editor locks nothing. Every operation that
+/// did (<see cref="BlockChange.OldBlocks"/> are clones of the blocks before the edit, except a move's, which are the live pre-move objects: never mutate them). The editor locks nothing. Every operation that
 /// changes the document records one step in <see cref="History"/> (an operation that changes nothing records nothing); the document must not
 /// be edited by anything but this editor, its history and the code that clears the history.
 /// </summary>
@@ -185,6 +185,11 @@ public sealed partial class TextEditor
         var offset = EditRules.Snap(map, Math.Clamp(caret.Offset, 0, text.Length));
         if (offset == 0)
         {
+            if (RemoveListAtStart(story, container, index, caret.Paragraph, revision) is { } unlisted)
+            {
+                return unlisted;
+            }
+
             if (index > 0 && container[index - 1] is Paragraph previous)
             {
                 return ApplyDelete(new Span(story, container, index - 1, previous, int.MaxValue, index, caret.Paragraph, 0), revision, new EditHistory.Point(index, 0));
@@ -238,8 +243,8 @@ public sealed partial class TextEditor
         return ApplyDelete(new Span(story, container, index, caret.Paragraph, offset, index, caret.Paragraph, end), revision, new EditHistory.Point(index, offset));
     }
 
-    /// <summary>Replaces the selection with a paragraph break: the second paragraph has the properties of the first and takes what follows the caret.</summary>
-    public EditResult SplitParagraph(TextRange selection) => InsertText(selection, "\n");
+    /// <summary>Replaces the selection with a paragraph break (on an empty list paragraph, Enter ends the list instead: see <see cref="ToggleList"/>): the second paragraph has the properties of the first and takes what follows the caret.</summary>
+    public EditResult SplitParagraph(TextRange selection) => (selection.IsEmpty ? EndEmptyListItem(selection.Start) : null) ?? InsertText(selection, "\n");
 
     // The first Backspace or Delete next to a field: it selects the unit and changes nothing; the caller deletes the selection next.
     private static EditResult Select(TextPosition caret, (int Start, int End) unit) =>

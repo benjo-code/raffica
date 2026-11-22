@@ -24,6 +24,29 @@ public sealed class FontCatalogTests
 
     private static FontCatalog Catalog(ISystemFonts? system = null) => FontCatalog.CreateShipped(system ?? new NoSystemFonts());
 
+    // The bullets of the blank document are private-use code points of Symbol and Wingdings (U+F0B7 and U+F0A7), which the layout draws as U+2022 in the paragraph's own font (the Wingdings square, U+25AA, is
+    // not in Caladea and would be an empty box there, so it is drawn as the round bullet too), and a plain "o" in Courier New (a font that falls back to a shipped face). A glyph a shipped face lacks is drawn
+    // from some other font on one system and as an empty box on another.
+    [Fact]
+    public void EveryBulletGlyphTheLayoutDrawsExistsInEveryShippedFace()
+    {
+        var catalog = Catalog();
+        foreach (var family in new[] { "Carlito", "Caladea" })
+        {
+            foreach (var bold in new[] { false, true })
+            {
+                foreach (var italic in new[] { false, true })
+                {
+                    var face = catalog.Resolve(family, bold, italic);
+                    foreach (var glyph in new[] { '\u2022', 'o' })
+                    {
+                        Assert.True(face.Typeface.ContainsGlyph(glyph), $"{family} bold {bold} italic {italic} lacks U+{(int)glyph:X4}");
+                    }
+                }
+            }
+        }
+    }
+
     [Fact]
     public void ShippedFacesLoad()
     {

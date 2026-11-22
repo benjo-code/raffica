@@ -178,6 +178,8 @@ internal static partial class EditCommand
         public EffectiveRun ForRun(StoryRef story, Paragraph paragraph, Run run) => _inner.ForRun(story, paragraph, run);
 
         public EffectiveRun ForMark(StoryRef story, Paragraph paragraph) => _inner.ForMark(story, paragraph);
+
+        public EffectiveParagraph ForParagraph(StoryRef story, Paragraph paragraph) => _inner.ForParagraph(story, paragraph);
     }
 
     internal static string StyleUpdateTable(StyleUpdateRow row)

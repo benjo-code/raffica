@@ -24,7 +24,7 @@ internal static class OutlineSource
     /// <summary>The longest heading text an entry holds (a longer paragraph is cut; the outline is a list of names).</summary>
     internal const int MaxTextLength = 300;
 
-    private const int MaxControlDepth = 32;
+    internal const int MaxControlDepth = 32;
 
     /// <summary>The headings in document order. Empty headings are left out; tracked changes are read as accepted (insertions in, deletions out).</summary>
     public static IReadOnlyList<OutlineEntry> Read(WordDocument document) => [.. ReadHeadings(document).Select(h => h.Entry)];

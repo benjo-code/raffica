@@ -290,7 +290,7 @@ internal sealed class FormattingSteps
     }
 
     // The editor's format resolver snapshots the styles: made again after every style change.
-    private sealed class RefreshableFormat(WordDocument model) : IEffectiveFormat
+    internal sealed class RefreshableFormat(WordDocument model) : IEffectiveFormat
     {
         private LayoutEffectiveFormat _inner = new(model);
 
@@ -299,5 +299,7 @@ internal sealed class FormattingSteps
         public EffectiveRun ForRun(StoryRef story, Paragraph paragraph, Run run) => _inner.ForRun(story, paragraph, run);
 
         public EffectiveRun ForMark(StoryRef story, Paragraph paragraph) => _inner.ForMark(story, paragraph);
+
+        public EffectiveParagraph ForParagraph(StoryRef story, Paragraph paragraph) => _inner.ForParagraph(story, paragraph);
     }
 }

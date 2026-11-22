@@ -135,6 +135,29 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void StructureCasesExistInTheBenchAndRun()
+    {
+        // The app keeps a near copy (StructurePlaces in the Write app, plus its far-caret case; measure.cs StructureNames has all seven): change the three together.
+        string[] names = ["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"];
+        Assert.Equal(names, StructureCases.Names);
+        using var error = new StringWriter(CultureInfo.InvariantCulture);
+        var rows = EditCommand.MeasureStructure(Thesis, 2, error);
+
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(StructureCases.Names, rows.Select(r => r.Case));
+        Assert.All(rows, r =>
+        {
+            Assert.Equal("page", r.View);
+            Assert.Equal(2, r.Millis.Length);
+            Assert.All(r.Millis, ms => Assert.True(ms >= 0 && double.IsFinite(ms)));
+        });
+
+        // The rows go into the csv of edit like the typing and format rows.
+        var csv = EditCommand.Csv(rows);
+        Assert.All(StructureCases.Names, n => Assert.Contains("\n" + n + ",page,", csv, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SelectAllBoldIsMeasuredOnTheThesisAndUndone()
     {
         var result = EditCommand.MeasureSelectAll(Thesis);

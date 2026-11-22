@@ -151,6 +151,103 @@ public sealed class EffectiveFormatTests
         Assert.True(runs > 1000, $"only {runs} runs compared");
     }
 
+    [Fact]
+    public void ForParagraphEqualsThePlannerForEveryParagraphOfTheCorpus()
+    {
+        var compared = 0;
+        var inCells = 0;
+        var listed = 0;
+        var plannerCompared = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var docx = DocxFile.Open(Path.Combine(Root, entry.Id, entry.Id + ".docx"));
+            var model = docx.Model;
+            var format = new LayoutEffectiveFormat(model);
+            var styles = new StyleResolver(model.Styles, model.Settings, model.Numbering);
+            var planner = new BlockPlanner(styles, new NumberingCounter(model.Numbering), new ParagraphLayouter(PageTestKit.Fonts), model.Settings);
+            foreach (var (paragraph, inTable) in AllParagraphs(model.Body.Blocks))
+            {
+                // This comparison only pins the field mapping (ForParagraph and ResolveParagraph share Resolve); the planner comparisons below carry the proof.
+                var resolved = format.ResolveParagraph(StoryRef.Body, paragraph);
+                var actual = format.ForParagraph(StoryRef.Body, paragraph);
+                Assert.Equal((resolved.StyleId, resolved.NumberingId, resolved.NumberingLevel, resolved.OutlineLevel), (actual.StyleId, actual.NumberingId, actual.NumberingLevel, actual.OutlineLevel));
+                compared++;
+                listed += actual.NumberingId > 0 ? 1 : 0;
+            }
+
+            // The planner's own reading of the top-level paragraphs, and of the paragraphs of the cells of top-level tables (the cell format of the table style enters there).
+            // A table nested in a cell is not reachable through the table plan's model, so its paragraphs are not compared with the planner here.
+            var flat = FlatBlocks.From(model.Body.Blocks);
+            foreach (var item in flat)
+            {
+                if (item.Block is Paragraph top && planner.PlanFor(item) is ParagraphPlan plan)
+                {
+                    AssertSameAsPlanner(plan.Input.Paragraph, format.ForParagraph(StoryRef.Body, top), entry.Id);
+                    plannerCompared++;
+                }
+                else if (item.Block is Table table && planner.PlanFor(item) is TablePlan tablePlan)
+                {
+                    var geometry = TableGeometry.Of(table);
+                    for (var r = 0; r < geometry.Rows.Count; r++)
+                    {
+                        for (var c = 0; c < geometry.Rows[r].Cells.Count; c++)
+                        {
+                            if (geometry.Rows[r].Cells[c] is not { } cell)
+                            {
+                                continue;
+                            }
+
+                            foreach (var paragraph in cell.Blocks.OfType<Paragraph>())
+                            {
+                                var expected = styles.ForParagraph(paragraph, tablePlan.Model.Rows[r].Cells[c].Format);
+                                AssertSameAsPlanner(expected, format.ForParagraph(StoryRef.Body, paragraph), entry.Id);
+                                plannerCompared++;
+                                inCells++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Assert.True(compared > 1000, $"only {compared} paragraphs compared");
+        Assert.True(plannerCompared > 1000, $"only {plannerCompared} paragraphs compared with the planner");
+        Assert.True(inCells > 0, "no paragraph in a table cell compared with the planner");
+        Assert.True(listed > 0, "no listed paragraph");
+    }
+
+    private static void AssertSameAsPlanner(ResolvedParagraph expected, EffectiveParagraph actual, string id) =>
+        Assert.True(
+            (expected.StyleId, expected.NumberingId, expected.NumberingLevel, expected.OutlineLevel) == (actual.StyleId, actual.NumberingId, actual.NumberingLevel, actual.OutlineLevel),
+            id);
+
+    [Fact]
+    public void AParagraphInACellTakesListAndOutlineLevelFromTheTableStyle()
+    {
+        const string style = "<w:style w:type=\"table\" w:styleId=\"Banded\"><w:basedOn w:val=\"TableNormal\"/>"
+            + "<w:tblStylePr w:type=\"firstRow\"><w:pPr><w:numPr><w:ilvl w:val=\"1\"/><w:numId w:val=\"3\"/></w:numPr><w:outlineLvl w:val=\"2\"/></w:pPr></w:tblStylePr></w:style>";
+        var document = LayoutModel.Document(
+            "<w:p><w:r><w:t>before</w:t></w:r></w:p>" + Tbl("<w:tr>" + Cell("h1") + Cell("h2") + "</w:tr><w:tr>" + Cell("b1") + Cell("b2") + "</w:tr>"),
+            LayoutModel.StylesPart(Base + style));
+        var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
+        var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), new ParagraphLayouter(PageTestKit.Fonts), document.Settings);
+        var tablePlan = (TablePlan)planner.PlanFor(FlatBlocks.From(document.Body.Blocks)[1])!;
+        var table = (Table)document.Body.Blocks[1];
+        var format = new LayoutEffectiveFormat(document);
+        var header = (Paragraph)((TableCell)((TableRow)table.Rows[0]).Items[0]).Blocks[0];
+        var body = (Paragraph)((TableCell)((TableRow)table.Rows[1]).Items[0]).Blocks[0];
+        var expectedHeader = styles.ForParagraph(header, tablePlan.Model.Rows[0].Cells[0].Format);
+        var actualHeader = format.ForParagraph(StoryRef.Body, header);
+
+        // The plan and the editor agree, and the header row's cell format really reaches the fields.
+        AssertSameAsPlanner(expectedHeader, actualHeader, "header");
+        Assert.Equal(2, actualHeader.OutlineLevel);
+        Assert.Equal(3, actualHeader.NumberingId);
+        Assert.Equal(1, actualHeader.NumberingLevel);
+        Assert.Equal(0, format.ForParagraph(StoryRef.Body, body).NumberingId);
+        Assert.Null(format.ForParagraph(StoryRef.Body, body).OutlineLevel);
+    }
+
     private const string BandedStyle =
         "<w:style w:type=\"table\" w:styleId=\"Banded\"><w:basedOn w:val=\"TableNormal\"/>"
         + "<w:tblStylePr w:type=\"firstRow\"><w:rPr><w:b/></w:rPr></w:tblStylePr>"

@@ -104,6 +104,17 @@ public sealed class NumberingCounterTests
     }
 
     [Fact]
+    public void EveryPrivateUseBulletOfSymbolAndWingdingsDrawsAsTheRoundBullet()
+    {
+        // Symbol U+F0B7 and the Wingdings square U+F0A7: the square has no glyph in Caladea, so both are the one bullet every shipped face has.
+        var numbering = Multi(
+            Level(0, "bullet", "", string.Empty, "<w:rPr><w:rFonts w:ascii=\"Symbol\" w:hAnsi=\"Symbol\"/></w:rPr>")
+            + Level(1, "bullet", "", string.Empty, "<w:rPr><w:rFonts w:ascii=\"Wingdings\" w:hAnsi=\"Wingdings\"/></w:rPr>"));
+        var labels = Run(numbering, (1, 0), (1, 1));
+        Assert.Equal(["•", "•"], labels.Select(l => l!.Text).ToArray());
+    }
+
+    [Fact]
     public void UnknownNumIdGivesNoLabel()
     {
         var numbering = Multi(Level(0, "decimal", "%1"));

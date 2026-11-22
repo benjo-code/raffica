@@ -41,10 +41,11 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing);
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing, ReadStructureFacts);
         _actions = CreateActions();
         _pickers = new FormatPickers(() => EditCommandState.FormatOf(Workspace.Active), () => Workspace.Active?.Docx.Model, () => Workspace.Active?.Fonts, (id, value) => RunCommand(id, value));
         AddFormatActions();
+        AddStructureActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn, _pickers.For);
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
         if (_deferRibbon)
@@ -175,6 +176,11 @@ internal sealed partial class WriteWindow
         if (WriteCommandIds.IsFormatting(id))
         {
             return FormatIsOn(id);
+        }
+
+        if (WriteCommandIds.IsStructure(id))
+        {
+            return StructureIsOn(id);
         }
 
         return id switch
@@ -312,6 +318,9 @@ internal sealed partial class WriteWindow
         // The keys of the page view run the command on the view that has the focus and the rules decide (no focus change: the view has it).
         view.EditCommandHandler = id => _rules.Allows(id) && view.RunEditCommand(id);
         view.FormatKeyHandler = id => _rules.Allows(id) && view.RunFormatCommand(id);
+        view.StructureKeyHandler = id => RunStructureKey(view, id);
+        view.OutlineParagraphSource = EngagedOutlineParagraph;
+        view.StructureNote += text => ShowStructureNote(view, text);
         view.SelectionStateChanged += () =>
         {
             if (ReferenceEquals(ActiveView, view))
@@ -517,6 +526,7 @@ internal sealed partial class WriteWindow
     private void RefreshCommandStates()
     {
         Ribbon.RefreshCommandStates();
+        RefreshOutlineButtons();
         FormattingStatesChanged();
         StatesChanged?.Invoke();
     }

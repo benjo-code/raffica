@@ -52,6 +52,7 @@ public sealed class SnapshotCacheOracleTests
         var log = new List<string>();
         var reused = 0;
         var snapshots = 0;
+        var shifted = 0;
 
         void Check(string label)
         {
@@ -94,7 +95,12 @@ public sealed class SnapshotCacheOracleTests
             var pick = random.Next(10) < 8 && body.Count > 0 ? body[random.Next(body.Count)] : all[random.Next(all.Count)];
             int Len(StoryRef story, Paragraph paragraph) => ParagraphProjection.Build(paragraph, ProjectionHost.Plain).Text.Length;
             var at = new TextPosition(pick.Story, pick.Paragraph, random.Next(Len(pick.Story, pick.Paragraph) + 1));
-            var kind = random.Next(12);
+            var kind = random.Next(18);
+            if (id == "thesis" && step is 5 or 31)
+            {
+                kind = 17;
+            }
+
             if (kind is 3 or 5 && pick.Story.Kind != StoryKind.Body)
             {
                 kind = 0;
@@ -180,6 +186,52 @@ public sealed class SnapshotCacheOracleTests
                     what = "undo";
                     result = editor.History.Undo();
                     break;
+                case 12:
+                    what = "list";
+                    result = editor.ToggleList(new TextRange(at, at), random.Next(2) == 0 ? ListKind.Bullet : ListKind.Numbered);
+                    break;
+                case 13:
+                    what = "list-level";
+                    result = editor.ChangeListLevel(new TextRange(at, at), random.Next(3) - 1);
+                    break;
+                case 14:
+                    what = "list-restart";
+                    result = editor.RestartNumbering(at);
+                    break;
+                case 15:
+                    what = "list-continue";
+                    result = editor.ContinueNumbering(at);
+                    break;
+                case 17:
+                    {
+                        what = "outline-shift";
+                        var top = model.Body.Blocks;
+                        string? StyleOf(int index) => (top[index] as Paragraph)?.Properties.StyleId;
+
+                        // A range around a heading that has a legal shift (the corpus files define few heading styles), else a random one that is usually refused.
+                        var candidates = Enumerable.Range(0, top.Count).Where(i => StyleOf(i) is "Heading2" or "Heading3").ToList();
+                        var from = candidates.Count > 0 ? candidates[random.Next(candidates.Count)] : random.Next(top.Count);
+                        var to = candidates.Count > 0 ? from : Math.Min(top.Count - 1, from + random.Next(6));
+                        result = editor.ShiftOutlineLevels(from, to, -1);
+                        if (result is not null && result.Changes.Count > 0)
+                        {
+                            shifted++;
+                        }
+
+                        break;
+                    }
+
+                case 16:
+                    {
+                        what = "move";
+                        var blocks = model.Body.Blocks;
+                        var count = Math.Min(1 + random.Next(4), blocks.Count);
+                        var from = random.Next(blocks.Count - count + 1);
+                        var target = random.Next(blocks.Count + 1);
+                        result = editor.MoveBlocks(from, count, target);
+                        break;
+                    }
+
                 default:
                     what = "redo";
                     result = editor.History.Redo();
@@ -202,6 +254,73 @@ public sealed class SnapshotCacheOracleTests
 
         Check($"{id} seed {seed} last");
         Assert.True(reused > 0, $"{id}: the cache never reused a block in {snapshots} snapshots");
+        Assert.True(id != "thesis" || shifted > 0, "no outline shift ran in the sequence");
+    }
+
+    [Fact]
+    public void AnOutlineShiftAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "thesis", "thesis.docx"));
+        var model = file.Model;
+        var blocks = model.Body.Blocks;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        // A run of blocks from a Heading2 up to the next Heading1: a promotion is legal for every heading in it (the thesis defines Heading1 to Heading3).
+        static string? Style(Block block) => (block as Paragraph)?.Properties.StyleId;
+        var first = Enumerable.Range(0, blocks.Count).First(i => Style(blocks[i]) == "Heading2");
+        var last = first;
+        while (last + 1 < blocks.Count && Style(blocks[last + 1]) != "Heading1")
+        {
+            last++;
+        }
+
+        var headings = Enumerable.Range(first, last - first + 1).Count(i => Style(blocks[i]) is "Heading2" or "Heading3");
+        Assert.True(headings >= 2);
+        Assert.NotNull(editor.ShiftOutlineLevels(first, last, -1));
+        Check("promote");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+        Assert.NotNull(editor.ShiftOutlineLevels(first, first, 1));
+        Check("demote");
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+        Check("undo twice");
+    }
+
+    [Fact]
+    public void AMoveAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        Assert.NotNull(editor.MoveBlocks(1, 3, model.Body.Blocks.Count));
+        Check("move down");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+        Assert.NotNull(editor.MoveBlocks(model.Body.Blocks.Count - 2, 2, 0));
+        Check("move up");
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+        Check("undo twice");
     }
 
     [Fact]

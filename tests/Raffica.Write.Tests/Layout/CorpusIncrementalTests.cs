@@ -245,6 +245,128 @@ public sealed class CorpusIncrementalTests
         Assert.True(chromeOnly.Count >= 2, "the corpus takes the chrome-only path in more than one file: " + string.Join(", ", chromeOnly));
     }
 
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task AChapterMoveStaysEqualToFullLayout(string id, LayoutMode mode)
+    {
+        using var file = DocxFile.Open(Corpus(id));
+        var model = file.Model;
+        var layout = await LaidAsync(model, mode);
+        var steps = new StructureSteps(model, layout, new LayoutOptions(mode));
+        var random = new Random(unchecked((int)(Fnv1a("move " + id) * 7919u) + (int)mode));
+        for (var i = 0; i < 3; i++)
+        {
+            await steps.MoveAsync(random, $"{id} {mode} move {i}");
+        }
+
+        // A file with two blocks and a paragraph moves three times and each move is compared with its undo and its redo; a one-block file has nothing to move.
+        var body = model.Body.Blocks;
+        var movable = body.Count >= 2 && body.OfType<Paragraph>().Any();
+        Assert.Equal(movable ? 3 : 0, steps.Moves);
+        Assert.Equal(movable ? 9 : 0, steps.Compared);
+        if (StructureSteps.Headings(model) >= 2 || id == "thesis")
+        {
+            Assert.True(steps.SubtreeMoves > 0, $"{id} {mode}: no subtree move ran");
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: {steps.Moves} moves ({steps.SubtreeMoves} subtree), {steps.Compared} compared, tables {steps.MovedTables}, sections {steps.MovedSections}");
+    }
+
+    [Theory]
+    [InlineData("page 0", 0)]
+    [InlineData("last page", 1)]
+    [InlineData("far past the end", 2)]
+    public async Task AMoveStaysEqualToFullLayoutWhateverPageTheEditIsBroughtThrough(string name, int variant)
+    {
+        using var file = DocxFile.Open(Corpus("thesis"));
+        var layout = await LaidAsync(file.Model, LayoutMode.Pages);
+        var steps = new StructureSteps(file.Model, layout, new LayoutOptions(LayoutMode.Pages))
+        {
+            ThroughPage = (l, _) => variant switch { 0 => 0, 1 => l.LaidOutPages, _ => l.LaidOutPages + 50 },
+        };
+        var random = new Random(unchecked((int)Fnv1a("through " + name)));
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.True(await steps.MoveAsync(random, $"thesis through {name} move {i}"));
+        }
+    }
+
+    [Fact]
+    public async Task MovesSomewhereInTheCorpusCrossTables()
+    {
+        var tables = 0;
+        var compared = 0;
+        var subtrees = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files.Where(f => f.Id != "thesis"))
+        {
+            using var file = DocxFile.Open(Corpus(entry.Id));
+            var layout = await LaidAsync(file.Model, LayoutMode.Pages);
+            var steps = new StructureSteps(file.Model, layout, new LayoutOptions(LayoutMode.Pages));
+            var random = new Random(unchecked((int)(Fnv1a("move " + entry.Id) * 7919u)));
+            for (var i = 0; i < 3; i++)
+            {
+                await steps.MoveAsync(random, $"{entry.Id} guard move {i}");
+            }
+
+            Assert.Equal(3 * steps.Moves, steps.Compared);
+            compared += steps.Compared;
+            subtrees += steps.SubtreeMoves;
+            tables += steps.MovedTables;
+        }
+
+        Assert.True(compared > 0, "nothing was compared");
+        Assert.True(subtrees > 0, "no subtree move ran in the corpus");
+        Assert.True(tables > 0, "no move reached a table in the corpus");
+    }
+
+    [Theory]
+    [InlineData(LayoutMode.Pages)]
+    [InlineData(LayoutMode.Flow)]
+    public async Task AMoveAcrossASectionBreakStillEqualsAFullLayout(LayoutMode mode)
+    {
+        var ran = 0;
+        foreach (var entry in CorpusManifest.Load(Root).Files)
+        {
+            using var file = DocxFile.Open(Corpus(entry.Id));
+            var model = file.Model;
+            var body = model.Body.Blocks;
+            var at = -1;
+            for (var i = 0; i < body.Count - 1; i++)
+            {
+                if (body[i] is Paragraph { SectionBreak: not null } && body[i + 1] is Paragraph { SectionBreak: null })
+                {
+                    at = i;
+                    break;
+                }
+            }
+
+            if (at < 0)
+            {
+                continue;
+            }
+
+            var layout = await LaidAsync(model, mode);
+            var steps = new StructureSteps(model, layout, new LayoutOptions(mode));
+
+            // Pages: HasSectionBreak makes ApplyEdit restart, so that variant proves the restart equals a full layout; Flow ignores section breaks and takes the fast path across the break.
+            // The block after the section break goes in front of it: the region holds the section-break paragraph, which is not in the moved range.
+            Assert.True(await steps.MoveToAsync(at + 1, 1, at, false, $"{entry.Id} {mode} across section break"), entry.Id);
+
+            // And a range that ends at the section break moves past the block after it.
+            var now = body.ToList().FindIndex(b => b is Paragraph { SectionBreak: not null });
+            if (now >= 1 && now + 1 < body.Count)
+            {
+                Assert.True(await steps.MoveToAsync(now - 1, 1, now + 2, false, $"{entry.Id} {mode} across section break 2"), entry.Id);
+            }
+
+            Assert.True(steps.Compared > 0 && steps.Compared == 3 * steps.Moves, $"{entry.Id} {mode}: compared {steps.Compared} steps for {steps.Moves} moves");
+            Assert.Equal(steps.Moves, steps.MovedSections);
+            ran++;
+        }
+
+        Assert.True(ran > 0, "no corpus file has a section-break paragraph");
+    }
+
     // FNV-1a over the UTF-16 code units: stable across processes (string.GetHashCode is randomized per process).
     private static uint Fnv1a(string text)
     {

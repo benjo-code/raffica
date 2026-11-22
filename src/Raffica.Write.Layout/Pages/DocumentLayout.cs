@@ -85,6 +85,9 @@ public sealed partial class DocumentLayout
 
         public required WordDocument Document { get; init; }
 
+        /// <summary>The numbering part this engine's counters were made from (the part is created by the first list command of a file that had none, and a counter made from null counts nothing).</summary>
+        public NumberingDefinitions? Numbering { get; init; }
+
         public required BlockPlanner Planner { get; init; }
 
         public required List<SectionPlan> Sections { get; init; }
@@ -134,6 +137,7 @@ public sealed partial class DocumentLayout
                 LastBodyIndex = document.Body.Blocks.Count - 1,
                 Chrome = chrome,
                 Document = document,
+                Numbering = document.Numbering,
                 Planner = planner,
                 Sections = sections,
             };

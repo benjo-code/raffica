@@ -35,7 +35,7 @@ public sealed record HistoryLimits(int MaxSteps, long MaxBytes)
 /// A list of blocks is named by its story and a path from the story's blocks (a block index, then the row items down to a cell, and so
 /// on), resolved against the document at the time of the undo; so a step in a table cell still finds its cell after the undo of a
 /// structural edit replaced the table by a clone. The blocks of the <see cref="BlockChange.OldBlocks"/> of an undo or redo are the
-/// history's own snapshots: callers must not change them.
+/// history's own snapshots (a move's OldBlocks are the live pre-move objects, never mutate them): callers must not change them.
 /// </para>
 /// <para>
 /// <b>Coalescing.</b> Typing joins the previous step when all of this holds: the operation is an insert that replaced no selection and
@@ -124,6 +124,11 @@ public sealed class EditHistory
         }
 
         var step = _undo[^1];
+        if (step.Move is not null)
+        {
+            return StepMove(step, undo: true);
+        }
+
         if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !TrySwapStyle(step, undo: true))
         {
             Clear();
@@ -152,6 +157,11 @@ public sealed class EditHistory
         }
 
         var step = _redo[^1];
+        if (step.Move is not null)
+        {
+            return StepMove(step, undo: false);
+        }
+
         if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !TrySwapStyle(step, undo: false))
         {
             Clear();
@@ -199,6 +209,12 @@ public sealed class EditHistory
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null))
         {
+            return;
+        }
+
+        if (result.Move is { } move)
+        {
+            RecordMove(result, move, revisionBefore);
             return;
         }
 
@@ -260,7 +276,67 @@ public sealed class EditHistory
         Trim();
     }
 
-    // A style change without a block change (the paragraph held nothing to move): the step has no blocks, only the caret and the style swap.
+    // A move of top-level blocks: the step holds indices only (no block is cloned, the blocks are the document's own objects), so it costs next to nothing and never joins typing.
+    private void RecordMove(EditResult result, BlockMove move, int revisionBefore)
+    {
+        var change = result.Changes[0];
+        if (Root(move.Story) is not { } root || !ReferenceEquals(root, change.Container))
+        {
+            Clear();
+            return;
+        }
+
+        var endRevision = _document.Edits.Revision;
+        _redo.Clear();
+        var step = new Step(move.Story, [], move.First, [], [], default, default, revisionBefore, endRevision)
+        {
+            Move = move,
+            Bytes = 64,
+        };
+        _undo.Add(step);
+        _undoBytes += step.Bytes;
+        _expected = endRevision;
+        _open = null;
+        _openContainer = null;
+        Trim();
+    }
+
+    // Undo or redo of a move: the same rotation (or its inverse) on the same objects, the revision set back like any step's.
+    private EditResult? StepMove(Step step, bool undo)
+    {
+        var forward = step.Move!;
+        var move = undo ? forward.Inverse : forward;
+        if (Resolve(step) is not { } container || !move.IsValidFor(container.Count))
+        {
+            Clear();
+            return null;
+        }
+
+        var old = move.ApplyTo(container);
+        if (undo)
+        {
+            _undo.RemoveAt(_undo.Count - 1);
+            _undoBytes -= step.Bytes;
+            _redo.Add(step);
+        }
+        else
+        {
+            _redo.RemoveAt(_redo.Count - 1);
+            _undo.Add(step);
+            _undoBytes += step.Bytes;
+        }
+
+        var revision = undo ? step.StartRevision : step.EndRevision;
+        _document.Edits.Restore(revision);
+        _expected = revision;
+        _open = null;
+        var result = move.ResultIn(container, old);
+        _document.Edits.Attribute(result.Changes);
+        return result;
+    }
+
+    // A style change without a block change (the paragraph held nothing to move, or a switch that touches styles only): the step has no blocks, only the caret and the style swap.
+    // The caret paragraph's own container is the step's container, so undo and redo put the caret back in that paragraph.
     private void RecordStyleOnly(EditResult result, Point before, int revisionBefore)
     {
         var story = result.Caret.Story;
@@ -270,10 +346,16 @@ public sealed class EditHistory
             return;
         }
 
-        var index = Math.Max(0, root.IndexOf(result.Caret.Paragraph));
+        // The caret paragraph may sit in a table cell or a content control: the step keeps the path of its container, like a block step does.
+        if (TextEditor.FindIn(root, result.Caret.Paragraph) is not { } found || PathTo(root, found.Container) is not { } path)
+        {
+            Clear();
+            return;
+        }
+
         var endRevision = _document.Edits.Revision;
         _redo.Clear();
-        var step = new Step(story, [], 0, [], [], before, new Point(index, result.Caret.Offset), revisionBefore, endRevision)
+        var step = new Step(story, path, 0, [], [], before, new Point(found.Index, result.Caret.Offset), revisionBefore, endRevision)
         {
             Style = result.Style,
         };
@@ -286,7 +368,7 @@ public sealed class EditHistory
         Trim();
     }
 
-    // Puts the style of the step into the sheet in place: Old on undo, New on redo. False (nothing changed) when the sheet or the style is gone.
+    // Puts the styles of the step (the style and its companions) into the sheet in place: Old on undo, New on redo, all of them or none. False (nothing changed) when the sheet or one style is gone.
     private bool TrySwapStyle(Step step, bool undo)
     {
         if (step.Style is not { } change)
@@ -295,13 +377,32 @@ public sealed class EditHistory
         }
 
         var sheet = _document.Styles;
-        var current = sheet?.Find(change.New.Id);
-        if (sheet is null || current is null)
+        if (sheet is null)
         {
             return false;
         }
 
-        return sheet.Replace(current, (undo ? change.Old : change.New).Clone());
+        // All or nothing: every style of the step must still be there before the first one is swapped.
+        var swaps = new List<(Style Current, Style Replacement)>();
+        foreach (var item in change.All)
+        {
+            if (sheet.Find(item.New.Id) is not { } current)
+            {
+                return false;
+            }
+
+            swaps.Add((current, (undo ? item.Old : item.New).Clone()));
+        }
+
+        foreach (var (current, replacement) in swaps)
+        {
+            if (!sheet.Replace(current, replacement))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
@@ -577,7 +678,7 @@ public sealed class EditHistory
         return size;
     }
 
-    private static long SizeOf(StyleChange? change) => change is null ? 0 : SizeOf(change.Old) + SizeOf(change.New);
+    private static long SizeOf(StyleChange? change) => change is null ? 0 : change.All.Sum(item => SizeOf(item.Old) + SizeOf(item.New));
 
     private static long SizeOf(Style style)
     {
@@ -645,6 +746,9 @@ public sealed class EditHistory
         public long Bytes { get; set; }
 
         public StyleChange? Style { get; init; }
+
+        /// <summary>Set for a move of top-level blocks: the step then holds no blocks.</summary>
+        public BlockMove? Move { get; init; }
 
         /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
         public object? TypingFormat { get; init; }

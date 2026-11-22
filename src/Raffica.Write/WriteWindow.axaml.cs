@@ -794,6 +794,12 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
                 return;
             }
 
+            if (ForwardStructureKey(e, repeat))
+            {
+                // The focus is in the outline pane: its keys for the outline commands ran from there.
+                return;
+            }
+
             if (ForwardNavigationKey(e))
             {
                 // The page view does not have the focus (it was lost or never taken): the keys that scroll still scroll it.

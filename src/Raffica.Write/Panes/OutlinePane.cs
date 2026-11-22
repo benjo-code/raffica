@@ -26,7 +26,7 @@ namespace Raffica.Write.Panes;
 /// the heading has at that moment (found from its paragraph, not from the index of the last read, which an edit shifts); a heading whose paragraph is gone raises nothing.
 /// Every row has a name for assistive technology that says the level.
 /// </summary>
-internal sealed class OutlinePane : UserControl, IDisposable
+internal sealed partial class OutlinePane : UserControl, IDisposable
 {
     private const double IndentPerLevel = 14;
 
@@ -35,7 +35,9 @@ internal sealed class OutlinePane : UserControl, IDisposable
     private readonly TaskCompletionSource _loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ListBox _list;
     private readonly TextBlock _hint;
+    private readonly Grid _body;
     private List<OutlineRow> _rows = [];
+    private bool _restoreFocus;
     private DispatcherTimer? _refresh;
     private bool _readStarted;
     private bool _disposed;
@@ -60,7 +62,14 @@ internal sealed class OutlinePane : UserControl, IDisposable
         AutomationProperties.SetName(_list, WriteStrings.PaneOutline);
         _list.ContainerPrepared += (_, e) => Decorate(e.Container, e.Index);
         _list.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
+        _list.AddHandler(PointerMovedEvent, OnPointerMoved, RoutingStrategies.Bubble, handledEventsToo: true);
+        _list.AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        _list.PointerCaptureLost += OnPointerCaptureLost;
         _list.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        _list.SelectionChanged += (_, _) => RefreshButtons();
+        _list.GotFocus += OnListFocused;
+        view.GotFocus += OnViewFocused;
+        DetachedFromVisualTree += (_, _) => CancelDrag();
 
         _hint = new TextBlock
         {
@@ -73,10 +82,14 @@ internal sealed class OutlinePane : UserControl, IDisposable
         _hint.Classes.Add("outline-hint");
         AutomationProperties.SetName(_hint, WriteStrings.OutlineLoading);
 
-        var grid = new Grid();
-        grid.Children.Add(_list);
-        grid.Children.Add(_hint);
-        Content = grid;
+        _body = new Grid();
+        _body.Children.Add(_list);
+        _body.Children.Add(_hint);
+        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        root.Children.Add(CreateHeader());
+        Grid.SetRow(_body, 1);
+        root.Children.Add(_body);
+        Content = root;
 
         view.Runner.Changed += OnRunnerChanged;
         tab.ModelEdited += OnModelEdited;
@@ -103,6 +116,9 @@ internal sealed class OutlinePane : UserControl, IDisposable
     /// <summary>How long the edits must pause before the list is read again (tests shorten it).</summary>
     internal TimeSpan RefreshDelay { get; set; } = TimeSpan.FromMilliseconds(200);
 
+    /// <summary>Which platform's keys the list matches for the outline commands (tests set it to run the other platform's rules; the default is the system the process runs on).</summary>
+    internal bool MacOsKeys { get; set; } = OperatingSystem.IsMacOS();
+
     /// <summary>The read of the headings; the UI thread calls it (a test replaces it to see that).</summary>
     internal Func<WordDocument, IReadOnlyList<OutlineHeading>> Reader { get; set; } = OutlineSource.ReadHeadings;
 
@@ -113,6 +129,15 @@ internal sealed class OutlinePane : UserControl, IDisposable
     internal Task LoadTask => _loaded.Task;
 
     internal bool IsDisposed => _disposed;
+
+    /// <summary>
+    /// Whether the user is working in this pane: its list took the keyboard focus and the page view has not taken it back since. While it is, the outline commands act on <see cref="SelectedParagraph"/>
+    /// and not on the heading at the caret. A click on a ribbon button changes neither.
+    /// </summary>
+    internal bool Engaged { get; private set; }
+
+    /// <summary>The paragraph of the selected row, or null when no row is selected.</summary>
+    internal Paragraph? SelectedParagraph => _list.SelectedItem is OutlineRow row ? row.Paragraph : null;
 
     /// <summary>Puts the keyboard focus on the list (its selected row, or the first), or on the hint while there is no list.</summary>
     public void FocusContent()
@@ -160,8 +185,11 @@ internal sealed class OutlinePane : UserControl, IDisposable
             return;
         }
 
+        CancelDrag();
         _disposed = true;
         _view.Runner.Changed -= OnRunnerChanged;
+        _list.GotFocus -= OnListFocused;
+        _view.GotFocus -= OnViewFocused;
         _tab.ModelEdited -= OnModelEdited;
         _tab.Disposing -= Dispose;
         _refresh?.Stop();
@@ -236,6 +264,10 @@ internal sealed class OutlinePane : UserControl, IDisposable
             return;
         }
 
+        // The rows are replaced: a drag over the old ones ends, and a list that had the keyboard takes it again on the rebuilt row (the rebuild drops the focused container).
+        CancelDrag();
+        var restoreFocus = _restoreFocus || _list.IsKeyboardFocusWithin;
+        _restoreFocus = false;
         var selected = _list.SelectedItem is OutlineRow row ? row.Paragraph : null;
         var scroll = _list.Scroll as ScrollViewer;
         var offset = scroll?.Offset ?? default;
@@ -253,6 +285,20 @@ internal sealed class OutlinePane : UserControl, IDisposable
         if (scroll is not null && offset != default)
         {
             Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
+        }
+
+        RefreshButtons();
+        if (restoreFocus && _rows.Count > 0)
+        {
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    if (!_disposed && _list.IsVisible && _list.SelectedIndex >= 0)
+                    {
+                        FocusContent();
+                    }
+                },
+                DispatcherPriority.Loaded);
         }
     }
 
@@ -310,6 +356,7 @@ internal sealed class OutlinePane : UserControl, IDisposable
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        _pressRow = -1;
         if (!e.GetCurrentPoint(_list).Properties.IsLeftButtonPressed || e.Source is not Visual source)
         {
             return;
@@ -317,12 +364,25 @@ internal sealed class OutlinePane : UserControl, IDisposable
 
         if (source.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault() is { } item && _list.IndexFromContainer(item) is >= 0 and var index)
         {
+            // A press may turn into a drag of this row once the pointer has moved far enough.
+            _pressRow = index;
+            _pressPoint = e.GetPosition(_list);
             Choose(index);
         }
     }
 
+    private void OnListFocused(object? sender, RoutedEventArgs e) => Engaged = true;
+
+    private void OnViewFocused(object? sender, RoutedEventArgs e) => Engaged = false;
+
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // The outline keys (Alt and Shift with an arrow) are tunnelled: the list would take the arrows for its own selection before the window's handler saw them. Every other key stays the list's.
+        if (Actions is { } actions && !_dragging && EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is not null && actions.Key(e))
+        {
+            return;
+        }
+
         if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None && _list.SelectedIndex >= 0)
         {
             e.Handled = true;

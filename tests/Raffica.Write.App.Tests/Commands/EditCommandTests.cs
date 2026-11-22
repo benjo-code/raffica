@@ -901,7 +901,7 @@ public sealed class EditCommandTests : IDisposable
     public void TheRibbonHasTheEditCommandsWithShortcutsReasonsAndDescriptions()
     {
         var home = WriteCommandCatalog.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter);
-        Assert.Equal(["GroupFile", "GroupUndo", "GroupClipboard", "GroupFont", "GroupParagraph", "GroupStyles", "GroupSearch"], home.Groups.Select(g => g.LabelKey).ToArray());
+        Assert.Equal(["GroupFile", "GroupUndo", "GroupClipboard", "GroupFont", "GroupParagraph", "GroupStyles", "GroupLists", "GroupOutline", "GroupSearch"], home.Groups.Select(g => g.LabelKey).ToArray());
         var rules = new WriteCommandRules(() => true, () => 1.0, () => true, () => new EditCommandState(null, false, false, false));
         var actions = s_editIds.ToDictionary(id => id, _ => (Action)(() => { }));
         var definition = WriteRibbon.Create(actions, rules);

@@ -7,7 +7,7 @@ namespace Raffica.WriteApp.Tests;
 
 public sealed class MeasurementTests
 {
-    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-typing-snapshot"];
+    private static readonly string[] s_switches = ["--measure-startup", "--measure-second", "--measure-scroll", "--measure-memory", "--measure-typing", "--measure-typing-background", "--measure-typing-pane", "--measure-format", "--measure-structure", "--measure-typing-snapshot"];
 
     /// <summary>Collects the lines and the exit codes of a <see cref="Measurement"/>.</summary>
     private sealed class Probe
@@ -283,6 +283,43 @@ public sealed class MeasurementTests
                 }
             }
         }
+    }
+
+    [AvaloniaFact]
+    public async Task StructureMeasurementWritesOneRowPerCaseAndLeavesTheDocumentAsFound()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        var probe = new Probe();
+        using var measurement = Create(f, probe, "--measure-structure", typingKeys: 2);
+
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        for (var i = 0; i < 4800 && probe.Exits.Count == 0; i++)
+        {
+            await Task.Delay(25);
+            WindowFixture.Pump();
+        }
+
+        Assert.Equal([0], probe.Exits);
+        Assert.Equal(["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"], StructurePlaces.Names);
+        var rows = probe.Lines.Where(l => l.StartsWith("structure case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(StructurePlaces.All.Length, rows.Length);
+        Assert.Equal([.. StructurePlaces.Names, "move-last-to-first-far-caret"], StructurePlaces.All);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            Assert.Matches($@"^structure case={StructurePlaces.All[i]} view=page n=2 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d", rows[i]);
+        }
+
+        var refreshes = probe.Lines.Where(l => l.StartsWith("structure-refresh case=", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(StructurePlaces.All.Length, refreshes.Length);
+        Assert.All(refreshes, r => Assert.Matches(@"^structure-refresh case=[a-z-]+ view=page n=1 ms=\d+\.\d\d$", r));
+
+        // Every run restores what it changed: the outline and the heading numbering are the file's again.
+        using var original = Raffica.Write.Docx.DocxFile.Open(WindowFixture.Thesis);
+        var model = f.Window.Workspace.Active!.Docx.Model;
+        Assert.Equal(Raffica.Write.Panes.OutlineSource.Read(original.Model).Select(e => e.Text), Raffica.Write.Panes.OutlineSource.Read(model).Select(e => e.Text));
+        Assert.Equal(Raffica.Write.Editing.HeadingNumbering.StateOf(original.Model), Raffica.Write.Editing.HeadingNumbering.StateOf(model));
+        Assert.Equal(original.Model.Body.Blocks.Count, model.Body.Blocks.Count);
     }
 
     [AvaloniaFact]

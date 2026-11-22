@@ -54,6 +54,13 @@ public sealed partial class TextEditor
             return NoChange(selection.Start);
         }
 
+        return CommitParagraphEdit(span, revision, change);
+    }
+
+    // The shared tail of the paragraph operations: change every paragraph of the blocks FirstIndex to LastIndex whole, as one BlockChange and one history step.
+    // The caret of the result (and of the step) is the end of the span unless a caller needs another paragraph of the container for the history.
+    private EditResult CommitParagraphEdit(Span span, int revision, Action<Paragraph> change, EditHistory.Point? before = null)
+    {
         var old = CloneBlocks(span);
         for (var i = span.FirstIndex; i <= span.LastIndex; i++)
         {
@@ -67,7 +74,7 @@ public sealed partial class TextEditor
             [new BlockChange(span.Story, span.Container, span.FirstIndex, count, count, old)],
             KeepSelection: true);
         _document.Edits.Attribute(result.Changes);
-        History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
+        History.Record(result, before ?? new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;
     }
 }

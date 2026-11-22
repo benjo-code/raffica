@@ -908,12 +908,19 @@ jobs:
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case format --out ${{ env.OUT }}/format.csv
 
+      # Structure (milestone 4.4a): three chapter moves, the heading numbering switched on and off and a numbered list toggle on the thesis (--measure-structure); rows structure/<case>-median and -p95
+      # (the time from the command to the pages in view), structure-refresh/<case>-ms (the debounced ribbon refresh after a case). Recorded, never judged until the owner's runs enter a limit for the
+      # three move rows (aim 100 ms on the Linux laptop, limit = median x 1.25, a decisions entry); the check prints a note. Three launches. The far-caret row (move-last-to-first-far-caret: caret on the last page, view at the first) is recorded and never judged. The engine-only rows come from the step "Typing, engine only" (edit prints them and writes them into edit-bench.txt).
+      - name: Structure operations in the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case structure --out ${{ env.OUT }}/structure.csv
+
       # Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded for the owner, never judged.
       - name: Typing during the background layout (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-background --out ${{ env.OUT }}/typing-background.csv
 
-      # The engine alone, without a window (write-layout-bench edit): the same keystrokes through TextEditor and DocumentLayout.ApplyEdit, with the restarts and the hit test, then the formatting cases,
+      # The engine alone, without a window (write-layout-bench edit): the same keystrokes through TextEditor and DocumentLayout.ApplyEdit, with the restarts and the hit test, then the formatting cases, the structure cases (chapter moves, heading numbering, list toggle),
       # the style update (editor and Restyle to the pages in view and to the full layout) and select-all bold with its undo.
       # Recorded for the owner, never judged (a .txt so that the check's CSV glob does not read it).
       # Two steps because `shell: bash` on the owner's Windows runner resolves to WSL's bash.exe (C:\WINDOWS\system32), which cannot run the step's script file.

@@ -340,6 +340,13 @@ public sealed partial class DocumentLayout
     private EditRefill Refill(BlockChange change, int throughPage)
     {
         var old = _engine;
+
+        // The engine's numbering counters read the part that existed when it was made: a part a list command made since needs an engine of its own.
+        if (!ReferenceEquals(old.Numbering, old.Document.Numbering))
+        {
+            return Restart(throughPage);
+        }
+
         var oldCount = _pages.Count;
         EditPlan? chosen;
         if (change.Story.Kind == StoryKind.Body)
@@ -441,6 +448,7 @@ public sealed partial class DocumentLayout
             LastBodyIndex = plan.BodyCount - 1,
             Chrome = old.Chrome,
             Document = old.Document,
+            Numbering = old.Numbering,
             Planner = planner,
             Sections = plan.Sections,
             FinalPages = old.FinalPages,

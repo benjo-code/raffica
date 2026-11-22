@@ -144,17 +144,28 @@ internal sealed partial class PageView
             return false;
         }
 
-        if (EditingKeys.For(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } action)
+        if (EditingKeys.For(e.Key, e.KeyModifiers, MacOsKeys) is not { } action)
         {
             // A formatting key (Ctrl+B ...) is claimed and runs once: a held key does not toggle again and again; a key the rules of the window refuse does nothing.
-            if (EditingKeys.FormatCommandFor(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS()) is not { } format)
+            if (EditingKeys.FormatCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is { } format)
+            {
+                if (!repeat)
+                {
+                    _ = FormatKeyHandler is { } handler ? handler(format) : RunFormatCommand(format);
+                }
+
+                return true;
+            }
+
+            // The outline keys (Alt and Shift with an arrow) are claimed and run once as well.
+            if (EditingKeys.StructureCommandFor(e.Key, e.KeyModifiers, MacOsKeys) is not { } structure)
             {
                 return false;
             }
 
             if (!repeat)
             {
-                _ = FormatKeyHandler is { } handler ? handler(format) : RunFormatCommand(format);
+                _ = StructureKeyHandler is { } structureHandler ? structureHandler(structure) : RunStructureCommand(structure);
             }
 
             return true;
@@ -188,6 +199,13 @@ internal sealed partial class PageView
             return false;
         }
 
+        if (blocked is null && action.Kind == EditActionKind.Nothing)
+        {
+            // Shift+Tab: the level of a list paragraph back one step where Tab would go deeper; anywhere else it stays a claimed no-op (it must not move the focus out of the page).
+            ApplyKey(TabOperation(-1));
+            return true;
+        }
+
         if (action.Kind == EditActionKind.Nothing)
         {
             return true;
@@ -205,7 +223,7 @@ internal sealed partial class PageView
                 ApplyKey(session => ed => session.Selection is { } s ? ed.SplitParagraph(s) : null);
                 break;
             case EditActionKind.Tab:
-                ApplyKey(session => ed => session.Selection is { } s ? ed.InsertText(s, "\t") : null);
+                ApplyKey(TabOperation(+1));
                 break;
             case EditActionKind.Delete:
                 var (unit, forward) = (action.Unit, action.Forward);

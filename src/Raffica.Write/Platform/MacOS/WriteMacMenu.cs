@@ -149,6 +149,19 @@ internal sealed class WriteMacMenu
             formatMenu.Menu.Items.Add(new NativeMenuItemSeparator());
             FormatItem(WriteCommandIds.ClearDirect);
             FormatItem(WriteCommandIds.UpdateStyle);
+
+            // Lists and the heading numbering, then the outline commands (no key on the Mac: the Option and Shift arrows extend the selection there).
+            formatMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            FormatItem(WriteCommandIds.Bullets, check: true);
+            FormatItem(WriteCommandIds.Numbers, check: true);
+            FormatItem(WriteCommandIds.RestartNumbering);
+            FormatItem(WriteCommandIds.ContinueNumbering);
+            FormatItem(WriteCommandIds.NumberHeadings, check: true);
+            formatMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            FormatItem(WriteCommandIds.MoveUp);
+            FormatItem(WriteCommandIds.MoveDown);
+            FormatItem(WriteCommandIds.Promote);
+            FormatItem(WriteCommandIds.Demote);
             Menu.Items.Add(formatMenu);
             _headers.Add((formatMenu, () => WriteStrings.MenuFormat));
 
