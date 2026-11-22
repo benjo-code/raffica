@@ -389,6 +389,11 @@ public sealed class OrganizeListTests
     {
         using var f = await OrganizeListFixture.OpenAsync("thousand-pages.pdf");
         var list = f.List.List;
+
+        // A row is as tall as its page once the size of the page is known and 224 px (the A4 stand-in) before. The sizes of a long file arrive in batches and the rows are measured
+        // again when they do (on a slow runner row 500 was 224 px when the click point was taken and 99 px when it was pressed, so the press hit row 501): wait for them first.
+        await ViewFixture.WaitAsync(() => f.Tab.Session.LoadedSizes.Count > 500);
+        ViewFixture.Pump();
         list.ScrollIntoView(500);
         ViewFixture.Pump();
         f.Click(500);
