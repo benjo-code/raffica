@@ -370,7 +370,9 @@ public sealed class StructureWallClockTests
         Assert.Equal(1, onSteps);
         Assert.NotEmpty(off.Changes);
         Assert.Equal(2, offSteps);
-        Assert.Equal(labelsBefore, ReferenceNumbering.Labels(model).Count);
+        // Select all, numbered list on and off again: the second toggle finds every paragraph in a numbered list and removes it, a list that comes from a style (the headings) by a direct numId 0.
+        Assert.True(labelsBefore > 0);
+        Assert.Empty(ReferenceNumbering.Labels(model));
         if (headingsOn is not null)
         {
             Assert.NotNull(headingsOn.Style);
