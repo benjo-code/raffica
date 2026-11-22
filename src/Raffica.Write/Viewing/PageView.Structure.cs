@@ -83,7 +83,7 @@ internal sealed partial class PageView
     {
         var pane = OutlineParagraphSource?.Invoke();
         var reason = OutlineReason.None;
-        var result = ApplyGuarded(session, ed =>
+        var result = ApplyGuarded(session, outline: true, operation: ed =>
         {
             var model = _tab.Docx.Model;
             var headings = OutlineSource.ReadHeadings(model);
@@ -137,7 +137,7 @@ internal sealed partial class PageView
         }
 
         var reason = OutlineReason.None;
-        var result = ApplyGuarded(session, ed =>
+        var result = ApplyGuarded(session, outline: true, operation: ed =>
         {
             var model = _tab.Docx.Model;
             var headings = OutlineSource.ReadHeadings(model);
