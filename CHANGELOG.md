@@ -15,6 +15,7 @@ Format after [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionin
 
 ### Fixed
 
+- **Raffica Write: moving a chapter in the outline while the caret is far away no longer stalls.** A chapter move (the outline pane, a drag or Alt+Shift with Up and Down) made while the cursor sat many pages from the view laid out the whole document first, about half a second on the thesis; it now takes a few milliseconds, as with the cursor in view.
 - **Raffica Write: a saved file no longer asks Word to repair it.** Pressing Enter or pasting several lines into a plain-text, combo box, drop-down list or date content control made a second paragraph that Word refuses; these controls now keep one paragraph (Enter makes a line break only in a multi-line text control).
 - **Raffica Write: page breaks match Word.** The extra room of a line spacing such as 1.5 is below the text of a line and no longer needed to fit the last line of a page; the thesis test document is 309 pages, as in Word (it was 311).
 

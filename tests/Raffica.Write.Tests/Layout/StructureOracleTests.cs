@@ -190,6 +190,44 @@ public sealed class StructureOracleTests
         Assert.True(pulled > 0, "no variant moved the heading to another page: the walk-back was not exercised");
     }
 
+    // An outline move brings the layout only through the last page in view, which can be far above the change (the view at the top, the chapter moved from the end, or to the end): the layout
+    // stops at that page, the rest follows in the background, and the result must equal a full layout, for the move, its undo and its redo. The sections make the move a restart of the layout
+    // (HasSectionBreak); the same range moved without a section break takes the fast path.
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task AMoveLaidOutThroughALowPageStillEqualsAFullLayout(bool withSections, bool toTheTop)
+    {
+        var random = new Random(4711);
+        var body = new StringBuilder();
+        for (var section = 0; section < 5; section++)
+        {
+            for (var p = 0; p < 60; p++)
+            {
+                var last = p == 59 && section < 4 && withSections;
+                var text = $"Section {section} paragraph {p}: " + Filler(random, random.Next(60, 120));
+                body.Append(last ? PageTestKit.PEnd(text, PageTestKit.Sect()) : PageTestKit.P(text));
+            }
+        }
+
+        var model = LayoutModel.Document(body.ToString());
+        var layout = DocumentLayout.Create(model, PageTestKit.Fonts, new LayoutOptions());
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.True(layout.LaidOutPages >= 20, "the document is only " + layout.LaidOutPages + " pages long");
+        var steps = new StructureSteps(model, layout, new LayoutOptions()) { ThroughPage = (_, _) => 0 };
+        var count = model.Body.Blocks.Count;
+
+        var moved = toTheTop
+            ? await steps.MoveToAsync(count - 60, 60, 0, false, $"low through page, last section to the top, sections {withSections}")
+            : await steps.MoveToAsync(0, 60, count, false, $"low through page, first section to the end, sections {withSections}");
+
+        Assert.True(moved);
+        Assert.Equal(3, steps.Compared);
+        Assert.Equal(withSections ? 1 : 0, steps.MovedSections);
+    }
+
     private static string LabelsAndText(WordDocument model) =>
         string.Join("\n", ReferenceNumbering.Labels(model).Select(l => l.Label + "|" + TestEdit.TextOf(l.Paragraph)));
 

@@ -309,8 +309,34 @@ internal sealed partial class PageView
         return new Rect(page.X + (box.X * scroller.Scale), page.Y + (box.Top * scroller.Scale), CaretWidth, box.Height * scroller.Scale);
     }
 
-    /// <summary>The bar of the caret of the session in view coordinates (while an input method composes: the bar inside the preedit, see <see cref="PreeditCaretBounds"/>), or null without a caret.</summary>
-    internal Rect? CaretBarBounds => IsComposing ? PreeditCaretBounds : (Caret is { } caret ? CaretBounds(caret, Affinity) : null);
+    /// <summary>
+    /// The bar of the caret of the session in view coordinates (while an input method composes: the bar inside the preedit, see <see cref="PreeditCaretBounds"/>), or null without a caret. A session caret the layout
+    /// cannot show (its page is not laid out: an outline move put it below the view) makes the page of the caret unknown again, so the next edit lays out through the last page in view and not through the page of
+    /// a caret that is gone (it would pay the layout of the whole document on the first key after the move).
+    /// </summary>
+    internal Rect? CaretBarBounds
+    {
+        get
+        {
+            if (IsComposing)
+            {
+                return PreeditCaretBounds;
+            }
+
+            if (Caret is not { } caret)
+            {
+                return null;
+            }
+
+            var bar = CaretBounds(caret, Affinity);
+            if (bar is null)
+            {
+                _caretPage = -1;
+            }
+
+            return bar;
+        }
+    }
 
     /// <summary>Scrolls the least that brings the caret into view (with a margin); a caret the layout does not show yet changes nothing.</summary>
     public void EnsureCaretVisible()

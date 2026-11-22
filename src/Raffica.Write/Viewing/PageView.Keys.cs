@@ -271,17 +271,17 @@ internal sealed partial class PageView
     }
 
     /// <summary>
-    /// Runs an editing operation on the session through <see cref="EditSession.Apply"/> with the pages through the caret's page and the last page in view, and decides what a failure
+    /// Runs an editing operation on the session through <see cref="EditSession.Apply"/> with the pages through the caret's page and the last page in view (an <paramref name="outline"/> operation: through the last page in view only, see <see cref="ThroughPageInView"/>), and decides what a failure
     /// means. What can fail: the layout (then <see cref="EditSession.Apply"/> has failed the runner, the session is faulted and shows no more caret, and <see cref="InputRefused"/> says so
     /// once); the operation itself, with any exception but one: it may have changed the model (it can fail between its change and the raising of the revision, and an argument exception of the framework can come from there as well as from anywhere), so model, history and layout may now disagree and the session is failed on purpose, through the runner, and <see cref="InputRefused"/> says editing is unavailable. The one exception is the text editor refusing a stale position with a <see cref="StalePositionException"/>
     /// (it checks positions before it changes anything, so model, history and layout are as they were: the operation is refused). That refusal is a bug and no state of the document: a Debug build rethrows it, a Release build refuses silently and traces only the exception type (no message, no stack, no text). Write has
     /// no crash guard yet (shared crash handling is a later milestone). Returns the result of the operation, or null when it was refused, queued, blocked or failed.
     /// </summary>
-    private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation, bool typing = false)
+    private EditResult? ApplyGuarded(EditSession session, Func<TextEditor, EditResult?> operation, bool typing = false, bool outline = false)
     {
         try
         {
-            return session.Apply(operation, ThroughPage(), typing: typing);
+            return session.Apply(operation, outline ? ThroughPageInView() : ThroughPage(), typing: typing);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -323,14 +323,17 @@ internal sealed partial class PageView
     // The last page an edit must lay out before it returns: the caret's page and the last page in view.
     private int ThroughPage()
     {
-        EnsureCurrent();
-        if (_scroller is not { Count: > 0 } scroller)
-        {
-            return 0;
-        }
-
-        var lastInView = scroller.PageAt(_offsetY + _viewport.Height);
+        var lastInView = ThroughPageInView();
         return Math.Max(lastInView, _caretPage >= 0 ? _caretPage : lastInView);
+    }
+
+    // The last page in view alone: what an outline operation lays out. It moves the caret to the heading it moved or leaves the selection where it was, so the page of the caret from before
+    // says nothing about what the command will show; a caret that is far from the view and not laid out is simply not drawn until the pages come in the background (EnsureCaretVisible
+    // scrolls only to a caret the layout can show), and the command never lays out a page nobody looks at.
+    private int ThroughPageInView()
+    {
+        EnsureCurrent();
+        return _scroller is not { Count: > 0 } scroller ? 0 : scroller.PageAt(_offsetY + _viewport.Height);
     }
 
     // Select all: the whole story of the caret (the body, or the header, footer or note it is in), from its first top-level paragraph to the end of its last.
