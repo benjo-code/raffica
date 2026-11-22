@@ -162,12 +162,16 @@ public sealed class ListCatalog
     /// The list of the headings: the instance of a definition already linked to Heading1 to Heading9, else of a multilevel numbered
     /// definition with nine levels that is linked to no style, else Write's heading definition with a new <c>w:num</c>.
     /// </summary>
-    public int HeadingList()
+    /// <param name="styleLevels">
+    /// The zero-based levels whose heading style the file defines (null: all nine). A definition counts as linked when these levels link to Heading1 to
+    /// Heading9, and a definition made here links only these levels: a <c>w:pStyle</c> that names a style the file does not have is never written.
+    /// </param>
+    public int HeadingList(IReadOnlyCollection<int>? styleLevels = null)
     {
         var numbering = Required();
         foreach (var instance in InPartOrder(numbering.Instances))
         {
-            if (instance.NumId > 0 && FindAbstract(numbering, instance) is { } linked && IsHeadingLinked(linked))
+            if (instance.NumId > 0 && FindAbstract(numbering, instance) is { } linked && IsHeadingLinked(linked, styleLevels))
             {
                 return instance.NumId;
             }
@@ -187,7 +191,20 @@ public sealed class ListCatalog
         }
 
         var id = NextAbstractId(numbering);
-        numbering.Abstracts.Add(WriteListDefinitions.Heading(id));
+        var added = WriteListDefinitions.Heading(id);
+        if (styleLevels is not null)
+        {
+            foreach (var level in added.Levels.Where(l => !styleLevels.Contains(l.Level)))
+            {
+                var link = level.KeptChildren.Where(k => k.Content.Element.Name == W + "pStyle").ToList();
+                foreach (var kept in link)
+                {
+                    level.KeptChildren.Remove(kept);
+                }
+            }
+        }
+
+        numbering.Abstracts.Add(added);
         return AddInstance(numbering, id, track: true);
     }
 
@@ -230,10 +247,15 @@ public sealed class ListCatalog
     private static bool IsLinkedToStyles(AbstractNumbering abstractNumbering) =>
         abstractNumbering.Levels.Any(l => LevelStyle(l) is not null);
 
-    private static bool IsHeadingLinked(AbstractNumbering abstractNumbering)
+    private static bool IsHeadingLinked(AbstractNumbering abstractNumbering, IReadOnlyCollection<int>? styleLevels)
     {
         for (var level = 0; level < WriteListDefinitions.LevelCount; level++)
         {
+            if (styleLevels is not null && !styleLevels.Contains(level))
+            {
+                continue;
+            }
+
             var item = abstractNumbering.Levels.FirstOrDefault(l => l.Level == level);
             if (item is null || LevelStyle(item) != "Heading" + (level + 1).ToString(CultureInfo.InvariantCulture))
             {

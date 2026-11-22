@@ -95,10 +95,10 @@ public sealed class RestyleTests
         Assert.Throws<InvalidOperationException>(() => layout.Restyle(1));
     }
 
-    private static string HeadingStyles()
+    private static string HeadingStyles(int count = 9)
     {
         var text = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>";
-        for (var i = 1; i <= 9; i++)
+        for (var i = 1; i <= count; i++)
         {
             text += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr><w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
         }
@@ -106,10 +106,10 @@ public sealed class RestyleTests
         return LayoutModel.StylesPart(text);
     }
 
-    private static WordDocument HeadingDocument(string? numbering)
+    private static WordDocument HeadingDocument(string? numbering, int count = 9)
     {
         string P(int level, string text) => $"<w:p><w:pPr><w:pStyle w:val=\"Heading{level}\"/></w:pPr><w:r><w:t>{text}</w:t></w:r></w:p>";
-        return LayoutModel.Document(P(1, "A") + P(2, "B") + P(1, "C") + P(2, "D") + P(2, "E"), HeadingStyles(), numbering);
+        return LayoutModel.Document(P(1, "A") + P(2, "B") + P(1, "C") + P(2, "D") + P(2, "E") + P(3, "F"), HeadingStyles(count), numbering);
     }
 
     // The labels the layout drew in line order: the first word of every body line that has a label run.
@@ -142,9 +142,9 @@ public sealed class RestyleTests
         LayoutOracle.AssertEqualToFull(layout, model, label: label);
     }
 
-    private static async Task SwitchingHeadingNumbersAsync(string? numbering)
+    private static async Task SwitchingHeadingNumbersAsync(string? numbering, int count = 9)
     {
-        var model = HeadingDocument(numbering);
+        var model = HeadingDocument(numbering, count);
         var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
         var layout = await LaidAsync(model);
         Assert.Empty(DrawnLabels(layout));
@@ -152,7 +152,7 @@ public sealed class RestyleTests
         Assert.NotNull(editor.SetHeadingNumbering(true));
         layout.Restyle(0);
         await AssertLabelsAsync(layout, model, "numbers on");
-        Assert.Equal(["1.", "1.1.", "2.", "2.1.", "2.2."], DrawnLabels(layout));
+        Assert.Equal(["1.", "1.1.", "2.", "2.1.", "2.2.", "2.2.1."], DrawnLabels(layout));
 
         Assert.NotNull(editor.History.Undo());
         layout.Restyle(0);
@@ -162,7 +162,7 @@ public sealed class RestyleTests
         Assert.NotNull(editor.History.Redo());
         layout.Restyle(0);
         await AssertLabelsAsync(layout, model, "numbers redone");
-        Assert.Equal(["1.", "1.1.", "2.", "2.1.", "2.2."], DrawnLabels(layout));
+        Assert.Equal(["1.", "1.1.", "2.", "2.1.", "2.2.", "2.2.1."], DrawnLabels(layout));
     }
 
     [Fact]
@@ -171,4 +171,11 @@ public sealed class RestyleTests
 
     [Fact]
     public Task SwitchingHeadingNumbersOnInADocumentWithoutANumberingPartGivesTheLayoutNumbers() => SwitchingHeadingNumbersAsync(null);
+
+    [Fact]
+    public Task SwitchingHeadingNumbersOnADocumentWithOnlyHeading1To3GivesTheLayoutNumbers() => SwitchingHeadingNumbersAsync(
+        LayoutModel.NumberingPart(string.Empty), 3);
+
+    [Fact]
+    public Task SwitchingHeadingNumbersOnADocumentWithOnlyHeading1To3AndNoNumberingPartGivesTheLayoutNumbers() => SwitchingHeadingNumbersAsync(null, 3);
 }

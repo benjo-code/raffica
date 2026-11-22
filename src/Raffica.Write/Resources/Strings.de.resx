@@ -1093,7 +1093,7 @@
     <value>Die Auswahl reicht über eine Tabellenzelle, ein Inhaltssteuerelement oder eine Fußnote hinaus.</value>
   </data>
   <data name="ReasonNoHeadingStyles" xml:space="preserve">
-    <value>Dem Dokument fehlen die Formatvorlagen Überschrift 1 bis 9.</value>
+    <value>Dem Dokument fehlt die Formatvorlage Überschrift 1.</value>
   </data>
   <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
     <value>An der Schreibmarke steht keine Überschrift.</value>

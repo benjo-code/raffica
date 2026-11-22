@@ -10,10 +10,10 @@ public enum HeadingNumberingState
     /// <summary>The Heading 1 style carries a list.</summary>
     On,
 
-    /// <summary>The nine heading styles exist and Heading 1 carries no list.</summary>
+    /// <summary>The file defines Heading 1 and it carries no list.</summary>
     Off,
 
-    /// <summary>The file lacks a style sheet or one of the styles Heading1 to Heading9 (named "heading 1" to "heading 9").</summary>
+    /// <summary>The file has no style sheet or does not define Heading 1 (id Heading1, name "heading 1"); the styles Heading 2 to 9 may be missing.</summary>
     Unavailable,
 }
 
@@ -32,37 +32,42 @@ public static class HeadingNumbering
             return HeadingNumberingState.Unavailable;
         }
 
-        return styles[0].ParagraphProperties.NumberingId is > 0 ? HeadingNumberingState.On : HeadingNumberingState.Off;
+        return styles[0].Style.ParagraphProperties.NumberingId is > 0 ? HeadingNumberingState.On : HeadingNumberingState.Off;
     }
 
-    /// <summary>The styles Heading1 to Heading9 by position, or null when the file lacks one of them or its name does not say "heading n".</summary>
-    internal static Style[]? HeadingStyles(WordDocument document)
+    /// <summary>
+    /// The heading styles the file defines among Heading1 to Heading9 (style id <c>HeadingN</c>, name "heading N" in any case), each with its zero-based
+    /// level, in level order; many Word files define only Heading1 to Heading3. Null when the file has no style sheet or no Heading1 (the first entry is
+    /// then always level 0).
+    /// </summary>
+    internal static IReadOnlyList<(int Level, Style Style)>? HeadingStyles(WordDocument document)
     {
         if (document.Styles is not { } sheet)
         {
             return null;
         }
 
-        var result = new Style[Levels];
+        var result = new List<(int, Style)>();
         for (var level = 1; level <= Levels; level++)
         {
             var number = level.ToString(CultureInfo.InvariantCulture);
-            if (sheet.Find("Heading" + number) is not { } style
-                || !string.Equals(style.Name, "heading " + number, StringComparison.OrdinalIgnoreCase))
+            if (sheet.Find("Heading" + number) is { } style
+                && string.Equals(style.Name, "heading " + number, StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                result.Add((level - 1, style));
             }
-
-            result[level - 1] = style;
         }
 
-        return result;
+        return result.Count > 0 && result[0].Item1 == 0 ? result : null;
     }
 
-    /// <summary>Gives every level of the definition that lacks one the <c>w:pStyle</c> link Heading1 to Heading9 (a level that already links to some style is left alone).</summary>
-    internal static void LinkLevels(AbstractNumbering definition)
+    /// <summary>
+    /// Gives each of the given levels of the definition that lacks one the <c>w:pStyle</c> link Heading1 to Heading9 (a level that already links to
+    /// some style is left alone). Levels of styles the file does not define get no link.
+    /// </summary>
+    internal static void LinkLevels(AbstractNumbering definition, IEnumerable<int> levels)
     {
-        for (var level = 0; level < Levels; level++)
+        foreach (var level in levels)
         {
             var item = definition.Levels.FirstOrDefault(l => l.Level == level);
             if (item is null || item.KeptChildren.Any(k => k.Content.Element.Name == W + "pStyle"))

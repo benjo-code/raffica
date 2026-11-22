@@ -13,12 +13,12 @@ public sealed partial class TextEditor
     internal ListCatalog Lists => _lists ??= new ListCatalog(_document);
 
     /// <summary>
-    /// Numbers the headings (<paramref name="on"/>) or stops numbering them: the nine styles Heading1 to Heading9 gain <c>w:numPr</c> of the heading
+    /// Numbers the headings (<paramref name="on"/>) or stops numbering them: the heading styles the file defines among Heading1 to Heading9 (Heading1 is required; many files define only Heading1 to Heading3) gain <c>w:numPr</c> of the heading
     /// list (<c>ilvl</c> from level 2 on) or lose it, in one history step. Switching on takes the list from <see cref="ListCatalog.HeadingList"/> and gives
-    /// its levels the <c>w:pStyle</c> links Heading1 to Heading9 when they lack them; the definition and its <c>w:num</c> stay when the step is undone
+    /// the levels of those styles the <c>w:pStyle</c> links when they lack them (never a link to a style the file lacks); the definition and its <c>w:num</c> stay when the step is undone
     /// (a definition is never removed), so a redo and a later switch on find them. A style that already carries a list (or any <c>numPr</c> while
-    /// switching off with no list) is not touched, and direct <c>numPr</c> of paragraphs never is. The step is a <see cref="StyleChange"/> with eight
-    /// companions and no block change (<see cref="EditResult.Changes"/> is empty): the session restyles the layout.
+    /// switching off with no list) is not touched, and direct <c>numPr</c> of paragraphs never is. The step is a <see cref="StyleChange"/> with
+    /// as many companions as there are styles, less one, and no block change (<see cref="EditResult.Changes"/> is empty): the session restyles the layout.
     /// </summary>
     /// <param name="on">True to number the headings, false to remove the numbers.</param>
     /// <param name="caret">Where the caret is: the result and an undo or redo put it back there, so a caller that has a caret must pass it (a stale position throws <see cref="StalePositionException"/> before anything changes). Only a fallback when null: the first paragraph of the body, tables and content controls included.</param>
@@ -40,17 +40,16 @@ public sealed partial class TextEditor
         var numId = 0;
         if (on)
         {
-            numId = Lists.HeadingList();
+            numId = Lists.HeadingList([.. styles.Select(s => s.Level)]);
             if (_document.Numbering?.FindInstance(numId)?.AbstractNumId is { } abstractId && _document.Numbering.FindAbstract(abstractId) is { } definition)
             {
-                HeadingNumbering.LinkLevels(definition);
+                HeadingNumbering.LinkLevels(definition, styles.Select(s => s.Level));
             }
         }
 
         var changes = new List<StyleChange>();
-        for (var i = 0; i < styles.Length; i++)
+        foreach (var (level, original) in styles)
         {
-            var original = styles[i];
             var carries = original.ParagraphProperties.NumberingId is > 0;
             if (carries == on)
             {
@@ -60,7 +59,7 @@ public sealed partial class TextEditor
             var updated = original.Clone();
             if (on)
             {
-                updated.ParagraphProperties.Set(W + "numPr", HeadingNumbering.NumPr(numId, i));
+                updated.ParagraphProperties.Set(W + "numPr", HeadingNumbering.NumPr(numId, level));
             }
             else
             {

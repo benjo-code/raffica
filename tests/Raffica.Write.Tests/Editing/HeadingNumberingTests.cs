@@ -11,10 +11,10 @@ public sealed class HeadingNumberingTests
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    private static string HeadingStyles(Func<int, string>? inner = null)
+    private static string HeadingStyles(Func<int, string>? inner = null, int count = 9, int first = 1)
     {
         var text = "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>";
-        for (var i = 1; i <= 9; i++)
+        for (var i = first; i < first + count; i++)
         {
             text += $"<w:style w:type=\"paragraph\" w:styleId=\"Heading{i}\"><w:name w:val=\"heading {i}\"/><w:pPr>{inner?.Invoke(i)}<w:outlineLvl w:val=\"{i - 1}\"/></w:pPr></w:style>";
         }
@@ -25,8 +25,8 @@ public sealed class HeadingNumberingTests
     private static string Body(params (string Style, string Text)[] items) =>
         string.Concat(items.Select(i => $"<w:p><w:pPr><w:pStyle w:val=\"{i.Style}\"/></w:pPr><w:r><w:t>{i.Text}</w:t></w:r></w:p>"));
 
-    private static WordDocument NewDocument(string? numbering = null, Func<int, string>? inner = null, string? body = null) =>
-        LayoutModel.Document(body ?? Body(("Heading1", "A"), ("Heading2", "B"), ("Heading1", "C")), HeadingStyles(inner), numbering);
+    private static WordDocument NewDocument(string? numbering = null, Func<int, string>? inner = null, string? body = null, int count = 9, int first = 1) =>
+        LayoutModel.Document(body ?? Body(("Heading1", "A"), ("Heading2", "B"), ("Heading1", "C")), HeadingStyles(inner, count, first), numbering);
 
     private static TextEditor EditorOf(WordDocument document) => new(document, (_, _) => ProjectionHost.Plain);
 
@@ -159,18 +159,107 @@ public sealed class HeadingNumberingTests
     }
 
     [Fact]
-    public void AFileWithoutHeadingStylesIsUnavailable()
+    public void AFileWithoutHeading1IsUnavailable()
     {
-        var document = LayoutModel.Document(
-            "<w:p><w:r><w:t>x</w:t></w:r></w:p>",
-            LayoutModel.StylesPart("<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/></w:style>"));
+        var document = NewDocument(count: 8, first: 2, body: Body(("Heading2", "A")));
         Assert.Equal(HeadingNumberingState.Unavailable, HeadingNumbering.StateOf(document));
         Assert.Null(EditorOf(document).SetHeadingNumbering(true));
+        Assert.Null(document.Numbering);
 
         var noStyles = LayoutModel.Document("<w:p><w:r><w:t>x</w:t></w:r></w:p>");
         Assert.Equal(HeadingNumberingState.Unavailable, HeadingNumbering.StateOf(noStyles));
         Assert.Null(EditorOf(noStyles).SetHeadingNumbering(true));
         Assert.Null(noStyles.Numbering);
+    }
+
+    [Fact]
+    public void AFileWithOnlyHeading1To3IsSwitchedOnTheseStyles()
+    {
+        var document = NewDocument(count: 3);
+        Assert.Equal(HeadingNumberingState.Off, HeadingNumbering.StateOf(document));
+
+        var result = EditorOf(document).SetHeadingNumbering(true);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Style!.Companions.Count);
+        Assert.Equal(HeadingNumberingState.On, HeadingNumbering.StateOf(document));
+        var numId = NumIdOf(document, 1)!.Value;
+        for (var level = 1; level <= 3; level++)
+        {
+            Assert.Equal(numId, NumIdOf(document, level));
+            Assert.Equal((level - 1).ToString(CultureInfo.InvariantCulture), (string?)Heading(document, level).ParagraphProperties.Get(W + "numPr")!.Element(W + "ilvl")?.Attribute(W + "val") ?? "0");
+        }
+
+        Assert.Null(document.Styles!.Find("Heading4"));
+        var definition = document.Numbering!.FindAbstract(document.Numbering.FindInstance(numId)!.AbstractNumId!.Value)!;
+        for (var level = 0; level < 9; level++)
+        {
+            Assert.Equal(level < 3 ? "Heading" + (level + 1) : null, LevelLink(definition, level));
+        }
+    }
+
+    [Fact]
+    public void OffRemovesOnlyTheExistingStyleLinksAndUndoAndRedoSwapTheseStyles()
+    {
+        var document = NewDocument(count: 3);
+        var editor = EditorOf(document);
+        var before = Snapshot(document);
+        editor.SetHeadingNumbering(true);
+        var on = Snapshot(document);
+
+        var off = editor.SetHeadingNumbering(false);
+
+        Assert.Equal(2, off!.Style!.Companions.Count);
+        Assert.Equal(before, Snapshot(document));
+        editor.History.Undo();
+        Assert.Equal(on, Snapshot(document));
+        editor.History.Undo();
+        Assert.Equal(before, Snapshot(document));
+        Assert.Equal(2, editor.History.Redo()!.Style!.Companions.Count);
+        Assert.Equal(on, Snapshot(document));
+    }
+
+    [Fact]
+    public void AFileWithOnlyHeading1HasNoCompanions()
+    {
+        var document = NewDocument(count: 1);
+        var result = EditorOf(document).SetHeadingNumbering(true);
+        Assert.NotNull(result);
+        Assert.Empty(result.Style!.Companions);
+        Assert.Equal(HeadingNumberingState.On, HeadingNumbering.StateOf(document));
+    }
+
+    [Fact]
+    public void ADefinitionLinkedForTheExistingLevelsIsFoundAgainAfterUndo()
+    {
+        var document = NewDocument(count: 3);
+        var editor = EditorOf(document);
+        editor.SetHeadingNumbering(true);
+        editor.History.Undo();
+        editor.History.Redo();
+        editor.History.Undo();
+
+        editor.SetHeadingNumbering(true);
+
+        Assert.Single(document.Numbering!.Abstracts);
+        Assert.Single(document.Numbering.Instances);
+    }
+
+    [Fact]
+    public void ANineLevelDefinitionLinkedToAllHeadingsIsReusedForFewerStyles()
+    {
+        var levels = string.Concat(Enumerable.Range(0, 9).Select(l =>
+            $"<w:lvl w:ilvl=\"{l}\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:pStyle w:val=\"Heading{l + 1}\"/><w:lvlText w:val=\"%{l + 1}.\"/></w:lvl>"));
+        var numbering = LayoutModel.NumberingPart(
+            "<w:abstractNum w:abstractNumId=\"4\"><w:multiLevelType w:val=\"multilevel\"/>" + levels + "</w:abstractNum><w:num w:numId=\"3\"><w:abstractNumId w:val=\"4\"/></w:num>");
+        var document = NewDocument(numbering, count: 3);
+
+        Assert.NotNull(EditorOf(document).SetHeadingNumbering(true));
+
+        Assert.Equal(3, NumIdOf(document, 3));
+        Assert.Single(document.Numbering!.Abstracts);
+        Assert.Single(document.Numbering.Instances);
+        Assert.Equal("Heading9", LevelLink(document.Numbering.Abstracts[0], 8));
     }
 
     [Fact]
