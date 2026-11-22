@@ -366,7 +366,7 @@
     {
       "date": "2026-11-22",
       "context": "Milestone 4.4.1",
-      "text": "The measuring task of 4.4.1 is only partly done: the engine bench rows and the app switch `--measure-structure` (with the `structure` case of `measure.cs`) exist and ran on the Windows PC (chapter moves 2.3 to 6.1 ms median on the generated thesis with the caret at the view; numbering on and off about 4 ms; the start cost against the commit before 4.4a shows no regression), but the budget row is NOT entered: the structure rows are recorded and not judged, because the limit is set from the owner's runs on the Linux laptop and the Intel Mac and the owner decides whether the 100 ms aim must also hold for a move run while the caret is far from the view (that case lays out through the caret page and costs about 495 ms on the thesis; see the backlog). The task and the second acceptance criterion stay open. The heading numbering switch numbers the heading styles a file defines (Heading 1 only is enough), not all nine."
+      "text": "The measuring task of 4.4.1 is only partly done: the engine bench rows and the app switch `--measure-structure` (with the `structure` case of `measure.cs`) exist and ran on the Windows PC (chapter moves 2.3 to 6.1 ms median on the generated thesis with the caret at the view; numbering on and off about 4 ms; the start cost against the commit before 4.4a shows no regression), but the budget row is NOT entered: the structure rows are recorded and not judged, because the limit is set from the owner's runs on the Linux laptop and the Intel Mac (a move run while the caret is far from the view laid out through the caret page and cost about 500 ms on the thesis; fixed on 2026-11-22: it now takes about 2 to 3 ms on the Windows PC, see `Docs/DECISIONS.md`; the Linux laptop and Intel Mac numbers after the fix are open). The task and the second acceptance criterion stay open. The heading numbering switch numbers the heading styles a file defines (Heading 1 only is enough), not all nine."
     }
   ],
   "subprojects": [
@@ -1350,10 +1350,6 @@
     {
       "title": "Third-party licences of the Write projects",
       "text": "Extend `tools/licenses.cs` and the third-party notices to the Write projects (Open XML SDK `DocumentFormat.OpenXml` and `.Framework` 3.5.1, `System.IO.Packaging`, transitive packages) before Write ships. `PackageList.Projects` lists only `src/Raffica.Pdf` and `src/Raffica.Cli`, so the check is blind to the SDK (all declare MIT in their NuGet metadata). See `Docs/DECISIONS.md`, \"Raffica Write: document model and DOCX package layer (M4.1)\"."
-    },
-    {
-      "title": "Outline move while the caret is far from the view lays out through the caret page",
-      "text": "An outline move (pane button, drag or Alt+Shift+Up and Down) run with the caret far from the view lays out through `PageView.ThroughPage()`, the later of the last page in view and the caret page. A move that crosses a section break takes `Restart` in Pages mode, so it then costs up to a full layout: about 495 ms on the generated thesis with the caret on the last page and the view at the first (498, 497 and 492 ms medians, Windows PC, `move-last-to-first-far-caret`), against 5 to 6 ms with the caret at the view; a move that spans no section break stays incremental. Remedies: pass the view's last page instead of `ThroughPage()` for outline commands (`PageView.RunOutline`, `RunOutlineDrop`; the caret page is only needed when the caret must be shown), or a `PlanEdit` fast path across a section break whose properties are unchanged (needs its own oracle case and a decision). The owner decides whether the 100 ms aim must hold for this case before a limit is entered. See `Docs/DECISIONS.md`, \"Raffica Write: headings, lists and the outline (M4.4a)\"."
     },
     {
       "title": "Heading styles with localized ids",
