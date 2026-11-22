@@ -34,6 +34,8 @@ namespace Raffica.Write.Commands;
  *   format.font -> type, format.size -> a-large-small, format.sizeUp -> a-arrow-up, format.sizeDown -> a-arrow-down, format.color -> palette, format.highlight -> highlighter
  *   format.spaceBefore -> arrow-up-to-line, format.spaceAfter -> arrow-down-to-line, format.lineSpacing -> list-chevrons-up-down
  *   format.paragraphStyle -> pilcrow, format.characterStyle -> baseline
+ *   structure.numberHeadings -> heading, list.bullets -> list, list.numbers -> list-ordered, list.restart -> list-restart, list.continue -> list-start
+ *   outline.moveUp -> chevrons-up, outline.moveDown -> chevrons-down, outline.promote -> arrow-left-to-line, outline.demote -> arrow-right-to-line
  *   view.formatting -> panel-right
  */
 
@@ -123,15 +125,15 @@ internal sealed class CatalogGroup(CatalogTab tab, string labelKey, string digit
 
     public IReadOnlyList<CatalogCommand> Commands => _commands;
 
-    internal CatalogGroup Add(string id, string nameKey, string icon, string code, WriteShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, WriteShortcut? macShortcut = null, bool describe = false)
+    internal CatalogGroup Add(string id, string nameKey, string icon, string code, WriteShortcut? shortcut = null, CommandSize size = CommandSize.Small, bool toggle = false, WriteShortcut? macShortcut = null, bool describe = false, bool noMacShortcut = false)
     {
-        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, macShortcut, describe ? "Desc" + nameKey[3..] : null, WriteCommandIds.TakesPayload(id)));
+        _commands.Add(new CatalogCommand(this, id, nameKey, icon, code, shortcut, size, toggle, macShortcut, describe ? "Desc" + nameKey[3..] : null, WriteCommandIds.TakesPayload(id), noMacShortcut));
         return this;
     }
 }
 
 /// <summary>One command: id, name (a string key), icon, field code and shortcut, in one place.</summary>
-internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, WriteShortcut? shortcut, CommandSize size, bool toggle, WriteShortcut? macShortcut, string? descriptionKey, bool takesPayload)
+internal sealed class CatalogCommand(CatalogGroup group, string id, string nameKey, string icon, string fieldCode, WriteShortcut? shortcut, CommandSize size, bool toggle, WriteShortcut? macShortcut, string? descriptionKey, bool takesPayload, bool noMacShortcut = false)
 {
     public CatalogGroup Group { get; } = group;
 
@@ -159,7 +161,7 @@ internal sealed class CatalogCommand(CatalogGroup group, string id, string nameK
     public WriteShortcut? Shortcut => ShortcutFor(OperatingSystem.IsMacOS());
 
     /// <summary>The shortcut on a system: the macOS one when the command has its own there, else the default.</summary>
-    public WriteShortcut? ShortcutFor(bool macOs) => macOs && macShortcut is not null ? macShortcut : shortcut;
+    public WriteShortcut? ShortcutFor(bool macOs) => macOs ? macShortcut ?? (noMacShortcut ? null : shortcut) : shortcut;
 
     public CommandSize Size { get; } = size;
 
@@ -231,6 +233,17 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.ParagraphStyle, "CmdFormatParagraphStyle", "Pilcrow", "71")
             .Add(WriteCommandIds.CharacterStyle, "CmdFormatCharacterStyle", "Baseline", "72")
             .Add(WriteCommandIds.UpdateStyle, "CmdFormatUpdateStyle", "RefreshCw", "73");
+        home.Group("GroupLists", "8")
+            .Add(WriteCommandIds.Bullets, "CmdBullets", "List", "81", null, toggle: true, describe: true)
+            .Add(WriteCommandIds.Numbers, "CmdNumbers", "ListOrdered", "82", null, toggle: true, describe: true)
+            .Add(WriteCommandIds.RestartNumbering, "CmdRestartNumbering", "ListRestart", "83", null, describe: true)
+            .Add(WriteCommandIds.ContinueNumbering, "CmdContinueNumbering", "ListStart", "84", null, describe: true)
+            .Add(WriteCommandIds.NumberHeadings, "CmdNumberHeadings", "Heading", "85", null, toggle: true, describe: true);
+        home.Group("GroupOutline", "9")
+            .Add(WriteCommandIds.MoveUp, "CmdMoveUp", "ChevronsUp", "91", AltShift(Key.Up, "Up"), describe: true, noMacShortcut: true)
+            .Add(WriteCommandIds.MoveDown, "CmdMoveDown", "ChevronsDown", "92", AltShift(Key.Down, "Down"), describe: true, noMacShortcut: true)
+            .Add(WriteCommandIds.Promote, "CmdPromote", "ArrowLeftToLine", "93", AltShift(Key.Left, "Left"), describe: true, noMacShortcut: true)
+            .Add(WriteCommandIds.Demote, "CmdDemote", "ArrowRightToLine", "94", AltShift(Key.Right, "Right"), describe: true, noMacShortcut: true);
         home.Group("GroupSearch", "2")
             .Add(WriteCommandIds.Search, "CmdSearch", "Search", "21", new WriteShortcut(Key.Q, "Q", WriteShortcutBase.Alt), CommandSize.Large, macShortcut: Cmd(Key.K, "K"));
 
@@ -264,7 +277,7 @@ internal static class WriteCommandCatalog
         var mac = macOs ?? OperatingSystem.IsMacOS();
         foreach (var candidate in Commands)
         {
-            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && !WriteCommandIds.IsStructure(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate;
             }
@@ -272,6 +285,9 @@ internal static class WriteCommandCatalog
 
         return null;
     }
+
+    // Alt and Shift with an arrow: the outline keys of Windows and Linux (never Ctrl+Alt, which is AltGr there); the Mac has none (see the decision of milestone 4.4a).
+    private static WriteShortcut AltShift(Key key, string token) => new(key, token, WriteShortcutBase.Alt, Shift: true);
 
     private static WriteShortcut Cmd(Key key, string token, bool anyShift = false, Key[]? alternates = null, bool repeat = false) =>
         new(key, token, WriteShortcutBase.Command, anyShift, alternates, repeat);

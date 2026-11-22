@@ -61,6 +61,8 @@ internal sealed class OutlinePane : UserControl, IDisposable
         _list.ContainerPrepared += (_, e) => Decorate(e.Container, e.Index);
         _list.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         _list.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        _list.GotFocus += OnListFocused;
+        view.GotFocus += OnViewFocused;
 
         _hint = new TextBlock
         {
@@ -114,6 +116,15 @@ internal sealed class OutlinePane : UserControl, IDisposable
 
     internal bool IsDisposed => _disposed;
 
+    /// <summary>
+    /// Whether the user is working in this pane: its list took the keyboard focus and the page view has not taken it back since. While it is, the outline commands act on <see cref="SelectedParagraph"/>
+    /// and not on the heading at the caret. A click on a ribbon button changes neither.
+    /// </summary>
+    internal bool Engaged { get; private set; }
+
+    /// <summary>The paragraph of the selected row, or null when no row is selected.</summary>
+    internal Paragraph? SelectedParagraph => _list.SelectedItem is OutlineRow row ? row.Paragraph : null;
+
     /// <summary>Puts the keyboard focus on the list (its selected row, or the first), or on the hint while there is no list.</summary>
     public void FocusContent()
     {
@@ -162,6 +173,8 @@ internal sealed class OutlinePane : UserControl, IDisposable
 
         _disposed = true;
         _view.Runner.Changed -= OnRunnerChanged;
+        _list.GotFocus -= OnListFocused;
+        _view.GotFocus -= OnViewFocused;
         _tab.ModelEdited -= OnModelEdited;
         _tab.Disposing -= Dispose;
         _refresh?.Stop();
@@ -320,6 +333,10 @@ internal sealed class OutlinePane : UserControl, IDisposable
             Choose(index);
         }
     }
+
+    private void OnListFocused(object? sender, RoutedEventArgs e) => Engaged = true;
+
+    private void OnViewFocused(object? sender, RoutedEventArgs e) => Engaged = false;
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {

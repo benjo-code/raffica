@@ -229,7 +229,7 @@ internal static class EditingKeys
     /// (on macOS the key text of Option with an arrow or Backspace can be a private-use character).
     /// </summary>
     public static bool IsTextInput(Key key, KeyModifiers modifiers, string? text, bool macOs) =>
-        IsTextInput(modifiers, text, macOs) && For(key, modifiers, macOs) is null && FormatCommandFor(key, modifiers, macOs) is null;
+        IsTextInput(modifiers, text, macOs) && For(key, modifiers, macOs) is null && FormatCommandFor(key, modifiers, macOs) is null && StructureCommandFor(key, modifiers, macOs) is null;
 
     /// <summary>
     /// The formatting command (<see cref="WriteCommandIds.IsFormatting"/>) a key press stands for, or null: the command key (Ctrl, Cmd on macOS) with B, I, U, E, L, R or J, as the catalog says (the page view owns
@@ -241,6 +241,25 @@ internal static class EditingKeys
         foreach (var candidate in WriteCommandCatalog.Commands)
         {
             if (WriteCommandIds.IsFormatting(candidate.Id) && candidate.ShortcutFor(macOs) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            {
+                return candidate.Id;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The structure command (<see cref="WriteCommandIds.IsStructure"/>) a key press stands for, or null: Alt and Shift with an arrow on Windows and Linux (move and promote and demote the heading at the
+    /// caret), as the catalog says; the page view owns these keys. Alt and Shift must be the only modifiers: AltGr (Ctrl and Alt together on Windows) is text, never a shortcut, and the Mac has no key for
+    /// them (the Option and Shift arrows extend the selection there).
+    /// </summary>
+    public static string? StructureCommandFor(Key key, KeyModifiers modifiers, bool macOs)
+    {
+        var command = macOs ? KeyModifiers.Meta : KeyModifiers.Control;
+        foreach (var candidate in WriteCommandCatalog.Commands)
+        {
+            if (WriteCommandIds.IsStructure(candidate.Id) && candidate.ShortcutFor(macOs) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate.Id;
             }

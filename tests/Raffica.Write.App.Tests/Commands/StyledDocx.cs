@@ -32,7 +32,34 @@ internal static class StyledDocx
         return path;
     }
 
-    public static byte[] Bytes(string? styles, params string[] paragraphs)
+    /// <summary>Normal, Heading 1 and Heading 2 with their outline levels (the outline lists a paragraph by its outline level).</summary>
+    public const string StylesWithHeading2 = """
+        <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
+        <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>
+        <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/></w:rPr></w:style>
+        """;
+
+    /// <summary>A numbering part with one bullet definition (<c>w:num</c> 1) over three levels.</summary>
+    public const string BulletNumbering = """
+        <w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>
+        <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="-"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>
+        <w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="-"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>
+        <w:lvl w:ilvl="2"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="-"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr></w:lvl>
+        </w:abstractNum>
+        <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+        """;
+
+    /// <summary>Writes a document with a numbering part (the <c>w:abstractNum</c> and <c>w:num</c> elements) and the given paragraphs.</summary>
+    public static string WriteWithNumbering(string folder, string name, string styles, string numbering, params string[] paragraphs)
+    {
+        var path = Path.Combine(folder, name);
+        File.WriteAllBytes(path, Bytes(styles, numbering, paragraphs));
+        return path;
+    }
+
+    public static byte[] Bytes(string? styles, params string[] paragraphs) => Bytes(styles, null, paragraphs);
+
+    public static byte[] Bytes(string? styles, string? numbering, params string[] paragraphs)
     {
         using var memory = new MemoryStream();
         using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
@@ -44,6 +71,7 @@ internal static class StyledDocx
                   <Default Extension="xml" ContentType="application/xml"/>
                   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
                   {(styles is null ? string.Empty : "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>")}
+                  {(numbering is null ? string.Empty : "<Override PartName=\"/word/numbering.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml\"/>")}
                 </Types>
                 """);
             Entry(zip, "_rels/.rels", """
@@ -56,6 +84,7 @@ internal static class StyledDocx
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
                   {(styles is null ? string.Empty : "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>")}
+                  {(numbering is null ? string.Empty : "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering\" Target=\"numbering.xml\"/>")}
                 </Relationships>
                 """);
             if (styles is not null)
@@ -63,6 +92,14 @@ internal static class StyledDocx
                 Entry(zip, "word/styles.xml", $"""
                     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                     <w:styles {W}>{styles}</w:styles>
+                    """);
+            }
+
+            if (numbering is not null)
+            {
+                Entry(zip, "word/numbering.xml", $"""
+                    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                    <w:numbering {W}>{numbering}</w:numbering>
                     """);
             }
 

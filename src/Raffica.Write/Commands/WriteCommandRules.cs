@@ -24,7 +24,8 @@ namespace Raffica.Write.Commands;
 /// <param name="saveState">What Save and Save as need to know of the active tab; null reads as a document with changes that can be saved.</param>
 /// <param name="isClosing">Whether the window is closing (New document is the only command that then says so; null: never).</param>
 /// <param name="formatFacts">The facts about the selection that Clear direct formatting, the style pickers and Update style to match need; asked only when one of those commands is (and only while editing is not blocked), so the state of the other commands never pays for them; null keeps the facts of <paramref name="editState"/>.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null)
+/// <param name="structureFacts">The facts of the structure commands (lists, heading numbering, outline) for the selection; asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<StructureFacts>? structureFacts = null)
 {
     private const double Tolerance = 1e-9;
 
@@ -57,6 +58,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         WriteCommandIds.SaveAs => SaveState.Refusal(saveAs: true) is null,
         _ when WriteCommandIds.IsEditing(id) => hasDocument() && EditReason(id, State) is null,
         _ when WriteCommandIds.IsFormatting(id) => hasDocument() && FormatReason(id, FormatState(id)) is null,
+        _ when WriteCommandIds.IsStructure(id) => hasDocument() && StructureReason(id) is null,
         _ => hasDocument(),
     };
 
@@ -84,6 +86,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsFormatting(id))
         {
             return FormatReason(id, FormatState(id));
+        }
+
+        if (WriteCommandIds.IsStructure(id))
+        {
+            return StructureReason(id);
         }
 
         return id switch
@@ -127,6 +134,38 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
             WriteCommandIds.UpdateStyle when state.StyleMixed => WriteStrings.ReasonStyleMixed,
             WriteCommandIds.UpdateStyle when !state.HasStylesPart || !state.StyleDefined => WriteStrings.ReasonStyleNotDefined,
             WriteCommandIds.UpdateStyle when !state.CanUpdateStyle => WriteStrings.ReasonNothingToUpdate,
+            _ => null,
+        };
+    }
+
+    // The reason a structure command (lists, heading numbering, outline) is disabled, or null when it may run. The block comes first, a save included (the target of an outline command is read from
+    // the model as it is now), then the facts of the selection; the facts are read only while editing is not blocked.
+    private string? StructureReason(string id)
+    {
+        switch (State.Blocked)
+        {
+            case EditBlockedReason.StillOpening:
+                return WriteStrings.ReasonEditOpening;
+            case EditBlockedReason.Faulted:
+                return WriteStrings.EditUnavailable;
+            case EditBlockedReason.Saving:
+                return WriteStrings.ReasonEditSaving;
+            default:
+                break;
+        }
+
+        var facts = structureFacts?.Invoke() ?? StructureFacts.Permissive;
+        var list = facts.List;
+        return id switch
+        {
+            WriteCommandIds.Bullets or WriteCommandIds.Numbers when list.ToggleReason != ListReason.None => StructureWording.ListReasonText(list.ToggleReason),
+            WriteCommandIds.RestartNumbering when !list.CanRestart => StructureWording.ListReasonText(list.RestartReason),
+            WriteCommandIds.ContinueNumbering when !list.CanContinue => StructureWording.ListReasonText(list.ContinueReason),
+            WriteCommandIds.NumberHeadings when facts.Headings == HeadingNumberingState.Unavailable => WriteStrings.ReasonNoHeadingStyles,
+            WriteCommandIds.MoveUp when facts.MoveUp != OutlineReason.None => StructureWording.OutlineReasonText(facts.MoveUp, id),
+            WriteCommandIds.MoveDown when facts.MoveDown != OutlineReason.None => StructureWording.OutlineReasonText(facts.MoveDown, id),
+            WriteCommandIds.Promote when facts.Promote != OutlineReason.None => StructureWording.OutlineReasonText(facts.Promote, id),
+            WriteCommandIds.Demote when facts.Demote != OutlineReason.None => StructureWording.OutlineReasonText(facts.Demote, id),
             _ => null,
         };
     }

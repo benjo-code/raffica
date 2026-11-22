@@ -1008,4 +1008,115 @@
   <data name="RecoveryEntryFormat" xml:space="preserve">
     <value>{0}, {1}</value>
   </data>
+  <data name="GroupLists" xml:space="preserve">
+    <value>Lists</value>
+  </data>
+  <data name="GroupOutline" xml:space="preserve">
+    <value>Outline</value>
+  </data>
+  <data name="CmdNumberHeadings" xml:space="preserve">
+    <value>Number headings</value>
+  </data>
+  <data name="DescNumberHeadings" xml:space="preserve">
+    <value>Numbers Heading 1 to Heading 9 through their styles, or removes the numbers again.</value>
+  </data>
+  <data name="CmdBullets" xml:space="preserve">
+    <value>Bullets</value>
+  </data>
+  <data name="DescBullets" xml:space="preserve">
+    <value>Makes the selected paragraphs a bulleted list, or plain paragraphs again.</value>
+  </data>
+  <data name="CmdNumbers" xml:space="preserve">
+    <value>Numbering</value>
+  </data>
+  <data name="DescNumbers" xml:space="preserve">
+    <value>Makes the selected paragraphs a numbered list, or plain paragraphs again.</value>
+  </data>
+  <data name="CmdRestartNumbering" xml:space="preserve">
+    <value>Restart numbering</value>
+  </data>
+  <data name="DescRestartNumbering" xml:space="preserve">
+    <value>Starts the list at 1 again from the paragraph at the caret.</value>
+  </data>
+  <data name="CmdContinueNumbering" xml:space="preserve">
+    <value>Continue numbering</value>
+  </data>
+  <data name="DescContinueNumbering" xml:space="preserve">
+    <value>Continues the numbering of the earlier list at the paragraph at the caret.</value>
+  </data>
+  <data name="CmdMoveUp" xml:space="preserve">
+    <value>Move chapter up</value>
+  </data>
+  <data name="DescMoveUp" xml:space="preserve">
+    <value>Moves the heading at the caret with everything under it past the heading above.</value>
+  </data>
+  <data name="CmdMoveDown" xml:space="preserve">
+    <value>Move chapter down</value>
+  </data>
+  <data name="DescMoveDown" xml:space="preserve">
+    <value>Moves the heading at the caret with everything under it past the heading below.</value>
+  </data>
+  <data name="CmdPromote" xml:space="preserve">
+    <value>Promote heading</value>
+  </data>
+  <data name="DescPromote" xml:space="preserve">
+    <value>Raises the heading at the caret and the headings under it by one level.</value>
+  </data>
+  <data name="CmdDemote" xml:space="preserve">
+    <value>Demote heading</value>
+  </data>
+  <data name="DescDemote" xml:space="preserve">
+    <value>Lowers the heading at the caret and the headings under it by one level.</value>
+  </data>
+  <data name="ReasonNotInAList" xml:space="preserve">
+    <value>The paragraph is not in a list.</value>
+  </data>
+  <data name="ReasonNothingToContinue" xml:space="preserve">
+    <value>There is no earlier list to continue.</value>
+  </data>
+  <data name="ReasonAlreadyContinues" xml:space="preserve">
+    <value>The list already continues the earlier one.</value>
+  </data>
+  <data name="ReasonListAcrossContainers" xml:space="preserve">
+    <value>The selection reaches across a table cell, a content control or a note.</value>
+  </data>
+  <data name="ReasonNoHeadingStyles" xml:space="preserve">
+    <value>The document lacks the styles Heading 1 to Heading 9.</value>
+  </data>
+  <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
+    <value>There is no heading at the caret.</value>
+  </data>
+  <data name="ReasonMoveSectionBreak" xml:space="preserve">
+    <value>This chapter holds a section break and cannot be moved yet.</value>
+  </data>
+  <data name="ReasonMoveInControl" xml:space="preserve">
+    <value>A heading inside a content control cannot be moved.</value>
+  </data>
+  <data name="ReasonMoveNotTopLevel" xml:space="preserve">
+    <value>Only headings in the body text can be moved.</value>
+  </data>
+  <data name="ReasonMoveAtTop" xml:space="preserve">
+    <value>The chapter is already first.</value>
+  </data>
+  <data name="ReasonMoveAtEnd" xml:space="preserve">
+    <value>The chapter is already last.</value>
+  </data>
+  <data name="ReasonMoveCannot" xml:space="preserve">
+    <value>The chapter cannot move there.</value>
+  </data>
+  <data name="ReasonShiftNotHeadingStyle" xml:space="preserve">
+    <value>The level of a heading here comes from a style other than Heading 1 to 9, or that style is missing.</value>
+  </data>
+  <data name="ReasonPromoteOutOfRange" xml:space="preserve">
+    <value>A heading would go above level 1.</value>
+  </data>
+  <data name="ReasonDemoteOutOfRange" xml:space="preserve">
+    <value>A heading would go below level 9.</value>
+  </data>
+  <data name="ReasonShiftNothing" xml:space="preserve">
+    <value>There is no heading to change.</value>
+  </data>
+  <data name="NoteStructureFailed" xml:space="preserve">
+    <value>The command could not be applied here.</value>
+  </data>
 </root>

@@ -1008,4 +1008,115 @@
   <data name="RecoveryEntryFormat" xml:space="preserve">
     <value>{0}, {1}</value>
   </data>
+  <data name="GroupLists" xml:space="preserve">
+    <value>Listen</value>
+  </data>
+  <data name="GroupOutline" xml:space="preserve">
+    <value>Gliederung</value>
+  </data>
+  <data name="CmdNumberHeadings" xml:space="preserve">
+    <value>Überschriften nummerieren</value>
+  </data>
+  <data name="DescNumberHeadings" xml:space="preserve">
+    <value>Nummeriert Überschrift 1 bis 9 über ihre Formatvorlagen oder entfernt die Nummern wieder.</value>
+  </data>
+  <data name="CmdBullets" xml:space="preserve">
+    <value>Aufzählung</value>
+  </data>
+  <data name="DescBullets" xml:space="preserve">
+    <value>Macht aus den markierten Absätzen eine Aufzählung oder wieder normale Absätze.</value>
+  </data>
+  <data name="CmdNumbers" xml:space="preserve">
+    <value>Nummerierung</value>
+  </data>
+  <data name="DescNumbers" xml:space="preserve">
+    <value>Macht aus den markierten Absätzen eine nummerierte Liste oder wieder normale Absätze.</value>
+  </data>
+  <data name="CmdRestartNumbering" xml:space="preserve">
+    <value>Nummerierung neu beginnen</value>
+  </data>
+  <data name="DescRestartNumbering" xml:space="preserve">
+    <value>Beginnt die Liste ab dem Absatz an der Schreibmarke wieder bei 1.</value>
+  </data>
+  <data name="CmdContinueNumbering" xml:space="preserve">
+    <value>Nummerierung fortsetzen</value>
+  </data>
+  <data name="DescContinueNumbering" xml:space="preserve">
+    <value>Setzt die Nummerierung der früheren Liste ab dem Absatz an der Schreibmarke fort.</value>
+  </data>
+  <data name="CmdMoveUp" xml:space="preserve">
+    <value>Kapitel nach oben</value>
+  </data>
+  <data name="DescMoveUp" xml:space="preserve">
+    <value>Verschiebt die Überschrift an der Schreibmarke samt allem darunter über die Überschrift davor.</value>
+  </data>
+  <data name="CmdMoveDown" xml:space="preserve">
+    <value>Kapitel nach unten</value>
+  </data>
+  <data name="DescMoveDown" xml:space="preserve">
+    <value>Verschiebt die Überschrift an der Schreibmarke samt allem darunter unter die Überschrift danach.</value>
+  </data>
+  <data name="CmdPromote" xml:space="preserve">
+    <value>Überschrift höherstufen</value>
+  </data>
+  <data name="DescPromote" xml:space="preserve">
+    <value>Stuft die Überschrift an der Schreibmarke und die Überschriften darunter um eine Ebene höher.</value>
+  </data>
+  <data name="CmdDemote" xml:space="preserve">
+    <value>Überschrift tieferstufen</value>
+  </data>
+  <data name="DescDemote" xml:space="preserve">
+    <value>Stuft die Überschrift an der Schreibmarke und die Überschriften darunter um eine Ebene tiefer.</value>
+  </data>
+  <data name="ReasonNotInAList" xml:space="preserve">
+    <value>Der Absatz ist nicht in einer Liste.</value>
+  </data>
+  <data name="ReasonNothingToContinue" xml:space="preserve">
+    <value>Es gibt keine frühere Liste zum Fortsetzen.</value>
+  </data>
+  <data name="ReasonAlreadyContinues" xml:space="preserve">
+    <value>Die Liste setzt die frühere schon fort.</value>
+  </data>
+  <data name="ReasonListAcrossContainers" xml:space="preserve">
+    <value>Die Auswahl reicht über eine Tabellenzelle, ein Inhaltssteuerelement oder eine Fußnote hinaus.</value>
+  </data>
+  <data name="ReasonNoHeadingStyles" xml:space="preserve">
+    <value>Dem Dokument fehlen die Formatvorlagen Überschrift 1 bis 9.</value>
+  </data>
+  <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
+    <value>An der Schreibmarke steht keine Überschrift.</value>
+  </data>
+  <data name="ReasonMoveSectionBreak" xml:space="preserve">
+    <value>Dieses Kapitel enthält einen Abschnittswechsel und lässt sich noch nicht verschieben.</value>
+  </data>
+  <data name="ReasonMoveInControl" xml:space="preserve">
+    <value>Eine Überschrift in einem Inhaltssteuerelement lässt sich nicht verschieben.</value>
+  </data>
+  <data name="ReasonMoveNotTopLevel" xml:space="preserve">
+    <value>Nur Überschriften im Fließtext lassen sich verschieben.</value>
+  </data>
+  <data name="ReasonMoveAtTop" xml:space="preserve">
+    <value>Das Kapitel steht schon ganz oben.</value>
+  </data>
+  <data name="ReasonMoveAtEnd" xml:space="preserve">
+    <value>Das Kapitel steht schon ganz unten.</value>
+  </data>
+  <data name="ReasonMoveCannot" xml:space="preserve">
+    <value>Das Kapitel lässt sich dorthin nicht verschieben.</value>
+  </data>
+  <data name="ReasonShiftNotHeadingStyle" xml:space="preserve">
+    <value>Die Ebene einer Überschrift stammt hier aus einer anderen Formatvorlage als Überschrift 1 bis 9, oder die Vorlage fehlt.</value>
+  </data>
+  <data name="ReasonPromoteOutOfRange" xml:space="preserve">
+    <value>Eine Überschrift würde über Ebene 1 hinausgehen.</value>
+  </data>
+  <data name="ReasonDemoteOutOfRange" xml:space="preserve">
+    <value>Eine Überschrift würde unter Ebene 9 hinausgehen.</value>
+  </data>
+  <data name="ReasonShiftNothing" xml:space="preserve">
+    <value>Es gibt keine Überschrift, die sich ändern ließe.</value>
+  </data>
+  <data name="NoteStructureFailed" xml:space="preserve">
+    <value>Der Befehl ließ sich hier nicht ausführen.</value>
+  </data>
 </root>

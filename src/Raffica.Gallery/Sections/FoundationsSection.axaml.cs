@@ -26,6 +26,7 @@ internal sealed partial class FoundationsSection : UserControl
         "Strikethrough", "TextSelect", "Trash2", "Type", "Undo2", "ZoomIn", "ZoomOut",
         "ALargeSmall", "AArrowUp", "AArrowDown", "Superscript", "Subscript", "CaseSensitive", "CaseUpper", "RemoveFormatting", "Palette", "AlignJustify", "ListIndentIncrease",
         "ListIndentDecrease", "ListChevronsUpDown", "ArrowUpToLine", "ArrowDownToLine", "Link", "Pin", "FileUp", "ListEnd", "Pilcrow", "Baseline",
+        "Heading", "List", "ListOrdered", "ListRestart", "ListStart", "ChevronsUp", "ChevronsDown", "ArrowLeftToLine", "ArrowRightToLine",
     ];
 
     public FoundationsSection()

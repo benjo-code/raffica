@@ -58,6 +58,15 @@ internal static class WriteCommandIds
     public const string LineSpacing = "format.lineSpacing";
     public const string ParagraphStyle = "format.paragraphStyle";
     public const string CharacterStyle = "format.characterStyle";
+    public const string NumberHeadings = "structure.numberHeadings";
+    public const string Bullets = "list.bullets";
+    public const string Numbers = "list.numbers";
+    public const string RestartNumbering = "list.restart";
+    public const string ContinueNumbering = "list.continue";
+    public const string MoveUp = "outline.moveUp";
+    public const string MoveDown = "outline.moveDown";
+    public const string Promote = "outline.promote";
+    public const string Demote = "outline.demote";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -67,6 +76,15 @@ internal static class WriteCommandIds
     /// (a text box in a pane keeps its own Ctrl+B), so the window never matches them itself. The Formatting pane switch (<see cref="FormattingPane"/>) is a view command and not one of them.
     /// </summary>
     public static bool IsFormatting(string id) => id.StartsWith("format.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether the command is one of the structure commands: the heading numbering switch, the list commands and the outline commands (move, promote, demote). Their keys (Alt+Shift with the arrows,
+    /// Tab in a list) belong to the page view like the formatting keys, so the window never matches them itself; the facts that enable them are read through <see cref="StructureFacts"/>.
+    /// </summary>
+    public static bool IsStructure(string id) => id.StartsWith("structure.", StringComparison.Ordinal) || id.StartsWith("list.", StringComparison.Ordinal) || id.StartsWith("outline.", StringComparison.Ordinal);
+
+    /// <summary>Whether the command is one of the four outline commands (they act on a heading: the one of the selected outline row, or the one at the caret).</summary>
+    public static bool IsOutline(string id) => id.StartsWith("outline.", StringComparison.Ordinal);
 
     /// <summary>Whether the command is a value command: the ribbon picker that chooses the value passes it to the action as the payload (<see cref="CatalogCommand.TakesPayload"/>).</summary>
     public static bool TakesPayload(string id) => id is Font or Size or SizeUp or SizeDown or Color or Highlight or SpaceBefore or SpaceAfter or LineSpacing or ParagraphStyle or CharacterStyle;

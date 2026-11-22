@@ -63,6 +63,8 @@ internal sealed class EditSession
     private readonly RefreshableFormat _format = new();
     private ((WordDocument Model, int Revision, TextRange Range) Key, FormatFacts Facts)? _facts;
     private ((WordDocument Model, int Revision, TextRange Range) Key, InspectorView? View)? _inspected;
+    private ((WordDocument Model, int Revision, TextRange Range) Key, ListFacts Facts)? _listed;
+    private object? _numberingSeen;
     private ((WordDocument Model, int Revision, TextRange Range) Key, SelectionFormat Format)? _shown;
     private (SelectionFormat Base, IReadOnlyList<PropertyChange> Pending, SelectionFormat Result)? _overlay;
     private bool _selectionDirty;
@@ -270,6 +272,29 @@ internal sealed class EditSession
 
     /// <summary>How many times <see cref="ReadFormatFacts"/> read the model instead of answering from memory (tests).</summary>
     internal int FactReads { get; private set; }
+
+    /// <summary>
+    /// What the list commands need to know about <paramref name="range"/> (see <see cref="TextEditor.ReadListFacts"/>, which builds story-wide data and is not remembered by the editor). The answer is
+    /// remembered for the model, its revision and the range, so asking again while none of the three changed costs nothing. Call it on the UI thread and only while <see cref="CanEdit"/>, and never
+    /// from the key path: it is asked by the debounced refresh of the ribbon.
+    /// </summary>
+    public ListFacts ReadListFacts(TextRange range)
+    {
+        var model = _tab.Docx.Model;
+        var key = (model, model.Edits.Revision, range);
+        if (_listed is { } known && known.Key.Equals(key))
+        {
+            return known.Facts;
+        }
+
+        var facts = Editor.ReadListFacts(range);
+        ListReads++;
+        _listed = (key, facts);
+        return facts;
+    }
+
+    /// <summary>How many times <see cref="ReadListFacts"/> read the model instead of answering from memory (tests).</summary>
+    internal int ListReads { get; private set; }
 
     /// <summary>
     /// The formatting of <paramref name="range"/> as the ribbon shows it (see <see cref="SelectionFormat"/>), with the pending format on top at a caret. The read of the model is remembered for the
@@ -517,6 +542,7 @@ internal sealed class EditSession
         var stamp = Stamp();
         var editor = Bind();
         var result = operation(editor);
+        NoteNumbering(_tab.Docx.Model);
         Mark(EditPhases.Operation, stamp);
         if (result is null)
         {
@@ -586,6 +612,17 @@ internal sealed class EditSession
         return result;
     }
 
+    // A list command on a document that had no numbering part makes one inside the edit; the editor's resolver was built with none and would not see any list (a toggle of the same list would add
+    // one again). The resolver is made again whenever the numbering part is another object than the one it was built for (a part that appears, never one that goes: definitions are never removed).
+    private void NoteNumbering(WordDocument model)
+    {
+        if (!ReferenceEquals(_numberingSeen, model.Numbering))
+        {
+            _numberingSeen = model.Numbering;
+            _format.Invalidate(model);
+        }
+    }
+
     private void DropOther(LayoutRunner runner)
     {
         if (_activeMode == LayoutMode.Flow)
@@ -613,6 +650,7 @@ internal sealed class EditSession
             _format.Invalidate(model);
             _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec };
             _bound = model;
+            _numberingSeen = model.Numbering;
             _selection = StartOf(model);
         }
 
