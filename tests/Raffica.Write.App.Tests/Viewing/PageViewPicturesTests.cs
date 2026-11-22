@@ -91,6 +91,15 @@ public sealed class PageViewPicturesTests : IDisposable
         Assert.True(wanted.Length >= 3);
         await ViewHarness.WaitAsync(() => wanted.All(p => h.Tab.Pictures.TryGet(p) is not null));
 
+        // The cache raises Decoded after the whole warm-up, so a picture can be there before the event has been delivered: wait for the event itself.
+        await ViewHarness.WaitAsync(() =>
+        {
+            lock (threads)
+            {
+                return decodedEvents > 0;
+            }
+        });
+
         // Far pages were not touched, the decoding was off the UI thread, and the view asked for a frame because of it (once per burst).
         Assert.Null(h.Tab.Pictures.TryGet(PicturesOf(layout, 17)[0]));
         lock (threads)
