@@ -26,6 +26,7 @@ internal sealed partial class Measurement
 
     private readonly bool _structureRun;
     private bool _structurePrepared;
+    private int _structureStage;
     private int _structureUndos;
 
     // The paragraphs of the level 1 headings (the chapters) and every heading, read fresh for each run (an undo may replace a paragraph).
@@ -52,11 +53,25 @@ internal sealed partial class Measurement
             }
         }
 
-        // An undo may replace the paragraph objects: the place is read again from the body block it names.
-        if (_job?.Place is { } place && model.Body.Blocks[place.HintBlock] is Paragraph at)
+        // An undo may replace the paragraph objects: the place is read again from the body block it names. The caret goes there and the view follows it in two frames of their own (as the typing
+        // run places itself), because the page an edit must lay out through is the page of the caret the view knows: a caret set in the same frame as the command would still be the one the undo left
+        // at the end of the document, and the command would lay out through that page (the cost of the whole layout, not of the first visible page).
+        if (_job?.Place is { } place && model.Body.Blocks[place.HintBlock] is Paragraph at && _structureStage < 2)
         {
-            var position = new TextPosition(place.Story, at, Math.Min(place.Offset, ParagraphProjection.Build(at, view.Runner.PageLayout.ProjectionHost(place.Story, at)).Text.Length));
-            session.SetSelection(new TextRange(position, position));
+            if (_structureStage == 0)
+            {
+                var position = new TextPosition(place.Story, at, Math.Min(place.Offset, ParagraphProjection.Build(at, view.Runner.PageLayout.ProjectionHost(place.Story, at)).Text.Length));
+                session.SetSelection(new TextRange(position, position));
+                view.ScrollToBlock(place.HintBlock);
+            }
+            else
+            {
+                view.EnsureCaretVisible();
+            }
+
+            _structureStage++;
+            NextTypingFrame();
+            return;
         }
 
         Func<bool> run;
@@ -123,6 +138,7 @@ internal sealed partial class Measurement
 
         var revision = model.Edits.Revision;
         _structurePrepared = false;
+        _structureStage = 0;
         _keyIncomplete = false;
         _renderSeen = false;
         _renderStart = 0;
