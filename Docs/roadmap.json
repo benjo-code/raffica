@@ -372,6 +372,11 @@
       "date": "2026-11-22",
       "context": "Milestone 4.4.1",
       "text": "The measuring task and the chapter-move criterion of 4.4.1 are done: the metric `structure` (worst median of the three move rows, CPU cost) has a fixed limit of 100 ms on every platform in `s_writeBudgets`, the aim, not the median of the runs times 1.25 (the medians are 2 to 8 ms, a limit that tight would fail on a laptop's day-to-day variation; `Docs/DECISIONS.md`, \"Raffica Write: the structure limit (M4.4a)\"). The Word criterion is ticked on a check through Word automation (the numbers read by Word equal Write's), not on a person's look. The milestone stays in progress for the owner's decision: the remaining open item is the optional look at the Native AOT app on a real display on the three machines."
+    },
+    {
+      "date": "2026-11-22",
+      "context": "Milestone 4.4.1",
+      "text": "Milestone 4.4.1 is closed as done on the owner's instruction, without the owner's own look at the Native AOT app on a real display. The criterion is ticked with the evidence that exists (headless captures, a real AOT start on the Windows PC, the `structure` runs of the AOT app on the Linux laptop and the Intel Mac) and the risk left open is named in it: real Alt+Shift, Tab and Shift+Tab keys, a real pointer drag with the drop line, the dimmed row and the button size in the 240 px pane. The follow-ups stay in the backlog (the view following the moved heading, localized heading style ids)."
     }
   ],
   "subprojects": [
@@ -1013,7 +1018,8 @@
         {
           "id": "4.4.1",
           "title": "Headings, lists and the outline (4.4a)",
-          "status": "in-progress",
+          "status": "done",
+          "completedOn": "2026-11-22",
           "plan": "superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md",
           "prerequisites": ["4.3.3"],
           "goal": "Headings and lists are built by Write on the document's numbering definitions, and the outline pane moves, promotes and demotes a heading with its content.",
@@ -1026,7 +1032,7 @@
             { "text": "Moving and deleting headings never leaves stale numbers (tests)", "done": true, "evidence": "Proven on the Windows PC at the final run of the milestone branch: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with RAFFICA_REQUIRE_OCR=1: 8752 total, 8693 passed, 59 skipped (environment: symbolic links, Unix modes, macOS, CUPS, measurement-only), 0 failed. The proof is `StructureOracleTests` (every kind of structure operation, over the corpus and generated documents: after each step the layout equals a full layout exactly and the labels drawn on the pages equal `ReferenceNumbering`, an independent count of the model; undo all and redo all return to the same labels and revisions; the saved file read again has the same labels), `RealEditorOracleTests` (four structure steps per file, mode and seed), `CorpusIncrementalTests.AChapterMoveStaysEqualToFullLayout`, `StructureHistoryTests`, `HeadingNumberingTests`, `ListEditingTests`, `OutlineLevelTests`, `BlockMoveTests`. Mutation checks failed the oracle where they should (a narrowed changed range failed 18 of 81 cases); the keep-with-next walk-back is pinned by a hand-made case. Not proven: a person's look in Word, IME, other machines." },
             { "text": "A chapter move on the generated thesis takes at most the limit set from the median (aim 100 ms on the Linux laptop; measured)", "done": true, "evidence": "`measure.yml` target `write` on 2026-11-22 with the limit in force (`structure` = 100 ms, CPU cost, fixed like typing and format; decision \"Raffica Write: the structure limit (M4.4a)\"): worst median of the three move rows 4.10 ms on the Linux laptop on mains power (run 45024333010 at 44d411d, `machine.txt` mains 1, 3718 MHz; check step green, typing worst p95 13.03 ms), 6.23 ms on the Intel Mac (AC power, run 45014269858), 6.66 ms on the Windows PC. The move with the caret far from the view, which cost 510 to 775 ms before the fix of PR 115, takes 1.6 to 3.0 ms on all three. Not proven: a much longer document, a real pointer drag." },
             { "text": "Word opens a file with numbered headings, lists and a moved chapter with no repair prompt and the numbers read as in Write (owner, recorded)", "done": true, "evidence": "Checked on 2026-11-22 on the Windows PC with Word 16.0 (build 16.0.20625, Microsoft 365): `tools/word-open-check.ps1` opened `numbered-headings.docx`, `lists.docx` and `numbered-thesis-chapter-move.docx` (made by `WordCheckFilesTests`) with no repair prompt, and Word's own `ListString` of every list paragraph equals Write's label (`ReferenceNumbering` and the drawn labels): 12 of 12, 5 of 5 and 540 of 540, 0 differences (rows in `Docs/write-word-check.md`). Read through Word automation, not by a person looking at the rendered pages; done at the owner's request to check without manual work." },
-            { "text": "A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac (owner)", "done": false }
+            { "text": "A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac (owner)", "done": true, "evidence": "Closed by the owner on 2026-11-22 without a personal look on a real display (the owner asked for the checks to be done without manual work and then closed the milestone). What was checked instead: the Native AOT app was started on the Windows PC and the outline pane, the ribbon groups and the pane buttons were captured headless and read; `measure.yml` ran the published Native AOT Write app on the Linux laptop (mains power) and the Intel Mac with the `structure` case, which opens the thesis and runs the chapter moves, the numbering switch and the list toggle in the real app (run 45024333010 and run 45014269858). Not checked and left open as a risk: real Alt+Shift, Tab and Shift+Tab keys, a real pointer drag with the drop line, the dimmed row and the button size in the 240 px pane on a real display." }
           ]
         },
         {
