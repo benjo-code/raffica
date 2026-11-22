@@ -4,9 +4,9 @@ Raffica uses the precompiled PDFium binaries from [bblanchon/pdfium-binaries](ht
 
 ## Version
 
-- NuGet packages: `157.0.8100` (see `Directory.Packages.props`)
-- `VERSION` file of the release archives: `MAJOR=157`, `MINOR=0`, `BUILD=8100`, `PATCH=0`
-- Release: `chromium/8100`
+- NuGet packages: `160.0.8165` (see `Directory.Packages.props`)
+- `VERSION` file of the release archives: `MAJOR=160`, `MINOR=0`, `BUILD=8165`, `PATCH=0`
+- Release: `chromium/8165`
 
 ## Source
 
@@ -14,10 +14,10 @@ The NuGet packages themselves contain **no** license files (only binaries, impor
 
 | Archive | SHA-256 |
 |---|---|
-| `https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8100/pdfium-win-x64.tgz` | `51621bcc1d9be9ea448f4b84b0516862b928e3968d3fca899af1a6d6e2848d6d` |
-| `https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8100/pdfium-linux-x64.tgz` | `1c1894a12d4d96ee01400c3874444126254180c5c7d2ab628576b67f8120320a` |
+| `https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8165/pdfium-win-x64.tgz` | `ca7338ae7779b8b1b82f4580305c4d762d214f8df1d54b47647fe3cc75989ded` |
+| `https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8165/pdfium-linux-x64.tgz` | `ba7865e16c0271daab75256790be06c26272190afe6e2a70eae0bb39bb99089c` |
 
-Taken over are the file `LICENSE` (license of Benoit Blanchon's build scripts, MIT) and the folder `licenses/` (PDFium itself and the libraries linked into it, such as FreeType, ICU, libjpeg-turbo, OpenJPEG, libpng, zlib, Little CMS, HarfBuzz, Abseil).
+Taken over are the file `LICENSE` (license of Benoit Blanchon's build scripts, MIT) and the folder `licenses/` (PDFium itself and the libraries linked into it, such as FreeType, ICU, libjpeg-turbo, OpenJPEG, libpng, zlib, Little CMS, HarfBuzz, Abseil, Highway).
 
 ## Differences between the archives
 

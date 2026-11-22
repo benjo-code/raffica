@@ -18,6 +18,7 @@ Log of architecture and technology decisions. Newest entries on top.
 ## 2026-11-22 – PDFium 160: the tile test allows one level of difference
 **Context:** The Dependabot bump of `bblanchon.PDFium` from 157.0.8100 to 160.0.8165 (PR #90) failed `RenderTests.TilesStitchToTheFullPage` on Windows, Linux and macOS: 75 of 162,000 pixels differed, max delta 1. Reproduced locally; all 75 are one column (x = 720, y = 105 to 179) of the anti-aliased edge of a shape, where the tile (drawn at another offset) rounds one channel pair one level differently. It is not a tile seam.
 **Decision:** Update to PDFium 160.0.8165 and let that one test accept a maximum difference of 1 per channel (`MaxDelta`). Every other render comparison (`AssertSameImage`) stays exact.
+**Also needed:** the bump failed `licenses.cs check` on macOS, so `third-party/licenses.json`, `third-party/pdfium/README.md` (versions, archive SHA-256 of `chromium/8165`) and the notices were refreshed from the new archives; the only new licence text is `licenses/highway.txt` (Google Highway, Apache-2.0). Both archives still build with `pdf_enable_v8 = false` and `pdf_enable_xfa = false`.
 **Rationale:** One level out of 255 on an edge pixel is invisible, and a tile at a wrong offset or scale gives large deltas on whole regions, which the test still catches. Pinning PDFium at 157 would only postpone the update.
 **Rejected alternatives:** Staying on 157 (upstream PDFium fixes are wanted); loosening the comparison for all render tests; allowing a share of pixels with any delta.
 
