@@ -52,6 +52,9 @@ internal sealed class StructureSteps
 
     public TextEditor Editor { get; }
 
+    /// <summary>What reading the drawn labels skipped (text-box pages) and collapsed (repeated header rows), over every step.</summary>
+    public LabelTally Tally { get; } = new();
+
     /// <summary>Replaces the page the incremental layout is brought through (default: the page of the change's first block, plus one).</summary>
     public Func<DocumentLayout, BlockChange, int>? ThroughPage { get; set; }
 
@@ -317,28 +320,19 @@ internal sealed class StructureSteps
         return await CheckAsync(Editor.Delete(range), label, required: false);
     }
 
-    // From inside one top-level paragraph (a heading) to inside a later one.
+    // From the middle of one heading to the middle of a later heading (a second heading always lies in the range, its text partly and its break inside the delete).
     private async Task<bool> DeleteRangeAsync(Random random, string label)
     {
         var (_, headings) = HeadingsOf();
-        if (headings.Count == 0)
+        if (headings.Count < 2)
         {
             return false;
         }
 
         var blocks = _model.Body.Blocks;
-        var start = headings[random.Next(headings.Count)];
-        var stop = Math.Min(blocks.Count - 1, start + 1 + random.Next(8));
-        while (stop > start && blocks[stop] is not Paragraph)
-        {
-            stop--;
-        }
-
-        if (stop == start)
-        {
-            return false;
-        }
-
+        var from = random.Next(headings.Count - 1);
+        var start = headings[from];
+        var stop = headings[Math.Min(headings.Count - 1, from + 1 + random.Next(3))];
         var a = (Paragraph)blocks[start];
         var b = (Paragraph)blocks[stop];
         var range = new TextRange(At(a, Len(a) / 2), At(b, Len(b) / 2));
@@ -477,9 +471,26 @@ internal sealed class StructureSteps
 
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
-        LabelsCompared += DrawnLabels.AssertEqualToReference(_layout, _model, label, tolerateUnreadablePages: true).Count;
+        LabelsCompared += DrawnLabels.AssertEqualToReference(_layout, _model, label, Tally).Count;
         Compared++;
         RanPerKind[(int)_kind]++;
         return true;
+    }
+
+    // The files whose drawn labels could not all be read because a page's text does not line up with its lines (a text box), and the most pages and paragraphs one reading skipped. The bound is what
+    // the seeded runs showed; any other file, and every generated document, must read every page.
+    private static readonly Dictionary<string, (int Pages, int Paragraphs)> s_unreadable = new(StringComparer.Ordinal)
+    {
+        ["poi-comment"] = (1, 0),
+        ["poi-shapes-with-text"] = (1, 3),
+    };
+
+    /// <summary>Fails when a reading skipped more pages or paragraphs than the file's allowance (none for a file that is not listed).</summary>
+    public static void AssertReadable(string id, LabelTally tally)
+    {
+        var (pages, paragraphs) = s_unreadable.TryGetValue(id, out var allowed) ? allowed : (0, 0);
+        Assert.True(
+            tally.MaxUnreadablePages <= pages && tally.MaxUnreadableParagraphs <= paragraphs,
+            $"{id}: labels were not readable on some pages ({tally}), allowed {pages} pages and {paragraphs} paragraphs");
     }
 }

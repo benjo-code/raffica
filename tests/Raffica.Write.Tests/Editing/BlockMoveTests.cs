@@ -215,17 +215,19 @@ public sealed class BlockMoveTests
     }
 
     [Fact]
-    public void ARangeWithoutAParagraphPutsTheCaretInAnotherParagraph()
+    public void ARangeWithoutAParagraphMovedToTheStartPutsTheCaretInTheParagraphAfterIt()
     {
         var table = "<w:tbl><w:tblGrid><w:gridCol w:w=\"1000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>c</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
         var document = NewDocument(3, table + "<w:p><w:r><w:t>z</w:t></w:r></w:p>");
         var editor = EditorOf(document);
+        var first = document.Body.Blocks[0];
 
         var moved = editor.MoveBlocks(3, 1, 0);
 
         Assert.NotNull(moved);
         Assert.IsType<Table>(document.Body.Blocks[0]);
-        Assert.Contains(moved.Caret.Paragraph, document.Body.Blocks);
+        // Nothing lies before the moved table, so the nearest paragraph is the one after it (not the last one of the body).
+        Assert.Same(first, moved.Caret.Paragraph);
     }
 
     [Fact]

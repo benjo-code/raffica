@@ -60,7 +60,7 @@ public sealed class StructureOracleTests
 
     private static Random RandomFor(string name) => new(unchecked((int)Fnv1a("structure " + name)));
 
-    private static DocxFile Open(string name, TempFolder folder)
+    internal static DocxFile Open(string name, TempFolder folder)
     {
         if (!name.StartsWith("structure-gen-", StringComparison.Ordinal))
         {
@@ -204,7 +204,8 @@ public sealed class StructureOracleTests
             using var file = Open(entry.Id, folder);
             var layout = await LaidAsync(file.Model);
             var steps = new StructureSteps(file.Model, layout, new LayoutOptions());
-            await steps.RunAsync(RandomFor(entry.Id), StepsFor(entry.Id), entry.Id);
+            await steps.RunAsync(RandomFor("kinds " + entry.Id), StepsFor(entry.Id), entry.Id);
+            StructureSteps.AssertReadable(entry.Id, steps.Tally);
             for (var k = 0; k < totals.Length; k++)
             {
                 totals[k] += steps.RanPerKind[k];
@@ -231,6 +232,7 @@ public sealed class StructureOracleTests
         var layout = await LaidAsync(file.Model);
         var steps = new StructureSteps(file.Model, layout, new LayoutOptions());
         var compared = await steps.RunAsync(RandomFor(name), StepsFor(name), name);
+        StructureSteps.AssertReadable(name, steps.Tally);
 
         if (name.StartsWith("structure-gen-", StringComparison.Ordinal))
         {
@@ -248,7 +250,7 @@ public sealed class StructureOracleTests
             Assert.True(compared > 0, $"{name}: no step changed anything");
         }
 
-        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} steps compared, {steps.LabelsCompared} labels, refused {steps.RefusedPerKind.Sum()}, restyles {steps.Restyles}");
+        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} steps compared, {steps.LabelsCompared} labels, refused {steps.RefusedPerKind.Sum()}, restyles {steps.Restyles}, {steps.Tally}");
     }
 
     [Theory]
@@ -264,6 +266,7 @@ public sealed class StructureOracleTests
         var startRevision = model.Edits.Revision;
         var random = RandomFor("undo " + name);
         await steps.RunAsync(random, StepsFor(name) / 2, name);
+        StructureSteps.AssertReadable(name, steps.Tally);
         while (steps.Editor.History.CanRedo)
         {
             // Random undo steps left redo steps behind: redo them first, so the final state has every step applied.
@@ -301,17 +304,13 @@ public sealed class StructureOracleTests
     [MemberData(nameof(Names))]
     public async Task TheSavedFileOfTheFinalStateReopensWithTheSameLabels(string name)
     {
-        if (name == "thesis")
-        {
-            // The thesis is laid out twice more here and its labels are covered by the other tests; the save of its edited model is covered by the real editor gates.
-            return;
-        }
-
         using var folder = new TempFolder();
         using var file = Open(name, folder);
         var layout = await LaidAsync(file.Model);
         var steps = new StructureSteps(file.Model, layout, new LayoutOptions());
         await steps.RunAsync(RandomFor("save " + name), StepsFor(name), name);
+        StructureSteps.AssertReadable(name, steps.Tally);
+        var tally = new LabelTally();
         var before = ReferenceNumbering.Labels(file.Model).Select(l => l.Label).ToList();
 
         var target = folder.File("saved.docx");
@@ -321,7 +320,7 @@ public sealed class StructureOracleTests
         Assert.Equal(before, after);
 
         var second = await LaidAsync(reopened.Model);
-        var drawn = DrawnLabels.AssertEqualToReference(second, reopened.Model, name + " reopened", tolerateUnreadablePages: true);
+        var drawn = DrawnLabels.AssertEqualToReference(second, reopened.Model, name + " reopened", tally);
         if (drawn.Count == after.Count)
         {
             Assert.Equal(before, drawn.Select(l => l.Label).ToList());
@@ -360,9 +359,10 @@ public sealed class StructureWallClockTests
         var onSteps = editor.History.UndoCount;
         var off = editor.ToggleList(range, ListKind.Numbered);
         var offSteps = editor.History.UndoCount;
-        var headings = HeadingNumbering.StateOf(model) == HeadingNumberingState.On ? editor.SetHeadingNumbering(false, new TextPosition(StoryRef.Body, first, 0)) : null;
-        var headingsOn = editor.SetHeadingNumbering(true, new TextPosition(StoryRef.Body, first, 0));
-        var headingsOff = editor.SetHeadingNumbering(false, new TextPosition(StoryRef.Body, first, 0));
+        // The thesis has no style named heading 1 to heading 9: the switch is not available there and refuses without touching anything.
+        var caret = new TextPosition(StoryRef.Body, first, 0);
+        var stateBefore = HeadingNumbering.StateOf(model);
+        var refused = editor.SetHeadingNumbering(true, caret);
         watch.Stop();
 
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), "select-all numbering on and off on the thesis took " + watch.ElapsedMilliseconds + " ms");
@@ -373,12 +373,9 @@ public sealed class StructureWallClockTests
         // Select all, numbered list on and off again: the second toggle finds every paragraph in a numbered list and removes it, a list that comes from a style (the headings) by a direct numId 0.
         Assert.True(labelsBefore > 0);
         Assert.Empty(ReferenceNumbering.Labels(model));
-        if (headingsOn is not null)
-        {
-            Assert.NotNull(headingsOn.Style);
-            Assert.NotNull(headingsOff);
-            Assert.Equal(offSteps + (headings is null ? 0 : 1) + 2, editor.History.UndoCount);
-        }
+        Assert.Equal(HeadingNumberingState.Unavailable, stateBefore);
+        Assert.Null(refused);
+        Assert.Equal(offSteps, editor.History.UndoCount);
 
         while (editor.History.CanUndo)
         {
@@ -387,5 +384,37 @@ public sealed class StructureWallClockTests
 
         Assert.Equal(revision, model.Edits.Revision);
         Assert.Equal(labelsBefore, ReferenceNumbering.Labels(model).Count);
+    }
+
+    // The heading switch needs the nine heading styles, which the thesis lacks: a generated document with them (a long one, 23 chapters) takes the timed switch.
+    [Fact]
+    public void TheHeadingNumberingSwitchOnAGeneratedDocumentIsFastAndOneStepEachWay()
+    {
+        using var folder = new TempFolder();
+        using var file = StructureOracleTests.Open("structure-gen-3", folder);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, format: new LayoutEffectiveFormat(model));
+        var caret = new TextPosition(StoryRef.Body, model.Body.Blocks.OfType<Paragraph>().First(), 0);
+        var revision = model.Edits.Revision;
+        Assert.Equal(HeadingNumberingState.Off, HeadingNumbering.StateOf(model));
+
+        var watch = Stopwatch.StartNew();
+        var on = editor.SetHeadingNumbering(true, caret);
+        var onSteps = editor.History.UndoCount;
+        var off = editor.SetHeadingNumbering(false, caret);
+        watch.Stop();
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), "the heading numbering switch took " + watch.ElapsedMilliseconds + " ms");
+        Assert.NotNull(on);
+        Assert.NotNull(on.Style);
+        Assert.Equal(1, onSteps);
+        Assert.NotNull(off);
+        Assert.NotNull(off.Style);
+        Assert.Equal(2, editor.History.UndoCount);
+        Assert.Equal(HeadingNumberingState.Off, HeadingNumbering.StateOf(model));
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(HeadingNumberingState.On, HeadingNumbering.StateOf(model));
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(revision, model.Edits.Revision);
     }
 }

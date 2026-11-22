@@ -298,7 +298,8 @@ public sealed class RealEditorOracleTests
         // The structure steps: a few of every kind, compared with a full layout and the drawn labels with the reference.
         var structure = new StructureSteps(model, layout, options);
         await structure.RunAsync(new Random(unchecked(seed * 131 + 7)), 4, $"{id} {mode} seed {seed}");
-        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: structure steps {structure.Compared}, labels {structure.LabelsCompared}");
+        StructureSteps.AssertReadable(id, structure.Tally);
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: structure steps {structure.Compared}, labels {structure.LabelsCompared}, {structure.Tally}");
 
         if (hadControls)
         {
