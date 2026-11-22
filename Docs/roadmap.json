@@ -362,6 +362,11 @@
       "date": "2026-11-21",
       "context": "Milestone 4.4",
       "text": "Milestone 4.4 is split into 4.4.1 (headings, lists and the outline, 4.4a) and 4.4.2 (sections, page numbers, headers and footers, page setup, 4.4b); 4.5 now follows 4.4.2. The outline task of 4.4.1 says \"a heading with its content\" for drag and keys, and the measured chapter move and the acceptance texts of numbering, Word and the real display are added to 4.4.1; the old tasks 3 and 4 and the old second acceptance move to 4.4.2 unchanged."
+    },
+    {
+      "date": "2026-11-22",
+      "context": "Milestone 4.4.1",
+      "text": "The measuring task of 4.4.1 is only partly done: the engine bench rows and the app switch `--measure-structure` (with the `structure` case of `measure.cs`) exist and ran on the Windows PC (chapter moves 2.3 to 6.1 ms median on the generated thesis with the caret at the view; numbering on and off about 4 ms; the start cost against the commit before 4.4a shows no regression), but the budget row is NOT entered: the structure rows are recorded and not judged, because the limit is set from the owner's runs on the Linux laptop and the Intel Mac and the owner decides whether the 100 ms aim must also hold for a move run while the caret is far from the view (that case lays out through the caret page and costs about 495 ms on the thesis; see the backlog). The task and the second acceptance criterion stay open. The heading numbering switch numbers the heading styles a file defines (Heading 1 only is enough), not all nine."
     }
   ],
   "subprojects": [
@@ -1008,12 +1013,12 @@
           "prerequisites": ["4.3.3"],
           "goal": "Headings and lists are built by Write on the document's numbering definitions, and the outline pane moves, promotes and demotes a heading with its content.",
           "tasks": [
-            { "text": "Headings, lists and numbering on the document's numbering definitions", "done": false },
-            { "text": "Outline pane: drag and keys move a heading with its content, promote and demote", "done": false },
+            { "text": "Headings, lists and numbering on the document's numbering definitions", "done": true },
+            { "text": "Outline pane: drag and keys move a heading with its content, promote and demote", "done": true },
             { "text": "Measure a chapter move (engine bench, app switch, budget row)", "done": false }
           ],
           "acceptance": [
-            { "text": "Moving and deleting headings never leaves stale numbers (tests)", "done": false },
+            { "text": "Moving and deleting headings never leaves stale numbers (tests)", "done": true, "evidence": "Proven on the Windows PC at the final run of the milestone branch: `dotnet test Raffica.slnx -c Release --no-build --max-parallel-test-modules 1` with RAFFICA_REQUIRE_OCR=1: 8752 total, 8693 passed, 59 skipped (environment: symbolic links, Unix modes, macOS, CUPS, measurement-only), 0 failed. The proof is `StructureOracleTests` (every kind of structure operation, over the corpus and generated documents: after each step the layout equals a full layout exactly and the labels drawn on the pages equal `ReferenceNumbering`, an independent count of the model; undo all and redo all return to the same labels and revisions; the saved file read again has the same labels), `RealEditorOracleTests` (four structure steps per file, mode and seed), `CorpusIncrementalTests.AChapterMoveStaysEqualToFullLayout`, `StructureHistoryTests`, `HeadingNumberingTests`, `ListEditingTests`, `OutlineLevelTests`, `BlockMoveTests`. Mutation checks failed the oracle where they should (a narrowed changed range failed 18 of 81 cases); the keep-with-next walk-back is pinned by a hand-made case. Not proven: a person's look in Word, IME, other machines." },
             { "text": "A chapter move on the generated thesis takes at most the limit set from the median (aim 100 ms on the Linux laptop; measured)", "done": false },
             { "text": "Word opens a file with numbered headings, lists and a moved chapter with no repair prompt and the numbers read as in Write (owner, recorded)", "done": false },
             { "text": "A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac (owner)", "done": false }
@@ -1345,6 +1350,10 @@
     {
       "title": "Third-party licences of the Write projects",
       "text": "Extend `tools/licenses.cs` and the third-party notices to the Write projects (Open XML SDK `DocumentFormat.OpenXml` and `.Framework` 3.5.1, `System.IO.Packaging`, transitive packages) before Write ships. `PackageList.Projects` lists only `src/Raffica.Pdf` and `src/Raffica.Cli`, so the check is blind to the SDK (all declare MIT in their NuGet metadata). See `Docs/DECISIONS.md`, \"Raffica Write: document model and DOCX package layer (M4.1)\"."
+    },
+    {
+      "title": "Outline move while the caret is far from the view lays out through the caret page",
+      "text": "An outline move (pane button, drag or Alt+Shift+Up and Down) run with the caret far from the view lays out through `PageView.ThroughPage()`, the later of the last page in view and the caret page. A move that crosses a section break takes `Restart` in Pages mode, so it then costs up to a full layout: about 495 ms on the generated thesis with the caret on the last page and the view at the first (498, 497 and 492 ms medians, Windows PC, `move-last-to-first-far-caret`), against 5 to 6 ms with the caret at the view; a move that spans no section break stays incremental. Remedies: pass the view's last page instead of `ThroughPage()` for outline commands (`PageView.RunOutline`, `RunOutlineDrop`; the caret page is only needed when the caret must be shown), or a `PlanEdit` fast path across a section break whose properties are unchanged (needs its own oracle case and a decision). The owner decides whether the 100 ms aim must hold for this case before a limit is entered. See `Docs/DECISIONS.md`, \"Raffica Write: headings, lists and the outline (M4.4a)\"."
     }
   ]
 }

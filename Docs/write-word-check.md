@@ -62,6 +62,32 @@ In Word, open each saved file and record: a repair prompt (exact text, any promp
 | 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | blank-check.docx | blank document: Title, Heading 1 to 3, caption, body text, Save as | none | owner: looks normal | not recorded | text and formatting as typed | Region and paper size not varied. |
 | 2026-11-21 | Word for Microsoft 365 (de), Windows 11 | restored-check.docx, thesis_restore.docx | recovery copy: kill, Restore, Save as (an untitled document and the thesis) | none | owner: looks normal | not recorded | edits are there | Both also open by script. |
 
+## Headings, lists and the outline (milestone 4.4a)
+
+The question for what 4.4a writes: **does Word open a file with numbered headings, lists and a moved chapter without a repair prompt, and do the numbers read as in Write?** CI proves that the layout equals a full layout after every structure operation and that the numbers drawn on the pages equal an independent count of the model (`StructureOracleTests`, `RealEditorOracleTests`, `ReferenceNumberingTests`), also for the saved file read again. It does not run Word, and the script check below does not look at the numbers.
+
+The files are made by a test through the editor and `DocxFile.SaveAsync` (nothing is written without the folder variable):
+
+```
+$env:RAFFICA_WORD_CHECK_DIR = '<folder>'
+dotnet test tests/Raffica.Write.Tests -c Release --filter-class "*WordCheckFilesTests"
+pwsh tools/word-open-check.ps1 <folder>\numbered-headings.docx <folder>\lists.docx <folder>\numbered-thesis-chapter-move.docx
+```
+
+| File | What it holds |
+| --- | --- |
+| `numbered-headings.docx` | A blank document (A4) with four chapters and one sub-heading: the numbering switched on, the chapter "Methods" (with its sub-heading and body paragraphs) moved in front of "Discussion", and the sub-heading promoted to a chapter. |
+| `lists.docx` | A bullet list of three, a numbered list of five restarted at the fourth item, and a multilevel numbered list made by changing levels (what Tab does). |
+| `numbered-thesis-chapter-move.docx` | The generated thesis (3689 paragraphs): the second chapter moved in front of the last, the first sub-heading promoted with its sub-headings, the heading numbering switched off and on again. |
+
+In Word, open each file and record: a repair prompt (exact text, any prompt is a finding); whether the headings show their numbers (1, 1.1 and so on) in the order of the document after the move and the promote; whether the numbers of the lists read 1 2 3, then the restart at the fourth item and 1.1, 1.1.1 in the multilevel list, and the bullets look right (Write draws every bullet round); whether the thesis numbers are continuous after the moved chapter; whether the navigation pane shows the new order; whether Word's "Review > Compare" of the thesis against `testdata/write-corpus/thesis/thesis.docx` shows the moved chapter as moved and nothing else.
+
+| Date | Word version and system | File | Action | Repair prompt (text) | Numbers as in Write | Notes and findings |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script `tools/word-open-check.ps1`, read-only, repair off) | numbered-headings.docx | opened by script | none (opened, 10 paragraphs, 1 page) | OPEN: a person has not looked | The script checks the repair prompt only. |
+| 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | lists.docx | opened by script | none (opened, 15 paragraphs, 1 page) | OPEN: a person has not looked | As above. |
+| 2026-11-22 | Word for Microsoft 365 (de), Windows 11 (script) | numbered-thesis-chapter-move.docx | opened by script | none (opened, 3689 paragraphs, 321 pages) | OPEN: a person has not looked | The page count is Word's with the fonts it has, not Write's (309 for the unedited thesis). |
+
 ## Checking a file from a script
 
 On a Windows machine with Word, `pwsh tools/word-open-check.ps1 <files>` opens each file through Word's COM automation (read-only, repair off, on a temporary copy) and prints whether Word accepted it; the exit code is the number of files Word refused. It answers the repair-prompt question for any number of files at once and is how the cause of the first finding was bisected (`Docs/DECISIONS.md`, "one paragraph in a text, combo box, drop-down list or date control"). It does not look at the result, so the "looks as in Write" columns stay the owner's.
