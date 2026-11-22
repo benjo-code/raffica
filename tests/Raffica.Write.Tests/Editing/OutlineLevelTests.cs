@@ -194,6 +194,19 @@ public sealed class OutlineLevelTests
         Assert.Equal("Heading1", P(document, 0).Properties.StyleId);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    [InlineData(-2)]
+    public void ADeltaOtherThanOneStepThrows(int delta)
+    {
+        var (_, editor) = Setup(H(2, "A"));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => editor.ShiftOutlineLevels(0, 0, delta));
+        Assert.Throws<ArgumentOutOfRangeException>(() => editor.ReadOutlineShift(0, 0, delta));
+        Assert.Equal(0, editor.History.UndoCount);
+    }
+
     [Fact]
     public void ARangeWithNoHeadingHasNothingToShift()
     {
@@ -218,6 +231,9 @@ public sealed class OutlineLevelTests
         var result = editor.ShiftOutlineLevels(1, 2, -1);
 
         Assert.NotNull(result);
+        Assert.Equal(0, result.Changes[0].First);
+        Assert.Equal(3, result.Changes[0].Removed);
+        Assert.Same(P(document, 0), result.Caret.Paragraph);
         Assert.Equal(1, editor.History.UndoCount);
         var cell = ((TableCell)((TableRow)((Table)document.Body.Blocks[1]).Rows[0]).Items[0]).Blocks.OfType<Paragraph>().Single();
         Assert.Equal("Heading2", cell.Properties.StyleId);
@@ -269,6 +285,10 @@ public sealed class OutlineLevelTests
         await Check(editor.History.Undo(), "undone");
         Assert.Equal(["1.", "1.1.", "1.2.", "2.", "2.1."], ReferenceNumbering.Labels(document).Select(l => l.Label).ToArray());
         await Check(editor.ShiftOutlineLevels(3, 4, 1), "demote");
-        await Check(editor.History.Redo() ?? editor.History.Undo(), "redo or undo");
+        Assert.Equal(["1.", "1.1.", "1.2.", "1.3.", "1.3.1."], ReferenceNumbering.Labels(document).Select(l => l.Label).ToArray());
+        await Check(editor.History.Undo(), "demote undone");
+        Assert.Equal(["1.", "1.1.", "1.2.", "2.", "2.1."], ReferenceNumbering.Labels(document).Select(l => l.Label).ToArray());
+        await Check(editor.History.Redo(), "demote redone");
+        Assert.Equal(["1.", "1.1.", "1.2.", "1.3.", "1.3.1."], ReferenceNumbering.Labels(document).Select(l => l.Label).ToArray());
     }
 }

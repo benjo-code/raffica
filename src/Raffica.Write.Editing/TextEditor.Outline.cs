@@ -29,12 +29,13 @@ public sealed partial class TextEditor
 
     /// <summary>
     /// Moves every paragraph of the body blocks <paramref name="firstBlock"/> to <paramref name="lastBlock"/> that has an outline level (tables and block content controls inside them included)
-    /// by <paramref name="delta"/> levels (-1 promotes, +1 demotes). The level comes from the paragraph's own <c>w:outlineLvl</c> (which wins when the style has one too, and is rewritten)
+    /// by <paramref name="delta"/> levels (-1 promotes, +1 demotes; any other value throws). The level comes from the paragraph's own <c>w:outlineLvl</c> (which wins when the style has one too, and is rewritten)
     /// or from a <c>HeadingN</c> style (the style id becomes <c>Heading(N+delta)</c>); any other source of a level, a style the file lacks, or a result outside heading levels 1 to 9 makes the whole call
     /// return null before anything changes. Paragraphs without a level stay as they are. One <see cref="BlockChange"/>, one history step; this is a paragraph change, never a style change.
     /// </summary>
     public EditResult? ShiftOutlineLevels(int firstBlock, int lastBlock, int delta)
     {
+        ValidateShift(delta);
         var revision = History.BeginOperation();
         var top = _document.Body.Blocks;
         if (firstBlock < 0 || lastBlock >= top.Count || firstBlock > lastBlock)
@@ -61,7 +62,16 @@ public sealed partial class TextEditor
         var last = lastBlock;
         if (anchorIndex < 0)
         {
-            for (var i = 0; i < top.Count && anchorIndex < 0; i++)
+            // The nearest top-level paragraph before the range, else after it: the clone and the BlockChange widen only as far as that.
+            for (var i = firstBlock - 1; i >= 0 && anchorIndex < 0; i--)
+            {
+                if (top[i] is Paragraph)
+                {
+                    anchorIndex = i;
+                }
+            }
+
+            for (var i = lastBlock + 1; i < top.Count && anchorIndex < 0; i++)
             {
                 if (top[i] is Paragraph)
                 {
@@ -95,6 +105,7 @@ public sealed partial class TextEditor
     /// </summary>
     public OutlineShiftFacts ReadOutlineShift(int firstBlock, int lastBlock, int delta)
     {
+        ValidateShift(delta);
         var top = _document.Body.Blocks;
         if (firstBlock < 0 || lastBlock >= top.Count || firstBlock > lastBlock)
         {
@@ -193,6 +204,14 @@ public sealed partial class TextEditor
         }
 
         return HeadingLevelOf(paragraph.Properties.StyleId) is { } heading ? heading - 1 : null;
+    }
+
+    private static void ValidateShift(int delta)
+    {
+        if (delta is not (-1 or 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(delta), delta, "A shift is -1 (promote) or +1 (demote).");
+        }
     }
 
     // 1 to 9 for the style ids Heading1 to Heading9, else null.
