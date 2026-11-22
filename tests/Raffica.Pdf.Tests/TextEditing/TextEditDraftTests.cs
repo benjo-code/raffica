@@ -81,16 +81,17 @@ public sealed class TextEditDraftTests
         try
         {
             flush = rig.Tab.Annotations.FlushAsync();
-
-            // Written on the spot: the commit holds a pending handle already, so the flush has to wait for it. A posted flush would return a finished task.
-            Assert.False(flush.IsCompleted, "the draft was committed on the spot, not posted");
         }
         finally
         {
             SynchronizationContext.SetSynchronizationContext(previous);
         }
 
+        // Written on the spot: the commit holds a pending handle from its start, so the flush waits for it, and the draft is over when the task is. A posted flush returns a
+        // finished task at once and leaves the draft open. (Whether the task is already finished when FlushAsync returns says nothing: on a busy machine the commit's
+        // background steps can all end before the calling thread is scheduled again, and every await then continues inline.)
         await flush;
+        Assert.False(rig.Session.HasDraft, "the draft was committed on the spot, not posted");
         await rig.SettleAsync();
         Assert.True(rig.Tab.Annotations.Editor.HasTextEdits);
     }
