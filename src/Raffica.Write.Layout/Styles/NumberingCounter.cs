@@ -233,7 +233,8 @@ public sealed class NumberingCounter
             // Word writes bullets as private-use code points of the Symbol, Wingdings and Courier New fonts.
             if (c is >= '' and <= '')
             {
-                builder.Append(c == '' ? '▪' : '•');
+                // One round bullet for all of them: the square of Wingdings (U+25AA) is not in Caladea, so a list in a Cambria paragraph would draw an empty box; U+2022 is in every shipped face.
+                builder.Append('•');
                 symbol = true;
             }
             else
