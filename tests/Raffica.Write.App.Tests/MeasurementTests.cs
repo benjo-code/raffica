@@ -303,14 +303,15 @@ public sealed class MeasurementTests
         Assert.Equal([0], probe.Exits);
         Assert.Equal(["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"], StructurePlaces.Names);
         var rows = probe.Lines.Where(l => l.StartsWith("structure case=", StringComparison.Ordinal)).ToArray();
-        Assert.Equal(StructurePlaces.Names.Length, rows.Length);
+        Assert.Equal(StructurePlaces.All.Length, rows.Length);
+        Assert.Equal([.. StructurePlaces.Names, "move-last-to-first-far-caret"], StructurePlaces.All);
         for (var i = 0; i < rows.Length; i++)
         {
-            Assert.Matches($@"^structure case={StructurePlaces.Names[i]} view=page n=2 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d", rows[i]);
+            Assert.Matches($@"^structure case={StructurePlaces.All[i]} view=page n=2 median-ms=\d+\.\d\d p95-ms=\d+\.\d\d max-ms=\d+\.\d\d handler-median-ms=\d+\.\d\d frame-median-ms=\d+\.\d\d frame-p95-ms=\d+\.\d\d", rows[i]);
         }
 
         var refreshes = probe.Lines.Where(l => l.StartsWith("structure-refresh case=", StringComparison.Ordinal)).ToArray();
-        Assert.Equal(StructurePlaces.Names.Length, refreshes.Length);
+        Assert.Equal(StructurePlaces.All.Length, refreshes.Length);
         Assert.All(refreshes, r => Assert.Matches(@"^structure-refresh case=[a-z-]+ view=page n=1 ms=\d+\.\d\d$", r));
 
         // Every run restores what it changed: the outline and the heading numbering are the file's again.

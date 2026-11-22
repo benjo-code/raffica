@@ -16,7 +16,7 @@ namespace Raffica.Write;
 /// the first chapter moved behind the last heading, the middle chapter moved down one row, the last chapter moved to the top, the heading numbering switched on and off and a numbered list toggled on one
 /// paragraph, and after every case one <c>structure-refresh case=… view=page n=1 ms=…</c> row: the debounced refresh of the ribbon states (the structure facts of the outline commands included) that follows the
 /// last change. Every run is undone outside the timing, so a case starts from the state of the file, and the layout is complete again before the next run. Only the three move rows are judged once a limit exists
-/// (the aim is 100 ms from the command to the first visible page); the other rows and the refresh are recorded. The page view only: the structure commands are the same in the writing view and the strips are no
+/// (the aim is 100 ms from the command to the first visible page; the time is the CPU cost, handler plus render pass plus draws, and the limit entry must say whether the aim means that or the frame latency); the other rows and the refresh are recorded. The case <c>move-last-to-first-far-caret</c> (<see cref="StructurePlaces.FarCaret"/>) is the same move with the caret on the last page and the view at the first: an edit lays out through the caret page as well as the view, so it shows what a section-crossing move costs when the caret is far away (recorded, never judged). The page view only: the structure commands are the same in the writing view and the strips are no
 /// cost of their own.
 /// </summary>
 internal sealed partial class Measurement
@@ -56,7 +56,7 @@ internal sealed partial class Measurement
         // An undo may replace the paragraph objects: the place is read again from the body block it names. The caret goes there and the view follows it in two frames of their own (as the typing
         // run places itself), because the page an edit must lay out through is the page of the caret the view knows: a caret set in the same frame as the command would still be the one the undo left
         // at the end of the document, and the command would lay out through that page (the cost of the whole layout, not of the first visible page).
-        if (_job?.Place is { } place && model.Body.Blocks[place.HintBlock] is Paragraph at && _structureStage < 2)
+        if (_job?.Place is { } place && model.Body.Blocks[place.HintBlock] is Paragraph at && _structureStage < (_job.Format == "structure-" + StructurePlaces.FarCaret ? 3 : 2))
         {
             if (_structureStage == 0)
             {
@@ -64,9 +64,15 @@ internal sealed partial class Measurement
                 session.SetSelection(new TextRange(position, position));
                 view.ScrollToBlock(place.HintBlock);
             }
-            else
+            else if (_structureStage == 1)
             {
                 view.EnsureCaretVisible();
+            }
+            else
+            {
+                // The far-caret case: the caret stays on the last page (the view knows it after the frame that just passed) and the view goes back to the first page, as a user who clicked in the
+                // outline pane while the caret is far away.
+                view.ScrollToBlock(0);
             }
 
             _structureStage++;
@@ -90,7 +96,7 @@ internal sealed partial class Measurement
                     break;
                 }
 
-            case "move-last-to-first":
+            case "move-last-to-first" or StructurePlaces.FarCaret:
                 {
                     var plan = chapters.Count >= 2 ? OutlinePlanner.Drop(headings, model, OutlinePlanner.RowOf(headings, chapters[^1].Paragraph), 0, DropPlace.Before) : default;
                     if (chapters.Count < 2 || plan.Reason != OutlineReason.None)
@@ -139,6 +145,7 @@ internal sealed partial class Measurement
         var revision = model.Edits.Revision;
         _structurePrepared = false;
         _structureStage = 0;
+        // The typing run counts keys that started with the layout incomplete; the structure run waits for a complete layout before every command, so none does.
         _keyIncomplete = false;
         _renderSeen = false;
         _renderStart = 0;
@@ -214,12 +221,28 @@ internal sealed partial class Measurement
             jobs.Add(new Job(name, WriteView.Page, null, place, runs, "structure-" + name));
         }
 
+        // The far-caret case: the section-crossing move with the caret on the last text paragraph of the body and the view at the first page (recorded, never judged).
+        if (chapters.Count >= 2)
+        {
+            var last = Enumerable.Range(0, model.Body.Blocks.Count).LastOrDefault(i => model.Body.Blocks[i] is Paragraph p && p.SectionBreak is null && ParagraphProjection.Build(p, view.Runner.PageLayout.ProjectionHost(StoryRef.Body, p)).Text.Length > 0);
+            if (model.Body.Blocks[last] is Paragraph lastParagraph)
+            {
+                jobs.Add(new Job(StructurePlaces.FarCaret, WriteView.Page, null, new TypingPlace(StructurePlaces.FarCaret, StoryRef.Body, lastParagraph, 0, last), runs, "structure-" + StructurePlaces.FarCaret));
+            }
+        }
+
         return jobs;
     }
 }
 
-/// <summary>The cases of <c>--measure-structure</c> (<c>StructureCases.Names</c> of the bench, a near copy: change both together).</summary>
+/// <summary>The cases of <c>--measure-structure</c> (<c>StructureCases.Names</c> of the bench, a near copy of the first six: change both together).</summary>
 internal static class StructurePlaces
 {
     public static readonly string[] Names = ["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"];
+
+    /// <summary>The case that only the app has (the bench has no view and no caret): the move of the last chapter to the top with the caret on the last page and the view at the first.</summary>
+    public const string FarCaret = "move-last-to-first-far-caret";
+
+    /// <summary>Every case of the run in the order of its rows; measure.cs lists the same seven (<c>WriteRun.StructureNames</c>), the bench the first six: change the three together.</summary>
+    public static readonly string[] All = [.. Names, FarCaret];
 }

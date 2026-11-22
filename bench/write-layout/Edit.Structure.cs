@@ -102,7 +102,7 @@ internal static partial class EditCommand
             var first = chapters[0].Block;
             var last = chapters[^1].Block;
             var second = chapters[1].Block;
-            rows.Add(Row("move-first-to-last", Run(Nothing, () => editor.MoveBlocks(first, second - first, blocks.Count))));
+            rows.Add(Row(StructureCases.MoveFirstToLast, Run(Nothing, () => editor.MoveBlocks(first, second - first, blocks.Count))));
             if (chapters.Count >= 3)
             {
                 // One row down, as the outline command does: the chapter lands behind the heading row that follows the next chapter's own heading.
@@ -115,10 +115,10 @@ internal static partial class EditCommand
 
                 var target = neighbour + 1 < headings.Count ? headings[neighbour + 1].Block : blocks.Count;
                 var next = chapters[(chapters.Count / 2) + 1].Block;
-                rows.Add(Row("move-middle", Run(Nothing, () => editor.MoveBlocks(middle.Block, next - middle.Block, target))));
+                rows.Add(Row(StructureCases.MoveMiddle, Run(Nothing, () => editor.MoveBlocks(middle.Block, next - middle.Block, target))));
             }
 
-            rows.Add(Row("move-last-to-first", Run(Nothing, () => editor.MoveBlocks(last, blocks.Count - last, first))));
+            rows.Add(Row(StructureCases.MoveLastToFirst, Run(Nothing, () => editor.MoveBlocks(last, blocks.Count - last, first))));
         }
         else
         {
@@ -130,13 +130,13 @@ internal static partial class EditCommand
         {
             TextPosition caret() => new(StoryRef.Body, (Paragraph)blocks[headings[0].Block], 0);
             EditResult? Switch(bool on) => HeadingNumbering.StateOf(model) == (on ? HeadingNumberingState.On : HeadingNumberingState.Off) ? null : editor.SetHeadingNumbering(on, caret());
-            rows.Add(Row("numbering-on", Run(() => Switch(false), () => editor.SetHeadingNumbering(true, caret()))));
-            rows.Add(Row("numbering-off", Run(() => Switch(true), () => editor.SetHeadingNumbering(false, caret()))));
+            rows.Add(Row(StructureCases.NumberingOn, Run(() => Switch(false), () => editor.SetHeadingNumbering(true, caret()))));
+            rows.Add(Row(StructureCases.NumberingOff, Run(() => Switch(true), () => editor.SetHeadingNumbering(false, caret()))));
         }
 
         if (EditCases.Pick(model, layout).FirstOrDefault(c => c.Name == "middle") is { } pick && blocks[pick.HintBlock] is Paragraph)
         {
-            rows.Add(Row("toggle-list", Run(Nothing, () =>
+            rows.Add(Row(StructureCases.ToggleList, Run(Nothing, () =>
             {
                 var position = new TextPosition(StoryRef.Body, (Paragraph)blocks[pick.HintBlock], 0);
                 return editor.ToggleList(new TextRange(position, position), ListKind.Numbered);
@@ -150,5 +150,13 @@ internal static partial class EditCommand
 /// <summary>The cases of the structure measurement (<c>StructurePlaces.Names</c> of the Write app, a near copy: change both together).</summary>
 internal static class StructureCases
 {
-    public static readonly string[] Names = ["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"];
+    public const string MoveFirstToLast = "move-first-to-last";
+    public const string MoveMiddle = "move-middle";
+    public const string MoveLastToFirst = "move-last-to-first";
+    public const string NumberingOn = "numbering-on";
+    public const string NumberingOff = "numbering-off";
+    public const string ToggleList = "toggle-list";
+
+    /// <summary>The cases in the order of the rows (the Write app has the same six, then its own far-caret case; measure.cs lists all seven).</summary>
+    public static readonly string[] Names = [MoveFirstToLast, MoveMiddle, MoveLastToFirst, NumberingOn, NumberingOff, ToggleList];
 }

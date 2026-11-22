@@ -1174,7 +1174,7 @@ static class WriteRun
     public const string StructureCase = "structure";
 
     /// <summary>The cases of the structure run, in the order of the app (<c>Measurement.Structure.cs</c>, <c>StructurePlaces.Names</c>).</summary>
-    public static readonly string[] StructureNames = ["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list"];
+    public static readonly string[] StructureNames = ["move-first-to-last", "move-middle", "move-last-to-first", "numbering-on", "numbering-off", "toggle-list", "move-last-to-first-far-caret"];
 
     /// <summary>Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded, never judged.</summary>
     public const string TypingBackgroundCase = "typing-background";
@@ -2103,17 +2103,17 @@ static class CheckCommand
     /// <summary>The note of the structure rows in a check: recorded and not judged (no limit is entered yet, the aim of a chapter move is 100 ms); null without any move row. The worst median of the three move rows is named.</summary>
     public static string? StructureNote(IReadOnlyList<BudgetsCommand.Row> rows) =>
         WorstMoveMedian(rows) is { } worst
-            ? string.Create(CultureInfo.InvariantCulture, $"> Structure (chapter moves, worst median {worst:0.0} ms, aim 100 ms): recorded and not judged, no limit is entered yet (the limit follows the owner's runs as median times 1.25).")
+            ? string.Create(CultureInfo.InvariantCulture, $"> Structure (chapter moves, worst median {worst:0.0} ms, aim 100 ms): recorded and not judged, no limit is entered yet (the limit follows the owner's runs as median times 1.25; the value is CPU cost, handler plus render plus draws, and the limit entry must say whether the 100 ms aim means that or the frame latency).")
             : null;
 
     /// <summary>
-    /// The value of the metric <c>structure</c>: the worst median of the three chapter-move rows (<c>structure/move-*-median</c>, the median over the launches per row, then the largest). The aim is 100 ms from the
-    /// command to the first visible page on the Linux laptop and the limit will be the median of the owner&#39;s runs times 1.25 (a decisions entry); until a limit is recorded the metric is <c>not judged</c>. null without such a row.
+    /// The value of the metric <c>structure</c>: the worst median of the three chapter-move rows (<c>structure/move-*-median</c>, the median over the launches per row, then the largest). The value is CPU cost (the key handler plus the render pass plus the page draws, the typing definition, frame latency not included); the aim is 100 ms from the
+    /// command to the first visible page on the Linux laptop and the limit will be the median of the owner&#39;s runs times 1.25 (a decisions entry); the owner's limit entry must say which reading the 100 ms aim means (this CPU cost, or the frame latency that the rows also record as <c>structure-split</c> frame-median-ms). Until a limit is recorded the metric is <c>not judged</c>; the far-caret row is never part of it. null without such a row.
     /// </summary>
     public static double? WorstMoveMedian(IReadOnlyList<BudgetsCommand.Row> rows)
     {
         var perCase = rows
-            .Where(r => r.Mode == "write" && r.Case == "structure" && r.Run.StartsWith("move-", StringComparison.Ordinal) && r.Run.EndsWith("-median", StringComparison.Ordinal))
+            .Where(r => r.Mode == "write" && r.Case == "structure" && r.Run.StartsWith("move-", StringComparison.Ordinal) && !r.Run.Contains("far-caret", StringComparison.Ordinal) && r.Run.EndsWith("-median", StringComparison.Ordinal))
             .GroupBy(r => r.Run, StringComparer.Ordinal)
             .Select(g => Stats.Median([.. g.Select(r => r.Value)]))
             .ToList();
@@ -3070,6 +3070,8 @@ Expect("write limits: the app rows are the medians of 2026-11-21 rounded up, lim
         Expect("structure: the arguments", string.Join(' ', WriteRun.Arguments("structure", "s.json", "t")), $"--measure-structure --settings-file s.json {Path.Combine("t", "thesis/thesis.docx")}");
         var moveRows = structureRows!.Select(r => new BudgetsCommand.Row("pc", "write", r.Case, r.Run, r.Value, "ms")).ToList();
         Expect("structure: the worst move median", CheckCommand.WorstMoveMedian(moveRows), 40.0);
+        Expect("structure: the seven cases in the order of the app (StructurePlaces.All; the bench has the first six)", string.Join(',', WriteRun.StructureNames), "move-first-to-last,move-middle,move-last-to-first,numbering-on,numbering-off,toggle-list,move-last-to-first-far-caret");
+        Expect("structure: the far-caret move is recorded and never the worst move", CheckCommand.WorstMoveMedian([.. moveRows, new("pc", "write", "structure", "move-last-to-first-far-caret-median", 999, "ms")]), 40.0);
         Expect("structure: the numbering and list rows are not move rows", CheckCommand.WorstMoveMedian([new("pc", "write", "structure", "numbering-on-median", 99, "ms"), new("pc", "write", "structure", "toggle-list-median", 99, "ms")]), (double?)null);
         Expect("structure: a check names the rows as recorded and not judged", CheckCommand.StructureNote(moveRows)?.Contains("recorded and not judged", StringComparison.Ordinal), true);
         Expect("structure: no move row, no note", CheckCommand.StructureNote([]), (string?)null);
