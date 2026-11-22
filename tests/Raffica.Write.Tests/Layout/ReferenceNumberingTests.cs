@@ -33,49 +33,6 @@ public sealed class ReferenceNumberingTests
         return [.. ReferenceNumbering.Labels(document).Select(l => l.Label)];
     }
 
-    /// <summary>The labels the layout drew, per paragraph: the first line of a body paragraph that has a label run, its label cut from the page text.</summary>
-    private static List<(Paragraph Paragraph, string Label)> Drawn(DocumentLayout layout, string id, out int unaligned)
-    {
-        var drawn = new List<(Paragraph, string)>();
-        unaligned = 0;
-        for (var i = 0; i < layout.LaidOutPages; i++)
-        {
-            var page = layout.Page(i);
-            var lines = page.Text.Length == 0 ? [] : page.Text.Split('\n');
-            if (lines.Length != page.TextLines.Length)
-            {
-                // A line that has no model paragraph (a text box) makes the two lists differ in length; the labels of such a page cannot be read.
-                Assert.False(page.TextLines.Any(l => l.Story.Kind == StoryKind.Body && l.Runs.Any(r => r.IsLabel)), $"{id}: page {i} has labels and its text does not line up");
-                unaligned++;
-                continue;
-            }
-
-            for (var l = 0; l < lines.Length; l++)
-            {
-                var line = page.TextLines[l];
-                if (line.Story.Kind == StoryKind.Body && line.Runs.Any(r => r.IsLabel))
-                {
-                    var text = lines[l];
-                    var cut = text.IndexOf(' ', StringComparison.Ordinal);
-                    drawn.Add((line.Paragraph, cut < 0 ? text : text[..cut]));
-                }
-            }
-        }
-
-        return drawn;
-    }
-
-    // The layout draws the Symbol and Wingdings bullets of Word as plain bullets (the fonts are not shipped).
-    private static string Normalized(string label, bool bullet)
-    {
-        if (!bullet)
-        {
-            return label;
-        }
-
-        return string.Concat(label.Select(c => c is >= '' and <= '' or '▪' ? '•' : c));
-    }
-
     [Fact]
     public async Task TheReferenceMatchesTheLayoutOnEveryCorpusFile()
     {
@@ -88,18 +45,7 @@ public sealed class ReferenceNumberingTests
             await layout.LayOutRestAsync(null, TestContext.Current.CancellationToken);
             Assert.True(layout.IsComplete);
 
-            var expected = ReferenceNumbering.Labels(file.Model);
-            var drawn = Drawn(layout, entry.Id, out var unaligned);
-            Assert.True(unaligned == 0 || expected.Count == 0, $"{entry.Id}: {unaligned} pages could not be read");
-
-            // The same paragraphs in the same order, then the same labels.
-            Assert.Equal(expected.Count, drawn.Count);
-            for (var i = 0; i < expected.Count; i++)
-            {
-                Assert.Same(expected[i].Paragraph, drawn[i].Paragraph);
-                var bullet = expected[i].Label.Length > 0 && expected[i].Label.All(c => !char.IsAsciiLetterOrDigit(c) && c != '.' && c != '%' && c != ')' && c != '(' && c != ' ');
-                Assert.Equal(Normalized(expected[i].Label, bullet), Normalized(drawn[i].Label, bullet));
-            }
+            var expected = DrawnLabels.AssertEqualToReference(layout, file.Model, entry.Id);
 
             compared[entry.Id] = expected.Count;
             digits += expected.Count(l => l.Label.Any(char.IsAsciiDigit));

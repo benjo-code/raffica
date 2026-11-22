@@ -290,7 +290,7 @@ internal sealed class FormattingSteps
     }
 
     // The editor's format resolver snapshots the styles: made again after every style change.
-    private sealed class RefreshableFormat(WordDocument model) : IEffectiveFormat
+    internal sealed class RefreshableFormat(WordDocument model) : IEffectiveFormat
     {
         private LayoutEffectiveFormat _inner = new(model);
 
