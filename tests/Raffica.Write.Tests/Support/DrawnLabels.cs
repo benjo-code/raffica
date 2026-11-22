@@ -13,6 +13,7 @@ internal static class DrawnLabels
     public static List<(Paragraph Paragraph, string Label)> Read(DocumentLayout layout, string id, out int unaligned, HashSet<Paragraph>? unreadable = null)
     {
         var drawn = new List<(Paragraph, string)>();
+        var seen = new HashSet<Paragraph>(ReferenceEqualityComparer.Instance);
         unaligned = 0;
         for (var i = 0; i < layout.LaidOutPages; i++)
         {
@@ -44,7 +45,11 @@ internal static class DrawnLabels
                 {
                     var text = lines[l];
                     var cut = text.IndexOf(' ', StringComparison.Ordinal);
-                    drawn.Add((line.Paragraph, cut < 0 ? text : text[..cut]));
+                    // A repeated table header row draws its paragraphs again on the next page: a paragraph has its label counted once.
+                    if (seen.Add(line.Paragraph))
+                    {
+                        drawn.Add((line.Paragraph, cut < 0 ? text : text[..cut]));
+                    }
                 }
             }
         }
@@ -76,7 +81,7 @@ internal static class DrawnLabels
         IReadOnlyList<(Paragraph Paragraph, string Label)> expected = skipped is null ? all : [.. all.Where(l => !skipped.Contains(l.Paragraph))];
 
         // The same paragraphs in the same order, then the same labels.
-        Assert.True(expected.Count == drawn.Count, $"{id}: the reference counts {expected.Count} labels, the layout drew {drawn.Count}");
+        Assert.True(expected.Count == drawn.Count, $"{id}: the reference counts {expected.Count} labels, the layout drew {drawn.Count}{FirstDifference(expected, drawn, model)}");
         for (var i = 0; i < expected.Count; i++)
         {
             Assert.True(ReferenceEquals(expected[i].Paragraph, drawn[i].Paragraph), $"{id}: label {i} belongs to another paragraph");
@@ -87,5 +92,36 @@ internal static class DrawnLabels
         }
 
         return expected;
+    }
+
+    // Where the reference and the layout first part: the index, and the text and label of the paragraph each one has there.
+    private static string FirstDifference(IReadOnlyList<(Paragraph Paragraph, string Label)> expected, List<(Paragraph Paragraph, string Label)> drawn, WordDocument model)
+    {
+        var at = 0;
+        while (at < expected.Count && at < drawn.Count && ReferenceEquals(expected[at].Paragraph, drawn[at].Paragraph))
+        {
+            at++;
+        }
+
+        static string Describe((Paragraph Paragraph, string Label)? item) =>
+            item is { } i ? $"'{i.Label}' on a paragraph of {string.Concat(i.Paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content.OfType<TextContent>()).Select(t => t.Text)).Length} characters (style {i.Paragraph.Properties.StyleId ?? "none"}, direct numId {i.Paragraph.Properties.NumberingId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"} ilvl {i.Paragraph.Properties.NumberingLevel?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"}, outline {i.Paragraph.Properties.Get(System.Xml.Linq.XName.Get("outlineLvl", "http://schemas.openxmlformats.org/wordprocessingml/2006/main")) is not null})" : "nothing";
+        var extra = at < drawn.Count ? drawn[at].Paragraph : null;
+        var where = extra is null ? "" : $" [layout paragraph: top-level {model.Body.Blocks.Contains(extra)}, in the walk {ModelWalk.Blocks(model.Body.Blocks).Any(b => ReferenceEquals(b, extra))}, text \"{string.Concat(extra.Inlines.OfType<Run>().SelectMany(r => r.Content.OfType<TextContent>()).Select(t => t.Text))}\", inlines {extra.Inlines.Count}, container {Container(model, extra)}]";
+        var window = string.Join(" ", Enumerable.Range(Math.Max(0, at - 2), 6).Select(k => $"[{k}: ref {(k < expected.Count ? expected[k].Label : "-")} / layout {(k < drawn.Count ? drawn[k].Label : "-")}]"));
+        return $"{where} {window}; first difference at {at}: reference {Describe(at < expected.Count ? expected[at] : null)}, layout {Describe(at < drawn.Count ? drawn[at] : null)}";
+    }
+
+    private static string Container(WordDocument model, Paragraph target)
+    {
+        var top = model.Body.Blocks.ToList();
+        for (var i = 0; i < top.Count; i++)
+        {
+            if (ModelWalk.Blocks([top[i]]).Any(b => ReferenceEquals(b, target)))
+            {
+                return $"{top[i].GetType().Name} at {i} of {top.Count}";
+            }
+        }
+
+        return "none";
     }
 }

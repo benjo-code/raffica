@@ -295,6 +295,11 @@ public sealed class RealEditorOracleTests
         formatting.AssertEveryKindRan($"{id} {mode} seed {seed}");
         TestContext.Current.SendDiagnosticMessage($"{id} {mode}: formatting steps {formatting.Compared}, restyles {formatting.Restyles}, reached into {formatting.ReachedInto}");
 
+        // The structure steps: a few of every kind, compared with a full layout and the drawn labels with the reference.
+        var structure = new StructureSteps(model, layout, options);
+        await structure.RunAsync(new Random(unchecked(seed * 131 + 7)), 4, $"{id} {mode} seed {seed}");
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: structure steps {structure.Compared}, labels {structure.LabelsCompared}");
+
         if (hadControls)
         {
             Assert.True(forcedInControl > 0, $"{id} {mode} seed {seed}: no operation ran inside a content control");
