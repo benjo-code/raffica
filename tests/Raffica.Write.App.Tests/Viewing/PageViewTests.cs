@@ -154,7 +154,10 @@ public sealed class PageViewTests
         view.Runner.Start();
         await ViewHarness.WaitAsync(() => view.PageCount > 1);
         Assert.True(view.ContentHeight > firstHeight);
-        await ViewHarness.WaitAsync(() => view.IsLayoutComplete, 30000);
+
+        // The layout is complete a moment before the view has been told: the view rebuilds its page list from the runner's throttled change event, so wait until the view
+        // shows every page the layout holds (a CI run read 297 of 309 pages in the instant between the two).
+        await ViewHarness.WaitAsync(() => view.IsLayoutComplete && view.PageCount == view.Runner.PageLayout.LaidOutPages, 30000);
         var elapsed = started.ElapsedMilliseconds;
         Assert.True(view.PageCount > 100);
         Assert.Equal(view.Runner.PageLayout.LaidOutPages, view.PageCount);
