@@ -65,7 +65,7 @@ public sealed record SectionPageSetup(
         return new SectionPageSetup(
             Twips(size, "w", DefaultWidth),
             Twips(size, "h", DefaultHeight),
-            string.Equals((string?)size?.Attribute(W + "orient"), "landscape", StringComparison.Ordinal),
+            IsLandscape(size),
             Twips(margins, "top", DefaultMargin),
             Twips(margins, "bottom", DefaultMargin),
             Twips(margins, "left", DefaultMargin),
@@ -122,6 +122,17 @@ public sealed record SectionPageSetup(
             cols.SetAttributeValue(W + "equalWidth", null);
             cols.Elements(W + "col").Remove();
         }
+    }
+
+    // w:orient wins when it is there; without it a page wider than tall is landscape.
+    private static bool IsLandscape(XElement? size)
+    {
+        if ((string?)size?.Attribute(W + "orient") is { } orient)
+        {
+            return string.Equals(orient, "landscape", StringComparison.Ordinal);
+        }
+
+        return Twips(size, "w", DefaultWidth) > Twips(size, "h", DefaultHeight);
     }
 
     private static XElement Ensure(SectionProperties properties, string local)
