@@ -1131,4 +1131,175 @@
   <data name="NoteStructureFailed" xml:space="preserve">
     <value>Der Befehl ließ sich hier nicht ausführen.</value>
   </data>
+  <data name="TabLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="GroupPageSetup" xml:space="preserve">
+    <value>Seite einrichten</value>
+  </data>
+  <data name="GroupSections" xml:space="preserve">
+    <value>Abschnitte</value>
+  </data>
+  <data name="GroupHeaderFooter" xml:space="preserve">
+    <value>Kopf- und Fußzeile</value>
+  </data>
+  <data name="MenuLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="CmdNumberPagesFrom" xml:space="preserve">
+    <value>Seiten ab hier nummerieren</value>
+  </data>
+  <data name="DescNumberPagesFrom" xml:space="preserve">
+    <value>Beginnt die Seitennummern auf der Seite mit der Schreibmarke, in einem eigenen Abschnitt. Die Seiten davor bleiben, wie sie sind.</value>
+  </data>
+  <data name="CmdSectionBreak" xml:space="preserve">
+    <value>Abschnittswechsel</value>
+  </data>
+  <data name="DescSectionBreak" xml:space="preserve">
+    <value>Beginnt an der Schreibmarke einen neuen Abschnitt: auf der nächsten Seite, auf derselben Seite oder auf der nächsten geraden oder ungeraden Seite.</value>
+  </data>
+  <data name="CmdRemoveSection" xml:space="preserve">
+    <value>Abschnitt entfernen</value>
+  </data>
+  <data name="DescRemoveSection" xml:space="preserve">
+    <value>Fügt den Abschnitt mit der Schreibmarke in den davor ein. Danach gelten die Seiteneinrichtung, die Nummerierung und die Kopf- und Fußzeilen des früheren Abschnitts.</value>
+  </data>
+  <data name="CmdDifferentFirstPage" xml:space="preserve">
+    <value>Erste Seite anders</value>
+  </data>
+  <data name="DescDifferentFirstPage" xml:space="preserve">
+    <value>Gibt der ersten Seite dieses Abschnitts eine eigene Kopf- und Fußzeile.</value>
+  </data>
+  <data name="CmdLeftRightPages" xml:space="preserve">
+    <value>Linke und rechte Seiten</value>
+  </data>
+  <data name="DescLeftRightPages" xml:space="preserve">
+    <value>Gibt linken und rechten Seiten eigene Kopf- und Fußzeilen. Das gilt für das ganze Dokument.</value>
+  </data>
+  <data name="CmdPageSize" xml:space="preserve">
+    <value>Seitengröße</value>
+  </data>
+  <data name="DescPageSize" xml:space="preserve">
+    <value>Legt das Papierformat dieses Abschnitts fest, bei einem Dokument mit nur einem Abschnitt das des ganzen Dokuments.</value>
+  </data>
+  <data name="CmdPageMargins" xml:space="preserve">
+    <value>Seitenränder</value>
+  </data>
+  <data name="DescPageMargins" xml:space="preserve">
+    <value>Legt die Seitenränder dieses Abschnitts fest, bei einem Dokument mit nur einem Abschnitt die des ganzen Dokuments.</value>
+  </data>
+  <data name="CmdPageOrientation" xml:space="preserve">
+    <value>Ausrichtung</value>
+  </data>
+  <data name="DescPageOrientation" xml:space="preserve">
+    <value>Stellt die Seiten dieses Abschnitts auf Hochformat oder Querformat, bei einem Dokument mit nur einem Abschnitt die des ganzen Dokuments.</value>
+  </data>
+  <data name="CmdPageColumns" xml:space="preserve">
+    <value>Spalten</value>
+  </data>
+  <data name="DescPageColumns" xml:space="preserve">
+    <value>Legt die Anzahl der Textspalten dieses Abschnitts fest, bei einem Dokument mit nur einem Abschnitt die des ganzen Dokuments.</value>
+  </data>
+  <data name="CmdPageSetup" xml:space="preserve">
+    <value>Seite einrichten</value>
+  </data>
+  <data name="DescPageSetup" xml:space="preserve">
+    <value>Öffnet alle Seiteneinstellungen und lässt Sie wählen, wo sie gelten: in diesem Abschnitt, im ganzen Dokument oder ab hier.</value>
+  </data>
+  <data name="CmdInsertPageNumber" xml:space="preserve">
+    <value>Seitenzahl</value>
+  </data>
+  <data name="DescInsertPageNumber" xml:space="preserve">
+    <value>Fügt eine Seitenzahl in die Kopf- oder Fußzeile ein. Wählen Sie Aussehen und Stelle.</value>
+  </data>
+  <data name="ReasonSectionNotInBody" xml:space="preserve">
+    <value>Setzen Sie die Schreibmarke zuerst in den Text des Dokuments.</value>
+  </data>
+  <data name="ReasonSectionPrefix" xml:space="preserve">
+    <value>Von dieser großen Datei ist erst der Anfang geöffnet. Warten Sie, bis sie vollständig geladen ist.</value>
+  </data>
+  <data name="ReasonSectionStartsHere" xml:space="preserve">
+    <value>Hier beginnt bereits ein Abschnitt.</value>
+  </data>
+  <data name="ReasonSectionNothingToMerge" xml:space="preserve">
+    <value>Das Dokument hat nur einen Abschnitt, daher gibt es nichts zusammenzuführen.</value>
+  </data>
+  <data name="ReasonSectionFirst" xml:space="preserve">
+    <value>Der erste Abschnitt hat keine Markierung zum Entfernen. Setzen Sie die Schreibmarke in einen späteren Abschnitt.</value>
+  </data>
+  <data name="NoteSectionNoChange" xml:space="preserve">
+    <value>Nichts geändert: Die Einstellungen sind bereits so.</value>
+  </data>
+  <data name="NoteSectionBreakKey" xml:space="preserve">
+    <value>Ein Abschnittswechsel lässt sich nicht mit der Tastatur löschen. Verwenden Sie die Abschnittsmarkierung oder „Abschnitt entfernen“.</value>
+  </data>
+  <data name="NoteSectionCardSoon" xml:space="preserve">
+    <value>Dieser Dialog ist noch nicht verfügbar.</value>
+  </data>
+  <data name="MarginNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="MarginNarrow" xml:space="preserve">
+    <value>Schmal</value>
+  </data>
+  <data name="MarginModerate" xml:space="preserve">
+    <value>Mittel</value>
+  </data>
+  <data name="MarginWide" xml:space="preserve">
+    <value>Breit</value>
+  </data>
+  <data name="OrientationPortrait" xml:space="preserve">
+    <value>Hochformat</value>
+  </data>
+  <data name="OrientationLandscape" xml:space="preserve">
+    <value>Querformat</value>
+  </data>
+  <data name="ColumnsOne" xml:space="preserve">
+    <value>Eine</value>
+  </data>
+  <data name="ColumnsTwo" xml:space="preserve">
+    <value>Zwei</value>
+  </data>
+  <data name="ColumnsThree" xml:space="preserve">
+    <value>Drei</value>
+  </data>
+  <data name="BreakNextPage" xml:space="preserve">
+    <value>Nächste Seite</value>
+  </data>
+  <data name="BreakContinuous" xml:space="preserve">
+    <value>Fortlaufend</value>
+  </data>
+  <data name="BreakEvenPage" xml:space="preserve">
+    <value>Gerade Seite</value>
+  </data>
+  <data name="BreakOddPage" xml:space="preserve">
+    <value>Ungerade Seite</value>
+  </data>
+  <data name="PageNumberWordPage" xml:space="preserve">
+    <value>Seite</value>
+  </data>
+  <data name="PageNumberWordOf" xml:space="preserve">
+    <value>von</value>
+  </data>
+  <data name="PageNumberPlaceFooter" xml:space="preserve">
+    <value>Fußzeile</value>
+  </data>
+  <data name="PageNumberPlaceHeader" xml:space="preserve">
+    <value>Kopfzeile</value>
+  </data>
+  <data name="PageNumberAlignLeft" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="PageNumberAlignCenter" xml:space="preserve">
+    <value>Zentriert</value>
+  </data>
+  <data name="PageNumberAlignRight" xml:space="preserve">
+    <value>Rechts</value>
+  </data>
+  <data name="PageNumberItemFormat" xml:space="preserve">
+    <value>{0}, {1}: {2}</value>
+  </data>
+  <data name="PageNumberCountsEveryPage" xml:space="preserve">
+    <value>N zählt alle Seiten</value>
+  </data>
 </root>

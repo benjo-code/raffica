@@ -67,6 +67,17 @@ internal static class WriteCommandIds
     public const string MoveDown = "outline.moveDown";
     public const string Promote = "outline.promote";
     public const string Demote = "outline.demote";
+    public const string NumberPagesFrom = "section.numberFrom";
+    public const string SectionBreak = "section.break";
+    public const string RemoveSection = "section.remove";
+    public const string DifferentFirstPage = "section.firstPage";
+    public const string LeftRightPages = "section.leftRight";
+    public const string PageSize = "page.size";
+    public const string PageMargins = "page.margins";
+    public const string PageOrientation = "page.orientation";
+    public const string PageColumns = "page.columns";
+    public const string PageSetup = "page.setup";
+    public const string InsertPageNumber = "insert.pageNumber";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -87,5 +98,12 @@ internal static class WriteCommandIds
     public static bool IsOutline(string id) => id.StartsWith("outline.", StringComparison.Ordinal);
 
     /// <summary>Whether the command is a value command: the ribbon picker that chooses the value passes it to the action as the payload (<see cref="CatalogCommand.TakesPayload"/>).</summary>
-    public static bool TakesPayload(string id) => id is Font or Size or SizeUp or SizeDown or Color or Highlight or SpaceBefore or SpaceAfter or LineSpacing or ParagraphStyle or CharacterStyle;
+    public static bool TakesPayload(string id) => id is Font or Size or SizeUp or SizeDown or Color or Highlight or SpaceBefore or SpaceAfter or LineSpacing or ParagraphStyle or CharacterStyle
+        or SectionBreak or PageSize or PageMargins or PageOrientation or PageColumns or InsertPageNumber;
+
+    /// <summary>
+    /// Whether the command is one of the section commands of the Layout tab: the page numbering, the section breaks, the header and footer switches, the page setup and the page number. They have no keys
+    /// (the page view owns none of them); the facts that enable them are read through <see cref="SectionFactsSource"/>.
+    /// </summary>
+    public static bool IsSection(string id) => id.StartsWith("section.", StringComparison.Ordinal) || id.StartsWith("page.", StringComparison.Ordinal) || id == InsertPageNumber;
 }

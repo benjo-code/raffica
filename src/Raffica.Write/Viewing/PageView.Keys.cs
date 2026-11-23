@@ -227,11 +227,72 @@ internal sealed partial class PageView
                 break;
             case EditActionKind.Delete:
                 var (unit, forward) = (action.Unit, action.Forward);
-                ApplyKey(session => ed => DeleteBySelectionOrCaret(ed, session.Selection, unit, forward));
+                var refusedAtBreak = false;
+                ApplyKey(session => ed =>
+                {
+                    var deleted = DeleteBySelectionOrCaret(ed, session.Selection, unit, forward);
+                    refusedAtBreak = deleted is (null or { Changes.Count: 0, Selected: null }) && session.Selection is { } range && DeleteWouldRemoveSectionBreak(range, forward);
+                    return deleted;
+                });
+
+                // The editor does not delete or merge a paragraph that ends a section: the reason says where the break can be taken away (a save that queued the key says nothing, as for every refusal).
+                if (refusedAtBreak)
+                {
+                    StructureNote?.Invoke(WriteStrings.NoteSectionBreakKey);
+                }
+
                 break;
         }
 
         return true;
+    }
+
+    // Whether the editor's refusal of a delete was the section rule: a range that would remove the paragraph break of a paragraph that ends a section, or a caret at the start of the paragraph after one (Backspace) or at the
+    // end of a paragraph that ends one (Delete). Only the top-level blocks of the story can carry a section break; a paragraph in a cell or a control is not one of them.
+    private bool DeleteWouldRemoveSectionBreak(TextRange range, bool forward)
+    {
+        var normalized = range.Normalized();
+        if (TextUnits.BlocksOf(_tab.Docx.Model, normalized.End.Story) is not { } blocks)
+        {
+            return false;
+        }
+
+        var first = IndexOfBlock(blocks, normalized.Start.Paragraph);
+        var last = IndexOfBlock(blocks, normalized.End.Paragraph);
+        if (first < 0 || last < 0)
+        {
+            return false;
+        }
+
+        if (!range.IsEmpty)
+        {
+            for (var i = first; i < last; i++)
+            {
+                if (blocks[i] is Paragraph { SectionBreak: not null })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return forward
+            ? blocks[first] is Paragraph { SectionBreak: not null } && first + 1 < blocks.Count && blocks[first + 1] is Paragraph
+            : normalized.Start.Offset == 0 && first > 0 && blocks[first - 1] is Paragraph { SectionBreak: not null };
+    }
+
+    private static int IndexOfBlock(IList<Block> blocks, Paragraph paragraph)
+    {
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            if (ReferenceEquals(blocks[i], paragraph))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     // A selection is deleted; a caret deletes a unit. A field result next to the caret is selected first (the editor's answer has Selected set), the next key deletes it.

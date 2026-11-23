@@ -38,6 +38,8 @@ public sealed class WriteMacMenuTests
 
         public void RunCommand(string commandId) => Calls.Add("run " + commandId);
 
+        public void RunCommand(string commandId, object? payload) => Calls.Add("run " + commandId + " " + payload);
+
         public bool IsOn(string commandId) => On.Contains(commandId);
 
         public void OpenRecent(RecentFile file) => Calls.Add("recent " + file.Name);
@@ -64,7 +66,7 @@ public sealed class WriteMacMenuTests
         var menu = new WriteMacMenu(() => window, () => Task.CompletedTask, WriteMenuPart.Window);
         menu.Refresh();
 
-        Assert.Equal(["File", "Edit", "Format", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "Format", "Layout", "View", "Window"], menu.Menu.Items.OfType<NativeMenuItem>().Select(i => i.Header!).ToArray());
         var file = Item(menu.Menu, "File").Menu!;
         var open = Item(file, "Open…");
         var close = Item(file, "Close tab");

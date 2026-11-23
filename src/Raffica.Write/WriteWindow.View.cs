@@ -29,7 +29,7 @@ internal sealed partial class WriteWindow
     /// <summary>How long the hint of a refused key stays when nothing ends it sooner.</summary>
     internal static readonly TimeSpan EditHintDuration = TimeSpan.FromSeconds(6);
 
-    /// <summary>The ribbon (the tabs Home and View); its parts sit in the frame while a document tab is open.</summary>
+    /// <summary>The ribbon (the tabs Home, Layout and View); its parts sit in the frame while a document tab is open.</summary>
     public RibbonView Ribbon { get; private set; } = null!;
 
     /// <summary>The page view of the active tab, or null (the start view).</summary>
@@ -41,12 +41,14 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing, ReadStructureFacts);
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing, ReadStructureFacts, ReadSectionFacts);
         _actions = CreateActions();
         _pickers = new FormatPickers(() => EditCommandState.FormatOf(Workspace.Active), () => Workspace.Active?.Docx.Model, () => Workspace.Active?.Fonts, (id, value) => RunCommand(id, value));
         AddFormatActions();
         AddStructureActions();
-        var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn, _pickers.For);
+        CreateSectionPickers();
+        AddSectionActions();
+        var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn, id => _pickers.For(id) ?? _sectionPickers.For(id));
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
         if (_deferRibbon)
         {
@@ -181,6 +183,11 @@ internal sealed partial class WriteWindow
         if (WriteCommandIds.IsStructure(id))
         {
             return StructureIsOn(id);
+        }
+
+        if (WriteCommandIds.IsSection(id))
+        {
+            return SectionIsOn(id);
         }
 
         return id switch
