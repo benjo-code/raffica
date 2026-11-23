@@ -429,4 +429,31 @@ public sealed class InsertPageNumberTests
         Assert.Equal([0], editor.PageNumberSharing(At(document, 0), HeaderFooterKind.Footer, HeaderFooterType.Even).Sections);
         Assert.Equal(["p1", "2", "p3"], Feet(document));
     }
+
+    // A footer of a real file can hold a table or a content control and no top-level paragraph: the number is added after it, and undo (which leaves no top-level paragraph) and redo must work, with a
+    // caret inside the table (found by the section oracle on two corpus files).
+    [Fact]
+    public void UndoAndRedoWorkInAFooterThatHoldsOnlyATable()
+    {
+        var table = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w=\"4000\" w:type=\"dxa\"/></w:tcPr>" + Para(Text("cell")) + "</w:tc></w:tr></w:tbl>";
+        var document = Document(
+            PEnd("p1", Sect(Footer("default", "fT"))) + P("p2") + Sect(),
+            Parts(("fT", FooterPart(table))));
+        var editor = Editor(document);
+        var before = Snapshot(document);
+
+        var inserted = editor.InsertPageNumber(At(document, 0), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, English, "1", "2");
+        Assert.NotNull(inserted);
+        var after = Snapshot(document);
+        Assert.NotEqual(before, after);
+        Assert.Equal(2, document.HeadersFooters["fT"].Content.Blocks.Count);
+
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.Equal(before, Snapshot(document));
+        Assert.Equal("cell", TestEdit.TextOf(undone.Caret.Paragraph));
+
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(after, Snapshot(document));
+    }
 }

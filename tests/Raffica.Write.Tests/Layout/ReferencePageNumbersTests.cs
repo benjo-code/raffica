@@ -32,7 +32,7 @@ public sealed class ReferencePageNumbersTests
         var document = LayoutModel.Document(body);
         var layout = DocumentLayout.Create(document, PageTestKit.Fonts, new LayoutOptions());
         var drawn = DrawnPageNumbers.Read(layout, document);
-        var reference = ReferencePageNumbers.Numbers(document, [.. drawn.Select(d => d.Section)]);
+        var reference = ReferencePageNumbers.Numbers(document, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)]);
         Assert.Equal(reference, drawn.Select(d => d.Number));
         return [.. reference];
     }
@@ -50,7 +50,7 @@ public sealed class ReferencePageNumbersTests
             Assert.True(layout.IsComplete);
 
             var drawn = DrawnPageNumbers.Read(layout, file.Model);
-            var expected = ReferencePageNumbers.Numbers(file.Model, [.. drawn.Select(d => d.Section)]);
+            var expected = ReferencePageNumbers.Numbers(file.Model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)]);
             Assert.Equal(expected, drawn.Select(d => d.Number));
             pages += expected.Count;
             if (entry.Id == "thesis")
@@ -93,5 +93,60 @@ public sealed class ReferencePageNumbersTests
         var body = Page("a") + Page("b") + Break("<w:pgNumType w:start=\"5\"/>")
             + Page("c") + Page("d") + Final();
         Assert.Equal(["5", "6", "7", "8"], Drawn(body));
+    }
+
+    [Fact]
+    public void LettersRepeatEveryTwentySixPages()
+    {
+        // Word counts a, b, ... z, aa, bb, ... zz, aaa: 26 is z, 27 aa, 28 bb, 52 zz, 53 aaa.
+        var lower = Page("a") + Page("b") + Page("c") + Final("<w:pgNumType w:fmt=\"lowerLetter\" w:start=\"26\"/>");
+        Assert.Equal(["z", "aa", "bb"], Drawn(lower));
+
+        var upper = Page("a") + Page("b") + Final("<w:pgNumType w:fmt=\"upperLetter\" w:start=\"52\"/>");
+        Assert.Equal(["ZZ", "AAA"], Drawn(upper));
+
+        var plain = Page("a") + Page("b") + Page("c") + Final("<w:pgNumType w:fmt=\"lowerLetter\"/>");
+        Assert.Equal(["a", "b", "c"], Drawn(plain));
+    }
+
+    [Fact]
+    public void AStartOfZeroCountsFromZero()
+    {
+        Assert.Equal(["0", "1", "2"], Drawn(Page("a") + Page("b") + Page("c") + Final("<w:pgNumType w:start=\"0\"/>")));
+    }
+
+    [Fact]
+    public void ARomanFormatOnALaterSectionContinuesTheCountInRoman()
+    {
+        // The first section counts 1, 2 in the default format; the second sets only a format and goes on with iii, iv.
+        var body = Page("a") + Page("b") + Break(string.Empty) + Page("c") + Page("d") + Final("<w:pgNumType w:fmt=\"lowerRoman\"/>");
+        Assert.Equal(["1", "2", "iii", "iv"], Drawn(body));
+
+        // A start with roman on the later section restarts there: 1, 2, then iv, v.
+        var restarted = Page("a") + Page("b") + Break(string.Empty) + Page("c") + Page("d") + Final("<w:pgNumType w:fmt=\"lowerRoman\" w:start=\"4\"/>");
+        Assert.Equal(["1", "2", "iv", "v"], Drawn(restarted));
+    }
+
+    [Fact]
+    public void ASectionWithoutNumberingCountsOn()
+    {
+        Assert.Equal(["1", "2", "3"], Drawn(Page("a") + Page("b") + Page("c") + Final()));
+        Assert.Equal(["1", "2", "3", "4"], Drawn(Page("a") + Page("b") + Break(string.Empty) + Page("c") + Page("d") + Final()));
+    }
+
+    // A continuous section sets a start of 5. Its first paragraph breaks the page itself: on the same paper the section is still not the one that began page 2 (the page break did), so the count goes on; on other paper it starts a new page and restarts.
+    [Theory]
+    [InlineData(false, "2", "3")]
+    [InlineData(true, "5", "6")]
+    public void AContinuousSectionRestartsTheCountOnlyWhenItStartsAPage(bool otherPaper, string second, string third)
+    {
+        var margins = "<w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/>";
+        var first = "<w:p><w:pPr><w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/>" + margins + "</w:sectPr></w:pPr><w:r><w:t>one</w:t></w:r></w:p>";
+        var size = otherPaper ? "<w:pgSz w:w=\"16838\" w:h=\"11906\" w:orient=\"landscape\"/>" : "<w:pgSz w:w=\"11906\" w:h=\"16838\"/>";
+        var last = Page("two") + Page("three") + "<w:sectPr><w:type w:val=\"continuous\"/>" + size + margins + "<w:pgNumType w:start=\"5\"/></w:sectPr>";
+
+        var numbers = Drawn(first + last);
+
+        Assert.Equal(["1", second, third], numbers);
     }
 }

@@ -31,19 +31,25 @@ internal static class ReferencePageNumbers
         return sections;
     }
 
-    /// <summary>The number text of every page; <paramref name="sectionOfPage"/> holds the index of the section of each page (counted from 0, in document order).</summary>
-    public static IReadOnlyList<string> Numbers(WordDocument document, IReadOnlyList<int> sectionOfPage)
+    /// <summary>
+    /// The number text of every page; <paramref name="sectionOfPage"/> holds the index of the section of each page (counted from 0, in document order). <paramref name="startsSection"/> says for
+    /// each page whether its section begins on it (only then does a <c>w:start</c> apply: a continuous section that starts in the middle of a page does not restart the count on the next page);
+    /// null takes the first page of each run of pages of one section as the page the section begins on.
+    /// </summary>
+    public static IReadOnlyList<string> Numbers(WordDocument document, IReadOnlyList<int> sectionOfPage, IReadOnlyList<bool>? startsSection = null)
     {
         ArgumentNullException.ThrowIfNull(sectionOfPage);
         var sections = Sections(document);
         var numbers = new List<string>(sectionOfPage.Count);
         var number = 0;
         var previous = -1;
-        foreach (var index in sectionOfPage)
+        for (var page = 0; page < sectionOfPage.Count; page++)
         {
+            var index = sectionOfPage[page];
+            var begins = startsSection is null ? index != previous : startsSection[page];
             var properties = sections[Math.Min(index, sections.Count - 1)];
             var numbering = properties?.Get(W + "pgNumType");
-            if (index != previous && int.TryParse((string?)numbering?.Attribute(W + "start"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start))
+            if (begins && int.TryParse((string?)numbering?.Attribute(W + "start"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start))
             {
                 number = start;
             }

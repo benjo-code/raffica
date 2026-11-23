@@ -301,6 +301,16 @@ public sealed class RealEditorOracleTests
         StructureSteps.AssertReadable(id, structure.Tally);
         TestContext.Current.SendDiagnosticMessage($"{id} {mode}: structure steps {structure.Compared}, labels {structure.LabelsCompared}, {structure.Tally}");
 
+        // The section steps: a break, numbering from a place, a page setup for the whole document and one undo, compared with a full layout (and, in the page view, the page numbers with the reference).
+        var sectionSteps = new SectionSteps(model, layout, options) { CompareNumbers = mode == LayoutMode.Pages };
+        var sectionRandom = new Random(unchecked(seed * 31 + 11));
+        foreach (var kind in new[] { SectionKind.Break, SectionKind.NumberFrom, SectionKind.PageSetupWhole, SectionKind.Undo })
+        {
+            await sectionSteps.RunKindAsync(kind, sectionRandom, $"{id} {mode} seed {seed} section {kind}");
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"{id} {mode}: section steps {sectionSteps.Compared}, refused {sectionSteps.RefusedPerKind.Sum()}");
+
         if (hadControls)
         {
             Assert.True(forcedInControl > 0, $"{id} {mode} seed {seed}: no operation ran inside a content control");

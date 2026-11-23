@@ -613,8 +613,14 @@ public sealed class EditHistory
     private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks)
     {
         var index = Math.Clamp(caret.Index, 0, Math.Max(0, container.Count - 1));
-        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault()
-            ?? throw new InvalidOperationException("The restored blocks hold no paragraph.");
+        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault();
+        if (paragraph is null)
+        {
+            // A story of a table or a block content control only (a footer or header of a real file): the caret goes to the first paragraph inside, wherever it is.
+            paragraph = TextEditor.FirstParagraph(container) ?? throw new InvalidOperationException("The restored blocks hold no paragraph.");
+            caret = caret with { Offset = 0 };
+        }
+
         IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && (step.Style is not null || step.Sections is not null)
             ? []
             : [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)];

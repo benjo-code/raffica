@@ -168,7 +168,7 @@ public sealed partial class TextEditor
             : null;
     }
 
-    private static Paragraph? FirstParagraph(IEnumerable<Block> blocks)
+    internal static Paragraph? FirstParagraph(IEnumerable<Block> blocks)
     {
         foreach (var block in blocks)
         {
