@@ -112,7 +112,7 @@ jobs:
     name: measure-${{ inputs.platform }}
     # The owner's runner (labels raffica-measure and the platform), except macos-hosted: the GitHub-hosted macos-15 (Apple silicon).
     runs-on: ${{ fromJSON(inputs.platform == 'macos-hosted' && '["macos-15"]' || format('["self-hosted","raffica-measure","{0}"]', inputs.platform)) }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     # On the job (not the workflow) so that a skipped run never takes the group. Two runs must never overlap on one
     # machine; a running measurement is never cancelled.
     concurrency:

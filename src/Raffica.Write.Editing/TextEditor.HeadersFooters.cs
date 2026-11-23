@@ -151,7 +151,6 @@ public sealed partial class TextEditor
     private Story? StoryOf(HeaderFooterReference? reference) =>
         reference is not null && _document.HeadersFooters.TryGetValue(reference.RelationshipId, out var part) ? part.Content : null;
 
-
     // Where the history step and the result put the caret: the caller's own caret (container-relative, so a caret in a table cell or a content control works; a position that is not in its story is stale),
     // else the first paragraph of the body, found through tables and content controls. A body with no paragraph at all has no place for a caret and the command does nothing.
     private (TextPosition Caret, EditHistory.Point Before)? SectionCaret(TextPosition? caret)

@@ -290,7 +290,6 @@ public sealed class WordCheckSectionFilesTests
         await SaveWithNumbersAsync(file, folder, "blank-page-roman.docx", TestContext.Current.CancellationToken);
     }
 
-
     [Fact]
     public async Task AContinuousSectionWithAStartAtTheTopOfAPageIsSavedForWord()
     {

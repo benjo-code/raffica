@@ -22,7 +22,7 @@ namespace Raffica.Write;
 internal sealed partial class Measurement
 {
     /// <summary>The runs per case when the count is the default one (a section command lays out through the pages in view; the whole layout follows in the background).</summary>
-    public const int SectionsRuns = 20;
+    public const int SectionsRuns = 12;
 
     private readonly bool _sectionsRun;
     private readonly bool _sectionsPaneRun;

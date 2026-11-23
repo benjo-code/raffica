@@ -134,8 +134,9 @@ public sealed class ReferencePageNumbersTests
         Assert.Equal(["1", "2", "3", "4"], Drawn(Page("a") + Page("b") + Break(string.Empty) + Page("c") + Page("d") + Final()));
     }
 
-    // Checked against Word on 2026-11-23 (Docs/write-word-check.md, rows continuous-start-page-top and continuous-start-other-paper): a continuous section that sets a start of 5 and whose first block
-    // goes to the top of page 2 (here by a page break before) begins that page with the start, on the same paper as well as on other paper.
+    // A continuous section that sets a start of 5 and whose first block goes to the top of page 2 begins that page with the start, on the same paper as well as on other paper. Word-checked: the page-top file
+    // (continuous-start-page-top) and the other-paper file (continuous-start-other-paper, Docs/write-word-check.md, 2026-11-23). The form here (a page break before the first block, same paper) is extended by
+    // reasoning from the page-top file; it was not opened in Word.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
