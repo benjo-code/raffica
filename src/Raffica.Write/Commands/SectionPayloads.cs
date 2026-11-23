@@ -12,8 +12,10 @@ namespace Raffica.Write.Commands;
 /// </summary>
 internal static class SectionPayloads
 {
-    private static readonly string[] s_papers = ["A4", "Letter", "A3", "A5", "Legal"];
-    private static readonly string[] s_margins = ["Normal", "Narrow", "Moderate", "Wide"];
+    /// <summary>The papers of the size commands (the ribbon picker and the macOS menu list them in this order).</summary>
+    public static IReadOnlyList<string> Papers { get; } = ["A4", "Letter", "A3", "A5", "Legal"];
+    /// <summary>The margin presets of the margin commands, in the order of the picker and the menu.</summary>
+    public static IReadOnlyList<string> MarginPresets { get; } = ["Normal", "Narrow", "Moderate", "Wide"];
 
     /// <summary>Whether <paramref name="payload"/> is a usable value of the payload command <paramref name="id"/>.</summary>
     public static bool IsValid(string id, object? payload) => id switch
@@ -29,13 +31,13 @@ internal static class SectionPayloads
 
     public static bool TryPaper(object? payload, out string name)
     {
-        name = payload is string text && Array.IndexOf(s_papers, text) >= 0 ? text : string.Empty;
+        name = payload is string text && Papers.Contains(text) ? text : string.Empty;
         return name.Length > 0;
     }
 
     public static bool TryMargins(object? payload, out string name)
     {
-        name = payload is string text && Array.IndexOf(s_margins, text) >= 0 ? text : string.Empty;
+        name = payload is string text && MarginPresets.Contains(text) ? text : string.Empty;
         return name.Length > 0;
     }
 

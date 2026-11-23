@@ -20,8 +20,6 @@ internal sealed class SectionPickers(Func<string, SectionCommandFacts> facts, Fu
     private const string Unset = "-";
     private const int TwipsTolerance = 2;
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-    private static readonly string[] s_papers = ["A4", "Letter", "A3", "A5", "Legal"];
-    private static readonly string[] s_margins = ["Normal", "Narrow", "Moderate", "Wide"];
 
     /// <summary>How many times a list was asked (a list is read when it opens, never before; tests pin that).</summary>
     internal int ListReads { get; private set; }
@@ -51,13 +49,13 @@ internal sealed class SectionPickers(Func<string, SectionCommandFacts> facts, Fu
     private PickerDefinition? Create(string commandId) => commandId switch
     {
         WriteCommandIds.PageSize => new PickerDefinition(
-            () => [.. s_papers.Select(p => new PickerItem(p, p))],
+            () => [.. SectionPayloads.Papers.Select(p => new PickerItem(p, p))],
             id => run(WriteCommandIds.PageSize, id),
             () => SizeId(facts(WriteCommandIds.PageSize).Setup) ?? Unset,
             SelectedLabel: () => SizeId(facts(WriteCommandIds.PageSize).Setup) ?? NameOf(WriteCommandIds.PageSize),
             Width: 96),
         WriteCommandIds.PageMargins => new PickerDefinition(
-            () => [.. s_margins.Select(m => new PickerItem(m, MarginLabel(m)))],
+            () => [.. SectionPayloads.MarginPresets.Select(m => new PickerItem(m, MarginLabel(m)))],
             id => run(WriteCommandIds.PageMargins, id),
             () => MarginId(facts(WriteCommandIds.PageMargins).Setup) ?? Unset,
             SelectedLabel: () => MarginId(facts(WriteCommandIds.PageMargins).Setup) is { } id ? MarginLabel(id) : NameOf(WriteCommandIds.PageMargins),
@@ -108,7 +106,7 @@ internal sealed class SectionPickers(Func<string, SectionCommandFacts> facts, Fu
             return null;
         }
 
-        foreach (var name in s_papers)
+        foreach (var name in SectionPayloads.Papers)
         {
             var (w, h) = PagePresets.Size(name);
             if ((Near(setup.WidthTwips, w) && Near(setup.HeightTwips, h)) || (Near(setup.WidthTwips, h) && Near(setup.HeightTwips, w)))
@@ -128,7 +126,7 @@ internal sealed class SectionPickers(Func<string, SectionCommandFacts> facts, Fu
         }
 
         var inch = InchesNow;
-        foreach (var name in s_margins)
+        foreach (var name in SectionPayloads.MarginPresets)
         {
             var m = PagePresets.Margins(name, inch);
             if (Near(setup.TopTwips, m.Top) && Near(setup.BottomTwips, m.Bottom) && Near(setup.LeftTwips, m.Left) && Near(setup.RightTwips, m.Right))

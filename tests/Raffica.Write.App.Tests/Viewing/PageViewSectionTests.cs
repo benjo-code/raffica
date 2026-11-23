@@ -128,4 +128,21 @@ public sealed class PageViewSectionTests : IDisposable
         Assert.Empty(notes);
         Assert.NotNull(P(h, 0).SectionBreak);
     }
+
+    [AvaloniaFact]
+    public void ThePlaceOfACardCommandIsNotDescribedForAPrefixAndNothingIsMade()
+    {
+        // The runner is not started, so only the first blocks are open: the facts say why, the session is not made and the document is untouched.
+        var path = StyledDocx.Write(_folder, "long.docx", StyledDocx.Styles, [.. Enumerable.Range(0, 200).Select(i => $"<w:r><w:t>p{i}</w:t></w:r>")]);
+        using var h = new ViewHarness(path, 900, 1400);
+        Assert.True(h.View.Tab.Docx.IsPrefix);
+        var revision = h.View.Tab.Docx.Model.Edits.Revision;
+
+        Assert.Null(h.View.SectionFactsAtCaret(out var note));
+        Assert.Equal(WriteStrings.ReasonSectionPrefix, note);
+        Assert.Null(h.View.CaretSectionSetup(out var setupNote));
+        Assert.Equal(WriteStrings.ReasonSectionPrefix, setupNote);
+        Assert.Null(h.View.Tab.Editor);
+        Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+    }
 }

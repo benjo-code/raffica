@@ -71,6 +71,9 @@ internal sealed class PageBuilder
 
     internal string? FooterPart { get; set; }
 
+    /// <summary>The type of the header and footer parts this page used (first page, even page or the default), as the plan decided when it placed them.</summary>
+    internal Raffica.Write.Model.HeaderFooterType ChromeType { get; set; }
+
     /// <summary>True when the header or footer shows a page count (known or not): the page has to be revised when the count changes.</summary>
     internal bool UsesTotals { get; set; }
 

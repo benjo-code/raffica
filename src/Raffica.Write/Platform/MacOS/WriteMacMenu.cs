@@ -170,8 +170,8 @@ internal sealed class WriteMacMenu
 
             var layoutMenu = new NativeMenuItem(WriteStrings.MenuLayout) { Menu = new NativeMenu() };
             layoutMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
-            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageSize, ["A4", "Letter", "A3", "A5", "Legal"], payload => () => payload));
-            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageMargins, ["Normal", "Narrow", "Moderate", "Wide"], payload => () => WriteStrings.Get("Margin" + payload)));
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageSize, SectionPayloads.Papers, payload => () => payload));
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageMargins, SectionPayloads.MarginPresets, payload => () => WriteStrings.Get("Margin" + payload)));
             layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageOrientation, ["portrait", "landscape"], payload => () => WriteStrings.Get(payload == "portrait" ? "OrientationPortrait" : "OrientationLandscape")));
             layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageColumns, ["1", "2", "3"], payload => () => WriteStrings.Get(payload == "1" ? "ColumnsOne" : payload == "2" ? "ColumnsTwo" : "ColumnsThree")));
             layoutMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageSetup, () => WriteCatalogName(WriteCommandIds.PageSetup), null));
@@ -323,7 +323,7 @@ internal sealed class WriteMacMenu
     }
 
     // A submenu of a value command: its title is the name of the command and each item runs the command with its value (the same rules as the ribbon's picker; the items have no keys).
-    private NativeMenuItem ValueMenu(string id, string[] payloads, Func<string, Func<string>> label)
+    private NativeMenuItem ValueMenu(string id, IReadOnlyList<string> payloads, Func<string, Func<string>> label)
     {
         var parent = new NativeMenuItem(WriteCatalogName(id)) { Menu = new NativeMenu() };
         parent.Menu!.NeedsUpdate += _onNeedsUpdate;
@@ -391,6 +391,7 @@ internal sealed class WriteMacMenu
         _entries.Add(new Entry(item, command, text, false));
         return item;
     }
+
     // The recent files change rarely: the submenu is rebuilt only when the list (or the presence of a window) changed, not on every refresh.
     private void RefreshRecent(IWriteMenuWindow? window)
     {

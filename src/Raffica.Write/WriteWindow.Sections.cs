@@ -76,7 +76,7 @@ internal sealed partial class WriteWindow
         return taken;
     }
 
-    // Number pages from here: the card first (start, format, prefix), then the command with its answer. A caret the card cannot describe (the facts say no) is the rules' business; a stale answer ends as a note.
+    // Number pages from here: the card first (start, format, prefix), then the command with its answer.
     private async Task NumberPagesFromAsync()
     {
         if (ActiveView is not { } view)
@@ -84,9 +84,10 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        if (view.SectionFactsAtCaret() is not { } facts)
+        // The place is described first (the session is made for it when the tab has none): a place that cannot be described ends in a note and never in a default numbering, the card is always asked.
+        if (view.SectionFactsAtCaret(out var note) is not { } facts)
         {
-            _ = view.RunSectionCommand(WriteCommandIds.NumberPagesFrom);
+            ShowStructureNote(view, note ?? WriteStrings.NoteStructureFailed);
             return;
         }
 
@@ -110,9 +111,9 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        if (view.CaretSectionSetup() is not { } current)
+        if (view.CaretSectionSetup(out var note) is not { } current)
         {
-            ShowStructureNote(view, WriteStrings.NoteStructureFailed);
+            ShowStructureNote(view, note ?? WriteStrings.NoteStructureFailed);
             return;
         }
 

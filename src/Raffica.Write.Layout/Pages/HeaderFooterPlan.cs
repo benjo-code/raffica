@@ -201,6 +201,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         page.FooterHeight = footer.Height;
         page.HeaderPart = header.Part;
         page.FooterPart = footer.Part;
+        page.ChromeType = TypeFor(page);
         Draw(page, PageRegion.Header, header, x, geometry.HeaderDistance);
         Draw(page, PageRegion.Footer, footer, x, geometry.Height - geometry.FooterDistance - footer.Height);
         return (header, footer);

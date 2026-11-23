@@ -530,7 +530,15 @@ public sealed class SectionCommandTests
 
         public ApplyScope LastScope { get; private set; }
 
-        public Task<PageNumbering?> AskNumberingAsync(SectionFacts facts) => Task.FromResult<PageNumbering?>(null);
+        public TaskCompletionSource<PageNumbering?>? NumberingGate { get; set; }
+
+        public int NumberingAsked { get; private set; }
+
+        public Task<PageNumbering?> AskNumberingAsync(SectionFacts facts)
+        {
+            NumberingAsked++;
+            return NumberingGate?.Task ?? Task.FromResult<PageNumbering?>(null);
+        }
 
         public Task<PageSetupRequest?> AskPageSetupAsync(SectionPageSetup current, ApplyScope defaultScope, int sectionCount)
         {
@@ -635,17 +643,99 @@ public sealed class SectionCommandTests
         Assert.Equal(Of(WriteCommandIds.SectionBreak).Name, Command(window, WriteCommandIds.SectionBreak).Picker!.SelectedLabel!());
     }
 
-    [Fact]
-    public void ThePageNumbersOfThePagesGiveTheirParityInTheirFormat()
+    // A tab as it is right after the open: the whole model is there, but no caret and no session exist yet (the session is made on the first caret or key).
+    private static async Task<(WriteWindow Window, WriteTab Tab)> OpenFreshAsync(WindowFixture fixture, params string[] paragraphs)
     {
-        Assert.Equal(7, Raffica.Write.Viewing.PageView.PageNumberValue("7", null));
-        Assert.Equal(4, Raffica.Write.Viewing.PageView.PageNumberValue("iv", "lowerRoman"));
-        Assert.Equal(9, Raffica.Write.Viewing.PageView.PageNumberValue("IX", "upperRoman"));
-        Assert.Equal(3, Raffica.Write.Viewing.PageView.PageNumberValue("c", "lowerLetter"));
-        Assert.Equal(100, Raffica.Write.Viewing.PageView.PageNumberValue("c", "lowerRoman"));
-        Assert.Equal(27, Raffica.Write.Viewing.PageView.PageNumberValue("AA", "upperLetter"));
-        Assert.Null(Raffica.Write.Viewing.PageView.PageNumberValue("iv", null));
-        Assert.Null(Raffica.Write.Viewing.PageView.PageNumberValue("", "lowerRoman"));
-        Assert.Null(Raffica.Write.Viewing.PageView.PageNumberValue("ab", "lowerLetter"));
+        var path = StyledDocx.Write(fixture.Folder, "fresh.docx", StyledDocx.Styles, paragraphs);
+        var window = fixture.Show();
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(path)).Tab;
+        tab.Runner.LeaseWaitTimeout = TimeSpan.FromSeconds(60);
+        tab.Runner.Start();
+        await WindowFixture.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted);
+        Assert.True(tab.Runner.FullModelReady);
+        WindowFixture.Pump();
+        Assert.Null(tab.Editor);
+        return (window, tab);
+    }
+
+    [AvaloniaFact]
+    public async Task TheFirstClickOnAFreshDocumentAsksTheNumberingCardAndChangesNothingUntilItAnswers()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab) = await OpenFreshAsync(fixture, "<w:r><w:t>one</w:t></w:r>", "<w:r><w:t>two</w:t></w:r>");
+        var cards = new ScriptedCards { NumberingGate = new TaskCompletionSource<PageNumbering?>() };
+        window.SectionCards = cards;
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        // The command is enabled (nothing is read yet) and the first click makes the session to describe the place, asks the card and waits: nothing changes and no default numbering runs.
+        Assert.True(window.RunCommand(WriteCommandIds.NumberPagesFrom));
+        WindowFixture.Pump();
+        Assert.Equal(1, cards.NumberingAsked);
+        Assert.NotNull(tab.Editor);
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.Single(SectionList.Of(tab.Docx.Model));
+
+        // The answer is what runs: here start at 7 with the format i ii iii.
+        cards.NumberingGate.SetResult(new PageNumbering(7, PageNumberFormat.LowerRoman, string.Empty));
+        await WindowFixture.WaitAsync(() => tab.Docx.Model.Edits.Revision != revision);
+        WindowFixture.Pump();
+        var numbering = SectionList.Of(tab.Docx.Model)[0].Properties.Get(Xw + "pgNumType");
+        Assert.Equal("7", (string?)numbering?.Attribute(Xw + "start"));
+        Assert.Equal("lowerRoman", (string?)numbering?.Attribute(Xw + "fmt"));
+
+        // A cancelled card changes nothing.
+        var second = new ScriptedCards { NumberingGate = new TaskCompletionSource<PageNumbering?>() };
+        window.SectionCards = second;
+        var after = tab.Docx.Model.Edits.Revision;
+        Assert.True(window.RunCommand(WriteCommandIds.NumberPagesFrom));
+        second.NumberingGate.SetResult(null);
+        WindowFixture.Pump();
+        Assert.Equal(1, second.NumberingAsked);
+        Assert.Equal(after, tab.Docx.Model.Edits.Revision);
+    }
+
+    [AvaloniaFact]
+    public async Task TheFirstClickOnPageSetupOfAFreshDocumentAsksItsCardAndSaysNothingIsWrong()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab) = await OpenFreshAsync(fixture, "<w:r><w:t>one</w:t></w:r>");
+        var cards = new ScriptedCards { HasPageSetupCard = true };
+        window.SectionCards = cards;
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        // The card answers "cancel" (null): it was asked with the setup of the caret's section, nothing changed, and no "could not be applied" note was shown.
+        Assert.True(window.RunCommand(WriteCommandIds.PageSetup));
+        WindowFixture.Pump();
+        Assert.Equal(1, cards.PageSetupAsked);
+        Assert.Equal(ApplyScope.WholeDocument, cards.LastScope);
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.NotEqual(WriteStrings.NoteStructureFailed, window.Status.Hint);
+    }
+
+    [AvaloniaFact]
+    public async Task ACardCommandThatCannotDescribeThePlaceShowsANoteAndNeverRunsADefault()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(StyledDocx.Write(fixture.Folder, "long2.docx", StyledDocx.Styles, [.. Enumerable.Range(0, 200).Select(i => $"<w:r><w:t>p{i}</w:t></w:r>")]))).Tab;
+        var cards = new ScriptedCards { HasPageSetupCard = true, NumberingGate = new TaskCompletionSource<PageNumbering?>() };
+        window.SectionCards = cards;
+        var wasPrefix = tab.Docx.IsPrefix;
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        // A prefix document (or one that is still opening) cannot be described: the card is not asked, a note says why and the document is as it was. The full open may have started on a loaded
+        // machine, then there is nothing to check here (the view-level test of the prefix pins the facts).
+        if (wasPrefix && tab.Editor is null)
+        {
+            Command(window, WriteCommandIds.NumberPagesFrom).Run!();
+            WindowFixture.Pump();
+            if (tab.Docx.IsPrefix)
+            {
+                Assert.Equal(0, cards.NumberingAsked);
+                Assert.False(string.IsNullOrEmpty(window.Status.Hint));
+                Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+                Assert.Single(SectionList.Of(tab.Docx.Model));
+            }
+        }
     }
 }

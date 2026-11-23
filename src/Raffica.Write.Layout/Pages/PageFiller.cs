@@ -370,10 +370,10 @@ internal sealed class PageFiller
     /// What a page with a provisional page count keeps until the layout is complete: the published page (its item array and text are
     /// shared, not copied) and the sizes of the header and footer parts in them. It holds no <see cref="PageBuilder"/>.
     /// </summary>
-    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderLines, int FooterLines, int HeaderRaw, int FooterRaw, int RawLength)
+    internal sealed record Revisable(LaidOutPage Published, SectionPlan Section, int Number, bool IsFirstOfSection, int HeaderItems, int FooterItems, int HeaderLines, int FooterLines, int HeaderRaw, int FooterRaw, int RawLength, HeaderFooterType Type)
     {
         public LaidOutPage Rebuild(PageBuilder scratch) =>
-            new ChromeInfo(Section, Number, IsFirstOfSection, HeaderItems, FooterItems, HeaderLines, FooterLines, HeaderRaw, FooterRaw, RawLength, 0f, 0f, null, null).Rebuild(Published, scratch, false);
+            new ChromeInfo(Section, Number, IsFirstOfSection, HeaderItems, FooterItems, HeaderLines, FooterLines, HeaderRaw, FooterRaw, RawLength, 0f, 0f, null, null, false, Type).Rebuild(Published, scratch, false);
     }
 
     private int LastNonEmpty()
@@ -457,7 +457,7 @@ internal sealed class PageFiller
         var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray(), chrome: Chrome is null ? null : info);
         if (page.NeedsTotals)
         {
-            _revisable.Add(new Revisable(built, info.Section, info.Number, info.IsFirstOfSection, info.HeaderItems, info.FooterItems, info.HeaderLines, info.FooterLines, info.HeaderRaw, info.FooterRaw, info.RawLength));
+            _revisable.Add(new Revisable(built, info.Section, info.Number, info.IsFirstOfSection, info.HeaderItems, info.FooterItems, info.HeaderLines, info.FooterLines, info.HeaderRaw, info.FooterRaw, info.RawLength, info.Type));
         }
 
         PageFinished?.Invoke(page);
