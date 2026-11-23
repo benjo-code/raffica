@@ -550,7 +550,8 @@ internal sealed class EditSession
         }
 
         var styled = result.Style is not null;
-        if (result.Changes.Count == 0 && !styled)
+        var sectioned = result.Sections is not null;
+        if (result.Changes.Count == 0 && !styled && !sectioned)
         {
             if (result.Selected is { } selected)
             {
@@ -582,7 +583,13 @@ internal sealed class EditSession
         {
             if (active is not null)
             {
-                if (styled)
+                if (sectioned)
+                {
+                    // Section properties changed (page setup, header and footer references, left and right pages): the engine read them once, so the layout starts over on a fresh engine
+                    // as for a style, and the block changes (a carrier paragraph) are not applied into it either. Nothing else is rebuilt: the editor's format does not read sections.
+                    active.Resection(throughPage);
+                }
+                else if (styled)
                 {
                     // Restyle starts the layout over on a fresh engine that reads the model as it is now, block changes included: applying the block changes into it as well
                     // would plan the same blocks twice, so they are not applied (the oracle gates of the formatting steps do the same).

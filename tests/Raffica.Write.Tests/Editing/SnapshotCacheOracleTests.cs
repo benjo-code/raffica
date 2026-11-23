@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Xml.Linq;
 using Raffica.TestSupport;
 using Raffica.Write.Docx;
 using Raffica.Write.Editing;
@@ -358,5 +359,79 @@ public sealed class SnapshotCacheOracleTests
         Assert.Equal(1, file.LastSnapshotPass.Written);
         Assert.Equal(model.Body.Blocks.Count - 1, file.LastSnapshotPass.Reused);
         Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)));
+    }
+
+    private sealed class StillClock : TimeProvider
+    {
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp() => 0;
+    }
+
+    [Fact]
+    public async Task ASectionSwapAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        Assert.NotNull(model.Settings);
+        // The file has no section break: a paragraph in the middle gets one (a body edit, attributed as the editor does), so the carrier path is covered.
+        var middle = model.Body.Blocks.OfType<Paragraph>().ElementAt(model.Body.Blocks.OfType<Paragraph>().Count() / 2);
+        middle.SectionBreak = model.Body.FinalSection!.Clone();
+        model.Edits.Raise();
+        model.Edits.Attribute([new BlockChange(StoryRef.Body, model.Body.Blocks, model.Body.Blocks.IndexOf(middle), 1, 1, [middle])]);
+        var sections = SectionList.Of(model);
+        var carrier = sections.First(s => s.Break is not null);
+        var history = new EditHistory(model, new StillClock(), HistoryLimits.Default);
+        using var folder = new Support.TempFolder();
+        var copies = 0;
+        file.SerialiseMainForTest(cached: true);
+
+        async Task CheckAsync(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+
+            // The whole copy: the settings part carries the flag the model has.
+            var target = folder.File($"copy{copies++}.docx");
+            await file.SaveSnapshotAsync(target, TestContext.Current.CancellationToken);
+            using var zip = System.IO.Compression.ZipFile.OpenRead(target);
+            using var reader = new StreamReader(zip.GetEntry("word/settings.xml")!.Open());
+            Assert.Equal(model.Settings!.EvenAndOddHeaders, (await reader.ReadToEndAsync(TestContext.Current.CancellationToken)).Contains("evenAndOddHeaders", StringComparison.Ordinal));
+        }
+
+        await CheckAsync("before");
+        var finalProperties = sections[^1].Properties;
+        var swaps = new List<SectionSwap>();
+        foreach (var live in new[] { finalProperties, carrier.Properties })
+        {
+            var old = live.Clone();
+            if (ReferenceEquals(live, finalProperties))
+            {
+                live.Set(w + "pgNumType", new XElement(w + "pgNumType", new XAttribute(w + "start", "7")));
+            }
+            else
+            {
+                live.Get(w + "pgSz")!.SetAttributeValue(w + "w", "7000");
+            }
+
+            swaps.Add(new SectionSwap(live, old, live.Clone()));
+        }
+
+        var flagBefore = model.Settings!.EvenAndOddHeaders;
+        var revision = history.BeginOperation();
+        model.Settings.EvenAndOddHeaders = !flagBefore;
+        model.Edits.Raise();
+        var change = new SectionChange(swaps, flagBefore, !flagBefore);
+        var caret = new TextPosition(StoryRef.Body, model.Body.Blocks.OfType<Paragraph>().First(), 0);
+        model.Edits.Attribute([.. change.CarrierChanges(model)]);
+        history.Record(new EditResult(caret, [], Sections: change), new EditHistory.Point(0, 0), revision, null);
+        await CheckAsync("swap");
+        Assert.NotNull(history.Undo());
+        await CheckAsync("undo");
+        Assert.NotNull(history.Redo());
+        await CheckAsync("redo");
+        Assert.NotNull(history.Undo());
+        await CheckAsync("undo again");
     }
 }

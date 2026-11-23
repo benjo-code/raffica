@@ -178,4 +178,56 @@ public sealed class RestyleTests
 
     [Fact]
     public Task SwitchingHeadingNumbersOnADocumentWithOnlyHeading1To3AndNoNumberingPartGivesTheLayoutNumbers() => SwitchingHeadingNumbersAsync(null, 3);
+
+    private sealed class StillClock : TimeProvider
+    {
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp() => 0;
+    }
+
+    [Fact]
+    public async Task AResectionEqualsAFullLayoutAfterAPropertySwap()
+    {
+        // Three sections of some pages each; the page size of the middle one and the margins of the last one change, then the step is undone and redone.
+        string Text(string label) => string.Concat(Enumerable.Range(0, 60).Select(i => PageTestKit.P($"{label} paragraph {i} " + new string('x', 200))));
+        var body = Text("one") + PageTestKit.PEnd("end one", PageTestKit.Sect()) + Text("two") + PageTestKit.PEnd("end two", PageTestKit.Sect(width: 500f, height: 700f))
+            + Text("three") + PageTestKit.Sect();
+        var model = LayoutModel.Document(body);
+        var layout = await LaidAsync(model);
+        var history = new EditHistory(model, new StillClock(), HistoryLimits.Default);
+        var sections = SectionList.Of(model);
+        var swaps = new List<SectionSwap>();
+        foreach (var (live, width) in new[] { (sections[1].Properties, "4000"), (sections[2].Properties, "4500") })
+        {
+            var old = live.Clone();
+            live.Get(W + "pgSz")!.SetAttributeValue(W + "w", width);
+            live.Get(W + "pgMar")!.SetAttributeValue(W + "left", "1500");
+            swaps.Add(new SectionSwap(live, old, live.Clone()));
+        }
+
+        var revision = history.BeginOperation();
+        model.Edits.Raise();
+        var caret = new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0);
+        history.Record(new EditResult(caret, [], Sections: new SectionChange(swaps, null, null)), new EditHistory.Point(0, 0), revision, null);
+        var pagesBefore = layout.LaidOutPages;
+
+        var refill = layout.Resection(1);
+
+        Assert.True(refill.Restarted);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.NotEqual(pagesBefore, layout.LaidOutPages);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "resection");
+
+        Assert.NotNull(history.Undo()?.Sections);
+        layout.Resection(0);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.Equal(pagesBefore, layout.LaidOutPages);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "resection undone");
+
+        Assert.NotNull(history.Redo()?.Sections);
+        layout.Resection(2);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "resection redone");
+    }
 }

@@ -317,7 +317,15 @@ public sealed partial class DocumentLayout
     /// made, so no <see cref="ApplyEdit"/> can see such a change). Same rules as <see cref="ApplyEdit"/>: the caller holds the edit gate, the pages up
     /// to <paramref name="throughPage"/> are right when this returns, the rest follows in the background, a fault is remembered and rethrown.
     /// </summary>
-    public EditRefill Restyle(int throughPage)
+    public EditRefill Restyle(int throughPage) => RestartFresh(throughPage);
+
+    /// <summary>
+    /// Lays out again from the first page on a fresh engine after section properties of the model changed (a page size, margins, the references to headers and footers, the flag of left and
+    /// right pages: the engine reads them once when it is made). Same rules as <see cref="Restyle"/>.
+    /// </summary>
+    public EditRefill Resection(int throughPage) => RestartFresh(throughPage);
+
+    private EditRefill RestartFresh(int throughPage)
     {
         lock (_gate)
         {
