@@ -484,6 +484,45 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().ToList();
+        Assert.True(paragraphs.Count >= 4);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        TextPosition At(Paragraph paragraph) => new(StoryRef.Body, paragraph, 0);
+        var words = new PageNumberWords("Page", "of");
+
+        Check("before");
+        Assert.NotNull(editor.InsertSectionBreak(At(paragraphs[2]), SectionBreakKind.NextPage));
+        Check("break");
+        Assert.NotNull(editor.InsertPageNumber(At(paragraphs[3]), PageNumberLook.PageOfTotal, HeaderFooterKind.Footer, PageNumberAlign.Center, words, "2", "4"));
+        Check("insert");
+        Assert.NotNull(editor.InsertPageNumber(At(paragraphs[3]), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Right, words, "2", "4"));
+        Check("replace");
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public async Task TheHeaderFooterCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         var w = System.Xml.Linq.XNamespace.Get("http://schemas.openxmlformats.org/wordprocessingml/2006/main");
