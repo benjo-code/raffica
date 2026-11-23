@@ -30,6 +30,30 @@ public sealed class SectionSessionTests
     }
 
     [AvaloniaFact]
+    public async Task UndoAndRedoOfAPageNumberKeepTheUsersBodySelection()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+        var tab = await window.Flow.NewDocumentAsync(PaperSize.A4, CancellationToken.None);
+        WindowFixture.Pump();
+        Assert.NotNull(tab);
+        tab.Runner.Start();
+        await WindowFixture.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted);
+        Assert.True(tab.Runner.FullModelReady);
+        var session = tab.EnsureEditor();
+        var selection = session.Selection!.Value;
+        var words = new PageNumberWords("Page", "of");
+
+        Assert.NotNull(session.Apply(e => e.InsertPageNumber(selection.Start, PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, words, "1", "1"), 0));
+        Assert.Equal(selection, session.Selection);
+        Assert.NotNull(session.Apply(e => e.History.Undo(), 0));
+        Assert.Equal(selection, session.Selection);
+        Assert.NotNull(session.Apply(e => e.History.Redo(), 0));
+        Assert.Equal(selection, session.Selection);
+        Assert.Equal(StoryKind.Body, session.Selection!.Value.Start.Story.Kind);
+    }
+
+    [AvaloniaFact]
     public async Task ASectionResultResectionsTheLayoutAndSoDoUndoAndRedo()
     {
         using var fixture = new WindowFixture();

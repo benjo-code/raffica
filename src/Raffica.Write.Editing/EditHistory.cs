@@ -207,7 +207,7 @@ public sealed class EditHistory
     /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
     /// selection and without a line break, else null.
     /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null)
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false)
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null))
         {
@@ -260,6 +260,7 @@ public sealed class EditHistory
             Style = result.Style,
             Sections = result.Sections,
             TypingFormat = typed is not null && plain ? typingFormat : null,
+            KeepsBodySelection = keepsBodySelection,
         };
         added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections);
         _undo.Add(added);
@@ -617,7 +618,7 @@ public sealed class EditHistory
         IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && (step.Style is not null || step.Sections is not null)
             ? []
             : [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)];
-        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, Sections: step.Sections);
+        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, KeepSelection: step.KeepsBodySelection, Sections: step.Sections);
     }
 
     private static Block[] CloneRange(IList<Block> container, int first, int count)
@@ -875,5 +876,8 @@ public sealed class EditHistory
 
         /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
         public object? TypingFormat { get; init; }
+
+        /// <summary>Set for a step recorded from a caret in the body that changed only a header or footer story (insert page number): undo and redo carry <see cref="EditResult.KeepSelection"/>, so the owner keeps the body selection it has instead of moving it into that story.</summary>
+        public bool KeepsBodySelection { get; init; }
     }
 }

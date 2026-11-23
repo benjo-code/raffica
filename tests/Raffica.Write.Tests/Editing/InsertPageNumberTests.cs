@@ -114,6 +114,7 @@ public sealed class InsertPageNumberTests
     public void ASharedFooterEditsEverySectionThatSharesIt()
     {
         var document = Two();
+        var layout = Lay(document);
         var editor = Editor(document);
         var at = At(document, 2);
         var references = Snapshot(document).Take(2).ToList();
@@ -129,6 +130,7 @@ public sealed class InsertPageNumberTests
         Assert.Equal(references, Snapshot(document).Take(2).ToList());
         Assert.Equal(["1", "2", "3", "4"], Feet(document));
         Assert.Equal(result.Changes[0].Story, new StoryRef(StoryKind.HeaderFooter, "fA"));
+        LayoutAgrees(layout, document, result, "shared footer");
     }
 
     [Fact]
@@ -279,5 +281,152 @@ public sealed class InsertPageNumberTests
 
         Assert.Equal(["1", "2", "3"], Pages(Lay(document)).Select(page => Lines(page)[0]));
         Assert.Contains(SectionList.Of(document)[0].Properties.HeaderFooterReferences, r => r.Kind == HeaderFooterKind.Header);
+    }
+
+    private const string Table = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"1000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+
+    private const string Control = "<w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>boxed</w:t></w:r></w:p></w:sdtContent></w:sdt>";
+
+    private static Paragraph FirstBodyParagraph(WordDocument document) => PageNumberField.Paragraphs(document.Body.Blocks).First();
+
+    // The caller keeps its body selection through the step, its undo and its redo: every result carries KeepSelection, so the owner ignores a caret that lies in the changed story.
+    private static void StepKeepsTheBodySelection(WordDocument document, TextPosition at)
+    {
+        var editor = Editor(document);
+        var result = editor.InsertPageNumber(at, PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, English, "1", "3");
+        Assert.NotNull(result);
+        Assert.True(result.KeepSelection);
+        for (var i = 0; i < 2; i++)
+        {
+            var undone = editor.History.Undo();
+            Assert.NotNull(undone);
+            Assert.True(undone.KeepSelection);
+            Assert.Equal(StoryKind.HeaderFooter, undone.Caret.Story.Kind);
+            var redone = editor.History.Redo();
+            Assert.NotNull(redone);
+            Assert.True(redone.KeepSelection);
+        }
+    }
+
+    [Fact]
+    public void UndoAndRedoOfAStepFromABodyCaretKeepTheBodySelection()
+    {
+        var document = Three();
+        StepKeepsTheBodySelection(document, At(document, 1, 1));
+    }
+
+    [Fact]
+    public void ABodyCaretInATableCellAndInAContentControlWorksAndKeepsItsSelectionOnUndo()
+    {
+        var inCell = Document(Table + P("after") + Sect());
+        StepKeepsTheBodySelection(inCell, new TextPosition(StoryRef.Body, FirstBodyParagraph(inCell), 2));
+
+        var inControl = Document(Control + P("after") + Sect());
+        StepKeepsTheBodySelection(inControl, new TextPosition(StoryRef.Body, FirstBodyParagraph(inControl), 1));
+    }
+
+    [Fact]
+    public void ACaretInAFooterKeepsTheOrdinaryContractAfterUndoAndRedo()
+    {
+        var document = Document(P("p1") + Sect(Footer("default", "fA")), Parts(("fA", FooterPart(Para(Text("ab"))))));
+        var editor = Editor(document);
+        var at = new TextPosition(new StoryRef(StoryKind.HeaderFooter, "fA"), FirstOf(document, "fA"), 1);
+
+        Assert.NotNull(editor.InsertPageNumber(at, PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Left, English, "1", "1"));
+        var undone = editor.History.Undo();
+        Assert.NotNull(undone);
+        Assert.False(undone.KeepSelection);
+        Assert.Equal(at.Story, undone.Caret.Story);
+        Assert.Equal(1, undone.Caret.Offset);
+        var redone = editor.History.Redo();
+        Assert.NotNull(redone);
+        Assert.False(redone.KeepSelection);
+        Assert.Equal(at.Story, redone.Caret.Story);
+    }
+
+    [Fact]
+    public void ASecondNumberParagraphStaysAndTheTextOfTheReplacedParagraphIsDropped()
+    {
+        var document = Document(
+            P("p1") + Sect(Footer("default", "fN")),
+            Parts(("fN", FooterPart(Para(Text("first ") + Field("PAGE", "1")) + Para(Text("second ") + Field("PAGE", "1"))))));
+        var editor = Editor(document);
+
+        var result = editor.InsertPageNumber(At(document, 0), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, English, "1", "1");
+
+        Assert.NotNull(result);
+        var blocks = document.HeadersFooters["fN"].Content.Blocks;
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal("1", Raw((Paragraph)blocks[0]));
+        Assert.Equal("second 1", Raw((Paragraph)blocks[1]));
+        Assert.Equal(2, blocks.OfType<Paragraph>().Sum(p => Fields(p, "PAGE")));
+    }
+
+    [Fact]
+    public void ANumberParagraphInAContentControlIsReplacedNotDuplicated()
+    {
+        var document = Document(
+            P("p1") + Sect(Footer("default", "fC")),
+            Parts(("fC", FooterPart("<w:sdt><w:sdtPr/><w:sdtContent>" + Para(Text("x ") + Field("PAGE", "1")) + "</w:sdtContent></w:sdt>"))));
+        var layout = Lay(document);
+        var editor = Editor(document);
+
+        var result = editor.InsertPageNumber(At(document, 0), PageNumberLook.Page, HeaderFooterKind.Footer, PageNumberAlign.Left, English, "1", "1");
+
+        Assert.NotNull(result);
+        var blocks = document.HeadersFooters["fC"].Content.Blocks;
+        var control = Assert.IsType<ContentControlBlock>(Assert.Single(blocks));
+        Assert.Equal("Page 1", Raw((Paragraph)Assert.Single(control.Content)));
+        Assert.Equal(1, PageNumberField.Paragraphs(blocks).Count(PageNumberField.HoldsPage));
+        LayoutAgrees(layout, document, result, "control");
+    }
+
+    [Fact]
+    public void TheFirstPageFooterIsTheStoryForTheFirstType()
+    {
+        var document = Document(P("p1") + Pg("p2") + Sect("<w:titlePg/>"));
+        var layout = Lay(document);
+        var editor = Editor(document);
+
+        var result = editor.InsertPageNumber(At(document, 0), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, English, "1", "2", HeaderFooterType.First);
+
+        Assert.NotNull(result);
+        var references = SectionList.Of(document)[0].Properties.HeaderFooterReferences;
+        Assert.Equal(HeaderFooterType.First, Assert.Single(references).Type);
+        Assert.Equal(["1", "p2"], Feet(document));
+        LayoutAgrees(layout, document, result, "first page");
+    }
+
+    [Fact]
+    public void SharingCountsOnlyTheSectionsThatShowTheType()
+    {
+        // Sections 0 and 1 have a different first page and share the first-page footer of section 0; section 2 has none.
+        var document = Document(
+            PEnd("p1", Sect(Footer("first", "fF") + "<w:titlePg/>")) + PEnd("p2", Sect("<w:titlePg/>")) + P("p3") + Sect(),
+            Parts(("fF", FooterPart(Para(Text("F"))))));
+        var editor = Editor(document);
+
+        var first = editor.PageNumberSharing(At(document, 1), HeaderFooterKind.Footer, HeaderFooterType.First);
+        var even = editor.PageNumberSharing(At(document, 1), HeaderFooterKind.Footer, HeaderFooterType.Even);
+
+        Assert.Equal(0, first.OwnerSection);
+        Assert.Equal([0, 1], first.Sections);
+        Assert.Equal(-1, even.OwnerSection);
+        Assert.Empty(even.Sections);
+        Assert.DoesNotContain(2, editor.PageNumberSharing(At(document, 2), HeaderFooterKind.Footer, HeaderFooterType.First).Sections);
+    }
+
+    [Fact]
+    public void TheEvenFooterIsEditedWhenLeftAndRightPagesAreOn()
+    {
+        var document = Document(P("p1") + Pg("p2") + Pg("p3") + Sect(), settingsInner: "<w:evenAndOddHeaders/>");
+        var editor = Editor(document);
+
+        var result = editor.InsertPageNumber(At(document, 0), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Center, English, "2", "3", HeaderFooterType.Even);
+
+        Assert.NotNull(result);
+        Assert.Equal(HeaderFooterType.Even, Assert.Single(SectionList.Of(document)[0].Properties.HeaderFooterReferences).Type);
+        Assert.Equal([0], editor.PageNumberSharing(At(document, 0), HeaderFooterKind.Footer, HeaderFooterType.Even).Sections);
+        Assert.Equal(["p1", "2", "p3"], Feet(document));
     }
 }
