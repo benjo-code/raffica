@@ -46,7 +46,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 4.3.2 | Formatting and styles (4.3b) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-16-milestone-04-3b-formatting-and-styles.md) | 2026-11-21 |
 | 4.3.3 | New documents and recovery (4.3c) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-17-milestone-04-3c-new-documents-and-recovery.md) | 2026-11-21 |
 | 4.4.1 | Headings, lists and the outline (4.4a) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md) | 2026-11-22 |
-| 4.4.2 | Sections, page numbers, headers and footers, page setup (4.4b) | 5 – Raffica Write | ⬜ open | – | – |
+| 4.4.2 | Sections, page numbers, headers and footers, page setup (4.4b) | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-23-milestone-04-4b-sections-page-numbers-and-page-setup.md) | – |
 | 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
 | 4.6 | Review and proofing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.7 | Print and PDF | 5 – Raffica Write | ⬜ open | – | – |
@@ -765,16 +765,21 @@ Goal: Headings and lists are built by Write on the document's numbering definiti
 - [x] A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac (owner) – Closed by the owner on 2026-11-22 without a personal look on a real display (the owner asked for the checks to be done without manual work and then closed the milestone). What was checked instead: the Native AOT app was started on the Windows PC and the outline pane, the ribbon groups and the pane buttons were captured headless and read; `measure.yml` ran the published Native AOT Write app on the Linux laptop (mains power) and the Intel Mac with the `structure` case, which opens the thesis and runs the chapter moves, the numbering switch and the list toggle in the real app (run 45024333010 and run 45014269858). Not checked and left open as a risk: real Alt+Shift, Tab and Shift+Tab keys, a real pointer drag with the drop line, the dimmed row and the button size in the 240 px pane on a real display.
 
 ## Milestone 4.4.2 – Sections, page numbers, headers and footers, page setup (4.4b)
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4.1
+**Status:** 🟡 planned · **Plan:** [2026-11-23-milestone-04-4b-sections-page-numbers-and-page-setup.md](superpowers/plans/2026-11-23-milestone-04-4b-sections-page-numbers-and-page-setup.md) · **Prerequisites:** M4.4.1
 
 Goal: Sections and page numbers are built by Write in one action and never break.
 
 **Tasks**
-- [ ] Sections and "start page numbering here" as one command with a removable marker; headers and footers (first, odd and even)
-- [ ] Page setup: size, margins, orientation, columns
+- [ ] Sections and "start page numbering here" as one command with a removable marker, a Sections pane and plain section breaks; headers and footers (own or same as previous, first page, left and right pages); Insert page number
+- [ ] Page setup: size, margins, orientation, columns, for this section, the whole document or from here on
+- [ ] The outline moves a chapter that holds a section break
+- [ ] Measure the section commands (engine bench, app switch, budget row)
 
 **Acceptance criteria**
+- [ ] Page numbers equal an independent count of the model after every section command and its undo and redo, and the layout equals a full layout (tests)
+- [ ] A section command on the generated thesis takes at most the limit set from the median (aim 100 ms on the Linux laptop; measured)
 - [ ] The page-3 "1" and the "A-1" appendix made with the one command open in Word as intended (owner, recorded)
+- [ ] A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac: marker, pane, cards (owner)
 
 ## Milestone 4.5 – Long-document tools
 **Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4.2
