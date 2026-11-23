@@ -236,6 +236,7 @@ internal static class WriteStrings
     public static string ReasonSectionFirst => Table.Get("ReasonSectionFirst");
     public static string NoteSectionNoChange => Table.Get("NoteSectionNoChange");
     public static string NoteSectionBreakKey => Table.Get("NoteSectionBreakKey");
+    public static string NoteSectionBreakNoMarker => Table.Get("NoteSectionBreakNoMarker");
     public static string PageNumberWordPage => Table.Get("PageNumberWordPage");
     public static string PageNumberWordOf => Table.Get("PageNumberWordOf");
     public static string PageNumberCountsEveryPage => Table.Get("PageNumberCountsEveryPage");

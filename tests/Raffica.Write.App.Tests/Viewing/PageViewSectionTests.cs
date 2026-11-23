@@ -33,7 +33,7 @@ public sealed class PageViewSectionTests : IDisposable
     private async Task<ViewHarness> OpenAsync(params string[] paragraphs)
     {
         var path = StyledDocx.Write(_folder, Guid.NewGuid().ToString("N") + ".docx", StyledDocx.Styles, paragraphs);
-        var harness = new ViewHarness(path, 900, 1400);
+        var harness = new ViewHarness(path, 900, 700);
         harness.View.Runner.LeaseWaitTimeout = GateTimeout;
         harness.View.Runner.Start();
         await ViewHarness.WaitAsync(() => harness.View.Runner.FullModelReady || harness.View.Runner.IsFaulted, 30000);
@@ -74,7 +74,7 @@ public sealed class PageViewSectionTests : IDisposable
         Stroke(h, PhysicalKey.Backspace);
 
         // Nothing was merged or removed, and the words say where the break can be taken away.
-        Assert.Equal([WriteStrings.NoteSectionBreakKey], notes);
+        Assert.Equal([WriteStrings.NoteSectionBreakNoMarker], notes);
         Assert.Contains("marker", WriteStrings.NoteSectionBreakKey, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(WriteStrings.Get("CmdRemoveSection"), WriteStrings.NoteSectionBreakKey, StringComparison.Ordinal);
         Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
@@ -93,7 +93,7 @@ public sealed class PageViewSectionTests : IDisposable
         // Delete at the end of the paragraph that ends the section would merge the next paragraph into it.
         Place(h, 0, 3);
         Stroke(h, PhysicalKey.Delete);
-        Assert.Equal([WriteStrings.NoteSectionBreakKey], notes);
+        Assert.Equal([WriteStrings.NoteSectionBreakNoMarker], notes);
         Assert.Equal(2, h.View.Tab.Docx.Model.Body.Blocks.Count);
 
         // A selection from the end of the first paragraph into the second removes the same break.
@@ -101,7 +101,7 @@ public sealed class PageViewSectionTests : IDisposable
         session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, P(h, 0), 1), new TextPosition(StoryRef.Body, P(h, 1), 1)));
         notes.Clear();
         Stroke(h, PhysicalKey.Delete);
-        Assert.Equal([WriteStrings.NoteSectionBreakKey], notes);
+        Assert.Equal([WriteStrings.NoteSectionBreakNoMarker], notes);
         Assert.NotNull(P(h, 0).SectionBreak);
         Assert.Equal("one", Text(P(h, 0)));
         Assert.Equal("two", Text(P(h, 1)));
@@ -134,7 +134,7 @@ public sealed class PageViewSectionTests : IDisposable
     {
         // The runner is not started, so only the first blocks are open: the facts say why, the session is not made and the document is untouched.
         var path = StyledDocx.Write(_folder, "long.docx", StyledDocx.Styles, [.. Enumerable.Range(0, 200).Select(i => $"<w:r><w:t>p{i}</w:t></w:r>")]);
-        using var h = new ViewHarness(path, 900, 1400);
+        using var h = new ViewHarness(path, 900, 700);
         Assert.True(h.View.Tab.Docx.IsPrefix);
         var revision = h.View.Tab.Docx.Model.Edits.Revision;
 

@@ -370,11 +370,27 @@ public sealed class SectionMarkersTests : IDisposable
     [AvaloniaFact]
     public async Task NothingIsComputedBeforeTheFirstSectionBreakIsKnown()
     {
-        // A document with one section: the sections are read once, no marker is made and no layer exists.
+        // A document with one section: the layout's own section count says so, the body is not read for markers and nothing of them exists, after the open, after typing and after scrolling.
         using var one = await OpenAsync([Run("one"), Run("two")]);
+        one.View.ChipRefreshDelay = TimeSpan.FromHours(1);
         Assert.Null(one.View.ChipLayer);
-        Assert.Equal(0, one.View.Markers?.MarkersMade ?? 0);
-        Assert.True((one.View.Markers?.Reads ?? 0) <= 1);
+        Assert.Null(one.View.Markers);
+        var session = one.View.Tab.EnsureEditor();
+        _ = session.Selection;
+        var at = new TextPosition(StoryRef.Body, P(one, 0), 0);
+        session.SetSelection(new TextRange(at, at));
+        one.View.Focus();
+        for (var i = 0; i < 20; i++)
+        {
+            one.Window.KeyTextInput("x");
+        }
+
+        one.View.FlushSectionChips();
+        one.View.ScrollToEnd();
+        one.View.ScrollToStart();
+        Settle(one);
+        Assert.Null(one.View.ChipLayer);
+        Assert.Null(one.View.Markers);
 
         // A document that is still opening (a prefix) shows no chip and reads nothing.
         var path = StyledDocx.Write(_folder, "long.docx", StyledDocx.Styles, [.. Enumerable.Range(0, 200).Select(i => (i % 50 == 49 ? Break : string.Empty) + Run($"p{i}"))]);
@@ -399,8 +415,10 @@ public sealed class SectionMarkersTests : IDisposable
         var renders = h.View.RenderCount;
         var positions = Chips(h).Select(c => (Canvas.GetLeft(c.Button), Canvas.GetTop(c.Button), c.Shown)).ToArray();
 
+        Assert.All(Chips(h), c => Assert.True(c.Button.IsMeasureValid && c.Button.IsArrangeValid));
         h.View.InvalidateVisual();
         _ = h.Capture();
+        Assert.All(Chips(h), c => Assert.True(c.Button.IsMeasureValid && c.Button.IsArrangeValid, "the render pass invalidated a chip"));
 
         // A frame was rendered, and the layer was neither brought up to date nor changed by it.
         Assert.True(h.View.RenderCount > renders);
@@ -438,7 +456,7 @@ public sealed class SectionMarkersTests : IDisposable
         await ZoomOutAsync(h);
         Assert.NotEmpty(Chips(h));
 
-        // The pages the view shows are the pages of the layout, and a layout made from the same document with no view at all has the same pages and items: the chips are not among them.
+        // Write has no print or export path yet, so this pins what such a path will read: the pages of the layout. The pages the view shows are the pages of the layout, and a layout made from the same document with no view at all has the same pages and items: the chips are not among them.
         var shown = h.View.Tab.Layout;
         var fresh = DocumentLayout.Create(h.View.Tab.Docx.Model, FontCatalog.CreateShipped(), new LayoutOptions(LayoutMode.Pages));
         await fresh.LayOutRestAsync(null, CancellationToken.None);
@@ -466,6 +484,80 @@ public sealed class SectionMarkersTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheKeyNoteNamesTheMarkerOnlyWhenItsChipIsShown()
+    {
+        using var h = await OpenAsync(ThreeSections(), height: 3200);
+        await ZoomOutAsync(h);
+        var notes = new List<string>();
+        h.View.StructureNote += notes.Add;
+        var session = h.View.Tab.EnsureEditor();
+        _ = session.Selection;
+        var at = new TextPosition(StoryRef.Body, P(h, 1), 0);
+        session.SetSelection(new TextRange(at, at));
+        h.View.Focus();
+        Assert.Contains(Chips(h), c => c.Section == 1 && c.Shown);
+
+        // Backspace at the start of the paragraph after the first break: the marker of section 2 is on screen, the note names it.
+        h.Window.KeyPressQwerty(PhysicalKey.Backspace, RawInputModifiers.None);
+        h.Window.KeyReleaseQwerty(PhysicalKey.Backspace, RawInputModifiers.None);
+        ViewHarness.Pump();
+        Assert.Equal([WriteStrings.NoteSectionBreakKey], notes);
+
+        // In the writing view there is no marker: the note points to Remove section and the Sections pane instead.
+        notes.Clear();
+        h.View.Mode = WriteView.Writing;
+        Settle(h);
+        Assert.DoesNotContain(Chips(h), c => c.Shown);
+        session.SetSelection(new TextRange(at, at));
+        h.Window.KeyPressQwerty(PhysicalKey.Backspace, RawInputModifiers.None);
+        h.Window.KeyReleaseQwerty(PhysicalKey.Backspace, RawInputModifiers.None);
+        ViewHarness.Pump();
+        Assert.Equal([WriteStrings.NoteSectionBreakNoMarker], notes);
+        Assert.DoesNotContain("marker", WriteStrings.NoteSectionBreakNoMarker, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(WriteStrings.Get("CmdRemoveSection"), WriteStrings.NoteSectionBreakNoMarker, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public async Task ARightOrMiddleClickOnTheChipDoesNotMoveTheCaret()
+    {
+        using var h = await OpenAsync(ThreeSections(), height: 3200);
+        await ZoomOutAsync(h);
+        var session = h.View.Tab.EnsureEditor();
+        _ = session.Selection;
+        var at = new TextPosition(StoryRef.Body, P(h, 0), 2);
+        session.SetSelection(new TextRange(at, at));
+        var chip = Chips(h).Single(c => c.Section == 2).Button;
+        var point = Center(h, chip);
+        foreach (var button in new[] { MouseButton.Right, MouseButton.Middle })
+        {
+            h.Window.MouseDown(point, button);
+            h.Window.MouseUp(point, button);
+            ViewHarness.Pump();
+            Assert.Equal(new TextRange(at, at), session.Selection);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ChipsOfSectionsThatStartCloseTogetherOnOnePageDoNotCoverEachOther()
+    {
+        const string Continuous = "<w:pPr><w:sectPr><w:type w:val=\"continuous\"/></w:sectPr></w:pPr>";
+        using var h = await OpenAsync([Continuous + Run("a"), Continuous + Run("b"), Continuous + Run("c"), Run("d")], height: 3200);
+        await ZoomOutAsync(h);
+        await ViewHarness.WaitAsync(() => Chips(h).Count(c => c.Shown) == 3, 10000);
+        var page = h.View.PageBounds(0)!.Value;
+        var chips = Chips(h).Where(c => c.Shown && Canvas.GetTop(c.Button) < page.Bottom).OrderBy(c => Canvas.GetTop(c.Button)).ToArray();
+
+        // Sections 2 and 3 start a text line apart on the first page (the last one starts the next page); the two chips are one under the other with no overlap.
+        for (var i = 1; i < chips.Length; i++)
+        {
+            Assert.True(Canvas.GetTop(chips[i].Button) >= Canvas.GetTop(chips[i - 1].Button) + chips[i - 1].Button.Bounds.Height, $"chip {i} covers chip {i - 1}");
+        }
+
+        Assert.Equal(2, chips.Length);
+        Assert.All(chips, c => Assert.InRange(Canvas.GetTop(c.Button) + c.Button.Bounds.Height, page.Top, page.Bottom + 0.5));
+    }
+
+    [AvaloniaFact]
     public async Task AThousandSectionsCostAHandfulOfChipsAndTypingReadsTheSectionsOncePerBurst()
     {
         var paragraphs = Enumerable.Range(0, 1000).Select(i => Break + Run($"s{i}")).Append(Run("end")).ToArray();
@@ -490,7 +582,8 @@ public sealed class SectionMarkersTests : IDisposable
         Assert.True(markers.MarkersMade - madeBefore <= 20 * 16);
         Assert.True(perScroll < 256 * 1024, $"{perScroll} bytes per scroll");
 
-        // Fifty typed keys read nothing of the sections while they go on (the chips wait for a pause) and one read when it comes, not one per key.
+        // Fifty typed keys read nothing of the sections while they go on (the chips wait for a pause; the pause is driven by hand here, so a slow machine cannot fire it early) and one read when it comes.
+        h.View.ChipRefreshDelay = TimeSpan.FromHours(1);
         var session = h.View.Tab.EnsureEditor();
         _ = session.Selection;
         var at = new TextPosition(StoryRef.Body, P(h, 500), 0);

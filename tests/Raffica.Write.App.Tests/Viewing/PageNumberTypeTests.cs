@@ -109,6 +109,8 @@ public sealed class PageNumberTypeTests : IDisposable
             Ends(numbering: Numbering(4)) + Text("c"),
             Text("d"));
         Assert.NotNull(h.View.ApplyOperation(ed => ed.SetLeftRightPages(true, Place(h, 0))));
+        // The edit lays out through the page in view and the rest in the background; the total is the pages laid out so far, so the test waits for the whole layout (it read "2" of 4 on a loaded machine, before and after the section markers).
+        await ViewHarness.WaitAsync(() => h.View.Runner.PageLayout.IsComplete, 30000);
         ViewHarness.Pump();
         Assert.True(h.View.Tab.Docx.Model.Settings!.EvenAndOddHeaders);
 
@@ -139,6 +141,8 @@ public sealed class PageNumberTypeTests : IDisposable
             Ends(numbering: Numbering(7, "lowerRoman")) + Text("c"),
             Text("d"));
         Assert.NotNull(h.View.ApplyOperation(ed => ed.SetLeftRightPages(true, Place(h, 0))));
+        // The edit lays out through the page in view and the rest in the background; the total is the pages laid out so far, so the test waits for the whole layout (it read "2" of 4 on a loaded machine, before and after the section markers).
+        await ViewHarness.WaitAsync(() => h.View.Runner.PageLayout.IsComplete, 30000);
         ViewHarness.Pump();
 
         // "vi" is 6: even. "vii" is 7: odd. The page text says which, the layout says what it did with it.

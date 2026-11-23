@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 
 namespace Raffica.Write.Viewing;
@@ -68,6 +70,7 @@ internal sealed class SectionChipLayer : Canvas
     {
         Syncs++;
         _stamp++;
+        var slots = new List<Slot>(places.Count);
         foreach (var place in places)
         {
             var marker = place.Marker;
@@ -93,8 +96,13 @@ internal sealed class SectionChipLayer : Canvas
 
             AutomationProperties.SetName(chip.Button, marker.Name);
             AutomationProperties.SetHelpText(chip.Button, marker.Help);
-            Place(chip, place, usableRight);
+            if (Place(chip, place, usableRight) is { } slot)
+            {
+                slots.Add(slot);
+            }
         }
+
+        Stack(slots);
 
         List<int>? gone = null;
         foreach (var (section, chip) in _chips)
@@ -116,7 +124,40 @@ internal sealed class SectionChipLayer : Canvas
         }
     }
 
-    private static void Place(Chip chip, ChipPlace place, double usableRight)
+    // A chip on its page: the button, where it wants to stand (y) and how high it is.
+    private readonly record struct Slot(Button Button, double Y, double Height, double PageTop, double PageBottom);
+
+    // Chips on one page that would cover each other are put under each other (the first one that does not fit at the bottom of the page moves the ones above it up), so each stays clickable.
+    private static void Stack(List<Slot> slots)
+    {
+        const double Space = 2;
+        for (var i = 0; i < slots.Count; i++)
+        {
+            var slot = slots[i];
+            var y = slot.Y;
+            if (i > 0 && slots[i - 1].PageTop == slot.PageTop)
+            {
+                y = Math.Max(y, slots[i - 1].Y + slots[i - 1].Height + Space);
+            }
+
+            slots[i] = slot with { Y = Math.Max(slot.PageTop, Math.Min(y, slot.PageBottom - slot.Height)) };
+        }
+
+        for (var i = slots.Count - 2; i >= 0; i--)
+        {
+            if (slots[i].PageTop == slots[i + 1].PageTop && slots[i].Y + slots[i].Height + Space > slots[i + 1].Y)
+            {
+                slots[i] = slots[i] with { Y = Math.Max(slots[i].PageTop, slots[i + 1].Y - slots[i].Height - Space) };
+            }
+        }
+
+        foreach (var slot in slots)
+        {
+            SetTop(slot.Button, slot.Y);
+        }
+    }
+
+    private static Slot? Place(Chip chip, ChipPlace place, double usableRight)
     {
         // Both sizes are asked (the second line shown, then hidden): the chip is small and only the ones in view are placed.
         var button = chip.Button;
@@ -150,15 +191,14 @@ internal sealed class SectionChipLayer : Canvas
         else
         {
             button.IsVisible = false;
-            return;
+            return null;
         }
 
         chip.Line.IsVisible = useFull;
         button.IsVisible = true;
         var height = useFull ? full.Height : compact.Height;
-        var y = Math.Clamp(place.Y, place.PageTop, Math.Max(place.PageTop, place.PageBottom - height));
         SetLeft(button, x);
-        SetTop(button, y);
+        return new Slot(button, place.Y, height, place.PageTop, place.PageBottom);
     }
 
     private Chip Make(int section)
@@ -173,6 +213,8 @@ internal sealed class SectionChipLayer : Canvas
         var button = new Button { Name = "PART_SectionChip" + section, Content = content, Focusable = false, IsTabStop = false };
         button.Classes.Add("boxed");
         button.Classes.Add("section-chip");
+        // Any button on the chip is the chip's: a right or middle press must not reach the page under it (it would place the caret or open the page's menu).
+        button.AddHandler(PointerPressedEvent, static (_, e) => e.Handled = true, RoutingStrategies.Bubble, handledEventsToo: true);
         var flyout = new Flyout { Placement = PlacementMode.Bottom };
         var chip = new Chip(button, title, line);
         flyout.Opening += (_, _) => OnOpening(chip, flyout, PopoverFactory);

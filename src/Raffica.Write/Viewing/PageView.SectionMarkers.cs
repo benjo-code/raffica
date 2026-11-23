@@ -24,6 +24,7 @@ internal sealed partial class PageView
     private SectionChipLayer? _chipLayer;
     private bool _chipRefreshPosted;
     private FormatDisplayRefresh? _chipRefresh;
+    private TimeSpan _chipRefreshDelay = FormatDisplayRefresh.DefaultDelay;
 
     /// <summary>The markers' source; null until the page view has drawn page 1 of a document that is fully open (tests).</summary>
     internal SectionMarkers? Markers => _sectionMarkers;
@@ -65,7 +66,8 @@ internal sealed partial class PageView
     {
         layout = _builtLayout!;
         scroller = _scroller!;
-        return _mode == WriteView.Page && !_tab.Docx.IsPrefix && FirstSharpPageShown && _builtLayout is not null && _scroller is { Count: > 0 };
+        // A document with one section has no marker: the layout's own section count says so, and the body is not read.
+        return _mode == WriteView.Page && !_tab.Docx.IsPrefix && FirstSharpPageShown && _builtLayout is { SectionCount: > 1 } && _scroller is { Count: > 0 };
     }
 
     // The first read of the sections is posted at the background priority (the chips appear with the first frames). A change of the model after that is read once when the typing pauses (the read of every section
@@ -74,7 +76,7 @@ internal sealed partial class PageView
     {
         if (_sectionMarkers is { Reads: > 0 })
         {
-            (_chipRefresh ??= new FormatDisplayRefresh(ReadAndPlaceChips, FormatDisplayRefresh.DefaultDelay)).Request();
+            (_chipRefresh ??= new FormatDisplayRefresh(ReadAndPlaceChips, _chipRefreshDelay)).Request();
             return;
         }
 
@@ -91,6 +93,18 @@ internal sealed partial class PageView
                 ReadAndPlaceChips();
             },
             DispatcherPriority.Background);
+    }
+
+    /// <summary>How long typing must pause before the sections are read again (tests make it long and drive the pause by hand with <see cref="FlushSectionChips"/>).</summary>
+    internal TimeSpan ChipRefreshDelay
+    {
+        get => _chipRefreshDelay;
+        set
+        {
+            _chipRefresh?.Dispose();
+            _chipRefresh = null;
+            _chipRefreshDelay = value;
+        }
     }
 
     /// <summary>Runs the read that waits for a pause in typing now (tests do not wait for the delay).</summary>
@@ -147,6 +161,26 @@ internal sealed partial class PageView
         {
             layer.Sync([], 0);
         }
+    }
+
+    // Whether the chip of the section after the one a break paragraph ends is on screen now (the key note names the marker only then).
+    private bool MarkerIsShownFor(SectionProperties? properties)
+    {
+        if (properties is null || _chipLayer is null || _mode != WriteView.Page)
+        {
+            return false;
+        }
+
+        var sections = SectionList.Of(_tab.Docx.Model);
+        for (var j = 0; j < sections.Count - 1; j++)
+        {
+            if (ReferenceEquals(sections[j].Properties, properties))
+            {
+                return _chipLayer.Chips.Any(c => c.Section == j + 1 && c.Shown);
+            }
+        }
+
+        return false;
     }
 
     private SectionChipLayer EnsureChipLayer()

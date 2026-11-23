@@ -1233,6 +1233,9 @@
   <data name="NoteSectionBreakKey" xml:space="preserve">
     <value>A section break cannot be deleted with the keyboard. Open the section marker at the page edge and choose Remove marker, or use Remove section.</value>
   </data>
+  <data name="NoteSectionBreakNoMarker" xml:space="preserve">
+    <value>A section break cannot be deleted with the keyboard. Use Remove section on the Layout tab or in the Sections pane.</value>
+  </data>
   <data name="MarginNormal" xml:space="preserve">
     <value>Normal</value>
   </data>

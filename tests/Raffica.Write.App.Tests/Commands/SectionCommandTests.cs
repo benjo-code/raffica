@@ -212,7 +212,7 @@ public sealed class SectionCommandTests
         [
             "TabLayout", "GroupPageSetup", "GroupSections", "GroupHeaderFooter", "MenuLayout",
             .. s_ids.Select(id => Of(id).NameKey), .. s_ids.Select(id => Of(id).DescriptionKey!),
-            "ReasonSectionNotInBody", "ReasonSectionPrefix", "ReasonSectionStartsHere", "ReasonSectionNothingToMerge", "ReasonSectionFirst", "NoteSectionNoChange", "NoteSectionBreakKey", "NoteCardStale",
+            "ReasonSectionNotInBody", "ReasonSectionPrefix", "ReasonSectionStartsHere", "ReasonSectionNothingToMerge", "ReasonSectionFirst", "NoteSectionNoChange", "NoteSectionBreakKey", "NoteSectionBreakNoMarker", "NoteCardStale",
             "MarginNormal", "MarginNarrow", "MarginModerate", "MarginWide", "OrientationPortrait", "OrientationLandscape", "ColumnsOne", "ColumnsTwo", "ColumnsThree",
             "BreakNextPage", "BreakContinuous", "BreakEvenPage", "BreakOddPage", "PageNumberWordPage", "PageNumberWordOf", "PageNumberPlaceFooter", "PageNumberPlaceHeader",
             "PageNumberAlignLeft", "PageNumberAlignCenter", "PageNumberAlignRight", "PageNumberItemFormat", "PageNumberCountsEveryPage",

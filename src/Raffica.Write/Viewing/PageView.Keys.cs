@@ -228,17 +228,18 @@ internal sealed partial class PageView
             case EditActionKind.Delete:
                 var (unit, forward) = (action.Unit, action.Forward);
                 var refusedAtBreak = false;
+                SectionProperties? breakProperties = null;
                 ApplyKey(session => ed =>
                 {
                     var deleted = DeleteBySelectionOrCaret(ed, session.Selection, unit, forward);
-                    refusedAtBreak = deleted is (null or { Changes.Count: 0, Selected: null }) && session.Selection is { } range && DeleteWouldRemoveSectionBreak(range, forward);
+                    refusedAtBreak = deleted is (null or { Changes.Count: 0, Selected: null }) && session.Selection is { } range && DeleteWouldRemoveSectionBreak(range, forward, out breakProperties);
                     return deleted;
                 });
 
                 // The editor does not delete or merge a paragraph that ends a section: the reason says where the break can be taken away (a save that queued the key says nothing, as for every refusal).
                 if (refusedAtBreak)
                 {
-                    StructureNote?.Invoke(WriteStrings.NoteSectionBreakKey);
+                    StructureNote?.Invoke(MarkerIsShownFor(breakProperties) ? WriteStrings.NoteSectionBreakKey : WriteStrings.NoteSectionBreakNoMarker);
                 }
 
                 break;
@@ -249,8 +250,9 @@ internal sealed partial class PageView
 
     // Whether the editor's refusal of a delete was the section rule: a range that would remove the paragraph break of a paragraph that ends a section, or a caret at the start of the paragraph after one (Backspace) or at the
     // end of a paragraph that ends one (Delete). Only the top-level blocks of the story can carry a section break; a paragraph in a cell or a control is not one of them.
-    private bool DeleteWouldRemoveSectionBreak(TextRange range, bool forward)
+    private bool DeleteWouldRemoveSectionBreak(TextRange range, bool forward, out SectionProperties? breakProperties)
     {
+        breakProperties = null;
         var normalized = range.Normalized();
         if (TextUnits.BlocksOf(_tab.Docx.Model, normalized.End.Story) is not { } blocks)
         {
@@ -268,8 +270,9 @@ internal sealed partial class PageView
         {
             for (var i = first; i < last; i++)
             {
-                if (blocks[i] is Paragraph { SectionBreak: not null })
+                if (blocks[i] is Paragraph { SectionBreak: { } found })
                 {
+                    breakProperties = found;
                     return true;
                 }
             }
@@ -277,9 +280,12 @@ internal sealed partial class PageView
             return false;
         }
 
-        return forward
+        var at = forward ? first : first - 1;
+        var hit = forward
             ? blocks[first] is Paragraph { SectionBreak: not null } && first + 1 < blocks.Count && blocks[first + 1] is Paragraph
             : normalized.Start.Offset == 0 && first > 0 && blocks[first - 1] is Paragraph { SectionBreak: not null };
+        breakProperties = hit ? ((Paragraph)blocks[at]).SectionBreak : null;
+        return hit;
     }
 
     private static int IndexOfBlock(IList<Block> blocks, Paragraph paragraph)
