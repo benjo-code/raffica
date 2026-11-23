@@ -209,18 +209,14 @@ internal sealed class SectionSteps
         var format = (PageNumberFormat)random.Next(5);
         var prefix = random.Next(3) == 0 ? "A-" : string.Empty;
 
-        // A caret that starts a section edits that section alone, whatever its type is. Two states are unverified against Word (see CheckNumbers): a start on a continuous section, which is never drawn here
-        // (the section keeps its count), and a start of the wrong parity on an even-page or odd-page section, which is drawn only one time in eight; a caret in the middle of a section makes a next-page section,
+        // A caret that starts a section edits that section alone, whatever its type is. One state is unverified against Word (see CheckNumbers): a start of the wrong parity on an even-page or odd-page section
+        // (it is drawn only one time in eight); a caret in the middle of a section makes a next-page section,
         // where every start is fine.
         var facts = Editor.ReadSectionFacts(at);
         if (facts is { InBody: true, AtSectionStart: true })
         {
             var type = (string?)SectionList.Of(_model)[facts.Section].Properties.Get(W + "type")?.Attribute(W + "val");
-            if (type == "continuous")
-            {
-                start = null;
-            }
-            else if (start is { } value && type is "evenPage" or "oddPage" && random.Next(8) != 0)
+            if (start is { } value && type is "evenPage" or "oddPage" && random.Next(8) != 0)
             {
                 start = type == "evenPage" ? value + (value % 2) : value + 1 - (value % 2);
             }
@@ -417,8 +413,7 @@ internal sealed class SectionSteps
     /// <item>it may be the blank page of an even-page or odd-page section (<see cref="DrawnPageNumbers"/>: the layout gives it the format of the section after it; what Word does is not documented), or</item>
     /// <item>it belongs to a section whose rule is unverified, or to the pages after one up to (excluding) the next page where another section restarts with an explicit <c>w:start</c> (the count after an
     /// unverified section depends on what it did): an even-page or odd-page section whose <c>w:start</c> has the wrong parity (the layout numbers the blank page with the start and the section's first page
-    /// start + 1; the reference starts that page at the start; Word may refuse the start or change it), and a continuous section that carries a <c>w:start</c> (the sources disagree on whether Word restarts
-    /// there: see <see cref="ReferencePageNumbers"/>).</item>
+    /// start + 1; the reference starts that page at the start; Word ignores the start there, see <see cref="ReferencePageNumbers"/>). A continuous section that carries a <c>w:start</c> is compared since the Word check of 2026-11-23.</item>
     /// </list>
     /// Every other page, in every other section, is compared exactly; the oracle's generator avoids reaching these states most of the time and the tests bound the left-out share.
     /// </summary>
@@ -430,7 +425,7 @@ internal sealed class SectionSteps
             var s = sections[Math.Min(index, sections.Count - 1)];
             var type = (string?)s?.Get(W + "type")?.Attribute(W + "val");
             var hasStart = int.TryParse((string?)s?.Get(W + "pgNumType")?.Attribute(W + "start"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start);
-            return hasStart && (type == "continuous" || (type == "evenPage" && start % 2 != 0) || (type == "oddPage" && start % 2 == 0));
+            return hasStart && ((type == "evenPage" && start % 2 != 0) || (type == "oddPage" && start % 2 == 0));
         }
 
         bool HasStart(int index) =>
@@ -453,7 +448,7 @@ internal sealed class SectionSteps
             left[p] = skipping || drawn[p].MaybeBlank;
         }
 
-        var expected = ReferencePageNumbers.Numbers(model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)]);
+        var expected = ReferencePageNumbers.Numbers(model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)], [.. drawn.Select(d => d.StartedMidPage)]);
         var differing = Enumerable.Range(0, drawn.Count).Where(p => !left[p] && expected[p] != drawn[p].Number).ToList();
         Assert.True(
             differing.Count == 0,

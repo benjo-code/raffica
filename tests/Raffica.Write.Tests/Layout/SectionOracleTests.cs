@@ -188,7 +188,7 @@ public sealed class SectionOracleTests
         TestContext.Current.SendDiagnosticMessage($"{name}: {compared} steps compared, {steps.PagesCompared} page numbers, refused {steps.RefusedPerKind.Sum()}, resections {steps.Resections}, {steps.PagesSkipped} of {steps.PagesCompared + steps.PagesSkipped} page numbers left out (unverified states)");
     }
 
-    // The unverified states (a wrong-parity start on an even-page or odd-page section, a start on a continuous section) are left out of the number comparison, and only the pages they affect. On the three
+    // The unverified state (a wrong-parity start on an even-page or odd-page section; a start on a continuous section is compared since the Word check of 2026-11-23) is left out of the number comparison, and only the pages it affects. On the three
     // generated documents the allowance is reached at least once (so it is exercised) and stays under 10 percent of the compared pages.
     [Fact]
     public async Task TheUnverifiedStatesAreReachedOnTheGeneratedDocumentsAndStayBounded()

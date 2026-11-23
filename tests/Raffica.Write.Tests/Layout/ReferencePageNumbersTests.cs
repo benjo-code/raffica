@@ -32,7 +32,7 @@ public sealed class ReferencePageNumbersTests
         var document = LayoutModel.Document(body);
         var layout = DocumentLayout.Create(document, PageTestKit.Fonts, new LayoutOptions());
         var drawn = DrawnPageNumbers.Read(layout, document);
-        var reference = ReferencePageNumbers.Numbers(document, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)]);
+        var reference = ReferencePageNumbers.Numbers(document, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)], [.. drawn.Select(d => d.StartedMidPage)]);
         Assert.Equal(reference, drawn.Select(d => d.Number));
         return [.. reference];
     }
@@ -50,7 +50,7 @@ public sealed class ReferencePageNumbersTests
             Assert.True(layout.IsComplete);
 
             var drawn = DrawnPageNumbers.Read(layout, file.Model);
-            var expected = ReferencePageNumbers.Numbers(file.Model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)]);
+            var expected = ReferencePageNumbers.Numbers(file.Model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)], [.. drawn.Select(d => d.StartedMidPage)]);
             Assert.Equal(expected, drawn.Select(d => d.Number));
             pages += expected.Count;
             if (entry.Id == "thesis")
@@ -134,20 +134,36 @@ public sealed class ReferencePageNumbersTests
         Assert.Equal(["1", "2", "3", "4"], Drawn(Page("a") + Page("b") + Break(string.Empty) + Page("c") + Page("d") + Final()));
     }
 
-    // UNVERIFIED against Word (see ReferencePageNumbers): the rule for a continuous section that carries a start. It pins the reference and the layout to each other, nothing more.
-    // A continuous section sets a start of 5. Its first paragraph breaks the page itself: on the same paper the section is still not the one that began page 2 (the page break did), so the count goes on; on other paper it starts a new page and restarts.
+    // Checked against Word on 2026-11-23 (Docs/write-word-check.md, rows continuous-start-page-top and continuous-start-other-paper): a continuous section that sets a start of 5 and whose first block
+    // goes to the top of page 2 (here by a page break before) begins that page with the start, on the same paper as well as on other paper.
     [Theory]
-    [InlineData(false, "2", "3")]
-    [InlineData(true, "5", "6")]
-    public void AContinuousSectionRestartsTheCountOnlyWhenItStartsAPage(bool otherPaper, string second, string third)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AContinuousSectionWhoseFirstBlockStartsAPageRestartsTheCount(bool otherPaper)
     {
         var margins = "<w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/>";
         var first = "<w:p><w:pPr><w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/>" + margins + "</w:sectPr></w:pPr><w:r><w:t>one</w:t></w:r></w:p>";
         var size = otherPaper ? "<w:pgSz w:w=\"16838\" w:h=\"11906\" w:orient=\"landscape\"/>" : "<w:pgSz w:w=\"11906\" w:h=\"16838\"/>";
         var last = Page("two") + Page("three") + "<w:sectPr><w:type w:val=\"continuous\"/>" + size + margins + "<w:pgNumType w:start=\"5\"/></w:sectPr>";
 
-        var numbers = Drawn(first + last);
+        Assert.Equal(["1", "5", "6"], Drawn(first + last));
+    }
 
-        Assert.Equal(["1", second, third], numbers);
+    // Checked against Word on 2026-11-23 (row continuous-start-same-paper: Word 1 2 6 7): a continuous section on the same paper that sets a start of 5 and begins in the middle of page 2 leaves that
+    // page's number alone, and the next page counts from 5 + 1.
+    [Fact]
+    public void AContinuousSectionThatBeginsInTheMiddleOfAPageLeavesThatPageAndCountsOnFromTheStart()
+    {
+        var lines = string.Concat(Enumerable.Range(1, 160).Select(i => $"<w:p><w:r><w:t>line {i}</w:t></w:r></w:p>"));
+        var first = Page("one") + "<w:p><w:pPr><w:sectPr>" + Size + "</w:sectPr></w:pPr><w:r><w:t>one b</w:t></w:r></w:p>";
+        var body = first + Page("two") + "<w:p><w:pPr><w:sectPr>" + Size + "</w:sectPr></w:pPr><w:r><w:t>two b</w:t></w:r></w:p>"
+            + lines + "<w:sectPr><w:type w:val=\"continuous\"/>" + Size + "<w:pgNumType w:start=\"5\"/></w:sectPr>";
+
+        var numbers = Drawn(body);
+
+        Assert.Equal("1", numbers[0]);
+        Assert.Equal("2", numbers[1]);
+        Assert.Equal("6", numbers[2]);
+        Assert.Equal("7", numbers[3]);
     }
 }

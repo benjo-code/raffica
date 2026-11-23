@@ -15,11 +15,15 @@ namespace Raffica.Write.Tests.Support;
 /// reference is built on. A page begins its section when it is the page the section's first block starts on and the section starts a page (see <c>DrawnPageNumbers</c>).
 /// </para>
 /// <para>
-/// <b>UNVERIFIED rules (not established from a documentation source; the oracle leaves the affected pages out, see <c>SectionSteps.CheckNumbers</c>, and the Word check of Task 16 decides them).</b>
-/// (1) A continuous section on the same paper that carries a <c>w:start</c> does not restart the count (this reference computes it that way; Microsoft Q&amp;A answers disagree: one says continuous breaks restart
-/// like any other, another that Word reads them as next-page breaks for page numbering; Aspose documents a mode that restarts only when no content precedes the section on its page). (2) A continuous section
-/// on other paper starts a new page and so restarts (generally known, no source found). (3) The blank page Word inserts before an even-page or odd-page section: which number and format it gets, and what
-/// Word does with a <c>w:start</c> of the wrong parity (a forum report says Word will not start an even-page section at 1 and starts at 2).
+/// <b>Rules checked against Word on 2026-11-23</b> (<c>Docs/write-word-check.md</c>, section "Sections, page numbers and page setup (milestone 4.4b)", read through Word automation).
+/// (1) A <c>w:start</c> of a continuous section applies as for any section when its first block is at the top of a page (row continuous-start-page-top: Word 1 2 5 6); a continuous section that begins in
+/// the middle of a page leaves that page's number alone and the next page is start + 1 (row continuous-start-same-paper: Word 1 2 6 7, page 3 is 5 + 1), which <c>startedMidPage</c> carries. (2) A continuous
+/// section on other paper starts a new page and so restarts (row continuous-start-other-paper: Word 1 2 5 6).
+/// </para>
+/// <para>
+/// <b>UNVERIFIED rules (the oracle leaves the affected pages out, see <c>SectionSteps.CheckNumbers</c>).</b> (3) The blank page Word inserts before an even-page or odd-page section: its number format is unread.
+/// (4) What Word does with a <c>w:start</c> of the wrong parity: it ignores the start and continues the count (rows even-page-start-one and odd-page-start-two), and a start of the right parity is applied
+/// (rows even-page-start-two and odd-page-start-one); the layout does not follow this yet (Docs/DECISIONS.md, "Raffica Write: sections, page numbers and page setup (M4.4b)").
 /// </para>
 /// </summary>
 internal static class ReferencePageNumbers
@@ -45,10 +49,10 @@ internal static class ReferencePageNumbers
 
     /// <summary>
     /// The number text of every page; <paramref name="sectionOfPage"/> holds the index of the section of each page (counted from 0, in document order). <paramref name="startsSection"/> says for
-    /// each page whether its section begins on it (only then does a <c>w:start</c> apply: a continuous section that starts in the middle of a page does not restart the count on the next page);
+    /// each page whether a section begins at its top (only then does that section's <c>w:start</c> apply to the page); <paramref name="startedMidPage"/> holds, per page, the <c>w:start</c> of a section that began in the middle of the page before (this page is then start + 1);
     /// null takes the first page of each run of pages of one section as the page the section begins on.
     /// </summary>
-    public static IReadOnlyList<string> Numbers(WordDocument document, IReadOnlyList<int> sectionOfPage, IReadOnlyList<bool>? startsSection = null)
+    public static IReadOnlyList<string> Numbers(WordDocument document, IReadOnlyList<int> sectionOfPage, IReadOnlyList<bool>? startsSection = null, IReadOnlyList<int?>? startedMidPage = null)
     {
         ArgumentNullException.ThrowIfNull(sectionOfPage);
         var sections = Sections(document);
@@ -64,6 +68,10 @@ internal static class ReferencePageNumbers
             if (begins && int.TryParse((string?)numbering?.Attribute(W + "start"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start))
             {
                 number = start;
+            }
+            else if (startedMidPage?[page] is { } mid)
+            {
+                number = mid + 1;
             }
             else
             {

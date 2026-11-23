@@ -101,6 +101,7 @@ internal sealed class PageFiller
         var nextNumber = 1;
         var lastFilled = LastNonEmpty();
         SectionPlan? current = null;
+        int? pendingStart = null;
         var firstSection = 0;
         var resumeCarry = false;
         _recordedPage = -1;
@@ -124,6 +125,7 @@ internal sealed class PageFiller
             }
 
             current = section;
+            pendingStart = null;
 
             var geometry = section.Geometry;
             var continuous = page is not null && !_flowMode && section.Start == SectionStart.Continuous && page.Geometry.SamePaper(geometry);
@@ -179,6 +181,7 @@ internal sealed class PageFiller
                     var last = bands[^1];
                     Balance(last);
                     CountSectionPage(section);
+                    pendingStart = section.PageNumberStart;
 
                     // The room is what the page has left after header, footer and notes; a section with margins of its own can only narrow it.
                     var bottom = Math.Min(geometry.BodyBottom, page.BodyBottom);
@@ -200,7 +203,16 @@ internal sealed class PageFiller
                     break;
                 }
 
+                var placedBefore = band.Placed.Count;
                 var result = band.Place(flow, source);
+                if (pendingStart is { } start)
+                {
+                    // A continuous section on the same paper that carries a start (Word, checked 2026-11-23, Docs/write-word-check.md, continuous-start-same-paper and continuous-start-page-top):
+                    // the page it begins on in the middle keeps its number and the next page is start + 1; a section whose first block goes to the top of the next page begins that page with the start.
+                    pendingStart = null;
+                    nextNumber = result.Status == PlaceStatus.Placed || band.Placed.Count > placedBefore ? start + 1 : start;
+                }
+
                 if (result.Status == PlaceStatus.Placed)
                 {
                     continue;

@@ -290,6 +290,49 @@ public sealed class WordCheckSectionFilesTests
         await SaveWithNumbersAsync(file, folder, "blank-page-roman.docx", TestContext.Current.CancellationToken);
     }
 
+
+    [Fact]
+    public async Task AContinuousSectionWithAStartAtTheTopOfAPageIsSavedForWord()
+    {
+        var folder = Folder();
+        using var file = Filled(60);
+        var editor = EditorOf(file);
+        Assert.NotNull(editor.NumberPagesFrom(At(FirstParagraph(file)), new PageNumbering(1, PageNumberFormat.Arabic, string.Empty)));
+        var at = StartOfPage(file, LayOut(file), 2);
+        Assert.NotNull(editor.InsertSectionBreak(At(at), SectionBreakKind.Continuous));
+        SetStart(file, 1, 5);
+
+        await SaveWithNumbersAsync(file, folder, "continuous-start-page-top.docx", TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task AnEvenPageSectionWithAStartOfTwoAfterABlankPageIsSavedForWord()
+    {
+        var folder = Folder();
+        using var file = Filled(100);
+        var editor = EditorOf(file);
+        Assert.NotNull(editor.NumberPagesFrom(At(FirstParagraph(file)), new PageNumbering(1, PageNumberFormat.Arabic, string.Empty)));
+        var at = StartOfPage(file, LayOut(file), 2);
+        Assert.NotNull(editor.InsertSectionBreak(At(at), SectionBreakKind.EvenPage));
+        SetStart(file, 1, 2);
+
+        await SaveWithNumbersAsync(file, folder, "even-page-start-two.docx", TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task AnOddPageSectionWithAStartOfOneIsSavedForWord()
+    {
+        var folder = Folder();
+        using var file = Filled(100);
+        var editor = EditorOf(file);
+        Assert.NotNull(editor.NumberPagesFrom(At(FirstParagraph(file)), new PageNumbering(1, PageNumberFormat.Arabic, string.Empty)));
+        var at = StartOfPage(file, LayOut(file), 2);
+        Assert.NotNull(editor.InsertSectionBreak(At(at), SectionBreakKind.OddPage));
+        SetStart(file, 1, 1);
+
+        await SaveWithNumbersAsync(file, folder, "odd-page-start-one.docx", TestContext.Current.CancellationToken);
+    }
+
     [Fact]
     public async Task ASplitAfterAParagraphThatEndsInAPageBreakIsSavedForWord()
     {

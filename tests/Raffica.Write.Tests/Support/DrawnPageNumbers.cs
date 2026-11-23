@@ -14,16 +14,16 @@ internal static class DrawnPageNumbers
     /// continued from the page before included: the section that begins the page decides its number format, as in Word; a page with no block at all, a blank page, belongs to the section of the page
     /// before it, the first one to section 0).
     /// <para>
-    /// <c>StartsSection</c> is true when the block at the top of the page is the first block of its section, starts on this page, and the section begins a page: it is not a continuous one, or its paper
-    /// (width and height) differs from the section before (both rules are UNVERIFIED against Word, see <see cref="ReferencePageNumbers"/>); the first page of the document is always one. Only a section that begins
-    /// a page restarts the count; a continuous section that starts in the middle of a page and runs on to the next page does not (the page it starts on has its number already).
+    /// <c>StartsSection</c> is true when the block at the top of the page is the first block of its section and starts on this page (the first page of the document is always one); a continuous section
+    /// whose first block goes to the top of a page begins that page, as any other (Word, <c>Docs/write-word-check.md</c>, row continuous-start-page-top). <c>StartedMidPage</c> is the <c>w:start</c> of the last section
+    /// that begins in the middle of the page before this one: this page then counts from that start + 1 (Word, row continuous-start-same-paper; the page the section begins on keeps its number).
     /// </para>
     /// <para>
     /// <c>MaybeBlank</c> marks a page with no block that is followed by a page where an even-page or odd-page section begins: it may be the blank page that section needs. The layout gives such a page
     /// the number format of the section that follows it; what Word does there is not settled, so the oracle does not compare these pages (see <c>SectionSteps.AssertNumbersEqualTheReference</c>).
     /// </para>
     /// </summary>
-    public static IReadOnlyList<(string Number, int Section, bool StartsSection, bool MaybeBlank)> Read(DocumentLayout layout, WordDocument document)
+    public static IReadOnlyList<(string Number, int Section, bool StartsSection, bool MaybeBlank, int? StartedMidPage)> Read(DocumentLayout layout, WordDocument document)
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(document);
@@ -46,17 +46,6 @@ internal static class DrawnPageNumbers
 
         string? TypeOf(int index) => (string?)sections[Math.Min(index, sections.Count - 1)]?.Get(W + "type")?.Attribute(W + "val");
 
-        bool BeginsPage(int index)
-        {
-            if (TypeOf(index) != "continuous")
-            {
-                return true;
-            }
-
-            var now = SectionPageSetup.Read(sections[Math.Min(index, sections.Count - 1)]);
-            var before = SectionPageSetup.Read(index > 0 ? sections[index - 1] : null);
-            return Math.Abs(now.WidthTwips - before.WidthTwips) >= 10 || Math.Abs(now.HeightTwips - before.HeightTwips) >= 10;
-        }
 
         var top = new int[layout.LaidOutPages];
         for (var p = 0; p < top.Length; p++)
@@ -64,7 +53,24 @@ internal static class DrawnPageNumbers
             top[p] = layout.BlockAt(p, 0f);
         }
 
-        var drawn = new List<(string, int, bool, bool)>(top.Length);
+        // A section that carries a start and begins in the middle of a page (not at its top): the page keeps its number and the next page is start + 1 (Word, Docs/write-word-check.md, row continuous-start-same-paper).
+        var midOnPage = new int?[top.Length];
+        for (var k = 1; k < startOfSection.Count; k++)
+        {
+            var first = startOfSection[k];
+            if (first >= blocks.Count || !int.TryParse((string?)sections[Math.Min(k, sections.Count - 1)]?.Get(W + "pgNumType")?.Attribute(W + "start"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var start))
+            {
+                continue;
+            }
+
+            var page = layout.Locate(first)?.Page;
+            if (page is { } at && at < top.Length && top[at] != first)
+            {
+                midOnPage[at] = start;
+            }
+        }
+
+        var drawn = new List<(string, int, bool, bool, int?)>(top.Length);
         var current = 0;
         for (var p = 0; p < top.Length; p++)
         {
@@ -73,7 +79,7 @@ internal static class DrawnPageNumbers
             if (block >= 0)
             {
                 current = sectionOfBlock[block];
-                begins |= startOfSection[current] == block && layout.Locate(block)?.Page == p && BeginsPage(current);
+                begins |= startOfSection[current] == block && layout.Locate(block)?.Page == p;
             }
 
             var maybeBlank = false;
@@ -83,7 +89,7 @@ internal static class DrawnPageNumbers
                 maybeBlank = startOfSection[following] == next && TypeOf(following) is "evenPage" or "oddPage";
             }
 
-            drawn.Add((layout.Page(p).Number, current, begins, maybeBlank));
+            drawn.Add((layout.Page(p).Number, current, begins, maybeBlank, p > 0 ? midOnPage[p - 1] : null));
         }
 
         return drawn;
