@@ -1,3 +1,4 @@
+using Raffica.Write.Documents;
 using Raffica.Write.Editing;
 using Raffica.Write.Model;
 using Raffica.Write.Panes;
@@ -115,6 +116,16 @@ internal sealed partial class PageView
             _ => null,
         };
     }
+
+    /// <summary>Why a section control cannot change the document now (a document that is still opening, a save that runs, a document that cannot be edited); null when it can.</summary>
+    internal static string? SectionBlockedReason(WriteTab tab) =>
+        tab.Docx.IsPrefix ? WriteStrings.ReasonEditOpening : tab.Editor?.BlockedReason switch
+        {
+            EditBlockedReason.StillOpening => WriteStrings.ReasonEditOpening,
+            EditBlockedReason.Saving => WriteStrings.ReasonEditSaving,
+            EditBlockedReason.Faulted => WriteStrings.EditUnavailable,
+            _ => null,
+        };
 
     private bool RowBelongsToTheDocument(int section, SectionProperties? identity)
     {

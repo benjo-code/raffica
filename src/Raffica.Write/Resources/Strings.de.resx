@@ -1231,7 +1231,7 @@
     <value>Nichts geändert: Die Einstellungen sind bereits so.</value>
   </data>
   <data name="NoteSectionBreakKey" xml:space="preserve">
-    <value>Ein Abschnittswechsel lässt sich nicht mit der Tastatur löschen. Verwenden Sie die Abschnittsmarkierung oder „Abschnitt entfernen“.</value>
+    <value>Ein Abschnittswechsel lässt sich nicht mit der Tastatur löschen. Öffnen Sie den Abschnittsmarker am Seitenrand und wählen Sie „Marker entfernen“, oder verwenden Sie „Abschnitt entfernen“.</value>
   </data>
   <data name="MarginNormal" xml:space="preserve">
     <value>Normal</value>
@@ -1580,5 +1580,20 @@
   </data>
   <data name="SectionsDefaultsHint" xml:space="preserve">
     <value>Die Schalter für Kopf- und Fußzeile ändern die Standardteile. Die Teile für die erste Seite und für gerade Seiten folgen den Einstellungen Erste Seite anders und Linke und rechte Seiten verschieden.</value>
+  </data>
+  <data name="SectionChipNumbersStartFormat" xml:space="preserve">
+    <value>Nummern beginnen bei {0}</value>
+  </data>
+  <data name="SectionChipNumbersContinue" xml:space="preserve">
+    <value>wird fortgesetzt</value>
+  </data>
+  <data name="SectionChipNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="SectionChipHelpFormat" xml:space="preserve">
+    <value>Öffnet die Einstellungen von Abschnitt {0}.</value>
+  </data>
+  <data name="SectionPopoverNameFormat" xml:space="preserve">
+    <value>Einstellungen von Abschnitt {0}</value>
   </data>
 </root>

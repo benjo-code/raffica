@@ -9,5 +9,6 @@
     <StyleInclude Source="avares://RafficaWrite/Styles/OutlinePane.axaml" />
     <StyleInclude Source="avares://RafficaWrite/Styles/FormattingPane.axaml" />
     <StyleInclude Source="avares://RafficaWrite/Styles/SectionsPane.axaml" />
+    <StyleInclude Source="avares://RafficaWrite/Styles/SectionChips.axaml" />
   </Application.Styles>
 </Application>

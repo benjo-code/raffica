@@ -355,6 +355,11 @@ internal static class WriteStrings
     public static string SectionsDocumentHeading => Table.Get("SectionsDocumentHeading");
     public static string SectionLeftRight => Table.Get("SectionLeftRight");
     public static string NoteSectionRowStale => Table.Get("NoteSectionRowStale");
+    public static string SectionChipNumbersStartFormat => Table.Get("SectionChipNumbersStartFormat");
+    public static string SectionChipNumbersContinue => Table.Get("SectionChipNumbersContinue");
+    public static string SectionChipNameFormat => Table.Get("SectionChipNameFormat");
+    public static string SectionChipHelpFormat => Table.Get("SectionChipHelpFormat");
+    public static string SectionPopoverNameFormat => Table.Get("SectionPopoverNameFormat");
     public static string SectionChangePageSetup => Table.Get("SectionChangePageSetup");
     public static string SectionChangeNumbering => Table.Get("SectionChangeNumbering");
     public static string SectionChangeFirstPage => Table.Get("SectionChangeFirstPage");

@@ -1231,7 +1231,7 @@
     <value>Nothing changed: the settings are already like this.</value>
   </data>
   <data name="NoteSectionBreakKey" xml:space="preserve">
-    <value>A section break cannot be deleted with the keyboard. Use the section marker or Remove section.</value>
+    <value>A section break cannot be deleted with the keyboard. Open the section marker at the page edge and choose Remove marker, or use Remove section.</value>
   </data>
   <data name="MarginNormal" xml:space="preserve">
     <value>Normal</value>
@@ -1580,5 +1580,20 @@
   </data>
   <data name="SectionsDefaultsHint" xml:space="preserve">
     <value>The header and footer switches change the default parts. The first-page and even parts follow Different first page and Different left and right pages.</value>
+  </data>
+  <data name="SectionChipNumbersStartFormat" xml:space="preserve">
+    <value>numbers start at {0}</value>
+  </data>
+  <data name="SectionChipNumbersContinue" xml:space="preserve">
+    <value>continues</value>
+  </data>
+  <data name="SectionChipNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="SectionChipHelpFormat" xml:space="preserve">
+    <value>Opens the settings of section {0}.</value>
+  </data>
+  <data name="SectionPopoverNameFormat" xml:space="preserve">
+    <value>Settings of section {0}</value>
   </data>
 </root>

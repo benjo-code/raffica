@@ -93,14 +93,7 @@ internal sealed partial class WriteWindow
     }
 
     // Why the controls of the pane cannot change the document now: a prefix document or a document that is still opening, a save that runs, a document that cannot be edited.
-    private static string? SectionsBlockedReason(WriteTab tab) =>
-        tab.Docx.IsPrefix ? WriteStrings.ReasonEditOpening : tab.Editor?.BlockedReason switch
-        {
-            EditBlockedReason.StillOpening => WriteStrings.ReasonEditOpening,
-            EditBlockedReason.Saving => WriteStrings.ReasonEditSaving,
-            EditBlockedReason.Faulted => WriteStrings.EditUnavailable,
-            _ => null,
-        };
+    private static string? SectionsBlockedReason(WriteTab tab) => PageView.SectionBlockedReason(tab);
 
     // A control of a row: the page view runs it (the focus stays in the pane, where the keyboard user is); Number from here asks its card first.
     private bool RunSectionRow(WriteTab tab, SectionRowAction action)

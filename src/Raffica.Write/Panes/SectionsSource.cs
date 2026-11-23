@@ -170,6 +170,14 @@ internal sealed class SectionsSource
         return view;
     }
 
+    /// <summary>The row of one section, read without the rest (the markers on the page read the few sections in view this way; the pane reads all of them through <see cref="Read(WordDocument, Func{int, int})"/>).</summary>
+    internal static SectionRow RowFor(WordDocument document, IReadOnlyList<SectionInfo> sections, int index, int firstPage)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(sections);
+        return RowOf(sections[index], sections, document.Settings?.EvenAndOddHeaders ?? false, firstPage, document.Body.Blocks);
+    }
+
     private static SectionRow RowOf(SectionInfo section, IReadOnlyList<SectionInfo> sections, bool leftRight, int firstPage, IList<Block> blocks)
     {
         var properties = section.Properties;

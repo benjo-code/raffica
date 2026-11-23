@@ -221,6 +221,7 @@ public sealed class SectionCommandTests
             "SectionNumbersStartFormat", "SectionNumbersContinue", "SectionNumbersContinueFormat", "SectionColumnsOne", "SectionColumnsFormat", "SectionHeaderOwn", "SectionHeaderSame", "SectionFooterOwn", "SectionFooterSame",
             "SectionFirstPage", "SectionFirstOwnTip", "SectionRemoveMarker", "SectionRemoveTipFormat", "SectionNumberFrom", "SectionNumberNoParagraph", "SectionTakesOverFormat", "SectionChangePageSetup", "SectionChangeNumbering",
             "SectionChangeFirstPage", "SectionChangeHeader", "SectionChangeFooter", "SectionListTwoFormat", "SectionButtonNameFormat", "SectionsDocumentHeading", "SectionLeftRight", "NoteSectionRowStale",
+            "SectionChipNumbersStartFormat", "SectionChipNumbersContinue", "SectionChipNameFormat", "SectionChipHelpFormat", "SectionPopoverNameFormat",
         ];
         foreach (var key in fresh)
         {
@@ -596,6 +597,8 @@ public sealed class SectionCommandTests
         Assert.Null(window.Frame.RightPane);
         Assert.Null(window.SectionsOf(tab));
         Assert.False(window.IsSectionsOpen);
+        Assert.Null(window.ActiveView!.ChipLayer);
+        Assert.Equal(0, window.ActiveView.Markers?.MarkersMade ?? 0);
 
         // The first question makes the source and reads once; asking again for the same selection and revision reads nothing.
         Assert.True(Command(window, WriteCommandIds.PageSize).IsEnabled);

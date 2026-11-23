@@ -330,6 +330,7 @@ internal sealed partial class WriteWindow
         view.StructureKeyHandler = id => RunStructureKey(view, id);
         view.OutlineParagraphSource = EngagedOutlineParagraph;
         view.StructureNote += text => ShowStructureNote(view, text);
+        view.SectionRowRunner = action => RunSectionRow(tab, action);
         view.ActiveStoryChanged += () =>
         {
             if (ReferenceEquals(ActiveView, view))
