@@ -127,12 +127,7 @@ public sealed partial class TextEditor
             return null;
         }
 
-        var live = sections[section].Properties;
-        if (sections[section].Break is null && _document.Body.FinalSection is null)
-        {
-            live = _document.Body.FinalSection = new SectionProperties();
-        }
-
+        var live = SectionSplitter.Live(_document, sections[section]);
         var oldLive = live.Clone();
         var oldCarrier = carrier.Clone();
         var content = earlier.Clone();
@@ -146,13 +141,8 @@ public sealed partial class TextEditor
     // The section the caret's block starts is edited alone: no split, so the step is a section change with no blocks.
     private EditResult? NumberOwnSection(TextPosition at, PageNumbering numbering, SectionInfo info, int section, int revision)
     {
-        var live = info.Properties;
-        var created = false;
-        if (info.Break is null && _document.Body.FinalSection is null)
-        {
-            live = _document.Body.FinalSection = new SectionProperties();
-            created = true;
-        }
+        var created = info.Break is null && _document.Body.FinalSection is null;
+        var live = SectionSplitter.Live(_document, info);
 
         var old = live.Clone();
         ApplyNumbering(live, numbering);

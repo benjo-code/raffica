@@ -607,7 +607,7 @@ public sealed class DocxFile : IDisposable
         {
             if (done.Add(part))
             {
-                list.Add(new Intent(WrittenKind.HeaderFooter, id, Bytes(s => StoryXml.WritePart(part, s)), part.Kind));
+                list.Add(new Intent(WrittenKind.HeaderFooter, id, Bytes(s => StoryXml.WritePart(part, s)), part.Kind, part));
             }
         }
 
@@ -621,7 +621,7 @@ public sealed class DocxFile : IDisposable
         return stream.ToArray();
     }
 
-    private sealed record Intent(WrittenKind Kind, string? Id, byte[] Bytes, HeaderFooterKind HeaderKind = HeaderFooterKind.Header);
+    private sealed record Intent(WrittenKind Kind, string? Id, byte[] Bytes, HeaderFooterKind HeaderKind = HeaderFooterKind.Header, HeaderFooterPart? Part = null);
 
     private (List<Written> Parts, string MainName) WritePackage(string temporary, List<Intent> intents)
     {
@@ -633,9 +633,10 @@ public sealed class DocxFile : IDisposable
             var main = package.MainDocumentPart ?? throw new DocxSaveException(DocxSaveReason.PartsChanged, "/word/document.xml");
             mainName = main.Uri.OriginalString;
             OpenXmlPart? commentsPart = null;
+            var existing = intents.Where(i => i.Kind == WrittenKind.HeaderFooter && PartMap.ById(main, i.Id!) is not null).Select(i => i.Id!).ToHashSet(StringComparer.Ordinal);
             foreach (var intent in intents)
             {
-                var (part, created) = Resolve(main, intent, commentsPart);
+                var (part, created) = Resolve(main, intent, commentsPart, existing);
                 if (intent.Kind == WrittenKind.Comments)
                 {
                     commentsPart = part;
@@ -663,7 +664,7 @@ public sealed class DocxFile : IDisposable
     }
 
     /// <summary>Finds the part of an intent in the copy, or creates it (with its relationship and content type) when the file had none. A part is never deleted.</summary>
-    private (OpenXmlPart Part, bool Created) Resolve(MainDocumentPart main, Intent intent, OpenXmlPart? commentsPart)
+    private (OpenXmlPart Part, bool Created) Resolve(MainDocumentPart main, Intent intent, OpenXmlPart? commentsPart, HashSet<string> existingHeaders)
     {
         switch (intent.Kind)
         {
@@ -705,10 +706,53 @@ public sealed class DocxFile : IDisposable
                         return (existing, false);
                     }
 
-                    return intent.HeaderKind == HeaderFooterKind.Footer
-                        ? (main.AddNewPart<FooterPart>(id), true)
-                        : (main.AddNewPart<HeaderPart>(id), true);
+                    OpenXmlPart added = intent.HeaderKind == HeaderFooterKind.Footer ? main.AddNewPart<FooterPart>(id) : main.AddNewPart<HeaderPart>(id);
+                    if (CopySourceOf(intent.Part, existingHeaders) is { } sourceId && PartMap.ById(main, sourceId) is { } source)
+                    {
+                        CopyRelationships(source, added);
+                    }
+
+                    return (added, true);
                 }
+        }
+    }
+
+    // The id of the part in the file whose relationships a new header or footer part gets: the nearest part it was copied from (see HeaderFooterPart.RelationshipsFrom) that the file already has.
+    private string? CopySourceOf(HeaderFooterPart? part, HashSet<string> existingHeaders)
+    {
+        var current = part;
+        for (var depth = 0; current?.RelationshipsFrom is { } source && depth < 64; depth++)
+        {
+            foreach (var (id, candidate) in Model.HeadersFooters)
+            {
+                if (ReferenceEquals(candidate, source) && existingHeaders.Contains(id))
+                {
+                    return id;
+                }
+            }
+
+            current = source;
+        }
+
+        return null;
+    }
+
+    // Every relationship of the source part, with the same id and target: the pictures and other parts it points to are shared (one part, two relationships), links and other external targets are repeated.
+    private static void CopyRelationships(OpenXmlPart source, OpenXmlPart target)
+    {
+        foreach (var pair in source.Parts)
+        {
+            target.AddPart(pair.OpenXmlPart, pair.RelationshipId);
+        }
+
+        foreach (var relationship in source.ExternalRelationships)
+        {
+            target.AddExternalRelationship(relationship.RelationshipType, relationship.Uri, relationship.Id);
+        }
+
+        foreach (var relationship in source.HyperlinkRelationships)
+        {
+            target.AddHyperlinkRelationship(relationship.Uri, relationship.IsExternal, relationship.Id);
         }
     }
 
@@ -734,6 +778,7 @@ public sealed class DocxFile : IDisposable
         var writtenNames = new HashSet<string>(written.Select(w => w.Name.TrimStart('/')), StringComparer.Ordinal);
         var created = written.Where(w => w.Created).Select(w => w.Name).ToList();
         var createdNames = new HashSet<string>(created.Select(n => n.TrimStart('/')), StringComparer.Ordinal);
+        var createdRels = created.ToDictionary(n => RelationshipsPartOf(n).TrimStart('/'), n => n, StringComparer.Ordinal);
 
         // Creating a part adds relationships to the main part. When the main part had none, the SDK also creates its
         // relationships part; that entry (and only that one) may appear, and its content is checked below.
@@ -761,6 +806,7 @@ public sealed class DocxFile : IDisposable
             }
 
             var allowed = createdNames.Contains(entry.FullName)
+                || (createdRels.TryGetValue(entry.FullName, out var ofPart) && RelationshipsOfCreatedPartAreKnown(entry, ofPart, original))
                 || (entry.FullName == mainRels && AddsOnlyRelationshipsTo(entry, package.MainName, created));
             if (!allowed)
             {
@@ -991,6 +1037,39 @@ public sealed class DocxFile : IDisposable
             }
 
             return original.FullName == RelationshipsPartOf(mainName).TrimStart('/') && added.All(e => IsRelationshipToCreated(e, mainName, created));
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The relationships of a part the save created: external targets, or parts the file already had (a copied header shares the pictures of its source); never a part that is not in the file.</summary>
+    private static bool RelationshipsOfCreatedPartAreKnown(ZipArchiveEntry entry, string partName, ZipArchive original)
+    {
+        try
+        {
+            var baseUri = new Uri("http://parts" + partName[..(partName.LastIndexOf('/') + 1)], UriKind.Absolute);
+            foreach (var element in Load(entry).Elements())
+            {
+                if (element.Name.LocalName != "Relationship")
+                {
+                    return false;
+                }
+
+                if ((string?)element.Attribute("TargetMode") == "External")
+                {
+                    continue;
+                }
+
+                var target = (string?)element.Attribute("Target");
+                if (string.IsNullOrEmpty(target) || !Uri.TryCreate(baseUri, target, out var resolved) || original.GetEntry(Uri.UnescapeDataString(resolved.AbsolutePath).TrimStart('/')) is null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
         catch (XmlException)
         {

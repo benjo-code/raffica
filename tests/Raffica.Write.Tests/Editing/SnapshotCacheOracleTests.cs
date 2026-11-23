@@ -484,12 +484,14 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
-    public void TheHeaderFooterCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    public async Task TheHeaderFooterCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
     {
+        var w = System.Xml.Linq.XNamespace.Get("http://schemas.openxmlformats.org/wordprocessingml/2006/main");
         using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
         var model = file.Model;
         var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
         Assert.True(model.Body.Blocks.OfType<Paragraph>().Count() >= 4);
+        using var folder = new Support.TempFolder();
         file.SerialiseMainForTest(cached: true);
 
         void Check(string label)
@@ -502,25 +504,63 @@ public sealed class SnapshotCacheOracleTests
         Assert.NotNull(editor.InsertSectionBreak(at, SectionBreakKind.NextPage));
         Check("break");
         var last = SectionList.Of(model).Count - 1;
-        var steps = 1;
-        steps += editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, true) is null ? 0 : 1;
-        Check("own");
-        steps += editor.SetDifferentFirstPage(last, !SectionList.Of(model)[last].Properties.GetFlag(XName.Get("titlePg", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"))) is null ? 0 : 1;
+        var hasOwn = SectionList.Of(model)[last].Properties.HeaderFooterReferences.Any(r => r.Kind == HeaderFooterKind.Footer && r.Type == HeaderFooterType.Default);
+        Assert.NotNull(editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, !hasOwn, at));
+        Check("own or same as previous");
+        Assert.NotNull(editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, hasOwn, at));
+        Check("and back");
+        Assert.NotNull(editor.SetDifferentFirstPage(last, !SectionList.Of(model)[last].Properties.GetFlag(w + "titlePg"), at));
         Check("first page");
-        steps += editor.SetLeftRightPages(!(model.Settings?.EvenAndOddHeaders ?? false)) is null ? 0 : 1;
+        var flag = model.Settings?.EvenAndOddHeaders ?? false;
+        Assert.NotNull(editor.SetLeftRightPages(!flag, at));
         Check("left and right");
-        steps += editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, false) is null ? 0 : 1;
-        Check("same as previous");
-        for (var i = 0; i < steps; i++)
+        const int Steps = 5;
+
+        // The settings part and the new header and footer parts reach a recovery copy as they reach a user save.
+        var copy = folder.File("copy.docx");
+        var user = folder.File("user.docx");
+        await file.SaveSnapshotAsync(copy, TestContext.Current.CancellationToken);
+        await file.SaveAsync(user, TestContext.Current.CancellationToken);
+        using (var a = System.IO.Compression.ZipFile.OpenRead(copy))
+        using (var b = System.IO.Compression.ZipFile.OpenRead(user))
+        {
+            var names = a.Entries.Select(e => e.FullName).Where(n => n.StartsWith("word/", StringComparison.Ordinal) && n.EndsWith(".xml", StringComparison.Ordinal)).Order().ToList();
+            Assert.Equal(names, b.Entries.Select(e => e.FullName).Where(n => n.StartsWith("word/", StringComparison.Ordinal) && n.EndsWith(".xml", StringComparison.Ordinal)).Order().ToList());
+            Assert.Contains("word/settings.xml", names);
+            foreach (var name in names)
+            {
+                Assert.True(Bytes(a, name).AsSpan().SequenceEqual(Bytes(b, name)), name);
+            }
+        }
+
+        using (var reopened = DocxFile.Open(copy))
+        {
+            Assert.Equal(!flag, reopened.Model.Settings?.EvenAndOddHeaders ?? false);
+            Assert.Equal(
+                SectionList.Of(model).Select(s => s.Properties.HeaderFooterReferences.Count(r => r.Type == HeaderFooterType.Even)),
+                SectionList.Of(reopened.Model).Select(s => s.Properties.HeaderFooterReferences.Count(r => r.Type == HeaderFooterType.Even)));
+        }
+
+        for (var i = 0; i < Steps; i++)
         {
             Assert.NotNull(editor.History.Undo());
             Check("undo " + i);
         }
 
-        for (var i = 0; i < steps; i++)
+        for (var i = 0; i < Steps; i++)
         {
             Assert.NotNull(editor.History.Redo());
             Check("redo " + i);
         }
+
+        Assert.Equal(!flag, model.Settings?.EvenAndOddHeaders ?? false);
+    }
+
+    private static byte[] Bytes(System.IO.Compression.ZipArchive zip, string name)
+    {
+        using var stream = zip.GetEntry(name)!.Open();
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        return memory.ToArray();
     }
 }

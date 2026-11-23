@@ -366,6 +366,170 @@ public sealed class HeaderFooterEditingTests
         Assert.False(document.Body.FinalSection.GetFlag(W + "titlePg"));
     }
 
+    private const string OneCellTable = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"4000\"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w=\"4000\" w:type=\"dxa\"/></w:tcPr><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+
+    private static Paragraph CellParagraph(WordDocument document)
+    {
+        var table = document.Body.Blocks.OfType<Table>().First();
+        var cell = ((TableRow)table.Rows[0]).Items.OfType<TableCell>().Single();
+        return (Paragraph)cell.Blocks[0];
+    }
+
+    [Fact]
+    public void UndoAndRedoReturnTheCaretToWhereTheUserWas()
+    {
+        var document = Two();
+        var editor = Editor(document);
+        var paragraph = (Paragraph)document.Body.Blocks[2];
+        var caret = new TextPosition(StoryRef.Body, paragraph, 1);
+
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, HeaderFooterKind.Footer, HeaderFooterType.Default, true, caret));
+        Assert.NotNull(editor.SetDifferentFirstPage(1, true, caret));
+        Assert.NotNull(editor.SetLeftRightPages(true, caret));
+
+        for (var i = 0; i < 3; i++)
+        {
+            var undone = editor.History.Undo();
+            Assert.Same(paragraph, undone!.Caret.Paragraph);
+            Assert.Equal(1, undone.Caret.Offset);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            var redone = editor.History.Redo();
+            Assert.Same(paragraph, redone!.Caret.Paragraph);
+            Assert.Equal(1, redone.Caret.Offset);
+        }
+    }
+
+    [Fact]
+    public void ACaretInATableCellComesBackOnUndoAndRedo()
+    {
+        var document = Document(P("a") + OneCellTable + PEnd("b", Sect(Footer("default", "fA")), "<w:pageBreakBefore/>") + P("c") + Sect(), Parts(("fA", Foot("A"))));
+        var editor = Editor(document);
+        var cell = CellParagraph(document);
+        var caret = new TextPosition(StoryRef.Body, cell, 2);
+
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, HeaderFooterKind.Footer, HeaderFooterType.Default, true, caret));
+
+        var undone = editor.History.Undo();
+        Assert.Same(cell, undone!.Caret.Paragraph);
+        Assert.Equal(2, undone.Caret.Offset);
+        var redone = editor.History.Redo();
+        Assert.Same(cell, redone!.Caret.Paragraph);
+        Assert.Equal(2, redone.Caret.Offset);
+    }
+
+    [Fact]
+    public void AStaleCaretIsRefusedBeforeAnythingChanges()
+    {
+        var document = Two();
+        var editor = Editor(document);
+        var before = Snapshot(document);
+        var stranger = new TextPosition(StoryRef.Body, new Paragraph(), 0);
+
+        Assert.Throws<StalePositionException>(() => editor.SetDifferentFirstPage(0, true, stranger));
+
+        Assert.Equal(before, Snapshot(document));
+        Assert.False(editor.History.CanUndo);
+    }
+
+    [Fact]
+    public void ABodyThatHoldsOnlyATableStillTakesTheCommandWithTheCellForACaret()
+    {
+        var document = Document(OneCellTable + Sect());
+        var editor = Editor(document);
+        var cell = CellParagraph(document);
+
+        Assert.NotNull(editor.SetDifferentFirstPage(0, true));
+
+        Assert.True(SectionList.Of(document)[0].Properties.GetFlag(W + "titlePg"));
+        var undone = editor.History.Undo();
+        Assert.Same(cell, undone!.Caret.Paragraph);
+        Assert.False(SectionList.Of(document)[0].Properties.GetFlag(W + "titlePg"));
+    }
+
+    [Fact]
+    public void ABodyWithNoParagraphAtAllHasNoPlaceForACaretAndDoesNothing()
+    {
+        var document = Document(Sect());
+        var editor = Editor(document);
+
+        Assert.Null(editor.SetDifferentFirstPage(0, true));
+        Assert.False(SectionList.Of(document)[0].Properties.GetFlag(W + "titlePg"));
+    }
+
+    [Theory]
+    [InlineData(HeaderFooterKind.Header, HeaderFooterType.Default)]
+    [InlineData(HeaderFooterKind.Footer, HeaderFooterType.First)]
+    [InlineData(HeaderFooterKind.Header, HeaderFooterType.Even)]
+    [InlineData(HeaderFooterKind.Footer, HeaderFooterType.Even)]
+    public void OwnAndSameAsPreviousWorkForEveryKindAndType(HeaderFooterKind kind, HeaderFooterType type)
+    {
+        var document = Document(P("a") + PEnd("b", Sect(), "<w:pageBreakBefore/>") + P("c") + Sect());
+        var editor = Editor(document);
+        var parts = document.HeadersFooters.Count;
+
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, kind, type, true));
+
+        var reference = Own(document, 1, kind, type)!;
+        Assert.Equal(kind == HeaderFooterKind.Footer ? "ftr" : "hdr", document.HeadersFooters[reference.RelationshipId].Content.Root.Name.LocalName);
+        Assert.Equal(parts + 1, document.HeadersFooters.Count);
+        Assert.Null(editor.SetOwnHeaderFooter(1, kind, type, true));
+        Assert.Equal([1], editor.SharingOf(kind, type, 1).Sections);
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, kind, type, false));
+        Assert.Null(Own(document, 1, kind, type));
+        Assert.Equal(parts + 1, document.HeadersFooters.Count);
+        Assert.Equal(-1, editor.SharingOf(kind, type, 1).OwnerSection);
+    }
+
+    [Fact]
+    public void OwnWithNothingToInheritMakesAnEmptyPart()
+    {
+        var document = Document(P("a") + PEnd("b", Sect(), "<w:pageBreakBefore/>") + P("c") + Sect());
+        var editor = Editor(document);
+
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, HeaderFooterKind.Header, HeaderFooterType.Default, true));
+
+        var id = Own(document, 1, HeaderFooterKind.Header, HeaderFooterType.Default)!.RelationshipId;
+        Assert.Equal(string.Empty, TextOf(document, id));
+        Assert.Null(document.HeadersFooters[id].RelationshipsFrom);
+    }
+
+    [Fact]
+    public void SameAsPreviousWhenThePreviousSectionHasNoPartLeavesNoHeaderThere()
+    {
+        var document = Document(P("a") + PEnd("b", Sect(), "<w:pageBreakBefore/>") + P("c") + Sect(Header("default", "hA")), Parts(("hA", Head("own"))));
+        var editor = Editor(document);
+
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, HeaderFooterKind.Header, HeaderFooterType.Default, false));
+
+        Assert.Equal(-1, editor.SharingOf(HeaderFooterKind.Header, HeaderFooterType.Default, 1).OwnerSection);
+        Assert.Equal(["a", "b", "c"], Tops(document));
+    }
+
+    [Fact]
+    public void OwnForTheDefaultTypeMakesNoEvenCopyWhenLeftAndRightPagesAreOn()
+    {
+        var document = Two();
+        var editor = Editor(document);
+        Assert.NotNull(editor.SetLeftRightPages(true));
+
+        Assert.NotNull(editor.SetOwnHeaderFooter(1, HeaderFooterKind.Footer, HeaderFooterType.Default, true));
+
+        Assert.Null(Own(document, 1, HeaderFooterKind.Footer, HeaderFooterType.Even));
+        Assert.Equal(0, editor.SharingOf(HeaderFooterKind.Footer, HeaderFooterType.Even, 1).OwnerSection);
+    }
+
+    [Fact]
+    public void SharingOfAnUnknownSectionIsEmpty()
+    {
+        var editor = Editor(Two());
+
+        Assert.Equal(-1, editor.SharingOf(HeaderFooterKind.Footer, HeaderFooterType.Default, 9).OwnerSection);
+        Assert.Empty(editor.SharingOf(HeaderFooterKind.Footer, HeaderFooterType.Default, -1).Sections);
+    }
+
     // The same package with no settings part: the relationship, the content type and the file are gone.
     private static byte[] WithoutSettings(byte[] package)
     {

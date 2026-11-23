@@ -15,7 +15,7 @@ internal static class HeaderFooterParts
     /// <summary>
     /// Adds a part of the given kind to the document and returns its relationship id (<c>rIdWrite&lt;n&gt;</c>, never an id the model's parts or sections use).
     /// The content is a deep copy of <paramref name="copyFrom"/>'s blocks (nothing is shared with the original) or one empty paragraph.
-    /// The part is saved as a real part, with its relationship and content type, by <c>DocxFile</c>; the caller adds the reference to a section.
+    /// The part is saved as a real part, with its relationship and content type, by <c>DocxFile</c>, which gives it the relationships of the part it was copied from (<see cref="HeaderFooterPart.RelationshipsFrom"/>); the caller adds the reference to a section.
     /// </summary>
     public static string Create(WordDocument document, HeaderFooterKind kind, Story? copyFrom)
     {
@@ -41,7 +41,10 @@ internal static class HeaderFooterParts
             }
         }
 
-        document.HeadersFooters[id] = new HeaderFooterPart(story);
+        document.HeadersFooters[id] = new HeaderFooterPart(story)
+        {
+            RelationshipsFrom = copyFrom is null ? null : document.HeadersFooters.Values.FirstOrDefault(part => ReferenceEquals(part.Content, copyFrom)),
+        };
         return id;
     }
 

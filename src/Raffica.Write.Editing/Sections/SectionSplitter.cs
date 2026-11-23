@@ -37,14 +37,7 @@ internal static class SectionSplitter
             return null;
         }
 
-        var target = sections[index];
-        if (target.Break is null && document.Body.FinalSection is null)
-        {
-            document.Body.FinalSection = new SectionProperties();
-            target = target with { Properties = document.Body.FinalSection };
-        }
-
-        var later = target.Properties;
+        var later = Live(document, sections[index]);
         var oldLater = later.Clone();
         var carrierProperties = later.Clone();
         Paragraph carrier;
@@ -75,6 +68,14 @@ internal static class SectionSplitter
         }
 
         return new SectionSplit(later, oldLater, carrier, carrierProperties, change);
+    }
+
+    /// <summary>The properties of a section as the object in the document: the last section of a body with no final <c>w:sectPr</c> gets one (an empty one; the caller undoes that when nothing changes).</summary>
+    public static SectionProperties Live(WordDocument document, SectionInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(info);
+        return info.Break is null ? document.Body.FinalSection ??= new SectionProperties() : info.Properties;
     }
 
     /// <summary>The index of the section a top-level block belongs to: the first one whose last block is at or after it (a content control that holds a break belongs to the section that ends in it).</summary>
