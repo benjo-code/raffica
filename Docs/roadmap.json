@@ -1038,7 +1038,7 @@
         {
           "id": "4.4.2",
           "title": "Sections, page numbers, headers and footers, page setup (4.4b)",
-          "status": "planned",
+          "status": "in-progress",
           "plan": "superpowers/plans/2026-11-23-milestone-04-4b-sections-page-numbers-and-page-setup.md",
           "prerequisites": ["4.4.1"],
           "goal": "Sections and page numbers are built by Write in one action and never break.",
