@@ -325,6 +325,39 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void AMovedChapterThatHoldsASectionBreakGivesTheBytesOfAFullWriteForTheMoveAndItsUndoAndRedo()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+        var carrier = model.Body.Blocks.OfType<Paragraph>().Skip(2).First();
+        Assert.NotNull(editor.InsertSectionBreak(new TextPosition(StoryRef.Body, carrier, 0), SectionBreakKind.Continuous));
+        var breakAt = model.Body.Blocks.ToList().FindIndex(b => b is Paragraph { SectionBreak: not null });
+        Assert.True(breakAt >= 1, "the file has no section break paragraph to move");
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        // A range that ends in the break paragraph moves past the block after it, then a range from after it goes to the top.
+        Check("break inserted");
+        Assert.NotNull(editor.MoveBlocks(breakAt - 1, 2, breakAt + 2));
+        Check("move across the break");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+        Assert.NotNull(editor.MoveBlocks(breakAt, 2, 0));
+        Check("move the break to the top");
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+        Check("undo twice");
+    }
+
+    [Fact]
     public void ARaiseWithoutItsBlockRangesWritesTheWholeBodyAgain()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));

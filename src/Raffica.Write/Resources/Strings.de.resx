@@ -1098,8 +1098,8 @@
   <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
     <value>An der Schreibmarke steht keine Überschrift.</value>
   </data>
-  <data name="ReasonMoveSectionBreak" xml:space="preserve">
-    <value>Dieses Kapitel enthält einen Abschnittswechsel und lässt sich noch nicht verschieben.</value>
+  <data name="ReasonMoveEmptyFinalSection" xml:space="preserve">
+    <value>Dadurch würde das Dokument mit einem Abschnittswechsel enden.</value>
   </data>
   <data name="ReasonMoveInControl" xml:space="preserve">
     <value>Eine Überschrift in einem Inhaltssteuerelement lässt sich nicht verschieben.</value>

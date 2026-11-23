@@ -7,8 +7,8 @@ internal enum MoveBlock
 {
     None,
 
-    /// <summary>A paragraph of the subtree ends a section: the section break would travel with it.</summary>
-    SectionBreakInside,
+    /// <summary>The move would leave a section-break paragraph as the last block of the body: an empty final section, and Word may show a blank page.</summary>
+    LeavesAnEmptyFinalSection,
 
     /// <summary>A heading of the subtree stands inside a block content control.</summary>
     InsideContentControl,
@@ -64,7 +64,7 @@ internal static class OutlineTree
         }
 
         var count = Math.Max(1, end - first);
-        var blocked = BlockedReason(blocks, headings, row, lastRow, first, count);
+        var blocked = BlockedReason(blocks, headings, row, lastRow, first);
         return new Subtree(first, count, headings[lastRow].Entry.BodyBlockIndex, blocked);
     }
 
@@ -72,22 +72,31 @@ internal static class OutlineTree
     /// The index, in the body as it is before the move, at which the subtree of row <paramref name="dragged"/> lands when dropped before or after row <paramref name="row"/>
     /// (after a row is the same place as before the next row; after the last row is the end of the body). This is the <c>target</c> of <c>TextEditor.MoveBlocks</c>. -1 means the
     /// drop is not offered: the subtree cannot be moved, the drop lies inside it, the move would change nothing (the target is the subtree's own start or end), or the move
-    /// would change the last block of the body to a table (Word repairs such a file; see <see cref="LastBlockAfterMove"/>).
+    /// would change the last block of the body to a table (Word repairs such a file; see <see cref="LastBlockAfterMove"/>) or to a section-break paragraph (see <see cref="CheckDrop"/>).
     /// </summary>
-    public static int DropTarget(IReadOnlyList<OutlineHeading> headings, WordDocument document, int dragged, int row, DropPlace place)
+    public static int DropTarget(IReadOnlyList<OutlineHeading> headings, WordDocument document, int dragged, int row, DropPlace place) => CheckDrop(headings, document, dragged, row, place).Target;
+
+    /// <summary>The answer of <see cref="CheckDrop"/>: the target (-1: not offered) and, when the reason is one the user should hear, which (<see cref="MoveBlock.None"/> otherwise).</summary>
+    internal readonly record struct DropCheck(int Target, MoveBlock Block);
+
+    /// <summary>
+    /// <see cref="DropTarget"/> with the reason: a move that would leave a section-break paragraph as the last block of the body is <see cref="MoveBlock.LeavesAnEmptyFinalSection"/>
+    /// (a body that already ends in one is not made worse); the other refusals keep <see cref="MoveBlock.None"/> (the place is no move, or the chapter itself is blocked: ask <see cref="Of"/>).
+    /// </summary>
+    internal static DropCheck CheckDrop(IReadOnlyList<OutlineHeading> headings, WordDocument document, int dragged, int row, DropPlace place)
     {
         ArgumentNullException.ThrowIfNull(headings);
         ArgumentNullException.ThrowIfNull(document);
         if (dragged < 0 || dragged >= headings.Count || row < 0 || row >= headings.Count)
         {
-            return -1;
+            return new DropCheck(-1, MoveBlock.None);
         }
 
         var blocks = document.Body.Blocks;
         var tree = Of(document, headings, dragged);
         if (tree.Blocked != MoveBlock.None)
         {
-            return -1;
+            return new DropCheck(-1, MoveBlock.None);
         }
 
         // Rows inside one block content control share a block index: a drop line between two of them has no place of its own.
@@ -96,7 +105,7 @@ internal static class OutlineTree
             : row + 1 < headings.Count && headings[row + 1].Entry.BodyBlockIndex == headings[row].Entry.BodyBlockIndex;
         if (between)
         {
-            return -1;
+            return new DropCheck(-1, MoveBlock.None);
         }
 
         var target = place == DropPlace.Before
@@ -106,12 +115,20 @@ internal static class OutlineTree
         // Inside the range, or the range's own place: nothing moves.
         if (target >= tree.FirstBlock && target <= tree.FirstBlock + tree.Count)
         {
-            return -1;
+            return new DropCheck(-1, MoveBlock.None);
         }
 
         // A body that already ends in a table is not made worse; a move that puts a table last is refused.
         var last = LastBlockAfterMove(blocks, tree.FirstBlock, tree.Count, target);
-        return last is Table && !ReferenceEquals(last, blocks[^1]) ? -1 : target;
+        if (last is Table && !ReferenceEquals(last, blocks[^1]))
+        {
+            return new DropCheck(-1, MoveBlock.None);
+        }
+
+        // Likewise a section-break paragraph: it carries the properties of the section it ends, so as the last block it would leave an empty final section.
+        return last is Paragraph { SectionBreak: not null } && !ReferenceEquals(last, blocks[^1])
+            ? new DropCheck(-1, MoveBlock.LeavesAnEmptyFinalSection)
+            : new DropCheck(target, MoveBlock.None);
     }
 
     /// <summary>
@@ -136,7 +153,7 @@ internal static class OutlineTree
         return blocks[n - 1];
     }
 
-    private static MoveBlock BlockedReason(IList<Block> blocks, IReadOnlyList<OutlineHeading> headings, int row, int lastRow, int first, int count)
+    private static MoveBlock BlockedReason(IList<Block> blocks, IReadOnlyList<OutlineHeading> headings, int row, int lastRow, int first)
     {
         if (first < 0 || first >= blocks.Count)
         {
@@ -157,27 +174,6 @@ internal static class OutlineTree
             }
         }
 
-        for (var i = first; i < Math.Min(blocks.Count, first + count); i++)
-        {
-            if (HasSectionBreak(blocks[i], 0))
-            {
-                return MoveBlock.SectionBreakInside;
-            }
-        }
-
         return MoveBlock.None;
-    }
-
-    private static bool HasSectionBreak(Block block, int depth)
-    {
-        switch (block)
-        {
-            case Paragraph paragraph:
-                return paragraph.SectionBreak is not null;
-            case ContentControlBlock control when depth < OutlineSource.MaxControlDepth:
-                return control.Content.Any(inner => HasSectionBreak(inner, depth + 1));
-            default:
-                return false;
-        }
     }
 }

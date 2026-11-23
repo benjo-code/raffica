@@ -258,4 +258,43 @@ public sealed class BlockMoveTests
         Assert.Same(withBreak, document.Body.Blocks[3]);
         Assert.NotNull(withBreak.SectionBreak);
     }
+
+    [Fact]
+    public void AMoveAcrossASectionBreakKeepsEveryObject()
+    {
+        var document = NewDocument(7);
+        var editor = EditorOf(document);
+        var withBreak = (Paragraph)document.Body.Blocks[2];
+        var properties = new SectionProperties();
+        withBreak.SectionBreak = properties;
+        var original = Blocks(document);
+        var sections = SectionList.Of(document);
+        Assert.Equal(2, sections.Count);
+
+        // The chapter p4 to p5 moves in front of the break paragraph: it joins the first section, the break stays where it ends that section.
+        Assert.NotNull(editor.MoveBlocks(4, 2, 2));
+        Assert.Equal([0, 1, 4, 5, 2, 3, 6], Order(document, original));
+        Assert.All(original, block => Assert.Contains(block, document.Body.Blocks));
+        Assert.Same(properties, withBreak.SectionBreak);
+        var after = SectionList.Of(document);
+        Assert.Equal(2, after.Count);
+        Assert.Same(withBreak, after[0].Break);
+        Assert.Equal((0, 4), (after[0].FirstBlock, after[0].LastBlock));
+
+        // The range that holds the break moves past blocks of the next section: the break goes with it and the section ranges follow.
+        Assert.NotNull(editor.MoveBlocks(3, 3, 7));
+        Assert.Contains(withBreak, document.Body.Blocks);
+        Assert.Same(properties, withBreak.SectionBreak);
+        Assert.Equal(2, SectionList.Of(document).Count);
+
+        // Undo and redo bring back the same objects in the same order.
+        var moved = Blocks(document);
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal([0, 1, 2, 3, 4, 5, 6], Order(document, original));
+        Assert.Same(properties, withBreak.SectionBreak);
+        Assert.NotNull(editor.History.Redo());
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(moved, Blocks(document));
+    }
 }

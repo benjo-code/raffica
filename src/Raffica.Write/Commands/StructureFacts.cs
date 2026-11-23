@@ -13,8 +13,8 @@ internal enum OutlineReason
     /// <summary>No heading to act on: the caret is before the first heading, outside the body, or the outline row is gone.</summary>
     NoHeading,
 
-    /// <summary>A paragraph of the subtree ends a section: the section break would travel with it.</summary>
-    SectionBreakInside,
+    /// <summary>The move would leave a section-break paragraph as the last block of the body (an empty final section).</summary>
+    LeavesAnEmptyFinalSection,
 
     /// <summary>A heading of the subtree stands inside a block content control.</summary>
     InsideContentControl,
@@ -73,7 +73,7 @@ internal static class StructureWording
     public static string OutlineReasonText(OutlineReason reason, string id) => reason switch
     {
         OutlineReason.NoHeading => WriteStrings.ReasonNoHeadingAtCaret,
-        OutlineReason.SectionBreakInside => WriteStrings.ReasonMoveSectionBreak,
+        OutlineReason.LeavesAnEmptyFinalSection => WriteStrings.ReasonMoveEmptyFinalSection,
         OutlineReason.InsideContentControl => WriteStrings.ReasonMoveInControl,
         OutlineReason.NotAtTopLevel => WriteStrings.ReasonMoveNotTopLevel,
         OutlineReason.AtTop => WriteStrings.ReasonMoveAtTop,

@@ -1098,8 +1098,8 @@
   <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
     <value>There is no heading at the caret.</value>
   </data>
-  <data name="ReasonMoveSectionBreak" xml:space="preserve">
-    <value>This chapter holds a section break and cannot be moved yet.</value>
+  <data name="ReasonMoveEmptyFinalSection" xml:space="preserve">
+    <value>This move would leave the document ending in a section break.</value>
   </data>
   <data name="ReasonMoveInControl" xml:space="preserve">
     <value>A heading inside a content control cannot be moved.</value>

@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using Raffica.Write.Commands;
+using Raffica.Write.Editing;
 using Raffica.Write.Model;
 using Raffica.Write.Panes;
 using Xunit;
@@ -87,14 +89,75 @@ public sealed class OutlineTreeTests
         Assert.Equal(new Subtree(0, 1, 0, MoveBlock.None), OutlineTree.Of(d, h, 0));
     }
 
-    [Fact]
-    public void ASectionBreakParagraphBlocksTheMove()
+    private static Paragraph Breaker(string text)
     {
-        var breaker = Body("t");
-        breaker.SectionBreak = new SectionProperties();
-        var (d, h) = Read(Heading("a", 1), breaker, Heading("b", 1));
-        Assert.Equal(MoveBlock.SectionBreakInside, OutlineTree.Of(d, h, 0).Blocked);
+        var p = Body(text);
+        p.SectionBreak = new SectionProperties();
+        return p;
+    }
+
+    [Fact]
+    public void ASubtreeWithASectionBreakMoves()
+    {
+        var (d, h) = Read(Heading("a", 1), Breaker("end of the section"), Heading("b", 1), Body("under b"), Heading("c", 1), Body("under c"));
+        Assert.Equal(MoveBlock.None, OutlineTree.Of(d, h, 0).Blocked);
         Assert.Equal(MoveBlock.None, OutlineTree.Of(d, h, 1).Blocked);
+
+        // Below the middle chapter the end of the body is untouched: a plain move.
+        Assert.Equal(4, OutlineTree.DropTarget(h, d, 0, 1, DropPlace.After));
+        Assert.Equal(new OutlineTree.DropCheck(4, MoveBlock.None), OutlineTree.CheckDrop(h, d, 0, 1, DropPlace.After));
+        Assert.Equal(OutlineReason.None, OutlinePlanner.Move(h, d, 0, up: false).Reason);
+    }
+
+    [Fact]
+    public void AMoveThatLeavesABreakParagraphLastIsRefusedWithAReason()
+    {
+        // The chapter with the break moves to the end: the break paragraph would end the body (an empty final section).
+        var (d, h) = Read(Heading("a", 1), Breaker("end of the section"), Heading("b", 1), Body("under b"));
+        Assert.Equal(-1, OutlineTree.DropTarget(h, d, 0, 1, DropPlace.After));
+        Assert.Equal(new OutlineTree.DropCheck(-1, MoveBlock.LeavesAnEmptyFinalSection), OutlineTree.CheckDrop(h, d, 0, 1, DropPlace.After));
+        Assert.Equal(OutlineReason.LeavesAnEmptyFinalSection, OutlinePlanner.Drop(h, d, 0, 1, DropPlace.After).Reason);
+        Assert.Equal(OutlineReason.LeavesAnEmptyFinalSection, OutlinePlanner.Move(h, d, 0, up: false).Reason);
+
+        // The last chapter moves above the chapter that ends in the break: the break paragraph becomes last.
+        Assert.Equal(new OutlineTree.DropCheck(-1, MoveBlock.LeavesAnEmptyFinalSection), OutlineTree.CheckDrop(h, d, 1, 0, DropPlace.Before));
+        Assert.Equal(OutlineReason.LeavesAnEmptyFinalSection, OutlinePlanner.Move(h, d, 1, up: true).Reason);
+
+        // The chapter that holds the break goes to the end of a body that ends in an ordinary paragraph: fine, the last block is that chapter's last paragraph.
+        var (d2, h2) = Read(Heading("a", 1), Body("t"), Heading("b", 1), Breaker("end"), Heading("c", 1), Body("under c"));
+        Assert.Equal(6, OutlineTree.DropTarget(h2, d2, 0, 2, DropPlace.After));
+        Assert.Equal(OutlineReason.None, OutlinePlanner.Move(h2, d2, 1, up: true).Reason);
+    }
+
+    [Fact]
+    public void ABodyThatAlreadyEndsInABreakParagraphIsNotMadeWorse()
+    {
+        // The break paragraph is last before and after: the move keeps the end of the body as it is.
+        var (d, h) = Read(Heading("a", 1), Body("t"), Heading("b", 1), Body("u"), Heading("c", 1), Breaker("end"));
+        Assert.Equal(0, OutlineTree.DropTarget(h, d, 1, 0, DropPlace.Before));
+    }
+
+    [Fact]
+    public void TheBreakTravelsWithItsChapter()
+    {
+        var breaker = Breaker("end of the section");
+        var (d, h) = Read(Heading("a", 1), breaker, Heading("b", 1), Body("under b"), Heading("c", 1), Body("under c"));
+        var before = SectionList.Of(d);
+        Assert.Equal(2, before.Count);
+        Assert.Equal((0, 1), (before[0].FirstBlock, before[0].LastBlock));
+
+        var plan = OutlinePlanner.Drop(h, d, 0, 1, DropPlace.After);
+        Assert.Equal(OutlineReason.None, plan.Reason);
+        var editor = new TextEditor(d, (_, _) => ProjectionHost.Plain);
+        Assert.NotNull(editor.MoveBlocks(plan.First, plan.Count, plan.Target));
+
+        // b, under b | a, break | c, under c: the break paragraph is the same object, now at block 3; the first section runs over the three blocks before it and the break.
+        Assert.Same(breaker, d.Body.Blocks[3]);
+        var sections = SectionList.Of(d);
+        Assert.Equal(2, sections.Count);
+        Assert.Same(breaker, sections[0].Break);
+        Assert.Equal((0, 3), (sections[0].FirstBlock, sections[0].LastBlock));
+        Assert.Equal((4, 5), (sections[1].FirstBlock, sections[1].LastBlock));
     }
 
     [Fact]

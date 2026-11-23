@@ -216,7 +216,7 @@ internal static class WriteStrings
     public static string ReasonListAcrossContainers => Table.Get("ReasonListAcrossContainers");
     public static string ReasonNoHeadingStyles => Table.Get("ReasonNoHeadingStyles");
     public static string ReasonNoHeadingAtCaret => Table.Get("ReasonNoHeadingAtCaret");
-    public static string ReasonMoveSectionBreak => Table.Get("ReasonMoveSectionBreak");
+    public static string ReasonMoveEmptyFinalSection => Table.Get("ReasonMoveEmptyFinalSection");
     public static string ReasonMoveInControl => Table.Get("ReasonMoveInControl");
     public static string ReasonMoveNotTopLevel => Table.Get("ReasonMoveNotTopLevel");
     public static string ReasonMoveAtTop => Table.Get("ReasonMoveAtTop");
