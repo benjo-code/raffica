@@ -105,7 +105,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.hosted == 'true' && format('["{0}"]', matrix.hosted) || format('["self-hosted","{0}"]', matrix.label)) }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
