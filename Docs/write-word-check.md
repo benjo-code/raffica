@@ -91,6 +91,60 @@ In Word, open each file and record: a repair prompt (exact text, any prompt is a
 | 2026-11-22 | as above | numbered-headings.docx | as above | none | yes: 5 of 5 equal, Heading 1 numbered 1. to 5. in the order after the move and the promote | No Write bug found. |
 | 2026-11-22 | as above | numbered-thesis-chapter-move.docx | as above | none | yes: 540 of 540 equal (300 outline-numbered, 120 simple-numbered, 120 bullets), chapter order after the move consecutive in Word and in Write | A person's look at the rendered page is still open. |
 
+## Sections, page numbers and page setup (milestone 4.4b)
+
+The question for what 4.4b writes: **does Word open a file with sections, restarted and formatted page numbers, different first pages, left and right pages, landscape sections and columns without a repair prompt, and does it show the number on every page that Write draws?** CI proves that after every section command (and its undo and redo) the layout equals a full layout and the numbers drawn on the pages equal an independent count of the model (`SectionOracleTests`, `ReferencePageNumbers`, `DrawnPageNumbers`), also for the saved file read again. It does not run Word. Four rules of that count are not settled against Word (see "Rules not yet seen in Word" in `Docs/DECISIONS.md`, "Raffica Write: sections, page numbers and page setup (M4.4b)"); the last block of files below asks Word about them.
+
+The files are made by a test through the editor and `DocxFile.SaveAsync`; each gets a `<name>.numbers.json` with the number every page of Write's layout draws (nothing is written without the folder variable):
+
+```
+$env:RAFFICA_WORD_CHECK_DIR = '<folder>'
+dotnet test tests/Raffica.Write.Tests -c Release --filter-class "*WordCheckSectionFilesTests" --filter-class "*WordCheckFilesTests"
+pwsh tools/word-open-check.ps1 <folder>\page-three-one.docx <folder>\appendix-a1.docx ...        # repair prompt, one line per file
+pwsh tools/word-page-numbers.ps1 <folder>\page-three-one.docx                                    # Word's number of every page against numbers.json (one file per call)
+```
+
+`tools/word-open-check.ps1` takes explicit file names (it does not expand a wildcard under `pwsh -File`; pass `(Get-ChildItem <folder> -Filter *.docx).FullName` from PowerShell). `tools/word-page-numbers.ps1` reads, for every physical page, the first paragraph that starts on it and asks Word for `Range.Information(wdActiveEndAdjustedPageNumber)` (the number Word prints, as a value whatever its format); a page on which no paragraph starts (a blank page, or one inside a long paragraph) is skipped, not compared; exit 1 on a difference. It does not read the footer text or the format of a number.
+
+| File | What it holds |
+| --- | --- |
+| `page-three-one.docx` | A blank document (A4), 100 paragraphs (6 pages): numbering from page 3, start 1, Arabic. |
+| `restart-page-four.docx` | The same with the numbering from page 4 (the restart on an even physical page: the forum report says Word then makes an odd-page break). |
+| `appendix-a1.docx` | The generated thesis with the last chapter numbered from "A-1" (start 1, prefix "A-"). |
+| `roman-front-matter.docx` | Pages 1 and 2 in lower-case Roman, then Arabic from 1 on page 3. |
+| `first-page.docx` | Numbered pages with "different first page" switched on afterwards (page 1 has an empty own footer). |
+| `left-right.docx` | Numbered pages with left and right pages switched on. |
+| `landscape-section.docx` | Landscape from page 2, portrait again from a later page (three sections). |
+| `two-columns.docx` | Two columns with a line from page 2 on (a continuous section). |
+| `numbered-thesis-chapter-move.docx` | As in 4.4a, but chapter four starts a section of its own first, so the moved chapter crosses a section break. |
+| `continuous-start-same-paper.docx` | A continuous section that starts in the middle of page 2 with `w:start` 5 (same paper). |
+| `continuous-start-other-paper.docx` | The same, landscape (other paper). |
+| `even-page-start-one.docx` | An even-page section at the top of page 2 with `w:start` 1. |
+| `odd-page-start-two.docx` | An odd-page section at the top of page 3 with `w:start` 2. |
+| `blank-page-roman.docx` | An even-page section at the top of page 3 (a blank page is needed) with `w:fmt` lowerRoman. |
+| `trailing-page-break-split.docx` | A paragraph that ends in a `w:br` page break, then a split (numbering from the next paragraph). |
+
+| Date | Word version and system | File | Repair prompt | Numbers as in Write (pages compared / differences) | Notes and findings |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-23 | Word 16.0 (build 16.0.20625.20108, Microsoft 365), Windows 11, read through Word automation (not a person looking), read-only, repair off | all 15 files above and `lists.docx`, `numbered-headings.docx` | none: all 17 opened (`word-open-check.ps1` exit 0) | see the rows below | The thesis files have 320 and 321 pages in Word and 309 and 310 in Write: the fonts or the compatibility differ (the 4.4a row already recorded 321 and a page count that was not explained), so a comparison by physical page index is only meaningful before the first difference in pagination. |
+| 2026-11-23 | as above | page-three-one.docx | none | 6 / 0 | Numbers 1 2 1 2 3 4 as in Write. The one-command "1 on page 3" opens as intended. |
+| 2026-11-23 | as above | restart-page-four.docx | none | 6 / 0 | 1 2 3 1 2 3 as in Write and no extra page: Word did not turn the restart into an odd-page break in a file Write saved (the oracle's rule 4 holds). |
+| 2026-11-23 | as above | appendix-a1.docx | none | not comparable by page index (320 against 309 pages) | Read by section instead: Word has 4 sections; section 3 (the appendix) starts on physical page 313 with restart on, start 1 and a footer "A-" followed by the page field; section 4 starts on page 317 with its own restart. Write has the appendix on page 302 and the following section on page 306, so both are 4 pages long in both. The cached result of the field reads `0` in the footer text (Write writes the cached value; Word computes the number when it lays out). A person has not looked at "A-1" on the rendered page. |
+| 2026-11-23 | as above | roman-front-matter.docx | none | 6 / 0 | 1 2 1 2 3 4; the format (Roman) is not readable by the script. |
+| 2026-11-23 | as above | first-page.docx | none | 4 / 0 | Numbers 1 2 3 4 as in Write; whether page 1 shows no number is not read by the script. |
+| 2026-11-23 | as above | left-right.docx | none | 4 / 0 | As in Write. |
+| 2026-11-23 | as above | landscape-section.docx | none | 6 / 0 | As in Write. |
+| 2026-11-23 | as above | two-columns.docx | none | 5 / 0 | As in Write (5 pages in both). |
+| 2026-11-23 | as above | numbered-thesis-chapter-move.docx | none | not comparable by page index (321 against 310 pages) | Opens without repair with the section break inside the moved chapter. A person's look is open. |
+| 2026-11-23 | as above | continuous-start-other-paper.docx | none | 4 / 0 | 1 2 5 6: a continuous section on other paper restarts on a new page, as the oracle says. |
+| 2026-11-23 | as above | continuous-start-same-paper.docx | none | 4 / **2 differences** | **Finding.** Word 1 2 6 7, Write 1 2 3 4. Word applies the start of a continuous section on the same paper (the oracle's rule: it never restarts the count): after the section that starts in the middle of page 2 with `w:start` 5, page 3 is 6 and page 4 is 7. Not changed in the code (task rule); the oracle rule and the layout disagree with Word here. |
+| 2026-11-23 | as above | even-page-start-one.docx | none | 6 / **6 differences and a different page count** | **Finding.** Word has 6 pages numbered 1 2 3 4 5 6 (the start of 1 on an even page is not applied and no blank page is added); Write has 7 pages numbered 1 1 2 3 4 5 6 (a blank page, then a restart). |
+| 2026-11-23 | as above | odd-page-start-two.docx | none | 6 / **5 differences and a different page count** | **Finding.** Word 1 2 3 4 5 6 on 6 pages (the start of 2 on an odd page is not applied and no blank page is added); Write 1 2 2 3 4 5 6 on 7 pages. Same cause as the row above. |
+| 2026-11-23 | as above | blank-page-roman.docx | none | 6 / 0 (page 4 skipped) | Word has the blank page 4 as Write does (7 pages in both) and the other numbers agree; **the number format of the blank page is open** (a blank page has no paragraph for the script to read). |
+| 2026-11-23 | as above | trailing-page-break-split.docx | none | 2 / **2 differences and a different page count** | **Confirms the known limit.** Word has 2 pages, Write 3: a split after a paragraph that ends in a `w:br` page break shows an extra blank page in Write and none in Word. |
+
+What is not read by the scripts and stays open for a person: the look of the rendered page (the chip is Write's, Word shows no marker), whether the first page shows no number, the Roman and letter formats, the prefix "A-" on the rendered page, whether "Review > Compare" of the moved thesis shows a moved chapter and nothing else, and the pane of Word's own section list.
+
 ## Checking a file from a script
 
 On a Windows machine with Word, `pwsh tools/word-open-check.ps1 <files>` opens each file through Word's COM automation (read-only, repair off, on a temporary copy) and prints whether Word accepted it; the exit code is the number of files Word refused. It answers the repair-prompt question for any number of files at once and is how the cause of the first finding was bisected (`Docs/DECISIONS.md`, "one paragraph in a text, combo box, drop-down list or date control"). It does not look at the result, so the "looks as in Write" columns stay the owner's.

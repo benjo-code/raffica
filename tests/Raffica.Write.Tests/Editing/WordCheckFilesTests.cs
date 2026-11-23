@@ -131,9 +131,12 @@ public sealed class WordCheckFilesTests
         var body = file.Model.Body.Blocks;
         static int LevelOf(Block block) => block is Paragraph { Properties.StyleId: { } id } && id.StartsWith("Heading", StringComparison.Ordinal) && int.TryParse(id.AsSpan(7), out var n) ? n : 0;
 
-        // The chapters are the top-level Heading1 paragraphs. Move the second one in front of the last.
+        // The chapters are the top-level Heading1 paragraphs. Chapter four starts a section of its own (4.4b, so the move below crosses a section break), then the second one moves in front of the last.
         var chapters = Enumerable.Range(0, body.Count).Where(i => LevelOf(body[i]) == 1).ToList();
         Assert.True(chapters.Count >= 4);
+        Assert.NotNull(editor.NumberPagesFrom(At((Paragraph)body[chapters[3]]), new PageNumbering(1, PageNumberFormat.Arabic, string.Empty)));
+        body = file.Model.Body.Blocks;
+        chapters = [.. Enumerable.Range(0, body.Count).Where(i => LevelOf(body[i]) == 1)];
         Assert.NotNull(editor.MoveBlocks(chapters[1], chapters[2] - chapters[1], chapters[^1]));
 
         // Promote the first Heading2 with the sub-headings under it.
@@ -152,6 +155,6 @@ public sealed class WordCheckFilesTests
         Assert.NotNull(editor.SetHeadingNumbering(false, caret));
         Assert.NotNull(editor.SetHeadingNumbering(true, At(Paragraphs(file.Model)[0])));
 
-        await file.SaveAsync(Path.Combine(folder, "numbered-thesis-chapter-move.docx"), token);
+        await WordCheckSectionFilesTests.SaveWithNumbersAsync(file, folder, "numbered-thesis-chapter-move.docx", token);
     }
 }
