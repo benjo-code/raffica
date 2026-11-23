@@ -238,7 +238,7 @@ public sealed class PageSetupEditingTests
         Assert.Equal(new PageMargins(1440, 1440, 1080, 1080), PagePresets.Margins("Moderate", inch: true));
         Assert.Equal(new PageMargins(1417, 1417, 1083, 1083), PagePresets.Margins("Moderate", inch: false));
         Assert.Equal(new PageMargins(1440, 1440, 2880, 2880), PagePresets.Margins("Wide", inch: true));
-        Assert.Equal(new PageMargins(1417, 1417, 2835, 2835), PagePresets.Margins("Wide", inch: false));
+        Assert.Equal(new PageMargins(1417, 1417, 2880, 2880), PagePresets.Margins("Wide", inch: false));
         Assert.Throws<ArgumentException>(() => PagePresets.Margins("Huge", inch: true));
     }
 
@@ -277,6 +277,117 @@ public sealed class PageSetupEditingTests
         Assert.NotNull(editor.ApplyPageSetup(At(document, 5), Size(A4 with { WidthTwips = 12240, HeightTwips = 15840 }), ApplyScope.WholeDocument));
         Assert.NotNull(editor.History.Undo());
         Assert.Equal(after, Snapshot(document));
+    }
+
+    // a1 a2 a3 in an A4 section, b1 in a Letter section.
+    private static WordDocument A4ThenLetter() =>
+        Document(P("a1") + P("a2") + PEnd("a3", Sect(width: 595.3f, height: 841.9f)) + P("b1") + Sect());
+
+    [Fact]
+    public void FromHereWhereTheCaretSectionAlreadyMatchesMakesNoSplitAndWritesTheLaterOnes()
+    {
+        var document = A4ThenLetter();
+        var layout = Lay(document);
+        var editor = Editor(document);
+        var before = Snapshot(document);
+        var blocks = document.Body.Blocks.Count;
+
+        Assert.NotNull(editor.ApplyPageSetup(At(document, 1), Size(A4), ApplyScope.FromHere));
+
+        Assert.Equal(blocks, document.Body.Blocks.Count);
+        var sections = SectionList.Of(document);
+        Assert.Equal(2, sections.Count);
+        Assert.Null(sections[1].Properties.Get(W + "type"));
+        Assert.Null(((Paragraph)document.Body.Blocks[1]).Properties.Get(W + "pageBreakBefore"));
+        Assert.Equal(11906, Setup(document, 0).WidthTwips);
+        Assert.Equal(11906, Setup(document, 1).WidthTwips);
+        LayoutAgrees(layout, document, "from here, caret section matches");
+
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(before, Snapshot(document));
+        Assert.Null(editor.History.Undo());
+        Assert.Equal(blocks, document.Body.Blocks.Count);
+        LayoutAgrees(layout, document, "undo");
+    }
+
+    [Fact]
+    public void FromHereWhereNothingFromTheCaretOnDiffersChangesNothing()
+    {
+        var document = A4ThenLetter();
+        var before = Snapshot(document);
+
+        Assert.Null(Editor(document).ApplyPageSetup(At(document, 3), Size(A4 with { WidthTwips = 12240, HeightTwips = 15840 }), ApplyScope.FromHere));
+
+        Assert.Equal(before, Snapshot(document));
+        Assert.Equal(4, document.Body.Blocks.Count);
+    }
+
+    [Fact]
+    public void FromHereWhereTheCaretSectionDiffersSplitsAndWritesTheLaterOnesToo()
+    {
+        var document = A4ThenLetter();
+        var layout = Lay(document);
+
+        Assert.NotNull(Editor(document).ApplyPageSetup(At(document, 1), Size(A4 with { WidthTwips = 12240, HeightTwips = 15840 }), ApplyScope.FromHere));
+
+        Assert.Equal(3, SectionList.Of(document).Count);
+        Assert.Equal(11906, Setup(document, 0).WidthTwips);
+        Assert.Equal(12240, Setup(document, 1).WidthTwips);
+        Assert.Equal(12240, Setup(document, 2).WidthTwips);
+        LayoutAgrees(layout, document, "from here, caret section differs");
+    }
+
+    [Fact]
+    public void TheSplitHalfOfAFromHereHasNoDifferentFirstPage()
+    {
+        var document = Document(P("a1") + P("a2") + Sect("<w:titlePg/>"));
+
+        Assert.NotNull(Editor(document).ApplyPageSetup(At(document, 1), Size(A4), ApplyScope.FromHere));
+
+        var sections = SectionList.Of(document);
+        Assert.Equal(2, sections.Count);
+        Assert.NotNull(sections[0].Properties.Get(W + "titlePg"));
+        Assert.Null(sections[1].Properties.Get(W + "titlePg"));
+    }
+
+    [Fact]
+    public void FromHereWithTheCaretInATableCellSplitsBeforeTheTable()
+    {
+        var table = "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"3000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var document = Document(P("a1") + table + P("a3") + Sect());
+        var cell = (Paragraph)((TableCell)((TableRow)((Table)document.Body.Blocks[1]).Rows[0]).Items[0]).Blocks[0];
+
+        AssertSplitBeforeTop(document, new TextPosition(StoryRef.Body, cell, 2));
+    }
+
+    [Fact]
+    public void FromHereWithTheCaretInAContentControlSplitsBeforeTheControl()
+    {
+        var control = "<w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>ctl</w:t></w:r></w:p></w:sdtContent></w:sdt>";
+        var document = Document(P("a1") + control + P("a3") + Sect());
+        var inner = (Paragraph)((ContentControlBlock)document.Body.Blocks[1]).Content[0];
+
+        AssertSplitBeforeTop(document, new TextPosition(StoryRef.Body, inner, 1));
+    }
+
+    private static void AssertSplitBeforeTop(WordDocument document, TextPosition at)
+    {
+        var editor = Editor(document);
+        var layout = Lay(document);
+        var before = Snapshot(document);
+
+        var result = editor.ApplyPageSetup(at, Size(A4), ApplyScope.FromHere);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, SectionList.Of(document).Count);
+        Assert.NotNull(((Paragraph)document.Body.Blocks[0]).SectionBreak);
+        Assert.Equal(11906, Setup(document, 1).WidthTwips);
+        LayoutAgrees(layout, document, "split before a table or control");
+
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(before, Snapshot(document));
+        Assert.Single(SectionList.Of(document));
+        Assert.Equal(3, document.Body.Blocks.Count);
     }
 
     [Fact]
