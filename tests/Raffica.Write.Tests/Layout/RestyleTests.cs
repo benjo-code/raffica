@@ -230,4 +230,75 @@ public sealed class RestyleTests
         await layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(layout, model, label: "resection redone");
     }
+
+    private static WordDocument ThreeSectionsWithHeaders()
+    {
+        static string Text(string label) => string.Concat(Enumerable.Range(0, 40).Select(i => PageTestKit.P($"{label} paragraph {i} " + new string('x', 200))));
+        var body = Text("one") + PageTestKit.PEnd("end one", PageTestKit.Sect(ChromeTestKit.Header("default", "hA") + ChromeTestKit.Header("even", "hE")))
+            + Text("two") + PageTestKit.PEnd("end two", PageTestKit.Sect()) + Text("three") + PageTestKit.Sect();
+        var parts = new Dictionary<string, string>
+        {
+            ["hA"] = ChromeTestKit.HeaderPart(ChromeTestKit.Line("HEADER A")),
+            ["hE"] = ChromeTestKit.HeaderPart(ChromeTestKit.Line("HEADER EVEN")),
+            ["hB"] = ChromeTestKit.HeaderPart(ChromeTestKit.Line("HEADER B")),
+            ["fA"] = ChromeTestKit.FooterPart(ChromeTestKit.Line("FOOTER A")),
+        };
+        return ChromeTestKit.Document(body, parts, settingsInner: string.Empty);
+    }
+
+    // A step that adds or removes header and footer references of two sections and, when asked, flips the flag of left and right pages; then Resection, undo, redo, each compared with a full layout.
+    private static async Task ResectionOfChromeAsync(bool references, bool flag)
+    {
+        var model = ThreeSectionsWithHeaders();
+        var layout = await LaidAsync(model);
+        var history = new EditHistory(model, new StillClock(), HistoryLimits.Default);
+        var sections = SectionList.Of(model);
+        var swaps = new List<SectionSwap>();
+        if (references)
+        {
+            var (second, third) = (sections[1].Properties, sections[2].Properties);
+            var (oldSecond, oldThird) = (second.Clone(), third.Clone());
+            second.HeaderFooterReferences.Add(new HeaderFooterReference(HeaderFooterKind.Footer, HeaderFooterType.Default, "fA"));
+            third.HeaderFooterReferences.Add(new HeaderFooterReference(HeaderFooterKind.Header, HeaderFooterType.Default, "hB"));
+            swaps.Add(new SectionSwap(second, oldSecond, second.Clone()));
+            swaps.Add(new SectionSwap(third, oldThird, third.Clone()));
+        }
+
+        var revision = history.BeginOperation();
+        if (flag)
+        {
+            model.Settings!.EvenAndOddHeaders = true;
+        }
+
+        model.Edits.Raise();
+        var change = new SectionChange(swaps, flag ? false : null, flag ? true : null);
+        var caret = new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0);
+        history.Record(new EditResult(caret, [], Sections: change), new EditHistory.Point(0, 0), revision, null);
+        var before = Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text).ToList();
+
+        layout.Resection(1);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.NotEqual(before, Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text).ToList());
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome resection");
+
+        Assert.NotNull(history.Undo()?.Sections);
+        layout.Resection(0);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.Equal(before, Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text).ToList());
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome resection undone");
+
+        Assert.NotNull(history.Redo()?.Sections);
+        layout.Resection(2);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome resection redone");
+    }
+
+    [Fact]
+    public Task AResectionEqualsAFullLayoutAfterHeaderAndFooterReferencesChange() => ResectionOfChromeAsync(references: true, flag: false);
+
+    [Fact]
+    public Task AResectionEqualsAFullLayoutAfterTheFlagOfLeftAndRightPagesFlips() => ResectionOfChromeAsync(references: false, flag: true);
+
+    [Fact]
+    public Task AResectionEqualsAFullLayoutAfterReferencesAndTheFlagChangeTogether() => ResectionOfChromeAsync(references: true, flag: true);
 }

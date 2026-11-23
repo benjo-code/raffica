@@ -17,7 +17,8 @@ public sealed record SectionChange(IReadOnlyList<SectionSwap> Swaps, bool? EvenA
     /// <summary>
     /// The block changes to attribute (<see cref="DocumentEdits.Attribute"/>) besides the ones of the operation: a section break lives in the paragraph that carries it, so a swap of its properties
     /// changes that paragraph in place, which the recovery snapshot's block cache must hear of (the final section and the settings part are written afresh at every copy and need nothing).
-    /// A carrier below a content control or a table is reported as a nested change.
+    /// A carrier that is not a top-level block (inside a content control) is reported as a change on a throwaway list: the tracker takes any change on a container other than the body as "a nested block list changed"
+    /// and then writes again every top-level block that is not a paragraph, which is the (coarse, never stale) answer for it. Use <see cref="EditResult.Attribute"/>, which makes the one attribution call.
     /// </summary>
     public IReadOnlyList<BlockChange> CarrierChanges(WordDocument document)
     {

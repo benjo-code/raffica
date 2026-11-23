@@ -165,22 +165,181 @@ public sealed class SectionHistoryTests
         Assert.True(document.Settings.EvenAndOddHeaders);
     }
 
-    [Fact]
-    public void HistoryBytesCountEverySnapshot()
+    private static string TextOf(WordDocument document, int block) => ParagraphProjection.Build((Paragraph)document.Body.Blocks[block], ProjectionHost.Plain).Text;
+
+    private static void TypeInCarrier(TextEditor editor, WordDocument document, string text)
     {
-        static long Bytes(int sections)
+        var carrier = (Paragraph)document.Body.Blocks[1];
+        var at = new TextPosition(StoryRef.Body, carrier, ParagraphProjection.Build(carrier, ProjectionHost.Plain).Text.Length);
+        Assert.NotNull(editor.InsertText(new TextRange(at, at), text));
+    }
+
+    // The section object of the first section: the same object at every point of a walk, because a block undo or redo of its carrier paragraph keeps it.
+    private static void AssertFirstSection(WordDocument document, SectionProperties live, string width, string text)
+    {
+        var first = SectionList.Of(document)[0];
+        Assert.Same(live, first.Properties);
+        Assert.Equal(width, Width(live));
+        Assert.Equal(text, TextOf(document, 1));
+    }
+
+    [Fact]
+    public void ASectionStepThenTypingInItsCarrierWalksUndoAndRedoWithoutClearingTheHistory()
+    {
+        var document = Three();
+        var editor = new TextEditor(document, (_, _) => ProjectionHost.Plain, new FakeTime());
+        var live = SectionList.Of(document)[0].Properties;
+        Do(document, editor.History, () => Widen(document, [live], "5000"));
+        TypeInCarrier(editor, document, "x");
+        Assert.Equal(2, editor.History.UndoCount);
+        AssertFirstSection(document, live, "5000", "bx");
+
+        Assert.NotNull(editor.History.Undo());
+        AssertFirstSection(document, live, "5000", "b");
+        Assert.NotNull(editor.History.Undo());
+        AssertFirstSection(document, live, "12240", "b");
+        Assert.False(editor.History.CanUndo);
+
+        Assert.NotNull(editor.History.Redo());
+        AssertFirstSection(document, live, "5000", "b");
+        Assert.NotNull(editor.History.Redo());
+        AssertFirstSection(document, live, "5000", "bx");
+        Assert.Equal(2, editor.History.UndoCount);
+        Assert.False(editor.History.CanRedo);
+    }
+
+    [Fact]
+    public void TypingInTheCarrierThenASectionStepWalksUndoAndRedoWithoutClearingTheHistory()
+    {
+        var document = Three();
+        var editor = new TextEditor(document, (_, _) => ProjectionHost.Plain, new FakeTime());
+        var live = SectionList.Of(document)[0].Properties;
+        TypeInCarrier(editor, document, "x");
+        Do(document, editor.History, () => Widen(document, [live], "5000"));
+        Assert.Equal(2, editor.History.UndoCount);
+
+        Assert.NotNull(editor.History.Undo());
+        AssertFirstSection(document, live, "12240", "bx");
+        Assert.NotNull(editor.History.Undo());
+        AssertFirstSection(document, live, "12240", "b");
+        Assert.NotNull(editor.History.Redo());
+        AssertFirstSection(document, live, "12240", "bx");
+        Assert.NotNull(editor.History.Redo());
+        AssertFirstSection(document, live, "5000", "bx");
+        Assert.Equal(2, editor.History.UndoCount);
+    }
+
+    [Fact]
+    public void ABlockStepWithASwapOfAnotherCarrierKeepsBothThroughUndoAndRedo()
+    {
+        // Step 1 swaps the second section; step 2 swaps the first section together with its carrier paragraph. The undo of step 2 replaces the first carrier by a clone;
+        // step 1 must still find the second section afterwards, and nothing is skipped.
+        var document = Three();
+        var history = new EditHistory(document, new FakeTime(), HistoryLimits.Default);
+        var sections = SectionList.Of(document);
+        var (first, second) = (sections[0].Properties, sections[1].Properties);
+        Do(document, history, () => Widen(document, [second], "6000"));
+        var carrier = (Paragraph)document.Body.Blocks[1];
+        var revision = history.BeginOperation();
+        var old = new Block[] { carrier.Clone() };
+        var change = Widen(document, [first], "5000");
+        carrier.Inlines.Clear();
+        document.Edits.Raise();
+        history.Record(new EditResult(new TextPosition(StoryRef.Body, carrier, 0), [new BlockChange(StoryRef.Body, document.Body.Blocks, 1, 1, 1, old)], Sections: change), new EditHistory.Point(1, 0), revision, null);
+
+        for (var round = 0; round < 2; round++)
         {
-            var document = Three();
-            var history = new EditHistory(document, new FakeTime(), HistoryLimits.Default);
-            var chosen = SectionList.Of(document).Select(s => s.Properties).Take(sections).ToList();
-            Do(document, history, () => Widen(document, chosen, "5000"));
-            return history.UndoBytes;
+            Assert.NotNull(history.Undo());
+            Assert.Equal("12240", Width(SectionList.Of(document)[0].Properties));
+            Assert.Equal("6000", Width(SectionList.Of(document)[1].Properties));
+            Assert.NotNull(history.Undo());
+            Assert.Equal("12240", Width(SectionList.Of(document)[1].Properties));
+            Assert.NotNull(history.Redo());
+            Assert.NotNull(history.Redo());
+            Assert.Equal("5000", Width(SectionList.Of(document)[0].Properties));
+            Assert.Equal("6000", Width(SectionList.Of(document)[1].Properties));
+            Assert.Same(first, SectionList.Of(document)[0].Properties);
+            Assert.Same(second, SectionList.Of(document)[1].Properties);
+        }
+    }
+
+    [Fact]
+    public void AStepWhoseSectionIsGoneIsRefusedWholeAndTheHistoryClears()
+    {
+        // A block step that removes a section break detaches the object an earlier section step names (the undo of the removal restores a break the swap cannot pair):
+        // undoing the section step is then refused before anything changes.
+        var document = Three();
+        var history = new EditHistory(document, new FakeTime(), HistoryLimits.Default);
+        var live = SectionList.Of(document)[0].Properties;
+        var last = SectionList.Of(document)[^1].Properties;
+        Do(document, history, () => Widen(document, [live, last], "5000"));
+        var carrier = (Paragraph)document.Body.Blocks[1];
+        var revision = history.BeginOperation();
+        var snapshot = carrier.Clone();
+        var plain = new Paragraph();
+        foreach (var inline in carrier.Inlines)
+        {
+            plain.Inlines.Add(inline.Clone());
         }
 
-        var one = Bytes(1);
-        var three = Bytes(3);
-        Assert.True(one > 0);
-        Assert.True(three > one * 2, $"{three} against {one}");
+        document.Body.Blocks[1] = plain;
+        document.Edits.Raise();
+        history.Record(new EditResult(new TextPosition(StoryRef.Body, plain, 0), [new BlockChange(StoryRef.Body, document.Body.Blocks, 1, 1, 1, [snapshot])]), new EditHistory.Point(1, 0), revision, null);
+
+        Assert.NotNull(history.Undo());
+        Assert.Equal("5000", Width(SectionList.Of(document)[0].Properties));
+        Assert.Equal("5000", Width(last));
+
+        Assert.Null(history.Undo());
+        Assert.False(history.CanUndo);
+        Assert.False(history.CanRedo);
+        Assert.Equal("5000", Width(SectionList.Of(document)[0].Properties));
+        Assert.Equal("5000", Width(last));
+    }
+
+    [Fact]
+    public void ARedoThatNeedsTheSettingsPartAndFindsNoneChangesNothing()
+    {
+        var document = Three();
+        var history = new EditHistory(document, new FakeTime(), HistoryLimits.Default);
+        var final = SectionList.Of(document)[^1].Properties;
+        Do(document, history, () => Widen(document, [final], "5000", flagAfter: true));
+        Assert.NotNull(history.Undo());
+        Assert.Equal("12240", Width(final));
+        document.Settings = null;
+
+        Assert.Null(history.Redo());
+
+        Assert.Equal("12240", Width(final));
+        Assert.Null(document.Settings);
+        Assert.False(history.CanRedo);
+        Assert.False(history.CanUndo);
+    }
+
+    [Fact]
+    public void HistoryBytesAreTheExactSumOfTheSnapshots()
+    {
+        var document = Three();
+        var history = new EditHistory(document, new FakeTime(), HistoryLimits.Default);
+        var sections = SectionList.Of(document).Select(s => s.Properties).ToList();
+        sections[1].HeaderFooterReferences.Add(new HeaderFooterReference(HeaderFooterKind.Header, HeaderFooterType.Default, "rId9"));
+        SectionChange? made = null;
+        Do(document, history, () => made = Widen(document, sections, "5000"));
+
+        long expected = 0;
+        foreach (var swap in made!.Swaps)
+        {
+            expected += EditHistory.SizeOf(swap.Old) + EditHistory.SizeOf(swap.New);
+        }
+
+        Assert.Equal(expected, history.UndoBytes);
+        Assert.Equal(expected, EditHistory.SizeOf(made));
+
+        // A header or footer reference counts 64.
+        var bare = sections[1].Clone();
+        bare.HeaderFooterReferences.Clear();
+        Assert.Equal(64, EditHistory.SizeOf(sections[1]) - EditHistory.SizeOf(bare));
+        Assert.True(EditHistory.SizeOf(bare) > 0);
     }
 
     [Fact]

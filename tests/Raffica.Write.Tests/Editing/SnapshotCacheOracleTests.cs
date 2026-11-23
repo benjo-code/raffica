@@ -424,8 +424,9 @@ public sealed class SnapshotCacheOracleTests
         model.Edits.Raise();
         var change = new SectionChange(swaps, flagBefore, !flagBefore);
         var caret = new TextPosition(StoryRef.Body, model.Body.Blocks.OfType<Paragraph>().First(), 0);
-        model.Edits.Attribute([.. change.CarrierChanges(model)]);
-        history.Record(new EditResult(caret, [], Sections: change), new EditHistory.Point(0, 0), revision, null);
+        var forward = new EditResult(caret, [], Sections: change);
+        forward.Attribute(model);
+        history.Record(forward, new EditHistory.Point(0, 0), revision, null);
         await CheckAsync("swap");
         Assert.NotNull(history.Undo());
         await CheckAsync("undo");

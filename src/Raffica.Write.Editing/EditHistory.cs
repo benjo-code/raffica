@@ -129,7 +129,7 @@ public sealed class EditHistory
             return StepMove(step, undo: true);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step) || !TrySwapStyle(step, undo: true))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
         {
             Clear();
             return null;
@@ -144,7 +144,7 @@ public sealed class EditHistory
         _expected = step.StartRevision;
         _open = null;
         var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
-        _document.Edits.Attribute(Attributed(undone));
+        undone.Attribute(_document);
         return undone;
     }
 
@@ -163,7 +163,7 @@ public sealed class EditHistory
             return StepMove(step, undo: false);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step) || !TrySwapStyle(step, undo: false))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step, undo: false) || !TrySwapStyle(step, undo: false))
         {
             Clear();
             return null;
@@ -178,7 +178,7 @@ public sealed class EditHistory
         _expected = step.EndRevision;
         _open = null;
         var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
-        _document.Edits.Attribute(Attributed(redone));
+        redone.Attribute(_document);
         return redone;
     }
 
@@ -335,7 +335,7 @@ public sealed class EditHistory
         _expected = revision;
         _open = null;
         var result = move.ResultIn(container, old);
-        _document.Edits.Attribute(result.Changes);
+        result.Attribute(_document);
         return result;
     }
 
@@ -410,29 +410,30 @@ public sealed class EditHistory
         return true;
     }
 
-    // A step with section swaps needs every swapped section in the document (or, for a step that carries blocks, its content in those blocks: the carrier paragraph is replaced by a
-    // clone, so its Live object is gone and the snapshot holds the content). Checked before anything changes, so a step applies all or nothing.
-    private bool SectionsApplicable(Step step)
+    // A step with section swaps needs every swapped section object in the document now, whether or not the step carries blocks: a block undo or redo keeps the section object of a replaced
+    // carrier paragraph (see Swap), so a swap whose object is gone means the document no longer holds that section and the step cannot be applied. Checked before anything changes, so a step
+    // applies all or nothing and never skips a swap silently. A flag that must become true needs the settings part.
+    private bool SectionsApplicable(Step step, bool undo)
     {
         if (step.Sections is not { } change)
         {
             return true;
         }
 
-        if (change.Swaps.Count > 0 && step.Old.Length == 0 && step.New.Length == 0)
+        if (change.Swaps.Count > 0)
         {
-            var present = PresentSections();
+            var present = new HashSet<SectionProperties>(SectionList.Of(_document).Select(section => section.Properties), ReferenceEqualityComparer.Instance);
             if (change.Swaps.Any(swap => !present.Contains(swap.Live)))
             {
                 return false;
             }
         }
 
-        return _document.Settings is not null || (change.EvenAndOddBefore is not true && change.EvenAndOddAfter is not true);
+        return _document.Settings is not null || (undo ? change.EvenAndOddBefore : change.EvenAndOddAfter) is not true;
     }
 
-    // Copies the content of every swapped section and the flag of left and right pages back (undo) or forward (redo). Runs after the blocks of the step were swapped: a Live object that is no
-    // longer in the document belonged to a replaced carrier paragraph, whose snapshot already holds the content.
+    // Copies the content of every swapped section and the flag of left and right pages back (undo) or forward (redo). Runs after the blocks of the step were swapped; a Live object that the swap
+    // of a block range could not keep (the range gained or lost a section break) is detached now and the copy is harmless.
     private void SwapSections(Step step, bool undo)
     {
         if (step.Sections is not { } change)
@@ -440,13 +441,9 @@ public sealed class EditHistory
             return;
         }
 
-        var present = PresentSections();
         foreach (var swap in change.Swaps)
         {
-            if (present.Contains(swap.Live))
-            {
-                swap.Live.CopyContentFrom(undo ? swap.Old : swap.New);
-            }
+            swap.Live.CopyContentFrom(undo ? swap.Old : swap.New);
         }
 
         if ((undo ? change.EvenAndOddBefore : change.EvenAndOddAfter) is { } flag && _document.Settings is { } settings)
@@ -454,12 +451,6 @@ public sealed class EditHistory
             settings.EvenAndOddHeaders = flag;
         }
     }
-
-    // The block changes of a result plus, for a step that swapped section properties, the carrier paragraphs changed in place.
-    private IReadOnlyList<BlockChange> Attributed(EditResult result) =>
-        result.Sections is { } sections && sections.CarrierChanges(_document) is { Count: > 0 } carriers ? [.. result.Changes, .. carriers] : result.Changes;
-
-    private HashSet<SectionProperties> PresentSections() => new(SectionList.Of(_document).Select(section => section.Properties), ReferenceEqualityComparer.Instance);
 
     private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
     {
@@ -528,23 +519,74 @@ public sealed class EditHistory
 
     private static bool Fits(IList<Block> container, int first, int count) => first >= 0 && first + count <= container.Count;
 
+    // Replaces the blocks and keeps the section objects: Block.Clone clones a paragraph's section break, so a plain swap would detach the SectionSwap.Live of every section step that
+    // names it. When the removed range and the inserted range hold the same number of section breaks (a typing step in a carrier paragraph, a split, a join), the n-th inserted break takes
+    // the content of its clone into the n-th removed break's object and that object stays in the document. A step that adds or removes a break has no such pairing; a later section step
+    // on a break it detached is then refused whole by SectionsApplicable (never skipped).
     private static void Swap(IList<Block> container, int first, int remove, Block[] insert)
     {
+        var removedBreaks = Carriers(container, first, remove);
         if (container is List<Block> list)
         {
             list.RemoveRange(first, remove);
             list.InsertRange(first, insert.Select(b => b.Clone()));
+        }
+        else
+        {
+            for (var i = remove - 1; i >= 0; i--)
+            {
+                container.RemoveAt(first + i);
+            }
+
+            for (var i = 0; i < insert.Length; i++)
+            {
+                container.Insert(first + i, insert[i].Clone());
+            }
+        }
+
+        if (removedBreaks.Count == 0)
+        {
             return;
         }
 
-        for (var i = remove - 1; i >= 0; i--)
+        var insertedBreaks = Carriers(container, first, insert.Length);
+        if (insertedBreaks.Count != removedBreaks.Count)
         {
-            container.RemoveAt(first + i);
+            return;
         }
 
-        for (var i = 0; i < insert.Length; i++)
+        for (var i = 0; i < removedBreaks.Count; i++)
         {
-            container.Insert(first + i, insert[i].Clone());
+            var live = removedBreaks[i].SectionBreak!;
+            live.CopyContentFrom(insertedBreaks[i].SectionBreak!);
+            insertedBreaks[i].SectionBreak = live;
+        }
+    }
+
+    // The paragraphs with a section break in a range of blocks, in order, looking through content controls as SectionList does.
+    private static List<Paragraph> Carriers(IList<Block> container, int first, int count)
+    {
+        var found = new List<Paragraph>();
+        for (var i = first; i < first + count && i < container.Count; i++)
+        {
+            Collect(container[i], found, 0);
+        }
+
+        return found;
+
+        static void Collect(Block block, List<Paragraph> into, int depth)
+        {
+            if (block is ContentControlBlock control && depth < 32)
+            {
+                foreach (var inner in control.Content)
+                {
+                    Collect(inner, into, depth + 1);
+                }
+            }
+            else if (block is Paragraph { SectionBreak: not null } paragraph)
+            {
+                into.Add(paragraph);
+            }
         }
     }
 
@@ -734,9 +776,9 @@ public sealed class EditHistory
         return size;
     }
 
-    private static long SizeOf(SectionChange? change) => change is null ? 0 : 16 + change.Swaps.Sum(swap => SizeOf(swap.Old) + SizeOf(swap.New));
+    internal static long SizeOf(SectionChange? change) => change is null ? 0 : change.Swaps.Sum(swap => SizeOf(swap.Old) + SizeOf(swap.New));
 
-    private static long SizeOf(SectionProperties properties) => SizeOf((PropertyBag)properties) + (64L * properties.HeaderFooterReferences.Count);
+    internal static long SizeOf(SectionProperties properties) => SizeOf((PropertyBag)properties) + (64L * properties.HeaderFooterReferences.Count);
 
     private static long SizeOf(StyleChange? change) => change is null ? 0 : change.All.Sum(item => SizeOf(item.Old) + SizeOf(item.New));
 

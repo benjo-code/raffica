@@ -23,8 +23,8 @@ public sealed class SectionSessionTests
         live.Get(W + "pgSz")!.SetAttributeValue(W + "w", "5000");
         model.Edits.Raise();
         var change = new SectionChange([new SectionSwap(live, old, live.Clone())], null, null);
-        model.Edits.Attribute([.. change.CarrierChanges(model)]);
         var result = new EditResult(caret, [], Sections: change);
+        result.Attribute(model);
         editor.History.Record(result, new EditHistory.Point(0, 0), revision, null);
         return result;
     }
