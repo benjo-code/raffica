@@ -178,4 +178,127 @@ public sealed class RestyleTests
 
     [Fact]
     public Task SwitchingHeadingNumbersOnADocumentWithOnlyHeading1To3AndNoNumberingPartGivesTheLayoutNumbers() => SwitchingHeadingNumbersAsync(null, 3);
+
+    private sealed class StillClock : TimeProvider
+    {
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp() => 0;
+    }
+
+    [Fact]
+    public async Task AResectionEqualsAFullLayoutAfterAPropertySwap()
+    {
+        // Three sections of some pages each; the page size of the middle one and the margins of the last one change, then the step is undone and redone.
+        string Text(string label) => string.Concat(Enumerable.Range(0, 60).Select(i => PageTestKit.P($"{label} paragraph {i} " + new string('x', 200))));
+        var body = Text("one") + PageTestKit.PEnd("end one", PageTestKit.Sect()) + Text("two") + PageTestKit.PEnd("end two", PageTestKit.Sect(width: 500f, height: 700f))
+            + Text("three") + PageTestKit.Sect();
+        var model = LayoutModel.Document(body);
+        var layout = await LaidAsync(model);
+        var history = new EditHistory(model, new StillClock(), HistoryLimits.Default);
+        var sections = SectionList.Of(model);
+        var swaps = new List<SectionSwap>();
+        foreach (var (live, width) in new[] { (sections[1].Properties, "4000"), (sections[2].Properties, "4500") })
+        {
+            var old = live.Clone();
+            live.Get(W + "pgSz")!.SetAttributeValue(W + "w", width);
+            live.Get(W + "pgMar")!.SetAttributeValue(W + "left", "1500");
+            swaps.Add(new SectionSwap(live, old, live.Clone()));
+        }
+
+        var revision = history.BeginOperation();
+        model.Edits.Raise();
+        var caret = new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0);
+        history.Record(new EditResult(caret, [], Sections: new SectionChange(swaps, null, null)), new EditHistory.Point(0, 0), revision, null);
+        var pagesBefore = layout.LaidOutPages;
+
+        var refill = layout.Resection(1);
+
+        Assert.True(refill.Restarted);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.NotEqual(pagesBefore, layout.LaidOutPages);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "resection");
+
+        Assert.NotNull(history.Undo()?.Sections);
+        layout.Resection(0);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.Equal(pagesBefore, layout.LaidOutPages);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "resection undone");
+
+        Assert.NotNull(history.Redo()?.Sections);
+        layout.Resection(2);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "resection redone");
+    }
+
+    private static WordDocument ThreeSectionsWithHeaders()
+    {
+        static string Text(string label) => string.Concat(Enumerable.Range(0, 40).Select(i => PageTestKit.P($"{label} paragraph {i} " + new string('x', 200))));
+        var body = Text("one") + PageTestKit.PEnd("end one", PageTestKit.Sect(ChromeTestKit.Header("default", "hA") + ChromeTestKit.Header("even", "hE")))
+            + Text("two") + PageTestKit.PEnd("end two", PageTestKit.Sect()) + Text("three") + PageTestKit.Sect();
+        var parts = new Dictionary<string, string>
+        {
+            ["hA"] = ChromeTestKit.HeaderPart(ChromeTestKit.Line("HEADER A")),
+            ["hE"] = ChromeTestKit.HeaderPart(ChromeTestKit.Line("HEADER EVEN")),
+            ["hB"] = ChromeTestKit.HeaderPart(ChromeTestKit.Line("HEADER B")),
+            ["fA"] = ChromeTestKit.FooterPart(ChromeTestKit.Line("FOOTER A")),
+        };
+        return ChromeTestKit.Document(body, parts, settingsInner: string.Empty);
+    }
+
+    // A step that adds or removes header and footer references of two sections and, when asked, flips the flag of left and right pages; then Resection, undo, redo, each compared with a full layout.
+    private static async Task ResectionOfChromeAsync(bool references, bool flag)
+    {
+        var model = ThreeSectionsWithHeaders();
+        var layout = await LaidAsync(model);
+        var history = new EditHistory(model, new StillClock(), HistoryLimits.Default);
+        var sections = SectionList.Of(model);
+        var swaps = new List<SectionSwap>();
+        if (references)
+        {
+            var (second, third) = (sections[1].Properties, sections[2].Properties);
+            var (oldSecond, oldThird) = (second.Clone(), third.Clone());
+            second.HeaderFooterReferences.Add(new HeaderFooterReference(HeaderFooterKind.Footer, HeaderFooterType.Default, "fA"));
+            third.HeaderFooterReferences.Add(new HeaderFooterReference(HeaderFooterKind.Header, HeaderFooterType.Default, "hB"));
+            swaps.Add(new SectionSwap(second, oldSecond, second.Clone()));
+            swaps.Add(new SectionSwap(third, oldThird, third.Clone()));
+        }
+
+        var revision = history.BeginOperation();
+        if (flag)
+        {
+            model.Settings!.EvenAndOddHeaders = true;
+        }
+
+        model.Edits.Raise();
+        var change = new SectionChange(swaps, flag ? false : null, flag ? true : null);
+        var caret = new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0);
+        history.Record(new EditResult(caret, [], Sections: change), new EditHistory.Point(0, 0), revision, null);
+        var before = Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text).ToList();
+
+        layout.Resection(1);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.NotEqual(before, Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text).ToList());
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome resection");
+
+        Assert.NotNull(history.Undo()?.Sections);
+        layout.Resection(0);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        Assert.Equal(before, Enumerable.Range(0, layout.LaidOutPages).Select(i => layout.Page(i).Text).ToList());
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome resection undone");
+
+        Assert.NotNull(history.Redo()?.Sections);
+        layout.Resection(2);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(layout, model, label: "chrome resection redone");
+    }
+
+    [Fact]
+    public Task AResectionEqualsAFullLayoutAfterHeaderAndFooterReferencesChange() => ResectionOfChromeAsync(references: true, flag: false);
+
+    [Fact]
+    public Task AResectionEqualsAFullLayoutAfterTheFlagOfLeftAndRightPagesFlips() => ResectionOfChromeAsync(references: false, flag: true);
+
+    [Fact]
+    public Task AResectionEqualsAFullLayoutAfterReferencesAndTheFlagChangeTogether() => ResectionOfChromeAsync(references: true, flag: true);
 }

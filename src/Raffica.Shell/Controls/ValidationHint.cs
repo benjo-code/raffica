@@ -1,13 +1,13 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 
-namespace Raffica.Pdf.Dialogs;
+namespace Raffica.Shell.Controls;
 
 /// <summary>
 /// The look and the voice of a validation hint in a card: text in the danger color that appears when an entry is wrong. It is an assertive live
 /// region, so a screen reader says it when it appears instead of waiting for the focus to come by.
 /// </summary>
-internal static class ValidationHint
+public static class ValidationHint
 {
     /// <summary>Colors the text as a problem and makes it an assertive live region; returns the same text block.</summary>
     public static TextBlock Mark(TextBlock hint)

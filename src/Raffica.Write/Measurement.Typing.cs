@@ -455,13 +455,25 @@ internal sealed partial class Measurement
             {
                 RestoreStructure(view);
             }
+            else if (_sectionsRun)
+            {
+                // The full layout after the command is timed before the undo (see WaitForSectionsLayout); the next frame takes it up.
+                _fullPending = true;
+                NextTypingFrame();
+                return;
+            }
+        }
+
+        if (_fullPending && !WaitForSectionsLayout(view))
+        {
+            return;
         }
 
         if (_job is null || _keyInJob >= _job.Keys)
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : _sectionsRun ? "sections" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
             }
 
             if (_job is not null && _paneRun)
@@ -472,6 +484,11 @@ internal sealed partial class Measurement
             if (_job is not null && _structureRun)
             {
                 WriteStructureRefresh();
+            }
+
+            if (_job is not null && _sectionsRun)
+            {
+                WriteSectionsExtras();
             }
 
             if (_jobIndex >= _jobs.Count)
@@ -504,6 +521,7 @@ internal sealed partial class Measurement
             _frameSamples.Clear();
             _leaseSamples.Clear();
             _incompleteSamples.Clear();
+            _fullSamples.Clear();
             _placeStage = 0;
         }
 
@@ -550,6 +568,10 @@ internal sealed partial class Measurement
             if (_structureRun)
             {
                 SendStructure(view, formatKind["structure-".Length..]);
+            }
+            else if (_sectionsRun)
+            {
+                SendSections(view, formatKind["sections-".Length..]);
             }
             else
             {
@@ -601,6 +623,7 @@ internal sealed partial class Measurement
         var mid = Stopwatch.GetTimestamp();
         view.Tab.EnsureEditor();
         _window.FormattingOf(view.Tab)?.Refresh.Flush();
+        _window.SectionsOf(view.Tab)?.Refresh.Flush();
         var end = Stopwatch.GetTimestamp();
         Write(string.Create(
             CultureInfo.InvariantCulture,
@@ -685,13 +708,18 @@ internal sealed partial class Measurement
             return PlanStructure(view);
         }
 
+        if (_sectionsRun)
+        {
+            return PlanSections(view);
+        }
+
         var layout = view.Runner.PageLayout;
         var places = TypingPlaces.Pick(view.Tab.Docx.Model, layout);
         var jobs = new List<Job>();
         if (_paneRun)
         {
-            // The formatting pane is open while the keys go in: the display refresh of the Home pickers and the pane's own refresh hear of every selection change, as they do for a user.
-            _window.RunCommand(WriteCommandIds.FormattingPane);
+            // The formatting pane (or, in the sections-pane run, the Sections pane) is open while the keys go in: the display refresh of the Home pickers and the pane's own refresh hear of every selection change, as they do for a user.
+            _window.RunCommand(_sectionsPaneRun ? WriteCommandIds.SectionsPane : WriteCommandIds.FormattingPane);
         }
 
         if (_formatRun)

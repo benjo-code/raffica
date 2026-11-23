@@ -39,6 +39,7 @@ internal static class LayoutOracle
             Assert.True(actual.Index == i, where + " has index " + actual.Index);
             Assert.True(expected.Number == actual.Number, $"{where}: number '{actual.Number}' against '{expected.Number}'");
             Assert.True(expected.IsProvisional == actual.IsProvisional, where + ": provisional flag");
+            Assert.True(expected.ChromeType == actual.ChromeType && expected.NumberValue == actual.NumberValue, $"{where}: header and footer type {actual.ChromeType} / number value {actual.NumberValue} against {expected.ChromeType} / {expected.NumberValue}");
             Assert.True(string.Equals(expected.Text, actual.Text, StringComparison.Ordinal), where + ": text differs" + FirstDifference(expected.Text, actual.Text));
             Assert.True(expected.Width == actual.Width && expected.Height == actual.Height, where + ": size");
             Assert.True(expected.Items.Count == actual.Items.Count, $"{where}: item count {actual.Items.Count} against {expected.Items.Count}");

@@ -25,7 +25,8 @@ namespace Raffica.Write.Commands;
 /// <param name="isClosing">Whether the window is closing (New document is the only command that then says so; null: never).</param>
 /// <param name="formatFacts">The facts about the selection that Clear direct formatting, the style pickers and Update style to match need; asked only when one of those commands is (and only while editing is not blocked), so the state of the other commands never pays for them; null keeps the facts of <paramref name="editState"/>.</param>
 /// <param name="structureFacts">The facts a structure command (lists, heading numbering, outline) needs for the selection, by command id (only that command's part is filled, so the other reads never happen); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
-internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<string, StructureFacts>? structureFacts = null)
+/// <param name="sectionFacts">The facts a section command of the Layout tab needs at the caret, by command id (the caret's section, a prefix document, where the caret is); asked only when one of those commands is (and only while editing is not blocked); null reads as a document where every one of them is offered.</param>
+internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoom, Func<bool>? outlineAvailable = null, Func<EditCommandState>? editState = null, Func<SaveCommandState>? saveState = null, Func<FormatFacts>? formatFacts = null, Func<bool>? isClosing = null, Func<string, StructureFacts>? structureFacts = null, Func<string, SectionCommandFacts>? sectionFacts = null)
 {
     private const double Tolerance = 1e-9;
 
@@ -59,6 +60,7 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         _ when WriteCommandIds.IsEditing(id) => hasDocument() && EditReason(id, State) is null,
         _ when WriteCommandIds.IsFormatting(id) => hasDocument() && FormatReason(id, FormatState(id)) is null,
         _ when WriteCommandIds.IsStructure(id) => hasDocument() && StructureReason(id) is null,
+        _ when WriteCommandIds.IsSection(id) => hasDocument() && SectionReason(id) is null,
         _ => hasDocument(),
     };
 
@@ -91,6 +93,11 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
         if (WriteCommandIds.IsStructure(id))
         {
             return StructureReason(id);
+        }
+
+        if (WriteCommandIds.IsSection(id))
+        {
+            return SectionReason(id);
         }
 
         return id switch
@@ -168,6 +175,25 @@ internal sealed class WriteCommandRules(Func<bool> hasDocument, Func<double> zoo
             WriteCommandIds.Demote when facts.Demote != OutlineReason.None => StructureWording.OutlineReasonText(facts.Demote, id),
             _ => null,
         };
+    }
+
+    // The reason a section command of the Layout tab is disabled, or null when it may run. The block comes first, a save included (the commands read the caret's section from the model as it is now),
+    // then what the caret's place says (a prefix document, a caret outside the body, no marker to remove); the facts are read only while editing is not blocked.
+    private string? SectionReason(string id)
+    {
+        switch (State.Blocked)
+        {
+            case EditBlockedReason.StillOpening:
+                return WriteStrings.ReasonEditOpening;
+            case EditBlockedReason.Faulted:
+                return WriteStrings.EditUnavailable;
+            case EditBlockedReason.Saving:
+                return WriteStrings.ReasonEditSaving;
+            default:
+                break;
+        }
+
+        return SectionWording.ReasonText((sectionFacts?.Invoke(id) ?? SectionCommandFacts.Permissive).Block);
     }
 
     // The reason an edit command is disabled, or null when it may run. The block comes first (it holds for every command), then what the command itself needs.

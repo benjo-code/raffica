@@ -228,6 +228,93 @@ public sealed class StructureOracleTests
         Assert.Equal(withSections ? 1 : 0, steps.MovedSections);
     }
 
+    // The outline moves a chapter that holds a section break (4.4b): the break travels with it, so the sections change. Each move, its undo and its redo equals a full layout, the labels drawn equal
+    // the reference, and the page numbers drawn equal the independent count (a section that restarts its numbering travels with its chapter and the pages after it count differently).
+    [Fact]
+    public async Task AChapterThatHoldsASectionBreakMovesAndTheLabelsAndPageNumbersStayRight()
+    {
+        var random = new Random(4242);
+        var (_, styles, numbering) = Generated(1);
+        var body = new StringBuilder();
+        for (var c = 0; c < 6; c++)
+        {
+            body.Append(Heading(1, "Chapter " + c));
+            for (var p = 0; p < 7; p++)
+            {
+                body.Append(Item(1, p % 2, Filler(random, random.Next(30, 70))));
+            }
+
+            // Chapters 1 and 3 end a section; chapter 3 restarts the page numbers in the next one.
+            var text = Filler(random, random.Next(60, 110));
+            body.Append(c is 1 or 3
+                ? PageTestKit.PEnd(text, PageTestKit.Sect(c == 3 ? "<w:pgNumType w:start=\"7\"/>" : string.Empty))
+                : Para(text));
+        }
+
+        using var folder = new TempFolder();
+        var path = folder.File("sections-and-chapters.docx");
+        DocxBuilder.WithStylesAndNumbering(path, body.ToString(), styles, numbering);
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var layout = await LaidAsync(model);
+        var steps = new StructureSteps(model, layout, new LayoutOptions());
+        Assert.True(await steps.RunKindAsync(StructureKind.ToggleHeadingNumbering, random, "numbering on"));
+        SectionSteps.AssertNumbersEqualTheReference(layout, model, "before the moves");
+
+        int StartOf(int chapter) => model.Body.Blocks.ToList().FindIndex(b => b is Paragraph p && TestEdit.TextOf(p) == "Chapter " + chapter);
+
+        // Each range is a chapter (heading to the block before the next heading); the app refuses a move that would end the body in a break paragraph, so none of these does.
+        var moves = new (int Chapter, int Before, string Name)[]
+        {
+            (1, 4, "chapter with a break below a later one"),
+            (3, 0, "chapter with a break and a restart to the top"),
+            (0, 3, "chapter without a break across the sections"),
+            (5, 1, "last chapter up into the middle"),
+        };
+        foreach (var (chapter, before, name) in moves)
+        {
+            var first = StartOf(chapter);
+            var next = model.Body.Blocks.ToList().FindIndex(first + 1, b => b is Paragraph p && TestEdit.TextOf(p).StartsWith("Chapter ", StringComparison.Ordinal));
+            var count = (next < 0 ? model.Body.Blocks.Count : next) - first;
+            var target = StartOf(before);
+            if (target >= first && target <= first + count)
+            {
+                continue;
+            }
+
+            var last = OutlineLast(model.Body.Blocks, first, count, target);
+            if (last is Paragraph { SectionBreak: not null })
+            {
+                continue;
+            }
+
+            var sectionsBefore = SectionList.Of(model).Select(s => s.Break).ToList();
+            Assert.True(await steps.MoveToAsync(first, count, target, true, name), name);
+            Assert.Equal(sectionsBefore.Count, SectionList.Of(model).Count);
+            Assert.Equal(sectionsBefore.Count(b => b is not null), SectionList.Of(model).Count(s => s.Break is not null));
+            SectionSteps.AssertNumbersEqualTheReference(layout, model, name);
+        }
+
+        Assert.True(steps.MovedSections >= 2, $"only {steps.MovedSections} moves carried a section break");
+        Assert.True(steps.SubtreeMoves >= 3, $"only {steps.SubtreeMoves} chapter moves ran");
+    }
+
+    // The last block of the body after a move (the rule of the outline: a break paragraph there is refused).
+    private static Block OutlineLast(IList<Block> blocks, int first, int count, int target)
+    {
+        if (target >= blocks.Count && first + count < blocks.Count)
+        {
+            return blocks[first + count - 1];
+        }
+
+        if (first + count >= blocks.Count && target < first && first > 0)
+        {
+            return blocks[first - 1];
+        }
+
+        return blocks[^1];
+    }
+
     private static string LabelsAndText(WordDocument model) =>
         string.Join("\n", ReferenceNumbering.Labels(model).Select(l => l.Label + "|" + TestEdit.TextOf(l.Paragraph)));
 

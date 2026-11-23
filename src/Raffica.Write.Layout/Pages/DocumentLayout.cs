@@ -175,6 +175,9 @@ public sealed partial class DocumentLayout
     /// </summary>
     public int Revision => Volatile.Read(ref _revision);
 
+    /// <summary>How many sections the layout's plan of the body has (1 for a document with no section break and for the writing view's strips). It is the count the layout made anyway; asking costs nothing and reads no body.</summary>
+    public int SectionCount => Volatile.Read(ref _engine).Sections.Count;
+
     internal int ChromeLayouts => _engine.Chrome?.LayoutCount ?? 0;
 
     /// <summary>The number of pages published so far.</summary>

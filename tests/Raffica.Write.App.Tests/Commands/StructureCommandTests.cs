@@ -206,7 +206,7 @@ public sealed class StructureCommandTests
         Assert.Null(Reason(WriteCommandIds.NumberHeadings, free with { Headings = HeadingNumberingState.On }));
 
         Assert.Equal(WriteStrings.ReasonNoHeadingAtCaret, Reason(WriteCommandIds.MoveUp, free with { MoveUp = OutlineReason.NoHeading }));
-        Assert.Equal(WriteStrings.ReasonMoveSectionBreak, Reason(WriteCommandIds.MoveDown, free with { MoveDown = OutlineReason.SectionBreakInside }));
+        Assert.Equal(WriteStrings.ReasonMoveEmptyFinalSection, Reason(WriteCommandIds.MoveDown, free with { MoveDown = OutlineReason.LeavesAnEmptyFinalSection }));
         Assert.Equal(WriteStrings.ReasonMoveInControl, Reason(WriteCommandIds.MoveDown, free with { MoveDown = OutlineReason.InsideContentControl }));
         Assert.Equal(WriteStrings.ReasonMoveNotTopLevel, Reason(WriteCommandIds.MoveUp, free with { MoveUp = OutlineReason.NotAtTopLevel }));
         Assert.Equal(WriteStrings.ReasonMoveAtTop, Reason(WriteCommandIds.MoveUp, free with { MoveUp = OutlineReason.AtTop }));

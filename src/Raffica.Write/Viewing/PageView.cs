@@ -245,6 +245,8 @@ internal sealed partial class PageView : Control, IDisposable
         }
 
         _released = true;
+        _chipRefresh?.Dispose();
+        _chipLayer?.CloseFlyouts();
         _runner.Changed -= OnRunnerChanged;
         _runner.Faulted -= OnRunnerFaulted;
         _tab.Disposing -= Release;
@@ -757,6 +759,7 @@ internal sealed partial class PageView : Control, IDisposable
     protected override Size MeasureOverride(Size availableSize)
     {
         _overlay.Measure(availableSize);
+        _chipLayer?.Measure(availableSize);
         _vertical.Measure(availableSize);
         _horizontal.Measure(availableSize);
         return new Size(double.IsFinite(availableSize.Width) ? availableSize.Width : 0, double.IsFinite(availableSize.Height) ? availableSize.Height : 0);
@@ -778,6 +781,7 @@ internal sealed partial class PageView : Control, IDisposable
             }
 
             _overlay.Arrange(new Rect(finalSize));
+            _chipLayer?.Arrange(new Rect(finalSize));
             var barWidth = _vertical.IsVisible ? _vertical.DesiredSize.Width : 0;
             var barHeight = _horizontal.IsVisible ? _horizontal.DesiredSize.Height : 0;
             _vertical.Arrange(new Rect(Math.Max(0, finalSize.Width - barWidth), 0, barWidth, Math.Max(0, finalSize.Height - barHeight)));
@@ -883,6 +887,7 @@ internal sealed partial class PageView : Control, IDisposable
                     FirstSharpPageShown = true;
                     FirstSharpPage?.Invoke();
                     PrefetchPictures();
+                    RefreshSectionChips();
                 },
                 DispatcherPriority.Background);
         }
@@ -1078,6 +1083,7 @@ internal sealed partial class PageView : Control, IDisposable
             ViewChanged?.Invoke();
             NotifyImeCursor();
             PrefetchPictures();
+            RefreshSectionChips();
         }
         finally
         {

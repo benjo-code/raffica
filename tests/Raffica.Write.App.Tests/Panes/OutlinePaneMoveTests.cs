@@ -415,7 +415,7 @@ public sealed class OutlinePaneMoveTests
     public async Task ABlockedRowShowsItsReason()
     {
         using var fixture = new WindowFixture();
-        // The body of A ends a section: A and everything under it cannot travel.
+        // The body of A ends a section: moving A below B would leave the break paragraph last, which is refused (a chapter with a break moves otherwise).
         var path = StyledDocx.Write(
             fixture.Folder,
             "blocked.docx",
@@ -436,13 +436,13 @@ public sealed class OutlinePaneMoveTests
             Assert.Equal(ToolTip.GetTip(button), AutomationProperties.GetName(button));
         }
 
-        Assert.Equal(WriteStrings.ReasonMoveSectionBreak, AutomationProperties.GetName(s.Pane.ButtonOf(WriteCommandIds.MoveDown)));
+        Assert.Equal(WriteStrings.ReasonMoveEmptyFinalSection, AutomationProperties.GetName(s.Pane.ButtonOf(WriteCommandIds.MoveDown)));
 
-        // The drag of that row does not start, and says why.
+        // The drag of that row starts (the chapter can move to places that keep the end of the body), but a drop below B is not offered and changes nothing.
         Press(s, 0);
-        Assert.False(s.Pane.IsDragging);
-        Assert.Equal(WriteStrings.ReasonMoveSectionBreak, s.Window.Status.Hint);
-        Release(s, 0, 0.5);
+        Assert.True(s.Pane.IsDragging);
+        MoveTo(s, 1, 0.9);
+        Release(s, 1, 0.9);
         Assert.Equal(["A", "end of the section", "B", "under b"], Order(s.Tab));
     }
 

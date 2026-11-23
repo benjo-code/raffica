@@ -870,9 +870,11 @@ internal sealed partial class WriteWindow : Window, IHostedWindow, IWriteMenuWin
 
     // The edit keys of the menu (Cmd+C and the others) are key equivalents of the whole window: while a text box (the command search) has the focus they are its own, so the items step aside.
     bool IWriteMenuWindow.CanRun(string commandId) =>
-        _rules.Allows(commandId) && _actions.ContainsKey(commandId) && (!WriteCommandIds.IsEditing(commandId) || FocusedElement() is not TextBox);
+        _rules.Allows(commandId) && (_actions.ContainsKey(commandId) || _payloadActions.ContainsKey(commandId)) && (!WriteCommandIds.IsEditing(commandId) || FocusedElement() is not TextBox);
 
     void IWriteMenuWindow.RunCommand(string commandId) => RunCommand(commandId);
+
+    void IWriteMenuWindow.RunCommand(string commandId, object? payload) => RunCommand(commandId, payload);
 
     bool IWriteMenuWindow.IsOn(string commandId) => IsCommandOn(commandId);
 

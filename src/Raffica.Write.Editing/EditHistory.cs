@@ -129,13 +129,14 @@ public sealed class EditHistory
             return StepMove(step, undo: true);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !TrySwapStyle(step, undo: true))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
         {
             Clear();
             return null;
         }
 
-        Swap(container, step.First, step.New.Length, step.Old);
+        Swap(container, step.First, step.New.Length, step.Old, step.Sections?.CarriersBefore);
+        SwapSections(step, undo: true);
         _undo.RemoveAt(_undo.Count - 1);
         _undoBytes -= step.Bytes;
         _redo.Add(step);
@@ -143,7 +144,7 @@ public sealed class EditHistory
         _expected = step.StartRevision;
         _open = null;
         var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
-        _document.Edits.Attribute(undone.Changes);
+        undone.Attribute(_document);
         return undone;
     }
 
@@ -162,13 +163,14 @@ public sealed class EditHistory
             return StepMove(step, undo: false);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !TrySwapStyle(step, undo: false))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step, undo: false) || !TrySwapStyle(step, undo: false))
         {
             Clear();
             return null;
         }
 
-        Swap(container, step.First, step.Old.Length, step.New);
+        Swap(container, step.First, step.Old.Length, step.New, step.Sections?.CarriersAfter);
+        SwapSections(step, undo: false);
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(step);
         _undoBytes += step.Bytes;
@@ -176,7 +178,7 @@ public sealed class EditHistory
         _expected = step.EndRevision;
         _open = null;
         var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
-        _document.Edits.Attribute(redone.Changes);
+        redone.Attribute(_document);
         return redone;
     }
 
@@ -205,9 +207,9 @@ public sealed class EditHistory
     /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
     /// selection and without a line break, else null.
     /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null)
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false)
     {
-        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null))
+        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null))
         {
             return;
         }
@@ -238,7 +240,8 @@ public sealed class EditHistory
         var endRevision = _document.Edits.Revision;
         _redo.Clear();
 
-        if (result.Style is null && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore, typingFormat))
+        var plain = result.Style is null && result.Sections is null;
+        if (plain && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore, typingFormat))
         {
             var step = _open!;
             _undoBytes -= step.Bytes;
@@ -255,13 +258,15 @@ public sealed class EditHistory
         var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision)
         {
             Style = result.Style,
-            TypingFormat = typed is not null && result.Style is null ? typingFormat : null,
+            Sections = result.Sections,
+            TypingFormat = typed is not null && plain ? typingFormat : null,
+            KeepsBodySelection = keepsBodySelection,
         };
-        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style);
+        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections);
         _undo.Add(added);
         _undoBytes += added.Bytes;
         _expected = endRevision;
-        if (typed is not null && result.Style is null)
+        if (typed is not null && plain)
         {
             _open = added;
             _openContainer = change.Container;
@@ -331,7 +336,7 @@ public sealed class EditHistory
         _expected = revision;
         _open = null;
         var result = move.ResultIn(container, old);
-        _document.Edits.Attribute(result.Changes);
+        result.Attribute(_document);
         return result;
     }
 
@@ -358,8 +363,9 @@ public sealed class EditHistory
         var step = new Step(story, path, 0, [], [], before, new Point(found.Index, result.Caret.Offset), revisionBefore, endRevision)
         {
             Style = result.Style,
+            Sections = result.Sections,
         };
-        step.Bytes = SizeOf(step.Style);
+        step.Bytes = SizeOf(step.Style) + SizeOf(step.Sections);
         _undo.Add(step);
         _undoBytes += step.Bytes;
         _expected = endRevision;
@@ -403,6 +409,48 @@ public sealed class EditHistory
         }
 
         return true;
+    }
+
+    // A step with section swaps needs every swapped section object in the document now, whether or not the step carries blocks: a block undo or redo keeps the section object of a replaced
+    // carrier paragraph (see Swap), so a swap whose object is gone means the document no longer holds that section and the step cannot be applied. Checked before anything changes, so a step
+    // applies all or nothing and never skips a swap silently. A flag that must become true needs the settings part.
+    private bool SectionsApplicable(Step step, bool undo)
+    {
+        if (step.Sections is not { } change)
+        {
+            return true;
+        }
+
+        if (change.Swaps.Count > 0)
+        {
+            var present = new HashSet<SectionProperties>(SectionList.Of(_document).Select(section => section.Properties), ReferenceEqualityComparer.Instance);
+            if (change.Swaps.Any(swap => !present.Contains(swap.Live)))
+            {
+                return false;
+            }
+        }
+
+        return _document.Settings is not null || (undo ? change.EvenAndOddBefore : change.EvenAndOddAfter) is not true;
+    }
+
+    // Copies the content of every swapped section and the flag of left and right pages back (undo) or forward (redo). Runs after the blocks of the step were swapped; a Live object that the swap
+    // of a block range could not keep (the range gained or lost a section break) is detached now and the copy is harmless.
+    private void SwapSections(Step step, bool undo)
+    {
+        if (step.Sections is not { } change)
+        {
+            return;
+        }
+
+        foreach (var swap in change.Swaps)
+        {
+            swap.Live.CopyContentFrom(undo ? swap.Old : swap.New);
+        }
+
+        if ((undo ? change.EvenAndOddBefore : change.EvenAndOddAfter) is { } flag && _document.Settings is { } settings)
+        {
+            settings.EvenAndOddHeaders = flag;
+        }
     }
 
     private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
@@ -472,35 +520,111 @@ public sealed class EditHistory
 
     private static bool Fits(IList<Block> container, int first, int count) => first >= 0 && first + count <= container.Count;
 
-    private static void Swap(IList<Block> container, int first, int remove, Block[] insert)
+    // Replaces the blocks and keeps the section objects: Block.Clone clones a paragraph's section break, so a plain swap would detach the SectionSwap.Live of every section step that
+    // names it. When the removed range and the inserted range hold the same number of section breaks (a typing step in a carrier paragraph, a split, a join), the n-th inserted break takes
+    // the content of its clone into the n-th removed break's object and that object stays in the document. A step that adds or removes a break has no such pairing; a later section step
+    // on a break it detached is then refused whole by SectionsApplicable (never skipped).
+    private void Swap(IList<Block> container, int first, int remove, Block[] insert, IReadOnlyList<SectionProperties>? identities = null)
     {
+        var removedBreaks = Carriers(container, first, remove);
         if (container is List<Block> list)
         {
             list.RemoveRange(first, remove);
             list.InsertRange(first, insert.Select(b => b.Clone()));
+        }
+        else
+        {
+            for (var i = remove - 1; i >= 0; i--)
+            {
+                container.RemoveAt(first + i);
+            }
+
+            for (var i = 0; i < insert.Length; i++)
+            {
+                container.Insert(first + i, insert[i].Clone());
+            }
+        }
+
+        var insertedBreaks = Carriers(container, first, insert.Length);
+        if (identities is { Count: > 0 } && insertedBreaks.Count == identities.Count && !AnyInDocument(identities))
+        {
+            // The step names the section objects its break paragraphs had: they come back, with the content of the restored breaks.
+            for (var i = 0; i < identities.Count; i++)
+            {
+                identities[i].CopyContentFrom(insertedBreaks[i].SectionBreak!);
+                insertedBreaks[i].SectionBreak = identities[i];
+            }
+
             return;
         }
 
-        for (var i = remove - 1; i >= 0; i--)
+        if (removedBreaks.Count == 0)
         {
-            container.RemoveAt(first + i);
+            return;
         }
 
-        for (var i = 0; i < insert.Length; i++)
+        if (insertedBreaks.Count != removedBreaks.Count)
         {
-            container.Insert(first + i, insert[i].Clone());
+            return;
+        }
+
+        for (var i = 0; i < removedBreaks.Count; i++)
+        {
+            var live = removedBreaks[i].SectionBreak!;
+            live.CopyContentFrom(insertedBreaks[i].SectionBreak!);
+            insertedBreaks[i].SectionBreak = live;
+        }
+    }
+
+    // True when one of the objects is a section of the document now (an identity must never be attached twice).
+    private bool AnyInDocument(IReadOnlyList<SectionProperties> sections)
+    {
+        var present = new HashSet<SectionProperties>(SectionList.Of(_document).Select(section => section.Properties), ReferenceEqualityComparer.Instance);
+        return sections.Any(present.Contains);
+    }
+
+    // The paragraphs with a section break in a range of blocks, in order, looking through content controls as SectionList does.
+    private static List<Paragraph> Carriers(IList<Block> container, int first, int count)
+    {
+        var found = new List<Paragraph>();
+        for (var i = first; i < first + count && i < container.Count; i++)
+        {
+            Collect(container[i], found, 0);
+        }
+
+        return found;
+
+        static void Collect(Block block, List<Paragraph> into, int depth)
+        {
+            if (block is ContentControlBlock control && depth < 32)
+            {
+                foreach (var inner in control.Content)
+                {
+                    Collect(inner, into, depth + 1);
+                }
+            }
+            else if (block is Paragraph { SectionBreak: not null } paragraph)
+            {
+                into.Add(paragraph);
+            }
         }
     }
 
     private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks)
     {
         var index = Math.Clamp(caret.Index, 0, Math.Max(0, container.Count - 1));
-        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault()
-            ?? throw new InvalidOperationException("The restored blocks hold no paragraph.");
-        IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && step.Style is not null
+        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault();
+        if (paragraph is null)
+        {
+            // A story of a table or a block content control only (a footer or header of a real file): the caret goes to the first paragraph inside, wherever it is.
+            paragraph = TextEditor.FirstParagraph(container) ?? throw new InvalidOperationException("The restored blocks hold no paragraph.");
+            caret = caret with { Offset = 0 };
+        }
+
+        IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && (step.Style is not null || step.Sections is not null)
             ? []
             : [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)];
-        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style);
+        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, KeepSelection: step.KeepsBodySelection, Sections: step.Sections);
     }
 
     private static Block[] CloneRange(IList<Block> container, int first, int count)
@@ -678,6 +802,10 @@ public sealed class EditHistory
         return size;
     }
 
+    internal static long SizeOf(SectionChange? change) => change is null ? 0 : change.Swaps.Sum(swap => SizeOf(swap.Old) + SizeOf(swap.New));
+
+    internal static long SizeOf(SectionProperties properties) => SizeOf((PropertyBag)properties) + (64L * properties.HeaderFooterReferences.Count);
+
     private static long SizeOf(StyleChange? change) => change is null ? 0 : change.All.Sum(item => SizeOf(item.Old) + SizeOf(item.New));
 
     private static long SizeOf(Style style)
@@ -747,10 +875,15 @@ public sealed class EditHistory
 
         public StyleChange? Style { get; init; }
 
+        public SectionChange? Sections { get; init; }
+
         /// <summary>Set for a move of top-level blocks: the step then holds no blocks.</summary>
         public BlockMove? Move { get; init; }
 
         /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
         public object? TypingFormat { get; init; }
+
+        /// <summary>Set for a step recorded from a caret in the body that changed only a header or footer story (insert page number): undo and redo carry <see cref="EditResult.KeepSelection"/>, so the owner keeps the body selection it has instead of moving it into that story.</summary>
+        public bool KeepsBodySelection { get; init; }
     }
 }

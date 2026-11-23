@@ -40,6 +40,20 @@ public class PropertyBag : OoxmlElement
         CopyAttributesTo(target);
     }
 
+    /// <summary>Replaces the children, <see cref="WasPresent"/> and the unknown attributes of this bag with copies of those of <paramref name="other"/> (a bag of the same kind).</summary>
+    internal void ReplaceStateFrom(PropertyBag other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (other.Kind != Kind)
+        {
+            throw new ArgumentException("The property bags are not of the same kind.", nameof(other));
+        }
+
+        _children.Clear();
+        UnknownAttributes.Clear();
+        other.CopyStateTo(this);
+    }
+
     /// <summary>True when the bag was read from an element that was there but empty (for example <c>&lt;w:tcPr/&gt;</c>); the writer then writes the empty element again. A bag created in code that stays empty is not written.</summary>
     public bool WasPresent { get; set; }
 

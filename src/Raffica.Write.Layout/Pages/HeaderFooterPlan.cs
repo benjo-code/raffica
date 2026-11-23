@@ -201,6 +201,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         page.FooterHeight = footer.Height;
         page.HeaderPart = header.Part;
         page.FooterPart = footer.Part;
+        page.ChromeType = TypeFor(page);
         Draw(page, PageRegion.Header, header, x, geometry.HeaderDistance);
         Draw(page, PageRegion.Footer, footer, x, geometry.Height - geometry.FooterDistance - footer.Height);
         return (header, footer);
@@ -260,6 +261,26 @@ internal sealed class HeaderFooterPlan : IPageChrome
         return block;
     }
 
+    // The pictures of a copied part are relationships of the part it was copied from (the new part gets the same ids when it is saved), so a picture has one id before and after the copy and the app reads it from the file.
+    private string PictureOwner(string id, HeaderFooterPart part)
+    {
+        var owner = id;
+        var current = part;
+        for (var depth = 0; current.RelationshipsFrom is { } source && depth < 64; depth++)
+        {
+            var found = _document.HeadersFooters.FirstOrDefault(pair => ReferenceEquals(pair.Value, source)).Key;
+            if (found is null)
+            {
+                break;
+            }
+
+            owner = found;
+            current = source;
+        }
+
+        return owner;
+    }
+
     private ChromeKey KeyFor(string id, PageBuilder page, Totals? totals, float width) =>
         new(id, _pageDependent.Contains(id) ? page.NumberText : string.Empty, page.Section.Index, totals?.Pages ?? -1, totals?.SectionPages ?? -1, width);
 
@@ -269,7 +290,7 @@ internal sealed class HeaderFooterPlan : IPageChrome
         var fields = new FieldContext(page.Number, page.NumberText, page.Section.Index + 1, totals?.Pages, totals?.SectionPages);
         var planner = _planners();
         planner.Context = new PlanContext { Fields = fields };
-        planner.StoryKey = ImageRef.HeaderFooterStory(id);
+        planner.StoryKey = ImageRef.HeaderFooterStory(PictureOwner(id, part));
         planner.Story = new StoryRef(StoryKind.HeaderFooter, id);
         planner.CanPlaceFloats = false;
         var flows = planner.PlanStory(part.Content.Blocks, width);

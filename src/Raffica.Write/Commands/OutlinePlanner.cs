@@ -127,8 +127,13 @@ internal static class OutlinePlanner
             return Refused(Blocked(tree.Blocked), tree);
         }
 
-        var target = OutlineTree.DropTarget(headings, document, dragged, row, place);
-        return target < 0 ? Refused(OutlineReason.CannotMoveThere, tree) : new OutlinePlan(OutlineReason.None, tree.FirstBlock, tree.Count, target, tree.LastHeadingBlock);
+        var check = OutlineTree.CheckDrop(headings, document, dragged, row, place);
+        if (check.Block != MoveBlock.None)
+        {
+            return Refused(Blocked(check.Block), tree);
+        }
+
+        return check.Target < 0 ? Refused(OutlineReason.CannotMoveThere, tree) : new OutlinePlan(OutlineReason.None, tree.FirstBlock, tree.Count, check.Target, tree.LastHeadingBlock);
     }
 
     /// <summary>The plan of promoting (<paramref name="delta"/> -1) or demoting (+1) the heading of <paramref name="row"/> and the headings of its subtree.</summary>
@@ -159,7 +164,7 @@ internal static class OutlinePlanner
 
     private static OutlineReason Blocked(MoveBlock block) => block switch
     {
-        MoveBlock.SectionBreakInside => OutlineReason.SectionBreakInside,
+        MoveBlock.LeavesAnEmptyFinalSection => OutlineReason.LeavesAnEmptyFinalSection,
         MoveBlock.InsideContentControl => OutlineReason.InsideContentControl,
         _ => OutlineReason.NotAtTopLevel,
     };

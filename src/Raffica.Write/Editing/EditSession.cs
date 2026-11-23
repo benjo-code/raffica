@@ -99,6 +99,12 @@ internal sealed class EditSession
     public event Action? Changed;
 
     /// <summary>
+    /// Rises whenever an operation, an undo or a redo may have changed the sections or what they share (section properties, a move, a change in the body); it stays the same while text is typed in a header or footer.
+    /// What is worked out from the sections (the status line of a shared footer) is kept while it is the same.
+    /// </summary>
+    public int SectionEpoch { get; private set; }
+
+    /// <summary>
     /// Raised on the UI thread, once per replayed batch, when input that a save queued was not (fully) replayed and the user must hear of it: the session could no longer
     /// edit when the save ended (the reason says why), or a replayed operation failed and faulted the session (<see cref="EditBlockedReason.Faulted"/>). The operations that were
     /// not replayed are counted in <see cref="DroppedWhileSaving"/>. A stale-position refusal of one operation is only skipped and raises nothing.
@@ -550,7 +556,8 @@ internal sealed class EditSession
         }
 
         var styled = result.Style is not null;
-        if (result.Changes.Count == 0 && !styled)
+        var sectioned = result.Sections is not null;
+        if (result.Changes.Count == 0 && !styled && !sectioned)
         {
             if (result.Selected is { } selected)
             {
@@ -560,6 +567,12 @@ internal sealed class EditSession
             }
 
             return null;
+        }
+
+        // The sections and what they share can only have changed when the result carries section properties, a move, or a change outside a header or footer story; typing in a footer changes none of it.
+        if (sectioned || result.Move is not null || result.Changes.Any(c => c.Story.Kind != StoryKind.HeaderFooter))
+        {
+            SectionEpoch++;
         }
 
         // The model has changed now: whatever happens next, the view must hear of it.
@@ -582,7 +595,13 @@ internal sealed class EditSession
         {
             if (active is not null)
             {
-                if (styled)
+                if (sectioned)
+                {
+                    // Section properties changed (page setup, header and footer references, left and right pages): the engine read them once, so the layout starts over on a fresh engine
+                    // as for a style, and the block changes (a carrier paragraph) are not applied into it either. Nothing else is rebuilt: the editor's format does not read sections.
+                    active.Resection(throughPage);
+                }
+                else if (styled)
                 {
                     // Restyle starts the layout over on a fresh engine that reads the model as it is now, block changes included: applying the block changes into it as well
                     // would plan the same blocks twice, so they are not applied (the oracle gates of the formatting steps do the same).

@@ -158,6 +158,28 @@ public sealed class EngineBenchTests
     }
 
     [Fact]
+    public void SectionCasesExistInTheBenchAndRun()
+    {
+        // The app keeps a near copy (SectionPlaces in the Write app; measure.cs WriteRun.SectionsNames has the same six): change the three together.
+        string[] names = ["number-from-page-3", "appendix-prefix", "remove-marker", "page-setup-whole", "page-setup-section", "insert-page-number"];
+        Assert.Equal(names, SectionCases.Names);
+        using var error = new StringWriter(CultureInfo.InvariantCulture);
+        var rows = EditCommand.MeasureSections(Thesis, 2, error);
+
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Equal(SectionCases.Names, rows.Select(r => r.Case));
+        Assert.All(rows, r =>
+        {
+            Assert.Equal("page", r.View);
+            Assert.Equal(2, r.Millis.Length);
+            Assert.All(r.Millis, ms => Assert.True(ms >= 0 && double.IsFinite(ms)));
+        });
+
+        var csv = EditCommand.Csv(rows);
+        Assert.All(SectionCases.Names, n => Assert.Contains("\n" + n + ",page,", csv, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SelectAllBoldIsMeasuredOnTheThesisAndUndone()
     {
         var result = EditCommand.MeasureSelectAll(Thesis);

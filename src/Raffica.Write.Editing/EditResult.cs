@@ -10,8 +10,29 @@ namespace Raffica.Write.Editing;
 /// style snapshot is then stale and its owner must start the layout over. <paramref name="KeepSelection"/> is set by the formatting operations: they change no text, so every offset stays
 /// valid and the selection that was there stays as it is (direction and anchor included) instead of collapsing to <paramref name="Caret"/>.
 /// <paramref name="Move"/> is set when the operation (or an undo or redo) moved a range of blocks: the one <see cref="BlockChange"/> then spans every block whose place changed, with the same block objects before and after.
+/// <paramref name="Sections"/> is the section properties an operation (or an undo or redo) swapped, with the flag of left and right pages; the layout is then started over (<c>DocumentLayout.Resection</c>) instead of being given the block changes.
 /// </summary>
-public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null);
+public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null, SectionChange? Sections = null)
+{
+    /// <summary>
+    /// Tells the document which block ranges this result changed: the one call every raise site of the editor makes after <see cref="DocumentEdits.Raise"/> or <see cref="DocumentEdits.Restore"/>
+    /// (an operation, an undo, a redo). It attributes <see cref="Changes"/> and, when <see cref="Sections"/> is set, the carrier paragraphs of the swapped sections (<see cref="SectionChange.CarrierChanges"/>)
+    /// in <b>one</b> <see cref="DocumentEdits.Attribute"/> call, because the recovery snapshot's block cache counts one attribution per raise: leaving the carriers out serves stale bytes of a section break
+    /// that changed in place, and a second call makes the next copy write the whole body again. Never call <c>document.Edits.Attribute(result.Changes)</c> for a result that may carry sections.
+    /// The carrier changes are not put into <see cref="Changes"/> itself: more than one block change makes the history skip the step.
+    /// </summary>
+    public void Attribute(WordDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (Sections is { } sections && sections.CarrierChanges(document) is { Count: > 0 } carriers)
+        {
+            document.Edits.Attribute([.. Changes, .. carriers]);
+            return;
+        }
+
+        document.Edits.Attribute(Changes);
+    }
+}
 
 /// <summary>How far a <see cref="TextEditor.Backspace"/> or <see cref="TextEditor.DeleteForward"/> reaches.</summary>
 public enum DeleteUnit

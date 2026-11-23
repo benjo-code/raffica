@@ -112,7 +112,7 @@ jobs:
     name: measure-${{ inputs.platform }}
     # The owner's runner (labels raffica-measure and the platform), except macos-hosted: the GitHub-hosted macos-15 (Apple silicon).
     runs-on: ${{ fromJSON(inputs.platform == 'macos-hosted' && '["macos-15"]' || format('["self-hosted","raffica-measure","{0}"]', inputs.platform)) }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     # On the job (not the workflow) so that a skipped run never takes the group. Two runs must never overlap on one
     # machine; a running measurement is never cancelled.
     concurrency:
@@ -914,6 +914,20 @@ jobs:
       - name: Structure operations in the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case structure --out ${{ env.OUT }}/structure.csv
+
+      # Sections (milestone 4.4b): Number pages from page 3, an appendix prefix, the removal of a section marker, the page setup of the whole document and of one section and a footer page number on the thesis
+      # (--measure-sections); rows sections/<case>-median and -p95 (the time from the command to the pages in view), sections-full/<case>-median-ms and -max-ms (until the whole layout is complete again),
+      # sections-refresh/<case>-ms. The metric sections (worst median of the six) has no limit entry yet (aim 100 ms from the Linux laptop's median x 1.25, a decisions entry after the owner's runs): recorded, the
+      # check says "not judged". Three launches. The engine-only rows come from the step "Typing, engine only" (edit prints them and writes them into edit-bench.txt).
+      - name: Section commands in the thesis (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case sections --out ${{ env.OUT }}/sections.csv
+
+      # Typing with the Sections pane open (--measure-typing-sections-pane): the same keys with the pane subscribed to every selection change and edit; its rows are typing/sections-pane-<case>-<view>-p95, so the
+      # worst p95 of typing holds them (the same fixed 16 ms).
+      - name: Typing with the Sections pane open (write)
+        if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
+        run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case typing-sections-pane --out ${{ env.OUT }}/typing-sections-pane.csv
 
       # Typing while the layout of the rest of the document still runs (the wait for the edit lease is in the time): recorded for the owner, never judged.
       - name: Typing during the background layout (write)

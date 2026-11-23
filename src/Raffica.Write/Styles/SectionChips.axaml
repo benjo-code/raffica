@@ -1,0 +1,19 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The section chips over the pages of the page view (not printed, not part of a page): the boxed button of the shell (page fill, control edge, hover and pressed states) in the size of its two short lines.
+       The text takes the colour of the button, so the pressed state stays readable; no colour of its own, shell tokens only. -->
+  <Style Selector="Button.section-chip">
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+  <Style Selector="Button.section-chip TextBlock.chip-title">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="600" />
+  </Style>
+  <Style Selector="Button.section-chip TextBlock.chip-line">
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+</Styles>

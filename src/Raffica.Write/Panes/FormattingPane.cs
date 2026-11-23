@@ -29,7 +29,7 @@ internal sealed record FormattingPaneActions(Func<string, bool> Allows, Func<str
 /// <see cref="TextEditor.MaxFactBlocks"/> blocks is not listed (the pane says so) and costs one lookup. The words are the app's (<see cref="FormattingRowWording"/>), never the text of the
 /// document. A row's state ("only part of the selection", "different values") is said in words, not by colour alone, and every row and button has a name for assistive technology.
 /// </summary>
-internal sealed class FormattingPane : UserControl, IDisposable
+internal sealed class FormattingPane : UserControl, IDisposable, IRightSlotPane
 {
     private readonly WriteTab _tab;
     private readonly FormattingPaneActions _actions;
@@ -434,6 +434,9 @@ internal sealed class FormattingPane : UserControl, IDisposable
         reason.Text = why;
         reason.IsVisible = why is not null;
         ToolTip.SetTip(button, why);
+
+        // A disabled button shows no tooltip unless it is told to; the reason is under the button as well, and now reaches the mouse user over it too.
+        ToolTip.SetShowOnDisabled(button, true);
         AutomationProperties.SetHelpText(button, why ?? string.Empty);
     }
 

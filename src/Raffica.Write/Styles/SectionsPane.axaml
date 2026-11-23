@@ -1,0 +1,34 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The text of the Sections pane: the shell tokens only. The lines of a row are secondary text, the title and the warning primary; the row of the active section has the selection tint and a 2 px edge bar
+       in text.primary (the transparent edge of the other rows keeps the content from moving), so the marking never rests on colour alone. -->
+  <Style Selector="TextBlock.sections-hint, TextBlock.sections-line, TextBlock.sections-state">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Secondary}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.sections-hint">
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="TextBlock.sections-title, TextBlock.sections-heading, TextBlock.sections-warn">
+    <Setter Property="Foreground" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="TextBlock.sections-title, TextBlock.sections-heading">
+    <Setter Property="FontWeight" Value="600" />
+  </Style>
+  <Style Selector="TextBlock.sections-heading">
+    <Setter Property="Margin" Value="0,8,0,0" />
+  </Style>
+  <Style Selector="TextBlock.sections-warn">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="Border.sections-row">
+    <Setter Property="BorderThickness" Value="2,0,0,0" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Raffica.Radius.Control}" />
+  </Style>
+  <Style Selector="Border.sections-row.active">
+    <Setter Property="Background" Value="{DynamicResource Raffica.Brush.Selection.Tint}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Raffica.Brush.Text.Primary}" />
+  </Style>
+</Styles>

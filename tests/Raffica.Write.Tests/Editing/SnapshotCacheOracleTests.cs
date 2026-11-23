@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Xml.Linq;
 using Raffica.TestSupport;
 using Raffica.Write.Docx;
 using Raffica.Write.Editing;
@@ -324,6 +325,39 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void AMovedChapterThatHoldsASectionBreakGivesTheBytesOfAFullWriteForTheMoveAndItsUndoAndRedo()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain);
+        file.SerialiseMainForTest(cached: true);
+        var carrier = model.Body.Blocks.OfType<Paragraph>().Skip(2).First();
+        Assert.NotNull(editor.InsertSectionBreak(new TextPosition(StoryRef.Body, carrier, 0), SectionBreakKind.Continuous));
+        var breakAt = model.Body.Blocks.ToList().FindIndex(b => b is Paragraph { SectionBreak: not null });
+        Assert.True(breakAt >= 1, "the file has no section break paragraph to move");
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label);
+        }
+
+        // A range that ends in the break paragraph moves past the block after it, then a range from after it goes to the top.
+        Check("break inserted");
+        Assert.NotNull(editor.MoveBlocks(breakAt - 1, 2, breakAt + 2));
+        Check("move across the break");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo");
+        Assert.NotNull(editor.MoveBlocks(breakAt, 2, 0));
+        Check("move the break to the top");
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+        Check("undo twice");
+    }
+
+    [Fact]
     public void ARaiseWithoutItsBlockRangesWritesTheWholeBodyAgain()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
@@ -358,5 +392,287 @@ public sealed class SnapshotCacheOracleTests
         Assert.Equal(1, file.LastSnapshotPass.Written);
         Assert.Equal(model.Body.Blocks.Count - 1, file.LastSnapshotPass.Reused);
         Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)));
+    }
+
+    private sealed class StillClock : TimeProvider
+    {
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp() => 0;
+    }
+
+    [Fact]
+    public async Task ASectionSwapAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        Assert.NotNull(model.Settings);
+        // The file has no section break: a paragraph in the middle gets one (a body edit, attributed as the editor does), so the carrier path is covered.
+        var middle = model.Body.Blocks.OfType<Paragraph>().ElementAt(model.Body.Blocks.OfType<Paragraph>().Count() / 2);
+        middle.SectionBreak = model.Body.FinalSection!.Clone();
+        model.Edits.Raise();
+        model.Edits.Attribute([new BlockChange(StoryRef.Body, model.Body.Blocks, model.Body.Blocks.IndexOf(middle), 1, 1, [middle])]);
+        var sections = SectionList.Of(model);
+        var carrier = sections.First(s => s.Break is not null);
+        var history = new EditHistory(model, new StillClock(), HistoryLimits.Default);
+        using var folder = new Support.TempFolder();
+        var copies = 0;
+        file.SerialiseMainForTest(cached: true);
+
+        async Task CheckAsync(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+
+            // The whole copy: the settings part carries the flag the model has.
+            var target = folder.File($"copy{copies++}.docx");
+            await file.SaveSnapshotAsync(target, TestContext.Current.CancellationToken);
+            using var zip = System.IO.Compression.ZipFile.OpenRead(target);
+            using var reader = new StreamReader(zip.GetEntry("word/settings.xml")!.Open());
+            Assert.Equal(model.Settings!.EvenAndOddHeaders, (await reader.ReadToEndAsync(TestContext.Current.CancellationToken)).Contains("evenAndOddHeaders", StringComparison.Ordinal));
+        }
+
+        await CheckAsync("before");
+        var finalProperties = sections[^1].Properties;
+        var swaps = new List<SectionSwap>();
+        foreach (var live in new[] { finalProperties, carrier.Properties })
+        {
+            var old = live.Clone();
+            if (ReferenceEquals(live, finalProperties))
+            {
+                live.Set(w + "pgNumType", new XElement(w + "pgNumType", new XAttribute(w + "start", "7")));
+            }
+            else
+            {
+                live.Get(w + "pgSz")!.SetAttributeValue(w + "w", "7000");
+            }
+
+            swaps.Add(new SectionSwap(live, old, live.Clone()));
+        }
+
+        var flagBefore = model.Settings!.EvenAndOddHeaders;
+        var revision = history.BeginOperation();
+        model.Settings.EvenAndOddHeaders = !flagBefore;
+        model.Edits.Raise();
+        var change = new SectionChange(swaps, flagBefore, !flagBefore);
+        var caret = new TextPosition(StoryRef.Body, model.Body.Blocks.OfType<Paragraph>().First(), 0);
+        var forward = new EditResult(caret, [], Sections: change);
+        forward.Attribute(model);
+        history.Record(forward, new EditHistory.Point(0, 0), revision, null);
+        await CheckAsync("swap");
+        Assert.NotNull(history.Undo());
+        await CheckAsync("undo");
+        Assert.NotNull(history.Redo());
+        await CheckAsync("redo");
+        Assert.NotNull(history.Undo());
+        await CheckAsync("undo again");
+    }
+
+    [Fact]
+    public async Task TheSectionCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().ToList();
+        Assert.True(paragraphs.Count >= 4);
+        using var folder = new Support.TempFolder();
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        TextPosition At(Paragraph paragraph) => new(StoryRef.Body, paragraph, 0);
+
+        Check("before");
+        Assert.NotNull(editor.NumberPagesFrom(At(paragraphs[2]), new PageNumbering(1, PageNumberFormat.UpperRoman, "A-")));
+        Check("number from here");
+        Assert.NotNull(editor.InsertSectionBreak(At(paragraphs[1]), SectionBreakKind.Continuous));
+        Check("break");
+        Assert.NotNull(editor.NumberPagesFrom(At(paragraphs[0]), new PageNumbering(4, PageNumberFormat.Arabic, string.Empty)));
+        Check("number the first section");
+        Assert.NotNull(editor.RemoveSectionBreak(1));
+        Check("remove");
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        // A copy written now holds the same body as a full save of the model.
+        var target = folder.File("copy.docx");
+        await file.SaveSnapshotAsync(target, TestContext.Current.CancellationToken);
+        using var reopened = DocxFile.Open(target);
+        Assert.Equal(SectionList.Of(model).Count, SectionList.Of(reopened.Model).Count);
+    }
+
+    [Fact]
+    public void PageSetupAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().ToList();
+        Assert.True(paragraphs.Count >= 4);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        TextPosition At(Paragraph paragraph) => new(StoryRef.Body, paragraph, 0);
+        var a3 = PagePresets.Size("A3");
+        var big = SectionPageSetup.Read(null) with { WidthTwips = a3.WidthTwips, HeightTwips = a3.HeightTwips, Columns = 2 };
+
+        Check("before");
+        Assert.NotNull(editor.ApplyPageSetup(At(paragraphs[2]), new PageSetupChange(big, PageSetupParts.Size | PageSetupParts.Columns), ApplyScope.FromHere));
+        Check("from here");
+        Assert.NotNull(editor.ApplyPageSetup(At(paragraphs[1]), new PageSetupChange(big.WithLandscape(true), PageSetupParts.Orientation), ApplyScope.WholeDocument));
+        Check("whole document");
+        Assert.NotNull(editor.ApplyPageSetup(At(paragraphs[0]), new PageSetupChange(big with { LeftTwips = 900 }, PageSetupParts.Margins), ApplyScope.ThisSection));
+        Check("this section");
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
+    public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().ToList();
+        Assert.True(paragraphs.Count >= 4);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        TextPosition At(Paragraph paragraph) => new(StoryRef.Body, paragraph, 0);
+        var words = new PageNumberWords("Page", "of");
+
+        Check("before");
+        Assert.NotNull(editor.InsertSectionBreak(At(paragraphs[2]), SectionBreakKind.NextPage));
+        Check("break");
+        Assert.NotNull(editor.InsertPageNumber(At(paragraphs[3]), PageNumberLook.PageOfTotal, HeaderFooterKind.Footer, PageNumberAlign.Center, words, "2", "4"));
+        Check("insert");
+        Assert.NotNull(editor.InsertPageNumber(At(paragraphs[3]), PageNumberLook.Plain, HeaderFooterKind.Footer, PageNumberAlign.Right, words, "2", "4"));
+        Check("replace");
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
+    public async Task TheHeaderFooterCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        var w = System.Xml.Linq.XNamespace.Get("http://schemas.openxmlformats.org/wordprocessingml/2006/main");
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        Assert.True(model.Body.Blocks.OfType<Paragraph>().Count() >= 4);
+        using var folder = new Support.TempFolder();
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        var at = new TextPosition(StoryRef.Body, model.Body.Blocks.OfType<Paragraph>().ElementAt(2), 0);
+        Assert.NotNull(editor.InsertSectionBreak(at, SectionBreakKind.NextPage));
+        Check("break");
+        var last = SectionList.Of(model).Count - 1;
+        var hasOwn = SectionList.Of(model)[last].Properties.HeaderFooterReferences.Any(r => r.Kind == HeaderFooterKind.Footer && r.Type == HeaderFooterType.Default);
+        Assert.NotNull(editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, !hasOwn, at));
+        Check("own or same as previous");
+        Assert.NotNull(editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, hasOwn, at));
+        Check("and back");
+        Assert.NotNull(editor.SetDifferentFirstPage(last, !SectionList.Of(model)[last].Properties.GetFlag(w + "titlePg"), at));
+        Check("first page");
+        var flag = model.Settings?.EvenAndOddHeaders ?? false;
+        Assert.NotNull(editor.SetLeftRightPages(!flag, at));
+        Check("left and right");
+        const int Steps = 5;
+
+        // The settings part and the new header and footer parts reach a recovery copy as they reach a user save.
+        var copy = folder.File("copy.docx");
+        var user = folder.File("user.docx");
+        await file.SaveSnapshotAsync(copy, TestContext.Current.CancellationToken);
+        await file.SaveAsync(user, TestContext.Current.CancellationToken);
+        using (var a = System.IO.Compression.ZipFile.OpenRead(copy))
+        using (var b = System.IO.Compression.ZipFile.OpenRead(user))
+        {
+            var names = a.Entries.Select(e => e.FullName).Where(n => n.StartsWith("word/", StringComparison.Ordinal) && n.EndsWith(".xml", StringComparison.Ordinal)).Order().ToList();
+            Assert.Equal(names, b.Entries.Select(e => e.FullName).Where(n => n.StartsWith("word/", StringComparison.Ordinal) && n.EndsWith(".xml", StringComparison.Ordinal)).Order().ToList());
+            Assert.Contains("word/settings.xml", names);
+            foreach (var name in names)
+            {
+                Assert.True(Bytes(a, name).AsSpan().SequenceEqual(Bytes(b, name)), name);
+            }
+        }
+
+        using (var reopened = DocxFile.Open(copy))
+        {
+            Assert.Equal(!flag, reopened.Model.Settings?.EvenAndOddHeaders ?? false);
+            Assert.Equal(
+                SectionList.Of(model).Select(s => s.Properties.HeaderFooterReferences.Count(r => r.Type == HeaderFooterType.Even)),
+                SectionList.Of(reopened.Model).Select(s => s.Properties.HeaderFooterReferences.Count(r => r.Type == HeaderFooterType.Even)));
+        }
+
+        for (var i = 0; i < Steps; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < Steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        Assert.Equal(!flag, model.Settings?.EvenAndOddHeaders ?? false);
+    }
+
+    private static byte[] Bytes(System.IO.Compression.ZipArchive zip, string name)
+    {
+        using var stream = zip.GetEntry(name)!.Open();
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        return memory.ToArray();
     }
 }

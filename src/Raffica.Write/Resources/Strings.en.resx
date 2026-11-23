@@ -1098,8 +1098,8 @@
   <data name="ReasonNoHeadingAtCaret" xml:space="preserve">
     <value>There is no heading at the caret.</value>
   </data>
-  <data name="ReasonMoveSectionBreak" xml:space="preserve">
-    <value>This chapter holds a section break and cannot be moved yet.</value>
+  <data name="ReasonMoveEmptyFinalSection" xml:space="preserve">
+    <value>This move would leave the document ending in a section break.</value>
   </data>
   <data name="ReasonMoveInControl" xml:space="preserve">
     <value>A heading inside a content control cannot be moved.</value>
@@ -1130,5 +1130,473 @@
   </data>
   <data name="NoteStructureFailed" xml:space="preserve">
     <value>The command could not be applied here.</value>
+  </data>
+  <data name="TabLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="GroupPageSetup" xml:space="preserve">
+    <value>Page setup</value>
+  </data>
+  <data name="GroupSections" xml:space="preserve">
+    <value>Sections</value>
+  </data>
+  <data name="GroupHeaderFooter" xml:space="preserve">
+    <value>Header and footer</value>
+  </data>
+  <data name="MenuLayout" xml:space="preserve">
+    <value>Layout</value>
+  </data>
+  <data name="CmdNumberPagesFrom" xml:space="preserve">
+    <value>Number pages from here</value>
+  </data>
+  <data name="DescNumberPagesFrom" xml:space="preserve">
+    <value>Starts the page numbers at the page with the caret, in a section of its own. The pages before keep what they show.</value>
+  </data>
+  <data name="CmdSectionBreak" xml:space="preserve">
+    <value>Section break</value>
+  </data>
+  <data name="DescSectionBreak" xml:space="preserve">
+    <value>Starts a new section at the caret: on the next page, on the same page, or on the next even or odd page.</value>
+  </data>
+  <data name="CmdRemoveSection" xml:space="preserve">
+    <value>Remove section</value>
+  </data>
+  <data name="DescRemoveSection" xml:space="preserve">
+    <value>Merges the section with the caret into the one before it. Afterwards the page setup, numbers, headers and footers of the earlier section apply.</value>
+  </data>
+  <data name="CmdDifferentFirstPage" xml:space="preserve">
+    <value>Different first page</value>
+  </data>
+  <data name="DescDifferentFirstPage" xml:space="preserve">
+    <value>Gives the first page of this section its own header and footer.</value>
+  </data>
+  <data name="CmdLeftRightPages" xml:space="preserve">
+    <value>Left and right pages</value>
+  </data>
+  <data name="DescLeftRightPages" xml:space="preserve">
+    <value>Gives left and right pages their own headers and footers. This applies to the whole document.</value>
+  </data>
+  <data name="CmdPageSize" xml:space="preserve">
+    <value>Page size</value>
+  </data>
+  <data name="DescPageSize" xml:space="preserve">
+    <value>Sets the paper size of this section, or of the whole document when it has one section.</value>
+  </data>
+  <data name="CmdPageMargins" xml:space="preserve">
+    <value>Margins</value>
+  </data>
+  <data name="DescPageMargins" xml:space="preserve">
+    <value>Sets the page margins of this section, or of the whole document when it has one section.</value>
+  </data>
+  <data name="CmdPageOrientation" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="DescPageOrientation" xml:space="preserve">
+    <value>Turns the pages of this section to portrait or landscape, or those of the whole document when it has one section.</value>
+  </data>
+  <data name="CmdPageColumns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="DescPageColumns" xml:space="preserve">
+    <value>Sets the number of text columns of this section, or of the whole document when it has one section.</value>
+  </data>
+  <data name="CmdPageSetup" xml:space="preserve">
+    <value>Page setup</value>
+  </data>
+  <data name="DescPageSetup" xml:space="preserve">
+    <value>Opens all page settings and lets you choose where they apply: this section, the whole document or from here on.</value>
+  </data>
+  <data name="CmdInsertPageNumber" xml:space="preserve">
+    <value>Page number</value>
+  </data>
+  <data name="DescInsertPageNumber" xml:space="preserve">
+    <value>Inserts a page number into the header or footer. Choose its look and its place.</value>
+  </data>
+  <data name="ReasonSectionNotInBody" xml:space="preserve">
+    <value>Put the caret in the text of the document first.</value>
+  </data>
+  <data name="ReasonSectionPrefix" xml:space="preserve">
+    <value>Only the first part of this large file is open. Wait until it is complete.</value>
+  </data>
+  <data name="ReasonSectionStartsHere" xml:space="preserve">
+    <value>A section already starts here.</value>
+  </data>
+  <data name="ReasonSectionNothingToMerge" xml:space="preserve">
+    <value>The document has only one section, so there is nothing to merge.</value>
+  </data>
+  <data name="ReasonSectionFirst" xml:space="preserve">
+    <value>The first section has no marker to remove. Put the caret in a later section.</value>
+  </data>
+  <data name="NoteSectionNoChange" xml:space="preserve">
+    <value>Nothing changed: the settings are already like this.</value>
+  </data>
+  <data name="NoteSectionBreakKey" xml:space="preserve">
+    <value>A section break cannot be deleted with the keyboard. Open the section marker at the page edge and choose Remove marker, or use Remove section.</value>
+  </data>
+  <data name="NoteSectionBreakNoMarker" xml:space="preserve">
+    <value>A section break cannot be deleted with the keyboard. Use Remove section on the Layout tab or in the Sections pane.</value>
+  </data>
+  <data name="MarginNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="MarginNarrow" xml:space="preserve">
+    <value>Narrow</value>
+  </data>
+  <data name="MarginModerate" xml:space="preserve">
+    <value>Moderate</value>
+  </data>
+  <data name="MarginWide" xml:space="preserve">
+    <value>Wide</value>
+  </data>
+  <data name="OrientationPortrait" xml:space="preserve">
+    <value>Portrait</value>
+  </data>
+  <data name="OrientationLandscape" xml:space="preserve">
+    <value>Landscape</value>
+  </data>
+  <data name="ColumnsOne" xml:space="preserve">
+    <value>One</value>
+  </data>
+  <data name="ColumnsTwo" xml:space="preserve">
+    <value>Two</value>
+  </data>
+  <data name="ColumnsThree" xml:space="preserve">
+    <value>Three</value>
+  </data>
+  <data name="BreakNextPage" xml:space="preserve">
+    <value>Next page</value>
+  </data>
+  <data name="BreakContinuous" xml:space="preserve">
+    <value>Continuous</value>
+  </data>
+  <data name="BreakEvenPage" xml:space="preserve">
+    <value>Even page</value>
+  </data>
+  <data name="BreakOddPage" xml:space="preserve">
+    <value>Odd page</value>
+  </data>
+  <data name="PageNumberWordPage" xml:space="preserve">
+    <value>Page</value>
+  </data>
+  <data name="PageNumberWordOf" xml:space="preserve">
+    <value>of</value>
+  </data>
+  <data name="PageNumberPlaceFooter" xml:space="preserve">
+    <value>Footer</value>
+  </data>
+  <data name="PageNumberPlaceHeader" xml:space="preserve">
+    <value>Header</value>
+  </data>
+  <data name="PageNumberAlignLeft" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="PageNumberAlignCenter" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="PageNumberAlignRight" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="PageNumberItemFormat" xml:space="preserve">
+    <value>{0}, {1}: {2}</value>
+  </data>
+  <data name="PageNumberCountsEveryPage" xml:space="preserve">
+    <value>N counts every page</value>
+  </data>
+  <data name="NumPagesTitle" xml:space="preserve">
+    <value>Number pages from here</value>
+  </data>
+  <data name="NumPagesStartLabel" xml:space="preserve">
+    <value>Start at</value>
+  </data>
+  <data name="NumPagesContinue" xml:space="preserve">
+    <value>Continue from the previous section</value>
+  </data>
+  <data name="NumPagesFormatLabel" xml:space="preserve">
+    <value>Number format</value>
+  </data>
+  <data name="NumPagesFormatArabic" xml:space="preserve">
+    <value>1 2 3</value>
+  </data>
+  <data name="NumPagesFormatLowerRoman" xml:space="preserve">
+    <value>i ii iii</value>
+  </data>
+  <data name="NumPagesFormatUpperRoman" xml:space="preserve">
+    <value>I II III</value>
+  </data>
+  <data name="NumPagesFormatLowerLetter" xml:space="preserve">
+    <value>a b c</value>
+  </data>
+  <data name="NumPagesFormatUpperLetter" xml:space="preserve">
+    <value>A B C</value>
+  </data>
+  <data name="NumPagesPrefixLabel" xml:space="preserve">
+    <value>Text before the number</value>
+  </data>
+  <data name="NumPagesPrefixHint" xml:space="preserve">
+    <value>Written in front of the number in the footer: A- gives A-1.</value>
+  </data>
+  <data name="NumPagesPageStartLine" xml:space="preserve">
+    <value>This starts a new page here</value>
+  </data>
+  <data name="NumPagesFollowOne" xml:space="preserve">
+    <value>Section {0} continues from here.</value>
+  </data>
+  <data name="NumPagesFollowMany" xml:space="preserve">
+    <value>Sections {0} continue from here.</value>
+  </data>
+  <data name="NumPagesOwnOne" xml:space="preserve">
+    <value>Of these, 1 keeps its own numbering or footer.</value>
+  </data>
+  <data name="NumPagesOwnMany" xml:space="preserve">
+    <value>Of these, {0} keep their own numbering or footer.</value>
+  </data>
+  <data name="NumPagesInvalidStart" xml:space="preserve">
+    <value>Enter a whole number from 0 to 99999.</value>
+  </data>
+  <data name="NumPagesInvalidPrefix" xml:space="preserve">
+    <value>The text may have at most 32 characters and no control characters.</value>
+  </data>
+  <data name="NumPagesOk" xml:space="preserve">
+    <value>Number pages</value>
+  </data>
+  <data name="PageSetupTitle" xml:space="preserve">
+    <value>Page setup</value>
+  </data>
+  <data name="PsSizeLabel" xml:space="preserve">
+    <value>Paper size</value>
+  </data>
+  <data name="PsCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="PsWidthFormat" xml:space="preserve">
+    <value>Width ({0})</value>
+  </data>
+  <data name="PsHeightFormat" xml:space="preserve">
+    <value>Height ({0})</value>
+  </data>
+  <data name="PsOrientationLabel" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="PsMarginsLabel" xml:space="preserve">
+    <value>Margins</value>
+  </data>
+  <data name="PsTopFormat" xml:space="preserve">
+    <value>Top ({0})</value>
+  </data>
+  <data name="PsBottomFormat" xml:space="preserve">
+    <value>Bottom ({0})</value>
+  </data>
+  <data name="PsLeftFormat" xml:space="preserve">
+    <value>Left ({0})</value>
+  </data>
+  <data name="PsRightFormat" xml:space="preserve">
+    <value>Right ({0})</value>
+  </data>
+  <data name="PsColumnsLabel" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="PsColumnCount" xml:space="preserve">
+    <value>Number of columns</value>
+  </data>
+  <data name="PsColumnSpacingFormat" xml:space="preserve">
+    <value>Spacing ({0})</value>
+  </data>
+  <data name="PsColumnLine" xml:space="preserve">
+    <value>Line between columns</value>
+  </data>
+  <data name="PsColumnsUnequal" xml:space="preserve">
+    <value>These columns have different widths. Changing the number of columns makes them equal; spacing and line stay as they are.</value>
+  </data>
+  <data name="PsUnitCm" xml:space="preserve">
+    <value>cm</value>
+  </data>
+  <data name="PsUnitInch" xml:space="preserve">
+    <value>in</value>
+  </data>
+  <data name="PsApplyLabel" xml:space="preserve">
+    <value>Apply to</value>
+  </data>
+  <data name="PsApplyThis" xml:space="preserve">
+    <value>This section</value>
+  </data>
+  <data name="PsApplyWhole" xml:space="preserve">
+    <value>Whole document</value>
+  </data>
+  <data name="PsApplyFrom" xml:space="preserve">
+    <value>From here on</value>
+  </data>
+  <data name="PsFromHereNote" xml:space="preserve">
+    <value>From here on starts a new page here (new columns start on the same page) and turns off a different first page for the new section.</value>
+  </data>
+  <data name="PsInvalidValueFormat" xml:space="preserve">
+    <value>{0}: enter a number, for example 2.5.</value>
+  </data>
+  <data name="PsOutOfRangeFormat" xml:space="preserve">
+    <value>{0}: this value does not fit the page.</value>
+  </data>
+  <data name="PsNoRoomForText" xml:space="preserve">
+    <value>The margins leave no room for text.</value>
+  </data>
+  <data name="PsColumnsDoNotFit" xml:space="preserve">
+    <value>The columns do not fit between the margins.</value>
+  </data>
+  <data name="PsOk" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="NoteCardStale" xml:space="preserve">
+    <value>The document changed while the dialog was open. Nothing was applied.</value>
+  </data>
+  <data name="StatusStoryFormat" xml:space="preserve">
+    <value>{0}, section {1}</value>
+  </data>
+  <data name="StatusStorySharedOneFormat" xml:space="preserve">
+    <value>{0}, section {1}, shared with section {2}</value>
+  </data>
+  <data name="StatusStorySharedManyFormat" xml:space="preserve">
+    <value>{0}, section {1}, shared with sections {2}</value>
+  </data>
+  <data name="SectionListRangeFormat" xml:space="preserve">
+    <value>{0} to {1}</value>
+  </data>
+  <data name="SectionListAndFormat" xml:space="preserve">
+    <value>{0} and {1}</value>
+  </data>
+  <data name="NoteSharedFooter" xml:space="preserve">
+    <value>The footer is shared by sections {0}: the page number appears in all of them.</value>
+  </data>
+  <data name="NoteSharedHeader" xml:space="preserve">
+    <value>The header is shared by sections {0}: the page number appears in all of them.</value>
+  </data>
+  <data name="PsColumnCountInvalid" xml:space="preserve">
+    <value>Number of columns: enter a whole number from 1 to 45.</value>
+  </data>
+  <data name="PsEqualizeOne" xml:space="preserve">
+    <value>The custom column widths of 1 section will be made equal.</value>
+  </data>
+  <data name="PsEqualizeMany" xml:space="preserve">
+    <value>The custom column widths of {0} sections will be made equal.</value>
+  </data>
+  <data name="CmdSections" xml:space="preserve">
+    <value>Sections</value>
+  </data>
+  <data name="SectionsHint" xml:space="preserve">
+    <value>One row for each section. The controls change the section the row names.</value>
+  </data>
+  <data name="SectionsTooMany" xml:space="preserve">
+    <value>This document has more than 200 sections, too many to list here.</value>
+  </data>
+  <data name="SectionTitleFormat" xml:space="preserve">
+    <value>Section {0}</value>
+  </data>
+  <data name="SectionCurrent" xml:space="preserve">
+    <value>Current section</value>
+  </data>
+  <data name="SectionStartsOnPageFormat" xml:space="preserve">
+    <value>Starts on page {0}</value>
+  </data>
+  <data name="SectionPageNotLaidOut" xml:space="preserve">
+    <value>Starts on a page that is not laid out yet</value>
+  </data>
+  <data name="SectionNumbersStartFormat" xml:space="preserve">
+    <value>Page numbers start at {0}, {1}</value>
+  </data>
+  <data name="SectionNumbersContinue" xml:space="preserve">
+    <value>Page numbers continue</value>
+  </data>
+  <data name="SectionNumbersContinueFormat" xml:space="preserve">
+    <value>Page numbers continue, {0}</value>
+  </data>
+  <data name="SectionSetupFormat" xml:space="preserve">
+    <value>{0}, {1}, {2}</value>
+  </data>
+  <data name="SectionColumnsOne" xml:space="preserve">
+    <value>1 column</value>
+  </data>
+  <data name="SectionColumnsFormat" xml:space="preserve">
+    <value>{0} columns</value>
+  </data>
+  <data name="SectionHeaderOwn" xml:space="preserve">
+    <value>Header: own</value>
+  </data>
+  <data name="SectionHeaderSame" xml:space="preserve">
+    <value>Header: same as previous</value>
+  </data>
+  <data name="SectionFooterOwn" xml:space="preserve">
+    <value>Footer: own</value>
+  </data>
+  <data name="SectionFooterSame" xml:space="preserve">
+    <value>Footer: same as previous</value>
+  </data>
+  <data name="SectionFirstPage" xml:space="preserve">
+    <value>Different first page</value>
+  </data>
+  <data name="SectionFirstOwnTip" xml:space="preserve">
+    <value>The first section always has its own header and footer.</value>
+  </data>
+  <data name="SectionRemoveMarker" xml:space="preserve">
+    <value>Remove marker</value>
+  </data>
+  <data name="SectionRemoveTipFormat" xml:space="preserve">
+    <value>Merges section {0} into section {1}.</value>
+  </data>
+  <data name="SectionNumberFrom" xml:space="preserve">
+    <value>Number from here…</value>
+  </data>
+  <data name="SectionTakesOverFormat" xml:space="preserve">
+    <value>Section {0} takes over {2} of section {1}.</value>
+  </data>
+  <data name="SectionButtonNameFormat" xml:space="preserve">
+    <value>{0}, section {1}</value>
+  </data>
+  <data name="SectionsDocumentHeading" xml:space="preserve">
+    <value>Document</value>
+  </data>
+  <data name="SectionLeftRight" xml:space="preserve">
+    <value>Different left and right pages</value>
+  </data>
+  <data name="NoteSectionRowStale" xml:space="preserve">
+    <value>The sections changed. Nothing was done.</value>
+  </data>
+  <data name="SectionChangePageSetup" xml:space="preserve">
+    <value>the page setup</value>
+  </data>
+  <data name="SectionChangeNumbering" xml:space="preserve">
+    <value>the page numbering</value>
+  </data>
+  <data name="SectionChangeFirstPage" xml:space="preserve">
+    <value>the different first page setting</value>
+  </data>
+  <data name="SectionChangeHeader" xml:space="preserve">
+    <value>the header</value>
+  </data>
+  <data name="SectionChangeFooter" xml:space="preserve">
+    <value>the footer</value>
+  </data>
+  <data name="SectionListTwoFormat" xml:space="preserve">
+    <value>{0} and {1}</value>
+  </data>
+  <data name="SectionEmptyFinal" xml:space="preserve">
+    <value>Empty final section</value>
+  </data>
+  <data name="SectionNumberNoParagraph" xml:space="preserve">
+    <value>This section has no paragraph to start the numbering at.</value>
+  </data>
+  <data name="SectionsDefaultsHint" xml:space="preserve">
+    <value>The header and footer switches change the default parts. The first-page and even parts follow Different first page and Different left and right pages.</value>
+  </data>
+  <data name="SectionChipNumbersStartFormat" xml:space="preserve">
+    <value>numbers start at {0}</value>
+  </data>
+  <data name="SectionChipNumbersContinue" xml:space="preserve">
+    <value>continues</value>
+  </data>
+  <data name="SectionChipNameFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="SectionChipHelpFormat" xml:space="preserve">
+    <value>Opens the settings of section {0}.</value>
+  </data>
+  <data name="SectionPopoverNameFormat" xml:space="preserve">
+    <value>Settings of section {0}</value>
   </data>
 </root>

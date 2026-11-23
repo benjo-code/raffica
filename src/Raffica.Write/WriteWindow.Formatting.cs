@@ -28,12 +28,24 @@ internal sealed partial class WriteWindow
     /// <summary>The formatting pane of a tab, or null while none was made (tests).</summary>
     internal FormattingPane? FormattingOf(WriteTab tab) => _formattingPanes.GetValueOrDefault(tab);
 
-    // The command of the pane: a switch. Opening it puts the focus in the pane; closing it gives the focus back to the document.
+    // The command of the pane: a switch. Opening it puts the focus in the pane (and closes the Sections pane, which has the same slot); closing it gives the focus back to the document.
     private void ToggleFormatting()
     {
         _formattingWanted = !_formattingWanted;
+        if (_formattingWanted)
+        {
+            _sectionsWanted = false;
+        }
+
         PlaceFormatting();
-        if (_formattingWanted && Workspace.Active is { } tab && _formattingPanes.TryGetValue(tab, out var pane))
+        FocusSlotOrView(_formattingWanted);
+        RefreshCommandStates();
+    }
+
+    // Opening a pane of the slot puts the focus in the pane that fills it; closing gives it back to the document.
+    private void FocusSlotOrView(bool opened)
+    {
+        if (opened && _formattingHost?.Content is IRightSlotPane pane)
         {
             pane.FocusContent();
         }
@@ -41,14 +53,12 @@ internal sealed partial class WriteWindow
         {
             FocusActiveView();
         }
-
-        RefreshCommandStates();
     }
 
-    // Puts the pane of the active tab into the slot (the slot and the pane are made when first needed); no tab or no wish: the slot is closed.
+    // Puts the pane of the active tab into the slot, the formatting pane or the Sections pane, whichever the user asked for last (the slot and the pane are made when first needed); no tab or no wish: the slot is closed.
     private void PlaceFormatting()
     {
-        if (_formattingHost is null && !_formattingWanted)
+        if (_formattingHost is null && !_formattingWanted && !_sectionsWanted)
         {
             return;
         }
@@ -62,16 +72,17 @@ internal sealed partial class WriteWindow
 
         var host = _formattingHost;
         var active = Workspace.Active;
-        var show = _formattingWanted && active is not null && Tabs.Items.Count > 0 && ViewOf(active) is not null;
+        var show = (_formattingWanted || _sectionsWanted) && active is not null && Tabs.Items.Count > 0 && ViewOf(active) is not null;
         var focusWasInside = host.IsKeyboardFocusWithin;
-        var before = host.Content as FormattingPane;
-        var next = show ? FormattingPaneOf(active!) : null;
+        var before = host.Content as IRightSlotPane;
+        IRightSlotPane? next = !show ? null : _sectionsWanted ? SectionsPaneOf(active!) : FormattingPaneOf(active!);
         if (before is not null && !ReferenceEquals(before, next))
         {
             before.Hidden();
         }
 
         host.IsOpen = show;
+        host.Title = _sectionsWanted ? WriteStrings.CmdSections : WriteStrings.CmdFormatting;
         host.Content = next;
         next?.Shown();
         Frame.RightPane = Tabs.Items.Count > 0 ? host : null;
@@ -104,6 +115,8 @@ internal sealed partial class WriteWindow
         {
             pane.Dispose();
         }
+
+        ForgetSections(tab);
     }
 
     // The rules of the commands may have changed (a save began or ended, the selection moved): the pane of the active tab reads its buttons again, and once a save has ended it reads the selection.
@@ -113,6 +126,10 @@ internal sealed partial class WriteWindow
         {
             pane.RefreshButtons();
         }
+        else if (_sectionsWanted && Workspace.Active is { } active && _sectionsPanes.TryGetValue(active, out var sections))
+        {
+            sections.RefreshButtons();
+        }
     }
 
     private void FormattingSaveChanged()
@@ -120,6 +137,10 @@ internal sealed partial class WriteWindow
         if (_formattingWanted && Workspace.Active is { } tab && _formattingPanes.TryGetValue(tab, out var pane))
         {
             pane.RequestRefresh();
+        }
+        else if (_sectionsWanted && Workspace.Active is { } active && _sectionsPanes.TryGetValue(active, out var sections))
+        {
+            sections.RequestRefresh();
         }
     }
 }

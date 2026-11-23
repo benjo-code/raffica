@@ -258,7 +258,7 @@ public sealed class FormatCommandTests
         menu.Refresh();
 
         var top = menu.Menu.Items.OfType<NativeMenuItem>().ToList();
-        Assert.Equal(["File", "Edit", "Format", "View", "Window"], top.Select(i => i.Header!).ToArray());
+        Assert.Equal(["File", "Edit", "Format", "Layout", "View", "Window"], top.Select(i => i.Header!).ToArray());
         var format = top.Single(i => i.Header == WriteStrings.MenuFormat).Menu!.Items.OfType<NativeMenuItem>().ToList();
         var view = top.Single(i => i.Header == WriteStrings.TabView).Menu!.Items.OfType<NativeMenuItem>().ToList();
 

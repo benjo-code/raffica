@@ -1,3 +1,5 @@
+using Raffica.Write.Model;
+
 namespace Raffica.Write.Layout;
 
 /// <summary>Which body block fills a vertical range of a page (for <see cref="DocumentLayout.BlockAt"/>).</summary>
@@ -48,6 +50,15 @@ public sealed class LaidOutPage
     public bool IsProvisional { get; }
 
     internal PageItem[] ItemArray { get; }
+
+    /// <summary>
+    /// The type of the header and footer parts the layout used for this page (the first-page parts, the even-page parts or the default ones), as it decided it from the section's different first page, the left and right pages
+    /// flag and the page's own number; null for a page made without page chrome (a strip of the writing view). A reader that needs to know which part a page shows asks the page, never re-derives it.
+    /// </summary>
+    public HeaderFooterType? ChromeType => Chrome?.Type;
+
+    /// <summary>The number of the page as a value (the number that <see cref="Number"/> prints in the format of its section, after a restart); null for a page made without page chrome.</summary>
+    public int? NumberValue => Chrome?.Number;
 
     /// <summary>Where the header and footer sit in this page and what they were made with; null for a page made without page chrome (a strip of the writing view).</summary>
     internal ChromeInfo? Chrome { get; }

@@ -37,6 +37,9 @@ namespace Raffica.Write.Commands;
  *   structure.numberHeadings -> heading, list.bullets -> list, list.numbers -> list-ordered, list.restart -> list-restart, list.continue -> list-start
  *   outline.moveUp -> chevrons-up, outline.moveDown -> chevrons-down, outline.promote -> arrow-left-to-line, outline.demote -> arrow-right-to-line
  *   view.formatting -> panel-right
+ *   page.size -> ruler, page.margins -> frame, page.orientation -> rotate-ccw-square, page.columns -> columns-2, page.setup -> file-sliders
+ *   section.numberFrom -> arrow-down-0-1, section.break -> separator-horizontal, section.remove -> fold-vertical, section.firstPage -> panel-top, section.leftRight -> book-open-text
+ *   insert.pageNumber -> hash
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -247,6 +250,22 @@ internal static class WriteCommandCatalog
         home.Group("GroupSearch", "2")
             .Add(WriteCommandIds.Search, "CmdSearch", "Search", "21", new WriteShortcut(Key.Q, "Q", WriteShortcutBase.Alt), CommandSize.Large, macShortcut: Cmd(Key.K, "K"));
 
+        var layout = new CatalogTab("TabLayout", WriteRibbon.LayoutLetter);
+        layout.Group("GroupPageSetup", "1")
+            .Add(WriteCommandIds.PageSize, "CmdPageSize", "Ruler", "11", describe: true)
+            .Add(WriteCommandIds.PageMargins, "CmdPageMargins", "Frame", "12", describe: true)
+            .Add(WriteCommandIds.PageOrientation, "CmdPageOrientation", "RotateCcwSquare", "13", describe: true)
+            .Add(WriteCommandIds.PageColumns, "CmdPageColumns", "Columns2", "14", describe: true)
+            .Add(WriteCommandIds.PageSetup, "CmdPageSetup", "FileSliders", "15", describe: true);
+        layout.Group("GroupSections", "2")
+            .Add(WriteCommandIds.NumberPagesFrom, "CmdNumberPagesFrom", "ArrowDown01", "21", size: CommandSize.Large, describe: true)
+            .Add(WriteCommandIds.SectionBreak, "CmdSectionBreak", "SeparatorHorizontal", "22", describe: true)
+            .Add(WriteCommandIds.RemoveSection, "CmdRemoveSection", "FoldVertical", "23", describe: true);
+        layout.Group("GroupHeaderFooter", "3")
+            .Add(WriteCommandIds.InsertPageNumber, "CmdInsertPageNumber", "Hash", "31", describe: true)
+            .Add(WriteCommandIds.DifferentFirstPage, "CmdDifferentFirstPage", "PanelTop", "32", toggle: true, describe: true)
+            .Add(WriteCommandIds.LeftRightPages, "CmdLeftRightPages", "BookOpenText", "33", toggle: true, describe: true);
+
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
             .Add(WriteCommandIds.ZoomIn, "CmdZoomIn", "ZoomIn", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
@@ -259,9 +278,10 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.WritingView, "CmdWritingView", "PenLine", "22", toggle: true);
         view.Group("GroupPanes", "3")
             .Add(WriteCommandIds.Outline, "CmdOutline", "ListTree", "31", toggle: true)
-            .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true);
+            .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true)
+            .Add(WriteCommandIds.SectionsPane, "CmdSections", "Rows3", "33", toggle: true);
 
-        Tabs = [home, view];
+        Tabs = [home, layout, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 

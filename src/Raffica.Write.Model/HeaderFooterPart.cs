@@ -19,6 +19,12 @@ public sealed class HeaderFooterPart
 
     public Story Content { get; }
 
+    /// <summary>
+    /// The part this one was copied from by an editing command (null for a part read from a file or made empty). A part the package does not have yet gets the relationships of this one when it is written
+    /// (same ids, same targets: the pictures and link targets are shared, not duplicated), so the copied content never refers to a relationship id its own part lacks. The layout reads pictures through it too.
+    /// </summary>
+    public HeaderFooterPart? RelationshipsFrom { get; set; }
+
     /// <summary>Decided by the root element name.</summary>
     public HeaderFooterKind Kind => Content.Root.Name.LocalName == "ftr" ? HeaderFooterKind.Footer : HeaderFooterKind.Header;
 }

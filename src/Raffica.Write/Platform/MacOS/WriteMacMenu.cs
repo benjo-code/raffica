@@ -33,6 +33,9 @@ internal interface IWriteMenuWindow
     /// <summary>Runs the command of the catalog (by id); does nothing when it may not run.</summary>
     void RunCommand(string commandId);
 
+    /// <summary>Runs the value command of the catalog (by id) with the value a menu item names (a paper size, an orientation, a break, a page number); does nothing when it may not run or the value is not one of the command.</summary>
+    void RunCommand(string commandId, object? payload);
+
     /// <summary>Whether a switch command (a view, a zoom mode) is on now.</summary>
     bool IsOn(string commandId);
 
@@ -165,6 +168,24 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(formatMenu);
             _headers.Add((formatMenu, () => WriteStrings.MenuFormat));
 
+            var layoutMenu = new NativeMenuItem(WriteStrings.MenuLayout) { Menu = new NativeMenu() };
+            layoutMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageSize, SectionPayloads.Papers, payload => () => payload));
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageMargins, SectionPayloads.MarginPresets, payload => () => WriteStrings.Get("Margin" + payload)));
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageOrientation, ["portrait", "landscape"], payload => () => WriteStrings.Get(payload == "portrait" ? "OrientationPortrait" : "OrientationLandscape")));
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageColumns, ["1", "2", "3"], payload => () => WriteStrings.Get(payload == "1" ? "ColumnsOne" : payload == "2" ? "ColumnsTwo" : "ColumnsThree")));
+            layoutMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageSetup, () => WriteCatalogName(WriteCommandIds.PageSetup), null));
+            layoutMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            layoutMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NumberPagesFrom, () => WriteCatalogName(WriteCommandIds.NumberPagesFrom), null));
+            layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.SectionBreak, ["nextPage", "continuous", "evenPage", "oddPage"], payload => () => WriteStrings.Get(payload switch { "nextPage" => "BreakNextPage", "continuous" => "BreakContinuous", "evenPage" => "BreakEvenPage", _ => "BreakOddPage" })));
+            layoutMenu.Menu.Items.Add(CommandItem(WriteCommandIds.RemoveSection, () => WriteCatalogName(WriteCommandIds.RemoveSection), null));
+            layoutMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            layoutMenu.Menu.Items.Add(PageNumberMenu());
+            layoutMenu.Menu.Items.Add(CommandItem(WriteCommandIds.DifferentFirstPage, () => WriteCatalogName(WriteCommandIds.DifferentFirstPage), null, check: true));
+            layoutMenu.Menu.Items.Add(CommandItem(WriteCommandIds.LeftRightPages, () => WriteCatalogName(WriteCommandIds.LeftRightPages), null, check: true));
+            Menu.Items.Add(layoutMenu);
+            _headers.Add((layoutMenu, () => WriteStrings.MenuLayout));
+
             var viewMenu = new NativeMenuItem(WriteStrings.TabView) { Menu = new NativeMenu() };
             viewMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PageView, () => WriteStrings.CmdPageView, null, radio: true));
@@ -178,6 +199,7 @@ internal sealed class WriteMacMenu
             viewMenu.Menu.Items.Add(new NativeMenuItemSeparator());
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Outline, () => WriteStrings.CmdOutline, null, check: true));
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FormattingPane, () => WriteStrings.CmdFormatting, null, check: true));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.SectionsPane, () => WriteStrings.CmdSections, null, check: true));
             Menu.Items.Add(viewMenu);
             _headers.Add((viewMenu, () => WriteStrings.TabView));
 
@@ -298,6 +320,76 @@ internal sealed class WriteMacMenu
         }
 
         _entries.Add(new Entry(item, command, text, false, radio || check ? window => window?.IsOn(id) == true : null));
+        return item;
+    }
+
+    // A submenu of a value command: its title is the name of the command and each item runs the command with its value (the same rules as the ribbon's picker; the items have no keys).
+    private NativeMenuItem ValueMenu(string id, IReadOnlyList<string> payloads, Func<string, Func<string>> label)
+    {
+        var parent = new NativeMenuItem(WriteCatalogName(id)) { Menu = new NativeMenu() };
+        parent.Menu!.NeedsUpdate += _onNeedsUpdate;
+        _headers.Add((parent, () => WriteCatalogName(id)));
+        foreach (var payload in payloads)
+        {
+            parent.Menu.Items.Add(ValueItem(id, payload, label(payload)));
+        }
+
+        return parent;
+    }
+
+    // The page number: place, then alignment, then look ("Footer", "Center", "Page 1 of N").
+    private NativeMenuItem PageNumberMenu()
+    {
+        var parent = new NativeMenuItem(WriteCatalogName(WriteCommandIds.InsertPageNumber)) { Menu = new NativeMenu() };
+        parent.Menu!.NeedsUpdate += _onNeedsUpdate;
+        _headers.Add((parent, () => WriteCatalogName(WriteCommandIds.InsertPageNumber)));
+        foreach (var place in new[] { "footer", "header" })
+        {
+            var placeItem = new NativeMenuItem(WriteStrings.Get(place == "footer" ? "PageNumberPlaceFooter" : "PageNumberPlaceHeader")) { Menu = new NativeMenu() };
+            placeItem.Menu!.NeedsUpdate += _onNeedsUpdate;
+            var placeKey = place == "footer" ? "PageNumberPlaceFooter" : "PageNumberPlaceHeader";
+            _headers.Add((placeItem, () => WriteStrings.Get(placeKey)));
+            foreach (var align in new[] { "left", "center", "right" })
+            {
+                var alignKey = "PageNumberAlign" + char.ToUpperInvariant(align[0]) + align[1..];
+                var alignItem = new NativeMenuItem(WriteStrings.Get(alignKey)) { Menu = new NativeMenu() };
+                alignItem.Menu!.NeedsUpdate += _onNeedsUpdate;
+                _headers.Add((alignItem, () => WriteStrings.Get(alignKey)));
+                foreach (var look in new[] { "plain", "page", "pageOfTotal", "slash" })
+                {
+                    var capturedLook = look;
+                    alignItem.Menu.Items.Add(ValueItem(WriteCommandIds.InsertPageNumber, place + ":" + align + ":" + look, () => capturedLook switch
+                    {
+                        "page" => WriteStrings.PageNumberWordPage + " 1",
+                        "pageOfTotal" => WriteStrings.PageNumberWordPage + " 1 " + WriteStrings.PageNumberWordOf + " N",
+                        "slash" => "1 / N",
+                        _ => "1",
+                    }));
+                }
+
+                placeItem.Menu.Items.Add(alignItem);
+            }
+
+            parent.Menu.Items.Add(placeItem);
+        }
+
+        return parent;
+    }
+
+    // One value of a value command: it runs the command with that value on the window that is current, and is enabled by the rules of the window.
+    private NativeMenuItem ValueItem(string id, string payload, Func<string> text)
+    {
+        var command = new MenuCommand(
+            () => _current() is { } window && !window.DialogOpen && window.HasTab && window.CanRun(id),
+            () =>
+            {
+                if (_current() is { } window && !window.DialogOpen && window.HasTab && window.CanRun(id))
+                {
+                    window.RunCommand(id, payload);
+                }
+            });
+        var item = new NativeMenuItem(text()) { Command = command };
+        _entries.Add(new Entry(item, command, text, false));
         return item;
     }
 

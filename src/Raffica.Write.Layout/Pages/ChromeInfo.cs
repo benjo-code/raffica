@@ -1,3 +1,5 @@
+using Raffica.Write.Model;
+
 namespace Raffica.Write.Layout;
 
 /// <summary>
@@ -19,7 +21,8 @@ internal sealed record ChromeInfo(
     float FooterHeight,
     string? HeaderPart,
     string? FooterPart,
-    bool UsesTotals = false)
+    bool UsesTotals = false,
+    HeaderFooterType Type = HeaderFooterType.Default)
 {
     /// <summary>What a finished page builder says about the chrome it holds.</summary>
     public static ChromeInfo Of(PageBuilder page) => new(
@@ -37,7 +40,8 @@ internal sealed record ChromeInfo(
         page.FooterHeight,
         page.HeaderPart,
         page.FooterPart,
-        page.UsesTotals);
+        page.UsesTotals,
+        page.ChromeType);
 
     /// <summary>
     /// The page with its header and footer taken from <paramref name="scratch"/> (a builder that holds only those two regions) and everything else, body, notes, text and spans, as
@@ -81,6 +85,7 @@ internal sealed record ChromeInfo(
             HeaderPart = scratch.HeaderPart,
             FooterPart = scratch.FooterPart,
             UsesTotals = scratch.UsesTotals,
+            Type = scratch.ChromeType,
         };
         return new LaidOutPage(published.Index, published.Number, published.Width, published.Height, published.IsStrip, items, text, published.Spans, isProvisional, lines, info);
     }
