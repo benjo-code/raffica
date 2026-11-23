@@ -212,10 +212,11 @@ public sealed class SectionCommandTests
         [
             "TabLayout", "GroupPageSetup", "GroupSections", "GroupHeaderFooter", "MenuLayout",
             .. s_ids.Select(id => Of(id).NameKey), .. s_ids.Select(id => Of(id).DescriptionKey!),
-            "ReasonSectionNotInBody", "ReasonSectionPrefix", "ReasonSectionStartsHere", "ReasonSectionNothingToMerge", "ReasonSectionFirst", "NoteSectionNoChange", "NoteSectionBreakKey", "NoteSectionCardSoon",
+            "ReasonSectionNotInBody", "ReasonSectionPrefix", "ReasonSectionStartsHere", "ReasonSectionNothingToMerge", "ReasonSectionFirst", "NoteSectionNoChange", "NoteSectionBreakKey", "NoteCardStale",
             "MarginNormal", "MarginNarrow", "MarginModerate", "MarginWide", "OrientationPortrait", "OrientationLandscape", "ColumnsOne", "ColumnsTwo", "ColumnsThree",
             "BreakNextPage", "BreakContinuous", "BreakEvenPage", "BreakOddPage", "PageNumberWordPage", "PageNumberWordOf", "PageNumberPlaceFooter", "PageNumberPlaceHeader",
             "PageNumberAlignLeft", "PageNumberAlignCenter", "PageNumberAlignRight", "PageNumberItemFormat", "PageNumberCountsEveryPage",
+            "NumPagesTitle", "NumPagesStartLabel", "NumPagesContinue", "NumPagesPrefixLabel", "NumPagesPrefixHint", "NumPagesPageStartLine", "NumPagesFollowOne", "NumPagesFollowMany", "NumPagesOwnOne", "NumPagesOwnMany", "NumPagesInvalidStart", "NumPagesInvalidPrefix", "NumPagesOk", "PageSetupTitle", "PsSizeLabel", "PsCustom", "PsWidthFormat", "PsHeightFormat", "PsOrientationLabel", "PsMarginsLabel", "PsTopFormat", "PsBottomFormat", "PsLeftFormat", "PsRightFormat", "PsColumnsLabel", "PsColumnCount", "PsColumnSpacingFormat", "PsColumnLine", "PsColumnsUnequal", "PsApplyLabel", "PsApplyThis", "PsApplyWhole", "PsApplyFrom", "PsFromHereNote", "PsInvalidValueFormat", "PsOutOfRangeFormat", "PsNoRoomForText", "PsColumnsDoNotFit", "PsOk", "NoteCardStale", "StatusStoryFormat", "StatusStorySharedOneFormat", "StatusStorySharedManyFormat", "NoteSharedFooter", "NoteSharedHeader",
         ];
         foreach (var key in fresh)
         {
@@ -483,7 +484,8 @@ public sealed class SectionCommandTests
         Assert.True(tab.Docx.Model.HeadersFooters.Count > parts);
         Assert.Equal(8, session.Editor.History.UndoCount);
 
-        // Number pages from here with its default (the card of Task 12 replaces it): the caret's block starts a section that restarts at 1.
+        // Number pages from here: a card that answers the default (start at 1, 1 2 3, no prefix); the caret's block starts a section that restarts at 1.
+        window.SectionCards = new ScriptedCards { NumberingAnswer = new PageNumbering(1, PageNumberFormat.Arabic, string.Empty) };
         Caret(session, tab, 2, 0);
         Settle(window);
         Command(window, WriteCommandIds.NumberPagesFrom).Run!();
@@ -495,7 +497,7 @@ public sealed class SectionCommandTests
     }
 
     [AvaloniaFact]
-    public async Task PageSetupSaysItIsNotAvailableUntilItsCardExistsAndRunsAnAnsweredCard()
+    public async Task PageSetupAsksItsCardWithTheScopeAndRunsTheAnswer()
     {
         using var fixture = new WindowFixture();
         var (window, tab, session) = await OpenAsync(fixture, "<w:r><w:t>one</w:t></w:r>");
@@ -503,27 +505,26 @@ public sealed class SectionCommandTests
         Settle(window);
         var revision = tab.Docx.Model.Edits.Revision;
 
-        // The command is enabled and says so; it never does nothing silently.
+        // The command is enabled; a card that cancels changes nothing.
         Assert.True(Command(window, WriteCommandIds.PageSetup).IsEnabled);
-        Command(window, WriteCommandIds.PageSetup).Run!();
-        WindowFixture.Pump();
-        Assert.Equal(WriteStrings.NoteSectionCardSoon, window.Status.Hint);
-        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
-
-        // A card that answers is run with its scope.
-        var cards = new ScriptedCards { HasPageSetupCard = true };
+        var cards = new ScriptedCards();
         window.SectionCards = cards;
-        cards.PageSetup = request => request with { };
         Command(window, WriteCommandIds.PageSetup).Run!();
         WindowFixture.Pump();
         Assert.Equal(1, cards.PageSetupAsked);
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+
+        // A card that answers is run with its scope.
+        cards.PageSetup = request => request with { };
+        Command(window, WriteCommandIds.PageSetup).Run!();
+        WindowFixture.Pump();
+        Assert.Equal(2, cards.PageSetupAsked);
         Assert.Equal(ApplyScope.WholeDocument, cards.LastScope);
+        Assert.Equal(3, SectionPageSetup.Read(SectionList.Of(tab.Docx.Model)[0].Properties).Columns);
     }
 
     private sealed class ScriptedCards : ISectionCards
     {
-        public bool HasPageSetupCard { get; set; }
-
         public Func<PageSetupRequest, PageSetupRequest>? PageSetup { get; set; }
 
         public int PageSetupAsked { get; private set; }
@@ -532,23 +533,24 @@ public sealed class SectionCommandTests
 
         public TaskCompletionSource<PageNumbering?>? NumberingGate { get; set; }
 
+        public PageNumbering? NumberingAnswer { get; set; }
+
         public int NumberingAsked { get; private set; }
 
-        public Task<PageNumbering?> AskNumberingAsync(SectionFacts facts)
+        public Task<PageNumbering?> AskNumberingAsync(NumberPagesContext context)
         {
             NumberingAsked++;
-            return NumberingGate?.Task ?? Task.FromResult<PageNumbering?>(null);
+            return NumberingGate?.Task ?? Task.FromResult(NumberingAnswer);
         }
 
-        public Task<PageSetupRequest?> AskPageSetupAsync(SectionPageSetup current, ApplyScope defaultScope, int sectionCount)
+        public Task<PageSetupRequest?> AskPageSetupAsync(PageSetupContext context)
         {
             PageSetupAsked++;
-            LastScope = defaultScope;
-            var request = new PageSetupRequest(new PageSetupChange(current with { Columns = 3 }, PageSetupParts.Columns), defaultScope);
-            return Task.FromResult<PageSetupRequest?>(PageSetup?.Invoke(request));
+            LastScope = context.DefaultScope;
+            var request = new PageSetupRequest(new PageSetupChange(context.Current with { Columns = 3 }, PageSetupParts.Columns), context.DefaultScope);
+            return Task.FromResult(PageSetup?.Invoke(request));
         }
     }
-
     [AvaloniaFact]
     public async Task ACancelledNumberingCardChangesNothing()
     {
@@ -699,7 +701,7 @@ public sealed class SectionCommandTests
     {
         using var fixture = new WindowFixture();
         var (window, tab) = await OpenFreshAsync(fixture, "<w:r><w:t>one</w:t></w:r>");
-        var cards = new ScriptedCards { HasPageSetupCard = true };
+        var cards = new ScriptedCards();
         window.SectionCards = cards;
         var revision = tab.Docx.Model.Edits.Revision;
 
@@ -718,7 +720,7 @@ public sealed class SectionCommandTests
         using var fixture = new WindowFixture();
         var window = fixture.Show();
         var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(StyledDocx.Write(fixture.Folder, "long2.docx", StyledDocx.Styles, [.. Enumerable.Range(0, 200).Select(i => $"<w:r><w:t>p{i}</w:t></w:r>")]))).Tab;
-        var cards = new ScriptedCards { HasPageSetupCard = true, NumberingGate = new TaskCompletionSource<PageNumbering?>() };
+        var cards = new ScriptedCards { NumberingGate = new TaskCompletionSource<PageNumbering?>() };
         window.SectionCards = cards;
         var wasPrefix = tab.Docx.IsPrefix;
         var revision = tab.Docx.Model.Edits.Revision;

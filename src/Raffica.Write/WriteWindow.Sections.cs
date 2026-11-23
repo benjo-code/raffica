@@ -1,6 +1,7 @@
 using Raffica.Write.Commands;
 using Raffica.Write.Editing;
 using Raffica.Write.Model;
+using Raffica.Write.Viewing;
 
 namespace Raffica.Write;
 
@@ -14,8 +15,14 @@ internal sealed partial class WriteWindow
     private SectionFactsSource? _sections;
     private SectionPickers _sectionPickers = null!;
 
-    /// <summary>The cards Number pages from here and Page setup open; the default is <see cref="PendingSectionCards"/> until the real cards replace it.</summary>
-    internal ISectionCards SectionCards { get; set; } = new PendingSectionCards();
+    private ISectionCards? _sectionCards;
+
+    /// <summary>The cards Number pages from here and Page setup open: the dialogs of the window (made on first use), or the cards a test put in.</summary>
+    internal ISectionCards SectionCards
+    {
+        get => _sectionCards ??= new DialogSectionCards(Dialogs);
+        set => _sectionCards = value;
+    }
 
     /// <summary>The pickers of the Layout tab (tests read how often a list was asked).</summary>
     internal SectionPickers SectionPickerSet => _sectionPickers;
@@ -76,7 +83,8 @@ internal sealed partial class WriteWindow
         return taken;
     }
 
-    // Number pages from here: the card first (start, format, prefix), then the command with its answer.
+    // Number pages from here: the card first (start, format, prefix), then the command with its answer. The card is modal and the answer is run only when the document is as it was when the card opened
+    // (the plan version, as the outline drop does): a card answered after the document changed is refused with a note, never applied.
     private async Task NumberPagesFromAsync()
     {
         if (ActiveView is not { } view)
@@ -91,23 +99,26 @@ internal sealed partial class WriteWindow
             return;
         }
 
-        if (await SectionCards.AskNumberingAsync(facts) is { } numbering)
-        {
-            _ = RunSectionFromUi(WriteCommandIds.NumberPagesFrom, numbering);
-        }
-    }
-
-    // Page setup: the card with the values of the caret's section and the scope; until the card exists the window says so and changes nothing.
-    private async Task PageSetupAsync()
-    {
-        if (ActiveView is not { } view)
+        var plan = CardPlan.Of(view);
+        var context = new NumberPagesContext(facts, view.CaretBlockStartsNewPage(facts));
+        if (await SectionCards.AskNumberingAsync(context) is not { } numbering)
         {
             return;
         }
 
-        if (!SectionCards.HasPageSetupCard)
+        if (CardIsStale(view, plan))
         {
-            ShowStructureNote(view, WriteStrings.NoteSectionCardSoon);
+            return;
+        }
+
+        _ = RunSectionFromUi(WriteCommandIds.NumberPagesFrom, numbering);
+    }
+
+    // Page setup: the card with the values of the caret's section and the scope, then the command with its answer (the same plan check as the numbering card).
+    private async Task PageSetupAsync()
+    {
+        if (ActiveView is not { } view)
+        {
             return;
         }
 
@@ -117,11 +128,87 @@ internal sealed partial class WriteWindow
             return;
         }
 
+        var plan = CardPlan.Of(view);
         var scope = current.Sections == 1 ? ApplyScope.WholeDocument : ApplyScope.ThisSection;
-        if (await SectionCards.AskPageSetupAsync(current.Setup, scope, current.Sections) is { } request)
+        var context = new PageSetupContext(current.Setup, scope, current.Sections, current.ColumnsUnequal, view.MarginsInInches());
+        if (await SectionCards.AskPageSetupAsync(context) is not { } request)
         {
-            _ = RunSectionFromUi(WriteCommandIds.PageSetup, request);
+            return;
         }
+
+        if (CardIsStale(view, plan))
+        {
+            return;
+        }
+
+        _ = RunSectionFromUi(WriteCommandIds.PageSetup, request);
+    }
+
+    // What a card was asked about: the view, its model and the revision of the model. A card that is answered after any of them changed (a replaced model, an edit, an undo, another active tab) must not run.
+    private readonly record struct CardPlan(PageView View, WordDocument Model, int Revision)
+    {
+        public static CardPlan Of(PageView view) => new(view, view.Tab.Docx.Model, view.Tab.Docx.Model.Edits.Revision);
+    }
+
+    private bool CardIsStale(PageView view, CardPlan plan)
+    {
+        if (!ReferenceEquals(ActiveView, view) || view.IsReleased)
+        {
+            return true;
+        }
+
+        var model = view.Tab.Docx.Model;
+        if (ReferenceEquals(model, plan.Model) && model.Edits.Revision == plan.Revision)
+        {
+            return false;
+        }
+
+        ShowStructureNote(view, WriteStrings.NoteCardStale);
+        return true;
+    }
+
+    /// <summary>
+    /// The words for the status line while a header or footer is active: which one, the section that owns its part and the sections that share it ("Footer, section 2, shared with sections 3 to 5"), because
+    /// editing a shared part edits it for each of them. Null in the body and while the caret is not in the active story; the kind alone when no section shows the part (no misleading claim).
+    /// </summary>
+    internal static string? StoryStatusText(PageView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        if (view.ActiveStory is not { Kind: StoryKind.HeaderFooter } story || view.Tab.Editor is not { } session || session.Caret is not { } caret || !caret.Story.Equals(story))
+        {
+            return null;
+        }
+
+        if (story.Key is not { } key || !view.Tab.Docx.Model.HeadersFooters.TryGetValue(key, out var part))
+        {
+            return null;
+        }
+
+        var kind = part.Kind;
+        var label = kind == HeaderFooterKind.Footer ? WriteStrings.PageNumberPlaceFooter : WriteStrings.PageNumberPlaceHeader;
+        SectionSharing sharing;
+        try
+        {
+            sharing = session.Editor.PageNumberSharing(caret, kind);
+        }
+        catch (StalePositionException)
+        {
+            return label;
+        }
+
+        if (sharing.OwnerSection < 0 || !sharing.Sections.Contains(sharing.OwnerSection))
+        {
+            return label;
+        }
+
+        var owner = sharing.OwnerSection + 1;
+        var others = sharing.Sections.Where(i => i != sharing.OwnerSection).Select(i => i + 1).ToList();
+        return others.Count switch
+        {
+            0 => WriteStrings.Fill(WriteStrings.StatusStoryFormat, label, owner),
+            1 => WriteStrings.Fill(WriteStrings.StatusStorySharedOneFormat, label, owner, others[0]),
+            _ => WriteStrings.Fill(WriteStrings.StatusStorySharedManyFormat, label, owner, SectionNumberList.Describe(others)),
+        };
     }
 
     // Whether a switch of the Layout tab is on: the caret's section has a different first page, the document has left and right pages.

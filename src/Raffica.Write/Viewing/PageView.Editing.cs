@@ -545,6 +545,7 @@ internal sealed partial class PageView
             EnsureCaretVisible();
         }
 
+        PublishActiveStory();
         InvalidateAll();
         return true;
     }
@@ -613,6 +614,20 @@ internal sealed partial class PageView
 
     private bool _publishedSelection;
 
+    private StoryRef? _publishedStory;
+
+    /// <summary>Raised when a header or footer is entered or left (the status line names the active one); after the caret is in its place, never in the middle of the hit.</summary>
+    internal event Action? ActiveStoryChanged;
+
+    private void PublishActiveStory()
+    {
+        if (!Nullable.Equals(_story, _publishedStory))
+        {
+            _publishedStory = _story;
+            ActiveStoryChanged?.Invoke();
+        }
+    }
+
     /// <summary>Raised when the selection turns from a caret into a selection or back (the ribbon and the menu read the states of cut and copy again).</summary>
     internal event Action? SelectionStateChanged;
 
@@ -620,6 +635,7 @@ internal sealed partial class PageView
     // it: Place (pointer, caret keys, select all, header and footer), OnEditChanged (an edit, undo, redo, the replay of a queue after a save).
     private void PublishSelectionState()
     {
+        PublishActiveStory();
         var now = CurrentSelection() is { IsEmpty: false };
         if (now != _publishedSelection)
         {

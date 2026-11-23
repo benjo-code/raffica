@@ -1,3 +1,5 @@
+using Raffica.Hosting;
+using Raffica.Write.Dialogs;
 using Raffica.Write.Editing;
 using Raffica.Write.Model;
 
@@ -7,33 +9,38 @@ namespace Raffica.Write.Commands;
 internal sealed record PageSetupRequest(PageSetupChange Change, ApplyScope Scope);
 
 /// <summary>
-/// The two cards of the Layout tab, which the window owns: Number pages from here and Page setup. A command asks its card and runs the answer (null: the user cancelled). The window starts with
-/// <see cref="PendingSectionCards"/>; the cards themselves are made by the step that adds them (milestone 4.4b, Task 12) and replace it through <c>WriteWindow.SectionCards</c>.
+/// What the Number pages card knows of the caret's place: the facts of the section commands and whether the command starts a new page there (the caret's block is not the first block of its page, so the section
+/// that begins before it moves it to a page of its own; false at the start of a section and when the layout cannot say).
+/// </summary>
+internal sealed record NumberPagesContext(SectionFacts Facts, bool StartsNewPage);
+
+/// <summary>
+/// What the Page setup card knows of the caret's section: its setup, where the command applies when the card opens (the whole document while it has one section, else this section), the number of sections,
+/// whether its columns have different widths (a write makes columns equal, so the card offers no spacing or line for them) and whether lengths are in inches (the region rule of <c>PagePresets.UsesInches</c>).
+/// </summary>
+internal sealed record PageSetupContext(SectionPageSetup Current, ApplyScope DefaultScope, int SectionCount, bool ColumnsUnequal, bool Inches);
+
+/// <summary>
+/// The two cards of the Layout tab, which the window owns: Number pages from here and Page setup. A command asks its card and runs the answer (null: the user cancelled or changed nothing). The window uses
+/// <see cref="DialogSectionCards"/>; a test puts its own in.
 /// </summary>
 internal interface ISectionCards
 {
-    /// <summary>Whether Page setup has a card to open (false: the window says so in a note and changes nothing).</summary>
-    bool HasPageSetupCard { get; }
-
     /// <summary>Asks how the pages are numbered from the caret's place (start, format, prefix); null when cancelled.</summary>
-    Task<PageNumbering?> AskNumberingAsync(SectionFacts facts);
+    Task<PageNumbering?> AskNumberingAsync(NumberPagesContext context);
 
-    /// <summary>Asks for the page setup of the caret's section and where it applies; null when cancelled.</summary>
-    Task<PageSetupRequest?> AskPageSetupAsync(SectionPageSetup current, ApplyScope defaultScope, int sectionCount);
+    /// <summary>Asks for the page setup of the caret's section and where it applies; null when cancelled or when nothing was changed.</summary>
+    Task<PageSetupRequest?> AskPageSetupAsync(PageSetupContext context);
 }
 
-/// <summary>
-/// The cards until Task 12 makes them: Number pages from here answers with its one-click default (start at 1, the format 1 2 3, no prefix, the default of the picker of the spec) and Page setup
-/// has no card, so the window says "not available yet" instead of pretending. Replaced by the real cards.
-/// </summary>
-internal sealed class PendingSectionCards : ISectionCards
+/// <summary>The real cards, shown one at a time through the window's <see cref="DialogQueue"/>.</summary>
+internal sealed class DialogSectionCards(DialogQueue dialogs) : ISectionCards
 {
     /// <inheritdoc/>
-    public bool HasPageSetupCard => false;
+    public Task<PageNumbering?> AskNumberingAsync(NumberPagesContext context) =>
+        dialogs.ShowAsync<PageNumbering?>(done => NumberPagesCard.Create(context, done));
 
     /// <inheritdoc/>
-    public Task<PageNumbering?> AskNumberingAsync(SectionFacts facts) => Task.FromResult<PageNumbering?>(new PageNumbering(1, PageNumberFormat.Arabic, string.Empty));
-
-    /// <inheritdoc/>
-    public Task<PageSetupRequest?> AskPageSetupAsync(SectionPageSetup current, ApplyScope defaultScope, int sectionCount) => Task.FromResult<PageSetupRequest?>(null);
+    public Task<PageSetupRequest?> AskPageSetupAsync(PageSetupContext context) =>
+        dialogs.ShowAsync<PageSetupRequest?>(done => PageSetupCard.Create(context, done));
 }

@@ -3,8 +3,11 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Raffica.Core.Saving;
 using Raffica.Shell.Controls;
+using Raffica.Write.Commands;
 using Raffica.Write.Dialogs;
 using Raffica.Write.Documents;
+using Raffica.Write.Editing;
+using Raffica.Write.Model;
 using Xunit;
 
 namespace Raffica.WriteApp.Tests.Dialogs;
@@ -21,6 +24,8 @@ public sealed class CardFooterTests
         yield return ("SaveErrorCard.Create", () => SaveErrorCard.Create("a.docx", new SaveProblem(SaveProblemKind.Failure, SaveFailureReason.NotWritable), () => { }));
         yield return ("UnsavedChangesCard.Create", () => UnsavedChangesCard.Create("a.docx", _ => { }));
         yield return ("RecoveryCard.Create", () => RecoveryCard.Create([], _ => { }));
+        yield return ("NumberPagesCard.Create", () => NumberPagesCard.Create(new NumberPagesContext(new SectionFacts(true, 0, false, 0, 0, SectionReason.None), false), _ => { }));
+        yield return ("PageSetupCard.Create", () => PageSetupCard.Create(new PageSetupContext(new SectionPageSetup(11906, 16838, false, 1417, 1417, 1417, 1417, 1, 720, false), ApplyScope.WholeDocument, 1, false, false), _ => { }));
     }
 
     // The button that Enter presses on each card: the safe answer, never Overwrite or Don't save.
@@ -30,6 +35,8 @@ public sealed class CardFooterTests
         ["SaveErrorCard.Create"] = "PART_Ok",
         ["UnsavedChangesCard.Create"] = "PART_Save",
         ["RecoveryCard.Create"] = "PART_Restore",
+        ["NumberPagesCard.Create"] = "PART_Ok",
+        ["PageSetupCard.Create"] = "PART_Ok",
     };
 
     private static List<Button> Buttons(Dialog dialog) => [.. Assert.IsType<StackPanel>(dialog.Footer).Children.OfType<Button>()];

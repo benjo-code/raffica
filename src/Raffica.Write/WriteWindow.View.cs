@@ -328,6 +328,13 @@ internal sealed partial class WriteWindow
         view.StructureKeyHandler = id => RunStructureKey(view, id);
         view.OutlineParagraphSource = EngagedOutlineParagraph;
         view.StructureNote += text => ShowStructureNote(view, text);
+        view.ActiveStoryChanged += () =>
+        {
+            if (ReferenceEquals(ActiveView, view))
+            {
+                Status.Count = StoryStatusText(view);
+            }
+        };
         view.SelectionStateChanged += () =>
         {
             if (ReferenceEquals(ActiveView, view))
@@ -503,6 +510,7 @@ internal sealed partial class WriteWindow
     /// <summary>The cells of the status bar follow the view of the active tab: the page (with a plus while the count may still grow) and the zoom.</summary>
     private void UpdateViewStatus(bool refreshStatesNow = true)
     {
+        Status.Count = ActiveView is { } active ? StoryStatusText(active) : null;
         if (ActiveView is { PageCount: > 0 } view)
         {
             var format = view.IsLayoutComplete ? WriteStrings.StatusPositionFormat : WriteStrings.StatusPositionMoreFormat;

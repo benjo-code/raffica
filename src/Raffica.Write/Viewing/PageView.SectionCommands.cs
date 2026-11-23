@@ -55,8 +55,39 @@ internal sealed partial class PageView
         {
             StructureNote?.Invoke(id.StartsWith("page.", StringComparison.Ordinal) ? WriteStrings.NoteSectionNoChange : WriteStrings.NoteStructureFailed);
         }
+        else if (result is not null && id == WriteCommandIds.InsertPageNumber && session.Caret is { } after)
+        {
+            NoteSharedPageNumber(session, after, payload);
+        }
 
         return true;
+    }
+
+    // Insert page number writes into a part other sections may show too (a footer a later section inherits): the user is told, because editing a shared part edits it for each of them. The sections come from
+    // the editor's own rule (only sections that really show the page's type); a body caret whose section is not among them is a mismatch and says nothing rather than something misleading.
+    private void NoteSharedPageNumber(EditSession session, TextPosition caret, object? payload)
+    {
+        if (!SectionPayloads.TryPageNumber(payload, out var place, out _, out _))
+        {
+            return;
+        }
+
+        try
+        {
+            var section = session.Editor.ReadSectionFacts(caret);
+            var sharing = session.Editor.PageNumberSharing(caret, place, PageNumberContext(caret).Type);
+            if (section.Reason != SectionReason.None || sharing.Sections.Count < 2 || !sharing.Sections.Contains(section.Section))
+            {
+                return;
+            }
+
+            var words = SectionNumberList.Describe(sharing.Sections.Select(i => i + 1));
+            StructureNote?.Invoke(WriteStrings.Fill(place == HeaderFooterKind.Footer ? WriteStrings.NoteSharedFooter : WriteStrings.NoteSharedHeader, words));
+        }
+        catch (StalePositionException)
+        {
+            // The place moved while the command ran (a queued replay): nothing is claimed.
+        }
     }
 
     // The payload must be a value of the command; Number pages from here and Page setup take a typed object (or nothing), the others take no payload.
@@ -91,8 +122,11 @@ internal sealed partial class PageView
         return null;
     }
 
-    /// <summary>The page setup of the caret's section and the number of sections for the page setup card; null with a <paramref name="note"/> as for <see cref="SectionFactsAtCaret"/>.</summary>
-    internal (SectionPageSetup Setup, int Sections)? CaretSectionSetup(out string? note)
+    /// <summary>
+    /// The page setup of the caret's section and what the page setup card needs besides it (the number of sections, whether its columns have different widths: the count shown is then the number of
+    /// <c>w:col</c> elements the layout draws); null with a <paramref name="note"/> as for <see cref="SectionFactsAtCaret"/>.
+    /// </summary>
+    internal (SectionPageSetup Setup, int Sections, bool ColumnsUnequal)? CaretSectionSetup(out string? note)
     {
         note = null;
         if (SectionSessionForCard(out note) is not { } session)
@@ -108,7 +142,28 @@ internal sealed partial class PageView
         }
 
         var sections = SectionList.Of(_tab.Docx.Model);
-        return (SectionPageSetup.Read(sections[facts.Section].Properties), sections.Count);
+        var setup = SectionPageSetup.Read(sections[facts.Section].Properties);
+        var cols = sections[facts.Section].Properties?.Get(SectionW + "cols");
+        var unequal = cols is not null && !ColumnFlag(cols, "equalWidth", true) && cols.Elements(SectionW + "col").Any();
+        return (unequal ? setup with { Columns = Math.Max(1, cols!.Elements(SectionW + "col").Count()) } : setup, sections.Count, unequal);
+    }
+
+    // A boolean attribute of the section properties: absent gives the default; "0", "false" and "off" are off.
+    private static bool ColumnFlag(System.Xml.Linq.XElement element, string name, bool defaultValue) =>
+        element.Attribute(SectionW + name)?.Value is { } text ? text is not ("0" or "false" or "off") : defaultValue;
+
+    /// <summary>
+    /// Whether the section that starts before the caret's block would start a new page there: the block is not the first one of the page the layout put it on (false at the start of a section, which gets no
+    /// new section, and when the layout cannot say where the block is: nothing is claimed then).
+    /// </summary>
+    internal bool CaretBlockStartsNewPage(SectionFacts facts)
+    {
+        if (facts.AtSectionStart || _tab.Editor is not { } session || session.Caret is not { } caret || session.Editor.TopLevelBlockIndex(caret) is not { } index || ActiveLayout() is not { } layout)
+        {
+            return false;
+        }
+
+        return layout.Locate(index) is { } place && layout.BlockAt(place.Page, 0) != index;
     }
 
     // The session a card command reads its place from, made on first use like every command's (the hint of a refusal is shown by the window's note, not twice); null with the words for a prefix document, a tab that cannot

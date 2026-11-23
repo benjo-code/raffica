@@ -1233,9 +1233,6 @@
   <data name="NoteSectionBreakKey" xml:space="preserve">
     <value>Ein Abschnittswechsel lässt sich nicht mit der Tastatur löschen. Verwenden Sie die Abschnittsmarkierung oder „Abschnitt entfernen“.</value>
   </data>
-  <data name="NoteSectionCardSoon" xml:space="preserve">
-    <value>Dieser Dialog ist noch nicht verfügbar.</value>
-  </data>
   <data name="MarginNormal" xml:space="preserve">
     <value>Normal</value>
   </data>
@@ -1301,5 +1298,170 @@
   </data>
   <data name="PageNumberCountsEveryPage" xml:space="preserve">
     <value>N zählt alle Seiten</value>
+  </data>
+  <data name="NumPagesTitle" xml:space="preserve">
+    <value>Seiten ab hier nummerieren</value>
+  </data>
+  <data name="NumPagesStartLabel" xml:space="preserve">
+    <value>Beginnen bei</value>
+  </data>
+  <data name="NumPagesContinue" xml:space="preserve">
+    <value>Zählung des vorigen Abschnitts fortsetzen</value>
+  </data>
+  <data name="NumPagesFormatLabel" xml:space="preserve">
+    <value>Zahlenformat</value>
+  </data>
+  <data name="NumPagesFormatArabic" xml:space="preserve">
+    <value>1 2 3</value>
+  </data>
+  <data name="NumPagesFormatLowerRoman" xml:space="preserve">
+    <value>i ii iii</value>
+  </data>
+  <data name="NumPagesFormatUpperRoman" xml:space="preserve">
+    <value>I II III</value>
+  </data>
+  <data name="NumPagesFormatLowerLetter" xml:space="preserve">
+    <value>a b c</value>
+  </data>
+  <data name="NumPagesFormatUpperLetter" xml:space="preserve">
+    <value>A B C</value>
+  </data>
+  <data name="NumPagesPrefixLabel" xml:space="preserve">
+    <value>Text vor der Zahl</value>
+  </data>
+  <data name="NumPagesPrefixHint" xml:space="preserve">
+    <value>Wird in der Fußzeile vor die Zahl geschrieben: A- ergibt A-1.</value>
+  </data>
+  <data name="NumPagesPageStartLine" xml:space="preserve">
+    <value>Hier beginnt eine neue Seite</value>
+  </data>
+  <data name="NumPagesFollowOne" xml:space="preserve">
+    <value>Abschnitt {0} folgt ab hier der neuen Nummerierung.</value>
+  </data>
+  <data name="NumPagesFollowMany" xml:space="preserve">
+    <value>Die Abschnitte {0} folgen ab hier der neuen Nummerierung.</value>
+  </data>
+  <data name="NumPagesOwnOne" xml:space="preserve">
+    <value>Davon behält 1 Abschnitt die eigene Nummerierung oder Fußzeile.</value>
+  </data>
+  <data name="NumPagesOwnMany" xml:space="preserve">
+    <value>Davon behalten {0} Abschnitte die eigene Nummerierung oder Fußzeile.</value>
+  </data>
+  <data name="NumPagesInvalidStart" xml:space="preserve">
+    <value>Geben Sie eine ganze Zahl von 0 bis 99999 ein.</value>
+  </data>
+  <data name="NumPagesInvalidPrefix" xml:space="preserve">
+    <value>Der Text darf höchstens 32 Zeichen lang sein und keine Steuerzeichen enthalten.</value>
+  </data>
+  <data name="NumPagesOk" xml:space="preserve">
+    <value>Nummerieren</value>
+  </data>
+  <data name="PageSetupTitle" xml:space="preserve">
+    <value>Seite einrichten</value>
+  </data>
+  <data name="PsSizeLabel" xml:space="preserve">
+    <value>Papierformat</value>
+  </data>
+  <data name="PsCustom" xml:space="preserve">
+    <value>Benutzerdefiniert</value>
+  </data>
+  <data name="PsWidthFormat" xml:space="preserve">
+    <value>Breite ({0})</value>
+  </data>
+  <data name="PsHeightFormat" xml:space="preserve">
+    <value>Höhe ({0})</value>
+  </data>
+  <data name="PsOrientationLabel" xml:space="preserve">
+    <value>Ausrichtung</value>
+  </data>
+  <data name="PsMarginsLabel" xml:space="preserve">
+    <value>Ränder</value>
+  </data>
+  <data name="PsTopFormat" xml:space="preserve">
+    <value>Oben ({0})</value>
+  </data>
+  <data name="PsBottomFormat" xml:space="preserve">
+    <value>Unten ({0})</value>
+  </data>
+  <data name="PsLeftFormat" xml:space="preserve">
+    <value>Links ({0})</value>
+  </data>
+  <data name="PsRightFormat" xml:space="preserve">
+    <value>Rechts ({0})</value>
+  </data>
+  <data name="PsColumnsLabel" xml:space="preserve">
+    <value>Spalten</value>
+  </data>
+  <data name="PsColumnCount" xml:space="preserve">
+    <value>Anzahl der Spalten</value>
+  </data>
+  <data name="PsColumnSpacingFormat" xml:space="preserve">
+    <value>Abstand ({0})</value>
+  </data>
+  <data name="PsColumnLine" xml:space="preserve">
+    <value>Linie zwischen den Spalten</value>
+  </data>
+  <data name="PsColumnsUnequal" xml:space="preserve">
+    <value>Diese Spalten sind unterschiedlich breit. Eine neue Spaltenanzahl macht sie gleich breit; Abstand und Linie bleiben unverändert.</value>
+  </data>
+  <data name="PsUnitCm" xml:space="preserve">
+    <value>cm</value>
+  </data>
+  <data name="PsUnitInch" xml:space="preserve">
+    <value>Zoll</value>
+  </data>
+  <data name="PsApplyLabel" xml:space="preserve">
+    <value>Anwenden auf</value>
+  </data>
+  <data name="PsApplyThis" xml:space="preserve">
+    <value>Diesen Abschnitt</value>
+  </data>
+  <data name="PsApplyWhole" xml:space="preserve">
+    <value>Gesamtes Dokument</value>
+  </data>
+  <data name="PsApplyFrom" xml:space="preserve">
+    <value>Ab hier</value>
+  </data>
+  <data name="PsFromHereNote" xml:space="preserve">
+    <value>Ab hier beginnt hier eine neue Seite (neue Spalten beginnen auf derselben Seite) und für den neuen Abschnitt wird „Erste Seite anders“ ausgeschaltet.</value>
+  </data>
+  <data name="PsInvalidValueFormat" xml:space="preserve">
+    <value>{0}: Geben Sie eine Zahl ein, zum Beispiel 2,5.</value>
+  </data>
+  <data name="PsOutOfRangeFormat" xml:space="preserve">
+    <value>{0}: Dieser Wert passt nicht zur Seite.</value>
+  </data>
+  <data name="PsNoRoomForText" xml:space="preserve">
+    <value>Die Ränder lassen keinen Platz für Text.</value>
+  </data>
+  <data name="PsColumnsDoNotFit" xml:space="preserve">
+    <value>Die Spalten passen nicht zwischen die Ränder.</value>
+  </data>
+  <data name="PsOk" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="NoteCardStale" xml:space="preserve">
+    <value>Das Dokument hat sich geändert, während der Dialog geöffnet war. Es wurde nichts angewendet.</value>
+  </data>
+  <data name="StatusStoryFormat" xml:space="preserve">
+    <value>{0}, Abschnitt {1}</value>
+  </data>
+  <data name="StatusStorySharedOneFormat" xml:space="preserve">
+    <value>{0}, Abschnitt {1}, gemeinsam mit Abschnitt {2}</value>
+  </data>
+  <data name="StatusStorySharedManyFormat" xml:space="preserve">
+    <value>{0}, Abschnitt {1}, gemeinsam mit den Abschnitten {2}</value>
+  </data>
+  <data name="SectionListRangeFormat" xml:space="preserve">
+    <value>{0} bis {1}</value>
+  </data>
+  <data name="SectionListAndFormat" xml:space="preserve">
+    <value>{0} und {1}</value>
+  </data>
+  <data name="NoteSharedFooter" xml:space="preserve">
+    <value>Die Fußzeile wird von den Abschnitten {0} gemeinsam genutzt: Die Seitenzahl erscheint in allen.</value>
+  </data>
+  <data name="NoteSharedHeader" xml:space="preserve">
+    <value>Die Kopfzeile wird von den Abschnitten {0} gemeinsam genutzt: Die Seitenzahl erscheint in allen.</value>
   </data>
 </root>

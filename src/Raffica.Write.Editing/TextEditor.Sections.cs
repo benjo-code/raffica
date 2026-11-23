@@ -7,8 +7,10 @@ namespace Raffica.Write.Editing;
 
 public sealed partial class TextEditor
 {
-    private const int MaximumPageNumber = 99999;
-    private const int MaximumPrefixLength = 32;
+    private const int MaximumPageNumber = PageNumbering.MaximumStart;
+
+    /// <summary>The index of the top-level body block that holds <paramref name="at"/>'s paragraph (a paragraph in a table or a content control gives the table or control); null outside the body.</summary>
+    public int? TopLevelBlockIndex(TextPosition at) => at.Paragraph is null || at.Story.Kind != StoryKind.Body ? null : TopLevelIndexOf(at.Paragraph);
 
     /// <summary>
     /// What the section commands know about <paramref name="at"/>. Pure: nothing changes and no history operation begins. A place that is not in the body, a position with no paragraph and a prefix document
@@ -227,29 +229,10 @@ public sealed partial class TextEditor
             throw new ArgumentOutOfRangeException(nameof(numbering), start, "The first page number is 0 to 99999.");
         }
 
-        if (numbering.Prefix.Length > MaximumPrefixLength || !IsSerializable(numbering.Prefix))
+        if (!PageNumbering.IsValidPrefix(numbering.Prefix))
         {
             throw new ArgumentException("The prefix is at most 32 characters and holds no control character or other character a document cannot store.", nameof(numbering));
         }
-    }
-
-    // Text the XML writer can store: no control character, no lone surrogate, not U+FFFE or U+FFFF.
-    private static bool IsSerializable(string text)
-    {
-        for (var i = 0; i < text.Length; i++)
-        {
-            var c = text[i];
-            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-            {
-                i++;
-            }
-            else if (char.IsControl(c) || char.IsSurrogate(c) || !System.Xml.XmlConvert.IsXmlChar(c))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static void ApplyNumbering(SectionProperties properties, PageNumbering numbering)
