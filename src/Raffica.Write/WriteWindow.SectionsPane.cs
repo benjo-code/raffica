@@ -44,7 +44,14 @@ internal sealed partial class WriteWindow
                 block => tab.Layout.Locate(block) is { } place ? place.Page : -1,
                 () => ActiveSectionOf(tab),
                 () => SectionsBlockedReason(tab),
-                action => RunSectionRow(tab, action));
+                action => RunSectionRow(tab, action),
+                text =>
+                {
+                    if (ViewOf(tab) is { } view)
+                    {
+                        ShowStructureNote(view, text);
+                    }
+                });
             pane = new SectionsPane(tab, actions);
             _sectionsPanes[tab] = pane;
         }

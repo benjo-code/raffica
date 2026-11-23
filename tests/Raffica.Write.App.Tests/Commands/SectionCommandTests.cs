@@ -217,6 +217,10 @@ public sealed class SectionCommandTests
             "BreakNextPage", "BreakContinuous", "BreakEvenPage", "BreakOddPage", "PageNumberWordPage", "PageNumberWordOf", "PageNumberPlaceFooter", "PageNumberPlaceHeader",
             "PageNumberAlignLeft", "PageNumberAlignCenter", "PageNumberAlignRight", "PageNumberItemFormat", "PageNumberCountsEveryPage",
             "NumPagesTitle", "NumPagesStartLabel", "NumPagesContinue", "NumPagesPrefixLabel", "NumPagesPrefixHint", "NumPagesPageStartLine", "NumPagesFollowOne", "NumPagesFollowMany", "NumPagesOwnOne", "NumPagesOwnMany", "NumPagesInvalidStart", "NumPagesInvalidPrefix", "NumPagesOk", "PageSetupTitle", "PsSizeLabel", "PsCustom", "PsWidthFormat", "PsHeightFormat", "PsOrientationLabel", "PsMarginsLabel", "PsTopFormat", "PsBottomFormat", "PsLeftFormat", "PsRightFormat", "PsColumnsLabel", "PsColumnCount", "PsColumnSpacingFormat", "PsColumnLine", "PsColumnsUnequal", "PsApplyLabel", "PsApplyThis", "PsApplyWhole", "PsApplyFrom", "PsFromHereNote", "PsInvalidValueFormat", "PsOutOfRangeFormat", "PsNoRoomForText", "PsColumnsDoNotFit", "PsOk", "NoteCardStale", "StatusStoryFormat", "StatusStorySharedOneFormat", "StatusStorySharedManyFormat", "NoteSharedFooter", "NoteSharedHeader",
+            "CmdSections", "SectionsHint", "SectionsDefaultsHint", "SectionsTooMany", "SectionTitleFormat", "SectionCurrent", "SectionStartsOnPageFormat", "SectionPageNotLaidOut", "SectionEmptyFinal",
+            "SectionNumbersStartFormat", "SectionNumbersContinue", "SectionNumbersContinueFormat", "SectionColumnsOne", "SectionColumnsFormat", "SectionHeaderOwn", "SectionHeaderSame", "SectionFooterOwn", "SectionFooterSame",
+            "SectionFirstPage", "SectionFirstOwnTip", "SectionRemoveMarker", "SectionRemoveTipFormat", "SectionNumberFrom", "SectionNumberNoParagraph", "SectionTakesOverFormat", "SectionChangePageSetup", "SectionChangeNumbering",
+            "SectionChangeFirstPage", "SectionChangeHeader", "SectionChangeFooter", "SectionListTwoFormat", "SectionButtonNameFormat", "SectionsDocumentHeading", "SectionLeftRight", "NoteSectionRowStale",
         ];
         foreach (var key in fresh)
         {

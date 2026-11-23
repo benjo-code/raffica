@@ -354,11 +354,11 @@ public sealed class SectionsPaneTests
         var warnings = pane.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("sections-warn")).Select(t => t.Text).ToList();
         Assert.Equal(
         [
-            WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, 3, 2),
-            WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, 4, 3),
+            WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, 3, 2, WriteStrings.SectionChangePageSetup),
+            WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, 4, 3, WriteStrings.SectionChangePageSetup),
         ], warnings);
         Assert.Equal(WriteStrings.Fill(WriteStrings.SectionRemoveTipFormat, 2, 1), AutomationProperties.GetItemStatus(pane.ControlOf("PART_S1_Remove")!));
-        Assert.Equal(WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, 3, 2), AutomationProperties.GetItemStatus(pane.ControlOf("PART_S2_Remove")!));
+        Assert.Equal(WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, 3, 2, WriteStrings.SectionChangePageSetup), AutomationProperties.GetItemStatus(pane.ControlOf("PART_S2_Remove")!)); // the same line is the item status
         Assert.Null(pane.ControlOf("PART_S0_Remove"));
 
         // The merge does what the line said: section 4 takes section 3's two columns.
@@ -447,6 +447,307 @@ public sealed class SectionsPaneTests
         Assert.Contains(WriteStrings.Fill(WriteStrings.SectionStartsOnPageFormat, 1), lines);
         Assert.Contains(WriteStrings.SectionPageNotLaidOut, lines);
         host.Close();
+    }
+
+    private static string[] Sections200(int count) =>
+        [.. Enumerable.Range(0, count - 1).Select(i => EndsSection("s" + i.ToString(CultureInfo.InvariantCulture))), Text("end")];
+
+    [AvaloniaFact]
+    public async Task TypingInTheBodyRebuildsNoRowAndAnEqualRefreshMakesNoControl()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, Sections200(SectionsSource.MaximumSections));
+        Caret(session, tab, SectionsSource.MaximumSections - 1);
+        await WindowFixture.WaitAsync(() => tab.Layout.IsComplete);
+        var pane = Open(window, tab);
+        Assert.Equal(SectionsSource.MaximumSections, pane.View!.Rows.Count);
+        Assert.True(pane.RowsBuilt >= SectionsSource.MaximumSections);
+        var (built, rebuilds, reads, revision) = (pane.RowsBuilt, pane.Rebuilds, pane.Source.Reads, tab.Docx.Model.Edits.Revision);
+        var focused = (CheckBox)pane.ControlOf("PART_S3_First")!;
+        focused.Focus(NavigationMethod.Tab);
+        WindowFixture.Pump();
+
+        // The caret is in the last paragraph and the keys go to the view; every refresh reads a new revision and finds the rows as they were: no row is made again.
+        Assert.NotNull(window.ActiveView!.ApplyOperation(ed => ed.InsertText(new TextRange(session.Caret!.Value, session.Caret!.Value), "x")));
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(window.ActiveView!.ApplyOperation(ed => ed.InsertText(new TextRange(session.Caret!.Value, session.Caret!.Value), "y")));
+            Settle(window, pane);
+        }
+
+        Assert.True(tab.Docx.Model.Edits.Revision > revision);
+        Assert.True(pane.Source.Reads > reads, "the pane did read again");
+        Assert.Equal(built, pane.RowsBuilt);
+        Assert.Equal(rebuilds, pane.Rebuilds);
+        Assert.Same(focused, pane.ControlOf("PART_S3_First"));
+        Assert.True(focused.IsFocused, "the focus is where it was");
+    }
+
+    [AvaloniaFact]
+    public async Task AStartPageTheLayoutLearnsLaterIsWrittenIntoItsLineWithoutMakingTheRowAgain()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), EndsSection("b"), Text("c"));
+        Caret(session, tab, 0);
+        var known = new int[] { -1, -1, -1 };
+        using var pane = new SectionsPane(tab, new SectionsPaneActions(block => known[block], () => null, () => null, _ => true));
+        var host = Host(pane);
+        var lines = () => pane.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("sections-line")).Select(t => t.Text).ToList();
+        Assert.Equal(3, lines().Count(t => t == WriteStrings.SectionPageNotLaidOut));
+        var (built, rebuilds) = (pane.RowsBuilt, pane.Rebuilds);
+
+        known[0] = 0;
+        known[1] = 2;
+        pane.RequestRefresh();
+        pane.Refresh.Flush();
+        WindowFixture.Pump();
+        Assert.Equal((built, rebuilds), (pane.RowsBuilt, pane.Rebuilds));
+        Assert.Contains(WriteStrings.Fill(WriteStrings.SectionStartsOnPageFormat, 1), lines());
+        Assert.Contains(WriteStrings.Fill(WriteStrings.SectionStartsOnPageFormat, 3), lines());
+        Assert.Single(lines(), t => t == WriteStrings.SectionPageNotLaidOut);
+        Assert.Equal([0, 2, -1], pane.Rows.Select(r => r.Row.FirstPage));
+        host.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task ChangingTheActiveSectionMovesTheMarkWithoutMakingRowsAgain()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), EndsSection("b"), Text("c"));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+        var (built, rebuilds) = (pane.RowsBuilt, pane.Rebuilds);
+        Assert.Equal([0], pane.Rows.Where(r => r.IsActive).Select(r => r.Row.Index));
+        Caret(session, tab, 2);
+        Settle(window, pane);
+        Assert.Equal([2], pane.Rows.Where(r => r.IsActive).Select(r => r.Row.Index));
+        Assert.Equal((built, rebuilds), (pane.RowsBuilt, pane.Rebuilds));
+        var marked = pane.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("active")).ToList();
+        Assert.Single(marked);
+        Assert.Contains(WriteStrings.Fill(WriteStrings.SectionTitleFormat, 3), AutomationProperties.GetName(marked[0]), StringComparison.Ordinal);
+        Assert.Single(pane.GetVisualDescendants().OfType<TextBlock>(), t => t.Classes.Contains("sections-state") && t.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task TheFocusStaysOnTheFocusedToggleWhenAnotherRowChanges()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), EndsSection("b"), Text("c"));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+        var before = (CheckBox)pane.ControlOf("PART_S0_First")!;
+        before.Focus(NavigationMethod.Tab);
+        WindowFixture.Pump();
+        Assert.True(before.IsFocused);
+        var rebuilds = pane.Rebuilds;
+
+        // Another row really changes (section 3 gets a different first page): the list is made again and the focus comes back to the same control of the same row.
+        Assert.NotNull(window.ActiveView!.ApplyOperation(ed => ed.SetDifferentFirstPage(2, true, session.Caret)));
+        Settle(window, pane);
+        WindowFixture.Pump();
+        WindowFixture.Pump();
+        Assert.True(pane.Rebuilds > rebuilds);
+        var after = (CheckBox)pane.ControlOf("PART_S0_First")!;
+        Assert.NotSame(before, after);
+        Assert.True(after.IsFocused, "the focus is on the new control of the row it was on");
+    }
+
+    [AvaloniaFact]
+    public async Task TheScrollPositionIsKeptWhenARowChanges()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, Sections200(40));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+        Assert.True(pane.Scroll.Extent.Height > pane.Scroll.Viewport.Height, "the list is longer than the pane");
+        pane.Scroll.Offset = new Vector(0, 400);
+        window.UpdateLayout();
+        WindowFixture.Pump();
+        var offset = pane.Scroll.Offset.Y;
+        Assert.True(offset > 100);
+        var rebuilds = pane.Rebuilds;
+
+        Assert.NotNull(window.ActiveView!.ApplyOperation(ed => ed.SetDifferentFirstPage(20, true, session.Caret)));
+        Settle(window, pane);
+        WindowFixture.Pump();
+        WindowFixture.Pump();
+        Assert.True(pane.Rebuilds > rebuilds);
+        Assert.InRange(pane.Scroll.Offset.Y, offset - 1, offset + 1);
+    }
+
+    [AvaloniaFact]
+    public async Task AControlThatCannotActShowsItsReasonOnTheMouseToo()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), Text("b"));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+
+        // The first section's own header: disabled for good, with the reason, and the tooltip is allowed on a disabled control.
+        foreach (var name in new[] { "PART_S0_Header", "PART_S0_Footer" })
+        {
+            var control = pane.ControlOf(name)!;
+            Assert.False(control.IsEnabled);
+            Assert.Equal(WriteStrings.SectionFirstOwnTip, ToolTip.GetTip(control));
+            Assert.True(ToolTip.GetShowOnDisabled(control), name);
+        }
+
+        // A save holds the document: every control of the pane waits and says so the same way.
+        using (session.BeginSave())
+        {
+            pane.RefreshButtons();
+            foreach (var name in new[] { "PART_S1_Header", "PART_S1_First", "PART_S1_Number", "PART_S1_Remove", "PART_LeftRight" })
+            {
+                var control = pane.ControlOf(name)!;
+                Assert.False(control.IsEnabled, name);
+                Assert.Equal(WriteStrings.ReasonEditSaving, ToolTip.GetTip(control));
+                Assert.True(ToolTip.GetShowOnDisabled(control), name);
+            }
+        }
+
+        // The document is still opening: the pane's controls say that.
+        using var opening = new SectionsPane(tab, new SectionsPaneActions(_ => 0, () => null, () => WriteStrings.ReasonEditOpening, _ => true));
+        var host = Host(opening);
+        var first = opening.ControlOf("PART_S1_First")!;
+        Assert.False(first.IsEnabled);
+        Assert.Equal(WriteStrings.ReasonEditOpening, ToolTip.GetTip(first));
+        Assert.True(ToolTip.GetShowOnDisabled(first));
+        host.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task AnEmptyFinalSectionSaysSoAndCannotBeNumbered()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+        Assert.Equal(2, pane.Rows.Count);
+        var lines = pane.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains(WriteStrings.SectionEmptyFinal, lines);
+        var number = pane.ControlOf("PART_S1_Number")!;
+        Assert.False(number.IsEnabled);
+        Assert.Equal(WriteStrings.SectionNumberNoParagraph, ToolTip.GetTip(number));
+        Assert.True(pane.ControlOf("PART_S0_Number")!.IsEnabled);
+        Assert.Contains(WriteStrings.SectionsDefaultsHint, lines);
+    }
+
+    [AvaloniaFact]
+    public async Task AStaleRowSaysSoThroughTheWindowsNoteAndDoesNothing()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), EndsSection("b"), Text("c"));
+        Caret(session, tab, 0);
+        var notes = new List<string>();
+        var runs = 0;
+        using var pane = new SectionsPane(tab, new SectionsPaneActions(_ => 0, () => null, () => null, _ => { runs++; return true; }, notes.Add));
+        var host = Host(pane);
+        var stale = pane.ControlOf("PART_S2_First")!;
+        Assert.NotNull(window.ActiveView!.ApplyOperation(ed => ed.RemoveSectionBreak(1)));
+        Press(stale);
+        Assert.Equal([WriteStrings.NoteSectionRowStale], notes);
+        Assert.Equal(0, runs);
+        host.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task TheViewRefusesARowWhoseSectionIsNotTheOneItNames()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), EndsSection("b"), Text("c"));
+        Caret(session, tab, 0);
+        var view = window.ActiveView!;
+        var notes = new List<string>();
+        view.StructureNote += notes.Add;
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        // The properties object of section 1 with the index of section 2, and an index past the end: neither is a section of the document as it is.
+        var wrong = new SectionRowAction(SectionRowKind.FirstPage, 1, Sections(tab)[0].Properties, true);
+        var past = new SectionRowAction(SectionRowKind.RemoveMarker, 7, Sections(tab)[0].Properties, true);
+        Assert.False(view.RunSectionRow(wrong));
+        Assert.False(view.RunSectionRow(past));
+        Assert.False(view.RunSectionRow(new SectionRowAction(SectionRowKind.OwnFooter, 1, null, true)));
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.Equal(3, notes.Count);
+        Assert.All(notes, n => Assert.Equal(WriteStrings.NoteSectionRowStale, n));
+
+        // The row that does name it is taken.
+        Assert.True(view.RunSectionRow(new SectionRowAction(SectionRowKind.FirstPage, 1, Sections(tab)[1].Properties, true)));
+        Assert.True(FirstPageDifferent(tab, 1));
+    }
+
+    [AvaloniaFact]
+    public async Task APrefixDocumentRefusesTheRowsAndTheLayoutProgressRefreshesThePane()
+    {
+        using var fixture = new WindowFixture();
+        var window = fixture.Show();
+
+        // More blocks than the prefix open reads: the tab starts with a prefix of the file and no runner started, so it stays one for now.
+        var paragraphs = Enumerable.Range(0, 200).Select(i => i % 50 == 49 ? EndsSection("p" + i.ToString(CultureInfo.InvariantCulture)) : Text("p" + i.ToString(CultureInfo.InvariantCulture))).ToArray();
+        var tab = Assert.IsType<Opened>(await window.Flow.OpenAsync(StyledDocx.Write(fixture.Folder, "long.docx", StyledDocx.Styles, paragraphs))).Tab;
+        Assert.True(tab.Docx.IsPrefix);
+        var view = window.ActiveView!;
+        var notes = new List<string>();
+        view.StructureNote += notes.Add;
+        Assert.False(view.RunSectionRow(new SectionRowAction(SectionRowKind.LeftRight, -1, null, true)));
+        Assert.Equal([WriteStrings.ReasonSectionPrefix], notes);
+
+        // The pane over a prefix says it is opening, reads no section, and follows the layout when it goes on: the full model arrives, the runner says so, the refresh runs and the rows appear.
+        using var pane = new SectionsPane(tab, new SectionsPaneActions(block => tab.Layout.Locate(block) is { } place ? place.Page : -1, () => null, () => null, _ => true));
+        Assert.Equal(WriteStrings.ReasonEditOpening, pane.NoticeText);
+        Assert.Equal(0, pane.Source.Reads);
+        tab.Runner.LeaseWaitTimeout = TimeSpan.FromSeconds(60);
+        tab.Runner.Start();
+        await WindowFixture.WaitAsync(() => tab.Runner.FullModelReady || tab.Runner.IsFaulted);
+        Assert.True(tab.Runner.FullModelReady);
+        await WindowFixture.WaitAsync(() => pane.View is not null);
+        Assert.Null(pane.NoticeText);
+        Assert.Equal(5, pane.View!.Rows.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task AHiddenPaneDropsAPendingRefreshAndAnotherTabTakingTheSlotHidesIt()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), Text("b"));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+        var reads = pane.Source.Reads;
+        pane.RequestRefresh();
+        Assert.True(pane.Refresh.IsPending);
+
+        // Another document becomes the active tab: the slot takes that tab's Sections pane, the first one lets go and its waiting refresh never runs.
+        var other = StyledDocx.Write(fixture.Folder, "other.docx", StyledDocx.Styles, Text("x"));
+        var second = Assert.IsType<Opened>(await window.Flow.OpenAsync(other)).Tab;
+        Assert.NotSame(tab, window.Workspace.Active);
+        WindowFixture.Pump();
+        Assert.False(pane.Refresh.IsPending);
+        Assert.NotNull(window.SectionsOf(second));
+        Assert.Same(window.SectionsOf(second), window.FormattingHost!.Content);
+        await Task.Delay(300);
+        WindowFixture.Pump();
+        Assert.Equal(reads, pane.Source.Reads);
+
+        // Hidden alone does the same, and Shown reads once.
+        window.SectionsOf(second)!.RequestRefresh();
+        window.SectionsOf(second)!.Hidden();
+        Assert.False(window.SectionsOf(second)!.Refresh.IsPending);
+        var shown = window.SectionsOf(second)!.RefreshCount;
+        window.SectionsOf(second)!.Shown();
+        Assert.Equal(shown + 1, window.SectionsOf(second)!.RefreshCount);
+    }
+
+    [AvaloniaFact]
+    public async Task MoreThanTwoHundredSectionsShowTheTooManyNoticeInThePane()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, Sections200(SectionsSource.MaximumSections + 1));
+        Caret(session, tab, 0);
+        var pane = Open(window, tab);
+        Assert.Equal(WriteStrings.SectionsTooMany, pane.NoticeText);
+        Assert.Empty(pane.Rows);
+        Assert.Equal(0, pane.RowsBuilt);
+        Assert.False(pane.ControlOf("PART_LeftRight")!.IsEffectivelyVisible);
     }
 
     private sealed class ScriptedCards : ISectionCards

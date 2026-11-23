@@ -132,21 +132,6 @@ internal sealed partial class PageView
             return null;
         }
 
-        return FirstParagraphOf(model.Body.Blocks[sections[section].FirstBlock]) is { } paragraph ? new TextPosition(StoryRef.Body, paragraph, 0) : null;
+        return SectionsSource.FirstParagraphOf(model.Body.Blocks[sections[section].FirstBlock]) is { } paragraph ? new TextPosition(StoryRef.Body, paragraph, 0) : null;
     }
-
-    private static Paragraph? FirstParagraphOf(Block block) => block switch
-    {
-        Paragraph paragraph => paragraph,
-        ContentControlBlock control => control.Content.Select(FirstParagraphOf).FirstOrDefault(found => found is not null),
-        Table table => table.Rows.Select(FirstParagraphIn).FirstOrDefault(found => found is not null),
-        _ => null,
-    };
-
-    private static Paragraph? FirstParagraphIn(RowItem item) => item switch
-    {
-        TableRow row => row.Items.Select(FirstParagraphIn).FirstOrDefault(found => found is not null),
-        TableCell cell => cell.Blocks.Select(FirstParagraphOf).FirstOrDefault(found => found is not null),
-        _ => null,
-    };
 }

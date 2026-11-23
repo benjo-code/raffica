@@ -18,8 +18,10 @@ namespace Raffica.Write.Panes;
 /// <param name="HeaderOwn">Whether the section has its own default header part (the first section always has).</param>
 /// <param name="FooterOwn">Whether the section has its own default footer part (the first section always has).</param>
 /// <param name="Setup">The page setup of the section.</param>
-/// <param name="CanNumber">Whether the section has a first paragraph the numbering command can name (false for an empty final section).</param>
-/// <param name="ReferenceKey">Every header and footer reference of the section as one string, to tell whether two sections show the same parts.</param>
+/// <param name="IsEmpty">Whether the section holds no block (the empty final section a section break at the end of the body leaves).</param>
+/// <param name="CanNumber">Whether the section has a first paragraph the numbering command can name (false for an empty section and for one that starts with a block that holds no paragraph).</param>
+/// <param name="Headers">The header parts the section shows, resolved through the sections before it (what it shows, not what it sets).</param>
+/// <param name="Footers">The footer parts the section shows, resolved the same way.</param>
 internal sealed record SectionRow(
     int Index,
     SectionProperties Identity,
@@ -30,14 +32,73 @@ internal sealed record SectionRow(
     bool HeaderOwn,
     bool FooterOwn,
     SectionPageSetup Setup,
+    bool IsEmpty,
     bool CanNumber,
-    string ReferenceKey)
+    PartIds Headers,
+    PartIds Footers)
 {
-    /// <summary>Whether removing this section's marker would change something: the section takes over the page setup, numbering, first page switch and parts of the section before it, so any difference matters.</summary>
-    public bool DiffersFrom(SectionRow previous)
+    /// <summary>
+    /// What changes on the section's pages when its marker is removed: the section takes the page setup, numbering, first-page switch and header and footer references of the section before it, so what it shows
+    /// afterwards is what the section before shows now. Parts are compared as shown (a section that sets none and inherits the same part as the section before changes nothing); the first-page parts count only when both
+    /// sections use them (a difference of the switch itself is named as the switch), the even parts only when the document has left and right pages (they are absent otherwise).
+    /// </summary>
+    public MergeChanges ChangesWhenMerged(SectionRow previous)
     {
         ArgumentNullException.ThrowIfNull(previous);
-        return Setup != previous.Setup || NumberStart != previous.NumberStart || NumberFormat != previous.NumberFormat || FirstPageDifferent != previous.FirstPageDifferent || ReferenceKey != previous.ReferenceKey;
+        var changes = MergeChanges.None;
+        if (Setup != previous.Setup)
+        {
+            changes |= MergeChanges.PageSetup;
+        }
+
+        if (NumberStart != previous.NumberStart || NumberFormat != previous.NumberFormat)
+        {
+            changes |= MergeChanges.Numbering;
+        }
+
+        if (FirstPageDifferent != previous.FirstPageDifferent)
+        {
+            changes |= MergeChanges.FirstPage;
+        }
+
+        var first = FirstPageDifferent && previous.FirstPageDifferent;
+        if (!Headers.SameAs(previous.Headers, first))
+        {
+            changes |= MergeChanges.Headers;
+        }
+
+        if (!Footers.SameAs(previous.Footers, first))
+        {
+            changes |= MergeChanges.Footers;
+        }
+
+        return changes;
+    }
+
+    /// <summary>Whether removing this section's marker would change anything on its pages.</summary>
+    public bool DiffersFrom(SectionRow previous) => ChangesWhenMerged(previous) != MergeChanges.None;
+}
+
+/// <summary>The groups of a section's setup that Remove marker can change.</summary>
+[Flags]
+internal enum MergeChanges
+{
+    None = 0,
+    PageSetup = 1,
+    Numbering = 2,
+    FirstPage = 4,
+    Headers = 8,
+    Footers = 16,
+}
+
+/// <summary>The relationship ids of the default, first-page and even parts of one kind a section shows (null: none).</summary>
+internal sealed record PartIds(string? Default, string? First, string? Even)
+{
+    /// <summary>Whether two sections show the same parts; the first-page ones are compared only when <paramref name="withFirst"/>.</summary>
+    public bool SameAs(PartIds other, bool withFirst)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return Default == other.Default && Even == other.Even && (!withFirst || First == other.First);
     }
 }
 
@@ -99,7 +160,7 @@ internal sealed class SectionsSource
             var rows = new List<SectionRow>(sections.Count);
             foreach (var section in sections)
             {
-                rows.Add(RowOf(section, i => i < firstPages.Count ? firstPages[i] : -1, blocks));
+                rows.Add(RowOf(section, sections, leftRight, section.Index < firstPages.Count ? firstPages[section.Index] : -1, blocks));
             }
 
             view = new SectionsView(rows, false, sections.Count, leftRight);
@@ -109,24 +170,48 @@ internal sealed class SectionsSource
         return view;
     }
 
-    private static SectionRow RowOf(SectionInfo section, Func<int, int> pageOf, IList<Block> blocks)
+    private static SectionRow RowOf(SectionInfo section, IReadOnlyList<SectionInfo> sections, bool leftRight, int firstPage, IList<Block> blocks)
     {
         var properties = section.Properties;
         var numbering = properties.Get(W + "pgNumType");
         var references = properties.HeaderFooterReferences;
+        var empty = section.LastBlock < section.FirstBlock || section.FirstBlock >= blocks.Count;
         return new SectionRow(
             section.Index,
             properties,
-            pageOf(section.Index),
+            firstPage,
             int.TryParse(numbering?.Attribute(W + "start")?.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var start) ? start : null,
             FormatOf(numbering?.Attribute(W + "fmt")?.Value),
             properties.GetFlag(W + "titlePg"),
             section.Index == 0 || references.Any(r => r.Kind == HeaderFooterKind.Header && r.Type == HeaderFooterType.Default),
             section.Index == 0 || references.Any(r => r.Kind == HeaderFooterKind.Footer && r.Type == HeaderFooterType.Default),
             SectionPageSetup.Read(properties),
-            section.FirstBlock < blocks.Count,
-            string.Join(';', references.Select(r => string.Create(CultureInfo.InvariantCulture, $"{(int)r.Kind}:{(int)r.Type}:{r.RelationshipId}")).Order(StringComparer.Ordinal)));
+            empty,
+            !empty && FirstParagraphOf(blocks[section.FirstBlock]) is not null,
+            PartsOf(sections, section.Index, HeaderFooterKind.Header, leftRight),
+            PartsOf(sections, section.Index, HeaderFooterKind.Footer, leftRight));
     }
+
+    private static PartIds PartsOf(IReadOnlyList<SectionInfo> sections, int section, HeaderFooterKind kind, bool leftRight) => new(
+        SectionList.Resolve(sections, section, kind, HeaderFooterType.Default).Reference?.RelationshipId,
+        SectionList.Resolve(sections, section, kind, HeaderFooterType.First).Reference?.RelationshipId,
+        leftRight ? SectionList.Resolve(sections, section, kind, HeaderFooterType.Even).Reference?.RelationshipId : null);
+
+    /// <summary>The first paragraph of a body block (through content controls, tables, rows and cells), null when it holds none; the place the numbering command is told a section starts at.</summary>
+    internal static Paragraph? FirstParagraphOf(Block block) => block switch
+    {
+        Paragraph paragraph => paragraph,
+        ContentControlBlock control => control.Content.Select(FirstParagraphOf).FirstOrDefault(found => found is not null),
+        Table table => table.Rows.Select(FirstParagraphIn).FirstOrDefault(found => found is not null),
+        _ => null,
+    };
+
+    private static Paragraph? FirstParagraphIn(RowItem item) => item switch
+    {
+        TableRow row => row.Items.Select(FirstParagraphIn).FirstOrDefault(found => found is not null),
+        TableCell cell => cell.Blocks.Select(FirstParagraphOf).FirstOrDefault(found => found is not null),
+        _ => null,
+    };
 
     private static PageNumberFormat? FormatOf(string? name) => name switch
     {

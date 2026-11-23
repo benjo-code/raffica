@@ -1540,7 +1540,7 @@
     <value>Ab hier nummerieren…</value>
   </data>
   <data name="SectionTakesOverFormat" xml:space="preserve">
-    <value>Abschnitt {0} übernimmt Seitenaufbau, Nummerierung und Kopf- und Fußzeilen von Abschnitt {1}.</value>
+    <value>Abschnitt {0} übernimmt {2} von Abschnitt {1}.</value>
   </data>
   <data name="SectionButtonNameFormat" xml:space="preserve">
     <value>{0}, Abschnitt {1}</value>
@@ -1553,5 +1553,32 @@
   </data>
   <data name="NoteSectionRowStale" xml:space="preserve">
     <value>Die Abschnitte haben sich geändert. Es wurde nichts getan.</value>
+  </data>
+  <data name="SectionChangePageSetup" xml:space="preserve">
+    <value>den Seitenaufbau</value>
+  </data>
+  <data name="SectionChangeNumbering" xml:space="preserve">
+    <value>die Seitennummerierung</value>
+  </data>
+  <data name="SectionChangeFirstPage" xml:space="preserve">
+    <value>die Einstellung für die erste Seite</value>
+  </data>
+  <data name="SectionChangeHeader" xml:space="preserve">
+    <value>die Kopfzeile</value>
+  </data>
+  <data name="SectionChangeFooter" xml:space="preserve">
+    <value>die Fußzeile</value>
+  </data>
+  <data name="SectionListTwoFormat" xml:space="preserve">
+    <value>{0} und {1}</value>
+  </data>
+  <data name="SectionEmptyFinal" xml:space="preserve">
+    <value>Leerer letzter Abschnitt</value>
+  </data>
+  <data name="SectionNumberNoParagraph" xml:space="preserve">
+    <value>Dieser Abschnitt hat keinen Absatz, bei dem die Nummerierung beginnen könnte.</value>
+  </data>
+  <data name="SectionsDefaultsHint" xml:space="preserve">
+    <value>Die Schalter für Kopf- und Fußzeile ändern die Standardteile. Die Teile für die erste Seite und für gerade Seiten folgen den Einstellungen Erste Seite anders und Linke und rechte Seiten verschieden.</value>
   </data>
 </root>

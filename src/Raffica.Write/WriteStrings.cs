@@ -355,6 +355,15 @@ internal static class WriteStrings
     public static string SectionsDocumentHeading => Table.Get("SectionsDocumentHeading");
     public static string SectionLeftRight => Table.Get("SectionLeftRight");
     public static string NoteSectionRowStale => Table.Get("NoteSectionRowStale");
+    public static string SectionChangePageSetup => Table.Get("SectionChangePageSetup");
+    public static string SectionChangeNumbering => Table.Get("SectionChangeNumbering");
+    public static string SectionChangeFirstPage => Table.Get("SectionChangeFirstPage");
+    public static string SectionChangeHeader => Table.Get("SectionChangeHeader");
+    public static string SectionChangeFooter => Table.Get("SectionChangeFooter");
+    public static string SectionListTwoFormat => Table.Get("SectionListTwoFormat");
+    public static string SectionEmptyFinal => Table.Get("SectionEmptyFinal");
+    public static string SectionNumberNoParagraph => Table.Get("SectionNumberNoParagraph");
+    public static string SectionsDefaultsHint => Table.Get("SectionsDefaultsHint");
     public static string PsColumnCountInvalid => Table.Get("PsColumnCountInvalid");
     public static string PsEqualizeOne => Table.Get("PsEqualizeOne");
     public static string PsEqualizeMany => Table.Get("PsEqualizeMany");

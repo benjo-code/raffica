@@ -434,6 +434,9 @@ internal sealed class FormattingPane : UserControl, IDisposable, IRightSlotPane
         reason.Text = why;
         reason.IsVisible = why is not null;
         ToolTip.SetTip(button, why);
+
+        // A disabled button shows no tooltip unless it is told to; the reason is under the button as well, and now reaches the mouse user over it too.
+        ToolTip.SetShowOnDisabled(button, true);
         AutomationProperties.SetHelpText(button, why ?? string.Empty);
     }
 

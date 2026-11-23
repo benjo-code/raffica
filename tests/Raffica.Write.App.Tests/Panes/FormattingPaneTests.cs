@@ -424,6 +424,8 @@ public sealed class FormattingPaneTests
         // An id the file does not define is shown as its id, and Update style says why it cannot run.
         Assert.Equal(WriteStrings.Fill(WriteStrings.FormattingStyleUndefinedFormat, "Missing"), pane.ParagraphStyleText);
         Assert.False(pane.UpdateButton.IsEnabled);
+        Assert.True(ToolTip.GetShowOnDisabled(pane.UpdateButton), "the reason shows over the disabled button for the mouse too");
+        Assert.Equal(WriteStrings.ReasonStyleNotDefined, ToolTip.GetTip(pane.UpdateButton));
         Assert.Equal(WriteStrings.ReasonStyleNotDefined, pane.UpdateReasonText);
         Assert.Null(pane.NoteText);
 

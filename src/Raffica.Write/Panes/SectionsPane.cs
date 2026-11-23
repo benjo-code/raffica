@@ -43,7 +43,8 @@ internal sealed record SectionRowAction(SectionRowKind Kind, int Section, Sectio
 /// <param name="ActiveSection">The section the caret or the active header or footer belongs to, null when there is none.</param>
 /// <param name="BlockedReason">Why the controls cannot change the document now (a save is running, the document is still opening), null when they can.</param>
 /// <param name="Run">Runs a request; false when it was refused before anything changed.</param>
-internal sealed record SectionsPaneActions(Func<int, int> PageOfBlock, Func<int?> ActiveSection, Func<string?> BlockedReason, Func<SectionRowAction, bool> Run);
+/// <param name="Note">Shows a short note in the window (a refused stale row says so); null in a pane without a window.</param>
+internal sealed record SectionsPaneActions(Func<int, int> PageOfBlock, Func<int?> ActiveSection, Func<string?> BlockedReason, Func<SectionRowAction, bool> Run, Action<string>? Note = null);
 
 /// <summary>
 /// The Sections pane of one document tab (256 px, the right slot of the frame, shared with the formatting pane): one row for each section (where it starts, how its pages are numbered, whether its first page
@@ -60,7 +61,10 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
     private readonly SectionsSource _source = new();
     private readonly FormatDisplayRefresh _refresh;
     private readonly TextBlock _hint;
+    private readonly TextBlock _defaultsHint;
     private readonly TextBlock _notice;
+    private readonly ScrollViewer _scroll;
+    private readonly Dictionary<int, RowView> _rowViews = [];
     private readonly StackPanel _details;
     private readonly ItemsControl _rowList;
     private readonly CheckBox _leftRight;
@@ -71,6 +75,7 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
     private EditSession? _session;
     private LayoutRunner? _runner;
     private string? _focusName;
+    private bool _forceRebuild;
     private bool _active = true;
     private bool _disposed;
 
@@ -88,6 +93,10 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         _hint.Focusable = true;
         _hint.IsTabStop = true;
         AutomationProperties.SetName(_hint, WriteStrings.SectionsHint);
+
+        _defaultsHint = Text("sections-hint");
+        _defaultsHint.Text = WriteStrings.SectionsDefaultsHint;
+        AutomationProperties.SetName(_defaultsHint, WriteStrings.SectionsDefaultsHint);
 
         _notice = Text("sections-hint");
         _notice.IsVisible = false;
@@ -110,9 +119,11 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
 
         var content = new StackPanel { Spacing = 6 };
         content.Children.Add(_hint);
+        content.Children.Add(_defaultsHint);
         content.Children.Add(_notice);
         content.Children.Add(_details);
-        Content = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        _scroll = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        Content = _scroll;
 
         _tab.EditorCreated += OnEditorCreated;
         _tab.Disposing += Dispose;
@@ -135,8 +146,17 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
     /// <summary>What is on show: the sections as last read (null while a line stands in for them).</summary>
     internal SectionsView? View => _view;
 
-    /// <summary>The rows as shown, in order, with the state of each.</summary>
-    internal IReadOnlyList<RowItem> Rows => _items;
+    /// <summary>The rows as shown, in order, with the state of each (the row of the active section is marked).</summary>
+    internal IReadOnlyList<RowItem> Rows => [.. _items.Select(i => i with { IsActive = i.Row.Index == _shownActive })];
+
+    /// <summary>How many rows were made (a row is about a dozen controls; a refresh that finds the rows as they are makes none).</summary>
+    internal int RowsBuilt { get; private set; }
+
+    /// <summary>How many times the list was thrown away and made again.</summary>
+    internal int Rebuilds { get; private set; }
+
+    /// <summary>The scroll viewer of the pane (tests read and set its offset).</summary>
+    internal ScrollViewer Scroll => _scroll;
 
     /// <summary>The line that stands in for the list (opening, too many sections); null while the rows are shown.</summary>
     internal string? NoticeText => _notice.IsVisible ? _notice.Text : null;
@@ -286,11 +306,27 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         _notice.IsVisible = false;
         _details.IsVisible = true;
         var active = ActiveSectionOrNull();
-        if (!ReferenceEquals(view, _view) || active != _shownActive)
+
+        // A new revision gives a new view, but the rows are what they were nearly always (typing in a paragraph): the controls stay, which keeps the focus and the scroll position and costs nothing.
+        // Only rows that differ by value (what they show or the section they name) are made again; a change of the active section moves the mark.
+        var same = !_forceRebuild && _view is { } shown && SameRows(shown.Rows, view.Rows);
+        if (same)
         {
-            _view = view;
+            // The start pages come from the layout, which goes on while the pane is open: a page that is known now is written into its line, the row is not made again.
+            UpdatePages(view.Rows);
+        }
+
+        _view = view;
+        if (!same)
+        {
+            _forceRebuild = false;
             _shownActive = active;
             Rebuild(view, active);
+        }
+        else if (active != _shownActive)
+        {
+            _shownActive = active;
+            MarkActive(active);
         }
 
         _leftRight.IsChecked = view.LeftRight;
@@ -310,6 +346,40 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         }
     }
 
+    // Whether the rows are the same but for the page each starts on.
+    private static bool SameRows(IReadOnlyList<SectionRow> a, IReadOnlyList<SectionRow> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (a[i].FirstPage != b[i].FirstPage ? !(a[i] with { FirstPage = b[i].FirstPage }).Equals(b[i]) : !a[i].Equals(b[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void UpdatePages(IReadOnlyList<SectionRow> rows)
+    {
+        for (var i = 0; i < rows.Count && i < _items.Count; i++)
+        {
+            if (_items[i].Row.FirstPage != rows[i].FirstPage)
+            {
+                _items[i] = _items[i] with { Row = rows[i] };
+                if (_rowViews.TryGetValue(rows[i].Index, out var view))
+                {
+                    view.Start.Text = SectionsRowWording.Start(rows[i]);
+                }
+            }
+        }
+    }
+
     private void ShowNotice(string text)
     {
         _view = null;
@@ -319,13 +389,18 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         AutomationProperties.SetName(_notice, text);
         _details.IsVisible = false;
         _items.Clear();
+        _rowViews.Clear();
         _rowList.ItemsSource = null;
     }
 
     private void Rebuild(SectionsView view, int? active)
     {
-        // The controls of the old rows are let go of; the template makes the new ones (each registers its own rule).
+        // The controls of the old rows are let go of; the template makes the new ones (each registers its own rule). The control that has the focus and the scroll position are put back afterwards.
+        Rebuilds++;
+        CaptureFocus();
+        var offset = _scroll.Offset;
         _controls.RemoveAll(c => !ReferenceEquals(c.Control, _leftRight));
+        _rowViews.Clear();
         _items.Clear();
         for (var i = 0; i < view.Rows.Count; i++)
         {
@@ -334,26 +409,55 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
 
         _rowList.ItemsSource = null;
         _rowList.ItemsSource = _items.ToList();
-        RestoreFocus();
+        RestoreFocus(offset);
     }
 
-    // After a change the controls are made again; the one that had the focus gets it back (by name), so the keyboard user stays where they were.
-    private void RestoreFocus()
+    // The name of the control of the pane that has the focus now, when no action named one already.
+    private void CaptureFocus()
     {
-        if (_focusName is not { } name)
+        if (_focusName is not null || TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Control { Name: { } name } focused || !this.IsVisualAncestorOf(focused))
         {
             return;
         }
 
+        _focusName = name;
+    }
+
+    // The active section's row is marked by its look, by a line of words and by its name for assistive technology.
+    private void MarkActive(int? active)
+    {
+        foreach (var (index, view) in _rowViews)
+        {
+            view.Mark(index == active);
+        }
+    }
+
+    // After a change the controls are made again; the one that had the focus gets it back (by name), so the keyboard user stays where they were.
+    private void RestoreFocus(Vector offset)
+    {
+        var name = _focusName;
         _focusName = null;
         Avalonia.Threading.Dispatcher.UIThread.Post(
             () =>
             {
-                if (!_disposed && ControlOf(name) is { IsEffectivelyEnabled: true } target)
+                if (_disposed)
+                {
+                    return;
+                }
+
+                // The scroll position first (the new rows must have been measured), so the focus does not scroll the list.
+                _scroll.UpdateLayout();
+                _scroll.Offset = offset;
+                if (name is null)
+                {
+                    return;
+                }
+
+                if (ControlOf(name) is { IsEffectivelyEnabled: true } target)
                 {
                     target.Focus(NavigationMethod.Tab);
                 }
-                else if (!_disposed)
+                else
                 {
                     FocusContent();
                 }
@@ -375,6 +479,9 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
     {
         control.IsEnabled = why is null;
         ToolTip.SetTip(control, why);
+
+        // A disabled control shows no tooltip unless it is told to: the reason must reach the mouse user as well as the keyboard and screen reader user.
+        ToolTip.SetShowOnDisabled(control, true);
         AutomationProperties.SetHelpText(control, why ?? string.Empty);
     }
 
@@ -396,6 +503,7 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
             if (live is null)
             {
                 _focusName = null;
+                _actions.Note?.Invoke(WriteStrings.NoteSectionRowStale);
                 ForceRefresh();
                 return;
             }
@@ -418,7 +526,7 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
 
     private void ForceRefresh()
     {
-        _view = null;
+        _forceRebuild = true;
         RefreshNow();
         if (_notice.IsVisible)
         {
@@ -433,14 +541,13 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         title.Text = SectionsRowWording.Title(row);
         var lines = new StackPanel { Spacing = 2 };
         lines.Children.Add(title);
-        if (item.IsActive)
-        {
-            var state = Text("sections-state");
-            state.Text = WriteStrings.SectionCurrent;
-            lines.Children.Add(state);
-        }
+        var state = Text("sections-state");
+        state.Text = WriteStrings.SectionCurrent;
+        state.IsVisible = item.IsActive;
+        lines.Children.Add(state);
 
-        lines.Children.Add(Line(SectionsRowWording.Start(row)));
+        var start = Line(SectionsRowWording.Start(row));
+        lines.Children.Add(start);
         lines.Children.Add(Line(SectionsRowWording.Numbers(row)));
         lines.Children.Add(Line(SectionsRowWording.Setup(row)));
 
@@ -450,7 +557,7 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         lines.Children.Add(Toggle(item, prefix + "First", WriteStrings.SectionFirstPage, row.FirstPageDifferent, SectionRowKind.FirstPage, null));
 
         var buttons = new StackPanel { Spacing = 4, Margin = new Thickness(0, 4, 0, 0) };
-        buttons.Children.Add(ActionButton(item, prefix + "Number", WriteStrings.SectionNumberFrom, SectionRowKind.NumberFrom, row.CanNumber ? null : WriteStrings.ReasonSectionNotInBody));
+        buttons.Children.Add(ActionButton(item, prefix + "Number", WriteStrings.SectionNumberFrom, SectionRowKind.NumberFrom, row.CanNumber ? null : WriteStrings.SectionNumberNoParagraph));
         if (item.Previous is { } previous)
         {
             var remove = ActionButton(item, prefix + "Remove", WriteStrings.SectionRemoveMarker, SectionRowKind.RemoveMarker, null);
@@ -470,13 +577,10 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         lines.Children.Add(buttons);
         var border = new Border { Child = lines, Padding = new Thickness(8, 6), Margin = new Thickness(0, 0, 0, 6) };
         border.Classes.Add("sections-row");
-        if (item.IsActive)
-        {
-            border.Classes.Add("active");
-        }
-
-        var name = item.IsActive ? WriteStrings.Fill(WriteStrings.SectionButtonNameFormat, SectionsRowWording.Title(row), WriteStrings.SectionCurrent) : SectionsRowWording.Title(row);
-        AutomationProperties.SetName(border, name);
+        var view = new RowView(border, state, start, SectionsRowWording.Title(row));
+        view.Mark(item.IsActive);
+        _rowViews[row.Index] = view;
+        RowsBuilt++;
         return border;
     }
 
@@ -512,6 +616,27 @@ internal sealed class SectionsPane : UserControl, IDisposable, IRightSlotPane
         var text = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         text.Classes.Add(style);
         return text;
+    }
+
+    // The parts of a row that show whether it is the active section: the border (class and name for assistive technology) and the line of words.
+    private sealed class RowView(Border border, TextBlock state, TextBlock start, string title)
+    {
+        public TextBlock Start => start;
+
+        public void Mark(bool active)
+        {
+            if (active)
+            {
+                border.Classes.Add("active");
+            }
+            else
+            {
+                border.Classes.Remove("active");
+            }
+
+            state.IsVisible = active;
+            AutomationProperties.SetName(border, active ? WriteStrings.Fill(WriteStrings.SectionButtonNameFormat, title, WriteStrings.SectionCurrent) : title);
+        }
     }
 
     /// <summary>One row of the list: the section as read, the one before it (for what Remove marker takes over) and whether it is the section the caret belongs to.</summary>

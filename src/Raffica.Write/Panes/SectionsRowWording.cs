@@ -14,7 +14,7 @@ internal static class SectionsRowWording
 
     /// <summary>"Starts on page 4" (the page index counted from 1), or the honest line while the layout has not reached that page.</summary>
     public static string Start(SectionRow row) =>
-        row.FirstPage < 0 ? WriteStrings.SectionPageNotLaidOut : WriteStrings.Fill(WriteStrings.SectionStartsOnPageFormat, (row.FirstPage + 1).ToString(WriteStrings.Culture));
+        row.IsEmpty ? WriteStrings.SectionEmptyFinal : row.FirstPage < 0 ? WriteStrings.SectionPageNotLaidOut : WriteStrings.Fill(WriteStrings.SectionStartsOnPageFormat, (row.FirstPage + 1).ToString(WriteStrings.Culture));
 
     /// <summary>"Page numbers start at 5, i ii iii" or "Page numbers continue" (with the format when the section sets one other than 1 2 3).</summary>
     public static string Numbers(SectionRow row)
@@ -49,11 +49,40 @@ internal static class SectionsRowWording
     /// <summary>The label of the footer switch.</summary>
     public static string Footer(SectionRow row) => row.FooterOwn ? WriteStrings.SectionFooterOwn : WriteStrings.SectionFooterSame;
 
-    /// <summary>What Remove marker does when the two sections differ ("Section 3 takes the page setup, numbering and headers of section 2."), else a plain description of the merge.</summary>
-    public static string RemoveTip(SectionRow row, SectionRow previous) =>
-        row.DiffersFrom(previous)
-            ? WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, row.Index + 1, previous.Index + 1)
-            : WriteStrings.Fill(WriteStrings.SectionRemoveTipFormat, row.Index + 1, previous.Index + 1);
+    /// <summary>
+    /// What Remove marker does: when what the section shows would change, the sentence names each group that changes ("Section 3 takes over the page setup and the header of section 2."), else a plain description of the merge.
+    /// </summary>
+    public static string RemoveTip(SectionRow row, SectionRow previous)
+    {
+        var changes = row.ChangesWhenMerged(previous);
+        if (changes == MergeChanges.None)
+        {
+            return WriteStrings.Fill(WriteStrings.SectionRemoveTipFormat, row.Index + 1, previous.Index + 1);
+        }
+
+        var groups = new List<string>();
+        AddIf(groups, changes, MergeChanges.PageSetup, WriteStrings.SectionChangePageSetup);
+        AddIf(groups, changes, MergeChanges.Numbering, WriteStrings.SectionChangeNumbering);
+        AddIf(groups, changes, MergeChanges.FirstPage, WriteStrings.SectionChangeFirstPage);
+        AddIf(groups, changes, MergeChanges.Headers, WriteStrings.SectionChangeHeader);
+        AddIf(groups, changes, MergeChanges.Footers, WriteStrings.SectionChangeFooter);
+        return WriteStrings.Fill(WriteStrings.SectionTakesOverFormat, row.Index + 1, previous.Index + 1, Join(groups));
+    }
+
+    private static void AddIf(List<string> groups, MergeChanges changes, MergeChanges flag, string words)
+    {
+        if ((changes & flag) != 0)
+        {
+            groups.Add(words);
+        }
+    }
+
+    // "a", "a and b", "a, b and c" in the UI language.
+    private static string Join(List<string> groups) => groups.Count switch
+    {
+        1 => groups[0],
+        _ => WriteStrings.Fill(WriteStrings.SectionListTwoFormat, string.Join(", ", groups.Take(groups.Count - 1)), groups[^1]),
+    };
 
     /// <summary>The name of a control for assistive technology: the control's words and the section it acts on.</summary>
     public static string ButtonName(string words, SectionRow row) => WriteStrings.Fill(WriteStrings.SectionButtonNameFormat, words, row.Index + 1);

@@ -1540,7 +1540,7 @@
     <value>Number from here…</value>
   </data>
   <data name="SectionTakesOverFormat" xml:space="preserve">
-    <value>Section {0} takes over the page setup, numbering and headers of section {1}.</value>
+    <value>Section {0} takes over {2} of section {1}.</value>
   </data>
   <data name="SectionButtonNameFormat" xml:space="preserve">
     <value>{0}, section {1}</value>
@@ -1553,5 +1553,32 @@
   </data>
   <data name="NoteSectionRowStale" xml:space="preserve">
     <value>The sections changed. Nothing was done.</value>
+  </data>
+  <data name="SectionChangePageSetup" xml:space="preserve">
+    <value>the page setup</value>
+  </data>
+  <data name="SectionChangeNumbering" xml:space="preserve">
+    <value>the page numbering</value>
+  </data>
+  <data name="SectionChangeFirstPage" xml:space="preserve">
+    <value>the different first page setting</value>
+  </data>
+  <data name="SectionChangeHeader" xml:space="preserve">
+    <value>the header</value>
+  </data>
+  <data name="SectionChangeFooter" xml:space="preserve">
+    <value>the footer</value>
+  </data>
+  <data name="SectionListTwoFormat" xml:space="preserve">
+    <value>{0} and {1}</value>
+  </data>
+  <data name="SectionEmptyFinal" xml:space="preserve">
+    <value>Empty final section</value>
+  </data>
+  <data name="SectionNumberNoParagraph" xml:space="preserve">
+    <value>This section has no paragraph to start the numbering at.</value>
+  </data>
+  <data name="SectionsDefaultsHint" xml:space="preserve">
+    <value>The header and footer switches change the default parts. The first-page and even parts follow Different first page and Different left and right pages.</value>
   </data>
 </root>
