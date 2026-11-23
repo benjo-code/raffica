@@ -328,6 +328,9 @@ internal static class WriteStrings
     public static string SectionListAndFormat => Table.Get("SectionListAndFormat");
     public static string NoteSharedFooter => Table.Get("NoteSharedFooter");
     public static string NoteSharedHeader => Table.Get("NoteSharedHeader");
+    public static string PsColumnCountInvalid => Table.Get("PsColumnCountInvalid");
+    public static string PsEqualizeOne => Table.Get("PsEqualizeOne");
+    public static string PsEqualizeMany => Table.Get("PsEqualizeMany");
     public static string BreakNextPage => Table.Get("BreakNextPage");
     public static string BreakContinuous => Table.Get("BreakContinuous");
     public static string BreakEvenPage => Table.Get("BreakEvenPage");

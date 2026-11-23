@@ -16,9 +16,22 @@ internal sealed record NumberPagesContext(SectionFacts Facts, bool StartsNewPage
 
 /// <summary>
 /// What the Page setup card knows of the caret's section: its setup, where the command applies when the card opens (the whole document while it has one section, else this section), the number of sections,
-/// whether its columns have different widths (a write makes columns equal, so the card offers no spacing or line for them) and whether lengths are in inches (the region rule of <c>PagePresets.UsesInches</c>).
+/// whether its columns have different widths (a write makes columns equal, so the card offers no spacing or line for them), whether lengths are in inches (the region rule of <c>PagePresets.UsesInches</c>), the caret's
+/// section and which sections have custom column widths (the card warns when the chosen scope reaches any of them).
 /// </summary>
-internal sealed record PageSetupContext(SectionPageSetup Current, ApplyScope DefaultScope, int SectionCount, bool ColumnsUnequal, bool Inches);
+internal sealed record PageSetupContext(SectionPageSetup Current, ApplyScope DefaultScope, int SectionCount, bool ColumnsUnequal, bool Inches, int CaretSection = 0, IReadOnlyList<int>? UnequalSections = null)
+{
+    /// <summary>The sections (from 0) whose columns have different widths; without a list, the caret's section when <see cref="ColumnsUnequal"/> says so.</summary>
+    public IReadOnlyList<int> AllUnequal => UnequalSections ?? (ColumnsUnequal ? [CaretSection] : []);
+
+    /// <summary>How many sections a column write at <paramref name="scope"/> would reach that have custom column widths (a write makes the columns of every section it reaches equal).</summary>
+    public int UnequalTargets(ApplyScope scope) => AllUnequal.Count(i => scope switch
+    {
+        ApplyScope.ThisSection => i == CaretSection,
+        ApplyScope.FromHere => i >= CaretSection,
+        _ => true,
+    });
+}
 
 /// <summary>
 /// The two cards of the Layout tab, which the window owns: Number pages from here and Page setup. A command asks its card and runs the answer (null: the user cancelled or changed nothing). The window uses

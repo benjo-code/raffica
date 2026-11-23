@@ -130,7 +130,7 @@ internal sealed partial class WriteWindow
 
         var plan = CardPlan.Of(view);
         var scope = current.Sections == 1 ? ApplyScope.WholeDocument : ApplyScope.ThisSection;
-        var context = new PageSetupContext(current.Setup, scope, current.Sections, current.ColumnsUnequal, view.MarginsInInches());
+        var context = new PageSetupContext(current.Setup, scope, current.Sections, current.ColumnsUnequal, view.MarginsInInches(), current.CaretSection, current.UnequalSections);
         if (await SectionCards.AskPageSetupAsync(context) is not { } request)
         {
             return;
@@ -167,11 +167,18 @@ internal sealed partial class WriteWindow
         return true;
     }
 
+    private StoryStatusMemo? _storyStatus;
+
+    /// <summary>How many times the sharing of the active header or footer was worked out from the sections (tests; typing in a footer adds nothing).</summary>
+    internal int StoryStatusReads { get; private set; }
+
     /// <summary>
     /// The words for the status line while a header or footer is active: which one, the section that owns its part and the sections that share it ("Footer, section 2, shared with sections 3 to 5"), because
-    /// editing a shared part edits it for each of them. Null in the body and while the caret is not in the active story; the kind alone when no section shows the part (no misleading claim).
+    /// editing a shared part edits it for each of them. Null in the body and while the caret is not in the active story; the kind alone when no section shows the part (no misleading claim). The text is worked out
+    /// from the sections once and kept while the model, the editor, the active story, the language and <see cref="EditSession.SectionEpoch"/> are the same: a view change (every typed character, every scroll step)
+    /// walks no section.
     /// </summary>
-    internal static string? StoryStatusText(PageView view)
+    internal string? StoryStatusText(PageView view)
     {
         ArgumentNullException.ThrowIfNull(view);
         if (view.ActiveStory is not { Kind: StoryKind.HeaderFooter } story || view.Tab.Editor is not { } session || session.Caret is not { } caret || !caret.Story.Equals(story))
@@ -179,23 +186,31 @@ internal sealed partial class WriteWindow
             return null;
         }
 
-        if (story.Key is not { } key || !view.Tab.Docx.Model.HeadersFooters.TryGetValue(key, out var part))
+        var model = view.Tab.Docx.Model;
+        var culture = WriteStrings.Culture;
+        if (_storyStatus is { } memo && ReferenceEquals(memo.Model, model) && ReferenceEquals(memo.Session, session) && memo.Story.Equals(story) && memo.Epoch == session.SectionEpoch && ReferenceEquals(memo.Culture, culture))
         {
-            return null;
+            return memo.Text;
         }
 
-        var kind = part.Kind;
+        StoryStatusReads++;
+        string? text = null;
+        if (story.Key is { } key && model.HeadersFooters.TryGetValue(key, out var part))
+        {
+            text = StoryStatusLine(part.Kind, session.Editor.PageNumberSharing(caret, part.Kind));
+        }
+
+        _storyStatus = new StoryStatusMemo(model, session, story, session.SectionEpoch, culture, text);
+        return text;
+    }
+
+    private sealed record StoryStatusMemo(WordDocument Model, EditSession Session, StoryRef Story, int Epoch, System.Globalization.CultureInfo Culture, string? Text);
+
+    /// <summary>The line for a part of <paramref name="kind"/> that <paramref name="sharing"/> describes: the owner and the others, or the kind alone when no section (or not the owner) shows it.</summary>
+    internal static string StoryStatusLine(HeaderFooterKind kind, SectionSharing sharing)
+    {
+        ArgumentNullException.ThrowIfNull(sharing);
         var label = kind == HeaderFooterKind.Footer ? WriteStrings.PageNumberPlaceFooter : WriteStrings.PageNumberPlaceHeader;
-        SectionSharing sharing;
-        try
-        {
-            sharing = session.Editor.PageNumberSharing(caret, kind);
-        }
-        catch (StalePositionException)
-        {
-            return label;
-        }
-
         if (sharing.OwnerSection < 0 || !sharing.Sections.Contains(sharing.OwnerSection))
         {
             return label;
@@ -210,6 +225,7 @@ internal sealed partial class WriteWindow
             _ => WriteStrings.Fill(WriteStrings.StatusStorySharedManyFormat, label, owner, SectionNumberList.Describe(others)),
         };
     }
+
 
     // Whether a switch of the Layout tab is on: the caret's section has a different first page, the document has left and right pages.
     private bool SectionIsOn(string id) => id switch

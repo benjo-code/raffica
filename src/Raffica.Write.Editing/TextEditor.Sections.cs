@@ -231,7 +231,7 @@ public sealed partial class TextEditor
 
         if (!PageNumbering.IsValidPrefix(numbering.Prefix))
         {
-            throw new ArgumentException("The prefix is at most 32 characters and holds no control character or other character a document cannot store.", nameof(numbering));
+            throw new ArgumentException($"The prefix is at most {PageNumbering.MaximumPrefixLength} characters and holds no control character or other character a document cannot store.", nameof(numbering));
         }
     }
 

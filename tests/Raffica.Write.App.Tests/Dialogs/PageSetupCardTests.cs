@@ -243,6 +243,117 @@ public sealed class PageSetupCardTests
     }
 
     [AvaloniaFact]
+    public void TheNoteNamesTheSectionsWhoseCustomColumnWidthsAColumnChangeWouldMakeEqual()
+    {
+        // The caret is in section 0 (equal columns); section 1 has its own widths. A column change at Whole document or From here on reaches it; This section does not.
+        PageSetupContext Make(ApplyScope scope, params int[] unequal) => new(A4, scope, 3, false, false, 0, unequal);
+
+        var (whole, _) = Show(Make(ApplyScope.WholeDocument, 1));
+        using (whole)
+        {
+            var note = whole.Find<TextBlock>("PART_EqualizeNote");
+            Assert.False(note.IsVisible);
+            whole.Type("PART_ColumnCount", "2");
+            Assert.True(note.IsVisible);
+            Assert.Equal("The custom column widths of 1 section will be made equal.", note.Text);
+
+            // The scope is read live: This section reaches no other section, From here on reaches section 1.
+            Choose(whole, "PART_Apply", 0);
+            Assert.False(note.IsVisible);
+            Choose(whole, "PART_Apply", 2);
+            Assert.True(note.IsVisible);
+
+            // Back to the old count: nothing is written, so nothing is made equal.
+            whole.Type("PART_ColumnCount", "1");
+            Assert.False(note.IsVisible);
+        }
+
+        var (several, _) = Show(Make(ApplyScope.WholeDocument, 1, 2));
+        using (several)
+        {
+            several.Find<CheckBox>("PART_ColumnLine").IsChecked = true;
+            CardWindow.Pump();
+            Assert.Equal("The custom column widths of 2 sections will be made equal.", several.Find<TextBlock>("PART_EqualizeNote").Text);
+        }
+
+        // Only a section behind the caret is outside From here on: here section 0 is the unequal one and the caret is in section 1.
+        var (behind, _) = Show(new PageSetupContext(A4, ApplyScope.FromHere, 3, false, false, 1, [0]));
+        using (behind)
+        {
+            behind.Type("PART_ColumnCount", "2");
+            Assert.False(behind.Find<TextBlock>("PART_EqualizeNote").IsVisible);
+        }
+
+        // This section with equal columns of its own and an unequal section elsewhere: no note.
+        var (own, _) = Show(Make(ApplyScope.ThisSection, 2));
+        using (own)
+        {
+            own.Type("PART_ColumnCount", "3");
+            Assert.False(own.Find<TextBlock>("PART_EqualizeNote").IsVisible);
+        }
+
+        // The caret's own section has custom widths and the scope reaches it: the same words, now with its count.
+        var (caret, _) = Show(new PageSetupContext(A4 with { Columns = 2 }, ApplyScope.WholeDocument, 2, true, false, 0, [0]));
+        using (caret)
+        {
+            caret.Type("PART_ColumnCount", "3");
+            Assert.Equal("The custom column widths of 1 section will be made equal.", caret.Find<TextBlock>("PART_EqualizeNote").Text);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ASizeWithinOneTwipOfThePageIsNotAChange()
+    {
+        var almost = A4 with { WidthTwips = 11905, HeightTwips = 16837 };
+        var (card, answers) = Show(Context(almost));
+        using var _ = card;
+        Assert.Equal("A4", (string?)card.Find<SelectBox>("PART_Size").SelectedItem);
+        card.Click("PART_Ok");
+        Assert.Equal([null], answers);
+
+        // A custom size that is the same within a twip is not a change either.
+        var (custom, customAnswers) = Show(Context(almost));
+        using (custom)
+        {
+            Choose(custom, "PART_Size", 5);
+            custom.Click("PART_Ok");
+            Assert.Equal([null], customAnswers);
+        }
+    }
+
+    [AvaloniaFact]
+    public void MarginsThatAlreadyLeaveNoRoomDoNotBlockAnotherChange()
+    {
+        // A foreign file: 6000 twips at each side of an A4 page leaves 0 text width. Another change must still go through; only a change of the margins is checked.
+        var squeezed = A4 with { LeftTwips = 6000, RightTwips = 6000 };
+        var (card, answers) = Show(Context(squeezed));
+        using var _ = card;
+        Assert.Equal(4, card.Find<SelectBox>("PART_Margins").SelectedIndex);
+        Choose(card, "PART_Orientation", 1);
+        card.Click("PART_Ok");
+        var request = Assert.Single(answers)!;
+        Assert.Equal(PageSetupParts.Orientation, request.Change.Parts);
+        Assert.Equal((6000, 6000), (request.Change.Value.LeftTwips, request.Change.Value.RightTwips));
+
+        // Touching the margins is checked.
+        var (touched, touchedAnswers) = Show(Context(squeezed));
+        using (touched)
+        {
+            touched.Type("PART_Left", "10");
+            touched.Click("PART_Ok");
+            Assert.Empty(touchedAnswers);
+            Assert.Equal(WriteStrings.PsNoRoomForText, touched.Find<TextBlock>("PART_Hint").Text);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheGermanFromHereNoteIsAProperSentence()
+    {
+        Assert.StartsWith("Ab hier beginnt eine neue Seite", WriteStrings.GetIn("PsFromHereNote", CultureInfo.GetCultureInfo("de")));
+        Assert.DoesNotContain("hier beginnt hier", WriteStrings.GetIn("PsFromHereNote", CultureInfo.GetCultureInfo("de")));
+    }
+
+    [AvaloniaFact]
     public void NothingChangedClosesWithoutAnAnswerAndEscapeCancels()
     {
         var (card, answers) = Show(Context());
@@ -295,9 +406,9 @@ public sealed class PageSetupCardTests
             ("PART_Left", "1e3", "Left (cm): enter a number, for example 2.5."),
             ("PART_Right", "99999", "Right (cm): this value does not fit the page."),
             ("PART_ColumnSpacing", "abc", "Spacing (cm): enter a number, for example 2.5."),
-            ("PART_ColumnCount", "0", "Number of columns: this value does not fit the page."),
-            ("PART_ColumnCount", "46", "Number of columns: this value does not fit the page."),
-            ("PART_ColumnCount", "two", "Number of columns: this value does not fit the page."),
+            ("PART_ColumnCount", "0", "Number of columns: enter a whole number from 1 to 45."),
+            ("PART_ColumnCount", "46", "Number of columns: enter a whole number from 1 to 45."),
+            ("PART_ColumnCount", "two", "Number of columns: enter a whole number from 1 to 45."),
         };
         foreach (var (field, text, expected) in cases)
         {

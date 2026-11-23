@@ -76,18 +76,30 @@ internal sealed partial class PageView
         {
             var section = session.Editor.ReadSectionFacts(caret);
             var sharing = session.Editor.PageNumberSharing(caret, place, PageNumberContext(caret).Type);
-            if (section.Reason != SectionReason.None || sharing.Sections.Count < 2 || !sharing.Sections.Contains(section.Section))
+            if (section.Reason == SectionReason.None && SharedNote(place, sharing, section.Section) is { } note)
             {
-                return;
+                StructureNote?.Invoke(note);
             }
-
-            var words = SectionNumberList.Describe(sharing.Sections.Select(i => i + 1));
-            StructureNote?.Invoke(WriteStrings.Fill(place == HeaderFooterKind.Footer ? WriteStrings.NoteSharedFooter : WriteStrings.NoteSharedHeader, words));
         }
         catch (StalePositionException)
         {
             // The place moved while the command ran (a queued replay): nothing is claimed.
         }
+    }
+
+    /// <summary>
+    /// The note after a page number went into a part that other sections show too: null when the part is shown by one section only, and null when the caret's own section (<paramref name="caretSection"/>) is not among
+    /// the sections that show it (a mismatch says nothing rather than something misleading).
+    /// </summary>
+    internal static string? SharedNote(HeaderFooterKind place, SectionSharing sharing, int caretSection)
+    {
+        ArgumentNullException.ThrowIfNull(sharing);
+        if (sharing.Sections.Count < 2 || !sharing.Sections.Contains(caretSection))
+        {
+            return null;
+        }
+
+        return WriteStrings.Fill(place == HeaderFooterKind.Footer ? WriteStrings.NoteSharedFooter : WriteStrings.NoteSharedHeader, SectionNumberList.Describe(sharing.Sections.Select(i => i + 1)));
     }
 
     // The payload must be a value of the command; Number pages from here and Page setup take a typed object (or nothing), the others take no payload.
@@ -126,7 +138,7 @@ internal sealed partial class PageView
     /// The page setup of the caret's section and what the page setup card needs besides it (the number of sections, whether its columns have different widths: the count shown is then the number of
     /// <c>w:col</c> elements the layout draws); null with a <paramref name="note"/> as for <see cref="SectionFactsAtCaret"/>.
     /// </summary>
-    internal (SectionPageSetup Setup, int Sections, bool ColumnsUnequal)? CaretSectionSetup(out string? note)
+    internal (SectionPageSetup Setup, int Sections, bool ColumnsUnequal, int CaretSection, IReadOnlyList<int> UnequalSections)? CaretSectionSetup(out string? note)
     {
         note = null;
         if (SectionSessionForCard(out note) is not { } session)
@@ -143,9 +155,17 @@ internal sealed partial class PageView
 
         var sections = SectionList.Of(_tab.Docx.Model);
         var setup = SectionPageSetup.Read(sections[facts.Section].Properties);
-        var cols = sections[facts.Section].Properties?.Get(SectionW + "cols");
-        var unequal = cols is not null && !ColumnFlag(cols, "equalWidth", true) && cols.Elements(SectionW + "col").Any();
-        return (unequal ? setup with { Columns = Math.Max(1, cols!.Elements(SectionW + "col").Count()) } : setup, sections.Count, unequal);
+        var unequalSections = Enumerable.Range(0, sections.Count).Where(i => UnequalColumnCount(sections[i].Properties) > 0).ToList();
+        var count = UnequalColumnCount(sections[facts.Section].Properties);
+        var unequal = count > 0;
+        return (unequal ? setup with { Columns = count } : setup, sections.Count, unequal, facts.Section, unequalSections);
+    }
+
+    // The number of columns a section draws at different widths (the w:col elements, when the section says its columns are not equal, as the layout reads them); 0 for equal columns.
+    private static int UnequalColumnCount(SectionProperties? properties)
+    {
+        var cols = properties?.Get(SectionW + "cols");
+        return cols is not null && !ColumnFlag(cols, "equalWidth", true) ? cols.Elements(SectionW + "col").Count() : 0;
     }
 
     // A boolean attribute of the section properties: absent gives the default; "0", "false" and "off" are off.

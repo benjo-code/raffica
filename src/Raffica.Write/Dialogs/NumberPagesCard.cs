@@ -33,20 +33,18 @@ internal static class NumberPagesCard
             children.Add(new TextBlock { Name = "PART_PageStartLine", Text = WriteStrings.NumPagesPageStartLine, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold });
         }
 
-        var start = new TextBox { Name = "PART_Start", Text = "1", MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left };
-        AutomationProperties.SetName(start, WriteStrings.NumPagesStartLabel);
+        var start = CardParts.Text("PART_Start", WriteStrings.NumPagesStartLabel, "1");
         var keep = new CheckBox { Name = "PART_Continue", Content = WriteStrings.NumPagesContinue, IsChecked = false };
         keep.IsCheckedChanged += (_, _) => start.IsEnabled = keep.IsChecked != true;
-        children.Add(Field(WriteStrings.NumPagesStartLabel, start));
+        children.Add(CardParts.Field(WriteStrings.NumPagesStartLabel, start));
         children.Add(keep);
 
-        var format = new SelectBox { Name = "PART_Format", MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left, ItemsSource = FormatWords(), SelectedIndex = 0 };
-        AutomationProperties.SetName(format, WriteStrings.NumPagesFormatLabel);
-        children.Add(Field(WriteStrings.NumPagesFormatLabel, format));
+        var format = CardParts.Select("PART_Format", WriteStrings.NumPagesFormatLabel, FormatWords());
+        format.SelectedIndex = 0;
+        children.Add(CardParts.Field(WriteStrings.NumPagesFormatLabel, format));
 
-        var prefix = new TextBox { Name = "PART_Prefix", MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left };
-        AutomationProperties.SetName(prefix, WriteStrings.NumPagesPrefixLabel);
-        children.Add(Field(WriteStrings.NumPagesPrefixLabel, prefix));
+        var prefix = CardParts.Text("PART_Prefix", WriteStrings.NumPagesPrefixLabel, null);
+        children.Add(CardParts.Field(WriteStrings.NumPagesPrefixLabel, prefix));
         var prefixHint = new TextBlock { Name = "PART_PrefixHint", Text = WriteStrings.NumPagesPrefixHint, TextWrapping = TextWrapping.Wrap };
         prefixHint.Classes.Add("secondary");
         children.Add(prefixHint);
@@ -62,34 +60,22 @@ internal static class NumberPagesCard
             children.Add(lines);
         }
 
-        var hint = new TextBlock { Name = "PART_Hint", IsVisible = false, TextWrapping = TextWrapping.Wrap };
-        ValidationHint.Mark(hint);
+        var hint = CardParts.Hint();
         children.Add(hint);
 
-        var ok = new Button { Name = "PART_Ok", Content = WriteStrings.NumPagesOk };
-        ok.Classes.Add("primary");
-        var cancel = new Button { Name = "PART_Cancel", Content = ShellStrings.Cancel };
-        cancel.Classes.Add("boxed");
+        var (ok, cancel) = CardParts.Buttons(WriteStrings.NumPagesOk, ShellStrings.Cancel);
         var body = new StackPanel { Spacing = 10, MinWidth = 340 };
         body.Children.AddRange(children);
         var dialog = new Dialog { Title = WriteStrings.NumPagesTitle, Content = body, Footer = CardFooter.Build(ok, null, cancel) };
 
-        var finished = false;
-        void Finish(PageNumbering? answer)
-        {
-            if (!finished)
-            {
-                finished = true;
-                done(answer);
-            }
-        }
+        var finish = CardParts.Once(done);
 
         void Confirm()
         {
             var problem = TryRead(start.Text, keep.IsChecked == true, format.SelectedIndex, prefix.Text, out var numbering);
             if (problem is null)
             {
-                Finish(numbering);
+                finish(numbering);
                 return;
             }
 
@@ -100,20 +86,10 @@ internal static class NumberPagesCard
             field.SelectAll();
         }
 
-        void OnKey(object? sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)
-            {
-                e.Handled = true;
-                Confirm();
-            }
-        }
-
-        start.KeyDown += OnKey;
-        prefix.KeyDown += OnKey;
+        CardParts.ConfirmOnEnter(Confirm, [start, prefix]);
         ok.Click += (_, _) => Confirm();
-        cancel.Click += (_, _) => Finish(null);
-        dialog.CancelRequested += (_, _) => Finish(null);
+        cancel.Click += (_, _) => finish(null);
+        dialog.CancelRequested += (_, _) => finish(null);
         dialog.AttachedToVisualTree += (_, _) => start.SelectAll();
         return dialog;
     }
@@ -153,8 +129,6 @@ internal static class NumberPagesCard
     [
         WriteStrings.NumPagesFormatArabic, WriteStrings.NumPagesFormatLowerRoman, WriteStrings.NumPagesFormatUpperRoman, WriteStrings.NumPagesFormatLowerLetter, WriteStrings.NumPagesFormatUpperLetter,
     ];
-
-    private static StackPanel Field(string label, Control field) => new() { Spacing = 4, Children = { new TextBlock { Text = label }, field } };
 
     // The later sections that take the new numbering: the new section starts at the caret's block (or is the caret's own section when the block starts it), so the sections after it are the following ones;
     // those that set their own numbering or footer keep it and the card says how many.

@@ -13,6 +13,7 @@ using Raffica.Write.Documents;
 using Raffica.Write.Editing;
 using Raffica.Write.Layout;
 using Raffica.Write.Model;
+using Raffica.Write.Viewing;
 using Raffica.WriteApp.Tests.Commands;
 using Xunit;
 
@@ -331,6 +332,126 @@ public sealed class WriteWindowSectionTests
         Assert.True(string.IsNullOrEmpty(other.Status.Hint));
     }
 
+    // A double click in the footer of a page enters it (the zoom is small enough for the whole page to be in view).
+    private static async Task EnterFooterAsync(WriteWindow window, PageView view, int pageIndex)
+    {
+        view.SetZoom(0.4);
+        WindowFixture.Pump();
+        view.ScrollToPage(pageIndex);
+        WindowFixture.Pump();
+        await WindowFixture.WaitAsync(() => view.PageBounds(pageIndex) is not null);
+        Assert.True(view.Runner.PageLayout.TryGetPage(pageIndex, out var page));
+        var bounds = view.PageBounds(pageIndex)!.Value;
+        var scale = bounds.Height / page!.Height;
+        var inView = new Point(bounds.X + (bounds.Width / 2), bounds.Y + bounds.Height - (41 * scale));
+        var point = view.TranslatePoint(inView, window)!.Value;
+        for (var i = 0; i < 2; i++)
+        {
+            window.MouseDown(point, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
+        }
+
+        WindowFixture.Pump();
+    }
+
+    [AvaloniaFact]
+    public async Task TypingInAFooterWalksNoSectionAndACommandThatChangesTheSharingDoes()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, EndsSection("a"), EndsSection("b"), EndsSection("c"), Text("d"));
+        Caret(session, tab, 1);
+        Assert.True(window.RunCommand(WriteCommandIds.InsertPageNumber, "footer:center:plain"));
+        WindowFixture.Pump();
+        await WindowFixture.WaitAsync(() => window.ActiveView is { IsLayoutComplete: true });
+        var view = window.ActiveView!;
+        await EnterFooterAsync(window, view, 1);
+        Assert.Equal(StoryKind.HeaderFooter, view.ActiveStory?.Kind);
+        const string Shared = "Footer, section 2, shared with sections 3 and 4";
+        Assert.Equal(Shared, window.Status.Count);
+        var reads = window.StoryStatusReads;
+        Assert.True(reads >= 1);
+        var epoch = session.SectionEpoch;
+
+        // Twelve characters typed in the footer: each one raises the revision and the view changes, and no section is read again.
+        var revision = tab.Docx.Model.Edits.Revision;
+        for (var i = 0; i < 12; i++)
+        {
+            window.KeyTextInput("x");
+            WindowFixture.Pump();
+            Assert.Equal(Shared, window.Status.Count);
+        }
+
+        Assert.True(tab.Docx.Model.Edits.Revision > revision);
+        Assert.Equal(epoch, session.SectionEpoch);
+        Assert.Equal(reads, window.StoryStatusReads);
+        Assert.Equal(Shared, window.StoryStatusText(view));
+        Assert.Equal(reads, window.StoryStatusReads);
+
+        // Section 3 gets a footer of its own: the part is no longer shared with section 4 (which now inherits section 3's), the answer is worked out again, once.
+        Assert.NotNull(view.ApplyOperation(ed => ed.SetOwnHeaderFooter(2, HeaderFooterKind.Footer, HeaderFooterType.Default, true, session.Caret)));
+        WindowFixture.Pump();
+        Assert.NotEqual(epoch, session.SectionEpoch);
+        Assert.Equal("Footer, section 2", window.StoryStatusText(view));
+        Assert.Equal(reads + 1, window.StoryStatusReads);
+        Assert.Equal("Footer, section 2", window.Status.Count);
+        Assert.Equal(reads + 1, window.StoryStatusReads);
+
+        // Same as previous again (undo is the same step): the sharing is back.
+        Assert.True(window.RunCommand(WriteCommandIds.Undo));
+        WindowFixture.Pump();
+        Assert.Equal(Shared, window.StoryStatusText(view));
+        Assert.Equal(Shared, window.Status.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task ACardAnsweredAfterATabSwitchIsDroppedWithoutEffect()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, Text("one"), PageBreak + Text("two"));
+        var cards = new ScriptedCards { NumberingGate = new TaskCompletionSource<PageNumbering?>() };
+        window.SectionCards = cards;
+        Caret(session, tab, 1);
+        Settle(window);
+        Assert.True(window.RunCommand(WriteCommandIds.NumberPagesFrom));
+
+        // Another tab becomes the active one while the card is open; the late answer is dropped, in the first tab and in the second.
+        var other = StyledDocx.Write(fixture.Folder, "other.docx", StyledDocx.Styles, Text("x"));
+        var second = Assert.IsType<Opened>(await window.Flow.OpenAsync(other)).Tab;
+        Assert.NotSame(tab, window.Workspace.Active);
+        var before = (tab.Docx.Model.Edits.Revision, second.Docx.Model.Edits.Revision);
+        cards.NumberingGate.SetResult(new PageNumbering(3, PageNumberFormat.Arabic, string.Empty));
+        WindowFixture.Pump();
+        Assert.Equal(before, (tab.Docx.Model.Edits.Revision, second.Docx.Model.Edits.Revision));
+        Assert.Single(Sections(tab));
+        Assert.Equal(0, window.Workspace.Active!.Editor?.Editor.History.UndoCount ?? 0);
+    }
+
+    [Fact]
+    public void TheSharedNoteSaysNothingWhenOneSectionShowsThePartOrTheCaretsSectionIsNotAmongThem()
+    {
+        var shared = new SectionSharing(1, [1, 2, 3]);
+        Assert.Equal("The footer is shared by sections 2 to 4: the page number appears in all of them.", PageView.SharedNote(HeaderFooterKind.Footer, shared, 2));
+        Assert.Equal("The header is shared by sections 2 to 4: the page number appears in all of them.", PageView.SharedNote(HeaderFooterKind.Header, shared, 1));
+        Assert.Null(PageView.SharedNote(HeaderFooterKind.Footer, new SectionSharing(1, [1]), 1));
+        Assert.Null(PageView.SharedNote(HeaderFooterKind.Footer, new SectionSharing(-1, []), 1));
+
+        // A body caret whose section does not show the part (a mismatch of the page type): nothing is claimed.
+        Assert.Null(PageView.SharedNote(HeaderFooterKind.Footer, shared, 0));
+    }
+
+    [Fact]
+    public void TheStatusLineNamesTheKindAloneWhenNoSectionOrNotTheOwnerShowsThePart()
+    {
+        Assert.Equal("Footer", WriteWindow.StoryStatusLine(HeaderFooterKind.Footer, new SectionSharing(-1, [])));
+        Assert.Equal("Header", WriteWindow.StoryStatusLine(HeaderFooterKind.Header, new SectionSharing(-1, [])));
+
+        // The owner is not among the sections that show it: no claim about an owner.
+        Assert.Equal("Footer", WriteWindow.StoryStatusLine(HeaderFooterKind.Footer, new SectionSharing(0, [1, 2])));
+        Assert.Equal("Footer, section 1", WriteWindow.StoryStatusLine(HeaderFooterKind.Footer, new SectionSharing(0, [0])));
+        Assert.Equal("Header, section 2, shared with section 3", WriteWindow.StoryStatusLine(HeaderFooterKind.Header, new SectionSharing(1, [1, 2])));
+        Assert.Equal("Footer, section 1, shared with sections 2 to 4", WriteWindow.StoryStatusLine(HeaderFooterKind.Footer, new SectionSharing(0, [0, 1, 2, 3])));
+    }
+
     [AvaloniaFact]
     public async Task TheStatusLineNamesTheSharedFooter()
     {
@@ -351,26 +472,10 @@ public sealed class WriteWindowSectionTests
 
         // A double click in the footer of page 2 enters it, and the status line says whose it is and with whom it is shared.
         var view = window.ActiveView!;
-        view.SetZoom(0.4);
-        WindowFixture.Pump();
-        view.ScrollToPage(1);
-        WindowFixture.Pump();
-        await WindowFixture.WaitAsync(() => view.PageBounds(1) is not null);
-        Assert.True(view.Runner.PageLayout.TryGetPage(1, out var page));
-        var bounds = view.PageBounds(1)!.Value;
-        var scale = bounds.Height / page!.Height;
-        var inView = new Point(bounds.X + (bounds.Width / 2), bounds.Y + bounds.Height - (41 * scale));
-        var point = view.TranslatePoint(inView, window)!.Value;
-        for (var i = 0; i < 2; i++)
-        {
-            window.MouseDown(point, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
-        }
-
-        WindowFixture.Pump();
+        await EnterFooterAsync(window, view, 1);
         Assert.Equal(StoryKind.HeaderFooter, view.ActiveStory?.Kind);
         Assert.Equal("Footer, section 2, shared with sections 3 and 4", window.Status.Count);
-        Assert.Equal("Footer, section 2, shared with sections 3 and 4", WriteWindow.StoryStatusText(view));
+        Assert.Equal("Footer, section 2, shared with sections 3 and 4", window.StoryStatusText(view));
 
         // Esc leaves it and the words go.
         window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);

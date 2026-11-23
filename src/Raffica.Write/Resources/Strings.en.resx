@@ -1464,4 +1464,13 @@
   <data name="NoteSharedHeader" xml:space="preserve">
     <value>The header is shared by sections {0}: the page number appears in all of them.</value>
   </data>
+  <data name="PsColumnCountInvalid" xml:space="preserve">
+    <value>Number of columns: enter a whole number from 1 to 45.</value>
+  </data>
+  <data name="PsEqualizeOne" xml:space="preserve">
+    <value>The custom column widths of 1 section will be made equal.</value>
+  </data>
+  <data name="PsEqualizeMany" xml:space="preserve">
+    <value>The custom column widths of {0} sections will be made equal.</value>
+  </data>
 </root>

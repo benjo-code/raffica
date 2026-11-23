@@ -1423,7 +1423,7 @@
     <value>Ab hier</value>
   </data>
   <data name="PsFromHereNote" xml:space="preserve">
-    <value>Ab hier beginnt hier eine neue Seite (neue Spalten beginnen auf derselben Seite) und für den neuen Abschnitt wird „Erste Seite anders“ ausgeschaltet.</value>
+    <value>Ab hier beginnt eine neue Seite (neue Spalten beginnen auf derselben Seite) und für den neuen Abschnitt wird „Erste Seite anders“ ausgeschaltet.</value>
   </data>
   <data name="PsInvalidValueFormat" xml:space="preserve">
     <value>{0}: Geben Sie eine Zahl ein, zum Beispiel 2,5.</value>
@@ -1463,5 +1463,14 @@
   </data>
   <data name="NoteSharedHeader" xml:space="preserve">
     <value>Die Kopfzeile wird von den Abschnitten {0} gemeinsam genutzt: Die Seitenzahl erscheint in allen.</value>
+  </data>
+  <data name="PsColumnCountInvalid" xml:space="preserve">
+    <value>Anzahl der Spalten: Geben Sie eine ganze Zahl von 1 bis 45 ein.</value>
+  </data>
+  <data name="PsEqualizeOne" xml:space="preserve">
+    <value>Die eigenen Spaltenbreiten von 1 Abschnitt werden gleich breit gemacht.</value>
+  </data>
+  <data name="PsEqualizeMany" xml:space="preserve">
+    <value>Die eigenen Spaltenbreiten von {0} Abschnitten werden gleich breit gemacht.</value>
   </data>
 </root>
