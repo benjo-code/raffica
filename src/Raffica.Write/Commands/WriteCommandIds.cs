@@ -27,6 +27,7 @@ internal static class WriteCommandIds
     public const string Paste = EditingKeys.PasteCommand;
     public const string SelectAll = "edit.selectAll";
     public const string FormattingPane = "view.formatting";
+    public const string SectionsPane = "view.sections";
     public const string Bold = "format.bold";
     public const string Italic = "format.italic";
     public const string Underline = "format.underline";

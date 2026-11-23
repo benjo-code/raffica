@@ -226,7 +226,6 @@ internal sealed partial class WriteWindow
         };
     }
 
-
     // Whether a switch of the Layout tab is on: the caret's section has a different first page, the document has left and right pages.
     private bool SectionIsOn(string id) => id switch
     {

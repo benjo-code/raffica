@@ -199,6 +199,7 @@ internal sealed class WriteMacMenu
             viewMenu.Menu.Items.Add(new NativeMenuItemSeparator());
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.Outline, () => WriteStrings.CmdOutline, null, check: true));
             viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.FormattingPane, () => WriteStrings.CmdFormatting, null, check: true));
+            viewMenu.Menu.Items.Add(CommandItem(WriteCommandIds.SectionsPane, () => WriteStrings.CmdSections, null, check: true));
             Menu.Items.Add(viewMenu);
             _headers.Add((viewMenu, () => WriteStrings.TabView));
 

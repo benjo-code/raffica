@@ -590,6 +590,8 @@ public sealed class SectionCommandTests
         Assert.Same(settings, tab.Docx.Model.Settings);
         Assert.Equal(0, session.Editor.History.UndoCount);
         Assert.Null(window.Frame.RightPane);
+        Assert.Null(window.SectionsOf(tab));
+        Assert.False(window.IsSectionsOpen);
 
         // The first question makes the source and reads once; asking again for the same selection and revision reads nothing.
         Assert.True(Command(window, WriteCommandIds.PageSize).IsEnabled);

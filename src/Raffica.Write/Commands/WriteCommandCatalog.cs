@@ -278,7 +278,8 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.WritingView, "CmdWritingView", "PenLine", "22", toggle: true);
         view.Group("GroupPanes", "3")
             .Add(WriteCommandIds.Outline, "CmdOutline", "ListTree", "31", toggle: true)
-            .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true);
+            .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true)
+            .Add(WriteCommandIds.SectionsPane, "CmdSections", "Rows3", "33", toggle: true);
 
         Tabs = [home, layout, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();

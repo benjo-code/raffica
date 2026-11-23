@@ -119,6 +119,7 @@ internal sealed partial class WriteWindow
         [WriteCommandIds.WritingView] = () => SetView(WriteView.Writing),
         [WriteCommandIds.Outline] = ToggleOutline,
         [WriteCommandIds.FormattingPane] = ToggleFormatting,
+        [WriteCommandIds.SectionsPane] = ToggleSections,
         [WriteCommandIds.Undo] = () => RunEditFromUi(WriteCommandIds.Undo),
         [WriteCommandIds.Redo] = () => RunEditFromUi(WriteCommandIds.Redo),
         [WriteCommandIds.Cut] = () => RunEditFromUi(WriteCommandIds.Cut),
@@ -199,6 +200,7 @@ internal sealed partial class WriteWindow
             WriteCommandIds.FitPage => view.ZoomMode == ZoomMode.FitPage,
             WriteCommandIds.Outline => _outlineWanted,
             WriteCommandIds.FormattingPane => _formattingWanted,
+            WriteCommandIds.SectionsPane => _sectionsWanted,
             _ => false,
         };
     }

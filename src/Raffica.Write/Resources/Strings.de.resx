@@ -1473,4 +1473,85 @@
   <data name="PsEqualizeMany" xml:space="preserve">
     <value>Die eigenen Spaltenbreiten von {0} Abschnitten werden gleich breit gemacht.</value>
   </data>
+  <data name="CmdSections" xml:space="preserve">
+    <value>Abschnitte</value>
+  </data>
+  <data name="SectionsHint" xml:space="preserve">
+    <value>Eine Zeile für jeden Abschnitt. Die Bedienelemente ändern den Abschnitt, den die Zeile nennt.</value>
+  </data>
+  <data name="SectionsTooMany" xml:space="preserve">
+    <value>Dieses Dokument hat mehr als 200 Abschnitte, zu viele für diese Liste.</value>
+  </data>
+  <data name="SectionTitleFormat" xml:space="preserve">
+    <value>Abschnitt {0}</value>
+  </data>
+  <data name="SectionCurrent" xml:space="preserve">
+    <value>Aktueller Abschnitt</value>
+  </data>
+  <data name="SectionStartsOnPageFormat" xml:space="preserve">
+    <value>Beginnt auf Seite {0}</value>
+  </data>
+  <data name="SectionPageNotLaidOut" xml:space="preserve">
+    <value>Beginnt auf einer Seite, die noch nicht gesetzt ist</value>
+  </data>
+  <data name="SectionNumbersStartFormat" xml:space="preserve">
+    <value>Seitenzahlen beginnen bei {0}, {1}</value>
+  </data>
+  <data name="SectionNumbersContinue" xml:space="preserve">
+    <value>Seitenzahlen laufen weiter</value>
+  </data>
+  <data name="SectionNumbersContinueFormat" xml:space="preserve">
+    <value>Seitenzahlen laufen weiter, {0}</value>
+  </data>
+  <data name="SectionSetupFormat" xml:space="preserve">
+    <value>{0}, {1}, {2}</value>
+  </data>
+  <data name="SectionColumnsOne" xml:space="preserve">
+    <value>1 Spalte</value>
+  </data>
+  <data name="SectionColumnsFormat" xml:space="preserve">
+    <value>{0} Spalten</value>
+  </data>
+  <data name="SectionHeaderOwn" xml:space="preserve">
+    <value>Kopfzeile: eigene</value>
+  </data>
+  <data name="SectionHeaderSame" xml:space="preserve">
+    <value>Kopfzeile: wie vorher</value>
+  </data>
+  <data name="SectionFooterOwn" xml:space="preserve">
+    <value>Fußzeile: eigene</value>
+  </data>
+  <data name="SectionFooterSame" xml:space="preserve">
+    <value>Fußzeile: wie vorher</value>
+  </data>
+  <data name="SectionFirstPage" xml:space="preserve">
+    <value>Erste Seite anders</value>
+  </data>
+  <data name="SectionFirstOwnTip" xml:space="preserve">
+    <value>Der erste Abschnitt hat immer eigene Kopf- und Fußzeilen.</value>
+  </data>
+  <data name="SectionRemoveMarker" xml:space="preserve">
+    <value>Marker entfernen</value>
+  </data>
+  <data name="SectionRemoveTipFormat" xml:space="preserve">
+    <value>Fügt Abschnitt {0} mit Abschnitt {1} zusammen.</value>
+  </data>
+  <data name="SectionNumberFrom" xml:space="preserve">
+    <value>Ab hier nummerieren…</value>
+  </data>
+  <data name="SectionTakesOverFormat" xml:space="preserve">
+    <value>Abschnitt {0} übernimmt Seitenaufbau, Nummerierung und Kopf- und Fußzeilen von Abschnitt {1}.</value>
+  </data>
+  <data name="SectionButtonNameFormat" xml:space="preserve">
+    <value>{0}, Abschnitt {1}</value>
+  </data>
+  <data name="SectionsDocumentHeading" xml:space="preserve">
+    <value>Dokument</value>
+  </data>
+  <data name="SectionLeftRight" xml:space="preserve">
+    <value>Linke und rechte Seiten verschieden</value>
+  </data>
+  <data name="NoteSectionRowStale" xml:space="preserve">
+    <value>Die Abschnitte haben sich geändert. Es wurde nichts getan.</value>
+  </data>
 </root>

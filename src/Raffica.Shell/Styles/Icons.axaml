@@ -137,6 +137,7 @@
   <StreamGeometry x:Key="Raffica.Icon.ArrowDown01">M3 16l4 4 4 -4 M7 20V4 M17 4a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2 a2 2 0 0 1 -2 -2V6a2 2 0 0 1 2 -2z M17 20v-6h-2 M15 20h4</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.SeparatorHorizontal">M16 16l-4 4 -4 -4 M3 12h18 M8 8l4 -4 4 4</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.FoldVertical">M12 22v-6 M12 8V2 M4 12H2 M10 12H8 M16 12h-2 M22 12h-2 M15 19l-3 -3 -3 3 M15 5l-3 3 -3 -3</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Rows3">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M3 9h18 M3 15h18</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.PanelTop">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M3 9h18</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.BookOpenText">M12 5v16 M16 13h2 M16 9h2 M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0 -1.999 -2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0 -4 -2H4a2 2 0 0 0 -2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4 -2z M6 13h2 M6 9h2</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.Hash">M4 9h16 M4 15h16 M10 3l-2 18 M16 3l-2 18</StreamGeometry>
