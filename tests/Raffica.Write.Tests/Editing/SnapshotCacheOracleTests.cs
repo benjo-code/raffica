@@ -482,4 +482,45 @@ public sealed class SnapshotCacheOracleTests
         using var reopened = DocxFile.Open(target);
         Assert.Equal(SectionList.Of(model).Count, SectionList.Of(reopened.Model).Count);
     }
+
+    [Fact]
+    public void TheHeaderFooterCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        Assert.True(model.Body.Blocks.OfType<Paragraph>().Count() >= 4);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        var at = new TextPosition(StoryRef.Body, model.Body.Blocks.OfType<Paragraph>().ElementAt(2), 0);
+        Assert.NotNull(editor.InsertSectionBreak(at, SectionBreakKind.NextPage));
+        Check("break");
+        var last = SectionList.Of(model).Count - 1;
+        var steps = 1;
+        steps += editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, true) is null ? 0 : 1;
+        Check("own");
+        steps += editor.SetDifferentFirstPage(last, !SectionList.Of(model)[last].Properties.GetFlag(XName.Get("titlePg", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"))) is null ? 0 : 1;
+        Check("first page");
+        steps += editor.SetLeftRightPages(!(model.Settings?.EvenAndOddHeaders ?? false)) is null ? 0 : 1;
+        Check("left and right");
+        steps += editor.SetOwnHeaderFooter(last, HeaderFooterKind.Footer, HeaderFooterType.Default, false) is null ? 0 : 1;
+        Check("same as previous");
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < steps; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
 }
