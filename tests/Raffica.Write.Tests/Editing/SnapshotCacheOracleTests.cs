@@ -484,6 +484,46 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void PageSetupAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().ToList();
+        Assert.True(paragraphs.Count >= 4);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        TextPosition At(Paragraph paragraph) => new(StoryRef.Body, paragraph, 0);
+        var a3 = PagePresets.Size("A3");
+        var big = SectionPageSetup.Read(null) with { WidthTwips = a3.WidthTwips, HeightTwips = a3.HeightTwips, Columns = 2 };
+
+        Check("before");
+        Assert.NotNull(editor.ApplyPageSetup(At(paragraphs[2]), new PageSetupChange(big, PageSetupParts.Size | PageSetupParts.Columns), ApplyScope.FromHere));
+        Check("from here");
+        Assert.NotNull(editor.ApplyPageSetup(At(paragraphs[1]), new PageSetupChange(big.WithLandscape(true), PageSetupParts.Orientation), ApplyScope.WholeDocument));
+        Check("whole document");
+        Assert.NotNull(editor.ApplyPageSetup(At(paragraphs[0]), new PageSetupChange(big with { LeftTwips = 900 }, PageSetupParts.Margins), ApplyScope.ThisSection));
+        Check("this section");
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
