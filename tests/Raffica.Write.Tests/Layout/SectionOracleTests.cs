@@ -107,7 +107,7 @@ public sealed class SectionOracleTests
 
             var extra = new StringBuilder();
             extra.Append(CultureInfo.InvariantCulture, $"<w:type w:val=\"{(s % 2 == 0 ? "nextPage" : "continuous")}\"/>");
-            if (s % 3 == 1)
+            if (s > 0 && s % 2 == 0)
             {
                 extra.Append("<w:pgNumType w:start=\"5\" w:fmt=\"lowerRoman\"/>");
             }
@@ -134,6 +134,7 @@ public sealed class SectionOracleTests
     {
         var totals = new int[SectionSteps.Kinds];
         long pages = 0;
+        long skipped = 0;
         using var folder = new TempFolder();
         foreach (var entry in CorpusManifest.Load(Root).Files)
         {
@@ -147,6 +148,7 @@ public sealed class SectionOracleTests
             }
 
             pages += steps.PagesCompared;
+            skipped += steps.PagesSkipped;
         }
 
         foreach (var kind in Enum.GetValues<SectionKind>())
@@ -155,7 +157,8 @@ public sealed class SectionOracleTests
         }
 
         Assert.True(pages > 1000, $"only {pages} page numbers were compared with the reference");
-        TestContext.Current.SendDiagnosticMessage("section steps per kind on the corpus: " + string.Join(", ", Enum.GetValues<SectionKind>().Select(k => k + " " + totals[(int)k])) + $"; {pages} page numbers compared");
+        Assert.True(skipped * 10 < pages + skipped, $"{skipped} of {pages + skipped} page numbers were left out of the comparison on the corpus (more than 10 percent)");
+        TestContext.Current.SendDiagnosticMessage("section steps per kind on the corpus: " + string.Join(", ", Enum.GetValues<SectionKind>().Select(k => k + " " + totals[(int)k])) + $"; {pages} page numbers compared, {skipped} left out");
     }
 
     [Theory]
@@ -182,7 +185,31 @@ public sealed class SectionOracleTests
             Assert.True(compared > 0, $"{name}: no step changed anything");
         }
 
-        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} steps compared, {steps.PagesCompared} page numbers, refused {steps.RefusedPerKind.Sum()}, resections {steps.Resections}, numbers not compared in {steps.NumbersSkipped} steps");
+        TestContext.Current.SendDiagnosticMessage($"{name}: {compared} steps compared, {steps.PagesCompared} page numbers, refused {steps.RefusedPerKind.Sum()}, resections {steps.Resections}, {steps.PagesSkipped} of {steps.PagesCompared + steps.PagesSkipped} page numbers left out (unverified states)");
+    }
+
+    // The unverified states (a wrong-parity start on an even-page or odd-page section, a start on a continuous section) are left out of the number comparison, and only the pages they affect. On the three
+    // generated documents the allowance is reached at least once (so it is exercised) and stays under 10 percent of the compared pages.
+    [Fact]
+    public async Task TheUnverifiedStatesAreReachedOnTheGeneratedDocumentsAndStayBounded()
+    {
+        long compared = 0;
+        long skipped = 0;
+        using var folder = new TempFolder();
+        for (var i = 1; i <= 3; i++)
+        {
+            var name = "section-gen-" + i;
+            using var file = Open(name, folder);
+            var layout = await LaidAsync(file.Model);
+            var steps = new SectionSteps(file.Model, layout, new LayoutOptions());
+            await steps.RunAsync(RandomFor("bound " + name), 60, name);
+            compared += steps.PagesCompared;
+            skipped += steps.PagesSkipped;
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"generated documents: {compared} page numbers compared, {skipped} left out");
+        Assert.True(skipped > 0, "no step reached an unverified state: the allowance is not exercised");
+        Assert.True(skipped * 10 < compared + skipped, $"{skipped} of {compared + skipped} page numbers were left out of the comparison (more than 10 percent)");
     }
 
     [Theory]
@@ -246,7 +273,9 @@ public sealed class SectionOracleTests
         await file.SaveAsync(target, TestContext.Current.CancellationToken);
         using var reopened = DocxFile.Open(target);
         var second = await LaidAsync(reopened.Model);
-        SectionSteps.AssertNumbersEqualTheReference(second, reopened.Model, name + " reopened");
+        // The reopened file is compared with the reference as every step is (only the pages of the unverified states are left out).
+        var reopenedCheck = SectionSteps.CheckNumbers(second, reopened.Model, name + " reopened");
+        Assert.Equal(second.LaidOutPages, reopenedCheck.Compared + reopenedCheck.Skipped);
 
         // A section break that sits in the carrier paragraph survives the file; the numbers of the reopened document are those of the edited one.
         Assert.Equal(before, NumbersOf(second, reopened.Model));
@@ -327,7 +356,8 @@ public sealed class SectionWallClockTests
         var layout = await SectionOracleTests.LaidAsync(model);
         var editor = new TextEditor(model, (s, p) => layout.ProjectionHost(s, p));
         var blocks = model.Body.Blocks;
-        var block = Enumerable.Range(0, blocks.Count).First(i => blocks[i] is Paragraph && layout.Locate(i)?.Page == 2);
+        var starts = SectionList.Of(model).Select(s => s.FirstBlock).ToHashSet();
+        var block = Enumerable.Range(0, blocks.Count).First(i => blocks[i] is Paragraph && layout.Locate(i)?.Page == 2 && !starts.Contains(i));
         var at = new TextPosition(StoryRef.Body, (Paragraph)blocks[block], 0);
         var sectionsBefore = SectionList.Of(model).Count;
         var revision = model.Edits.Revision;
@@ -344,7 +374,9 @@ public sealed class SectionWallClockTests
         SectionSteps.AssertNumbersEqualTheReference(layout, model, "the thesis numbered from page three");
 
         var sectionsAfter = SectionList.Of(model).Count;
-        if (sectionsAfter > sectionsBefore)
+        // A paragraph in the middle of a section: the command splits it, so the removal below is always exercised.
+        Assert.Equal(sectionsBefore + 1, sectionsAfter);
+        long removedMs;
         {
             var section = SectionList.Of(model).Select((info, i) => (info, i)).First(x => x.info.FirstBlock >= block).i;
             watch.Restart();
@@ -356,8 +388,10 @@ public sealed class SectionWallClockTests
             Assert.Equal(2, editor.History.UndoCount);
             SectionSteps.AssertNumbersEqualTheReference(layout, model, "the thesis after the break was removed");
             Assert.Equal(sectionsBefore, SectionList.Of(model).Count);
+            removedMs = watch.ElapsedMilliseconds;
         }
 
+        Assert.True(removedMs < 5000, "removing the section break of the thesis took " + removedMs + " ms");
         Assert.True(numberedMs < 5000, "numbering the thesis from page three took " + numberedMs + " ms");
         while (editor.History.CanUndo)
         {

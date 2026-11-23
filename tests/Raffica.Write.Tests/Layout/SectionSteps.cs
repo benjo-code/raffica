@@ -32,6 +32,7 @@ internal enum SectionKind
 /// <see cref="TextEditor"/>, brought into the layout as the session does (a result that swapped section properties starts the layout over with <see cref="DocumentLayout.Resection"/>, any other
 /// is <see cref="DocumentLayout.ApplyEdit"/>) and compared with a full layout, exactly, and the page numbers drawn on the pages with the independent <see cref="ReferencePageNumbers"/>. A step the
 /// editor refuses (null, or no change) is counted as a refusal and compared nowhere, except an undo and a redo with something on the stack, which must always change something.
+/// The page-number comparison leaves out, and counts, only the pages of the unverified states (see <see cref="CheckNumbers"/> and <see cref="ReferencePageNumbers"/>); the generator avoids reaching them most of the time.
 /// </summary>
 internal sealed class SectionSteps
 {
@@ -94,8 +95,8 @@ internal sealed class SectionSteps
     /// <summary>False for the writing view (its strips are numbered by position, not by section): the layout is still compared with a full one.</summary>
     public bool CompareNumbers { get; set; } = true;
 
-    /// <summary>How many steps had their page numbers left uncompared (an even-page or odd-page section with a start of the wrong parity).</summary>
-    public int NumbersSkipped { get; private set; }
+    /// <summary>How many page numbers were left out of the comparison by the allowance for the unverified states (see <see cref="CheckNumbers"/>), summed over the steps.</summary>
+    public long PagesSkipped { get; private set; }
 
     /// <summary>How many steps started the layout over (a result with section properties).</summary>
     public int Resections { get; private set; }
@@ -164,14 +165,14 @@ internal sealed class SectionSteps
             case SectionKind.Undo:
                 if (!Editor.History.CanUndo)
                 {
-                    return false;
+                    return Refuse();
                 }
 
                 return await CheckAsync(Editor.History.Undo(), label, required: true);
             default:
                 if (!Editor.History.CanRedo)
                 {
-                    return false;
+                    return Refuse();
                 }
 
                 return await CheckAsync(Editor.History.Redo(), label, required: true);
@@ -200,31 +201,59 @@ internal sealed class SectionSteps
     {
         if (RandomCaret(random) is not { } at)
         {
-            return false;
+            return Refuse();
         }
 
         int?[] starts = [null, 1, 1, 5, 0, 12, 40];
+        var start = starts[random.Next(starts.Length)];
         var format = (PageNumberFormat)random.Next(5);
         var prefix = random.Next(3) == 0 ? "A-" : string.Empty;
-        return await CheckAsync(Editor.NumberPagesFrom(at, new PageNumbering(starts[random.Next(starts.Length)], format, prefix)), label, required: false);
+
+        // A caret that starts a section edits that section alone, whatever its type is. Two states are unverified against Word (see CheckNumbers): a start on a continuous section, which is never drawn here
+        // (the section keeps its count), and a start of the wrong parity on an even-page or odd-page section, which is drawn only one time in eight; a caret in the middle of a section makes a next-page section,
+        // where every start is fine.
+        var facts = Editor.ReadSectionFacts(at);
+        if (facts is { InBody: true, AtSectionStart: true })
+        {
+            var type = (string?)SectionList.Of(_model)[facts.Section].Properties.Get(W + "type")?.Attribute(W + "val");
+            if (type == "continuous")
+            {
+                start = null;
+            }
+            else if (start is { } value && type is "evenPage" or "oddPage" && random.Next(8) != 0)
+            {
+                start = type == "evenPage" ? value + (value % 2) : value + 1 - (value % 2);
+            }
+        }
+
+        return await CheckAsync(Editor.NumberPagesFrom(at, new PageNumbering(start, format, prefix)), label, required: false);
     }
 
     private async Task<bool> BreakAsync(Random random, string label)
     {
         if (SectionList.Of(_model).Count >= 10 || InsideSectionCaret(random) is not { } at)
         {
-            return false;
+            return Refuse();
         }
 
-        return await CheckAsync(Editor.InsertSectionBreak(at, (SectionBreakKind)random.Next(4)), label, required: false);
+        return await CheckAsync(Editor.InsertSectionBreak(at, BreakKindOf(random.Next(8))), label, required: false);
     }
+
+    // Next page and continuous are the usual ones; an even-page or odd-page break is one in four (its blank page is left out of the number comparison).
+    private static SectionBreakKind BreakKindOf(int draw) => draw switch
+    {
+        < 3 => SectionBreakKind.NextPage,
+        < 6 => SectionBreakKind.Continuous,
+        6 => SectionBreakKind.EvenPage,
+        _ => SectionBreakKind.OddPage,
+    };
 
     private async Task<bool> RemoveMarkerAsync(Random random, string label)
     {
         var count = SectionList.Of(_model).Count;
         if (count < 2)
         {
-            return false;
+            return Refuse();
         }
 
         return await CheckAsync(Editor.RemoveSectionBreak(1 + random.Next(count - 1)), label, required: false);
@@ -236,7 +265,7 @@ internal sealed class SectionSteps
         var sections = SectionList.Of(_model);
         if (sections.Count < 2)
         {
-            return false;
+            return Refuse();
         }
 
         var options = new List<(int Section, HeaderFooterKind Kind, HeaderFooterType Type)>();
@@ -257,7 +286,7 @@ internal sealed class SectionSteps
 
         if (options.Count == 0 || RandomCaret(random) is not { } caret)
         {
-            return false;
+            return Refuse();
         }
 
         var (section, k, t) = options[random.Next(options.Count)];
@@ -270,7 +299,7 @@ internal sealed class SectionSteps
         var section = random.Next(sections.Count);
         if (RandomCaret(random) is not { } caret)
         {
-            return false;
+            return Refuse();
         }
 
         return await CheckAsync(Editor.SetDifferentFirstPage(section, !sections[section].Properties.GetFlag(W + "titlePg"), caret), label, required: false);
@@ -280,7 +309,7 @@ internal sealed class SectionSteps
     {
         if (RandomCaret(random) is not { } at)
         {
-            return false;
+            return Refuse();
         }
 
         var look = (PageNumberLook)random.Next(4);
@@ -293,7 +322,7 @@ internal sealed class SectionSteps
     {
         if (RandomCaret(random) is not { } at)
         {
-            return false;
+            return Refuse();
         }
 
         var value = SectionPageSetup.Read(null);
@@ -355,11 +384,11 @@ internal sealed class SectionSteps
 
         await _layout.LayOutRestAsync(null, CancellationToken.None);
         LayoutOracle.AssertEqualToFull(_layout, _model, _options, label);
-        var comparedPages = CompareNumbers ? AssertNumbersEqualTheReference(_layout, _model, label) : 0;
-        PagesCompared += comparedPages;
-        if (CompareNumbers && comparedPages == 0)
+        if (CompareNumbers)
         {
-            NumbersSkipped++;
+            var check = CheckNumbers(_layout, _model, label);
+            PagesCompared += check.Compared;
+            PagesSkipped += check.Skipped;
         }
 
         Compared++;
@@ -369,33 +398,66 @@ internal sealed class SectionSteps
         return true;
     }
 
+    private bool Refuse()
+    {
+        RefusedPerKind[(int)_kind]++;
+        return false;
+    }
+
+    /// <summary>The pages whose number was compared with the reference and the pages left out by the bounded allowance (see <see cref="CheckNumbers"/>).</summary>
+    internal readonly record struct NumberCheck(int Compared, int Skipped);
+
+    /// <summary>Fails when the page numbers drawn by the layout differ from the independent count (and returns how many pages were compared and how many were left out).</summary>
+    public static int AssertNumbersEqualTheReference(DocumentLayout layout, WordDocument model, string label) => CheckNumbers(layout, model, label).Compared;
+
     /// <summary>
-    /// Fails when the page numbers drawn by the layout differ from the independent count; returns the number of pages compared. Two states are not compared, because what Word does there is not settled
-    /// and the layout's choice is not the reference's: a page that may be the blank page of an even-page or odd-page section (the layout gives it the format of the section after it), and any document where an
-    /// even-page or odd-page section has a <c>w:start</c> of the wrong parity (the layout then numbers the blank page with the start and the section's first page start + 1; the reference starts the section's
-    /// first page at the start). The page layout itself is still compared with a full layout in both.
+    /// Compares the page numbers drawn by the layout with <see cref="ReferencePageNumbers"/>, every page exactly, except the pages of the <b>unverified states</b>, which are left out and counted
+    /// (<see cref="NumberCheck.Skipped"/>). A page is left out when
+    /// <list type="bullet">
+    /// <item>it may be the blank page of an even-page or odd-page section (<see cref="DrawnPageNumbers"/>: the layout gives it the format of the section after it; what Word does is not documented), or</item>
+    /// <item>it belongs to a section whose rule is unverified, or to the pages after one up to (excluding) the next page where another section restarts with an explicit <c>w:start</c> (the count after an
+    /// unverified section depends on what it did): an even-page or odd-page section whose <c>w:start</c> has the wrong parity (the layout numbers the blank page with the start and the section's first page
+    /// start + 1; the reference starts that page at the start; Word may refuse the start or change it), and a continuous section that carries a <c>w:start</c> (the sources disagree on whether Word restarts
+    /// there: see <see cref="ReferencePageNumbers"/>).</item>
+    /// </list>
+    /// Every other page, in every other section, is compared exactly; the oracle's generator avoids reaching these states most of the time and the tests bound the left-out share.
     /// </summary>
-    public static int AssertNumbersEqualTheReference(DocumentLayout layout, WordDocument model, string label)
+    internal static NumberCheck CheckNumbers(DocumentLayout layout, WordDocument model, string label)
     {
         var sections = ReferencePageNumbers.Sections(model);
-        var wrongParity = sections.Any(s =>
+        bool Unverified(int index)
         {
+            var s = sections[Math.Min(index, sections.Count - 1)];
             var type = (string?)s?.Get(W + "type")?.Attribute(W + "val");
-            return type is "evenPage" or "oddPage"
-                && int.TryParse((string?)s!.Get(W + "pgNumType")?.Attribute(W + "start"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start)
-                && (type == "evenPage" ? start % 2 != 0 : start % 2 == 0);
-        });
+            var hasStart = int.TryParse((string?)s?.Get(W + "pgNumType")?.Attribute(W + "start"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start);
+            return hasStart && (type == "continuous" || (type == "evenPage" && start % 2 != 0) || (type == "oddPage" && start % 2 == 0));
+        }
+
+        bool HasStart(int index) =>
+            sections[Math.Min(index, sections.Count - 1)]?.Get(W + "pgNumType")?.Attribute(W + "start") is not null;
+
         var drawn = DrawnPageNumbers.Read(layout, model);
-        if (wrongParity)
+        var left = new bool[drawn.Count];
+        var skipping = false;
+        for (var p = 0; p < drawn.Count; p++)
         {
-            return 0;
+            if (Unverified(drawn[p].Section))
+            {
+                skipping = true;
+            }
+            else if (drawn[p].StartsSection && HasStart(drawn[p].Section))
+            {
+                skipping = false;
+            }
+
+            left[p] = skipping || drawn[p].MaybeBlank;
         }
 
         var expected = ReferencePageNumbers.Numbers(model, [.. drawn.Select(d => d.Section)], [.. drawn.Select(d => d.StartsSection)]);
-        var differing = Enumerable.Range(0, drawn.Count).Where(p => !drawn[p].MaybeBlank && expected[p] != drawn[p].Number).ToList();
+        var differing = Enumerable.Range(0, drawn.Count).Where(p => !left[p] && expected[p] != drawn[p].Number).ToList();
         Assert.True(
             differing.Count == 0,
-            $"{label}: the drawn page numbers [{string.Join(",", drawn.Select(d => d.Number))}] differ from the reference [{string.Join(",", expected)}]; section of each page [{string.Join(",", drawn.Select(d => d.Section + (d.StartsSection ? "!" : string.Empty) + (d.MaybeBlank ? "_" : string.Empty)))}]; sections: {string.Join(" / ", sections.Select(s => s is null ? "none" : string.Concat(s.Get(W + "type")?.ToString() ?? "no type", s.Get(W + "pgNumType")?.ToString() ?? "no numbering")))}");
-        return drawn.Count(d => !d.MaybeBlank);
+            $"{label}: the drawn page numbers [{string.Join(",", drawn.Select(d => d.Number))}] differ from the reference [{string.Join(",", expected)}] at pages [{string.Join(",", differing)}]; section of each page [{string.Join(",", drawn.Select((d, p) => d.Section + (d.StartsSection ? "!" : string.Empty) + (left[p] ? "_" : string.Empty)))}]; sections: {string.Join(" / ", sections.Select(s => s is null ? "none" : string.Concat(s.Get(W + "type")?.ToString() ?? "no type", s.Get(W + "pgNumType")?.ToString() ?? "no numbering")))}");
+        return new NumberCheck(left.Count(l => !l), left.Count(l => l));
     }
 }

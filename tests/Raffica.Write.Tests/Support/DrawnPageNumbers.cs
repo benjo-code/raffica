@@ -15,7 +15,7 @@ internal static class DrawnPageNumbers
     /// before it, the first one to section 0).
     /// <para>
     /// <c>StartsSection</c> is true when the block at the top of the page is the first block of its section, starts on this page, and the section begins a page: it is not a continuous one, or its paper
-    /// (width and height) differs from the section before (a continuous section on other paper starts a new page, as in Word); the first page of the document is always one. Only a section that begins
+    /// (width and height) differs from the section before (both rules are UNVERIFIED against Word, see <see cref="ReferencePageNumbers"/>); the first page of the document is always one. Only a section that begins
     /// a page restarts the count; a continuous section that starts in the middle of a page and runs on to the next page does not (the page it starts on has its number already).
     /// </para>
     /// <para>

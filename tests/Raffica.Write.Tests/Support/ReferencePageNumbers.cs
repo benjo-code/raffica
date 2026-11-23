@@ -9,6 +9,18 @@ namespace Raffica.Write.Tests.Support;
 /// The page numbers of a document counted from its sections alone (no field context, no <c>PageNumbers.Format</c>, no layout type): the first page of a section with
 /// <c>w:pgNumType w:start</c> gets that number, any other page the previous number plus one, the first page of the document is 1 without a start. The format comes from
 /// <c>w:fmt</c>. It is the oracle of the layout's numbers: change it only to follow Word's documented behaviour, never to follow the layout.
+/// <para>
+/// <b>Sources.</b> ECMA-376 Part 1, 17.6.12 pgNumType: <c>w:start</c> is the number of the first page of the section, <c>w:fmt</c> the format; without a start the count continues from the section before
+/// (the Word 2003 XML reference says the same; MS-OI29500 2.1.219 only narrows the value to an unsigned 32-bit integer). A letter format counts a, b, ... z, aa, bb, ... (Word's rule). That is all the
+/// reference is built on. A page begins its section when it is the page the section's first block starts on and the section starts a page (see <c>DrawnPageNumbers</c>).
+/// </para>
+/// <para>
+/// <b>UNVERIFIED rules (not established from a documentation source; the oracle leaves the affected pages out, see <c>SectionSteps.CheckNumbers</c>, and the Word check of Task 16 decides them).</b>
+/// (1) A continuous section on the same paper that carries a <c>w:start</c> does not restart the count (this reference computes it that way; Microsoft Q&amp;A answers disagree: one says continuous breaks restart
+/// like any other, another that Word reads them as next-page breaks for page numbering; Aspose documents a mode that restarts only when no content precedes the section on its page). (2) A continuous section
+/// on other paper starts a new page and so restarts (generally known, no source found). (3) The blank page Word inserts before an even-page or odd-page section: which number and format it gets, and what
+/// Word does with a <c>w:start</c> of the wrong parity (a forum report says Word will not start an even-page section at 1 and starts at 2).
+/// </para>
 /// </summary>
 internal static class ReferencePageNumbers
 {

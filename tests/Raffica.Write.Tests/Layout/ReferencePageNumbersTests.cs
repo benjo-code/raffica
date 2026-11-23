@@ -134,6 +134,7 @@ public sealed class ReferencePageNumbersTests
         Assert.Equal(["1", "2", "3", "4"], Drawn(Page("a") + Page("b") + Break(string.Empty) + Page("c") + Page("d") + Final()));
     }
 
+    // UNVERIFIED against Word (see ReferencePageNumbers): the rule for a continuous section that carries a start. It pins the reference and the layout to each other, nothing more.
     // A continuous section sets a start of 5. Its first paragraph breaks the page itself: on the same paper the section is still not the one that began page 2 (the page break did), so the count goes on; on other paper it starts a new page and restarts.
     [Theory]
     [InlineData(false, "2", "3")]
