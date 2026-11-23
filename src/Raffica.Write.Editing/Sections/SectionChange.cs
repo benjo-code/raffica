@@ -10,9 +10,16 @@ public sealed record SectionSwap(SectionProperties Live, SectionProperties Old, 
 
 /// <summary>
 /// A change of section properties, as the history keeps it: every swap and the flag of left and right pages (<c>w:evenAndOddHeaders</c> of the settings part) before and after (null when
-/// the step did not touch it). Undo and redo apply all swaps and the flag, or none. A layout built before such a step is stale: its owner starts it over (<see cref="EditResult.Sections"/>).
+/// the step did not touch it). <paramref name="CarriersBefore"/> and <paramref name="CarriersAfter"/> name, in order, the section objects of the break paragraphs inside the step's old and new blocks
+/// (a step that adds or removes a break): undo and redo put those very objects back on the restored paragraphs, so a step recorded earlier on one of them can still be undone.
+/// Undo and redo apply all swaps and the flag, or none. A layout built before such a step is stale: its owner starts it over (<see cref="EditResult.Sections"/>).
 /// </summary>
-public sealed record SectionChange(IReadOnlyList<SectionSwap> Swaps, bool? EvenAndOddBefore, bool? EvenAndOddAfter)
+public sealed record SectionChange(
+    IReadOnlyList<SectionSwap> Swaps,
+    bool? EvenAndOddBefore,
+    bool? EvenAndOddAfter,
+    IReadOnlyList<SectionProperties>? CarriersBefore = null,
+    IReadOnlyList<SectionProperties>? CarriersAfter = null)
 {
     /// <summary>
     /// The block changes to attribute (<see cref="DocumentEdits.Attribute"/>) besides the ones of the operation: a section break lives in the paragraph that carries it, so a swap of its properties

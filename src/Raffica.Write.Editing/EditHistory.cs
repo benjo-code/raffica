@@ -135,7 +135,7 @@ public sealed class EditHistory
             return null;
         }
 
-        Swap(container, step.First, step.New.Length, step.Old);
+        Swap(container, step.First, step.New.Length, step.Old, step.Sections?.CarriersBefore);
         SwapSections(step, undo: true);
         _undo.RemoveAt(_undo.Count - 1);
         _undoBytes -= step.Bytes;
@@ -169,7 +169,7 @@ public sealed class EditHistory
             return null;
         }
 
-        Swap(container, step.First, step.Old.Length, step.New);
+        Swap(container, step.First, step.Old.Length, step.New, step.Sections?.CarriersAfter);
         SwapSections(step, undo: false);
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(step);
@@ -523,7 +523,7 @@ public sealed class EditHistory
     // names it. When the removed range and the inserted range hold the same number of section breaks (a typing step in a carrier paragraph, a split, a join), the n-th inserted break takes
     // the content of its clone into the n-th removed break's object and that object stays in the document. A step that adds or removes a break has no such pairing; a later section step
     // on a break it detached is then refused whole by SectionsApplicable (never skipped).
-    private static void Swap(IList<Block> container, int first, int remove, Block[] insert)
+    private void Swap(IList<Block> container, int first, int remove, Block[] insert, IReadOnlyList<SectionProperties>? identities = null)
     {
         var removedBreaks = Carriers(container, first, remove);
         if (container is List<Block> list)
@@ -544,12 +544,24 @@ public sealed class EditHistory
             }
         }
 
+        var insertedBreaks = Carriers(container, first, insert.Length);
+        if (identities is { Count: > 0 } && insertedBreaks.Count == identities.Count && !AnyInDocument(identities))
+        {
+            // The step names the section objects its break paragraphs had: they come back, with the content of the restored breaks.
+            for (var i = 0; i < identities.Count; i++)
+            {
+                identities[i].CopyContentFrom(insertedBreaks[i].SectionBreak!);
+                insertedBreaks[i].SectionBreak = identities[i];
+            }
+
+            return;
+        }
+
         if (removedBreaks.Count == 0)
         {
             return;
         }
 
-        var insertedBreaks = Carriers(container, first, insert.Length);
         if (insertedBreaks.Count != removedBreaks.Count)
         {
             return;
@@ -561,6 +573,13 @@ public sealed class EditHistory
             live.CopyContentFrom(insertedBreaks[i].SectionBreak!);
             insertedBreaks[i].SectionBreak = live;
         }
+    }
+
+    // True when one of the objects is a section of the document now (an identity must never be attached twice).
+    private bool AnyInDocument(IReadOnlyList<SectionProperties> sections)
+    {
+        var present = new HashSet<SectionProperties>(SectionList.Of(_document).Select(section => section.Properties), ReferenceEqualityComparer.Instance);
+        return sections.Any(present.Contains);
     }
 
     // The paragraphs with a section break in a range of blocks, in order, looking through content controls as SectionList does.

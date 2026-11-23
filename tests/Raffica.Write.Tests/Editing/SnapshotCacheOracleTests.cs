@@ -435,4 +435,51 @@ public sealed class SnapshotCacheOracleTests
         Assert.NotNull(history.Undo());
         await CheckAsync("undo again");
     }
+
+    [Fact]
+    public async Task TheSectionCommandsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().ToList();
+        Assert.True(paragraphs.Count >= 4);
+        using var folder = new Support.TempFolder();
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        TextPosition At(Paragraph paragraph) => new(StoryRef.Body, paragraph, 0);
+
+        Check("before");
+        Assert.NotNull(editor.NumberPagesFrom(At(paragraphs[2]), new PageNumbering(1, PageNumberFormat.UpperRoman, "A-")));
+        Check("number from here");
+        Assert.NotNull(editor.InsertSectionBreak(At(paragraphs[1]), SectionBreakKind.Continuous));
+        Check("break");
+        Assert.NotNull(editor.NumberPagesFrom(At(paragraphs[0]), new PageNumbering(4, PageNumberFormat.Decimal, string.Empty)));
+        Check("number the first section");
+        Assert.NotNull(editor.RemoveSectionBreak(1));
+        Check("remove");
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        // A copy written now holds the same body as a full save of the model.
+        var target = folder.File("copy.docx");
+        await file.SaveSnapshotAsync(target, TestContext.Current.CancellationToken);
+        using var reopened = DocxFile.Open(target);
+        Assert.Equal(SectionList.Of(model).Count, SectionList.Of(reopened.Model).Count);
+    }
 }
