@@ -82,8 +82,7 @@ public sealed partial class TextEditor
 
         ApplyNumbering(split.Later, numbering);
         WriteFooters(numbering, section + 1, split.Later);
-        var change = new SectionChange([new SectionSwap(split.Later, split.OldLater, split.Later.Clone())], null, null, null, [split.CarrierProperties]);
-        return CommitSections(revision, change, split.Change, new TextPosition(StoryRef.Body, split.Carrier, 0), before);
+        return CommitSections(revision, SplitChange(split), split.Change, CaretAfterSplit(at, split), before);
     }
 
     /// <summary>
@@ -105,8 +104,7 @@ public sealed partial class TextEditor
             return null;
         }
 
-        var change = new SectionChange([new SectionSwap(split.Later, split.OldLater, split.Later.Clone())], null, null, null, [split.CarrierProperties]);
-        return CommitSections(revision, change, split.Change, new TextPosition(StoryRef.Body, split.Carrier, 0), before);
+        return CommitSections(revision, SplitChange(split), split.Change, CaretAfterSplit(at, split), before);
     }
 
     /// <summary>
@@ -174,6 +172,15 @@ public sealed partial class TextEditor
         return CommitSections(revision, change, null, at, new EditHistory.Point(found.Index, at.Offset));
     }
 
+    // The swap of the later half and the carrier's new section object, which undo and redo keep (SectionChange.CarriersAfter).
+    private static SectionChange SplitChange(SectionSplit split) =>
+        new([new SectionSwap(split.Later, split.OldLater, split.Later.Clone())], null, null, null, [split.CarrierProperties]);
+
+    // The caret stays where the user had it when that is a top-level paragraph (the history step needs a caret paragraph in the changed list); a caret in a table or a control is replaced by the
+    // carrier, and the session keeps the selection it has (EditResult.KeepSelection).
+    private TextPosition CaretAfterSplit(TextPosition at, SectionSplit split) =>
+        _document.Body.Blocks.Any(block => ReferenceEquals(block, at.Paragraph)) ? at : new TextPosition(StoryRef.Body, split.Carrier, 0);
+
     private EditResult CommitSections(int revision, SectionChange change, BlockChange? block, TextPosition caret, EditHistory.Point before)
     {
         _document.Edits.Raise();
@@ -230,16 +237,35 @@ public sealed partial class TextEditor
             throw new ArgumentOutOfRangeException(nameof(numbering), start, "The first page number is 0 to 99999.");
         }
 
-        if (numbering.Prefix.Length > MaximumPrefixLength || numbering.Prefix.Any(char.IsControl))
+        if (numbering.Prefix.Length > MaximumPrefixLength || !IsSerializable(numbering.Prefix))
         {
-            throw new ArgumentException("The prefix is at most 32 characters and holds no control character.", nameof(numbering));
+            throw new ArgumentException("The prefix is at most 32 characters and holds no control character or other character a document cannot store.", nameof(numbering));
         }
+    }
+
+    // Text the XML writer can store: no control character, no lone surrogate, not U+FFFE or U+FFFF.
+    private static bool IsSerializable(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                i++;
+            }
+            else if (char.IsControl(c) || char.IsSurrogate(c) || !System.Xml.XmlConvert.IsXmlChar(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void ApplyNumbering(SectionProperties properties, PageNumbering numbering)
     {
         var element = properties.Get(W + "pgNumType");
-        if (element is null && numbering.Start is null && numbering.Format == PageNumberFormat.Decimal)
+        if (element is null && numbering.Start is null && numbering.Format == PageNumberFormat.Arabic)
         {
             return;
         }
@@ -262,7 +288,7 @@ public sealed partial class TextEditor
         }
     }
 
-    // Every footer type the section shows gets the number: a type that resolves to a footer with a PAGE field is left alone (without a prefix), any other gets an own part and reference.
+    // Every footer type the section shows gets the number (see FooterNumbering for the rule per type).
     private void WriteFooters(PageNumbering numbering, int section, SectionProperties properties)
     {
         var types = new List<HeaderFooterType> { HeaderFooterType.Default };
@@ -280,197 +306,11 @@ public sealed partial class TextEditor
         {
             var (reference, _) = SectionList.Resolve(SectionList.Of(_document), section, HeaderFooterKind.Footer, type);
             var source = reference is not null && _document.HeadersFooters.TryGetValue(reference.RelationshipId, out var part) ? part.Content : null;
-            var holdsPage = source is not null && StoryHoldsPage(source.Blocks, 0);
-            if (holdsPage && numbering.Prefix.Length == 0)
+            if (FooterNumbering.Write(_document, source, numbering) is { } id)
             {
-                continue;
-            }
-
-            var id = HeaderFooterParts.Create(_document, HeaderFooterKind.Footer, source);
-            var blocks = _document.HeadersFooters[id].Content.Blocks;
-            if (!(holdsPage && PrefixEveryPage(blocks, numbering.Prefix)))
-            {
-                AddNumberParagraph(blocks, numbering, holdsPage);
-            }
-
-            SetFooterReference(properties, type, id);
-        }
-    }
-
-    // A footer that holds a PAGE field the prefix cannot be put before (it is inside a hyperlink, say) is replaced by the number alone; any other footer keeps its content and gets the number below it.
-    private void AddNumberParagraph(IList<Block> blocks, PageNumbering numbering, bool replaceAll)
-    {
-        var number = PageNumberField.Build(
-            PageNumberLook.Plain,
-            PageNumberAlign.Center,
-            numbering.Prefix,
-            string.Empty,
-            string.Empty,
-            (numbering.Start ?? 1).ToString(CultureInfo.InvariantCulture),
-            "1");
-        if (_document.Styles?.Find("Footer") is not null)
-        {
-            number.Properties.StyleId = "Footer";
-        }
-
-        if (replaceAll || (blocks.Count == 1 && blocks[0] is Paragraph { Inlines.Count: 0 }))
-        {
-            blocks.Clear();
-        }
-
-        blocks.Add(number);
-    }
-
-    // Puts the prefix before the PAGE field of every paragraph that holds one; false (the blocks may be half done, the caller replaces them) when a PAGE field is not at the top level of its paragraph.
-    private static bool PrefixEveryPage(IList<Block> blocks, string prefix)
-    {
-        var paragraphs = new List<Paragraph>();
-        CollectParagraphs(blocks, paragraphs, 0);
-        foreach (var paragraph in paragraphs)
-        {
-            if (PageNumberField.HoldsPage(paragraph) && !InsertPrefix(paragraph, prefix))
-            {
-                return false;
+                FooterNumbering.SetReference(properties, type, id);
             }
         }
-
-        return true;
-    }
-
-    private static bool InsertPrefix(Paragraph paragraph, string prefix)
-    {
-        var inlines = paragraph.Inlines;
-        for (var i = 0; i < inlines.Count; i++)
-        {
-            Run? template = null;
-            if (inlines[i] is SimpleField simple && IsPage(simple.Instruction))
-            {
-                template = new Run();
-            }
-            else if (inlines[i] is Run run && run.Content.Any(c => c is FieldChar { Kind: FieldCharKind.Begin }) && IsPage(InstructionAfter(inlines, i)))
-            {
-                template = run.Clone();
-                template.Content.Clear();
-            }
-
-            if (template is null)
-            {
-                continue;
-            }
-
-            if (i > 0 && inlines[i - 1] is Run { Content.Count: > 0 } previous && previous.Content[^1] is TextContent text && text.Text.EndsWith(prefix, StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            template.Content.Add(new TextContent(prefix));
-            inlines.Insert(i, template);
-            return true;
-        }
-
-        return false;
-    }
-
-    private static string InstructionAfter(IList<Inline> inlines, int begin)
-    {
-        var text = new StringBuilder();
-        for (var j = begin; j < inlines.Count && inlines[j] is Run run; j++)
-        {
-            foreach (var content in run.Content)
-            {
-                switch (content)
-                {
-                    case InstructionText instruction:
-                        text.Append(instruction.Text);
-                        break;
-                    case FieldChar { Kind: FieldCharKind.Separate or FieldCharKind.End }:
-                        return text.ToString();
-                    default:
-                        break;
-                }
-            }
-        }
-
-        return text.ToString();
-    }
-
-    private static bool IsPage(string instruction)
-    {
-        var text = instruction.AsSpan().TrimStart();
-        var end = text.IndexOfAny(' ', '\t');
-        return (end < 0 ? text : text[..end]).Equals("PAGE", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool StoryHoldsPage(IList<Block> blocks, int depth)
-    {
-        var paragraphs = new List<Paragraph>();
-        CollectParagraphs(blocks, paragraphs, depth);
-        return paragraphs.Any(PageNumberField.HoldsPage);
-    }
-
-    // The paragraphs of a header or footer, tables and block content controls included (a built-in page-number footer is a control around its paragraph).
-    private static void CollectParagraphs(IList<Block> blocks, List<Paragraph> into, int depth)
-    {
-        if (depth > 32)
-        {
-            return;
-        }
-
-        foreach (var block in blocks)
-        {
-            switch (block)
-            {
-                case Paragraph paragraph:
-                    into.Add(paragraph);
-                    break;
-                case ContentControlBlock control:
-                    CollectParagraphs(control.Content, into, depth + 1);
-                    break;
-                case Table table:
-                    foreach (var row in table.Rows)
-                    {
-                        CollectParagraphs(row, into, depth + 1);
-                    }
-
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-
-    private static void CollectParagraphs(RowItem item, List<Paragraph> into, int depth)
-    {
-        switch (item)
-        {
-            case TableRow row:
-                foreach (var child in row.Items)
-                {
-                    CollectParagraphs(child, into, depth + 1);
-                }
-
-                break;
-            case TableCell cell:
-                CollectParagraphs(cell.Blocks, into, depth + 1);
-                break;
-            default:
-                break;
-        }
-    }
-
-    private static void SetFooterReference(SectionProperties properties, HeaderFooterType type, string id)
-    {
-        var references = properties.HeaderFooterReferences;
-        for (var i = 0; i < references.Count; i++)
-        {
-            if (references[i].Kind == HeaderFooterKind.Footer && references[i].Type == type)
-            {
-                references[i] = new HeaderFooterReference(HeaderFooterKind.Footer, type, id) { BagPosition = references[i].BagPosition };
-                return;
-            }
-        }
-
-        references.Add(new HeaderFooterReference(HeaderFooterKind.Footer, type, id));
     }
 
     private static bool IsOn(XElement element) =>

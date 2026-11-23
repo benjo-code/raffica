@@ -1,11 +1,10 @@
 namespace Raffica.Write.Editing;
 
 /// <summary>The format of the page numbers of a section (<c>w:pgNumType</c> <c>w:fmt</c>).</summary>
-[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "The member is the OOXML number format decimal and the name every caller of the plan uses.")]
 public enum PageNumberFormat
 {
     /// <summary>1, 2, 3.</summary>
-    Decimal,
+    Arabic,
 
     /// <summary>i, ii, iii.</summary>
     LowerRoman,

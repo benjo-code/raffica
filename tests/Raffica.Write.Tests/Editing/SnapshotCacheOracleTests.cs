@@ -460,7 +460,7 @@ public sealed class SnapshotCacheOracleTests
         Check("number from here");
         Assert.NotNull(editor.InsertSectionBreak(At(paragraphs[1]), SectionBreakKind.Continuous));
         Check("break");
-        Assert.NotNull(editor.NumberPagesFrom(At(paragraphs[0]), new PageNumbering(4, PageNumberFormat.Decimal, string.Empty)));
+        Assert.NotNull(editor.NumberPagesFrom(At(paragraphs[0]), new PageNumbering(4, PageNumberFormat.Arabic, string.Empty)));
         Check("number the first section");
         Assert.NotNull(editor.RemoveSectionBreak(1));
         Check("remove");

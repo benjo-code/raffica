@@ -19,7 +19,7 @@ public sealed class SectionEditingTests
 {
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-    private static readonly PageNumbering PlainOne = new(1, PageNumberFormat.Decimal, string.Empty);
+    private static readonly PageNumbering PlainOne = new(1, PageNumberFormat.Arabic, string.Empty);
 
     private static TextEditor Editor(WordDocument document) => new(document, (_, _) => ProjectionHost.Plain);
 
@@ -197,7 +197,7 @@ public sealed class SectionEditingTests
         var layout = Lay(document);
         var editor = Editor(document);
 
-        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), new PageNumbering(1, PageNumberFormat.Decimal, "A-")));
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), new PageNumbering(1, PageNumberFormat.Arabic, "A-")));
 
         Assert.Equal(["1", "2", "A-1"], Feet(document));
         var own = SectionList.Of(document)[1].Properties.HeaderFooterReferences.Single(r => r.Kind == HeaderFooterKind.Footer);
@@ -205,8 +205,12 @@ public sealed class SectionEditingTests
         Assert.Equal(2, document.HeadersFooters.Count);
         Assert.Contains(SectionList.Of(document)[0].Properties.HeaderFooterReferences, r => r.RelationshipId == "fA");
         LayoutAgrees(layout, document, "appendix");
-        // The same prefix again changes nothing in the text (no "A-A-1").
-        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), new PageNumbering(1, PageNumberFormat.Decimal, "A-")));
+        // The same prefix again changes nothing: no "A-A-1", no new part, no step.
+        var parts = document.HeadersFooters.Count;
+        var steps = editor.History.UndoCount;
+        Assert.Null(editor.NumberPagesFrom(At(document, 2), new PageNumbering(1, PageNumberFormat.Arabic, "A-")));
+        Assert.Equal(parts, document.HeadersFooters.Count);
+        Assert.Equal(steps, editor.History.UndoCount);
         Assert.Equal(["1", "2", "A-1"], Feet(document));
     }
 
@@ -216,7 +220,7 @@ public sealed class SectionEditingTests
         var footer = FooterPart(Para(Text("Thesis ") + Field("PAGE", "1")));
         var document = Doc(P("p1") + Pg("p2") + Sect(Footer("default", "fA")), Parts(("fA", footer)));
 
-        Assert.NotNull(Editor(document).NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Decimal, "A-")));
+        Assert.NotNull(Editor(document).NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Arabic, "A-")));
 
         Assert.Equal(["Thesis 1", "Thesis A-1"], Feet(document));
     }
@@ -257,6 +261,7 @@ public sealed class SectionEditingTests
         var after = Snapshot(document);
         Assert.Equal(before.Count + 1, after.Count);
         Assert.Equal(before.Skip(1), after.Skip(2));
+        NumbersAgree(document);
     }
 
     [Fact]
@@ -286,8 +291,8 @@ public sealed class SectionEditingTests
         var editor = Editor(document);
 
         Assert.True(editor.ReadSectionFacts(At(document, 0)).AtSectionStart);
-        Assert.NotNull(editor.NumberPagesFrom(At(document, 0), new PageNumbering(5, PageNumberFormat.Decimal, string.Empty)));
-        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), new PageNumbering(9, PageNumberFormat.Decimal, string.Empty)));
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 0), new PageNumbering(5, PageNumberFormat.Arabic, string.Empty)));
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), new PageNumbering(9, PageNumberFormat.Arabic, string.Empty)));
 
         Assert.Equal(2, SectionList.Of(document).Count);
         Assert.Null(editor.InsertSectionBreak(At(document, 0), SectionBreakKind.NextPage));
@@ -511,7 +516,7 @@ public sealed class SectionEditingTests
         {
             var (file, document) = Blank3();
             using var _ = file;
-            Assert.NotNull(Editor(document).NumberPagesFrom(At(document, 2), new PageNumbering(1, PageNumberFormat.Decimal, "A-")));
+            Assert.NotNull(Editor(document).NumberPagesFrom(At(document, 2), new PageNumbering(1, PageNumberFormat.Arabic, "A-")));
             var path = Path.Combine(folder, "numbered.docx");
             await file.SaveAsync(path, TestContext.Current.CancellationToken);
 
@@ -565,7 +570,7 @@ public sealed class SectionEditingTests
 
         Assert.NotNull(editor.NumberPagesFrom(At(document, 2), PlainOne));
         // A step on the earlier section, whose end properties are the carrier's object.
-        Assert.NotNull(editor.NumberPagesFrom(At(document, 0), new PageNumbering(4, PageNumberFormat.Decimal, string.Empty)));
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 0), new PageNumbering(4, PageNumberFormat.Arabic, string.Empty)));
         Assert.NotNull(editor.RemoveSectionBreak(1));
         Assert.Equal(3, editor.History.UndoCount);
 
@@ -627,12 +632,12 @@ public sealed class SectionEditingTests
         var editor = Editor(document);
         var before = Snapshot(document);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(100000, PageNumberFormat.Decimal, string.Empty)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(-1, PageNumberFormat.Decimal, string.Empty)));
-        Assert.Throws<ArgumentException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Decimal, "A\n")));
-        Assert.Throws<ArgumentException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Decimal, new string('x', 33))));
+        Assert.Throws<ArgumentOutOfRangeException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(100000, PageNumberFormat.Arabic, string.Empty)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(-1, PageNumberFormat.Arabic, string.Empty)));
+        Assert.Throws<ArgumentException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Arabic, "A\n")));
+        Assert.Throws<ArgumentException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Arabic, new string('x', 33))));
         Assert.Equal(before, Snapshot(document));
-        Assert.NotNull(editor.NumberPagesFrom(At(document, 1), new PageNumbering(0, PageNumberFormat.Decimal, string.Empty)));
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 1), new PageNumbering(0, PageNumberFormat.Arabic, string.Empty)));
         Assert.NotNull(editor.NumberPagesFrom(At(document, 1), new PageNumbering(null, PageNumberFormat.LowerLetter, "x")));
     }
 
@@ -703,7 +708,7 @@ public sealed class SectionEditingTests
     }
 
     [Fact]
-    public void NoSectionRaiseSiteAttributesOnlyTheBlockChanges()
+    public void SectionResultsAreAttributedWithTheirCarriers()
     {
         // A section result must be attributed with its carriers in one call (EditResult.Attribute); the plain call would serve stale bytes of a swapped break.
         var root = Raffica.TestSupport.TestData.Root;
@@ -721,7 +726,7 @@ public sealed class SectionEditingTests
         var facts = editor.ReadSectionFacts(At(many, 500));
         Assert.Equal(500, facts.Section);
         Assert.Equal(500, facts.FollowingSections);
-        Assert.NotNull(editor.NumberPagesFrom(At(many, 999), new PageNumbering(1, PageNumberFormat.Decimal, string.Empty)));
+        Assert.NotNull(editor.NumberPagesFrom(At(many, 999), new PageNumbering(1, PageNumberFormat.Arabic, string.Empty)));
         Assert.NotNull(editor.RemoveSectionBreak(500));
         Assert.Equal(1000, SectionList.Of(many).Count);
 
@@ -735,5 +740,155 @@ public sealed class SectionEditingTests
         Assert.NotNull(lastEditor.RemoveSectionBreak(1));
         Assert.Single(SectionList.Of(last));
         Assert.NotNull(lastEditor.NumberPagesFrom(At(last, 1), PlainOne));
+    }
+
+    [Theory]
+    [InlineData(0xD800)]
+    [InlineData(0xDC00)]
+    [InlineData(0xFFFF)]
+    [InlineData(0xFFFE)]
+    [InlineData(9)]
+    public void APrefixTheDocumentCannotStoreIsRefused(int code)
+    {
+        var document = Doc(P("a") + P("b") + Sect());
+        var editor = Editor(document);
+        var before = Snapshot(document);
+
+        Assert.Throws<ArgumentException>(() => editor.NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Arabic, "a" + (char)code)));
+
+        Assert.Equal(before, Snapshot(document));
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Arabic, "\U0001F600-")));
+    }
+
+    [Fact]
+    public void AFooterWithTextAndAPageFieldInAHyperlinkKeepsItsTextAndGetsThePrefix()
+    {
+        // The field sits inside a hyperlink: the prefix goes in front of the hyperlink and nothing of the footer is dropped.
+        var footer = FooterPart(Para(Text("Thesis | ") + "<w:hyperlink w:anchor=\"top\">" + Field("PAGE", "1") + "</w:hyperlink>" + Text(" |")));
+        var document = Doc(P("p1") + Pg("p2") + Sect(Footer("default", "fA")), Parts(("fA", footer)));
+
+        Assert.NotNull(Editor(document).NumberPagesFrom(At(document, 1), new PageNumbering(1, PageNumberFormat.Arabic, "A-")));
+
+        Assert.Equal(["Thesis | 1 |", "Thesis | A-1 |"], Feet(document));
+    }
+
+    [Fact]
+    public void AFooterWithTextAndNoPageFieldKeepsItsTextAndGetsTheNumberBelow()
+    {
+        var document = Doc(P("p1") + Pg("p2") + Sect(Footer("default", "fA")), Parts(("fA", FooterPart(Para(Text("Confidential"))))));
+
+        Assert.NotNull(Editor(document).NumberPagesFrom(At(document, 1), PlainOne));
+
+        var lines = Pages(Lay(document)).Select(page => string.Join("/", Lines(page))).ToArray();
+        Assert.Equal("p1/Confidential", lines[0]);
+        Assert.Equal("p2/Confidential/1", lines[1]);
+    }
+
+    [Fact]
+    public void ARepeatedCommandAddsNoPartAndNoStep()
+    {
+        var (file, document) = Blank3();
+        using var _ = file;
+        var editor = Editor(document);
+        var numbering = new PageNumbering(1, PageNumberFormat.Arabic, "A-");
+
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), numbering));
+        var parts = document.HeadersFooters.Count;
+        var steps = editor.History.UndoCount;
+        var shape = Snapshot(document);
+
+        Assert.Null(editor.NumberPagesFrom(At(document, 2), numbering));
+
+        Assert.Equal(parts, document.HeadersFooters.Count);
+        Assert.Equal(steps, editor.History.UndoCount);
+        Assert.Equal(shape, Snapshot(document));
+        Assert.Equal(["p1", "p2", "A-1"], Feet(document));
+    }
+
+    [Fact]
+    public void TheCaretStaysWhereTheUserHadIt()
+    {
+        var document = Doc(P("a") + P("b") + Cell + P("d") + Sect());
+        var editor = Editor(document);
+        var at = At(document, 1, 1);
+
+        var result = editor.NumberPagesFrom(at, PlainOne);
+
+        Assert.NotNull(result);
+        Assert.Equal(at, result.Caret);
+        Assert.True(result.KeepSelection);
+        // In a table the history needs a top-level paragraph of the changed list: the carrier; the session keeps its own selection (KeepSelection).
+        var table = document.Body.Blocks.OfType<Table>().Single();
+        var inner = (Paragraph)((TableCell)((TableRow)table.Rows[0]).Items[0]).Blocks[0];
+        var inTable = editor.InsertSectionBreak(new TextPosition(StoryRef.Body, inner, 1), SectionBreakKind.NextPage);
+        Assert.NotNull(inTable);
+        Assert.True(inTable.KeepSelection);
+        Assert.Equal(2, editor.History.UndoCount);
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(editor.History.Undo());
+    }
+
+    [Fact]
+    public void AParagraphThatEndsInAPageBreakCarriesTheBreakLikeAnyOther()
+    {
+        // The layout puts the paragraph mark behind a trailing page break on the next page (it already draws an empty line there before the command), so a next-page section break after it
+        // shows that page empty. A different carrier would sit on that page too, so the splitter does not special-case it; the layout restart equals a full layout.
+        var body = P("p1") + "<w:p><w:r><w:t>p2</w:t></w:r><w:r><w:br w:type=\"page\"/></w:r></w:p>" + P("p3") + Sect();
+        var document = Doc(body);
+        var layout = Lay(document);
+        var pagesBefore = layout.LaidOutPages;
+        var editor = Editor(document);
+
+        Assert.NotNull(editor.NumberPagesFrom(At(document, 2), PlainOne));
+
+        Assert.Equal(pagesBefore + 1, Lay(document).LaidOutPages);
+        Assert.Equal(["p1/p2", string.Empty, "p3/1"], Pages(Lay(document)).Select(page => page.Text.Replace("\n", "/")).ToArray());
+        LayoutAgrees(layout, document, "page break before the split");
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(pagesBefore, Lay(document).LaidOutPages);
+    }
+
+    private static string ThesisPath => Path.Combine(Raffica.TestSupport.TestData.Root, "testdata", "write-corpus", "thesis", "thesis.docx");
+
+    [Fact]
+    public void TheThesisAppendixGivesAMinusAndThePageNumberFromOne()
+    {
+        using var file = DocxFile.Open(ThesisPath);
+        var document = file.Model;
+        var editor = new TextEditor(document, (_, _) => ProjectionHost.Plain);
+        var appendix = SectionList.Of(document)[^1];
+        var heading = (Paragraph)document.Body.Blocks[appendix.FirstBlock];
+        var at = new TextPosition(StoryRef.Body, heading, 0);
+        var numbering = new PageNumbering(1, PageNumberFormat.Arabic, "A-");
+
+        // The file already has this appendix: the command changes nothing there (no part, no step).
+        var original = document.HeadersFooters.Count;
+        Assert.Null(editor.NumberPagesFrom(at, numbering));
+        Assert.Equal(original, document.HeadersFooters.Count);
+        Assert.Equal(0, editor.History.UndoCount);
+        Assert.Equal("A-1", AppendixFooter(document, heading));
+
+        // Take the appendix section away and make it again with the one command: the same footer, "A-1" on its first page and the numbers of the reference everywhere.
+        Assert.NotNull(editor.RemoveSectionBreak(SectionList.Of(document).Count - 1));
+        Assert.NotNull(editor.NumberPagesFrom(at, numbering));
+        Assert.Equal(original + 1, document.HeadersFooters.Count);
+        Assert.Equal("A-1", AppendixFooter(document, heading));
+        var layout = Lay(document);
+        var drawn = DrawnPageNumbers.Read(layout, document);
+        Assert.Equal(ReferencePageNumbers.Numbers(document, [.. drawn.Select(d => d.Section)]), drawn.Select(d => d.Number));
+
+        // A repeat is a no-op: no new part, no step.
+        var steps = editor.History.UndoCount;
+        Assert.Null(editor.NumberPagesFrom(at, numbering));
+        Assert.Equal(original + 1, document.HeadersFooters.Count);
+        Assert.Equal(steps, editor.History.UndoCount);
+    }
+
+    // The footer line of the page the heading starts on.
+    private static string AppendixFooter(WordDocument document, Paragraph heading)
+    {
+        var layout = Lay(document);
+        var page = layout.Locate(document.Body.Blocks.IndexOf(heading))!.Value.Page;
+        return Lines(layout.Page(page))[^1];
     }
 }
