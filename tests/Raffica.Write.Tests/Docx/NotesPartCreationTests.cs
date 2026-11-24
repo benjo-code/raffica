@@ -154,4 +154,52 @@ public sealed class NotesPartCreationTests
 
         Assert.Equal(["word/footnotes.xml"], after.Keys.Except(before.Keys).ToArray());
     }
+
+    [Fact]
+    public async Task ADocumentWithNoSettingsPartGetsOneAndSavesValidThroughTheGuardAndTheRecoveryCopy()
+    {
+        using var folder = new TempFolder();
+        var source = folder.File("bare.docx");
+        var saved = folder.File("saved.docx");
+        var copy = folder.File("copy.docx");
+        DocxBuilder.WithBody(source, "<w:p><w:r><w:t>text</w:t></w:r></w:p>");
+        using var file = DocxFile.Open(source);
+        Assert.Null(file.Model.Settings);
+
+        _ = NotesParts.Ensure(file.Model, NoteType.Footnote);
+        _ = NotesParts.Ensure(file.Model, NoteType.Endnote);
+        await file.SaveAsync(saved, Cancel);
+        await file.SaveSnapshotAsync(copy, Cancel);
+
+        foreach (var path in new[] { saved, copy })
+        {
+            using var reopened = DocxFile.Open(path);
+            AssertSeparators(reopened.Model.Footnotes!);
+            AssertSeparators(reopened.Model.Endnotes!);
+            AssertSettingsName(reopened, "footnotePr", "footnote");
+            AssertSettingsName(reopened, "endnotePr", "endnote");
+            Assert.Contains("word/settings.xml", Entries(path).Keys);
+        }
+    }
+
+    [Fact]
+    public async Task TheCreatedNotePropertiesStandInSchemaOrderInTheSettings()
+    {
+        using var folder = new TempFolder();
+        var target = folder.File("order.docx");
+        using (var file = DocxFile.Open(Blank()))
+        {
+            _ = NotesParts.Ensure(file.Model, NoteType.Endnote);
+            _ = NotesParts.Ensure(file.Model, NoteType.Footnote);
+            await file.SaveAsync(target, Cancel);
+        }
+
+        var settings = XDocument.Load(new MemoryStream(Entries(target)["word/settings.xml"])).Root!;
+        var indexes = settings.Elements().Where(e => e.Name.Namespace == W).Select(e => (e.Name.LocalName, Index: SchemaOrder.IndexOf(PropertyKind.Settings, e.Name))).ToList();
+        Assert.Contains(indexes, e => e.LocalName == "footnotePr");
+        Assert.Contains(indexes, e => e.LocalName == "endnotePr");
+        Assert.All(indexes, e => Assert.NotNull(e.Index));
+        Assert.Equal(indexes.Select(e => e.Index!.Value).Order().ToArray(), indexes.Select(e => e.Index!.Value).ToArray());
+        Assert.True(indexes.FindIndex(e => e.LocalName == "footnotePr") < indexes.FindIndex(e => e.LocalName == "endnotePr"));
+    }
 }

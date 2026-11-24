@@ -11,8 +11,9 @@ namespace Raffica.Write.Editing;
 /// valid and the selection that was there stays as it is (direction and anchor included) instead of collapsing to <paramref name="Caret"/>.
 /// <paramref name="Move"/> is set when the operation (or an undo or redo) moved a range of blocks: the one <see cref="BlockChange"/> then spans every block whose place changed, with the same block objects before and after.
 /// <paramref name="Sections"/> is the section properties an operation (or an undo or redo) swapped, with the flag of left and right pages; the layout is then started over (<c>DocumentLayout.Resection</c>) instead of being given the block changes.
+/// <paramref name="Objects"/> is the notes (later also the pictures) an operation, an undo or a redo added to or removed from the document, together with the block change that holds their references; it needs no attribution (the notes parts are written afresh at every save and copy). The layout is given the block change as usual (<c>DocumentLayout.ApplyEdit</c>), or starts over when the result also carries a style.
 /// </summary>
-public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null, SectionChange? Sections = null)
+public sealed record EditResult(TextPosition Caret, IReadOnlyList<BlockChange> Changes, TextRange? Selected = null, StyleChange? Style = null, bool KeepSelection = false, BlockMove? Move = null, SectionChange? Sections = null, ObjectChange? Objects = null)
 {
     /// <summary>
     /// Tells the document which block ranges this result changed: the one call every raise site of the editor makes after <see cref="DocumentEdits.Raise"/> or <see cref="DocumentEdits.Restore"/>

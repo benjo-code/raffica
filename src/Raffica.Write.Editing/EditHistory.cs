@@ -129,7 +129,7 @@ public sealed class EditHistory
             return StepMove(step, undo: true);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !ObjectsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
         {
             Clear();
             return null;
@@ -137,13 +137,14 @@ public sealed class EditHistory
 
         Swap(container, step.First, step.New.Length, step.Old, step.Sections?.CarriersBefore);
         SwapSections(step, undo: true);
+        step.Objects?.Apply(_document, undo: true);
         _undo.RemoveAt(_undo.Count - 1);
         _undoBytes -= step.Bytes;
         _redo.Add(step);
         _document.Edits.Restore(step.StartRevision);
         _expected = step.StartRevision;
         _open = null;
-        var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
+        var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New, step.Objects?.Inverse);
         undone.Attribute(_document);
         return undone;
     }
@@ -163,7 +164,7 @@ public sealed class EditHistory
             return StepMove(step, undo: false);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step, undo: false) || !TrySwapStyle(step, undo: false))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step, undo: false) || !ObjectsApplicable(step, undo: false) || !TrySwapStyle(step, undo: false))
         {
             Clear();
             return null;
@@ -171,13 +172,14 @@ public sealed class EditHistory
 
         Swap(container, step.First, step.Old.Length, step.New, step.Sections?.CarriersAfter);
         SwapSections(step, undo: false);
+        step.Objects?.Apply(_document, undo: false);
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(step);
         _undoBytes += step.Bytes;
         _document.Edits.Restore(step.EndRevision);
         _expected = step.EndRevision;
         _open = null;
-        var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
+        var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old, step.Objects);
         redone.Attribute(_document);
         return redone;
     }
@@ -207,9 +209,9 @@ public sealed class EditHistory
     /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
     /// selection and without a line break, else null.
     /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false)
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null)
     {
-        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null))
+        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null && result.Objects is null))
         {
             return;
         }
@@ -227,26 +229,27 @@ public sealed class EditHistory
         }
 
         var change = result.Changes[0];
-        var index = change.Container.IndexOf(result.Caret.Paragraph);
+        // The caret of a step may lie in another story than its block change (a note inserted from the body): the step then names the place after the edit itself.
+        var index = after is null ? change.Container.IndexOf(result.Caret.Paragraph) : 0;
         if (Root(change.Story) is not { } root || PathTo(root, change.Container) is not { } path || index < 0)
         {
             Clear();
             return;
         }
 
-        var after = new Point(index, result.Caret.Offset);
+        var landing = after ?? new Point(index, result.Caret.Offset);
         var newBlocks = CloneRange(change.Container, change.First, change.Added);
         var stamp = _time.GetTimestamp();
         var endRevision = _document.Edits.Revision;
         _redo.Clear();
 
-        var plain = result.Style is null && result.Sections is null;
+        var plain = result.Style is null && result.Sections is null && result.Objects is null;
         if (plain && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore, typingFormat))
         {
             var step = _open!;
             _undoBytes -= step.Bytes;
             step.New = newBlocks;
-            step.After = after;
+            step.After = landing;
             step.EndRevision = endRevision;
             step.Bytes = SizeOf(step.Old) + SizeOf(newBlocks);
             _undoBytes += step.Bytes;
@@ -255,14 +258,15 @@ public sealed class EditHistory
             return;
         }
 
-        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision)
+        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, landing, revisionBefore, endRevision)
         {
             Style = result.Style,
             Sections = result.Sections,
+            Objects = result.Objects,
             TypingFormat = typed is not null && plain ? typingFormat : null,
             KeepsBodySelection = keepsBodySelection,
         };
-        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections);
+        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections) + SizeOf(added.Objects);
         _undo.Add(added);
         _undoBytes += added.Bytes;
         _expected = endRevision;
@@ -453,6 +457,9 @@ public sealed class EditHistory
         }
     }
 
+    // Undo and redo of a step with notes need every note to remove in its part; checked before anything changes.
+    private bool ObjectsApplicable(Step step, bool undo) => step.Objects is not { } change || change.CanApply(_document, undo);
+
     private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
     {
         var step = _open;
@@ -610,7 +617,7 @@ public sealed class EditHistory
         }
     }
 
-    private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks)
+    private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks, ObjectChange? objects)
     {
         var index = Math.Clamp(caret.Index, 0, Math.Max(0, container.Count - 1));
         var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault();
@@ -624,7 +631,7 @@ public sealed class EditHistory
         IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && (step.Style is not null || step.Sections is not null)
             ? []
             : [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)];
-        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, KeepSelection: step.KeepsBodySelection, Sections: step.Sections);
+        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, KeepSelection: step.KeepsBodySelection, Sections: step.Sections, Objects: objects);
     }
 
     private static Block[] CloneRange(IList<Block> container, int first, int count)
@@ -802,6 +809,9 @@ public sealed class EditHistory
         return size;
     }
 
+    // The notes a step holds (the live objects, kept for undo or redo): their blocks count like any snapshot.
+    private static long SizeOf(ObjectChange? change) => change is null ? 0 : change.NotesAdded.Concat(change.NotesRemoved).Sum(note => 64 + SizeOf(note.Content.Blocks));
+
     internal static long SizeOf(SectionChange? change) => change is null ? 0 : change.Swaps.Sum(swap => SizeOf(swap.Old) + SizeOf(swap.New));
 
     internal static long SizeOf(SectionProperties properties) => SizeOf((PropertyBag)properties) + (64L * properties.HeaderFooterReferences.Count);
@@ -876,6 +886,9 @@ public sealed class EditHistory
         public StyleChange? Style { get; init; }
 
         public SectionChange? Sections { get; init; }
+
+        /// <summary>The notes the step added and removed (undo and redo apply them with the blocks), or null.</summary>
+        public ObjectChange? Objects { get; init; }
 
         /// <summary>Set for a move of top-level blocks: the step then holds no blocks.</summary>
         public BlockMove? Move { get; init; }

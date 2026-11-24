@@ -140,6 +140,7 @@ public sealed partial class TextEditor
         }
 
         var old = CloneBlocks(span);
+        var references = span.IsCollapsed ? [] : ReferencesIn(span);
         var paragraph = span.First;
         var offset = span.FirstOffset;
         var removed = 1;
@@ -199,8 +200,9 @@ public sealed partial class TextEditor
             caret = new TextPosition(span.Story, tail, Map(span.Story, tail).Projection.Text.Length - restLength);
         }
 
+        var gone = RemoveNotesOf(references, span.Container, span.FirstIndex, paragraphs.Count);
         _document.Edits.Raise();
-        var result = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, paragraphs.Count, old)]);
+        var result = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, paragraphs.Count, old)], Objects: gone);
         _document.Edits.Attribute(result.Changes);
         History.Record(result, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, null);
         return result;

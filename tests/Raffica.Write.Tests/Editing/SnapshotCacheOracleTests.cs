@@ -557,6 +557,51 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public async Task InsertNoteAndDeleteReferenceAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var editor = new TextEditor(model, (s, p) => layout.ProjectionHost(s, p));
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => p.Inlines.Count > 0).ToList();
+        Assert.True(paragraphs.Count >= 3);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        var holderIndex = model.Body.Blocks.IndexOf(paragraphs[1]);
+        Check("before");
+        var inserted = editor.InsertNote(new TextPosition(StoryRef.Body, paragraphs[1], 0), NoteType.Footnote);
+        Assert.NotNull(inserted);
+        Check("insert");
+        Assert.NotNull(editor.InsertNote(new TextPosition(StoryRef.Body, paragraphs[2], 0), NoteType.Endnote));
+        Check("insert endnote");
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        // Delete the paragraph that holds a reference: the note goes with it, and comes back with the undo.
+        var holder = (Paragraph)model.Body.Blocks[holderIndex];
+        Assert.NotNull(editor.Delete(new TextRange(new TextPosition(StoryRef.Body, holder, 0), new TextPosition(StoryRef.Body, holder, int.MaxValue))));
+        Check("delete");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo delete");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo delete");
+    }
+    [Fact]
     public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));
