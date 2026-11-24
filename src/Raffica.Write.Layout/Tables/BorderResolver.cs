@@ -53,7 +53,8 @@ internal static class TableDrawing
     private const float MinimumWidth = 0.25f;
     private const float Tolerance = 0.001f;
 
-    public static void Emit(PageBuilder page, float left, IReadOnlyList<RowRun> runs, IReadOnlyList<float> columns)
+    /// <summary>Draws the table piece and returns the cell boxes it drew (a merged cell once), for the page's object map.</summary>
+    public static IReadOnlyList<DrawBox> Emit(PageBuilder page, float left, IReadOnlyList<RowRun> runs, IReadOnlyList<float> columns)
     {
         var boxes = Boxes(left, runs, columns);
         foreach (var box in boxes)
@@ -83,6 +84,7 @@ internal static class TableDrawing
         }
 
         EmitBorders(page, boxes);
+        return boxes;
     }
 
     private static List<DrawBox> Boxes(float left, IReadOnlyList<RowRun> runs, IReadOnlyList<float> columns)

@@ -47,6 +47,9 @@ public sealed record InlineBox(float Width, float Height, ImageRef? Image) : Par
     /// <summary>True for a box that stands for content the layout cannot draw (it has no picture).</summary>
     public bool IsPlaceholder => Image is null;
 
+    /// <summary>Where the picture of this box is in the model, for the page's object map; null for a box that is no editable picture of the body (a placeholder, a picture of a header, a shape).</summary>
+    internal PictureAnchor? Anchor { get; init; }
+
     /// <summary>The one-em placeholder of an unknown inline element, as big as the text around it.</summary>
     public static InlineBox Placeholder(ResolvedRun run)
     {

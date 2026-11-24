@@ -419,7 +419,49 @@ internal sealed class TableFlow : IBlockFlow
             runs.Add(new RowRun(trail.Row, trail.Stacks, at, trail.Height, false));
         }
 
-        TableDrawing.Emit(page, x + _data.Left, runs, _data.Columns);
+        var left = x + _data.Left;
+        var boxes = TableDrawing.Emit(page, left, runs, _data.Columns);
+        if (_data.Model.Depth == 0 && runs.Count > 0)
+        {
+            page.AddGrid(GridOf(runs, boxes, left));
+        }
+    }
+
+    // The table piece as the page's object map keeps it: page-space geometry of the rows and cells this piece drew.
+    private TableGrid GridOf(List<RowRun> runs, IReadOnlyList<DrawBox> boxes, float left)
+    {
+        var columns = new float[_data.Columns.Length];
+        for (var i = 0; i < columns.Length; i++)
+        {
+            columns[i] = left + _data.Columns[i];
+        }
+
+        var edges = new float[runs.Count + 1];
+        var rows = new int[runs.Count];
+        edges[0] = runs[0].Y;
+        for (var i = 0; i < runs.Count; i++)
+        {
+            edges[i + 1] = runs[i].Y + runs[i].Height;
+            rows[i] = runs[i].Row.Index;
+        }
+
+        var cells = new CellRect[boxes.Count];
+        for (var i = 0; i < cells.Length; i++)
+        {
+            var box = boxes[i];
+            var covered = 0;
+            foreach (var run in runs)
+            {
+                if (run.Y >= box.Y0 - Epsilon && run.Y + run.Height <= box.Y1 + Epsilon)
+                {
+                    covered++;
+                }
+            }
+
+            cells[i] = new CellRect(box.Cell.Row, box.Cell.Start, Math.Max(1, covered), box.Cell.Span, box.X0, box.Y0, box.X1 - box.X0, box.Y1 - box.Y0);
+        }
+
+        return new TableGrid(Raffica.Write.Model.StoryRef.Body, BodyIndex, columns[0], edges[0], columns[^1] - columns[0], edges[^1] - edges[0], columns, edges, cells) { RowIndexes = rows };
     }
 
     // The references of the cells in this piece (a repeated header row shows its text again, but its notes belong to the first page).

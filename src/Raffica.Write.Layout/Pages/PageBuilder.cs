@@ -24,6 +24,8 @@ internal sealed class PageBuilder
     private readonly StringBuilder[] _text = [new(), new(), new(), new(), new()];
     private readonly List<BlockSpan> _spans = [];
     private readonly List<TextLine>[] _lines = [[], [], [], [], []];
+    private List<PictureBox>? _pictures;
+    private List<TableGrid>? _grids;
 
     public PageBuilder(int index, int number, string numberText, SectionPlan section, bool isFirstOfSection)
     {
@@ -107,6 +109,28 @@ internal sealed class PageBuilder
 
         public void Dispose() => _page._behind = _before;
     }
+
+    /// <summary>Records a picture of the body at its place on the page; a picture in the header, footer or notes region is not recorded (those are never edited).</summary>
+    internal void AddPicture(PictureAnchor? anchor, float x, float y, float width, float height)
+    {
+        if (anchor is not null && Region == PageRegion.Body)
+        {
+            (_pictures ??= []).Add(new PictureBox(anchor, x, y, width, height));
+        }
+    }
+
+    /// <summary>Records a table piece of the body on the page (nothing for the header, footer or notes region).</summary>
+    internal void AddGrid(TableGrid grid)
+    {
+        if (Region == PageRegion.Body)
+        {
+            (_grids ??= []).Add(grid);
+        }
+    }
+
+    /// <summary>The objects recorded so far as the page's map: the shared empty map when there are none.</summary>
+    internal ObjectMap ObjectMapOf() =>
+        _pictures is null && _grids is null ? ObjectMap.Empty : new ObjectMap(_pictures?.ToArray() ?? [], _grids?.ToArray() ?? []);
 
     public void AddLine(string line) => _text[(int)Region].Append(line).Append('\n');
 

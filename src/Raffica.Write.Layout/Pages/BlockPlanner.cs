@@ -39,6 +39,11 @@ internal sealed class BlockPlanner
     private List<NoteMark>? _marks;
     private List<FloatSpec>? _floats;
     private List<InlineBox>? _flowBoxes;
+    private Paragraph? _current;
+
+    private static readonly XNamespace Wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    private static readonly XNamespace A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    private static readonly XNamespace Pic = "http://schemas.openxmlformats.org/drawingml/2006/picture";
 
     public BlockPlanner(StyleResolver styles, NumberingCounter numbering, ParagraphLayouter layouter, DocumentSettings? settings, ImageProbe? probe = null, bool flowMode = false)
     {
@@ -72,6 +77,9 @@ internal sealed class BlockPlanner
     /// <see cref="CurrentState"/> and <see cref="RestoreState"/>. Null (no check) for a planner used on its own, as the tests do.
     /// </summary>
     internal object? Gate { get; set; }
+
+    /// <summary>The blocks of the body, for the identity of a picture the object map keeps; set only on the planner of the body (a planner of a header, footer or note and one used on its own make no picture boxes).</summary>
+    internal Func<IList<Block>?>? BodyBlocks { get; set; }
 
     [System.Diagnostics.Conditional("DEBUG")]
     private void AssertGate() => System.Diagnostics.Debug.Assert(Gate is null || Monitor.IsEntered(Gate), "The plan cache and the counters are used under the layout gate only.");
@@ -304,6 +312,7 @@ internal sealed class BlockPlanner
         _placeable = CanPlaceFloats && cell is null && !_planningBox && !_flowMode;
         var host = new LayoutProjectionHost(_styles, Context, resolved);
         var projection = ParagraphProjection.Build(paragraph, host);
+        _current = paragraph;
         var map = new OffsetMap.Builder();
         var preedit = Preedit?.Current is { } current && !_planningBox && ReferenceEquals(current.Paragraph, paragraph) && current.Story == Story ? current : null;
         AddPieces(projection, host, resolved, items, text, ref textRun, map, preedit);
@@ -378,7 +387,8 @@ internal sealed class BlockPlanner
             var cap = Math.Min(1f, MaximumBoxSize / Math.Max(spec.Width, spec.Height));
             var width = spec.Width * cap;
             var height = spec.Height * cap;
-            (_flowBoxes ??= []).Add(new InlineBox(width, height, spec.Kind == FloatKind.Image ? spec.Image : null));
+            var drawn = spec.Kind == FloatKind.Image;
+            (_flowBoxes ??= []).Add(new InlineBox(width, height, drawn ? spec.Image : null) { Anchor = drawn ? spec.Anchor : null });
             return;
         }
 
@@ -523,13 +533,14 @@ internal sealed class BlockPlanner
                 break;
             case AtomicKind.Picture when piece.Content is Picture picture:
                 Flush(items, text, ref textRun);
+                var anchor = AnchorOf(picture, piece.Run);
                 if (picture.Inline)
                 {
-                    items.Add(Box(picture, format));
+                    items.Add(Box(picture, format, anchor));
                 }
                 else
                 {
-                    AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey), items);
+                    AddFloat(FloatReader.FromDrawing(picture.Raw, _probe, StoryKey)?.WithAnchor(anchor), items);
                 }
 
                 break;
@@ -605,7 +616,27 @@ internal sealed class BlockPlanner
         text.Append(value);
     }
 
-    private InlineBox Box(Picture picture, ResolvedRun format)
+    // What the object map needs of a picture of the body: where it is in the model. Only a plain picture (pic:pic) of the body's own paragraphs has one: not a shape,
+    // a text box or a chart, not a picture in a text box, header, footer or note.
+    private PictureAnchor? AnchorOf(Picture picture, Run? run)
+    {
+        if (_planningBox || BodyBlocks is null || Story.Kind != StoryKind.Body || _current is null || run is null)
+        {
+            return null;
+        }
+
+        var container = picture.Raw.Element(Wp + "inline") ?? picture.Raw.Element(Wp + "anchor");
+        var pic = container?.Element(A + "graphic")?.Element(A + "graphicData")?.Element(Pic + "pic");
+        if (pic is null)
+        {
+            return null;
+        }
+
+        var rotation = (string?)pic.Element(Pic + "spPr")?.Element(A + "xfrm")?.Attribute("rot");
+        return new PictureAnchor(Story, _current, run, picture, !picture.Inline, rotation is null or "0", BodyBlocks);
+    }
+
+    private InlineBox Box(Picture picture, ResolvedRun format, PictureAnchor? anchor)
     {
         var width = picture.WidthEmu / EmuPerPoint;
         var height = picture.HeightEmu / EmuPerPoint;
@@ -639,7 +670,7 @@ internal sealed class BlockPlanner
             height = TextAreaHeight;
         }
 
-        return new InlineBox(width, height, info is null ? null : new ImageRef(id));
+        return new InlineBox(width, height, info is null ? null : new ImageRef(id)) { Anchor = info is null ? null : anchor };
     }
 }
 
