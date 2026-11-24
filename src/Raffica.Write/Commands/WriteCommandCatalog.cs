@@ -40,6 +40,7 @@ namespace Raffica.Write.Commands;
  *   page.size -> ruler, page.margins -> frame, page.orientation -> rotate-ccw-square, page.columns -> columns-2, page.setup -> file-sliders
  *   section.numberFrom -> arrow-down-0-1, section.break -> separator-horizontal, section.remove -> fold-vertical, section.firstPage -> panel-top, section.leftRight -> book-open-text
  *   insert.pageNumber -> hash
+ *   note.footnote -> asterisk, note.endnote -> book-open, note.back -> corner-left-up
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -266,6 +267,13 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.DifferentFirstPage, "CmdDifferentFirstPage", "PanelTop", "32", toggle: true, describe: true)
             .Add(WriteCommandIds.LeftRightPages, "CmdLeftRightPages", "BookOpenText", "33", toggle: true, describe: true);
 
+        // The Insert tab: the groups Table (digit 1) and Picture (digit 2) come with their milestones before the notes; the digit of the notes is 3 from the start so no field code changes later.
+        var insert = new CatalogTab("TabInsert", WriteRibbon.InsertLetter);
+        insert.Group("GroupNotes", "3")
+            .Add(WriteCommandIds.NoteFootnote, "CmdFootnote", "Asterisk", "31", describe: true)
+            .Add(WriteCommandIds.NoteEndnote, "CmdEndnote", "BookOpen", "32", describe: true)
+            .Add(WriteCommandIds.NoteBack, "CmdNoteBack", "CornerLeftUp", "33", describe: true);
+
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
             .Add(WriteCommandIds.ZoomIn, "CmdZoomIn", "ZoomIn", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
@@ -281,7 +289,7 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true)
             .Add(WriteCommandIds.SectionsPane, "CmdSections", "Rows3", "33", toggle: true);
 
-        Tabs = [home, layout, view];
+        Tabs = [home, insert, layout, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 

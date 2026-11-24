@@ -1599,4 +1599,49 @@
   <data name="SectionPopoverNameFormat" xml:space="preserve">
     <value>Settings of section {0}</value>
   </data>
+  <data name="TabInsert" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="MenuInsert" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="GroupNotes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="CmdFootnote" xml:space="preserve">
+    <value>Footnote</value>
+  </data>
+  <data name="DescFootnote" xml:space="preserve">
+    <value>Inserts a footnote at the caret: a number in the text and the note at the bottom of the page. The caret moves into the note.</value>
+  </data>
+  <data name="CmdEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="DescEndnote" xml:space="preserve">
+    <value>Inserts an endnote at the caret: a number in the text and the note at the end of the document. The caret moves into the note.</value>
+  </data>
+  <data name="CmdNoteBack" xml:space="preserve">
+    <value>Back to the text</value>
+  </data>
+  <data name="DescNoteBack" xml:space="preserve">
+    <value>Returns from a note to the place in the text that refers to it. Esc in a note does the same.</value>
+  </data>
+  <data name="ReasonNoteWritingView" xml:space="preserve">
+    <value>The writing view shows no notes. Switch to the page view to insert one.</value>
+  </data>
+  <data name="ReasonNoteNotInBody" xml:space="preserve">
+    <value>A note goes into the text of the document, not into a header, a footer or a comment.</value>
+  </data>
+  <data name="ReasonNoteInNote" xml:space="preserve">
+    <value>A note cannot hold another note.</value>
+  </data>
+  <data name="ReasonNoteRestricted" xml:space="preserve">
+    <value>This content control holds plain text only, so it cannot hold a note.</value>
+  </data>
+  <data name="ReasonNoteNotInNote" xml:space="preserve">
+    <value>The caret is not in a note.</value>
+  </data>
+  <data name="NoteNoteNotFound" xml:space="preserve">
+    <value>The text that refers to this note was not found.</value>
+  </data>
 </root>

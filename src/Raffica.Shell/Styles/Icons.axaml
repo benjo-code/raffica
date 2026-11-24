@@ -141,4 +141,5 @@
   <StreamGeometry x:Key="Raffica.Icon.PanelTop">M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2z M3 9h18</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.BookOpenText">M12 5v16 M16 13h2 M16 9h2 M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0 -1.999 -2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0 -4 -2H4a2 2 0 0 0 -2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4 -2z M6 13h2 M6 9h2</StreamGeometry>
   <StreamGeometry x:Key="Raffica.Icon.Hash">M4 9h16 M4 15h16 M10 3l-2 18 M16 3l-2 18</StreamGeometry>
+  <StreamGeometry x:Key="Raffica.Icon.Asterisk">M12 6v12 M17.196 9 6.804 15 M6.804 9l10.392 6</StreamGeometry>
 </ResourceDictionary>

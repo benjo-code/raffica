@@ -31,7 +31,7 @@ public sealed class WriteCommandTests
         var ids = AllIds();
         Assert.Equal(ids.Order(StringComparer.Ordinal), WriteCommandCatalog.Commands.Select(c => c.Id).Order(StringComparer.Ordinal));
         Assert.Equal(ids.Length, ids.Distinct().Count());
-        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.InsertLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], WriteCommandCatalog.Tabs.Select(t => t.Letter).ToArray());
     }
 
     [AvaloniaFact]
@@ -374,7 +374,7 @@ public sealed class WriteCommandTests
     {
         using var fixture = new WindowFixture();
         var window = fixture.Show();
-        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], window.Ribbon.Definition!.Tabs.Select(t => t.Letter).ToArray());
+        Assert.Equal([WriteRibbon.HomeLetter, WriteRibbon.InsertLetter, WriteRibbon.LayoutLetter, WriteRibbon.ViewLetter], window.Ribbon.Definition!.Tabs.Select(t => t.Letter).ToArray());
 
         // No document: the start view; the frame holds no ribbon parts.
         Assert.Null(window.Frame.Band);
@@ -388,8 +388,8 @@ public sealed class WriteCommandTests
         var view = window.ViewOf(tab)!;
         var commands = RibbonCommands(window).ToDictionary(c => c.Id);
         // A fresh document has no selection, no history and no change: undo, redo, cut, copy and Save wait (with their reasons); paste, select all, Save as and every other command are on.
-        // Number headings also waits: the POI document lacks the nine heading styles, and the command says so.
-        string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save, WriteCommandIds.NumberHeadings];
+        // Number headings also waits: the POI document lacks the nine heading styles, and the command says so. Back to the text waits for a caret in a note.
+        string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save, WriteCommandIds.NumberHeadings, WriteCommandIds.NoteBack];
         // Every command has an action behind it (the value commands are pickers or, for the size steps, buttons).
         Assert.All(commands.Values.Where(c => !waiting.Contains(c.Id)), c => Assert.True(c.IsEnabled, c.Id));
         Assert.All(commands.Values.Where(c => waiting.Contains(c.Id)), c => Assert.False(c.IsEnabled || string.IsNullOrEmpty(c.CurrentDisabledReason), c.Id));

@@ -41,13 +41,14 @@ internal sealed partial class WriteWindow
     // Made once, before the frame shows anything: the commands, the rules that decide when they run and the ribbon built from them.
     private void CreateRibbon()
     {
-        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing, ReadStructureFacts, ReadSectionFacts);
+        _rules = new WriteCommandRules(() => Workspace.Active is not null, () => ActiveView?.Zoom ?? ZoomSteps.Default, () => true, () => EditCommandState.Of(Workspace.Active), () => SaveCommandState.Of(Workspace.Active, Workspace.Active is { } active && _saves.IsRunning(active)), () => EditCommandState.FactsOf(Workspace.Active), () => IsClosing, ReadStructureFacts, ReadSectionFacts, ReadObjectFacts);
         _actions = CreateActions();
         _pickers = new FormatPickers(() => EditCommandState.FormatOf(Workspace.Active), () => Workspace.Active?.Docx.Model, () => Workspace.Active?.Fonts, (id, value) => RunCommand(id, value));
         AddFormatActions();
         AddStructureActions();
         CreateSectionPickers();
         AddSectionActions();
+        AddObjectActions();
         var definition = WriteRibbon.Create(_actions, _rules, IsCommandOn, id => _pickers.For(id) ?? _sectionPickers.For(id));
         Ribbon = new RibbonView { Definition = definition, ActiveTab = definition.Tabs.Single(t => t.Letter == WriteRibbon.HomeLetter) };
         if (_deferRibbon)

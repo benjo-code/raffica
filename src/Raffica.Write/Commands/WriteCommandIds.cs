@@ -79,6 +79,9 @@ internal static class WriteCommandIds
     public const string PageColumns = "page.columns";
     public const string PageSetup = "page.setup";
     public const string InsertPageNumber = "insert.pageNumber";
+    public const string NoteFootnote = "note.footnote";
+    public const string NoteEndnote = "note.endnote";
+    public const string NoteBack = "note.back";
 
     /// <summary>Whether the command belongs to the text (undo, redo, the clipboard and select all): the page view owns their keys, so the window never matches them itself.</summary>
     public static bool IsEditing(string id) => id.StartsWith("edit.", StringComparison.Ordinal);
@@ -107,4 +110,10 @@ internal static class WriteCommandIds
     /// (the page view owns none of them); the facts that enable them are read through <see cref="SectionFactsSource"/>.
     /// </summary>
     public static bool IsSection(string id) => id.StartsWith("section.", StringComparison.Ordinal) || id.StartsWith("page.", StringComparison.Ordinal) || id == InsertPageNumber;
+
+    /// <summary>
+    /// Whether the command is one of the note commands of the Insert tab: a footnote, an endnote and Back to the text. They have no keys (Esc in a note and a double click on a reference or a note number
+    /// do the same as Back and the jump); the facts that enable them are read through <see cref="ObjectFactsSource"/>.
+    /// </summary>
+    public static bool IsNote(string id) => id.StartsWith("note.", StringComparison.Ordinal);
 }

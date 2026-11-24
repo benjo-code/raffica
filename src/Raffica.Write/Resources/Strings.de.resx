@@ -1599,4 +1599,49 @@
   <data name="SectionPopoverNameFormat" xml:space="preserve">
     <value>Einstellungen von Abschnitt {0}</value>
   </data>
+  <data name="TabInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="MenuInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="GroupNotes" xml:space="preserve">
+    <value>Fuß- und Endnoten</value>
+  </data>
+  <data name="CmdFootnote" xml:space="preserve">
+    <value>Fußnote</value>
+  </data>
+  <data name="DescFootnote" xml:space="preserve">
+    <value>Fügt an der Einfügemarke eine Fußnote ein: eine Nummer im Text und die Anmerkung am Seitenende. Die Einfügemarke springt in die Anmerkung.</value>
+  </data>
+  <data name="CmdEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="DescEndnote" xml:space="preserve">
+    <value>Fügt an der Einfügemarke eine Endnote ein: eine Nummer im Text und die Anmerkung am Ende des Dokuments. Die Einfügemarke springt in die Anmerkung.</value>
+  </data>
+  <data name="CmdNoteBack" xml:space="preserve">
+    <value>Zurück zum Text</value>
+  </data>
+  <data name="DescNoteBack" xml:space="preserve">
+    <value>Springt von einer Anmerkung zur Stelle im Text zurück, die auf sie verweist. Esc in einer Anmerkung tut dasselbe.</value>
+  </data>
+  <data name="ReasonNoteWritingView" xml:space="preserve">
+    <value>Die Schreibansicht zeigt keine Anmerkungen. Wechseln Sie zur Seitenansicht, um eine einzufügen.</value>
+  </data>
+  <data name="ReasonNoteNotInBody" xml:space="preserve">
+    <value>Eine Anmerkung gehört in den Text des Dokuments, nicht in eine Kopfzeile, eine Fußzeile oder einen Kommentar.</value>
+  </data>
+  <data name="ReasonNoteInNote" xml:space="preserve">
+    <value>Eine Anmerkung kann keine weitere Anmerkung enthalten.</value>
+  </data>
+  <data name="ReasonNoteRestricted" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keine Anmerkung aufnehmen.</value>
+  </data>
+  <data name="ReasonNoteNotInNote" xml:space="preserve">
+    <value>Die Einfügemarke steht in keiner Anmerkung.</value>
+  </data>
+  <data name="NoteNoteNotFound" xml:space="preserve">
+    <value>Der Text, der auf diese Anmerkung verweist, wurde nicht gefunden.</value>
+  </data>
 </root>

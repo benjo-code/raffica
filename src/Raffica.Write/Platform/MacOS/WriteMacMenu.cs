@@ -168,6 +168,16 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(formatMenu);
             _headers.Add((formatMenu, () => WriteStrings.MenuFormat));
 
+            // Insert: the notes (no keys: Esc in a note and a double click do the same as Back to the text).
+            var insertMenu = new NativeMenuItem(WriteStrings.MenuInsert) { Menu = new NativeMenu() };
+            insertMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteFootnote, () => WriteCatalogName(WriteCommandIds.NoteFootnote), null));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteEndnote, () => WriteCatalogName(WriteCommandIds.NoteEndnote), null));
+            insertMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteBack, () => WriteCatalogName(WriteCommandIds.NoteBack), null));
+            Menu.Items.Add(insertMenu);
+            _headers.Add((insertMenu, () => WriteStrings.MenuInsert));
+
             var layoutMenu = new NativeMenuItem(WriteStrings.MenuLayout) { Menu = new NativeMenu() };
             layoutMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageSize, SectionPayloads.Papers, payload => () => payload));

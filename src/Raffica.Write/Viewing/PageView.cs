@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Raffica.Core.Viewing;
 using Raffica.Write.Documents;
 using Raffica.Write.Layout;
+using Raffica.Write.Model;
 using Raffica.Write.Settings;
 using DocumentLayout = Raffica.Write.Layout.DocumentLayout;
 
@@ -656,6 +657,13 @@ internal sealed partial class PageView : Control, IDisposable
         }
 
         if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && LeaveStory())
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Esc in a note goes back to the text that refers to it (Back to the text); anywhere else it does nothing more.
+        if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && Caret?.Story.Kind == StoryKind.Note && BackToReference())
         {
             e.Handled = true;
             return;

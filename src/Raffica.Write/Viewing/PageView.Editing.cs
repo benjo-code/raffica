@@ -454,7 +454,12 @@ internal sealed partial class PageView
         switch (count)
         {
             case 2:
-                Place(session, TextUnits.WordAt(position, ProjectionOf(layout, position), hit.Trailing), CaretAffinity.Downstream);
+                var word = TextUnits.WordAt(position, ProjectionOf(layout, position), hit.Trailing);
+                if (!TryNoteLink(layout, position, hit.Trailing))
+                {
+                    Place(session, word, CaretAffinity.Downstream);
+                }
+
                 return false;
             case 3:
                 Place(session, TextUnits.ParagraphAt(position, ProjectionOf(layout, position)), CaretAffinity.Downstream);
