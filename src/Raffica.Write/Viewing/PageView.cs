@@ -147,6 +147,13 @@ internal sealed partial class PageView : Control, IDisposable
             }
 
             CancelComposition();
+
+            // The writing view draws no notes: a caret in a note goes back to its reference first (while the page layout can still place it), so typing never goes into text the user cannot see.
+            if (value == WriteView.Writing && Caret?.Story.Kind == StoryKind.Note)
+            {
+                BackToReference();
+            }
+
             var anchor = CaretAnchorIfVisible() ?? _scroller?.AnchorAt(_offsetY);
             _mode = value;
             SyncActiveMode();

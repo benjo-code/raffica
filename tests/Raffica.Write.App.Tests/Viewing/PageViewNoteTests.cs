@@ -238,4 +238,61 @@ public sealed class PageViewNoteTests : IDisposable
         var facts = new ObjectFactsSource().Read(h.Tab, WriteCommandIds.NoteFootnote, writingView: false);
         Assert.Equal(ObjectBlock.PrefixDocument, facts.Block);
     }
+
+    [AvaloniaFact]
+    public async Task DoubleClickOnAReferenceInTheWritingViewSelectsTheWordAndDoesNotEnterTheNote()
+    {
+        using var h = await OpenAsync(Text("alpha beta gamma"), Text("delta"));
+        var session = Place(h, 0, 5);
+        Assert.True(h.View.RunNoteCommand(WriteCommandIds.NoteFootnote));
+        Assert.True(h.View.RunNoteCommand(WriteCommandIds.NoteBack));
+        h.View.Mode = Raffica.Write.Settings.WriteView.Writing;
+        await ViewHarness.WaitAsync(() => h.View.CaretBounds(new TextPosition(StoryRef.Body, P(h, 0), 5)) is not null, 30000);
+
+        var bar = h.View.CaretBounds(new TextPosition(StoryRef.Body, P(h, 0), 5))!.Value;
+        h.View.HandlePress(new Point(bar.X + 1, bar.Y + (bar.Height / 2)), 2, KeyModifiers.None, rightButton: false);
+        ViewHarness.Pump();
+
+        // The writing view draws no notes: the double click is a word, and the caret stays in the body.
+        var selection = session.Selection!.Value;
+        Assert.Equal(StoryRef.Body, selection.Start.Story);
+        Assert.Equal(StoryRef.Body, selection.End.Story);
+        Assert.False(selection.IsEmpty);
+        Assert.False(h.View.GoToNote(new TextPosition(StoryRef.Body, P(h, 0), 5)));
+        Assert.Equal(StoryRef.Body, session.Caret!.Value.Story);
+    }
+
+    [AvaloniaFact]
+    public async Task SwitchingToTheWritingViewWhileTheCaretIsInANoteMovesItBackToTheReference()
+    {
+        using var h = await OpenAsync(Text("alpha beta gamma"), Text("delta"));
+        var session = Place(h, 0, 5);
+        Assert.True(h.View.RunNoteCommand(WriteCommandIds.NoteFootnote));
+        Assert.Equal(StoryKind.Note, session.Caret!.Value.Story.Kind);
+
+        h.View.Mode = Raffica.Write.Settings.WriteView.Writing;
+
+        Assert.Equal(StoryRef.Body, session.Caret!.Value.Story);
+        Assert.Same(P(h, 0), session.Caret.Value.Paragraph);
+        Assert.True(session.Caret.Value.Offset > 5);
+    }
+
+    [AvaloniaFact]
+    public async Task TheEditorGetsThePrefixFlagFromTheRunPath()
+    {
+        // The view has the whole model, so the early "still opening" answer is out of the way: only the flag the command passes to the editor can refuse here.
+        using var h = await OpenAsync(Text("alpha beta gamma"));
+        var session = Place(h, 0, 5);
+        var notes = new List<string>();
+        h.View.StructureNote += notes.Add;
+        h.View.PrefixProbe = () => true;
+        var revision = h.Tab.Docx.Model.Edits.Revision;
+
+        Assert.True(h.View.RunNoteCommand(WriteCommandIds.NoteFootnote));
+
+        Assert.Equal([WriteStrings.ReasonSectionPrefix], notes);
+        Assert.Equal(revision, h.Tab.Docx.Model.Edits.Revision);
+        Assert.Null(h.Tab.Docx.Model.Footnotes);
+        Assert.Equal(StoryRef.Body, session.Caret!.Value.Story);
+    }
 }

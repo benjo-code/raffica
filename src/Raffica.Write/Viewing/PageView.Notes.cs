@@ -37,8 +37,10 @@ internal sealed partial class PageView
             return true;
         }
 
-        if (_tab.Docx.IsPrefix)
+        var prefix = IsPrefixDocument;
+        if (prefix && BlockReason() is not null)
         {
+            // A file that is still opening cannot have a session: say what the rule says rather than only that it is opening.
             StructureNote?.Invoke(WriteStrings.ReasonSectionPrefix);
             return true;
         }
@@ -54,21 +56,26 @@ internal sealed partial class PageView
             return true;
         }
 
+        // The editor cannot see that the body was cut, so the flag is passed and the editor refuses (its reason is worded below).
         var type = id == WriteCommandIds.NoteEndnote ? NoteType.Endnote : NoteType.Footnote;
-        var prefix = _tab.Docx.IsPrefix;
         var result = ApplyGuarded(session, ed => session.Caret is { } caret ? ed.InsertNote(caret, type, prefix) : null);
 
         // The rules said yes but the editor had nothing to do: a visible note with the editor's reason, never silence. A save queues the operation and says nothing.
         if (result is null && session.BlockedReason is null)
         {
-            StructureNote?.Invoke(RefusalWords(session) ?? WriteStrings.NoteStructureFailed);
+            StructureNote?.Invoke(RefusalWords(session, prefix) ?? WriteStrings.NoteStructureFailed);
         }
 
         return true;
     }
 
+    /// <summary>Whether the document is a prefix (the first blocks only). A test sets it to run the command's refusal on a view that has the whole model; the default reads the file.</summary>
+    internal Func<bool>? PrefixProbe { get; set; }
+
+    private bool IsPrefixDocument => PrefixProbe?.Invoke() ?? _tab.Docx.IsPrefix;
+
     // The words for the editor's refusal of a note at the caret, or null when it has none (the place is fine, or the position is stale).
-    private static string? RefusalWords(EditSession session)
+    private static string? RefusalWords(EditSession session, bool prefix)
     {
         if (session.Caret is not { } caret)
         {
@@ -77,7 +84,7 @@ internal sealed partial class PageView
 
         try
         {
-            return session.Editor.RefusalForNote(caret) is { } refusal ? ObjectWording.ReasonText(ObjectWording.BlockOf(refusal)) : null;
+            return session.Editor.RefusalForNote(caret, prefix) is { } refusal ? ObjectWording.ReasonText(ObjectWording.BlockOf(refusal)) : null;
         }
         catch (StalePositionException)
         {
@@ -103,6 +110,12 @@ internal sealed partial class PageView
 
     private bool JumpToNote(DocumentLayout layout, NoteTarget target)
     {
+        // The writing view draws no notes: a caret in one would be invisible, and typing would go into text the user cannot see.
+        if (_mode == WriteView.Writing)
+        {
+            return false;
+        }
+
         if (NoteLinks.FirstParagraph(_tab.Docx.Model, target) is not { } paragraph)
         {
             return false;
