@@ -382,6 +382,11 @@
       "date": "2026-11-24",
       "context": "Milestone 4.4.2",
       "text": "The 100 ms aim for a section command on the thesis moves out of milestone 4.4.2 into the backlog item \"Write: incremental Resection (the 100 ms aim of 4.4b)\", and 4.4.2 is closed as done on the owner's decision (their instruction was \"ur recommendation\" to the options in the session of 2026-11-24). What is measured and set: the metric `sections` (worst median of the six commands, CPU cost) has a fixed limit of 600 ms on every platform (a regression guard, budget 480 x 1.25), after the runs 45432429309 (Linux laptop on mains) and 45432435118 (Intel Mac): 325.7 and 456.4 ms, the Windows PC about 415 ms. Insert page number (about 24 ms) and Remove marker (about 4 ms) meet the aim; number pages from page 3, the appendix prefix and the two page-setup commands take 175 to 456 ms because `DocumentLayout.Resection` starts a fresh engine and lays out from page 1. The criterion is reworded to what is proven (a fixed limit set from the measured medians and met); the aim is not claimed. Decision \"Raffica Write: the sections limit (M4.4b)\" in `Docs/DECISIONS.md`."
+    },
+    {
+      "date": "2026-11-24",
+      "context": "Milestone 4.5",
+      "text": "Milestone 4.5 is split into 4.5.1 (tables, pictures, footnotes and endnotes, 4.5a), 4.5.2 (bookmarks, captions, cross-references, table of contents and lists of figures and tables, 4.5b) and 4.5.3 (hyperlinks, the search and hyperlink shortcuts, find and replace, 4.5c); 4.6 now follows 4.5.3. The task of the old 4.5 that named bookmarks with the hyperlink task moves to 4.5.2, because cross-references point at bookmarks. The old acceptance \"Fields are current after every edit that moves them\" is 4.5.2's, \"A thesis made in Write from scratch opens in Word with working fields\" is 4.5.3's, and 4.5.1 gets two criteria of its own (the layout equals a full layout after every table, picture and note command; Word opens the files without repair). Each part gets its own spec and plan when it is planned, as 4.3 and 4.4 did; 4.5.1 is planned first (spec and plan of 2026-11-24). The owner chose full direct manipulation for 4.5.1 (every gesture has a card, key or command route) and added pasting a picture from the clipboard to its scope. Command search on Alt+Q is already built in 4.2, so the shortcut task of 4.5.3 is the hyperlink key and the macOS search key."
     }
   ],
   "subprojects": [
@@ -1062,19 +1067,45 @@
           ]
         },
         {
-          "id": "4.5",
-          "title": "Long-document tools",
-          "status": "open",
+          "id": "4.5.1",
+          "title": "Tables, pictures and notes (4.5a)",
+          "status": "planned",
+          "plan": "superpowers/plans/2026-11-24-milestone-04-5a-tables-pictures-and-notes.md",
           "prerequisites": ["4.4.2"],
-          "goal": "A thesis can be written in Write from scratch, with tables, pictures, notes and fields that are always current.",
+          "goal": "Tables, pictures, footnotes and endnotes can be made and edited in Write, and Word opens the files without repair.",
           "tasks": [
-            { "text": "Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes", "done": false },
-            { "text": "Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`", "done": false },
-            { "text": "Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit; bookmarks", "done": false },
+            { "text": "Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes", "done": false }
+          ],
+          "acceptance": [
+            { "text": "After every table, picture and note command and its undo and redo the incremental layout equals a full layout (tests)", "done": false },
+            { "text": "Word opens files made with the table, picture and note commands without repair (owner, recorded)", "done": false }
+          ]
+        },
+        {
+          "id": "4.5.2",
+          "title": "Fields: captions, cross-references and tables of contents (4.5b)",
+          "status": "open",
+          "prerequisites": ["4.5.1"],
+          "goal": "Captions, cross-references, a table of contents and lists of figures and tables are always current, with results written from Write's layout.",
+          "tasks": [
+            { "text": "Bookmarks", "done": false },
+            { "text": "Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`", "done": false }
+          ],
+          "acceptance": [
+            { "text": "Fields are current after every edit that moves them (tests)", "done": false }
+          ]
+        },
+        {
+          "id": "4.5.3",
+          "title": "Hyperlinks and find and replace (4.5c)",
+          "status": "open",
+          "prerequisites": ["4.5.2"],
+          "goal": "A thesis can be written in Write from scratch, with links and search, and opens in Word with working fields.",
+          "tasks": [
+            { "text": "Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit", "done": false },
             { "text": "Find and replace (match case, whole words)", "done": false }
           ],
           "acceptance": [
-            { "text": "Fields are current after every edit that moves them (tests)", "done": false },
             { "text": "A thesis made in Write from scratch opens in Word with working fields (owner, recorded)", "done": false }
           ]
         },
@@ -1082,7 +1113,7 @@
           "id": "4.6",
           "title": "Review and proofing",
           "status": "open",
-          "prerequisites": ["4.5"],
+          "prerequisites": ["4.5.3"],
           "goal": "Comments and tracked changes from Word files can be worked through, and spelling is checked in English and German offline.",
           "tasks": [
             { "text": "Spelling with Hunspell, English (US, UK) and German dictionaries shipped, user dictionary", "done": false },

@@ -47,7 +47,9 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 | 4.3.3 | New documents and recovery (4.3c) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-17-milestone-04-3c-new-documents-and-recovery.md) | 2026-11-21 |
 | 4.4.1 | Headings, lists and the outline (4.4a) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-21-milestone-04-4a-headings-lists-and-outline.md) | 2026-11-22 |
 | 4.4.2 | Sections, page numbers, headers and footers, page setup (4.4b) | 5 – Raffica Write | ✅ done | [Plan](superpowers/plans/2026-11-23-milestone-04-4b-sections-page-numbers-and-page-setup.md) | 2026-11-24 |
-| 4.5 | Long-document tools | 5 – Raffica Write | ⬜ open | – | – |
+| 4.5.1 | Tables, pictures and notes (4.5a) | 5 – Raffica Write | 🟡 planned | [Plan](superpowers/plans/2026-11-24-milestone-04-5a-tables-pictures-and-notes.md) | – |
+| 4.5.2 | Fields: captions, cross-references and tables of contents (4.5b) | 5 – Raffica Write | ⬜ open | – | – |
+| 4.5.3 | Hyperlinks and find and replace (4.5c) | 5 – Raffica Write | ⬜ open | – | – |
 | 4.6 | Review and proofing | 5 – Raffica Write | ⬜ open | – | – |
 | 4.7 | Print and PDF | 5 – Raffica Write | ⬜ open | – | – |
 | 4.8 | Release readiness and security check | 5 – Raffica Write | ⬜ open | – | – |
@@ -133,6 +135,7 @@ Overall roadmap of the project. Every milestone is sized so that it can be handl
 - **2026-11-22 (Milestone 4.4.1):** The measuring task and the chapter-move criterion of 4.4.1 are done: the metric `structure` (worst median of the three move rows, CPU cost) has a fixed limit of 100 ms on every platform in `s_writeBudgets`, the aim, not the median of the runs times 1.25 (the medians are 2 to 8 ms, a limit that tight would fail on a laptop's day-to-day variation; `Docs/DECISIONS.md`, "Raffica Write: the structure limit (M4.4a)"). The Word criterion is ticked on a check through Word automation (the numbers read by Word equal Write's), not on a person's look. The milestone stays in progress for the owner's decision: the remaining open item is the optional look at the Native AOT app on a real display on the three machines.
 - **2026-11-22 (Milestone 4.4.1):** Milestone 4.4.1 is closed as done on the owner's instruction, without the owner's own look at the Native AOT app on a real display. The criterion is ticked with the evidence that exists (headless captures, a real AOT start on the Windows PC, the `structure` runs of the AOT app on the Linux laptop and the Intel Mac) and the risk left open is named in it: real Alt+Shift, Tab and Shift+Tab keys, a real pointer drag with the drop line, the dimmed row and the button size in the 240 px pane. The follow-ups stay in the backlog (the view following the moved heading, localized heading style ids).
 - **2026-11-24 (Milestone 4.4.2):** The 100 ms aim for a section command on the thesis moves out of milestone 4.4.2 into the backlog item "Write: incremental Resection (the 100 ms aim of 4.4b)", and 4.4.2 is closed as done on the owner's decision (their instruction was "ur recommendation" to the options in the session of 2026-11-24). What is measured and set: the metric `sections` (worst median of the six commands, CPU cost) has a fixed limit of 600 ms on every platform (a regression guard, budget 480 x 1.25), after the runs 45432429309 (Linux laptop on mains) and 45432435118 (Intel Mac): 325.7 and 456.4 ms, the Windows PC about 415 ms. Insert page number (about 24 ms) and Remove marker (about 4 ms) meet the aim; number pages from page 3, the appendix prefix and the two page-setup commands take 175 to 456 ms because `DocumentLayout.Resection` starts a fresh engine and lays out from page 1. The criterion is reworded to what is proven (a fixed limit set from the measured medians and met); the aim is not claimed. Decision "Raffica Write: the sections limit (M4.4b)" in `Docs/DECISIONS.md`.
+- **2026-11-24 (Milestone 4.5):** Milestone 4.5 is split into 4.5.1 (tables, pictures, footnotes and endnotes, 4.5a), 4.5.2 (bookmarks, captions, cross-references, table of contents and lists of figures and tables, 4.5b) and 4.5.3 (hyperlinks, the search and hyperlink shortcuts, find and replace, 4.5c); 4.6 now follows 4.5.3. The task of the old 4.5 that named bookmarks with the hyperlink task moves to 4.5.2, because cross-references point at bookmarks. The old acceptance "Fields are current after every edit that moves them" is 4.5.2's, "A thesis made in Write from scratch opens in Word with working fields" is 4.5.3's, and 4.5.1 gets two criteria of its own (the layout equals a full layout after every table, picture and note command; Word opens the files without repair). Each part gets its own spec and plan when it is planned, as 4.3 and 4.4 did; 4.5.1 is planned first (spec and plan of 2026-11-24). The owner chose full direct manipulation for 4.5.1 (every gesture has a card, key or command route) and added pasting a picture from the clipboard to its scope. Command search on Alt+Q is already built in 4.2, so the shortcut task of 4.5.3 is the hyperlink key and the macOS search key.
 
 ---
 
@@ -782,23 +785,44 @@ Goal: Sections and page numbers are built by Write in one action and never break
 - [x] The page-3 "1" and the "A-1" appendix made with the one command open in Word as intended (owner, recorded) – Checked on 2026-11-23 on the Windows PC with Word 16.0 (build 16.0.20625.20108, Microsoft 365), read through Word automation, not by a person looking at the rendered pages (as for 4.4a): `tools/word-open-check.ps1` opened all 17 files made by `WordCheckSectionFilesTests` and `WordCheckFilesTests` with no repair prompt; `tools/word-page-numbers.ps1` gave Word's number of every page equal to the layout's for `page-three-one.docx` (1 2 1 2 3 4), `restart-page-four.docx`, `roman-front-matter.docx`, `first-page.docx`, `left-right.docx`, `landscape-section.docx`, `two-columns.docx` and `continuous-start-other-paper.docx`, and by section for `appendix-a1.docx` (Word: the appendix section starts on page 313 with restart, start 1 and the footer "A-" and the page field). Findings: Word restarts the count in a continuous section on the same paper (fixed in the layout after the check and re-read in Word: equal), ignores a start of the wrong parity in an even-page or odd-page section (not fixed, backlog item: Write restarts and adds a blank page), and a split after a trailing page-break paragraph shows an extra page in Write only (not fixed; rows in `Docs/write-word-check.md`, decision "Raffica Write: sections, page numbers and page setup (M4.4b)"). Not checked: a person's look at the rendered "1" and "A-1", Roman and letter formats, the blank page's format.
 - [x] A look at the Native AOT app on Windows, the Linux laptop and the Intel Mac: marker, pane, cards (owner) – Done by the owner on 2026-11-24 on Windows, the Linux laptop and the Intel Mac: the chips, the Sections pane and the cards look fine (the owner's report, no findings).
 
-## Milestone 4.5 – Long-document tools
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.4.2
+## Milestone 4.5.1 – Tables, pictures and notes (4.5a)
+**Status:** 🟡 planned · **Plan:** [2026-11-24-milestone-04-5a-tables-pictures-and-notes.md](superpowers/plans/2026-11-24-milestone-04-5a-tables-pictures-and-notes.md) · **Prerequisites:** M4.4.2
 
-Goal: A thesis can be written in Write from scratch, with tables, pictures, notes and fields that are always current.
+Goal: Tables, pictures, footnotes and endnotes can be made and edited in Write, and Word opens the files without repair.
 
 **Tasks**
 - [ ] Tables (insert, rows and columns, merge, borders, repeated header row), pictures (inline and floating), footnotes and endnotes
+
+**Acceptance criteria**
+- [ ] After every table, picture and note command and its undo and redo the incremental layout equals a full layout (tests)
+- [ ] Word opens files made with the table, picture and note commands without repair (owner, recorded)
+
+## Milestone 4.5.2 – Fields: captions, cross-references and tables of contents (4.5b)
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.5.1
+
+Goal: Captions, cross-references, a table of contents and lists of figures and tables are always current, with results written from Write's layout.
+
+**Tasks**
+- [ ] Bookmarks
 - [ ] Captions, cross-references, table of contents, lists of figures and tables, always current; results written from Write's layout without `updateFields`
-- [ ] Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit; bookmarks
-- [ ] Find and replace (match case, whole words)
 
 **Acceptance criteria**
 - [ ] Fields are current after every edit that moves them (tests)
+
+## Milestone 4.5.3 – Hyperlinks and find and replace (4.5c)
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.5.2
+
+Goal: A thesis can be written in Write from scratch, with links and search, and opens in Word with working fields.
+
+**Tasks**
+- [ ] Hyperlinks with Ctrl+K (⌘K on macOS) in Write; command search on Alt+Q in Write (an app-level option of the frame, never on AltGr+Q) and a ⌘ shortcut on macOS from the `ReservedShortcuts` audit
+- [ ] Find and replace (match case, whole words)
+
+**Acceptance criteria**
 - [ ] A thesis made in Write from scratch opens in Word with working fields (owner, recorded)
 
 ## Milestone 4.6 – Review and proofing
-**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.5
+**Status:** ⬜ open · **Plan:** – · **Prerequisites:** M4.5.3
 
 Goal: Comments and tracked changes from Word files can be worked through, and spelling is checked in English and German offline.
 
