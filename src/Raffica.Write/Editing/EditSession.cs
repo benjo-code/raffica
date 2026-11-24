@@ -36,7 +36,7 @@ internal enum EditBlockedReason
 /// <see cref="TextEditor"/>: when the tab's model is another object the session rebinds, <see cref="TextEditor.History"/> is cleared and the selection goes
 /// to the start of the document).
 /// </remarks>
-internal sealed class EditSession
+internal sealed partial class EditSession
 {
     /// <summary>The most operations that are kept while a save runs; more are refused (counted in <see cref="DroppedWhileSaving"/>).</summary>
     public const int MaxQueued = 10_000;
@@ -165,6 +165,8 @@ internal sealed class EditSession
     public void SetSelection(TextRange? selection)
     {
         VerifyAccess();
+        // Choosing a text selection ends the selection of an object, also when the text selection is the one that was there.
+        ClearObjectSelection();
         if (SameSelection(_selection, selection))
         {
             return;
@@ -186,6 +188,7 @@ internal sealed class EditSession
         if (!SameSelection(_selection, selection))
         {
             _selectionDirty = true;
+            DropObjectSelectionInOperation();
         }
 
         _selection = selection;
@@ -412,6 +415,7 @@ internal sealed class EditSession
             Mark(EditPhases.Changed, stamp);
             stamp = Stamp();
             RaiseSelectionChanged();
+            RaiseObjectSelectionChanged();
             Mark(EditPhases.SelectionEvent, stamp);
         }
 
@@ -469,7 +473,11 @@ internal sealed class EditSession
     public IDisposable BeginSave()
     {
         VerifyAccess();
-        _saving++;
+        if (_saving++ == 0)
+        {
+            SaveStarted?.Invoke();
+        }
+
         return new SaveScope(this);
     }
 
@@ -534,6 +542,7 @@ internal sealed class EditSession
             }
 
             RaiseSelectionChanged();
+            RaiseObjectSelectionChanged();
         }
 
         if (dropped is { } reason)
@@ -586,6 +595,8 @@ internal sealed class EditSession
             _format.Invalidate(_tab.Docx.Model);
         }
 
+        // A selected object stays only while the model still holds it (nothing is read when none is selected).
+        ReconcileObjectSelection();
         Mark(EditPhases.Selection, stamp);
 
         var runner = _tab.Runner;
@@ -666,6 +677,11 @@ internal sealed class EditSession
         if (_editor is null || !ReferenceEquals(_bound, model))
         {
             _editor?.History.Clear();
+            if (_editor is not null)
+            {
+                DropObjectSelectionInOperation();
+            }
+
             _format.Invalidate(model);
             _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec };
             _bound = model;

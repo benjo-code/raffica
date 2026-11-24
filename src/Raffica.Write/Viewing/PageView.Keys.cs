@@ -92,6 +92,7 @@ internal sealed partial class PageView
         }
 
         e.Handled = true;
+        _tab.Editor?.SetObjectSelection(null);
         var text = e.Text;
         if (commit)
         {
@@ -144,6 +145,11 @@ internal sealed partial class PageView
             return false;
         }
 
+        if (_tab.Editor is { ObjectSelection: { } selected } && HandleObjectKey(e, repeat, selected))
+        {
+            return true;
+        }
+
         if (EditingKeys.For(e.Key, e.KeyModifiers, MacOsKeys) is not { } action)
         {
             // A formatting key (Ctrl+B ...) is claimed and runs once: a held key does not toggle again and again; a key the rules of the window refuse does nothing.
@@ -174,6 +180,12 @@ internal sealed partial class PageView
         if (repeat && !action.AllowsRepeat)
         {
             return true;
+        }
+
+        // A key that moves or edits text ends the selection of an object (undo, redo and the clipboard keys keep it: an edit asks the model again).
+        if (action.Kind != EditActionKind.Command)
+        {
+            _tab.Editor?.SetObjectSelection(null);
         }
 
         switch (action.Kind)

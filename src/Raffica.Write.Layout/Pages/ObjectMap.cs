@@ -84,6 +84,9 @@ public sealed class PictureBox : IEquatable<PictureBox>
 
     internal PictureAnchor Anchor { get; }
 
+    /// <summary>True when the box shows <paramref name="drawing"/> (compared by object, never by <see cref="Id"/>): for a holder of the selected drawing that picks its box out of a page's list on every frame.</summary>
+    public bool Shows(Picture drawing) => ReferenceEquals(Anchor.Picture, drawing);
+
     public bool Equals(PictureBox? other) =>
         other is not null && ReferenceEquals(Anchor.Picture, other.Anchor.Picture) && X == other.X && Y == other.Y && Width == other.Width && Height == other.Height && Floating == other.Floating && Resizable == other.Resizable && BehindText == other.BehindText;
 

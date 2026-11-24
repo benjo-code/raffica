@@ -1644,4 +1644,19 @@
   <data name="NoteNoteNotFound" xml:space="preserve">
     <value>The text that refers to this note was not found.</value>
   </data>
+  <data name="ObjectPicture" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="ObjectPictureAlt" xml:space="preserve">
+    <value>Picture: {0}</value>
+  </data>
+  <data name="ObjectCell" xml:space="preserve">
+    <value>Row {0} of {1}, column {2} of {3}</value>
+  </data>
+  <data name="ObjectCells" xml:space="preserve">
+    <value>Rows {0} to {1} of {2}, columns {3} to {4} of {5}</value>
+  </data>
+  <data name="ObjectSelectedName" xml:space="preserve">
+    <value>{0}. Selected: {1}</value>
+  </data>
 </root>

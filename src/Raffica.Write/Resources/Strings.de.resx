@@ -1644,4 +1644,19 @@
   <data name="NoteNoteNotFound" xml:space="preserve">
     <value>Der Text, der auf diese Anmerkung verweist, wurde nicht gefunden.</value>
   </data>
+  <data name="ObjectPicture" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="ObjectPictureAlt" xml:space="preserve">
+    <value>Bild: {0}</value>
+  </data>
+  <data name="ObjectCell" xml:space="preserve">
+    <value>Zeile {0} von {1}, Spalte {2} von {3}</value>
+  </data>
+  <data name="ObjectCells" xml:space="preserve">
+    <value>Zeilen {0} bis {1} von {2}, Spalten {3} bis {4} von {5}</value>
+  </data>
+  <data name="ObjectSelectedName" xml:space="preserve">
+    <value>{0}. Ausgewählt: {1}</value>
+  </data>
 </root>

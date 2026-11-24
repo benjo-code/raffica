@@ -148,6 +148,10 @@ internal sealed partial class PageView : Control, IDisposable
 
             CancelComposition();
 
+            // Objects are selected in the pages view only: a gesture and a selection end with the switch.
+            CancelObjectDrag(ObjectDragCancel.ViewChanged);
+            _tab.Editor?.SetObjectSelection(null);
+
             // The writing view draws no notes: a caret in a note goes back to its reference first (while the page layout can still place it), so typing never goes into text the user cannot see.
             if (value == WriteView.Writing && Caret?.Story.Kind == StoryKind.Note)
             {
@@ -281,6 +285,7 @@ internal sealed partial class PageView : Control, IDisposable
     private void OnRunnerChanged()
     {
         EnsureCurrent();
+        CheckObjectState();
         ForgetLostComposition();
         InvalidateAll();
         UpdateScrollBars();
@@ -658,6 +663,13 @@ internal sealed partial class PageView : Control, IDisposable
             return;
         }
 
+        // Esc ends a drag on an object first, then the selection of an object; only then the other jobs of Esc.
+        if (!e.Handled && e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && HandleObjectEscape())
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
         {
             _tab.Editor?.Pending.Clear();
@@ -788,6 +800,7 @@ internal sealed partial class PageView : Control, IDisposable
             if (finalSize != _viewport)
             {
                 _viewport = finalSize;
+                CancelObjectDrag(ObjectDragCancel.ViewChanged);
                 _dirty = true;
                 EnsureCurrent();
                 UpdateScrollBars();
@@ -1114,6 +1127,11 @@ internal sealed partial class PageView : Control, IDisposable
         var name = count > 0
             ? WriteStrings.Fill(WriteStrings.PageViewPageNameFormat, _tab.Title, current + 1, count)
             : WriteStrings.Fill(WriteStrings.PageViewNameFormat, _tab.Title);
+        if (_tab.Editor?.DescribeObjectSelection() is { } selected)
+        {
+            name = WriteStrings.Fill(WriteStrings.ObjectSelectedName, name, selected);
+        }
+
         var old = AutomationProperties.GetName(this);
         if (name == old)
         {
