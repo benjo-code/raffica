@@ -231,10 +231,33 @@ public sealed partial class DocumentLayout
     /// not exist (now). <paramref name="x"/> and <paramref name="y"/> are in the page space of the map (points, y down) and <paramref name="tolerance"/> is
     /// the reach of a border, an edge, a handle slot (half its side) and, three times, of a table margin, in points: a caller that thinks in screen pixels divides by the
     /// page scale. Priority: a handle of <paramref name="selectedPicture"/> (only that picture shows handles, and only when it can be resized), then a picture (the one placed
-    /// last), then a column border or row edge (the nearer), then a margin of the table, then a cell. The point is not tested against the text.
+    /// last), then a column border or row edge (the nearer), then a margin of the table, then a cell; with <paramref name="includeBehindText"/> a picture drawn behind the text comes last,
+    /// where nothing else is hit (without it such a picture is never returned). The point is not tested against the text.
+    /// The selection is resolved with one walk of the model per call, and none when it is null or the page has no resizable picture; a caller that already holds the drawing
+    /// (the editing session of a selection) uses the overload that takes the <see cref="Picture"/> and walks nothing. Both are for a pointer move: neither reads <see cref="PictureBox.Id"/>.
     /// </summary>
-    public ObjectHit? HitObject(int page, float x, float y, float tolerance, ObjectId? selectedPicture = null) =>
-        TryGetPage(page, out var found) && found is not null ? ObjectHits.Test(found.Objects, x, y, tolerance, selectedPicture) : null;
+    public ObjectHit? HitObject(int page, float x, float y, float tolerance, ObjectId? selectedPicture = null, bool includeBehindText = false) =>
+        TryGetPage(page, out var found) && found is not null
+            ? ObjectHits.Test(found.Objects, x, y, tolerance, selectedPicture is null ? null : () => ResolveDrawing(selectedPicture), includeBehindText)
+            : null;
+
+    /// <summary>The same hit test for a caller that holds the selected picture's drawing (the model object, kept current by the editor): no walk of the model at all.</summary>
+    public ObjectHit? HitObject(int page, float x, float y, float tolerance, Picture selectedDrawing, bool includeBehindText = false)
+    {
+        ArgumentNullException.ThrowIfNull(selectedDrawing);
+        return TryGetPage(page, out var found) && found is not null ? ObjectHits.Test(found.Objects, x, y, tolerance, () => selectedDrawing, includeBehindText) : null;
+    }
+
+    private long _hitResolves;
+
+    /// <summary>How many times a hit test walked the model to resolve a selection: a test seam.</summary>
+    internal long HitResolves => Interlocked.Read(ref _hitResolves);
+
+    private Picture? ResolveDrawing(ObjectId id)
+    {
+        Interlocked.Increment(ref _hitResolves);
+        return id.Story == StoryRef.Body ? ObjectIds.Find(Volatile.Read(ref _engine).Document.Body.Blocks, id)?.Picture : null;
+    }
 
     /// <summary>
     /// The host the layout used when it made the projection of <paramref name="paragraph"/> (field values, note marks, hidden runs): the

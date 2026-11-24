@@ -204,6 +204,9 @@ internal sealed class TableModel
     /// <summary>How many leading rows repeat on each page (<c>w:tblHeader</c>); 0 when every row is a header row.</summary>
     public int HeaderRows { get; set; }
 
+    /// <summary>The index in the model's <c>Table.Rows</c> of each row of <see cref="Rows"/> (the layout skips a row with a tracked deletion).</summary>
+    public int[] ModelRows { get; set; } = [];
+
     public int CellCount { get; set; }
 
     public int Depth { get; set; }
@@ -212,13 +215,19 @@ internal sealed class TableModel
 /// <summary>The rows, cells and grid positions of a table as the layout reads them: the one place these rules live, shared by the planner and by the editor's effective-format lookup.</summary>
 internal sealed record TableGeometry(List<(TableRow? Row, List<TableCell?> Cells)> Rows, List<float> Grid, int Columns, List<int[]> Starts, List<int[]> Spans)
 {
+    /// <summary>The index in <c>Table.Rows</c> of each row of <see cref="Rows"/> (a row with a tracked deletion is not among them, so the numbers skip it).</summary>
+    public List<int> ModelRows { get; init; } = [];
+
     public static TableGeometry Of(Table table)
     {
         // A null row stands for an element the model keeps as unknown between the rows (an sdt around rows); a null cell for one between
         // the cells. Both are shown as a marked box, never left out.
         var rows = new List<(TableRow? Row, List<TableCell?> Cells)>();
+        var modelRows = new List<int>();
+        var itemIndex = -1;
         foreach (var item in table.Rows)
         {
+            itemIndex++;
             if (item is TableRow row)
             {
                 if (row.Properties.Get(Ooxml.W + "del") is null)
@@ -238,11 +247,13 @@ internal sealed record TableGeometry(List<(TableRow? Row, List<TableCell?> Cells
                     }
 
                     rows.Add((row, cells));
+                    modelRows.Add(itemIndex);
                 }
             }
             else if (item is UnknownRowItem unknownRow && Takes(unknownRow))
             {
                 rows.Add((null, [null]));
+                modelRows.Add(itemIndex);
             }
         }
 
@@ -294,7 +305,7 @@ internal sealed record TableGeometry(List<(TableRow? Row, List<TableCell?> Cells
             grid.Add(0f);
         }
 
-        return new TableGeometry(rows, grid, columns, starts, spans);
+        return new TableGeometry(rows, grid, columns, starts, spans) { ModelRows = modelRows };
     }
 
     private static readonly HashSet<string> s_marks = new(StringComparer.Ordinal)
@@ -318,7 +329,9 @@ internal static class TableReader
         var resolved = styles.ForTable(table);
         var model = new TableModel { Depth = depth };
 
-        var (rows, grid, columns, starts, spans) = TableGeometry.Of(table);
+        var geometry = TableGeometry.Of(table);
+        var (rows, grid, columns, starts, spans) = geometry;
+        model.ModelRows = [.. geometry.ModelRows];
         model.Columns = columns;
         model.Grid = [.. grid];
 

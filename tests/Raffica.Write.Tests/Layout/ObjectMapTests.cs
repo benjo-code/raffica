@@ -327,6 +327,142 @@ public sealed class ObjectMapTests
         TestContext.Current.SendDiagnosticMessage($"{pictures} picture boxes and {tables} table grids over the corpus");
     }
 
+    [Fact]
+    public void HitObjectResolvesTheSelectionOnceAndReadsNoIdentity()
+    {
+        var layout = Lay(Model(string.Concat(Enumerable.Range(0, 25).Select(_ => Para(Picture(20f, 20f))))));
+        var page = layout.Page(0);
+        Assert.True(page.Objects.Pictures.Count >= 20);
+        var selected = page.Objects.Pictures[15];
+        var id = selected.Id!;
+        var drawing = selected.Anchor.Picture;
+        var x = selected.X + 10f;
+        var y = selected.Y + 10f;
+
+        var reads = PictureAnchor.IdentityReads;
+        var resolves = layout.HitResolves;
+        for (var i = 0; i < 50; i++)
+        {
+            Assert.IsType<ObjectHit.Picture>(layout.HitObject(0, x, y, 4f, id));
+        }
+
+        Assert.Equal(reads, PictureAnchor.IdentityReads);
+        Assert.Equal(resolves + 50, layout.HitResolves);
+
+        // Without a selection and with the drawing in hand the model is not read at all, and the handle is still found.
+        resolves = layout.HitResolves;
+        Assert.IsType<ObjectHit.Picture>(layout.HitObject(0, x, y, 4f));
+        Assert.Equal(HandleSlot.TopLeft, Assert.IsType<ObjectHit.Handle>(layout.HitObject(0, selected.X, selected.Y, 4f, drawing)).Slot);
+        Assert.Equal(resolves, layout.HitResolves);
+        Assert.Equal(HandleSlot.TopLeft, Assert.IsType<ObjectHit.Handle>(layout.HitObject(0, selected.X, selected.Y, 4f, id)).Slot);
+        Assert.Equal(resolves + 1, layout.HitResolves);
+        Assert.Equal(reads, PictureAnchor.IdentityReads);
+
+        // A page whose pictures cannot be resized never resolves the selection.
+        var rotated = Inline(30f, 30f, PictureGraphic("<pic:spPr><a:xfrm rot=\"5400000\"/></pic:spPr>"));
+        var turned = Lay(Model(Para(rotated)));
+        var turnedBox = Assert.Single(turned.Page(0).Objects.Pictures);
+        var turnedId = turnedBox.Id!;
+        resolves = turned.HitResolves;
+        Assert.IsType<ObjectHit.Picture>(turned.HitObject(0, turnedBox.X + 5f, turnedBox.Y + 5f, 4f, turnedId));
+        Assert.Equal(resolves, turned.HitResolves);
+    }
+
+    [Fact]
+    public void ABehindTextPictureIsListedFirstAndDoesNotWinOverAnInlinePicture()
+    {
+        var behind = FloatLayoutTests.Anchored(120f, 120f, wrap: "<wp:wrapNone/>", hFrom: "column", vFrom: "paragraph", behind: true);
+        var layout = Lay(Model(Para(behind, FloatLayoutTests.InlinePicture(40f, 30f))));
+        var page = layout.Page(0);
+
+        Assert.Equal(2, page.Objects.Pictures.Count);
+        var back = page.Objects.Pictures[0];
+        var front = page.Objects.Pictures[1];
+        Assert.True(back.BehindText);
+        Assert.False(front.BehindText);
+        var insideX = front.X + 5f;
+        var insideY = front.Y + 5f;
+        Assert.Equal(front, Assert.IsType<ObjectHit.Picture>(layout.HitObject(0, insideX, insideY, 2f)).Box);
+        Assert.Equal(front, Assert.IsType<ObjectHit.Picture>(layout.HitObject(0, insideX, insideY, 2f, includeBehindText: true)).Box);
+
+        // Where only the picture behind the text lies: nothing by default, the picture when asked for.
+        var onlyX = back.X + 100f;
+        var onlyY = back.Y + 100f;
+        Assert.Null(layout.HitObject(0, onlyX, onlyY, 2f));
+        Assert.Equal(back, Assert.IsType<ObjectHit.Picture>(layout.HitObject(0, onlyX, onlyY, 2f, includeBehindText: true)).Box);
+    }
+
+    [Fact]
+    public async Task ARowWithATrackedDeletionKeepsTheModelRowNumbers()
+    {
+        const string deleted = "<w:del w:id=\"7\" w:author=\"a\" w:date=\"2020-01-01T00:00:00Z\"/>";
+        var document = Model(Tbl(Grid(3000), Row(Cell("zero")), Row(Cell("one"), deleted), Row(Cell("two")), Row(Cell("three"))));
+        var layout = Lay(document);
+
+        var grid = Assert.Single(layout.Page(0).Objects.Tables);
+        Assert.Equal([0, 2, 3], grid.RowIndexes.ToArray());
+        Assert.Equal(4, grid.RowEdges.Count);
+        Assert.Equal([0, 2, 3], grid.Cells.Select(c => c.Row).OrderBy(r => r).ToArray());
+        var table = Assert.IsType<Table>(document.Body.Blocks[0]);
+        Assert.Equal(4, table.Rows.Count);
+        var margin = Assert.IsType<ObjectHit.Margin>(layout.HitObject(0, grid.X - 8f, grid.RowEdges[1] + 3f, 4f));
+        Assert.Equal((TableMarginKind.Row, 2), (margin.Kind, margin.Index));
+
+        // The incremental layout after an edit equals a full one, maps included.
+        var target = TestEdit.Paragraphs(document).First(p => p.Paragraph.SectionBreak is null && !ReferenceEquals(p.Container, document.Body.Blocks)).Paragraph;
+        layout.ApplyEdit(TestEdit.InsertText(document, target, 0, "q"), 1);
+        await layout.LayOutRestAsync(null, CancellationToken.None);
+        LayoutOracle.AssertEqualToFull(layout, document, label: "tracked deletion row");
+    }
+
+    [Fact]
+    public void ATableInABlockContentControlNamesTheControlAsItsBlock()
+    {
+        var control = $"<w:sdt><w:sdtPr/><w:sdtContent>{Tbl(Grid(3000), Row(Cell("inside")))}</w:sdtContent></w:sdt>";
+        var layout = Lay(Model(Para(Text("first")) + control + Para(Text("middle")) + Tbl(Grid(3000), Row(Cell("top level")))));
+
+        var tables = layout.Page(0).Objects.Tables;
+        Assert.Equal(2, tables.Count);
+        Assert.Equal(1, tables[0].BlockIndex);
+        Assert.Equal(3, tables[1].BlockIndex);
+    }
+
+    [Fact]
+    public void AnUnreadableInlinePictureStaysAMarkedBoxWithNoPictureBox()
+    {
+        var options = new LayoutOptions(ImageBytes: _ => new byte[] { 1, 2, 3 });
+        AssertMarkedBoxOnly(Lay(Model(Para(Text("a "), Picture(60f, 40f))), options));
+        AssertMarkedBoxOnly(Lay(Model(Para(Picture(60f, 40f))), new LayoutOptions(ImageBytes: _ => ReadOnlyMemory<byte>.Empty)));
+    }
+
+    [Fact]
+    public void AnUnreadableFloatingPictureStaysAMarkedBoxWithNoPictureBox()
+    {
+        var options = new LayoutOptions(ImageBytes: _ => new byte[] { 1, 2, 3 });
+        AssertMarkedBoxOnly(Lay(Model(Para(FloatLayoutTests.Anchored(80f, 40f), Text("beside it"))), options));
+    }
+
+    [Fact]
+    public void APictureWithoutAnEmbedGetsNoPictureBox()
+    {
+        const string noEmbed = "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic><pic:blipFill><a:blip/></pic:blipFill></pic:pic></a:graphicData></a:graphic>";
+        AssertMarkedBoxOnly(Lay(Model(Para(Inline(50f, 30f, noEmbed)))));
+        var floating = $"<w:r><w:drawing {PictureNamespaces}><wp:anchor distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\" behindDoc=\"0\"><wp:simplePos x=\"0\" y=\"0\"/>" +
+            "<wp:positionH relativeFrom=\"column\"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>0</wp:posOffset></wp:positionV>" +
+            $"<wp:extent cx=\"{Emus(50f)}\" cy=\"{Emus(30f)}\"/><wp:wrapNone/><wp:docPr id=\"2\" name=\"f\"/>{noEmbed}</wp:anchor></w:drawing></w:r>";
+        AssertMarkedBoxOnly(Lay(Model(Para(floating, Text("text")))));
+    }
+
+    // The picture is a placeholder in the items, has no box, and a click on it hits nothing.
+    private static void AssertMarkedBoxOnly(DocumentLayout layout)
+    {
+        var page = layout.Page(0);
+        Assert.Empty(page.Objects.Pictures);
+        Assert.Empty(page.Items.OfType<ImageItem>());
+        var marked = Assert.Single(page.Items.OfType<PlaceholderItem>());
+        Assert.Null(layout.HitObject(0, marked.X + (marked.Width / 2f), marked.Y + (marked.Height / 2f), 4f));
+    }
+
     private sealed class FloatComparer : IEqualityComparer<float>
     {
         public bool Equals(float x, float y) => Math.Abs(x - y) <= Tolerance;

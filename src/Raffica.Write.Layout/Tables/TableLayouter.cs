@@ -427,6 +427,9 @@ internal sealed class TableFlow : IBlockFlow
         }
     }
 
+    // The model row (an index into Table.Rows) of a layout row; the layout skips rows with a tracked deletion.
+    private int ModelRow(int layoutRow) => layoutRow >= 0 && layoutRow < _data.Model.ModelRows.Length ? _data.Model.ModelRows[layoutRow] : layoutRow;
+
     // The table piece as the page's object map keeps it: page-space geometry of the rows and cells this piece drew.
     private TableGrid GridOf(List<RowRun> runs, IReadOnlyList<DrawBox> boxes, float left)
     {
@@ -442,7 +445,7 @@ internal sealed class TableFlow : IBlockFlow
         for (var i = 0; i < runs.Count; i++)
         {
             edges[i + 1] = runs[i].Y + runs[i].Height;
-            rows[i] = runs[i].Row.Index;
+            rows[i] = ModelRow(runs[i].Row.Index);
         }
 
         var cells = new CellRect[boxes.Count];
@@ -458,7 +461,7 @@ internal sealed class TableFlow : IBlockFlow
                 }
             }
 
-            cells[i] = new CellRect(box.Cell.Row, box.Cell.Start, Math.Max(1, covered), box.Cell.Span, box.X0, box.Y0, box.X1 - box.X0, box.Y1 - box.Y0);
+            cells[i] = new CellRect(ModelRow(box.Cell.Row), box.Cell.Start, Math.Max(1, covered), box.Cell.Span, box.X0, box.Y0, box.X1 - box.X0, box.Y1 - box.Y0);
         }
 
         return new TableGrid(Raffica.Write.Model.StoryRef.Body, BodyIndex, columns[0], edges[0], columns[^1] - columns[0], edges[^1] - edges[0], columns, edges, cells) { RowIndexes = rows };
