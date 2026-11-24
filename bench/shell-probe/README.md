@@ -193,7 +193,7 @@ dotnet run bench/shell-probe/measure.cs -- check --target write --platform windo
 
 **The limit table of the Write app (`s_writeBudgets`) holds the app limits of the owner's runs of 2026-11-21** (milestone 4.2, step 3; the entry
 "Raffica Write: speed budgets (M4.2)" in `Docs/DECISIONS.md` has the numbers and the runs). Two kinds of entry are fixed limits: `engine` 80 on Linux, so the limit is 80 x 1.25 =
-100 ms (the Linux laptop's first-page limit of the spec), and `typing` and `format` at 16 ms on every platform. `check --target write` judges the metrics that have a limit, lists the others as `not judged`
+100 ms (the Linux laptop's first-page limit of the spec), and `typing` and `format` at 16 ms, `structure` at 100 ms and `sections` at 600 ms (a regression guard, aim 100 ms) on every platform. `check --target write` judges the metrics that have a limit, lists the others as `not judged`
 (they never fail) and exits 2 ("no limits recorded for target write") when none of them has a limit, as the PDF target did before its budgets existed;
 `size --check <rid> --target write` exits 2 the same way for a platform with no size limit. `--app` and `--dmg` are the PDF app's: the macOS bundle of Write is
 milestone 4.9's. A miss of the engine limit is a finding for the owner, never a loosened number.
