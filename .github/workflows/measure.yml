@@ -917,8 +917,8 @@ jobs:
 
       # Sections (milestone 4.4b): Number pages from page 3, an appendix prefix, the removal of a section marker, the page setup of the whole document and of one section and a footer page number on the thesis
       # (--measure-sections); rows sections/<case>-median and -p95 (the time from the command to the pages in view), sections-full/<case>-median-ms and -max-ms (until the whole layout is complete again),
-      # sections-refresh/<case>-ms. The metric sections (worst median of the six) has no limit entry yet (aim 100 ms from the Linux laptop's median x 1.25, a decisions entry after the owner's runs): recorded, the
-      # check says "not judged". Three launches. The engine-only rows come from the step "Typing, engine only" (edit prints them and writes them into edit-bench.txt).
+      # sections-refresh/<case>-ms. The metric sections (worst median of the six) is judged against a fixed 600 ms on every platform (a regression guard, the aim is 100 ms; decisions entry "Raffica Write: the sections limit (M4.4b)"): the
+      # check fails above it. Three launches. The engine-only rows come from the step "Typing, engine only" (edit prints them and writes them into edit-bench.txt).
       - name: Section commands in the thesis (write)
         if: ${{ !cancelled() && inputs.cases == 'all' && inputs.target == 'write' }}
         run: dotnet run bench/shell-probe/measure.cs -- run --target write --exe ${{ env.EXE }} --case sections --out ${{ env.OUT }}/sections.csv
