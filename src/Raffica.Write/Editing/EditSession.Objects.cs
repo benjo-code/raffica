@@ -87,9 +87,9 @@ internal sealed partial class EditSession
 
     /// <summary>
     /// Selects the cells between two corner cells of a table (the corners are rows of <c>Table.Rows</c> and grid columns); the first corner becomes <see cref="CellAnchor"/> and the second <see cref="CellFocus"/>.
-    /// False when the table is not there or a corner is outside it.
+    /// False when the table is not there or a corner is outside it. With <paramref name="wholeMergedCells"/> the range grows to whole merged cells (<see cref="CellRanges.Widen"/>), as the pointer selects; the corners stay as given.
     /// </summary>
-    public bool SelectCells(TableRef table, (int Row, int Column) anchor, (int Row, int Column) focus)
+    public bool SelectCells(TableRef table, (int Row, int Column) anchor, (int Row, int Column) focus, bool wholeMergedCells = false)
     {
         VerifyAccess();
         ArgumentNullException.ThrowIfNull(table);
@@ -100,6 +100,11 @@ internal sealed partial class EditSession
         }
 
         var range = CellRange.Between(table, anchor.Row, anchor.Column, focus.Row, focus.Column);
+        if (wholeMergedCells)
+        {
+            range = CellRanges.Widen(found, range);
+        }
+
         var selection = new CellSelection(table, range);
         if (Equals(_objectSelection, selection) && _cellAnchor == anchor && _cellFocus == focus)
         {

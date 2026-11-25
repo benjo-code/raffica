@@ -83,6 +83,11 @@ internal sealed partial class PageView
                 }
 
                 break;
+            case ObjectHit.ColumnBorder border when border.Index > 0:
+                // An inner border or the right edge is a gesture; the left outer edge is not (the press is for the text there).
+                taken = true;
+                BeginObjectDrag(session, BorderDragOf(border, page), point, layout, count, rightButton);
+                break;
             case ObjectHit.Margin margin:
                 var table = new TableRef(margin.Grid.Story, margin.Grid.BlockIndex);
                 taken = margin.Kind switch
@@ -91,9 +96,18 @@ internal sealed partial class PageView
                     TableMarginKind.Column => session.SelectColumn(table, margin.Index),
                     _ => session.SelectTable(table),
                 };
+                if (taken && margin.Kind == TableMarginKind.Row)
+                {
+                    BeginObjectDrag(session, new RowDrag(table, margin.Grid, page, margin.Index), point, layout, count, rightButton);
+                }
+
                 break;
             case ObjectHit.Cell cell when !rightButton && modifiers.HasFlag(KeyModifiers.Shift):
                 taken = ExtendCells(layout, session, cell);
+                break;
+            case ObjectHit.Cell cell when !rightButton:
+                // The press is the text's (the caret goes into the cell); a drag into another cell turns it into a range of cells.
+                BeginCellRange(layout, session, page, x, y, cell, point, count);
                 break;
             default:
                 break;
@@ -146,7 +160,7 @@ internal sealed partial class PageView
             anchor = (caretCell.Rect.Row, caretCell.Rect.Column);
         }
 
-        return anchor is { } corner && session.SelectCells(table, corner, (cell.Rect.Row, cell.Rect.Column));
+        return anchor is { } corner && session.SelectCells(table, corner, (cell.Rect.Row, cell.Rect.Column), wholeMergedCells: true);
     }
 
     private ObjectHit.Cell? CellAtCaret(DocumentLayout layout, EditSession session)
@@ -161,7 +175,8 @@ internal sealed partial class PageView
 
     private void BeginObjectDrag(EditSession session, ObjectDragKind kind, Point point, DocumentLayout layout, int count, bool rightButton)
     {
-        if (ObjectDragCommit is null || rightButton || count != 1 || session.IsSaving)
+        // A gesture on a table has its own commit (the view's); the one of a picture is the callback a later task sets. A prefix document and a save make no gesture.
+        if ((ObjectDragCommit is null && kind is not TableDragKind) || rightButton || count != 1 || session.IsSaving || (kind is TableDragKind && IsPrefixDocument))
         {
             return;
         }
@@ -200,7 +215,7 @@ internal sealed partial class PageView
         }
 
         drag.Move(point);
-        return true;
+        return drag.Kind is CellRangeDrag range ? drag.Phase == ObjectDragPhase.Dragging && MoveCellRange(range, point) : true;
     }
 
     internal bool ReleaseObjectDrag(Point point)
@@ -210,9 +225,10 @@ internal sealed partial class PageView
             return false;
         }
 
+        var gesture = drag.Kind;
         try
         {
-            _ = drag.Release(point, (kind, end) => ObjectDragCommit?.Invoke(kind, end) ?? false);
+            _ = drag.Release(point, (kind, end) => kind is TableDragKind table ? CommitTableDrag(table, end) : ObjectDragCommit?.Invoke(kind, end) ?? false);
         }
         finally
         {
@@ -220,7 +236,8 @@ internal sealed partial class PageView
             EndObjectPointer();
         }
 
-        return true;
+        // The text press that came with a range of cells goes on after it (it ends its own drag).
+        return gesture is not CellRangeDrag;
     }
 
     /// <summary>Ends a gesture in progress with no change (Escape, a save, an edit, a changed view ...); does nothing when none runs.</summary>
@@ -231,8 +248,19 @@ internal sealed partial class PageView
             return;
         }
 
+        var range = drag.Kind is CellRangeDrag;
+        var selecting = _cellRangeActive;
         drag.Cancel(reason);
         EndObjectPointer();
+        if (range)
+        {
+            // The press began a text drag as well, and the cells selected so far are not kept.
+            EndDrag();
+            if (selecting)
+            {
+                _tab.Editor?.SetObjectSelection(null);
+            }
+        }
     }
 
     private void EndObjectPointer()
@@ -247,6 +275,8 @@ internal sealed partial class PageView
         }
 
         _objectLayout = null;
+        _cellRangeActive = false;
+        _cellRangeFocus = null;
     }
 
     private void OnObjectCaptureLost()
@@ -390,7 +420,7 @@ internal sealed partial class PageView
 
                     foreach (var cell in grid.Cells)
                     {
-                        if (cells.Range.Overlaps(cell.Row, cell.Column, 1, cell.ColumnSpan))
+                        if (cells.Range.Overlaps(cell.Row, cell.Column, cell.RowSpan, cell.ColumnSpan))
                         {
                             context.FillRectangle(tint, new Rect(page.X + (cell.X * scroller.Scale), page.Y + (cell.Y * scroller.Scale), cell.Width * scroller.Scale, cell.Height * scroller.Scale));
                         }

@@ -131,7 +131,7 @@ public sealed class PageViewEditingTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task DragSelectsAndStopsAtTheCellEdge()
+    public async Task ADragFromOneCellIntoAnotherSelectsCellsAndNeverTextAcrossTheCellEdge()
     {
         using var h = await OpenWholeAsync(WindowFixture.Thesis);
         var view = h.View;
@@ -169,13 +169,10 @@ public sealed class PageViewEditingTests : IDisposable
         h.Window.MouseUp(to, MouseButton.Left);
         ViewHarness.Pump();
 
-        var selection = view.Selection!.Value;
-        Assert.Same(first, selection.Start.Paragraph);
-        // The end is in the first cell, at the end of its last paragraph: the drag never entered the second cell.
-        var lastInFirstCell = pair[0].Blocks.OfType<Paragraph>().Last();
-        Assert.Contains(selection.End.Paragraph, pair[0].Blocks);
-        Assert.Same(lastInFirstCell, selection.End.Paragraph);
-        Assert.Equal(TextOf(layout, selection.End).Length, selection.End.Offset);
+        // Since the table gestures of milestone 4.5a a drag into another cell selects the cells between (a range of cells); the text selection never runs across the edge of a cell.
+        var range = Assert.IsType<CellSelection>(view.Tab.Editor!.ObjectSelection).Range;
+        Assert.True(range.LastColumn > range.FirstColumn);
+        Assert.True(view.Selection!.Value.IsEmpty);
         Assert.False(view.IsDragging);
     }
 

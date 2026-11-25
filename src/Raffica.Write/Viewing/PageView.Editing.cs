@@ -59,8 +59,6 @@ internal sealed partial class PageView
     private const double SelectionOpacity = 0.35;
     private const double RevealMargin = 24;
 
-    private static Cursor? s_textCursor;
-
     private readonly EditOverlay _overlay;
     private EditSession? _session;
     private DispatcherTimer? _blink;
@@ -78,7 +76,7 @@ internal sealed partial class PageView
     private IList<Block>? _dragContainer;
     private IPointer? _dragPointer;
     private Point _lastPointer;
-    private bool _cursorIsText;
+    private StandardCursorType? _cursorType;
     private bool _reduceMotion;
 
     /// <summary>The caret: the moving end of the selection of the tab's session; null before the first click, while the session is faulted or when the document has no paragraph.</summary>
@@ -930,16 +928,20 @@ internal sealed partial class PageView
         UpdateDrag();
     }
 
+    /// <summary>The standard cursor the view shows now (null: the default arrow of the desk); a test seam, the cursor itself is the control's.</summary>
+    internal StandardCursorType? CursorTypeNow => _cursorType;
+
     private void UpdateCursor(Point point)
     {
         var over = CanPlaceCaret && _scroller is { Count: > 0 } scroller && InsideAPage(scroller, point);
-        if (over == _cursorIsText)
+        StandardCursorType? type = over ? ObjectCursorAt(point) ?? StandardCursorType.Ibeam : null;
+        if (type == _cursorType)
         {
             return;
         }
 
-        _cursorIsText = over;
-        Cursor = over ? (s_textCursor ??= new Cursor(StandardCursorType.Ibeam)) : null;
+        _cursorType = type;
+        Cursor = type is { } shown ? CursorOf(shown) : null;
     }
 
     private bool InsideAPage(PageScroller scroller, Point point)
@@ -1138,6 +1140,7 @@ internal sealed partial class PageView
             RenderCount++;
             _owner.DrawEditing(context);
             _owner.DrawObjects(context);
+            _owner.DrawTableGesture(context);
         }
     }
 }
