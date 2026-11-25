@@ -693,6 +693,7 @@ public sealed class SnapshotCacheOracleTests
             ("nudge", () => editor.NudgePicture(IdAt(9), 4, -2)),
             ("move", () => editor.MovePicture(IdAt(9), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[3], 0), 77, 88)),
             ("wrap to inline", () => editor.SetPictureWrap(editor.PictureAt(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[3], 0))!, PictureWrap.Inline)),
+            ("properties: size, description and wrap in one step", () => editor.SetPictureProperties(IdAt(8), new PictureProperties(1_500_000, 900_000, AltText: "all at once", Wrap: PictureWrap.Behind))),
             ("delete", () => editor.DeletePicture(IdAt(10))),
         ];
 

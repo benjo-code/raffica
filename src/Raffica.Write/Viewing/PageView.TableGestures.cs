@@ -223,12 +223,24 @@ internal sealed partial class PageView
     private StandardCursorType? ObjectCursorAt(Point point)
     {
         if (_mode != WriteView.Page || _story is not null || _scroller is not { } scroller || ActiveLayout() is not { } layout || _tab.Editor is { IsSaving: true } || !TryMapPoint(point, out var page, out var x, out var y)
-            || !layout.TryGetPage(page, out var laid) || laid is null || laid.Objects.Tables.Count == 0 || IsPrefixDocument)
+            || !layout.TryGetPage(page, out var laid) || laid is null || IsPrefixDocument)
         {
             return null;
         }
 
-        return layout.HitObject(page, x, y, ObjectHandles.TolerancePoints((float)scroller.Scale), (ObjectId?)null, false) switch
+        // The selected picture comes first: its handles and its body ask for their cursors (the id is never read).
+        var tolerance = ObjectHandles.TolerancePoints((float)scroller.Scale);
+        if (laid.Objects.Pictures.Count > 0 && _tab.Editor is { } session && PictureCursorAt(layout, session, page, x, y, tolerance) is { } picture)
+        {
+            return picture;
+        }
+
+        if (laid.Objects.Tables.Count == 0)
+        {
+            return null;
+        }
+
+        return layout.HitObject(page, x, y, tolerance, (ObjectId?)null, false) switch
         {
             ObjectHit.ColumnBorder border when border.Index > 0 => StandardCursorType.SizeWestEast,
             ObjectHit.Margin { Kind: TableMarginKind.Row } => StandardCursorType.Hand,

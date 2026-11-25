@@ -2028,4 +2028,181 @@
   <data name="TpNothingChanged" xml:space="preserve">
     <value>Es wurde nichts geändert.</value>
   </data>
+  <data name="GroupPicture" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="CmdPictureInsert" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="DescPictureInsert" xml:space="preserve">
+    <value>Fügt ein Bild aus einer Datei (PNG, JPEG, GIF, BMP oder TIFF) an der Einfügemarke ein, in der Textzeile. Sie können es vor dem Einfügen für Screenreader beschreiben.</value>
+  </data>
+  <data name="CmdPictureProperties" xml:space="preserve">
+    <value>Bildeigenschaften</value>
+  </data>
+  <data name="DescPictureProperties" xml:space="preserve">
+    <value>Ändert Größe, Beschreibung (Alternativtext) und Textumbruch des ausgewählten Bildes in einem Schritt.</value>
+  </data>
+  <data name="CmdPictureWrap" xml:space="preserve">
+    <value>Textumbruch</value>
+  </data>
+  <data name="DescPictureWrap" xml:space="preserve">
+    <value>Legt fest, wie der Text um das ausgewählte Bild läuft: in der Textzeile, Quadrat, oben und unten, vor dem Text oder hinter dem Text.</value>
+  </data>
+  <data name="CmdPictureReset" xml:space="preserve">
+    <value>Originalgröße</value>
+  </data>
+  <data name="DescPictureReset" xml:space="preserve">
+    <value>Setzt das ausgewählte Bild auf seine Originalgröße zurück.</value>
+  </data>
+  <data name="CmdPictureDelete" xml:space="preserve">
+    <value>Bild löschen</value>
+  </data>
+  <data name="DescPictureDelete" xml:space="preserve">
+    <value>Entfernt das ausgewählte Bild aus dem Dokument. Mit Rückgängig kommt es zurück.</value>
+  </data>
+  <data name="ReasonPictureNoSelection" xml:space="preserve">
+    <value>Wählen Sie zuerst ein Bild aus.</value>
+  </data>
+  <data name="ReasonPicturePrefixDocument" xml:space="preserve">
+    <value>Von diesem Dokument ist erst der Anfang geöffnet, daher können Bilder noch nicht geändert werden.</value>
+  </data>
+  <data name="ReasonPictureNoPosition" xml:space="preserve">
+    <value>Hier ist kein Platz für ein Bild.</value>
+  </data>
+  <data name="ReasonPictureHeaderOrFooter" xml:space="preserve">
+    <value>Bilder können noch nicht in einer Kopf- oder Fußzeile stehen.</value>
+  </data>
+  <data name="ReasonPictureNote" xml:space="preserve">
+    <value>Bilder können noch nicht in einer Fuß- oder Endnote stehen.</value>
+  </data>
+  <data name="ReasonPictureComment" xml:space="preserve">
+    <value>Bilder können nicht in einem Kommentar stehen.</value>
+  </data>
+  <data name="ReasonPictureRestrictedControl" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und nimmt kein Bild auf.</value>
+  </data>
+  <data name="ReasonPictureNestedTable" xml:space="preserve">
+    <value>Bilder können noch nicht in einer Tabelle innerhalb einer Tabelle stehen.</value>
+  </data>
+  <data name="ReasonPictureNoPicture" xml:space="preserve">
+    <value>Das Bild ist nicht mehr vorhanden. Wählen Sie es erneut aus.</value>
+  </data>
+  <data name="ReasonPictureRotated" xml:space="preserve">
+    <value>Das Bild ist gedreht, daher kann seine Größe hier nicht geändert werden.</value>
+  </data>
+  <data name="ReasonPictureFloatInCell" xml:space="preserve">
+    <value>Ein Bild in einer Tabellenzelle bleibt in der Textzeile.</value>
+  </data>
+  <data name="ReasonPictureNotFloating" xml:space="preserve">
+    <value>Nur ein Bild, das nicht in der Textzeile steht, lässt sich verschieben. Ändern Sie zuerst den Textumbruch.</value>
+  </data>
+  <data name="ReasonPictureAlignedPosition" xml:space="preserve">
+    <value>Die Position dieses Bildes ist durch eine Ausrichtung festgelegt (zum Beispiel zentriert). Ziehen Sie es, um eine feste Position zu setzen.</value>
+  </data>
+  <data name="ReasonPictureAnotherPlace" xml:space="preserve">
+    <value>Das Bild lässt sich nur innerhalb desselben Teils des Dokuments verschieben.</value>
+  </data>
+  <data name="ReasonPictureTooFar" xml:space="preserve">
+    <value>Das Bild ist zu weit entfernt, um in einem Schritt dorthin verschoben zu werden.</value>
+  </data>
+  <data name="ReasonPictureNotAnImage" xml:space="preserve">
+    <value>Die Datei ist kein verwendbares Bild (PNG, JPEG, GIF, BMP oder TIFF).</value>
+  </data>
+  <data name="ReasonPictureTooLarge" xml:space="preserve">
+    <value>Die Datei ist größer als 50 MB.</value>
+  </data>
+  <data name="ReasonPictureTooManyPixels" xml:space="preserve">
+    <value>Das Bild hat zu viele Pixel (mehr als 32 Millionen).</value>
+  </data>
+  <data name="ReasonPictureTooMuchMedia" xml:space="preserve">
+    <value>Die Bilder dieses Dokuments würden zusammen zu viel Platz einnehmen.</value>
+  </data>
+  <data name="ReasonPictureBadSize" xml:space="preserve">
+    <value>Diese Größe ist für ein Bild nicht möglich.</value>
+  </data>
+  <data name="ReasonPictureAltTextTooLong" xml:space="preserve">
+    <value>Die Beschreibung ist zu lang (höchstens 4096 Zeichen).</value>
+  </data>
+  <data name="ReasonPictureNothingToChange" xml:space="preserve">
+    <value>Das würde nichts ändern.</value>
+  </data>
+  <data name="ReasonPictureOriginalSizeUnknown" xml:space="preserve">
+    <value>Die Originalgröße dieses Bildes lässt sich nicht ermitteln.</value>
+  </data>
+  <data name="NotePictureFailed" xml:space="preserve">
+    <value>Der Bildbefehl konnte nicht ausgeführt werden.</value>
+  </data>
+  <data name="NotePictureReadFailed" xml:space="preserve">
+    <value>Die Bilddatei konnte nicht gelesen werden.</value>
+  </data>
+  <data name="NoteCellsDeleteKey" xml:space="preserve">
+    <value>Löschen Sie Zeilen oder Spalten mit dem Tab Tabelle.</value>
+  </data>
+  <data name="PictureOpenTitle" xml:space="preserve">
+    <value>Bild einfügen</value>
+  </data>
+  <data name="PictureFilterImages" xml:space="preserve">
+    <value>Bilder</value>
+  </data>
+  <data name="PictureWrapInline" xml:space="preserve">
+    <value>In der Textzeile</value>
+  </data>
+  <data name="PictureWrapSquare" xml:space="preserve">
+    <value>Quadrat</value>
+  </data>
+  <data name="PictureWrapTopAndBottom" xml:space="preserve">
+    <value>Oben und unten</value>
+  </data>
+  <data name="PictureWrapInFront" xml:space="preserve">
+    <value>Vor dem Text</value>
+  </data>
+  <data name="PictureWrapBehind" xml:space="preserve">
+    <value>Hinter dem Text</value>
+  </data>
+  <data name="PiTitle" xml:space="preserve">
+    <value>Bild einfügen</value>
+  </data>
+  <data name="PiAlt" xml:space="preserve">
+    <value>Beschreibung für Screenreader (optional)</value>
+  </data>
+  <data name="PiAltHint" xml:space="preserve">
+    <value>Sagen Sie in wenigen Worten, was das Bild zeigt.</value>
+  </data>
+  <data name="PiOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="PiAltTooLong" xml:space="preserve">
+    <value>Die Beschreibung ist zu lang (höchstens 4096 Zeichen).</value>
+  </data>
+  <data name="PpTitle" xml:space="preserve">
+    <value>Bildeigenschaften</value>
+  </data>
+  <data name="PpWidthFormat" xml:space="preserve">
+    <value>Breite ({0})</value>
+  </data>
+  <data name="PpHeightFormat" xml:space="preserve">
+    <value>Höhe ({0})</value>
+  </data>
+  <data name="PpLockRatio" xml:space="preserve">
+    <value>Seitenverhältnis beibehalten</value>
+  </data>
+  <data name="PpReset" xml:space="preserve">
+    <value>Auf Originalgröße zurücksetzen</value>
+  </data>
+  <data name="PpAlt" xml:space="preserve">
+    <value>Beschreibung für Screenreader</value>
+  </data>
+  <data name="PpWrap" xml:space="preserve">
+    <value>Textumbruch</value>
+  </data>
+  <data name="PpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PpInvalidValueFormat" xml:space="preserve">
+    <value>{0}: Geben Sie eine Zahl ein, zum Beispiel 2,5.</value>
+  </data>
+  <data name="PpOutOfRangeFormat" xml:space="preserve">
+    <value>{0}: Diese Größe ist für ein Bild nicht möglich.</value>
+  </data>
 </root>

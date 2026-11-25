@@ -94,13 +94,20 @@ internal sealed partial class PageView
         {
             case ObjectHit.Handle handle:
                 taken = true;
+                RememberPicturePress(handle.Box, page, x, y);
                 BeginObjectDrag(session, new PictureResize(handle.Slot), point, layout, count, rightButton);
                 break;
             case ObjectHit.Picture picture:
                 if (picture.Box.Id is { } id && session.SetObjectSelection(new PictureSelection(id)))
                 {
                     taken = true;
-                    BeginObjectDrag(session, new PictureMove(), point, layout, count, rightButton);
+
+                    // Only a floating picture is dragged: an inline one moves by cut and paste, so a press on it only selects it.
+                    if (picture.Box.Floating)
+                    {
+                        RememberPicturePress(picture.Box, page, x, y);
+                        BeginObjectDrag(session, new PictureMove(), point, layout, count, rightButton);
+                    }
                 }
 
                 break;
@@ -195,8 +202,8 @@ internal sealed partial class PageView
 
     private bool BeginObjectDrag(EditSession session, ObjectDragKind kind, Point point, DocumentLayout layout, int count, bool rightButton)
     {
-        // A gesture on a table has its own commit (the view's); the one of a picture is the callback a later task sets. A prefix document and a save make no gesture.
-        if ((ObjectDragCommit is null && kind is not TableDragKind) || rightButton || count != 1 || session.IsSaving || (kind is TableDragKind && IsPrefixDocument))
+        // A gesture on a table or a picture has its own commit (the view's); the callback of ObjectDragCommit, when set, takes the picture kinds instead. A prefix document and a save make no gesture.
+        if (rightButton || count != 1 || session.IsSaving || (kind is TableDragKind or PictureMove or PictureResize && IsPrefixDocument))
         {
             return false;
         }
@@ -245,12 +252,17 @@ internal sealed partial class PageView
         }
 
         drag.Move(point);
+        if (drag.Kind is PictureMove && drag.Phase == ObjectDragPhase.Dragging)
+        {
+            UpdatePictureDrop(point);
+        }
+
         return drag.Kind is CellRangeDrag range ? drag.Phase == ObjectDragPhase.Dragging && MoveCellRange(range, point) : true;
     }
 
     // A width gesture measures the pointer against the scale and the horizontal offset of its press: a zoom or a sideways scroll in the middle of it (Ctrl and the wheel) would give a wrong width, so it ends.
     private bool ViewMovedUnder(ObjectDrag drag) =>
-        drag.Kind is ColumnBorderDrag or TableEdgeDrag && (_scroller is not { } scroller || scroller.Scale != _gestureScale || _offsetX != _gestureOffsetX);
+        drag.Kind is ColumnBorderDrag or TableEdgeDrag or PictureResize or PictureMove && (_scroller is not { } scroller || scroller.Scale != _gestureScale || _offsetX != _gestureOffsetX);
 
     internal bool ReleaseObjectDrag(Point point)
     {
@@ -268,7 +280,7 @@ internal sealed partial class PageView
         var gesture = drag.Kind;
         try
         {
-            _ = drag.Release(point, (kind, end) => kind is TableDragKind table ? CommitTableDrag(table, end) : ObjectDragCommit?.Invoke(kind, end) ?? false);
+            _ = drag.Release(point, (kind, end) => kind is TableDragKind table ? CommitTableDrag(table, end) : ObjectDragCommit is { } commit ? commit(kind, end) : CommitPictureDrag(kind, end));
         }
         finally
         {
@@ -317,6 +329,14 @@ internal sealed partial class PageView
         _objectLayout = null;
         _cellRangeActive = false;
         _cellRangeFocus = null;
+        _drop = null;
+        _pictureBox = null;
+
+        // The cursor a picture drag set goes with the gesture.
+        if (!_released)
+        {
+            UpdateCursor(_lastPointer);
+        }
     }
 
     private void OnObjectCaptureLost()
@@ -379,7 +399,17 @@ internal sealed partial class PageView
             {
                 _ = DeletePicture?.Invoke(picture);
             }
+            else if (!repeat && selection is CellSelection)
+            {
+                // Delete with cells selected would edit the text of one cell by surprise, and clearing the cells is no feature of this milestone: the key is claimed and says where the rows and columns go.
+                StructureNote?.Invoke(WriteStrings.NoteCellsDeleteKey);
+            }
 
+            return true;
+        }
+
+        if (selection is PictureSelection selectedPicture && e.Key is Key.Left or Key.Right or Key.Up or Key.Down && NudgeSelectedPicture(selectedPicture, e.Key, e.KeyModifiers))
+        {
             return true;
         }
 
@@ -436,7 +466,7 @@ internal sealed partial class PageView
 
                     var rect = new Rect(page.X + (box.X * scroller.Scale), page.Y + (box.Y * scroller.Scale), box.Width * scroller.Scale, box.Height * scroller.Scale);
                     context.DrawRectangle(null, pen, rect);
-                    DrawDragOutline(context, rect, ring);
+                    DrawDragOutline(context, rect, ring, scroller.Scale);
                     if (!box.Resizable)
                     {
                         continue;
@@ -468,10 +498,12 @@ internal sealed partial class PageView
                 }
             }
         }
+
+        DrawPictureDrop(context, scroller, layout, tint);
     }
 
     // The outline of the picture as the gesture in progress would leave it: dashed, drawn over the page, never part of it.
-    private void DrawDragOutline(DrawingContext context, Rect box, IBrush ring)
+    private void DrawDragOutline(DrawingContext context, Rect box, IBrush ring, double scale)
     {
         if (_objectDrag is not { Phase: ObjectDragPhase.Dragging } drag)
         {
@@ -482,12 +514,19 @@ internal sealed partial class PageView
         Rect? outline = drag.Kind switch
         {
             PictureMove => box.Translate(new Vector(dx, dy)),
-            PictureResize resize => ObjectHandles.Resize(box, resize.Slot, dx, dy),
+            PictureResize resize => ResizeOutline(box, resize.Slot, dx, dy, scale),
             _ => null,
         };
         if (outline is { } rect)
         {
             context.DrawRectangle(null, new Pen(ring, 1.5, new DashStyle([4, 3], 0)), rect);
         }
+    }
+
+    // The frame of a resize as the commit will write it (the same arithmetic, in points), drawn in DIPs of the view.
+    private Rect ResizeOutline(Rect box, HandleSlot slot, double dx, double dy, double scale)
+    {
+        var frame = PictureGestures.Resize(new Rect(box.X / scale, box.Y / scale, box.Width / scale, box.Height / scale), slot, dx / scale, dy / scale, _pointerModifiers.HasFlag(KeyModifiers.Shift));
+        return new Rect(frame.X * scale, frame.Y * scale, frame.Width * scale, frame.Height * scale);
     }
 }

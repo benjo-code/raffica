@@ -277,7 +277,7 @@ public sealed class ObjectOracleTests
     private static readonly ObjectKind[] s_pictureKinds =
     [
         ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Resize, ObjectKind.Nudge, ObjectKind.Move, ObjectKind.Wrap, ObjectKind.Nudge, ObjectKind.Resize, ObjectKind.DeletePicture,
-        ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Move, ObjectKind.Nudge, ObjectKind.Undo, ObjectKind.Redo, ObjectKind.Wrap,
+        ObjectKind.InsertPicture, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Move, ObjectKind.Nudge, ObjectKind.Undo, ObjectKind.Redo, ObjectKind.Wrap, ObjectKind.PictureProperties, ObjectKind.PictureProperties,
     ];
 
     // Cropped, anchored, turned and tabled pictures: picture steps only, each compared with a full layout and with the object map it publishes.
@@ -333,7 +333,7 @@ public sealed class ObjectOracleTests
         }
 
         // A picture step is refused for a good reason now and then (a picture in a cell cannot float, a turned one is not resized), but not nearly always.
-        foreach (var kind in new[] { ObjectKind.Resize, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Nudge })
+        foreach (var kind in new[] { ObjectKind.Resize, ObjectKind.Wrap, ObjectKind.Move, ObjectKind.Nudge, ObjectKind.PictureProperties })
         {
             Assert.True(refused[(int)kind] <= ran[(int)kind] * 2, $"{kind} was refused {refused[(int)kind]} times and changed something {ran[(int)kind]} times ({report})");
         }

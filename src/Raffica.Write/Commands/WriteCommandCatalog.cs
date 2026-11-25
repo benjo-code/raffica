@@ -45,6 +45,7 @@ namespace Raffica.Write.Commands;
  *   table.deleteRows -> list-x, table.deleteColumns -> delete, table.delete -> trash-2, table.merge -> table-cells-merge, table.split -> table-cells-split
  *   table.borders -> grid-3x3, table.shading -> paint-bucket, table.headerRow -> panel-top-dashed, table.properties -> table-properties, table.distributeColumns -> columns-3
  *   table.rowUp -> move-up, table.rowDown -> move-down, table.selectRow -> grip-horizontal, table.selectColumn -> grip-vertical, table.selectTable -> grid-2x2
+ *   picture.insert -> image-plus, picture.properties -> sliders-horizontal, picture.wrap -> text-wrap, picture.reset -> image-upscale, picture.delete -> image-off
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -271,10 +272,16 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.DifferentFirstPage, "CmdDifferentFirstPage", "PanelTop", "32", toggle: true, describe: true)
             .Add(WriteCommandIds.LeftRightPages, "CmdLeftRightPages", "BookOpenText", "33", toggle: true, describe: true);
 
-        // The Insert tab: the group Table (digit 1) has the grid; the group Picture (digit 2) comes with its milestone before the notes; the digit of the notes is 3 from the start so no field code changes later.
+        // The Insert tab: the group Table (digit 1) has the grid, the group Picture (digit 2) the picture commands, the notes are digit 3.
         var insert = new CatalogTab("TabInsert", WriteRibbon.InsertLetter);
         insert.Group("GroupTable", "1")
             .Add(WriteCommandIds.TableInsert, "CmdTableInsert", "Table", "11", size: CommandSize.Large, describe: true);
+        insert.Group("GroupPicture", "2")
+            .Add(WriteCommandIds.PictureInsert, "CmdPictureInsert", "ImagePlus", "21", size: CommandSize.Large, describe: true)
+            .Add(WriteCommandIds.PictureProperties, "CmdPictureProperties", "SlidersHorizontal", "22", describe: true)
+            .Add(WriteCommandIds.PictureWrap, "CmdPictureWrap", "TextWrap", "23", describe: true)
+            .Add(WriteCommandIds.PictureReset, "CmdPictureReset", "ImageUpscale", "24", describe: true)
+            .Add(WriteCommandIds.PictureDelete, "CmdPictureDelete", "ImageOff", "25", describe: true);
         insert.Group("GroupNotes", "3")
             .Add(WriteCommandIds.NoteFootnote, "CmdFootnote", "Asterisk", "31", describe: true)
             .Add(WriteCommandIds.NoteEndnote, "CmdEndnote", "BookOpen", "32", describe: true)
@@ -337,7 +344,7 @@ internal static class WriteCommandCatalog
         var mac = macOs ?? OperatingSystem.IsMacOS();
         foreach (var candidate in Commands)
         {
-            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && !WriteCommandIds.IsStructure(candidate.Id) && !WriteCommandIds.IsTable(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && !WriteCommandIds.IsStructure(candidate.Id) && !WriteCommandIds.IsTable(candidate.Id) && !WriteCommandIds.IsPicture(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate;
             }

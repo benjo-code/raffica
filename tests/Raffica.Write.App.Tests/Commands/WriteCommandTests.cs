@@ -388,8 +388,8 @@ public sealed class WriteCommandTests
         var view = window.ViewOf(tab)!;
         var commands = RibbonCommands(window).ToDictionary(c => c.Id);
         // A fresh document has no selection, no history and no change: undo, redo, cut, copy and Save wait (with their reasons); paste, select all, Save as and every other command are on.
-        // Number headings also waits: the POI document lacks the nine heading styles, and the command says so. Back to the text waits for a caret in a note.
-        string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save, WriteCommandIds.NumberHeadings, WriteCommandIds.NoteBack];
+        // Number headings also waits: the POI document lacks the nine heading styles, and the command says so. Back to the text waits for a caret in a note, and the picture commands wait for a selected picture.
+        string[] waiting = [WriteCommandIds.Undo, WriteCommandIds.Redo, WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Save, WriteCommandIds.NumberHeadings, WriteCommandIds.NoteBack, WriteCommandIds.PictureProperties, WriteCommandIds.PictureWrap, WriteCommandIds.PictureReset, WriteCommandIds.PictureDelete];
         // Every command has an action behind it (the value commands are pickers or, for the size steps, buttons).
         Assert.All(commands.Values.Where(c => !waiting.Contains(c.Id)), c => Assert.True(c.IsEnabled, c.Id));
         Assert.All(commands.Values.Where(c => waiting.Contains(c.Id)), c => Assert.False(c.IsEnabled || string.IsNullOrEmpty(c.CurrentDisabledReason), c.Id));

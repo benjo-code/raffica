@@ -321,6 +321,70 @@ public sealed class PictureEditingTests
     }
 
     [Fact]
+    public void PropertiesChangeSizeDescriptionAndWrapAsOneStepAndUndoTakesAllBack()
+    {
+        var document = Doc(Para(InlinePicture(7)), Line("after"));
+        var editor = Editor(document);
+        var id = IdOf(document, 0);
+        var before = Snapshot(document);
+
+        var result = editor.SetPictureProperties(id, new PictureProperties(WidthEmu: 3000, HeightEmu: 6000, AltText: "all at once", Wrap: PictureWrap.TopAndBottom));
+
+        Assert.NotNull(result);
+        Assert.True(result.KeepSelection);
+        Assert.Equal(1, editor.History.UndoCount);
+        var info = Info(document, id);
+        Assert.Equal(new EmuSize(3000, 6000), info.ExtentEmu);
+        Assert.Equal("all at once", info.AltText);
+        Assert.Equal(PictureWrap.TopAndBottom, info.Wrap);
+        Assert.Equal(new PictureCrop(10000, 0, 10000, 0), info.Crop);
+        Assert.NotEqual(before, Snapshot(document));
+
+        Assert.NotNull(editor.History.Undo());
+        Assert.Equal(before, Snapshot(document));
+        Assert.NotNull(editor.History.Redo());
+        Assert.Equal(new EmuSize(3000, 6000), Info(document, IdOf(document, 0)).ExtentEmu);
+    }
+
+    [Fact]
+    public void PropertiesSkipWhatIsAlreadySoRefuseWhatTheRulesRefuseAndNeverLeakTheText()
+    {
+        var document = Doc(Para(InlinePicture(7)), Para(InlinePicture(8, xfrm: "<a:xfrm rot=\"5400000\"><a:off x=\"0\" y=\"0\"/><a:ext cx=\"1000\" cy=\"2000\"/></a:xfrm>")));
+        var editor = Editor(document);
+        var id = IdOf(document, 0);
+        var turned = IdOf(document, 1);
+
+        // The same size and the same wrap are skipped; the description is the one change.
+        Assert.NotNull(editor.SetPictureProperties(id, new PictureProperties(WidthEmu: 1000, HeightEmu: 2000, AltText: "only this", Wrap: PictureWrap.Inline)));
+        Assert.Equal(new EmuSize(1000, 2000), Info(document, id).ExtentEmu);
+        Assert.Equal(PictureWrap.Inline, Info(document, id).Wrap);
+        Assert.Equal("only this", Info(document, id).AltText);
+
+        // Nothing at all to change, an empty request and a part the picture has already: NothingToChange, no step.
+        var steps = editor.History.UndoCount;
+        Assert.Equal(PictureRefusal.NothingToChange, editor.RefusalForSetPictureProperties(id, new PictureProperties()));
+        Assert.Equal(PictureRefusal.NothingToChange, editor.RefusalForSetPictureProperties(id, new PictureProperties(1000, 2000, AltText: "only this", Wrap: PictureWrap.Inline)));
+        Assert.Null(editor.SetPictureProperties(id, new PictureProperties()));
+        Assert.Equal(steps, editor.History.UndoCount);
+
+        // One part the rules refuse refuses the whole call: nothing changes, not even the description.
+        var before = Snapshot(document);
+        Assert.Equal(PictureRefusal.Rotated, editor.RefusalForSetPictureProperties(turned, new PictureProperties(WidthEmu: 2000, AltText: Secret)));
+        Assert.Null(editor.SetPictureProperties(turned, new PictureProperties(WidthEmu: 2000, AltText: Secret)));
+        Assert.Equal(PictureRefusal.BadSize, editor.RefusalForSetPictureProperties(id, new PictureProperties(WidthEmu: 0, AltText: Secret)));
+        Assert.Equal(PictureRefusal.AltTextTooLong, editor.RefusalForSetPictureProperties(id, new PictureProperties(AltText: new string('x', PictureRules.MaxAltTextLength + 1))));
+        Assert.Equal(before, Snapshot(document));
+        Assert.Equal(steps, editor.History.UndoCount);
+
+        // A turned picture takes a description alone (its size is the only thing the rule keeps).
+        Assert.NotNull(editor.SetPictureProperties(turned, new PictureProperties(AltText: "turned")));
+        Assert.Equal("turned", Info(document, turned).AltText);
+
+        // A reset wins over a size and needs the bytes of the picture: without them it is refused as the plain reset is.
+        Assert.Equal(PictureRefusal.OriginalSizeUnknown, editor.RefusalForSetPictureProperties(id, new PictureProperties(WidthEmu: 5, ResetSize: true)));
+    }
+
+    [Fact]
     public void ARotatedPictureRefusesResize()
     {
         var document = Doc(Para(InlinePicture(7, xfrm: "<a:xfrm rot=\"5400000\"><a:off x=\"0\" y=\"0\"/><a:ext cx=\"1000\" cy=\"2000\"/></a:xfrm>")));

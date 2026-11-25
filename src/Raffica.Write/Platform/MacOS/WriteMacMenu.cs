@@ -168,13 +168,19 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(formatMenu);
             _headers.Add((formatMenu, () => WriteStrings.MenuFormat));
 
-            // Insert: the notes (no keys: Esc in a note and a double click do the same as Back to the text).
+            // Insert: the notes and the pictures (no keys: Esc in a note and a double click do the same as Back to the text).
             var insertMenu = new NativeMenuItem(WriteStrings.MenuInsert) { Menu = new NativeMenu() };
             insertMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteFootnote, () => WriteCatalogName(WriteCommandIds.NoteFootnote), null));
             insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteEndnote, () => WriteCatalogName(WriteCommandIds.NoteEndnote), null));
             insertMenu.Menu.Items.Add(new NativeMenuItemSeparator());
             insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteBack, () => WriteCatalogName(WriteCommandIds.NoteBack), null));
+            insertMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureInsert, () => WriteCatalogName(WriteCommandIds.PictureInsert), null));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureProperties, () => WriteCatalogName(WriteCommandIds.PictureProperties), null));
+            insertMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PictureWrap, PicturePayloads.Wraps, payload => () => PicturePayloads.WrapLabel(payload)));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureReset, () => WriteCatalogName(WriteCommandIds.PictureReset), null));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureDelete, () => WriteCatalogName(WriteCommandIds.PictureDelete), null));
             Menu.Items.Add(insertMenu);
             _headers.Add((insertMenu, () => WriteStrings.MenuInsert));
 

@@ -316,7 +316,7 @@ public sealed class ObjectDragTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task WithNoCommitRegisteredAPressOnlySelects()
+    public async Task WithNoCallbackRegisteredTheViewCommitsAResizeItself()
     {
         var h = await OpenAsync(ObjectDocx.Write(_folder));
         using (h)
@@ -325,10 +325,16 @@ public sealed class ObjectDragTests : IDisposable
             var box = ThePicture(h);
             Click(h, Center(box, view));
             var handle = ViewPoint(view, 0, box.X + box.Width, box.Y + box.Height);
+            var revision = view.Tab.Docx.Model.Edits.Revision;
             h.Window.MouseDown(handle, MouseButton.Left);
             h.Window.MouseMove(new Point(handle.X + 12, handle.Y + 12));
-            h.Window.MouseUp(handle, MouseButton.Left);
-            Assert.Null(view.ObjectGesture);
+            h.Window.MouseMove(new Point(handle.X + 24, handle.Y + 24));
+            h.Window.MouseUp(new Point(handle.X + 24, handle.Y + 24), MouseButton.Left);
+            ViewHarness.Pump();
+
+            // The callback is only the seam of a test: without one the view writes the gesture itself, as one step.
+            Assert.NotNull(view.ObjectGesture);
+            Assert.Equal(revision + 1, view.Tab.Docx.Model.Edits.Revision);
             Assert.IsType<PictureSelection>(view.Tab.Editor!.ObjectSelection);
         }
     }

@@ -854,6 +854,7 @@ internal sealed partial class PageView
     {
         base.OnPointerMoved(e);
         _lastPointer = e.GetPosition(this);
+        _pointerModifiers = e.KeyModifiers;
         if (MoveObjectDrag(_lastPointer))
         {
             return;
@@ -872,6 +873,7 @@ internal sealed partial class PageView
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        _pointerModifiers = e.KeyModifiers;
         if (e.InitialPressMouseButton == MouseButton.Left && ReleaseObjectDrag(e.GetPosition(this)))
         {
             return;
@@ -952,7 +954,11 @@ internal sealed partial class PageView
     private void UpdateCursor(Point point)
     {
         var over = CanPlaceCaret && _scroller is { Count: > 0 } scroller && InsideAPage(scroller, point);
-        StandardCursorType? type = over ? ObjectCursorAt(point) ?? StandardCursorType.Ibeam : null;
+        SetCursorType(over ? ObjectCursorAt(point) ?? StandardCursorType.Ibeam : null);
+    }
+
+    private void SetCursorType(StandardCursorType? type)
+    {
         if (type == _cursorType)
         {
             return;

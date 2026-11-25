@@ -121,6 +121,30 @@ internal sealed partial class ObjectSteps
         return await CheckPictureAsync(Editor.NudgePicture(id, random.Next(-20, 21), random.Next(-20, 21)), label, 0);
     }
 
+    // The compound of the properties card: size, description and wrap in one step (a floating wrap is left out for a picture the editor would refuse it for, so the step still changes something).
+    private async Task<bool> PicturePropertiesStepAsync(Random random, string label)
+    {
+        if (PickPicture(random, i => !i.IsRotated) is not var (id, info))
+        {
+            return Refuse();
+        }
+
+        var others = s_wraps.Where(w => w != info.Wrap).ToArray();
+        var properties = new PictureProperties(
+            Math.Max(1, info.ExtentEmu.Width * random.Next(40, 200) / 100),
+            Math.Max(1, info.ExtentEmu.Height * random.Next(40, 200) / 100),
+            ResetSize: false,
+            AltText: "step " + random.Next(1000),
+            Wrap: random.Next(4) == 0 ? null : others[random.Next(others.Length)]);
+        if (Editor.RefusalForSetPictureProperties(id, properties) is not null)
+        {
+            properties = properties with { Wrap = null };
+        }
+
+        _picturesBefore = PictureCount();
+        return await CheckPictureAsync(Editor.SetPictureProperties(id, properties), label, 0);
+    }
+
     private async Task<bool> DeletePictureAsync(Random random, string label)
     {
         if (PickPicture(random, _ => true) is not var (id, _))

@@ -2028,4 +2028,181 @@
   <data name="TpNothingChanged" xml:space="preserve">
     <value>Nothing was changed.</value>
   </data>
+  <data name="GroupPicture" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="CmdPictureInsert" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="DescPictureInsert" xml:space="preserve">
+    <value>Inserts a picture from a file (PNG, JPEG, GIF, BMP or TIFF) at the caret, in line with the text. You can describe it for screen readers before it is inserted.</value>
+  </data>
+  <data name="CmdPictureProperties" xml:space="preserve">
+    <value>Picture properties</value>
+  </data>
+  <data name="DescPictureProperties" xml:space="preserve">
+    <value>Changes the size, the description (alternative text) and the text wrapping of the selected picture in one step.</value>
+  </data>
+  <data name="CmdPictureWrap" xml:space="preserve">
+    <value>Text wrapping</value>
+  </data>
+  <data name="DescPictureWrap" xml:space="preserve">
+    <value>Chooses how the text flows around the selected picture: in line with the text, square, above and below, in front of the text or behind it.</value>
+  </data>
+  <data name="CmdPictureReset" xml:space="preserve">
+    <value>Original size</value>
+  </data>
+  <data name="DescPictureReset" xml:space="preserve">
+    <value>Puts the selected picture back to its original size.</value>
+  </data>
+  <data name="CmdPictureDelete" xml:space="preserve">
+    <value>Delete picture</value>
+  </data>
+  <data name="DescPictureDelete" xml:space="preserve">
+    <value>Removes the selected picture from the document. Undo brings it back.</value>
+  </data>
+  <data name="ReasonPictureNoSelection" xml:space="preserve">
+    <value>Select a picture first.</value>
+  </data>
+  <data name="ReasonPicturePrefixDocument" xml:space="preserve">
+    <value>Only the start of this document is open, so pictures cannot be changed yet.</value>
+  </data>
+  <data name="ReasonPictureNoPosition" xml:space="preserve">
+    <value>There is no place for a picture here.</value>
+  </data>
+  <data name="ReasonPictureHeaderOrFooter" xml:space="preserve">
+    <value>Pictures cannot be placed in a header or a footer yet.</value>
+  </data>
+  <data name="ReasonPictureNote" xml:space="preserve">
+    <value>Pictures cannot be placed in a footnote or an endnote yet.</value>
+  </data>
+  <data name="ReasonPictureComment" xml:space="preserve">
+    <value>Pictures cannot be placed in a comment.</value>
+  </data>
+  <data name="ReasonPictureRestrictedControl" xml:space="preserve">
+    <value>This content control holds plain text only, so it takes no picture.</value>
+  </data>
+  <data name="ReasonPictureNestedTable" xml:space="preserve">
+    <value>Pictures cannot be placed in a table inside another table yet.</value>
+  </data>
+  <data name="ReasonPictureNoPicture" xml:space="preserve">
+    <value>The picture is no longer there. Select it again.</value>
+  </data>
+  <data name="ReasonPictureRotated" xml:space="preserve">
+    <value>The picture is turned, so its size cannot be changed here.</value>
+  </data>
+  <data name="ReasonPictureFloatInCell" xml:space="preserve">
+    <value>A picture in a table cell stays in line with the text.</value>
+  </data>
+  <data name="ReasonPictureNotFloating" xml:space="preserve">
+    <value>Only a picture that is not in line with the text can be moved. Change its text wrapping first.</value>
+  </data>
+  <data name="ReasonPictureAlignedPosition" xml:space="preserve">
+    <value>The position of this picture is set by an alignment (for example centered). Drag it to give it a fixed position.</value>
+  </data>
+  <data name="ReasonPictureAnotherPlace" xml:space="preserve">
+    <value>The picture can only be moved within the same part of the document.</value>
+  </data>
+  <data name="ReasonPictureTooFar" xml:space="preserve">
+    <value>The picture is too far from there to be moved in one step.</value>
+  </data>
+  <data name="ReasonPictureNotAnImage" xml:space="preserve">
+    <value>The file is not a picture that can be used (PNG, JPEG, GIF, BMP or TIFF).</value>
+  </data>
+  <data name="ReasonPictureTooLarge" xml:space="preserve">
+    <value>The file is larger than 50 MB.</value>
+  </data>
+  <data name="ReasonPictureTooManyPixels" xml:space="preserve">
+    <value>The picture has too many pixels (more than 32 million).</value>
+  </data>
+  <data name="ReasonPictureTooMuchMedia" xml:space="preserve">
+    <value>The pictures of this document would take too much room together.</value>
+  </data>
+  <data name="ReasonPictureBadSize" xml:space="preserve">
+    <value>That size is not possible for a picture.</value>
+  </data>
+  <data name="ReasonPictureAltTextTooLong" xml:space="preserve">
+    <value>The description is too long (at most 4096 characters).</value>
+  </data>
+  <data name="ReasonPictureNothingToChange" xml:space="preserve">
+    <value>That would change nothing.</value>
+  </data>
+  <data name="ReasonPictureOriginalSizeUnknown" xml:space="preserve">
+    <value>The original size of this picture cannot be told.</value>
+  </data>
+  <data name="NotePictureFailed" xml:space="preserve">
+    <value>The picture command could not be carried out.</value>
+  </data>
+  <data name="NotePictureReadFailed" xml:space="preserve">
+    <value>The picture file could not be read.</value>
+  </data>
+  <data name="NoteCellsDeleteKey" xml:space="preserve">
+    <value>Delete rows or columns with the Table tab.</value>
+  </data>
+  <data name="PictureOpenTitle" xml:space="preserve">
+    <value>Insert picture</value>
+  </data>
+  <data name="PictureFilterImages" xml:space="preserve">
+    <value>Pictures</value>
+  </data>
+  <data name="PictureWrapInline" xml:space="preserve">
+    <value>In line with text</value>
+  </data>
+  <data name="PictureWrapSquare" xml:space="preserve">
+    <value>Square</value>
+  </data>
+  <data name="PictureWrapTopAndBottom" xml:space="preserve">
+    <value>Above and below</value>
+  </data>
+  <data name="PictureWrapInFront" xml:space="preserve">
+    <value>In front of text</value>
+  </data>
+  <data name="PictureWrapBehind" xml:space="preserve">
+    <value>Behind text</value>
+  </data>
+  <data name="PiTitle" xml:space="preserve">
+    <value>Insert picture</value>
+  </data>
+  <data name="PiAlt" xml:space="preserve">
+    <value>Description for screen readers (optional)</value>
+  </data>
+  <data name="PiAltHint" xml:space="preserve">
+    <value>Say in a few words what the picture shows.</value>
+  </data>
+  <data name="PiOk" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="PiAltTooLong" xml:space="preserve">
+    <value>The description is too long (at most 4096 characters).</value>
+  </data>
+  <data name="PpTitle" xml:space="preserve">
+    <value>Picture properties</value>
+  </data>
+  <data name="PpWidthFormat" xml:space="preserve">
+    <value>Width ({0})</value>
+  </data>
+  <data name="PpHeightFormat" xml:space="preserve">
+    <value>Height ({0})</value>
+  </data>
+  <data name="PpLockRatio" xml:space="preserve">
+    <value>Keep the proportions</value>
+  </data>
+  <data name="PpReset" xml:space="preserve">
+    <value>Back to the original size</value>
+  </data>
+  <data name="PpAlt" xml:space="preserve">
+    <value>Description for screen readers</value>
+  </data>
+  <data name="PpWrap" xml:space="preserve">
+    <value>Text wrapping</value>
+  </data>
+  <data name="PpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PpInvalidValueFormat" xml:space="preserve">
+    <value>{0}: Enter a number, for example 2.5.</value>
+  </data>
+  <data name="PpOutOfRangeFormat" xml:space="preserve">
+    <value>{0}: This size is not possible for a picture.</value>
+  </data>
 </root>
