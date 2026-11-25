@@ -15,7 +15,7 @@ public sealed class MediaPartTests
     private static readonly XNamespace Wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
     private const string ImageType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 
-    private static readonly string[] s_types = ["image/png", "IMAGE/JPEG", "image/gif", "image/bmp", "image/tiff"];
+    private static readonly string[] s_types = ["image/png", "IMAGE/JPEG", "image/gif", "image/bmp"];
 
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;
 
@@ -345,7 +345,8 @@ public sealed class MediaPartTests
         Assert.Equal("A picture must hold at least one byte and at most 50 MiB. (Parameter 'bytes')", error.Message);
         Assert.Equal("The content type is not a supported picture type. (Parameter 'contentType')", Assert.Throws<ArgumentException>(() => store.Add(Png(), "text/plain")).Message);
         Assert.Empty(store.Entries);
-        Assert.Equal(["png", "jpeg", "gif", "bmp", "tiff"], s_types.Select(MediaStore.ExtensionOf).ToArray());
+        Assert.Equal(["png", "jpeg", "gif", "bmp"], s_types.Select(MediaStore.ExtensionOf).ToArray());
+        Assert.Null(MediaStore.ExtensionOf("image/tiff"));
     }
 
     [Fact]

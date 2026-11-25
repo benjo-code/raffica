@@ -2035,7 +2035,7 @@
     <value>Bild</value>
   </data>
   <data name="DescPictureInsert" xml:space="preserve">
-    <value>Fügt ein Bild aus einer Datei (PNG, JPEG, GIF, BMP oder TIFF) an der Einfügemarke ein, in der Textzeile. Sie können es vor dem Einfügen für Screenreader beschreiben.</value>
+    <value>Fügt ein Bild aus einer Datei (PNG, JPEG, GIF oder BMP) an der Einfügemarke ein, in der Textzeile. Sie können es vor dem Einfügen für Screenreader beschreiben.</value>
   </data>
   <data name="CmdPictureProperties" xml:space="preserve">
     <value>Bildeigenschaften</value>
@@ -2107,7 +2107,7 @@
     <value>Das Bild ist zu weit entfernt, um in einem Schritt dorthin verschoben zu werden.</value>
   </data>
   <data name="ReasonPictureNotAnImage" xml:space="preserve">
-    <value>Die Datei ist kein verwendbares Bild (PNG, JPEG, GIF, BMP oder TIFF).</value>
+    <value>Die Datei ist kein verwendbares Bild (PNG, JPEG, GIF oder BMP).</value>
   </data>
   <data name="ReasonPictureTooLarge" xml:space="preserve">
     <value>Die Datei ist größer als 50 MB.</value>

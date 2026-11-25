@@ -2035,7 +2035,7 @@
     <value>Picture</value>
   </data>
   <data name="DescPictureInsert" xml:space="preserve">
-    <value>Inserts a picture from a file (PNG, JPEG, GIF, BMP or TIFF) at the caret, in line with the text. You can describe it for screen readers before it is inserted.</value>
+    <value>Inserts a picture from a file (PNG, JPEG, GIF or BMP) at the caret, in line with the text. You can describe it for screen readers before it is inserted.</value>
   </data>
   <data name="CmdPictureProperties" xml:space="preserve">
     <value>Picture properties</value>
@@ -2107,7 +2107,7 @@
     <value>The picture is too far from there to be moved in one step.</value>
   </data>
   <data name="ReasonPictureNotAnImage" xml:space="preserve">
-    <value>The file is not a picture that can be used (PNG, JPEG, GIF, BMP or TIFF).</value>
+    <value>The file is not a picture that can be used (PNG, JPEG, GIF or BMP).</value>
   </data>
   <data name="ReasonPictureTooLarge" xml:space="preserve">
     <value>The file is larger than 50 MB.</value>

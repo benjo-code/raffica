@@ -63,14 +63,13 @@ public sealed class MediaStore
         }
     }
 
-    /// <summary>The file extension a picture of this content type is stored with, or null when the type is not one of PNG, JPEG, GIF, BMP and TIFF.</summary>
+    /// <summary>The file extension a picture of this content type is stored with, or null when the type is not one of PNG, JPEG, GIF and BMP.</summary>
     public static string? ExtensionOf(string? contentType) => contentType?.ToLowerInvariant() switch
     {
         "image/png" => "png",
         "image/jpeg" => "jpeg",
         "image/gif" => "gif",
         "image/bmp" => "bmp",
-        "image/tiff" => "tiff",
         _ => null,
     };
 

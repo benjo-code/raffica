@@ -6,16 +6,16 @@ namespace Raffica.Write.Model;
 public readonly record struct ImageHeaderInfo(string ContentType, int Width, int Height);
 
 /// <summary>
-/// Reads the content type and the pixel size of a PNG, JPEG, GIF, BMP or TIFF from its header bytes, without decoding anything and without touching the bytes beyond the header fields. The check
+/// Reads the content type and the pixel size of a PNG, JPEG, GIF or BMP from its header bytes, without decoding anything and without touching the bytes beyond the header fields. The check
 /// is the insert command's first gate: bytes with no recognised header, a header cut short or a size of zero give null. A header that states a size the data does not hold is accepted here (a decode
 /// that fails later shows the layout's marked box); the size limits are the caller's. Never throws, never keeps or reports the bytes.
 /// </summary>
 public static class ImageHeaderProbe
 {
-    /// <summary>The header facts of <paramref name="bytes"/>, or null when they are not a picture of one of the five kinds or the header is unreadable.</summary>
+    /// <summary>The header facts of <paramref name="bytes"/>, or null when they are not a picture of one of the four kinds or the header is unreadable.</summary>
     public static ImageHeaderInfo? Read(ReadOnlySpan<byte> bytes)
     {
-        var info = Png(bytes) ?? Jpeg(bytes) ?? Gif(bytes) ?? Bmp(bytes) ?? Tiff(bytes);
+        var info = Png(bytes) ?? Jpeg(bytes) ?? Gif(bytes) ?? Bmp(bytes);
         return info is { Width: > 0, Height: > 0 } ? info : null;
     }
 
@@ -136,80 +136,4 @@ public static class ImageHeaderProbe
         // A negative height is a top-down bitmap; the size is its magnitude.
         return width <= 0 || height == int.MinValue || BinaryPrimitives.ReadUInt16LittleEndian(b[26..]) != 1 ? null : new ImageHeaderInfo("image/bmp", width, Math.Abs(height));
     }
-
-    private static ImageHeaderInfo? Tiff(ReadOnlySpan<byte> b)
-    {
-        if (b.Length < 8)
-        {
-            return null;
-        }
-
-        bool little;
-        if (b[0] == (byte)'I' && b[1] == (byte)'I' && b[2] == 42 && b[3] == 0)
-        {
-            little = true;
-        }
-        else if (b[0] == (byte)'M' && b[1] == (byte)'M' && b[2] == 0 && b[3] == 42)
-        {
-            little = false;
-        }
-        else
-        {
-            return null;
-        }
-
-        var offset = U32(b, 4, little);
-        if (offset < 8 || (long)offset + 2 > b.Length)
-        {
-            return null;
-        }
-
-        var count = U16(b, (int)offset, little);
-        long width = 0;
-        long height = 0;
-        for (var i = 0; i < count; i++)
-        {
-            var entry = (long)offset + 2 + (12L * i);
-            if (entry + 12 > b.Length)
-            {
-                return null;
-            }
-
-            var tag = U16(b, (int)entry, little);
-            if (tag is not (256 or 257))
-            {
-                continue;
-            }
-
-            var type = U16(b, (int)entry + 2, little);
-            long value;
-            if (type == 3)
-            {
-                value = U16(b, (int)entry + 8, little);
-            }
-            else if (type == 4)
-            {
-                value = U32(b, (int)entry + 8, little);
-            }
-            else
-            {
-                return null;
-            }
-
-            if (tag == 256)
-            {
-                width = value;
-            }
-            else
-            {
-                height = value;
-            }
-        }
-
-        return width is <= 0 or > int.MaxValue || height is <= 0 or > int.MaxValue ? null : new ImageHeaderInfo("image/tiff", (int)width, (int)height);
-    }
-
-    private static ushort U16(ReadOnlySpan<byte> b, int at, bool little) => little ? BinaryPrimitives.ReadUInt16LittleEndian(b[at..]) : BinaryPrimitives.ReadUInt16BigEndian(b[at..]);
-
-    private static uint U32(ReadOnlySpan<byte> b, int at, bool little) => little ? BinaryPrimitives.ReadUInt32LittleEndian(b[at..]) : BinaryPrimitives.ReadUInt32BigEndian(b[at..]);
 }

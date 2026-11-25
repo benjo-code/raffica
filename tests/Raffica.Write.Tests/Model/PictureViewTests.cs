@@ -77,7 +77,6 @@ public sealed class PictureViewTests
     [InlineData("gif", 41, 31)]
     [InlineData("bmp", 42, 32)]
     [InlineData("bmp-top-down", 43, 33)]
-    [InlineData("tiff", 44, 34)]
     [InlineData("jpeg", 45, 35)]
     public void TheProbeReadsTheTypeAndSizeOfEachFormat(string kind, int width, int height)
     {
@@ -87,7 +86,6 @@ public sealed class PictureViewTests
             "gif" => (TestPictures.GifHeader(width, height), "image/gif"),
             "bmp" => (TestPictures.BmpHeader(width, height), "image/bmp"),
             "bmp-top-down" => (TestPictures.BmpHeader(width, -height), "image/bmp"),
-            "tiff" => (TestPictures.TiffHeader(width, height), "image/tiff"),
             _ => (TestPictures.JpegHeader(width, height), "image/jpeg"),
         };
 

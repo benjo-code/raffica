@@ -9,15 +9,14 @@ namespace Raffica.Write.Tests.Model;
 /// <summary>The header probe against hostile and damaged input: it never throws, never loops without bound and refuses what is only picture-shaped text.</summary>
 public sealed class ImageHeaderProbeTests
 {
-    public static TheoryData<string> Formats() => ["png", "jpeg", "gif", "bmp", "tiff"];
+    public static TheoryData<string> Formats() => ["png", "jpeg", "gif", "bmp"];
 
     private static byte[] Valid(string format) => format switch
     {
         "png" => TestPictures.Png(30, 20),
         "jpeg" => TestPictures.JpegHeader(30, 20),
         "gif" => TestPictures.GifHeader(30, 20),
-        "bmp" => TestPictures.BmpHeader(30, 20),
-        _ => TestPictures.TiffHeader(30, 20),
+        _ => TestPictures.BmpHeader(30, 20),
     };
 
     [Theory]
@@ -97,37 +96,16 @@ public sealed class ImageHeaderProbeTests
         Assert.Equal(new ImageHeaderInfo("image/jpeg", 30, 20), ImageHeaderProbe.Read(bytes.AsSpan(0, frameAt + 9)));
     }
 
+    // SkiaSharp cannot decode a TIFF, so an inserted one would be an unselectable placeholder: the probe does not know the format (a TIFF already in a document is left as it is).
     [Fact]
-    public void ATiffWithAnOutOfRangeOffsetTooManyEntriesOrAWrongTypeIsRefused()
+    public void ATiffIsNoPictureOfTheProbe()
     {
-        var good = TestPictures.TiffHeader(30, 20);
-        var offset = (byte[])good.Clone();
-        BinaryPrimitives.WriteUInt32LittleEndian(offset.AsSpan(4), uint.MaxValue);
-        Assert.Null(ImageHeaderProbe.Read(offset));
-        BinaryPrimitives.WriteUInt32LittleEndian(offset.AsSpan(4), (uint)good.Length);
-        Assert.Null(ImageHeaderProbe.Read(offset));
-        BinaryPrimitives.WriteUInt32LittleEndian(offset.AsSpan(4), 3);
-        Assert.Null(ImageHeaderProbe.Read(offset));
-
-        var many = (byte[])good.Clone();
-        BinaryPrimitives.WriteUInt16LittleEndian(many.AsSpan(8), 65535);
-        Assert.Null(ImageHeaderProbe.Read(many));
-
-        // Tag 256 as an ASCII string and tag 257 as a RATIONAL are no sizes.
-        var width = (byte[])good.Clone();
-        BinaryPrimitives.WriteUInt16LittleEndian(width.AsSpan(12), 2);
-        Assert.Null(ImageHeaderProbe.Read(width));
-        var length = (byte[])good.Clone();
-        BinaryPrimitives.WriteUInt16LittleEndian(length.AsSpan(24), 5);
-        Assert.Null(ImageHeaderProbe.Read(length));
-
-        // Zero and beyond int.MaxValue.
-        var zero = (byte[])good.Clone();
-        BinaryPrimitives.WriteUInt32LittleEndian(zero.AsSpan(30), 0);
-        Assert.Null(ImageHeaderProbe.Read(zero));
-        var huge = (byte[])good.Clone();
-        BinaryPrimitives.WriteUInt32LittleEndian(huge.AsSpan(30), uint.MaxValue);
-        Assert.Null(ImageHeaderProbe.Read(huge));
+        var little = TestPictures.TiffHeader(30, 20);
+        Assert.Null(ImageHeaderProbe.Read(little));
+        var big = (byte[])little.Clone();
+        big[0] = (byte)'M';
+        big[1] = (byte)'M';
+        Assert.Null(ImageHeaderProbe.Read(big));
     }
 
     private static byte[] BmpWith(Action<byte[]> change)

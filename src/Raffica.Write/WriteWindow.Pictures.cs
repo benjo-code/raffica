@@ -220,9 +220,9 @@ internal sealed partial class WriteWindow
                 new FilePickerFileType(WriteStrings.PictureFilterImages)
                 {
                     // Both spellings (a Linux file dialog matches the case), the MIME types for the portals and the types of macOS.
-                    Patterns = ["*.png", "*.PNG", "*.jpg", "*.JPG", "*.jpeg", "*.JPEG", "*.gif", "*.GIF", "*.bmp", "*.BMP", "*.tif", "*.TIF", "*.tiff", "*.TIFF"],
-                    MimeTypes = ["image/png", "image/jpeg", "image/gif", "image/bmp", "image/tiff"],
-                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg", "com.compuserve.gif", "com.microsoft.bmp", "public.tiff"],
+                    Patterns = ["*.png", "*.PNG", "*.jpg", "*.JPG", "*.jpeg", "*.JPEG", "*.gif", "*.GIF", "*.bmp", "*.BMP"],
+                    MimeTypes = ["image/png", "image/jpeg", "image/gif", "image/bmp"],
+                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg", "com.compuserve.gif", "com.microsoft.bmp"],
                 },
             ],
         });

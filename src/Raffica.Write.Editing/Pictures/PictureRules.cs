@@ -47,7 +47,7 @@ public enum PictureRefusal
     /// <summary>The move target is 20,000 or more blocks away from the picture (the one history step snapshots every block between the two).</summary>
     TooFar,
 
-    /// <summary>The bytes are no PNG, JPEG, GIF, BMP or TIFF, or the header is cut short, unreadable or states no size.</summary>
+    /// <summary>The bytes are no PNG, JPEG, GIF or BMP, or the header is cut short, unreadable or states no size.</summary>
     NotAnImage,
 
     /// <summary>The file is larger than 50 MiB.</summary>
@@ -143,7 +143,7 @@ public static class PictureRules
     };
 
     /// <summary>
-    /// The gate every picture file passes before the document is touched: not empty and at most 50 MiB, a header of a PNG, JPEG, GIF, BMP or TIFF that states a size, and at most 32,000,000 pixels by that header.
+    /// The gate every picture file passes before the document is touched: not empty and at most 50 MiB, a header of a PNG, JPEG, GIF or BMP that states a size, and at most 32,000,000 pixels by that header.
     /// Returns the facts of the header, or the reason. A header that states a size the data does not hold is accepted (the layout shows a marked box for a picture it cannot decode); the bytes are never read
     /// past the header here and appear in no message.
     /// </summary>
