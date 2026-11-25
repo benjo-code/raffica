@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="HarfBuzzSharp" />
     <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
     <TrimmerRootAssembly Include="Raffica.Shell" />
     <TrimmerRootAssembly Include="Avalonia.Themes.Fluent" />

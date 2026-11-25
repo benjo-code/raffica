@@ -21,6 +21,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="HarfBuzzSharp" />
     <ProjectReference Include="..\Raffica.Core\Raffica.Core.csproj" />
     <ProjectReference Include="..\Raffica.Hosting\Raffica.Hosting.csproj" />
     <ProjectReference Include="..\Raffica.Shell\Raffica.Shell.csproj" />
