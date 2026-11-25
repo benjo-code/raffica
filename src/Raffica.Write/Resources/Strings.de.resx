@@ -2065,7 +2065,7 @@
     <value>Entfernt das ausgewählte Bild aus dem Dokument. Mit Rückgängig kommt es zurück.</value>
   </data>
   <data name="ReasonPictureNoSelection" xml:space="preserve">
-    <value>Wählen Sie zuerst ein Bild aus.</value>
+    <value>Wählen Sie zuerst ein Bild aus: Klicken Sie darauf oder wählen Sie es mit Umschalt und einer Pfeiltaste aus (bei einem frei positionierten Bild genügt die Einfügemarke in seinem Absatz).</value>
   </data>
   <data name="ReasonPicturePrefixDocument" xml:space="preserve">
     <value>Von diesem Dokument ist erst der Anfang geöffnet, daher können Bilder noch nicht geändert werden.</value>

@@ -35,6 +35,45 @@ public sealed partial class TextEditor
             : null;
     }
 
+    /// <summary>
+    /// The place right behind the character of the picture <paramref name="id"/> (where the caret goes when the picture is selected, so that typing and a paste land next to it), or null when the picture is not in the body.
+    /// </summary>
+    public TextPosition? PositionAfterPicture(ObjectId id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        if (PictureRules.StoryRefusal(id.Story) is not null || ObjectIds.Find(_document.Body.Blocks, id) is not { } found)
+        {
+            return null;
+        }
+
+        var piece = Map(StoryRef.Body, found.Paragraph).Projection.Pieces.FirstOrDefault(p => ReferenceEquals(p.Content, found.Picture));
+        return piece is null ? null : new TextPosition(StoryRef.Body, found.Paragraph, piece.End);
+    }
+
+    /// <summary>
+    /// The picture that a selection names, for the commands that act on "the selected picture" when no picture is selected with the pointer: the one character of an inline picture that the selection covers exactly (a range
+    /// of one paragraph that holds nothing but that character, either direction: what Shift and an arrow next to a picture select), or else the only floating picture anchored in the paragraph of the selection (a floating
+    /// picture has no character in the text, so no range can cover it). Null for neither: a longer range, a range across paragraphs or a paragraph with no such picture. A stale position throws <see cref="StalePositionException"/>.
+    /// </summary>
+    public ObjectId? PictureOfSelection(TextRange range)
+    {
+        var (start, end) = (range.Start, range.End);
+        if (start.Paragraph is null || end.Paragraph is null || !ReferenceEquals(start.Paragraph, end.Paragraph) || start.Story != end.Story || start.Story.Kind != StoryKind.Body || StoryResolver.TryBlocks(_document, start.Story) is not { } blocks)
+        {
+            return null;
+        }
+
+        var (first, last) = (Math.Min(start.Offset, end.Offset), Math.Max(start.Offset, end.Offset));
+        var pieces = Map(start.Story, start.Paragraph).Projection.Pieces;
+        if (last - first == 1 && pieces.FirstOrDefault(p => p.Start == first && p.Length == 1 && p.Content is Picture) is { Run: { } inlineRun, Content: { } inline })
+        {
+            return ObjectIds.Of(start.Story, blocks, start.Paragraph, inlineRun, inline);
+        }
+
+        var floating = pieces.Where(p => p.Content is Picture picture && PictureView.Of(picture) is { IsFloating: true }).Take(2).ToList();
+        return floating is [{ Run: { } run, Content: { } content }] ? ObjectIds.Of(start.Story, blocks, start.Paragraph, run, content) : null;
+    }
+
     /// <summary>The reason a picture cannot be inserted at <paramref name="caret"/> (see <see cref="PictureRules.Refusal"/>), or null: also a caret in an inline content control of the kinds text, combo box, drop-down list or date, which only the offset can tell.</summary>
     public PictureRefusal? RefusalForPicture(TextPosition caret, bool prefixDocument = false)
     {

@@ -101,6 +101,42 @@ public sealed class PageViewObjectTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task SelectingAPictureMovesTheCaretRightBehindItSoTypedTextLandsNextToIt()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var view = h.View;
+
+        // The caret is in the first line, far from the picture.
+        var bar = view.CaretBounds(new TextPosition(StoryRef.Body, P(h, 0), 3))!.Value;
+        Click(h, new Point(bar.X + 1, bar.Y + (bar.Height / 2)));
+        var session = view.Tab.Editor!;
+        Assert.Same(P(h, 0), session.Caret!.Value.Paragraph);
+
+        Click(h, Center(ThePicture(h), view));
+
+        // The picture is selected and the caret is a collapsed one right behind its character.
+        Assert.IsType<PictureSelection>(session.ObjectSelection);
+        var caret = session.Selection!.Value;
+        Assert.True(caret.IsEmpty);
+        Assert.Same(P(h, 1), caret.End.Paragraph);
+        Assert.Equal(1, caret.End.Offset);
+
+        // Typing goes next to the picture, not to the old place, and ends the selection of the object.
+        h.Window.KeyTextInput("Z");
+        ViewHarness.Pump();
+        Assert.Null(session.ObjectSelection);
+        var picture = P(h, 1);
+        Assert.Equal("Before the picture", Raw(P(h, 0)));
+        var content = picture.Inlines.OfType<Run>().SelectMany(r => r.Content).ToList();
+        Assert.IsType<Picture>(content[0]);
+        Assert.IsType<TextContent>(content[1]);
+        Assert.Equal("Z", Raw(picture));
+        Assert.Single(ModelPictures(view.Tab.Docx.Model));
+    }
+
+    private static string Raw(Paragraph paragraph) => string.Concat(paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<TextContent>().Select(t => t.Text));
+
+    [AvaloniaFact]
     public async Task ClickingTextClearsTheObjectSelection()
     {
         using var h = await OpenAsync(ObjectDocx.Write(_folder));

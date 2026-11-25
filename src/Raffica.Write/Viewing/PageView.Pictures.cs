@@ -89,13 +89,12 @@ internal sealed partial class PageView
             return refusal is null ? ed.InsertPicture(selection.End, file.Bytes, file.AltText) : null;
         }
 
-        if (session.ObjectSelection is not PictureSelection picture)
+        if (session.TargetPicture() is not { } target)
         {
             refusal = PictureRefusal.NoPicture;
             return null;
         }
 
-        var target = picture.Id;
         switch (id)
         {
             case WriteCommandIds.PictureProperties when payload is PictureProperties properties:
@@ -128,19 +127,30 @@ internal sealed partial class PageView
             return null;
         }
 
-        if (_tab.Editor is not { ObjectSelection: PictureSelection picture, SelectedDrawing: { } drawing } session || PictureView.Of(drawing) is not { } info)
+        // The picture of the object selection or the one the text selection covers exactly (the keyboard route), read from the model now.
+        ObjectId? target = null;
+        try
+        {
+            target = _tab.Editor is { BlockedReason: null } selecting ? selecting.TargetPicture() : null;
+        }
+        catch (StalePositionException)
+        {
+            // A selection that is not in the model any more picks nothing.
+        }
+
+        if (_tab.Editor is not { } session || target is not { } picture || ObjectIds.Find(_tab.Docx.Model.Body.Blocks, picture)?.Picture is not { } drawing || PictureView.Of(drawing) is not { } info)
         {
             note = WriteStrings.ReasonPictureNoSelection;
             return null;
         }
 
-        if (session.Editor.RefusalForDeletePicture(picture.Id) is { } refusal)
+        if (session.Editor.RefusalForDeletePicture(picture) is { } refusal)
         {
             note = PictureWording.ReasonText(refusal);
             return null;
         }
 
-        var canFloat = session.Editor.RefusalForPictureWrap(picture.Id, PictureWrap.Square) is not PictureRefusal.FloatInCell;
+        var canFloat = session.Editor.RefusalForPictureWrap(picture, PictureWrap.Square) is not PictureRefusal.FloatInCell;
         return new PicturePropertiesContext(Twips(info.ExtentEmu.Width), Twips(info.ExtentEmu.Height), info.AltText ?? string.Empty, PicturePayloads.IdOf(info.Wrap), info.IsRotated, canFloat, MarginsInInches());
     }
 

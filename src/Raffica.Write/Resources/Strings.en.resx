@@ -2065,7 +2065,7 @@
     <value>Removes the selected picture from the document. Undo brings it back.</value>
   </data>
   <data name="ReasonPictureNoSelection" xml:space="preserve">
-    <value>Select a picture first.</value>
+    <value>Select a picture first: click it, or select it with Shift and an arrow key (for a floating picture, the caret in its paragraph is enough).</value>
   </data>
   <data name="ReasonPicturePrefixDocument" xml:space="preserve">
     <value>Only the start of this document is open, so pictures cannot be changed yet.</value>

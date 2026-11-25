@@ -20,6 +20,13 @@ internal sealed partial class EditSession
     /// <summary>The selected picture or cell range; null when none is (the usual case).</summary>
     public ObjectSelection? ObjectSelection => _objectSelection;
 
+    /// <summary>
+    /// The picture the picture commands act on: the selected one (<see cref="PictureSelection"/>, made by the pointer) or, when no object is selected, the picture that the text selection names (a range of
+    /// the one character of an inline picture, the keyboard way: Shift and an arrow next to it; or the only floating picture of the paragraph of the text selection). Null for neither. A stale selection throws <see cref="StalePositionException"/>.
+    /// </summary>
+    public ObjectId? TargetPicture() =>
+        _objectSelection is PictureSelection picture ? picture.Id : _objectSelection is null && _selection is { } range ? Editor.PictureOfSelection(range) : null;
+
     /// <summary>The drawing of a <see cref="PictureSelection"/>, found in the model when it was selected and again after every edit; null without a picture selection. The hit test takes it so that a pointer move reads no model.</summary>
     public Picture? SelectedDrawing => _drawing;
 
@@ -80,7 +87,16 @@ internal sealed partial class EditSession
                 return false;
         }
 
-        CollapseTextSelection();
+        if (selection is PictureSelection selectedPicture && _editor?.PositionAfterPicture(selectedPicture.Id) is { } after)
+        {
+            // The caret goes right behind the picture, so that typing, Enter and a paste land next to it and not at an old place that may be pages away and not drawn.
+            PlaceCaret(after);
+        }
+        else
+        {
+            CollapseTextSelection();
+        }
+
         Commit(selection, drawing, anchor, focus, model);
         return true;
     }
@@ -170,6 +186,18 @@ internal sealed partial class EditSession
         if (_objectSelection is not null && !ReferenceEquals(_objectModel, _tab.Docx.Model))
         {
             ClearObjectSelection();
+        }
+    }
+
+    // The text selection becomes a caret at the place (the event is raised when it moved).
+    private void PlaceCaret(TextPosition place)
+    {
+        var caret = new TextRange(place, place);
+        if (!SameSelection(_selection, caret))
+        {
+            _selection = caret;
+            Pending.Clear();
+            SelectionChanged?.Invoke();
         }
     }
 

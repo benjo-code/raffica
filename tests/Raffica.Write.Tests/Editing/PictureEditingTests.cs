@@ -77,6 +77,42 @@ public sealed class PictureEditingTests
     // ---- insert ------------------------------------------------------------------------------------------------------------------------
 
     [Fact]
+    public void ThePositionAfterAPictureAndThePictureASelectionNamesFollowFromTheTextOffsets()
+    {
+        var (document, editor, id) = WithInserted();
+        var paragraph = (Paragraph)document.Body.Blocks[0];
+
+        // The picture is the one character at offset 2; the caret goes right behind it.
+        var after = editor.PositionAfterPicture(id);
+        Assert.Equal(new TextPosition(StoryRef.Body, paragraph, 3), after);
+        Assert.Null(editor.PositionAfterPicture(new ObjectId(StoryRef.Body, 0, 99, 0)));
+
+        // Exactly the one character of the picture covers it, in either direction; a caret, a longer range and a range of other text do not.
+        Assert.Equal(id, editor.PictureOfSelection(new TextRange(At(document, 0, 2), At(document, 0, 3))));
+        Assert.Equal(id, editor.PictureOfSelection(new TextRange(At(document, 0, 3), At(document, 0, 2))));
+        Assert.Null(editor.PictureOfSelection(new TextRange(At(document, 0, 2), At(document, 0, 2))));
+        Assert.Null(editor.PictureOfSelection(new TextRange(At(document, 0, 1), At(document, 0, 3))));
+        Assert.Null(editor.PictureOfSelection(new TextRange(At(document, 0, 0), At(document, 0, 2))));
+        Assert.Null(editor.PictureOfSelection(new TextRange(At(document, 0, 2), At(document, 1, 1))));
+    }
+
+    [Fact]
+    public void AFloatingPictureHasNoCharacterSoTheOnlyOneOfTheParagraphOfTheSelectionIsTheTarget()
+    {
+        var document = Doc("<w:p><w:r><w:t>text</w:t></w:r>" + AnchoredPicture(3, 5) + "</w:p>", "<w:p><w:r><w:t>two</w:t></w:r>" + AnchoredPicture(4, 6) + AnchoredPicture(5, 7) + "</w:p>", Line("plain"));
+        var editor = Editor(document);
+
+        // Anywhere in a paragraph that anchors exactly one floating picture, a caret included, names it.
+        var one = IdOf(document, 0);
+        Assert.Equal(one, editor.PictureOfSelection(new TextRange(At(document, 0, 1), At(document, 0, 1))));
+        Assert.Equal(one, editor.PictureOfSelection(new TextRange(At(document, 0, 0), At(document, 0, 2))));
+
+        // Two of them are ambiguous, a paragraph with none names nothing.
+        Assert.Null(editor.PictureOfSelection(new TextRange(At(document, 1, 1), At(document, 1, 1))));
+        Assert.Null(editor.PictureOfSelection(new TextRange(At(document, 2, 1), At(document, 2, 1))));
+    }
+
+    [Fact]
     public void InsertWritesAnInlineDrawingWithAUniqueDocPrId()
     {
         var document = Doc(Line("alpha"), Para(InlinePicture(7)), Line("gamma"));

@@ -363,6 +363,49 @@ public sealed class PictureCommandTests
         Assert.Equal(steps, session.Editor.History.UndoCount);
     }
 
+
+    [AvaloniaFact]
+    public async Task AKeyboardOnlyRouteOpensThePropertiesAndChangesTheAltText()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture);
+        var cards = new FakePictureCards { Properties = new PictureProperties(AltText: "Typed with the keyboard") };
+        window.PictureCards = cards;
+
+        // No pointer: the text selection is the one character of the picture in block 4 (Shift and an arrow next to it makes exactly this).
+        var paragraph = P(tab, 4);
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, paragraph, 0), new TextPosition(StoryRef.Body, paragraph, 1)));
+        Settle(window);
+        Assert.Null(session.ObjectSelection);
+        foreach (var id in s_needSelection)
+        {
+            Assert.True(Command(window, id).IsEnabled, id + ": " + Command(window, id).CurrentDisabledReason);
+        }
+
+        var steps = session.Editor.History.UndoCount;
+        Command(window, WriteCommandIds.PictureProperties).Run!();
+        await WindowFixture.WaitAsync(() => cards.PropertiesAsked == 1);
+        await WindowFixture.WaitAsync(() => session.Editor.History.UndoCount == steps + 1);
+
+        Assert.Equal("An inline picture", cards.LastContext!.AltText);
+        Assert.Equal("Typed with the keyboard", InfoOf(tab, 4).AltText);
+
+        // The wrap picker and Delete work the same way (the picture floats now: the one floating picture of its paragraph is the selection's target).
+        Assert.True(window.RunCommand(WriteCommandIds.PictureWrap, "square"));
+        WindowFixture.Pump();
+        Assert.Equal(PictureWrap.Square, InfoOf(tab, 4).Wrap);
+        Settle(window);
+        Assert.True(window.RunCommand(WriteCommandIds.PictureDelete));
+        WindowFixture.Pump();
+        Assert.Equal(1, PicturesIn(tab));
+
+        // A caret, or a selection of other text, picks no picture, and the reason says how to select one.
+        var other = P(tab, 0);
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, other, 0), new TextPosition(StoryRef.Body, other, 1)));
+        Settle(window);
+        Assert.False(Command(window, WriteCommandIds.PictureProperties).IsEnabled);
+        Assert.Equal(WriteStrings.ReasonPictureNoSelection, Command(window, WriteCommandIds.PictureProperties).CurrentDisabledReason);
+    }
     [AvaloniaFact]
     public async Task ThePropertiesCardIsOneHistoryStepAndReadsThePictureWhenItOpens()
     {

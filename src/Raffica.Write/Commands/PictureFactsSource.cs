@@ -117,7 +117,7 @@ internal sealed class PictureFactsSource
             return Of(editor.RefusalForPicture(selection.End));
         }
 
-        if (session.ObjectSelection is not PictureSelection picture)
+        if (session.TargetPicture() is not { } picture)
         {
             return new PictureCommandFacts(PictureBlock.NoSelection);
         }
@@ -126,15 +126,15 @@ internal sealed class PictureFactsSource
         {
             case WriteCommandIds.PictureProperties:
                 // The card can change a part the picture allows: only a picture that is no longer there is refused.
-                return Of(editor.RefusalForDeletePicture(picture.Id));
+                return Of(editor.RefusalForDeletePicture(picture));
             case WriteCommandIds.PictureWrap:
                 // Square is the probe: the wrap the picture already has is no reason to disable the picker.
-                var wrap = editor.RefusalForPictureWrap(picture.Id, PictureWrap.Square);
+                var wrap = editor.RefusalForPictureWrap(picture, PictureWrap.Square);
                 return Of(wrap is PictureRefusal.NothingToChange ? null : wrap);
             case WriteCommandIds.PictureReset:
-                return Of(editor.RefusalForResetPictureSize(picture.Id));
+                return Of(editor.RefusalForResetPictureSize(picture));
             case WriteCommandIds.PictureDelete:
-                return Of(editor.RefusalForDeletePicture(picture.Id));
+                return Of(editor.RefusalForDeletePicture(picture));
             default:
                 return PictureCommandFacts.Permissive;
         }
