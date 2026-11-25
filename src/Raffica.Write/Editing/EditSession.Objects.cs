@@ -155,7 +155,7 @@ internal sealed partial class EditSession
         var at = rows.IndexOf(focus.Row);
         var nextRow = rows[Math.Clamp((at < 0 ? 0 : at) + rowStep, 0, rows.Count - 1)];
         var nextColumn = Math.Clamp(focus.Column + columnStep, 0, ObjectAnnouncement.Columns(table) - 1);
-        return (nextRow, nextColumn) != focus && SelectCells(cells.Table, anchor, (nextRow, nextColumn));
+        return (nextRow, nextColumn) != focus && SelectCells(cells.Table, anchor, (nextRow, nextColumn), wholeMergedCells: true);
     }
 
     /// <summary>The words for the selected object (see <see cref="ObjectAnnouncement"/>); null without one.</summary>

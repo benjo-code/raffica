@@ -25,6 +25,8 @@ namespace Raffica.Write.Viewing;
 internal sealed partial class PageView
 {
     private ObjectDrag? _objectDrag;
+    private double _gestureScale;
+    private double _gestureOffsetX;
     private IPointer? _objectPointer;
     private DocumentLayout? _objectLayout;
 
@@ -84,9 +86,8 @@ internal sealed partial class PageView
 
                 break;
             case ObjectHit.ColumnBorder border when border.Index > 0:
-                // An inner border or the right edge is a gesture; the left outer edge is not (the press is for the text there).
-                taken = true;
-                BeginObjectDrag(session, BorderDragOf(border, page), point, layout, count, rightButton);
+                // An inner border or the right edge is a gesture; the left outer edge is not (the press is for the text there). A press that starts none (a save, a prefix document, the right button, a double click) is the text's too.
+                taken = BeginObjectDrag(session, BorderDragOf(border, page), point, layout, count, rightButton);
                 break;
             case ObjectHit.Margin margin:
                 var table = new TableRef(margin.Grid.Story, margin.Grid.BlockIndex);
@@ -173,12 +174,12 @@ internal sealed partial class PageView
         return layout.HitObject(box.Page, box.X + 0.5f, box.Top + (box.Height / 2f), 0f) as ObjectHit.Cell;
     }
 
-    private void BeginObjectDrag(EditSession session, ObjectDragKind kind, Point point, DocumentLayout layout, int count, bool rightButton)
+    private bool BeginObjectDrag(EditSession session, ObjectDragKind kind, Point point, DocumentLayout layout, int count, bool rightButton)
     {
         // A gesture on a table has its own commit (the view's); the one of a picture is the callback a later task sets. A prefix document and a save make no gesture.
         if ((ObjectDragCommit is null && kind is not TableDragKind) || rightButton || count != 1 || session.IsSaving || (kind is TableDragKind && IsPrefixDocument))
         {
-            return;
+            return false;
         }
 
         if (_objectDrag is null)
@@ -187,10 +188,14 @@ internal sealed partial class PageView
             _objectDrag.Changed += OnObjectDragChanged;
         }
 
-        if (_objectDrag.Press(kind, point))
+        if (!_objectDrag.Press(kind, point))
         {
-            _objectLayout = layout;
+            return false;
         }
+
+        _objectLayout = layout;
+        (_gestureScale, _gestureOffsetX) = (_scroller?.Scale ?? 0, _offsetX);
+        return true;
     }
 
     private void OnObjectDragChanged() => _overlay.InvalidateVisual();
@@ -214,15 +219,31 @@ internal sealed partial class PageView
             return false;
         }
 
+        if (ViewMovedUnder(drag))
+        {
+            CancelObjectDrag(ObjectDragCancel.ViewChanged);
+            return true;
+        }
+
         drag.Move(point);
         return drag.Kind is CellRangeDrag range ? drag.Phase == ObjectDragPhase.Dragging && MoveCellRange(range, point) : true;
     }
+
+    // A width gesture measures the pointer against the scale and the horizontal offset of its press: a zoom or a sideways scroll in the middle of it (Ctrl and the wheel) would give a wrong width, so it ends.
+    private bool ViewMovedUnder(ObjectDrag drag) =>
+        drag.Kind is ColumnBorderDrag or TableEdgeDrag && (_scroller is not { } scroller || scroller.Scale != _gestureScale || _offsetX != _gestureOffsetX);
 
     internal bool ReleaseObjectDrag(Point point)
     {
         if (_objectDrag is not { IsActive: true } drag)
         {
             return false;
+        }
+
+        if (ViewMovedUnder(drag))
+        {
+            CancelObjectDrag(ObjectDragCancel.ViewChanged);
+            return true;
         }
 
         var gesture = drag.Kind;

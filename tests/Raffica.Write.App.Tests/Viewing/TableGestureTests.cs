@@ -500,7 +500,7 @@ public sealed class TableGestureTests : IDisposable
         var grid = layout.Page(page).Objects.Tables[0];
         var revision = Revision(h);
 
-        // A sweep over the table and its borders and margins, on the page that has one: the work of the handler (the hit test and the cursor).
+        // A sweep over the table and its borders and margins, on the page that has one, with no button down: the dispatch of the move (the hit test and the cursor). The moves of a drag are timed in ThePointerMoveDuringADragCostsAtMost16msP95OnTheThesis.
         var samples = new List<double>();
         for (var round = 0; round < 6; round++)
         {
@@ -519,8 +519,270 @@ public sealed class TableGestureTests : IDisposable
         var p95 = samples[(int)(samples.Count * 0.95)];
         TestContext.Current.SendDiagnosticMessage($"pointer moves over a table of the thesis: p95 {p95:F3} ms, median {samples[samples.Count / 2]:F3} ms, max {samples[^1]:F3} ms over {samples.Count} moves");
 
-        // The budget of the plan (16 ms of CPU for the handler) holds as it is: the measured cost is far below it, so no extra room for CI jitter was taken.
+        // The budget of the plan (16 ms of CPU per move) holds as it is: the measured cost is far below it, so no extra room for CI jitter was taken.
         Assert.True(p95 <= 16.0, $"p95 {p95:F3} ms median {samples[samples.Count / 2]:F3} max {samples[^1]:F3}");
         Assert.Equal(revision, Revision(h));
+    }
+
+    // The thesis table with the most cells that has three columns or more on its page, scrolled into view; returns its page and piece.
+    private static async Task<(int Page, TableGrid Grid)> BigTableAsync(ViewHarness h)
+    {
+        var view = h.View;
+        var layout = view.Runner.PageLayout;
+        TableGrid? best = null;
+        var bestPage = -1;
+        for (var i = 0; i < layout.LaidOutPages; i++)
+        {
+            if (layout.TryGetPage(i, out var p) && p is not null)
+            {
+                foreach (var t in p.Objects.Tables.Where(t => t.ColumnBorders.Count >= 4 && t.RowEdges.Count >= 4))
+                {
+                    if (best is null || t.Cells.Count > best.Cells.Count)
+                    {
+                        (best, bestPage) = (t, i);
+                    }
+                }
+            }
+        }
+
+        Assert.NotNull(best);
+        view.ScrollToBlock(best!.BlockIndex);
+        await ViewHarness.WaitAsync(() => !view.IsWaitingForAnchor);
+        ViewHarness.Pump();
+        return (bestPage, layout.Page(bestPage).Objects.Tables.First(t => t.BlockIndex == best.BlockIndex));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("range")]
+    [InlineData("border")]
+    [InlineData("edge")]
+    [InlineData("row")]
+    public async Task ThePointerMoveDuringADragCostsAtMost16msP95OnTheThesis(string kind)
+    {
+        using var h = await OpenAsync(WindowFixture.Thesis);
+        var view = h.View;
+        var (page, grid) = await BigTableAsync(h);
+        var revision = Revision(h);
+        Point At(double x, double y) => ViewPoint(view, page, x, y);
+        var cells = grid.Cells.Where(c => c.RowSpan >= 1).ToList();
+        var first = cells[0];
+        Point from;
+        var targets = new List<Point>();
+        switch (kind)
+        {
+            case "range":
+                from = At(first.X + 8, first.Y + (first.Height / 2));
+
+                // Every move lands in another cell, so every move changes the focus cell and selects a range.
+                for (var round = 0; round < 4; round++)
+                {
+                    targets.AddRange(cells.Select(c => At(c.X + (c.Width / 2), c.Y + (c.Height / 2))));
+                }
+
+                break;
+            case "border":
+            case "edge":
+                var border = kind == "border" ? 1 : grid.ColumnBorders.Count - 1;
+                from = At(grid.ColumnBorders[border], first.Y + (first.Height / 2));
+                targets.AddRange(Enumerable.Range(0, 240).Select(i => new Point(from.X + (((i % 2) == 0 ? 1 : -1) * (5 + (i % 40))), from.Y)));
+                break;
+            default:
+                from = At(grid.X - (2 * Tolerance(view)), first.Y + (first.Height / 2));
+                targets.AddRange(Enumerable.Range(0, 240).Select(i => At(grid.X + 5, grid.Y + (grid.Height * ((i * 13) % 100) / 100.0))));
+                break;
+        }
+
+        Assert.True(new Rect(view.Bounds.Size).Contains(from), "the table is in view");
+        h.Window.MouseDown(from, MouseButton.Left);
+        var samples = new List<double>();
+        foreach (var target in targets)
+        {
+            // The work of one move of the pointer: its handler (the machine, the live range) and the render pass the move asks for.
+            var timer = Stopwatch.StartNew();
+            h.Window.MouseMove(target);
+            ViewHarness.Pump();
+            samples.Add(timer.Elapsed.TotalMilliseconds);
+        }
+
+        Assert.True(view.ObjectGesture is { Phase: ObjectDragPhase.Dragging }, "a drag is going on");
+        Stroke(h, PhysicalKey.Escape);
+        h.Window.MouseUp(from, MouseButton.Left);
+        ViewHarness.Pump();
+        // The first moves run code for the first time (JIT of the selection and the overlay): they are left out, the budget is for a drag that is going on.
+        samples.RemoveRange(0, 20);
+        samples.Sort();
+        var p95 = samples[(int)(samples.Count * 0.95)];
+        var note = $"{kind} drag over {cells.Count} cells: p95 {p95:F3} ms, median {samples[samples.Count / 2]:F3} ms, max {samples[^1]:F3} ms over {samples.Count} moves";
+        TestContext.Current.SendDiagnosticMessage(note);
+
+        // The plan's 16 ms of CPU per move, not loosened (App tests run one at a time, so the machine is not shared by other tests).
+        Assert.True(p95 <= 16.0, note);
+        Assert.Equal(revision, Revision(h));
+    }
+
+    [AvaloniaFact]
+    public async Task APressOnABorderThatStartsNoGesturePlacesTheCaretLikeAnyPress()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var view = h.View;
+        var session = view.Tab.EnsureEditor();
+        var grid = Grid(h);
+        var revision = Revision(h);
+        var border = BorderPoint(view, grid, 1, 1);
+
+        // A prefix document: no gesture, the press goes to the text and ends a stale selection of cells.
+        view.PrefixProbe = () => true;
+        Assert.True(session.SelectRow(TableOf(grid), 0));
+        h.Window.MouseDown(border, MouseButton.Left);
+        h.Window.MouseUp(border, MouseButton.Left);
+        ViewHarness.Pump();
+        Assert.Null(session.ObjectSelection);
+        Assert.NotNull(session.Editor.TableOf(session.Selection!.Value.End));
+        Assert.True(view.ObjectGesture is null || view.ObjectGesture.Phase == ObjectDragPhase.Idle);
+        view.PrefixProbe = null;
+
+        // A save: the same; the caret change is queued like any other and applied when the save ends.
+        Assert.True(session.SelectRow(TableOf(grid), 0));
+        var before = session.Selection!.Value.End.Paragraph;
+        using (session.BeginSave())
+        {
+            var other = BorderPoint(view, grid, 2, 2);
+            h.Window.MouseDown(other, MouseButton.Left);
+            h.Window.MouseUp(other, MouseButton.Left);
+            ViewHarness.Pump();
+            Assert.Null(session.ObjectSelection);
+            Assert.True(view.ObjectGesture is null || view.ObjectGesture.Phase == ObjectDragPhase.Idle);
+        }
+
+        ViewHarness.Pump();
+        Assert.NotNull(session.Editor.TableOf(session.Selection!.Value.End));
+        Assert.NotSame(before, session.Selection.Value.End.Paragraph);
+        Assert.Equal(revision, Revision(h));
+    }
+
+    [AvaloniaFact]
+    public async Task ARightClickOrADoubleClickOnABorderIsAPlainOne()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var view = h.View;
+        var session = view.Tab.EnsureEditor();
+        var grid = Grid(h);
+        var border = BorderPoint(view, grid, 1, 0);
+
+        h.Window.MouseDown(border, MouseButton.Right);
+        h.Window.MouseUp(border, MouseButton.Right);
+        ViewHarness.Pump();
+        Assert.True(view.ObjectGesture is null || view.ObjectGesture.Phase == ObjectDragPhase.Idle);
+        Assert.NotNull(session.Editor.TableOf(session.Selection!.Value.End));
+        Assert.Null(session.ObjectSelection);
+
+        // A double click (the second press on the same point) selects text as everywhere else and starts no gesture.
+        var other = BorderPoint(view, grid, 2, 2);
+        Click(h, other);
+        Click(h, other);
+        Assert.True(view.ObjectGesture is null || view.ObjectGesture.Phase == ObjectDragPhase.Idle);
+        Assert.Null(session.ObjectSelection);
+        Assert.NotNull(session.Editor.TableOf(session.Selection!.Value.End));
+    }
+
+    [AvaloniaFact]
+    public async Task AZoomInTheMiddleOfAWidthDragEndsItWithNoChange()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var view = h.View;
+        var grid = Grid(h);
+        var revision = Revision(h);
+        var from = BorderPoint(view, grid, 1);
+        var to = new Point(from.X + 40, from.Y);
+
+        h.Window.MouseDown(from, MouseButton.Left);
+        Move(h, from, to);
+        Assert.Equal(ObjectDragPhase.Dragging, view.ObjectGesture!.Phase);
+        view.ZoomAround(view.Zoom * 1.5, to);
+        ViewHarness.Pump();
+        h.Window.MouseMove(new Point(to.X + 20, to.Y));
+        h.Window.MouseUp(new Point(to.X + 20, to.Y), MouseButton.Left);
+        ViewHarness.Pump();
+
+        Assert.Equal(ObjectDragCancel.ViewChanged, view.ObjectGesture.LastCancel);
+        Assert.Equal(revision, Revision(h));
+
+        // A release with the zoom changed and no move in between: the same.
+        grid = Grid(h);
+        var again = BorderPoint(view, grid, 1, 1);
+        h.Window.MouseDown(again, MouseButton.Left);
+        Move(h, again, new Point(again.X + 30, again.Y));
+        view.ZoomAround(view.Zoom / 1.5, again);
+        ViewHarness.Pump();
+        h.Window.MouseUp(new Point(again.X + 30, again.Y), MouseButton.Left);
+        ViewHarness.Pump();
+        Assert.Equal(ObjectDragCancel.ViewChanged, view.ObjectGesture.LastCancel);
+        Assert.Equal(revision, Revision(h));
+    }
+
+    [AvaloniaFact]
+    public async Task AWidenedRangeIsStillTheWidenedRangeAfterABorderDrag()
+    {
+        using var h = await OpenAsync(Merged());
+        var view = h.View;
+        var grid = Grid(h);
+        var session = view.Tab.EnsureEditor();
+        var from = CellCenter(view, grid, 0, 2);
+        var to = CellCenter(view, grid, 1, 1);
+        h.Window.MouseDown(from, MouseButton.Left);
+        Move(h, from, to);
+        h.Window.MouseUp(to, MouseButton.Left);
+        ViewHarness.Pump();
+        Assert.Equal((0, 0, 2, 2), Rect(session));
+        var revision = Revision(h);
+
+        // A border between the columns 1 and 2 (it runs through the rows of a merged grid), dragged: the width changes and the selection is the widened one again.
+        grid = Grid(h);
+        var border = BorderPoint(view, grid, 2, 1);
+        Drag(h, border, new Point(border.X + 30, border.Y));
+
+        Assert.Equal(revision + 1, Revision(h));
+        Assert.Equal((0, 0, 2, 2), Rect(session));
+    }
+
+    private static (int, int, int, int) Rect(EditSession session)
+    {
+        var range = Assert.IsType<CellSelection>(session.ObjectSelection).Range;
+        return (range.FirstRow, range.FirstColumn, range.LastRow, range.LastColumn);
+    }
+
+    [AvaloniaFact]
+    public async Task ShiftArrowsExtendACellRangeOverMergedCellsToWholeCells()
+    {
+        using var h = await OpenAsync(Merged());
+        var view = h.View;
+        var grid = Grid(h);
+        var session = view.Tab.EnsureEditor();
+        Click(h, CellCenter(view, grid, 0, 2));
+        Assert.True(session.SelectCells(TableOf(grid), (0, 2), (0, 2), wholeMergedCells: true));
+
+        // The focus steps one grid column to the left, into the merged cell of the first row: the range takes the whole cell.
+        Stroke(h, PhysicalKey.ArrowLeft, RawInputModifiers.Shift);
+        Assert.Equal((0, 0, 0, 2), Rect(session));
+        Assert.Equal((0, 2), session.CellAnchor);
+        Assert.Equal((0, 1), session.CellFocus);
+
+        // One row down: the first cell of the second row spans two rows and is taken whole, the range the pointer gives in ADragOnAMergedCellSelectsItsWholeSpan.
+        Stroke(h, PhysicalKey.ArrowDown, RawInputModifiers.Shift);
+        Assert.Equal((0, 0, 2, 2), Rect(session));
+    }
+
+    [AvaloniaFact]
+    public async Task ARowDraggedPastTheBottomOfTheTableLandsInTheLastRow()
+    {
+        using var h = await OpenAsync(ObjectDocx.Write(_folder));
+        var grid = Grid(h);
+        var block = TableBlock(grid);
+        var from = RowHandlePoint(h.View, grid, 0);
+
+        Drag(h, from, ViewPoint(h.View, 0, grid.X + 5, grid.Y + grid.Height + 60));
+
+        Assert.Equal("c10", TextOfCell(h, block, 0, 0));
+        Assert.Equal("c00", TextOfCell(h, block, 2, 0));
     }
 }

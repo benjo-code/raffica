@@ -203,7 +203,7 @@ internal sealed partial class PageView
 
         if (before is not null && anchor is { } a && focus is { } f)
         {
-            _ = session.SelectCells(before.Table, a, f);
+            _ = session.SelectCells(before.Table, a, f, wholeMergedCells: true);
         }
         else if (landed is { } moved)
         {

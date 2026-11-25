@@ -80,7 +80,7 @@ internal static class TableGestures
         var last = drawn[^1];
         var total = drawn.Sum();
         var room = Math.Min(maxTotalTwips, TableRules.MaxTwips) - total;
-        var applied = Math.Clamp(twips, Math.Min(MinColumnTwips, last) - last, Math.Max(room, Math.Min(MinColumnTwips, last) - last));
+        var applied = Math.Clamp(twips, Math.Min(MinColumnTwips, last) - last, Math.Max(room, 0));
         var widths = drawn.ToArray();
         widths[^1] = last + applied;
         return (widths, applied);
