@@ -167,64 +167,251 @@ public sealed class PageViewTableKeysTests : IDisposable
         Assert.Equal((0, 2), CellOfCaret(h, session));
     }
 
-    // The case table of the order: the list rule of 4.4a at the start of a list item first, else the table rule inside a cell, else a tab character.
+    // ---- the case table of the order --------------------------------------------------------------------------------------------
+    // The ruling (4.4a kept): the list rule decides at offset 0 of a list item, with text or empty; it never falls through (at the edge of the levels ChangeListLevel gives a result with no change, so
+    // no tab character, no cell move and no new row). Only a selection that touches no list paragraph falls through to the cell rule. Else in a top-level cell the cell rule; else a tab character (Tab) or nothing (Shift+Tab).
+
+    public enum Item
+    {
+        None,
+        Text,
+        Empty,
+    }
+
+    public enum Place
+    {
+        Start,
+        Middle,
+        End,
+    }
+
     public enum Expect
     {
-        ListLevel,
+        LevelUp,
+        StayInTheItem,
         NextCell,
+        PreviousCell,
+        RowAdded,
+        StayInTheCell,
         TabCharacter,
+        NothingOutside,
+    }
+
+    // The cells: the middle one for the plain walk, the last (Tab) or first (Shift+Tab) for the edge of the table; outside is the first paragraph of the body.
+    public enum Where
+    {
+        Outside,
+        Middle,
+        Edge,
+    }
+
+    public static IEnumerable<object[]> Cases()
+    {
+        foreach (var where in Enum.GetValues<Where>())
+        {
+            foreach (var shift in new[] { false, true })
+            {
+                foreach (var item in Enum.GetValues<Item>())
+                {
+                    foreach (var place in item == Item.Empty ? [Place.Start] : Enum.GetValues<Place>())
+                    {
+                        yield return [item, place, where, shift];
+                    }
+                }
+            }
+        }
+    }
+
+    private static Expect Expected(Item item, Place place, Where where, bool shift)
+    {
+        if (item != Item.None && place == Place.Start)
+        {
+            // A fresh list item is at level 0: Tab goes one level deeper, Shift+Tab is the edge and changes nothing, in a cell, in the last or the first cell and outside alike.
+            return shift ? Expect.StayInTheItem : Expect.LevelUp;
+        }
+
+        return where switch
+        {
+            Where.Outside => shift ? Expect.NothingOutside : Expect.TabCharacter,
+            Where.Middle => shift ? Expect.PreviousCell : Expect.NextCell,
+            _ => shift ? Expect.StayInTheCell : Expect.RowAdded,
+        };
     }
 
     [AvaloniaTheory]
-    [InlineData(true, true, true, Expect.ListLevel)]
-    [InlineData(true, false, true, Expect.NextCell)]
-    [InlineData(false, true, true, Expect.NextCell)]
-    [InlineData(false, false, true, Expect.NextCell)]
-    [InlineData(true, true, false, Expect.ListLevel)]
-    [InlineData(true, false, false, Expect.TabCharacter)]
-    [InlineData(false, true, false, Expect.TabCharacter)]
-    [InlineData(false, false, false, Expect.TabCharacter)]
-    public async Task TabInAListInACellFollowsTheListRuleAtTheStartOfAnItem(bool inList, bool atStart, bool inCell, Expect expected)
+    [MemberData(nameof(Cases))]
+    public async Task TabInAListInACellFollowsTheListRuleAtTheStartOfAnItem(Item item, Place place, Where where, bool shift)
     {
         using var h = await OpenAsync();
         var session = h.View.Tab.EnsureEditor();
         _ = session.Selection;
-        var paragraph = inCell ? CellParagraph(h, 1, 1) : (Paragraph)h.View.Tab.Docx.Model.Body.Blocks[0];
-        var at = new TextPosition(StoryRef.Body, paragraph, 0);
+        var (row, column) = where == Where.Edge ? (shift ? (0, 0) : (2, 2)) : (1, 1);
+        Paragraph Target() => where == Where.Outside ? (Paragraph)h.View.Tab.Docx.Model.Body.Blocks[0] : CellParagraph(h, row, column);
+
+        var at = new TextPosition(StoryRef.Body, Target(), 0);
         session.SetSelection(new TextRange(at, at));
         h.View.Focus();
-        if (inList)
+        if (item == Item.Empty)
         {
-            Assert.True(h.View.RunStructureCommand(WriteCommandIds.Bullets));
-            paragraph = inCell ? CellParagraph(h, 1, 1) : (Paragraph)h.View.Tab.Docx.Model.Body.Blocks[0];
-            Assert.True(session.ResolveParagraph(StoryRef.Body, paragraph).NumberingId > 0);
+            var length = TextOf(h, Target()).Length;
+            Assert.NotNull(h.View.ApplyOperation(ed => ed.Delete(new TextRange(new TextPosition(StoryRef.Body, Target(), 0), new TextPosition(StoryRef.Body, Target(), length)))));
+            Assert.Equal(string.Empty, TextOf(h, Target()));
         }
 
-        var place = new TextPosition(StoryRef.Body, paragraph, atStart ? 0 : 2);
-        session.SetSelection(new TextRange(place, place));
-        var level = session.ResolveParagraph(StoryRef.Body, paragraph).NumberingLevel;
-        var text = TextOf(h, paragraph);
-
-        Stroke(h, PhysicalKey.Tab);
-
-        switch (expected)
+        if (item != Item.None)
         {
-            case Expect.ListLevel:
-                Assert.Equal(level + 1, session.ResolveParagraph(StoryRef.Body, session.Caret!.Value.Paragraph).NumberingLevel);
-                Assert.Equal(text, TextOf(h, session.Caret!.Value.Paragraph));
-                if (inCell)
+            Assert.True(h.View.RunStructureCommand(WriteCommandIds.Bullets));
+            Assert.True(session.ResolveParagraph(StoryRef.Body, Target()).NumberingId > 0);
+        }
+
+        var paragraph = Target();
+        var text = TextOf(h, paragraph);
+        var offset = place switch { Place.Start => 0, Place.Middle => 2, _ => text.Length };
+        var put = new TextPosition(StoryRef.Body, paragraph, offset);
+        session.SetSelection(new TextRange(put, put));
+        var rows = TableGridMap.Of(TableOf(h)).RowCount;
+        var level = session.ResolveParagraph(StoryRef.Body, paragraph).NumberingLevel;
+        var revision = h.View.Tab.Docx.Model.Edits.Revision;
+
+        Stroke(h, PhysicalKey.Tab, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+
+        var caret = session.Caret!.Value;
+        switch (Expected(item, place, where, shift))
+        {
+            case Expect.LevelUp:
+                Assert.Equal(level + 1, session.ResolveParagraph(StoryRef.Body, caret.Paragraph).NumberingLevel);
+                Assert.Equal(text, TextOf(h, caret.Paragraph));
+                Assert.Equal(rows, TableGridMap.Of(TableOf(h)).RowCount);
+                if (where != Where.Outside)
                 {
-                    Assert.Equal((1, 1), CellOfCaret(h, session));
+                    Assert.Equal((row, column), CellOfCaret(h, session));
                 }
 
                 break;
+            case Expect.StayInTheItem:
+                Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+                Assert.Same(paragraph, caret.Paragraph);
+                Assert.Equal(0, caret.Offset);
+                Assert.Equal(rows, TableGridMap.Of(TableOf(h)).RowCount);
+                break;
             case Expect.NextCell:
-                Assert.Equal((1, 2), CellOfCaret(h, session));
-                Assert.Equal(text, TextOf(h, CellParagraph(h, 1, 1)));
+                Assert.Equal((row, column + 1), CellOfCaret(h, session));
+                Assert.Equal(0, caret.Offset);
+                Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+                break;
+            case Expect.PreviousCell:
+                Assert.Equal((row, column - 1), CellOfCaret(h, session));
+                Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+                break;
+            case Expect.RowAdded:
+                Assert.Equal(rows + 1, TableGridMap.Of(TableOf(h)).RowCount);
+                Assert.Equal((rows, 0), CellOfCaret(h, session));
+                break;
+            case Expect.StayInTheCell:
+                Assert.Equal((row, column), CellOfCaret(h, session));
+                Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+                Assert.Equal(rows, TableGridMap.Of(TableOf(h)).RowCount);
+                break;
+            case Expect.TabCharacter:
+                Assert.Equal(text.Insert(offset, "\t"), TextOf(h, caret.Paragraph));
                 break;
             default:
-                Assert.Equal(text.Insert(2 * (atStart ? 0 : 1), "\t"), TextOf(h, session.Caret!.Value.Paragraph));
+                Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+                Assert.Equal(text, TextOf(h, caret.Paragraph));
                 break;
         }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    public async Task TabAtTheDeepestLevelChangesNothingAndNeverFallsThroughToTheCellRule(int row, int column)
+    {
+        using var h = await OpenAsync();
+        var session = CaretIn(h, row, column);
+        Assert.True(h.View.RunStructureCommand(WriteCommandIds.Bullets));
+        var paragraph = CellParagraph(h, row, column);
+        var at = new TextPosition(StoryRef.Body, paragraph, 0);
+        session.SetSelection(new TextRange(at, at));
+
+        for (var i = 0; i < 12; i++)
+        {
+            Stroke(h, PhysicalKey.Tab);
+        }
+
+        Assert.Equal(8, session.ResolveParagraph(StoryRef.Body, CellParagraph(h, row, column)).NumberingLevel);
+        Assert.Equal((row, column), CellOfCaret(h, session));
+        Assert.Equal(3, TableGridMap.Of(TableOf(h)).RowCount);
+        Assert.Equal("c" + row + column, TextOf(h, CellParagraph(h, row, column)));
+    }
+
+    [AvaloniaFact]
+    public async Task ASelectionThatTouchesAListInACellChangesTheLevelAndOneThatTouchesNoneMovesOn()
+    {
+        using var h = await OpenAsync();
+        var session = CaretIn(h, 1, 1);
+        Assert.True(h.View.RunStructureCommand(WriteCommandIds.Bullets));
+        var paragraph = CellParagraph(h, 1, 1);
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, paragraph, 1), new TextPosition(StoryRef.Body, paragraph, 3)));
+
+        Stroke(h, PhysicalKey.Tab);
+        Assert.Equal(1, session.ResolveParagraph(StoryRef.Body, CellParagraph(h, 1, 1)).NumberingLevel);
+        Assert.Equal((1, 1), CellOfCaret(h, session));
+
+        // A selection in a cell with no list falls through the list rule to the cell rule.
+        var plain = CellParagraph(h, 1, 2);
+        session.SetSelection(new TextRange(new TextPosition(StoryRef.Body, plain, 0), new TextPosition(StoryRef.Body, plain, 2)));
+        Stroke(h, PhysicalKey.Tab);
+        Assert.Equal((2, 0), CellOfCaret(h, session));
+    }
+
+    [AvaloniaFact]
+    public async Task TabInANestedTableIsATabCharacterAsBefore()
+    {
+        var path = Path.Combine(_folder, "nested.docx");
+        WriteNested(path);
+        using var h = new ViewHarness(path, 900, 1000);
+        h.View.Runner.LeaseWaitTimeout = TimeSpan.FromSeconds(60);
+        h.View.Runner.Start();
+        await ViewHarness.WaitAsync(() => h.View.Runner.FullModelReady || h.View.Runner.IsFaulted, 30000);
+        await ViewHarness.WaitAsync(() => h.View.Runner.PageLayout.IsComplete, 30000);
+        var session = h.View.Tab.EnsureEditor();
+        _ = session.Selection;
+
+        var outer = (Table)h.View.Tab.Docx.Model.Body.Blocks[0];
+        var nested = outer.Rows.OfType<TableRow>().First().Items.OfType<TableCell>().First().Blocks.OfType<Table>().Single();
+        var inner = nested.Rows.OfType<TableRow>().First().Items.OfType<TableCell>().First().Blocks.OfType<Paragraph>().First();
+        var at = new TextPosition(StoryRef.Body, inner, 0);
+        session.SetSelection(new TextRange(at, at));
+        h.View.Focus();
+        Assert.Null(session.Editor.TableOf(at));
+        var rows = outer.Rows.Count;
+
+        Stroke(h, PhysicalKey.Tab);
+
+        // Commands act on the outer table only, so the caret in a nested cell gets the tab character as before; no cell moved and no row was added.
+        Assert.Equal("\tn0", TextOf(h, inner));
+        Assert.Same(inner, session.Caret!.Value.Paragraph);
+        Assert.Equal(rows, ((Table)h.View.Tab.Docx.Model.Body.Blocks[0]).Rows.Count);
+    }
+
+    private static void WriteNested(string path)
+    {
+        const string W = "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"";
+        static string Cell(string inner) => "<w:tc><w:tcPr><w:tcW w:w=\"2400\" w:type=\"dxa\"/></w:tcPr>" + inner + "</w:tc>";
+        var nested = "<w:tbl><w:tblPr><w:tblW w:w=\"2000\" w:type=\"dxa\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"1000\"/><w:gridCol w:w=\"1000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>n0</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>n1</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var body = "<w:tbl><w:tblPr><w:tblW w:w=\"4800\" w:type=\"dxa\"/></w:tblPr><w:tblGrid><w:gridCol w:w=\"2400\"/><w:gridCol w:w=\"2400\"/></w:tblGrid>"
+            + "<w:tr>" + Cell(nested + "<w:p/>") + Cell("<w:p><w:r><w:t>b</w:t></w:r></w:p>") + "</w:tr></w:tbl><w:p><w:r><w:t>after</w:t></w:r></w:p>";
+        using var stream = File.Create(path);
+        using var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create);
+        void Add(string name, string text)
+        {
+            using var entry = zip.CreateEntry(name).Open();
+            entry.Write(new System.Text.UTF8Encoding(false).GetBytes(text));
+        }
+
+        Add("[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>");
+        Add("_rels/.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>");
+        Add("word/document.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:document " + W + "><w:body>" + body + "<w:sectPr><w:pgSz w:w=\"12240\" w:h=\"15840\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/></w:sectPr></w:body></w:document>");
     }
 }

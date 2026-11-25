@@ -136,6 +136,12 @@ public sealed class TableCommandTests
             .Select(e => (string?)e.Attribute(XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml")))
             .Where(k => k is not null && k.StartsWith("Raffica.Icon.", StringComparison.Ordinal)).ToList();
         Assert.Equal(keys.Count, keys.Distinct().Count());
+
+        // No two of the twenty icons draw the same path.
+        var paths = XDocument.Load(RepoPaths.Combine("src", "Raffica.Shell", "Styles", "Icons.axaml")).Root!.Elements()
+            .ToDictionary(e => (string)e.Attribute(XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml"))!, e => e.Value.Trim());
+        var drawn = s_ids.Select(id => paths["Raffica.Icon." + Of(id).Icon]).ToList();
+        Assert.Equal(s_ids.Length, drawn.Distinct().Count());
         foreach (var id in s_ids)
         {
             var command = Of(id);
@@ -592,7 +598,7 @@ public sealed class TableCommandTests
     }
 
     [AvaloniaFact]
-    public async Task EveryTableCommandIsDisabledInAPrefixDocumentAndDuringASaveQueuedNotLost()
+    public async Task EveryTableCommandIsDisabledWithItsReasonInAPrefixDocumentAndDuringASave()
     {
         using var fixture = new WindowFixture();
         var (window, tab, session) = await OpenAsync(fixture);

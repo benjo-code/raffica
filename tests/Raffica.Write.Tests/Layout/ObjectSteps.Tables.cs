@@ -253,6 +253,15 @@ internal sealed partial class ObjectSteps
         }
 
         var widths = Enumerable.Range(0, map.Columns).Select(_ => random.Next(TableRules.MinColumnTwips, 2500)).ToList();
+        if (random.Next(3) == 0)
+        {
+            // The Table properties card's route: the widths with a row height and the header row on one copy, one step (a third of the draws, by the seed).
+            var first = map.RowIndexes[random.Next(map.RowCount)];
+            var height = random.Next(2) == 0 ? new TableRowHeight(first, map.RowIndexes[^1], random.Next(200, 1500), random.Next(2) == 0) : null;
+            var header = random.Next(3) == 0 ? (bool?)(random.Next(2) == 0) : null;
+            return await CheckAsync(Editor.SetTableProperties(table, new TableProperties(ColumnTwips: widths, RowHeight: height, HeaderRow: header)), label, required: false);
+        }
+
         return await CheckAsync(Editor.SetColumnWidths(table, widths), label, required: false);
     }
 

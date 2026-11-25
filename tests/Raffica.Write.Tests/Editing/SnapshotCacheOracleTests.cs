@@ -690,6 +690,8 @@ public sealed class SnapshotCacheOracleTests
             ("table width", () => editor.SetTableWidth(Percentage(), 6000)),
             ("row height", () => editor.SetRowHeight(Merged(), 1, 700, exact: true)),
             ("distribute", () => editor.DistributeColumns(Merged())),
+            ("properties", () => editor.SetTableProperties(Autofit(), new TableProperties(ColumnTwips: [1000, 1500, 2500], RowHeight: new TableRowHeight(0, 1, 500, Exact: false), HeaderRow: true))),
+            ("properties table width", () => editor.SetTableProperties(Percentage(), new TableProperties(TableWidthTwips: 5000, HeaderRow: true))),
         ];
         Assert.Equal(3, Columns(Autofit()));
         Assert.Equal(4, Columns(Merged()));
