@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Xml;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
@@ -267,6 +268,8 @@ public sealed class DocxFile : IDisposable
             var main = package.MainDocumentPart ?? throw new DocxFormatException("The file has no main document part.");
             var map = PartMap.Locate(main);
             var model = ReadModel(main, map, parts, maxBlocks, early, out var truncated);
+            var mainName = main.Uri.OriginalString;
+            model.MainRelationshipIds = () => MediaPartWriter.RelationshipIds(snapshot, mainName);
             var contentType = main.ContentType;
             var kind = contentType is MacroMainType or MacroTemplateMainType ? DocxKind.Docm : DocxKind.Docx;
             return new DocxFile(snapshot, model, kind, map, originPath, originStamp, truncated);
@@ -451,6 +454,7 @@ public sealed class DocxFile : IDisposable
         Comments,
         CommentsExtended,
         HeaderFooter,
+        Media,
     }
 
     private SaveReport Save(string target, bool replaceExisting, bool overwriteChangedOriginal, bool rebind, CancellationToken cancellationToken, bool useSnapshotCache = false)
@@ -611,6 +615,16 @@ public sealed class DocxFile : IDisposable
             }
         }
 
+        if (Model.HasMedia)
+        {
+            // A new picture is written only when the serialised document still refers to its relationship id: an undone insert leaves no part. The bytes of an entry are the store's array (no copy).
+            foreach (var entry in MediaPartWriter.Used(list[0].Bytes, Model.Media.Entries))
+            {
+                var bytes = MemoryMarshal.TryGetArray(entry.Bytes, out var segment) && segment.Offset == 0 && segment.Count == segment.Array!.Length ? segment.Array : entry.Bytes.ToArray();
+                list.Add(new Intent(WrittenKind.Media, entry.Ref.RelationshipId, bytes, ContentType: entry.Ref.ContentType));
+            }
+        }
+
         return list;
     }
 
@@ -621,7 +635,7 @@ public sealed class DocxFile : IDisposable
         return stream.ToArray();
     }
 
-    private sealed record Intent(WrittenKind Kind, string? Id, byte[] Bytes, HeaderFooterKind HeaderKind = HeaderFooterKind.Header, HeaderFooterPart? Part = null);
+    private sealed record Intent(WrittenKind Kind, string? Id, byte[] Bytes, HeaderFooterKind HeaderKind = HeaderFooterKind.Header, HeaderFooterPart? Part = null, string? ContentType = null);
 
     private (List<Written> Parts, string MainName) WritePackage(string temporary, List<Intent> intents)
     {
@@ -636,6 +650,12 @@ public sealed class DocxFile : IDisposable
             var existing = intents.Where(i => i.Kind == WrittenKind.HeaderFooter && PartMap.ById(main, i.Id!) is not null).Select(i => i.Id!).ToHashSet(StringComparer.Ordinal);
             foreach (var intent in intents)
             {
+                if (intent.Kind == WrittenKind.Media)
+                {
+                    // Not made through the package layer: the SDK names a new picture part /media/imageN (outside /word); it is added to the written package below.
+                    continue;
+                }
+
                 var (part, created) = Resolve(main, intent, commentsPart, existing);
                 if (intent.Kind == WrittenKind.Comments)
                 {
@@ -658,6 +678,12 @@ public sealed class DocxFile : IDisposable
 
                 written.Add(new Written(name, intent.Kind, intent.Bytes, created));
             }
+        }
+
+        var media = intents.Where(i => i.Kind == WrittenKind.Media).Select(i => new MediaPartWriter.NewPicture(i.Id!, i.ContentType!, i.Bytes)).ToList();
+        foreach (var (name, bytes) in MediaPartWriter.AddTo(temporary, mainName, media, WrapPartWrite))
+        {
+            written.Add(new Written(name, WrittenKind.Media, bytes, true));
         }
 
         return (written, mainName);
@@ -940,6 +966,9 @@ public sealed class DocxFile : IDisposable
                 case WrittenKind.CommentsExtended:
                     // Read together with the comments part; alone it needs a model to fill.
                     _ = XDocument.Load(stream);
+                    break;
+                case WrittenKind.Media:
+                    // A picture is not read back as a model: the guard compared its bytes with the ones written.
                     break;
                 default:
                     _ = StoryXml.ReadPart(stream);

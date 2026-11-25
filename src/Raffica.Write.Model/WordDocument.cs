@@ -29,6 +29,23 @@ public sealed class WordDocument
 
     public CommentCollection? Comments { get; set; }
 
+    private MediaStore? _media;
+
+    /// <summary>Where the package layer says which relationship ids the main part uses; asked once, when <see cref="Media"/> is first used, so an opened file pays nothing for it.</summary>
+    public Func<IEnumerable<string>>? MainRelationshipIds { get; set; }
+
+    /// <summary>Whether <see cref="Media"/> was ever used.</summary>
+    public bool HasMedia => Volatile.Read(ref _media) is not null;
+
+    /// <summary>The new pictures of the document, made on first use.</summary>
+    public MediaStore Media => Volatile.Read(ref _media) ?? InitMedia();
+
+    private MediaStore InitMedia()
+    {
+        var made = new MediaStore(MainRelationshipIds?.Invoke());
+        return Interlocked.CompareExchange(ref _media, made, null) ?? made;
+    }
+
     /// <summary>The header and footer parts, keyed by the relationship id the sections' <see cref="HeaderFooterReference"/>s use.</summary>
     public IDictionary<string, HeaderFooterPart> HeadersFooters { get; } = new Dictionary<string, HeaderFooterPart>(StringComparer.Ordinal);
 }
