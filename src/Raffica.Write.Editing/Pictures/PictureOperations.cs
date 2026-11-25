@@ -56,6 +56,9 @@ internal static class PictureOperations
         }
     }
 
+    /// <summary>The XML of every drawing-like run content in the blocks (pictures and unknown content), through tables, content controls and unknown row items.</summary>
+    public static IEnumerable<XElement> BlockRoots(IEnumerable<Block> blocks) => Roots(blocks, 0);
+
     private static IEnumerable<XElement> Roots(IEnumerable<Block> blocks, int depth)
     {
         if (depth > 64)

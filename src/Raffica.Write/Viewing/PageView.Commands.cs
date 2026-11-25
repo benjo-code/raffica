@@ -179,6 +179,22 @@ internal sealed partial class PageView
         }
 
         var content = await ReadSafeAsync(ClipboardOfView);
+        if (content is { PlainText.Length: 0, ImageRefusal: { } unreadable } && !(content.Fragment is { } readable && EditSession.FragmentReadable(readable)))
+        {
+            // A picture was offered and could not be handed over (too many pixels, unreadable): nothing is pasted and the user hears why (a fixed wording, nothing of the picture).
+            var text = PictureWording.ReasonText(unreadable);
+            if (Dispatcher.CheckAccess())
+            {
+                StructureNote?.Invoke(text);
+            }
+            else
+            {
+                await Dispatcher.InvokeAsync(() => StructureNote?.Invoke(text));
+            }
+
+            return true;
+        }
+
         if (content is null || (content.PlainText.Length == 0 && !ImageOnly(content) && !(content.Fragment is { } bytes && EditSession.FragmentReadable(bytes))))
         {
             // Nothing usable: no text, no readable fragment and no picture. Pasting "" over a selection would delete it, so nothing happens at all.

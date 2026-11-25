@@ -725,6 +725,34 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void ADroppedPictureStepLeavesTheBytesOfAFullWriteAndTheStoreEmpty()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("pictures.docx");
+        Support.DocxBuilder.WithBody(path, Layout.ObjectOracleTests.PictureBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        Assert.NotNull(editor.InsertPicture(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[1], 3), Support.TestPictures.Png(24, 18), "gone"));
+        Check("insert");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.InsertText(new TextRange(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0)), "x"));
+        Check("the edit that drops the insert");
+
+        Assert.Empty(model.Media.Entries);
+        Assert.False(editor.History.CanRedo);
+    }
+
+    [Fact]
     public void TableFormattingAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var folder = new Support.TempFolder();

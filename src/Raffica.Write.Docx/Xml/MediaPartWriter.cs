@@ -10,7 +10,7 @@ namespace Raffica.Write.Docx.Xml;
 /// <summary>What the package layer needs to know to write the new pictures of a <see cref="MediaStore"/> as media parts.</summary>
 internal static class MediaPartWriter
 {
-    private const string RelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    private const string RelationshipsNamespace = MediaReferences.RelationshipsNamespace;
 
     /// <summary>
     /// The entries of <paramref name="entries"/> the serialised main part refers to: an attribute in the relationships namespace (<c>r:embed</c>, <c>r:link</c>, <c>r:id</c>, ...) whose

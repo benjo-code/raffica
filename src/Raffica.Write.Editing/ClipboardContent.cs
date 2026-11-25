@@ -9,8 +9,9 @@ namespace Raffica.Write.Editing;
 /// meaning only in a paste into the same part of the same document. <paramref name="Image"/> is a picture another program put on the clipboard (the bytes of
 /// a PNG, a JPEG or any other format <see cref="ImageHeaderProbe"/> knows; null for none). A copy by this editor never carries one. A paste uses it only when
 /// there is neither a readable fragment nor any text: the order is own fragment, then text, then picture.
+/// <paramref name="ImageRefusal"/> is set by a reader that found a picture it could not hand over (too many pixels, or a conversion that failed) and found no text and no fragment: the paste then shows the reason and changes nothing.
 /// </summary>
-public sealed record ClipboardContent(string PlainText, byte[]? Fragment, string? SourceId = null, string? SourcePart = null, ReadOnlyMemory<byte>? Image = null);
+public sealed record ClipboardContent(string PlainText, byte[]? Fragment, string? SourceId = null, string? SourcePart = null, ReadOnlyMemory<byte>? Image = null, PictureRefusal? ImageRefusal = null);
 
 /// <summary>The result of <see cref="TextEditor.Cut"/>: the copied content and the delete that followed it.</summary>
 public sealed record CutResult(ClipboardContent Content, EditResult Result);

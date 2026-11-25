@@ -187,17 +187,134 @@ public sealed class EditHistory
         return redone;
     }
 
-    /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history).</summary>
+    /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history). The pictures only these steps referred to leave the document's picture store (see <see cref="MediaStore.Remove"/>).</summary>
     public void Clear()
     {
+        Collect(_undo);
+        Collect(_redo);
+        foreach (var held in _held.Values)
+        {
+            _dropped[held.RelationshipId] = held;
+        }
+
         _undo.Clear();
         _redo.Clear();
         _undoBytes = 0;
         _open = null;
         _openContainer = null;
         _expected = _document.Edits.Revision;
+        PruneMedia();
     }
 
+    // ---- pictures of dropped steps --------------------------------------------------------------------------------------------------------
+
+    // The pictures a dropped step added: candidates for removal from the store (the redo stack cut by a new edit, the history cleared, the oldest steps trimmed). Only a step that carries media
+    // is looked at, so typing pays a count check and nothing else.
+    private readonly Dictionary<string, MediaRef> _dropped = new(StringComparer.Ordinal);
+
+    // Candidates that were still referenced when their step was dropped (the document holds the picture, or a remaining step does). They are looked at again when a step that refers to one is dropped
+    // (its snapshots are scanned for these ids only, which costs one paragraph's XML for a typing step) and when the history is cleared.
+    private readonly Dictionary<string, MediaRef> _held = new(StringComparer.Ordinal);
+
+    private void Collect(IEnumerable<Step> steps)
+    {
+        foreach (var step in steps)
+        {
+            if (step.Objects is { MediaAdded.Count: > 0 } objects)
+            {
+                foreach (var media in objects.MediaAdded)
+                {
+                    _dropped[media.RelationshipId] = media;
+                }
+            }
+
+            if (_held.Count > 0)
+            {
+                var unreferenced = new HashSet<string>(_held.Keys, StringComparer.Ordinal);
+                MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.Old), unreferenced);
+                MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.New), unreferenced);
+                foreach (var id in _held.Keys.Where(k => !unreferenced.Contains(k)).ToList())
+                {
+                    _dropped[id] = _held[id];
+                }
+            }
+        }
+    }
+
+    private void DropRedo()
+    {
+        if (_redo.Count > 0)
+        {
+            Collect(_redo);
+            _redo.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Takes the pictures of dropped steps out of <see cref="WordDocument.Media"/> when nothing can bring them back: an entry goes only when no relationship attribute of the current document
+    /// (every story the model owns) and none of the remaining steps (their old and new block snapshots, and what they added) refers to its id. An entry that is still referenced is remembered and looked at again
+    /// when a step that refers to it is dropped later (its step A was dropped while a delete step B still held a snapshot with it, and B is dropped now). The scan is made only when a dropped step carried a picture or
+    /// referred to a remembered one, on the thread of the edit under the edit lease. This is the history <em>dropping</em> a step, never an undo or a redo: those keep every entry (see <see cref="ObjectChange"/>).
+    /// Ids are never reused by the store, so a pruned id cannot name another picture later.
+    /// </summary>
+    private void PruneMedia()
+    {
+        if (_dropped.Count == 0)
+        {
+            return;
+        }
+
+        var candidates = _dropped.Values.ToList();
+        _dropped.Clear();
+        if (!_document.HasMedia)
+        {
+            _held.Clear();
+            return;
+        }
+
+        var store = _document.Media;
+        var unreferenced = candidates.Where(c => store.TryGet(c.RelationshipId) is not null).Select(c => c.RelationshipId).ToHashSet(StringComparer.Ordinal);
+        var all = unreferenced.ToHashSet(StringComparer.Ordinal);
+        MediaReferences.RemoveReferenced(PictureOperations.DrawingRoots(_document), unreferenced);
+        foreach (var step in _undo.Concat(_redo))
+        {
+            if (unreferenced.Count == 0)
+            {
+                break;
+            }
+
+            if (step.Objects is { MediaAdded.Count: > 0 } objects)
+            {
+                unreferenced.ExceptWith(objects.MediaAdded.Select(m => m.RelationshipId));
+            }
+
+            MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.Old), unreferenced);
+            MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.New), unreferenced);
+        }
+
+        foreach (var media in candidates)
+        {
+            if (!all.Contains(media.RelationshipId))
+            {
+                _held.Remove(media.RelationshipId);
+            }
+            else if (unreferenced.Contains(media.RelationshipId))
+            {
+                store.Remove(media);
+                _held.Remove(media.RelationshipId);
+            }
+            else
+            {
+                _held[media.RelationshipId] = media;
+            }
+        }
+    }
+
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
+    {
+        RecordCore(result, before, revisionBefore, typed, typingFormat, keepsBodySelection, after, nudge);
+        PruneMedia();
+    }
     /// <summary>The place in a list of blocks a caret has: the index of its paragraph and the offset.</summary>
     internal readonly record struct Point(int Index, int Offset);
 
@@ -212,7 +329,7 @@ public sealed class EditHistory
     /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
     /// selection and without a line break, else null.
     /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
+    private void RecordCore(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
     {
         if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null && result.Objects is null))
         {
@@ -244,7 +361,7 @@ public sealed class EditHistory
         var newBlocks = CloneRange(change.Container, change.First, change.Added);
         var stamp = _time.GetTimestamp();
         var endRevision = _document.Edits.Revision;
-        _redo.Clear();
+        DropRedo();
 
         var plain = result.Style is null && result.Sections is null && result.Objects is null;
         if (plain && ((typed is not null && IsWord(typed)) || nudge is not null) && CanJoin(change, before, stamp, revisionBefore, typingFormat, nudge))
@@ -300,7 +417,7 @@ public sealed class EditHistory
         }
 
         var endRevision = _document.Edits.Revision;
-        _redo.Clear();
+        DropRedo();
         var step = new Step(move.Story, [], move.First, [], [], default, default, revisionBefore, endRevision)
         {
             Move = move,
@@ -367,7 +484,7 @@ public sealed class EditHistory
         }
 
         var endRevision = _document.Edits.Revision;
-        _redo.Clear();
+        DropRedo();
         var step = new Step(story, path, 0, [], [], before, new Point(found.Index, result.Caret.Offset), revisionBefore, endRevision)
         {
             Style = result.Style,
@@ -521,6 +638,7 @@ public sealed class EditHistory
 
         if (drop > 0)
         {
+            Collect(_undo.Take(drop));
             _undo.RemoveRange(0, drop);
             _undoBytes = bytes;
         }

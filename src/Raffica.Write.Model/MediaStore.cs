@@ -8,7 +8,7 @@ public readonly record struct MediaEntry(MediaRef Ref, ReadOnlyMemory<byte> Byte
 /// <summary>
 /// The pictures of a document that are new: bytes in memory under a relationship id of the main document part, until a save writes them as media parts. The store never reads
 /// a picture back out of the package and never decides whether one is used: a save writes an entry only when the document still refers to its id (an undone picture leaves no part),
-/// so a step that undoes an insert does not <see cref="Remove"/> the entry and a redo still finds its bytes.
+/// so a step that undoes an insert does not <see cref="Remove"/> the entry and a redo still finds its bytes. An entry leaves the store only when the history <em>drops</em> the step that added it (the redo stack cut by a new edit, the history cleared, the oldest steps trimmed) and neither the current document nor any remaining step refers to its id: <c>EditHistory</c> decides, never an undo or a redo.
 /// </summary>
 /// <remarks>
 /// <para>

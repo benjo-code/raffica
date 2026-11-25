@@ -184,6 +184,8 @@ public sealed class PageViewPasteTests : IDisposable
         h.View.EditClipboard = new FakeClipboard { Content = new ClipboardContent(string.Empty, null, Image: Png(600, 300)) };
         var model = h.View.Tab.Docx.Model;
         var table = model.Body.Blocks.OfType<Table>().Single();
+        System.Xml.Linq.XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        table.Properties.Set(w + "tblLayout", new System.Xml.Linq.XElement(w + "tblLayout", new System.Xml.Linq.XAttribute(w + "type", "fixed")));
         var cell = (TableCell)((TableRow)table.Rows[0]).Items[0];
         var paragraph = cell.Blocks.OfType<Paragraph>().Single();
         var session = h.View.Tab.EnsureEditor();
@@ -194,6 +196,11 @@ public sealed class PageViewPasteTests : IDisposable
 
         var picture = paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<Picture>().Single();
         Assert.Equal(PictureWrap.Inline, PictureView.Of(picture)!.Wrap);
+        var info = PictureView.Of(picture)!;
+
+        // Capped to the content of the narrow fixed-layout cell (2400 twips of grid minus 108 each side), aspect kept (600 x 300 pixels).
+        Assert.Equal(2184 * 635L, info.ExtentEmu.Width);
+        Assert.Equal(2184 * 635L / 2, info.ExtentEmu.Height);
     }
 
     [AvaloniaFact]
@@ -226,11 +233,16 @@ public sealed class PageViewPasteTests : IDisposable
         Assert.True(h.Tab.Docx.IsPrefix);
         h.View.EditClipboard = new FakeClipboard { Content = new ClipboardContent(string.Empty, null, Image: Png()) };
         var notes = new List<string>();
+        var refused = new List<EditBlockedReason>();
         h.View.StructureNote += notes.Add;
+        h.View.InputRefused += refused.Add;
         var revision = h.Tab.Docx.Model.Edits.Revision;
 
         await h.View.RunEditCommandAsync(WriteCommandIds.Paste);
 
+        // The paste is refused as every edit is while the file is still opening (the hint of the window says so); no picture note is made for it.
+        Assert.Equal([EditBlockedReason.StillOpening], refused);
+        Assert.Empty(notes);
         Assert.Equal(revision, h.Tab.Docx.Model.Edits.Revision);
         Assert.Empty(h.Tab.Docx.Model.Media.Entries);
     }
@@ -305,6 +317,83 @@ public sealed class PageViewPasteTests : IDisposable
         Assert.Equal(9, info.Value.Width);
         Assert.Equal(4, info.Value.Height);
         Assert.Equal("image/png", info.Value.ContentType);
+    }
+
+    [AvaloniaFact]
+    public async Task AnImageThatCouldNotBeHandedOverShowsItsReasonAndPastesNothing()
+    {
+        using var h = await OpenAsync();
+        var clipboard = new FakeClipboard();
+        h.View.EditClipboard = clipboard;
+        var session = Select(h, P(h, 0), 0, 6);
+        var notes = new List<string>();
+        h.View.StructureNote += notes.Add;
+        var revision = h.View.Tab.Docx.Model.Edits.Revision;
+        var selection = session.Selection;
+
+        foreach (var refusal in new[] { PictureRefusal.TooManyPixels, PictureRefusal.NotAnImage })
+        {
+            clipboard.Content = new ClipboardContent(string.Empty, null, ImageRefusal: refusal);
+            Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Paste));
+        }
+
+        Assert.Equal([PictureWording.ReasonText(PictureRefusal.TooManyPixels), PictureWording.ReasonText(PictureRefusal.NotAnImage)], notes);
+        Assert.NotEqual(notes[0], notes[1]);
+        Assert.Equal(revision, h.View.Tab.Docx.Model.Edits.Revision);
+        Assert.Equal(selection, session.Selection);
+
+        // Text beside the refused picture is pasted as text and says nothing.
+        clipboard.Content = new ClipboardContent("words", null, ImageRefusal: PictureRefusal.TooManyPixels);
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Paste));
+        Assert.Equal(2, notes.Count);
+        Assert.Equal("words the picture", TextOf(h, P(h, 0)));
+    }
+
+    [AvaloniaFact]
+    public async Task ASystemBitmapOverThePixelCapComesBackWithTheTooManyPixelsReason()
+    {
+        using var h = await OpenAsync();
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(h.View)!;
+        var clipboard = new AvaloniaEditClipboard(() => topLevel.Clipboard);
+        using var huge = new Avalonia.Media.Imaging.WriteableBitmap(new Avalonia.PixelSize(6000, 5400), new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Opaque);
+        var item = new DataTransferItem();
+        item.SetBitmap(huge);
+        var transfer = new DataTransfer();
+        transfer.Add(item);
+        await topLevel.Clipboard!.SetDataAsync(transfer);
+
+        var read = await clipboard.ReadAsync();
+
+        Assert.NotNull(read);
+        Assert.Null(read.Image);
+        Assert.Equal(PictureRefusal.TooManyPixels, read.ImageRefusal);
+    }
+
+    [AvaloniaFact]
+    public async Task ABitmapThatCannotBeConvertedComesBackWithTheNotAnImageReason()
+    {
+        using var h = await OpenAsync();
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(h.View)!;
+        var clipboard = new AvaloniaEditClipboard(() => topLevel.Clipboard);
+        using var source = new MemoryStream(Png(9, 4));
+        var bitmap = new Avalonia.Media.Imaging.Bitmap(source);
+        var item = new DataTransferItem();
+        item.SetBitmap(bitmap);
+        var transfer = new DataTransfer();
+        transfer.Add(item);
+        await topLevel.Clipboard!.SetDataAsync(transfer);
+        bitmap.Dispose();
+
+        var read = await clipboard.ReadAsync();
+
+        Assert.NotNull(read);
+        Assert.Null(read.Image);
+        Assert.Equal(PictureRefusal.NotAnImage, read.ImageRefusal);
+        Assert.Equal(string.Empty, read.PlainText);
+
+        // Nothing offered at all stays nothing.
+        await topLevel.Clipboard.ClearAsync();
+        Assert.Null(await clipboard.ReadAsync());
     }
 
     [AvaloniaFact]

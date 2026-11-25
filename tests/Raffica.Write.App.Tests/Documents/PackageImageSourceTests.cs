@@ -82,6 +82,24 @@ public sealed class PackageImageSourceTests
     }
 
     [Fact]
+    public void APrunedPictureIsReadAsMissingByTheCacheAndItsIdIsNeverGivenToAnotherPicture()
+    {
+        var store = new Raffica.Write.Model.MediaStore(["rId1"]);
+        var pruned = store.Add(Bytes("first"), "image/png");
+        using var source = new PackageImageSource(Package()) { PendingMedia = store.TryGet };
+        using var cache = new Raffica.Write.Layout.ImageCache(source.Read);
+        Assert.True(store.Remove(pruned));
+
+        // The cache meets an id nobody can read any more: no picture and no exception (a draw shows the marked box).
+        Assert.Null(cache.Get(new Raffica.Write.Layout.ImageRef("document#" + pruned.RelationshipId)));
+
+        // A later picture gets a new id, so the cache never answers one picture for another.
+        var next = store.Add(Bytes("second"), "image/png");
+        Assert.NotEqual(pruned.RelationshipId, next.RelationshipId);
+        Assert.Equal("second", Text(source.Read("document#" + next.RelationshipId)));
+    }
+
+    [Fact]
     public void EachStoryReadsThePictureOfItsOwnPartAndTheSameRelationshipIdsDoNotCollide()
     {
         using var source = new PackageImageSource(Package());

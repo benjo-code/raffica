@@ -339,6 +339,28 @@ public sealed class ObjectOracleTests
         }
     }
 
+    // The history drops the undone insert when a different edit follows: its entry leaves the store and the layout still equals a full layout at every step.
+    [Fact]
+    public async Task AnInsertedPictureThatIsUndoneAndForgottenLeavesNoEntryInTheStore()
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("pictures.docx");
+        DocxBuilder.WithBody(path, PictureBody());
+        using var file = DocxFile.Open(path);
+        var layout = await SectionOracleTests.LaidAsync(file.Model);
+        var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+        var random = new Random(7);
+
+        Assert.True(await steps.RunKindAsync(ObjectKind.InsertPicture, random, "prune insert"));
+        Assert.Single(file.Model.Media.Entries);
+        Assert.True(await steps.RunKindAsync(ObjectKind.Undo, random, "prune undo"));
+        Assert.Single(file.Model.Media.Entries);
+        Assert.True(await steps.RunKindAsync(ObjectKind.InsertFootnote, random, "prune other edit"));
+
+        Assert.Empty(file.Model.Media.Entries);
+        Assert.Equal(0, file.Model.Media.TotalBytes);
+    }
+
     // The notes with text: a part made by a step stays after its undo (with its separators), as a numbering part does.
     private static (int Footnotes, int Endnotes) Counted(WordDocument model) =>
         (model.Footnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0, model.Endnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0);

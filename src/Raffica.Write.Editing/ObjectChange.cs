@@ -6,7 +6,7 @@ namespace Raffica.Write.Editing;
 /// The document objects (as opposed to blocks, styles and sections) an operation, an undo or a redo added to or removed from the document: footnotes and endnotes
 /// (<paramref name="NotesAdded"/> and <paramref name="NotesRemoved"/> are the live note objects, never copies; a note's kind of part is read from its element name, see <see cref="NoteType"/>)
 /// and picture parts (<paramref name="MediaAdded"/> and <paramref name="MediaRemoved"/>, empty until pictures can be inserted). The media lists are informational for the history:
-/// undo and redo never call <see cref="MediaStore.Remove"/> or <see cref="MediaStore.Add"/>, because a save writes a picture only when the document still refers to its relationship id (an undone
+/// undo and redo never call <see cref="MediaStore.Remove"/> or <see cref="MediaStore.Add"/> (the history <em>dropping</em> a step is another thing: <see cref="EditHistory"/> removes the entries of dropped steps that nothing refers to any more, see its pruning), because a save writes a picture only when the document still refers to its relationship id (an undone
 /// picture leaves no part, and a redo finds its bytes in the store again). The history keeps the change in its step and applies it, or its
 /// <see cref="Inverse"/>, with the block swap of the step, so a reference and its note come and go together.
 /// </summary>
