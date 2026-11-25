@@ -61,6 +61,9 @@ public enum TableRefusal
 
     /// <summary>The change would leave a row with no cell or a cell with no paragraph, so the table would not be valid.</summary>
     WouldBreakTheTable,
+
+    /// <summary>A value of a formatting command is outside what the file format or the table allows: a border spec that names no side, sets and clears one side or has a width outside 2 to 96 eighths of a point; a row height above the limit; widths that are not one per column, narrower than <see cref="TableRules.MinColumnTwips"/> or wider than the limit.</summary>
+    InvalidValue,
 }
 
 /// <summary>Where a table may be inserted and what limits a table keeps: the body and the body of a content control that holds several paragraphs, never a cell, a header, a footer, a note or a comment.</summary>
@@ -71,6 +74,12 @@ public static class TableRules
 
     /// <summary>The most rows an insert or an added row makes.</summary>
     public const int MaxRows = 500;
+
+    /// <summary>The narrowest a column may be made by a width command, in twips (3 pt).</summary>
+    public const int MinColumnTwips = 60;
+
+    /// <summary>The widest a table or a row height may be made by a command, in twips (the layout's own limit of 31,680 pt).</summary>
+    public const int MaxTwips = 633_600;
 
     /// <summary>
     /// The reason a table cannot be inserted at <paramref name="caret"/> for a table of <paramref name="columns"/> by <paramref name="rows"/>, or null when it can. The prefix document is refused first

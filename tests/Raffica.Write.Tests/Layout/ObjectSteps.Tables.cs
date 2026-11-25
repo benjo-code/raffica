@@ -35,6 +35,10 @@ internal sealed partial class ObjectSteps
                 if (change.Container[i] is Table table)
                 {
                     TableGridChecks.AssertGridEqualsCells(table, label, _zeroWidthBefore);
+                    if (_kind is ObjectKind.SetColumnWidths or ObjectKind.SetTableWidth or ObjectKind.DistributeColumns)
+                    {
+                        TableGridChecks.AssertWidthsAgree(table, label);
+                    }
                 }
             }
         }
@@ -163,6 +167,116 @@ internal sealed partial class ObjectSteps
         }
 
         return await CheckAsync(Editor.MoveRow(table, map.RowIndexes[random.Next(map.RowCount)], random.Next(2) == 0 ? -1 : 1), label, required: false);
+    }
+
+    // ---- formatting steps --------------------------------------------------------------------------------------------------------
+
+    private static readonly uint[] s_fills = [0xFF000000, 0xFFFF0000, 0xFFFFC000, 0xFFFFFF00, 0xFF00B050, 0xFF0070C0, 0xFF7030A0, 0xFFFFFFFF];
+
+    // A range of cells in grid coordinates of the table: random corners.
+    private static CellRange RandomRange(TableRef table, TableGridMap map, Random random)
+    {
+        var first = random.Next(map.RowCount);
+        var last = Math.Min(map.RowCount - 1, first + random.Next(3));
+        var firstColumn = random.Next(map.Columns);
+        var lastColumn = Math.Min(map.Columns - 1, firstColumn + random.Next(3));
+        return new CellRange(table, map.RowIndexes[first], firstColumn, map.RowIndexes[last], lastColumn);
+    }
+
+    private async Task<bool> SetBordersAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, map))
+        {
+            return Refuse();
+        }
+
+        var range = RandomRange(table, map, random);
+        var style = (TableBorderStyle)random.Next(4);
+        var width = random.Next(2, 25);
+        uint? color = random.Next(3) == 0 ? null : s_fills[random.Next(s_fills.Length)];
+        BorderSpec spec = random.Next(6) switch
+        {
+            0 => BorderSpec.None(),
+            1 => BorderSpec.All(style, width, color),
+            2 => BorderSpec.Outside(style, width, color),
+            3 => BorderSpec.Box(style, width, color),
+            4 => BorderSpec.Sides((BorderSides)random.Next(1, 64), style, width, color),
+            _ => BorderSpec.Off((BorderSides)random.Next(1, 64)),
+        };
+
+        // A border that two cells share was the same on both before, so it is the same on both after.
+        var before = TableGridChecks.SymmetricBorders(table.Find(_model.Body.Blocks)!);
+        var ok = await CheckAsync(Editor.SetBorders(range, spec), label, required: false);
+        if (ok)
+        {
+            var after = TableGridChecks.SymmetricBorders(table.Find(_model.Body.Blocks)!);
+            Assert.True(before.IsSubsetOf(after), $"{label}: a border the two cells shared is no longer the same on both");
+        }
+
+        return ok;
+    }
+
+    private async Task<bool> SetShadingAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, map))
+        {
+            return Refuse();
+        }
+
+        uint? color = random.Next(4) == 0 ? null : s_fills[random.Next(s_fills.Length)];
+        return await CheckAsync(Editor.SetShading(RandomRange(table, map, random), color), label, required: false);
+    }
+
+    private async Task<bool> SetHeaderRowAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, _))
+        {
+            return Refuse();
+        }
+
+        return await CheckAsync(Editor.SetHeaderRow(table, random.Next(3) != 0), label, required: false);
+    }
+
+    private async Task<bool> SetColumnWidthsAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, map))
+        {
+            return Refuse();
+        }
+
+        var widths = Enumerable.Range(0, map.Columns).Select(_ => random.Next(TableRules.MinColumnTwips, 2500)).ToList();
+        return await CheckAsync(Editor.SetColumnWidths(table, widths), label, required: false);
+    }
+
+    private async Task<bool> SetTableWidthAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, map))
+        {
+            return Refuse();
+        }
+
+        return await CheckAsync(Editor.SetTableWidth(table, random.Next(map.Columns * TableRules.MinColumnTwips, (map.Columns * 800) + 2000)), label, required: false);
+    }
+
+    private async Task<bool> SetRowHeightAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, map))
+        {
+            return Refuse();
+        }
+
+        var twips = random.Next(4) == 0 ? 0 : random.Next(200, 1500);
+        return await CheckAsync(Editor.SetRowHeight(table, map.RowIndexes[random.Next(map.RowCount)], twips, random.Next(2) == 0), label, required: false);
+    }
+
+    private async Task<bool> DistributeColumnsAsync(Random random, string label)
+    {
+        if (PickTable(random) is not var (table, _))
+        {
+            return Refuse();
+        }
+
+        return await CheckAsync(Editor.DistributeColumns(table), label, required: false);
     }
 
     private async Task<bool> DeleteTableAsync(Random random, string label)

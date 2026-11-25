@@ -657,6 +657,64 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public void TableFormattingAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("tables.docx");
+        Support.DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        // The tables are the blocks 1 (merged, fixed), 3 (autofit) and 5 (percentage) of the generated body.
+        TableRef Merged() => new(StoryRef.Body, 1);
+        TableRef Autofit() => new(StoryRef.Body, 3);
+        TableRef Percentage() => new(StoryRef.Body, 5);
+        int Columns(TableRef table) => table.Find(model.Body.Blocks)!.GridColumns.Count;
+        (string Label, Func<EditResult?> Run)[] steps =
+        [
+            ("borders", () => editor.SetBorders(new CellRange(Merged(), 0, 0, 2, 1), BorderSpec.All(TableBorderStyle.DoubleLine, 8, 0xFFFF0000))),
+            ("borders off", () => editor.SetBorders(new CellRange(Autofit(), 0, 0, 0, 1), BorderSpec.None())),
+            ("shading", () => editor.SetShading(new CellRange(Percentage(), 0, 0, 1, 1), 0xFF92D050)),
+            ("shading off", () => editor.SetShading(new CellRange(Percentage(), 0, 0, 0, 0), null)),
+            ("header row", () => editor.SetHeaderRow(Autofit(), true)),
+            ("header row off", () => editor.SetHeaderRow(Merged(), false)),
+            ("column widths", () => editor.SetColumnWidths(Autofit(), [1200, 1700, 2100])),
+            ("table width", () => editor.SetTableWidth(Percentage(), 6000)),
+            ("row height", () => editor.SetRowHeight(Merged(), 1, 700, exact: true)),
+            ("distribute", () => editor.DistributeColumns(Merged())),
+        ];
+        Assert.Equal(3, Columns(Autofit()));
+        Assert.Equal(4, Columns(Merged()));
+
+        Check("before");
+        foreach (var (label, run) in steps)
+        {
+            Assert.True(run() is not null, label + " was refused");
+            Check(label);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));

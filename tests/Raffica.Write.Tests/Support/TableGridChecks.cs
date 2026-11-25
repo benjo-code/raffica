@@ -47,4 +47,53 @@ internal static class TableGridChecks
             above = cells;
         }
     }
+
+    private static string Signature(PropertyBag properties, string side)
+    {
+        var element = properties.Get(W + "tcBorders")?.Elements().FirstOrDefault(e => e.Name.Namespace == W && (e.Name.LocalName == side || (side == "left" && e.Name.LocalName == "start") || (side == "right" && e.Name.LocalName == "end")));
+        return element is null ? string.Empty : $"{(string?)element.Attribute(W + "val")}/{(string?)element.Attribute(W + "sz")}/{(string?)element.Attribute(W + "color")}";
+    }
+
+    /// <summary>
+    /// The shared borders of the table that are the same on both cells (a pair whose edge is shared with a merged cell on one side only partly is left out: the merged cell has one border for the whole edge): for every pair of neighbouring grid cells (side by side, or one above the other) the key (row ordinal of the first, its column, 'h' or 'v') is in the set
+    /// when the right (or bottom) border of the first and the left (or top) border of the second are written alike (both absent counts).
+    /// </summary>
+    public static HashSet<(int Row, int Column, char Direction)> SymmetricBorders(Table table)
+    {
+        var map = TableGridMap.Of(table);
+        var result = new HashSet<(int, int, char)>();
+        foreach (var cell in map.Cells)
+        {
+            if (map.Slot(cell.RowOrdinal, cell.LastColumn + 1) is { } right && cell.Head.RowSpan == 1 && right.Head.RowSpan == 1 && Signature(cell.Cell.Properties, "right") == Signature(right.Cell.Properties, "left"))
+            {
+                result.Add((cell.RowOrdinal, cell.Column, 'h'));
+            }
+
+            var last = cell.RowOrdinal == cell.Head.RowOrdinal + cell.Head.RowSpan - 1;
+            if (last && map.Slot(cell.RowOrdinal + 1, cell.Column) is { IsContinuation: false } below && below.ColumnSpan == cell.ColumnSpan && Signature(cell.Cell.Properties, "bottom") == Signature(below.Cell.Properties, "top"))
+            {
+                result.Add((cell.RowOrdinal, cell.Column, 'v'));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Fails when the widths of a table disagree after a width write: the layout is fixed, <c>w:tblW</c> is in twips and equals the grid, and every cell (continuations included) has a <c>w:tcW</c> in twips that equals the
+    /// grid columns it spans.
+    /// </summary>
+    public static void AssertWidthsAgree(Table table, string label)
+    {
+        var fixedLayout = (string?)table.Properties.Get(W + "tblLayout")?.Attribute(W + "type");
+        Assert.True(fixedLayout == "fixed", label + ": the table is not fixed after a width write");
+        var tblW = table.Properties.Get(W + "tblW");
+        Assert.True((string?)tblW?.Attribute(W + "type") == "dxa" && int.Parse((string?)tblW.Attribute(W + "w") ?? "x", NumberStyles.Integer, CultureInfo.InvariantCulture) == table.GridColumns.Sum(), label + ": tblW is not the grid in twips");
+        foreach (var cell in TableGridMap.Of(table).Cells)
+        {
+            var width = cell.Cell.Properties.Get(W + "tcW");
+            var expected = Enumerable.Range(cell.Column, cell.ColumnSpan).Sum(c => table.GridColumns[c]);
+            Assert.True((string?)width?.Attribute(W + "type") == "dxa" && int.Parse((string?)width.Attribute(W + "w") ?? "x", NumberStyles.Integer, CultureInfo.InvariantCulture) == expected, $"{label}: tcW of the cell at row {cell.RowOrdinal}, column {cell.Column} is not {expected}");
+        }
+    }
 }

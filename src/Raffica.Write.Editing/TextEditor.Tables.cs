@@ -372,6 +372,74 @@ public sealed partial class TextEditor
     public TableRefusal? RefusalForDeleteTable(TableRef table, bool prefixDocument = false) =>
         Restructure(table, prefixDocument, static (_, _) => TableMutation.WholeTable(), commit: false, needsGrid: false).Refusal;
 
+    // ---- formatting --------------------------------------------------------------------------------------------------------------------
+    // Borders, shading, the header row, widths and row height work on a regular and consistent table (the same rule as the structure operations; any other refuses with UnsupportedStructure). Each is one block
+    // change that replaces the table by a changed copy, so the paragraphs of the table are new objects and the caret of the result is in the first cell the command touched.
+
+    /// <summary>
+    /// Writes the borders of <paramref name="spec"/> on the cells of the range (widened to whole merged cells) as one history step; see <see cref="TableFormatting.Borders"/> for the sides and for the rule that a border
+    /// shared by two cells is written on both. Null when refused (<see cref="RefusalForSetBorders"/> says why).
+    /// </summary>
+    public EditResult? SetBorders(CellRange range, BorderSpec spec, bool prefixDocument = false) =>
+        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Borders(t, m, range, spec), commit: true).Result;
+
+    /// <summary>The reason <see cref="SetBorders"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetBorders(CellRange range, BorderSpec spec, bool prefixDocument = false) =>
+        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Borders(t, m, range, spec), commit: false).Refusal;
+
+    /// <summary>Shades the cells of the range with a solid colour (0xAARRGGBB, alpha ignored; the caller offers the fixed colour list) or, with null, removes the shading, as one history step. Null when refused.</summary>
+    public EditResult? SetShading(CellRange range, uint? color, bool prefixDocument = false) =>
+        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Shading(t, m, range, color), commit: true).Result;
+
+    /// <summary>The reason <see cref="SetShading"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetShading(CellRange range, uint? color, bool prefixDocument = false) =>
+        Restructure(range.Table, prefixDocument, (t, m) => TableFormatting.Shading(t, m, range, color), commit: false).Refusal;
+
+    /// <summary>Turns the repeated header row on (the first row) or off (the leading header rows) as one history step. Null when refused.</summary>
+    public EditResult? SetHeaderRow(TableRef table, bool on, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.HeaderRow(t, m, on), commit: true).Result;
+
+    /// <summary>The reason <see cref="SetHeaderRow"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetHeaderRow(TableRef table, bool on, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.HeaderRow(t, m, on), commit: false).Refusal;
+
+    /// <summary>
+    /// Sets the width of every column in twips (one per grid column) as one history step. The first width write makes an autofit or percentage table fixed and recomputes the grid, <c>w:tblW</c> and every
+    /// <c>w:tcW</c> from the new widths (see <see cref="TableFormatting.ColumnWidths"/>). Null when refused.
+    /// </summary>
+    public EditResult? SetColumnWidths(TableRef table, IReadOnlyList<int> twips, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.ColumnWidths(t, m, twips), commit: true).Result;
+
+    /// <summary>The reason <see cref="SetColumnWidths"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetColumnWidths(TableRef table, IReadOnlyList<int> twips, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.ColumnWidths(t, m, twips), commit: false).Refusal;
+
+    /// <summary>Sets the width of the table in twips, the columns keeping their proportions and the sum being exactly that width, as one history step. Null when refused.</summary>
+    public EditResult? SetTableWidth(TableRef table, int twips, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.TableWidth(t, m, twips), commit: true).Result;
+
+    /// <summary>The reason <see cref="SetTableWidth"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetTableWidth(TableRef table, int twips, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.TableWidth(t, m, twips), commit: false).Refusal;
+
+    /// <summary>
+    /// Sets the height of the row at <paramref name="row"/> (an index of <c>Table.Rows</c>) in twips, at least or exact, as one history step; zero removes the height. Null when refused.
+    /// </summary>
+    public EditResult? SetRowHeight(TableRef table, int row, int twips, bool exact, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.RowHeight(t, m, row, twips, exact), commit: true).Result;
+
+    /// <summary>The reason <see cref="SetRowHeight"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForSetRowHeight(TableRef table, int row, int twips, bool exact, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, (t, m) => TableFormatting.RowHeight(t, m, row, twips, exact), commit: false).Refusal;
+
+    /// <summary>Makes the columns equal, adding up to the current width of the table (the remainder to the last column), as one history step. Null when refused.</summary>
+    public EditResult? DistributeColumns(TableRef table, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, TableFormatting.Distribute, commit: true).Result;
+
+    /// <summary>The reason <see cref="DistributeColumns"/> refuses, or null. Nothing changes.</summary>
+    public TableRefusal? RefusalForDistributeColumns(TableRef table, bool prefixDocument = false) =>
+        Restructure(table, prefixDocument, TableFormatting.Distribute, commit: false).Refusal;
+
     // The table a reference names and where it lives, or the reason it cannot be edited: a prefix document, another story than the body, no table (or two in one control), a content control that holds text only.
     private (TableTarget? Target, TableRefusal? Refusal) FindTable(TableRef reference, bool prefixDocument)
     {

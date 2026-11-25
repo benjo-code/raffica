@@ -167,6 +167,73 @@ public sealed class ObjectOracleTests
         Assert.True(rowSpans > 500, $"only {rowSpans} cell rectangles had their row span compared with the model");
     }
 
+    private static readonly ObjectKind[] s_formatKinds =
+    [
+        ObjectKind.SetBorders, ObjectKind.SetShading, ObjectKind.SetHeaderRow, ObjectKind.SetColumnWidths, ObjectKind.SetTableWidth, ObjectKind.SetRowHeight, ObjectKind.DistributeColumns,
+        ObjectKind.AddRow, ObjectKind.AddColumn, ObjectKind.Merge, ObjectKind.Split, ObjectKind.DeleteRows,
+        ObjectKind.SetBorders, ObjectKind.SetShading, ObjectKind.SetColumnWidths, ObjectKind.Undo, ObjectKind.Redo,
+    ];
+
+    // The formatting steps (borders, shading, header row, widths, row height, distribute) mixed with structure steps on tables with merges in both directions and the three width modes: each step is compared with a full
+    // layout and with the model grid, and the widths after a width write agree in the grid, the table width and every cell.
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task TableFormattingStepsEqualAFullLayoutOnGeneratedTables(int seed)
+    {
+        using var folder = new TempFolder();
+        var path = folder.File("tables.docx");
+        DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+        using var file = DocxFile.Open(path);
+        var layout = await SectionOracleTests.LaidAsync(file.Model);
+        var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+
+        var compared = await steps.RunAsync(new Random(unchecked(seed * 104729)), 60, "formatting " + seed, s_formatKinds);
+
+        Assert.True(compared > 30, $"only {compared} of 60 steps changed something");
+        TestContext.Current.SendDiagnosticMessage($"formatting {seed}: {compared} steps compared, {steps.GridsCompared} table pieces, refused {steps.RefusedPerKind.Sum()}");
+    }
+
+    // A guard that only the per-seed runs carry would stay green if a kind never changed anything.
+    [Fact]
+    public async Task EveryTableFormattingKindChangedSomethingOnTheGeneratedTables()
+    {
+        var ran = new int[ObjectSteps.Kinds];
+        var refused = new int[ObjectSteps.Kinds];
+        for (var seed = 1; seed <= 6; seed++)
+        {
+            using var folder = new TempFolder();
+            var path = folder.File("tables.docx");
+            DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+            using var file = DocxFile.Open(path);
+            var layout = await SectionOracleTests.LaidAsync(file.Model);
+            var steps = new ObjectSteps(file.Model, layout, new LayoutOptions());
+            await steps.RunAsync(new Random(unchecked(seed * 104729)), 60, "formatting " + seed, s_formatKinds);
+            for (var k = 0; k < ran.Length; k++)
+            {
+                ran[k] += steps.RanPerKind[k];
+                refused[k] += steps.RefusedPerKind[k];
+            }
+        }
+
+        var report = string.Join(", ", Enum.GetValues<ObjectKind>().Select(k => $"{k} ran {ran[(int)k]} refused {refused[(int)k]}"));
+        TestContext.Current.SendDiagnosticMessage("generated formatting steps: " + report);
+        foreach (var kind in s_formatKinds.Distinct().Where(k => k is not (ObjectKind.Undo or ObjectKind.Redo)))
+        {
+            Assert.True(ran[(int)kind] > 0, $"the step kind {kind} never changed anything on the generated tables ({report})");
+        }
+
+        // A formatting step is refused only for an irregular or inconsistent table (a merge in the pool can leave none of those), not nearly always.
+        foreach (var kind in new[] { ObjectKind.SetBorders, ObjectKind.SetShading, ObjectKind.SetColumnWidths, ObjectKind.SetTableWidth, ObjectKind.SetRowHeight, ObjectKind.DistributeColumns })
+        {
+            Assert.True(refused[(int)kind] <= ran[(int)kind], $"{kind} was refused {refused[(int)kind]} times and changed something {ran[(int)kind]} times ({report})");
+        }
+    }
+
     // The notes with text: a part made by a step stays after its undo (with its separators), as a numbering part does.
     private static (int Footnotes, int Endnotes) Counted(WordDocument model) =>
         (model.Footnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0, model.Endnotes?.Notes.Count(n => n.Kind == NoteKind.Normal) ?? 0);
