@@ -64,32 +64,42 @@ internal static partial class EditCommand
             }
         }
 
+        // A cheap fingerprint of the body: the blocks, the tables and the inlines of every paragraph (an inserted picture splits a run or adds one, so a leftover shows).
+        (int Blocks, int Tables, int Inlines) Fingerprint() =>
+            (blocks.Count, blocks.OfType<Table>().Count(), blocks.OfType<Paragraph>().Sum(p => p.Inlines.Count));
+
         // One case: the preparation (null when there is none), the timed operation, then every change undone. Both read their place again for every run, because an undo may replace paragraph objects.
-        double[] Run(Func<EditResult?> prepare, Func<EditResult?> timed)
+        // The steps to undo are counted from the history itself (a preparation may take several), and after the runs the history and the body must be as they were: a miscount would let the document
+        // drift from run to run and the later cases would be measured on another document, so it ends the measurement.
+        double[] Run(string name, Func<EditResult?> prepare, Func<EditResult?> timed)
         {
             var millis = new double[count];
+            var baseline = editor.History.UndoCount;
+            var before = Fingerprint();
             for (var i = 0; i < count; i++)
             {
                 Complete(layout);
-                var undos = 0;
-                if (prepare() is { } before)
+                if (prepare() is { } prepared)
                 {
-                    Apply(before);
+                    Apply(prepared);
                     Complete(layout);
-                    undos++;
                 }
 
                 var start = Stopwatch.GetTimestamp();
                 Apply(timed());
                 millis[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-                undos++;
-                for (; undos > 0; undos--)
+                for (var undos = editor.History.UndoCount - baseline; undos > 0; undos--)
                 {
                     Complete(layout);
                     Apply(editor.History.Undo());
                 }
 
                 Complete(layout);
+            }
+
+            if (editor.History.UndoCount != baseline || Fingerprint() != before)
+            {
+                throw new InvalidOperationException($"the case '{name}' did not leave the document as it found it (undo steps {editor.History.UndoCount} against {baseline})");
             }
 
             return millis;
@@ -102,7 +112,7 @@ internal static partial class EditCommand
         {
             if (possible)
             {
-                rows.Add(Row(name, Run(prepare, timed)));
+                rows.Add(Row(name, Run(name, prepare, timed)));
             }
             else
             {

@@ -365,6 +365,52 @@ public sealed class MeasurementTests
         Assert.False(Directory.Exists(f.Window.RecoveryFolder) && Directory.GetFiles(f.Window.RecoveryFolder).Length > 0, "a measurement run starts no autosave");
     }
 
+    // What a leftover would change: the blocks, the paragraphs' inlines and run contents (an inserted, resized or moved picture, a footnote reference), the grid of every table and its rows (a changed column width).
+    private static string Fingerprint(Raffica.Write.Model.WordDocument model)
+    {
+        var text = new System.Text.StringBuilder();
+        foreach (var block in model.Body.Blocks)
+        {
+            switch (block)
+            {
+                case Raffica.Write.Model.Table table:
+                    text.Append(CultureInfo.InvariantCulture, $"T{string.Join(',', table.GridColumns)}/{table.Rows.Count};");
+                    break;
+                case Raffica.Write.Model.Paragraph paragraph:
+                    text.Append(CultureInfo.InvariantCulture, $"P{paragraph.Inlines.Count}/{paragraph.Inlines.OfType<Raffica.Write.Model.Run>().Sum(r => r.Content.Count)};");
+                    break;
+                default:
+                    text.Append('B');
+                    break;
+            }
+        }
+
+        text.Append(CultureInfo.InvariantCulture, $"F{model.Footnotes?.Notes.Count}");
+        return text.ToString();
+    }
+
+    [AvaloniaFact]
+    public async Task AnUndoThatDoesNothingIsReportedAndNeverSkipped()
+    {
+        using var f = new WindowFixture();
+        f.Show();
+        await f.Window.OpenFilesAsync([WindowFixture.Thesis]);
+        await WindowFixture.WaitAsync(() => f.Window.Workspace.Active is { } tab && tab.Runner.FullModelReady && tab.Runner.PageLayout.IsComplete);
+        var view = f.Window.ActiveView!;
+        var session = view.Tab.EnsureEditor();
+        var model = view.Tab.Docx.Model;
+        var paragraph = model.Body.Blocks.OfType<Raffica.Write.Model.Paragraph>().First();
+        var at = new Raffica.Write.Model.TextPosition(Raffica.Write.Model.StoryRef.Body, paragraph, 0);
+        session.SetSelection(new Raffica.Write.Model.TextRange(at, at));
+
+        // One edit, one undo: true. A second undo finds an empty history (a restore that miscounted or a history cleared behind the run): false, the measurement then ends with an error.
+        view.RunTableCommand(Raffica.Write.Commands.WriteCommandIds.TableInsert, new Raffica.Write.Commands.TableSize(2, 2));
+        Assert.Equal(1, session.Editor.History.UndoCount);
+        Assert.True(Measurement.UndoSteps(view, 1));
+        Assert.Equal(0, session.Editor.History.UndoCount);
+        Assert.False(Measurement.UndoSteps(view, 1));
+    }
+
     [AvaloniaFact]
     public async Task ObjectsMeasurementWritesOneRowPerCaseAndLeavesTheDocumentAsFound()
     {
@@ -402,6 +448,8 @@ public sealed class MeasurementTests
         Assert.Equal(original.Model.Body.Blocks.Count, model.Body.Blocks.Count);
         Assert.Equal(original.Model.Body.Blocks.OfType<Raffica.Write.Model.Table>().Count(), model.Body.Blocks.OfType<Raffica.Write.Model.Table>().Count());
         Assert.Equal(original.Model.Footnotes?.Notes.Count, model.Footnotes?.Notes.Count);
+        Assert.Equal(Fingerprint(original.Model), Fingerprint(model));
+        Assert.Equal(0, f.Window.Workspace.Active!.Editor!.Editor.History.UndoCount);
         Assert.False(Directory.Exists(f.Window.RecoveryFolder) && Directory.GetFiles(f.Window.RecoveryFolder).Length > 0, "a measurement run starts no autosave");
     }
 
@@ -435,6 +483,8 @@ public sealed class MeasurementTests
         var model = f.Window.Workspace.Active!.Docx.Model;
         Assert.Equal(original.Model.Body.Blocks.Count, model.Body.Blocks.Count);
         Assert.True(f.Window.ActiveView?.ObjectGesture is not { IsActive: true }, "no drag is left");
+        Assert.Equal(Fingerprint(original.Model), Fingerprint(model));
+        Assert.Equal(0, f.Window.Workspace.Active!.Editor!.Editor.History.UndoCount);
     }
 
     [AvaloniaFact]

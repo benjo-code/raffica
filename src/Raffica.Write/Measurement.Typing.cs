@@ -457,6 +457,11 @@ internal sealed partial class Measurement
             if (_structureRun || _objectsRun)
             {
                 RestoreStructure(view);
+
+                if (_finished)
+                {
+                    return;
+                }
             }
             else if (_sectionsRun)
             {

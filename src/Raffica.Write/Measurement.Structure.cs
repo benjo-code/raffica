@@ -172,11 +172,27 @@ internal sealed partial class Measurement
     // After a sample was taken: every change of the run (the preparation and the command) is undone, so the next run starts from the file's state.
     private void RestoreStructure(PageView view)
     {
-        while (_structureUndos > 0)
+        var steps = _structureUndos;
+        _structureUndos = 0;
+        if (!UndoSteps(view, steps) || view.Tab.EnsureEditor().Editor.History.UndoCount != 0)
         {
-            _structureUndos--;
-            view.ApplyOperation(ed => ed.History.Undo());
+            // A run that cannot be undone leaves the document changed for every case after it: the measurement ends, it never goes on silently.
+            FailTyping($"a measured command could not be undone ({_job?.Case})");
         }
+    }
+
+    /// <summary>Undoes <paramref name="steps"/> steps of the view's history; false as soon as one undo did nothing (an empty history or a history that was cleared behind the run).</summary>
+    internal static bool UndoSteps(PageView view, int steps)
+    {
+        for (; steps > 0; steps--)
+        {
+            if (view.ApplyOperation(ed => ed.History.Undo()) is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // At the end of a case: the refresh of the ribbon states that follows the last change (the timer would run it 100 ms after it), timed apart from the runs. Recorded, never judged.
