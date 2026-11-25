@@ -177,6 +177,14 @@ public sealed class PictureCommandTests
     }
 
     [Fact]
+    public void TheTooMuchMediaReasonSaysThatSavingAndOpeningAgainFreesRoom()
+    {
+        // The cap counts the pictures added since the file was opened (also those already saved), so a save and a reopen is the way out.
+        Assert.Contains("open it again", WriteStrings.GetIn(PictureWording.KeyOf(PictureRefusal.TooMuchMedia), CultureInfo.GetCultureInfo("en")), StringComparison.Ordinal);
+        Assert.Contains("erneut", WriteStrings.GetIn(PictureWording.KeyOf(PictureRefusal.TooMuchMedia), CultureInfo.GetCultureInfo("de")), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EveryRefusalOfTheEditorHasWordsInBothLanguagesAndNoWordingNamesAFileBytesOrADescription()
     {
         foreach (var language in new[] { "en", "de" })

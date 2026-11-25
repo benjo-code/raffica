@@ -256,6 +256,26 @@ public sealed class NoteCommandTests
         Assert.True(Command(window, WriteCommandIds.NoteFootnote).IsEnabled);
     }
 
+
+    [AvaloniaFact]
+    public async Task ANotesPartWithTheHighestPossibleIdRefusesANewNoteWithItsReason()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture, "<w:r><w:t>one two</w:t></w:r>");
+        var model = tab.Docx.Model;
+        var part = NotesParts.Ensure(model, NoteType.Footnote);
+        part.Notes.Add(new Note(int.MaxValue, NoteKind.Normal, new Story(new OoxmlRoot(XName.Get("footnote", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"), []))));
+        Caret(session, tab, 0, 3);
+        Settle(window);
+        var revision = model.Edits.Revision;
+
+        var notes = new List<string>();
+        window.ActiveView!.StructureNote += notes.Add;
+        Assert.True(window.ActiveView.RunNoteCommand(WriteCommandIds.NoteFootnote));
+
+        Assert.Equal([WriteStrings.ReasonNoteIdsUsedUp], notes);
+        Assert.Equal(revision, model.Edits.Revision);
+    }
     [AvaloniaFact]
     public async Task TheCommandRunsFromTheRibbonAndUndoTakesBothTheReferenceAndTheNoteAway()
     {

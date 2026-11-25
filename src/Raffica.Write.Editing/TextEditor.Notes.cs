@@ -21,6 +21,9 @@ public sealed partial class TextEditor
         return point.Run is { } run && InRestrictedInlineControl(caret.Paragraph.Inlines, run, 0) ? NoteRefusal.RestrictedControl : null;
     }
 
+    /// <summary>Whether the notes part of the kind holds a note with the highest possible id (<see cref="int.MaxValue"/>, a hostile file), so that no new note can get an id: <see cref="InsertNote"/> then returns null.</summary>
+    public bool NoteIdsUsedUp(NoteType kind) => NoteOperations.NextId(kind == NoteType.Endnote ? _document.Endnotes : _document.Footnotes) is null;
+
     /// <summary>
     /// Inserts a footnote or an endnote reference at the caret and the note it points to, as one history step (undo removes both). The reference is a run of its own in the notes' reference style, the note a new
     /// entry of the footnotes or endnotes part (the part is made when the document has none, see <see cref="NotesParts.Ensure"/>) with its own mark and a space; its id is one more than the highest of the part. The
@@ -37,6 +40,11 @@ public sealed partial class TextEditor
         }
 
         var (story, container, index) = Locate(caret);
+        if (NoteIdsUsedUp(kind))
+        {
+            return null;
+        }
+
         var revision = History.BeginOperation();
         var paragraph = caret.Paragraph;
         var map = Map(story, paragraph);
@@ -45,7 +53,7 @@ public sealed partial class TextEditor
 
         var styles = NoteOperations.EnsureStyles(_document, kind);
         var collection = NotesParts.Ensure(_document, kind);
-        var id = NoteOperations.NextId(collection);
+        var id = NoteOperations.NextId(collection) ?? throw new InvalidOperationException("The notes part has no free id.");
         PlaceRun(paragraph, map, offset, NoteOperations.ReferenceRun(_document, kind, id));
         var note = NoteOperations.NewNote(_document, kind, id);
         collection.Notes.Add(note);
@@ -65,25 +73,25 @@ public sealed partial class TextEditor
     private static List<RunContent> ReferencesIn(Span span) =>
         NoteOperations.References(span.Container.Skip(span.FirstIndex).Take(span.LastIndex - span.FirstIndex + 1));
 
-    // After an edit replaced the blocks of a span by <added> blocks starting at <first>: the notes whose reference was in the old blocks and is in none of the new ones are removed from their part, and returned.
-    // A note whose reference only moved (a merged paragraph) stays. Null when no note went.
-    private ObjectChange? RemoveNotesOf(List<RunContent> before, IList<Block> container, int first, int added)
+    // After an edit replaced the blocks of a span: the notes whose reference was in the old blocks and that no reference of the whole document names any more are removed from their part, and returned.
+    // A note whose reference only moved (a merged paragraph) stays, and so does a note that a second reference elsewhere in the document still names. Null when no note went.
+    private ObjectChange? RemoveNotesOf(List<RunContent> before)
     {
         if (before.Count == 0)
         {
             return null;
         }
 
-        var remaining = new HashSet<RunContent>(NoteOperations.References(container.Skip(first).Take(added)), ReferenceEqualityComparer.Instance);
+        var remaining = NoteOperations.DocumentReferenceKeys(_document);
         var removed = new List<Note>();
         foreach (var reference in before)
         {
-            if (remaining.Contains(reference))
+            var (type, id) = NoteOperations.Describe(reference);
+            if (remaining.Contains((type, id)))
             {
                 continue;
             }
 
-            var (type, id) = NoteOperations.Describe(reference);
             var collection = type == NoteType.Endnote ? _document.Endnotes : _document.Footnotes;
             if (collection?.Find(id) is { Kind: NoteKind.Normal } note && !removed.Contains(note))
             {

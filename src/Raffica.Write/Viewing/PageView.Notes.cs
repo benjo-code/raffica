@@ -63,7 +63,7 @@ internal sealed partial class PageView
         // The rules said yes but the editor had nothing to do: a visible note with the editor's reason, never silence. A save queues the operation and says nothing.
         if (result is null && session.BlockedReason is null)
         {
-            StructureNote?.Invoke(RefusalWords(session, prefix) ?? WriteStrings.NoteStructureFailed);
+            StructureNote?.Invoke(RefusalWords(session, prefix, type) ?? WriteStrings.NoteStructureFailed);
         }
 
         return true;
@@ -75,7 +75,7 @@ internal sealed partial class PageView
     private bool IsPrefixDocument => PrefixProbe?.Invoke() ?? _tab.Docx.IsPrefix;
 
     // The words for the editor's refusal of a note at the caret, or null when it has none (the place is fine, or the position is stale).
-    private static string? RefusalWords(EditSession session, bool prefix)
+    private static string? RefusalWords(EditSession session, bool prefix, NoteType type)
     {
         if (session.Caret is not { } caret)
         {
@@ -84,7 +84,9 @@ internal sealed partial class PageView
 
         try
         {
-            return session.Editor.RefusalForNote(caret, prefix) is { } refusal ? ObjectWording.ReasonText(ObjectWording.BlockOf(refusal)) : null;
+            return session.Editor.RefusalForNote(caret, prefix) is { } refusal
+                ? ObjectWording.ReasonText(ObjectWording.BlockOf(refusal))
+                : session.Editor.NoteIdsUsedUp(type) ? WriteStrings.ReasonNoteIdsUsedUp : null;
         }
         catch (StalePositionException)
         {

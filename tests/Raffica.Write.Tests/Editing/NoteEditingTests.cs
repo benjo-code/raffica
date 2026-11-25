@@ -167,6 +167,47 @@ public sealed class NoteEditingTests
     }
 
     [Fact]
+    public async Task DeletingOneOfTwoReferencesToTheSameNoteKeepsTheNote()
+    {
+        // A foreign file can hold two references to one note id; removing the note would leave the other reference dangling (Word repairs such a file).
+        var document = WithStyles(Line("hello") + "<w:p><w:r><w:t>a</w:t></w:r>" + ChromeTestKit.FootnoteRef(1) + "<w:r><w:t>b</w:t></w:r></w:p>" + "<w:p><w:r><w:t>c</w:t></w:r>" + ChromeTestKit.FootnoteRef(1) + "</w:p>",
+            footnotes: FootnotesPart(Footnote(1, "note")));
+        var layout = Laid(document);
+        var editor = new TextEditor(document, (s, p) => layout.ProjectionHost(s, p));
+        await layout.LayOutRestAsync(null, Cancel);
+        var first = (Paragraph)document.Body.Blocks[1];
+
+        // The first reference is the one character after "a".
+        var result = editor.Delete(new TextRange(new TextPosition(StoryRef.Body, first, 1), new TextPosition(StoryRef.Body, first, 2)));
+
+        Assert.NotNull(result);
+        Assert.Empty(Refs((Paragraph)document.Body.Blocks[1]));
+        Assert.Single(Refs((Paragraph)document.Body.Blocks[2]));
+        Assert.NotNull(document.Footnotes!.Find(1));
+        Assert.True(result.Objects is null || result.Objects.NotesRemoved.Count == 0);
+    }
+
+    [Fact]
+    public void ANotesPartWithTheHighestPossibleIdTakesNoMoreNotesAndNothingOverflows()
+    {
+        var document = WithStyles(Line("hello world"), footnotes: FootnotesPart(Footnote(int.MaxValue, "hostile")));
+        var editor = Editor(document);
+        var revision = document.Edits.Revision;
+
+        Assert.True(editor.NoteIdsUsedUp(NoteType.Footnote));
+        Assert.False(editor.NoteIdsUsedUp(NoteType.Endnote));
+        Assert.Null(editor.InsertNote(At(document, 0, 5), NoteType.Footnote));
+
+        Assert.Equal(revision, document.Edits.Revision);
+        Assert.Empty(Refs((Paragraph)document.Body.Blocks[0]));
+        Assert.Equal([-1, 0, int.MaxValue], document.Footnotes!.Notes.Select(n => n.Id).ToArray());
+        Assert.False(editor.History.CanUndo);
+
+        // An endnote still gets its own id.
+        Assert.NotNull(editor.InsertNote(At(document, 0, 5), NoteType.Endnote));
+    }
+
+    [Fact]
     public async Task ReplacingASelectionThatHoldsAReferenceDeletesItsNote()
     {
         var document = WithStyles(Line("hello world"));

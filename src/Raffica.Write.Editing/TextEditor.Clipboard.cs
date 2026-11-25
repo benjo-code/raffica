@@ -207,7 +207,7 @@ public sealed partial class TextEditor
             caret = new TextPosition(span.Story, tail, Map(span.Story, tail).Projection.Text.Length - restLength);
         }
 
-        var gone = RemoveNotesOf(references, span.Container, span.FirstIndex, paragraphs.Count);
+        var gone = RemoveNotesOf(references);
         _document.Edits.Raise();
         var result = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, paragraphs.Count, old)], Objects: gone);
         _document.Edits.Attribute(result.Changes);

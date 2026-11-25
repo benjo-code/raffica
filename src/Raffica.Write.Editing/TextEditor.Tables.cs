@@ -678,7 +678,7 @@ public sealed partial class TextEditor
         var paragraph = caret ?? FirstParagraph([replacement]) ?? throw new InvalidOperationException("A table holds no paragraph.");
         var references = NoteOperations.References([target.Table]);
         target.Container[target.Index] = replacement;
-        var gone = RemoveUnreferencedNotes(references, [replacement]);
+        var gone = RemoveUnreferencedNotes(references);
         _document.Edits.Raise();
         var result = new EditResult(new TextPosition(StoryRef.Body, paragraph, caretOffset), [new BlockChange(StoryRef.Body, target.Container, target.Index, 1, 1, [target.Table])], Objects: gone);
         result.Attribute(_document);
@@ -687,16 +687,16 @@ public sealed partial class TextEditor
         return result;
     }
 
-    // The notes whose reference was in the table that was replaced by a changed copy and is in none of the blocks that took its place (the copy holds clones of the references, so they are compared by kind and id,
-    // never by object). Null when no note went.
-    private ObjectChange? RemoveUnreferencedNotes(List<RunContent> before, IEnumerable<Block> after)
+    // The notes whose reference was in the table that was replaced by a changed copy (or deleted) and that no reference of the whole document names any more (the copy holds clones of the references, so they are
+    // compared by kind and id, never by object; a second reference to one id elsewhere keeps the note). Null when no note went.
+    private ObjectChange? RemoveUnreferencedNotes(List<RunContent> before)
     {
         if (before.Count == 0)
         {
             return null;
         }
 
-        var kept = new HashSet<(NoteType Type, int Id)>(NoteOperations.References(after).Select(NoteOperations.Describe));
+        var kept = NoteOperations.DocumentReferenceKeys(_document);
         var removed = new List<Note>();
         foreach (var reference in before)
         {
@@ -738,7 +738,7 @@ public sealed partial class TextEditor
         }
 
         var added = replacement is null ? 0 : 1;
-        var gone = RemoveUnreferencedNotes(references, container.Skip(index).Take(added));
+        var gone = RemoveUnreferencedNotes(references);
         _document.Edits.Raise();
 
         Paragraph paragraphAfter;

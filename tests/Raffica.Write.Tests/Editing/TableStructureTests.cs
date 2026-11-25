@@ -648,6 +648,24 @@ public sealed class TableStructureTests
     }
 
     [Fact]
+    public void DeletingATableKeepsANoteThatAnotherReferenceInTheDocumentStillNames()
+    {
+        // A foreign file can hold two references to one note id; removing the note would leave the second one dangling (Word repairs such a file).
+        var footnotes = ChromeTestKit.FootnotesPart(ChromeTestKit.Footnote(1, "note text"));
+        var cell = "<w:tc><w:p><w:r><w:t>x</w:t></w:r>" + ChromeTestKit.FootnoteRef(1) + "</w:p></w:tc>";
+        var document = ChromeTestKit.Document(Tbl(1, Row(cell)) + "<w:p><w:r><w:t>after</w:t></w:r>" + ChromeTestKit.FootnoteRef(1) + "</w:p>", footnotes: footnotes);
+        var editor = Editor(document);
+
+        var result = editor.DeleteTable(Ref());
+
+        Assert.NotNull(result);
+        Assert.True(result.Objects is null || result.Objects.NotesRemoved.Count == 0);
+        Assert.NotNull(document.Footnotes!.Find(1));
+        Assert.NotNull(editor.History.Undo());
+        Assert.NotNull(document.Footnotes.Find(1));
+    }
+
+    [Fact]
     public void ATableWithAnUnknownWrapperOrGridBeforeIsNotRestructured()
     {
         var document = Document(Tbl(2, RowWith("<w:gridBefore w:val=\"1\"/>", Cell("a"))));

@@ -144,7 +144,7 @@ public sealed partial class TextEditor
             caret = new TextPosition(span.Story, last, lines[^1].Length);
         }
 
-        var gone = RemoveNotesOf(references, span.Container, span.FirstIndex, added);
+        var gone = RemoveNotesOf(references);
         _document.Edits.Raise();
         var inserted = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)], Objects: gone);
         _document.Edits.Attribute(inserted.Changes);
@@ -850,7 +850,7 @@ public sealed partial class TextEditor
             return null;
         }
 
-        var gone = RemoveNotesOf(references, span.Container, span.FirstIndex, 1);
+        var gone = RemoveNotesOf(references);
         _document.Edits.Raise();
         var result = new EditResult(
             new TextPosition(span.Story, deleted.Survivor, deleted.Offset),

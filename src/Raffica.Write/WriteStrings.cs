@@ -247,6 +247,7 @@ internal static class WriteStrings
     public static string ReasonNoteInNote => Table.Get("ReasonNoteInNote");
     public static string ReasonNoteRestricted => Table.Get("ReasonNoteRestricted");
     public static string ReasonNoteNotInNote => Table.Get("ReasonNoteNotInNote");
+    public static string ReasonNoteIdsUsedUp => Table.Get("ReasonNoteIdsUsedUp");
     public static string NoteNoteNotFound => Table.Get("NoteNoteNotFound");
     public static string ObjectPicture => Table.Get("ObjectPicture");
     public static string ObjectPictureAlt => Table.Get("ObjectPictureAlt");

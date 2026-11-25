@@ -1638,6 +1638,9 @@
   <data name="ReasonNoteRestricted" xml:space="preserve">
     <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keine Anmerkung aufnehmen.</value>
   </data>
+  <data name="ReasonNoteIdsUsedUp" xml:space="preserve">
+    <value>Dieses Dokument verwendet bereits die höchste mögliche Anmerkungsnummer und kann daher keine weitere Anmerkung aufnehmen.</value>
+  </data>
   <data name="ReasonNoteNotInNote" xml:space="preserve">
     <value>Die Einfügemarke steht in keiner Anmerkung.</value>
   </data>
@@ -2116,7 +2119,7 @@
     <value>Das Bild hat zu viele Pixel (mehr als 32 Millionen).</value>
   </data>
   <data name="ReasonPictureTooMuchMedia" xml:space="preserve">
-    <value>Die Bilder dieses Dokuments würden zusammen zu viel Platz einnehmen.</value>
+    <value>Die Bilder würden zusammen zu viel Platz einnehmen. Speichern Sie das Dokument und öffnen Sie es erneut, um Platz zu schaffen.</value>
   </data>
   <data name="ReasonPictureBadSize" xml:space="preserve">
     <value>Diese Größe ist für ein Bild nicht möglich.</value>

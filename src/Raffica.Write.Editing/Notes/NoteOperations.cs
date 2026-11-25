@@ -57,8 +57,8 @@ internal static class NoteOperations
         style.KeptChildren.Add(new KeptChild(OrderedElement.NewPosition, new UnknownContent(new XElement(W + "unhideWhenUsed"))));
     }
 
-    /// <summary>The id for a new note: one more than the highest id of the part (the separators are -1 and 0, so the first note is 1).</summary>
-    public static int NextId(NoteCollection? collection)
+    /// <summary>The id for a new note: one more than the highest id of the part (the separators are -1 and 0, so the first note is 1); null when the highest id is <see cref="int.MaxValue"/> (a hostile file), which has no next one.</summary>
+    public static int? NextId(NoteCollection? collection)
     {
         var highest = 0;
         if (collection is not null)
@@ -69,7 +69,7 @@ internal static class NoteOperations
             }
         }
 
-        return highest + 1;
+        return highest == int.MaxValue ? null : highest + 1;
     }
 
     /// <summary>The run that holds the reference mark in the body: the character style of the notes (or a direct superscript when the document has no style sheet) and the reference content.</summary>
@@ -125,6 +125,21 @@ internal static class NoteOperations
         }
 
         return found;
+    }
+
+    /// <summary>
+    /// The notes the document still has a reference to, by kind and id: every reference in the body and in the headers and footers (the whole document, so a note that a foreign file refers to twice is
+    /// never removed while one of the references is left).
+    /// </summary>
+    public static HashSet<(NoteType Type, int Id)> DocumentReferenceKeys(WordDocument document)
+    {
+        var keys = new HashSet<(NoteType Type, int Id)>(References(document.Body.Blocks).Select(Describe));
+        foreach (var part in document.HeadersFooters.Values)
+        {
+            keys.UnionWith(References(part.Content.Blocks).Select(Describe));
+        }
+
+        return keys;
     }
 
     private static void Collect(Block block, List<RunContent> into, int depth)

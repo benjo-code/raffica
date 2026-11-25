@@ -1638,6 +1638,9 @@
   <data name="ReasonNoteRestricted" xml:space="preserve">
     <value>This content control holds plain text only, so it cannot hold a note.</value>
   </data>
+  <data name="ReasonNoteIdsUsedUp" xml:space="preserve">
+    <value>This document already uses the highest possible note number, so it cannot take another note.</value>
+  </data>
   <data name="ReasonNoteNotInNote" xml:space="preserve">
     <value>The caret is not in a note.</value>
   </data>
@@ -2116,7 +2119,7 @@
     <value>The picture has too many pixels (more than 32 million).</value>
   </data>
   <data name="ReasonPictureTooMuchMedia" xml:space="preserve">
-    <value>The pictures of this document would take too much room together.</value>
+    <value>The pictures of this document would take too much room together. Save it and open it again to free room.</value>
   </data>
   <data name="ReasonPictureBadSize" xml:space="preserve">
     <value>That size is not possible for a picture.</value>

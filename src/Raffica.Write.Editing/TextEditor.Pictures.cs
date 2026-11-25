@@ -185,7 +185,7 @@ public sealed partial class TextEditor
             var run = new Run();
             run.Content.Add(new Picture(DrawingBuilder.Inline(media.RelationshipId, width, height, PictureOperations.NextDocPrId(_document), null)));
             PlaceRun(paragraph, map, offset, run);
-            gone = RemoveNotesOf(references, span.Container, span.FirstIndex, 1);
+            gone = RemoveNotesOf(references);
         }
         catch
         {
