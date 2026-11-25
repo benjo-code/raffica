@@ -20,143 +20,139 @@ internal static class PictureOperations
 
     // ---- the ids and heights of the document ------------------------------------------------------------------------------------------
 
-    /// <summary>The XML of every drawing-like run content of the document (pictures and unknown run content such as alternate content), over every story the model owns.</summary>
+    /// <summary>The XML of every drawing-like run content of the document (pictures and unknown run content such as alternate content), over every story the model owns, in document order.</summary>
     public static IEnumerable<XElement> DrawingRoots(WordDocument document)
     {
-        foreach (var root in Roots(document.Body.Blocks, 0))
-        {
-            yield return root;
-        }
-
+        var roots = new List<XElement>();
+        CollectBlocks(document.Body.Blocks, 0, roots);
         foreach (var part in document.HeadersFooters.Values)
         {
-            foreach (var root in Roots(part.Content.Blocks, 0))
-            {
-                yield return root;
-            }
+            CollectBlocks(part.Content.Blocks, 0, roots);
         }
 
         foreach (var collection in new[] { document.Footnotes, document.Endnotes })
         {
             foreach (var note in collection?.Notes ?? [])
             {
-                foreach (var root in Roots(note.Content.Blocks, 0))
-                {
-                    yield return root;
-                }
+                CollectBlocks(note.Content.Blocks, 0, roots);
             }
         }
 
         foreach (var comment in (IEnumerable<Comment>?)document.Comments ?? [])
         {
-            foreach (var root in Roots(comment.Content.Blocks, 0))
-            {
-                yield return root;
-            }
+            CollectBlocks(comment.Content.Blocks, 0, roots);
         }
+
+        return roots;
     }
 
     /// <summary>The XML of every drawing-like run content in the blocks (pictures and unknown content), through tables, content controls and unknown row items.</summary>
-    public static IEnumerable<XElement> BlockRoots(IEnumerable<Block> blocks) => Roots(blocks, 0);
+    public static IEnumerable<XElement> BlockRoots(IEnumerable<Block> blocks)
+    {
+        var roots = new List<XElement>();
+        CollectBlocks(blocks, 0, roots);
+        return roots;
+    }
 
-    private static IEnumerable<XElement> Roots(IEnumerable<Block> blocks, int depth)
+    // The walks collect into one list with indexed loops: the document is walked on every picture insert (the next id) and after every step the history drops (the pictures to release), and nested iterators
+    // allocated several enumerators per paragraph (about 3 MB and 3 ms for the thesis).
+    private static void CollectBlocks(IEnumerable<Block> blocks, int depth, List<XElement> roots)
     {
         if (depth > 64)
         {
-            yield break;
+            return;
+        }
+
+        if (blocks is IList<Block> list)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                CollectBlock(list[i], depth, roots);
+            }
+
+            return;
         }
 
         foreach (var block in blocks)
         {
-            switch (block)
-            {
-                case Paragraph paragraph:
-                    foreach (var root in InlineRoots(paragraph.Inlines, 0))
-                    {
-                        yield return root;
-                    }
-
-                    break;
-                case ContentControlBlock control:
-                    foreach (var root in Roots(control.Content, depth + 1))
-                    {
-                        yield return root;
-                    }
-
-                    break;
-                case Table table:
-                    foreach (var item in table.Rows)
-                    {
-                        foreach (var root in RowRoots(item, depth + 1))
-                        {
-                            yield return root;
-                        }
-                    }
-
-                    break;
-                case UnknownBlock unknown:
-                    yield return unknown.Content.Element;
-                    break;
-                default:
-                    break;
-            }
+            CollectBlock(block, depth, roots);
         }
     }
 
-    private static IEnumerable<XElement> RowRoots(RowItem item, int depth)
+    private static void CollectBlock(Block block, int depth, List<XElement> roots)
     {
-        if (depth > 64)
+        switch (block)
         {
-            yield break;
-        }
-
-        switch (item)
-        {
-            case TableRow row:
-                foreach (var child in row.Items)
+            case Paragraph paragraph:
+                CollectInlines(paragraph.Inlines, 0, roots);
+                break;
+            case ContentControlBlock control:
+                CollectBlocks(control.Content, depth + 1, roots);
+                break;
+            case Table table:
+                for (var i = 0; i < table.Rows.Count; i++)
                 {
-                    foreach (var root in RowRoots(child, depth + 1))
-                    {
-                        yield return root;
-                    }
+                    CollectRowItem(table.Rows[i], depth + 1, roots);
                 }
 
                 break;
-            case TableCell cell:
-                foreach (var root in Roots(cell.Blocks, depth + 1))
-                {
-                    yield return root;
-                }
-
-                break;
-            case UnknownRowItem unknown:
-                yield return unknown.Content.Element;
+            case UnknownBlock unknown:
+                roots.Add(unknown.Content.Element);
                 break;
             default:
                 break;
         }
     }
 
-    private static IEnumerable<XElement> InlineRoots(IEnumerable<Inline> inlines, int depth)
+    private static void CollectRowItem(RowItem item, int depth, List<XElement> roots)
     {
         if (depth > 64)
         {
-            yield break;
+            return;
         }
 
-        foreach (var inline in inlines)
+        switch (item)
         {
+            case TableRow row:
+                for (var i = 0; i < row.Items.Count; i++)
+                {
+                    CollectRowItem(row.Items[i], depth + 1, roots);
+                }
+
+                break;
+            case TableCell cell:
+                CollectBlocks(cell.Blocks, depth + 1, roots);
+                break;
+            case UnknownRowItem unknown:
+                roots.Add(unknown.Content.Element);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void CollectInlines(IList<Inline> inlines, int depth, List<XElement> roots)
+    {
+        if (depth > 64)
+        {
+            return;
+        }
+
+        for (var i = 0; i < inlines.Count; i++)
+        {
+            var inline = inlines[i];
             if (inline is Run run)
             {
-                foreach (var content in run.Content)
+                var content = run.Content;
+                for (var c = 0; c < content.Count; c++)
                 {
-                    switch (content)
+                    switch (content[c])
                     {
                         case Picture picture:
-                            yield return picture.Raw;
+                            roots.Add(picture.Raw);
                             break;
                         case UnknownRunContent unknown:
-                            yield return unknown.Content.Element;
+                            roots.Add(unknown.Content.Element);
                             break;
                         default:
                             break;
@@ -165,25 +161,24 @@ internal static class PictureOperations
             }
             else if (inline is UnknownInline unknownInline)
             {
-                yield return unknownInline.Content.Element;
+                roots.Add(unknownInline.Content.Element);
             }
             else if (ParagraphMap.ChildrenOf(inline) is { } children)
             {
-                foreach (var root in InlineRoots(children, depth + 1))
-                {
-                    yield return root;
-                }
+                CollectInlines(children, depth + 1, roots);
             }
         }
     }
-
     private const long UnsignedIntMaximum = uint.MaxValue;
 
     /// <summary>
     /// One more than the highest <c>wp:docPr</c> id of any drawing of the document (at least 1): a new drawing's id is unique. The id is an unsigned 32-bit number in the schema; ids beyond it are not counted, and when
     /// the highest valid one is already <see cref="uint.MaxValue"/> the lowest id nobody uses is taken.
     /// </summary>
-    public static long NextDocPrId(WordDocument document)
+    public static long NextDocPrId(WordDocument document) => NextDocPrId(document, out _);
+
+    /// <summary>As <see cref="NextDocPrId(WordDocument)"/>; <paramref name="aboveEvery"/> is true when the id is above every id of the document (the ones after it are free as well), false for the lowest free id.</summary>
+    public static long NextDocPrId(WordDocument document, out bool aboveEvery)
     {
         var used = new HashSet<long>();
         long highest = 0;
@@ -199,7 +194,8 @@ internal static class PictureOperations
             }
         }
 
-        if (highest < UnsignedIntMaximum)
+        aboveEvery = highest < UnsignedIntMaximum;
+        if (aboveEvery)
         {
             return highest + 1;
         }
