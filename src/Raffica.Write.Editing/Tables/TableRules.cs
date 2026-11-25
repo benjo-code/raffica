@@ -26,6 +26,9 @@ public enum TableRefusal
     /// <summary>The place is in a table cell: a table cannot be inserted into a cell, and only top-level tables are edited by commands.</summary>
     NestedTable,
 
+    /// <summary>The place is in a block content control that already holds a table: the reference of a table names the control, and a control with two tables would leave both without a reference (no command could reach either).</summary>
+    ControlHoldsATable,
+
     /// <summary>The reference names no table of the body (the place holds none, or a content control holds more than one).</summary>
     NoTable,
 

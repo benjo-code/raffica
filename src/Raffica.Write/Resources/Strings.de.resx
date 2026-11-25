@@ -1833,6 +1833,9 @@
   <data name="ReasonTableNestedTable" xml:space="preserve">
     <value>Die Einfügemarke steht in einer Tabellenzelle: In eine Zelle kann keine Tabelle eingefügt werden, und Befehle wirken nur auf die äußere Tabelle.</value>
   </data>
+  <data name="ReasonTableControlHoldsATable" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält bereits eine Tabelle, und eine zweite darin ließe sich nicht von der ersten unterscheiden. Fügen Sie die neue Tabelle außerhalb des Steuerelements ein.</value>
+  </data>
   <data name="ReasonTableNoTable" xml:space="preserve">
     <value>Die Tabelle wurde nicht gefunden.</value>
   </data>

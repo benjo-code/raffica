@@ -1833,6 +1833,9 @@
   <data name="ReasonTableNestedTable" xml:space="preserve">
     <value>The caret is in a table cell: a table cannot be put into a cell, and commands act on the outer table only.</value>
   </data>
+  <data name="ReasonTableControlHoldsATable" xml:space="preserve">
+    <value>This content control already holds a table, and a second one in it could not be told apart from the first. Put the new table outside the control.</value>
+  </data>
   <data name="ReasonTableNoTable" xml:space="preserve">
     <value>The table could not be found.</value>
   </data>

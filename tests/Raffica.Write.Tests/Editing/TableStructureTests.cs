@@ -665,6 +665,29 @@ public sealed class TableStructureTests
         Assert.NotNull(document.Footnotes.Find(1));
     }
 
+
+    [Fact]
+    public void AControlThatHoldsATableTakesNoSecondOneBecauseTheTwoCouldNotBeToldApart()
+    {
+        // TableRef names a block control and finds a table only when the control holds exactly one: a second table would make both unreachable for every command.
+        var document = Document("<w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>before</w:t></w:r></w:p>" + Tbl(1, Row(Cell("x"))) + "<w:p><w:r><w:t>after</w:t></w:r></w:p></w:sdtContent></w:sdt>" + Line("outside"));
+        var editor = Editor(document);
+        var control = (ContentControlBlock)document.Body.Blocks[0];
+        var inside = new TextPosition(StoryRef.Body, (Paragraph)control.Content[0], 2);
+        var revision = document.Edits.Revision;
+
+        Assert.Equal(TableRefusal.ControlHoldsATable, editor.RefusalForInsertTable(inside, 2, 2));
+        Assert.Null(editor.InsertTable(inside, 2, 2));
+        Assert.Equal(revision, document.Edits.Revision);
+        Assert.Single(control.Content.OfType<Table>());
+
+        // The same control without a table, and the body outside it, take one.
+        var empty = Document("<w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>one</w:t></w:r></w:p></w:sdtContent></w:sdt>" + Line("outside"));
+        var emptyEditor = Editor(empty);
+        var emptyInside = new TextPosition(StoryRef.Body, (Paragraph)((ContentControlBlock)empty.Body.Blocks[0]).Content[0], 1);
+        Assert.Null(emptyEditor.RefusalForInsertTable(emptyInside, 2, 2));
+        Assert.Null(editor.RefusalForInsertTable(new TextPosition(StoryRef.Body, (Paragraph)document.Body.Blocks[1], 2), 2, 2));
+    }
     [Fact]
     public void ATableWithAnUnknownWrapperOrGridBeforeIsNotRestructured()
     {

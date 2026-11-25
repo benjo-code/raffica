@@ -130,7 +130,12 @@ public sealed partial class TextEditor
             return refused;
         }
 
-        var (story, _, _) = Locate(caret);
+        var (story, container, index) = Locate(caret);
+        if (!ReferenceEquals(container, _document.Body.Blocks) && _document.Body.Blocks[TopLevelIndex(container, index)] is ContentControlBlock holder && HoldsTable(holder, 0))
+        {
+            return TableRefusal.ControlHoldsATable;
+        }
+
         var map = Map(story, caret.Paragraph);
         var point = ResolvePoint(map, EditRules.Snap(map, Math.Max(0, caret.Offset)));
         return point.Run is { } run && InRestrictedInlineControl(caret.Paragraph.Inlines, run, 0) ? TableRefusal.RestrictedControl : null;
@@ -280,6 +285,25 @@ public sealed partial class TextEditor
         }
 
         return Math.Max(0, Math.Min(index, body.Count - 1));
+    }
+
+    // True when a block content control holds a table at any depth of controls (a table in a table cell is not looked for: only top-level tables of the control count).
+    private static bool HoldsTable(ContentControlBlock control, int depth)
+    {
+        if (depth > 32)
+        {
+            return false;
+        }
+
+        foreach (var block in control.Content)
+        {
+            if (block is Table || (block is ContentControlBlock inner && HoldsTable(inner, depth + 1)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ---- operations on a table ---------------------------------------------------------------------------------------------------------
