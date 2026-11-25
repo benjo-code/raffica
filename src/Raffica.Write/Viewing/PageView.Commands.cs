@@ -33,6 +33,13 @@ internal sealed partial class PageView
     private IEditClipboard ClipboardOfView => _clipboard ??= new AvaloniaEditClipboard(() => TopLevel.GetTopLevel(this)?.Clipboard);
 
     /// <summary>
+    /// True for the copy and cut keys while a picture is selected with the pointer: the rules refuse the commands there (no text is selected), but the key must not be silent, so the window lets it reach the command, which says
+    /// that a picture is not copied (<see cref="WriteStrings.NotePictureNotCopied"/>) and changes nothing.
+    /// </summary>
+    internal bool TakesClipboardKeyOfSelectedPicture(string id) =>
+        id is WriteCommandIds.Copy or WriteCommandIds.Cut && _tab.Editor?.ObjectSelection is PictureSelection;
+
+    /// <summary>
     /// Runs the command of the edit family (<see cref="WriteCommandIds"/>: undo, redo, cut, copy, paste, select all) and returns true when it was taken. The work of cut, copy and paste
     /// finishes asynchronously (the clipboard); use <see cref="RunEditCommandAsync"/> to wait for it.
     /// </summary>
@@ -122,6 +129,13 @@ internal sealed partial class PageView
         if (SessionForCommand() is not { } session || session.BlockedReason == EditBlockedReason.Saving)
         {
             // A save queues undo, redo and paste, but cut and copy would have to tell the clipboard later what they took: the rules disable them, and a key does nothing.
+            return true;
+        }
+
+        if (session.ObjectSelection is PictureSelection)
+        {
+            // A picture is no text: the clipboard of the editor carries none (a fragment that holds one is pasted without it), so a copy or a cut of the selected picture says so and leaves the clipboard and the document as they are.
+            StructureNote?.Invoke(WriteStrings.NotePictureNotCopied);
             return true;
         }
 
@@ -226,6 +240,7 @@ internal sealed partial class PageView
         // Own fragment, then text, then a picture: a picture is pasted only when it is all the clipboard holds that can be used. It replaces the selection as text does (one step) and is refused with its reason.
         var picture = ImageOnly(content) ? content.Image : null;
         PictureRefusal? refusal = null;
+        var leftOut = 0;
         var prefix = IsPrefixDocument;
         var result = ApplyOperation(ed =>
         {
@@ -240,13 +255,21 @@ internal sealed partial class PageView
             }
 
             var styles = _tab.Docx.Model.Styles;
-            return ed.Paste(selection, content, id => styles?.Find(id) is not null);
+            var pasted = ed.Paste(selection, content, id => styles?.Find(id) is not null);
+            leftOut = ed.LastPasteDroppedPictures;
+            return pasted;
         });
 
         // A refused picture says why (a save that queued the paste says nothing now: the refusal is not known yet and a queued paste that fails says nothing either).
         if (result is null && refusal is { } reason && session.BlockedReason is null)
         {
             StructureNote?.Invoke(PictureWording.ReasonText(reason));
+        }
+
+        // A fragment that held pictures or drawings pastes without them (also when nothing else was left): the user is told, never left to wonder where the picture went. A paste that a save queued says nothing now.
+        if (leftOut > 0 && session.BlockedReason is null)
+        {
+            StructureNote?.Invoke(WriteStrings.NotePasteLeftOutPictures);
         }
     }
 

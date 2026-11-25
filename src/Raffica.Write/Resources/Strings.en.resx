@@ -2139,6 +2139,12 @@
   <data name="NotePictureReadFailed" xml:space="preserve">
     <value>The picture file could not be read.</value>
   </data>
+  <data name="NotePictureNotCopied" xml:space="preserve">
+    <value>A picture cannot be copied or cut in this version. Use Insert picture to add it again where you need it.</value>
+  </data>
+  <data name="NotePasteLeftOutPictures" xml:space="preserve">
+    <value>Pictures and drawings in the pasted content were left out. Use Insert picture to add a picture.</value>
+  </data>
   <data name="NoteCellsDeleteKey" xml:space="preserve">
     <value>Delete rows or columns with the Table tab.</value>
   </data>

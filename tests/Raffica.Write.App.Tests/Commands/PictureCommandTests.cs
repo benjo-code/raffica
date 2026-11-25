@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -199,7 +200,7 @@ public sealed class PictureCommandTests
                 Assert.True(text.Length < 140, $"{refusal} in {language}: {text}");
             }
 
-            foreach (var key in new[] { "ReasonPictureNoSelection", "ReasonPicturePrefixDocument", "NotePictureFailed", "NotePictureReadFailed", "NoteCellsDeleteKey", "PictureWrapInline", "PictureWrapSquare", "PictureWrapTopAndBottom", "PictureWrapInFront", "PictureWrapBehind" })
+            foreach (var key in new[] { "ReasonPictureNoSelection", "ReasonPicturePrefixDocument", "NotePictureFailed", "NotePictureReadFailed", "NotePictureNotCopied", "NotePasteLeftOutPictures", "ReasonNoteIdsUsedUp", "NoteCellsDeleteKey", "PictureWrapInline", "PictureWrapSquare", "PictureWrapTopAndBottom", "PictureWrapInFront", "PictureWrapBehind" })
             {
                 Assert.False(string.IsNullOrWhiteSpace(WriteStrings.GetIn(key, culture)), key);
             }
@@ -405,6 +406,29 @@ public sealed class PictureCommandTests
         Settle(window);
         Assert.False(Command(window, WriteCommandIds.PictureProperties).IsEnabled);
         Assert.Equal(WriteStrings.ReasonPictureNoSelection, Command(window, WriteCommandIds.PictureProperties).CurrentDisabledReason);
+    }
+
+    [AvaloniaFact]
+    public async Task TheCopyAndCutKeysWithAPictureSelectedSayThatAPictureIsNotCopied()
+    {
+        using var fixture = new WindowFixture();
+        var (window, tab, session) = await OpenAsync(fixture);
+        Select(session, tab, 4);
+        Settle(window);
+        var revision = tab.Docx.Model.Edits.Revision;
+
+        foreach (var key in new[] { PhysicalKey.C, PhysicalKey.X })
+        {
+            window.Status.Hint = null;
+            window.ActiveView!.Focus();
+            window.KeyPressQwerty(key, RawInputModifiers.Control);
+            window.KeyReleaseQwerty(key, RawInputModifiers.Control);
+            WindowFixture.Pump();
+            Assert.Equal(WriteStrings.NotePictureNotCopied, window.Status.Hint);
+        }
+
+        Assert.Equal(revision, tab.Docx.Model.Edits.Revision);
+        Assert.Equal(2, PicturesIn(tab));
     }
     [AvaloniaFact]
     public async Task ThePropertiesCardIsOneHistoryStepAndReadsThePictureWhenItOpens()

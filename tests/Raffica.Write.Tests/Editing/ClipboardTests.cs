@@ -363,6 +363,61 @@ public sealed class ClipboardTests
         Assert.Contains(contents, c => c is UnknownRunContent { Content.Element.Name.LocalName: "sym" });
     }
 
+
+    [Fact]
+    public void APasteCountsTheDrawingsItLeftOutSoTheCallerCanSaySo()
+    {
+        var pictureRun = new Run();
+        pictureRun.Content.Add(MakePicture());
+        var source = new Paragraph();
+        source.Inlines.Add(R("with "));
+        source.Inlines.Add(pictureRun);
+        var plain = P("plain");
+        var target = P("target");
+        var document = Doc(source, plain, target);
+        var editor = Editor(document);
+        var withPictures = editor.Copy(Sel(source, 0, 6));
+        var withoutPictures = editor.Copy(Sel(plain, 0, 5));
+        Assert.Equal(0, editor.LastPasteDroppedPictures);
+
+        // Text and a picture: the text goes in and the picture is counted.
+        editor.Paste(Caret(target, 6), withPictures, _ => true);
+        Assert.Equal(1, editor.LastPasteDroppedPictures);
+        Assert.Equal("targetwith ", Text(target));
+
+        // Only pictures: nothing changes and they are counted all the same.
+        var pictureOnly = new Paragraph();
+        pictureOnly.Inlines.Add(pictureRun);
+        var lone = Doc(pictureOnly, P("x"));
+        var loneEditor = Editor(lone);
+        var content = loneEditor.Copy(Sel(pictureOnly, 0, 1));
+        var revision = lone.Edits.Revision;
+        var result = loneEditor.Paste(Caret((Paragraph)lone.Body.Blocks[1], 0), content, _ => true);
+        Assert.Empty(result.Changes);
+        Assert.Equal(revision, lone.Edits.Revision);
+        Assert.Equal(1, loneEditor.LastPasteDroppedPictures);
+
+        // The count belongs to the last paste: one without pictures, or one of plain text, resets it.
+        editor.Paste(Caret(target, 0), withoutPictures, _ => true);
+        Assert.Equal(0, editor.LastPasteDroppedPictures);
+    }
+
+    [Fact]
+    public void TheCleaningOfAPasteCountsPicturesAndOldStyleDrawingsAndNothingElse()
+    {
+        var run = new Run();
+        run.Content.Add(new TextContent("text"));
+        run.Content.Add(MakePicture());
+        run.Content.Add(new UnknownRunContent(new UnknownContent(new XElement(W + "pict"))));
+        run.Content.Add(new UnknownRunContent(new UnknownContent(new XElement(W + "object"))));
+        run.Content.Add(new FootnoteReference(3));
+        var paragraph = new Paragraph();
+        paragraph.Inlines.Add(run);
+
+        Assert.Equal(3, FragmentCleaner.ForPaste(paragraph, sameDocument: true, sameRelationships: true, _ => true));
+        Assert.Equal("text", Text(paragraph));
+        Assert.Equal(0, FragmentCleaner.ForPaste(P("plain"), sameDocument: true, sameRelationships: true, _ => true));
+    }
     [Fact]
     public void AFragmentThatFlattensToNothingLeavesTheSelectionAlone()
     {

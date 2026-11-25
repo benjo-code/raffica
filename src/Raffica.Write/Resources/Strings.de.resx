@@ -2139,6 +2139,12 @@
   <data name="NotePictureReadFailed" xml:space="preserve">
     <value>Die Bilddatei konnte nicht gelesen werden.</value>
   </data>
+  <data name="NotePictureNotCopied" xml:space="preserve">
+    <value>Ein Bild lässt sich in dieser Version nicht kopieren oder ausschneiden. Fügen Sie es mit „Bild einfügen“ an der gewünschten Stelle erneut ein.</value>
+  </data>
+  <data name="NotePasteLeftOutPictures" xml:space="preserve">
+    <value>Bilder und Zeichnungen im eingefügten Inhalt wurden ausgelassen. Fügen Sie ein Bild mit „Bild einfügen“ ein.</value>
+  </data>
   <data name="NoteCellsDeleteKey" xml:space="preserve">
     <value>Löschen Sie Zeilen oder Spalten mit dem Tab Tabelle.</value>
   </data>

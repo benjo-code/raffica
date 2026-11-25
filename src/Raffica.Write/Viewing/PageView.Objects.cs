@@ -102,7 +102,7 @@ internal sealed partial class PageView
                 {
                     taken = true;
 
-                    // Only a floating picture is dragged: an inline one moves by cut and paste, so a press on it only selects it.
+                    // Only a floating picture is dragged. An inline one has no move in this milestone (a picture is not copied or cut, see NotePictureNotCopied), so a press on it only selects it.
                     if (picture.Box.Floating)
                     {
                         RememberPicturePress(picture.Box, page, x, y);

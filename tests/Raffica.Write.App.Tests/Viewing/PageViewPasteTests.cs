@@ -116,6 +116,72 @@ public sealed class PageViewPasteTests : IDisposable
         Assert.Equal(pictures, PictureCount(h));
     }
 
+
+    [AvaloniaFact]
+    public async Task APasteThatLeavesPicturesOutSaysSoAndChangesNothingWhenNothingElseIsLeft()
+    {
+        using var h = await OpenAsync();
+        var clipboard = new FakeClipboard();
+        h.View.EditClipboard = clipboard;
+        var notes = new List<string>();
+        h.View.StructureNote += notes.Add;
+
+        // The picture itself is copied by the editor (the fragment holds it) and the paste flattens it away: the user is told.
+        Select(h, P(h, 1), 0, 1);
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Copy));
+        Assert.NotNull(clipboard.Content?.Fragment);
+        var session = Select(h, P(h, 0), 0, 0);
+        var model = h.View.Tab.Docx.Model;
+        var revision = model.Edits.Revision;
+        var pictures = PictureCount(h);
+
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Paste));
+
+        Assert.Equal([WriteStrings.NotePasteLeftOutPictures], notes);
+        Assert.Equal(pictures, PictureCount(h));
+        Assert.Equal(revision, model.Edits.Revision);
+        Assert.Equal(0, session.Editor.History.UndoCount);
+
+        // Text with a picture: the text goes in as one step, and the note says what was left out.
+        notes.Clear();
+        Select(h, P(h, 0), 0, 0);
+        clipboard.Content = session.Editor.Copy(new TextRange(new TextPosition(StoryRef.Body, P(h, 1), 0), new TextPosition(StoryRef.Body, P(h, 2), 5)));
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Paste));
+        Assert.Equal([WriteStrings.NotePasteLeftOutPictures], notes);
+        Assert.Equal(1, session.Editor.History.UndoCount);
+        Assert.Equal(pictures, PictureCount(h));
+
+        // A paste without any picture says nothing.
+        notes.Clear();
+        clipboard.Content = new ClipboardContent("plain", null);
+        Select(h, P(h, 0), 0, 0);
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Paste));
+        Assert.Empty(notes);
+    }
+
+    [AvaloniaFact]
+    public async Task CopyAndCutWithAPictureSelectedSayThatAPictureIsNotCopiedAndLeaveTheClipboardAlone()
+    {
+        using var h = await OpenAsync();
+        var clipboard = new FakeClipboard { Content = new ClipboardContent("kept", null) };
+        h.View.EditClipboard = clipboard;
+        var notes = new List<string>();
+        h.View.StructureNote += notes.Add;
+        var session = h.View.Tab.EnsureEditor();
+        var picture = session.Editor.PictureAt(new TextPosition(StoryRef.Body, P(h, 1), 0));
+        Assert.True(session.SetObjectSelection(new PictureSelection(picture!)));
+        var model = h.View.Tab.Docx.Model;
+        var revision = model.Edits.Revision;
+
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Copy));
+        Assert.True(await h.View.RunEditCommandAsync(WriteCommandIds.Cut));
+
+        Assert.Equal([WriteStrings.NotePictureNotCopied, WriteStrings.NotePictureNotCopied], notes);
+        Assert.Equal("kept", clipboard.Content!.PlainText);
+        Assert.Equal(revision, model.Edits.Revision);
+        Assert.Equal(1, PictureCount(h));
+        Assert.IsType<PictureSelection>(session.ObjectSelection);
+    }
     [AvaloniaFact]
     public async Task AnImageWithTextPastesTheText()
     {

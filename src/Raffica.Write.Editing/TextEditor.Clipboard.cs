@@ -52,6 +52,12 @@ public sealed partial class TextEditor
     public CutResult Cut(TextRange range) => new(Copy(range), Delete(range));
 
     /// <summary>
+    /// How many pictures and drawings the last <see cref="Paste"/> left out of its fragment (a fragment never pastes a picture, a drawing or an old-style picture: the clipboard of this editor carries them but the paste flattens
+    /// them away, also when nothing else is left). 0 for a paste without any, and at the start of every paste; the caller reads it right after the call to say so.
+    /// </summary>
+    public int LastPasteDroppedPictures { get; private set; }
+
+    /// <summary>
     /// Replaces the selection with the clipboard content as one history step and one raise. With a readable fragment the paragraphs
     /// are pasted with their direct formatting: the first one joins the paragraph at the caret (which keeps its paragraph properties
     /// unless nothing stands before the caret, then it takes the first pasted paragraph's), middle ones keep their own, the last one
@@ -72,6 +78,7 @@ public sealed partial class TextEditor
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(styleExists);
+        LastPasteDroppedPictures = 0;
         var paragraphs = ReadFragment(content);
         if (paragraphs is null || InSingleParagraphControl(selection.Start))
         {
@@ -89,7 +96,7 @@ public sealed partial class TextEditor
         var sameRelationships = same && content.SourcePart is not null && content.SourcePart == PartOf(selection.Start.Story);
         foreach (var paragraph in paragraphs)
         {
-            FragmentCleaner.ForPaste(paragraph, same, sameRelationships, styleExists);
+            LastPasteDroppedPictures += FragmentCleaner.ForPaste(paragraph, same, sameRelationships, styleExists);
         }
 
         if (paragraphs.Count == 1 && paragraphs[0].Inlines.Count == 0)

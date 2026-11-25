@@ -653,6 +653,8 @@ internal static class WriteStrings
     public static string ReasonPictureOriginalSizeUnknown => Table.Get("ReasonPictureOriginalSizeUnknown");
     public static string NotePictureFailed => Table.Get("NotePictureFailed");
     public static string NotePictureReadFailed => Table.Get("NotePictureReadFailed");
+    public static string NotePictureNotCopied => Table.Get("NotePictureNotCopied");
+    public static string NotePasteLeftOutPictures => Table.Get("NotePasteLeftOutPictures");
     public static string NoteCellsDeleteKey => Table.Get("NoteCellsDeleteKey");
     public static string PictureOpenTitle => Table.Get("PictureOpenTitle");
     public static string PictureFilterImages => Table.Get("PictureFilterImages");
