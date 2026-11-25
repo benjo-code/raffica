@@ -203,15 +203,23 @@ internal sealed partial class PageView
         return true;
     }
 
-    private bool ReleaseObjectDrag(Point point)
+    internal bool ReleaseObjectDrag(Point point)
     {
         if (_objectDrag is not { IsActive: true } drag)
         {
             return false;
         }
 
-        _ = drag.Release(point, (kind, end) => ObjectDragCommit?.Invoke(kind, end) ?? false);
-        EndObjectPointer();
+        try
+        {
+            _ = drag.Release(point, (kind, end) => ObjectDragCommit?.Invoke(kind, end) ?? false);
+        }
+        finally
+        {
+            // The capture goes back also when the commit of a gesture threw.
+            EndObjectPointer();
+        }
+
         return true;
     }
 

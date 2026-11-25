@@ -374,7 +374,7 @@ public sealed class PageViewObjectTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task TheHandlesAreDrawnOverThePageAndTheCaretIsNot()
+    public async Task ASelectedPictureShowsItsHandlesAndTheWritingViewSelectsNoObject()
     {
         using var h = await OpenAsync(ObjectDocx.Write(_folder));
         var view = h.View;

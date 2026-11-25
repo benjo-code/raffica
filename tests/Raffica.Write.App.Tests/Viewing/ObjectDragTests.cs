@@ -276,10 +276,42 @@ public sealed class ObjectDragTests : IDisposable
             view.ObjectDragCommit = (_, _) => true;
             using (session.BeginSave())
             {
-                Click(h, Center(ThePicture(h), view));
+                // The press is made by hand: a click would end a gesture that had started, and the test could not tell.
+                var centre = Center(ThePicture(h), view);
+                h.Window.MouseDown(centre, MouseButton.Left);
+                ViewHarness.Pump();
                 Assert.IsType<PictureSelection>(session.ObjectSelection);
                 Assert.True(view.ObjectGesture is null || view.ObjectGesture.Phase == ObjectDragPhase.Idle);
+                Assert.Null(view.ObjectPointer);
+                h.Window.MouseMove(new Point(centre.X + 20, centre.Y + 20));
+                Assert.True(view.ObjectGesture is null || view.ObjectGesture.Phase == ObjectDragPhase.Idle);
+                h.Window.MouseUp(new Point(centre.X + 20, centre.Y + 20), MouseButton.Left);
+                ViewHarness.Pump();
             }
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AFailingCommitStillReleasesThePointerCapture()
+    {
+        var (h, _, handle) = await DraggingAsync();
+        using (h)
+        {
+            var view = h.View;
+            var revision = view.Tab.Docx.Model.Edits.Revision;
+            var pointer = view.ObjectPointer!;
+            Assert.Same(view, pointer.Captured);
+            view.ObjectDragCommit = (_, _) => throw new InvalidOperationException("the commit failed");
+
+            var end = new Point(handle.X + 20, handle.Y + 15);
+            // The release is made on the view itself (the platform would take the capture away on a real button release and hide the fault).
+            Assert.Throws<InvalidOperationException>(() => view.ReleaseObjectDrag(end));
+
+            ViewHarness.Pump();
+            Assert.Null(view.ObjectPointer);
+            Assert.NotSame(view, pointer.Captured);
+            Assert.Equal(ObjectDragPhase.Idle, view.ObjectGesture!.Phase);
+            Assert.Equal(revision, view.Tab.Docx.Model.Edits.Revision);
         }
     }
 
