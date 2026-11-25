@@ -1599,4 +1599,622 @@
   <data name="SectionPopoverNameFormat" xml:space="preserve">
     <value>Settings of section {0}</value>
   </data>
+  <data name="TabInsert" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="MenuInsert" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="GroupNotes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="CmdFootnote" xml:space="preserve">
+    <value>Footnote</value>
+  </data>
+  <data name="DescFootnote" xml:space="preserve">
+    <value>Inserts a footnote at the caret: a number in the text and the note at the bottom of the page. The caret moves into the note.</value>
+  </data>
+  <data name="CmdEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="DescEndnote" xml:space="preserve">
+    <value>Inserts an endnote at the caret: a number in the text and the note at the end of the document. The caret moves into the note.</value>
+  </data>
+  <data name="CmdNoteBack" xml:space="preserve">
+    <value>Back to the text</value>
+  </data>
+  <data name="DescNoteBack" xml:space="preserve">
+    <value>Returns from a note to the place in the text that refers to it. Esc in a note does the same.</value>
+  </data>
+  <data name="ReasonNoteWritingView" xml:space="preserve">
+    <value>The writing view shows no notes. Switch to the page view to insert one.</value>
+  </data>
+  <data name="ReasonNoteNotInBody" xml:space="preserve">
+    <value>A note goes into the text of the document, not into a header, a footer or a comment.</value>
+  </data>
+  <data name="ReasonNoteInNote" xml:space="preserve">
+    <value>A note cannot hold another note.</value>
+  </data>
+  <data name="ReasonNoteRestricted" xml:space="preserve">
+    <value>This content control holds plain text only, so it cannot hold a note.</value>
+  </data>
+  <data name="ReasonNoteIdsUsedUp" xml:space="preserve">
+    <value>This document already uses the highest possible note number, so it cannot take another note.</value>
+  </data>
+  <data name="ReasonNoteNotInNote" xml:space="preserve">
+    <value>The caret is not in a note.</value>
+  </data>
+  <data name="NoteNoteNotFound" xml:space="preserve">
+    <value>The text that refers to this note was not found.</value>
+  </data>
+  <data name="ObjectPicture" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="ObjectPictureAlt" xml:space="preserve">
+    <value>Picture: {0}</value>
+  </data>
+  <data name="ObjectCell" xml:space="preserve">
+    <value>Row {0} of {1}, column {2} of {3}</value>
+  </data>
+  <data name="ObjectCells" xml:space="preserve">
+    <value>Rows {0} to {1} of {2}, columns {3} to {4} of {5}</value>
+  </data>
+  <data name="ObjectSelectedName" xml:space="preserve">
+    <value>{0}. Selected: {1}</value>
+  </data>
+  <data name="TabTable" xml:space="preserve">
+    <value>Table</value>
+  </data>
+  <data name="MenuTable" xml:space="preserve">
+    <value>Table</value>
+  </data>
+  <data name="GroupTable" xml:space="preserve">
+    <value>Table</value>
+  </data>
+  <data name="GroupTableRows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="GroupTableColumns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="GroupTableCells" xml:space="preserve">
+    <value>Cells</value>
+  </data>
+  <data name="GroupTableWhole" xml:space="preserve">
+    <value>Table</value>
+  </data>
+  <data name="CmdTableInsert" xml:space="preserve">
+    <value>Table</value>
+  </data>
+  <data name="DescTableInsert" xml:space="preserve">
+    <value>Inserts a table at the caret: choose the size on the grid, or More for any size up to 63 columns and 500 rows. The table fills the width of the text.</value>
+  </data>
+  <data name="CmdTableRowAbove" xml:space="preserve">
+    <value>Row above</value>
+  </data>
+  <data name="DescTableRowAbove" xml:space="preserve">
+    <value>Adds a row above the row of the caret, or above the first selected row.</value>
+  </data>
+  <data name="CmdTableRowBelow" xml:space="preserve">
+    <value>Row below</value>
+  </data>
+  <data name="DescTableRowBelow" xml:space="preserve">
+    <value>Adds a row below the row of the caret, or below the last selected row.</value>
+  </data>
+  <data name="CmdTableDeleteRows" xml:space="preserve">
+    <value>Delete rows</value>
+  </data>
+  <data name="DescTableDeleteRows" xml:space="preserve">
+    <value>Deletes the row of the caret, or every selected row.</value>
+  </data>
+  <data name="CmdTableRowUp" xml:space="preserve">
+    <value>Move row up</value>
+  </data>
+  <data name="DescTableRowUp" xml:space="preserve">
+    <value>Moves the row of the caret one place up. A row cannot move across a merged cell or across the header rows.</value>
+  </data>
+  <data name="CmdTableRowDown" xml:space="preserve">
+    <value>Move row down</value>
+  </data>
+  <data name="DescTableRowDown" xml:space="preserve">
+    <value>Moves the row of the caret one place down. A row cannot move across a merged cell or across the header rows.</value>
+  </data>
+  <data name="CmdTableSelectRow" xml:space="preserve">
+    <value>Select row</value>
+  </data>
+  <data name="DescTableSelectRow" xml:space="preserve">
+    <value>Selects every cell of the row of the caret.</value>
+  </data>
+  <data name="CmdTableColumnLeft" xml:space="preserve">
+    <value>Column left</value>
+  </data>
+  <data name="DescTableColumnLeft" xml:space="preserve">
+    <value>Adds a column to the left of the column of the caret, or of the first selected column.</value>
+  </data>
+  <data name="CmdTableColumnRight" xml:space="preserve">
+    <value>Column right</value>
+  </data>
+  <data name="DescTableColumnRight" xml:space="preserve">
+    <value>Adds a column to the right of the column of the caret, or of the last selected column.</value>
+  </data>
+  <data name="CmdTableDeleteColumns" xml:space="preserve">
+    <value>Delete columns</value>
+  </data>
+  <data name="DescTableDeleteColumns" xml:space="preserve">
+    <value>Deletes the column of the caret, or every selected column.</value>
+  </data>
+  <data name="CmdTableDistribute" xml:space="preserve">
+    <value>Distribute columns</value>
+  </data>
+  <data name="DescTableDistribute" xml:space="preserve">
+    <value>Makes all columns the same width without changing the width of the table. Needs the page view.</value>
+  </data>
+  <data name="CmdTableSelectColumn" xml:space="preserve">
+    <value>Select column</value>
+  </data>
+  <data name="DescTableSelectColumn" xml:space="preserve">
+    <value>Selects every cell of the column of the caret.</value>
+  </data>
+  <data name="CmdTableMerge" xml:space="preserve">
+    <value>Merge cells</value>
+  </data>
+  <data name="DescTableMerge" xml:space="preserve">
+    <value>Merges the selected cells into one cell. The text of the cells is kept.</value>
+  </data>
+  <data name="CmdTableSplit" xml:space="preserve">
+    <value>Split merged cell</value>
+  </data>
+  <data name="DescTableSplit" xml:space="preserve">
+    <value>Splits a merged cell back into the cells it was made of.</value>
+  </data>
+  <data name="CmdTableBorders" xml:space="preserve">
+    <value>Borders</value>
+  </data>
+  <data name="DescTableBorders" xml:space="preserve">
+    <value>Sets the borders of the selected cells, or of the cell of the caret: all, outside, box, none or single sides, with color, width and style.</value>
+  </data>
+  <data name="CmdTableShading" xml:space="preserve">
+    <value>Shading</value>
+  </data>
+  <data name="DescTableShading" xml:space="preserve">
+    <value>Fills the selected cells, or the cell of the caret, with a color.</value>
+  </data>
+  <data name="CmdTableProperties" xml:space="preserve">
+    <value>Table properties</value>
+  </data>
+  <data name="DescTableProperties" xml:space="preserve">
+    <value>Sets the width of the table and of each column, the height of the rows of the selection and the header row. Needs the page view.</value>
+  </data>
+  <data name="CmdTableHeaderRow" xml:space="preserve">
+    <value>Header row</value>
+  </data>
+  <data name="DescTableHeaderRow" xml:space="preserve">
+    <value>Repeats the first row at the top of every page the table spans.</value>
+  </data>
+  <data name="CmdTableSelectTable" xml:space="preserve">
+    <value>Select table</value>
+  </data>
+  <data name="DescTableSelectTable" xml:space="preserve">
+    <value>Selects every cell of the table.</value>
+  </data>
+  <data name="CmdTableDelete" xml:space="preserve">
+    <value>Delete table</value>
+  </data>
+  <data name="DescTableDelete" xml:space="preserve">
+    <value>Deletes the whole table with its content.</value>
+  </data>
+  <data name="ReasonTableNotInTable" xml:space="preserve">
+    <value>Place the caret in a table first.</value>
+  </data>
+  <data name="ReasonTableWritingViewWidths" xml:space="preserve">
+    <value>The writing view draws a table at another width than the page. Switch to the page view to set widths.</value>
+  </data>
+  <data name="ReasonTableOneRow" xml:space="preserve">
+    <value>Select a single row to move it.</value>
+  </data>
+  <data name="ReasonTableNoPosition" xml:space="preserve">
+    <value>There is no place for a table here: the caret is not in the text of the document.</value>
+  </data>
+  <data name="ReasonTablePrefixDocument" xml:space="preserve">
+    <value>Only the first part of this document is open, so the table cannot be changed yet.</value>
+  </data>
+  <data name="ReasonTableHeaderOrFooter" xml:space="preserve">
+    <value>A table cannot be put into a header or a footer.</value>
+  </data>
+  <data name="ReasonTableNote" xml:space="preserve">
+    <value>A table cannot be put into a footnote or an endnote.</value>
+  </data>
+  <data name="ReasonTableComment" xml:space="preserve">
+    <value>A table cannot be put into a comment.</value>
+  </data>
+  <data name="ReasonTableRestrictedControl" xml:space="preserve">
+    <value>This content control holds plain text only, so it cannot hold a table.</value>
+  </data>
+  <data name="ReasonTableNestedTable" xml:space="preserve">
+    <value>The caret is in a table cell: a table cannot be put into a cell, and commands act on the outer table only.</value>
+  </data>
+  <data name="ReasonTableControlHoldsATable" xml:space="preserve">
+    <value>This content control already holds a table, and a second one in it could not be told apart from the first. Put the new table outside the control.</value>
+  </data>
+  <data name="ReasonTableNoTable" xml:space="preserve">
+    <value>The table could not be found.</value>
+  </data>
+  <data name="ReasonTableInvalidCount" xml:space="preserve">
+    <value>Enter a number of columns and rows greater than zero.</value>
+  </data>
+  <data name="ReasonTableTooManyColumns" xml:space="preserve">
+    <value>A table can have at most 63 columns.</value>
+  </data>
+  <data name="ReasonTableTooManyRows" xml:space="preserve">
+    <value>A table can have at most 500 rows.</value>
+  </data>
+  <data name="ReasonTableOutOfRange" xml:space="preserve">
+    <value>The row, column or cell is not in the table.</value>
+  </data>
+  <data name="ReasonTableUnsupportedStructure" xml:space="preserve">
+    <value>This table has a structure Write does not change yet (for example an offset at the start or end of a row, or a deleted row in a tracked change).</value>
+  </data>
+  <data name="ReasonTableNothingToMerge" xml:space="preserve">
+    <value>Select two or more cells to merge them.</value>
+  </data>
+  <data name="ReasonTableNotMerged" xml:space="preserve">
+    <value>This cell is not a merged cell, so there is nothing to split.</value>
+  </data>
+  <data name="ReasonTableWouldCutAMerge" xml:space="preserve">
+    <value>The row cannot move into or out of a merged cell.</value>
+  </data>
+  <data name="ReasonTableHeaderRowBoundary" xml:space="preserve">
+    <value>A row cannot move across the border of the header rows. Turn the header row on or off first.</value>
+  </data>
+  <data name="ReasonTableCannotMove" xml:space="preserve">
+    <value>The row is already at the edge of the table.</value>
+  </data>
+  <data name="ReasonTableWouldBreakTheTable" xml:space="preserve">
+    <value>This would leave the table without a row or a cell. Delete the table instead.</value>
+  </data>
+  <data name="ReasonTableInvalidValue" xml:space="preserve">
+    <value>A value is outside what a table allows.</value>
+  </data>
+  <data name="NoteTableNoChange" xml:space="preserve">
+    <value>The table was not changed.</value>
+  </data>
+  <data name="TableBordersAll" xml:space="preserve">
+    <value>All borders</value>
+  </data>
+  <data name="TableBordersOutside" xml:space="preserve">
+    <value>Outside borders</value>
+  </data>
+  <data name="TableBordersBox" xml:space="preserve">
+    <value>Box</value>
+  </data>
+  <data name="TableBordersNone" xml:space="preserve">
+    <value>No borders</value>
+  </data>
+  <data name="TableBordersTop" xml:space="preserve">
+    <value>Top border</value>
+  </data>
+  <data name="TableBordersBottom" xml:space="preserve">
+    <value>Bottom border</value>
+  </data>
+  <data name="TableBordersLeft" xml:space="preserve">
+    <value>Left border</value>
+  </data>
+  <data name="TableBordersRight" xml:space="preserve">
+    <value>Right border</value>
+  </data>
+  <data name="TableBordersInsideHorizontal" xml:space="preserve">
+    <value>Inside horizontal lines</value>
+  </data>
+  <data name="TableBordersInsideVertical" xml:space="preserve">
+    <value>Inside vertical lines</value>
+  </data>
+  <data name="TableBordersMore" xml:space="preserve">
+    <value>More borders…</value>
+  </data>
+  <data name="TableShadingNone" xml:space="preserve">
+    <value>No shading</value>
+  </data>
+  <data name="TableGridName" xml:space="preserve">
+    <value>{0} by {1} table</value>
+  </data>
+  <data name="TableGridMore" xml:space="preserve">
+    <value>More…</value>
+  </data>
+  <data name="TableGridPopupName" xml:space="preserve">
+    <value>Insert table</value>
+  </data>
+  <data name="TableGridHint" xml:space="preserve">
+    <value>Arrow keys choose the size, Enter inserts, Esc closes.</value>
+  </data>
+  <data name="TiTitle" xml:space="preserve">
+    <value>Insert table</value>
+  </data>
+  <data name="TiColumns" xml:space="preserve">
+    <value>Columns (1 to 63)</value>
+  </data>
+  <data name="TiRows" xml:space="preserve">
+    <value>Rows (1 to 500)</value>
+  </data>
+  <data name="TiOk" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="TiColumnsInvalid" xml:space="preserve">
+    <value>Enter a number of columns from 1 to 63.</value>
+  </data>
+  <data name="TiRowsInvalid" xml:space="preserve">
+    <value>Enter a number of rows from 1 to 500.</value>
+  </data>
+  <data name="TbTitle" xml:space="preserve">
+    <value>Borders</value>
+  </data>
+  <data name="TbPreset" xml:space="preserve">
+    <value>Borders</value>
+  </data>
+  <data name="TbPresetSides" xml:space="preserve">
+    <value>Selected sides</value>
+  </data>
+  <data name="TbSides" xml:space="preserve">
+    <value>Sides</value>
+  </data>
+  <data name="TbTurnOff" xml:space="preserve">
+    <value>Turn the selected sides off</value>
+  </data>
+  <data name="TbStyle" xml:space="preserve">
+    <value>Style</value>
+  </data>
+  <data name="TbStyleSolid" xml:space="preserve">
+    <value>Single line</value>
+  </data>
+  <data name="TbStyleDouble" xml:space="preserve">
+    <value>Double line</value>
+  </data>
+  <data name="TbStyleDashed" xml:space="preserve">
+    <value>Dashed</value>
+  </data>
+  <data name="TbStyleDotted" xml:space="preserve">
+    <value>Dotted</value>
+  </data>
+  <data name="TbWidth" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="TbWidthFormat" xml:space="preserve">
+    <value>{0} pt</value>
+  </data>
+  <data name="TbColor" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="TbColorAuto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="TbOk" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="TbNoSide" xml:space="preserve">
+    <value>Choose at least one side.</value>
+  </data>
+  <data name="TbNote" xml:space="preserve">
+    <value>The borders apply to the selected cells, or to the cell of the caret.</value>
+  </data>
+  <data name="TpTitle" xml:space="preserve">
+    <value>Table properties</value>
+  </data>
+  <data name="TpTableWidthFormat" xml:space="preserve">
+    <value>Table width ({0})</value>
+  </data>
+  <data name="TpColumnWidthFormat" xml:space="preserve">
+    <value>Column {0} ({1})</value>
+  </data>
+  <data name="TpColumns" xml:space="preserve">
+    <value>Column widths</value>
+  </data>
+  <data name="TpRowHeightFormat" xml:space="preserve">
+    <value>Row height ({0})</value>
+  </data>
+  <data name="TpRowRule" xml:space="preserve">
+    <value>Row height rule</value>
+  </data>
+  <data name="TpRuleAuto" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="TpRuleAtLeast" xml:space="preserve">
+    <value>At least</value>
+  </data>
+  <data name="TpRuleExact" xml:space="preserve">
+    <value>Exactly</value>
+  </data>
+  <data name="TpHeaderRow" xml:space="preserve">
+    <value>Repeat the first row at the top of each page</value>
+  </data>
+  <data name="TpRowsNote" xml:space="preserve">
+    <value>The row height applies to the selected rows, or to the row of the caret.</value>
+  </data>
+  <data name="TpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="TpNothingChanged" xml:space="preserve">
+    <value>Nothing was changed.</value>
+  </data>
+  <data name="GroupPicture" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="CmdPictureInsert" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="DescPictureInsert" xml:space="preserve">
+    <value>Inserts a picture from a file (PNG, JPEG, GIF or BMP) at the caret, in line with the text. You can describe it for screen readers before it is inserted.</value>
+  </data>
+  <data name="CmdPictureProperties" xml:space="preserve">
+    <value>Picture properties</value>
+  </data>
+  <data name="DescPictureProperties" xml:space="preserve">
+    <value>Changes the size, the description (alternative text) and the text wrapping of the selected picture in one step.</value>
+  </data>
+  <data name="CmdPictureWrap" xml:space="preserve">
+    <value>Text wrapping</value>
+  </data>
+  <data name="DescPictureWrap" xml:space="preserve">
+    <value>Chooses how the text flows around the selected picture: in line with the text, square, above and below, in front of the text or behind it.</value>
+  </data>
+  <data name="CmdPictureReset" xml:space="preserve">
+    <value>Original size</value>
+  </data>
+  <data name="DescPictureReset" xml:space="preserve">
+    <value>Puts the selected picture back to its original size.</value>
+  </data>
+  <data name="CmdPictureDelete" xml:space="preserve">
+    <value>Delete picture</value>
+  </data>
+  <data name="DescPictureDelete" xml:space="preserve">
+    <value>Removes the selected picture from the document. Undo brings it back.</value>
+  </data>
+  <data name="ReasonPictureNoSelection" xml:space="preserve">
+    <value>Select a picture first: click it, or select it with Shift and an arrow key (for a floating picture, the caret in its paragraph is enough).</value>
+  </data>
+  <data name="ReasonPicturePrefixDocument" xml:space="preserve">
+    <value>Only the start of this document is open, so pictures cannot be changed yet.</value>
+  </data>
+  <data name="ReasonPictureNoPosition" xml:space="preserve">
+    <value>There is no place for a picture here.</value>
+  </data>
+  <data name="ReasonPictureHeaderOrFooter" xml:space="preserve">
+    <value>Pictures cannot be placed in a header or a footer yet.</value>
+  </data>
+  <data name="ReasonPictureNote" xml:space="preserve">
+    <value>Pictures cannot be placed in a footnote or an endnote yet.</value>
+  </data>
+  <data name="ReasonPictureComment" xml:space="preserve">
+    <value>Pictures cannot be placed in a comment.</value>
+  </data>
+  <data name="ReasonPictureRestrictedControl" xml:space="preserve">
+    <value>This content control holds plain text only, so it takes no picture.</value>
+  </data>
+  <data name="ReasonPictureNestedTable" xml:space="preserve">
+    <value>Pictures cannot be placed in a table inside another table yet.</value>
+  </data>
+  <data name="ReasonPictureNoPicture" xml:space="preserve">
+    <value>The picture is no longer there. Select it again.</value>
+  </data>
+  <data name="ReasonPictureRotated" xml:space="preserve">
+    <value>The picture is turned, so its size cannot be changed here.</value>
+  </data>
+  <data name="ReasonPictureFloatInCell" xml:space="preserve">
+    <value>A picture in a table cell stays in line with the text.</value>
+  </data>
+  <data name="ReasonPictureNotFloating" xml:space="preserve">
+    <value>Only a picture that is not in line with the text can be moved. Change its text wrapping first.</value>
+  </data>
+  <data name="ReasonPictureAlignedPosition" xml:space="preserve">
+    <value>The position of this picture is set by an alignment (for example centered). Drag it to give it a fixed position.</value>
+  </data>
+  <data name="ReasonPictureAnotherPlace" xml:space="preserve">
+    <value>The picture can only be moved within the same part of the document.</value>
+  </data>
+  <data name="ReasonPictureTooFar" xml:space="preserve">
+    <value>The picture is too far from there to be moved in one step.</value>
+  </data>
+  <data name="ReasonPictureNotAnImage" xml:space="preserve">
+    <value>The file is not a picture that can be used (PNG, JPEG, GIF or BMP).</value>
+  </data>
+  <data name="ReasonPictureTooLarge" xml:space="preserve">
+    <value>The file is larger than 50 MB.</value>
+  </data>
+  <data name="ReasonPictureTooManyPixels" xml:space="preserve">
+    <value>The picture has too many pixels (more than 32 million).</value>
+  </data>
+  <data name="ReasonPictureTooMuchMedia" xml:space="preserve">
+    <value>The pictures of this document would take too much room together. Save it and open it again to free room.</value>
+  </data>
+  <data name="ReasonPictureBadSize" xml:space="preserve">
+    <value>That size is not possible for a picture.</value>
+  </data>
+  <data name="ReasonPictureAltTextTooLong" xml:space="preserve">
+    <value>The description is too long (at most 4096 characters).</value>
+  </data>
+  <data name="ReasonPictureNothingToChange" xml:space="preserve">
+    <value>That would change nothing.</value>
+  </data>
+  <data name="ReasonPictureOriginalSizeUnknown" xml:space="preserve">
+    <value>The original size of this picture cannot be told.</value>
+  </data>
+  <data name="NotePictureFailed" xml:space="preserve">
+    <value>The picture command could not be carried out.</value>
+  </data>
+  <data name="NotePictureReadFailed" xml:space="preserve">
+    <value>The picture file could not be read.</value>
+  </data>
+  <data name="NotePictureNotCopied" xml:space="preserve">
+    <value>A picture cannot be copied or cut in this version. Use Insert picture to add it again where you need it.</value>
+  </data>
+  <data name="NotePasteLeftOutPictures" xml:space="preserve">
+    <value>Pictures and drawings in the pasted content were left out. Use Insert picture to add a picture.</value>
+  </data>
+  <data name="NoteCellsDeleteKey" xml:space="preserve">
+    <value>Delete rows or columns with the Table tab.</value>
+  </data>
+  <data name="PictureOpenTitle" xml:space="preserve">
+    <value>Insert picture</value>
+  </data>
+  <data name="PictureFilterImages" xml:space="preserve">
+    <value>Pictures</value>
+  </data>
+  <data name="PictureWrapInline" xml:space="preserve">
+    <value>In line with text</value>
+  </data>
+  <data name="PictureWrapSquare" xml:space="preserve">
+    <value>Square</value>
+  </data>
+  <data name="PictureWrapTopAndBottom" xml:space="preserve">
+    <value>Above and below</value>
+  </data>
+  <data name="PictureWrapInFront" xml:space="preserve">
+    <value>In front of text</value>
+  </data>
+  <data name="PictureWrapBehind" xml:space="preserve">
+    <value>Behind text</value>
+  </data>
+  <data name="PiTitle" xml:space="preserve">
+    <value>Insert picture</value>
+  </data>
+  <data name="PiAlt" xml:space="preserve">
+    <value>Description for screen readers (optional)</value>
+  </data>
+  <data name="PiAltHint" xml:space="preserve">
+    <value>Say in a few words what the picture shows.</value>
+  </data>
+  <data name="PiOk" xml:space="preserve">
+    <value>Insert</value>
+  </data>
+  <data name="PiAltTooLong" xml:space="preserve">
+    <value>The description is too long (at most 4096 characters).</value>
+  </data>
+  <data name="PpTitle" xml:space="preserve">
+    <value>Picture properties</value>
+  </data>
+  <data name="PpWidthFormat" xml:space="preserve">
+    <value>Width ({0})</value>
+  </data>
+  <data name="PpHeightFormat" xml:space="preserve">
+    <value>Height ({0})</value>
+  </data>
+  <data name="PpLockRatio" xml:space="preserve">
+    <value>Keep the proportions</value>
+  </data>
+  <data name="PpReset" xml:space="preserve">
+    <value>Back to the original size</value>
+  </data>
+  <data name="PpAlt" xml:space="preserve">
+    <value>Description for screen readers</value>
+  </data>
+  <data name="PpWrap" xml:space="preserve">
+    <value>Text wrapping</value>
+  </data>
+  <data name="PpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PpInvalidValueFormat" xml:space="preserve">
+    <value>{0}: Enter a number, for example 2.5.</value>
+  </data>
+  <data name="PpOutOfRangeFormat" xml:space="preserve">
+    <value>{0}: This size is not possible for a picture.</value>
+  </data>
 </root>

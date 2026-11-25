@@ -86,6 +86,8 @@ internal static class LayoutOracle
                 }
             }
 
+            AssertSameObjects(expected.Objects, actual.Objects, where);
+
             foreach (var y in new[] { 0f, expected.Height * 0.25f, expected.Height * 0.5f, expected.Height * 0.75f, expected.Height }.Concat(expected.Spans.SelectMany(s => new[] { s.Top, s.Bottom - 0.01f })))
             {
                 Assert.True(full.BlockAt(i, y) == incremental.BlockAt(i, y), $"{where}: BlockAt({y})");
@@ -110,6 +112,30 @@ internal static class LayoutOracle
         }
 
         Assert.True(full.Revision >= 0);
+    }
+
+    /// <summary>The object maps of two pages are equal: the same pictures (the same drawings, identity included, at the same boxes) and the same tables with every number equal. The records hold lists, so the lists are compared by element.</summary>
+    public static void AssertSameObjects(ObjectMap expected, ObjectMap actual, string where)
+    {
+        Assert.True(expected.IsEmpty == actual.IsEmpty && (!expected.IsEmpty || ReferenceEquals(expected, actual)), $"{where}: the shared empty map is not used for a page without objects");
+        Assert.True(expected.Pictures.Count == actual.Pictures.Count, $"{where}: picture count {actual.Pictures.Count} against {expected.Pictures.Count}");
+        for (var p = 0; p < expected.Pictures.Count; p++)
+        {
+            var e = expected.Pictures[p];
+            var a = actual.Pictures[p];
+            Assert.True(e.Equals(a) && Equals(e.Id, a.Id), $"{where}: picture {p} differs ({a.Id} at {a.X},{a.Y} against {e.Id} at {e.X},{e.Y})");
+        }
+
+        Assert.True(expected.Tables.Count == actual.Tables.Count, $"{where}: table count {actual.Tables.Count} against {expected.Tables.Count}");
+        for (var t = 0; t < expected.Tables.Count; t++)
+        {
+            var e = expected.Tables[t];
+            var a = actual.Tables[t];
+            Assert.True(
+                e.Story == a.Story && e.BlockIndex == a.BlockIndex && e.X == a.X && e.Y == a.Y && e.Width == a.Width && e.Height == a.Height
+                && e.ColumnBorders.SequenceEqual(a.ColumnBorders) && e.RowEdges.SequenceEqual(a.RowEdges) && e.RowIndexes.SequenceEqual(a.RowIndexes) && e.Cells.SequenceEqual(a.Cells),
+                $"{where}: table {t} differs (block {a.BlockIndex} against {e.BlockIndex}, {a.Cells.Count} cells against {e.Cells.Count})");
+        }
     }
 
     private static string FirstDifference(string expected, string actual)

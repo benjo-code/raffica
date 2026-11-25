@@ -30,6 +30,9 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
     /// <summary>The fragment format.</summary>
     internal static readonly DataFormat<byte[]> Fragment = DataFormat.CreateBytesPlatformFormat("application/x-raffica-write-fragment");
 
+    /// <summary>The raw PNG bytes of a picture on the clipboard (what browsers, screenshot tools and Office put there).</summary>
+    internal static readonly DataFormat<byte[]> Png = DataFormat.CreateBytesPlatformFormat("image/png");
+
     /// <summary>The format of the source (editor id and package part) of a fragment.</summary>
     internal static readonly DataFormat<byte[]> Source = DataFormat.CreateBytesPlatformFormat("application/x-raffica-write-source");
 
@@ -46,7 +49,11 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
             {
                 var text = await transfer.TryGetTextAsync();
                 var fragment = await transfer.TryGetValueAsync(Fragment);
-                if (text is null && fragment is null)
+
+                // A picture counts only when there is neither a fragment nor text (own fragment, then text, then picture), so a clipboard with text never pays for the conversion of its bitmap.
+                var read = fragment is null && string.IsNullOrEmpty(text) ? await ReadImageAsync(transfer) : default;
+                var image = read.Bytes;
+                if (text is null && fragment is null && image is null && read.Refusal is null)
                 {
                     return null;
                 }
@@ -58,7 +65,7 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
                     (id, part) = ParseSource(source);
                 }
 
-                return new ClipboardContent(text ?? string.Empty, fragment, id, part);
+                return new ClipboardContent(text ?? string.Empty, fragment, id, part, image is null ? (ReadOnlyMemory<byte>?)null : new ReadOnlyMemory<byte>(image), image is null ? read.Refusal : null);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -96,6 +103,64 @@ internal sealed class AvaloniaEditClipboard(Func<IClipboard?> clipboard) : IEdit
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             return false;
+        }
+    }
+
+    /// <summary>What <see cref="ReadImageAsync"/> found: the bytes of an image file, or the reason there are none although the transfer offered a picture, or neither (no picture offered).</summary>
+    internal readonly record struct ClipboardImage(byte[]? Bytes, PictureRefusal? Refusal);
+
+    /// <summary>
+    /// The picture on the clipboard as the bytes of an image file. The format <c>image/png</c> is read first and its bytes are taken as they are (no re-encoding); the system bitmap is the second choice and is
+    /// converted to PNG on a pool thread (never the UI thread). A bitmap above <see cref="PictureRules.MaxPixels"/> is not converted at all: the result carries <see cref="PictureRefusal.TooManyPixels"/>. A picture that was
+    /// offered but could not be read or converted (a clipboard that fails, a conversion that throws) carries <see cref="PictureRefusal.NotAnImage"/>; a transfer that offers no picture gives neither bytes nor reason. A PNG of zero
+    /// bytes comes back as an empty array (the editor refuses it with its own reason); bytes above the size limit are returned unchanged (reading them was already done and the editor refuses them). Nothing of the picture is kept
+    /// or logged.
+    /// </summary>
+    internal static async Task<ClipboardImage> ReadImageAsync(IAsyncDataTransfer transfer)
+    {
+        ArgumentNullException.ThrowIfNull(transfer);
+        var offered = false;
+        try
+        {
+            if (transfer.Formats.Contains(Png))
+            {
+                offered = true;
+                if (await transfer.TryGetValueAsync(Png) is { } png)
+                {
+                    return new ClipboardImage(png, null);
+                }
+            }
+
+            if (!transfer.Formats.Contains(DataFormat.Bitmap))
+            {
+                return new ClipboardImage(null, offered ? PictureRefusal.NotAnImage : null);
+            }
+
+            offered = true;
+            if (await transfer.TryGetBitmapAsync() is not { } bitmap)
+            {
+                return new ClipboardImage(null, PictureRefusal.NotAnImage);
+            }
+
+            using (bitmap)
+            {
+                if ((long)bitmap.PixelSize.Width * bitmap.PixelSize.Height > PictureRules.MaxPixels)
+                {
+                    return new ClipboardImage(null, PictureRefusal.TooManyPixels);
+                }
+
+                var converted = await Task.Run(() =>
+                {
+                    using var stream = new MemoryStream();
+                    bitmap.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                    return stream.ToArray();
+                });
+                return new ClipboardImage(converted, null);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return new ClipboardImage(null, offered ? PictureRefusal.NotAnImage : null);
         }
     }
 

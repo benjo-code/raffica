@@ -227,6 +227,39 @@ public sealed partial class DocumentLayout
     }
 
     /// <summary>
+    /// What is at a point of a laid-out page, of the body's pictures and tables (see <see cref="ObjectMap"/>); null when nothing is or the page does
+    /// not exist (now). <paramref name="x"/> and <paramref name="y"/> are in the page space of the map (points, y down) and <paramref name="tolerance"/> is
+    /// the reach of a border, an edge, a handle slot (half its side) and, three times, of a table margin, in points: a caller that thinks in screen pixels divides by the
+    /// page scale. Priority: a handle of <paramref name="selectedPicture"/> (only that picture shows handles, and only when it can be resized), then a picture (the one placed
+    /// last), then a column border or row edge (the nearer), then a margin of the table, then a cell; with <paramref name="includeBehindText"/> a picture drawn behind the text comes last,
+    /// where nothing else is hit (without it such a picture is never returned). The point is not tested against the text.
+    /// The selection is resolved with one walk of the model per call, and none when it is null or the page has no resizable picture; a caller that already holds the drawing
+    /// (the editing session of a selection) uses the overload that takes the <see cref="Picture"/> and walks nothing. Both are for a pointer move: neither reads <see cref="PictureBox.Id"/>.
+    /// </summary>
+    public ObjectHit? HitObject(int page, float x, float y, float tolerance, ObjectId? selectedPicture = null, bool includeBehindText = false) =>
+        TryGetPage(page, out var found) && found is not null
+            ? ObjectHits.Test(found.Objects, x, y, tolerance, selectedPicture is null ? null : () => ResolveDrawing(selectedPicture), includeBehindText)
+            : null;
+
+    /// <summary>The same hit test for a caller that holds the selected picture's drawing (the model object, kept current by the editor): no walk of the model at all.</summary>
+    public ObjectHit? HitObject(int page, float x, float y, float tolerance, Picture selectedDrawing, bool includeBehindText = false)
+    {
+        ArgumentNullException.ThrowIfNull(selectedDrawing);
+        return TryGetPage(page, out var found) && found is not null ? ObjectHits.Test(found.Objects, x, y, tolerance, () => selectedDrawing, includeBehindText) : null;
+    }
+
+    private long _hitResolves;
+
+    /// <summary>How many times a hit test walked the model to resolve a selection: a test seam.</summary>
+    internal long HitResolves => Interlocked.Read(ref _hitResolves);
+
+    private Picture? ResolveDrawing(ObjectId id)
+    {
+        Interlocked.Increment(ref _hitResolves);
+        return id.Story == StoryRef.Body ? ObjectIds.Find(Volatile.Read(ref _engine).Document.Body.Blocks, id)?.Picture : null;
+    }
+
+    /// <summary>
     /// The host the layout used when it made the projection of <paramref name="paragraph"/> (field values, note marks, hidden runs): the
     /// editor passes it to the text editor so that an edit sees the same text, in the same offsets, as the pages show. Never numbers a note
     /// again. A paragraph no published page shows has the plain host (no field values, no note marks, nothing hidden).
@@ -836,7 +869,25 @@ public sealed partial class DocumentLayout
             spans[i] = span.BodyIndex >= from ? span with { BodyIndex = span.BodyIndex + by } : span;
         }
 
-        return new LaidOutPage(page.Index, page.Number, page.Width, page.Height, page.IsStrip, page.ItemArray, page.Text, spans, page.IsProvisional, page.TextLines, page.Chrome);
+        return new LaidOutPage(page.Index, page.Number, page.Width, page.Height, page.IsStrip, page.ItemArray, page.Text, spans, page.IsProvisional, page.TextLines, page.Chrome, ShiftObjects(page.Objects, from, by));
+    }
+
+    // The tables of the map name their body block: they move with the spans. The pictures name the model's own objects and need no shift.
+    private static ObjectMap ShiftObjects(ObjectMap map, int from, int by)
+    {
+        if (map.Tables.Count == 0 || !map.Tables.Any(t => t.BlockIndex >= from))
+        {
+            return map;
+        }
+
+        var tables = new TableGrid[map.Tables.Count];
+        for (var i = 0; i < tables.Length; i++)
+        {
+            var table = map.Tables[i];
+            tables[i] = table.BlockIndex >= from ? table with { BlockIndex = table.BlockIndex + by } : table;
+        }
+
+        return new ObjectMap([.. map.Pictures], tables);
     }
 
     /// <summary>What an edit of the body changes in the tables the filler works on, and where the refill starts.</summary>

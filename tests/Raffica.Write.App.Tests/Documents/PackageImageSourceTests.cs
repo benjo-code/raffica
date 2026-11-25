@@ -63,6 +63,43 @@ public sealed class PackageImageSourceTests
     private static string Text(ReadOnlyMemory<byte> bytes) => Encoding.UTF8.GetString(bytes.Span);
 
     [Fact]
+    public void PackageImageSourceReadsPendingMediaBeforeThePackage()
+    {
+        var store = new Raffica.Write.Model.MediaStore(["rId1", "rId7"]);
+        var added = store.Add(Bytes("new picture"), "image/png");
+        using var source = new PackageImageSource(Package()) { PendingMedia = store.TryGet };
+
+        // A new id is answered from the store, an id the package has still from the package, and a body id the store holds wins over the package only for the main story.
+        Assert.Equal("new picture", Text(source.Read("document#" + added.RelationshipId)));
+        Assert.Equal("new picture", Text(source.Read(added.RelationshipId)));
+        Assert.Equal("body", Text(source.Read("document#rId1")));
+        Assert.Equal("header", Text(source.Read("header:rId2#rId1")));
+        Assert.Throws<FileNotFoundException>(() => source.Read("footnotes#" + added.RelationshipId));
+
+        // After the picture is gone from the store (never the case for an undo) the package has no such id either.
+        Assert.True(store.Remove(added));
+        Assert.Throws<FileNotFoundException>(() => source.Read("document#" + added.RelationshipId));
+    }
+
+    [Fact]
+    public void APrunedPictureIsReadAsMissingByTheCacheAndItsIdIsNeverGivenToAnotherPicture()
+    {
+        var store = new Raffica.Write.Model.MediaStore(["rId1"]);
+        var pruned = store.Add(Bytes("first"), "image/png");
+        using var source = new PackageImageSource(Package()) { PendingMedia = store.TryGet };
+        using var cache = new Raffica.Write.Layout.ImageCache(source.Read);
+        Assert.True(store.Remove(pruned));
+
+        // The cache meets an id nobody can read any more: no picture and no exception (a draw shows the marked box).
+        Assert.Null(cache.Get(new Raffica.Write.Layout.ImageRef("document#" + pruned.RelationshipId)));
+
+        // A later picture gets a new id, so the cache never answers one picture for another.
+        var next = store.Add(Bytes("second"), "image/png");
+        Assert.NotEqual(pruned.RelationshipId, next.RelationshipId);
+        Assert.Equal("second", Text(source.Read("document#" + next.RelationshipId)));
+    }
+
+    [Fact]
     public void EachStoryReadsThePictureOfItsOwnPartAndTheSameRelationshipIdsDoNotCollide()
     {
         using var source = new PackageImageSource(Package());

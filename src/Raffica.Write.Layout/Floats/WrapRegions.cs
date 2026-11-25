@@ -52,6 +52,7 @@ internal sealed class FloatBox
             {
                 case FloatKind.Image when Spec.Image is { } image:
                     page.Add(new ImageItem(image, X, Y, Width, Height));
+                    page.AddPicture(Spec.Anchor, X, Y, Width, Height, Spec.Behind);
                     break;
                 case FloatKind.TextBox:
                     EmitTextBox(page);

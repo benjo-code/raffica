@@ -246,8 +246,11 @@ public sealed class EditRulesTests
         Assert.Null(removed!.Selected);
         Assert.Equal("xyz", Text(q));
 
-        // The notes stay in their collections: a known, intended orphan (undo brings the reference back).
-        Assert.Same(note, footnotes.Find(5));
+        // A note goes with its reference (milestone 4.5a), and comes back with the undo of the step.
+        Assert.Null(footnotes.Find(5));
+        Assert.Null(endnotes.Find(6));
+        Assert.Same(endnote, Assert.Single(removed.Objects!.NotesRemoved));
+        Assert.NotNull(editor.History.Undo());
         Assert.Same(endnote, endnotes.Find(6));
     }
 

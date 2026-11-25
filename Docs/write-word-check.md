@@ -153,9 +153,60 @@ pwsh tools/word-page-numbers.ps1 <folder>\page-three-one.docx                   
 
 What is not read by the scripts and stays open for a person: the look of the rendered page (the chip is Write's, Word shows no marker), whether the first page shows no number, the Roman and letter formats, the prefix "A-" on the rendered page, whether "Review > Compare" of the moved thesis shows a moved chapter and nothing else, and the pane of Word's own section list.
 
+## Tables, pictures and notes (milestone 4.5a)
+
+The question for what 4.5a writes: **does Word open a file with tables (merged cells, borders, widths, a repeated header row), pictures (inline, floating, in a table cell, pasted, resized, wrapped, moved, deleted, undone and redone) and footnotes and endnotes without a repair prompt, and does it show the same tables, notes and pictures that Write holds?** CI proves that after every table, picture and note command and its undo and redo the layout equals a full layout (also the object map), that the recovery copy equals a full write and that the saved file read again agrees (`ObjectOracleTests`, `SnapshotCacheOracleTests`, `MediaPartTests`). It does not run Word.
+
+The files are made by a test through the editor (the calls the app makes) and `DocxFile.SaveAsync`; each gets a `<name>.facts.txt` with what the model holds (a `summary` line with the number of tables, footnotes, endnotes, inline and floating pictures, one `picture` line each with kind, size in points and description, and `rows=` lines with the rows, cells and columns of every table). A picture file also asserts that the package holds one media part for each picture the document still shows (a deleted or undone picture leaves none). Nothing is written without the folder variable:
+
+```
+$env:RAFFICA_WORD_CHECK_DIR = '<folder>'
+dotnet test tests/Raffica.Write.Tests -c Release --filter-class "*WordCheckObjectFilesTests"
+pwsh tools/word-open-check.ps1 (Get-ChildItem <folder> -Filter *.docx).FullName      # repair prompt, one line per file
+pwsh tools/word-object-counts.ps1 <folder>\picture-wrap.docx                          # Word's counts against facts.txt (one file per call, exit = number of differences)
+```
+
+`tools/word-object-counts.ps1` opens the file read-only through Word automation with repair off and compares `Document.Tables`, `Footnotes`, `Endnotes`, `InlineShapes` and `Shapes`, per picture the wrap kind (`WrapFormat.Type`: square, top and bottom, in front, behind; inline for an inline shape), the size in points (within 0.6) and `AlternativeText`, and per table the rows, cells and columns (`Range.Cells.Count`; the column count is skipped where Word cannot read it for a vertical merge). It opens the document window visible (the application stays hidden): with a hidden window Word returns an empty `AlternativeText` for every picture.
+
+| File | What it holds |
+| --- | --- |
+| `footnote.docx`, `endnote.docx` | A blank document (A4) with one sentence and a footnote or an endnote typed into the note (the first note makes the notes part). |
+| `notes-in-table.docx` | A two-cell table with a footnote in one cell and an endnote in the other, and a footnote in the paragraph behind it. |
+| `table-basic.docx` | A 4 by 3 table with text in every cell and a paragraph kept behind it. |
+| `table-merged.docx` | A 5 by 6 table with a merge across, a merge down and a merge both ways, a row inserted inside the vertical merge, a column inside the span, rows and a column deleted through merges and a merged cell split. |
+| `table-borders.docx` | Borders (all, box, outside, none, double, dashed, dotted, sides off), shading from the fixed colour list, a header row and row heights (at least and exactly). |
+| `table-widths.docx` | A percentage table and an autofit table: column widths written from the drawn widths, a row moved up and down, the table width set, the columns distributed (the first write converts both to fixed layout). |
+| `table-header-multipage.docx` | A 120-row table with a repeated header row (the layout shows the heading on page 2). |
+| `table-in-content-control.docx` | A table made inside a block content control. |
+| `table-after-notes.docx` | A table behind a paragraph with a footnote, with a footnote and an endnote inside its cells. |
+| `picture-inline.docx` | Inline pictures inside a sentence, at its end, at the start of a paragraph and a tall narrow one, with and without a description. |
+| `picture-in-cell.docx` | Pictures in a 3 by 3 table: one too wide for its cell (fitted to the cell), a small one behind the text of a cell and one before it. |
+| `picture-resize.docx` | A picture resized to half and to one and a half times (ratio kept), a cropped picture (an `a:srcRect` of 10 percent each side) resized and reset to its original size, and the properties card's one step (size, description with `<`, `&`, quotes and umlauts, and wrap square). |
+| `picture-alt-text.docx` | A description set afterwards, changed (with special characters), removed, and one of 500 characters. |
+| `picture-wrap.docx` | Square, top and bottom, behind text and in front of text; inline to square and back to inline; square to top and bottom to behind. |
+| `picture-move.docx` | Floating pictures moved to a later and an earlier paragraph with offsets, nudged by arrow keys, and moved inside their own paragraph. |
+| `picture-paste.docx` | A picture pasted at a caret, over a selected word and over selected text in a table cell. |
+| `picture-deleted.docx` | An inline and a floating picture deleted, one of each kept (only two media parts). |
+| `picture-undo-redo.docx` | An insert undone and redone, a resize and its insert undone and redone, an insert undone and replaced by another picture (three pictures, three media parts). |
+| `picture-delete-undo.docx` | A deletion undone, and a deletion undone and redone (one picture, one media part). |
+| `picture-table-notes.docx` | A picture, a table with a picture in a cell and an endnote in another, a footnote and a floating picture behind the table, together. |
+
+| Date | Word version and system | File | Repair prompt | Counts as in Write (differences) | Notes and findings |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-25 | Word 16.0 (build 16.0.20625, Microsoft 365), Windows 11, read through Word automation (not a person looking), read-only, repair off | all 21 files above | none: all 21 opened (`word-open-check.ps1` exit 0) | 0 differences in every file (`word-object-counts.ps1` exit 0, 188 lines compared, 0 `DIFF`) | The 7 table files and 3 note files were also opened by script on 2026-11-24 and 2026-11-25 while the tables were built (no repair); this run is the first with the counts. |
+| 2026-11-25 | as above | footnote.docx, endnote.docx, notes-in-table.docx | none | 0 (footnotes 1, endnotes 1; 2 footnotes and 1 endnote and a 1 by 2 table) | The notes part, the separators and the settings entries Write makes are accepted. |
+| 2026-11-25 | as above | table-basic.docx, table-merged.docx, table-borders.docx, table-widths.docx, table-header-multipage.docx, table-in-content-control.docx, table-after-notes.docx | none | 0 (rows, cells and columns of every table: 3/12/4, 5/21/5 with a merged grid, 5/20/4, 3/9/3 and 4/12/3, 120/360/3, 3/9/3, 3/9/3) | Word's cell count equals the model's with a merged cell counted once. A person has not looked at the borders, shading, widths or the repeated header on the rendered pages. |
+| 2026-11-25 | as above | picture-inline.docx, picture-in-cell.docx | none | 0 (4 inline pictures, and 3 in a table with the large one at 140.4 x 105.3 pt, fitted to the cell) | Sizes equal within 0.6 pt, descriptions equal. |
+| 2026-11-25 | as above | picture-resize.docx, picture-alt-text.docx | none | 0 (3 inline and 1 square; 4 inline with a 500-character and a special-character description) | The cropped picture, resized and reset, has the size Write computes; the crop is kept. A description with `<`, `&` and quotes reads back as written. |
+| 2026-11-25 | as above | picture-wrap.docx, picture-move.docx | none | 0 (1 inline and 5 floating: square, top and bottom, behind, in front, behind; 3 floating moved: in front, square and top and bottom) | Word reports the wrap kind of every picture as Write wrote it (`WrapFormat.Type`). **Not read by the script: the position of a floating picture on the page.** |
+| 2026-11-25 | as above | picture-paste.docx, picture-deleted.docx, picture-undo-redo.docx, picture-delete-undo.docx | none | 0 (3 inline in a table; 1 inline and 1 square; 3 inline; 1 inline) | No media part for a deleted or undone picture, and Word shows exactly the pictures the model holds after undo and redo. |
+| 2026-11-25 | as above | picture-table-notes.docx | none | 0 (1 table of 3 by 2 cells, 1 footnote, 1 endnote, 2 inline and 1 floating picture) | A picture, a table and both kinds of note in one document. |
+
+What is not read by the scripts and stays open for a person: the look of the rendered pages (a table's borders, shading, widths and repeated header; a picture's place, a floating picture's position and the text around it; the note numbers at the page bottom and at the end), whether "Review > Compare" of a file against its saved copy shows only what was made, a picture pasted from a real clipboard, a picture in a header or footer (not made by Write), and whether Word's picture "Format" pane shows the same alt text.
+
 ## Checking a file from a script
 
-On a Windows machine with Word, `pwsh tools/word-open-check.ps1 <files>` opens each file through Word's COM automation (read-only, repair off, on a temporary copy) and prints whether Word accepted it; the exit code is the number of files Word refused. It answers the repair-prompt question for any number of files at once and is how the cause of the first finding was bisected (`Docs/DECISIONS.md`, "one paragraph in a text, combo box, drop-down list or date control"). It does not look at the result, so the "looks as in Write" columns stay the owner's.
+On a Windows machine with Word, `pwsh tools/word-open-check.ps1 <files>` opens each file through Word's COM automation (read-only, repair off, on a temporary copy) and prints whether Word accepted it; the exit code is the number of files Word refused. It answers the repair-prompt question for any number of files at once and is how the cause of the first finding was bisected (`Docs/DECISIONS.md`, "one paragraph in a text, combo box, drop-down list or date control"). It does not look at the result, so the "looks as in Write" columns stay the owner's. `pwsh tools/word-object-counts.ps1 <file>` (4.5a) goes one step further for the files that have a `.facts.txt`: it compares the tables, notes and pictures Word reports with the model's (see the section above); `tools/word-page-numbers.ps1` does it for page numbers (4.4b).
 
 ## In Word
 

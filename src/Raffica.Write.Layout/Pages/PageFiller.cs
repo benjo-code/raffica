@@ -466,7 +466,7 @@ internal sealed class PageFiller
         Chrome?.End(page);
         var height = geometry.IsStrip ? Math.Max(1f, end) : geometry.Height;
         var info = ChromeInfo.Of(page);
-        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray(), chrome: Chrome is null ? null : info);
+        var built = new LaidOutPage(page.Index, page.NumberText, page.Geometry.Width, height, page.Geometry.IsStrip, page.ItemArray(), page.TextValue(), page.SpanArray(), isProvisional: page.NeedsTotals, textLines: page.TextLineArray(), chrome: Chrome is null ? null : info, objects: page.ObjectMapOf());
         if (page.NeedsTotals)
         {
             _revisable.Add(new Revisable(built, info.Section, info.Number, info.IsFirstOfSection, info.HeaderItems, info.FooterItems, info.HeaderLines, info.FooterLines, info.HeaderRaw, info.FooterRaw, info.RawLength, info.Type));

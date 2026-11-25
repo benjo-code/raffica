@@ -87,6 +87,6 @@ internal sealed record ChromeInfo(
             UsesTotals = scratch.UsesTotals,
             Type = scratch.ChromeType,
         };
-        return new LaidOutPage(published.Index, published.Number, published.Width, published.Height, published.IsStrip, items, text, published.Spans, isProvisional, lines, info);
+        return new LaidOutPage(published.Index, published.Number, published.Width, published.Height, published.IsStrip, items, text, published.Spans, isProvisional, lines, info, published.Objects);
     }
 }

@@ -26,6 +26,11 @@ public sealed class CardFooterTests
         yield return ("RecoveryCard.Create", () => RecoveryCard.Create([], _ => { }));
         yield return ("NumberPagesCard.Create", () => NumberPagesCard.Create(new NumberPagesContext(new SectionFacts(true, 0, false, 0, 0, SectionReason.None), false), _ => { }));
         yield return ("PageSetupCard.Create", () => PageSetupCard.Create(new PageSetupContext(new SectionPageSetup(11906, 16838, false, 1417, 1417, 1417, 1417, 1, 720, false), ApplyScope.WholeDocument, 1, false, false), _ => { }));
+        yield return ("TableInsertCard.Create", () => TableInsertCard.Create(_ => { }));
+        yield return ("TableBordersCard.Create", () => TableBordersCard.Create(_ => { }));
+        yield return ("TablePropertiesCard.Create", () => TablePropertiesCard.Create(new TablePropertiesContext(new TablePropertiesFacts([2000, 2000], 4000, false, 0, false, 0, 0), false), _ => { }));
+        yield return ("PictureInsertCard.Create", () => PictureInsertCard.Create(_ => { }));
+        yield return ("PicturePropertiesCard.Create", () => PicturePropertiesCard.Create(new PicturePropertiesContext(2000, 1000, string.Empty, "inline", false, true, false), _ => { }));
     }
 
     // The button that Enter presses on each card: the safe answer, never Overwrite or Don't save.
@@ -37,6 +42,11 @@ public sealed class CardFooterTests
         ["RecoveryCard.Create"] = "PART_Restore",
         ["NumberPagesCard.Create"] = "PART_Ok",
         ["PageSetupCard.Create"] = "PART_Ok",
+        ["TableInsertCard.Create"] = "PART_Ok",
+        ["TableBordersCard.Create"] = "PART_Ok",
+        ["TablePropertiesCard.Create"] = "PART_Ok",
+        ["PictureInsertCard.Create"] = "PART_Ok",
+        ["PicturePropertiesCard.Create"] = "PART_Ok",
     };
 
     private static List<Button> Buttons(Dialog dialog) => [.. Assert.IsType<StackPanel>(dialog.Footer).Children.OfType<Button>()];

@@ -59,8 +59,6 @@ internal sealed partial class PageView
     private const double SelectionOpacity = 0.35;
     private const double RevealMargin = 24;
 
-    private static Cursor? s_textCursor;
-
     private readonly EditOverlay _overlay;
     private EditSession? _session;
     private DispatcherTimer? _blink;
@@ -78,7 +76,7 @@ internal sealed partial class PageView
     private IList<Block>? _dragContainer;
     private IPointer? _dragPointer;
     private Point _lastPointer;
-    private bool _cursorIsText;
+    private StandardCursorType? _cursorType;
     private bool _reduceMotion;
 
     /// <summary>The caret: the moving end of the selection of the tab's session; null before the first click, while the session is faulted or when the document has no paragraph.</summary>
@@ -140,6 +138,7 @@ internal sealed partial class PageView
 
     private void InitializeEditing()
     {
+        DeletePicture = DeleteSelectedPicture;
         ActualThemeVariantChanged += (_, _) => UpdateBlink();
         if (_tab.Editor is { } existing)
         {
@@ -151,12 +150,16 @@ internal sealed partial class PageView
     private void ReleaseEditing()
     {
         EndDrag();
+        CancelObjectDrag(ObjectDragCancel.Disposed);
         _blink?.Stop();
         _autoScroll?.Stop();
         if (_session is { } session)
         {
             session.Changed -= OnEditChanged;
             session.InputDropped -= OnInputDropped;
+            session.ObjectSelectionChanged -= OnObjectSelectionChanged;
+            session.SaveStarted -= OnSaveStarted;
+            session.PicturesChanged -= OnPicturesChanged;
             _session = null;
         }
 
@@ -190,11 +193,31 @@ internal sealed partial class PageView
         {
             _session.Changed -= OnEditChanged;
             _session.InputDropped -= OnInputDropped;
+            _session.ObjectSelectionChanged -= OnObjectSelectionChanged;
+            _session.SaveStarted -= OnSaveStarted;
+            _session.PicturesChanged -= OnPicturesChanged;
         }
 
         _session = session;
         session.Changed += OnEditChanged;
         session.InputDropped += OnInputDropped;
+        session.ObjectSelectionChanged += OnObjectSelectionChanged;
+        session.SaveStarted += OnSaveStarted;
+        session.PicturesChanged += OnPicturesChanged;
+    }
+
+    // The session added or removed a picture of the document (an insert, an undo or a redo of one): the decoded pictures are dropped and the ones in view are decoded again off the UI thread. A new picture
+    // has an id the cache never saw (the store never reuses one), so this is the rule of the cache ("a feature that changes the pictures calls Clear and prefetches") and not a repair; the render
+    // thread draws a marked box for a picture that is not ready, as at the first open, and one invalidation follows the decode.
+    private void OnPicturesChanged()
+    {
+        if (_released)
+        {
+            return;
+        }
+
+        _images.Clear();
+        PrefetchPictures();
     }
 
     // Input that a save queued was not replayed: the same hint as for a refused key says why.
@@ -208,6 +231,8 @@ internal sealed partial class PageView
             return;
         }
 
+        // An edit (also an undo) under a gesture in progress ends the gesture; the commit of a gesture makes its edit while the machine is Releasing, which this does not touch.
+        CancelObjectDrag(ObjectDragCancel.DocumentChanged);
         var phases = _tab.Editor?.Phases;
         var stamp = EditPhases.Now(phases);
         EnsureCurrent();
@@ -412,6 +437,10 @@ internal sealed partial class PageView
             e.Pointer.Capture(this);
             _dragPointer = e.Pointer;
         }
+        else
+        {
+            CaptureObjectPointer(e.Pointer);
+        }
 
         e.Handled = true;
     }
@@ -423,6 +452,7 @@ internal sealed partial class PageView
     internal bool HandlePress(Point point, int clickCount, KeyModifiers modifiers, bool rightButton)
     {
         EndDrag();
+        CancelObjectDrag(ObjectDragCancel.DocumentChanged);
         EndCompositionForPointer();
         _gesture = new object();
         if (!CanPlaceCaret || ActiveLayout() is not { } layout || !TryMapPoint(point, out var page, out var x, out var y))
@@ -434,6 +464,11 @@ internal sealed partial class PageView
         AttachSession(session);
         SyncActiveMode();
         var count = rightButton ? 1 : Math.Clamp(clickCount, 1, 3);
+        if (TryPressObject(layout, session, page, x, y, point, count, modifiers, rightButton))
+        {
+            return false;
+        }
+
         if (ResolveHit(layout, session, page, x, y, count, drag: false, out var entered) is not { } hit)
         {
             return false;
@@ -454,7 +489,12 @@ internal sealed partial class PageView
         switch (count)
         {
             case 2:
-                Place(session, TextUnits.WordAt(position, ProjectionOf(layout, position), hit.Trailing), CaretAffinity.Downstream);
+                var word = TextUnits.WordAt(position, ProjectionOf(layout, position), hit.Trailing);
+                if (!TryNoteLink(layout, position, hit.Trailing))
+                {
+                    Place(session, word, CaretAffinity.Downstream);
+                }
+
                 return false;
             case 3:
                 Place(session, TextUnits.ParagraphAt(position, ProjectionOf(layout, position)), CaretAffinity.Downstream);
@@ -814,6 +854,12 @@ internal sealed partial class PageView
     {
         base.OnPointerMoved(e);
         _lastPointer = e.GetPosition(this);
+        _pointerModifiers = e.KeyModifiers;
+        if (MoveObjectDrag(_lastPointer))
+        {
+            return;
+        }
+
         if (_dragAnchor is null)
         {
             UpdateCursor(_lastPointer);
@@ -827,6 +873,12 @@ internal sealed partial class PageView
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        _pointerModifiers = e.KeyModifiers;
+        if (e.InitialPressMouseButton == MouseButton.Left && ReleaseObjectDrag(e.GetPosition(this)))
+        {
+            return;
+        }
+
         if (_dragAnchor is not null && e.InitialPressMouseButton == MouseButton.Left)
         {
             EndDrag();
@@ -836,6 +888,7 @@ internal sealed partial class PageView
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        OnObjectCaptureLost();
         if (_dragAnchor is not null)
         {
             EndDrag();
@@ -895,16 +948,24 @@ internal sealed partial class PageView
         UpdateDrag();
     }
 
+    /// <summary>The standard cursor the view shows now (null: the default arrow of the desk); a test seam, the cursor itself is the control's.</summary>
+    internal StandardCursorType? CursorTypeNow => _cursorType;
+
     private void UpdateCursor(Point point)
     {
         var over = CanPlaceCaret && _scroller is { Count: > 0 } scroller && InsideAPage(scroller, point);
-        if (over == _cursorIsText)
+        SetCursorType(over ? ObjectCursorAt(point) ?? StandardCursorType.Ibeam : null);
+    }
+
+    private void SetCursorType(StandardCursorType? type)
+    {
+        if (type == _cursorType)
         {
             return;
         }
 
-        _cursorIsText = over;
-        Cursor = over ? (s_textCursor ??= new Cursor(StandardCursorType.Ibeam)) : null;
+        _cursorType = type;
+        Cursor = type is { } shown ? CursorOf(shown) : null;
     }
 
     private bool InsideAPage(PageScroller scroller, Point point)
@@ -1034,7 +1095,8 @@ internal sealed partial class PageView
 
     private void DrawEditing(DrawingContext context)
     {
-        if (_released || CurrentSelection() is not { } selection || _scroller is not { Count: > 0 } scroller || _builtLayout is not { } layout)
+        // A selected object has no caret and no text selection drawn (the object overlay draws it).
+        if (_released || _tab.Editor?.ObjectSelection is not null || CurrentSelection() is not { } selection || _scroller is not { Count: > 0 } scroller || _builtLayout is not { } layout)
         {
             return;
         }
@@ -1100,7 +1162,11 @@ internal sealed partial class PageView
         public override void Render(DrawingContext context)
         {
             RenderCount++;
+            _owner.OverlayProbe?.Invoke(-1);
             _owner.DrawEditing(context);
+            _owner.DrawObjects(context);
+            _owner.DrawTableGesture(context);
+            _owner.OverlayProbe?.Invoke(0);
         }
     }
 }

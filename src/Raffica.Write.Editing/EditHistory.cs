@@ -51,6 +51,9 @@ public sealed class EditHistory
 {
     private static readonly TimeSpan Pause = TimeSpan.FromSeconds(2);
 
+    // Nudges of one picture within this time of the previous one are one step.
+    private static readonly TimeSpan NudgePause = TimeSpan.FromSeconds(1);
+
     private readonly WordDocument _document;
     private readonly TimeProvider _time;
     private readonly HistoryLimits _limits;
@@ -61,6 +64,14 @@ public sealed class EditHistory
     private Step? _open;
     private IList<Block>? _openContainer;
     private long _openStamp;
+
+    // The pictures a dropped step added: candidates for removal from the store (the redo stack cut by a new edit, the history cleared, the oldest steps trimmed). Only a step that carries media
+    // is looked at, so typing pays a count check and nothing else.
+    private readonly Dictionary<string, MediaRef> _dropped = new(StringComparer.Ordinal);
+
+    // Candidates that were still referenced when their step was dropped (the document holds the picture, or a remaining step does). They are looked at again when a step that refers to one is dropped
+    // (its snapshots are scanned for these ids only, which costs one paragraph's XML for a typing step) and when the history is cleared.
+    private readonly Dictionary<string, MediaRef> _held = new(StringComparer.Ordinal);
 
     public EditHistory(WordDocument document, TimeProvider time, HistoryLimits limits)
     {
@@ -129,7 +140,7 @@ public sealed class EditHistory
             return StepMove(step, undo: true);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.New.Length) || !SectionsApplicable(step, undo: true) || !ObjectsApplicable(step, undo: true) || !TrySwapStyle(step, undo: true))
         {
             Clear();
             return null;
@@ -137,13 +148,14 @@ public sealed class EditHistory
 
         Swap(container, step.First, step.New.Length, step.Old, step.Sections?.CarriersBefore);
         SwapSections(step, undo: true);
+        step.Objects?.Apply(_document, undo: true);
         _undo.RemoveAt(_undo.Count - 1);
         _undoBytes -= step.Bytes;
         _redo.Add(step);
         _document.Edits.Restore(step.StartRevision);
         _expected = step.StartRevision;
         _open = null;
-        var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New);
+        var undone = Finish(step, container, step.Before, step.New.Length, step.Old.Length, step.New, step.Objects?.Inverse);
         undone.Attribute(_document);
         return undone;
     }
@@ -163,7 +175,7 @@ public sealed class EditHistory
             return StepMove(step, undo: false);
         }
 
-        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step, undo: false) || !TrySwapStyle(step, undo: false))
+        if (Resolve(step) is not { } container || !Fits(container, step.First, step.Old.Length) || !SectionsApplicable(step, undo: false) || !ObjectsApplicable(step, undo: false) || !TrySwapStyle(step, undo: false))
         {
             Clear();
             return null;
@@ -171,26 +183,150 @@ public sealed class EditHistory
 
         Swap(container, step.First, step.Old.Length, step.New, step.Sections?.CarriersAfter);
         SwapSections(step, undo: false);
+        step.Objects?.Apply(_document, undo: false);
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(step);
         _undoBytes += step.Bytes;
         _document.Edits.Restore(step.EndRevision);
         _expected = step.EndRevision;
         _open = null;
-        var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old);
+        var redone = Finish(step, container, step.After, step.Old.Length, step.New.Length, step.Old, step.Objects);
         redone.Attribute(_document);
         return redone;
     }
 
-    /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history).</summary>
+    /// <summary>Forgets every step (the file was reloaded, or the document was changed outside the history). The pictures only these steps referred to leave the document's picture store (see <see cref="MediaStore.Remove"/>).</summary>
     public void Clear()
     {
+        Collect(_undo, _undo.Count);
+        Collect(_redo, _redo.Count);
+        foreach (var held in _held.Values)
+        {
+            _dropped[held.RelationshipId] = held;
+        }
+
         _undo.Clear();
         _redo.Clear();
         _undoBytes = 0;
         _open = null;
         _openContainer = null;
         _expected = _document.Edits.Revision;
+        PruneMedia();
+    }
+
+    // ---- pictures of dropped steps --------------------------------------------------------------------------------------------------------
+
+    // The first <count> steps of a list: an index loop, so that trimming one step per edit at the limit allocates no iterator.
+    private void Collect(List<Step> steps, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var step = steps[i];
+            if (step.Objects is { MediaAdded.Count: > 0 } objects)
+            {
+                foreach (var media in objects.MediaAdded)
+                {
+                    _dropped[media.RelationshipId] = media;
+                }
+            }
+
+            if (_held.Count > 0)
+            {
+                var unreferenced = new HashSet<string>(_held.Keys, StringComparer.Ordinal);
+                MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.Old), unreferenced);
+                MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.New), unreferenced);
+                foreach (var id in _held.Keys.Where(k => !unreferenced.Contains(k)).ToList())
+                {
+                    _dropped[id] = _held[id];
+                }
+            }
+        }
+    }
+
+    private void DropRedo()
+    {
+        if (_redo.Count > 0)
+        {
+            Collect(_redo, _redo.Count);
+            _redo.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Takes the pictures of dropped steps out of <see cref="WordDocument.Media"/> when nothing can bring them back: an entry goes only when no relationship attribute of the current document
+    /// (every story the model owns) and none of the remaining steps (their old and new block snapshots, and what they added) refers to its id. An entry that is still referenced is remembered and looked at again
+    /// when a step that refers to it is dropped later (its step A was dropped while a delete step B still held a snapshot with it, and B is dropped now). The scan is made only when a dropped step carried a picture or
+    /// referred to a remembered one, on the thread of the edit under the edit lease. This is the history <em>dropping</em> a step, never an undo or a redo: those keep every entry (see <see cref="ObjectChange"/>).
+    /// Ids are never reused by the store, so a pruned id cannot name another picture later.
+    /// <para>
+    /// Two notes for whoever extends this. The redo stack is empty right after <see cref="DropRedo"/> (every recording drops it first), so the scan of <c>_redo</c> below matters only for a prune that runs from
+    /// <see cref="Clear"/> or a trim with redo steps present; it is kept as the defensive case. And the scan rests on this invariant: <b>pictures exist only in body blocks</b>. It covers the old and new snapshots of
+    /// every step, what a step added (<see cref="ObjectChange.MediaAdded"/>) and the whole current model through <see cref="PictureOperations.DrawingRoots"/>; the notes of a step (<see cref="ObjectChange.NotesAdded"/>
+    /// and <see cref="ObjectChange.NotesRemoved"/>) and the section carriers are not scanned, so a milestone that allows pictures in notes, headers and footers or comments must extend the scan first (an unscanned
+    /// reference would let a picture leave the store while a note still names it).
+    /// </para>
+    /// </summary>
+    private void PruneMedia()
+    {
+        if (_dropped.Count == 0)
+        {
+            return;
+        }
+
+        var candidates = _dropped.Values.ToList();
+        _dropped.Clear();
+        if (!_document.HasMedia)
+        {
+            _held.Clear();
+            return;
+        }
+
+        var store = _document.Media;
+        var unreferenced = candidates.Where(c => store.TryGet(c.RelationshipId) is not null).Select(c => c.RelationshipId).ToHashSet(StringComparer.Ordinal);
+        var all = unreferenced.ToHashSet(StringComparer.Ordinal);
+        MediaReferences.RemoveReferenced(PictureOperations.DrawingRoots(_document), unreferenced);
+        foreach (var step in _undo.Concat(_redo))
+        {
+            if (unreferenced.Count == 0)
+            {
+                break;
+            }
+
+            if (step.Objects is { MediaAdded.Count: > 0 } objects)
+            {
+                unreferenced.ExceptWith(objects.MediaAdded.Select(m => m.RelationshipId));
+            }
+
+            MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.Old), unreferenced);
+            MediaReferences.RemoveReferenced(PictureOperations.BlockRoots(step.New), unreferenced);
+        }
+
+        foreach (var media in candidates)
+        {
+            if (!all.Contains(media.RelationshipId))
+            {
+                _held.Remove(media.RelationshipId);
+            }
+            else if (unreferenced.Contains(media.RelationshipId))
+            {
+                store.Remove(media);
+                _held.Remove(media.RelationshipId);
+            }
+            else
+            {
+                _held[media.RelationshipId] = media;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Records the operation that just ran (see <see cref="RecordCore"/>) and then takes the pictures of the steps this dropped out of the document's picture store (<see cref="PruneMedia"/>).
+    /// <paramref name="typed"/> is the inserted text when the operation was an insert without a selection and without a line break, else null.
+    /// </summary>
+    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
+    {
+        RecordCore(result, before, revisionBefore, typed, typingFormat, keepsBodySelection, after, nudge);
+        PruneMedia();
     }
 
     /// <summary>The place in a list of blocks a caret has: the index of its paragraph and the offset.</summary>
@@ -203,13 +339,10 @@ public sealed class EditHistory
         return _document.Edits.Revision;
     }
 
-    /// <summary>
-    /// Records the operation that just ran. <paramref name="typed"/> is the inserted text when the operation was an insert without a
-    /// selection and without a line break, else null.
-    /// </summary>
-    internal void Record(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false)
+    // The recording itself: the step is made, coalesced into the open typing step or pushed, and the history is trimmed; the pictures of what it dropped are taken out by <see cref="Record"/>.
+    private void RecordCore(EditResult result, Point before, int revisionBefore, string? typed, object? typingFormat = null, bool keepsBodySelection = false, Point? after = null, object? nudge = null)
     {
-        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null))
+        if (result.Changes.Count > 1 || (result.Changes.Count == 0 && result.Style is null && result.Sections is null && result.Objects is null))
         {
             return;
         }
@@ -227,26 +360,27 @@ public sealed class EditHistory
         }
 
         var change = result.Changes[0];
-        var index = change.Container.IndexOf(result.Caret.Paragraph);
+        // The caret of a step may lie in another story than its block change (a note inserted from the body): the step then names the place after the edit itself.
+        var index = after is null ? change.Container.IndexOf(result.Caret.Paragraph) : 0;
         if (Root(change.Story) is not { } root || PathTo(root, change.Container) is not { } path || index < 0)
         {
             Clear();
             return;
         }
 
-        var after = new Point(index, result.Caret.Offset);
+        var landing = after ?? new Point(index, result.Caret.Offset);
         var newBlocks = CloneRange(change.Container, change.First, change.Added);
         var stamp = _time.GetTimestamp();
         var endRevision = _document.Edits.Revision;
-        _redo.Clear();
+        DropRedo();
 
-        var plain = result.Style is null && result.Sections is null;
-        if (plain && typed is not null && IsWord(typed) && CanJoin(change, before, stamp, revisionBefore, typingFormat))
+        var plain = result.Style is null && result.Sections is null && result.Objects is null;
+        if (plain && ((typed is not null && IsWord(typed)) || nudge is not null) && CanJoin(change, before, stamp, revisionBefore, typingFormat, nudge))
         {
             var step = _open!;
             _undoBytes -= step.Bytes;
             step.New = newBlocks;
-            step.After = after;
+            step.After = landing;
             step.EndRevision = endRevision;
             step.Bytes = SizeOf(step.Old) + SizeOf(newBlocks);
             _undoBytes += step.Bytes;
@@ -255,18 +389,20 @@ public sealed class EditHistory
             return;
         }
 
-        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, after, revisionBefore, endRevision)
+        var added = new Step(change.Story, path, change.First, change.OldBlocks.ToArray(), newBlocks, before, landing, revisionBefore, endRevision)
         {
             Style = result.Style,
             Sections = result.Sections,
+            Objects = result.Objects,
             TypingFormat = typed is not null && plain ? typingFormat : null,
+            NudgeKey = plain ? nudge : null,
             KeepsBodySelection = keepsBodySelection,
         };
-        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections);
+        added.Bytes = SizeOf(added.Old) + SizeOf(added.New) + SizeOf(added.Style) + SizeOf(added.Sections) + SizeOf(added.Objects);
         _undo.Add(added);
         _undoBytes += added.Bytes;
         _expected = endRevision;
-        if (typed is not null && plain)
+        if ((typed is not null || nudge is not null) && plain)
         {
             _open = added;
             _openContainer = change.Container;
@@ -292,7 +428,7 @@ public sealed class EditHistory
         }
 
         var endRevision = _document.Edits.Revision;
-        _redo.Clear();
+        DropRedo();
         var step = new Step(move.Story, [], move.First, [], [], default, default, revisionBefore, endRevision)
         {
             Move = move,
@@ -359,7 +495,7 @@ public sealed class EditHistory
         }
 
         var endRevision = _document.Edits.Revision;
-        _redo.Clear();
+        DropRedo();
         var step = new Step(story, path, 0, [], [], before, new Point(found.Index, result.Caret.Offset), revisionBefore, endRevision)
         {
             Style = result.Style,
@@ -453,10 +589,14 @@ public sealed class EditHistory
         }
     }
 
-    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat)
+    // Undo and redo of a step with notes need every note to remove in its part; checked before anything changes.
+    private bool ObjectsApplicable(Step step, bool undo) => step.Objects is not { } change || change.CanApply(_document, undo);
+
+    private bool CanJoin(BlockChange change, Point before, long stamp, int revisionBefore, object? typingFormat, object? nudge)
     {
         var step = _open;
         return step is not null
+            && Equals(step.NudgeKey, nudge)
             && ReferenceEquals(step.TypingFormat, typingFormat)
             && _undo.Count > 0
             && ReferenceEquals(_undo[^1], step)
@@ -468,7 +608,7 @@ public sealed class EditHistory
             && change.Removed == 1
             && change.Added == 1
             && before == step.After
-            && _time.GetElapsedTime(_openStamp, stamp) < Pause;
+            && _time.GetElapsedTime(_openStamp, stamp) < (nudge is null ? Pause : NudgePause);
     }
 
     private static bool IsWord(string text)
@@ -509,6 +649,7 @@ public sealed class EditHistory
 
         if (drop > 0)
         {
+            Collect(_undo, drop);
             _undo.RemoveRange(0, drop);
             _undoBytes = bytes;
         }
@@ -610,10 +751,19 @@ public sealed class EditHistory
         }
     }
 
-    private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks)
+    private static EditResult Finish(Step step, IList<Block> container, Point caret, int removed, int added, Block[] oldBlocks, ObjectChange? objects)
     {
         var index = Math.Clamp(caret.Index, 0, Math.Max(0, container.Count - 1));
-        var paragraph = (index < container.Count ? container[index] as Paragraph : null) ?? container.OfType<Paragraph>().FirstOrDefault();
+        var at = index < container.Count ? container[index] : null;
+        var paragraph = at as Paragraph;
+        if (paragraph is null && at is Table && TextEditor.FirstParagraph([at]) is { } inTable)
+        {
+            // A table operation names the table itself as its place: the caret goes to the first paragraph of its first cell.
+            paragraph = inTable;
+            caret = caret with { Offset = 0 };
+        }
+
+        paragraph ??= container.OfType<Paragraph>().FirstOrDefault();
         if (paragraph is null)
         {
             // A story of a table or a block content control only (a footer or header of a real file): the caret goes to the first paragraph inside, wherever it is.
@@ -624,7 +774,7 @@ public sealed class EditHistory
         IReadOnlyList<BlockChange> changes = removed == 0 && added == 0 && (step.Style is not null || step.Sections is not null)
             ? []
             : [new BlockChange(step.Story, container, step.First, removed, added, oldBlocks)];
-        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, KeepSelection: step.KeepsBodySelection, Sections: step.Sections);
+        return new EditResult(new TextPosition(step.Story, paragraph, caret.Offset), changes, null, step.Style, KeepSelection: step.KeepsBodySelection, Sections: step.Sections, Objects: objects);
     }
 
     private static Block[] CloneRange(IList<Block> container, int first, int count)
@@ -802,6 +952,9 @@ public sealed class EditHistory
         return size;
     }
 
+    // The notes a step holds (the live objects, kept for undo or redo): their blocks count like any snapshot.
+    private static long SizeOf(ObjectChange? change) => change is null ? 0 : change.NotesAdded.Concat(change.NotesRemoved).Sum(note => 64 + SizeOf(note.Content.Blocks));
+
     internal static long SizeOf(SectionChange? change) => change is null ? 0 : change.Swaps.Sum(swap => SizeOf(swap.Old) + SizeOf(swap.New));
 
     internal static long SizeOf(SectionProperties properties) => SizeOf((PropertyBag)properties) + (64L * properties.HeaderFooterReferences.Count);
@@ -877,11 +1030,17 @@ public sealed class EditHistory
 
         public SectionChange? Sections { get; init; }
 
+        /// <summary>The notes the step added and removed (undo and redo apply them with the blocks), or null.</summary>
+        public ObjectChange? Objects { get; init; }
+
         /// <summary>Set for a move of top-level blocks: the step then holds no blocks.</summary>
         public BlockMove? Move { get; init; }
 
         /// <summary>The pending format the typed text of this step took (the list of the session, compared by reference), or null for plain typing.</summary>
         public object? TypingFormat { get; init; }
+
+        /// <summary>The identity of the picture a nudge step moved (compared by value), or null: consecutive nudges of one picture join one step.</summary>
+        public object? NudgeKey { get; init; }
 
         /// <summary>Set for a step recorded from a caret in the body that changed only a header or footer story (insert page number): undo and redo carry <see cref="EditResult.KeepSelection"/>, so the owner keeps the body selection it has instead of moving it into that story.</summary>
         public bool KeepsBodySelection { get; init; }

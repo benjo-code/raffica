@@ -22,9 +22,13 @@ internal static class FragmentCleaner
     /// <summary>The cleaning of a copy: what the clipboard must not carry.</summary>
     public static void ForCopy(Paragraph paragraph) => Clean(paragraph, new Options(false, true, true, null));
 
-    /// <summary>The cleaning of a paste (the fragment is untrusted: the copy rules apply as well).</summary>
-    public static void ForPaste(Paragraph paragraph, bool sameDocument, bool sameRelationships, Func<string, bool> styleExists) =>
-        Clean(paragraph, new Options(true, sameDocument, sameRelationships, styleExists));
+    /// <summary>The cleaning of a paste (the fragment is untrusted: the copy rules apply as well). Returns how many pictures and drawings it left out (a picture or a drawing is never pasted).</summary>
+    public static int ForPaste(Paragraph paragraph, bool sameDocument, bool sameRelationships, Func<string, bool> styleExists)
+    {
+        var options = new Options(true, sameDocument, sameRelationships, styleExists);
+        Clean(paragraph, options);
+        return options.DrawingsDropped;
+    }
 
     private static void Clean(Paragraph paragraph, Options options)
     {
@@ -198,13 +202,28 @@ internal static class FragmentCleaner
             return false;
         }
 
-        return content switch
+        switch (content)
         {
-            Picture or FootnoteReference or EndnoteReference => false,
-            UnknownRunContent unknown => !IsObjectLike(unknown.Content.Element.Name) && (options.SameRelationships || !CarriesRelationship(unknown.Content.Element)),
-            _ => true,
-        };
+            case Picture:
+                options.DrawingsDropped++;
+                return false;
+            case FootnoteReference or EndnoteReference:
+                return false;
+            case UnknownRunContent unknown:
+                if (IsDrawingLike(unknown.Content.Element.Name))
+                {
+                    options.DrawingsDropped++;
+                    return false;
+                }
+
+                return !IsObjectLike(unknown.Content.Element.Name) && (options.SameRelationships || !CarriesRelationship(unknown.Content.Element));
+            default:
+                return true;
+        }
     }
+
+    // A drawing, a picture of the old kind, an embedded object or an alternate content (which holds a drawing): what the user sees as a picture or a shape.
+    private static bool IsDrawingLike(XName name) => name.LocalName is "drawing" or "pict" or "object" or "AlternateContent";
 
     private static bool IsObjectLike(XName name) =>
         name.LocalName is "drawing" or "pict" or "object" or "AlternateContent" or "footnoteRef" or "endnoteRef" or "footnoteReference" or "endnoteReference" or "commentReference" or "annotationRef";
@@ -226,5 +245,9 @@ internal static class FragmentCleaner
         return false;
     }
 
-    private sealed record Options(bool Paste, bool SameDocument, bool SameRelationships, Func<string, bool>? StyleExists);
+    private sealed record Options(bool Paste, bool SameDocument, bool SameRelationships, Func<string, bool>? StyleExists)
+    {
+        /// <summary>The pictures and drawings a paste left out (counted so that the caller can say so).</summary>
+        public int DrawingsDropped { get; set; }
+    }
 }

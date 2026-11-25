@@ -24,6 +24,9 @@ internal sealed class PageBuilder
     private readonly StringBuilder[] _text = [new(), new(), new(), new(), new()];
     private readonly List<BlockSpan> _spans = [];
     private readonly List<TextLine>[] _lines = [[], [], [], [], []];
+    private List<PictureBox>? _pictures;
+    private List<PictureBox>? _behindPictures;
+    private List<TableGrid>? _grids;
 
     public PageBuilder(int index, int number, string numberText, SectionPlan section, bool isFirstOfSection)
     {
@@ -106,6 +109,39 @@ internal sealed class PageBuilder
         }
 
         public void Dispose() => _page._behind = _before;
+    }
+
+    /// <summary>Records a picture of the body at its place on the page; a picture in the header, footer or notes region is not recorded (those are never edited).</summary>
+    internal void AddPicture(PictureAnchor? anchor, float x, float y, float width, float height, bool behindText = false)
+    {
+        if (anchor is not null && Region == PageRegion.Body)
+        {
+            (behindText ? _behindPictures ??= [] : _pictures ??= []).Add(new PictureBox(anchor, x, y, width, height, behindText));
+        }
+    }
+
+    /// <summary>Records a table piece of the body on the page (nothing for the header, footer or notes region).</summary>
+    internal void AddGrid(TableGrid grid)
+    {
+        if (Region == PageRegion.Body)
+        {
+            (_grids ??= []).Add(grid);
+        }
+    }
+
+    /// <summary>The objects recorded so far as the page's map: the shared empty map when there are none.</summary>
+    internal ObjectMap ObjectMapOf()
+    {
+        if (_pictures is null && _behindPictures is null && _grids is null)
+        {
+            return ObjectMap.Empty;
+        }
+
+        // Paint order: the pictures behind the text first, then the others in the order they were placed.
+        var pictures = new PictureBox[(_behindPictures?.Count ?? 0) + (_pictures?.Count ?? 0)];
+        _behindPictures?.CopyTo(pictures, 0);
+        _pictures?.CopyTo(pictures, _behindPictures?.Count ?? 0);
+        return new ObjectMap(pictures, _grids?.ToArray() ?? []);
     }
 
     public void AddLine(string line) => _text[(int)Region].Append(line).Append('\n');

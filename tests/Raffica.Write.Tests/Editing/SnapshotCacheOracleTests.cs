@@ -557,6 +557,262 @@ public sealed class SnapshotCacheOracleTests
     }
 
     [Fact]
+    public async Task InsertNoteAndDeleteReferenceAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var file = DocxFile.Open(Path.Combine(Root, "poi-test-document", "poi-test-document.docx"));
+        var model = file.Model;
+        var layout = await SectionOracleTests.LaidAsync(model);
+        var editor = new TextEditor(model, (s, p) => layout.ProjectionHost(s, p));
+        var paragraphs = model.Body.Blocks.OfType<Paragraph>().Where(p => p.Inlines.Count > 0).ToList();
+        Assert.True(paragraphs.Count >= 3);
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        var holderIndex = model.Body.Blocks.IndexOf(paragraphs[1]);
+        Check("before");
+        var inserted = editor.InsertNote(new TextPosition(StoryRef.Body, paragraphs[1], 0), NoteType.Footnote);
+        Assert.NotNull(inserted);
+        Check("insert");
+        Assert.NotNull(editor.InsertNote(new TextPosition(StoryRef.Body, paragraphs[2], 0), NoteType.Endnote));
+        Check("insert endnote");
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+
+        // Delete the paragraph that holds a reference: the note goes with it, and comes back with the undo.
+        var holder = (Paragraph)model.Body.Blocks[holderIndex];
+        Assert.NotNull(editor.Delete(new TextRange(new TextPosition(StoryRef.Body, holder, 0), new TextPosition(StoryRef.Body, holder, int.MaxValue))));
+        Check("delete");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo delete");
+        Assert.NotNull(editor.History.Redo());
+        Check("redo delete");
+    }
+    [Fact]
+    public void TableOperationsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("tables.docx");
+        Support.DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        // The tables are the blocks 1, 3, 5 and 7 of the generated body.
+        var merged = new TableRef(StoryRef.Body, 1);
+        var plain = new TableRef(StoryRef.Body, 3);
+        (string Label, Func<EditResult?> Run)[] steps =
+        [
+            ("add row", () => editor.AddRow(new TableRef(StoryRef.Body, 3), 1, after: true)),
+            ("add column", () => editor.AddColumn(new TableRef(StoryRef.Body, 3), 1, after: false)),
+            ("merge", () => editor.MergeCells(new CellRange(new TableRef(StoryRef.Body, 3), 0, 0, 1, 1))),
+            ("split", () => editor.SplitCell(new TableRef(StoryRef.Body, 3), 0, 0)),
+            ("move row", () => editor.MoveRow(new TableRef(StoryRef.Body, 5), 0, 1)),
+            ("delete rows", () => editor.DeleteRows(new CellRange(new TableRef(StoryRef.Body, 5), 1, 0, 1, 0))),
+            ("delete columns", () => editor.DeleteColumns(new CellRange(new TableRef(StoryRef.Body, 5), 0, 0, 0, 0))),
+            ("delete table", () => editor.DeleteTable(new TableRef(StoryRef.Body, 5))),
+            ("insert", () => editor.InsertTable(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 2), 3, 2)),
+        ];
+        Assert.NotNull(merged.Find(model.Body.Blocks));
+        Assert.NotNull(plain.Find(model.Body.Blocks));
+
+        Check("before");
+        foreach (var (label, run) in steps)
+        {
+            Assert.True(run() is not null, label + " was refused");
+            Check(label);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
+    public void PictureOperationsAndTheirUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("pictures.docx");
+        Support.DocxBuilder.WithBody(path, Layout.ObjectOracleTests.PictureBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        ObjectId IdAt(int block, int ordinal = 0)
+        {
+            var paragraph = (Paragraph)model.Body.Blocks[block];
+            var picture = paragraph.Inlines.OfType<Run>().SelectMany(r => r.Content).OfType<Picture>().ElementAt(ordinal);
+            var run = paragraph.Inlines.OfType<Run>().First(r => r.Content.Contains(picture));
+            return ObjectIds.Of(StoryRef.Body, model.Body.Blocks, paragraph, run, picture)!;
+        }
+
+        // Block 8 holds a cropped inline picture, block 9 an anchored one, block 10 a turned one.
+        var png = Support.TestPictures.Png(24, 18);
+        (string Label, Func<EditResult?> Run)[] steps =
+        [
+            ("insert", () => editor.InsertPicture(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[1], 3), png, "inserted")),
+            ("paste over a selection", () => editor.PastePicture(new TextRange(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[2], 0), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[2], 2)), png)),
+            ("resize", () => editor.ResizePicture(IdAt(8), 2000000, 1000000)),
+            ("alt text", () => editor.SetAltText(IdAt(8), "cropped")),
+            ("wrap to float", () => editor.SetPictureWrap(IdAt(8), PictureWrap.TopAndBottom)),
+            ("wrap between floats", () => editor.SetPictureWrap(IdAt(9), PictureWrap.Behind)),
+            ("nudge", () => editor.NudgePicture(IdAt(9), 4, -2)),
+            ("move", () => editor.MovePicture(IdAt(9), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[3], 0), 77, 88)),
+            ("wrap to inline", () => editor.SetPictureWrap(editor.PictureAt(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[3], 0))!, PictureWrap.Inline)),
+            ("properties: size, description and wrap in one step", () => editor.SetPictureProperties(IdAt(8), new PictureProperties(1_500_000, 900_000, AltText: "all at once", Wrap: PictureWrap.Behind))),
+            ("delete", () => editor.DeletePicture(IdAt(10))),
+        ];
+
+        Check("before");
+        foreach (var (label, run) in steps)
+        {
+            Assert.True(run() is not null, label + " was refused");
+            Check(label);
+        }
+
+        // The store keeps the bytes of the inserted picture through every undo and redo (the save decides what is written).
+        var entries = model.Media.Entries.ToArray();
+        Assert.NotEmpty(entries);
+        var entry = entries[0];
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+            Assert.Equal(png, model.Media.TryGet(entry.Ref.RelationshipId)!.Value.ToArray());
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+            Assert.Equal(png, model.Media.TryGet(entry.Ref.RelationshipId)!.Value.ToArray());
+        }
+    }
+
+    [Fact]
+    public void ADroppedPictureStepLeavesTheBytesOfAFullWriteAndTheStoreEmpty()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("pictures.docx");
+        Support.DocxBuilder.WithBody(path, Layout.ObjectOracleTests.PictureBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        Assert.NotNull(editor.InsertPicture(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[1], 3), Support.TestPictures.Png(24, 18), "gone"));
+        Check("insert");
+        Assert.NotNull(editor.History.Undo());
+        Check("undo");
+        Assert.NotNull(editor.InsertText(new TextRange(new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0), new TextPosition(StoryRef.Body, (Paragraph)model.Body.Blocks[0], 0)), "x"));
+        Check("the edit that drops the insert");
+
+        Assert.Empty(model.Media.Entries);
+        Assert.False(editor.History.CanRedo);
+    }
+
+    [Fact]
+    public void TableFormattingAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
+    {
+        using var folder = new Support.TempFolder();
+        var path = folder.File("tables.docx");
+        Support.DocxBuilder.WithBody(path, TableCorpusStructureTests.GeneratedBody());
+        using var file = DocxFile.Open(path);
+        var model = file.Model;
+        var editor = new TextEditor(model, (_, _) => ProjectionHost.Plain, new StillClock());
+        file.SerialiseMainForTest(cached: true);
+
+        void Check(string label)
+        {
+            var cached = file.SerialiseMainForTest(cached: true);
+            Assert.True(cached.AsSpan().SequenceEqual(file.SerialiseMainForTest(cached: false)), label + ": main part");
+        }
+
+        // The tables are the blocks 1 (merged, fixed), 3 (autofit) and 5 (percentage) of the generated body.
+        TableRef Merged() => new(StoryRef.Body, 1);
+        TableRef Autofit() => new(StoryRef.Body, 3);
+        TableRef Percentage() => new(StoryRef.Body, 5);
+        int Columns(TableRef table) => table.Find(model.Body.Blocks)!.GridColumns.Count;
+        (string Label, Func<EditResult?> Run)[] steps =
+        [
+            ("borders", () => editor.SetBorders(new CellRange(Merged(), 0, 0, 2, 1), BorderSpec.All(TableBorderStyle.DoubleLine, 8, 0xFFFF0000))),
+            ("borders off", () => editor.SetBorders(new CellRange(Autofit(), 0, 0, 0, 1), BorderSpec.None())),
+            ("shading", () => editor.SetShading(new CellRange(Percentage(), 0, 0, 1, 1), 0xFF92D050)),
+            ("shading off", () => editor.SetShading(new CellRange(Percentage(), 0, 0, 0, 0), null)),
+            ("header row", () => editor.SetHeaderRow(Autofit(), true)),
+            ("header row off", () => editor.SetHeaderRow(Merged(), false)),
+            ("column widths", () => editor.SetColumnWidths(Autofit(), [1200, 1700, 2100])),
+            ("table width", () => editor.SetTableWidth(Percentage(), 6000)),
+            ("row height", () => editor.SetRowHeight(Merged(), 1, 700, exact: true)),
+            ("distribute", () => editor.DistributeColumns(Merged())),
+            ("properties", () => editor.SetTableProperties(Autofit(), new TableProperties(ColumnTwips: [1000, 1500, 2500], RowHeight: new TableRowHeight(0, 1, 500, Exact: false), HeaderRow: true))),
+            ("properties table width", () => editor.SetTableProperties(Percentage(), new TableProperties(TableWidthTwips: 5000, HeaderRow: true))),
+        ];
+        Assert.Equal(3, Columns(Autofit()));
+        Assert.Equal(4, Columns(Merged()));
+
+        Check("before");
+        foreach (var (label, run) in steps)
+        {
+            Assert.True(run() is not null, label + " was refused");
+            Check(label);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Undo());
+            Check("undo " + i);
+        }
+
+        for (var i = 0; i < steps.Length; i++)
+        {
+            Assert.NotNull(editor.History.Redo());
+            Check("redo " + i);
+        }
+    }
+
+    [Fact]
     public void InsertPageNumberAndItsUndoAndRedoGiveTheBytesOfAFullWrite()
     {
         using var file = DocxFile.Open(Path.Combine(Root, "poi-page-specific-head-foot", "poi-page-specific-head-foot.docx"));

@@ -36,7 +36,7 @@ internal enum EditBlockedReason
 /// <see cref="TextEditor"/>: when the tab's model is another object the session rebinds, <see cref="TextEditor.History"/> is cleared and the selection goes
 /// to the start of the document).
 /// </remarks>
-internal sealed class EditSession
+internal sealed partial class EditSession
 {
     /// <summary>The most operations that are kept while a save runs; more are refused (counted in <see cref="DroppedWhileSaving"/>).</summary>
     public const int MaxQueued = 10_000;
@@ -97,6 +97,12 @@ internal sealed class EditSession
 
     /// <summary>Raised on the UI thread once after an operation that changed the document or the selection (not for a refused one), after the lease ended.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// Raised on the UI thread, before <see cref="Changed"/>, when an operation, an undo or a redo added a picture to the document or took one away (<see cref="ObjectChange.MediaAdded"/> and <see cref="ObjectChange.MediaRemoved"/>): the owner of
+    /// the layout's picture cache clears it and prefetches the pictures in view.
+    /// </summary>
+    public event Action? PicturesChanged;
 
     /// <summary>
     /// Rises whenever an operation, an undo or a redo may have changed the sections or what they share (section properties, a move, a change in the body); it stays the same while text is typed in a header or footer.
@@ -165,6 +171,8 @@ internal sealed class EditSession
     public void SetSelection(TextRange? selection)
     {
         VerifyAccess();
+        // Choosing a text selection ends the selection of an object, also when the text selection is the one that was there.
+        ClearObjectSelection();
         if (SameSelection(_selection, selection))
         {
             return;
@@ -186,12 +194,25 @@ internal sealed class EditSession
         if (!SameSelection(_selection, selection))
         {
             _selectionDirty = true;
+            DropObjectSelectionInOperation();
         }
 
         _selection = selection;
         if (!typing)
         {
             Pending.Clear();
+        }
+    }
+
+    private bool _picturesChanged;
+
+    // Once per batch of operations, before Changed: the view clears its picture cache and decodes what is in view.
+    private void RaisePicturesChanged()
+    {
+        if (_picturesChanged)
+        {
+            _picturesChanged = false;
+            PicturesChanged?.Invoke();
         }
     }
 
@@ -406,12 +427,14 @@ internal sealed class EditSession
             var stamp = Stamp();
             if (changed)
             {
+                RaisePicturesChanged();
                 Changed?.Invoke();
             }
 
             Mark(EditPhases.Changed, stamp);
             stamp = Stamp();
             RaiseSelectionChanged();
+            RaiseObjectSelectionChanged();
             Mark(EditPhases.SelectionEvent, stamp);
         }
 
@@ -469,7 +492,11 @@ internal sealed class EditSession
     public IDisposable BeginSave()
     {
         VerifyAccess();
-        _saving++;
+        if (_saving++ == 0)
+        {
+            SaveStarted?.Invoke();
+        }
+
         return new SaveScope(this);
     }
 
@@ -530,10 +557,12 @@ internal sealed class EditSession
         {
             if (changed)
             {
+                RaisePicturesChanged();
                 Changed?.Invoke();
             }
 
             RaiseSelectionChanged();
+            RaiseObjectSelectionChanged();
         }
 
         if (dropped is { } reason)
@@ -577,6 +606,11 @@ internal sealed class EditSession
 
         // The model has changed now: whatever happens next, the view must hear of it.
         changed = true;
+        if (result.Objects is { } objects && (objects.MediaAdded.Count > 0 || objects.MediaRemoved.Count > 0))
+        {
+            _picturesChanged = true;
+        }
+
         // A formatting operation changes no text: the selection that was there stays (a toggle pressed twice must see the same selection twice).
         stamp = Stamp();
         MoveSelection(result.KeepSelection && _selection is { } kept ? kept : new TextRange(result.Caret, result.Caret), typing);
@@ -586,6 +620,8 @@ internal sealed class EditSession
             _format.Invalidate(_tab.Docx.Model);
         }
 
+        // A selected object stays only while the model still holds it (nothing is read when none is selected).
+        ReconcileObjectSelection();
         Mark(EditPhases.Selection, stamp);
 
         var runner = _tab.Runner;
@@ -666,14 +702,36 @@ internal sealed class EditSession
         if (_editor is null || !ReferenceEquals(_bound, model))
         {
             _editor?.History.Clear();
+            if (_editor is not null)
+            {
+                DropObjectSelectionInOperation();
+            }
+
             _format.Invalidate(model);
-            _editor = new TextEditor(model, Host, format: _format) { FragmentCodec = s_fragmentCodec };
+            _editor = new TextEditor(model, Host, EditorTime, format: _format) { FragmentCodec = s_fragmentCodec, PictureBytes = ReadPictureBytes };
             _bound = model;
             _numberingSeen = model.Numbering;
             _selection = StartOf(model);
         }
 
         return _editor;
+    }
+
+    /// <summary>The clock of the editor the session makes (null: the system clock). A test sets it before the editor is first used, so that the one-step-per-second rule of the nudges cannot depend on how long the machine takes.</summary>
+    internal TimeProvider? EditorTime { get; set; }
+
+    // The original bytes of a picture of the main story, for Reset size: the pending pictures first, then the package (the source does both); null when they are not at hand.
+    private ReadOnlyMemory<byte>? ReadPictureBytes(string relationshipId)
+    {
+        try
+        {
+            var bytes = _tab.Images.Read(relationshipId);
+            return bytes.IsEmpty ? null : bytes;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ObjectDisposedException)
+        {
+            return null;
+        }
     }
 
     private IProjectionHost Host(StoryRef story, Paragraph paragraph)

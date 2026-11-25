@@ -97,9 +97,11 @@ internal static partial class EditCommand
         output.Write(Table(structure, "recorded, never judged: the editor and the layout through the pages in view; the 100 ms aim of a chapter move is judged on the app (--measure-structure)."));
         var sections = MeasureSections(file, Math.Max(1, Math.Min(keystrokes, SectionRuns)), error);
         output.Write(Table(sections, "recorded, never judged: the editor and the layout through the pages in view; the section commands are measured on the app (--measure-sections, the metric sections has no limit yet)."));
+        var objects = MeasureObjects(file, Math.Max(1, Math.Min(keystrokes, ObjectRuns)), error);
+        output.Write(Table(objects, "recorded, never judged: the editor and the layout through the pages in view; the limit of the objects cases is judged on the app (--measure-objects)."));
         if (options.Value("--csv") is { } path)
         {
-            File.WriteAllText(path, Csv([.. rows, .. format.Rows, .. structure, .. sections]));
+            File.WriteAllText(path, Csv([.. rows, .. format.Rows, .. structure, .. sections, .. objects]));
         }
 
         return 0;

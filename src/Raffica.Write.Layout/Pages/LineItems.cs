@@ -63,6 +63,7 @@ internal static class LineItems
             if (box.Image is { } image)
             {
                 page.Add(new ImageItem(image, left, y, box.Width, box.Height));
+                page.AddPicture(box.Anchor, left, y, box.Width, box.Height);
             }
             else
             {

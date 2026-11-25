@@ -1599,4 +1599,622 @@
   <data name="SectionPopoverNameFormat" xml:space="preserve">
     <value>Einstellungen von Abschnitt {0}</value>
   </data>
+  <data name="TabInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="MenuInsert" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="GroupNotes" xml:space="preserve">
+    <value>Fuß- und Endnoten</value>
+  </data>
+  <data name="CmdFootnote" xml:space="preserve">
+    <value>Fußnote</value>
+  </data>
+  <data name="DescFootnote" xml:space="preserve">
+    <value>Fügt an der Einfügemarke eine Fußnote ein: eine Nummer im Text und die Anmerkung am Seitenende. Die Einfügemarke springt in die Anmerkung.</value>
+  </data>
+  <data name="CmdEndnote" xml:space="preserve">
+    <value>Endnote</value>
+  </data>
+  <data name="DescEndnote" xml:space="preserve">
+    <value>Fügt an der Einfügemarke eine Endnote ein: eine Nummer im Text und die Anmerkung am Ende des Dokuments. Die Einfügemarke springt in die Anmerkung.</value>
+  </data>
+  <data name="CmdNoteBack" xml:space="preserve">
+    <value>Zurück zum Text</value>
+  </data>
+  <data name="DescNoteBack" xml:space="preserve">
+    <value>Springt von einer Anmerkung zur Stelle im Text zurück, die auf sie verweist. Esc in einer Anmerkung tut dasselbe.</value>
+  </data>
+  <data name="ReasonNoteWritingView" xml:space="preserve">
+    <value>Die Schreibansicht zeigt keine Anmerkungen. Wechseln Sie zur Seitenansicht, um eine einzufügen.</value>
+  </data>
+  <data name="ReasonNoteNotInBody" xml:space="preserve">
+    <value>Eine Anmerkung gehört in den Text des Dokuments, nicht in eine Kopfzeile, eine Fußzeile oder einen Kommentar.</value>
+  </data>
+  <data name="ReasonNoteInNote" xml:space="preserve">
+    <value>Eine Anmerkung kann keine weitere Anmerkung enthalten.</value>
+  </data>
+  <data name="ReasonNoteRestricted" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keine Anmerkung aufnehmen.</value>
+  </data>
+  <data name="ReasonNoteIdsUsedUp" xml:space="preserve">
+    <value>Dieses Dokument verwendet bereits die höchste mögliche Anmerkungsnummer und kann daher keine weitere Anmerkung aufnehmen.</value>
+  </data>
+  <data name="ReasonNoteNotInNote" xml:space="preserve">
+    <value>Die Einfügemarke steht in keiner Anmerkung.</value>
+  </data>
+  <data name="NoteNoteNotFound" xml:space="preserve">
+    <value>Der Text, der auf diese Anmerkung verweist, wurde nicht gefunden.</value>
+  </data>
+  <data name="ObjectPicture" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="ObjectPictureAlt" xml:space="preserve">
+    <value>Bild: {0}</value>
+  </data>
+  <data name="ObjectCell" xml:space="preserve">
+    <value>Zeile {0} von {1}, Spalte {2} von {3}</value>
+  </data>
+  <data name="ObjectCells" xml:space="preserve">
+    <value>Zeilen {0} bis {1} von {2}, Spalten {3} bis {4} von {5}</value>
+  </data>
+  <data name="ObjectSelectedName" xml:space="preserve">
+    <value>{0}. Ausgewählt: {1}</value>
+  </data>
+  <data name="TabTable" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="MenuTable" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="GroupTable" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="GroupTableRows" xml:space="preserve">
+    <value>Zeilen</value>
+  </data>
+  <data name="GroupTableColumns" xml:space="preserve">
+    <value>Spalten</value>
+  </data>
+  <data name="GroupTableCells" xml:space="preserve">
+    <value>Zellen</value>
+  </data>
+  <data name="GroupTableWhole" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="CmdTableInsert" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="DescTableInsert" xml:space="preserve">
+    <value>Fügt an der Einfügemarke eine Tabelle ein: Wählen Sie die Größe im Raster oder Weitere für jede Größe bis zu 63 Spalten und 500 Zeilen. Die Tabelle füllt die Breite des Textes.</value>
+  </data>
+  <data name="CmdTableRowAbove" xml:space="preserve">
+    <value>Zeile oberhalb</value>
+  </data>
+  <data name="DescTableRowAbove" xml:space="preserve">
+    <value>Fügt oberhalb der Zeile der Einfügemarke oder der ersten markierten Zeile eine Zeile ein.</value>
+  </data>
+  <data name="CmdTableRowBelow" xml:space="preserve">
+    <value>Zeile unterhalb</value>
+  </data>
+  <data name="DescTableRowBelow" xml:space="preserve">
+    <value>Fügt unterhalb der Zeile der Einfügemarke oder der letzten markierten Zeile eine Zeile ein.</value>
+  </data>
+  <data name="CmdTableDeleteRows" xml:space="preserve">
+    <value>Zeilen löschen</value>
+  </data>
+  <data name="DescTableDeleteRows" xml:space="preserve">
+    <value>Löscht die Zeile der Einfügemarke oder alle markierten Zeilen.</value>
+  </data>
+  <data name="CmdTableRowUp" xml:space="preserve">
+    <value>Zeile nach oben</value>
+  </data>
+  <data name="DescTableRowUp" xml:space="preserve">
+    <value>Verschiebt die Zeile der Einfügemarke um eine Stelle nach oben. Eine Zeile kann weder über eine verbundene Zelle noch über die Überschriftenzeilen hinweg verschoben werden.</value>
+  </data>
+  <data name="CmdTableRowDown" xml:space="preserve">
+    <value>Zeile nach unten</value>
+  </data>
+  <data name="DescTableRowDown" xml:space="preserve">
+    <value>Verschiebt die Zeile der Einfügemarke um eine Stelle nach unten. Eine Zeile kann weder über eine verbundene Zelle noch über die Überschriftenzeilen hinweg verschoben werden.</value>
+  </data>
+  <data name="CmdTableSelectRow" xml:space="preserve">
+    <value>Zeile markieren</value>
+  </data>
+  <data name="DescTableSelectRow" xml:space="preserve">
+    <value>Markiert alle Zellen der Zeile der Einfügemarke.</value>
+  </data>
+  <data name="CmdTableColumnLeft" xml:space="preserve">
+    <value>Spalte links</value>
+  </data>
+  <data name="DescTableColumnLeft" xml:space="preserve">
+    <value>Fügt links von der Spalte der Einfügemarke oder der ersten markierten Spalte eine Spalte ein.</value>
+  </data>
+  <data name="CmdTableColumnRight" xml:space="preserve">
+    <value>Spalte rechts</value>
+  </data>
+  <data name="DescTableColumnRight" xml:space="preserve">
+    <value>Fügt rechts von der Spalte der Einfügemarke oder der letzten markierten Spalte eine Spalte ein.</value>
+  </data>
+  <data name="CmdTableDeleteColumns" xml:space="preserve">
+    <value>Spalten löschen</value>
+  </data>
+  <data name="DescTableDeleteColumns" xml:space="preserve">
+    <value>Löscht die Spalte der Einfügemarke oder alle markierten Spalten.</value>
+  </data>
+  <data name="CmdTableDistribute" xml:space="preserve">
+    <value>Spalten gleichmäßig verteilen</value>
+  </data>
+  <data name="DescTableDistribute" xml:space="preserve">
+    <value>Macht alle Spalten gleich breit, ohne die Breite der Tabelle zu ändern. Erfordert die Seitenansicht.</value>
+  </data>
+  <data name="CmdTableSelectColumn" xml:space="preserve">
+    <value>Spalte markieren</value>
+  </data>
+  <data name="DescTableSelectColumn" xml:space="preserve">
+    <value>Markiert alle Zellen der Spalte der Einfügemarke.</value>
+  </data>
+  <data name="CmdTableMerge" xml:space="preserve">
+    <value>Zellen verbinden</value>
+  </data>
+  <data name="DescTableMerge" xml:space="preserve">
+    <value>Verbindet die markierten Zellen zu einer Zelle. Der Text der Zellen bleibt erhalten.</value>
+  </data>
+  <data name="CmdTableSplit" xml:space="preserve">
+    <value>Verbundene Zelle teilen</value>
+  </data>
+  <data name="DescTableSplit" xml:space="preserve">
+    <value>Teilt eine verbundene Zelle wieder in die Zellen, aus denen sie entstanden ist.</value>
+  </data>
+  <data name="CmdTableBorders" xml:space="preserve">
+    <value>Rahmenlinien</value>
+  </data>
+  <data name="DescTableBorders" xml:space="preserve">
+    <value>Legt die Rahmenlinien der markierten Zellen oder der Zelle der Einfügemarke fest: alle, außen, Rahmen, keine oder einzelne Seiten, mit Farbe, Breite und Linienart.</value>
+  </data>
+  <data name="CmdTableShading" xml:space="preserve">
+    <value>Schattierung</value>
+  </data>
+  <data name="DescTableShading" xml:space="preserve">
+    <value>Füllt die markierten Zellen oder die Zelle der Einfügemarke mit einer Farbe.</value>
+  </data>
+  <data name="CmdTableProperties" xml:space="preserve">
+    <value>Tabelleneigenschaften</value>
+  </data>
+  <data name="DescTableProperties" xml:space="preserve">
+    <value>Legt die Breite der Tabelle und jeder Spalte, die Höhe der markierten Zeilen und die Überschriftenzeile fest. Erfordert die Seitenansicht.</value>
+  </data>
+  <data name="CmdTableHeaderRow" xml:space="preserve">
+    <value>Überschriftenzeile</value>
+  </data>
+  <data name="DescTableHeaderRow" xml:space="preserve">
+    <value>Wiederholt die erste Zeile am Anfang jeder Seite, über die sich die Tabelle erstreckt.</value>
+  </data>
+  <data name="CmdTableSelectTable" xml:space="preserve">
+    <value>Tabelle markieren</value>
+  </data>
+  <data name="DescTableSelectTable" xml:space="preserve">
+    <value>Markiert alle Zellen der Tabelle.</value>
+  </data>
+  <data name="CmdTableDelete" xml:space="preserve">
+    <value>Tabelle löschen</value>
+  </data>
+  <data name="DescTableDelete" xml:space="preserve">
+    <value>Löscht die gesamte Tabelle samt Inhalt.</value>
+  </data>
+  <data name="ReasonTableNotInTable" xml:space="preserve">
+    <value>Setzen Sie die Einfügemarke zuerst in eine Tabelle.</value>
+  </data>
+  <data name="ReasonTableWritingViewWidths" xml:space="preserve">
+    <value>Die Schreibansicht zeichnet eine Tabelle in einer anderen Breite als die Seite. Wechseln Sie zur Seitenansicht, um Breiten festzulegen.</value>
+  </data>
+  <data name="ReasonTableOneRow" xml:space="preserve">
+    <value>Markieren Sie genau eine Zeile, um sie zu verschieben.</value>
+  </data>
+  <data name="ReasonTableNoPosition" xml:space="preserve">
+    <value>Hier ist kein Platz für eine Tabelle: Die Einfügemarke steht nicht im Text des Dokuments.</value>
+  </data>
+  <data name="ReasonTablePrefixDocument" xml:space="preserve">
+    <value>Von diesem Dokument ist erst der Anfang geöffnet, daher kann die Tabelle noch nicht geändert werden.</value>
+  </data>
+  <data name="ReasonTableHeaderOrFooter" xml:space="preserve">
+    <value>In einer Kopf- oder Fußzeile kann keine Tabelle stehen.</value>
+  </data>
+  <data name="ReasonTableNote" xml:space="preserve">
+    <value>In einer Fuß- oder Endnote kann keine Tabelle stehen.</value>
+  </data>
+  <data name="ReasonTableComment" xml:space="preserve">
+    <value>In einem Kommentar kann keine Tabelle stehen.</value>
+  </data>
+  <data name="ReasonTableRestrictedControl" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und kann daher keine Tabelle aufnehmen.</value>
+  </data>
+  <data name="ReasonTableNestedTable" xml:space="preserve">
+    <value>Die Einfügemarke steht in einer Tabellenzelle: In eine Zelle kann keine Tabelle eingefügt werden, und Befehle wirken nur auf die äußere Tabelle.</value>
+  </data>
+  <data name="ReasonTableControlHoldsATable" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält bereits eine Tabelle, und eine zweite darin ließe sich nicht von der ersten unterscheiden. Fügen Sie die neue Tabelle außerhalb des Steuerelements ein.</value>
+  </data>
+  <data name="ReasonTableNoTable" xml:space="preserve">
+    <value>Die Tabelle wurde nicht gefunden.</value>
+  </data>
+  <data name="ReasonTableInvalidCount" xml:space="preserve">
+    <value>Geben Sie eine Anzahl von Spalten und Zeilen größer als null ein.</value>
+  </data>
+  <data name="ReasonTableTooManyColumns" xml:space="preserve">
+    <value>Eine Tabelle kann höchstens 63 Spalten haben.</value>
+  </data>
+  <data name="ReasonTableTooManyRows" xml:space="preserve">
+    <value>Eine Tabelle kann höchstens 500 Zeilen haben.</value>
+  </data>
+  <data name="ReasonTableOutOfRange" xml:space="preserve">
+    <value>Die Zeile, Spalte oder Zelle gehört nicht zur Tabelle.</value>
+  </data>
+  <data name="ReasonTableUnsupportedStructure" xml:space="preserve">
+    <value>Diese Tabelle hat einen Aufbau, den Write noch nicht ändert (zum Beispiel einen Versatz am Anfang oder Ende einer Zeile oder eine gelöschte Zeile in einer Änderungsverfolgung).</value>
+  </data>
+  <data name="ReasonTableNothingToMerge" xml:space="preserve">
+    <value>Markieren Sie zwei oder mehr Zellen, um sie zu verbinden.</value>
+  </data>
+  <data name="ReasonTableNotMerged" xml:space="preserve">
+    <value>Diese Zelle ist keine verbundene Zelle, daher gibt es nichts zu teilen.</value>
+  </data>
+  <data name="ReasonTableWouldCutAMerge" xml:space="preserve">
+    <value>Die Zeile kann nicht in eine verbundene Zelle hinein oder aus ihr heraus verschoben werden.</value>
+  </data>
+  <data name="ReasonTableHeaderRowBoundary" xml:space="preserve">
+    <value>Eine Zeile kann nicht über die Grenze der Überschriftenzeilen hinweg verschoben werden. Schalten Sie zuerst die Überschriftenzeile ein oder aus.</value>
+  </data>
+  <data name="ReasonTableCannotMove" xml:space="preserve">
+    <value>Die Zeile steht schon am Rand der Tabelle.</value>
+  </data>
+  <data name="ReasonTableWouldBreakTheTable" xml:space="preserve">
+    <value>Danach hätte die Tabelle keine Zeile oder keine Zelle mehr. Löschen Sie stattdessen die Tabelle.</value>
+  </data>
+  <data name="ReasonTableInvalidValue" xml:space="preserve">
+    <value>Ein Wert liegt außerhalb dessen, was eine Tabelle zulässt.</value>
+  </data>
+  <data name="NoteTableNoChange" xml:space="preserve">
+    <value>Die Tabelle wurde nicht geändert.</value>
+  </data>
+  <data name="TableBordersAll" xml:space="preserve">
+    <value>Alle Rahmenlinien</value>
+  </data>
+  <data name="TableBordersOutside" xml:space="preserve">
+    <value>Außenlinien</value>
+  </data>
+  <data name="TableBordersBox" xml:space="preserve">
+    <value>Rahmen</value>
+  </data>
+  <data name="TableBordersNone" xml:space="preserve">
+    <value>Keine Rahmenlinien</value>
+  </data>
+  <data name="TableBordersTop" xml:space="preserve">
+    <value>Linie oben</value>
+  </data>
+  <data name="TableBordersBottom" xml:space="preserve">
+    <value>Linie unten</value>
+  </data>
+  <data name="TableBordersLeft" xml:space="preserve">
+    <value>Linie links</value>
+  </data>
+  <data name="TableBordersRight" xml:space="preserve">
+    <value>Linie rechts</value>
+  </data>
+  <data name="TableBordersInsideHorizontal" xml:space="preserve">
+    <value>Waagerechte Innenlinien</value>
+  </data>
+  <data name="TableBordersInsideVertical" xml:space="preserve">
+    <value>Senkrechte Innenlinien</value>
+  </data>
+  <data name="TableBordersMore" xml:space="preserve">
+    <value>Weitere Rahmenlinien…</value>
+  </data>
+  <data name="TableShadingNone" xml:space="preserve">
+    <value>Keine Schattierung</value>
+  </data>
+  <data name="TableGridName" xml:space="preserve">
+    <value>Tabelle mit {0} Spalten und {1} Zeilen</value>
+  </data>
+  <data name="TableGridMore" xml:space="preserve">
+    <value>Weitere…</value>
+  </data>
+  <data name="TableGridPopupName" xml:space="preserve">
+    <value>Tabelle einfügen</value>
+  </data>
+  <data name="TableGridHint" xml:space="preserve">
+    <value>Pfeiltasten wählen die Größe, die Eingabetaste fügt ein, Esc schließt.</value>
+  </data>
+  <data name="TiTitle" xml:space="preserve">
+    <value>Tabelle einfügen</value>
+  </data>
+  <data name="TiColumns" xml:space="preserve">
+    <value>Spalten (1 bis 63)</value>
+  </data>
+  <data name="TiRows" xml:space="preserve">
+    <value>Zeilen (1 bis 500)</value>
+  </data>
+  <data name="TiOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="TiColumnsInvalid" xml:space="preserve">
+    <value>Geben Sie eine Spaltenzahl von 1 bis 63 ein.</value>
+  </data>
+  <data name="TiRowsInvalid" xml:space="preserve">
+    <value>Geben Sie eine Zeilenzahl von 1 bis 500 ein.</value>
+  </data>
+  <data name="TbTitle" xml:space="preserve">
+    <value>Rahmenlinien</value>
+  </data>
+  <data name="TbPreset" xml:space="preserve">
+    <value>Rahmenlinien</value>
+  </data>
+  <data name="TbPresetSides" xml:space="preserve">
+    <value>Gewählte Seiten</value>
+  </data>
+  <data name="TbSides" xml:space="preserve">
+    <value>Seiten</value>
+  </data>
+  <data name="TbTurnOff" xml:space="preserve">
+    <value>Gewählte Seiten ausschalten</value>
+  </data>
+  <data name="TbStyle" xml:space="preserve">
+    <value>Linienart</value>
+  </data>
+  <data name="TbStyleSolid" xml:space="preserve">
+    <value>Einfache Linie</value>
+  </data>
+  <data name="TbStyleDouble" xml:space="preserve">
+    <value>Doppelte Linie</value>
+  </data>
+  <data name="TbStyleDashed" xml:space="preserve">
+    <value>Gestrichelt</value>
+  </data>
+  <data name="TbStyleDotted" xml:space="preserve">
+    <value>Gepunktet</value>
+  </data>
+  <data name="TbWidth" xml:space="preserve">
+    <value>Breite</value>
+  </data>
+  <data name="TbWidthFormat" xml:space="preserve">
+    <value>{0} pt</value>
+  </data>
+  <data name="TbColor" xml:space="preserve">
+    <value>Farbe</value>
+  </data>
+  <data name="TbColorAuto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="TbOk" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="TbNoSide" xml:space="preserve">
+    <value>Wählen Sie mindestens eine Seite.</value>
+  </data>
+  <data name="TbNote" xml:space="preserve">
+    <value>Die Rahmenlinien gelten für die markierten Zellen oder die Zelle der Einfügemarke.</value>
+  </data>
+  <data name="TpTitle" xml:space="preserve">
+    <value>Tabelleneigenschaften</value>
+  </data>
+  <data name="TpTableWidthFormat" xml:space="preserve">
+    <value>Tabellenbreite ({0})</value>
+  </data>
+  <data name="TpColumnWidthFormat" xml:space="preserve">
+    <value>Spalte {0} ({1})</value>
+  </data>
+  <data name="TpColumns" xml:space="preserve">
+    <value>Spaltenbreiten</value>
+  </data>
+  <data name="TpRowHeightFormat" xml:space="preserve">
+    <value>Zeilenhöhe ({0})</value>
+  </data>
+  <data name="TpRowRule" xml:space="preserve">
+    <value>Regel für die Zeilenhöhe</value>
+  </data>
+  <data name="TpRuleAuto" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="TpRuleAtLeast" xml:space="preserve">
+    <value>Mindestens</value>
+  </data>
+  <data name="TpRuleExact" xml:space="preserve">
+    <value>Genau</value>
+  </data>
+  <data name="TpHeaderRow" xml:space="preserve">
+    <value>Erste Zeile am Anfang jeder Seite wiederholen</value>
+  </data>
+  <data name="TpRowsNote" xml:space="preserve">
+    <value>Die Zeilenhöhe gilt für die markierten Zeilen oder die Zeile der Einfügemarke.</value>
+  </data>
+  <data name="TpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="TpNothingChanged" xml:space="preserve">
+    <value>Es wurde nichts geändert.</value>
+  </data>
+  <data name="GroupPicture" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="CmdPictureInsert" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="DescPictureInsert" xml:space="preserve">
+    <value>Fügt ein Bild aus einer Datei (PNG, JPEG, GIF oder BMP) an der Einfügemarke ein, in der Textzeile. Sie können es vor dem Einfügen für Screenreader beschreiben.</value>
+  </data>
+  <data name="CmdPictureProperties" xml:space="preserve">
+    <value>Bildeigenschaften</value>
+  </data>
+  <data name="DescPictureProperties" xml:space="preserve">
+    <value>Ändert Größe, Beschreibung (Alternativtext) und Textumbruch des ausgewählten Bildes in einem Schritt.</value>
+  </data>
+  <data name="CmdPictureWrap" xml:space="preserve">
+    <value>Textumbruch</value>
+  </data>
+  <data name="DescPictureWrap" xml:space="preserve">
+    <value>Legt fest, wie der Text um das ausgewählte Bild läuft: in der Textzeile, Quadrat, oben und unten, vor dem Text oder hinter dem Text.</value>
+  </data>
+  <data name="CmdPictureReset" xml:space="preserve">
+    <value>Originalgröße</value>
+  </data>
+  <data name="DescPictureReset" xml:space="preserve">
+    <value>Setzt das ausgewählte Bild auf seine Originalgröße zurück.</value>
+  </data>
+  <data name="CmdPictureDelete" xml:space="preserve">
+    <value>Bild löschen</value>
+  </data>
+  <data name="DescPictureDelete" xml:space="preserve">
+    <value>Entfernt das ausgewählte Bild aus dem Dokument. Mit Rückgängig kommt es zurück.</value>
+  </data>
+  <data name="ReasonPictureNoSelection" xml:space="preserve">
+    <value>Wählen Sie zuerst ein Bild aus: Klicken Sie darauf oder wählen Sie es mit Umschalt und einer Pfeiltaste aus (bei einem frei positionierten Bild genügt die Einfügemarke in seinem Absatz).</value>
+  </data>
+  <data name="ReasonPicturePrefixDocument" xml:space="preserve">
+    <value>Von diesem Dokument ist erst der Anfang geöffnet, daher können Bilder noch nicht geändert werden.</value>
+  </data>
+  <data name="ReasonPictureNoPosition" xml:space="preserve">
+    <value>Hier ist kein Platz für ein Bild.</value>
+  </data>
+  <data name="ReasonPictureHeaderOrFooter" xml:space="preserve">
+    <value>Bilder können noch nicht in einer Kopf- oder Fußzeile stehen.</value>
+  </data>
+  <data name="ReasonPictureNote" xml:space="preserve">
+    <value>Bilder können noch nicht in einer Fuß- oder Endnote stehen.</value>
+  </data>
+  <data name="ReasonPictureComment" xml:space="preserve">
+    <value>Bilder können nicht in einem Kommentar stehen.</value>
+  </data>
+  <data name="ReasonPictureRestrictedControl" xml:space="preserve">
+    <value>Dieses Inhaltssteuerelement enthält nur einfachen Text und nimmt kein Bild auf.</value>
+  </data>
+  <data name="ReasonPictureNestedTable" xml:space="preserve">
+    <value>Bilder können noch nicht in einer Tabelle innerhalb einer Tabelle stehen.</value>
+  </data>
+  <data name="ReasonPictureNoPicture" xml:space="preserve">
+    <value>Das Bild ist nicht mehr vorhanden. Wählen Sie es erneut aus.</value>
+  </data>
+  <data name="ReasonPictureRotated" xml:space="preserve">
+    <value>Das Bild ist gedreht, daher kann seine Größe hier nicht geändert werden.</value>
+  </data>
+  <data name="ReasonPictureFloatInCell" xml:space="preserve">
+    <value>Ein Bild in einer Tabellenzelle bleibt in der Textzeile.</value>
+  </data>
+  <data name="ReasonPictureNotFloating" xml:space="preserve">
+    <value>Nur ein Bild, das nicht in der Textzeile steht, lässt sich verschieben. Ändern Sie zuerst den Textumbruch.</value>
+  </data>
+  <data name="ReasonPictureAlignedPosition" xml:space="preserve">
+    <value>Die Position dieses Bildes ist durch eine Ausrichtung festgelegt (zum Beispiel zentriert). Ziehen Sie es, um eine feste Position zu setzen.</value>
+  </data>
+  <data name="ReasonPictureAnotherPlace" xml:space="preserve">
+    <value>Das Bild lässt sich nur innerhalb desselben Teils des Dokuments verschieben.</value>
+  </data>
+  <data name="ReasonPictureTooFar" xml:space="preserve">
+    <value>Das Bild ist zu weit entfernt, um in einem Schritt dorthin verschoben zu werden.</value>
+  </data>
+  <data name="ReasonPictureNotAnImage" xml:space="preserve">
+    <value>Die Datei ist kein verwendbares Bild (PNG, JPEG, GIF oder BMP).</value>
+  </data>
+  <data name="ReasonPictureTooLarge" xml:space="preserve">
+    <value>Die Datei ist größer als 50 MB.</value>
+  </data>
+  <data name="ReasonPictureTooManyPixels" xml:space="preserve">
+    <value>Das Bild hat zu viele Pixel (mehr als 32 Millionen).</value>
+  </data>
+  <data name="ReasonPictureTooMuchMedia" xml:space="preserve">
+    <value>Die Bilder würden zusammen zu viel Platz einnehmen. Speichern Sie das Dokument und öffnen Sie es erneut, um Platz zu schaffen.</value>
+  </data>
+  <data name="ReasonPictureBadSize" xml:space="preserve">
+    <value>Diese Größe ist für ein Bild nicht möglich.</value>
+  </data>
+  <data name="ReasonPictureAltTextTooLong" xml:space="preserve">
+    <value>Die Beschreibung ist zu lang (höchstens 4096 Zeichen).</value>
+  </data>
+  <data name="ReasonPictureNothingToChange" xml:space="preserve">
+    <value>Das würde nichts ändern.</value>
+  </data>
+  <data name="ReasonPictureOriginalSizeUnknown" xml:space="preserve">
+    <value>Die Originalgröße dieses Bildes lässt sich nicht ermitteln.</value>
+  </data>
+  <data name="NotePictureFailed" xml:space="preserve">
+    <value>Der Bildbefehl konnte nicht ausgeführt werden.</value>
+  </data>
+  <data name="NotePictureReadFailed" xml:space="preserve">
+    <value>Die Bilddatei konnte nicht gelesen werden.</value>
+  </data>
+  <data name="NotePictureNotCopied" xml:space="preserve">
+    <value>Ein Bild lässt sich in dieser Version nicht kopieren oder ausschneiden. Fügen Sie es mit „Bild einfügen“ an der gewünschten Stelle erneut ein.</value>
+  </data>
+  <data name="NotePasteLeftOutPictures" xml:space="preserve">
+    <value>Bilder und Zeichnungen im eingefügten Inhalt wurden ausgelassen. Fügen Sie ein Bild mit „Bild einfügen“ ein.</value>
+  </data>
+  <data name="NoteCellsDeleteKey" xml:space="preserve">
+    <value>Löschen Sie Zeilen oder Spalten mit dem Tab Tabelle.</value>
+  </data>
+  <data name="PictureOpenTitle" xml:space="preserve">
+    <value>Bild einfügen</value>
+  </data>
+  <data name="PictureFilterImages" xml:space="preserve">
+    <value>Bilder</value>
+  </data>
+  <data name="PictureWrapInline" xml:space="preserve">
+    <value>In der Textzeile</value>
+  </data>
+  <data name="PictureWrapSquare" xml:space="preserve">
+    <value>Quadrat</value>
+  </data>
+  <data name="PictureWrapTopAndBottom" xml:space="preserve">
+    <value>Oben und unten</value>
+  </data>
+  <data name="PictureWrapInFront" xml:space="preserve">
+    <value>Vor dem Text</value>
+  </data>
+  <data name="PictureWrapBehind" xml:space="preserve">
+    <value>Hinter dem Text</value>
+  </data>
+  <data name="PiTitle" xml:space="preserve">
+    <value>Bild einfügen</value>
+  </data>
+  <data name="PiAlt" xml:space="preserve">
+    <value>Beschreibung für Screenreader (optional)</value>
+  </data>
+  <data name="PiAltHint" xml:space="preserve">
+    <value>Sagen Sie in wenigen Worten, was das Bild zeigt.</value>
+  </data>
+  <data name="PiOk" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="PiAltTooLong" xml:space="preserve">
+    <value>Die Beschreibung ist zu lang (höchstens 4096 Zeichen).</value>
+  </data>
+  <data name="PpTitle" xml:space="preserve">
+    <value>Bildeigenschaften</value>
+  </data>
+  <data name="PpWidthFormat" xml:space="preserve">
+    <value>Breite ({0})</value>
+  </data>
+  <data name="PpHeightFormat" xml:space="preserve">
+    <value>Höhe ({0})</value>
+  </data>
+  <data name="PpLockRatio" xml:space="preserve">
+    <value>Seitenverhältnis beibehalten</value>
+  </data>
+  <data name="PpReset" xml:space="preserve">
+    <value>Auf Originalgröße zurücksetzen</value>
+  </data>
+  <data name="PpAlt" xml:space="preserve">
+    <value>Beschreibung für Screenreader</value>
+  </data>
+  <data name="PpWrap" xml:space="preserve">
+    <value>Textumbruch</value>
+  </data>
+  <data name="PpOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PpInvalidValueFormat" xml:space="preserve">
+    <value>{0}: Geben Sie eine Zahl ein, zum Beispiel 2,5.</value>
+  </data>
+  <data name="PpOutOfRangeFormat" xml:space="preserve">
+    <value>{0}: Diese Größe ist für ein Bild nicht möglich.</value>
+  </data>
 </root>

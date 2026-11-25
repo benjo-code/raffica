@@ -33,6 +33,18 @@ internal sealed class PackageImageSource : IDisposable
     /// <param name="package">The snapshot of the file the pictures are read from.</param>
     public PackageImageSource(ReadOnlyMemory<byte> package) => _package = package;
 
+    private Func<string, ReadOnlyMemory<byte>?>? _pending;
+
+    /// <summary>
+    /// Gives the bytes of a new picture by its relationship id in the main story (the document's <c>MediaStore.TryGet</c>), or null; asked before the package. It runs under this
+    /// source's lock on a pool thread and must be thread-safe and fast (the store's read takes no lock).
+    /// </summary>
+    public Func<string, ReadOnlyMemory<byte>?>? PendingMedia
+    {
+        get => Volatile.Read(ref _pending);
+        set => Volatile.Write(ref _pending, value);
+    }
+
     /// <summary>
     /// Reads from <paramref name="package"/> from now on (the whole file that replaces the prefix the first page was made from, so the prefix bytes can go): the archive and
     /// the relationship tables are made again on the next ask. The ids stay valid because both snapshots are the same file.
@@ -63,10 +75,17 @@ internal sealed class PackageImageSource : IDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var main = EnsureOpen();
             var hash = id.IndexOf('#', StringComparison.Ordinal);
             var story = hash < 0 ? "document" : id[..hash];
             var relationship = hash < 0 ? id : id[(hash + 1)..];
+
+            // A picture the document added and no save has written (or one written since: the package is the file as it was opened, so it still is not in it) comes first; only the main story has them.
+            if (story == "document" && Volatile.Read(ref _pending)?.Invoke(relationship) is { } added)
+            {
+                return added;
+            }
+
+            var main = EnsureOpen();
 
             var owner = main;
             if (story.StartsWith("header:", StringComparison.Ordinal))

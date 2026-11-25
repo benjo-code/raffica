@@ -168,6 +168,53 @@ internal sealed class WriteMacMenu
             Menu.Items.Add(formatMenu);
             _headers.Add((formatMenu, () => WriteStrings.MenuFormat));
 
+            // Insert: the notes and the pictures (no keys: Esc in a note and a double click do the same as Back to the text).
+            var insertMenu = new NativeMenuItem(WriteStrings.MenuInsert) { Menu = new NativeMenu() };
+            insertMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteFootnote, () => WriteCatalogName(WriteCommandIds.NoteFootnote), null));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteEndnote, () => WriteCatalogName(WriteCommandIds.NoteEndnote), null));
+            insertMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.NoteBack, () => WriteCatalogName(WriteCommandIds.NoteBack), null));
+            insertMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureInsert, () => WriteCatalogName(WriteCommandIds.PictureInsert), null));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureProperties, () => WriteCatalogName(WriteCommandIds.PictureProperties), null));
+            insertMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PictureWrap, PicturePayloads.Wraps, payload => () => PicturePayloads.WrapLabel(payload)));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureReset, () => WriteCatalogName(WriteCommandIds.PictureReset), null));
+            insertMenu.Menu.Items.Add(CommandItem(WriteCommandIds.PictureDelete, () => WriteCatalogName(WriteCommandIds.PictureDelete), null));
+            Menu.Items.Add(insertMenu);
+            _headers.Add((insertMenu, () => WriteStrings.MenuInsert));
+
+            // Table: insert (the grid), rows, columns, cells (borders and shading take their values from submenus), the whole table. No keys: Tab and Shift+Tab in a cell are the page view's.
+            var tableMenu = new NativeMenuItem(WriteStrings.MenuTable) { Menu = new NativeMenu() };
+            tableMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
+            void TableItem(string id, bool check = false) => tableMenu.Menu.Items.Add(CommandItem(id, () => WriteCatalogName(id), null, check: check));
+            TableItem(WriteCommandIds.TableInsert);
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (var id in new[] { WriteCommandIds.TableRowAbove, WriteCommandIds.TableRowBelow, WriteCommandIds.TableDeleteRows, WriteCommandIds.TableRowUp, WriteCommandIds.TableRowDown, WriteCommandIds.TableSelectRow })
+            {
+                TableItem(id);
+            }
+
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (var id in new[] { WriteCommandIds.TableColumnLeft, WriteCommandIds.TableColumnRight, WriteCommandIds.TableDeleteColumns, WriteCommandIds.TableDistributeColumns, WriteCommandIds.TableSelectColumn })
+            {
+                TableItem(id);
+            }
+
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            TableItem(WriteCommandIds.TableMerge);
+            TableItem(WriteCommandIds.TableSplit);
+            tableMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.TableBorders, TablePayloads.BorderPresets, payload => () => TablePickers.BorderLabel(payload)));
+            tableMenu.Menu.Items.Add(CommandItem(WriteCommandIds.TableBorders, () => WriteStrings.TableBordersMore, null));
+            tableMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.TableShading, [TablePayloads.NoShading, .. ColorChoices.TextColors.Select(c => c.Id)], payload => () => payload == TablePayloads.NoShading ? WriteStrings.TableShadingNone : WriteStrings.Get(ColorChoices.TextColors.Single(c => c.Id == payload).NameKey)));
+            tableMenu.Menu.Items.Add(new NativeMenuItemSeparator());
+            TableItem(WriteCommandIds.TableProperties);
+            TableItem(WriteCommandIds.TableHeaderRow, check: true);
+            TableItem(WriteCommandIds.TableSelectTable);
+            TableItem(WriteCommandIds.TableDelete);
+            Menu.Items.Add(tableMenu);
+            _headers.Add((tableMenu, () => WriteStrings.MenuTable));
+
             var layoutMenu = new NativeMenuItem(WriteStrings.MenuLayout) { Menu = new NativeMenu() };
             layoutMenu.Menu!.NeedsUpdate += _onNeedsUpdate;
             layoutMenu.Menu.Items.Add(ValueMenu(WriteCommandIds.PageSize, SectionPayloads.Papers, payload => () => payload));

@@ -305,6 +305,7 @@ internal sealed partial class Measurement
         if (_probed is { } old)
         {
             old.RenderProbe = null;
+            old.OverlayProbe = null;
             old.DrawProbe = null;
         }
 
@@ -333,6 +334,7 @@ internal sealed partial class Measurement
             _drawTicksAtRender = Volatile.Read(ref _drawTicks);
             _renderStamp = Stopwatch.GetTimestamp();
         };
+        view.OverlayProbe = _gestureRun ? view.RenderProbe : null;
         view.DrawProbe = (start, end) =>
         {
             Interlocked.Add(ref _drawTicks, end - start);
@@ -346,6 +348,7 @@ internal sealed partial class Measurement
         if (_probed is { } view)
         {
             view.RenderProbe = null;
+            view.OverlayProbe = null;
             view.DrawProbe = null;
             _probed = null;
         }
@@ -451,9 +454,14 @@ internal sealed partial class Measurement
 
             _awaiting = false;
             _keyInJob++;
-            if (_structureRun)
+            if (_structureRun || _objectsRun)
             {
                 RestoreStructure(view);
+
+                if (_finished)
+                {
+                    return;
+                }
             }
             else if (_sectionsRun)
             {
@@ -473,7 +481,7 @@ internal sealed partial class Measurement
         {
             if (_job is not null)
             {
-                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : _sectionsRun ? "sections" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
+                Write(_background ? TypingBackgroundLine(_samples, _leaseSamples, _incompleteSamples) : _job.FirstWhen is { } when ? TypingFirstLine(when, ViewName(_job.View), _samples[0]) : TypingLine(_job.Case, ViewName(_job.View), _samples, _handlerSamples, _frameSamples, _formatRun ? "format" : _structureRun ? "structure" : _sectionsRun ? "sections" : _objectsRun ? "objects" : _gestureRun ? "gesture" : "typing", _renderSamples, _drawSamples, _phaseSamples, _allocSamples, _gc0, _gc1, _gc2, _gcPauseMs));
             }
 
             if (_job is not null && _paneRun)
@@ -481,9 +489,19 @@ internal sealed partial class Measurement
                 WriteRefresh(view);
             }
 
+            if (_job is not null && _gestureRun)
+            {
+                EndGestureJob(view);
+            }
+
             if (_job is not null && _structureRun)
             {
                 WriteStructureRefresh();
+            }
+
+            if (_job is not null && _objectsRun)
+            {
+                WriteObjectsRefresh();
             }
 
             if (_job is not null && _sectionsRun)
@@ -572,6 +590,14 @@ internal sealed partial class Measurement
             else if (_sectionsRun)
             {
                 SendSections(view, formatKind["sections-".Length..]);
+            }
+            else if (_objectsRun)
+            {
+                SendObjects(view, formatKind["objects-".Length..]);
+            }
+            else if (_gestureRun)
+            {
+                SendGesture(view, formatKind["gesture-".Length..]);
             }
             else
             {
@@ -713,8 +739,18 @@ internal sealed partial class Measurement
             return PlanSections(view);
         }
 
+        if (_objectsRun)
+        {
+            return PlanObjects(view);
+        }
+
+        if (_gestureRun)
+        {
+            return PlanGesture(view);
+        }
+
         var layout = view.Runner.PageLayout;
-        var places = TypingPlaces.Pick(view.Tab.Docx.Model, layout);
+        var places = _typingObjectsRun ? PickTypingObjects(view) : TypingPlaces.Pick(view.Tab.Docx.Model, layout);
         var jobs = new List<Job>();
         if (_paneRun)
         {

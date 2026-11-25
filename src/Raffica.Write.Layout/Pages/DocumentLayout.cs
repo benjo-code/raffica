@@ -115,7 +115,7 @@ public sealed partial class DocumentLayout
             var styles = new StyleResolver(document.Styles, document.Settings, document.Numbering);
             var layouter = new ParagraphLayouter(fonts) { Hyphenator = Hyphenator.Default };
             var probe = new ImageProbe(options.ImageBytes);
-            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow) { Gate = gate, Preedit = preedit };
+            var planner = new BlockPlanner(styles, new NumberingCounter(document.Numbering), layouter, document.Settings, probe, flow) { Gate = gate, Preedit = preedit, BodyBlocks = () => document.Body.Blocks };
             var filler = new PageFiller(sections, flat, planner, flow, blockPage, blockY);
             HeaderFooterPlan? chrome = null;
             if (!flow)

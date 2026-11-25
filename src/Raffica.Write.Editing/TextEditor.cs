@@ -94,6 +94,7 @@ public sealed partial class TextEditor
         }
 
         var old = CloneBlocks(span);
+        var references = span.IsCollapsed ? [] : ReferencesIn(span);
         var paragraph = span.First;
         var offset = span.FirstOffset;
         var removed = 1;
@@ -143,8 +144,9 @@ public sealed partial class TextEditor
             caret = new TextPosition(span.Story, last, lines[^1].Length);
         }
 
+        var gone = RemoveNotesOf(references);
         _document.Edits.Raise();
-        var inserted = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)]);
+        var inserted = new EditResult(caret, [new BlockChange(span.Story, span.Container, span.FirstIndex, removed, added, old)], Objects: gone);
         _document.Edits.Attribute(inserted.Changes);
         History.Record(inserted, new EditHistory.Point(span.FirstIndex, span.FirstOffset), revision, span.IsCollapsed && lines.Count == 1 ? lines[0] : null, breakRule != BreakRule.LineBreak && lines.Count == 1 && lines[0].Length > 0 && typingFormat is { Count: > 0 } ? typingFormat : null);
         return inserted;
@@ -549,6 +551,9 @@ public sealed partial class TextEditor
 
     private static bool IsOn(string? value) => value is "1" or "true" or "on";
 
+    // True when the list of blocks is the content of a control of those kinds (or inside one).
+    internal static bool InSingleParagraphControl(IList<Block> blocks, IList<Block> container) => SingleParagraphControlOf(blocks, container) is not null;
+
     private static ContentControlBlock? SingleParagraphControlOf(IList<Block> blocks, IList<Block> container)
     {
         foreach (var block in blocks)
@@ -838,16 +843,19 @@ public sealed partial class TextEditor
         }
 
         var old = CloneBlocks(span);
+        var references = ReferencesIn(span);
         var deleted = DeleteSpan(span);
         if (!deleted.Changed)
         {
             return null;
         }
 
+        var gone = RemoveNotesOf(references);
         _document.Edits.Raise();
         var result = new EditResult(
             new TextPosition(span.Story, deleted.Survivor, deleted.Offset),
-            [new BlockChange(span.Story, span.Container, span.FirstIndex, deleted.Removed, 1, old)]);
+            [new BlockChange(span.Story, span.Container, span.FirstIndex, deleted.Removed, 1, old)],
+            Objects: gone);
         _document.Edits.Attribute(result.Changes);
         History.Record(result, before, revision, null);
         return result;

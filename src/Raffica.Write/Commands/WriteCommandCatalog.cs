@@ -40,6 +40,12 @@ namespace Raffica.Write.Commands;
  *   page.size -> ruler, page.margins -> frame, page.orientation -> rotate-ccw-square, page.columns -> columns-2, page.setup -> file-sliders
  *   section.numberFrom -> arrow-down-0-1, section.break -> separator-horizontal, section.remove -> fold-vertical, section.firstPage -> panel-top, section.leftRight -> book-open-text
  *   insert.pageNumber -> hash
+ *   note.footnote -> asterisk, note.endnote -> book-open, note.back -> corner-left-up
+ *   table.insert -> table, table.rowAbove -> between-vertical-start, table.rowBelow -> between-vertical-end, table.colLeft -> between-horizontal-start, table.colRight -> between-horizontal-end
+ *   table.deleteRows -> list-x, table.deleteColumns -> delete, table.delete -> trash-2, table.merge -> table-cells-merge, table.split -> table-cells-split
+ *   table.borders -> grid-3x3, table.shading -> paint-bucket, table.headerRow -> panel-top-dashed, table.properties -> table-properties, table.distributeColumns -> columns-3
+ *   table.rowUp -> move-up, table.rowDown -> move-down, table.selectRow -> grip-horizontal, table.selectColumn -> grip-vertical, table.selectTable -> grid-2x2
+ *   picture.insert -> image-plus, picture.properties -> sliders-horizontal, picture.wrap -> text-wrap, picture.reset -> image-upscale, picture.delete -> image-off
  */
 
 /// <summary>Which modifier a shortcut starts with: the command key of the platform (Ctrl, Cmd on macOS) or Alt.</summary>
@@ -266,6 +272,47 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.DifferentFirstPage, "CmdDifferentFirstPage", "PanelTop", "32", toggle: true, describe: true)
             .Add(WriteCommandIds.LeftRightPages, "CmdLeftRightPages", "BookOpenText", "33", toggle: true, describe: true);
 
+        // The Insert tab: the group Table (digit 1) has the grid, the group Picture (digit 2) the picture commands, the notes are digit 3.
+        var insert = new CatalogTab("TabInsert", WriteRibbon.InsertLetter);
+        insert.Group("GroupTable", "1")
+            .Add(WriteCommandIds.TableInsert, "CmdTableInsert", "Table", "11", size: CommandSize.Large, describe: true);
+        insert.Group("GroupPicture", "2")
+            .Add(WriteCommandIds.PictureInsert, "CmdPictureInsert", "ImagePlus", "21", size: CommandSize.Large, describe: true)
+            .Add(WriteCommandIds.PictureProperties, "CmdPictureProperties", "SlidersHorizontal", "22", describe: true)
+            .Add(WriteCommandIds.PictureWrap, "CmdPictureWrap", "TextWrap", "23", describe: true)
+            .Add(WriteCommandIds.PictureReset, "CmdPictureReset", "ImageUpscale", "24", describe: true)
+            .Add(WriteCommandIds.PictureDelete, "CmdPictureDelete", "ImageOff", "25", describe: true);
+        insert.Group("GroupNotes", "3")
+            .Add(WriteCommandIds.NoteFootnote, "CmdFootnote", "Asterisk", "31", describe: true)
+            .Add(WriteCommandIds.NoteEndnote, "CmdEndnote", "BookOpen", "32", describe: true)
+            .Add(WriteCommandIds.NoteBack, "CmdNoteBack", "CornerLeftUp", "33", describe: true);
+
+        // The Table tab (key tip T): always present, its commands disabled with a reason outside a table (the Layout tab's way: no tab appears or goes away).
+        var table = new CatalogTab("TabTable", WriteRibbon.TableLetter);
+        table.Group("GroupTableRows", "1")
+            .Add(WriteCommandIds.TableRowAbove, "CmdTableRowAbove", "BetweenVerticalStart", "11", describe: true)
+            .Add(WriteCommandIds.TableRowBelow, "CmdTableRowBelow", "BetweenVerticalEnd", "12", describe: true)
+            .Add(WriteCommandIds.TableDeleteRows, "CmdTableDeleteRows", "ListX", "13", describe: true)
+            .Add(WriteCommandIds.TableRowUp, "CmdTableRowUp", "MoveUp", "14", describe: true)
+            .Add(WriteCommandIds.TableRowDown, "CmdTableRowDown", "MoveDown", "15", describe: true)
+            .Add(WriteCommandIds.TableSelectRow, "CmdTableSelectRow", "GripHorizontal", "16", describe: true);
+        table.Group("GroupTableColumns", "2")
+            .Add(WriteCommandIds.TableColumnLeft, "CmdTableColumnLeft", "BetweenHorizontalStart", "21", describe: true)
+            .Add(WriteCommandIds.TableColumnRight, "CmdTableColumnRight", "BetweenHorizontalEnd", "22", describe: true)
+            .Add(WriteCommandIds.TableDeleteColumns, "CmdTableDeleteColumns", "Delete", "23", describe: true)
+            .Add(WriteCommandIds.TableDistributeColumns, "CmdTableDistribute", "Columns3", "24", describe: true)
+            .Add(WriteCommandIds.TableSelectColumn, "CmdTableSelectColumn", "GripVertical", "25", describe: true);
+        table.Group("GroupTableCells", "3")
+            .Add(WriteCommandIds.TableMerge, "CmdTableMerge", "TableCellsMerge", "31", describe: true)
+            .Add(WriteCommandIds.TableSplit, "CmdTableSplit", "TableCellsSplit", "32", describe: true)
+            .Add(WriteCommandIds.TableBorders, "CmdTableBorders", "Grid3x3", "33", describe: true)
+            .Add(WriteCommandIds.TableShading, "CmdTableShading", "PaintBucket", "34", describe: true);
+        table.Group("GroupTableWhole", "4")
+            .Add(WriteCommandIds.TableProperties, "CmdTableProperties", "TableProperties", "41", describe: true)
+            .Add(WriteCommandIds.TableHeaderRow, "CmdTableHeaderRow", "PanelTopDashed", "42", toggle: true, describe: true)
+            .Add(WriteCommandIds.TableSelectTable, "CmdTableSelectTable", "Grid2x2", "43", describe: true)
+            .Add(WriteCommandIds.TableDelete, "CmdTableDelete", "Trash2", "44", describe: true);
+
         var view = new CatalogTab("TabView", "V");
         view.Group("GroupZoom", "1")
             .Add(WriteCommandIds.ZoomIn, "CmdZoomIn", "ZoomIn", "11", Cmd(Key.OemPlus, "+", anyShift: true, alternates: [Key.Add], repeat: true))
@@ -281,7 +328,7 @@ internal static class WriteCommandCatalog
             .Add(WriteCommandIds.FormattingPane, "CmdFormatting", "PanelRight", "32", toggle: true)
             .Add(WriteCommandIds.SectionsPane, "CmdSections", "Rows3", "33", toggle: true);
 
-        Tabs = [home, layout, view];
+        Tabs = [home, insert, table, layout, view];
         Commands = Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Commands).ToList();
     }
 
@@ -297,7 +344,7 @@ internal static class WriteCommandCatalog
         var mac = macOs ?? OperatingSystem.IsMacOS();
         foreach (var candidate in Commands)
         {
-            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && !WriteCommandIds.IsStructure(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
+            if (candidate.Id != WriteCommandIds.Search && !WriteCommandIds.IsEditing(candidate.Id) && !WriteCommandIds.IsFormatting(candidate.Id) && !WriteCommandIds.IsStructure(candidate.Id) && !WriteCommandIds.IsTable(candidate.Id) && !WriteCommandIds.IsPicture(candidate.Id) && candidate.ShortcutFor(mac) is { } shortcut && shortcut.Matches(key, modifiers, command))
             {
                 return candidate;
             }

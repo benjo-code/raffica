@@ -35,6 +35,7 @@ internal sealed class WriteTab : IDisposable
         _prefixBlocks = opened.PrefixBlocks;
         _docx = opened.Docx;
         _layout = opened.Layout;
+        _images.PendingMedia = PendingMediaOf;
         Path = System.IO.Path.GetFullPath(path);
         Title = System.IO.Path.GetFileName(Path);
         Tab = new DocumentTab(Title, Path);
@@ -55,10 +56,14 @@ internal sealed class WriteTab : IDisposable
         _prefixBlocks = opened.PrefixBlocks;
         _docx = opened.Docx;
         _layout = opened.Layout;
+        _images.PendingMedia = PendingMediaOf;
         Title = untitledTitle;
         Tab = new DocumentTab(Title);
         Token = _cancellation.Token;
     }
+
+    // The new pictures of the current file's model (read on pool threads; the store's reads take no lock, and a model that never had a picture makes no store).
+    private ReadOnlyMemory<byte>? PendingMediaOf(string id) => Volatile.Read(ref _docx).Model is { HasMedia: true } model ? model.Media.TryGet(id) : null;
 
     /// <summary>Raised once, at the start of <see cref="Dispose"/> and after the token was cancelled: whatever works on the document stops here.</summary>
     public event Action? Disposing;

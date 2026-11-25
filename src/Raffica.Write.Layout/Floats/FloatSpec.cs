@@ -120,8 +120,16 @@ internal sealed class FloatSpec
     /// <summary>The paragraphs of a text box, planned by the block planner after the paragraph that holds the box (set once).</summary>
     public IReadOnlyList<ParagraphPlan>? Plans { get; set; }
 
-    public FloatSpec WithItemIndex(int index) => new()
+    /// <summary>Where the picture of a floating picture is in the model (the object map); null for every other object.</summary>
+    internal PictureAnchor? Anchor { get; init; }
+
+    public FloatSpec WithItemIndex(int index) => Copy(index, Anchor);
+
+    internal FloatSpec WithAnchor(PictureAnchor? anchor) => Copy(ItemIndex, anchor);
+
+    private FloatSpec Copy(int index, PictureAnchor? anchor) => new()
     {
+        Anchor = anchor,
         Kind = Kind,
         Image = Image,
         Width = Width,

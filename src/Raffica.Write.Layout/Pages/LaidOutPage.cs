@@ -11,8 +11,9 @@ internal readonly record struct BlockSpan(int BodyIndex, float Top, float Bottom
 /// </summary>
 public sealed class LaidOutPage
 {
-    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false, TextLine[]? textLines = null, ChromeInfo? chrome = null)
+    internal LaidOutPage(int index, string number, float width, float height, bool isStrip, PageItem[] items, string text, BlockSpan[] spans, bool isProvisional = false, TextLine[]? textLines = null, ChromeInfo? chrome = null, ObjectMap? objects = null)
     {
+        Objects = objects ?? ObjectMap.Empty;
         Chrome = chrome;
         IsProvisional = isProvisional;
         ItemArray = items;
@@ -50,6 +51,13 @@ public sealed class LaidOutPage
     public bool IsProvisional { get; }
 
     internal PageItem[] ItemArray { get; }
+
+    /// <summary>
+    /// The pictures and tables of the body on this page, in page space (see <see cref="ObjectMap"/>); the shared <see cref="ObjectMap.Empty"/> for a page with
+    /// none. Immutable like the page: a retained old page keeps the map it was made with, and a replacement page (a provisional one made final, a page whose header
+    /// changed) carries the body's map over unchanged.
+    /// </summary>
+    public ObjectMap Objects { get; }
 
     /// <summary>
     /// The type of the header and footer parts the layout used for this page (the first-page parts, the even-page parts or the default ones), as it decided it from the section's different first page, the left and right pages
