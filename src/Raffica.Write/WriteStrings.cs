@@ -504,6 +504,7 @@ internal static class WriteStrings
     public static string ReasonTableComment => Table.Get("ReasonTableComment");
     public static string ReasonTableRestrictedControl => Table.Get("ReasonTableRestrictedControl");
     public static string ReasonTableNestedTable => Table.Get("ReasonTableNestedTable");
+    public static string ReasonTableControlHoldsATable => Table.Get("ReasonTableControlHoldsATable");
     public static string ReasonTableNoTable => Table.Get("ReasonTableNoTable");
     public static string ReasonTableInvalidCount => Table.Get("ReasonTableInvalidCount");
     public static string ReasonTableTooManyColumns => Table.Get("ReasonTableTooManyColumns");
